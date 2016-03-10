@@ -25,6 +25,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.drill.exec.planner.logical.DrillScanRel;
+import org.apache.drill.exec.planner.physical.ScanPrel;
 
 public class DrillRelMdDistinctRowCount extends RelMdDistinctRowCount{
   private static final DrillRelMdDistinctRowCount INSTANCE =
@@ -38,12 +39,19 @@ public class DrillRelMdDistinctRowCount extends RelMdDistinctRowCount{
   public Double getDistinctRowCount(RelNode rel, ImmutableBitSet groupKey, RexNode predicate) {
     if (rel instanceof DrillScanRel) {
       return getDistinctRowCount((DrillScanRel) rel, groupKey, predicate);
+    } else if (rel instanceof ScanPrel) {
+      return getDistinctRowCount((DrillScanRel) rel, groupKey, predicate);
     } else {
       return super.getDistinctRowCount(rel, groupKey, predicate);
     }
   }
 
   private Double getDistinctRowCount(DrillScanRel scan, ImmutableBitSet groupKey, RexNode predicate) {
+    // Consistent with the estimation of Aggregate row count in RelMdRowCount : distinctRowCount = rowCount * 10%.
+    return scan.getRows() * 0.1;
+  }
+
+  private Double getDistinctRowCount(ScanPrel scan, ImmutableBitSet groupKey, RexNode predicate) {
     // Consistent with the estimation of Aggregate row count in RelMdRowCount : distinctRowCount = rowCount * 10%.
     return scan.getRows() * 0.1;
   }

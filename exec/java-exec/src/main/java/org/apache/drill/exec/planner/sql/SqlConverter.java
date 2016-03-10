@@ -95,7 +95,7 @@ public class SqlConverter {
 
   private String sql;
   private VolcanoPlanner planner;
-
+  private RelOptCluster relOptCluster;
 
   public SqlConverter(PlannerSettings settings, SchemaPlus defaultSchema,
       final SqlOperatorTable operatorTable, UdfUtilities util, FunctionImplementationRegistry functions) {
@@ -134,6 +134,7 @@ public class SqlConverter {
     this.catalog = catalog;
     this.opTab = parent.opTab;
     this.planner = parent.planner;
+    this.relOptCluster = parent.relOptCluster;
     this.validator = new DrillValidator(opTab, catalog, typeFactory, SqlConformance.DEFAULT);
     validator.setIdentifierExpansion(true);
   }
@@ -245,11 +246,11 @@ public class SqlConverter {
       planner.addRelTraitDef(ConventionTraitDef.INSTANCE);
       planner.addRelTraitDef(DrillDistributionTraitDef.INSTANCE);
       planner.addRelTraitDef(RelCollationTraitDef.INSTANCE);
+      relOptCluster = RelOptCluster.create(planner, rexBuilder);
     }
 
-    final RelOptCluster cluster = RelOptCluster.create(planner, rexBuilder);
     final SqlToRelConverter sqlToRelConverter =
-        new SqlToRelConverter(new Expander(), validator, catalog, cluster, DrillConvertletTable.INSTANCE,
+        new SqlToRelConverter(new Expander(), validator, catalog, relOptCluster, DrillConvertletTable.INSTANCE,
             sqlToRelConverterConfig);
     final RelNode rel = sqlToRelConverter.convertQuery(validatedNode, false, !isInnerQuery);
     final RelNode rel2 = sqlToRelConverter.flattenTypes(rel, true);
