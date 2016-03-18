@@ -206,9 +206,12 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
    * @throws RelConversionException
    */
   protected DrillRel convertToDrel(final RelNode relNode) throws SqlUnsupportedException, RelConversionException {
+    // Check if this is a "limit 0 " query.
+    final boolean limitZero = FindLimit0Visitor.containsLimit0(relNode);
+
     if (context.getOptions().getOption(ExecConstants.EARLY_LIMIT0_OPT) &&
         context.getPlannerSettings().isTypeInferenceEnabled() &&
-        FindLimit0Visitor.containsLimit0(relNode)) {
+        limitZero) {
       // disable distributed mode
       context.getPlannerSettings().forceSingleMode();
       // if the schema is known, return the schema directly
@@ -221,25 +224,35 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
     try {
       final RelNode convertedRelNode;
 
+      PlannerPhase volPlannerPhase = null;
+
       // HEP Directory pruning .
       final RelNode pruned = transform(PlannerType.HEP_BOTTOM_UP, PlannerPhase.DIRECTORY_PRUNING, relNode);
       final RelTraitSet logicalTraits = pruned.getTraitSet().plus(DrillRel.DRILL_LOGICAL);
 
       if (!context.getPlannerSettings().isHepOptEnabled()) {
+        // Disable project pushdown for limit 0 query.
+        volPlannerPhase = limitZero ? PlannerPhase.LOGICAL_PRUNE_AND_JOIN_NOPROJPD : PlannerPhase.LOGICAL_PRUNE_AND_JOIN;
+
         // hep is disabled, use volcano
-        convertedRelNode = transform(PlannerType.VOLCANO, PlannerPhase.LOGICAL_PRUNE_AND_JOIN, pruned, logicalTraits);
+        convertedRelNode = transform(PlannerType.VOLCANO, volPlannerPhase, pruned, logicalTraits);
 
       } else {
         final RelNode intermediateNode2;
         if (context.getPlannerSettings().isHepPartitionPruningEnabled()) {
+          // Disable project pushdown for .
+          volPlannerPhase = limitZero ? PlannerPhase.LOGICAL_NOPROJPD : PlannerPhase.LOGICAL;
 
           // hep is enabled and hep pruning is enabled.
-          final RelNode intermediateNode = transform(PlannerType.VOLCANO, PlannerPhase.LOGICAL, pruned, logicalTraits);
+          final RelNode intermediateNode = transform(PlannerType.VOLCANO, volPlannerPhase, pruned, logicalTraits);
           intermediateNode2 = transform(PlannerType.HEP_BOTTOM_UP, PlannerPhase.PARTITION_PRUNING, intermediateNode);
 
         } else {
+          // Disable project pushdown for .
+          volPlannerPhase = limitZero ? PlannerPhase.LOGICAL_PRUNE_NOPROJPD : PlannerPhase.LOGICAL_PRUNE;
+
           // Only hep is enabled
-          intermediateNode2 = transform(PlannerType.VOLCANO, PlannerPhase.LOGICAL_PRUNE, pruned, logicalTraits);
+          intermediateNode2 = transform(PlannerType.VOLCANO, volPlannerPhase, pruned, logicalTraits);
         }
 
         // Do Join Planning.
