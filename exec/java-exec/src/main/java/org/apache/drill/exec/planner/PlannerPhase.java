@@ -18,7 +18,7 @@
 package org.apache.drill.exec.planner;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSet.Builder;
+import com.google.common.collect.Sets;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.volcano.AbstractConverter.ExpandConversionRule;
 import org.apache.calcite.rel.core.RelFactories;
@@ -90,6 +90,7 @@ import org.apache.drill.exec.store.parquet.ParquetPushDownFilter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 public enum PlannerPhase {
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillRuleSets.class);
@@ -102,6 +103,12 @@ public enum PlannerPhase {
           getJoinPermRules(context),
           getDrillUserConfigurableLogicalRules(context),
           getStorageRules(context, plugins, this));
+    }
+  },
+
+  LOGICAL_PRUNE_AND_JOIN_NOPROJPD("Loigcal Planning (with join and partition pruning, but no project pushdown).") {
+    public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
+      return PlannerPhase.excludeRuleSetfrom(LOGICAL_PRUNE_AND_JOIN.getRules(context, plugins), PlannerPhase.getProjectPushDownRules());
     }
   },
 
@@ -121,6 +128,12 @@ public enum PlannerPhase {
           getPruneScanRules(context),
           getDrillUserConfigurableLogicalRules(context),
           getStorageRules(context, plugins, this));
+    }
+  },
+
+  LOGICAL_PRUNE_NOPROJPD("Loigcal Planning (with partition pruning, but no project pushdown).") {
+    public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
+      return PlannerPhase.excludeRuleSetfrom(LOGICAL_PRUNE.getRules(context, plugins), PlannerPhase.getProjectPushDownRules());
     }
   },
 
@@ -174,6 +187,12 @@ public enum PlannerPhase {
     }
   },
 
+  LOGICAL_NOPROJPD("Logical Planning (no pruning or join or project pushdown).") {
+    public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
+      return PlannerPhase.excludeRuleSetfrom(LOGICAL.getRules(context, plugins), PlannerPhase.getProjectPushDownRules());
+    }
+  },
+
   PHYSICAL("Physical Planning") {
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return PlannerPhase.mergedRuleSets(
@@ -192,7 +211,7 @@ public enum PlannerPhase {
 
   private static RuleSet getStorageRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins,
       PlannerPhase phase) {
-    final Builder<RelOptRule> rules = ImmutableSet.builder();
+    final ImmutableSet.Builder<RelOptRule> rules = ImmutableSet.builder();
     for(StoragePlugin plugin : plugins){
       if(plugin instanceof AbstractStoragePlugin){
         rules.addAll(((AbstractStoragePlugin) plugin).getOptimizerRules(context, phase));
@@ -228,7 +247,7 @@ public enum PlannerPhase {
 
     // This list is used to store rules that can be turned on an off
     // by user facing planning options
-    final Builder<RelOptRule> userConfigurableRules = ImmutableSet.<RelOptRule>builder();
+    final ImmutableSet.Builder<RelOptRule> userConfigurableRules = ImmutableSet.<RelOptRule>builder();
 
     if (ps.isConstantFoldingEnabled()) {
       // TODO - DRILL-2218
@@ -455,18 +474,45 @@ public enum PlannerPhase {
     return RuleSets.ofList(ImmutableSet.copyOf(ruleList));
   }
 
+  static final RuleSet getProjectPushDownRules() {
+    final ImmutableSet<RelOptRule> projPushDownRules = ImmutableSet.<RelOptRule>builder()
+        .add(
+            DrillPushProjectPastFilterRule.INSTANCE,
+            DrillPushProjectPastJoinRule.INSTANCE,
+            // Due to infinite loop in planning (DRILL-3257), temporarily disable this rule
+            //DrillProjectSetOpTransposeRule.INSTANCE,
+            ProjectWindowTransposeRule.INSTANCE,
+            DrillPushProjIntoScan.INSTANCE
+            )
+        .build();
+
+    return RuleSets.ofList(projPushDownRules);
+  }
+
   static RuleSet create(ImmutableSet<RelOptRule> rules) {
     return RuleSets.ofList(rules);
   }
 
   static RuleSet mergedRuleSets(RuleSet... ruleSets) {
-    final Builder<RelOptRule> relOptRuleSetBuilder = ImmutableSet.builder();
+    final ImmutableSet.Builder<RelOptRule> relOptRuleSetBuilder = ImmutableSet.builder();
     for (final RuleSet ruleSet : ruleSets) {
       for (final RelOptRule relOptRule : ruleSet) {
         relOptRuleSetBuilder.add(relOptRule);
       }
     }
     return RuleSets.ofList(relOptRuleSetBuilder.build());
+  }
+
+  /**
+    * For rules in srcRuleSet, exclude the rule if it is in fromRuleSet as well.
+    * @param srcRuleSet
+    * @param fromRuleSet
+    * @return
+  */
+  static RuleSet excludeRuleSetfrom(RuleSet srcRuleSet, RuleSet fromRuleSet){
+    final Set<RelOptRule> src = Sets.newHashSet(srcRuleSet);
+    final Set<RelOptRule> from = Sets.newHashSet(fromRuleSet);
+    return RuleSets.ofList(Sets.difference(src, from).immutableCopy());
   }
 
 }
