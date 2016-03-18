@@ -20,7 +20,9 @@ package org.apache.drill.exec.planner;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
+import com.google.common.collect.Sets;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.volcano.AbstractConverter.ExpandConversionRule;
 import org.apache.calcite.rel.core.RelFactories;
@@ -106,6 +108,12 @@ public enum PlannerPhase {
     }
   },
 
+  LOGICAL_PRUNE_AND_JOIN_NOPROJPD("Loigcal Planning (with join and partition pruning, but no project pushdown).") {
+    public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
+      return PlannerPhase.excludeRuleSetfrom(LOGICAL_PRUNE_AND_JOIN.getRules(context, plugins), PlannerPhase.getProjectPushDownRules());
+    }
+  },
+
   WINDOW_REWRITE("Window Function rewrites") {
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return RuleSets.ofList(
@@ -122,6 +130,12 @@ public enum PlannerPhase {
           getPruneScanRules(context),
           getDrillUserConfigurableLogicalRules(context),
           getStorageRules(context, plugins, this));
+    }
+  },
+
+  LOGICAL_PRUNE_NOPROJPD("Loigcal Planning (with partition pruning, but no project pushdown).") {
+    public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
+      return PlannerPhase.excludeRuleSetfrom(LOGICAL_PRUNE.getRules(context, plugins), PlannerPhase.getProjectPushDownRules());
     }
   },
 
@@ -166,6 +180,12 @@ public enum PlannerPhase {
           PlannerPhase.getDrillBasicRules(context),
           PlannerPhase.getDrillUserConfigurableLogicalRules(context),
           getStorageRules(context, plugins, this));
+    }
+  },
+
+  LOGICAL_NOPROJPD("Logical Planning (no pruning or join or project pushdown).") {
+    public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
+      return PlannerPhase.excludeRuleSetfrom(LOGICAL.getRules(context, plugins), PlannerPhase.getProjectPushDownRules());
     }
   },
 
@@ -430,6 +450,21 @@ public enum PlannerPhase {
     return RuleSets.ofList(ImmutableSet.copyOf(ruleList));
   }
 
+  static final RuleSet getProjectPushDownRules() {
+    final ImmutableSet<RelOptRule> projPushDownRules = ImmutableSet.<RelOptRule>builder()
+        .add(
+            DrillPushProjectPastFilterRule.INSTANCE,
+            DrillPushProjectPastJoinRule.INSTANCE,
+            // Due to infinite loop in planning (DRILL-3257), temporarily disable this rule
+            //DrillProjectSetOpTransposeRule.INSTANCE,
+            ProjectWindowTransposeRule.INSTANCE,
+            DrillPushProjIntoScan.INSTANCE
+            )
+        .build();
+
+    return RuleSets.ofList(projPushDownRules);
+  }
+
   static RuleSet create(ImmutableSet<RelOptRule> rules) {
     return RuleSets.ofList(rules);
   }
@@ -442,6 +477,18 @@ public enum PlannerPhase {
       }
     }
     return RuleSets.ofList(relOptRuleSetBuilder.build());
+  }
+
+  /**
+    * For rules in srcRuleSet, exclude the rule if it is in fromRuleSet as well.
+    * @param srcRuleSet
+    * @param fromRuleSet
+    * @return
+  */
+  static RuleSet excludeRuleSetfrom(RuleSet srcRuleSet, RuleSet fromRuleSet){
+    final Set<RelOptRule> src = Sets.newHashSet(srcRuleSet);
+    final Set<RelOptRule> from = Sets.newHashSet(fromRuleSet);
+    return RuleSets.ofList(Sets.difference(src, from).immutableCopy());
   }
 
 }
