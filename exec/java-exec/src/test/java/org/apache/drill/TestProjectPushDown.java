@@ -282,6 +282,15 @@ public class TestProjectPushDown extends PlanTestBase {
     }
   }
 
+  @Test //MD-498 : disable project pushdown for "limit 0" query.
+  public void testLimitZeroNoProjectPushDown() throws Exception {
+    final String query = "SELECT n_name from cp.`tpch/nation.parquet` limit 0";
+    final String expectedPattern = "columns=[`*`]";
+    final String excludedPattern = "columns=[`n_name`]";
+    test("explain plan for " + query);
+    testPlanSubstrPatterns(query, new String[] {expectedPattern}, new String[] {excludedPattern});
+  }
+
   protected void testPushDown(PushDownTestInstance test) throws Exception {
     testPhysicalPlan(test.getSql(), test.getExpected());
   }
