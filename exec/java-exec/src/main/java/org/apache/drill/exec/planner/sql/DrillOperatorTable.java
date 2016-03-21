@@ -22,6 +22,8 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.SqlFunction;
+import org.apache.calcite.sql.SqlPrefixOperator;
+import org.apache.calcite.sql.fun.SqlBetweenOperator;
 import org.apache.drill.common.expression.FunctionCallFactory;
 import org.apache.drill.exec.expr.fn.DrillFuncHolder;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
@@ -174,6 +176,11 @@ public class DrillOperatorTable extends SqlStdOperatorTable {
       } else if(calciteOperator instanceof SqlFunction) {
         wrapper = new DrillCalciteSqlFunctionWrapper((SqlFunction) calciteOperator,
             getFunctionListWithInference(calciteOperator.getName()));
+      } else if(calciteOperator instanceof SqlBetweenOperator) {
+        // During the procedure of converting to RexNode,
+        // StandardConvertletTable.convertBetween expects the SqlOperator to be a subclass of SqlBetweenOperator
+        final SqlBetweenOperator sqlBetweenOperator = (SqlBetweenOperator) calciteOperator;
+        wrapper = new DrillCalciteSqlBetweenOperatorWrapper(sqlBetweenOperator);
       } else {
         final String drillOpName = FunctionCallFactory.replaceOpWithFuncName(calciteOperator.getName());
         final List<DrillFuncHolder> drillFuncHolders = getFunctionListWithInference(drillOpName);
