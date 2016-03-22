@@ -210,12 +210,14 @@ public class TestFunctionsWithTypeExpoQueries extends BaseTestQuery {
   }
 
   @Test
-  public void tesIsNull() throws Exception {
+  public void testIsNull() throws Exception {
     final String query = "select r_name is null as col from cp.`tpch/region.parquet` limit 0";
     List<Pair<SchemaPath, TypeProtos.MajorType>> expectedSchema = Lists.newArrayList();
     TypeProtos.MajorType majorType = TypeProtos.MajorType.newBuilder()
         .setMinorType(TypeProtos.MinorType.BIT)
-        .setMode(TypeProtos.DataMode.REQUIRED)
+        .setMode(TypeProtos.DataMode.OPTIONAL)
+        // "LIMIT 0" (prepare query) return OPTIONAL but execute query returns REQUIRED
+        // .setMode(TypeProtos.DataMode.REQUIRED)
         .build();
     expectedSchema.add(Pair.of(SchemaPath.getSimplePath("col"), majorType));
 
