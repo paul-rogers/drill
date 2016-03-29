@@ -734,4 +734,26 @@ public class TestFunctionsWithTypeExpoQueries extends BaseTestQuery {
         .build()
         .run();
   }
+
+  @Test
+  public void testBetweenDecimalAndDouble() throws Exception {
+    final String query = "select cast(r_regionkey as Integer) as col \n" +
+        "from cp.`tpch/region.parquet` \n" +
+        "where cast(r_regionkey as double) BETWEEN 1.1 AND 4.5 \n" +
+        "limit 0";
+
+    final TypeProtos.MajorType majorType = TypeProtos.MajorType.newBuilder()
+        .setMinorType(TypeProtos.MinorType.INT)
+        .setMode(TypeProtos.DataMode.OPTIONAL)
+        .build();
+
+    final List<Pair<SchemaPath, TypeProtos.MajorType>> expectedSchema = Lists.newArrayList();
+    expectedSchema.add(Pair.of(SchemaPath.getSimplePath("col"), majorType));
+
+    testBuilder()
+        .sqlQuery(query)
+        .schemaBaseLine(expectedSchema)
+        .build()
+        .run();
+  }
 }
