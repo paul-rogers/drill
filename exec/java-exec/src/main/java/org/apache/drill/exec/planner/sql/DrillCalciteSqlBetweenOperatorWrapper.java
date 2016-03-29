@@ -66,10 +66,11 @@ public class DrillCalciteSqlBetweenOperatorWrapper extends SqlBetweenOperator im
       boolean throwOnFailure) {
     final List<TypeProtos.MinorType> types = Lists.newArrayList();
     for(int i = 0; i < callBinding.getOperandCount(); ++i) {
-      if(callBinding.getOperandType(i).getSqlTypeName() == SqlTypeName.ANY) {
+      final TypeProtos.MinorType inMinorType = TypeInferenceUtils.getDrillTypeFromCalciteType(callBinding.getOperandType(i));
+      if(inMinorType == TypeProtos.MinorType.LATE) {
         return true;
       }
-      types.add(TypeInferenceUtils.getDrillTypeFromCalciteType(callBinding.getOperandType(i)));
+      types.add(inMinorType);
     }
 
     final boolean isCompatible = TypeCastRules.getLeastRestrictiveType(types) != null;
