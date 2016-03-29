@@ -756,4 +756,56 @@ public class TestFunctionsWithTypeExpoQueries extends BaseTestQuery {
         .build()
         .run();
   }
+
+  @Test // DRILL-4525
+  public void testSumDividedByDecimalLiteral() throws Exception {
+    final String query = "select sum(cast(r_regionkey as Integer)) / 1.2 as col \n" +
+        "from cp.`tpch/region.parquet` \n" +
+        "limit 0";
+
+    // Validate the plan
+    final String[] expectedPlan = {"Scan.*FindLimit0Visitor"};
+    final String[] excludedPlan = {};
+    PlanTestBase.testPlanMatchingPatterns(query, expectedPlan, excludedPlan);
+
+    final TypeProtos.MajorType majorType = TypeProtos.MajorType.newBuilder()
+        .setMinorType(TypeProtos.MinorType.FLOAT8)
+        .setMode(TypeProtos.DataMode.OPTIONAL)
+        .build();
+
+    final List<Pair<SchemaPath, TypeProtos.MajorType>> expectedSchema = Lists.newArrayList();
+    expectedSchema.add(Pair.of(SchemaPath.getSimplePath("col"), majorType));
+
+    testBuilder()
+        .sqlQuery(query)
+        .schemaBaseLine(expectedSchema)
+        .build()
+        .run();
+  }
+
+  @Test
+  public void testDivDecimalLiteral() throws Exception {
+    final String query = "select div(cast(r_regionkey as Integer), 1.2) as col \n" +
+        "from cp.`tpch/region.parquet` \n" +
+        "limit 0";
+
+    // Validate the plan
+    final String[] expectedPlan = {"Scan.*FindLimit0Visitor"};
+    final String[] excludedPlan = {};
+    PlanTestBase.testPlanMatchingPatterns(query, expectedPlan, excludedPlan);
+
+    final TypeProtos.MajorType majorType = TypeProtos.MajorType.newBuilder()
+        .setMinorType(TypeProtos.MinorType.FLOAT8)
+        .setMode(TypeProtos.DataMode.OPTIONAL)
+        .build();
+
+    final List<Pair<SchemaPath, TypeProtos.MajorType>> expectedSchema = Lists.newArrayList();
+    expectedSchema.add(Pair.of(SchemaPath.getSimplePath("col"), majorType));
+
+    testBuilder()
+        .sqlQuery(query)
+        .schemaBaseLine(expectedSchema)
+        .build()
+        .run();
+  }
 }
