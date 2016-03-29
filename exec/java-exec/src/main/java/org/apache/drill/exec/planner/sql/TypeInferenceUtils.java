@@ -23,6 +23,8 @@ import com.google.common.collect.Lists;
 import org.apache.calcite.avatica.util.TimeUnit;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.runtime.CalciteException;
+import org.apache.calcite.runtime.Resources;
 import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlDynamicParam;
@@ -30,14 +32,13 @@ import org.apache.calcite.sql.SqlIntervalQualifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlOperatorBinding;
-import org.apache.calcite.sql.SqlRankFunction;
 import org.apache.calcite.sql.fun.SqlAvgAggFunction;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlReturnTypeInference;
 import org.apache.calcite.sql.type.SqlTypeName;
 
+import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.drill.common.expression.ExpressionPosition;
 import org.apache.drill.common.expression.FunctionCall;
 import org.apache.drill.common.expression.FunctionCallFactory;
@@ -230,6 +231,11 @@ public class TypeInferenceUtils {
             true);
       }
 
+      // Only the operand types are useful in the type inference.
+      // Also, since Decimal literals are treated as DOUBLE in Drill's exection,
+      // inference algorithm treats them as DOUBLE also
+      opBinding = convertDecimalLiteralToDouble(opBinding);
+
       // The following logic is just a safe play:
       // Even if any of the input arguments has ANY type,
       // it "might" still be possible to determine the return type based on other non-ANY types
@@ -346,6 +352,11 @@ public class TypeInferenceUtils {
       // Otherwise, the output is nullable.
       final boolean isNullable = opBinding.getGroupCount() == 0
           || opBinding.getOperandType(0).isNullable();
+
+      // Only the operand types are useful in the type inference.
+      // Also, since Decimal literals are treated as DOUBLE in Drill's exection,
+      // inference algorithm treats them as DOUBLE also
+      opBinding = convertDecimalLiteralToDouble(opBinding);
 
       if(getDrillTypeFromCalciteType(opBinding.getOperandType(0)) == TypeProtos.MinorType.LATE) {
         return createCalciteTypeWithNullability(
@@ -598,6 +609,11 @@ public class TypeInferenceUtils {
     private static final DrillLeadLagSqlReturnTypeInference INSTANCE = new DrillLeadLagSqlReturnTypeInference();
     @Override
     public RelDataType inferReturnType(SqlOperatorBinding opBinding) {
+      // Only the operand types are useful in the type inference.
+      // Also, since Decimal literals are treated as DOUBLE in Drill's exection,
+      // inference algorithm treats them as DOUBLE also
+      opBinding = convertDecimalLiteralToDouble(opBinding);
+
       return createCalciteTypeWithNullability(
           opBinding.getTypeFactory(),
           opBinding.getOperandType(0).getSqlTypeName(),
@@ -731,6 +747,50 @@ public class TypeInferenceUtils {
         args,
         ExpressionPosition.UNKNOWN);
     return functionCall;
+  }
+
+  private static SqlOperatorBinding convertDecimalLiteralToDouble(final SqlOperatorBinding sqlOperatorBinding) {
+    return new SqlOperatorBinding(sqlOperatorBinding.getTypeFactory(), sqlOperatorBinding.getOperator()) {
+      @Override
+      public int getOperandCount() {
+        return sqlOperatorBinding.getOperandCount();
+      }
+
+      @Override
+      public RelDataType getOperandType(int ordinal) {
+        final RelDataType relDataType;
+        if(isDecimalLiteral(sqlOperatorBinding, ordinal)) {
+          relDataType = createCalciteTypeWithNullability(
+              sqlOperatorBinding.getTypeFactory(),
+              SqlTypeName.DOUBLE,
+              sqlOperatorBinding.getOperandType(ordinal).isNullable());
+        } else {
+          relDataType = sqlOperatorBinding.getOperandType(ordinal);
+        }
+        return relDataType;
+      }
+
+      @Override
+      public CalciteException newError(Resources.ExInst<SqlValidatorException> e) {
+        throw new UnsupportedOperationException();
+      }
+    };
+  }
+
+  private static boolean isDecimalLiteral(SqlOperatorBinding sqlOperatorBinding, int index) {
+    if(sqlOperatorBinding.getOperandType(index).getSqlTypeName() != SqlTypeName.DECIMAL) {
+      return false;
+    }
+
+    final boolean isLiteral;
+    // TODO: The following try-catch statement is added due to one issue CALCITE-1176
+    // After that is fixed, the entire try-catch should be removed.
+    try {
+      isLiteral = sqlOperatorBinding.getOperandLiteralValue(index) != null;
+    } catch (AssertionError e) {
+      return false;
+    }
+    return isLiteral;
   }
 
   /**
