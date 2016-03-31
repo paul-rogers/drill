@@ -56,13 +56,13 @@ public class DrillOperatorTable extends SqlStdOperatorTable {
   private final ArrayListMultimap<String, SqlOperator> drillOperatorsWithoutInferenceMap = ArrayListMultimap.create();
   private final ArrayListMultimap<String, SqlOperator> drillOperatorsWithInferenceMap = ArrayListMultimap.create();
 
-  private final OptionManager systemOptionManager;
+  private final OptionManager optionManager;
 
-  public DrillOperatorTable(FunctionImplementationRegistry registry, OptionManager systemOptionManager) {
+  public DrillOperatorTable(FunctionImplementationRegistry registry, OptionManager optionManager) {
+    this.optionManager = optionManager;
     registry.register(this);
     calciteOperators.addAll(inner.getOperatorList());
     populateWrappedCalciteOperators();
-    this.systemOptionManager = systemOptionManager;
   }
 
   /**
@@ -154,10 +154,12 @@ public class DrillOperatorTable extends SqlStdOperatorTable {
       final SqlOperator wrapper;
       if(calciteOperator instanceof SqlAggFunction) {
         wrapper = new DrillCalciteSqlAggFunctionWrapper((SqlAggFunction) calciteOperator,
-            getFunctionListWithInference(calciteOperator.getName()));
+            getFunctionListWithInference(calciteOperator.getName()),
+            optionManager);
       } else if(calciteOperator instanceof SqlFunction) {
         wrapper = new DrillCalciteSqlFunctionWrapper((SqlFunction) calciteOperator,
-            getFunctionListWithInference(calciteOperator.getName()));
+            getFunctionListWithInference(calciteOperator.getName()),
+            optionManager);
       } else if(calciteOperator instanceof SqlBetweenOperator) {
         // During the procedure of converting to RexNode,
         // StandardConvertletTable.convertBetween expects the SqlOperator to be a subclass of SqlBetweenOperator
@@ -170,7 +172,7 @@ public class DrillOperatorTable extends SqlStdOperatorTable {
           continue;
         }
 
-        wrapper = new DrillCalciteSqlOperatorWrapper(calciteOperator, drillOpName, drillFuncHolders);
+        wrapper = new DrillCalciteSqlOperatorWrapper(calciteOperator, drillOpName, drillFuncHolders, optionManager);
       }
       calciteToWrapper.put(calciteOperator, wrapper);
     }
@@ -197,6 +199,10 @@ public class DrillOperatorTable extends SqlStdOperatorTable {
   }
 
   private boolean isInferenceEnabled() {
-    return systemOptionManager.getOption(PlannerSettings.TYPE_INFERENCE);
+    return optionManager.getOption(PlannerSettings.TYPE_INFERENCE);
+  }
+
+  public OptionManager getOptionManager() {
+    return optionManager;
   }
 }
