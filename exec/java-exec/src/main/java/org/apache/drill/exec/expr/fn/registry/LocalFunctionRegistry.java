@@ -267,7 +267,8 @@ public class LocalFunctionRegistry {
         final int min = range.getLeft();
         if(!map.containsKey(name)) {
           map.put(name, new DrillSqlOperator.DrillSqlOperatorBuilder()
-              .setName(name));
+              .setName(name)
+              .setOptionManager(operatorTable.getOptionManager()));
         }
 
         final DrillSqlOperator.DrillSqlOperatorBuilder drillSqlOperatorBuilder = map.get(name);
@@ -278,7 +279,9 @@ public class LocalFunctionRegistry {
       }
       for (Entry<Integer, Collection<DrillFuncHolder>> entry : aggregateFunctions.asMap().entrySet()) {
         if(!mapAgg.containsKey(name)) {
-          mapAgg.put(name, new DrillSqlAggOperator.DrillSqlAggOperatorBuilder().setName(name));
+          mapAgg.put(name, new DrillSqlAggOperator.DrillSqlAggOperatorBuilder()
+              .setName(name)
+              .setOptionManager(operatorTable.getOptionManager()));
         }
 
         final DrillSqlAggOperator.DrillSqlAggOperatorBuilder drillSqlAggOperatorBuilder = mapAgg.get(name);
