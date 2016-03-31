@@ -22,6 +22,8 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.util.FileUtils;
+import org.apache.drill.exec.planner.physical.PlannerSettings;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.List;
@@ -807,5 +809,49 @@ public class TestFunctionsWithTypeExpoQueries extends BaseTestQuery {
         .schemaBaseLine(expectedSchema)
         .build()
         .run();
+  }
+
+  @Test
+  @Ignore // 3-09-2017
+  public void testDecimalPlusWhenDecimalEnabled() throws Exception {
+    final String query = "select cast('99' as decimal(9,0)) + cast('99' as decimal(9,0)) as col \n" +
+        "from cp.`tpch/region.parquet` \n" +
+        "limit 0";
+
+    try {
+      final TypeProtos.MajorType majorTypeDouble = TypeProtos.MajorType.newBuilder()
+          .setMinorType(TypeProtos.MinorType.FLOAT8)
+          .setMode(TypeProtos.DataMode.REQUIRED)
+          .build();
+
+      final List<Pair<SchemaPath, TypeProtos.MajorType>> expectedSchemaDouble = Lists.newArrayList();
+      expectedSchemaDouble.add(Pair.of(SchemaPath.getSimplePath("col"), majorTypeDouble));
+
+      testBuilder()
+          .sqlQuery(query)
+          .schemaBaseLine(expectedSchemaDouble)
+          .build()
+          .run();
+
+      test(String.format("alter session set `%s` = true", PlannerSettings.ENABLE_DECIMAL_DATA_TYPE_KEY));
+
+      final TypeProtos.MajorType majorTypeDecimal9 = TypeProtos.MajorType.newBuilder()
+          .setMinorType(TypeProtos.MinorType.DECIMAL18)
+          .setMode(TypeProtos.DataMode.REQUIRED)
+          .setPrecision(10)
+          .setScale(0)
+          .build();
+
+      final List<Pair<SchemaPath, TypeProtos.MajorType>> expectedSchemaDecimal = Lists.newArrayList();
+      expectedSchemaDecimal.add(Pair.of(SchemaPath.getSimplePath("col"), majorTypeDecimal9));
+
+      testBuilder()
+          .sqlQuery(query)
+          .schemaBaseLine(expectedSchemaDecimal)
+          .build()
+          .run();
+    } finally {
+      test(String.format("alter session set `%s` = false", PlannerSettings.ENABLE_DECIMAL_DATA_TYPE_KEY));
+    }
   }
 }
