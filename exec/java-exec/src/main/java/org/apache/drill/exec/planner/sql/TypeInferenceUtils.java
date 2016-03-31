@@ -49,9 +49,11 @@ import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.expr.fn.DrillFuncHolder;
+import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.resolver.FunctionResolver;
 import org.apache.drill.exec.resolver.FunctionResolverFactory;
 import org.apache.drill.exec.resolver.TypeCastRules;
+import org.apache.drill.exec.server.options.OptionManager;
 
 import java.util.List;
 
@@ -125,7 +127,6 @@ public class TypeInferenceUtils {
 
   private static final ImmutableMap<String, SqlReturnTypeInference> funcNameToInference = ImmutableMap.<String, SqlReturnTypeInference> builder()
       .put("DATE_PART", DrillDatePartSqlReturnTypeInference.INSTANCE)
-      .put("SUM", DrillSumSqlReturnTypeInference.INSTANCE)
       .put("COUNT", DrillCountSqlReturnTypeInference.INSTANCE)
       .put("CONCAT", DrillConcatSqlReturnTypeInference.INSTANCE)
       .put("LENGTH", DrillLengthSqlReturnTypeInference.INSTANCE)
@@ -153,10 +154,6 @@ public class TypeInferenceUtils {
 
       // NTILE
       .put("NTILE", DrillNTILESqlReturnTypeInference.INSTANCE)
-
-      // LEAD, LAG
-      .put("LEAD", DrillLeadLagSqlReturnTypeInference.INSTANCE)
-      .put("LAG", DrillLeadLagSqlReturnTypeInference.INSTANCE)
 
       // FIRST_VALUE, LAST_VALUE
       .put("FIRST_VALUE", DrillFirstLastValueSqlReturnTypeInference.INSTANCE)
@@ -205,21 +202,31 @@ public class TypeInferenceUtils {
    */
   public static SqlReturnTypeInference getDrillSqlReturnTypeInference(
       final String name,
-      final List<DrillFuncHolder> functions) {
-
+      final List<DrillFuncHolder> functions,
+      final OptionManager optionManager) {
     final String nameCap = name.toUpperCase();
     if(funcNameToInference.containsKey(nameCap)) {
       return funcNameToInference.get(nameCap);
     } else {
-      return new DrillDefaultSqlReturnTypeInference(functions);
+      switch (name) {
+        case "SUM":
+          return new DrillSumSqlReturnTypeInference(optionManager);
+        case "LEAD":
+        case "LAG":
+          return new DrillLeadLagSqlReturnTypeInference(optionManager);
+        default:
+          return new DrillDefaultSqlReturnTypeInference(functions, optionManager);
+      }
     }
   }
 
   private static class DrillDefaultSqlReturnTypeInference implements SqlReturnTypeInference {
     private final List<DrillFuncHolder> functions;
+    private final OptionManager optionManager;
 
-    public DrillDefaultSqlReturnTypeInference(List<DrillFuncHolder> functions) {
+    public DrillDefaultSqlReturnTypeInference(List<DrillFuncHolder> functions, OptionManager optionManager) {
       this.functions = functions;
+      this.optionManager = optionManager;
     }
 
     @Override
@@ -234,8 +241,9 @@ public class TypeInferenceUtils {
       // Only the operand types are useful in the type inference.
       // Also, since Decimal literals are treated as DOUBLE in Drill's exection,
       // inference algorithm treats them as DOUBLE also
-      opBinding = convertDecimalLiteralToDouble(opBinding);
-
+      if(!optionManager.getOption(PlannerSettings.ENABLE_DECIMAL_DATA_TYPE_KEY).bool_val) {
+        opBinding = convertDecimalLiteralToDouble(opBinding);
+      }
       // The following logic is just a safe play:
       // Even if any of the input arguments has ANY type,
       // it "might" still be possible to determine the return type based on other non-ANY types
@@ -342,7 +350,10 @@ public class TypeInferenceUtils {
   }
 
   private static class DrillSumSqlReturnTypeInference implements SqlReturnTypeInference {
-    private static final DrillSumSqlReturnTypeInference INSTANCE = new DrillSumSqlReturnTypeInference();
+    private final OptionManager optionManager;
+    public DrillSumSqlReturnTypeInference(OptionManager optionManager) {
+      this.optionManager = optionManager;
+    }
 
     @Override
     public RelDataType inferReturnType(SqlOperatorBinding opBinding) {
@@ -356,7 +367,9 @@ public class TypeInferenceUtils {
       // Only the operand types are useful in the type inference.
       // Also, since Decimal literals are treated as DOUBLE in Drill's exection,
       // inference algorithm treats them as DOUBLE also
-      opBinding = convertDecimalLiteralToDouble(opBinding);
+      if(!optionManager.getOption(PlannerSettings.ENABLE_DECIMAL_DATA_TYPE_KEY).bool_val) {
+        opBinding = convertDecimalLiteralToDouble(opBinding);
+      }
 
       if(getDrillTypeFromCalciteType(opBinding.getOperandType(0)) == TypeProtos.MinorType.LATE) {
         return createCalciteTypeWithNullability(
@@ -606,13 +619,19 @@ public class TypeInferenceUtils {
   }
 
   private static class DrillLeadLagSqlReturnTypeInference implements SqlReturnTypeInference {
-    private static final DrillLeadLagSqlReturnTypeInference INSTANCE = new DrillLeadLagSqlReturnTypeInference();
+    private final OptionManager optionManager;
+    public DrillLeadLagSqlReturnTypeInference(OptionManager optionManager) {
+      this.optionManager = optionManager;
+    }
+
     @Override
     public RelDataType inferReturnType(SqlOperatorBinding opBinding) {
       // Only the operand types are useful in the type inference.
       // Also, since Decimal literals are treated as DOUBLE in Drill's exection,
       // inference algorithm treats them as DOUBLE also
-      opBinding = convertDecimalLiteralToDouble(opBinding);
+      if(!optionManager.getOption(PlannerSettings.ENABLE_DECIMAL_DATA_TYPE_KEY).bool_val) {
+        opBinding = convertDecimalLiteralToDouble(opBinding);
+      }
 
       return createCalciteTypeWithNullability(
           opBinding.getTypeFactory(),
@@ -749,7 +768,7 @@ public class TypeInferenceUtils {
     return functionCall;
   }
 
-  private static SqlOperatorBinding convertDecimalLiteralToDouble(final SqlOperatorBinding sqlOperatorBinding) {
+  public static SqlOperatorBinding convertDecimalLiteralToDouble(final SqlOperatorBinding sqlOperatorBinding) {
     return new SqlOperatorBinding(sqlOperatorBinding.getTypeFactory(), sqlOperatorBinding.getOperator()) {
       @Override
       public int getOperandCount() {
