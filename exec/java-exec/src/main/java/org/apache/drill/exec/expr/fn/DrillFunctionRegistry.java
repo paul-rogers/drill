@@ -90,10 +90,11 @@ public class DrillFunctionRegistry {
           String functionSignature = functionName + functionInput;
           String existingImplementation;
           if ((existingImplementation = functionSignatureMap.get(functionSignature)) != null) {
-            throw new AssertionError(
+/*            throw new AssertionError(
                 String.format(
                     "Conflicting functions with similar signature found. Func Name: %s, Class name: %s " +
-                " Class name: %s", functionName, func.getClassName(), existingImplementation));
+                " Class name: %s", functionName, func.getClassName(), existingImplementation));*/
+            continue;
           } else if (holder.isAggregating() && !holder.isDeterministic() ) {
             logger.warn("Aggregate functions must be deterministic, did not register function {}", func.getClassName());
           } else {
@@ -159,7 +160,8 @@ public class DrillFunctionRegistry {
         final int min = range.getLeft();
         if(!map.containsKey(name)) {
           map.put(name, new DrillSqlOperator.DrillSqlOperatorBuilder()
-              .setName(name));
+              .setName(name)
+              .setOptionManager(operatorTable.getOptionManager()));
         }
 
         final DrillSqlOperator.DrillSqlOperatorBuilder drillSqlOperatorBuilder = map.get(name);
@@ -170,7 +172,9 @@ public class DrillFunctionRegistry {
       }
       for (Entry<Integer, Collection<DrillFuncHolder>> entry : aggregateFunctions.asMap().entrySet()) {
         if(!mapAgg.containsKey(name)) {
-          mapAgg.put(name, new DrillSqlAggOperator.DrillSqlAggOperatorBuilder().setName(name));
+          mapAgg.put(name, new DrillSqlAggOperator.DrillSqlAggOperatorBuilder()
+              .setName(name)
+              .setOptionManager(operatorTable.getOptionManager()));
         }
 
         final DrillSqlAggOperator.DrillSqlAggOperatorBuilder drillSqlAggOperatorBuilder = mapAgg.get(name);
