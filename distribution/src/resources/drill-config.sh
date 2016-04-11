@@ -111,17 +111,6 @@ if [[ -r "$confFile" ]]; then
   . "$confFile"
 fi
 
-# Source node-specific drill-env.sh if provided. (Only used for YARN
-# integration with the above as a shared file.)
-# File is optional.
-
-if [[ -n "$DRILL_NODE_CONF_DIR" ]]; then
-  confFile="${DRILL_NODE_CONF_DIR}/drill-env.sh"
-  if [[ -r "$confFile" ]]; then
-    . "$confFile"
-  fi
-fi
-
 # get log directory
 if [ -z "$DRILL_LOG_DIR" ]; then
   # Try the optional location
