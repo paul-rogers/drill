@@ -150,11 +150,24 @@ wait_until_done ()
 
 # Return the number of seconds since the modification time
 # for the given file.
-# Caveat: stat may be platform specific. This code is for
-# MacOS.
+# Sadly, getting the file mod time is platform dependent.
+# The below are tested for MacOS and CentOS. Please contribute
+# others.
 
 secs_since_mod() {
-  echo $(( $(date +%s) - $(stat -f%c "$1") ))
+  now=$(date +%s)
+  case "`uname`" in
+  Linux) modTime=$(date +%s -r "$1");; # CoreOS
+  Darwin) modTime=$(stat -f%c "$1");; # MacOSX
+  *) modTime="";;
+  esac
+
+  if [ -z "$modTime" ]; then
+    echo ""
+  else
+    #echo $(( $(date +%s) - $(stat -f%c "$1") ))
+    echo $(( $now - $modTime ))
+  fi
 }
 
 # Convert a time in seconds to either seconds, minutes,
@@ -296,7 +309,11 @@ case $startStopStatus in
       TARGET_PID=`cat $pid`
       if kill -0 $TARGET_PID > /dev/null 2>&1; then
         upsecs=$(secs_since_mod $pid)
-        uptime=$(elapsed_time $upsecs)
+        if [ -z "$upsecs" ]; then
+          uptime="Unknown (uname=`uname`)"
+        else
+          uptime=$(elapsed_time $upsecs)
+        fi
         echo "$command is running, pid: $TARGET_PID, uptime: $uptime"
         exit 0
       else
