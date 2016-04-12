@@ -1,0 +1,717 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.drill.yarn.appMaster;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.drill.yarn.appMaster.Task.Disposition;
+import org.apache.hadoop.yarn.api.records.Container;
+import org.apache.hadoop.yarn.api.records.ContainerStatus;
+
+/**
+ * Represents the behaviors associated with each state in the lifecycle
+ * of a task.
+ * <p>
+ * This is a do-it-yourself enum. Java enums values are instancs of a single
+ * class. In this version, each enum value is the sole instance of a separate
+ * class, allowing each state to have its own behavior.
+ */
+
+public abstract class TaskState
+{
+  /**
+   * Task that is newly created and needs a container allocated. No messages
+   * have yet been sent to YARN for the task.
+   */
+
+  private static class StartState extends TaskState
+  {
+    protected StartState() { super(false, TaskLifecycleListener.Event.CREATED); }
+
+    @Override
+    public void requestContainer(EventContext context) {
+      Task task = context.task;
+      task.tryCount++;
+      context.group.dequeuePendingRequest(task);
+      if (task.cancelled) {
+        taskStartFailed(context, Disposition.CANCELLED);
+      } else {
+        transition(context, REQUESTING);
+        context.group.enqueueAllocatingTask(task);
+        task.containerRequest = context.yarn.requestContainer(task.getContainerSpec());
+      }
+    }
+
+    @Override
+    public void cancel(EventContext context) {
+      Task task = context.task;
+      assert !task.cancelled;
+      context.group.dequeueAllocatingTask(task);
+      task.cancelled = true;
+      taskStartFailed(context, Disposition.CANCELLED);
+    }
+  }
+
+  /**
+   * Task for which a container request has been sent but not yet received.
+   */
+
+  private static class RequestingState extends TaskState
+  {
+    protected RequestingState() { super(false, TaskLifecycleListener.Event.CREATED); }
+
+    /**
+     * Handle REQUESING --> LAUNCHING. Indicates that we've asked YARN to start
+     * the task on the allocated container.
+     */
+
+    @Override
+    public void containerAllocated(EventContext context, Container container) {
+      Task task = context.task;
+      context.group.dequeueAllocatingTask(task);
+
+      // No matter what happens below, we don't want to ask for this
+      // container again. The RM async API is a bit bizarre in this
+      // regard: it will keep asking for container over and over until
+      // we tell it to stop.
+
+      context.yarn.removeContainerRequest(task.containerRequest);
+      if (task.cancelled) {
+        context.yarn.releaseContainer(container);
+        taskStartFailed(context, Disposition.CANCELLED);
+        return;
+      }
+      task.container = container;
+      task.error = null;
+      task.completionStatus = null;
+      transition(context, LAUNCHING);
+      context.group.containerAllocated(context.task);
+      context.getTaskManager().allocated( context );
+      try {
+        context.yarn.launchContainer(container, task.getLaunchSpec());
+        task.launchTime = System.currentTimeMillis();
+      } catch (YarnFacadeException e) {
+        LOG.error("Container launch failed: " + task.getId(), e);
+        // This may not be the right response. RM may still think
+        // we have the container if the above is a local failure.
+
+        task.error = e;
+        context.getTaskManager().completed( context );
+        context.group.containerReleased(task);
+        task.container = null;
+        taskStartFailed(context, Disposition.LAUNCH_FAILED);
+      }
+    }
+
+    /**
+     * Cancel the container request. We must wait for the response from YARN to
+     * do the actual cancellation. For now, just mark the task as cancelled.
+     */
+
+    @Override
+    public void cancel(EventContext context) {
+      context.task.cancelled = true;
+    }
+  }
+
+  /**
+   * Task for which a container has been allocated and the task launch request
+   * sent. Awaiting confirmation that the task is running.
+   */
+
+  private static class LaunchingState extends TaskState
+  {
+    protected LaunchingState( ) { super( true, TaskLifecycleListener.Event.ALLOCATED ); }
+
+    /**
+     * Handle launch failure. Results in a LAUNCHING --> END transition
+     * or restart.
+     * <p>
+     * This situation can occur, when debugging, if a timeout occurs
+     * after the allocation message, such as when, sitting in the
+     * debugger on the allocation event.
+     */
+
+    @Override
+    public void launchFailed(EventContext context, Throwable t) {
+      Task task = context.task;
+      LOG.info("Container start failed: " + task.getId());
+      task.error = t;
+      task.completionTime = System.currentTimeMillis();
+
+      // Not sure if releasing the container is needed...
+
+      context.yarn.releaseContainer(task.container);
+      context.getTaskManager().completed( context );
+      context.group.containerReleased(task);
+      task.container = null;
+      taskStartFailed(context, Disposition.LAUNCH_FAILED);
+    }
+
+    /**
+     * Handle LAUNCHING --> RUNNING. Indicates that YARN has confirmed that the
+     * task is, indeed, running.
+     */
+
+    @Override
+    public void containerStarted(EventContext context) {
+      Task task = context.task;
+      if (task.trackingState == Task.TrackingState.NEW) {
+        transition(context, START_ACK);
+      } else {
+        transition(context, RUNNING); }
+      task.error = null;
+      if (task.cancelled) {
+        transition(context, STOPPING);
+        context.yarn.killContainer(task.getContainer());
+      }
+    }
+
+    /**
+     * Out-of-order start ACK, perhaps due to network latency. Handle
+     * by staying in this state, but later jump directly<br>
+     * LAUNCHING --> RUNNING
+     */
+
+    @Override
+    public void startAck(EventContext context) {
+      context.task.trackingState = Task.TrackingState.START_ACK;
+    }
+
+    @Override
+    public void cancel(EventContext context) {
+      context.task.cancelled = true;
+    }
+  }
+
+  /**
+   * Task has been launched, is tracked, but we've not yet received a start ack.
+   */
+
+  private static class StartAckState extends TaskState
+  {
+    protected StartAckState() { super(true, TaskLifecycleListener.Event.RUNNING); }
+
+    @Override
+    public void startAck(EventContext context) {
+      context.task.trackingState = Task.TrackingState.START_ACK;
+      transition(context, RUNNING);
+    }
+
+    @Override
+    public void cancel(EventContext context) {
+      RUNNING.cancel(context);
+    }
+
+    @Override
+    public void containerCompleted(EventContext context, ContainerStatus status) {
+      taskCompleted(context, status);
+    }
+
+    // TODO: Timeout in this state.
+  }
+
+  /**
+   * Task in the normal running state.
+   */
+
+  private static class RunningState extends TaskState
+  {
+    protected RunningState() { super(true, TaskLifecycleListener.Event.RUNNING); }
+
+    /**
+     * Normal task completion. Implements the RUNNING --> END transition.
+     *
+     * @param status
+     */
+
+    @Override
+    public void containerCompleted(EventContext context, ContainerStatus status) {
+      taskCompleted(context, status);
+    }
+
+    @Override
+    public void cancel(EventContext context) {
+      Task task = context.task;
+      task.cancelled = true;
+      if (context.group.requestStop(task)) {
+        transition(context, ENDING);
+      } else {
+        context.yarn.killContainer(task.container);
+        transition(context, STOPPING);
+      }
+    }
+
+    /**
+     * The task claims that it is complete, but we think it is running.
+     * Assume that the task has started its own graceful shutdown (or
+     * the equivalent).<br>
+     * RUNNING --> ENDING
+     */
+
+    @Override
+    public void completionAck(EventContext context) {
+      context.task.trackingState = Task.TrackingState.END_ACK;
+      transition( context, ENDING );
+    }
+  }
+
+  /**
+   * Task for which a termination request has been sent to the Drill-bit, but
+   * confirmation has not yet been received from the Node Manager. (Not yet
+   * supported in the Drill-bit.
+   */
+
+  public static class EndingState extends TaskState
+  {
+    protected EndingState() { super(true, TaskLifecycleListener.Event.RUNNING); }
+
+    /**
+     * Normal ENDING --> STOPPED transition, awaiting Resource Manager
+     * confirmation.
+     */
+
+    @Override
+    public void containerStopped(EventContext context) {
+      transition(context, STOPPED);
+    }
+
+    /**
+     * Normal task completion. Implements the ENDING --> END transition.
+     *
+     * @param status
+     */
+
+    @Override
+    public void containerCompleted(EventContext context, ContainerStatus status) {
+      taskCompleted(context, status);
+    }
+
+    @Override
+    public void cancel(EventContext context) {
+      context.task.cancelled = true;
+    }
+
+    /**
+     * If the graceful stop process exceeds the maximum timeout, go ahead and
+     * forcibly kill the process.
+     */
+
+    @Override
+    public void tick(EventContext context, long curTime) {
+      Task task = context.task;
+      if (curTime - task.stateStartTime > task.taskGroup.getStopTimeoutMs()) {
+        context.yarn.killContainer(task.container);
+        transition(context, STOPPING);
+      }
+    }
+
+    @Override
+    public void completionAck(EventContext context) {
+      context.task.trackingState = Task.TrackingState.END_ACK;
+    }
+  }
+
+  /**
+   * Task for which a forced termination request has been sent to the Node
+   * Manager, but confirmation has not yet been received.
+   */
+
+  public static class StoppingState extends TaskState
+  {
+    protected StoppingState() { super(true, TaskLifecycleListener.Event.RUNNING); }
+
+    /**
+     * Normal KILLING --> STOPPED transition, awaiting Resource Manager
+     * confirmation.
+     */
+
+    @Override
+    public void containerStopped(EventContext context) {
+      transition(context, STOPPED);
+    }
+
+    /**
+     * Out-of-order message from Resource Manager causing a KILLING --> END
+     * transition.
+     *
+     * @param status
+     */
+
+    @Override
+    public void containerCompleted(EventContext context, ContainerStatus status) {
+      taskCompleted(context, status);
+    }
+
+    @Override
+    public void cancel(EventContext context) {
+      context.task.cancelled = true;
+    }
+
+    @Override
+    public void stopTaskFailed(EventContext context, Throwable t) {
+      assert false;
+      // What to do?
+    }
+  }
+
+  /**
+   * Task is in the process of forced stopping. A stop confirmation has been
+   * received from the NM, but not yet from the RM.
+   */
+
+  private static class StoppedState extends TaskState
+  {
+    protected StoppedState() { super(true, TaskLifecycleListener.Event.RUNNING); }
+
+    @Override
+    public void containerCompleted(EventContext context, ContainerStatus status) {
+      taskCompleted(context, status);
+    }
+
+    @Override
+    public void cancel(EventContext context) {
+      context.task.cancelled = true;
+    }
+  }
+
+  private static class EndAckState extends TaskState
+  {
+    protected EndAckState() { super(false, TaskLifecycleListener.Event.RUNNING); }
+
+    @Override
+    public void cancel(EventContext context) {
+      context.task.cancelled = true;
+    }
+
+    @Override
+    public void completionAck(EventContext context) {
+      context.task.trackingState = Task.TrackingState.END_ACK;
+      taskTerminated( context );
+    }
+
+    // TODO: Handle timeout
+  }
+
+  /**
+   * Task is completed or failed. The disposition field gives the details of the
+   * completion type. The task is not active on YARN, but could be retried.
+   */
+
+  private static class EndState extends TaskState
+  {
+    protected EndState() { super(false, TaskLifecycleListener.Event.ENDED); }
+
+    /**
+     * Ignore out-of-order Node Manager completion notices.
+     */
+
+    @Override
+    public void containerStopped(EventContext context) {
+    }
+
+    @Override
+    public void cancel(EventContext context) {
+    }
+  }
+
+  private static final Log LOG = LogFactory.getLog(ClusterControllerImpl.class);
+
+  public static final TaskState START = new StartState();
+  public static final TaskState REQUESTING = new RequestingState();
+  public static final TaskState LAUNCHING = new LaunchingState();
+  public static final TaskState START_ACK = new StartAckState();
+  public static final TaskState RUNNING = new RunningState();
+  public static final TaskState ENDING = new EndingState();
+  public static final TaskState STOPPING = new StoppingState();
+  public static final TaskState STOPPED = new StoppedState();
+  public static final TaskState END_ACK = new EndAckState();
+  public static final TaskState END = new EndState();
+
+  protected final boolean hasContainer;
+  protected final TaskLifecycleListener.Event lifeCycleEvent;
+
+  public TaskState(boolean hasContainer, TaskLifecycleListener.Event lcEvent) {
+    this.hasContainer = hasContainer;
+    lifeCycleEvent = lcEvent;
+  }
+
+  public void requestContainer(EventContext context) {
+    illegalState("containerAllocated");
+  }
+
+  /**
+   * Resource Manager reports that the task has been allocated a container.
+   *
+   * @param context
+   * @param container
+   */
+
+  public void containerAllocated(EventContext context, Container container) {
+    illegalState("containerAllocated");
+  }
+
+  /**
+   * The launch of the container failed.
+   *
+   * @param context
+   * @param t
+   */
+
+  public void launchFailed(EventContext context, Throwable t) {
+    illegalState("launchFailed");
+  }
+
+  /**
+   * Node Manager reports that the task has started execution.
+   *
+   * @param context
+   */
+
+  public void containerStarted(EventContext context) {
+    illegalState("containerAllocated");
+  }
+
+  /**
+   * The monitoring plugin has detected that the task has confirmed that it is
+   * fully started.
+   */
+
+  public void startAck(EventContext context) {
+    illegalState("startAck");
+  }
+
+  /**
+   * The node manager request to stop a task failed.
+   *
+   * @param context
+   * @param t
+   */
+
+  public void stopTaskFailed(EventContext context, Throwable t) {
+    illegalState("containerAllocated");
+  }
+
+  /**
+   * The monitoring plugin has detected that the task has confirmed that it has
+   * started shutdown.
+   */
+
+  public void completionAck(EventContext context) {
+    illegalState("completionAck");
+  }
+
+  /**
+   * Node Manager reports that the task has stopped execution. We don't yet know
+   * if this was a success or failure.
+   *
+   * @param context
+   */
+
+  public void containerStopped(EventContext context) {
+    illegalState("containerStopped");
+  }
+
+  /**
+   * Resource Manager reports that the task has compleeted execution and
+   * provided the completion status.
+   *
+   * @param context
+   * @param status
+   */
+
+  public void containerCompleted(EventContext context, ContainerStatus status) {
+    illegalState("containerAllocated");
+  }
+
+  /**
+   * Cluster manager wishes to cancel this task.
+   *
+   * @param context
+   */
+
+  public void cancel(EventContext context) {
+    illegalState("cancel");
+  }
+
+  public void tick(EventContext context, long curTime) {
+    // Ignore by default
+  }
+
+  /**
+   * Implement a state transition, alerting any life cycle listeners
+   * and updating the log file. Marks the start time of the new state
+   * in support of states that implement a timeout.
+   *
+   * @param context
+   * @param newState
+   */
+
+
+  protected void transition(EventContext context, TaskState newState) {
+    TaskState oldState = context.task.state;
+    LOG.trace("Task " + context.task.toString() + ": " + oldState.toString() + " --> " + newState.toString());
+    context.task.state = newState;
+    if ( newState.lifeCycleEvent != oldState.lifeCycleEvent ) {
+      context.controller.fireLifecycleChange(newState.lifeCycleEvent, context);
+    }
+    context.task.stateStartTime = System.currentTimeMillis();
+  }
+
+  /**
+   * Completion message received from the NM. Handles coordination with
+   * the end ack signal. Transitions to either to the end state if the
+   * ack has arrived, or to the end ack wait state if not.
+   *
+   * @param context
+   * @param status
+   */
+
+  protected void taskCompleted(EventContext context, ContainerStatus status) {
+    Task task = context.task;
+    task.completionStatus = status;
+    if (task.trackingState == Task.TrackingState.START_ACK) {
+      transition(context, END_ACK); }
+    else {
+      taskTerminated(context); }
+  }
+
+  /**
+   * Task failed when starting. No container has been allocated. The task
+   * will go from:<br>
+   * * --> END
+   * <p>
+   * If the run failed, and the task can be retried, it may
+   * then move from<br>
+   * END --> STARTING
+   * @param context
+   * @param disposition
+   */
+
+
+  protected void taskStartFailed( EventContext context, Disposition disposition ) {
+
+    // No container, so don't alert the task manager.
+
+    assert context.task.container == null;
+
+    taskEnded(context, disposition);
+    retryTask(context);
+  }
+
+  /**
+   * A running task terminated. It may have succeeded or failed,
+   * this method will determine which.
+   * <p>
+   * Every task goes from:<br>
+   * * --> END
+   * <p>
+   * If the run failed, and the task can be retried, it may
+   * then move from<br>
+   * END --> STARTING
+   *
+   * @param context
+   */
+
+  protected void taskTerminated(EventContext context) {
+    Task task = context.task;
+
+    // Give the task manager a peek at the completed task.
+    // The task manager can override retry behavior. To
+    // cancel a task that would otherwise be retried, call
+    // cancel( ) on the task.
+
+    context.getTaskManager().completed( context );
+    context.group.containerReleased(task);
+    task.container = null;
+    assert task.completionStatus != null;
+    if (task.completionStatus.getExitStatus() == 0) {
+      taskEnded(context, Disposition.COMPLETED);
+      context.group.taskEnded(context.task);
+    }
+    else {
+      taskEnded(context, Disposition.RUN_FAILED);
+      retryTask(context);
+    }
+  }
+
+  /**
+   * Implements the details of marking a task as ended. Note, this method
+   * does not deregister the task with the scheduler state, we keep it
+   * registered in case we decide to retry.
+   *
+   * @param context
+   * @param disposition
+   */
+
+  private void taskEnded(EventContext context, Disposition disposition) {
+    Task task = context.task;
+    if (disposition == null) {
+      assert task.disposition != null;
+    } else {
+      task.disposition = disposition; }
+    task.completionTime = System.currentTimeMillis();
+    transition(context, END);
+  }
+
+  /**
+   * Retry a task. Requires that the task currently be in the END state to provide
+   * clean state transitions. Will deregister the task if it cannot be retried
+   * because the cluster is ending or the task has failed too many times.
+   * Otherwise, starts the whole life cycle over again.
+   *
+   * @param context
+   */
+
+  private void retryTask(EventContext context) {
+    Task task = context.task;
+    assert task.state == END;
+    if (!context.controller.isLive() || !task.retryable()) {
+      context.group.taskEnded(task);
+      return;
+    }
+    if (task.tryCount >= task.taskGroup.getMaxRetries()) {
+      LOG.error("Too many retries for task: " + task.toString());
+      task.disposition = Disposition.TOO_MANY_RETRIES;
+      context.group.taskEnded(task);
+      return;
+    }
+    LOG.info("Retrying task: " + task.toString() + ", try " + task.tryCount);
+    task.reset( );
+    transition(context, START);
+    context.group.enqueuePendingRequest(task);
+  }
+
+  /**
+   * An event is called in a state where it is not expected. Log it, ignore it
+   * and hope it goes away.
+   *
+   * @param action
+   */
+
+  private void illegalState(String action) {
+    assert false;
+    LOG.error("Action " + action + " in wrong state: " + toString(),
+        new IllegalStateException("Action in wrong state"));
+  }
+
+  @Override
+  public String toString() { return getClass().getSimpleName(); }
+
+  public boolean hasContainer() { return hasContainer; }
+}
