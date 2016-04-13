@@ -2047,6 +2047,7 @@
     <module>common</module>
     <module>logical</module>
     <module>exec</module>
+    <module>yarn</module>
     <module>distribution</module>
   </modules>
 </project>

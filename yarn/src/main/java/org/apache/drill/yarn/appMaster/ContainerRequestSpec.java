@@ -35,13 +35,13 @@ import org.apache.hadoop.yarn.util.Records;
 public class ContainerRequestSpec
 {
   /**
-   * Application-specific priority. Drill-Major uses the priority to associate
+   * Application-specific priority. Drill-on-Yarn uses the priority to associate
    * YARN requests with a {@link Scheduler}. When the resource allocation
    * arrives, we use the priority to trace back to the scheduler that requested
    * it, and from there to the task to be run in the allocation.
    * <p>
-   * For this reason, the priority is set by the Drill-Major application; it is
-   * not a use-adjustable value.
+   * For this reason, the priority is set by the Drill-on-YARN application; it is
+   * not a user-adjustable value.
    */
 
   public int priority = 0;
@@ -65,7 +65,6 @@ public class ContainerRequestSpec
   /**
    * Create a YARN ContainerRequest object from the information in this object.
    *
-
    * @return
    */
   public ContainerRequest makeRequest() {

@@ -17,98 +17,112 @@
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
-    <parent>
-        <artifactId>drill-root</artifactId>
-        <groupId>org.apache.drill</groupId>
-        <version>1.7.0-SNAPSHOT</version>
-    </parent>
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <artifactId>drill-root</artifactId>
+    <groupId>org.apache.drill</groupId>
+    <version>1.7.0-SNAPSHOT</version>
+  </parent>
 
-    <groupId>org.apache.drill.yarn</groupId>
-    <artifactId>drill-major-yarn</artifactId>
-    <packaging>jar</packaging>
-    <name>Drill-on-YARN</name>
+  <groupId>org.apache.drill.yarn</groupId>
+  <artifactId>drill-on-yarn</artifactId>
+  <packaging>jar</packaging>
+  <name>Drill-on-YARN</name>
 
-    <build>
-        <plugins>
+  <build>
+    <plugins>
 
-            <!-- Horrible hack. Copy of the enforcer plugin from the parent POM,
-                 but removing the rules for certain dependencies. Drill-major includes
-                 YARN libraries as "provided" dependencies. We are not really in any
-                 position to dictate to YARN what jars it can/can't include in YARN's
-                 own code...
-            <plugin>
-                <artifactId>maven-enforcer-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>validate_java_and_maven_version</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>enforce</goal>
-                        </goals>
-                        <inherited>false</inherited>
-                        <configuration>
-                            <rules>
-                                <requireMavenVersion>
-                                    <version>[3.0.4,4)</version>
-                                </requireMavenVersion>
-                                <requireJavaVersion>
-                                    <version>[1.7,1.9)</version>
-                                </requireJavaVersion>
-                            </rules>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>avoid_bad_dependencies</id>
-                        <phase>verify</phase>
-                        <goals>
-                            <goal>enforce</goal>
-                        </goals>
-                        <configuration>
-                            <rules>
-                                <bannedDependencies>
-                                    <excludes>
-                                        <exclude>org.mortbay.jetty:servlet-api</exclude>
-                                        <exclude>org.mortbay.jetty:servlet-api-2.5</exclude>
-                                    </excludes>
-                                </bannedDependencies>
-                            </rules>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            -->
-        </plugins>
-    </build>
+      <!-- Horrible hack. Copy of the enforcer plugin from the parent POM,
+           but removing the rules for certain dependencies. Drill-major includes
+           YARN libraries as "provided" dependencies. We are not really in any
+           position to dictate to YARN what jars it can/can't include in YARN's
+           own code...
+      <plugin>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <executions>
+              <execution>
+                  <id>validate_java_and_maven_version</id>
+                  <phase>verify</phase>
+                  <goals>
+                      <goal>enforce</goal>
+                  </goals>
+                  <inherited>false</inherited>
+                  <configuration>
+                      <rules>
+                          <requireMavenVersion>
+                              <version>[3.0.4,4)</version>
+                          </requireMavenVersion>
+                          <requireJavaVersion>
+                              <version>[1.7,1.9)</version>
+                          </requireJavaVersion>
+                      </rules>
+                  </configuration>
+              </execution>
+              <execution>
+                  <id>avoid_bad_dependencies</id>
+                  <phase>verify</phase>
+                  <goals>
+                      <goal>enforce</goal>
+                  </goals>
+                  <configuration>
+                      <rules>
+                          <bannedDependencies>
+                              <excludes>
+                                  <exclude>org.mortbay.jetty:servlet-api</exclude>
+                                  <exclude>org.mortbay.jetty:servlet-api-2.5</exclude>
+                              </excludes>
+                          </bannedDependencies>
+                      </rules>
+                  </configuration>
+              </execution>
+          </executions>
+      </plugin>
+      -->
+    </plugins>
+  </build>
 
-    <dependencies>
+  <dependencies>
 
     <!-- For YARN client. -->
 
-        <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-yarn-api</artifactId>
-            <version>2.7.2</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-yarn-client</artifactId>
-            <version>2.7.2</version>
-            <scope>provided</scope>
-        </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-yarn-api</artifactId>
+      <version>2.7.2</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-yarn-client</artifactId>
+      <version>2.7.2</version>
+      <scope>provided</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>log4j</groupId>
+          <artifactId>log4j</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>javax.servlet</groupId>
+          <artifactId>servlet-api</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>commons-logging</groupId>
+          <artifactId>commons-logging</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
 
-        <!--  For ZK monitoring -->
-        <dependency>
-            <groupId>org.apache.drill.exec</groupId>
-            <artifactId>drill-java-exec</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.drill</groupId>
-            <artifactId>drill-protocol</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-    </dependencies>
+    <!--  For ZK monitoring -->
+    <dependency>
+      <groupId>org.apache.drill.exec</groupId>
+      <artifactId>drill-java-exec</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.drill</groupId>
+      <artifactId>drill-protocol</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+  </dependencies>
 
 </project>
