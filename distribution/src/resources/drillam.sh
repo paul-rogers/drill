@@ -35,6 +35,10 @@ DRILL_HOME=`cd "$bin/..">/dev/null; pwd`
 DRILL_CONF_DIR=${DRILL_CONF_DIR:-$DRILL_HOME/conf}
 DRILL_LOG_DIR=${DRILL_LOG_DIR:-$LOG_DIRS}
 
+echo "DRILL_HOME: $DRILL_HOME"
+echo "DRILL_CONF_DIR: $DRILL_CONF_DIR"
+echo "DRILL_LOG_DIR: $DRILL_LOG_DIR"
+
 # Start with YARN and Hadoop-provided class path
 
 CP=$CLASSPATH
@@ -62,5 +66,6 @@ JAVA=$JAVA_HOME/bin/java
 # Note: no need to capture output, YARN does that for us.
 # AM is launched as a child process of caller, replacing this script.
 
+echo $JAVA $DRILL_JAVA_OPTS -cp $CP org.apache.drill.yarn.appMaster.ApplicationMaster $@
 exec $JAVA $DRILL_JAVA_OPTS -cp $CP org.apache.drill.yarn.appMaster.ApplicationMaster $@
 

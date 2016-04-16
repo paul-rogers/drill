@@ -17,5 +17,38 @@
  */
 package org.apache.drill.yarn.client;
 
-public class Config {
+
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+import org.apache.log4j.BasicConfigurator;
+
+public class Client
+{
+  public static Config config;
+
+  public static void main(String argv[]) {
+    BasicConfigurator.configure();
+    CommandLineOptions opts = new CommandLineOptions();
+    opts.parse(argv);
+
+    loadConfig( );
+
+    ClientCommand cmd;
+    switch (opts.getCommand()) {
+      case TEST:
+        cmd = new TestCommand(opts);
+        break;
+      case START:
+        cmd = new StartCommand(opts);
+        break;
+      default:
+        cmd = new HelpCommand(opts);
+    }
+    cmd.run();
+  }
+
+  private static void loadConfig( ) {
+    config = ConfigFactory.load( "drill-on-yarn.conf" );
+  }
+
 }
