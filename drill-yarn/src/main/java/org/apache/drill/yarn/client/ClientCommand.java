@@ -19,5 +19,11 @@ package org.apache.drill.yarn.client;
 
 public abstract class ClientCommand
 {
-  public abstract void run( );
+  protected CommandLineOptions opts;
+
+  public void setOpts(CommandLineOptions opts) {
+    this.opts = opts;
+  }
+
+  public abstract void run( ) throws ClientException;
 }

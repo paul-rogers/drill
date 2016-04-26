@@ -17,7 +17,14 @@
  */
 package org.apache.drill.yarn.core;
 
-import org.apache.drill.yarn.core.Util;
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
@@ -27,19 +34,9 @@ import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
-import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
-import org.apache.hadoop.yarn.util.Apps;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 /**
  * Abstract description of a remote process launch that describes the many
@@ -153,7 +150,7 @@ public class LaunchSpec {
 
     // Java 8
     // return String.join( " ", cmd );
-    return Util.join(" ", cmd);
+    return DoYUtil.join(" ", cmd);
   }
 
   /**
@@ -200,7 +197,7 @@ public class LaunchSpec {
 
     Map<String, String> appMasterEnv = new HashMap<String, String>();
     appMasterEnv.putAll(env);
-    appMasterEnv.put(Environment.CLASSPATH.name(), Util.join(File.pathSeparator, fullClassPath));
+    appMasterEnv.put(Environment.CLASSPATH.name(), DoYUtil.join(File.pathSeparator, fullClassPath));
     amContainer.setEnvironment(appMasterEnv);
     return amContainer;
   }

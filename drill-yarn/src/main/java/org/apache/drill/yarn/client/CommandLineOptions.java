@@ -17,15 +17,14 @@
  */
 package org.apache.drill.yarn.client;
 
-import com.beust.jcommander.JCommander;
-import com.beust.jcommander.Parameter;
-import com.beust.jcommander.ParameterException;
-import com.beust.jcommander.Parameters;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
 
 /**
  * Drill YARN client command line options.
@@ -67,11 +66,20 @@ public class CommandLineOptions {
   private String prefix;
   int resizeValue;
 
+  @Parameter(names = {"--dryrun"}, description = "Display and validate configuration.")
+  private boolean dryRun = false;
+
+  @Parameter(names = {"--upload"}, description = "Upload archives to validate DFS.")
+  private boolean upload = false;
+
+  @Parameter(names = {"-v", "--verbose"}, description = "Upload archives to validate DFS.")
+  public boolean verbose = false;
+
   @Parameter(description = "Cluster name.")
   private List<String> clusters = new ArrayList<>();
 
   public static enum Command {
-    ERROR, HELP, START, STOP, STATUS, RESIZE, TEST
+    ERROR, HELP, START, STOP, STATUS, RESIZE, TEST, DRY_RUN, UPLOAD
   }
 
   Command command;
@@ -111,6 +119,12 @@ public class CommandLineOptions {
     if (test) {
       count++;
     }
+    if (dryRun) {
+      count++;
+    }
+    if (upload) {
+      count++;
+    }
     if (count != 1) {
       command = Command.ERROR;
       return;
@@ -145,6 +159,10 @@ public class CommandLineOptions {
       command = Command.RESIZE;
     } else if (test) {
       command = Command.TEST;
+    } else if ( dryRun ) {
+      command = Command.DRY_RUN;
+    } else if ( upload ) {
+      command = Command.UPLOAD;
     } else {
       command = Command.HELP;
     }

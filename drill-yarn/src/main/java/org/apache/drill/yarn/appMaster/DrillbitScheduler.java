@@ -17,26 +17,25 @@
  */
 package org.apache.drill.yarn.appMaster;
 
-import org.apache.drill.yarn.core.LaunchSpec;
-
 public class DrillbitScheduler extends AbstractDrillbitScheduler
 {
-  public DrillbitScheduler(int quantity) {
+  public DrillbitScheduler(TaskSpec taskSpec, int quantity) {
     super("Basic-Drillbit", quantity);
+    this.taskSpec = taskSpec;
 
-    ContainerRequestSpec containerSpec = new ContainerRequestSpec();
-    // containerSpec.priority = 1;
-    containerSpec.memoryMb = 1025;
-    containerSpec.vCores = 4;
-
-    LaunchSpec workerSpec = new LaunchSpec();
-    workerSpec.env.put( "DRILL_HOME", "/Users/progers/play/apache-drill-1.5.0" );
-    workerSpec.command = "$DRILL_HOME/bin/drillbit.sh";
-    workerSpec.cmdArgs.add("yarn_start");
-
-    taskSpec = new TaskSpec();
-    taskSpec.containerSpec = containerSpec;
-    taskSpec.launchSpec = workerSpec;
-    taskSpec.maxRetries = 10;
+//    ContainerRequestSpec containerSpec = new ContainerRequestSpec();
+//    // containerSpec.priority = 1;
+//    containerSpec.memoryMb = 1025;
+//    containerSpec.vCores = 4;
+//
+//    LaunchSpec workerSpec = new LaunchSpec();
+//    workerSpec.env.put( "DRILL_HOME", "/Users/progers/play/apache-drill-1.5.0" );
+//    workerSpec.command = "$DRILL_HOME/bin/drillbit.sh";
+//    workerSpec.cmdArgs.add("yarn_start");
+//
+//    taskSpec = new TaskSpec();
+//    taskSpec.containerSpec = containerSpec;
+//    taskSpec.launchSpec = workerSpec;
+//    taskSpec.maxRetries = 10;
   }
 }

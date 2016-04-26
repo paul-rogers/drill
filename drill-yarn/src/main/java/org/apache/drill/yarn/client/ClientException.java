@@ -17,11 +17,16 @@
  */
 package org.apache.drill.yarn.client;
 
-public class HelpCommand extends ClientCommand
+public class ClientException extends Exception
 {
-  @Override
-  public void run() {
-    opts.usage();
+  private static final long serialVersionUID = 1L;
+
+  public ClientException(String msg) {
+    super( msg );
+  }
+
+  public ClientException(String msg, Exception e) {
+    super( msg, e );
   }
 
 }

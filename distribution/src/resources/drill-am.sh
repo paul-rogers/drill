@@ -24,8 +24,6 @@
 
 # This script is run from $DRILL_HOME/bin, wherever the user has configured it.
 
-# Preliminary version
-
 bin=`dirname "${BASH_SOURCE-$0}"`
 bin=`cd "$bin">/dev/null; pwd`
 DRILL_HOME=`cd "$bin/..">/dev/null; pwd`
@@ -39,14 +37,28 @@ echo "DRILL_HOME: $DRILL_HOME"
 echo "DRILL_CONF_DIR: $DRILL_CONF_DIR"
 echo "DRILL_LOG_DIR: $DRILL_LOG_DIR"
 
-# Start with YARN and Hadoop-provided class path
+# DRILL_AM_HEAP and DRILL_AM_JAVA_OPTS are set by the
+# Drill client via YARN. To set these, use the following
+# configuration options:
+#
+# DRILL_AM_HEAP: drill.yarn.am.heap
+# DRILL_AM_JAVA_OPTS: drill.yarn.am.vm-args
 
-CP=$CLASSPATH
+DRILL_AM_HEAP=${DRILL_AM_HEAP:-"512M"}
 
-# Add Drill conf folder at the beginning of the classpath
-CP=$CP:$DRILL_CONF_DIR
+AM_JAVA_OPTS="-Xms$DRILL_AM_HEAP -Xmx$DRILL_AM_HEAP -XX:MaxPermSize=512M $DRILL_AM_JAVA_OPTS"
+
+# Build the class path.
+# Start with Drill conf folder at the beginning of the classpath
+
+CP=$DRILL_CONF_DIR
+
+# Add YARN and Hadoop-provided class path
+
+CP=$CP:$CLASSPATH
 
 # Drill core jars
+CP=$CP:$DRILL_HOME/jars/tools/*
 CP=$CP:$DRILL_HOME/jars/*
 
 # Drill override dependency jars
@@ -60,12 +72,9 @@ CP=$CP:$DRILL_HOME/jars/classb/*
 
 JAVA=$JAVA_HOME/bin/java
 
-# DRILL_JAVA_OPTS is optional, if needed, is set in the AM launch
-# context.
-
 # Note: no need to capture output, YARN does that for us.
 # AM is launched as a child process of caller, replacing this script.
 
-echo $JAVA $DRILL_JAVA_OPTS -cp $CP org.apache.drill.yarn.appMaster.ApplicationMaster $@
-exec $JAVA $DRILL_JAVA_OPTS -cp $CP org.apache.drill.yarn.appMaster.ApplicationMaster $@
-
+env
+echo $JAVA $AM_JAVA_OPTS -cp $CP org.apache.drill.yarn.appMaster.ApplicationMaster $@
+exec $JAVA $AM_JAVA_OPTS -cp $CP org.apache.drill.yarn.appMaster.ApplicationMaster $@

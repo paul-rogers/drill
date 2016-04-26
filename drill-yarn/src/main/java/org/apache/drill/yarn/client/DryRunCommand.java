@@ -17,11 +17,13 @@
  */
 package org.apache.drill.yarn.client;
 
-public class HelpCommand extends ClientCommand
+import org.apache.drill.yarn.core.DrillOnYarnConfig;
+
+public class DryRunCommand extends ClientCommand
 {
   @Override
   public void run() {
-    opts.usage();
+    DrillOnYarnConfig.instance( ).dump( );
   }
 
 }
