@@ -15,9 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.yarn.appMaster;
+package org.apache.drill.yarn.mock;
 
-import org.apache.drill.yarn.mock.MockCommandPollable;
+import org.apache.drill.yarn.appMaster.AMWrapperException;
+import org.apache.drill.yarn.appMaster.AMYarnFacadeImpl;
+import org.apache.drill.yarn.appMaster.ContainerRequestSpec;
+import org.apache.drill.yarn.appMaster.ControllerFactory;
+import org.apache.drill.yarn.appMaster.Dispatcher;
+import org.apache.drill.yarn.appMaster.DrillbitScheduler;
+import org.apache.drill.yarn.appMaster.Scheduler;
+import org.apache.drill.yarn.appMaster.TaskSpec;
+import org.apache.drill.yarn.appMaster.YarnFacadeException;
+import org.apache.drill.yarn.core.LaunchSpec;
 import org.apache.drill.yarn.zk.ZKClusterCoordinatorDriver;
 import org.apache.drill.yarn.zk.ZKConfigException;
 import org.apache.drill.yarn.zk.ZKRegistry;
@@ -55,7 +64,22 @@ public class TestDrillbitFactory implements ControllerFactory
     AMYarnFacadeImpl yarn = new AMYarnFacadeImpl(pollPeriodMs, timerPeriodMs);
     dispatcher.setYarn(yarn);
 
-    Scheduler testGroup = new DrillbitScheduler(count);
+    ContainerRequestSpec containerSpec = new ContainerRequestSpec();
+    // containerSpec.priority = 1;
+    containerSpec.memoryMb = 1025;
+    containerSpec.vCores = 4;
+
+    LaunchSpec workerSpec = new LaunchSpec();
+    workerSpec.env.put( "DRILL_HOME", "/Users/progers/play/apache-drill-1.5.0" );
+    workerSpec.command = "$DRILL_HOME/bin/drillbit.sh";
+    workerSpec.cmdArgs.add("yarn_start");
+
+    TaskSpec taskSpec = new TaskSpec();
+    taskSpec.containerSpec = containerSpec;
+    taskSpec.launchSpec = workerSpec;
+    taskSpec.maxRetries = 10;
+
+    Scheduler testGroup = new DrillbitScheduler(taskSpec, count);
     dispatcher.getController().registerScheduler(testGroup);
 
     dispatcher.registerPollable(new MockCommandPollable(dispatcher.getController()));

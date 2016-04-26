@@ -21,11 +21,8 @@ import org.apache.drill.yarn.core.AppSpec;
 import org.apache.drill.yarn.core.YarnClientException;
 import org.apache.drill.yarn.core.YarnRMClient;
 
-public class TestCommand extends ClientCommand {
-
-  public TestCommand(CommandLineOptions opts) {
-  }
-
+public class TestCommand extends ClientCommand
+{
   @Override
   public void run() {
     AppSpec master = new AppSpec();

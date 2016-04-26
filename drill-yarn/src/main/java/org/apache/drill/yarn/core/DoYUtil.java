@@ -19,9 +19,9 @@ package org.apache.drill.yarn.core;
 
 import java.util.List;
 
-public class Util {
+public class DoYUtil {
 
-  private Util() {
+  private DoYUtil() {
   }
 
   public static String join(String separator, List<String> list) {
@@ -44,5 +44,9 @@ public class Util {
       return;
     }
     list.add(value);
+  }
+
+  public static boolean isBlank( String str ) {
+    return str == null ||  str.trim().isEmpty();
   }
 }

@@ -19,6 +19,7 @@ package org.apache.drill.yarn.appMaster;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 
@@ -51,13 +52,18 @@ public class ApplicationMaster
     Logger logger = Logger.getLogger("org.apache.drill.yarn");
     logger.setLevel(Level.TRACE);
 
-    // TODO: Parse command args
+    // Load the configuration. Assumes that the user's Drill-on-YARN
+    // configuration was archived along with the Drill software in
+    // the $DRILL_HOME/conf directory, and that $DRILL_HOME/conf is
+    // on the class-path.
+
+    DrillOnYarnConfig.load();
 
     // Dispatcher am = (new SimpleBatchFactory( )).build( );
     // Dispatcher am = (new MockDrillbitFactory( )).build( );
     Dispatcher am;
     try {
-      am = (new TestDrillbitFactory()).build();
+      am = (new DrillbitFactory()).build();
     } catch (YarnFacadeException e) {
       LOG.error("Setup failed, exiting: " + e.getMessage(), e);
       System.exit(-1);
