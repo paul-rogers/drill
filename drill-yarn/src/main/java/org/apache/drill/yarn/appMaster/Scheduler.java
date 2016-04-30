@@ -64,9 +64,9 @@ public interface Scheduler
 
   void registerState(SchedulerState state);
 
-//  void setListener(SchedulerListener listener);
-
   String getName();
+
+  String getType();
 
   /**
    * Whether tasks from this scheduler should incorporate app startup/shutdown
@@ -126,4 +126,12 @@ public interface Scheduler
    * @return
    */
   boolean isDone();
+
+  /**
+   * For reporting, get the YARN resources requested by processes in
+   * this pool.
+   * @return
+   */
+
+  ContainerRequestSpec getResource( );
 }

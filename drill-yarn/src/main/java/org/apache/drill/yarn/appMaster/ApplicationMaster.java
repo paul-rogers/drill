@@ -19,6 +19,7 @@ package org.apache.drill.yarn.appMaster;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.drill.yarn.appMaster.http.WebServer;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -69,11 +70,25 @@ public class ApplicationMaster
       System.exit(-1);
       return;
     }
+    WebServer webServer = new WebServer( am );
+    try {
+      webServer.start();
+    } catch (Exception e) {
+      LOG.error("Web server setup failed, exiting: " + e.getMessage(), e);
+      System.exit(-1);
+    }
     try {
       am.run();
     } catch (Throwable e) {
       LOG.error("Fatal error, exiting: " + e.getMessage(), e);
       System.exit(-1);
+    }
+    finally {
+      try {
+        webServer.close( );
+      } catch (Exception e) {
+        // Ignore
+      }
     }
   }
 }

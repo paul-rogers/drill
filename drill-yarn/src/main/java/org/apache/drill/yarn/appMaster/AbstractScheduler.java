@@ -17,9 +17,14 @@
  */
 package org.apache.drill.yarn.appMaster;
 
+import java.util.List;
+
+import org.apache.hadoop.yarn.api.records.Resource;
+
 public abstract class AbstractScheduler implements Scheduler
 {
   private final String name;
+  private final String type;
   protected TaskSpec taskSpec;
 //  private SchedulerListener listener;
   protected int priority;
@@ -28,7 +33,8 @@ public abstract class AbstractScheduler implements Scheduler
   protected SchedulerState state;
   protected boolean isTracked;
 
-  public AbstractScheduler(String name) {
+  public AbstractScheduler(String type, String name) {
+    this.type = type;
     this.name = name;
     taskManager = new AbstractTaskManager();
   }
@@ -51,6 +57,10 @@ public abstract class AbstractScheduler implements Scheduler
   @Override
   public String getName() { return name; }
 
+
+  @Override
+  public String getType() { return type; }
+
   @Override
   public TaskManager getTaskManager() { return taskManager; }
 
@@ -68,4 +78,10 @@ public abstract class AbstractScheduler implements Scheduler
 
   @Override
   public boolean isTracked() { return isTracked; }
+
+  @Override
+  public ContainerRequestSpec getResource() {
+    // TODO Auto-generated method stub
+    return taskSpec.containerSpec;
+  }
 }

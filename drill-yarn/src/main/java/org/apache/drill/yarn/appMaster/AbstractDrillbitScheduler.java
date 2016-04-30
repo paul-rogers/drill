@@ -20,7 +20,7 @@ package org.apache.drill.yarn.appMaster;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-public class AbstractDrillbitScheduler extends PersistentTaskScheduler
+public abstract class AbstractDrillbitScheduler extends PersistentTaskScheduler
 {
   // No way to gracefully shut down a Drillbit at present
 
@@ -123,8 +123,8 @@ public class AbstractDrillbitScheduler extends PersistentTaskScheduler
 
   private static final Log LOG = LogFactory.getLog(AbstractDrillbitScheduler.class);
 
-  public AbstractDrillbitScheduler(String name, int quantity) {
-    super(name, quantity);
+  public AbstractDrillbitScheduler(String type, String name, int quantity) {
+    super(type, name, quantity);
     isTracked = true;
     setTaskManager( new DrilbitManager( ) );
   }

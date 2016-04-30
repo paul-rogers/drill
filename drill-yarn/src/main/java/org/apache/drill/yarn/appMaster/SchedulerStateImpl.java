@@ -275,7 +275,7 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
 
   @Override
   public boolean isDone() {
-    return !hasTasks() && !controller.isLive() && scheduler.isDone();
+    return !hasTasks() && !controller.isLive() /* && scheduler.isDone() */;
   }
 
   @Override
@@ -350,5 +350,48 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
   public void cancel(Task task) {
     EventContext context = new EventContext(controller, task);
     context.getState().cancel(context);
+  }
+
+//  @Override
+//  public void getTaskModels(List<TaskModel> results) {
+//    for ( Task task : pendingTasks ) {
+//      createTaskModel( results, task  );
+//    }
+//    for ( Task task : allocatingTasks ) {
+//      createTaskModel( results, task  );
+//    }
+//    for ( Task task : activeContainers.values() ) {
+//      createTaskModel( results, task  );
+//    }
+//  }
+
+//  private void createTaskModel( List<TaskModel> results, Task task ) {
+//    TaskModel model = task.toModel();
+//    controller.decorateModel( task, model );
+//    results.add( model );
+//  }
+
+  @Override
+  public int getLiveCount() {
+    int count = 0;
+    for ( Task task : activeContainers.values() ) {
+      if ( task.isLive( ) ) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  @Override
+  public void visitTaskModels(TaskVisitor visitor) {
+    for ( Task task : pendingTasks ) {
+      visitor.visit( task );
+    }
+    for ( Task task : allocatingTasks ) {
+      visitor.visit( task );
+    }
+    for ( Task task : activeContainers.values() ) {
+      visitor.visit( task );
+    }
   }
 }

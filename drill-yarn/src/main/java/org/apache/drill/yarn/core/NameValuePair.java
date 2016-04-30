@@ -15,14 +15,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.yarn.appMaster;
+package org.apache.drill.yarn.core;
 
-public interface TaskLifecycleListener
+public class NameValuePair
 {
-  public enum Event {
-    CREATED, ALLOCATED, RUNNING, ENDED
+  private String name;
+  private Object value;
+
+  public NameValuePair(String name, Object value) {
+    this.name = name;
+    this.value = value;
   }
 
-  void stateChange( Event event, EventContext context );
-//  void decorateTaskModel( Task task, TaskModel model );
+  public String getName() {
+    return name;
+  }
+
+  public Object getValue() {
+    return value;
+  }
+
+  public String getQuotedValue( ) {
+    if ( value == null ) {
+      return "null";
+    }
+    if ( value instanceof String ) {
+      return "\"" + value + "\"";
+    }
+    return value.toString();
+  }
 }

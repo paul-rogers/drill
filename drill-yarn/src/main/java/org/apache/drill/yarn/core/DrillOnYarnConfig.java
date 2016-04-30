@@ -20,6 +20,8 @@ package org.apache.drill.yarn.core;
 import java.io.File;
 import java.io.PrintStream;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 import com.typesafe.config.Config;
@@ -41,12 +43,12 @@ public class DrillOnYarnConfig
 
   public static final String DRILL_ON_YARN_PARENT = "drill.yarn";
   public static final String DOY_CLIENT_PARENT = append( DRILL_ON_YARN_PARENT, "client" );
-  public static final String DOY_CLUSTER_PARENT = append( DRILL_ON_YARN_PARENT, "cluster" );
   public static final String DOY_AM_PARENT = append( DRILL_ON_YARN_PARENT, "am" );
   public static final String DOY_DRILLBIT_PARENT = append( DRILL_ON_YARN_PARENT, "drillbit" );
   public static final String DOY_ZK_PARENT = append( DRILL_ON_YARN_PARENT, "zk" );
   public static final String FILES_PARENT = append( DRILL_ON_YARN_PARENT, "drill-install" );
   public static final String DFS_PARENT = append( DRILL_ON_YARN_PARENT, "dfs" );
+  public static final String HTTP_PARENT = append( DRILL_ON_YARN_PARENT, "http" );
 
   public static final String APP_NAME = append( DRILL_ON_YARN_PARENT, "app-name" );
   public static final String CLUSTER_ID = append( DRILL_ON_YARN_PARENT, "cluster-id" );
@@ -76,6 +78,8 @@ public class DrillOnYarnConfig
   public static final String AM_VM_ARGS = append( DOY_AM_PARENT, VM_ARGS_KEY );
   public static final String AM_POLL_PERIOD_MS = append( DOY_AM_PARENT, "poll-ms" );
   public static final String AM_TICK_PERIOD_MS = append( DOY_AM_PARENT, "tick-ms" );
+  public static final String AM_CLASSPATH = append( DOY_AM_PARENT, "class-path" );
+  public static final String AM_DEBUG_LAUNCH = append( DOY_AM_PARENT, "debug-launch" );
 
   public static final String DRILLBIT_MEMORY = append( DOY_DRILLBIT_PARENT, MEMORY_KEY );
   public static final String DRILLBIT_VCORES = append( DOY_DRILLBIT_PARENT, VCORES_KEY );
@@ -85,6 +89,9 @@ public class DrillOnYarnConfig
   public static final String DRILLBIT_LOG_GC = append( DOY_DRILLBIT_PARENT, "log-gc" );
   public static final String DRILLBIT_NICENESS = append( DOY_DRILLBIT_PARENT, "nice" );
   public static final String DRILLBIT_CLASSPATH = append( DOY_DRILLBIT_PARENT, "class-path" );
+  public static final String DRILLBIT_MAX_RETRIES = append( DOY_DRILLBIT_PARENT, "max-retries" );
+  public static final String DRILLBIT_DEBUG_LAUNCH = append( DOY_DRILLBIT_PARENT, "debug-launch" );
+  public static final String DRILLBIT_HTTP_PORT = append( DOY_DRILLBIT_PARENT, "http-port" );
 
   public static final String ZK_CONNECT = append( DOY_ZK_PARENT, "connect" );
   public static final String ZK_ROOT = append( DOY_ZK_PARENT, "root" );
@@ -92,7 +99,12 @@ public class DrillOnYarnConfig
   public static final String ZK_RETRY_COUNT = append( DOY_ZK_PARENT, "retry.count" );
   public static final String ZK_RETRY_DELAY_MS = append( DOY_ZK_PARENT, "retry.delay" );
 
-  public static final String CLUSTER_POOLS = append( DOY_CLUSTER_PARENT, "pools" );
+  // Names selected to be parallel to Drillbit HTTP config.
+
+  public static final String HTTP_ENABLED = append( HTTP_PARENT, "enabled" );
+  public static final String HTTP_PORT = append( HTTP_PARENT, "port" );
+
+  public static final String CLUSTER_POOLS = append( DRILL_ON_YARN_PARENT, "pools" );
 
   // The following keys are relative to the cluster pool definition
 
@@ -135,6 +147,13 @@ public class DrillOnYarnConfig
     public String name;
     public int count;
     public PoolType type;
+
+    public void getPairs(int index, List<NameValuePair> pairs) {
+      String key = append( CLUSTER_POOLS, Integer.toString( index ) );
+      pairs.add( new NameValuePair( append( key, POOL_NAME ), name ) );
+      pairs.add( new NameValuePair( append( key, POOL_TYPE ), type ) );
+      pairs.add( new NameValuePair( append( key, POOL_SIZE ), count ) );
+    }
   }
 
   public static class BasicPool extends Pool
@@ -215,6 +234,8 @@ public class DrillOnYarnConfig
     AM_HEAP,
     AM_POLL_PERIOD_MS,
     AM_TICK_PERIOD_MS,
+    AM_CLASSPATH,
+    AM_DEBUG_LAUNCH,
     ZK_CONNECT,
     ZK_ROOT,
     ZK_RETRY_COUNT,
@@ -225,7 +246,12 @@ public class DrillOnYarnConfig
     DRILLBIT_VM_ARGS,
     DRILLBIT_HEAP,
     DRILLBIT_DIRECT_MEM,
-    DRILLBIT_CLASSPATH
+    DRILLBIT_CLASSPATH,
+    DRILLBIT_MAX_RETRIES,
+    DRILLBIT_DEBUG_LAUNCH,
+    DRILLBIT_HTTP_PORT,
+    HTTP_ENABLED,
+    HTTP_PORT
   };
 
   private void dump(PrintStream out) {
@@ -254,6 +280,18 @@ public class DrillOnYarnConfig
       out.println( "  }" );
     }
     out.println( "]" );
+  }
+
+  public List<NameValuePair> getPairs( ) {
+    List<NameValuePair> pairs = new ArrayList<>( );
+    for ( String key : keys ) {
+      pairs.add( new NameValuePair( key, config.getString( key ) ) );
+    }
+    for ( int i = 0;  i < poolCount( );  i++ ) {
+      Pool pool = getPool( i );
+      pool.getPairs( i, pairs );
+    }
+    return pairs;
   }
 
   public static String poolKey( int index, String key ) {
@@ -326,6 +364,9 @@ public class DrillOnYarnConfig
       throw new IllegalArgumentException( "Expected an integer for " + POOL_SIZE + " for pool " + n );
     }
     poolDef.name = pool.get( POOL_NAME ).toString();
+    if ( DoYUtil.isBlank( poolDef.name ) ) {
+      poolDef.name = "pool-" + Integer.toString( n + 1 );
+    }
     return poolDef;
   }
 }

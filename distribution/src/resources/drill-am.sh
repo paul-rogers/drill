@@ -31,11 +31,11 @@ DRILL_HOME=`cd "$bin/..">/dev/null; pwd`
 # TODO: Change to use site dir when available.
 
 DRILL_CONF_DIR=${DRILL_CONF_DIR:-$DRILL_HOME/conf}
-DRILL_LOG_DIR=${DRILL_LOG_DIR:-$LOG_DIRS}
 
-echo "DRILL_HOME: $DRILL_HOME"
-echo "DRILL_CONF_DIR: $DRILL_CONF_DIR"
-echo "DRILL_LOG_DIR: $DRILL_LOG_DIR"
+if [ -n "$DRILL_DEBUG" ]; then
+  echo "DRILL_HOME: $DRILL_HOME"
+  echo "DRILL_CONF_DIR: $DRILL_CONF_DIR"
+fi
 
 # DRILL_AM_HEAP and DRILL_AM_JAVA_OPTS are set by the
 # Drill client via YARN. To set these, use the following
@@ -53,13 +53,17 @@ AM_JAVA_OPTS="-Xms$DRILL_AM_HEAP -Xmx$DRILL_AM_HEAP -XX:MaxPermSize=512M $DRILL_
 
 CP=$DRILL_CONF_DIR
 
-# Add YARN and Hadoop-provided class path
-
-CP=$CP:$CLASSPATH
-
 # Drill core jars
 CP=$CP:$DRILL_HOME/jars/tools/*
 CP=$CP:$DRILL_HOME/jars/*
+
+# We do not use Hadoop's class path; it has dependencies which conflict
+# with Drill. Instead, we use Drill's copies of the required Hadoop jars.
+#CP=$CP:$CLASSPATH
+
+# Do add Hadoop configuration and YARN jars directly,
+# using the YARN-provided HADOOP_CONF_DIR and HADOOP_YARN_HOME.
+CP=$CP:$HADOOP_CONF_DIR:$HADOOP_YARN_HOME/share/hadoop/yarn/*
 
 # Drill override dependency jars
 CP=$CP:$DRILL_HOME/jars/ext/*
@@ -75,6 +79,9 @@ JAVA=$JAVA_HOME/bin/java
 # Note: no need to capture output, YARN does that for us.
 # AM is launched as a child process of caller, replacing this script.
 
-env
-echo $JAVA $AM_JAVA_OPTS -cp $CP org.apache.drill.yarn.appMaster.ApplicationMaster $@
+if [ -n "$DRILL_DEBUG" ]; then
+  echo "AM launch environment:"
+  env
+  echo $JAVA $AM_JAVA_OPTS -cp $CP org.apache.drill.yarn.appMaster.ApplicationMaster $@
+fi
 exec $JAVA $AM_JAVA_OPTS -cp $CP org.apache.drill.yarn.appMaster.ApplicationMaster $@

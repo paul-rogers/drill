@@ -51,6 +51,9 @@ public class Client
       case START:
         cmd = new StartCommand( true, true );
         break;
+      case RESTART:
+        cmd = new StartCommand( false, true );
+        break;
       case DRY_RUN:
         cmd = new DryRunCommand( );
         break;

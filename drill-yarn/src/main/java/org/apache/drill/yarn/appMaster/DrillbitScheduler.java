@@ -19,23 +19,8 @@ package org.apache.drill.yarn.appMaster;
 
 public class DrillbitScheduler extends AbstractDrillbitScheduler
 {
-  public DrillbitScheduler(TaskSpec taskSpec, int quantity) {
-    super("Basic-Drillbit", quantity);
+  public DrillbitScheduler(String name, TaskSpec taskSpec, int quantity) {
+    super("basic", name, quantity);
     this.taskSpec = taskSpec;
-
-//    ContainerRequestSpec containerSpec = new ContainerRequestSpec();
-//    // containerSpec.priority = 1;
-//    containerSpec.memoryMb = 1025;
-//    containerSpec.vCores = 4;
-//
-//    LaunchSpec workerSpec = new LaunchSpec();
-//    workerSpec.env.put( "DRILL_HOME", "/Users/progers/play/apache-drill-1.5.0" );
-//    workerSpec.command = "$DRILL_HOME/bin/drillbit.sh";
-//    workerSpec.cmdArgs.add("yarn_start");
-//
-//    taskSpec = new TaskSpec();
-//    taskSpec.containerSpec = containerSpec;
-//    taskSpec.launchSpec = workerSpec;
-//    taskSpec.maxRetries = 10;
   }
 }

@@ -17,12 +17,7 @@
  */
 package org.apache.drill.yarn.appMaster;
 
-public interface TaskLifecycleListener
+public interface TaskVisitor
 {
-  public enum Event {
-    CREATED, ALLOCATED, RUNNING, ENDED
-  }
-
-  void stateChange( Event event, EventContext context );
-//  void decorateTaskModel( Task task, TaskModel model );
+  void visit( Task task );
 }

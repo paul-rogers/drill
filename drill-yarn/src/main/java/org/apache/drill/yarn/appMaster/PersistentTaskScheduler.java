@@ -36,8 +36,8 @@ public abstract class PersistentTaskScheduler extends AbstractScheduler
 {
   protected int quantity;
 
-  public PersistentTaskScheduler(String name, int quantity) {
-    super(name);
+  public PersistentTaskScheduler(String type, String name, int quantity) {
+    super(type, name);
     this.quantity = quantity;
   }
 

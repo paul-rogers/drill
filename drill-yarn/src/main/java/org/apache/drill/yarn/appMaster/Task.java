@@ -17,6 +17,9 @@
  */
 package org.apache.drill.yarn.appMaster;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.drill.yarn.core.LaunchSpec;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
@@ -41,7 +44,6 @@ public class Task
    * events may be slightly out of sync with YARN events.
    */
 
-
   public enum TrackingState
   {
     UNTRACKED, NEW, START_ACK, END_ACK
@@ -51,6 +53,8 @@ public class Task
   {
     CANCELLED, LAUNCH_FAILED, RUN_FAILED, COMPLETED, TOO_MANY_RETRIES
   }
+
+  public static final long MAX_CANCELLATION_TIME = 10_000;
 
   private static int taskCounter = 0;
 
@@ -122,6 +126,10 @@ public class Task
   public long stateStartTime;
   public long completionTime;
 
+  long cancellationTime;
+
+  public Map<String,Object> properties = new HashMap<>( );
+
   public Task(Scheduler scheduler, TaskSpec taskSpec) {
     taskId = ++taskCounter;
     this.scheduler = scheduler;
@@ -180,6 +188,7 @@ public class Task
     completionStatus = null;
     launchTime = 0;
     completionTime = 0;
+    cancellationTime = 0;
     resetTrackingState();
   }
 
@@ -194,6 +203,10 @@ public class Task
     if ( container == null ) {
       return null; }
     return container.getNodeId().getHost();
+  }
+
+  public TrackingState getTrackingState( ) {
+    return trackingState;
   }
 
   @Override
@@ -211,5 +224,14 @@ public class Task
        .append( state.toString() )
        .append( "]" );
     return buf.toString();
+  }
+
+  public boolean isLive() {
+    return state == TaskState.RUNNING  &&  ! cancelled;
+  }
+
+  public void cancel() {
+    cancelled = true;
+    cancellationTime = System.currentTimeMillis();
   }
 }

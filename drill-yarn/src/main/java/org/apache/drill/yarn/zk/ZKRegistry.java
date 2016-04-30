@@ -32,6 +32,7 @@ import org.apache.drill.yarn.appMaster.EventContext;
 import org.apache.drill.yarn.appMaster.Pollable;
 import org.apache.drill.yarn.appMaster.Task;
 import org.apache.drill.yarn.appMaster.TaskLifecycleListener;
+import org.apache.hadoop.yarn.api.records.Container;
 
 public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener,
                                    Pollable, DispatcherAddOn
@@ -42,9 +43,11 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
       UNMANAGED, NEW, REGISTERED, DEREGISTERED
     }
 
+    @SuppressWarnings("unused")
     final String key;
     State state;
     Task task;
+    DrillbitEndpoint endpoint;
 
     public DrillbitTracker(String key) {
       this.key = key;
@@ -61,6 +64,8 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
   // TODO: longer for production
 
   public static final int UPDATE_PERIOD_MS = 20_000;
+
+  public static final String ENDPOINT_PROPERTY = "endpoint";
 
   private static final Log LOG = LogFactory.getLog(ZKRegistry.class);
   public Map<String,DrillbitTracker> registry = new HashMap<>( );
@@ -125,8 +130,13 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
    */
 
   private String toKey(Task task) {
+    return toKey( task.getContainer() );
+  }
+
+  private String toKey( Container container )
+  {
     StringBuilder buf = new StringBuilder( );
-    buf.append( task.getContainer().getNodeId().getHost() )
+    buf.append( container.getNodeId().getHost() )
        .append( ":" )
        .append( userPort )
        .append(':')
@@ -168,6 +178,8 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
 
     assert tracker.state == DrillbitTracker.State.NEW;
     assert tracker.task != null;
+    assert tracker.endpoint == null;
+    tracker.endpoint = dbe;
     becomeRegistered( tracker );
   }
 
@@ -224,6 +236,7 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
 
     assert tracker.state == DrillbitTracker.State.REGISTERED;
     tracker.state = DrillbitTracker.State.DEREGISTERED;
+    tracker.task.properties.remove( ENDPOINT_PROPERTY );
     EventContext context = new EventContext( controller );
     context.setTask( tracker.task );
     context.getState().completionAck( context );
@@ -243,7 +256,9 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
 //      taskStarted( task );
 //      break;
     case ENDED:
-      taskEnded( context.task );
+      if ( context.task.getTrackingState() == Task.TrackingState.END_ACK ) {
+        taskEnded( context.task );
+      }
       break;
     default:
       break;
@@ -295,6 +310,7 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
 
   private void becomeRegistered(DrillbitTracker tracker) {
     tracker.state = DrillbitTracker.State.REGISTERED;
+    tracker.task.properties.put( ENDPOINT_PROPERTY, tracker.endpoint );
     EventContext context = new EventContext( controller );
     context.setTask( tracker.task );
     context.getState().startAck( context );
@@ -344,4 +360,16 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
     zkDriver.close();
   }
 
+//  @Override
+//  public void decorateTaskModel(Task task, TaskModel model) {
+////    for ( TaskModel model : models ) {
+////      if ( model.container == null ) {
+////        continue; }
+////      String key = toKey( model.container );
+////      DrillbitTracker tracker = registry.get(key);
+////      if ( tracker != null ) {
+////        model.endpoint = tracker.endpoint;
+//      model.endpoint = (DrillbitEndpoint) task.properties.get( ZKRegistry.ENDPOINT_PROPERTY );
+////    }
+//  }
 }
