@@ -130,8 +130,28 @@ public interface ClusterController
 
   void reserveHost(String hostName);
   void releaseHost(String hostName);
-//
-//  Set<String> getBlacklist();
 
   void updateRMStatus();
+
+//  /**
+//   * Return a copy of the current tasks. Creates the copy in
+//   * a synchronized method, allowing display of the copy
+//   * in non-synchronized code.
+//   * @return
+//   */
+//  List<TaskModel> getTaskModels( );
+
+  void setMaxRetries(int value);
+
+  /**
+   * Allow an observer to see a consistent view of the controller's
+   * state by performing the visit in a synchronized block.
+   * @param visitor
+   */
+
+  void visit( ControllerVisitor visitor );
+
+  void visitTasks( TaskVisitor visitor );
+
+  int getTargetCount();
 }

@@ -15,14 +15,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.yarn.appMaster;
+package org.apache.drill.yarn.appMaster.http;
 
-public interface TaskLifecycleListener
+import java.io.IOException;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+public class WebTest
 {
-  public enum Event {
-    CREATED, ALLOCATED, RUNNING, ENDED
+  @SuppressWarnings("serial")
+  public static class HelloServlet extends HttpServlet
+  {
+      @Override
+      protected void doGet( HttpServletRequest request,
+                            HttpServletResponse response ) throws ServletException,
+                                                          IOException
+      {
+          response.setContentType("text/html");
+          response.setStatus(HttpServletResponse.SC_OK);
+          response.getWriter().println("<html><body><h1>Hello from HelloServlet</h1></body></html>");
+      }
   }
 
-  void stateChange( Event event, EventContext context );
-//  void decorateTaskModel( Task task, TaskModel model );
 }

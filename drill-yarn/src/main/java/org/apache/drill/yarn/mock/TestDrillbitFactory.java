@@ -79,7 +79,7 @@ public class TestDrillbitFactory implements ControllerFactory
     taskSpec.launchSpec = workerSpec;
     taskSpec.maxRetries = 10;
 
-    Scheduler testGroup = new DrillbitScheduler(taskSpec, count);
+    Scheduler testGroup = new DrillbitScheduler("Basic-Drillbit", taskSpec, count);
     dispatcher.getController().registerScheduler(testGroup);
 
     dispatcher.registerPollable(new MockCommandPollable(dispatcher.getController()));

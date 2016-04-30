@@ -20,6 +20,11 @@
 # runbit, modified for use in YARN and performing a single operation:
 # launching a Drillbit and waiting for Drillbit exit.
 
+if [ -n "$DRILL_DEBUG" ]; then
+  echo "Drillbit Environment from YARN:"
+  env
+fi
+
 # DRILL_HOME is set by the AM to point to the Drill distribution.
 
 # In YARN, configuration files must be in the standard location.
@@ -39,11 +44,11 @@ JAVA=$JAVA_HOME/bin/java
 DRILL_MAX_DIRECT_MEMORY=${DRILL_MAX_DIRECT_MEMORY:-"8G"}
 DRILL_HEAP=${DRILL_HEAP:-"4G"}
 
-# JVM options set here are seledom (if every) customized per-site.
+# JVM options set here are seldom (if every) customized per-site.
 # If we find a need to customize any of these, we should add an
 # additional Drill-on-YARN configuration variable for that item.
 
-DRILL_JAVA_OPTS="-Xms$DRILL_HEAP -Xmx$DRILL_HEAP -XX:MaxDirectMemorySize=$DRILL_MAX_DIRECT_MEMORY -XX:MaxPermSize=512M -XX:ReservedCodeCacheSize=1G -Ddrill.exec.enable-epoll=true"
+JVM_OPTS="-Xms$DRILL_HEAP -Xmx$DRILL_HEAP -XX:MaxDirectMemorySize=$DRILL_MAX_DIRECT_MEMORY -XX:MaxPermSize=512M -XX:ReservedCodeCacheSize=1G -Ddrill.exec.enable-epoll=true"
 
 # Class unloading is disabled by default in Java 7
 # http://hg.openjdk.java.net/jdk7u/jdk7u60/hotspot/file/tip/src/share/vm/runtime/globals.hpp#l1622
@@ -61,20 +66,23 @@ CP=$CP:$DRILL_HOME/jars/*
 # Followed by Drill override dependency jars
 CP=$CP:$DRILL_HOME/jars/ext/*
 
-# Followed by Hadoop's classpath as provided by YARN.
-
-CP=$CP:$CLASSPATH
-
-# Followed by HBase's jar (or similar JARS defined in the Drill-on-YARN config.)
+# Followed by jars defined in the Drill-on-YARN config.)
 if [ -n "$DRILL_CLASSPATH" ]; then
   CP=$CP:$DRILL_CLASSPATH
 fi
 
 # Followed by Drill's other dependency jars
+# Note that Hadoop jars are included in 3rdpaty; we use these to
+# avoid potential conflicts with the YARN-provided jars, but it means
+# that the Drill version must be built with the correct Hadoop version.
+
 CP=$CP:$DRILL_HOME/jars/3rdparty/*
 CP=$CP:$DRILL_HOME/jars/classb/*
 
 # Log setup
+# In "native" Drill, stdout goes to a Drill log file.
+# Under YARN, the script that launched this one already captures
+# output to YARN's own logs, so we don't do our own capture here.
 
 DRILL_LOG_PREFIX=drillbit
 DRILL_LOGFILE=$DRILL_LOG_PREFIX.log
@@ -91,41 +99,34 @@ DRILLBIT_QUERY_LOG_PATH=$logqueries
 # gets a new log directory.
 
 # Set default scheduling priority
-if [ "$DRILL_NICENESS" = "" ]; then
-    export DRILL_NICENESS=0
-fi
-
-# The next message goes to YARN's container log file
-
-echo starting drillbit, logging to $logout
-
-# This message, and Drill messages, go to Drill's log file
-
-echo "`date` Starting drillbit on `hostname` under YARN" >> $loglog
+DRILL_NICENESS=${DRILL_NICENESS:-$YARN_NICENESS}
 
 echo "`ulimit -a`" >> $loglog 2>&1
 logopts="-Dlog.path=$DRILLBIT_LOG_PATH -Dlog.query.path=$DRILLBIT_QUERY_LOG_PATH"
 if [ -n "$DRILL_LOG_GC" ]; then
 	logopts="$logopts -Xloggc:${loggc}"
 fi
-jvmopts="$DRILL_JAVA_OPTS $SERVER_GC_OPTS $logopts"
-bitcmd=$JAVA $jvmopts -cp $CP org.apache.drill.exec.server.Drillbit
+JVM_OPTS="$JVM_OPTS $SERVER_GC_OPTS $logopts $DRILL_JAVA_OPTS"
+export BITCMD="$JAVA $JVM_OPTS -cp $CP org.apache.drill.exec.server.Drillbit"
 
 # Debugging information
 
-echo "Command: $bitcmd"
-echo "Environment:"
-env
+if [ -n "$DRILL_DEBUG" ]; then
+  echo "Command: nice -n $DRILL_NICENESS $BITCMD"
+  echo "Local Environment:"
+  set
+fi
 
 # Launch Drill itself
 
-nice -n $DRILL_NICENESS $bitcmd >> "$logout" 2>&1 &
+echo "`date` Starting drillbit on `hostname` under YARN, logging to $logout"
+
+nice -n $DRILL_NICENESS $BITCMD >> "$logout" 2>&1 &
 bitpid=$!
 wait $bitpid
 retcode=$?
 
-# Log to Drill and YARN logs
-echo "`date` drillbit on `hostname` pid $bitpid exited with status $retcode" >> $loglog
+#echo "`date` drillbit on `hostname` pid $bitpid exited with status $retcode" >> $loglog
 echo "`date` drillbit on `hostname` pid $bitpid exited with status $retcode"
 
 # Pass along Drill's exit code as our own.

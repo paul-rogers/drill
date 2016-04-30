@@ -23,7 +23,7 @@ public class BatchScheduler extends AbstractScheduler
   private int completedCount;
 
   public BatchScheduler(String name, int quantity) {
-    super(name);
+    super("batch", name);
     this.quantity = quantity;
   }
 
@@ -73,5 +73,4 @@ public class BatchScheduler extends AbstractScheduler
   public boolean isDone() {
     return completedCount >= quantity;
   }
-
 }

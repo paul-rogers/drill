@@ -24,14 +24,9 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import com.google.common.collect.Lists;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -47,8 +42,6 @@ import org.apache.curator.x.discovery.ServiceDiscoveryBuilder;
 import org.apache.curator.x.discovery.ServiceInstance;
 import org.apache.curator.x.discovery.details.ServiceCacheListener;
 import org.apache.drill.common.AutoCloseables;
-import org.apache.drill.common.config.DrillConfig;
-import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.coord.ClusterCoordinator;
 import org.apache.drill.exec.coord.DistributedSemaphore;
 import org.apache.drill.exec.coord.DrillServiceInstanceHelper;
@@ -61,7 +54,6 @@ import org.apache.drill.exec.coord.zk.ZkDistributedSemaphore;
 import org.apache.drill.exec.coord.zk.ZkEphemeralStore;
 import org.apache.drill.exec.coord.zk.ZkTransientStoreFactory;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
-import org.apache.drill.yarn.appMaster.ClusterControllerImpl;
 
 import com.google.common.base.Function;
 
@@ -169,7 +161,7 @@ public class ZKClusterCoordinator extends ClusterCoordinator {
   }
 
   @Override
-public void close() throws Exception {
+  public void close() throws Exception {
     // discovery attempts to close its caches(ie serviceCache) already. however, being good citizens we make sure to
     // explicitly close serviceCache. Not only that we make sure to close serviceCache before discovery to prevent
     // double releasing and disallowing jvm to spit bothering warnings. simply put, we are great!

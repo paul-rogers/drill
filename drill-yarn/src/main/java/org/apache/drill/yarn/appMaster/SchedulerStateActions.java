@@ -87,4 +87,8 @@ public interface SchedulerStateActions
   boolean isDone();
 
   int getTaskCount( );
+
+  int getLiveCount();
+
+  void visitTaskModels( TaskVisitor visitor );
 }

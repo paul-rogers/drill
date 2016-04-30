@@ -191,7 +191,6 @@ public class Dispatcher
   }
 
   public void run() throws YarnFacadeException {
-    LOG.trace("Starting");
     setup();
     LOG.trace("Running");
     boolean success = controller.waitForCompletion();
@@ -200,7 +199,9 @@ public class Dispatcher
   }
 
   private void setup() throws YarnFacadeException {
+    LOG.trace("Starting YARN agent");
     yarn.start(new ResourceCallback(), new NodeCallback(), new TimerCallback());
+    LOG.trace("Registering YARN application");
     yarn.register();
     controller.started();
 
@@ -214,6 +215,7 @@ public class Dispatcher
       addOn.finish(controller);
     }
 
+    LOG.trace("Shutting down YARN agent");
     yarn.finish(success);
   }
 }

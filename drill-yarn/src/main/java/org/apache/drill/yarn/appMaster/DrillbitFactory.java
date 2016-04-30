@@ -18,6 +18,7 @@
 package org.apache.drill.yarn.appMaster;
 
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
+import org.apache.drill.yarn.core.DrillOnYarnConfig.Pool;
 import org.apache.drill.yarn.core.LaunchSpec;
 import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.mock.MockCommandPollable;
@@ -33,20 +34,21 @@ public class DrillbitFactory implements ControllerFactory
   public Dispatcher build() throws YarnFacadeException {
 
     Config config = DrillOnYarnConfig.config();
-    int pollPeriodMs = config.getInt( DrillOnYarnConfig.AM_POLL_PERIOD_MS );
-    int timerPeriodMs = config.getInt( DrillOnYarnConfig.AM_TICK_PERIOD_MS );
 
     TaskSpec taskSpec = buildDrillTaskSpec( config );
 
     // Prepare dispatcher
 
     Dispatcher dispatcher = new Dispatcher();
+    int pollPeriodMs = config.getInt( DrillOnYarnConfig.AM_POLL_PERIOD_MS );
+    int timerPeriodMs = config.getInt( DrillOnYarnConfig.AM_TICK_PERIOD_MS );
     AMYarnFacadeImpl yarn = new AMYarnFacadeImpl(pollPeriodMs, timerPeriodMs);
     dispatcher.setYarn(yarn);
+    dispatcher.getController().setMaxRetries( config.getInt( DrillOnYarnConfig.DRILLBIT_MAX_RETRIES ) );
 
     // Assume basic scheduler for now.
-    int count = config.getInt( DrillOnYarnConfig.poolKey( 0, DrillOnYarnConfig.POOL_SIZE ) );
-    Scheduler testGroup = new DrillbitScheduler(taskSpec, count);
+    Pool pool = DrillOnYarnConfig.instance().getPool( 0 );
+    Scheduler testGroup = new DrillbitScheduler(pool.name, taskSpec, pool.count);
     dispatcher.getController().registerScheduler(testGroup);
 
     // Dummy API for now.
@@ -73,9 +75,9 @@ public class DrillbitFactory implements ControllerFactory
     workerSpec.command = home + "/bin/yarn-drillbit.sh";
 
     workerSpec.env.put( "DRILL_HOME", home );
-    String value = config.getString( DrillOnYarnConfig.AM_VM_ARGS );
+    String value = config.getString( DrillOnYarnConfig.DRILLBIT_VM_ARGS );
     if ( ! DoYUtil.isBlank( value ) ) {
-      workerSpec.env.put( "DRILL_AM_JAVA_OPTS", value );
+      workerSpec.env.put( "DRILL_JAVA_OPTS", value );
     }
     workerSpec.env.put( "DRILL_HEAP", config.getString( DrillOnYarnConfig.DRILLBIT_HEAP ) );
     workerSpec.env.put( "DRILL_MAX_DIRECT_MEMORY", config.getString( DrillOnYarnConfig.DRILLBIT_DIRECT_MEM ) );
@@ -87,11 +89,14 @@ public class DrillbitFactory implements ControllerFactory
     if ( ! DoYUtil.isBlank( value ) ) {
       workerSpec.env.put( "DRILL_CLASSPATH", value );
     }
+    if ( config.getBoolean( DrillOnYarnConfig.DRILLBIT_DEBUG_LAUNCH ) ) {
+      workerSpec.env.put( "DRILL_DEBUG", "1" );
+    }
 
     TaskSpec taskSpec = new TaskSpec();
     taskSpec.containerSpec = containerSpec;
     taskSpec.launchSpec = workerSpec;
-    taskSpec.maxRetries = 10;
+    taskSpec.maxRetries = config.getInt( DrillOnYarnConfig.DRILLBIT_MAX_RETRIES );
     return taskSpec;
   }
 

@@ -198,6 +198,13 @@ public class StartCommand extends ClientCommand
       master.env.put( "DRILL_AM_JAVA_OPTS", value );
     }
     master.env.put( "DRILL_AM_HEAP", config.getString( DrillOnYarnConfig.AM_HEAP ) );
+    if ( config.getBoolean( DrillOnYarnConfig.AM_DEBUG_LAUNCH ) ) {
+      master.env.put( "DRILL_DEBUG", "1" );
+    }
+    value = config.getString( DrillOnYarnConfig.AM_CLASSPATH );
+    if ( ! DoYUtil.isBlank( value ) ) {
+      master.env.put( "DRILL_CLASSPATH", value );
+    }
 
     String home = DrillOnYarnConfig.getDrillHome( config );
     master.command = home +  "/bin/" + "drill-am.sh";
