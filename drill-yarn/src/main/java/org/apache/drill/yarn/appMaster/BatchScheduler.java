@@ -70,7 +70,7 @@ public class BatchScheduler extends AbstractScheduler
   }
 
   @Override
-  public boolean isDone() {
-    return completedCount >= quantity;
+  public boolean hasMoreTasks() {
+    return completedCount < quantity;
   }
 }

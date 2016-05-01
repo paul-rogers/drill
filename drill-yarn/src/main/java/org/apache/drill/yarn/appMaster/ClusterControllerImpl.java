@@ -265,11 +265,14 @@ public class ClusterControllerImpl implements ClusterController
 
   @Override
   public synchronized void containerStopped(ContainerId containerId) {
-    Task task = getTask(containerId);
-    if (task == null) {
-      return; }
-    EventContext context = new EventContext(this, task);
-    context.getState().containerStopped(context);
+    // Ignored because the node manager notification is very
+    // unreliable. Better to rely on the Resource Manager
+    // completion request.
+//    Task task = getTask(containerId);
+//    if (task == null) {
+//      return; }
+//    EventContext context = new EventContext(this, task);
+//    context.getState().containerStopped(context);
   }
 
   @Override
@@ -377,6 +380,8 @@ public class ClusterControllerImpl implements ClusterController
    */
 
   private void checkStatus() {
+    if ( isLive( ) ) {
+      return; }
     for (SchedulerStateActions group : prioritizedPools) {
       if (!group.isDone()) {
         return; }

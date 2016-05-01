@@ -53,6 +53,8 @@ public class ApplicationMaster
     Logger logger = Logger.getLogger("org.apache.drill.yarn");
     logger.setLevel(Level.TRACE);
 
+    LOG.trace( "Drill Application Master starting." );
+
     // Load the configuration. Assumes that the user's Drill-on-YARN
     // configuration was archived along with the Drill software in
     // the $DRILL_HOME/conf directory, and that $DRILL_HOME/conf is

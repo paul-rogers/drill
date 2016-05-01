@@ -84,7 +84,6 @@ public class DrillbitFactory implements ControllerFactory
     if ( config.getBoolean( DrillOnYarnConfig.DRILLBIT_LOG_GC ) ) {
       workerSpec.env.put( "DRILL_LOG_GC", "1" );
     }
-    workerSpec.env.put( "DRILLBIT_NICENESS", config.getString( DrillOnYarnConfig.DRILLBIT_NICENESS ) );
     value = config.getString( DrillOnYarnConfig.DRILLBIT_CLASSPATH );
     if ( ! DoYUtil.isBlank( value ) ) {
       workerSpec.env.put( "DRILL_CLASSPATH", value );

@@ -15,4 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/**
+ * Implements the Drill Application Master for YARN.
+ * <p>
+ * Note that AM implementation classes use org.apache.commons.logging
+ * to be consistent with the logging used within YARN itself.
+ */
+
 package org.apache.drill.yarn.appMaster;

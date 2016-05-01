@@ -21,8 +21,11 @@
 # launching a Drillbit and waiting for Drillbit exit.
 
 if [ -n "$DRILL_DEBUG" ]; then
+  echo
   echo "Drillbit Environment from YARN:"
+  echo "-----------------------------------"
   env
+  echo "-----------------------------------"
 fi
 
 # DRILL_HOME is set by the AM to point to the Drill distribution.
@@ -98,9 +101,6 @@ DRILLBIT_QUERY_LOG_PATH=$logqueries
 # Note: no log rotation because each run under YARN
 # gets a new log directory.
 
-# Set default scheduling priority
-DRILL_NICENESS=${DRILL_NICENESS:-$YARN_NICENESS}
-
 echo "`ulimit -a`" >> $loglog 2>&1
 logopts="-Dlog.path=$DRILLBIT_LOG_PATH -Dlog.query.path=$DRILLBIT_QUERY_LOG_PATH"
 if [ -n "$DRILL_LOG_GC" ]; then
@@ -112,23 +112,27 @@ export BITCMD="$JAVA $JVM_OPTS -cp $CP org.apache.drill.exec.server.Drillbit"
 # Debugging information
 
 if [ -n "$DRILL_DEBUG" ]; then
-  echo "Command: nice -n $DRILL_NICENESS $BITCMD"
+  echo "Command: $BITCMD"
+  echo
   echo "Local Environment:"
+  echo "-----------------------------------"
   set
+  echo "-----------------------------------"
+  echo "Script pid: $$"
 fi
 
-# Launch Drill itself
+# Launch Drill using the same pid as this script.
+# This configuration is necessary so that when the node manager
+# kills this process, it kills the drillbit itself.
 
 echo "`date` Starting drillbit on `hostname` under YARN, logging to $logout"
 
-nice -n $DRILL_NICENESS $BITCMD >> "$logout" 2>&1 &
-bitpid=$!
-wait $bitpid
-retcode=$?
+exec $BITCMD
+#retcode=$?
 
 #echo "`date` drillbit on `hostname` pid $bitpid exited with status $retcode" >> $loglog
-echo "`date` drillbit on `hostname` pid $bitpid exited with status $retcode"
+#echo "`date` drillbit on `hostname` pid $bitpid exited with status $retcode"
 
 # Pass along Drill's exit code as our own.
  
-exit $retcode
+#exit $retcode
