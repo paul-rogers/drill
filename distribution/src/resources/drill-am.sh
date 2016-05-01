@@ -33,6 +33,8 @@ DRILL_HOME=`cd "$bin/..">/dev/null; pwd`
 DRILL_CONF_DIR=${DRILL_CONF_DIR:-$DRILL_HOME/conf}
 
 if [ -n "$DRILL_DEBUG" ]; then
+  echo
+  echo "Drill AM launch script"
   echo "DRILL_HOME: $DRILL_HOME"
   echo "DRILL_CONF_DIR: $DRILL_CONF_DIR"
 fi
@@ -81,7 +83,14 @@ JAVA=$JAVA_HOME/bin/java
 
 if [ -n "$DRILL_DEBUG" ]; then
   echo "AM launch environment:"
+  echo "-----------------------------------"
   env
+  echo "-----------------------------------"
   echo $JAVA $AM_JAVA_OPTS -cp $CP org.apache.drill.yarn.appMaster.ApplicationMaster $@
 fi
+
+# Replace this script process with the AM. Needed so that
+# the YARN node manager can kill the AM if necessary by killing
+# the PID for this script.
+
 exec $JAVA $AM_JAVA_OPTS -cp $CP org.apache.drill.yarn.appMaster.ApplicationMaster $@

@@ -130,13 +130,15 @@ public abstract class PersistentTaskScheduler extends AbstractScheduler
   }
 
   /**
-   * "Done" does not apply to persistent tasks. However, we will
-   * claim we are done if we don't want to run any tasks at all.
-   * @return
+   * The persistent scheduler has no fixed sequence of tasks to run, it
+   * launches a set and is never "done". For purposes of completion tracking
+   * claim we have no further tasks.
+   *
+   * @return false
    */
 
   @Override
-  public boolean isDone() {
-    return quantity == 0;
+  public boolean hasMoreTasks() {
+    return false;
   }
 }

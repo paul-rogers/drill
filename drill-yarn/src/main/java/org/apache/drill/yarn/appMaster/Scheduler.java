@@ -123,9 +123,10 @@ public interface Scheduler
    * If this is a batch scheduler, whether all tasks for the batch have
    * completed. If this is a persistent task scheduler, always returns false.
    *
-   * @return
+   * @return true if the scheduler has more tasks to run, false if the
+   * scheduler has no more tasks or manages a set of long-running tasks
    */
-  boolean isDone();
+  boolean hasMoreTasks();
 
   /**
    * For reporting, get the YARN resources requested by processes in

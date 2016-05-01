@@ -275,7 +275,7 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
 
   @Override
   public boolean isDone() {
-    return !hasTasks() && !controller.isLive() /* && scheduler.isDone() */;
+    return ! hasTasks() && ! scheduler.hasMoreTasks();
   }
 
   @Override

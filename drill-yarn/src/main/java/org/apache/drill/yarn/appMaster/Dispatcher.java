@@ -63,23 +63,25 @@ public class Dispatcher
   {
     @Override
     public void onContainersAllocated(List<Container> containers) {
+      LOG.trace( "NM: Containers allocated: " + containers.size() );
       controller.containersAllocated(containers);
     }
 
     @Override
     public void onContainersCompleted(List<ContainerStatus> statuses) {
+      LOG.trace( "NM: Containers completed: " + statuses.size() );
       controller.containersCompleted(statuses);
     }
 
     @Override
     public void onShutdownRequest() {
-      LOG.trace("Shutdown request");
+      LOG.trace("RM: Shutdown request");
       controller.shutDown();
     }
 
     @Override
     public void onNodesUpdated(List<NodeReport> updatedNodes) {
-      LOG.trace("Nodes updated");
+      LOG.trace("RM: Nodes updated, count= " + updatedNodes.size( ) );
     }
 
     @Override
@@ -94,7 +96,7 @@ public class Dispatcher
 
     @Override
     public void onError(Throwable e) {
-      LOG.error("RM Error: " + e.getMessage());
+      LOG.error("RM: Error: " + e.getMessage());
     }
   }
 
@@ -107,31 +109,35 @@ public class Dispatcher
   {
     @Override
     public void onStartContainerError(ContainerId containerId, Throwable t) {
+      LOG.trace( "CNM: ontainer start error: " + containerId, t );
       controller.taskStartFailed(containerId, t);
     }
 
     @Override
     public void onContainerStarted(ContainerId containerId, Map<String, ByteBuffer> allServiceResponse) {
+      LOG.trace( "NM: Container started: " + containerId );
       controller.containerStarted(containerId);
     }
 
     @Override
     public void onContainerStatusReceived(ContainerId containerId, ContainerStatus containerStatus) {
-      LOG.trace("Container status: " + containerId + " - " + containerStatus.toString());
+      LOG.trace("NM: Container status: " + containerId + " - " + containerStatus.toString());
     }
 
     @Override
     public void onGetContainerStatusError(ContainerId containerId, Throwable t) {
-      LOG.trace("Container error: " + containerId + " - " + t.getMessage());
+      LOG.trace("NM: Container error: " + containerId, t);
     }
 
     @Override
     public void onStopContainerError(ContainerId containerId, Throwable t) {
+      LOG.trace( "NM: Stop container error: " + containerId, t );
       controller.stopTaskFailed(containerId, t);
     }
 
     @Override
     public void onContainerStopped(ContainerId containerId) {
+      LOG.trace( "NM: Container stopped: " + containerId );
       controller.containerStopped(containerId);
     }
   }

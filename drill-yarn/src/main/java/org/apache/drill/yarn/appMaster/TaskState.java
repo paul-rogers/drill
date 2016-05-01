@@ -42,42 +42,19 @@ import org.apache.hadoop.yarn.api.records.ContainerStatus;
  * </dl>
  * <p>
  * Shutdown process:
- * <dt>RUNNING --> WAIT_COMPLETE<dt>
- * <dd>The node manager reported that the task ended.</dd>
- * <dt>RUNNING --> WAIT_STOP<dt>
- * <dd>The resource manager reported that the task ended before
- *     the node manager did so.</dd>
+ * <dt>RUNNING --> WAIT_END_ACK | END<dt>
+ * <dd>The resource manager reported task completion.</dd>
  * <dt>RUNNING --> ENDING<dt>
  * <dd>Request sent to the task for a graceful shutdown.</dd>
  * <dt>RUNNING --> KILLING<dt>
  * <dd>Request sent to the node manager to forcibly kill the task.</dd>
- * <dt>ENDING --> WAIT_COMPLETE<dt>
- * <dd>The task gracefully exited as reported by the node manager.</dd>
- * <dt>ENDING --> WAIT_STOP<dt>
- * <dd>The task gracefully exited as reported by the resource manager before
- *     the node manager.</dd>
+ * <dt>ENDING --> WAIT_END_ACK | END<dt>
+ * <dd>The task gracefully exited as reported by the resource manager.</dd>
  * <dt>ENDING --> KILLING<dt>
  * <dd>The wait for graceful exit timed out, a forced kill message
  *     sent to the node manager.</dd>
- * <dt>KILLING --> WAIT_COMPLETE<dt>
- * <dd>The task exited as reported by the node manager.</dd>
- * <dt>ENDING --> WAIT_STOP<dt>
- * <dd>The task exited as reported by the resource manager before
- *     the node manager.</dd>
- * <dt>WAIT_COMPLETE --> WAIT_END_ACK<dt>
- * <dd>The node manager reported task stop after the node
- *     manager reported completion, an end-ack is needed,
- *     but not yet received.</dd>
- * <dt>WAIT_COMPLETE --> END<dt>
- * <dd>The node manager reported task stop after the node
- *     manager reported completion, an end-ack is either not
- *     needed or already received.</dd>
- * <dt>WAIT_STOP --> WAIT_END_ACK<dt>
- * <dd>The resource manager reported task completion after the node
- *     manager, an end-ack is needed, but not yet received.</dd>
- * <dt>WAIT_STOP --> END<dt>
- * <dd>The resource manager reported task completion after the node
- *     manager, an end-ack is either not needed or already received.</dd>
+ * <dt>KILLING --> WAIT_END_ACK | END<dt>
+ * <dd>The task exited as reported by the resource manager.</dd>
  * <dt>END_ACK --> END<dt>
  * <dd>The end-ack is received or the wait timed out.</dd>
  * <dl>
@@ -224,7 +201,7 @@ public abstract class TaskState
         transition(context, RUNNING); }
       task.error = null;
       if (task.cancelled) {
-        transition(context, WAIT_STOP);
+        transition(context, KILLING);
         context.yarn.killContainer(task.getContainer());
       }
     }
@@ -246,10 +223,7 @@ public abstract class TaskState
       // Handle by failing & retrying.
       Task task = context.task;
       task.completionStatus = status;
-      if (task.trackingState == Task.TrackingState.START_ACK) {
-        transition(context, WAIT_END_ACK); }
-      else {
-        transition(context, WAIT_STOP ); }
+      endOrAck( context );
     }
 
     @Override
@@ -304,15 +278,15 @@ public abstract class TaskState
       RUNNING.cancel(context);
     }
 
-    @Override
-    public void containerStopped(EventContext context) {
-      transition(context, WAIT_COMPLETE );
-    }
+//    @Override
+//    public void containerStopped(EventContext context) {
+//      transition(context, WAIT_COMPLETE );
+//    }
 
     @Override
     public void containerCompleted(EventContext context, ContainerStatus status) {
       context.task.completionStatus = status;
-      transition(context, WAIT_STOP );
+      taskTerminated(context);
     }
 
     // TODO: Timeout in this state.
@@ -335,7 +309,7 @@ public abstract class TaskState
     @Override
     public void containerCompleted(EventContext context, ContainerStatus status) {
       context.task.completionStatus = status;
-      transition( context, WAIT_STOP );
+      endOrAck( context );
     }
 
     @Override
@@ -374,19 +348,18 @@ public abstract class TaskState
   {
     protected EndingState() { super(true, TaskLifecycleListener.Event.RUNNING); }
 
-    /**
+    /*
      * Normal ENDING --> WAIT_COMPLETE transition, awaiting Resource Manager
      * confirmation.
      */
 
-    @Override
-    public void containerStopped(EventContext context) {
-      transition(context, WAIT_COMPLETE);
-    }
+//    @Override
+//    public void containerStopped(EventContext context) {
+//      transition(context, WAIT_COMPLETE);
+//    }
 
     /**
-     * Out-of-order completion notification.
-     * Implements the ENDING --> WAIT_STOP transition.
+     * Normal ENDING --> WAIT_END_ACK | END transition.
      *
      * @param status
      */
@@ -394,7 +367,7 @@ public abstract class TaskState
     @Override
     public void containerCompleted(EventContext context, ContainerStatus status) {
       context.task.completionStatus = status;
-      transition(context, WAIT_STOP);
+      endOrAck( context );
     }
 
     @Override
@@ -431,19 +404,18 @@ public abstract class TaskState
   {
     protected KillingState() { super(true, TaskLifecycleListener.Event.RUNNING); }
 
-    /**
+    /*
      * Normal KILLING --> WAIT_COMPLETE transition, awaiting Resource Manager
      * confirmation.
      */
 
-    @Override
-    public void containerStopped(EventContext context) {
-      transition(context, WAIT_COMPLETE);
-    }
+//    @Override
+//    public void containerStopped(EventContext context) {
+//      transition(context, WAIT_COMPLETE);
+//    }
 
     /**
-     * Out-of-order message from Resource Manager causing a
-     * KILLING --> WAIT_COMPLETE transition.
+     * Normal KILLING --> WAIT_END_ACK | END transition.
      *
      * @param status
      */
@@ -451,7 +423,7 @@ public abstract class TaskState
     @Override
     public void containerCompleted(EventContext context, ContainerStatus status) {
       context.task.completionStatus = status;
-      transition(context, WAIT_STOP);
+      endOrAck( context );
     }
 
     @Override
@@ -466,58 +438,58 @@ public abstract class TaskState
     }
   }
 
-  /**
-   * Task is in the process of stopping. A stop confirmation has been
-   * received from the NM, but not yet from the RM.
-   */
-
-  private static class WaitCompleteState extends TaskState
-  {
-    protected WaitCompleteState() { super(true, TaskLifecycleListener.Event.RUNNING); }
-
-    @Override
-    public void containerCompleted(EventContext context, ContainerStatus status) {
-      Task task = context.task;
-      task.completionStatus = status;
-      if (task.trackingState == Task.TrackingState.START_ACK) {
-        transition(context, WAIT_END_ACK); }
-      else {
-        taskTerminated(context); }
-    }
-
-    @Override
-    public void cancel(EventContext context) {
-      context.task.cancel( );
-    }
-  }
-
-  /**
-   * Task for a completion message has been receive from the resource
-   * manager ahead of the stop message from the node manager.
-   */
-
-  public static class WaitStopState extends TaskState
-  {
-    protected WaitStopState() { super(true, TaskLifecycleListener.Event.RUNNING); }
-
-    /**
-     * Normal WAIT_STOP --> END transition.
-     */
-
-    @Override
-    public void containerStopped(EventContext context) {
-      Task task = context.task;
-      if (task.trackingState == Task.TrackingState.START_ACK) {
-        transition(context, WAIT_END_ACK); }
-      else {
-        taskTerminated(context); }
-    }
-
-    @Override
-    public void cancel(EventContext context) {
-      context.task.cancel( );
-    }
-  }
+//  /**
+//   * Task is in the process of stopping. A stop confirmation has been
+//   * received from the NM, but not yet from the RM.
+//   */
+//
+//  private static class WaitCompleteState extends TaskState
+//  {
+//    protected WaitCompleteState() { super(true, TaskLifecycleListener.Event.RUNNING); }
+//
+//    @Override
+//    public void containerCompleted(EventContext context, ContainerStatus status) {
+//      Task task = context.task;
+//      task.completionStatus = status;
+//      if (task.trackingState == Task.TrackingState.START_ACK) {
+//        transition(context, WAIT_END_ACK); }
+//      else {
+//        taskTerminated(context); }
+//    }
+//
+//    @Override
+//    public void cancel(EventContext context) {
+//      context.task.cancel( );
+//    }
+//  }
+//
+//  /**
+//   * Task for a completion message has been receive from the resource
+//   * manager ahead of the stop message from the node manager.
+//   */
+//
+//  public static class WaitStopState extends TaskState
+//  {
+//    protected WaitStopState() { super(true, TaskLifecycleListener.Event.RUNNING); }
+//
+//    /**
+//     * Normal WAIT_STOP --> END transition.
+//     */
+//
+//    @Override
+//    public void containerStopped(EventContext context) {
+//      Task task = context.task;
+//      if (task.trackingState == Task.TrackingState.START_ACK) {
+//        transition(context, WAIT_END_ACK); }
+//      else {
+//        taskTerminated(context); }
+//    }
+//
+//    @Override
+//    public void cancel(EventContext context) {
+//      context.task.cancel( );
+//    }
+//  }
 
   private static class WaitEndAckState extends TaskState
   {
@@ -546,13 +518,13 @@ public abstract class TaskState
   {
     protected EndState() { super(false, TaskLifecycleListener.Event.ENDED); }
 
-    /**
+    /*
      * Ignore out-of-order Node Manager completion notices.
      */
 
-    @Override
-    public void containerStopped(EventContext context) {
-    }
+//    @Override
+//    public void containerStopped(EventContext context) {
+//    }
 
     @Override
     public void cancel(EventContext context) {
@@ -568,8 +540,8 @@ public abstract class TaskState
   public static final TaskState RUNNING = new RunningState();
   public static final TaskState ENDING = new EndingState();
   public static final TaskState KILLING = new KillingState();
-  public static final TaskState WAIT_STOP = new WaitStopState();
-  public static final TaskState WAIT_COMPLETE = new WaitCompleteState();
+//  public static final TaskState WAIT_STOP = new WaitStopState();
+//  public static final TaskState WAIT_COMPLETE = new WaitCompleteState();
   public static final TaskState WAIT_END_ACK = new WaitEndAckState();
   public static final TaskState END = new EndState();
 
@@ -584,6 +556,13 @@ public abstract class TaskState
     name = name.replace( "State", "" );
     name = name.replaceAll( "([a-z]+)([A-Z])", "$1_$2" );
     label = name.toUpperCase();
+  }
+
+  protected void endOrAck(EventContext context) {
+    if (context.task.trackingState == Task.TrackingState.START_ACK) {
+      transition(context, WAIT_END_ACK); }
+    else {
+      taskTerminated(context); }
   }
 
   public void requestContainer(EventContext context) {
@@ -772,14 +751,15 @@ public abstract class TaskState
 
     context.getTaskManager().completed( context );
     context.group.containerReleased(task);
-    task.container = null;
     assert task.completionStatus != null;
     if (task.completionStatus.getExitStatus() == 0) {
       taskEnded(context, Disposition.COMPLETED);
       context.group.taskEnded(context.task);
+      task.container = null;
     }
     else {
       taskEnded(context, Disposition.RUN_FAILED);
+      task.container = null;
       retryTask(context);
     }
   }
@@ -819,7 +799,7 @@ public abstract class TaskState
       context.group.taskEnded(task);
       return;
     }
-    if (task.tryCount >= task.taskGroup.getMaxRetries()) {
+    if (task.tryCount > task.taskGroup.getMaxRetries()) {
       LOG.error("Too many retries for task: " + task.toString());
       task.disposition = Disposition.TOO_MANY_RETRIES;
       context.group.taskEnded(task);
