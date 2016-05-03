@@ -432,6 +432,20 @@ public abstract class TaskState
     }
 
     @Override
+    public void startAck(EventContext context)
+    {
+      // Better late than never... Happens during debugging sessions
+      // when order of messages is scrambled.
+
+      context.task.trackingState = Task.TrackingState.START_ACK;
+    }
+
+    @Override
+    public void completionAck(EventContext context) {
+      context.task.trackingState = Task.TrackingState.END_ACK;
+    }
+
+    @Override
     public void stopTaskFailed(EventContext context, Throwable t) {
       assert false;
       // What to do?

@@ -21,8 +21,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.drill.yarn.appMaster.http.WebServer;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
 
 /**
  * Application Master for Drill.
@@ -50,8 +48,8 @@ public class ApplicationMaster
 
     // Temporary
 
-    Logger logger = Logger.getLogger("org.apache.drill.yarn");
-    logger.setLevel(Level.TRACE);
+//    Logger logger = Logger.getLogger("org.apache.drill.yarn");
+//    logger.setLevel(Level.TRACE);
 
     LOG.trace( "Drill Application Master starting." );
 

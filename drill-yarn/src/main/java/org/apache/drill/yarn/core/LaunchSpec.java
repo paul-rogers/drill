@@ -98,7 +98,7 @@ public class LaunchSpec {
    * ignored when running an OS command.
    */
 
-  public String vmArgs;
+  public List<String> vmArgs = new ArrayList<>();
 
   /**
    * Arguments to the remote command.
@@ -115,7 +115,7 @@ public class LaunchSpec {
     command = from.command;
     mainClass = from.mainClass;
     classPath.addAll(from.classPath);
-    vmArgs = from.vmArgs;
+    vmArgs.addAll( vmArgs );
     cmdArgs.addAll(from.cmdArgs);
   }
 
@@ -138,9 +138,14 @@ public class LaunchSpec {
       cmd.add(command);
     } else {
       assert mainClass != null;
+
+      // JAVA_HOME is provided by YARN.
+
       cmd.add("$JAVA_HOME/bin/java");
-      if (vmArgs != null) {
-        cmd.add(vmArgs);
+      cmd.addAll( vmArgs );
+      if ( ! classPath.isEmpty() ) {
+        cmd.add( "-cp" );
+        cmd.add( DoYUtil.join( ":", classPath ) );
       }
       cmd.add(mainClass);
     }

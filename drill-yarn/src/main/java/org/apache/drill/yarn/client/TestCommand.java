@@ -26,7 +26,7 @@ public class TestCommand extends ClientCommand
   @Override
   public void run() {
     AppSpec master = new AppSpec();
-    master.vmArgs = "-Xmx256M";
+    master.vmArgs.add( "-Xmx256M" );
     master.mainClass = "com.hortonworks.simpleyarnapp.ApplicationMaster";
     master.cmdArgs.add("/bin/date");
     master.cmdArgs.add("2");
