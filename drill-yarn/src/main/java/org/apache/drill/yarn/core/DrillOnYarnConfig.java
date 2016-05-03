@@ -87,6 +87,8 @@ public class DrillOnYarnConfig
   public static final String DRILLBIT_HEAP = append( DOY_DRILLBIT_PARENT, HEAP_KEY );
   public static final String DRILLBIT_DIRECT_MEM = append( DOY_DRILLBIT_PARENT, "max-direct-memory" );
   public static final String DRILLBIT_LOG_GC = append( DOY_DRILLBIT_PARENT, "log-gc" );
+  public static final String DRILLBIT_PREFIX_CLASSPATH = append( DOY_DRILLBIT_PARENT, "prefix-class-path" );
+  public static final String DRILLBIT_EXTN_CLASSPATH = append( DOY_DRILLBIT_PARENT, "extn-class-path" );
   public static final String DRILLBIT_CLASSPATH = append( DOY_DRILLBIT_PARENT, "class-path" );
   public static final String DRILLBIT_MAX_RETRIES = append( DOY_DRILLBIT_PARENT, "max-retries" );
   public static final String DRILLBIT_DEBUG_LAUNCH = append( DOY_DRILLBIT_PARENT, "debug-launch" );
@@ -245,6 +247,8 @@ public class DrillOnYarnConfig
     DRILLBIT_VM_ARGS,
     DRILLBIT_HEAP,
     DRILLBIT_DIRECT_MEM,
+    DRILLBIT_PREFIX_CLASSPATH,
+    DRILLBIT_EXTN_CLASSPATH,
     DRILLBIT_CLASSPATH,
     DRILLBIT_MAX_RETRIES,
     DRILLBIT_DEBUG_LAUNCH,

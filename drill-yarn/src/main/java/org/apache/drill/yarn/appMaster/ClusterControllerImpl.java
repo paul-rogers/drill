@@ -380,7 +380,7 @@ public class ClusterControllerImpl implements ClusterController
    */
 
   private void checkStatus() {
-    if ( isLive( ) ) {
+    if ( state != State.ENDING ) {
       return; }
     for (SchedulerStateActions group : prioritizedPools) {
       if (!group.isDone()) {

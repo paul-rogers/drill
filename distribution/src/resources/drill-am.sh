@@ -93,4 +93,5 @@ fi
 # the YARN node manager can kill the AM if necessary by killing
 # the PID for this script.
 
+echo "Testing 1..2..3.."
 exec $JAVA $AM_JAVA_OPTS -cp $CP org.apache.drill.yarn.appMaster.ApplicationMaster $@
