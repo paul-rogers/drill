@@ -43,13 +43,9 @@ public class ReportCommand extends ClientCommand
       }
     }
 
-    public void run( boolean verbose, boolean isNew ) throws ClientException {
-      System.out.println("Application ID: " + client.getAppId().toString());
-      getReport( );
-      display( verbose, isNew );
-    }
-
     public void display( boolean verbose, boolean isNew ) {
+      YarnApplicationState state = report.getYarnApplicationState();
+      System.out.println( "State: " + state.toString() );
       if ( verbose || ! isNew ) {
         System.out.println( "Host: " + report.getHost() );
       }
@@ -62,8 +58,6 @@ public class ReportCommand extends ClientCommand
         long startTime = report.getStartTime();
         System.out.println( "Start Time: " + DoYUtil.toIsoTime( startTime ) );
       }
-      YarnApplicationState state = report.getYarnApplicationState();
-      System.out.println( "State: " + state.toString() );
       if ( state == YarnApplicationState.FAILED  ||  state == YarnApplicationState.FINISHED ) {
         FinalApplicationStatus status = report.getFinalApplicationStatus();
         System.out.println( "Final status: " + status.toString() );
@@ -98,6 +92,16 @@ public class ReportCommand extends ClientCommand
 
   @Override
   public void run() throws ClientException {
-    new Reporter( getClient( ) ).run( opts.verbose, false );
+    YarnRMClient client = getClient( );
+    System.out.println("Application ID: " + client.getAppId().toString());
+    Reporter reporter = new Reporter( client );
+    try {
+      reporter.getReport( );
+    } catch (Exception e) {
+      removeAppIdFile( );
+      System.out.println( "Application is not running." );
+      return;
+    }
+    reporter.display( opts.verbose, false );
   }
 }

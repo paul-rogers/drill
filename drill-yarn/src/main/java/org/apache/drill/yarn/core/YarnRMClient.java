@@ -77,8 +77,9 @@ public class YarnRMClient {
     } catch (YarnException | IOException e) {
       throw new YarnClientException("Create application failed", e);
     }
-    return app.getNewApplicationResponse();
-
+    GetNewApplicationResponse response = app.getNewApplicationResponse();
+    appId = response.getApplicationId();
+    return response;
   }
 
   public void submitAppMaster(AppSpec spec) throws YarnClientException {
@@ -94,8 +95,6 @@ public class YarnRMClient {
     }
 
     // Submit application
-    appId = appContext.getApplicationId();
-    System.out.println("Submitting application " + appId);
     try {
       yarnClient.submitApplication(appContext);
     } catch (YarnException | IOException e) {

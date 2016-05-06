@@ -93,11 +93,17 @@ public class AMYarnFacadeImpl implements AMYarnFacade
   @Override
   public void register( String trackingUrl ) throws YarnFacadeException {
     String thisHostName = NetUtils.getHostname();
+    LOG.debug( "Host Name from YARN: " + thisHostName );
     String appMasterTrackingUrl = "";
     if ( trackingUrl != null ) {
-      appMasterTrackingUrl = trackingUrl.replace( "<host>", thisHostName );
+      // YARN seems to provide multiple names: MACHNAME.local/10.250.56.235
+      // The second seems to be the IP address, which is what we want.
+      String names[] = thisHostName.split( "/" );
+      appMasterTrackingUrl = trackingUrl.replace( "<host>", names[names.length - 1] );
+      LOG.info( "Tracking URL: " + appMasterTrackingUrl );
     }
     try {
+      LOG.trace( "Registering with YARN" );
       registration = resourceMgr.registerApplicationMaster(thisHostName, 0, appMasterTrackingUrl);
     } catch (YarnException | IOException e) {
       throw new YarnFacadeException("Register AM failed", e);

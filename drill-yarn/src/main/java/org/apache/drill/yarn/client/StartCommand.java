@@ -331,7 +331,11 @@ public class StartCommand extends ClientCommand
       // from Jersey if we do. Putting YARN jars here works better.
 
       master.classPath.add( "$HADOOP_YARN_HOME/share/hadoop/yarn/*" );
-      master.classPath.add( "$HADOOP_YARN_HOME/share/hadoop/yarn/lib/*" );
+
+      // Do not add the YARN lib directory, it causes class conflicts
+      // with the Jersey code in the AM.
+
+//      master.classPath.add( "$HADOOP_YARN_HOME/share/hadoop/yarn/lib/*" );
 
       // Followed by Drill override dependency jars
 
@@ -374,9 +378,7 @@ public class StartCommand extends ClientCommand
 
     private void launch( AppSpec master ) throws ClientException
     {
-      if ( verbose ) {
-        System.out.println( "Launching " + master.appName + "..." );
-      }
+      System.out.println( "Launching " + master.appName + "..." );
       launchApp( master );
       writeAppIdFile( );
       waitForStartAndReport( );
