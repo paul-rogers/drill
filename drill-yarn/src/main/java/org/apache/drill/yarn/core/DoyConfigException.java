@@ -15,22 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.drill.yarn.core;
 
-/**
- * Implements the Drill Application Master for YARN.
- * <p>
- * Note that AM implementation classes use org.apache.commons.logging
- * to be consistent with the logging used within YARN itself. However,
- * the AM uses Drill's class path which uses logback logging. To enable
- * logging, modify
- * <code>$DRILL_HOME/conf/logback.xml</code> and add a section something
- * like this:
- * <pre><code>
- *   &lt;logger name="org.apache.drill.yarn" additivity="false">
- *    &lt;level value="trace" />
- *    &lt;appender-ref ref="STDOUT" />
- *   &lt;/logger>
- * </code></pre>
- */
+public class DoyConfigException extends Exception
+{
+  private static final long serialVersionUID = 1L;
 
-package org.apache.drill.yarn.appMaster;
+  public DoyConfigException(String msg) {
+    super( msg );
+  }
+
+  public DoyConfigException(String msg, Exception e) {
+    super( msg, e );
+  }
+}

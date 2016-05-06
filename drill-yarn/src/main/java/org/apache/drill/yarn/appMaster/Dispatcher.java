@@ -180,6 +180,7 @@ public class Dispatcher
    */
 
   private List<DispatcherAddOn> addOns = new ArrayList<>();
+  private String trackingUrl;
 
   public void setYarn(AMYarnFacade yarn) throws YarnFacadeException {
     this.yarn = yarn;
@@ -196,6 +197,10 @@ public class Dispatcher
     addOns.add(addOn);
   }
 
+  public void setTrackingUrl( String trackingUrl) {
+    this.trackingUrl = trackingUrl;
+  }
+
   public void run() throws YarnFacadeException {
     setup();
     LOG.trace("Running");
@@ -208,7 +213,7 @@ public class Dispatcher
     LOG.trace("Starting YARN agent");
     yarn.start(new ResourceCallback(), new NodeCallback(), new TimerCallback());
     LOG.trace("Registering YARN application");
-    yarn.register();
+    yarn.register( trackingUrl );
     controller.started();
 
     for (DispatcherAddOn addOn : addOns) {

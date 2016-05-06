@@ -34,7 +34,8 @@ public class TestCommand extends ClientCommand
     master.vCores = 1;
     master.appName = "simpleapp2";
 //        master.resources.put( "simpleapp.jar", "/apps/simple/simple-yarn-app-1.1.0.jar" );
-    master.resources.put("simpleapp.jar", "hdfs:///apps/simple/simple-yarn-app-1.1.0.jar");
+    // TODO: the following is broken, needs to be reworked.
+//    master.resources.put("simpleapp.jar", "hdfs:///apps/simple/simple-yarn-app-1.1.0.jar");
 //        AppResource jar = new AppResource( );
 //        jar.key = "simpleapp.jar";
 //        jar.dfsPath = "hdfs:///apps/simple/simple-yarn-app-1.1.0.jar";
@@ -46,7 +47,8 @@ public class TestCommand extends ClientCommand
 
     YarnRMClient client = new YarnRMClient();
     try {
-      client.launchAppMaster(master);
+      client.createAppMaster( );
+      client.submitAppMaster(master);
       client.waitForCompletion();
     } catch (YarnClientException e) {
       e.printStackTrace();

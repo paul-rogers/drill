@@ -17,6 +17,9 @@
  */
 package org.apache.drill.yarn.core;
 
+import java.io.IOException;
+
+import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
@@ -27,11 +30,7 @@ import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
-import org.apache.hadoop.security.Credentials;
-import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.yarn.security.AMRMTokenIdentifier;
-
-import java.io.IOException;
 
 /**
  * YARN resource manager client implementation for Drill. Provides a wrapper around
@@ -42,12 +41,24 @@ import java.io.IOException;
  */
 
 public class YarnRMClient {
-  YarnConfiguration conf;
-  YarnClient yarnClient;
-  ApplicationId appId;
+  private YarnConfiguration conf;
+  private YarnClient yarnClient;
+
+  /**
+   * Application ID. Semantics are such that each session of Drill-on-YARN
+   * works with no more than one application ID.
+   */
+
+  private ApplicationId appId;
+  private YarnClientApplication app;
 
   public YarnRMClient() {
     this(new YarnConfiguration());
+  }
+
+  public YarnRMClient( ApplicationId appId ) {
+    this( );
+    this.appId = appId;
   }
 
   public YarnRMClient(YarnConfiguration conf) {
@@ -57,20 +68,23 @@ public class YarnRMClient {
     yarnClient.start();
   }
 
-  public void launchAppMaster(AppSpec spec) throws YarnClientException {
+  public GetNewApplicationResponse createAppMaster( ) throws YarnClientException {
     // Create application via yarnClient
     // Response is a new application ID along with cluster capacity info
 
-    YarnClientApplication app;
     try {
       app = yarnClient.createApplication();
     } catch (YarnException | IOException e) {
       throw new YarnClientException("Create application failed", e);
     }
-    GetNewApplicationResponse appResponse = app.getNewApplicationResponse();
-    System.out.println("Application ID: " + appResponse.getApplicationId().toString());
-    System.out.println("Max Memory: " + appResponse.getMaximumResourceCapability().getMemory());
-    System.out.println("Max Cores: " + appResponse.getMaximumResourceCapability().getVirtualCores());
+    return app.getNewApplicationResponse();
+
+  }
+
+  public void submitAppMaster(AppSpec spec) throws YarnClientException {
+    if ( app == null ) {
+      throw new IllegalStateException( "call createAppMaster( ) first" );
+    }
 
     ApplicationSubmissionContext appContext;
     try {
@@ -170,6 +184,24 @@ public class YarnRMClient {
       return yarnClient.getAMRMToken(appId);
     } catch (YarnException | IOException e) {
       throw new YarnClientException("Get AM/RM token failed", e);
+    }
+  }
+
+  /**
+   * Return standard class path entries from the YARN application class path.
+   */
+
+  public String[] getYarnAppClassPath() {
+    return conf.getStrings(
+        YarnConfiguration.YARN_APPLICATION_CLASSPATH,
+        YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH);
+  }
+
+  public void killApplication( ) throws YarnClientException {
+    try {
+      yarnClient.killApplication( appId );
+    } catch (YarnException | IOException e) {
+      throw new YarnClientException( "Kill failed for application: " + appId.toString() );
     }
   }
 }
