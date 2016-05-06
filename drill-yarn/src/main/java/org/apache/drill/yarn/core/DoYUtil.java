@@ -17,7 +17,11 @@
  */
 package org.apache.drill.yarn.core;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 
 public class DoYUtil {
 
@@ -48,5 +52,15 @@ public class DoYUtil {
 
   public static boolean isBlank( String str ) {
     return str == null ||  str.trim().isEmpty();
+  }
+
+  public static String toIsoTime( long timestamp ) {
+
+    // Uses old-style dates rather than java.time because
+    // the code still must compile for JDK 7.
+
+    DateFormat fmt = new SimpleDateFormat( "yyyy-MM-dd HH:mm:ss" );
+    fmt.setTimeZone(TimeZone.getDefault());
+    return fmt.format( new Date( timestamp ) );
   }
 }

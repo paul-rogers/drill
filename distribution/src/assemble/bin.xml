@@ -300,12 +300,7 @@
       <outputDirectory>bin</outputDirectory>
     </file>
     <file>
-      <source>src/resources/drill-am.sh</source>
-      <fileMode>0755</fileMode>
-      <outputDirectory>bin</outputDirectory>
-    </file>
-    <file>
-      <source>src/resources/yarn-env.sh</source>
+      <source>src/resources/yarn-client-env.sh</source>
       <fileMode>0755</fileMode>
       <outputDirectory>bin</outputDirectory>
     </file>
@@ -328,12 +323,24 @@
       <outputDirectory>conf</outputDirectory>
     </file>
     <file>
+      <source>src/resources/yarn-client-log.xml</source>
+      <outputDirectory>conf</outputDirectory>
+    </file>
+    <file>
+      <source>src/resources/drill-am-log.xml</source>
+      <outputDirectory>conf</outputDirectory>
+    </file>
+    <file>
+      <source>src/resources/logback.xml</source>
+      <outputDirectory>conf</outputDirectory>
+    </file>
+    <file>
       <source>src/resources/drill-env.sh</source>
       <fileMode>0755</fileMode>
       <outputDirectory>conf</outputDirectory>
     </file>
     <file>
-      <source>src/resources/yarn-env.sh</source>
+      <source>src/resources/yarn-client-env.sh</source>
       <fileMode>0755</fileMode>
       <outputDirectory>conf</outputDirectory>
     </file>

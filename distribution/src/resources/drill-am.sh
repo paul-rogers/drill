@@ -47,8 +47,9 @@ fi
 # DRILL_AM_JAVA_OPTS: drill.yarn.am.vm-args
 
 DRILL_AM_HEAP=${DRILL_AM_HEAP:-"512M"}
+AM_LOG_CONF="-Dlogback.configurationFile=${DRILL_HOME}/conf/drill-am-log.xml"
 
-AM_JAVA_OPTS="-Xms$DRILL_AM_HEAP -Xmx$DRILL_AM_HEAP -XX:MaxPermSize=512M $DRILL_AM_JAVA_OPTS"
+AM_JAVA_OPTS="-Xms$DRILL_AM_HEAP -Xmx$DRILL_AM_HEAP -XX:MaxPermSize=512M $DRILL_AM_JAVA_OPTS $AM_LOG_CONF"
 
 # Build the class path.
 # Start with Drill conf folder at the beginning of the classpath
@@ -78,20 +79,20 @@ CP=$CP:$DRILL_HOME/jars/classb/*
 
 JAVA=$JAVA_HOME/bin/java
 
-# Note: no need to capture output, YARN does that for us.
-# AM is launched as a child process of caller, replacing this script.
-
+DRILL_DEBUG=1
 if [ -n "$DRILL_DEBUG" ]; then
   echo "AM launch environment:"
   echo "-----------------------------------"
   env
   echo "-----------------------------------"
-  echo $JAVA $AM_JAVA_OPTS -cp $CP org.apache.drill.yarn.appMaster.ApplicationMaster $@
+  echo $JAVA $AM_JAVA_OPTS -cp $CP org.apache.drill.yarn.appMaster.DrillApplicationMaster $@
 fi
+
+# Note: no need to capture output, YARN does that for us.
+# AM is launched as a child process of caller, replacing this script.
 
 # Replace this script process with the AM. Needed so that
 # the YARN node manager can kill the AM if necessary by killing
 # the PID for this script.
 
-echo "Testing 1..2..3.."
-exec $JAVA $AM_JAVA_OPTS -cp $CP org.apache.drill.yarn.appMaster.ApplicationMaster $@
+exec $JAVA $AM_JAVA_OPTS -cp $CP org.apache.drill.yarn.appMaster.DrillApplicationMaster $@

@@ -20,10 +20,12 @@ package org.apache.drill.yarn.appMaster;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.drill.yarn.appMaster.http.WebServer;
+import org.apache.drill.yarn.core.DoyConfigException;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 
 /**
- * Application Master for Drill.
+ * Application Master for Drill. The name is visible when using the "jps"
+ * command and is chosen to make sense on a busy YARN node.
  * <p>
  * To debug this AM use the customized unmanaged AM launcher in this
  * jar. (The "stock" YARN version does not give you time to attach
@@ -40,9 +42,9 @@ import org.apache.drill.yarn.core.DrillOnYarnConfig;
  * </pre></code>
  */
 
-public class ApplicationMaster
+public class DrillApplicationMaster
 {
-  private static final Log LOG = LogFactory.getLog(ApplicationMaster.class);
+  private static final Log LOG = LogFactory.getLog(DrillApplicationMaster.class);
 
   public static void main(String[] args) {
 
@@ -58,7 +60,12 @@ public class ApplicationMaster
     // the $DRILL_HOME/conf directory, and that $DRILL_HOME/conf is
     // on the class-path.
 
-    DrillOnYarnConfig.load();
+    try {
+      DrillOnYarnConfig.load();
+    } catch (DoyConfigException e) {
+      System.err.println( e.getMessage( ) );
+      System.exit( -1 );
+    }
 
     // Dispatcher am = (new SimpleBatchFactory( )).build( );
     // Dispatcher am = (new MockDrillbitFactory( )).build( );

@@ -174,7 +174,13 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
       return;
     }
 
-    // Managed drillbit case: should have no registration yet
+    // Managed drillbit case. Might be known if we lost, then regained
+    // ZK connection.
+
+    if ( tracker.state == DrillbitTracker.State.REGISTERED ) {
+      return; }
+
+    // Otherwise, the Drillbit has just registered with ZK.
 
     assert tracker.state == DrillbitTracker.State.NEW;
     assert tracker.task != null;

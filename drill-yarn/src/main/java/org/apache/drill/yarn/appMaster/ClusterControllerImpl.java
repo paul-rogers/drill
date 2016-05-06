@@ -195,13 +195,13 @@ public class ClusterControllerImpl implements ClusterController
       return; }
 
     yarnNodeCount = yarn.getNodeCount();
-    LOG.info("YARN reports " + yarnNodeCount + " nodes.");
+//    LOG.info("YARN reports " + yarnNodeCount + " nodes.");
 
-    Resource yarnResources = yarn.getResources();
-    if (yarnResources != null) {
-      LOG.info("YARN reports " + yarnResources.getMemory() + " MB, " + yarnResources.getVirtualCores()
-          + " vcores available.");
-    }
+//    Resource yarnResources = yarn.getResources();
+//    if (yarnResources != null) {
+//      LOG.info("YARN reports " + yarnResources.getMemory() + " MB, " + yarnResources.getVirtualCores()
+//          + " vcores available.");
+//    }
     nextResourcePollTime = curTime + configPollPeriod;
   }
 

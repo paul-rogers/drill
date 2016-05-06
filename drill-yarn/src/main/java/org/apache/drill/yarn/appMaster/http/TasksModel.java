@@ -28,6 +28,7 @@ import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.yarn.appMaster.Task;
 import org.apache.drill.yarn.appMaster.TaskState;
 import org.apache.drill.yarn.appMaster.TaskVisitor;
+import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.zk.ZKRegistry;
 import org.apache.hadoop.yarn.api.records.Container;
@@ -79,12 +80,7 @@ public class TasksModel implements TaskVisitor
     }
 
     public String getStartTime( ) {
-      // Uses old-style dates rather than java.time becase
-      // the code still must compile for JDK 7.
-
-      DateFormat fmt = new SimpleDateFormat( "yyyy-MM-dd HH:mm" );
-      fmt.setTimeZone(TimeZone.getDefault());
-      return fmt.format( new Date( startTime ) );
+      return DoYUtil.toIsoTime( startTime );
     }
 
     public int getMemory( ) { return memoryMb; }

@@ -19,23 +19,18 @@ package org.apache.drill.yarn.core;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.ApplicationConstants.Environment;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.LocalResource;
-import org.apache.hadoop.yarn.api.records.LocalResourceType;
-import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
-import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
 /**
@@ -60,7 +55,7 @@ public class LaunchSpec {
    * The key is used as (what?).
    */
 
-  public Map<String, String> resources = new HashMap<>();
+  public Map<String, LocalResource> resources = new HashMap<>();
 
   /**
    * Defines environment variables to be set on the remote host before
@@ -141,7 +136,7 @@ public class LaunchSpec {
 
       // JAVA_HOME is provided by YARN.
 
-      cmd.add("$JAVA_HOME/bin/java");
+      cmd.add(Environment.JAVA_HOME.$$() + "/bin/java");
       cmd.addAll( vmArgs );
       if ( ! classPath.isEmpty() ) {
         cmd.add( "-cp" );
@@ -186,80 +181,87 @@ public class LaunchSpec {
     }
 
     // Add localized resources
-    Map<String, LocalResource> localResources = new HashMap<>();
-    for (String key : resources.keySet()) {
-      String resourcePath = resources.get(key);
-      LocalResource localResource = setupLocalResource(conf, new Path(resourcePath));
-      localResources.put(key, localResource);
-    }
-    amContainer.setLocalResources(localResources);
+    amContainer.setLocalResources(resources);
 
-    // Setup the environment, with special handling for CLASSPATH
-
-    List<String> fullClassPath = new ArrayList<>();
-    setupStandardClassPath(conf, fullClassPath);
-    fullClassPath.addAll(classPath);
-
+    // Environment and class path.
     Map<String, String> appMasterEnv = new HashMap<String, String>();
     appMasterEnv.putAll(env);
-    appMasterEnv.put(Environment.CLASSPATH.name(), DoYUtil.join(File.pathSeparator, fullClassPath));
+    appMasterEnv.put(Environment.CLASSPATH.name(), DoYUtil.join(File.pathSeparator, classPath));
     amContainer.setEnvironment(appMasterEnv);
     return amContainer;
   }
 
-  /**
-   * Create a local resource definition for YARN. A local resource is one that
-   * must be localized onto the remote node prior to running a command on that
-   * node.
-   * <p>
-   * YARN uses the size and timestamp are used to check if the file has changed on HDFS
-   * to check if YARN can use an existing copy, if any.
-   * <p>
-   * Resources are made public.
-   *
-   * @param conf         Configuration created from the Hadoop config files,
-   *                     in this case, identifies the target file system.
-   * @param resourcePath the path (relative or absolute) to the file on the
-   *                     configured file system (usually HDFS).
-   * @return a YARN local resource records that contains information about
-   * path, size, type, resource and so on that YARN requires.
-   * @throws IOException if the resource does not exist on the configured
-   *                     file system
-   */
-
-  private LocalResource setupLocalResource(YarnConfiguration conf, Path resourcePath) throws IOException {
-    LocalResource resource = Records.newRecord(LocalResource.class);
-    FileStatus fileStat = FileSystem.get(conf).getFileStatus(resourcePath);
-    resource.setResource(ConverterUtils.getYarnUrlFromPath(resourcePath));
-    resource.setSize(fileStat.getLen());
-    resource.setTimestamp(fileStat.getModificationTime());
-    resource.setType(LocalResourceType.FILE);
-
-    // TODO: Make this an application resource instead?
-
-    resource.setVisibility(LocalResourceVisibility.PUBLIC);
-    return resource;
-  }
-
-  /**
-   * Add standard class path entries from the YARN application class path
-   * and the localized working directory.
-   *
-   * @param conf
-   * @param fullClassPath
-   */
-
-  private void setupStandardClassPath(YarnConfiguration conf, List<String> fullClassPath) {
-    String path[] = conf.getStrings(
-            YarnConfiguration.YARN_APPLICATION_CLASSPATH,
-            YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH);
-    if (path == null) {
-      return;
+  public void dump(PrintStream out) {
+    if ( command != null ) {
+      out.print( "Command: " );
+      out.println( command );
     }
-    for (String item : path) {
-      fullClassPath.add(item);
+    if ( mainClass != null ) {
+      out.print( "Main Class: " );
+      out.println( mainClass );
     }
-    fullClassPath.add(ApplicationConstants.Environment.PWD.$() + File.separator + "*");
+    out.println( "VM Args:" );
+    if ( vmArgs.isEmpty() ) {
+      out.println( "  None" );
+    }
+    else {
+      for ( String item : vmArgs ) {
+        out.print( "  " );
+        out.println( item );
+      }
+    }
+    out.println( "Program Args:" );
+    if ( cmdArgs.isEmpty() ) {
+      out.println( "  None" );
+    }
+    else {
+      for ( String item : cmdArgs ) {
+        out.print( "  " );
+        out.println( item );
+      }
+    }
+    out.println( "Class Path:" );
+    if ( classPath.isEmpty() ) {
+      out.println( "  None" );
+    }
+    else {
+      for ( String item : classPath ) {
+        out.print( "  " );
+        out.println( item );
+      }
+    }
+    out.println( "Environment:" );
+    if ( env.isEmpty() ) {
+      out.println( "  None" );
+    }
+    else {
+      for ( String key : env.keySet() ) {
+        out.print( "  " );
+        out.print( key );
+        out.print( "=" );
+        out.println( env.get( key ) );
+      }
+    }
+    out.println( "Resources: " );
+    if ( resources.isEmpty() ) {
+      out.println( "  None" );
+    }
+    else {
+      for ( String key : resources.keySet() ) {
+        out.print( "  Key: " );
+        out.println( key );
+        LocalResource resource = resources.get( key );
+        out.print( "   URL: " );
+        out.println( resource.getResource().toString() );
+        out.print( "   Size: " );
+        out.println( resource.getSize( ) );
+        out.print( "   Timestamp: " );
+        out.println( DoYUtil.toIsoTime( resource.getTimestamp( ) ) );
+        out.print( "   Type: " );
+        out.println( resource.getType().toString() );
+        out.print( "   Visiblity: " );
+        out.println( resource.getVisibility().toString() );
+      }
+    }
   }
-
 }

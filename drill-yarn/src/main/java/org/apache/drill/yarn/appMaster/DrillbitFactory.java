@@ -61,6 +61,16 @@ public class DrillbitFactory implements ControllerFactory
 
     buildZooKeeper( config, dispatcher );
 
+    // Tracking Url
+    // TODO: HTTPS support
+
+    String trackingUrl = null;
+    if ( config.getBoolean( DrillOnYarnConfig.HTTP_ENABLED ) ) {
+      trackingUrl = "http://<host>:<port>/";
+      trackingUrl = trackingUrl.replace( "<port>", Integer.toString( config.getInt( DrillOnYarnConfig.HTTP_PORT ) ) );
+      dispatcher.setTrackingUrl(trackingUrl);
+    }
+
     return dispatcher;
   }
 
@@ -160,7 +170,7 @@ public class DrillbitFactory implements ControllerFactory
     // set to the container directory, so we just need thd name
     // of the Drill folder under the cwd.
 
-    String drillHome = DrillOnYarnConfig.getDrillHome( config ) + "/";
+    String drillHome = DrillOnYarnConfig.getRemoteDrillHome( config ) + "/";
 
     // Add Drill conf folder at the beginning of the classpath
 

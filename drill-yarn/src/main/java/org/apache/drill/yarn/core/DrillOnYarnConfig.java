@@ -19,10 +19,14 @@ package org.apache.drill.yarn.core;
 
 import java.io.File;
 import java.io.PrintStream;
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.hadoop.conf.Configuration;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
@@ -49,12 +53,18 @@ public class DrillOnYarnConfig
   public static final String FILES_PARENT = append( DRILL_ON_YARN_PARENT, "drill-install" );
   public static final String DFS_PARENT = append( DRILL_ON_YARN_PARENT, "dfs" );
   public static final String HTTP_PARENT = append( DRILL_ON_YARN_PARENT, "http" );
+  public static final String YARN_PARENT = append( DRILL_ON_YARN_PARENT, "yarn" );
 
   public static final String APP_NAME = append( DRILL_ON_YARN_PARENT, "app-name" );
   public static final String CLUSTER_ID = append( DRILL_ON_YARN_PARENT, "cluster-id" );
 
   public static final String DFS_CONNECTION = append( DFS_PARENT, "connection" );
-  public static final String DFS_DIR = append( DFS_PARENT, "dir" );
+  public static final String DFS_APP_DIR = append( DFS_PARENT, "app-dir" );
+//  public static final String DFS_CONFIG_DIR = append( DFS_PARENT, "config-dir" );
+//  public static final String DFS_USE_HADOOP_CONFIG = append( DFS_PARENT, "use-hadoop-config" );
+
+  public static final String YARN_QUEUE = append( YARN_PARENT, "queue" );
+  public static final String YARN_PRIORITY = append( YARN_PARENT, "priority" );
 
   public static final String DRILL_ARCHIVE_PATH = append( FILES_PARENT, "client-path" );
   public static final String DRILL_DIR_NAME = append( FILES_PARENT, "dir-name" );
@@ -78,6 +88,7 @@ public class DrillOnYarnConfig
   public static final String AM_VM_ARGS = append( DOY_AM_PARENT, VM_ARGS_KEY );
   public static final String AM_POLL_PERIOD_MS = append( DOY_AM_PARENT, "poll-ms" );
   public static final String AM_TICK_PERIOD_MS = append( DOY_AM_PARENT, "tick-ms" );
+  public static final String AM_PREFIX_CLASSPATH = append( DOY_AM_PARENT, "prefix-class-path" );
   public static final String AM_CLASSPATH = append( DOY_AM_PARENT, "class-path" );
   public static final String AM_DEBUG_LAUNCH = append( DOY_AM_PARENT, "debug-launch" );
 
@@ -115,6 +126,7 @@ public class DrillOnYarnConfig
 
 
   private static DrillOnYarnConfig instance;
+  private static File drillHome;
   private Config config;
 
   /**
@@ -175,8 +187,14 @@ public class DrillOnYarnConfig
     this.config = config;
   }
 
-  public static void load( ) {
+  public static void load( ) throws DoyConfigException
+  {
+    loadConfig( );
+    instance.setDrillHome( );
+  }
 
+  private static void loadConfig( )
+  {
     // Resolution order, larger numbers take precedence.
     // 1. Drill-on-YARN defaults.
     // File is at root of the package tree.
@@ -204,6 +222,52 @@ public class DrillOnYarnConfig
     instance = new DrillOnYarnConfig( config );
   }
 
+  /**
+   * Infer Drill home from the location of the DoY config file. This has
+   * the secondary effect of validating that the config file exists in
+   * the expected location.
+   * <p>
+   * Note: This structure does not allow configs to appear anywhere EXCEPT
+   * in $DRILL_HOME/conf. That restriction is necessary for DoY as only the
+   * $DRILL_HOME folder is localized to each YARN node. Revisit this assumption
+   * (and the Drill home calculation) of we allow a separate config folder.
+   *
+   * @throws DoyConfigException
+   */
+
+  private void setDrillHome( ) throws DoyConfigException
+  {
+    String homeDir = instance.config.getString( DRILL_HOME );
+    if ( ! DoYUtil.isBlank( homeDir ) ) {
+      drillHome = new File( homeDir );
+      return;
+    }
+
+    // If we get this far, then we do have a config file. Resolve that
+    // file again and use it to infer the location of DRILL_HOME.
+
+    ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+    if (classLoader == null) {
+      classLoader = DrillOnYarnConfig.class.getClassLoader();
+    }
+    URL url = classLoader.getResource( CONFIG_FILE_NAME );
+    if ( url == null ) {
+      throw new DoyConfigException( "Drill-on-YARN configuration file is missing: " + CONFIG_FILE_NAME );
+    }
+    File confFile;
+    try {
+      java.nio.file.Path confPath = Paths.get( url.toURI() );
+      confFile = confPath.toFile( );
+    } catch (URISyntaxException e) {
+      throw new DoyConfigException( "Invalid path to Drill-on-YARN configuration file: " + url.toString(), e );
+    }
+    File parent = confFile.getParentFile();
+    if ( parent == null  ||  ! parent.getName().equals( "conf" ) ) {
+      throw new DoyConfigException( "The Drill-on-YARN configuration file must reside in the $DRILL_HOME/conf directory: " + confFile.toString() );
+    }
+    drillHome = parent.getParentFile();
+  }
+
   public Config getConfig( ) {
     return instance.config;
   }
@@ -217,6 +281,15 @@ public class DrillOnYarnConfig
     return instance( ).getConfig();
   }
 
+  /**
+   * Return the Drill home on this machine as inferred from the
+   * config file contents or location.
+   *
+   * @return
+   */
+
+  public File getLocalDrillHome( ) { return drillHome; }
+
   public void dump() {
     dump( System.out );
   }
@@ -225,7 +298,11 @@ public class DrillOnYarnConfig
     APP_NAME,
     CLUSTER_ID,
     DFS_CONNECTION,
-    DFS_DIR,
+    DFS_APP_DIR,
+//    DFS_CONFIG_DIR,
+//    DFS_USE_HADOOP_CONFIG,
+    YARN_QUEUE,
+    YARN_PRIORITY,
     DRILL_ARCHIVE_PATH,
     DRILL_DIR_NAME,
     DRILL_ARCHIVE_KEY,
@@ -235,6 +312,7 @@ public class DrillOnYarnConfig
     AM_HEAP,
     AM_POLL_PERIOD_MS,
     AM_TICK_PERIOD_MS,
+    AM_PREFIX_CLASSPATH,
     AM_CLASSPATH,
     AM_DEBUG_LAUNCH,
     ZK_CONNECT,
@@ -317,7 +395,17 @@ public class DrillOnYarnConfig
     return null;
   }
 
-  public static String getDrillHome( Config config ) {
+  /**
+   * Get the location of Drill home on a remote machine; used when
+   * constructing a launch context. Assumes either the absolute path
+   * from the config file, or a constructed path to the localized
+   * Drill on the remote node.
+   *
+   * @param config
+   * @return
+   */
+
+  public static String getRemoteDrillHome( Config config ) {
     if ( ! config.getBoolean( DrillOnYarnConfig.LOCALIZE_DRILL ) ) {
       return config.getString( DrillOnYarnConfig.DRILL_HOME );
     }

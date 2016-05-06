@@ -18,21 +18,31 @@
 package org.apache.drill.yarn.client;
 
 import org.apache.drill.yarn.core.YarnClientException;
+import org.apache.drill.yarn.core.YarnRMClient;
+import org.apache.hadoop.yarn.api.records.ApplicationId;
 
-public class ClientException extends Exception
+public class KillCommand extends ClientCommand
 {
-  private static final long serialVersionUID = 1L;
 
-  public ClientException(String msg) {
-    super( msg );
-  }
-
-  public ClientException(String msg, Exception e) {
-    super( msg, e );
-  }
-
-  public ClientException(YarnClientException e) {
-    super( e.getMessage(), e );
+  @Override
+  public void run() throws ClientException {
+    ApplicationId appId = checkAppId( );
+    if ( appId == null ) {
+      System.exit( -1 );
+    }
+    YarnRMClient client = new YarnRMClient( appId );
+    try {
+      client.killApplication( );
+    } catch (YarnClientException e) {
+      throw new ClientException( e );
+    }
+    System.out.println( "Kill request sent, waiting for shut-down." );
+    try {
+      client.waitForCompletion();
+    } catch (YarnClientException e) {
+      throw new ClientException( "Wait for completion failed for app id: " + appId.toString(), e );
+    }
+    System.out.println( "Application completed: " + appId.toString() );
   }
 
 }

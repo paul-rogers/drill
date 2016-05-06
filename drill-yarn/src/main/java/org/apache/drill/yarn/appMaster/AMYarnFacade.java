@@ -38,7 +38,7 @@ public interface AMYarnFacade
   void start(AMRMClientAsync.CallbackHandler resourceCallback, NMClientAsync.CallbackHandler nodeCallback,
       PulseCallback timerCallback);
 
-  void register() throws YarnFacadeException;
+  void register( String trackingUrl ) throws YarnFacadeException;
 
   ContainerRequest requestContainer(ContainerRequestSpec containerSpec);
 

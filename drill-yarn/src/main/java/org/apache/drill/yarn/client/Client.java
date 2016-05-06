@@ -18,6 +18,7 @@
 package org.apache.drill.yarn.client;
 
 
+import org.apache.drill.yarn.core.DoyConfigException;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.log4j.BasicConfigurator;
 
@@ -25,8 +26,15 @@ import org.apache.log4j.BasicConfigurator;
  * Client for the Drill-on-YARN integration. See YARN documentation
  * for the role of a YARN client.
  * <p>
- * To debug this class, add your conf folder to the class path
- * so that the config file can be found.
+ * To debug this class, add two directories to your class path:
+ * <ul>
+ * <li>$HADOOP_HOME/etc/hadoop</li>
+ * <li>$DRILL_HOME/conf</li>
+ * </ul>
+ * Note that these MUST be in the order listed since $DRILL_HOME/conf
+ * contains, by default, a version of core-site.xml that probably is
+ * NOT the one you want to use for YARN. For YARN, you want the one
+ * in $HADOOP_HOME/etc/hadoop.
  */
 
 public class Client
@@ -36,9 +44,19 @@ public class Client
     CommandLineOptions opts = new CommandLineOptions();
     opts.parse(argv);
 
-    DrillOnYarnConfig.load();
-    // Debug only
-    DrillOnYarnConfig.instance( ).dump( );
+    try {
+      DrillOnYarnConfig.load();
+    } catch (DoyConfigException e) {
+      System.err.println( e.getMessage() );
+      System.exit( -1 );
+    }
+
+    if ( opts.verbose ) {
+      System.out.println( "----------------------------------------------" );
+      System.out.println( "Effective Drill-on-YARN Configuration" );
+      DrillOnYarnConfig.instance( ).dump( );
+      System.out.println( "----------------------------------------------" );
+    }
 
     ClientCommand cmd;
     switch (opts.getCommand()) {
@@ -56,6 +74,12 @@ public class Client
         break;
       case DRY_RUN:
         cmd = new DryRunCommand( );
+        break;
+      case STATUS:
+        cmd = new ReportCommand( );
+        break;
+      case STOP:
+        cmd = new StopCommand( );
         break;
       default:
         cmd = new HelpCommand( );

@@ -19,14 +19,13 @@ package org.apache.drill.yarn.appMaster;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.drill.yarn.appMaster.PulseRunnable.PulseCallback;
 import org.apache.drill.yarn.core.LaunchSpec;
+import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
@@ -92,10 +91,14 @@ public class AMYarnFacadeImpl implements AMYarnFacade
   }
 
   @Override
-  public void register() throws YarnFacadeException {
+  public void register( String trackingUrl ) throws YarnFacadeException {
+    String thisHostName = NetUtils.getHostname();
     String appMasterTrackingUrl = "";
+    if ( trackingUrl != null ) {
+      appMasterTrackingUrl = trackingUrl.replace( "<host>", thisHostName );
+    }
     try {
-      registration = resourceMgr.registerApplicationMaster("", 0, appMasterTrackingUrl);
+      registration = resourceMgr.registerApplicationMaster(thisHostName, 0, appMasterTrackingUrl);
     } catch (YarnException | IOException e) {
       throw new YarnFacadeException("Register AM failed", e);
     }
