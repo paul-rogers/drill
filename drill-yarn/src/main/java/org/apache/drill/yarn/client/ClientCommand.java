@@ -82,7 +82,8 @@ public abstract class ClientCommand
     }
     finally {
       try {
-        reader.close( );
+        if ( reader != null ) {
+          reader.close( ); }
       } catch (IOException e) {
         // Ignore
       }
@@ -90,4 +91,7 @@ public abstract class ClientCommand
     return ConverterUtils.toApplicationId(appIdStr);
   }
 
+  protected void removeAppIdFile() {
+    getAppIdFile().delete();
+  }
 }

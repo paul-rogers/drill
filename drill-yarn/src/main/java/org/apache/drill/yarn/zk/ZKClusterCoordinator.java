@@ -244,7 +244,10 @@ public class ZKClusterCoordinator extends ClusterCoordinator {
         StringBuilder builder = new StringBuilder();
         builder.append("Active drillbit set changed.  Now includes ");
         builder.append(newDrillbitSet.size());
-        builder.append(" total bits.  New active drillbits: \n");
+        builder.append(" total bits.");
+        if ( ! newDrillbitSet.isEmpty() ) {
+          builder.append(" New active drillbits: \n");
+        }
         for (DrillbitEndpoint bit: newDrillbitSet) {
           builder.append('\t');
           builder.append(bit.getAddress());

@@ -37,7 +37,9 @@ public class StopCommand extends ClientCommand
       reporter = new ReportCommand.Reporter( client );
       reporter.getReport();
       if ( reporter.isStopped() ) {
-        return; }
+        System.out.println( "Stopped." );
+        return;
+      }
       updateState( reporter.getState( ) );
       try {
         for ( int attempt = 0;  attempt < 15;  attempt++ )
@@ -50,6 +52,8 @@ public class StopCommand extends ClientCommand
       }
       reporter.display( verbose, true );
       if ( reporter.isStopped() ) {
+        System.out.println( "Stopped." );
+      } else {
         System.out.println( "Application Master is slow to stop, use YARN to check status." );
       }
     }
@@ -86,14 +90,20 @@ public class StopCommand extends ClientCommand
   @Override
   public void run() throws ClientException {
     YarnRMClient client = getClient( );
-    System.out.println("Stopping Application ID: " + client.getAppId().toString());
+    System.out.println("Application ID: " + client.getAppId().toString());
+    try {
+      client.getAppReport();
+    } catch (YarnClientException e) {
+      removeAppIdFile( );
+      System.out.println( "Application is not running." );
+      return;
+    }
     try {
       client.killApplication( );
     } catch (YarnClientException e) {
       throw new ClientException( "Failed to stop application master", e );
     }
     new StopMonitor( client ).run( opts.verbose );
-    getAppIdFile().delete();
+    removeAppIdFile( );
   }
-
 }
