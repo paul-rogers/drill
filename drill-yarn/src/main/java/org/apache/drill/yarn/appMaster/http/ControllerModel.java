@@ -20,6 +20,8 @@ package org.apache.drill.yarn.appMaster.http;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.xml.bind.annotation.XmlRootElement;
+
 import org.apache.drill.yarn.appMaster.ClusterController;
 import org.apache.drill.yarn.appMaster.ClusterControllerImpl;
 import org.apache.drill.yarn.appMaster.ContainerRequestSpec;
@@ -29,6 +31,7 @@ import org.apache.drill.yarn.appMaster.ControllerVisitor;
 import org.apache.drill.yarn.appMaster.Scheduler;
 import org.apache.drill.yarn.appMaster.SchedulerStateActions;
 
+@XmlRootElement
 public class ControllerModel implements ControllerVisitor
 {
   public static class PoolModel
@@ -59,7 +62,7 @@ public class ControllerModel implements ControllerVisitor
   public int targetCount;
   public int totalDrillMemory;
   public int totalDrillVcores;
-  List<PoolModel> pools = new ArrayList<>( );
+  public List<PoolModel> pools = new ArrayList<>( );
 
   public String getState( ) { return state.toString( ); }
   public int getYarnMemory( ) { return yarnMemory; }

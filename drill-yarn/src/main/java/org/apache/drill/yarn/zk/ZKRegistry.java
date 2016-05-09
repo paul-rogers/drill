@@ -181,10 +181,9 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
       return; }
 
     // Otherwise, the Drillbit has just registered with ZK.
+    // Or, if the ZK connection was lost and regained, the
+    // state changes from DEREGISTERED --> REGISTERED
 
-    assert tracker.state == DrillbitTracker.State.NEW;
-    assert tracker.task != null;
-    assert tracker.endpoint == null;
     tracker.endpoint = dbe;
     becomeRegistered( tracker );
   }
@@ -365,17 +364,4 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
     zkDriver.removeDrillbitListener( this );
     zkDriver.close();
   }
-
-//  @Override
-//  public void decorateTaskModel(Task task, TaskModel model) {
-////    for ( TaskModel model : models ) {
-////      if ( model.container == null ) {
-////        continue; }
-////      String key = toKey( model.container );
-////      DrillbitTracker tracker = registry.get(key);
-////      if ( tracker != null ) {
-////        model.endpoint = tracker.endpoint;
-//      model.endpoint = (DrillbitEndpoint) task.properties.get( ZKRegistry.ENDPOINT_PROPERTY );
-////    }
-//  }
 }
