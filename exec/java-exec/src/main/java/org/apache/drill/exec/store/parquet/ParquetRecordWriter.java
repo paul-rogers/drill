@@ -46,6 +46,7 @@ import org.apache.drill.exec.store.ParquetOutputRecordWriter;
 import org.apache.drill.exec.vector.BitVector;
 import org.apache.drill.exec.vector.complex.reader.FieldReader;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.column.ColumnWriteStore;
@@ -256,6 +257,13 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
       // we are writing one single block per file
       parquetFileWriter.end(extraMetaData);
       parquetFileWriter = null;
+      if(logger.isDebugEnabled()) {
+        Path path = new Path(location, prefix + "_" + index + ".parquet");
+        FileSystem fs = path.getFileSystem(conf);
+        FileStatus fstat = fs.getFileStatus(path);
+        logger.debug("Completed parquet file: {} {} {} {} {} ", fstat.getPath(),
+            fstat.getModificationTime(), fstat.getAccessTime(), fstat.getPermission(), fstat.getOwner());
+      }
     }
 
     store.close();
@@ -361,7 +369,23 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
     // we wait until there is at least one record before creating the parquet file
     if (parquetFileWriter == null) {
       Path path = new Path(location, prefix + "_" + index + ".parquet");
+      // Debug: Check if the file is already there. If it is then
+      // print details
+      if(logger.isDebugEnabled()){
+        FileSystem fs = path.getFileSystem(conf);
+        if(fs.exists(path)){
+          FileStatus fstat = fs.getFileStatus(path);
+          logger.debug("File already exists: {} {} {} {} {} ", fstat.getPath(),
+              fstat.getModificationTime(), fstat.getAccessTime(), fstat.getPermission(), fstat.getOwner());
+        }
+      }
       parquetFileWriter = new ParquetFileWriter(conf, schema, path);
+      if(logger.isDebugEnabled()) {
+        FileSystem fs = path.getFileSystem(conf);
+        FileStatus fstat = fs.getFileStatus(path);
+        logger.debug("Created new parquet file: {} {} {} {} {} ", fstat.getPath(),
+            fstat.getModificationTime(), fstat.getAccessTime(), fstat.getPermission(), fstat.getOwner());
+      }
       parquetFileWriter.start();
     }
 
