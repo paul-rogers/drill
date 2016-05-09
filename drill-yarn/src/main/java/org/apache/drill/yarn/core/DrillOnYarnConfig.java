@@ -91,6 +91,7 @@ public class DrillOnYarnConfig
   public static final String AM_PREFIX_CLASSPATH = append( DOY_AM_PARENT, "prefix-class-path" );
   public static final String AM_CLASSPATH = append( DOY_AM_PARENT, "class-path" );
   public static final String AM_DEBUG_LAUNCH = append( DOY_AM_PARENT, "debug-launch" );
+  public static final String AM_REST_KEY = append( DOY_AM_PARENT, "rest-key" );
 
   public static final String DRILLBIT_MEMORY = append( DOY_DRILLBIT_PARENT, MEMORY_KEY );
   public static final String DRILLBIT_VCORES = append( DOY_DRILLBIT_PARENT, VCORES_KEY );
@@ -299,8 +300,6 @@ public class DrillOnYarnConfig
     CLUSTER_ID,
     DFS_CONNECTION,
     DFS_APP_DIR,
-//    DFS_CONFIG_DIR,
-//    DFS_USE_HADOOP_CONFIG,
     YARN_QUEUE,
     YARN_PRIORITY,
     DRILL_ARCHIVE_PATH,
@@ -315,6 +314,7 @@ public class DrillOnYarnConfig
     AM_PREFIX_CLASSPATH,
     AM_CLASSPATH,
     AM_DEBUG_LAUNCH,
+    // Do not include AM_REST_KEY: it is supposed to be secret.
     ZK_CONNECT,
     ZK_ROOT,
     ZK_RETRY_COUNT,

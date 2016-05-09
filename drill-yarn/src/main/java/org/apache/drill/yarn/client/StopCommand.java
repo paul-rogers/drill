@@ -17,8 +17,11 @@
  */
 package org.apache.drill.yarn.client;
 
+import org.apache.drill.yarn.core.DoYUtil;
+import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.YarnClientException;
 import org.apache.drill.yarn.core.YarnRMClient;
+import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 
 public class StopCommand extends ClientCommand
@@ -86,24 +89,83 @@ public class StopCommand extends ClientCommand
     }
   }
 
+  private YarnRMClient client;
 
   @Override
-  public void run() throws ClientException {
+  public void run() throws ClientException
+  {
     YarnRMClient client = getClient( );
     System.out.println("Application ID: " + client.getAppId().toString());
+
+    // First get an application report to ensure that the AM is,
+    // in fact, running, and to get the HTTP endpoint.
+
+    ApplicationReport report = getReport( );
+    if ( report == null )
+      return;
+
+    // Try to stop the server by sending a STOP REST request.
+
+    boolean stopped = gracefulStop( report );
+
+    // If that did not work, then forcibly kill the AM.
+    // YARN will forcibly kill the AM's containers.
+    // Not pretty, but it works.
+
+    if ( ! stopped )
+      forcefulStop( );
+
+    // Wait for the AM to stop.
+
+    new StopMonitor( client ).run( opts.verbose );
+
+    // The AM is gone. Forget its App Id.
+
+    removeAppIdFile( );
+  }
+
+  private ApplicationReport getReport() {
     try {
-      client.getAppReport();
+      return client.getAppReport();
     } catch (YarnClientException e) {
       removeAppIdFile( );
       System.out.println( "Application is not running." );
-      return;
+      return null;
     }
+  }
+
+  private boolean gracefulStop( ApplicationReport report ) {
+    try {
+      String baseUrl = report.getOriginalTrackingUrl();
+      if ( DoYUtil.isBlank( baseUrl ) ) {
+        return false;
+      }
+      SimpleRestClient restClient = new SimpleRestClient( );
+      String tail = "/rest/stop";
+      String masterKey = DrillOnYarnConfig.config( ).getString( DrillOnYarnConfig.AM_REST_KEY );
+      if ( ! DoYUtil.isBlank( masterKey ) )
+        tail += "?key=" + masterKey;
+      if ( opts.verbose )
+        System.out.println( "Stopping with POST " + baseUrl + "/" + tail );
+      String result = restClient.send( baseUrl, tail, true );
+      if ( "OK".equals( result ) ) {
+        return true;
+      }
+      System.err.println( "Failed to stop the application master. Response = " + result );
+      return false;
+    }
+    catch ( ClientException e ) {
+      System.err.println( e.getMessage() );
+      System.out.println( "Resorting to forced kill" );
+      return false;
+    }
+  }
+
+  private void forcefulStop() throws ClientException {
     try {
       client.killApplication( );
     } catch (YarnClientException e) {
       throw new ClientException( "Failed to stop application master", e );
     }
-    new StopMonitor( client ).run( opts.verbose );
-    removeAppIdFile( );
   }
 }
