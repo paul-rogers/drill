@@ -19,13 +19,8 @@
 
 # Set the path to your Hadoop (and thus YARN) installation. This must include
 # your valid Hadoop and YARN configuration files.
-# This is equivalent to the --yarn option of drill-on-yarn.sh; if you've set
-# HADOOP_HOME you can omit the --yarn option.
+# This is equivalent to the --hadoop option of drill-on-yarn.sh; if you've set
+# HADOOP_HOME you can omit the --hadoop option. You can also set
+# HADOOP_HOME in the environment.
 
-# HADOOP_HOME=/path/to/hadoop
-
-# Convenience to point to the path to your Drill-on-YARN configuration file.
-# Handy if you have only one configuration file. Allows you to omit the
-# --config option to drill-on-yarn.sh
-
-# DOY_CONFIG_FILE=/path/to/config/file
+# export HADOOP_HOME=/path/to/hadoop
