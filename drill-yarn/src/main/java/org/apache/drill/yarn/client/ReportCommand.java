@@ -18,11 +18,15 @@
 package org.apache.drill.yarn.client;
 
 import org.apache.drill.yarn.core.DoYUtil;
+import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.YarnClientException;
 import org.apache.drill.yarn.core.YarnRMClient;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
+import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 public class ReportCommand extends ClientCommand
 {
@@ -45,7 +49,7 @@ public class ReportCommand extends ClientCommand
 
     public void display( boolean verbose, boolean isNew ) {
       YarnApplicationState state = report.getYarnApplicationState();
-      System.out.println( "State: " + state.toString() );
+      System.out.println( "Application State: " + state.toString() );
       if ( verbose || ! isNew ) {
         System.out.println( "Host: " + report.getHost() );
       }
@@ -58,6 +62,12 @@ public class ReportCommand extends ClientCommand
         long startTime = report.getStartTime();
         System.out.println( "Start Time: " + DoYUtil.toIsoTime( startTime ) );
       }
+      showFinalStatus( );
+    }
+
+    public void showFinalStatus( )
+    {
+      YarnApplicationState state = report.getYarnApplicationState();
       if ( state == YarnApplicationState.FAILED  ||  state == YarnApplicationState.FINISHED ) {
         FinalApplicationStatus status = report.getFinalApplicationStatus();
         System.out.println( "Final status: " + status.toString() );
@@ -88,6 +98,11 @@ public class ReportCommand extends ClientCommand
              state == YarnApplicationState.FINISHED  ||
              state == YarnApplicationState.KILLED;
     }
+
+    public boolean isRunning( ) {
+      YarnApplicationState state = getState();
+      return state == YarnApplicationState.RUNNING;
+    }
   }
 
   @Override
@@ -103,5 +118,62 @@ public class ReportCommand extends ClientCommand
       return;
     }
     reporter.display( opts.verbose, false );
+    if ( reporter.isRunning( ) ) {
+      showAmStatus( reporter.report );
+    }
+  }
+
+  private void showAmStatus(ApplicationReport report) {
+    try {
+      String baseUrl = report.getOriginalTrackingUrl();
+      if ( DoYUtil.isBlank( baseUrl ) ) {
+        return;
+      }
+      SimpleRestClient restClient = new SimpleRestClient( );
+      String tail = "rest/status";
+      if ( opts.verbose ) {
+        System.out.println( "Getting status with " + baseUrl + "/" + tail );
+      }
+      String result = restClient.send( baseUrl, tail, false );
+      formatResponse( result );
+      System.out.println( "For more information, visit: " + report.getOriginalTrackingUrl() );
+    }
+    catch ( ClientException e ) {
+      System.out.println( "Failed to get AM status" );
+      System.err.println( e.getMessage() );
+    }
+  }
+
+  private void formatResponse(String result) {
+    JSONParser parser = new JSONParser( );
+    Object status;
+    try {
+      status = parser.parse( result );
+    } catch (ParseException e) {
+      System.err.println( "Invalid response received from AM" );
+      if ( opts.verbose ) {
+        System.out.println( result );
+        System.out.println( e.getMessage( ) );
+      }
+      return;
+    }
+    JSONObject root = (JSONObject) status;
+    showMetric( "AM State", root, "state" );
+    showMetric( "Target Drillbit Count", root.get( "summary" ), "targetBitCount" );
+    showMetric( "Live Drillbit Count", root.get( "summary" ), "liveBitCount" );
+  }
+
+  private void showMetric(String label, Object object, String key) {
+    if ( object == null ) {
+      return;
+    }
+    if ( ! (object instanceof JSONObject) ) {
+      return;
+    }
+    object = ((JSONObject) object).get( key );
+    if ( object == null ) {
+      return;
+    }
+    System.out.println( label + ": " + object.toString() );
   }
 }

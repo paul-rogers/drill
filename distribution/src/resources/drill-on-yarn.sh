@@ -30,31 +30,30 @@ usage="Usage: drill-on-yarn.sh\
 
 bin=`dirname "${BASH_SOURCE-$0}"`
 bin=`cd "$bin">/dev/null; pwd`
-DRILL_HOME=`cd "$bin/..">/dev/null; pwd`
+export DRILL_HOME=`cd "$bin/..">/dev/null; pwd`
 
+cmd=""
 while [[ $# > 0 ]]; do
-    key="$1"
+  key="$1"
 
-    case $key in
-    -y|--hadoop)
-        YARN_DIR="$2"
-        shift 2
-        ;;
-    -h|-\?|--help)
-        echo $usage
-        echo "Config file defaults to $DRILL_HOME/conf/drill-on-yarn.conf"
-        echo "Config file and Hadoop home can be set in $DRILL_HOME/conf/yarn-env.sh"
-        exit 0
+  case $key in
+  -y|--hadoop|--yarn)
+    HADOOP_HOME="$2"
+    shift 2
     ;;
-    start|debug)
-        cmd="$key"
-        shift
-        ;;
-    *)
-        echo $usage
-        exit 1
+  debug)
+    cmd="$key"
+    shift
     ;;
-    esac
+  *)
+    cmd="$cmd $key"
+    shift
+    ;;
+    #*)
+    #echo $usage
+    #exit 1
+    #;;
+  esac
 done
 
 # if no command specified, show usage
@@ -65,17 +64,26 @@ fi
 
 # Use Drillbit's config script. We throw away most of the information, we really just
 # need JAVA_HOME.
-. "$bin"/drill-config.sh
+. "$DRILL_HOME/bin/drill-config.sh"
 
 # Load Drill-on-YARN client environment configuration.
-. "$DRILL_HOME/conf/yarn-env.sh"
-
-# Hadoop Home is required
-YARN_DIR=${YARN_DIR:-$HADOOP_HOME}
-if [ -z "$YARN_DIR" ]; then
-    echo "Hadoop home undefined: set HADOOP_HOME or provide --hadoop option" >&2
-    exit 1
+ENV="$DRILL_HOME/conf/drill-on-yarn-env.sh"
+if [ -e "$ENV" ]; then
+  . "$ENV"
 fi
+
+# Hadoop config or home is required
+if [ -z "$HADOOP_CONF_DIR" ]; then
+  if [ -z "$HADOOP_HOME" ]; then
+    echo "Hadoop home undefined: set HADOOP_CONF_DIR, HADOOP_HOME or provide --hadoop option" >&2
+    exit 1
+  fi
+  HADOOP_CONF_DIR="$HADOOP_HOME/etc/hadoop"
+fi
+
+DRILL_CLIENT_HEAP=${DRILL_CLIENT_HEAP:-512M}
+VM_OPTS="-Xms$DRILL_CLIENT_HEAP -Xmx$DRILL_CLIENT_HEAP $DRILL_CLIENT_VM_OPTS"
+VM_OPTS="$VM_OPTS -Dlogback.configurationFile=$DRILL_HOME/yarn-client-log.xml"
 
 JAVA=$JAVA_HOME/bin/java
 
@@ -85,31 +93,26 @@ JAVA=$JAVA_HOME/bin/java
 CP=$DRILL_CONF_DIR
 
 # Next Drill core jars, including Drill-on-YARN
+CP=$CP:$DRILL_HOME/jars/tools/*
 CP=$CP:$DRILL_HOME/jars/*
+
+# Hadoop config dir. Must be here to avoid conflicts.
+CP=$CP:$HADOOP_CONF_DIR
+CP=$CP:$HADOOP_HOME/share/hadoop/yarn/*
 
 # Followed by Drill override dependency jars
 CP=$CP:$DRILL_HOME/jars/ext/*
-
-# Followed by YARN's and Hadoop's jars
-CP=$CP:$HADOOP_HOME/share/hadoop/yarn/*
-CP=$CP:$HADOOP_HOME/share/hadoop/common/*
-CP=$CP:$HADOOP_HOME/share/hadoop/hdfs/*
 
 # Followed by Drill other dependency jars
 CP=$CP:$DRILL_HOME/jars/3rdparty/*
 CP=$CP:$DRILL_HOME/jars/classb/*
 
 case $cmd in
-start)
-    exec $JAVA -cp $CP org.apache.drill.yarn.client.Client $cmd
-;;
 debug)
-    env
-    echo "Command: $JAVA -cp $CP org.apache.drill.yarn.client.Client $cmd"
-;;
+  env
+  echo "Command: exec $JAVA $VM_OPTS -cp $CP org.apache.drill.yarn.client.Client $cmd"
+  ;;
 *)
-    echo $usage
-    exit 1
-;;
+  exec $JAVA $VM_OPTS -cp $CP org.apache.drill.yarn.client.Client $cmd
+  ;;
 esac
-

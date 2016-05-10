@@ -17,182 +17,164 @@
  */
 package org.apache.drill.yarn.client;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import com.beust.jcommander.JCommander;
-import com.beust.jcommander.Parameter;
-import com.beust.jcommander.ParameterException;
 
 /**
  * Drill YARN client command line options.
  * <p><pre>
  * DrillYarnClient -h|--help |
- *                 --start |
- *                 --stop |
- *                 --status |
- *                 --resize [+|-]n
+ *                 start |
+ *                 stop |
+ *                 status |
+ *                 resize [+|-]n
  * </pre></p>
  * <ul>
- * <li>--help: Prints command line usage</li>
- * <li>--start: starts the defined cluster</li>
- * <li>--stop: stops the defined cluster</li>
- * <li>--resize: adds (+n), removes (-n) or resizes (n) the cluster</li>
- * <li>--status: prints status about the cluster</li>
+ * <li>help: Prints command line usage</li>
+ * <li>start: starts the defined cluster</li>
+ * <li>stop: stops the defined cluster</li>
+ * <li>resize: adds (+n), removes (-n) or resizes (n) the cluster</li>
+ * <li>status: prints status about the cluster</li>
  * </ul>
+ * <p>
+ * This is a do-it-yourself parser because the command line parser
+ * used by Drill does not accept parameters (arguments) without a dash,
+ * and does not accept arguments (such as resize -3) with a dash.
  */
 
 public class CommandLineOptions {
-  @Parameter(names = {"-h", "-?", "--help"}, description = "Provide description of usage.")
-  private boolean help = false;
-
-  @Parameter(names = {"--test"}, description = "Sanity test using simple-yarn-app AM.")
-  private boolean test = false;
-
-  /**
-   * Primary command to upload the application archive and start the Drill cluster.
-   */
-  @Parameter(names = {"--start"}, description = "Start the cluster.")
-  private boolean start = false;
-
-  /**
-   * Convenience method when debugging, testing. Restarts the cluster without the
-   * archive upload; assumes the upload was already done.
-   */
-  @Parameter(names = {"--restart"}, description = "Restart the cluster (without archive upload).")
-  private boolean restart = false;
-
-  /**
-   * Primary command to stop a running cluster.
-   */
-  @Parameter(names = {"--stop"}, description = "Stop the cluster.")
-  private boolean stop = false;
-
-  /**
-   * Primary command to get the status of a running cluster.
-   */
-  @Parameter(names = {"--status"}, description = "Provide the status of the cluster.")
-  private boolean status = false;
-
-  @Parameter(names = {"--resize"}, description = "Resize the cluster +n: add nodes, -n: remove nodes, n resize to given size.")
-  private String resize;
   private String prefix;
   int resizeValue;
 
-  /**
-   * Convenience command to display the effective configuration settings to
-   * diagnose problems.
-   */
-  @Parameter(names = {"--dryrun"}, description = "Display and validate configuration.")
-  private boolean dryRun = false;
-
-  /**
-   * Convenience command to upload the application archive to test the DFS
-   * settings without launching the Drill cluster.
-   */
-  @Parameter(names = {"--upload"}, description = "Upload archives to validate DFS.")
-  private boolean upload = false;
-
-  @Parameter(names = {"-v", "--verbose"}, description = "Verbose output.")
   public boolean verbose = false;
 
-  @Parameter(description = "Cluster name.")
-  private List<String> clusters = new ArrayList<>();
+  public enum Command
+  {
+    HELP( "help", "Provide description of usage."),
 
-  public static enum Command {
-    ERROR, HELP, START, RESTART, STOP, STATUS, RESIZE, TEST, DRY_RUN, UPLOAD
+    /**
+     * Primary command to upload the application archive and start the Drill cluster.
+     */
+
+    START( "start", "Start the cluster."),
+
+    /**
+     * Convenience method when debugging, testing. Restarts the cluster without the
+     * archive upload; assumes the upload was already done.
+     */
+
+    RESTART( "restart", "Restart the cluster (without archive upload)."),
+
+    /**
+     * Primary command to stop a running cluster.
+     */
+
+    STOP( "stop", "Stop the cluster."),
+
+    /**
+     * Primary command to get the status of a running cluster.
+     */
+
+    STATUS( "status", "Provide the status of the cluster."),
+
+    RESIZE( "resize", "Resize the cluster +n: add nodes, -n: remove nodes, n resize to given size."),
+
+    TEST( null, null ),
+
+    /**
+     * Convenience command to display the effective configuration settings to
+     * diagnose problems.
+     */
+
+    DRY_RUN( "dryrun", "Display and validate configuration." ),
+
+    /**
+     * Convenience command to upload the application archive to test the DFS
+     * settings without launching the Drill cluster.
+     */
+
+    UPLOAD( "upload", "Upload archives to validate DFS." );
+
+    private String cmd;
+    private String descrip;
+
+    private Command( String cmd, String descrip ) {
+      this.cmd = cmd;
+      this.descrip = descrip;
+    }
+
+    public boolean isMatch( String arg ) {
+      String key = (cmd == null) ? toString( ) : cmd;
+      return key.equalsIgnoreCase( arg );
+    }
+
+    public boolean isHidden( ) {
+      return descrip == null;
+    }
+
+    public String getCommand( ) { return cmd; }
+    public String getDescription( ) { return descrip; }
   }
 
   Command command;
 
-  private JCommander parser;
+//  private JCommander parser;
 
   /**
    * Parse the command line. Invalid option combinations result in the
    * error option being set.
    */
-  public void parse(String argv[]) {
-    try {
-      parser = new JCommander(this, argv);
-      validate();
-    } catch (ParameterException e) {
-      command = Command.ERROR;
+  public void parse(String args[]) {
+    for ( int i = 0;  i < args.length;  i++ ) {
+      String arg = args[i];
+      if ( arg.equals( "-h" ) ||  arg.equals( "-?" ) ) {
+        command = Command.HELP;
+        break;
+      }
+      if ( arg.equals( "-v" ) ||  arg.equals( "--verboase" ) ) {
+        verbose = true;
+        continue;
+      }
+      if ( command != null ) {
+        command = null;
+        return;
+      }
+
+      // Check if a command line word matches this command. Be nice,
+      // allow -foo and --foo in addition to the "proper" foo.
+
+      String cmdStr = arg;
+      if ( cmdStr.startsWith( "--" ) ) {
+        cmdStr = arg.substring( 2 );
+      }
+      else if ( cmdStr.startsWith( "-" ) ) {
+        cmdStr = cmdStr.substring( 1 );
+      }
+      for ( Command cmd : Command.values() ) {
+        if ( cmd.isMatch( cmdStr ) ) {
+          command = cmd;
+          if ( command == Command.RESIZE ) {
+            if ( i + 1 == args.length ) {
+              command = null;
+              break;
+            }
+            parseResizeOption( args[++i] );
+          }
+          break;
+        }
+      }
     }
   }
 
-  private void validate() {
-    int count = 0;
-    if (help) {
-      count++;
-    }
-    if (start) {
-      count++;
-    }
-    if (restart) {
-      count++;
-    }
-    if (stop) {
-      count++;
-    }
-    if (status) {
-      count++;
-    }
-    if (resize != null) {
-      count++;
-    }
-    if (test) {
-      count++;
-    }
-    if (dryRun) {
-      count++;
-    }
-    if (upload) {
-      count++;
-    }
-    if (count != 1) {
-      command = Command.ERROR;
-      return;
-    }
-
-    if (clusters.size() > 1) {
-      command = Command.ERROR;
-      return;
-    }
-
-    if (count == 1 && resize != null) {
-      Pattern p = Pattern.compile("([+-]?)(\\d+)");
-      Matcher m = p.matcher(resize);
-      if (m.matches()) {
-        prefix = m.group(1);
-        resizeValue = Integer.parseInt(m.group(2));
-      } else {
-        command = Command.ERROR;
-        return;
-      }
-    }
-
-    if (help) {
-      command = Command.HELP;
-    } else if (start) {
-      command = Command.START;
-    } else if (restart) {
-      command = Command.RESTART;
-    } else if (stop) {
-      command = Command.STOP;
-    } else if (status) {
-      command = Command.STATUS;
-    } else if (resize != null) {
-      command = Command.RESIZE;
-    } else if (test) {
-      command = Command.TEST;
-    } else if ( dryRun ) {
-      command = Command.DRY_RUN;
-    } else if ( upload ) {
-      command = Command.UPLOAD;
+  private void parseResizeOption( String resize ) {
+    Pattern p = Pattern.compile("([+-]?)(\\d+)");
+    Matcher m = p.matcher(resize);
+    if (m.matches()) {
+      prefix = m.group(1);
+      resizeValue = Integer.parseInt(m.group(2));
     } else {
-      command = Command.HELP;
+      command = null;
+      return;
     }
   }
 
@@ -208,12 +190,13 @@ public class CommandLineOptions {
     return resizeValue;
   }
 
-  public String getCluster() {
-    return clusters.isEmpty() ? null : clusters.get(0);
-  }
-
   public void usage() {
-    parser.usage();
+    System.out.println( "drill-on-yarn.sh [--hadoop hadoop-home][-v|--verbose] command args");
+    System.out.println( "Where command is one of:" );
+    for ( Command cmd : Command.values() ) {
+      if ( cmd.isHidden( ) ) {
+        continue; }
+      System.out.println( "  " + cmd.getCommand( ) + " - " + cmd.getDescription( ) );
+    }
   }
-
 }
