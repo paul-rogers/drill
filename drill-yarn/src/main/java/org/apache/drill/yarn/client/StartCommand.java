@@ -29,6 +29,9 @@ import java.util.Map;
 
 import org.apache.drill.yarn.appMaster.DrillApplicationMaster;
 import org.apache.drill.yarn.core.AppSpec;
+import org.apache.drill.yarn.core.DfsFacade;
+import org.apache.drill.yarn.core.DfsFacade.DfsFacadeException;
+import org.apache.drill.yarn.core.DfsFacade.Localizer;
 import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.YarnClientException;
@@ -47,171 +50,115 @@ import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
 import com.typesafe.config.Config;
 
+/**
+ * Launches a drill cluster by uploading the Drill archive then launching the
+ * Drill Application Master (AM). For testing, can also do just the upload or
+ * just the launch. Handles both a localized Drill and a non-localized launch
+ * (which uses a pre-installed Drill.)
+ * <p>
+ * This single operation combines upload and launch because the upload
+ * Information is needed by the launch.
+ * <p>
+ * On the surface, it would seem that uploading a file and launching an app
+ * should be simple operations. However, under YARN, we must handle a large
+ * number of details that must be gotten exactly right. Plus, both the upload
+ * and launch can be slow operations, so we provide feedback to the user that
+ * something is, indeed, happening.
+ */
+
 public class StartCommand extends ClientCommand
 {
+  /**
+   * Performs the file upload portion of the operation by uploading an
+   * archive to the target DFS system and directory. Records the uploaded
+   * archive so it may be used for localizing Drill in the launch step.
+   * <p>
+   * Some of the code is a bit of a dance so we can get information
+   * early to display in status messages.
+   */
+
   public static class FileUploader
   {
     private Config config;
-    FileSystem fs;
-    private boolean localize;
-    private Path destPath;
-    private String localArchivePath;
-    private File localArchiveFile;
+    private DfsFacade dfs;
     private boolean verbose;
+
     public Map<String, LocalResource> resources = new HashMap<>();
 
     public FileUploader( Config config, boolean verbose ) {
       this.config = config;
       this.verbose = verbose;
-      localize = config.getBoolean( DrillOnYarnConfig.LOCALIZE_DRILL );
     }
 
     public void run( boolean upload ) throws ClientException {
-      if ( ! localize ) {
+      dfs = new DfsFacade( config );
+      if ( ! dfs.isLocalized() ) {
         String drillHome = config.getString( DrillOnYarnConfig.DRILL_HOME );
         if ( DoYUtil.isBlank( drillHome ) ) {
           throw new ClientException( "Non-localized run but " + DrillOnYarnConfig.DRILL_HOME + " is not set." );
         }
         return;
       }
-      setUploadPath( );
-      if ( upload ) {
-        connectToDfs( );
-        uploadArchive( );
-      }
-      defineResources( );
-    }
-
-    private void connectToDfs( ) throws ClientException
-    {
-      String dfsConnection = config.getString( DrillOnYarnConfig.DFS_CONNECTION );
-      Configuration conf = new YarnConfiguration();
-      try {
-        if ( verbose ) {
-          System.out.print( "YARN Config: " );
-          Configuration.dumpConfiguration(conf, new OutputStreamWriter( System.out ) );
-          System.out.println( );
-        }
-      } catch (IOException e1) {
-        // TODO Auto-generated catch block
-        e1.printStackTrace();
-      }
-      try {
-        if ( DoYUtil.isBlank( dfsConnection ) ) {
-          fs = FileSystem.get(conf);
-        }
-        else {
-          URI uri;
-          try {
-            uri = new URI( dfsConnection );
-          } catch (URISyntaxException e) {
-            throw new ClientException( "Illformed DFS connection: " + dfsConnection, e );
-          }
-          fs = FileSystem.get(uri, conf);
-        }
-      } catch (IOException e) {
-        throw new ClientException( "Failed to create the DFS", e );
-      }
-//      try {
-//        RemoteIterator<LocatedFileStatus> iter = fs.listFiles( new Path( "/" ), true );
-//        while ( iter.hasNext() ) {
-//          LocatedFileStatus stat = iter.next();
-//          System.out.println( stat.getPath() );
-//        }
-//      } catch (IllegalArgumentException | IOException e) {
-//        // TODO Auto-generated catch block
-//        e.printStackTrace();
-//      }
-    }
-
-    private void setUploadPath() throws ClientException {
-      String dfsDirStr = config.getString( DrillOnYarnConfig.DFS_APP_DIR );
-      localArchivePath = config.getString( DrillOnYarnConfig.DRILL_ARCHIVE_PATH );
-      localArchiveFile = new File( localArchivePath );
-      String baseName = localArchiveFile.getName( );
-
-      Path appDir;
-      if ( dfsDirStr.startsWith( "/" ) ) {
-        appDir = new Path( dfsDirStr );
-      }
-      else {
-        Path home = fs.getHomeDirectory();
-        appDir = new Path( home, dfsDirStr );
-      }
-      destPath = new Path( appDir, baseName );
-    }
-
-    public void uploadArchive( ) throws ClientException
-    {
-      // Create the application upload directory if it does not yet exist.
-
-      String dfsDirStr = config.getString( DrillOnYarnConfig.DFS_APP_DIR );
-      Path appDir = new Path( dfsDirStr );
-      try {
-        if ( ! fs.isDirectory( appDir ) ) {
-          // TODO: Set permissions explicitly.
-          FsPermission perm = FsPermission.getDirDefault();
-          fs.mkdirs( appDir, perm );
-        }
-      } catch (IOException e) {
-        throw new ClientException( "Failed to create DFS directory: " + dfsDirStr, e );
-      }
-
-      // Thoroughly check the Drill archive. Errors with the archive seem a likely
-      // source of confusion, so provide detailed error messages for common cases.
-
-      if ( DoYUtil.isBlank( localArchivePath ) ) {
-        throw new ClientException( "Drill archive path (" + DrillOnYarnConfig.DRILL_ARCHIVE_PATH  + ") is not set." );
-      }
-      if ( ! localArchiveFile.exists() ) {
-        throw new ClientException( "Drill archive not found: " + localArchivePath );
-      }
-      if ( ! localArchiveFile.canRead() ) {
-        throw new ClientException( "Drill archive is not readable: " + localArchivePath );
-      }
-      if ( localArchiveFile.isDirectory() ) {
-        throw new ClientException( "Drill archive cannot be a directory: " + localArchivePath );
-      }
-
-      // The file must be an archive type so YARN knows to extract its contents.
-
-      String baseName = localArchiveFile.getName( );
-      if ( DrillOnYarnConfig.findSuffix( baseName ) == null ) {
-        throw new ClientException( "Drill archive must be .tar.gz, .tgz or .zip: " + baseName );
-      }
-
-      Path srcPath = new Path( localArchivePath );
-
-      // Do the upload, replacing the old archive.
-
       if ( verbose ) {
-        System.out.println( "Uploading " + baseName + "..." );
+        dumpYarnConfig( );
+      }
+      DfsFacade.Localizer localizer = new DfsFacade.Localizer( dfs );
+
+      connectToDfs( localizer, upload );
+      if ( upload ) {
+        upload( localizer );
       }
       try {
-        // TODO: Specify file permissions and owner.
-
-        fs.copyFromLocalFile( false, true, srcPath, destPath );
-      } catch (IOException e) {
-        throw new ClientException( "Failed to upload Drill archive to DFS: " +
-                                   localArchiveFile.getAbsolutePath() +
-                                   " --> " + destPath, e );
+        resources = localizer.defineResources( );
+      } catch (DfsFacadeException e) {
+        throw new ClientException( "Failed to get DFS status for Drill archive", e );
       }
     }
 
-    private void defineResources() throws ClientException {
+    private void connectToDfs(DfsFacade.Localizer localizer, boolean upload) throws ClientException
+    {
+      // Print the progress message here because doing the connect takes
+      // a while and the message makes it look like we're doing something.
 
-      // Put the application archive, visible to only the application.
-      // Because it is an archive, it will be expanded by YARN prior to launch
-      // of the AM.
-
-      addResource( destPath, "drill", LocalResourceType.ARCHIVE, LocalResourceVisibility.APPLICATION );
+      if ( upload ) {
+        System.out.println( "Uploading " + localizer.getBaseName() + " to " + localizer.getDestPath() + " ..." );
+      } else {
+        System.out.println( "Checking uploaded file " + localizer.getDestPath() );
+      }
+      try {
+        dfs.connect();
+      } catch (DfsFacadeException e) {
+        throw new ClientException( "Failed to connect to DFS", e );
+      }
     }
 
-    public void addResource( Path dfsPath, String localPath,
-                             LocalResourceType type, LocalResourceVisibility visibility ) throws ClientException {
-      resources.put( localPath, AppSpec.makeResource(fs, dfsPath, type, visibility));
+    private void dumpYarnConfig() throws ClientException {
+      try {
+        System.out.print( "YARN Config: " );
+        dfs.dumpYarnConfig( new OutputStreamWriter( System.out ) );
+        System.out.println( );
+      } catch (IOException e) {
+        throw new ClientException( "Failed to dump YARN configuration", e );
+      }
+    }
+
+    private void upload(Localizer localizer) throws ClientException {
+      try {
+        localizer.upload();
+      } catch (DfsFacadeException e) {
+        throw new ClientException( "Failed to upload Drill archive", e );
+      }
+      if ( verbose ) {
+        System.out.println( "Uploaded." );
+      }
     }
   }
+
+  /**
+   * Launch the AM through YARN. Builds the launch description, then tracks
+   * the launch operation itself. Finally, provides the user with links to
+   * track the AM both through YARN and via the AM's own web UI.
+   */
 
   public static class AMRunner
   {
@@ -242,7 +189,7 @@ public class StartCommand extends ClientCommand
       // or, more typically, the expanded Drill directory under the
       // container's working directory. When the localized directory,
       // we rely on the fact that the current working directory is
-      // set to the container directory, so we just need thd name
+      // set to the container directory, so we just need the name
       // of the Drill folder under the cwd.
 
       String drillHome = DrillOnYarnConfig.getRemoteDrillHome( config ) + "/";
@@ -327,7 +274,7 @@ public class StartCommand extends ClientCommand
       // class path, it turns out that we get unresolved class errors
       // from Jersey if we do. Putting YARN jars here works better.
 
-      master.classPath.add( "$HADOOP_YARN_HOME/share/hadoop/yarn/*" );
+      //master.classPath.add( "$HADOOP_YARN_HOME/share/hadoop/yarn/*" );
 
       // Do not add the YARN lib directory, it causes class conflicts
       // with the Jersey code in the AM.
@@ -338,7 +285,10 @@ public class StartCommand extends ClientCommand
 
       master.classPath.add( drillHome + "jars/ext/*" );
 
-      // Followed by other Drill dependency jars
+      // Followed by other Drill dependency jars. We assume that the YARN jars
+      // are replicated in the 3rdparty directory. Note that this requires that
+      // Drill was built with the same version of YARN under which Drill-on-YARN
+      // is to run.
 
       master.classPath.add( drillHome + "jars/3rdparty/*" );
       master.classPath.add( drillHome + "jars/classb/*" );
@@ -353,6 +303,8 @@ public class StartCommand extends ClientCommand
       // AM main class
 
       master.mainClass = DrillApplicationMaster.class.getCanonicalName();
+
+      // Localized resources
 
       master.resources.putAll( resources );
 
@@ -375,10 +327,9 @@ public class StartCommand extends ClientCommand
 
     private void launch( AppSpec master ) throws ClientException
     {
-      System.out.println( "Launching " + master.appName + "..." );
       launchApp( master );
       writeAppIdFile( );
-      waitForStartAndReport( );
+      waitForStartAndReport( master.appName );
     }
 
     private void launchApp( AppSpec master ) throws ClientException
@@ -414,6 +365,15 @@ public class StartCommand extends ClientCommand
       }
     }
 
+    /**
+     * Write the app id file needed for subsequent commands. The app id file
+     * is the only way we know the YARN application associated with our Drill-on-YARN
+     * session. This file is ready by subsequent status, resize and stop commands
+     * so we can find our Drill AM on the YARN cluster.
+     *
+     * @throws ClientException
+     */
+
     private void writeAppIdFile( ) throws ClientException
     {
       // Write the appid file that lets us work with the app later
@@ -433,12 +393,19 @@ public class StartCommand extends ClientCommand
       }
     }
 
+    /**
+     * Poll YARN to track the launch process of the application so that we can
+     * wait until the AM is live before pointing the user to the AM's
+     * web UI.
+     */
+
     private class StartMonitor
     {
       ReportCommand.Reporter reporter;
       private YarnApplicationState state;
 
-      void run( ) throws ClientException {
+      void run( String appName ) throws ClientException {
+        System.out.print( "Launching " + appName + "..." );
         reporter = new ReportCommand.Reporter( client );
         reporter.getReport();
         if ( ! reporter.isStarting() ) {
@@ -481,56 +448,17 @@ public class StartCommand extends ClientCommand
 
       private void updateState( YarnApplicationState newState ) {
         state = newState;
-        System.out.print( "Application State: " );
-        System.out.println( state.toString( ) );
-        System.out.print( "Starting..." );
+        if ( verbose ) {
+          System.out.print( "Application State: " );
+          System.out.println( state.toString( ) );
+          System.out.print( "Starting..." );
+        }
       }
     }
 
-    private void waitForStartAndReport() throws ClientException {
+    private void waitForStartAndReport( String appName ) throws ClientException {
       StartMonitor monitor = new StartMonitor( );
-      monitor.run( );
-
-//      ReportCommand.Reporter reporter = new ReportCommand.Reporter( appId, client );
-//      int attempt = 0;
-//      for ( ; ; ) {
-//        attempt++;
-//        if ( attempt > 15 ) {
-//          System.out.println( );
-//          System.out.println( "Application Master is slow to start, use the report command later to check status." );
-//          break;
-//        }
-//        try {
-//          reporter.getReport( );
-//        }
-//        catch ( ClientException e ) {
-//          if ( attempt > 1 ) {
-//            System.out.println( );
-//          }
-//          throw e;
-//        }
-//        if ( ! reporter.isStarting( ) ) {
-//          if ( attempt > 1 ) {
-//            System.out.println( );
-//          }
-//          reporter.run( verbose, true );
-//          break;
-//        }
-//        try {
-//          Thread.sleep( 1000 );
-//        } catch (InterruptedException e) {
-//          if ( attempt > 1 ) {
-//            System.out.println( );
-//          }
-//          break;
-//        }
-//        if ( attempt == 1 ) {
-//          System.out.print( "Starting..." );
-//        }
-//        else {
-//          System.out.print( "." );
-//        }
-//      }
+      monitor.run( appName );
     }
   }
 

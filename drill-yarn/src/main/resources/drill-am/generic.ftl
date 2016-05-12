@@ -28,6 +28,7 @@
       <link rel="shortcut icon" href="/static/img/drill.ico">
 
       <link href="/static/css/bootstrap.min.css" rel="stylesheet">
+      <link href="/drill-am/static/css/drill-am.css" rel="stylesheet">
 
       <script src="/static/js/jquery.min.js"></script>
       <script src="/static/js/bootstrap.min.js"></script>
@@ -80,7 +81,7 @@
         </div>
       </div>
 
-      <div class="container-fluid" role="main">
+      <div class="container-fluid drill-am" role="main">
         <@page_body/>
       </div>
     </body>

@@ -71,7 +71,7 @@ public class DrillApplicationMaster
     // Dispatcher am = (new MockDrillbitFactory( )).build( );
     Dispatcher am;
     try {
-      am = (new DrillbitFactory()).build();
+      am = (new DrillControllerFactory()).build();
     } catch (YarnFacadeException e) {
       LOG.error("Setup failed, exiting: " + e.getMessage(), e);
       System.exit(-1);

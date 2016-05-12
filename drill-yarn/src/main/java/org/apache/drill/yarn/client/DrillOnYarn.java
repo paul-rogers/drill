@@ -37,7 +37,7 @@ import org.apache.log4j.BasicConfigurator;
  * in $HADOOP_HOME/etc/hadoop.
  */
 
-public class Client
+public class DrillOnYarn
 {
   public static void main(String argv[]) {
     BasicConfigurator.configure();

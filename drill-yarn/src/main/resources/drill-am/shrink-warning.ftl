@@ -14,38 +14,36 @@
 </#macro>
 
 <#macro page_body>
-  <h3>&nbsp;</h3>
   <h3>YARN Application Master &ndash; ${clusterName}</h3>
-  <h4>Manage Drill Cluster</h4>
+  <h4><#if model.isStop( )>
+  Confirm Cluster Shutdown
+  <#else>
+  Confirm Stopping of Drillbits
+  </#if></h4>
 
-  Current Status: ${model.getLiveCount( )} Drillbits running
-  <p><p>
-  Management Actions:
-  <form action="/resize" method="POST">
-  <input hidden name="type" value="grow">
-  Add &nbsp;&nbsp;
-  <input type="text" name="n" size="6"> &nbsp;&nbsp; nodes.
-  &nbsp;&nbsp; <input type="submit" value="Go">
+  <div class="alert alert-danger">
+    <strong>Warning!</strong> You have requested to
+    <#if model.isStop()>
+    stop the Drill cluster.
+    <#else>
+    remove ${model.getCount( )}
+    <#if model.getCount() == 1>Drillbit<#else>Drillbits</#if>.
+    </#if>
+    In this version of Drill, stopping Drillbits will
+    cause in-flight queries to fail.
+  </div>
+  <#if model.isStop( )>
+  <form method="POST" action="/stop">
+  <#else>
+  <form method="POST" action="/resize">
+  </#if>
+  <#if ! model.isStop( )>
+    <input type="hidden" name="n" value="${model.getCount( )}">
+    <input type="hidden" name="type" value="force-shrink">
+  </#if>
+  <input type="submit" value="Confirm"> or
+  <a href="/">Cancel</a>.
   </form>
-  <p>
-  <form action="/resize" method="POST">
-  <input hidden name="type" value="shrink">
-  Remove &nbsp;&nbsp;
-  <input type="text" name="n" size="6">  &nbsp;&nbsp; nodes.
-  &nbsp;&nbsp; <input type="submit" value="Go">
-  </form>
-  <p>
-  <form action="/resize" method="POST">
-  <input hidden name="type" value="resize">
-  Resize to &nbsp;&nbsp;
-  <input type="text" name="n" size="6"> &nbsp;&nbsp; nodes
-  &nbsp;&nbsp; <input type="submit" value="Go">
-  </form>
-  <p>
-  <form action="/stop" method="GET">Stop the Cluster.
-  &nbsp;&nbsp; <input type="submit" value="Go">
-  </form>
-
 </#macro>
 
 <@page_html/>

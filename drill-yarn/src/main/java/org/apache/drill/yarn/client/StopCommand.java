@@ -17,6 +17,7 @@
  */
 package org.apache.drill.yarn.client;
 
+import org.apache.drill.yarn.client.ReportCommand.Reporter;
 import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.YarnClientException;
@@ -45,16 +46,14 @@ public class StopCommand extends ClientCommand
 
   private static class StopMonitor
   {
-    YarnRMClient client;
     ReportCommand.Reporter reporter;
     private YarnApplicationState state;
 
-    StopMonitor( YarnRMClient client ) {
-      this.client = client;
+    StopMonitor( ReportCommand.Reporter reporter ) {
+      this.reporter = reporter;
     }
 
     boolean run( boolean verbose ) throws ClientException {
-      reporter = new ReportCommand.Reporter( client );
 //      reporter.getReport();
 //      if ( reporter.isStopped() ) {
 //        System.out.println( "Stopped." );
@@ -72,7 +71,9 @@ public class StopCommand extends ClientCommand
         System.out.println( );
       }
       if ( reporter.isStopped() ) {
-        System.out.println( "Stopped." );
+        if ( verbose ) {
+          System.out.println( "Stopped." );
+        }
         reporter.showFinalStatus( );
         return true;
       } else {
@@ -124,38 +125,43 @@ public class StopCommand extends ClientCommand
     // First get an application report to ensure that the AM is,
     // in fact, running, and to get the HTTP endpoint.
 
-    ApplicationReport report = getReport( );
-    if ( report == null ) {
-      return; }
-
-    // Try to stop the server by sending a STOP REST request.
-
-    boolean stopped = gracefulStop( report );
-
-    // If that did not work, then forcibly kill the AM.
-    // YARN will forcibly kill the AM's containers.
-    // Not pretty, but it works.
-
-    if ( ! stopped ) {
-      forcefulStop( ); }
-
-    // Wait for the AM to stop.
-
-    if ( new StopMonitor( client ).run( opts.verbose ) ) {
-
-      // The AM is gone. Forget its App Id.
-
-      removeAppIdFile( );
-    }
-  }
-
-  private ApplicationReport getReport() {
+    ReportCommand.Reporter reporter = new ReportCommand.Reporter( client );
     try {
-      return client.getAppReport();
-    } catch (YarnClientException e) {
-      removeAppIdFile( );
+      reporter.getReport();
+    } catch (ClientException e) {
+      reporter = null;
+    }
+
+    // Handle the case of a an already stopped app.
+
+    boolean stopped = true;
+    if ( reporter == null  ||  reporter.isStopped() ) {
       System.out.println( "Application is not running." );
-      return null;
+    }
+    else
+    {
+      // Try to stop the server by sending a STOP REST request.
+
+      stopped = gracefulStop( reporter.report.getOriginalTrackingUrl() );
+
+      // If that did not work, then forcibly kill the AM.
+      // YARN will forcibly kill the AM's containers.
+      // Not pretty, but it works.
+
+      if ( ! stopped ) {
+        forcefulStop( ); }
+
+      // Wait for the AM to stop. The AM may refuse to stop in
+      // the time allowed to wait.
+
+      stopped = new StopMonitor( reporter ).run( opts.verbose );
+    }
+
+    // If the AM is gone because it started out dead or
+    // we killed it, then forget its App Id.
+
+    if ( stopped ) {
+      removeAppIdFile( );
     }
   }
 
@@ -168,9 +174,8 @@ public class StopCommand extends ClientCommand
    * @return
    */
 
-  private boolean gracefulStop( ApplicationReport report ) {
+  private boolean gracefulStop( String baseUrl ) {
     try {
-      String baseUrl = report.getOriginalTrackingUrl();
       if ( DoYUtil.isBlank( baseUrl ) ) {
         return false;
       }
