@@ -14,37 +14,25 @@
 </#macro>
 
 <#macro page_body>
-  <h3>&nbsp;</h3>
   <h3>YARN Application Master &ndash; ${clusterName}</h3>
-  <h4><#if model.isStop( )>
-  Confirm Cluster Shutdown
-  <#else>
-  Confirm Stopping of Drillbits
-  </#if></h4>
+  <h4>Fully Resolved Configuration Settings</h4>
+  <p>&nbsp;
 
-  <div class="alert alert-danger">
-    <strong>Warning!</strong> You have requested to
-    <#if model.isStop()>
-    stop the Drill cluster.
-    <#else>
-    remove ${model.getCount( )}
-    <#if model.getCount() == 1>Drillbit<#else>Drillbits</#if>.
-    </#if>
-    In this version of Drill, stopping Drillbits will
-    cause in-flight queries to fail.
-  </div>
-  <#if model.isStop( )>
-  <form method="POST" action="/stop">
-  <#else>
-  <form method="POST" action="/resize">
-  </#if>
-  <#if ! model.isStop( )>
-    <input type="hidden" name="n" value="${model.getCount( )}">
-    <input type="hidden" name="type" value="force-shrink">
-  </#if>
-  <input type="submit" value="Confirm"> or
-  <a href="/">Cancel</a>.
-  </form>
+  <table class="table table-hover" style="width: auto;">
+    <tr>
+      <th>Configuration Key</td>
+      <th>Value</td>
+    </tr>
+    <#list model as pair>
+      <tr>
+        <td>${pair.getName()}</td>
+        <td>${pair.getQuotedValue()}</td>
+      </tr>
+    </#list>
+  </table>
+  <p>
+  To modify these values, edit <code>$DRILL_HOME/conf/drill-on-yarn.conf</code>, then rebuild your archive
+  and restart your Drill cluster using the Drill-on-YARN client.
 </#macro>
 
 <@page_html/>

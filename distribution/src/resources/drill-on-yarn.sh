@@ -98,7 +98,7 @@ CP=$CP:$DRILL_HOME/jars/*
 
 # Hadoop config dir. Must be here to avoid conflicts.
 CP=$CP:$HADOOP_CONF_DIR
-CP=$CP:$HADOOP_HOME/share/hadoop/yarn/*
+#CP=$CP:$HADOOP_HOME/share/hadoop/yarn/*
 
 # Followed by Drill override dependency jars
 CP=$CP:$DRILL_HOME/jars/ext/*
@@ -110,9 +110,9 @@ CP=$CP:$DRILL_HOME/jars/classb/*
 case $cmd in
 debug)
   env
-  echo "Command: exec $JAVA $VM_OPTS -cp $CP org.apache.drill.yarn.client.Client $cmd"
+  echo "Command: exec $JAVA $VM_OPTS -cp $CP org.apache.drill.yarn.client.DrillOnYarn $cmd"
   ;;
 *)
-  exec $JAVA $VM_OPTS -cp $CP org.apache.drill.yarn.client.Client $cmd
+  exec $JAVA $VM_OPTS -cp $CP org.apache.drill.yarn.client.DrillOnYarn $cmd
   ;;
 esac

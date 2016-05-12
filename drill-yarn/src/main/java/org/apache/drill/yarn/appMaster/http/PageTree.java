@@ -54,7 +54,7 @@ public class PageTree extends ResourceConfig
     public Viewable getRoot( ) {
       ControllerModel model = new ControllerModel( );
       dispatcher.getController().visit( model );
-      return new Viewable( "/web/index.ftl", toModel( model ) );
+      return new Viewable( "/drill-am/index.ftl", toModel( model ) );
     }
   }
 
@@ -64,7 +64,7 @@ public class PageTree extends ResourceConfig
   {
     @GET
     public Viewable getRoot( ) {
-      return new Viewable( "/web/config.ftl", toModel( DrillOnYarnConfig.instance().getPairs() ) );
+      return new Viewable( "/drill-am/config.ftl", toModel( DrillOnYarnConfig.instance().getPairs() ) );
     }
   }
 
@@ -76,7 +76,7 @@ public class PageTree extends ResourceConfig
     public Viewable getRoot( ) {
       TasksModel model = new TasksModel( );
       dispatcher.getController().visitTasks( model );
-      return new Viewable( "/web/tasks.ftl", toModel( model.results ) );
+      return new Viewable( "/drill-am/tasks.ftl", toModel( model.results ) );
     }
   }
 
@@ -88,7 +88,7 @@ public class PageTree extends ResourceConfig
     public Viewable getRoot( ) {
       ControllerModel model = new ControllerModel( );
       dispatcher.getController().visit( model );
-      return new Viewable( "/web/manage.ftl", toModel( model ) );
+      return new Viewable( "/drill-am/manage.ftl", toModel( model ) );
     }
   }
 
@@ -127,7 +127,7 @@ public class PageTree extends ResourceConfig
         Acknowledge confirm = new Acknowledge( );
         confirm.value = n;
         confirm.type = "invalid-resize";
-        return new Viewable( "/web/confirm.ftl", toModel( confirm ) );
+        return new Viewable( "/drill-am/confirm.ftl", toModel( confirm ) );
       }
       if ( type == null ) {
         type = "null";
@@ -151,26 +151,26 @@ public class PageTree extends ResourceConfig
         Acknowledge confirm = new Acknowledge( );
         confirm.value = type;
         confirm.type = "invalid-action";
-        return new Viewable( "/web/confirm.ftl", toModel( confirm ) );
+        return new Viewable( "/drill-am/confirm.ftl", toModel( confirm ) );
       }
 
       if ( curSize == newSize ) {
         Acknowledge confirm = new Acknowledge( );
         confirm.value = newSize;
         confirm.type = "null-resize";
-        return new Viewable( "/web/confirm.ftl", toModel( confirm ) );
+        return new Viewable( "/drill-am/confirm.ftl", toModel( confirm ) );
       }
       else if ( confirmed || curSize < newSize ) {
         Acknowledge confirm = new Acknowledge( );
         confirm.value = newSize;
         confirm.type = "resized";
-        return new Viewable( "/web/confirm.ftl", toModel( confirm ) );
+        return new Viewable( "/drill-am/confirm.ftl", toModel( confirm ) );
       }
       else {
         ConfirmShrink confirm = new ConfirmShrink( );
         confirm.isStop = false;
         confirm.value = curSize - newSize;
-        return new Viewable( "/web/shrink-warning.ftl", toModel( confirm ) );
+        return new Viewable( "/drill-am/shrink-warning.ftl", toModel( confirm ) );
       }
     }
   }
@@ -183,7 +183,7 @@ public class PageTree extends ResourceConfig
     public Viewable requestStop( ) {
       ConfirmShrink confirm = new ConfirmShrink( );
       confirm.isStop = true;
-      return new Viewable( "/web/shrink-warning.ftl", toModel( confirm ) );
+      return new Viewable( "/drill-am/shrink-warning.ftl", toModel( confirm ) );
     }
 
     @POST
@@ -191,7 +191,7 @@ public class PageTree extends ResourceConfig
       dispatcher.getController().shutDown();
       Acknowledge confirm = new Acknowledge( );
       confirm.type = "stopped";
-      return new Viewable( "/web/confirm.ftl", toModel( confirm ) );
+      return new Viewable( "/drill-am/confirm.ftl", toModel( confirm ) );
     }
   }
 

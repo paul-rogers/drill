@@ -14,7 +14,6 @@
 </#macro>
 
 <#macro page_body>
-  <h3>&nbsp;</h3>
   <h3>YARN Application Master &ndash; ${clusterName}</h3>
   <h4>Drillbit Status</h4>
   <p>&nbsp;

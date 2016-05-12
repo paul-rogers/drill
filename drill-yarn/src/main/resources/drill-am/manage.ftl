@@ -14,26 +14,37 @@
 </#macro>
 
 <#macro page_body>
-  <h3>&nbsp;</h3>
   <h3>YARN Application Master &ndash; ${clusterName}</h3>
-  <h4>Fully Resolved Configuration Settings</h4>
-  <p>&nbsp;
+  <h4>Manage Drill Cluster</h4>
 
-  <table class="table table-hover" style="width: auto;">
-    <tr>
-      <th>Configuration Key</td>
-      <th>Value</td>
-    </tr>
-    <#list model as pair>
-      <tr>
-        <td>${pair.getName()}</td>
-        <td>${pair.getQuotedValue()}</td>
-      </tr>
-    </#list>
-  </table>
+  Current Status: ${model.getLiveCount( )} Drillbits running
+  <p><p>
+  Management Actions:
+  <form action="/resize" method="POST">
+  <input hidden name="type" value="grow">
+  Add &nbsp;&nbsp;
+  <input type="text" name="n" size="6"> &nbsp;&nbsp; drillbits.
+  &nbsp;&nbsp; <input type="submit" value="Go">
+  </form>
   <p>
-  To modify these values, edit <code>$DRILL_HOME/conf/drill-on-yarn.conf</code>, then rebuild your archive
-  and restart your Drill cluster using the Drill-on-YARN client.
+  <form action="/resize" method="POST">
+  <input hidden name="type" value="shrink">
+  Remove &nbsp;&nbsp;
+  <input type="text" name="n" size="6">  &nbsp;&nbsp; drillbits.
+  &nbsp;&nbsp; <input type="submit" value="Go">
+  </form>
+  <p>
+  <form action="/resize" method="POST">
+  <input hidden name="type" value="resize">
+  Resize to &nbsp;&nbsp;
+  <input type="text" name="n" size="6"> &nbsp;&nbsp; drillbits.
+  &nbsp;&nbsp; <input type="submit" value="Go">
+  </form>
+  <p>
+  <form action="/stop" method="GET">Stop the Cluster.
+  &nbsp;&nbsp; <input type="submit" value="Go">
+  </form>
+
 </#macro>
 
 <@page_html/>

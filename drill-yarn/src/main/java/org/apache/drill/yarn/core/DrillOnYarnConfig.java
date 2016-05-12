@@ -26,8 +26,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.hadoop.conf.Configuration;
-
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;
@@ -125,6 +123,15 @@ public class DrillOnYarnConfig
   public static final String POOL_TYPE = "type";
   public static final String POOL_SIZE = "count";
 
+  /**
+   * Name of the subdirectory of the container directory that will hold
+   * localized Drill distribution files. This name must be consistent between
+   * AM launch request and AM launch, and between Drillbit launch request and
+   * Drillbit launch. This name is fixed; there is no reason for the user to
+   * change it as it is visible only in the YARN container environment.
+   */
+
+  public static String LOCAL_DIR_NAME = "drill";
 
   private static DrillOnYarnConfig instance;
   private static File drillHome;
@@ -396,10 +403,14 @@ public class DrillOnYarnConfig
   }
 
   /**
-   * Get the location of Drill home on a remote machine; used when
+   * Get the location of Drill home on a remote machine, relative to
+   * the container working directory. Used when
    * constructing a launch context. Assumes either the absolute path
    * from the config file, or a constructed path to the localized
-   * Drill on the remote node.
+   * Drill on the remote node. YARN examples use "./foo" to refer to
+   * container resources. But, since we cannot be sure when such a path
+   * is evaluated, we explicitly use YARN's
+   * PWD environment variable to get the absolute path.
    *
    * @param config
    * @return
@@ -409,10 +420,22 @@ public class DrillOnYarnConfig
     if ( ! config.getBoolean( DrillOnYarnConfig.LOCALIZE_DRILL ) ) {
       return config.getString( DrillOnYarnConfig.DRILL_HOME );
     }
+    return "$PWD/" + LOCAL_DIR_NAME + "/" + getDrillDir( config );
+  }
+
+  private static String getDrillDir( Config config )
+  {
+    // If the user told us the name of the directory within the archive,
+    // use it.
+
     String home = config.getString( DrillOnYarnConfig.DRILL_DIR_NAME );
     if ( ! DoYUtil.isBlank( home ) ) {
       return home;
     }
+
+    // Otherwise, assume that the archive expands to a directory with the
+    // same name as the archive itself (minus the archive suffix.)
+
     File localArchiveFile = new File( config.getString( DrillOnYarnConfig.DRILL_ARCHIVE_PATH ) );
     home = localArchiveFile.getName( );
     String suffix = findSuffix( home );

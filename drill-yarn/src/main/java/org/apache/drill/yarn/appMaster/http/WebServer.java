@@ -17,7 +17,6 @@
  */
 package org.apache.drill.yarn.appMaster.http;
 
-import org.apache.drill.exec.server.rest.DrillRestServer;
 import org.apache.drill.yarn.appMaster.Dispatcher;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.eclipse.jetty.server.HttpConfiguration;
@@ -27,7 +26,6 @@ import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.server.handler.ErrorHandler;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletContextHandler;
-import org.eclipse.jetty.servlet.ServletHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.resource.Resource;
 import org.glassfish.jersey.servlet.ServletContainer;
@@ -112,6 +110,12 @@ public class WebServer implements AutoCloseable
     staticHolder.setInitParameter("dirAllowed", "false");
     staticHolder.setInitParameter("pathInfoOnly", "true");
     servletContextHandler.addServlet(staticHolder, "/static/*");
+
+    final ServletHolder amStaticHolder = new ServletHolder("am-static", DefaultServlet.class);
+    amStaticHolder.setInitParameter("resourceBase", Resource.newClassPathResource("/drill-am/static").toString());
+    amStaticHolder.setInitParameter("dirAllowed", "false");
+    amStaticHolder.setInitParameter("pathInfoOnly", "true");
+    servletContextHandler.addServlet(amStaticHolder, "/drill-am/static/*");
 
     embeddedJetty.start();
   }

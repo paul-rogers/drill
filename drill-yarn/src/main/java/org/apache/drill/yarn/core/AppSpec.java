@@ -21,9 +21,11 @@ import java.io.IOException;
 import java.io.PrintStream;
 
 import org.apache.drill.yarn.client.ClientException;
+import org.apache.hadoop.fs.FileContext;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.UnsupportedFileSystemException;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.LocalResource;
@@ -31,6 +33,7 @@ import org.apache.hadoop.yarn.api.records.LocalResourceType;
 import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
+import org.apache.hadoop.yarn.api.records.URL;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.util.ConverterUtils;
@@ -121,42 +124,6 @@ public class AppSpec extends LaunchSpec {
     capability.setMemory(memoryMb);
     capability.setVirtualCores(vCores);
     return capability;
-  }
-
-  /**
-   * Create a local resource definition for YARN. A local resource is one that
-   * must be localized onto the remote node prior to running a command on that
-   * node.
-   * <p>
-   * YARN uses the size and timestamp are used to check if the file has changed on HDFS
-   * to check if YARN can use an existing copy, if any.
-   * <p>
-   * Resources are made public.
-   *
-   * @param conf         Configuration created from the Hadoop config files,
-   *                     in this case, identifies the target file system.
-   * @param resourcePath the path (relative or absolute) to the file on the
-   *                     configured file system (usually HDFS).
-   * @return a YARN local resource records that contains information about
-   * path, size, type, resource and so on that YARN requires.
-   * @throws IOException if the resource does not exist on the configured
-   *                     file system
-   */
-
-  public static LocalResource makeResource( FileSystem fs, Path dfsPath,
-                                            LocalResourceType type,
-                                            LocalResourceVisibility visibility ) throws ClientException {
-    FileStatus dfsFileStatus;
-    try {
-      dfsFileStatus = fs.getFileStatus(dfsPath);
-    } catch (IOException e) {
-      throw new ClientException( "Failed to get DFS status for file: " + dfsPath, e );
-    }
-    LocalResource resource = LocalResource.newInstance(
-            ConverterUtils.getYarnUrlFromURI(dfsPath.toUri()),
-            type, visibility,
-            dfsFileStatus.getLen(), dfsFileStatus.getModificationTime());
-    return resource;
   }
 
   public void dump(PrintStream out) {

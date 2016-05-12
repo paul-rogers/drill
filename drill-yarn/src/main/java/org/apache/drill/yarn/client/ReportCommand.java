@@ -49,18 +49,20 @@ public class ReportCommand extends ClientCommand
 
     public void display( boolean verbose, boolean isNew ) {
       YarnApplicationState state = report.getYarnApplicationState();
-      System.out.println( "Application State: " + state.toString() );
       if ( verbose || ! isNew ) {
+        System.out.println( "Application State: " + state.toString() );
         System.out.println( "Host: " + report.getHost() );
       }
-      System.out.println( "Tracking URL: " + report.getTrackingUrl() );
-      System.out.println( "Application Master URL: " + report.getOriginalTrackingUrl() );
       if ( verbose || ! isNew ) {
-        System.out.println( "Application Name: " + report.getName() );
         System.out.println( "Queue: " + report.getQueue() );
         System.out.println( "User: " + report.getUser() );
         long startTime = report.getStartTime();
         System.out.println( "Start Time: " + DoYUtil.toIsoTime( startTime ) );
+        System.out.println( "Application Name: " + report.getName() );
+      }
+      System.out.println( "Tracking URL: " + report.getTrackingUrl() );
+      if ( isNew ) {
+        System.out.println( "Application Master URL: " + report.getOriginalTrackingUrl() );
       }
       showFinalStatus( );
     }
