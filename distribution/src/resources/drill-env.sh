@@ -13,8 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-DRILL_MAX_DIRECT_MEMORY="8G"
-DRILL_HEAP="4G"
+# Values for these two variables will be provided when Drill is
+# run under YARN. The values set here will be used for a non-YARN
+# launch.
+
+export DRILL_MAX_DIRECT_MEMORY=${DRILL_MAX_DIRECT_MEMORY:-"8G"}
+export DRILL_HEAP=${DRILL_HEAP:-"4G"}
 
 export DRILL_JAVA_OPTS="-Xms$DRILL_HEAP -Xmx$DRILL_HEAP -XX:MaxDirectMemorySize=$DRILL_MAX_DIRECT_MEMORY -XX:MaxPermSize=512M -XX:ReservedCodeCacheSize=1G -Ddrill.exec.enable-epoll=true"
 
