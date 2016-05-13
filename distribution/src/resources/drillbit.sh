@@ -76,23 +76,6 @@ waitForProcessEnd() {
   echo
 }
 
-drill_rotate_log ()
-{
-    log=$1;
-    num=5;
-    if [ -n "$2" ]; then
-    num=$2
-    fi
-    if [ -f "$log" ]; then # rotate logs
-    while [ $num -gt 1 ]; do
-        prev=`expr $num - 1`
-        [ -f "$log.$prev" ] && mv -f "$log.$prev" "$log.$num"
-        num=$prev
-    done
-    mv -f "$log" "$log.$num";
-    fi
-}
-
 check_before_start(){
     #ckeck if the process is not running
     mkdir -p "$DRILL_PID_DIR"

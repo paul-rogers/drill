@@ -43,6 +43,10 @@ public class DrillOnYarn
     BasicConfigurator.configure();
     CommandLineOptions opts = new CommandLineOptions();
     opts.parse(argv);
+    if ( opts.getCommand() == null ) {
+      opts.usage();
+      System.exit( -1 );
+    }
 
     try {
       DrillOnYarnConfig.load();

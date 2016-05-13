@@ -59,6 +59,23 @@ fatal_error() {
   exit 1
 }
 
+drill_rotate_log ()
+{
+    log=$1;
+    num=5;
+    if [ -n "$2" ]; then
+    num=$2
+    fi
+    if [ -f "$log" ]; then # rotate logs
+    while [ $num -gt 1 ]; do
+        prev=`expr $num - 1`
+        [ -f "$log.$prev" ] && mv -f "$log.$prev" "$log.$num"
+        num=$prev
+    done
+    mv -f "$log" "$log.$num";
+    fi
+}
+
 # the root of the drill installation
 DRILL_HOME=${DRILL_HOME:-$home}
 
@@ -74,16 +91,16 @@ fi
 # If config dir is given, it must exist.
 
 if [ -n "$DRILL_CONF_DIR" ]; then
-  if [ ! -d "$DRILL_CONF_DIR" ]; then
+  if [[ ! -d "$DRILL_CONF_DIR" ]]; then
     fatal_error "Config dir does not exist:" $DRILL_CONF_DIR
   fi
 else
 
   # Allow alternate drill conf dir location.
-  DRILL_CONF_DIR="${DRILL_CONF_DIR:-/etc/drill/conf}"
+  DRILL_CONF_DIR=${DRILL_CONF_DIR:-/etc/drill/conf}
 
   # Otherwise, use the default
-  if [ ! -d "$DRILL_CONF_DIR" ]; then
+  if [[ ! -d "$DRILL_CONF_DIR" ]]; then
     DRILL_CONF_DIR="$DRILL_HOME/conf"
   fi
 fi
@@ -95,7 +112,7 @@ drillenv="$DRILL_CONF_DIR/drill-env.sh"
 if [[ ! -a "$drillenv" ]]; then
   fatal_error "Drill config file missing: $drillenv -- Wrong config dir?"
 fi
-if [[ ! -r "$override" ]]; then
+if [[ ! -r "$drillenv" ]]; then
   fatal_error "Drill config file not readable: $drillenv - Wrong user?"
 fi
 
@@ -113,7 +130,7 @@ fi
 if [ -z "$DRILL_LOG_DIR" ]; then
   # Try the optional location
   DRILL_LOG_DIR=/var/log/drill
-  if [[ ! -d "$DRILL_LOG_DIR" ]] && [[ ! -w "$DRILL_LOG_DIR" ]]; then
+  if [[ ! -d "$DRILL_LOG_DIR" && ! -w "$DRILL_LOG_DIR" ]]; then
     # Default to the drill home folder. Create the directory
     # if not present.
 
@@ -165,7 +182,7 @@ fi
 CP=$CP:$DRILL_HOME/jars/3rdparty/*
 CP=$CP:$DRILL_HOME/jars/classb/*
 
-# Finally any user specified 
+# Finally any user specified
 if [ -n "${DRILL_CLASSPATH}" ]; then
   CP=$CP:$DRILL_CLASSPATH
 fi

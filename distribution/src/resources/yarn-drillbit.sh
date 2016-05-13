@@ -45,7 +45,7 @@
 #     value for the long directory under YARN.
 # DRILL_YARN_LOG_DIR
 #     If using the YARN log directory, this variable points to that location.
-#     If drill.yarn.drillbit.yarn-logs is false, then this variable is not
+#     If drill.yarn.drillbit.disable-yarn-logs is true, then this variable is not
 #     set and the DRILL_LOG_DIR is used instead.
 # DRILL_MAX_DIRECT_MEMORY:
 #     The amount of direct memory set in the
@@ -60,11 +60,15 @@
 #     DRILL_MAX_DIRECT_MEMORY.
 # DRILL_JAVA_OPTS
 #     The standard JVM options needed to launch Drill. Must be set in
-#     drill-env.sh. Additional values can be set in the
-#     drill.yarn.drillbit.vm-args config parameter.
+#     drill-env.sh.
+# DRILL_JVM_OPTS
+#     Additional YARN-specific JVM options set in the
+#     drill.yarn.drillbit.vm-args config parameter. Note that the YARN-specific
+#     options are in addition to (not an override of) the DRILL_JAVA_OPTS
+#     values.
 # SERVER_GC_OPTS
-#     Additional garbage collection (GC) related JVM options set
-#     in drill-env.sh.
+#     Garbage collection (GC) related JVM options set in drill-env.sh. Not
+#     overridden in YARN.
 # HADOOP_HOME
 #     Location of the Hadoop software and configuration. Can be
 #     set with the drill.yarn.hadoop.home or in drill-env.sh. If both are set, the
@@ -99,16 +103,22 @@
 #     typical place to add jars needed by plugins, etc. (Note, no need to set
 #     this if the jars reside in the $DRILL_HOME/jars/3rdparty directory.)
 #     Config parameter is drill.yarn.drillbit.drill-classpath.
+# DRILL_JVM_OPTS
+#     Additional JVM options passed via YARN from the
+#     drill.yarn.drillbit.vm-args parameter.
+# ENABLE_GC_LOG
+#     Enables Java GC logging. Passed from the drill.yarn.drillbit.log-gc
+#     garbage collection option.
 
 # DRILL_HOME is set by the AM to point to the Drill distribution.
 
 # In YARN, configuration defaults to the the standard location.
 
-DRILL_CONF_DIR={$DRILL_CONF_DIR:$DRILL_HOME/conf}
+DRILL_CONF_DIR=${DRILL_CONF_DIR:-$DRILL_HOME/conf}
 
 # Use Drill's standard configuration, including drill-env.sh.
 
-. "$DRILL_CONF_DIR/drill-config.sh"
+. "$DRILL_HOME/bin/drill-config.sh"
 
 if [ -n "$DRILL_DEBUG" ]; then
   echo
@@ -118,53 +128,6 @@ if [ -n "$DRILL_DEBUG" ]; then
   echo "-----------------------------------"
 fi
 
-# The log directory is YARN's container log directory
-
-DRILL_LOG_DIR=$LOG_DIRS
-
-# Use the YARN-provided JAVA_HOME
-
-JAVA=$JAVA_HOME/bin/java
-
-# Memory options should have been passed from the Application Master.
-
-DRILL_MAX_DIRECT_MEMORY=${DRILL_MAX_DIRECT_MEMORY:-"8G"}
-DRILL_HEAP=${DRILL_HEAP:-"4G"}
-
-# JVM options set here are seldom (if every) customized per-site.
-# If we find a need to customize any of these, we should add an
-# additional Drill-on-YARN configuration variable for that item.
-
-JVM_OPTS="-Xms$DRILL_HEAP -Xmx$DRILL_HEAP -XX:MaxDirectMemorySize=$DRILL_MAX_DIRECT_MEMORY -XX:MaxPermSize=512M -XX:ReservedCodeCacheSize=1G -Ddrill.exec.enable-epoll=true"
-
-# Class unloading is disabled by default in Java 7
-# http://hg.openjdk.java.net/jdk7u/jdk7u60/hotspot/file/tip/src/share/vm/runtime/globals.hpp#l1622
-SERVER_GC_OPTS="-XX:+CMSClassUnloadingEnabled -XX:+UseG1GC "
-
-# Class path
-# Note: Custom user code must appear in jars/3rdparty.
-
-# Add Drill conf folder at the beginning of the classpath
-CP=$DRILL_CONF_DIR
-
-# Next Drill core jars
-CP=$CP:$DRILL_HOME/jars/*
-
-# Followed by Drill override dependency jars
-CP=$CP:$DRILL_HOME/jars/ext/*
-
-# Followed by jars defined in the Drill-on-YARN config.)
-if [ -n "$DRILL_CLASSPATH" ]; then
-  CP=$CP:$DRILL_CLASSPATH
-fi
-
-# Followed by Drill's other dependency jars
-# Note that Hadoop jars are included in 3rdpaty; we use these to
-# avoid potential conflicts with the YARN-provided jars, but it means
-# that the Drill version must be built with the correct Hadoop version.
-
-CP=$CP:$DRILL_HOME/jars/3rdparty/*
-CP=$CP:$DRILL_HOME/jars/classb/*
 
 # Log setup
 # In "native" Drill, stdout goes to a Drill log file.
@@ -182,15 +145,19 @@ logqueries="${DRILL_LOG_DIR}/${DRILL_QUERYFILE}"
 DRILLBIT_LOG_PATH=$loglog
 DRILLBIT_QUERY_LOG_PATH=$logqueries
 
-# Note: no log rotation because each run under YARN
+# Note: if using YARN log dir, then no log rotation because each run under YARN
 # gets a new log directory.
+
+if [ -z "$DRILL_YARN_LOG_DIR" ]; then
+  drill_rotate_log $loggc
+fi
 
 echo "`ulimit -a`" >> $loglog 2>&1
 logopts="-Dlog.path=$DRILLBIT_LOG_PATH -Dlog.query.path=$DRILLBIT_QUERY_LOG_PATH"
-if [ -n "$DRILL_LOG_GC" ]; then
+if [ -n "$ENABLE_GC_LOG" ]; then
   logopts="$logopts -Xloggc:${loggc}"
 fi
-JVM_OPTS="$JVM_OPTS $SERVER_GC_OPTS $logopts $DRILL_JAVA_OPTS"
+JVM_OPTS="$JVM_OPTS $SERVER_GC_OPTS $logopts $DRILL_JAVA_OPTS $DRILL_JVM_OPTS"
 export BITCMD="$JAVA $JVM_OPTS -cp $CP org.apache.drill.exec.server.Drillbit"
 
 # Debugging information
@@ -202,21 +169,11 @@ if [ -n "$DRILL_DEBUG" ]; then
   echo "-----------------------------------"
   set
   echo "-----------------------------------"
-  echo "Script pid: $$"
 fi
 
-# Launch Drill using the same pid as this script.
-# This configuration is necessary so that when the node manager
-# kills this process, it kills the drillbit itself.
+# Launch Drill itself.
+# Passes along Drill's exit code as our own.
 
 echo "`date` Starting drillbit on `hostname` under YARN, logging to $logout"
 
 exec $BITCMD
-#retcode=$?
-
-#echo "`date` drillbit on `hostname` pid $bitpid exited with status $retcode" >> $loglog
-#echo "`date` drillbit on `hostname` pid $bitpid exited with status $retcode"
-
-# Pass along Drill's exit code as our own.
- 
-#exit $retcode
