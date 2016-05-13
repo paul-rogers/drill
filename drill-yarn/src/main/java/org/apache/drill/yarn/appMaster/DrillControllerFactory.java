@@ -39,15 +39,14 @@ import com.typesafe.config.Config;
 public class DrillControllerFactory implements ControllerFactory
 {
   private static final Log LOG = LogFactory.getLog(DrillControllerFactory.class);
+  private Config config = DrillOnYarnConfig.config();
 
   @Override
   public Dispatcher build() throws YarnFacadeException {
 
-    Config config = DrillOnYarnConfig.config();
+    Map<String, LocalResource> resources = prepareResources( );
 
-    Map<String, LocalResource> resources = prepareResources( config );
-
-    TaskSpec taskSpec = buildDrillTaskSpec( config, resources );
+    TaskSpec taskSpec = buildDrillTaskSpec( resources );
 
     // Prepare dispatcher
 
@@ -80,7 +79,7 @@ public class DrillControllerFactory implements ControllerFactory
     return dispatcher;
   }
 
-  private Map<String, LocalResource> prepareResources(Config config) throws YarnFacadeException {
+  private Map<String, LocalResource> prepareResources( ) throws YarnFacadeException {
     try {
       DfsFacade dfs = new DfsFacade( config );
       if ( ! dfs.isLocalized() ) {
@@ -105,7 +104,9 @@ public class DrillControllerFactory implements ControllerFactory
    * environment or command.
    * <p>
    * This is an exercise in getting
-   * many details just right. The easiest way to understand this code is
+   * many details just right. The code here sets the environment variables
+   * required by (and documented in) yarn-drillbit.sh. The easiest way to
+   * understand this code is
    * to insert an "echo" statement in drill-bit.sh to echo the launch
    * command there. Then, look in YARN's NM private container directory
    * for the launch_container.sh script to see the command generated
@@ -119,7 +120,7 @@ public class DrillControllerFactory implements ControllerFactory
    * @return
    */
 
-  private TaskSpec buildDrillTaskSpec(Config config, Map<String, LocalResource> resources) {
+  private TaskSpec buildDrillTaskSpec(Map<String, LocalResource> resources) {
 
     // Drillbit launch description
 
@@ -127,55 +128,8 @@ public class DrillControllerFactory implements ControllerFactory
     containerSpec.memoryMb = config.getInt( DrillOnYarnConfig.DRILLBIT_MEMORY );
     containerSpec.vCores = config.getInt( DrillOnYarnConfig.DRILLBIT_VCORES );
 
-    // Heap memory
-
     LaunchSpec drillbitSpec = new LaunchSpec();
-    String heapMem = config.getString( DrillOnYarnConfig.DRILLBIT_HEAP );
-    drillbitSpec.vmArgs.add( "-Xms" + heapMem );
-    drillbitSpec.vmArgs.add( "-Xmx" + heapMem );
 
-    // Direct memory
-
-    String directMem = config.getString( DrillOnYarnConfig.DRILLBIT_DIRECT_MEM );
-    drillbitSpec.vmArgs.add( "-XX:MaxDirectMemorySize=" + directMem );
-
-    // Other VM options.
-    // From dril;-env.sh
-
-    drillbitSpec.vmArgs.add( "-XX:MaxPermSize=512M" );
-    drillbitSpec.vmArgs.add( "-XX:ReservedCodeCacheSize=1G" );
-    drillbitSpec.vmArgs.add( "-Ddrill.exec.enable-epoll=true" );
-    drillbitSpec.vmArgs.add( "-XX:+UseG1GC" );
-
-    // Class unloading is disabled by default in Java 7
-    // http://hg.openjdk.java.net/jdk7u/jdk7u60/hotspot/file/tip/src/share/vm/runtime/globals.hpp#l1622
-
-    drillbitSpec.vmArgs.add( "-XX:+CMSClassUnloadingEnabled" );
-
-    // Any additional VM arguments form the config file.
-
-    String customVMArgs = config.getString( DrillOnYarnConfig.DRILLBIT_VM_ARGS );
-    if ( ! DoYUtil.isBlank( customVMArgs ) ) {
-      drillbitSpec.vmArgs.add( customVMArgs );
-    }
-
-    // Drill logs.
-    // Relies on the LOG_DIR_EXPANSION_VAR marker which is replaced by
-    // the container log directory.
-
-    String logDir = ApplicationConstants.LOG_DIR_EXPANSION_VAR;
-    drillbitSpec.vmArgs.add( "-Dlog.path=" + logDir + "/drillbit.log" );
-    drillbitSpec.vmArgs.add( "-Dlog.query.path=" + logDir + "/drillbit_queries.json" );
-
-    // Garbage collection (gc) logging. In drillbit.sh logging can be
-    // configured to go anywhere. In YARN, all logs go to the YARN log
-    // directory; the gc log file is always called "gc.log".
-
-    if ( config.getBoolean( DrillOnYarnConfig.DRILLBIT_LOG_GC ) ) {
-      drillbitSpec.vmArgs.add( "-Xloggc:" + logDir + "/gc.log" );
-    }
-
-    // Class path, assembled as per drill-config.sh.
     // The drill home location is either a non-localized location,
     // or, more typically, the expanded Drill directory under the
     // container's working directory. When the localized directory,
@@ -183,54 +137,79 @@ public class DrillControllerFactory implements ControllerFactory
     // set to the container directory, so we just need the name
     // of the Drill folder under the cwd.
 
-    String drillHome = DrillOnYarnConfig.getRemoteDrillHome( config ) + "/";
+    String drillHome = DrillOnYarnConfig.getRemoteDrillHome( config );
+    drillbitSpec.env.put( "DRILL_HOME", drillHome );
     LOG.trace( "Drillbit DRILL_HOME: " + drillHome );
 
-    // Add Drill conf folder at the beginning of the classpath
+    // Heap memory
 
-    drillbitSpec.classPath.add( drillHome + "conf" );
+    addIfSet( drillbitSpec, DrillOnYarnConfig.DRILLBIT_HEAP, "DRILL_HEAP" );
 
-    // Followed by any user specified override jars
+    // Direct memory
 
-    String prefixCp = config.getString( DrillOnYarnConfig.DRILLBIT_PREFIX_CLASSPATH );
-    if ( ! DoYUtil.isBlank( prefixCp ) ) {
-      drillbitSpec.classPath.add( prefixCp );
+    addIfSet( drillbitSpec, DrillOnYarnConfig.DRILLBIT_DIRECT_MEM, "DRILL_MAX_DIRECT_MEMORY" );
+
+    // Any additional VM arguments form the config file.
+
+    addIfSet( drillbitSpec, DrillOnYarnConfig.DRILLBIT_VM_ARGS, "DRILL_JVM_OPTS" );
+
+    // Drill logs.
+    // Relies on the LOG_DIR_EXPANSION_VAR marker which is replaced by
+    // the container log directory.
+
+    if ( ! config.getBoolean( DrillOnYarnConfig.DISABLE_YARN_LOGS ) ) {
+      drillbitSpec.env.put( "DRILL_YARN_LOG_DIR", ApplicationConstants.LOG_DIR_EXPANSION_VAR );
     }
 
-    // Next Drill core jars
+    // Debug option.
 
-    drillbitSpec.classPath.add( drillHome + "jars/*" );
-
-    // Followed by Drill override dependency jars
-
-    drillbitSpec.classPath.add( drillHome + "jars/ext/*" );
-
-    // Followed by Hadoop's jar, HBase' jar. Generalized
-    // here to a class-path of external jars set in the config.
-
-    String extnCp = config.getString( DrillOnYarnConfig.DRILLBIT_EXTN_CLASSPATH );
-    if ( ! DoYUtil.isBlank( extnCp ) ) {
-      drillbitSpec.classPath.add( extnCp );
+    if ( config.getBoolean( DrillOnYarnConfig.DRILLBIT_DEBUG_LAUNCH ) ) {
+      drillbitSpec.env.put( "DRILL_DEBUG", "1" );
     }
 
-    // Followed by other Drill dependency jars
+    // Hadoop home
 
-    drillbitSpec.classPath.add( drillHome + "jars/3rdparty/*" );
-    drillbitSpec.classPath.add( drillHome + "jars/classb/*" );
+    addIfSet( drillbitSpec, DrillOnYarnConfig.HADOOP_HOME, "HADOOP_HOME" );
 
-    // Finally any user specified
+    // When localized, the config directory must be $DRILL_HOME/conf, which
+    // contains the localized files. We set this explicitly to prevent
+    // drill-config.sh from using any of the default locations.
+    // Note that we can do the obvious: $DRILL_HOME/conf, because env vars
+    // are set in random order, one value set here can't rely on another.
 
-    String customCp = config.getString( DrillOnYarnConfig.DRILLBIT_CLASSPATH );
-    if ( ! DoYUtil.isBlank( customCp ) ) {
-      drillbitSpec.classPath.add( customCp );
+    if ( config.getBoolean( DrillOnYarnConfig.LOCALIZE_DRILL ) ) {
+      drillbitSpec.env.put( "DRILL_CONF_DIR", drillHome + "/conf" );
     }
+
+    // Garbage collection (gc) logging. In drillbit.sh logging can be
+    // configured to go anywhere. In YARN, all logs go to the YARN log
+    // directory; the gc log file is always called "gc.log".
+
+    if ( config.getBoolean( DrillOnYarnConfig.DRILLBIT_LOG_GC ) ) {
+      drillbitSpec.env.put( "ENABLE_GC_LOG", "1" );
+    }
+
+    // Class path additions.
+
+    addIfSet( drillbitSpec, DrillOnYarnConfig.DRILLBIT_PREFIX_CLASSPATH, "DRILL_CLASSPATH_PREFIX" );
+    addIfSet( drillbitSpec, DrillOnYarnConfig.DRILLBIT_CLASSPATH, "DRILL_CLASSPATH" );
+
+    // Drill-config.sh has specific entries for Hadoop and Hbase. To prevent
+    // an endless number of such one-off cases, we add a general extension
+    // class path. But, we retain Hadoop and Hbase for backward compatibility.
+
+    addIfSet( drillbitSpec, DrillOnYarnConfig.DRILLBIT_EXTN_CLASSPATH, "EXTN_CLASSPATH" );
+    addIfSet( drillbitSpec, DrillOnYarnConfig.HADOOP_CLASSPATH, "HADOOP_CLASSPATH" );
+    addIfSet( drillbitSpec, DrillOnYarnConfig.HBASE_CLASSPATH, "HBASE_CLASSPATH" );
 
     // Note that there is no equivalent of niceness for YARN: YARN controls
     // the niceness of its child processes.
 
-    // Drillbit main class (from runbit)
+    // Drillbit launch script under YARN
+    // Here we can use DRILL_HOME because all env vars are set before
+    // issuing this command.
 
-    drillbitSpec.mainClass = Drillbit.class.getCanonicalName();
+    drillbitSpec.command = "$DRILL_HOME/bin/yarn-drillbit.sh";
 
     // Localized resources
 
@@ -245,6 +224,13 @@ public class DrillControllerFactory implements ControllerFactory
     taskSpec.launchSpec = drillbitSpec;
     taskSpec.maxRetries = config.getInt( DrillOnYarnConfig.DRILLBIT_MAX_RETRIES );
     return taskSpec;
+  }
+
+  public void addIfSet( LaunchSpec spec, String configParam, String envVar ) {
+    String value = config.getString( configParam );
+    if ( ! DoYUtil.isBlank( value ) ) {
+      spec.env.put( envVar, value );
+    }
   }
 
   private void buildZooKeeper(Config config, Dispatcher dispatcher) {

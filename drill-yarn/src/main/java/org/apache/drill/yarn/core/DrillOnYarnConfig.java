@@ -52,6 +52,7 @@ public class DrillOnYarnConfig
   public static final String DFS_PARENT = append( DRILL_ON_YARN_PARENT, "dfs" );
   public static final String HTTP_PARENT = append( DRILL_ON_YARN_PARENT, "http" );
   public static final String YARN_PARENT = append( DRILL_ON_YARN_PARENT, "yarn" );
+  public static final String HADOOP_PARENT = append( DRILL_ON_YARN_PARENT, "hadoop" );
 
   public static final String APP_NAME = append( DRILL_ON_YARN_PARENT, "app-name" );
   public static final String CLUSTER_ID = append( DRILL_ON_YARN_PARENT, "cluster-id" );
@@ -74,6 +75,10 @@ public class DrillOnYarnConfig
   public static final String DRILL_ARCHIVE_KEY = append( FILES_PARENT, "key" );
   public static final String LOCALIZE_DRILL = append( FILES_PARENT, "localize" );
   public static final String DRILL_HOME = append( FILES_PARENT, "drill-home" );
+
+  public static final String HADOOP_HOME = append( HADOOP_PARENT, "home" );
+  public static final String HADOOP_CLASSPATH = append( HADOOP_PARENT, "class-path" );
+  public static final String HBASE_CLASSPATH = append( HADOOP_PARENT, "hbase-class-path" );
 
   public static final String MEMORY_KEY = "memory-mb";
   public static final String VCORES_KEY = "vcores";
@@ -103,6 +108,7 @@ public class DrillOnYarnConfig
   public static final String DRILLBIT_MAX_RETRIES = append( DOY_DRILLBIT_PARENT, "max-retries" );
   public static final String DRILLBIT_DEBUG_LAUNCH = append( DOY_DRILLBIT_PARENT, "debug-launch" );
   public static final String DRILLBIT_HTTP_PORT = append( DOY_DRILLBIT_PARENT, "http-port" );
+  public static final String DISABLE_YARN_LOGS = append( DOY_DRILLBIT_PARENT, "disable-yarn-logs" );
 
   public static final String ZK_CONNECT = append( DOY_ZK_PARENT, "connect" );
   public static final String ZK_ROOT = append( DOY_ZK_PARENT, "root" );
@@ -307,6 +313,9 @@ public class DrillOnYarnConfig
     CLUSTER_ID,
     DFS_CONNECTION,
     DFS_APP_DIR,
+    HADOOP_HOME,
+    HADOOP_CLASSPATH,
+    HBASE_CLASSPATH,
     YARN_QUEUE,
     YARN_PRIORITY,
     DRILL_ARCHIVE_PATH,
@@ -338,6 +347,7 @@ public class DrillOnYarnConfig
     DRILLBIT_MAX_RETRIES,
     DRILLBIT_DEBUG_LAUNCH,
     DRILLBIT_HTTP_PORT,
+    DISABLE_YARN_LOGS,
     HTTP_ENABLED,
     HTTP_PORT
   };
