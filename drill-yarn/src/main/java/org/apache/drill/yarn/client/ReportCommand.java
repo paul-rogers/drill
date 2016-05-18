@@ -18,7 +18,6 @@
 package org.apache.drill.yarn.client;
 
 import org.apache.drill.yarn.core.DoYUtil;
-import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.YarnClientException;
 import org.apache.drill.yarn.core.YarnRMClient;
 import org.apache.hadoop.yarn.api.records.ApplicationReport;

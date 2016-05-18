@@ -190,6 +190,22 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
     context.getState().containerAllocated(context, container);
   }
 
+  @Override
+  public void checkTasks(EventContext context, long curTime) {
+    for (Task task : allocatingTasks) {
+      context.setTask(task);
+      context.getState().tick(context, curTime);
+    }
+    for (Task task : pendingTasks) {
+      context.setTask(task);
+      context.getState().tick(context, curTime);
+    }
+    for (Task task : activeContainers.values()) {
+      context.setTask(task);
+      context.getState().tick(context, curTime);
+    }
+  }
+
   /**
    * Remove a task from the list of those waiting for a container allocation.
    * The allocation may be done, or cancelled. The caller is responsible for
@@ -248,6 +264,16 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
     if (isDone()) {
       controller.taskGroupCompleted(this); }
     LOG.info("Task completed: " + task.toString());
+  }
+
+  /**
+   * Mark that a task is about to be retried. Task still retains its state
+   * from the current try.
+   * @param task
+   */
+
+  public void taskRetried(Task task) {
+    controller.taskRetried(task);
   }
 
   @Override
@@ -351,25 +377,6 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
     EventContext context = new EventContext(controller, task);
     context.getState().cancel(context);
   }
-
-//  @Override
-//  public void getTaskModels(List<TaskModel> results) {
-//    for ( Task task : pendingTasks ) {
-//      createTaskModel( results, task  );
-//    }
-//    for ( Task task : allocatingTasks ) {
-//      createTaskModel( results, task  );
-//    }
-//    for ( Task task : activeContainers.values() ) {
-//      createTaskModel( results, task  );
-//    }
-//  }
-
-//  private void createTaskModel( List<TaskModel> results, Task task ) {
-//    TaskModel model = task.toModel();
-//    controller.decorateModel( task, model );
-//    results.add( model );
-//  }
 
   @Override
   public int getLiveCount() {

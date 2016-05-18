@@ -51,7 +51,7 @@ public class Task
 
   public enum Disposition
   {
-    CANCELLED, LAUNCH_FAILED, RUN_FAILED, COMPLETED, TOO_MANY_RETRIES
+    CANCELLED, LAUNCH_FAILED, RUN_FAILED, COMPLETED, TOO_MANY_RETRIES, RETRIED
   }
 
   public static final long MAX_CANCELLATION_TIME = 10_000;
@@ -138,6 +138,33 @@ public class Task
     resetTrackingState( );
   }
 
+  /**
+   * Special constructor to create a static copy of the current
+   * task. The copy is placed in the completed tasks list.
+   * @param task
+   */
+
+  private Task(Task task) {
+    taskId = task.taskId;
+    scheduler = task.scheduler;
+    taskSpec = task.taskSpec;
+    taskGroup = task.taskGroup;
+    trackingState = task.trackingState;
+    containerRequest = task.containerRequest;
+    container = task.container;
+    state = task.state;
+    cancelled = task.cancelled;
+    disposition = task.disposition;
+    error = task.error;
+    tryCount = task.tryCount;
+    completionStatus = task.completionStatus;
+    launchTime = task.launchTime;
+    stateStartTime = task.stateStartTime;
+    completionTime = task.completionTime;
+    cancellationTime = task.cancellationTime;
+    properties.putAll( task.properties );
+  }
+
   public void resetTrackingState( ) {
     trackingState = scheduler.isTracked() ? TrackingState.NEW : TrackingState.UNTRACKED;
   }
@@ -189,6 +216,7 @@ public class Task
     launchTime = 0;
     completionTime = 0;
     cancellationTime = 0;
+    container = null;
     resetTrackingState();
   }
 
@@ -233,5 +261,9 @@ public class Task
   public void cancel() {
     cancelled = true;
     cancellationTime = System.currentTimeMillis();
+  }
+
+  public Task copy() {
+     return new Task( this );
   }
 }

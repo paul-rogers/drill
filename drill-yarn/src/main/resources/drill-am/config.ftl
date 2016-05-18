@@ -14,7 +14,6 @@
 </#macro>
 
 <#macro page_body>
-  <h3>YARN Application Master &ndash; ${clusterName}</h3>
   <h4>Fully Resolved Configuration Settings</h4>
   <p>&nbsp;
 

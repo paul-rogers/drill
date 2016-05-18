@@ -17,6 +17,7 @@
  */
 package org.apache.drill.yarn.appMaster.http;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,7 +36,7 @@ import javax.ws.rs.core.MediaType;
 
 import org.apache.drill.yarn.appMaster.Dispatcher;
 import org.apache.drill.yarn.appMaster.http.ControllerModel.PoolModel;
-import org.apache.drill.yarn.appMaster.http.TasksModel.TaskModel;
+import org.apache.drill.yarn.appMaster.http.AbstractTasksModel.TaskModel;
 import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.NameValuePair;
@@ -74,9 +75,21 @@ public class PageTree extends ResourceConfig
   {
     @GET
     public Viewable getRoot( ) {
-      TasksModel model = new TasksModel( );
+      AbstractTasksModel.TasksModel model = new AbstractTasksModel.TasksModel( );
       dispatcher.getController().visitTasks( model );
       return new Viewable( "/drill-am/tasks.ftl", toModel( model.results ) );
+    }
+  }
+
+  @Path("/history")
+  @PermitAll
+  public static class HistoryPage
+  {
+    @GET
+    public Viewable getRoot( ) {
+      AbstractTasksModel.HistoryModel model = new AbstractTasksModel.HistoryModel( );
+      dispatcher.getController().visit( model );
+      return new Viewable( "/drill-am/history.ftl", toModel( model.results ) );
     }
   }
 
@@ -195,6 +208,64 @@ public class PageTree extends ResourceConfig
     }
   }
 
+//  public static class LogItem
+//  {
+//    File logPath;
+//    String logDir;
+//
+//    public String getName( ) {
+//      return logPath.getName();
+//    }
+//
+//    public String getLink( ) {
+//      String link = "/logs/";
+//      if ( logDir != null )
+//        link += logDir + "/";
+//      return link + getName( );
+//    }
+//  }
+//
+//  public static class LogManager
+//  {
+//    String logDirs;
+//
+//    public LogManager( ) {
+//      logDirs = System.getenv("LOG_DIRS");
+//      if ( logDirs == null )
+//        return;
+//    }
+//
+//    public List<LogItem> list( ) {
+//      List<LogItem> logs = new ArrayList<>( );
+//      if ( logDirs == null )
+//        return logs;
+//      String dirs[] = logDirs.split( ":" );
+//      for ( int i = 0;  i < dirs.length;  i++ ) {
+//        File logDir = new File( dirs[i] );
+//        for ( File logFile : logDir.listFiles( ) ) {
+//          LogItem item = new LogItem( );
+//          item.logPath = logFile;
+//          if ( dirs.length > 1 ) {
+//            item.logDir = Integer.toString( i + 1 );
+//          }
+//          logs.add( item );
+//        }
+//      }
+//      return logs;
+//    }
+//  }
+//
+//  @Path("/logs/")
+//  @PermitAll
+//  public static class LogPage
+//  {
+//    @GET
+//    @Path("/")
+//    public Viewable listLogs( ) {
+//      return new Viewable( "/drill-am/log-list.ftl", toModel( confirm ) );
+//    }
+//  }
+
   @Path("/rest/config")
   @PermitAll
   public static class ConfigResource
@@ -253,7 +324,7 @@ public class PageTree extends ResourceConfig
       }
       root.put( "pools", pools );
 
-      TasksModel tasksModel = new TasksModel( );
+      AbstractTasksModel.TasksModel tasksModel = new AbstractTasksModel.TasksModel( );
       dispatcher.getController().visitTasks( tasksModel );
       List<Map<String,Object>> bits = new ArrayList<>( );
       for ( TaskModel task : tasksModel.results ) {
@@ -324,6 +395,7 @@ public class PageTree extends ResourceConfig
     register(RootPage.class);
     register(ConfigPage.class);
     register(DrillbitsPage.class);
+    register(HistoryPage.class);
     register(ManagePage.class);
     register(ResizePage.class);
     register(StopPage.class);

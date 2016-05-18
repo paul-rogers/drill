@@ -203,4 +203,8 @@ public class YarnRMClient {
       throw new YarnClientException( "Kill failed for application: " + appId.toString() );
     }
   }
+
+  public String getNMWebAddr( ) {
+    return "http://" + conf.get( "yarn.resourcemanager.webapp.address" );
+  }
 }

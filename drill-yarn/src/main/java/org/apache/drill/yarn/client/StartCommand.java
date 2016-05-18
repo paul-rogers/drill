@@ -22,8 +22,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -36,17 +34,10 @@ import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.YarnClientException;
 import org.apache.drill.yarn.core.YarnRMClient;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.LocalResource;
-import org.apache.hadoop.yarn.api.records.LocalResourceType;
-import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
-import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
 import com.typesafe.config.Config;
 
@@ -167,6 +158,7 @@ public class StartCommand extends ClientCommand
     private ApplicationId appId;
     public Map<String, LocalResource> resources;
     private YarnRMClient client;
+    private GetNewApplicationResponse appResponse;
 
     public AMRunner( Config config, boolean verbose ) {
       this.config = config;
@@ -174,11 +166,12 @@ public class StartCommand extends ClientCommand
       client = new YarnRMClient();
     }
 
-    public void run( boolean launch ) throws ClientException {
-      if ( launch ) {
-        AppSpec master = buildSpec( );
-        launch( master );
-      }
+    public void run( ) throws ClientException {
+      createApp( );
+      AppSpec master = buildSpec( );
+      launchApp( master );
+      writeAppIdFile( );
+      waitForStartAndReport( master.appName );
     }
 
     private AppSpec buildSpec( ) throws ClientException
@@ -308,6 +301,12 @@ public class StartCommand extends ClientCommand
 
       master.resources.putAll( resources );
 
+      // Strangely, YARN has no way to tell an AM what its app ID
+      // is. So, we pass it along here.
+
+      master.env.put( DrillOnYarnConfig.APP_ID_ENV_VAR, appId.toString() );
+      master.env.put( DrillOnYarnConfig.RM_WEBAPP_ENV_VAR, client.getNMWebAddr() );
+
       // Container specification.
 
       master.memoryMb = config.getInt( DrillOnYarnConfig.AM_MEMORY );
@@ -325,16 +324,8 @@ public class StartCommand extends ClientCommand
       return master;
     }
 
-    private void launch( AppSpec master ) throws ClientException
+    private void createApp( ) throws ClientException
     {
-      launchApp( master );
-      writeAppIdFile( );
-      waitForStartAndReport( master.appName );
-    }
-
-    private void launchApp( AppSpec master ) throws ClientException
-    {
-      GetNewApplicationResponse appResponse;
       try {
         appResponse = client.createAppMaster();
       } catch (YarnClientException e) {
@@ -342,7 +333,10 @@ public class StartCommand extends ClientCommand
       }
       appId = appResponse.getApplicationId();
       System.out.println("Application ID: " + appId.toString());
+    }
 
+    private void launchApp( AppSpec master ) throws ClientException
+    {
       // Memory and core checks per YARN app specs.
 
       int maxMemory = appResponse.getMaximumResourceCapability().getMemory();
@@ -403,6 +397,16 @@ public class StartCommand extends ClientCommand
     {
       ReportCommand.Reporter reporter;
       private YarnApplicationState state;
+      private int pollWaitSec;
+      private int startupWaitSec;
+
+      public StartMonitor( ) {
+        pollWaitSec = config.getInt( DrillOnYarnConfig.CLIENT_POLL_SEC );
+        if ( pollWaitSec < 1 ) {
+          pollWaitSec = 1;
+        }
+        startupWaitSec = config.getInt( DrillOnYarnConfig.CLIENT_START_WAIT_SEC );
+      }
 
       void run( String appName ) throws ClientException {
         System.out.print( "Launching " + appName + "..." );
@@ -412,7 +416,8 @@ public class StartCommand extends ClientCommand
           return; }
         updateState( reporter.getState( ) );
         try {
-          for ( int attempt = 0;  attempt < 15;  attempt++ )
+          int attemptCount = startupWaitSec / pollWaitSec;
+          for ( int attempt = 0;  attempt < attemptCount;  attempt++ )
           {
             if ( ! poll( ) ) {
               break; }
@@ -428,7 +433,7 @@ public class StartCommand extends ClientCommand
 
       private boolean poll( ) throws ClientException {
         try {
-          Thread.sleep( 1000 );
+          Thread.sleep( pollWaitSec * 1000 );
         } catch (InterruptedException e) {
           return false;
         }
@@ -477,8 +482,10 @@ public class StartCommand extends ClientCommand
     config = DrillOnYarnConfig.config();
     FileUploader uploader = new FileUploader( config, opts.verbose );
     uploader.run( upload );
-    AMRunner runner = new AMRunner( config, opts.verbose );
-    runner.resources = uploader.resources;
-    runner.run( launch );
+    if ( launch ) {
+      AMRunner runner = new AMRunner( config, opts.verbose );
+      runner.resources = uploader.resources;
+      runner.run( );
+    }
   }
 }

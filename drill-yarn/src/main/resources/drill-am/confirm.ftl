@@ -14,7 +14,6 @@
 </#macro>
 
 <#macro page_body>
-  <h3>YARN Application Master &ndash; ${clusterName}</h3>
   <h4><#if model.getType( ) == "stopped">
   Stop Drill Cluster
   <#else>

@@ -17,8 +17,6 @@
  */
 package org.apache.drill.yarn.appMaster;
 
-import java.util.List;
-
 import org.apache.hadoop.yarn.api.records.Resource;
 
 public abstract class AbstractScheduler implements Scheduler
@@ -83,5 +81,21 @@ public abstract class AbstractScheduler implements Scheduler
   public ContainerRequestSpec getResource() {
     // TODO Auto-generated method stub
     return taskSpec.containerSpec;
+  }
+
+  @Override
+  public void checkResources(Resource maxResource) throws AMException {
+    if ( taskSpec.containerSpec.memoryMb > maxResource.getMemory() ) {
+      throw new AMException( taskSpec.name + " requires " +
+                             taskSpec.containerSpec.memoryMb +
+                             " MB but the maximum YARN container size is " +
+                             maxResource.getMemory() + " MB" );
+    }
+    if ( taskSpec.containerSpec.vCores > maxResource.getVirtualCores() ) {
+      throw new AMException( taskSpec.name + " requires " +
+                             taskSpec.containerSpec.vCores +
+                             " vcores but the maximum YARN container size is " +
+                             maxResource.getVirtualCores() + " vcores" );
+    }
   }
 }

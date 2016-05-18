@@ -96,7 +96,9 @@ public class Dispatcher
 
     @Override
     public void onError(Throwable e) {
-      LOG.error("RM: Error: " + e.getMessage());
+      LOG.error("Fatal RM Error: " + e.getMessage());
+      LOG.error( "AM Shutting down!" );
+      controller.shutDown();
     }
   }
 
@@ -202,14 +204,21 @@ public class Dispatcher
   }
 
   public void run() throws YarnFacadeException {
-    setup();
+    try {
+      setup();
+    } catch (AMException e) {
+      String msg = e.getMessage();
+      LOG.error( "Fatal error: " + msg );
+      yarn.finish(false, msg);
+      return;
+    }
     LOG.trace("Running");
     boolean success = controller.waitForCompletion();
     LOG.trace("Finishing");
-    finish(success);
+    finish(success, null);
   }
 
-  private void setup() throws YarnFacadeException {
+  private void setup() throws YarnFacadeException, AMException {
     LOG.trace("Starting YARN agent");
     yarn.start(new ResourceCallback(), new NodeCallback(), new TimerCallback());
     LOG.trace("Registering YARN application");
@@ -221,12 +230,12 @@ public class Dispatcher
     }
   }
 
-  private void finish(boolean success) throws YarnFacadeException {
+  private void finish(boolean success, String msg) throws YarnFacadeException {
     for (DispatcherAddOn addOn : addOns) {
       addOn.finish(controller);
     }
 
     LOG.trace("Shutting down YARN agent");
-    yarn.finish(success);
+    yarn.finish(success, msg);
   }
 }

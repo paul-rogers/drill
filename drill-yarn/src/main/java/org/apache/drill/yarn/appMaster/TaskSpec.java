@@ -35,4 +35,6 @@ public class TaskSpec
   public LaunchSpec launchSpec;
 
   public int maxRetries;
+
+  public String name;
 }

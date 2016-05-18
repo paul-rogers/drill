@@ -143,7 +143,6 @@ public abstract class TaskState
         // we have the container if the above is a local failure.
 
         task.error = e;
-        context.getTaskManager().completed( context );
         context.group.containerReleased(task);
         task.container = null;
         taskStartFailed(context, Disposition.LAUNCH_FAILED);
@@ -158,6 +157,21 @@ public abstract class TaskState
     @Override
     public void cancel(EventContext context) {
       context.task.cancel( );
+    }
+
+    @Override
+    public void tick( EventContext context, long curTime ) {
+      Task task = context.task;
+      if ( ! task.cancelled ) {
+        return; }
+      if ( task.stateStartTime + Task.MAX_CANCELLATION_TIME > curTime ) {
+        return;
+      }
+      context.group.dequeueAllocatingTask(task);
+      task.disposition = Task.Disposition.LAUNCH_FAILED;
+      task.completionTime = System.currentTimeMillis();
+      transition(context, END);
+      context.group.taskEnded(context.task);
     }
   }
 
@@ -252,8 +266,7 @@ public abstract class TaskState
       // Not sure if releasing the container is needed...
 
       context.yarn.releaseContainer(task.container);
-      context.getTaskManager().completed( context );
-      context.group.containerReleased(task);
+       context.group.containerReleased(task);
       task.container = null;
       taskStartFailed(context, Disposition.LAUNCH_FAILED);
     }
@@ -737,6 +750,7 @@ public abstract class TaskState
 
     assert context.task.container == null;
 
+    context.getTaskManager().completed( context );
     taskEnded(context, disposition);
     retryTask(context);
   }
@@ -769,11 +783,9 @@ public abstract class TaskState
     if (task.completionStatus.getExitStatus() == 0) {
       taskEnded(context, Disposition.COMPLETED);
       context.group.taskEnded(context.task);
-      task.container = null;
     }
     else {
       taskEnded(context, Disposition.RUN_FAILED);
-      task.container = null;
       retryTask(context);
     }
   }
@@ -820,6 +832,7 @@ public abstract class TaskState
       return;
     }
     LOG.info("Retrying task: " + task.toString() + ", try " + task.tryCount);
+    context.group.taskRetried( task );
     task.reset( );
     transition(context, START);
     context.group.enqueuePendingRequest(task);

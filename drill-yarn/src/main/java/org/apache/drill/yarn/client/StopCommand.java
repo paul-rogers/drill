@@ -17,13 +17,13 @@
  */
 package org.apache.drill.yarn.client;
 
-import org.apache.drill.yarn.client.ReportCommand.Reporter;
 import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.YarnClientException;
 import org.apache.drill.yarn.core.YarnRMClient;
-import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
+
+import com.typesafe.config.Config;
 
 /**
  * Perform a semi-graceful shutdown of the Drill-on-YARN AM.
@@ -48,9 +48,16 @@ public class StopCommand extends ClientCommand
   {
     ReportCommand.Reporter reporter;
     private YarnApplicationState state;
+    private int pollWaitSec;
+    private int shutdownWaitSec;
 
-    StopMonitor( ReportCommand.Reporter reporter ) {
+    StopMonitor( Config config, ReportCommand.Reporter reporter ) {
       this.reporter = reporter;
+      pollWaitSec = config.getInt( DrillOnYarnConfig.CLIENT_POLL_SEC );
+      if ( pollWaitSec < 1 ) {
+        pollWaitSec = 1;
+      }
+      shutdownWaitSec = config.getInt( DrillOnYarnConfig.CLIENT_STOP_WAIT_SEC );
     }
 
     boolean run( boolean verbose ) throws ClientException {
@@ -62,21 +69,22 @@ public class StopCommand extends ClientCommand
 //      updateState( reporter.getState( ) );
       System.out.print( "Stopping..." );
       try {
-        for ( int attempt = 0;  attempt < 15;  attempt++ )
+        int attemptCount = shutdownWaitSec/ pollWaitSec;
+        for ( int attempt = 0;  attempt < attemptCount;  attempt++ )
         {
           if ( ! poll( ) ) {
             break; }
         }
-      } finally {
+      } catch( ClientException e ) {
         System.out.println( );
+        throw e;
       }
       if ( reporter.isStopped() ) {
-        if ( verbose ) {
-          System.out.println( "Stopped." );
-        }
+        System.out.println( " Stopped." );
         reporter.showFinalStatus( );
         return true;
       } else {
+        System.out.println( );
         System.out.println( "Application Master is slow to stop, use YARN to check status." );
         return false;
       }
@@ -84,7 +92,7 @@ public class StopCommand extends ClientCommand
 
     private boolean poll( ) throws ClientException {
       try {
-        Thread.sleep( 2000 );
+        Thread.sleep( pollWaitSec * 1000 );
       } catch (InterruptedException e) {
         return false;
       }
@@ -114,11 +122,13 @@ public class StopCommand extends ClientCommand
     }
   }
 
+  private Config config;
   private YarnRMClient client;
 
   @Override
   public void run() throws ClientException
   {
+    config = DrillOnYarnConfig.config( );
     client = getClient( );
     System.out.println("Stopping Application ID: " + client.getAppId().toString());
 
@@ -132,7 +142,7 @@ public class StopCommand extends ClientCommand
       reporter = null;
     }
 
-    // Handle the case of a an already stopped app.
+    // Handle the case of an already stopped app.
 
     boolean stopped = true;
     if ( reporter == null  ||  reporter.isStopped() ) {
@@ -142,19 +152,23 @@ public class StopCommand extends ClientCommand
     {
       // Try to stop the server by sending a STOP REST request.
 
-      stopped = gracefulStop( reporter.report.getOriginalTrackingUrl() );
+      if ( opts.force ) {
+        System.out.println( "Forcing shutdown" );
+      } else {
+        stopped = gracefulStop( reporter.report.getOriginalTrackingUrl() );
+      }
 
       // If that did not work, then forcibly kill the AM.
       // YARN will forcibly kill the AM's containers.
       // Not pretty, but it works.
 
-      if ( ! stopped ) {
+      if ( opts.force || ! stopped ) {
         forcefulStop( ); }
 
       // Wait for the AM to stop. The AM may refuse to stop in
       // the time allowed to wait.
 
-      stopped = new StopMonitor( reporter ).run( opts.verbose );
+      stopped = new StopMonitor( config, reporter ).run( opts.verbose );
     }
 
     // If the AM is gone because it started out dead or
@@ -181,7 +195,7 @@ public class StopCommand extends ClientCommand
       }
       SimpleRestClient restClient = new SimpleRestClient( );
       String tail = "rest/stop";
-      String masterKey = DrillOnYarnConfig.config( ).getString( DrillOnYarnConfig.AM_REST_KEY );
+      String masterKey = config.getString( DrillOnYarnConfig.AM_REST_KEY );
       if ( ! DoYUtil.isBlank( masterKey ) ) {
         tail += "?key=" + masterKey; }
       if ( opts.verbose ) {

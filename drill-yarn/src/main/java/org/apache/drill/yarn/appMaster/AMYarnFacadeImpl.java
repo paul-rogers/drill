@@ -143,7 +143,7 @@ public class AMYarnFacadeImpl implements AMYarnFacade
   }
 
   @Override
-  public void finish(boolean succeeded) throws YarnFacadeException
+  public void finish(boolean succeeded, String msg) throws YarnFacadeException
   {
     // Stop the timer thread first. This ensures that the
     // timer events don't try to use the YARN API during
@@ -170,6 +170,8 @@ public class AMYarnFacadeImpl implements AMYarnFacade
       appMsg = "Drill Cluster Fatal Error - check logs";
       status = FinalApplicationStatus.FAILED;
     }
+    if ( msg != null ) {
+      appMsg = msg; }
     try {
       resourceMgr.unregisterApplicationMaster(status, appMsg, "");
     } catch (YarnException | IOException e) {

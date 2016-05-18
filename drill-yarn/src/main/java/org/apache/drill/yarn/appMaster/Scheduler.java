@@ -18,6 +18,7 @@
 package org.apache.drill.yarn.appMaster;
 
 import org.apache.drill.yarn.core.LaunchSpec;
+import org.apache.hadoop.yarn.api.records.Resource;
 
 /**
  * The scheduler describes the set of tasks to run. It provides the details
@@ -33,11 +34,6 @@ import org.apache.drill.yarn.core.LaunchSpec;
 
 public interface Scheduler
 {
-//  public interface SchedulerListener
-//  {
-//    void onStateChange(Scheduler group);
-//  }
-
   public interface TaskManager
   {
     int maxConcurrentAllocs( );
@@ -135,4 +131,6 @@ public interface Scheduler
    */
 
   ContainerRequestSpec getResource( );
+
+  void checkResources(Resource maxResource) throws AMException;
 }

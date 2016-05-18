@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -93,9 +94,11 @@ public class ClusterControllerImpl implements ClusterController
    * Tracks the tasks that have completed: either successfully (state == ENDED)
    * or failed (state == FAILED). Eventually store this information
    * elsewhere to avoid cluttering memory with historical data.
+   *  Entries here are static copies, preserving the state
+   * at the time that the task completed.
    */
 
-  private List<Task> completedTasks = new ArrayList<>();
+  private List<Task> completedTasks = new LinkedList<>();
 
   private final AMYarnFacade yarn;
 
@@ -113,9 +116,12 @@ public class ClusterControllerImpl implements ClusterController
 
   private int failureCheckPeriodMs = 60_000;
 
+  private int taskCheckPeriodMs = 10_000;
+  private long lastTaskCheckTime;
+
   private List<TaskLifecycleListener> lifecycleListeners = new ArrayList<>( );
 
-  public ClusterControllerImpl(AMYarnFacade yarn) {
+   public ClusterControllerImpl(AMYarnFacade yarn) {
     this.yarn = yarn;
   }
 
@@ -137,7 +143,16 @@ public class ClusterControllerImpl implements ClusterController
   }
 
   @Override
-  public synchronized void started( ) throws YarnFacadeException {
+  public synchronized void started( ) throws YarnFacadeException, AMException
+  {
+    // Verify that no resource seeks a container larger than
+    // what YARN can provide. Ensures a graceful exit in this
+    // case.
+
+    Resource maxResource = yarn.getRegistrationResponse().getMaximumResourceCapability();
+    for (SchedulerStateActions group : prioritizedPools) {
+      group.getScheduler().checkResources( maxResource );
+    }
     nodeInventory = new NodeInventory( yarn );
     state = State.LIVE;
   }
@@ -176,10 +191,13 @@ public class ClusterControllerImpl implements ClusterController
   }
 
   private void checkTasks(long curTime) {
+    if ( lastTaskCheckTime + taskCheckPeriodMs > curTime ) {
+      return; }
+    lastTaskCheckTime = curTime;
     EventContext context = new EventContext(this);
-    for (Task task : activeContainers.values()) {
-      context.setTask(task);
-      context.getState().tick(context, curTime);
+    for (SchedulerStateActions group : prioritizedPools) {
+      context.setGroup(group);
+      group.checkTasks( context, curTime );
     }
   }
 
@@ -418,6 +436,12 @@ public class ClusterControllerImpl implements ClusterController
     completedTasks.add(task);
   }
 
+  public void taskRetried(Task task) {
+    Task copy = task.copy( );
+    copy.disposition = Task.Disposition.RETRIED;
+    completedTasks.add(copy);
+  }
+
   public void taskGroupCompleted(SchedulerStateActions taskGroup) {
     checkStatus();
   }
@@ -436,9 +460,6 @@ public class ClusterControllerImpl implements ClusterController
     nodeInventory.release(hostName);
   }
 
-//  @Override
-//  public synchronized Set<String> getBlacklist() { return blacklist; }
-
   public NodeInventory getNodeInventory() {return nodeInventory;}
 
   @Override
@@ -452,15 +473,6 @@ public class ClusterControllerImpl implements ClusterController
     }
   }
 
-//  @Override
-//  public synchronized List<TaskModel> getTaskModels() {
-//    List<TaskModel> models = new ArrayList<>( );
-//    for ( SchedulerStateActions group : prioritizedPools ) {
-//      group.getTaskModels( models );
-//    }
-//    return models;
-//  }
-
   @Override
   public void setMaxRetries(int value) {
     maxRetries = value;
@@ -469,15 +481,8 @@ public class ClusterControllerImpl implements ClusterController
   @Override
   public int getTargetCount() {
     // TODO: Handle multiple pools
-//    return prioritizedPools.get( 0 ).getScheduler().getTarget();
-    return 3;
+    return prioritizedPools.get( 0 ).getScheduler().getTarget();
   }
-
-//  public void decorateModel(Task task, TaskModel model) {
-//    for ( TaskLifecycleListener listener : lifecycleListeners ) {
-//      listener.decorateTaskModel( task, model );
-//    }
-//  }
 
   public State getState() { return state; }
 
@@ -497,4 +502,5 @@ public class ClusterControllerImpl implements ClusterController
     }
   }
 
+  public List<Task> getHistory() { return completedTasks; }
 }

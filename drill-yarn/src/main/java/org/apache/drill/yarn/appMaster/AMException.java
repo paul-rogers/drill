@@ -17,12 +17,11 @@
  */
 package org.apache.drill.yarn.appMaster;
 
-import org.apache.hadoop.yarn.api.records.Resource;
-
-public class DrillbitScheduler extends AbstractDrillbitScheduler
+public class AMException extends Exception
 {
-  public DrillbitScheduler(String name, TaskSpec taskSpec, int quantity) {
-    super("basic", name, quantity);
-    this.taskSpec = taskSpec;
+  private static final long serialVersionUID = 1L;
+
+  public AMException(String msg) {
+    super( msg );
   }
 }

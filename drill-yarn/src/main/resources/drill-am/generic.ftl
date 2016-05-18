@@ -60,6 +60,7 @@
               <li><a href="/config">Configuration</a></li>
               <li><a href="/drillbits">Drillbits</a></li>
               <li><a href="/manage">Manage</a></li>
+              <li><a href="/history">History</a></li>
             </ul>
             <ul class="nav navbar-nav navbar-right">
               <#--
@@ -82,6 +83,7 @@
       </div>
 
       <div class="container-fluid drill-am" role="main">
+        <h3>YARN Application Master &ndash; ${clusterName}</h3>
         <@page_body/>
       </div>
     </body>

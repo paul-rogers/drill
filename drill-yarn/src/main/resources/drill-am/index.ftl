@@ -14,11 +14,23 @@
 </#macro>
 
 <#macro page_body>
-  <h3>YARN Application Master &ndash; ${clusterName}</h3>
   <h4>Drill Cluster Status</h4>
   <p>&nbsp;
 
   <table class="table table-hover" style="width: auto;">
+    <tr>
+      <td>YARN Application ID</td>
+      <td><a href="${model.getRmAppLink( )}">${model.getAppId( )}</a></td>
+    </tr>
+    <tr>
+      <td>YARN Resource Manager</td>
+      <td><a href="${model.getRmLink( )}">${model.getRmHost( )}</a></td>
+    </tr>
+    <tr>
+      <td>YARN Node Manager for AM</td>
+      <td><a href="${model.getNmLink( )}">${model.getNmHost( )}</a> |
+          <a href="${model.getNmAppLink( )}">App info</a></td>
+    </tr>
     <tr>
       <td>State</td>
       <td>${model.getState( )}</td>

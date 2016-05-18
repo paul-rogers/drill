@@ -83,7 +83,7 @@ fi
 
 DRILL_CLIENT_HEAP=${DRILL_CLIENT_HEAP:-512M}
 VM_OPTS="-Xms$DRILL_CLIENT_HEAP -Xmx$DRILL_CLIENT_HEAP $DRILL_CLIENT_VM_OPTS"
-VM_OPTS="$VM_OPTS -Dlogback.configurationFile=$DRILL_HOME/yarn-client-log.xml"
+VM_OPTS="$VM_OPTS -Dlogback.configurationFile=$DRILL_HOME/conf/yarn-client-log.xml"
 
 JAVA=$JAVA_HOME/bin/java
 
