@@ -53,6 +53,7 @@ public class DrillOnYarnConfig
   public static final String HTTP_PARENT = append( DRILL_ON_YARN_PARENT, "http" );
   public static final String YARN_PARENT = append( DRILL_ON_YARN_PARENT, "yarn" );
   public static final String HADOOP_PARENT = append( DRILL_ON_YARN_PARENT, "hadoop" );
+  public static final String CLIENT_PARENT = append( DRILL_ON_YARN_PARENT, "client" );
 
   public static final String APP_NAME = append( DRILL_ON_YARN_PARENT, "app-name" );
   public static final String CLUSTER_ID = append( DRILL_ON_YARN_PARENT, "cluster-id" );
@@ -121,6 +122,10 @@ public class DrillOnYarnConfig
   public static final String HTTP_ENABLED = append( HTTP_PARENT, "enabled" );
   public static final String HTTP_PORT = append( HTTP_PARENT, "port" );
 
+  public static final String CLIENT_POLL_SEC = append( CLIENT_PARENT, "poll-sec" );
+  public static final String CLIENT_START_WAIT_SEC = append( CLIENT_PARENT, "start-wait-sec" );
+  public static final String CLIENT_STOP_WAIT_SEC = append( CLIENT_PARENT, "stop-wait-sec" );
+
   public static final String CLUSTER_POOLS = append( DRILL_ON_YARN_PARENT, "pools" );
 
   // The following keys are relative to the cluster pool definition
@@ -138,6 +143,9 @@ public class DrillOnYarnConfig
    */
 
   public static String LOCAL_DIR_NAME = "drill";
+
+  public static final String APP_ID_ENV_VAR = "DRILL_AM_APP_ID";
+  public static final String RM_WEBAPP_ENV_VAR = "YARN_RM_WEBAPP";
 
   private static DrillOnYarnConfig instance;
   private static File drillHome;
@@ -321,6 +329,9 @@ public class DrillOnYarnConfig
     DRILL_ARCHIVE_PATH,
     DRILL_DIR_NAME,
     DRILL_ARCHIVE_KEY,
+    CLIENT_POLL_SEC,
+    CLIENT_START_WAIT_SEC,
+    CLIENT_STOP_WAIT_SEC,
     AM_MEMORY,
     AM_VCORES,
     AM_VM_ARGS,

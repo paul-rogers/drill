@@ -186,7 +186,7 @@ public class LaunchSpec {
     // Environment and class path.
     Map<String, String> appMasterEnv = new HashMap<String, String>();
     appMasterEnv.putAll(env);
-    appMasterEnv.put(Environment.CLASSPATH.name(), DoYUtil.join(File.pathSeparator, classPath));
+//    appMasterEnv.put(Environment.CLASSPATH.name(), DoYUtil.join(File.pathSeparator, classPath));
     amContainer.setEnvironment(appMasterEnv);
     return amContainer;
   }

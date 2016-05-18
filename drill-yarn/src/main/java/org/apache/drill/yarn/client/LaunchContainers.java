@@ -20,8 +20,6 @@ package org.apache.drill.yarn.client;
 import java.util.List;
 
 import org.apache.drill.yarn.appMaster.TaskState;
-import org.apache.hadoop.yarn.api.records.Container;
-import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 
 /**
  * Worker thread to perform the task of starting a container outside

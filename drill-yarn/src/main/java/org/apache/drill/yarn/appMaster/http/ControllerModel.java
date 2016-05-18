@@ -17,6 +17,8 @@
  */
 package org.apache.drill.yarn.appMaster.http;
 
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,6 +28,7 @@ import org.apache.drill.yarn.appMaster.ClusterController;
 import org.apache.drill.yarn.appMaster.ClusterControllerImpl;
 import org.apache.drill.yarn.appMaster.ContainerRequestSpec;
 import org.apache.drill.yarn.appMaster.ClusterControllerImpl.State;
+import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
 import org.apache.drill.yarn.appMaster.ControllerVisitor;
 import org.apache.drill.yarn.appMaster.Scheduler;
@@ -62,8 +65,22 @@ public class ControllerModel implements ControllerVisitor
   public int targetCount;
   public int totalDrillMemory;
   public int totalDrillVcores;
+  public String appId;
+  public String rmHost;
+  public String rmLink;
+  public String nmHost;
+  public String nmLink;
+  public String rmAppLink;
+  public String nmAppLink;
   public List<PoolModel> pools = new ArrayList<>( );
 
+  public String getAppId( ) { return appId; }
+  public String getRmHost( ) { return rmHost; }
+  public String getRmLink( ) { return rmLink; }
+  public String getNmHost( ) { return nmHost; }
+  public String getNmLink( ) { return nmLink; }
+  public String getRmAppLink( ) { return rmAppLink; }
+  public String getNmAppLink( ) { return nmAppLink; }
   public String getState( ) { return state.toString( ); }
   public int getYarnMemory( ) { return yarnMemory; }
   public int getYarnVcores( ) { return yarnVcores; }
@@ -78,6 +95,24 @@ public class ControllerModel implements ControllerVisitor
   @Override
   public void visit(ClusterController controller) {
     ClusterControllerImpl impl = (ClusterControllerImpl) controller;
+
+    // Cobble together YARN links to simplify debugging.
+
+    rmLink = System.getenv( DrillOnYarnConfig.RM_WEBAPP_ENV_VAR );
+    rmHost = "Resource Manager";
+    try {
+      URL url = new URL( rmLink );
+      rmHost = url.getHost();
+    }
+    catch ( MalformedURLException e ) {
+      // Ignore.
+    }
+    nmHost = System.getenv( "NM_HOST" );
+    nmLink = "http://" + nmHost + ":" + System.getenv( "NM_HTTP_PORT" );
+    appId = System.getenv( DrillOnYarnConfig.APP_ID_ENV_VAR );
+    rmAppLink = rmLink + "/cluster/app/" + appId;
+    nmAppLink = nmLink + "/node/application/" + appId;
+
     state = impl.getState( );
     if ( state == State.LIVE ) {
       RegisterApplicationMasterResponse resp = impl.getYarn( ).getRegistrationResponse();

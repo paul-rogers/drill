@@ -46,7 +46,7 @@ public interface AMYarnFacade
 
   void launchContainer(Container container, LaunchSpec taskSpec) throws YarnFacadeException;
 
-  void finish(boolean success) throws YarnFacadeException;
+  void finish(boolean success, String msg) throws YarnFacadeException;
 
   void releaseContainer(Container container);
 

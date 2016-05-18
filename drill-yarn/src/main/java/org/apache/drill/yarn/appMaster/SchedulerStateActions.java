@@ -91,4 +91,6 @@ public interface SchedulerStateActions
   int getLiveCount();
 
   void visitTaskModels( TaskVisitor visitor );
+
+  void checkTasks(EventContext context, long curTime);
 }

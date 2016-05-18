@@ -54,19 +54,25 @@ public abstract class ClientCommand
   }
 
   protected ApplicationId checkAppId( ) throws ClientException {
-    File appIdFile = getAppIdFile( );
-    ApplicationId appId = loadAppId( appIdFile );
-    if ( appId == null ) {
-      throw new ClientException( "No Drill cluster is running (did not find file appid file: " + appIdFile.toString( ) + ")" );
+    String appIdStr;
+    if ( opts.appId != null ) {
+      appIdStr = opts.appId;
     }
-    return appId;
+    else {
+      File appIdFile = getAppIdFile( );
+      appIdStr = loadAppId( appIdFile );
+      if ( appIdStr == null ) {
+        throw new ClientException( "No Drill cluster is running (did not find file appid file: " + appIdFile.toString( ) + ")" );
+      }
+    }
+    return ConverterUtils.toApplicationId(appIdStr);
   }
 
   protected YarnRMClient getClient( ) throws ClientException {
     return new YarnRMClient( checkAppId( ) );
   }
 
-  protected ApplicationId loadAppId( File appIdFile ) {
+  protected String loadAppId( File appIdFile ) {
     BufferedReader reader = null;
     String appIdStr;
     try {
@@ -88,7 +94,7 @@ public abstract class ClientCommand
         // Ignore
       }
     }
-    return ConverterUtils.toApplicationId(appIdStr);
+    return appIdStr;
   }
 
   protected void removeAppIdFile() {

@@ -220,6 +220,7 @@ public class DrillControllerFactory implements ControllerFactory
     // Container definition.
 
     TaskSpec taskSpec = new TaskSpec();
+    taskSpec.name = "Drillbit";
     taskSpec.containerSpec = containerSpec;
     taskSpec.launchSpec = drillbitSpec;
     taskSpec.maxRetries = config.getInt( DrillOnYarnConfig.DRILLBIT_MAX_RETRIES );

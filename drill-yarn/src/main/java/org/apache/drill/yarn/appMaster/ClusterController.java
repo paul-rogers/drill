@@ -34,7 +34,7 @@ public interface ClusterController
 {
   void registerLifecycleListener(TaskLifecycleListener listener);
 
-  void started( ) throws YarnFacadeException;
+  void started( ) throws YarnFacadeException, AMException;
 
   void tick(long curTime);
 

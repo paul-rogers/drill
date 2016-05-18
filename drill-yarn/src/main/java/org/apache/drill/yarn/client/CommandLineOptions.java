@@ -47,6 +47,7 @@ public class CommandLineOptions {
   int resizeValue;
 
   public boolean verbose = false;
+  public boolean force = false;
 
   public enum Command
   {
@@ -117,6 +118,7 @@ public class CommandLineOptions {
   }
 
   Command command;
+  public String appId;
 
 //  private JCommander parser;
 
@@ -124,20 +126,31 @@ public class CommandLineOptions {
    * Parse the command line. Invalid option combinations result in the
    * error option being set.
    */
-  public void parse(String args[]) {
+  public boolean parse(String args[]) {
     for ( int i = 0;  i < args.length;  i++ ) {
       String arg = args[i];
       if ( arg.equals( "-h" ) ||  arg.equals( "-?" ) ) {
         command = Command.HELP;
         break;
       }
-      if ( arg.equals( "-v" ) ||  arg.equals( "--verboase" ) ) {
+      if ( arg.equals( "-v" ) ||  arg.equals( "--verbose" ) ) {
         verbose = true;
+        continue;
+      }
+      if ( arg.equals( "-f" ) ||  arg.equals( "--force" ) ) {
+        force = true;
+        continue;
+      }
+      if ( arg.equals( "-a" ) ||  arg.equals( "--appid" ) ) {
+        if ( i + 1 == args.length ) {
+          return false;
+        }
+        appId = args[++i];
         continue;
       }
       if ( command != null ) {
         command = null;
-        return;
+        return false;
       }
 
       // Check if a command line word matches this command. Be nice,
@@ -164,6 +177,7 @@ public class CommandLineOptions {
         }
       }
     }
+    return true;
   }
 
   private void parseResizeOption( String resize ) {

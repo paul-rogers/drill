@@ -14,45 +14,43 @@
 </#macro>
 
 <#macro page_body>
-  <h4>Drillbit Status</h4>
+  <h4>Drillbit History</h4>
   <p>&nbsp;
 
   <div class="table-responsive">
     <table class="table table-hover">
       <tr>
         <th>ID</th>
+        <th>Try</th>
         <th>Pool</th>
         <th>Host</th>
-        <th>State</th>
-        <th>ZK State</th>
         <th>Container</th>
         <th>Memory (MB)</th>
         <th>Virtual Cores</th>
         <th>Start Time</th>
+        <th>End Time</th>
+        <th>Disposition</th>
       </th>
        <#assign count=0>
        <#list model as task>
         <#assign count=count+1>
         <tr>
           <td><b>${task.getTaskId( )}</b></td>
+          <td>${task.getTryCount( )}</td>
           <td>${task.getPoolName( )}</td>
-          <td>
-          <#if task.isLive( )><a href="${task.getLink( )}"></#if>
-          ${task.getHost( )}
-          <#if task.isLive( )></a></#if>
-          </td>
-          <td>${task.getState( )}</td>
-          <td>${task.getTrackingState( )}</td>
-          <td><#if task.hasContainer( )><a href="${task.getNmLink( )}">${task.getContainerId()}</a>
+          <td><#if task.hasContainer( )><a href="${task.getNmLink( )}">${task.getHost( )}</a>
           <#else>&nbsp;</#if></td>
+          <td>${task.getContainerId()}</td>
           <td>${task.getMemory( )}</td>
           <td>${task.getVcores( )}</td>
           <td>${task.getStartTime( )}</td>
+          <td>${task.getEndTime( )}</td>
+          <td>${task.getDisposition( )}</td>
         </tr>
       </#list>
     </table>
     <#if count == 0>
-    No drillbits are running.
+    No drillbits have completed.
     </#if>
   </div>
 </#macro>
