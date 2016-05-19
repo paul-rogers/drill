@@ -301,7 +301,6 @@
               <exclude>jline:*</exclude>
               <exclude>io.netty:netty:jar:3.7.0.Final</exclude>
               <exclude>org.xerial.snappy:*</exclude>
-              <exclude>org.apache.avro:*</exclude>
               <exclude>org.tukaani:*</exclude>
               <exclude>org.apache.velocity:*</exclude>
               <exclude>net.hydromatic:linq4j</exclude>
@@ -312,6 +311,7 @@
               <exclude>org.hamcrest:hamcrest-core</exclude>
               <exclude>org.mockito:mockito-core</exclude>
               <exclude>org.objenesis:objenesis</exclude>
+              <exclude>org.apache.hadoop:*</exclude>
             </excludes>
           </artifactSet>
           <relocations>

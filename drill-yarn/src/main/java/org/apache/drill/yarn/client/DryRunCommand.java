@@ -17,13 +17,23 @@
  */
 package org.apache.drill.yarn.client;
 
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
 public class DryRunCommand extends ClientCommand
 {
   @Override
   public void run() {
     DrillOnYarnConfig.instance( ).dump( );
+    YarnConfiguration conf = new YarnConfiguration( );
+    try {
+      YarnConfiguration.dumpConfiguration(conf, new OutputStreamWriter( System.out ));
+    } catch (IOException e) {
+      // Ignore;
+    }
   }
 
 }
