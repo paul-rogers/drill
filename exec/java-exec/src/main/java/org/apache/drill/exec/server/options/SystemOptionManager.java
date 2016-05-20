@@ -286,6 +286,8 @@ public class SystemOptionManager extends BaseOptionManager implements AutoClosea
 
   @Override
   public void close() throws Exception {
-    options.close();
+    if ( options != null ) {
+      options.close();
+    }
   }
 }
