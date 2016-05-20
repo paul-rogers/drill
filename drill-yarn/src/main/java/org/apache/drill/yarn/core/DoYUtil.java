@@ -23,6 +23,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
 
+import org.apache.hadoop.yarn.api.records.Container;
+
 public class DoYUtil {
 
   private DoYUtil() {
@@ -62,5 +64,22 @@ public class DoYUtil {
     DateFormat fmt = new SimpleDateFormat( "yyyy-MM-dd HH:mm:ss" );
     fmt.setTimeZone(TimeZone.getDefault());
     return fmt.format( new Date( timestamp ) );
+  }
+  /**
+   * Utility method to display YARN container information in a
+   * useful way for log messages.
+   * @param container
+   * @return
+   */
+
+  public static String describeContainer(Container container) {
+    StringBuilder buf = new StringBuilder( )
+       .append( "Host: " )
+       .append( container.getNodeHttpAddress() )
+       .append( ", Memory: " )
+       .append( container.getResource().getMemory() )
+       .append( " MB, Vcores: " )
+       .append( container.getResource().getVirtualCores() );
+    return buf.toString();
   }
 }

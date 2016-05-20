@@ -20,6 +20,7 @@ package org.apache.drill.yarn.appMaster;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.drill.yarn.appMaster.Task.Disposition;
+import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
 
@@ -115,6 +116,8 @@ public abstract class TaskState
     @Override
     public void containerAllocated(EventContext context, Container container) {
       Task task = context.task;
+      LOG.trace( task.getLabel() + " - Received container: " +
+                 DoYUtil.describeContainer( container ) );
       context.group.dequeueAllocatingTask(task);
 
       // No matter what happens below, we don't want to ask for this
@@ -167,6 +170,8 @@ public abstract class TaskState
       if ( task.stateStartTime + Task.MAX_CANCELLATION_TIME > curTime ) {
         return;
       }
+      LOG.info( task.getLabel() + " - Request timed out after + " +
+                Task.MAX_CANCELLATION_TIME / 1000 + " secs." );
       context.group.dequeueAllocatingTask(task);
       task.disposition = Task.Disposition.LAUNCH_FAILED;
       task.completionTime = System.currentTimeMillis();
@@ -196,7 +201,7 @@ public abstract class TaskState
     @Override
     public void launchFailed(EventContext context, Throwable t) {
       Task task = context.task;
-      LOG.info("Container start failed: " + task.getId());
+      LOG.info( task.getLabel( ) + " - Container start failed");
       context.task.error = t;
       launchFailed( context );
     }
@@ -235,8 +240,7 @@ public abstract class TaskState
     public void containerCompleted(EventContext context, ContainerStatus status) {
       // Seen on Mac when putting machine to sleep.
       // Handle by failing & retrying.
-      Task task = context.task;
-      task.completionStatus = status;
+      completed( context, status );
       endOrAck( context );
     }
 
@@ -254,7 +258,8 @@ public abstract class TaskState
 
       Task task = context.task;
       if ( task.isCancelled()  &&  task.cancellationTime + Task.MAX_CANCELLATION_TIME < curTime ) {
-        LOG.error("Launching state, cancellation failed: " + task.getId());
+        LOG.error( task.getLabel() + " - Launch timed out after " +
+                   Task.MAX_CANCELLATION_TIME / 1000 + " secs." );
         launchFailed( context );
       }
     }
@@ -266,7 +271,7 @@ public abstract class TaskState
       // Not sure if releasing the container is needed...
 
       context.yarn.releaseContainer(task.container);
-       context.group.containerReleased(task);
+      context.group.containerReleased(task);
       task.container = null;
       taskStartFailed(context, Disposition.LAUNCH_FAILED);
     }
@@ -298,7 +303,7 @@ public abstract class TaskState
 
     @Override
     public void containerCompleted(EventContext context, ContainerStatus status) {
-      context.task.completionStatus = status;
+      completed( context, status );
       taskTerminated(context);
     }
 
@@ -321,7 +326,7 @@ public abstract class TaskState
 
     @Override
     public void containerCompleted(EventContext context, ContainerStatus status) {
-      context.task.completionStatus = status;
+      completed( context, status );
       endOrAck( context );
     }
 
@@ -379,7 +384,7 @@ public abstract class TaskState
 
     @Override
     public void containerCompleted(EventContext context, ContainerStatus status) {
-      context.task.completionStatus = status;
+      completed( context, status );
       endOrAck( context );
     }
 
@@ -435,7 +440,7 @@ public abstract class TaskState
 
     @Override
     public void containerCompleted(EventContext context, ContainerStatus status) {
-      context.task.completionStatus = status;
+      completed( context, status );
       endOrAck( context );
     }
 
@@ -593,7 +598,7 @@ public abstract class TaskState
   }
 
   public void requestContainer(EventContext context) {
-    illegalState("containerAllocated");
+    illegalState(context, "containerAllocated");
   }
 
   /**
@@ -604,7 +609,7 @@ public abstract class TaskState
    */
 
   public void containerAllocated(EventContext context, Container container) {
-    illegalState("containerAllocated");
+    illegalState(context, "containerAllocated");
   }
 
   /**
@@ -615,7 +620,7 @@ public abstract class TaskState
    */
 
   public void launchFailed(EventContext context, Throwable t) {
-    illegalState("launchFailed");
+    illegalState(context, "launchFailed");
   }
 
   /**
@@ -625,7 +630,7 @@ public abstract class TaskState
    */
 
   public void containerStarted(EventContext context) {
-    illegalState("containerAllocated");
+    illegalState(context, "containerAllocated");
   }
 
   /**
@@ -634,7 +639,7 @@ public abstract class TaskState
    */
 
   public void startAck(EventContext context) {
-    illegalState("startAck");
+    illegalState(context, "startAck");
   }
 
   /**
@@ -645,7 +650,7 @@ public abstract class TaskState
    */
 
   public void stopTaskFailed(EventContext context, Throwable t) {
-    illegalState("containerAllocated");
+    illegalState(context, "containerAllocated");
   }
 
   /**
@@ -654,7 +659,7 @@ public abstract class TaskState
    */
 
   public void completionAck(EventContext context) {
-    illegalState("completionAck");
+    illegalState(context, "completionAck");
   }
 
   /**
@@ -665,7 +670,7 @@ public abstract class TaskState
    */
 
   public void containerStopped(EventContext context) {
-    illegalState("containerStopped");
+    illegalState(context, "containerStopped");
   }
 
   /**
@@ -677,7 +682,8 @@ public abstract class TaskState
    */
 
   public void containerCompleted(EventContext context, ContainerStatus status) {
-    illegalState("containerAllocated");
+    completed( context, status );
+    illegalState(context, "containerAllocated");
   }
 
   /**
@@ -687,7 +693,7 @@ public abstract class TaskState
    */
 
   public void cancel(EventContext context) {
-    illegalState("cancel");
+    illegalState(context, "cancel");
   }
 
   public void tick(EventContext context, long curTime) {
@@ -706,7 +712,7 @@ public abstract class TaskState
 
   protected void transition(EventContext context, TaskState newState) {
     TaskState oldState = context.task.state;
-    LOG.trace("Task " + context.task.toString() + ": " + oldState.toString() + " --> " + newState.toString());
+    LOG.trace( context.task.getLabel() + " " + oldState.toString() + " --> " + newState.toString());
     context.task.state = newState;
     if ( newState.lifeCycleEvent != oldState.lifeCycleEvent ) {
       context.controller.fireLifecycleChange(newState.lifeCycleEvent, context);
@@ -826,12 +832,12 @@ public abstract class TaskState
       return;
     }
     if (task.tryCount > task.taskGroup.getMaxRetries()) {
-      LOG.error("Too many retries for task: " + task.toString());
+      LOG.error( task.getLabel( ) + " - Too many retries: " + task.tryCount );
       task.disposition = Disposition.TOO_MANY_RETRIES;
       context.group.taskEnded(task);
       return;
     }
-    LOG.info("Retrying task: " + task.toString() + ", try " + task.tryCount);
+    LOG.info(task.getLabel( ) + " - Retrying task, try " + task.tryCount);
     context.group.taskRetried( task );
     task.reset( );
     transition(context, START);
@@ -845,10 +851,19 @@ public abstract class TaskState
    * @param action
    */
 
-  private void illegalState(String action) {
+  private void illegalState(EventContext context, String action) {
     assert false;
-    LOG.error("Action " + action + " in wrong state: " + toString(),
+    LOG.error(context.task.getLabel() + " - Action " + action + " in wrong state: " + toString(),
         new IllegalStateException("Action in wrong state"));
+  }
+
+  protected void completed(EventContext context, ContainerStatus status) {
+    Task task = context.task;
+    String diag = status.getDiagnostics();
+    LOG.trace( task.getLabel() + " Completed, exit status: " +
+               status.getExitStatus() +
+               (DoYUtil.isBlank( diag ) ? "" : ": " + status.getDiagnostics()) );
+    task.completionStatus = status;
   }
 
   @Override

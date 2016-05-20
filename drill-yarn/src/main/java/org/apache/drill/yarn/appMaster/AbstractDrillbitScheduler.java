@@ -99,18 +99,22 @@ public abstract class AbstractDrillbitScheduler extends PersistentTaskScheduler
 
       String hostName = task.getHostName();
       StringBuilder buf = new StringBuilder( );
-      buf.append( "Drillbit on host " )
+      buf.append( task.getLabel( ) )
+         .append( " on host " )
          .append( hostName )
          .append( " failed with status " )
          .append( exitCode )
          .append( " after " )
          .append( duration )
-         .append( "secs. with" );
+         .append( " secs. with" );
       if ( ! registered ) {
         buf.append( "out" ); }
       buf.append( " ZK registration" );
       if ( duration < 60  &&  ! registered ) {
-        buf.append( "\nProbable configuration problem, check Drill log file on host." ); }
+        buf.append( "\n    Probable configuration problem, check Drill log file on host " )
+           .append( hostName )
+           .append( "." );
+      }
       LOG.error( buf.toString() );
       task.cancelled = true;
 
