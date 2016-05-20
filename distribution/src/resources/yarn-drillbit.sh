@@ -116,6 +116,35 @@
 
 DRILL_CONF_DIR=${DRILL_CONF_DIR:-$DRILL_HOME/conf}
 
+# On some distributions, YARN sets HADOOP_CLASSPATH, but for a different
+# purpose than the one to which Drill puts that variable. Unset the YARN
+# version and only use the variable if drill-env.sh sets it.
+
+unset HADOOP_CLASSPATH
+unset HBASE_CLASSPATH
+
+# Replace the values with the values from the Drill-on-YARN config
+# file, if given.
+
+if [ -n "$DRILL_HADOOP_CLASSPATH" ]; then
+  export HADOOP_CLASSPATH="$DRILL_HADOOP_CLASSPATH"
+fi
+if [ -n "$DRILL_HBASE_CLASSPATH" ]; then
+  export HBASE_CLASSPATH="$DRILL_HBASE_CLASSPATH"
+fi
+
+# HADOOP_HOME can be set by Drill-on-YARN, or in drill-env.sh. The
+# latter takes precedence. It seems that YARN does not use the
+# HADOOP_HOME variable; instead it provides HADOOP_COMMON_HOME,
+# HADOOP_HDFS_HOME, and HADOOP_YARN_HOME.
+#
+# Default HADOOP_COMMON_HOME if HADOOP_HOME is not otherwise set in a YARN
+# environment.
+
+if [ -n "$HADOOP_HOME" ]; then
+  export HADOOP_HOME="$HADOOP_COMMON_HOME"
+fi
+
 # Use Drill's standard configuration, including drill-env.sh.
 
 . "$DRILL_HOME/bin/drill-config.sh"

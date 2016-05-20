@@ -266,4 +266,17 @@ public class Task
   public Task copy() {
      return new Task( this );
   }
+
+  public String getName() {
+    return taskSpec.name;
+  }
+
+  /**
+   * Label for this task displayed in log messages.
+   * @return
+   */
+
+  public String getLabel( ) {
+    return "[" + Integer.toString( taskId ) + ", " + getName( ) + "]";
+  }
 }

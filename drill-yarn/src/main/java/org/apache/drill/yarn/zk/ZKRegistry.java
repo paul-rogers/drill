@@ -299,7 +299,7 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
       becomeRegistered( tracker );
     }
     else {
-      LOG.error( "Drillbit registry in wrong state " + tracker.state + " for new task: " + key );
+      LOG.error( task.getLabel() + " - Drillbit registry in wrong state " + tracker.state + " for new task: " + key );
     }
   }
 
