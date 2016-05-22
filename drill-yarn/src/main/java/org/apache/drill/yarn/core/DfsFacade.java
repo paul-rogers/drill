@@ -127,6 +127,8 @@ public class DfsFacade
     private final DfsFacade dfs;
     protected File localArchivePath;
     protected Path dfsArchivePath;
+    FileStatus fileStatus;
+    private String label;
 
     /**
      * Resources to be localized (downloaded) to each AM or drillbit
@@ -134,11 +136,30 @@ public class DfsFacade
      */
 
 
-    public Localizer( DfsFacade dfs )
+    public Localizer( DfsFacade dfs, File archivePath, String label )
     {
       this.dfs = dfs;
-      localArchivePath = dfs.getLocalPath( DrillOnYarnConfig.DRILL_ARCHIVE_PATH );
+      localArchivePath = archivePath;
       dfsArchivePath = dfs.getUploadPath( localArchivePath );
+    }
+
+    public Localizer( DfsFacade dfs, File archivePath, String destName, String label )
+    {
+      this.dfs = dfs;
+      localArchivePath = archivePath;
+      dfsArchivePath = dfs.getUploadPath( destName );
+    }
+
+//    public Localizer( DfsFacade dfs, File archivePath, FileStatus fileStatus )
+//    {
+//      this( dfs, archivePath );
+//      this.fileStatus = fileStatus;
+//    }
+
+    public Localizer( DfsFacade dfs, String destPath )
+    {
+      this.dfs = dfs;
+      dfsArchivePath = new Path( destPath );
     }
 
     public String getBaseName( ) {
@@ -150,26 +171,40 @@ public class DfsFacade
     }
 
     public void upload( ) throws DfsFacadeException {
-      dfs.uploadArchive( localArchivePath, dfsArchivePath );
+      dfs.uploadArchive( localArchivePath, dfsArchivePath, label );
+      fileStatus = null;
     }
 
-    public Map<String, LocalResource> defineResources() throws DfsFacadeException
-    {
-      Map<String, LocalResource> resources = new HashMap<>();
+    private FileStatus getStatus( ) throws DfsFacadeException {
+      if ( fileStatus == null ) {
+        fileStatus = dfs.getFileStatus( dfsArchivePath );
+      }
+      return fileStatus;
+    }
 
+    public void defineResources( Map<String, LocalResource> resources, String key ) throws DfsFacadeException
+    {
       // Put the application archive, visible to only the application.
       // Because it is an archive, it will be expanded by YARN prior to launch
       // of the AM.
 
-      LocalResource drillResource = dfs.makeResource(dfsArchivePath,
+      LocalResource drillResource = dfs.makeResource(dfsArchivePath, getStatus( ),
                                                      LocalResourceType.ARCHIVE,
                                                      LocalResourceVisibility.APPLICATION);
-      resources.put( DrillOnYarnConfig.LOCAL_DIR_NAME, drillResource );
+      resources.put( key, drillResource );
+    }
 
-      // Eventually, put configuration files and other customer-specific
-      // items in a separate archive. They are combined for now.
+    public boolean filesMatch() throws DfsFacadeException {
+      FileStatus status = getStatus( );
+      if ( status == null ) {
+        return false; }
+      return status.getLen() == localArchivePath.length();
+    }
 
-      return resources;
+    public String getLabel() { return label; }
+
+    public boolean destExists() throws IOException {
+      return dfs.exists( dfsArchivePath );
     }
   }
 
@@ -177,9 +212,16 @@ public class DfsFacade
     return new File( config.getString( localPathParam ) );
   }
 
+  public boolean exists(Path path) throws IOException {
+    return fs.exists( path );
+  }
+
   public Path getUploadPath( File localArchiveFile ) {
+    return getUploadPath( localArchiveFile.getName( ) );
+  }
+
+  public Path getUploadPath( String baseName ) {
     String dfsDirStr = config.getString( DrillOnYarnConfig.DFS_APP_DIR );
-    String baseName = localArchiveFile.getName( );
 
     Path appDir;
     if ( dfsDirStr.startsWith( "/" ) ) {
@@ -192,7 +234,7 @@ public class DfsFacade
     return new Path( appDir, baseName );
   }
 
-  public void uploadArchive( File localArchiveFile, Path destPath ) throws DfsFacadeException
+  public void uploadArchive( File localArchiveFile, Path destPath, String label ) throws DfsFacadeException
   {
     // Create the application upload directory if it does not yet exist.
 
@@ -213,23 +255,23 @@ public class DfsFacade
 
     String localArchivePath = config.getString( DrillOnYarnConfig.DRILL_ARCHIVE_PATH );
     if ( DoYUtil.isBlank( localArchivePath ) ) {
-      throw new DfsFacadeException( "Drill archive path (" + DrillOnYarnConfig.DRILL_ARCHIVE_PATH  + ") is not set." );
+      throw new DfsFacadeException( label + " archive path (" + DrillOnYarnConfig.DRILL_ARCHIVE_PATH  + ") is not set." );
     }
     if ( ! localArchiveFile.exists() ) {
-      throw new DfsFacadeException( "Drill archive not found: " + localArchivePath );
+      throw new DfsFacadeException( label + " archive not found: " + localArchivePath );
     }
     if ( ! localArchiveFile.canRead() ) {
-      throw new DfsFacadeException( "Drill archive is not readable: " + localArchivePath );
+      throw new DfsFacadeException( label + " archive is not readable: " + localArchivePath );
     }
     if ( localArchiveFile.isDirectory() ) {
-      throw new DfsFacadeException( "Drill archive cannot be a directory: " + localArchivePath );
+      throw new DfsFacadeException( label + " archive cannot be a directory: " + localArchivePath );
     }
 
     // The file must be an archive type so YARN knows to extract its contents.
 
     String baseName = localArchiveFile.getName( );
     if ( DrillOnYarnConfig.findSuffix( baseName ) == null ) {
-      throw new DfsFacadeException( "Drill archive must be .tar.gz, .tgz or .zip: " + baseName );
+      throw new DfsFacadeException( label + " archive must be .tar.gz, .tgz or .zip: " + baseName );
     }
 
     Path srcPath = new Path( localArchivePath );
@@ -241,9 +283,17 @@ public class DfsFacade
 
       fs.copyFromLocalFile( false, true, srcPath, destPath );
     } catch (IOException e) {
-      throw new DfsFacadeException( "Failed to upload Drill archive to DFS: " +
+      throw new DfsFacadeException( "Failed to upload " + label + " archive to DFS: " +
                                     localArchiveFile.getAbsolutePath() +
                                     " --> " + destPath, e );
+    }
+  }
+
+  public FileStatus getFileStatus( Path dfsPath ) throws DfsFacadeException {
+    try {
+      return fs.getFileStatus(dfsPath);
+    } catch (IOException e) {
+      throw new DfsFacadeException( "Failed to get DFS status for file: " + dfsPath, e );
     }
   }
 
@@ -267,15 +317,9 @@ public class DfsFacade
    *                     file system
    */
 
-  public LocalResource makeResource( Path dfsPath,
+  public LocalResource makeResource( Path dfsPath, FileStatus dfsFileStatus,
                                      LocalResourceType type,
                                      LocalResourceVisibility visibility ) throws DfsFacadeException {
-    FileStatus dfsFileStatus;
-    try {
-      dfsFileStatus = fs.getFileStatus(dfsPath);
-    } catch (IOException e) {
-      throw new DfsFacadeException( "Failed to get DFS status for file: " + dfsPath, e );
-    }
     URL destUrl;
     try {
       destUrl = ConverterUtils.getYarnUrlFromPath(

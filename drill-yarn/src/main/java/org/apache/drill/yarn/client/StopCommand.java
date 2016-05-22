@@ -46,12 +46,12 @@ public class StopCommand extends ClientCommand
 
   private static class StopMonitor
   {
-    ReportCommand.Reporter reporter;
+    StatusCommand.Reporter reporter;
     private YarnApplicationState state;
     private int pollWaitSec;
     private int shutdownWaitSec;
 
-    StopMonitor( Config config, ReportCommand.Reporter reporter ) {
+    StopMonitor( Config config, StatusCommand.Reporter reporter ) {
       this.reporter = reporter;
       pollWaitSec = config.getInt( DrillOnYarnConfig.CLIENT_POLL_SEC );
       if ( pollWaitSec < 1 ) {
@@ -135,7 +135,7 @@ public class StopCommand extends ClientCommand
     // First get an application report to ensure that the AM is,
     // in fact, running, and to get the HTTP endpoint.
 
-    ReportCommand.Reporter reporter = new ReportCommand.Reporter( client );
+    StatusCommand.Reporter reporter = new StatusCommand.Reporter( client );
     try {
       reporter.getReport();
     } catch (ClientException e) {
@@ -155,7 +155,7 @@ public class StopCommand extends ClientCommand
       if ( opts.force ) {
         System.out.println( "Forcing shutdown" );
       } else {
-        stopped = gracefulStop( reporter.report.getOriginalTrackingUrl() );
+        stopped = gracefulStop( reporter.getAmUrl() );
       }
 
       // If that did not work, then forcibly kill the AM.
@@ -195,7 +195,7 @@ public class StopCommand extends ClientCommand
       }
       SimpleRestClient restClient = new SimpleRestClient( );
       String tail = "rest/stop";
-      String masterKey = config.getString( DrillOnYarnConfig.AM_REST_KEY );
+      String masterKey = config.getString( DrillOnYarnConfig.HTTP_REST_KEY );
       if ( ! DoYUtil.isBlank( masterKey ) ) {
         tail += "?key=" + masterKey; }
       if ( opts.verbose ) {

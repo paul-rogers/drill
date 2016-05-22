@@ -43,11 +43,6 @@ import java.util.regex.Pattern;
  */
 
 public class CommandLineOptions {
-  private String prefix;
-  int resizeValue;
-
-  public boolean verbose = false;
-  public boolean force = false;
 
   public enum Command
   {
@@ -87,7 +82,7 @@ public class CommandLineOptions {
      * diagnose problems.
      */
 
-    DRY_RUN( "dryrun", "Display and validate configuration." ),
+    DESCRIBE( "describe", "Display and validate configuration." ),
 
     /**
      * Convenience command to upload the application archive to test the DFS
@@ -119,8 +114,11 @@ public class CommandLineOptions {
 
   Command command;
   public String appId;
-
-//  private JCommander parser;
+  public boolean dryRun;
+  private String prefix;
+  public int resizeValue;
+  public boolean verbose = false;
+  public boolean force = false;
 
   /**
    * Parse the command line. Invalid option combinations result in the
@@ -139,6 +137,10 @@ public class CommandLineOptions {
       }
       if ( arg.equals( "-f" ) ||  arg.equals( "--force" ) ) {
         force = true;
+        continue;
+      }
+      if ( arg.equals( "-d" ) ||  arg.equals( "--dryrun" ) ) {
+        dryRun = true;
         continue;
       }
       if ( arg.equals( "-a" ) ||  arg.equals( "--appid" ) ) {
@@ -205,7 +207,7 @@ public class CommandLineOptions {
   }
 
   public void usage() {
-    System.out.println( "drill-on-yarn.sh [--hadoop hadoop-home][-v|--verbose] command args");
+    System.out.println( "drill-on-yarn.sh [--site site-dir][--hadoop hadoop-home][-v|--verbose] command args");
     System.out.println( "Where command is one of:" );
     for ( Command cmd : Command.values() ) {
       if ( cmd.isHidden( ) ) {

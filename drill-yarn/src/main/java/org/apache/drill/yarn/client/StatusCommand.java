@@ -27,7 +27,7 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
-public class ReportCommand extends ClientCommand
+public class StatusCommand extends ClientCommand
 {
   public static class Reporter
   {
@@ -61,9 +61,13 @@ public class ReportCommand extends ClientCommand
       }
       System.out.println( "Tracking URL: " + report.getTrackingUrl() );
       if ( isNew ) {
-        System.out.println( "Application Master URL: " + report.getOriginalTrackingUrl() );
+        System.out.println( "Application Master URL: " + getAmUrl( ) );
       }
       showFinalStatus( );
+    }
+
+    public String getAmUrl( ) {
+      return StatusCommand.getAmUrl( report );
     }
 
     public void showFinalStatus( )
@@ -106,6 +110,10 @@ public class ReportCommand extends ClientCommand
     }
   }
 
+  public static String getAmUrl( ApplicationReport report ) {
+    return DoYUtil.unwrapAmUrl( report.getOriginalTrackingUrl() );
+  }
+
   @Override
   public void run() throws ClientException {
     YarnRMClient client = getClient( );
@@ -126,7 +134,7 @@ public class ReportCommand extends ClientCommand
 
   private void showAmStatus(ApplicationReport report) {
     try {
-      String baseUrl = report.getOriginalTrackingUrl();
+      String baseUrl = getAmUrl( report );
       if ( DoYUtil.isBlank( baseUrl ) ) {
         return;
       }
@@ -137,7 +145,7 @@ public class ReportCommand extends ClientCommand
       }
       String result = restClient.send( baseUrl, tail, false );
       formatResponse( result );
-      System.out.println( "For more information, visit: " + report.getOriginalTrackingUrl() );
+      System.out.println( "For more information, visit: " + baseUrl );
     }
     catch ( ClientException e ) {
       System.out.println( "Failed to get AM status" );

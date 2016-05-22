@@ -52,6 +52,9 @@ script=`basename "$this"`
 home=`cd "$bin/..">/dev/null; pwd`
 this="$home/bin/$script"
 
+# the root of the drill installation
+DRILL_HOME=${DRILL_HOME:-$home}
+
 # Standardize error messages
 
 fatal_error() {
@@ -59,34 +62,28 @@ fatal_error() {
   exit 1
 }
 
-drill_rotate_log ()
-{
-    log=$1;
-    num=5;
-    if [ -n "$2" ]; then
-    num=$2
-    fi
-    if [ -f "$log" ]; then # rotate logs
-    while [ $num -gt 1 ]; do
-        prev=`expr $num - 1`
-        [ -f "$log.$prev" ] && mv -f "$log.$prev" "$log.$num"
-        num=$prev
-    done
-    mv -f "$log" "$log.$num";
-    fi
-}
-
-# the root of the drill installation
-DRILL_HOME=${DRILL_HOME:-$home}
-
 # Check to see if the conf dir or drill home are given as an optional arguments
-# Must be the first arguments on the command line.
+# Arguments may appear anywhere on the command line. --site is an alias, better
+# specifies that the location contains all site-specific files, not just config.
+#
+# Remaining arguments go into the args array - use that instead of $@.
 
-if [ "--config" = "$1" ]; then
-  shift
-  DRILL_CONF_DIR=$1
-  shift
-fi
+args=()
+while [[ $# > 0 ]]
+do
+  arg="$1"
+  case "$arg" in
+  --site|--config)
+    shift
+    DRILL_CONF_DIR=$1
+    shift
+    ;;
+  *)
+    args+=("$1")
+    shift
+    ;;
+  esac
+done
 
 # If config dir is given, it must exist.
 
@@ -107,17 +104,52 @@ fi
 
 # However we got the config dir, it must contain a config
 # file, and that file must be readable.
+# Most files are optional, so check the one that is required:
+# drill-override.conf.
 
-drillenv="$DRILL_CONF_DIR/drill-env.sh"
-if [[ ! -a "$drillenv" ]]; then
-  fatal_error "Drill config file missing: $drillenv -- Wrong config dir?"
+testFile="$DRILL_CONF_DIR/drill-override.conf"
+if [[ ! -a "$testFile" ]]; then
+  fatal_error "Drill Log config file missing: $testFile -- Wrong config dir?"
 fi
-if [[ ! -r "$drillenv" ]]; then
-  fatal_error "Drill config file not readable: $drillenv - Wrong user?"
+if [[ ! -r "$testFile" ]]; then
+  fatal_error "Drill Log config file not readable: $testFile - Wrong user?"
 fi
 
-# Source drill-env.sh for any user configured values
-. "$drillenv"
+# Set Drill-provided defaults here. Do not put Drill defaults
+# in the distribution or user environment config files.
+
+export DRILL_JAVA_OPTS="-XX:MaxPermSize=512M -XX:ReservedCodeCacheSize=1G -Ddrill.exec.enable-epoll=true"
+
+# Class unloading is disabled by default in Java 7
+# http://hg.openjdk.java.net/jdk7u/jdk7u60/hotspot/file/tip/src/share/vm/runtime/globals.hpp#l1622
+export SERVER_GC_OPTS="-XX:+CMSClassUnloadingEnabled -XX:+UseG1GC"
+
+# Source distrib-env.sh for any distribution-specific settings.
+# distrib-env.sh is optional; it is created by some distribution installers
+# that need distribution-specific settings.
+
+distribEnv="$DRILL_HOME/conf/distrib-env.sh"
+if [ -r "$distribEnv" ]; then
+  . "$distribEnv"
+fi
+
+# Source the optional drill-env.sh for any user configured values.
+# We read the file only in the $DRILL_CONF_DIR, which might be a
+# site-specific folder. By design, we do not search both the site
+# folder and the $DRILL_HOME/conf folder; we look in just the one
+# identified by $DRILL_CONF_DIR.
+
+drillEnv="$DRILL_CONF_DIR/drill-env.sh"
+if [ -r "$drillEnv" ]; then
+  . "$drillEnv"
+fi
+
+# Default memory settings if none provided by the environment or
+# above config files.
+
+export DRILL_MAX_DIRECT_MEMORY=${DRILL_MAX_DIRECT_MEMORY:-"8G"}
+export DRILL_HEAP=${DRILL_HEAP:-"4G"}
+export DRILLBIT_OPTS="-Xms$DRILL_HEAP -Xmx$DRILL_HEAP -XX:MaxDirectMemorySize=$DRILL_MAX_DIRECT_MEMORY"
 
 # Under YARN, the log directory is usually YARN-provided. Replace any
 # value that may have been set in drill-env.sh.
@@ -126,7 +158,7 @@ if [ -n "$DRILL_YARN_LOG_DIR" ]; then
   DRILL_LOG_DIR="$DRILL_YARN_LOG_DIR"
 fi
 
-# Get log directory
+# get log directory
 if [ -z "$DRILL_LOG_DIR" ]; then
   # Try the optional location
   DRILL_LOG_DIR=/var/log/drill
@@ -135,7 +167,7 @@ if [ -z "$DRILL_LOG_DIR" ]; then
     # if not present.
 
     DRILL_LOG_DIR=$DRILL_HOME/log
-  fi
+    fi
 fi
 
 # Regardless of how we got the directory, it must exist
@@ -146,45 +178,75 @@ if [[ ! -d "$DRILL_LOG_DIR" && ! -w "$DRILL_LOG_DIR" ]]; then
   fatal_error "Log directory does not exist or is not writable: $DRILL_LOG_DIR"
 fi
 
+# Store the pid file in Drill home by default, else in the location
+# provided in drill-env.sh.
+
+export DRILL_PID_DIR=${DRILL_PID_DIR:-$DRILL_HOME}
+
+# Prepare log file prefix and the main Drillbit log file.
+
+export DRILL_LOG_PREFIX="$DRILL_LOG_DIR/drillbit"
+export DRILLBIT_LOG_PATH="${DRILL_LOG_PREFIX}.log"
+
 # Class path construction.
 
 # Add Drill conf folder at the beginning of the classpath
-CP=$DRILL_CONF_DIR
+CP="$DRILL_CONF_DIR"
+
+# Add $DRILL_HOME/conf if the user has provided their own
+# site configuration directory.
+# Ensures we pick up the default logback.xml, etc. if the
+# user does not provide their own.
+# Also, set a variable to remember that the config dir
+# is non-default, which is needed later.
+
+if [[ ! "$DRILL_CONF_DIR" -ef "$DRILL_HOME/conf" ]]; then
+  export DRILL_SITE_DIR="$DRILL_CONF_DIR"
+  CP="$CP:$DRILL_HOME/conf"
+fi
 
 # Followed by any user specified override jars
-if [ -n "${DRILL_CLASSPATH_PREFIX}" ]; then
-  CP=$CP:$DRILL_CLASSPATH_PREFIX
+if [ -n "$DRILL_CLASSPATH_PREFIX" ]; then
+  CP="$CP:$DRILL_CLASSPATH_PREFIX"
 fi
 
 # Next Drill core jars
-CP=$CP:$DRILL_HOME/jars/*
+if [ -n "$DRILL_TOOL_CP" ]; then
+  CP="$CP:$DRILL_TOOL_CP"
+fi
+CP="$CP:$DRILL_HOME/jars/*"
 
 # Followed by Drill override dependency jars
-CP=$CP:$DRILL_HOME/jars/ext/*
+CP="$CP:$DRILL_HOME/jars/ext/*"
 
 # Followed by Hadoop's jar
-if [ -n "${HADOOP_CLASSPATH}" ]; then
-  CP=$CP:$HADOOP_CLASSPATH
+if [ -n "$HADOOP_CLASSPATH" ]; then
+  CP="$CP:$HADOOP_CLASSPATH"
 fi
 
 # Followed by HBase' jar
-if [ -n "${HBASE_CLASSPATH}" ]; then
-  CP=$CP:$HBASE_CLASSPATH
+if [ -n "$HBASE_CLASSPATH" ]; then
+  CP="$CP:$HBASE_CLASSPATH"
 fi
 
 # Generalized extension path (use this for new deployments instead
 # of the specialized HADOOP_ and HBASE_CLASSPATH variables.)
-if [ -n "${EXTN_CLASSPATH}" ]; then
-  CP=$CP:$EXTN_CLASSPATH
+if [ -n "$EXTN_CLASSPATH" ]; then
+  CP="$CP:$EXTN_CLASSPATH"
 fi
 
-# Followed by Drill other dependency jars
-CP=$CP:$DRILL_HOME/jars/3rdparty/*
-CP=$CP:$DRILL_HOME/jars/classb/*
+# Followed by Drill's other dependency jars
+CP="$CP:$DRILL_HOME/jars/3rdparty/*"
+CP="$CP:$DRILL_HOME/jars/classb/*"
 
 # Finally any user specified
-if [ -n "${DRILL_CLASSPATH}" ]; then
-  CP=$CP:$DRILL_CLASSPATH
+# Allow user jars to appear in $DRILL_CONF_DIR/jars to avoid mixing
+# user and Drill distribution jars.
+if [ -d "$DRILL_CONF_DIR/jars" ]; then
+  CP="$CP:$DRILL_CONF_DIR/jars/*"
+fi
+if [ -n "$DRILL_CLASSPATH" ]; then
+  CP="$CP:$DRILL_CLASSPATH"
 fi
 
 # Test for cygwin
@@ -200,7 +262,9 @@ if [ -z "$JAVA_HOME" ]; then
     while [ -h "$SOURCE" ]; do # resolve $SOURCE until the file is no longer a symlink
       DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
       SOURCE="$(readlink "$SOURCE")"
-      [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE" # if $SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+      # if $SOURCE was a relative symlink, we need to resolve it relative
+      # to the path where the symlink file was located
+      [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
     done
     JAVA_HOME="$( cd -P "$( dirname "$SOURCE" )" && cd .. && pwd )"
   fi
@@ -209,6 +273,7 @@ if [ -z "$JAVA_HOME" ]; then
     fatal_error "JAVA_HOME is not set and Java could not be found"
   fi
 fi
+
 # Now, verify that 'java' binary exists and is suitable for Drill.
 if $is_cygwin; then
   JAVA_BIN="java.exe"
@@ -233,7 +298,7 @@ if $is_cygwin; then
   DRILL_LOG_DIR=`cygpath -w "$DRILL_LOG_DIR"`
   CP=`cygpath -w -p "$CP"`
   if [ -z "$HADOOP_HOME" ]; then
-    HADOOP_HOME=${DRILL_HOME}/winutils
+    export HADOOP_HOME=${DRILL_HOME}/winutils
   fi
 fi
 

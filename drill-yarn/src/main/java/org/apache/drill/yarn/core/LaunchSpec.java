@@ -199,15 +199,25 @@ public class LaunchSpec {
     if ( mainClass != null ) {
       out.print( "Main Class: " );
       out.println( mainClass );
-    }
-    out.println( "VM Args:" );
-    if ( vmArgs.isEmpty() ) {
-      out.println( "  None" );
-    }
-    else {
-      for ( String item : vmArgs ) {
-        out.print( "  " );
-        out.println( item );
+      out.println( "VM Args:" );
+      if ( vmArgs.isEmpty() ) {
+        out.println( "  None" );
+      }
+      else {
+        for ( String item : vmArgs ) {
+          out.print( "  " );
+          out.println( item );
+        }
+      }
+      out.println( "Class Path:" );
+      if ( classPath.isEmpty() ) {
+        out.println( "  None" );
+      }
+      else {
+        for ( String item : classPath ) {
+          out.print( "  " );
+          out.println( item );
+        }
       }
     }
     out.println( "Program Args:" );
@@ -216,16 +226,6 @@ public class LaunchSpec {
     }
     else {
       for ( String item : cmdArgs ) {
-        out.print( "  " );
-        out.println( item );
-      }
-    }
-    out.println( "Class Path:" );
-    if ( classPath.isEmpty() ) {
-      out.println( "  None" );
-    }
-    else {
-      for ( String item : classPath ) {
         out.print( "  " );
         out.println( item );
       }

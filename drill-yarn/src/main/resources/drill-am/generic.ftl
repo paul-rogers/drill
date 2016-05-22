@@ -18,10 +18,6 @@
 </#macro>
 
 <#macro page_html>
-  <!DOCTYPE html>
-  <html lang="en">
-    <head>
-      <meta charset="utf-8">
       <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
       <title>Apache Drill - Application Master</title>
@@ -41,9 +37,7 @@
 
       <@page_head/>
     </head>
-
     <body role="document">
-
       <div class="navbar navbar-inverse navbar-fixed-top" role="navigation">
         <div class="container-fluid">
           <div class="navbar-header">

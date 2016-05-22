@@ -82,4 +82,16 @@ public class DoYUtil {
        .append( container.getResource().getVirtualCores() );
     return buf.toString();
   }
+
+  /**
+   * The tracking URL given to YARN is a redirect URL. When giving the URL
+   * to the user, "unwrap" that redirect URL to get the actual site URL.
+   *
+   * @param trackingUrl
+   * @return
+   */
+
+  public static String unwrapAmUrl( String trackingUrl ) {
+    return  trackingUrl.replace( "/redirect", "/" );
+  }
 }

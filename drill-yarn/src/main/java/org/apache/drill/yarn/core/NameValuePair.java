@@ -37,7 +37,7 @@ public class NameValuePair
 
   public String getQuotedValue( ) {
     if ( value == null ) {
-      return "null";
+      return "<unset>";
     }
     if ( value instanceof String ) {
       return "\"" + value + "\"";

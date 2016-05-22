@@ -126,6 +126,7 @@ public class AppSpec extends LaunchSpec {
     return capability;
   }
 
+  @Override
   public void dump(PrintStream out) {
     out.print( "Memory (MB): " );
     out.println( memoryMb );
