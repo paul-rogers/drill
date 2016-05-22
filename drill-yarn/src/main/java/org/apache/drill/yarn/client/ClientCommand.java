@@ -47,10 +47,7 @@ public abstract class ClientCommand
    */
   protected static File getAppIdFile( ) {
     String clusterId = DrillOnYarnConfig.config().getString( DrillOnYarnConfig.CLUSTER_ID );
-    String appIdFileName = clusterId + ".appid";
-    File drillHome = DrillOnYarnConfig.instance().getLocalDrillHome( );
-    File appIdFile = new File( drillHome.getParentFile(), appIdFileName );
-    return appIdFile;
+    return DrillOnYarnConfig.instance().getLocalAppIdFile( clusterId );
   }
 
   protected ApplicationId checkAppId( ) throws ClientException {

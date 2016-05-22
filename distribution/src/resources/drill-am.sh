@@ -18,6 +18,32 @@
 # Launch script for the Drill Application Master (AM).
 # This script runs under YARN and assumes the environment that YARN provides to an AM.
 # This script likely will not work from the command line.
+#
+# Environment variables set by the client:
+#
+# DRILL_DEBUG       Set to 1 to print environment and other information to
+#                   diagnose problems.
+# DRILL_AM_HEAP     AM heap memory. (The AM uses no direct memory.)
+# DRILL_AM_JAVA_OPT Optional additional JVM options for the AM, such as
+#                   options to enable debugging.
+#
+# The following environment variables are set in the AM launch context,
+# not used by this script, but used the the AM itself.
+#
+# DRILL_AM_APP_ID   Informs the AM of its YARN application ID.
+#                   (Strangely, YARN provides no way for an AM to learn this
+#                   from YARN itself.)
+# YARN_RM_WEBAPP    Informs the AM of the URL to the YARN RM web app.
+#                   Again, YARN informs the Client of this information, but
+#                   not the AM.
+# DRILL_ARCHIVE     The DFS path to the Drill archive used to localize Drillbit
+#                   code.
+# SITE_ARCHIVE      The DFS path to the optional site archive used to localize
+#                   Drillbit configuration.
+#
+# Further, this script infers DRILL_HOME from the location
+# of the script itself. The site directory (if used) is provided
+# via the --config command-line option.
 
 # YARN requires that the AM run as a child process until completion; so this script
 # does not launch the AM in the background.
@@ -28,16 +54,31 @@ bin=`dirname "${BASH_SOURCE-$0}"`
 bin=`cd "$bin">/dev/null; pwd`
 DRILL_HOME=`cd "$bin/..">/dev/null; pwd`
 
-# TODO: Change to use site dir when available.
-
-DRILL_CONF_DIR=${DRILL_CONF_DIR:-$DRILL_HOME/conf}
-
 if [ -n "$DRILL_DEBUG" ]; then
   echo
   echo "Drill AM launch script"
   echo "DRILL_HOME: $DRILL_HOME"
-  echo "DRILL_CONF_DIR: $DRILL_CONF_DIR"
 fi
+
+# AM-specific options for drill-config.sh. The AM
+# code is in the tools folder which is not loaded by
+# the Drillbit, only by the AM and client.
+#
+# Add the Hadoop config directory which we need to gain access to
+# YARN and HDFS. This is an odd location to add the config dir,
+# but if we add it sooner, Jersey complains with many class not
+# found errors for reasons not yet known. Note that, to add the
+# Hadoop config here, the Drill 1.6 $DRILL_HOME/conf/core-site.xml file
+# MUST have been removed or renamed else Hadoop will pick up
+# our dummy file instead of the real Hadoop file.
+
+DRILL_TOOL_CP="$DRILL_HOME/jars/tools/*:$HADOOP_CONF_DIR"
+
+# Use Drill's standard configuration, including drill-env.sh.
+# The AM discards most of the information, but does use JAVA
+# and a few others.
+
+. "$DRILL_HOME/bin/drill-config.sh"
 
 # DRILL_AM_HEAP and DRILL_AM_JAVA_OPTS are set by the
 # Drill client via YARN. To set these, use the following
@@ -46,46 +87,39 @@ fi
 # DRILL_AM_HEAP: drill.yarn.am.heap
 # DRILL_AM_JAVA_OPTS: drill.yarn.am.vm-args
 
-DRILL_AM_HEAP=${DRILL_AM_HEAP:-"512M"}
-AM_LOG_CONF="-Dlogback.configurationFile=${DRILL_HOME}/conf/drill-am-log.xml"
+DRILL_AM_HEAP="${DRILL_AM_HEAP:-512M}"
+
+# AM logging setup. Note: the Drillbit log file uses the default name
+# of logback.xml.
+# The AM uses a non-default log configuration file name.
+# So, we must tell the AM to use an AM-specific file
+# else we'll get warnings about the log.query.path system property
+# not being set (and we won't pick up the AM logging settings.)
+# See http://logback.qos.ch/manual/configuration.html
+# The name provided must be on the class path. By adding
+# the site dir before $DRILL_HOME/conf, the user can
+# provide a custom config without editing the default one.
+# If this is wrong, you will see files such as
+# log.path_IS_UNDEFINED in the launch directory.
+
+AM_LOG_CONF="-Dlogback.configurationFile=drill-am-log.xml"
 
 AM_JAVA_OPTS="-Xms$DRILL_AM_HEAP -Xmx$DRILL_AM_HEAP -XX:MaxPermSize=512M $DRILL_AM_JAVA_OPTS $AM_LOG_CONF"
 
-# Build the class path.
-# Start with Drill conf folder at the beginning of the classpath
+# drill-config.sh built the class path.
+# Note that the class path uses the Hadoop, YARN and DFS jars
+# packaged with Drill; not those from the YARN-provided
+# environment variables in the launch context.
 
-CP=$DRILL_CONF_DIR
+AMCMD="$JAVA $AM_JAVA_OPTS ${args[@]} -cp $CP org.apache.drill.yarn.appMaster.DrillApplicationMaster"
 
-# Drill core jars
-CP=$CP:$DRILL_HOME/jars/tools/*
-CP=$CP:$DRILL_HOME/jars/*
-
-# We do not use Hadoop's class path; it has dependencies which conflict
-# with Drill. Instead, we use Drill's copies of the required Hadoop jars.
-#CP=$CP:$CLASSPATH
-
-# Do add Hadoop configuration and YARN jars directly,
-# using the YARN-provided HADOOP_CONF_DIR and HADOOP_YARN_HOME.
-CP=$CP:$HADOOP_CONF_DIR:$HADOOP_YARN_HOME/share/hadoop/yarn/*
-
-# Drill override dependency jars
-CP=$CP:$DRILL_HOME/jars/ext/*
-
-# Drill other dependency jars
-CP=$CP:$DRILL_HOME/jars/3rdparty/*
-CP=$CP:$DRILL_HOME/jars/classb/*
-
-# JAVA_HOME given by YARN
-
-JAVA=$JAVA_HOME/bin/java
-
-DRILL_DEBUG=1
 if [ -n "$DRILL_DEBUG" ]; then
   echo "AM launch environment:"
   echo "-----------------------------------"
   env
   echo "-----------------------------------"
-  echo $JAVA $AM_JAVA_OPTS -cp $CP org.apache.drill.yarn.appMaster.DrillApplicationMaster $@
+  echo "Command:"
+  echo "$AMCMD"
 fi
 
 # Note: no need to capture output, YARN does that for us.
@@ -95,4 +129,4 @@ fi
 # the YARN node manager can kill the AM if necessary by killing
 # the PID for this script.
 
-exec $JAVA $AM_JAVA_OPTS -cp $CP org.apache.drill.yarn.appMaster.DrillApplicationMaster $@
+exec $AMCMD

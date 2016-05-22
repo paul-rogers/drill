@@ -331,6 +331,11 @@
       <outputDirectory>conf</outputDirectory>
     </file>
     <file>
+      <source>src/resources/distrib-env.sh</source>
+      <fileMode>0755</fileMode>
+      <outputDirectory>conf</outputDirectory>
+    </file>
+    <file>
       <source>src/resources/drill-on-yarn-env.sh</source>
       <fileMode>0755</fileMode>
       <outputDirectory>conf</outputDirectory>

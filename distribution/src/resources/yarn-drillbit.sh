@@ -157,42 +157,22 @@ if [ -n "$DRILL_DEBUG" ]; then
   echo "-----------------------------------"
 fi
 
-
-# Log setup
-# In "native" Drill, stdout goes to a Drill log file.
-# Under YARN, the script that launched this one already captures
-# output to YARN's own logs, so we don't do our own capture here.
-
-DRILL_LOG_PREFIX=drillbit
-DRILL_LOGFILE=$DRILL_LOG_PREFIX.log
-DRILL_OUTFILE=$DRILL_LOG_PREFIX.out
-DRILL_QUERYFILE=${DRILL_LOG_PREFIX}_queries.json
-loggc=$DRILL_LOG_DIR/$DRILL_LOG_PREFIX.gc
-loglog="${DRILL_LOG_DIR}/${DRILL_LOGFILE}"
-logout="${DRILL_LOG_DIR}/${DRILL_OUTFILE}"
-logqueries="${DRILL_LOG_DIR}/${DRILL_QUERYFILE}"
-DRILLBIT_LOG_PATH=$loglog
-DRILLBIT_QUERY_LOG_PATH=$logqueries
-
 # Note: if using YARN log dir, then no log rotation because each run under YARN
 # gets a new log directory.
 
-if [ -z "$DRILL_YARN_LOG_DIR" ]; then
-  drill_rotate_log $loggc
-fi
-
-echo "`ulimit -a`" >> $loglog 2>&1
-logopts="-Dlog.path=$DRILLBIT_LOG_PATH -Dlog.query.path=$DRILLBIT_QUERY_LOG_PATH"
 if [ -n "$ENABLE_GC_LOG" ]; then
-  logopts="$logopts -Xloggc:${loggc}"
+  export SERVER_GC_OPTS="$SERVER_GC_OPTS -Xloggc:<FILE-PATH>"
+  if [ -z "$DRILL_YARN_LOG_DIR" ]; then
+    drill_rotate_log $loggc
+  fi
 fi
-JVM_OPTS="$JVM_OPTS $SERVER_GC_OPTS $logopts $DRILL_JAVA_OPTS $DRILL_JVM_OPTS"
-export BITCMD="$JAVA $JVM_OPTS -cp $CP org.apache.drill.exec.server.Drillbit"
+$args=$@
 
 # Debugging information
 
 if [ -n "$DRILL_DEBUG" ]; then
-  echo "Command: $BITCMD"
+  echo "Command:"
+  "$DRILL_HOME/bin/runbit" debug $args
   echo
   echo "Local Environment:"
   echo "-----------------------------------"
@@ -203,6 +183,7 @@ fi
 # Launch Drill itself.
 # Passes along Drill's exit code as our own.
 
-echo "`date` Starting drillbit on `hostname` under YARN, logging to $logout"
+echo "`date` Starting drillbit on `hostname` under YARN, logging to $DRILLBIT_LOG_PATH"
+echo "`ulimit -a`" >> "$DRILLBIT_LOG_PATH" 2>&1
 
-exec $BITCMD
+"$DRILL_HOME/bin/runbit" exec $args

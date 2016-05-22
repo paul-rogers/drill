@@ -59,6 +59,20 @@ public class PageTree extends ResourceConfig
     }
   }
 
+  @Path("/redirect")
+  @PermitAll
+  public static class RedirectPage
+  {
+    @GET
+    public Viewable getRoot( ) {
+      Map<String,String> map = new HashMap<>( );
+      String baseUrl = DoYUtil.unwrapAmUrl( dispatcher.getTrackingUrl() );
+      map.put( "amLink", baseUrl );
+      map.put( "clusterName", clusterName );
+      return new Viewable( "/drill-am/redirect.ftl", map );
+    }
+  }
+
   @Path("/config")
   @PermitAll
   public static class ConfigPage
@@ -372,7 +386,7 @@ public class PageTree extends ResourceConfig
     public String postStop(
            )
     {
-      String masterKey = DrillOnYarnConfig.config( ).getString( DrillOnYarnConfig.AM_REST_KEY );
+      String masterKey = DrillOnYarnConfig.config( ).getString( DrillOnYarnConfig.HTTP_REST_KEY );
       if ( ! DoYUtil.isBlank( masterKey ) && ! masterKey.equals( key ) ) {
         return "Invalid Key";
       }
@@ -393,6 +407,7 @@ public class PageTree extends ResourceConfig
 
     // Web UI Pages
     register(RootPage.class);
+    register(RedirectPage.class);
     register(ConfigPage.class);
     register(DrillbitsPage.class);
     register(HistoryPage.class);

@@ -13,14 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Amount of memory to use for Drillbits. Values are set by the Drill-on-YARN
-# configuration when running under YARN. Drill provides default values of
-# 8G direct, 4G heap if you don't specify values here. However, you should
-# specify values that work for you.
-#
-# Keep the ${FOO:-your-value} notation so that these values are used only
-# when the values are not passed in from YARN (or the environment.)
-
-#export DRILL_MAX_DIRECT_MEMORY=${DRILL_MAX_DIRECT_MEMORY:-"8G"}
-#export DRILL_HEAP=${DRILL_HEAP:-"4G"}
-
+# This file is empty by default. Default Drill environment settings appear
+# in drill-config.sh. Distributions can replace this file with a
+# distribution-specific version that sets environment variables and options
+# specific to that distribution. Users should not put anything in this file;
+# put user options in drill-env.sh instead.

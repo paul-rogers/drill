@@ -203,6 +203,8 @@ public class Dispatcher
     this.trackingUrl = trackingUrl;
   }
 
+  public String getTrackingUrl( ) { return yarn.getTrackingUrl(); }
+
   public void run() throws YarnFacadeException {
     try {
       setup();

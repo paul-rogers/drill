@@ -62,6 +62,8 @@ public class AMYarnFacadeImpl implements AMYarnFacade
   private int timerPeriodMs;
   private PulseRunnable timer;
 
+  private String appMasterTrackingUrl;
+
   public AMYarnFacadeImpl(int pollPeriodMs, int timerPeriodMs) {
     this.pollPeriodMs = pollPeriodMs;
     this.timerPeriodMs = timerPeriodMs;
@@ -94,7 +96,6 @@ public class AMYarnFacadeImpl implements AMYarnFacade
   public void register( String trackingUrl ) throws YarnFacadeException {
     String thisHostName = NetUtils.getHostname();
     LOG.debug( "Host Name from YARN: " + thisHostName );
-    String appMasterTrackingUrl = "";
     if ( trackingUrl != null ) {
       // YARN seems to provide multiple names: MACHNAME.local/10.250.56.235
       // The second seems to be the IP address, which is what we want.
@@ -116,6 +117,9 @@ public class AMYarnFacadeImpl implements AMYarnFacade
     pulseThread.setName("Pulse");
     pulseThread.start();
   }
+
+  @Override
+  public String getTrackingUrl( ) { return appMasterTrackingUrl; }
 
   @Override
   public ContainerRequest requestContainer(ContainerRequestSpec containerSpec) {

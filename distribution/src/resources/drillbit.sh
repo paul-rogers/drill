@@ -1,59 +1,82 @@
 #!/usr/bin/env bash
+# Copyright 2013 The Apache Software Foundation
 #
-#/**
-# * Copyright 2013 The Apache Software Foundation
-# *
-# * Licensed to the Apache Software Foundation (ASF) under one
-# * or more contributor license agreements.  See the NOTICE file
-# * distributed with this work for additional information
-# * regarding copyright ownership.  The ASF licenses this file
-# * to you under the Apache License, Version 2.0 (the
-# * "License"); you may not use this file except in compliance
-# * with the License.  You may obtain a copy of the License at
-# *
-# *     http://www.apache.org/licenses/LICENSE-2.0
-# *
-# * Unless required by applicable law or agreed to in writing, software
-# * distributed under the License is distributed on an "AS IS" BASIS,
-# * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# * See the License for the specific language governing permissions and
-# * limitations under the License.
-# */
-# 
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 # Environment Variables
 #
-#   DRILL_CONF_DIR   Alternate drill conf dir. Default is ${DRILL_HOME}/conf.
-#   DRILL_LOG_DIR    Where log files are stored.  PWD by default.
-#   DRILL_PID_DIR    The pid files are stored. /tmp by default.
-#   DRILL_IDENT_STRING   A string representing this instance of drillbit. $USER by default
-#   DRILL_NICENESS The scheduling priority for daemons. Defaults to 0.
+#   DRILL_CONF_DIR      Alternate drill conf dir. Default is ${DRILL_HOME}/conf.
+#   DRILL_LOG_DIR       Where log files are stored. Default is /var/log/drill if
+#                       that exists, else $DRILL_HOME/log
+#   DRILL_PID_DIR       The pid files are stored. $DRILL_HOME by default.
+#   DRILL_IDENT_STRING  A string representing this instance of drillbit. $USER by default
+#   DRILL_NICENESS      The scheduling priority for daemons. Defaults to 0.
 #   DRILL_STOP_TIMEOUT  Time, in seconds, after which we kill -9 the server if it has not stopped.
-#                        Default 120 seconds.
+#                       Default 120 seconds.
+#
+# See also the environment variables defined in drill-config.sh
+# and runbit
 #
 # Modelled after $HADOOP_HOME/bin/hadoop-daemon.sh
+#
+# Usage:
+#
+# drillbit.sh [--config conf-dir] cmd [arg1 arg2 ...]
+#
+# The configuration directory, if provided, must exist and contain a Drill
+# configuration file. The option takes precedence over the
+# DRILL_CONF_DIR environment variable.
+#
+# The command is one of: start|stop|status|restart|autorestart
+#
+# Additional arguments are passed as JVM options to the Drill-bit.
+# They typically are of the form:
+#
+# -Dconfig-var=value
+#
+# Where config-var is a fully expanded form of a configuration variable.
+# The value overrides any value in the user or Drill configuration files.
 
 usage="Usage: drillbit.sh [--config <conf-dir>]\
- (start|stop|status|restart|autorestart)"
-
-# if no args specified, show usage
-if [ $# -lt 1 ]; then
-  echo $usage
-  exit 1
-fi
+ (start|stop|status|restart|autorestart) [args]"
 
 bin=`dirname "${BASH_SOURCE-$0}"`
 bin=`cd "$bin">/dev/null; pwd`
 
+base=`basename "${BASH_SOURCE-$0}"`
+command=${base/.*/}
+
+# Setup environment. This parses, and removes, the
+# options --config conf-dir parameters.
+
 . "$bin"/drill-config.sh
 
-# get arguments
-startStopStatus=$1
-shift
+# if no args specified, show usage
+if [ ${#args[@]} = 0 ]; then
+  echo $usage
+  exit 1
+fi
 
-command=drillbit
-shift
+# Get command. all other args are JVM args, typically properties.
+startStopStatus="${args[0]}"
+args[0]=''
 
-waitForProcessEnd() {
+waitForProcessEnd()
+{
   pidKilled=$1
   commandName=$2
   processedAt=`date +%s`
@@ -76,8 +99,9 @@ waitForProcessEnd() {
   echo
 }
 
-check_before_start(){
-    #ckeck if the process is not running
+check_before_start()
+{
+    #check if the process is not running
     mkdir -p "$DRILL_PID_DIR"
     if [ -f $pid ]; then
       if kill -0 `cat $pid` > /dev/null 2>&1; then
@@ -105,72 +129,28 @@ wait_until_done ()
     return 0
 }
 
-# get log directory
-if [ "$DRILL_LOG_DIR" = "" ]; then
-  export DRILL_LOG_DIR=/var/log/drill
-fi
-mkdir -p "$DRILL_LOG_DIR"
-
-if [ "$DRILL_PID_DIR" = "" ]; then
-  DRILL_PID_DIR=$DRILL_HOME
-fi
-
-# Some variables
-# Work out java location so can print version into log.
-if [ "$JAVA_HOME" != "" ]; then
-  #echo "run java in $JAVA_HOME"
-  JAVA_HOME=$JAVA_HOME
-fi
-if [ "$JAVA_HOME" = "" ]; then
-  echo "Error: JAVA_HOME is not set."
-  exit 1
-fi
-
-JAVA=$JAVA_HOME/bin/java
-export DRILL_LOG_PREFIX=drillbit
-export DRILL_LOGFILE=$DRILL_LOG_PREFIX.log
-export DRILL_OUTFILE=$DRILL_LOG_PREFIX.out
-export DRILL_QUERYFILE=${DRILL_LOG_PREFIX}_queries.json
-loggc=$DRILL_LOG_DIR/$DRILL_LOG_PREFIX.gc
-loglog="${DRILL_LOG_DIR}/${DRILL_LOGFILE}"
-logout="${DRILL_LOG_DIR}/${DRILL_OUTFILE}"
-logqueries="${DRILL_LOG_DIR}/${DRILL_QUERYFILE}"
 pid=$DRILL_PID_DIR/drillbit.pid
-
-export DRILLBIT_LOG_PATH=$loglog
-export DRILLBIT_QUERY_LOG_PATH=$logqueries
-
-if [ -n "$SERVER_GC_OPTS" ]; then
-  export SERVER_GC_OPTS=${SERVER_GC_OPTS/"-Xloggc:<FILE-PATH>"/"-Xloggc:${loggc}"}
-fi
-if [ -n "$CLIENT_GC_OPTS" ]; then
-  export CLIENT_GC_OPTS=${CLIENT_GC_OPTS/"-Xloggc:<FILE-PATH>"/"-Xloggc:${loggc}"}
-fi
+logout="${DRILL_LOG_PREFIX}.out"
 
 # Set default scheduling priority
-if [ "$DRILL_NICENESS" = "" ]; then
-    export DRILL_NICENESS=0
-fi
+DRILL_NICENESS=${DRILL_NICENESS:-0}
 
 thiscmd=$0
-args=$@
 
 case $startStopStatus in
 
 (start)
     check_before_start
-    echo starting $command, logging to $logout
-    nohup $thiscmd internal_start $command $args < /dev/null >> ${logout} 2>&1  &
+    echo "starting $command, logging to $logout"
+    nohup $thiscmd internal_start ${args[@]} < /dev/null >> ${logout} 2>&1  &
     sleep 1;
   ;;
 
 (internal_start)
-    drill_rotate_log $loggc
     # Add to the command log file vital stats on our environment.
-    echo "`date` Starting $command on `hostname`" >> $loglog
-    echo "`ulimit -a`" >> $loglog 2>&1
-    nice -n $DRILL_NICENESS "$DRILL_HOME"/bin/runbit \
-        $command "$@" start >> "$logout" 2>&1 &
+    echo "`date` Starting $command on `hostname`" >> "$DRILLBIT_LOG_PATH"
+    echo "`ulimit -a`" >> "$DRILLBIT_LOG_PATH" 2>&1
+    nice -n $DRILL_NICENESS $DRILL_HOME/bin/runbit exec ${args[@]} >> "$logout" 2>&1 &
     echo $! > $pid
     wait
   ;;
@@ -182,7 +162,7 @@ case $startStopStatus in
       # kill -0 == see if the PID exists
       if kill -0 $pidToKill > /dev/null 2>&1; then
         echo stopping $command
-        echo "`date` Terminating $command" pid $pidToKill>> $loglog
+        echo "`date` Terminating $command" pid $pidToKill>> "$DRILLBIT_LOG_PATH"
         kill $pidToKill > /dev/null 2>&1
         waitForProcessEnd $pidToKill $command
         rm $pid
@@ -197,7 +177,7 @@ case $startStopStatus in
 
 (restart)
     # stop the command
-    $thiscmd --config "${DRILL_CONF_DIR}" stop $command $args &
+    $thiscmd --config "${DRILL_CONF_DIR}" stop ${args[@]} &
     wait_until_done $!
     # wait a user-specified sleep period
     sp=${DRILL_RESTART_SLEEP:-3}
@@ -205,7 +185,7 @@ case $startStopStatus in
       sleep $sp
     fi
     # start the command
-    $thiscmd --config "${DRILL_CONF_DIR}" start $command $args &
+    $thiscmd --config "${DRILL_CONF_DIR}" start ${args[@]} &
     wait_until_done $!
   ;;
 
@@ -224,6 +204,18 @@ case $startStopStatus in
       echo $command not running.
       exit 2
     fi
+    ;;
+
+(debug)
+
+    # Undocumented command to print out environment and Drillbit
+    # command line after all adjustments.
+
+    echo "command: $command"
+    echo "args: ${args[@]}"
+    echo "cwd:" `pwd`
+    # Print Drill command line
+    "$DRILL_HOME/bin/runbit" debug ${args[@]}
     ;;
 
 (*)

@@ -17,11 +17,11 @@
  */
 package org.apache.drill.yarn.appMaster;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.drill.exec.server.Drillbit;
 import org.apache.drill.yarn.core.DfsFacade;
 import org.apache.drill.yarn.core.DfsFacade.DfsFacadeException;
 import org.apache.drill.yarn.core.DoYUtil;
@@ -36,10 +36,32 @@ import org.apache.hadoop.yarn.api.records.LocalResource;
 
 import com.typesafe.config.Config;
 
+/**
+ * Builds a controller for a cluster of Drillbits. The AM is designed
+ * to be mostly generic; only this class contains knowledge that the
+ * tasks being managed are drillbits. This design ensures that we can
+ * add other Drill components in the future without the need to make
+ * major changes to the AM logic.
+ * <p>
+ * The controller consists of a generic dispatcher and cluster controller,
+ * along with a Drill-specific scheduler and task launch specification.
+ * Drill also includes an interface to ZooKeeper to monitor Drillbits.
+ * <p>
+ * The AM is launched by YARN. All it knows is what is in its launch
+ * environment or configuration files. The client must set up all the
+ * information that the AM needs. Static information appears in configuration
+ * files. But, dynamic information (or that which is inconvenient to repeat
+ * in configuration files) must arrive in environment variables.
+ * See {@link DrillOnYarnConfig} for more information.
+ */
+
 public class DrillControllerFactory implements ControllerFactory
 {
   private static final Log LOG = LogFactory.getLog(DrillControllerFactory.class);
   private Config config = DrillOnYarnConfig.config();
+  private String drillArchivePath;
+  private String siteArchivePath;
+  private boolean localized;
 
   @Override
   public Dispatcher build() throws YarnFacadeException {
@@ -71,7 +93,7 @@ public class DrillControllerFactory implements ControllerFactory
 
     String trackingUrl = null;
     if ( config.getBoolean( DrillOnYarnConfig.HTTP_ENABLED ) ) {
-      trackingUrl = "http://<host>:<port>/";
+      trackingUrl = "http://<host>:<port>/redirect";
       trackingUrl = trackingUrl.replace( "<port>", Integer.toString( config.getInt( DrillOnYarnConfig.HTTP_PORT ) ) );
       dispatcher.setTrackingUrl(trackingUrl);
     }
@@ -82,12 +104,22 @@ public class DrillControllerFactory implements ControllerFactory
   private Map<String, LocalResource> prepareResources( ) throws YarnFacadeException {
     try {
       DfsFacade dfs = new DfsFacade( config );
-      if ( ! dfs.isLocalized() ) {
+      localized = dfs.isLocalized();
+      if ( ! localized ) {
         return null;
       }
       dfs.connect();
-      DfsFacade.Localizer localizer = new DfsFacade.Localizer( dfs );
-      return localizer.defineResources( );
+      Map<String, LocalResource> resources = new HashMap<>( );
+      DrillOnYarnConfig drillConfig = DrillOnYarnConfig.instance();
+      drillArchivePath = drillConfig.getDrillArchiveDfsPath( );
+      DfsFacade.Localizer localizer = new DfsFacade.Localizer( dfs, drillArchivePath );
+      localizer.defineResources( resources, DrillOnYarnConfig.DRILL_ARCHIVE_KEY );
+      siteArchivePath = drillConfig.getSiteArchiveDfsPath( );
+      if ( siteArchivePath != null ) {
+        localizer = new DfsFacade.Localizer( dfs, siteArchivePath );
+        localizer.defineResources( resources, DrillOnYarnConfig.SITE_ARCHIVE_KEY );
+      }
+      return resources;
     } catch (DfsFacadeException e) {
       throw new YarnFacadeException( "Failed to get DFS status for Drill archive", e );
     }
@@ -137,7 +169,7 @@ public class DrillControllerFactory implements ControllerFactory
     // set to the container directory, so we just need the name
     // of the Drill folder under the cwd.
 
-    String drillHome = DrillOnYarnConfig.getRemoteDrillHome( config );
+    String drillHome = DrillOnYarnConfig.instance( ).getRemoteDrillHome( );
     drillbitSpec.env.put( "DRILL_HOME", drillHome );
     LOG.trace( "Drillbit DRILL_HOME: " + drillHome );
 
@@ -199,8 +231,8 @@ public class DrillControllerFactory implements ControllerFactory
     // class path. But, we retain Hadoop and Hbase for backward compatibility.
 
     addIfSet( drillbitSpec, DrillOnYarnConfig.DRILLBIT_EXTN_CLASSPATH, "EXTN_CLASSPATH" );
-    addIfSet( drillbitSpec, DrillOnYarnConfig.HADOOP_CLASSPATH, "HADOOP_CLASSPATH" );
-    addIfSet( drillbitSpec, DrillOnYarnConfig.HBASE_CLASSPATH, "HBASE_CLASSPATH" );
+    addIfSet( drillbitSpec, DrillOnYarnConfig.HADOOP_CLASSPATH, "DRILL_HADOOP_CLASSPATH" );
+    addIfSet( drillbitSpec, DrillOnYarnConfig.HBASE_CLASSPATH, "DRILL_HBASE_CLASSPATH" );
 
     // Note that there is no equivalent of niceness for YARN: YARN controls
     // the niceness of its child processes.
@@ -210,6 +242,21 @@ public class DrillControllerFactory implements ControllerFactory
     // issuing this command.
 
     drillbitSpec.command = "$DRILL_HOME/bin/yarn-drillbit.sh";
+
+    // Configuration (site directory), if given.
+
+    String siteDirPath = null;
+    if ( localized ) {
+      siteDirPath = "$PWD/" + config.getString( DrillOnYarnConfig.DRILL_ARCHIVE_KEY ) +
+                    "/" + System.getenv( DrillOnYarnConfig.SITE_DIR_NAME_ENV_VAR );
+    }
+    else {
+      siteDirPath = System.getenv( DrillOnYarnConfig.SITE_DIR_ENV_VAR );
+    }
+    if ( siteDirPath != null ) {
+      drillbitSpec.cmdArgs.add( "--site" );
+      drillbitSpec.classPath.add( siteDirPath );
+    }
 
     // Localized resources
 

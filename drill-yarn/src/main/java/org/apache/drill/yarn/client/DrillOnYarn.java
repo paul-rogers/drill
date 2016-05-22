@@ -26,8 +26,38 @@ import org.apache.log4j.BasicConfigurator;
  * Client for the Drill-on-YARN integration. See YARN documentation
  * for the role of a YARN client.
  * <p>
- * To debug this class, add two directories to your class path:
+ * The client needs configuration information from drill-on-yarn.conf,
+ * the directory of which must be in the class path. It is put there
+ * by the drill-on-yarn.sh script.
+ * <p>
+ * The client also requires a debugging configuration file to be given
+ * explicitly as follows:<br>
+ * -Dlogback.configurationFile=/path/to/yarn-client-log.xml<br>
+ * The drillbit itself uses the default logging config file name of
+ * logback.xml; which contains references to system properties that are
+ * not defined in this client. The result of not including the log
+ * configuration file is that you'll see various var.name_IS_UNDEFINED
+ * files in the directory from which you launched the client.
+ * <p>
+ * The client accepts a command, creates a command object for that
+ * command, and executes it. There are a few main commands (start, stop),
+ * along with some management commands (status, resize), and a few commands
+ * mostly used for debugging and diagnosis (upload,etc.) Some commands
+ * are very similar, so a single command object may handle multiple user
+ * commands.
+ * <p>
+ * The client requires a working distributed file system (DFS), the
+ * configuration of which is given either implicitly, or in the Hadoop
+ * configuration files. Similarly, the client requires a working YARN
+ * deployment, again with either implicit configuration or configuration
+ * given in the Hadoop configuration. The Hadoop configuration must be
+ * on the class path when launching this client.
+ *
+ * <h3>Debugging</h3>
+ * <p>
+ * To debug this class, add two or three directories to your class path:
  * <ul>
+ * <li>$DRILL_CONF_DIR (if using a separate site directory)</li>
  * <li>$HADOOP_HOME/etc/hadoop</li>
  * <li>$DRILL_HOME/conf</li>
  * </ul>
@@ -35,11 +65,19 @@ import org.apache.log4j.BasicConfigurator;
  * contains, by default, a version of core-site.xml that probably is
  * NOT the one you want to use for YARN. For YARN, you want the one
  * in $HADOOP_HOME/etc/hadoop.
+ * <p>
+ * Also, set the following VM argument:<br>
+ * -Dlogback.configurationFile=/path/to/drill/conf/yarn-client-log.xml<br>
+ * or<br>
+ * -Dlogback.configurationFile=/path/to/drill-site/yarn-client-log.xml<br>
  */
 
 public class DrillOnYarn
 {
-  public static void main(String argv[]) {
+  public static void main(String argv[])
+  {
+    // Parse command-line options.
+
     BasicConfigurator.configure();
     CommandLineOptions opts = new CommandLineOptions();
     if ( ! opts.parse(argv) ) {
@@ -51,23 +89,20 @@ public class DrillOnYarn
       System.exit( -1 );
     }
 
+    // Load configuration.
+
     try {
-      DrillOnYarnConfig.load();
+      DrillOnYarnConfig.load().setClientDrillHome();
     } catch (DoyConfigException e) {
       System.err.println( e.getMessage() );
       System.exit( -1 );
     }
 
-    if ( opts.verbose ) {
-      System.out.println( "----------------------------------------------" );
-      System.out.println( "Effective Drill-on-YARN Configuration" );
-      DrillOnYarnConfig.instance( ).dump( );
-      System.out.println( "----------------------------------------------" );
-    }
+    // Create the required command object.
 
     ClientCommand cmd;
     switch (opts.getCommand()) {
-      case TEST:
+      case TEST: // TODO: Remove this
         cmd = new TestCommand( );
         break;
       case UPLOAD:
@@ -79,11 +114,11 @@ public class DrillOnYarn
       case RESTART:
         cmd = new StartCommand( false, true );
         break;
-      case DRY_RUN:
-        cmd = new DryRunCommand( );
+      case DESCRIBE:
+        cmd = new PrintConfigCommand( );
         break;
       case STATUS:
-        cmd = new ReportCommand( );
+        cmd = new StatusCommand( );
         break;
       case STOP:
         cmd = new StopCommand( );
@@ -91,6 +126,9 @@ public class DrillOnYarn
       default:
         cmd = new HelpCommand( );
     }
+
+    // Run the command.
+
     cmd.setOpts( opts );
     try {
       cmd.run();

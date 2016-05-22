@@ -40,6 +40,8 @@ public interface AMYarnFacade
 
   void register( String trackingUrl ) throws YarnFacadeException;
 
+  String getTrackingUrl();
+
   ContainerRequest requestContainer(ContainerRequestSpec containerSpec);
 
   void removeContainerRequest(ContainerRequest containerRequest);
