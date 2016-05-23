@@ -20,6 +20,7 @@ package org.apache.drill.yarn.appMaster;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.yarn.core.AppSpec;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
@@ -59,6 +60,12 @@ public class ContainerRequestSpec
 
   public int vCores = 1;
 
+  /**
+   * Number of virtual disks (channels, spindles) to request.
+   */
+
+  public double disks;
+
   public List<String> racks = new ArrayList<>();
   public List<String> hosts = new ArrayList<>();
 
@@ -76,6 +83,7 @@ public class ContainerRequestSpec
     Resource capability = Records.newRecord(Resource.class);
     capability.setMemory(memoryMb);
     capability.setVirtualCores(vCores);
+    AppSpec.callIfExists( capability, "setDisks", disks );
 
     String nodeArr[] = null;
     if (!hosts.isEmpty()) {

@@ -133,7 +133,6 @@ public abstract class FileUploader
         System.out.println( "Assuming remote Drill site is the same as the local location: " +
             localSiteDir.getAbsolutePath( ) );
       }
-      remoteSiteDir = doyConfig.getRemoteSiteDir();
     }
   }
 
@@ -187,13 +186,7 @@ public abstract class FileUploader
       if ( ! localDrillArchivePath.exists() ) {
         return;
       }
-      boolean match;
-      try {
-        match = localizer.filesMatch( );
-      } catch (DfsFacadeException e) {
-        throw new ClientException( "Failed to get DFS status for Drill archive", e );
-      }
-      if ( ! match ) {
+      if ( ! localizer.filesMatch( ) ) {
         System.out.println( "Warning: Drill archive on DFS does not match the local version." );
       }
       defineResources( localizer, DrillOnYarnConfig.DRILL_ARCHIVE_KEY );
@@ -278,13 +271,24 @@ public abstract class FileUploader
       // a while and the message makes it look like we're doing something.
 
       connectToDfs( );
-      localDrillArchivePath = dfs.getLocalPath( DrillOnYarnConfig.DRILL_ARCHIVE_PATH );
-      DfsFacade.Localizer localizer = new DfsFacade.Localizer( dfs, localDrillArchivePath, "Drill" );
-      boolean needsUpload;
-      try {
-        needsUpload = force  || ! localizer.filesMatch( );
-      } catch (DfsFacadeException e) {
-        throw new ClientException( "Failed to get DFS status for Drill archive", e );
+      DfsFacade.Localizer localizer = makeDrillLocalizer( );
+      boolean needsUpload = force  || ! localizer.filesMatch( );
+
+      if ( needsUpload )
+      {
+        // Thoroughly check the Drill archive. Errors with the archive seem a likely
+        // source of confusion, so provide detailed error messages for common cases.
+        // Don't bother with these checks if no upload is needed.
+
+        if ( ! localDrillArchivePath.exists() ) {
+          throw new ClientException( "Drill archive not found: " + localDrillArchivePath );
+        }
+        if ( ! localDrillArchivePath.canRead() ) {
+          throw new ClientException( "Drill archive is not readable: " + localDrillArchivePath );
+        }
+        if ( localDrillArchivePath.isDirectory() ) {
+          throw new ClientException( "Drill archive cannot be a directory: " + localDrillArchivePath );
+        }
       }
 
       drillArchivePath = localizer.getDestPath();
@@ -296,8 +300,9 @@ public abstract class FileUploader
           upload( localizer );
         }
       } else {
-        System.out.println( "Using existing dfs archive " + drillArchivePath );
+        System.out.println( "Using existing Drill archive in DFS: " + drillArchivePath );
       }
+
       defineResources( localizer, DrillOnYarnConfig.DRILL_ARCHIVE_KEY);
     }
 
@@ -320,11 +325,12 @@ public abstract class FileUploader
         throw new ClientException( "Failed to create site archive temp file", e );
       }
       String cmd[] = new String[] {
-          "/bin/bash",
           "tar",
+          "-C",
+          localSiteDir.getAbsolutePath(),
           "-czf",
           siteArchiveFile.getAbsolutePath( ),
-          localSiteDir.getAbsolutePath( )
+          "."
       };
       List<String> cmdList = Arrays.asList( cmd );
       String cmdLine = DoYUtil.join( " ", cmdList);
@@ -381,13 +387,12 @@ public abstract class FileUploader
     private void uploadSiteArchive( File siteArchive ) throws ClientException
     {
       DfsFacade.Localizer localizer = makeSiteLocalizer( siteArchive );
-      System.out.print( "Uploading " + localizer.getBaseName() + " to " + siteArchivePath + " ... " );
 
       if ( dryRun ) {
-        System.out.println( "Upload site archive to " + remoteSiteDir );
+        System.out.println( "Upload site archive to " + siteArchivePath );
       }
       else {
-        System.out.print( "Uploading site archive to " + remoteSiteDir + " ... " );
+        System.out.print( "Uploading site archive to " + siteArchivePath + " ... " );
         upload( localizer );
       }
       defineResources( localizer, DrillOnYarnConfig.SITE_ARCHIVE_KEY);
@@ -404,18 +409,31 @@ public abstract class FileUploader
   public abstract void run( ) throws ClientException;
 
   /**
-   * Determine if this application has a site directory.
+   * Common setup of the Drill and site directories.
    *
    * @throws ClientException
    */
 
   protected void setup() throws ClientException {
+
+    // Local and remote Drill home locations.
+
     localDrillHome = doyConfig.getLocalDrillHome();
-    localSiteDir = doyConfig.getLocalSiteDir( );
-    if ( hasSiteDir( )  &&  ! localSiteDir.isDirectory() ) {
-      throw new ClientException( "Drill site dir not a directory: " + localSiteDir );
-    }
     remoteDrillHome = doyConfig.getRemoteDrillHome();
+
+    // Site directory is optional. Local and remote locations, if provided.
+    // Check that the site directory is an existing directory.
+
+    localSiteDir = doyConfig.getLocalSiteDir( );
+    if ( hasSiteDir( ) ) {
+      if ( ! localSiteDir.isDirectory() ) {
+        throw new ClientException( "Drill site dir not a directory: " + localSiteDir );
+      }
+      remoteSiteDir = doyConfig.getRemoteSiteDir();
+    }
+
+    // Disclaimer that this is just a dry run when that option is selected.
+
     if ( dryRun ) {
       System.out.println( "Dry run only." );
     }
@@ -439,7 +457,8 @@ public abstract class FileUploader
   protected void connectToDfs( ) throws ClientException
   {
     try {
-      System.out.println( "Connecting to DFS..." );
+      System.out.print( "Connecting to DFS..." );
+      dfs = new DfsFacade( config );
       dfs.connect();
       System.out.println( " Connected." );
     } catch (DfsFacadeException e) {
@@ -448,9 +467,13 @@ public abstract class FileUploader
     }
   }
 
-  protected Localizer makeDrillLocalizer() {
-    localDrillArchivePath = dfs.getLocalPath( DrillOnYarnConfig.DRILL_ARCHIVE_PATH );
-    DfsFacade.Localizer localizer = new DfsFacade.Localizer( dfs, localDrillArchivePath, "Site" );
+  protected Localizer makeDrillLocalizer() throws ClientException {
+    String localArchivePath = config.getString( DrillOnYarnConfig.DRILL_ARCHIVE_PATH );
+    if ( DoYUtil.isBlank( localArchivePath ) ) {
+      throw new ClientException( "Drill archive path (" + DrillOnYarnConfig.DRILL_ARCHIVE_PATH  + ") is not set." );
+    }
+    localDrillArchivePath = new File( localArchivePath );
+    DfsFacade.Localizer localizer = new DfsFacade.Localizer( dfs, localDrillArchivePath, "Drill" );
     drillArchivePath = localizer.getDestPath();
     return localizer;
   }
@@ -458,8 +481,6 @@ public abstract class FileUploader
   protected Localizer makeSiteLocalizer(File siteArchive) {
     DfsFacade.Localizer localizer = new DfsFacade.Localizer( dfs, siteArchive, DrillOnYarnConfig.SITE_ARCHIVE_NAME, "Site" );
     siteArchivePath = localizer.getDestPath();
-    remoteSiteDir = doyConfig.getRemoteDrillHome();
-    remoteSiteDir += "/" + localSiteDir.getName();
     return localizer;
   }
 
@@ -473,7 +494,8 @@ public abstract class FileUploader
     System.out.println( "Uploaded." );
   }
 
-  protected void defineResources(Localizer localizer, String key) throws ClientException {
+  protected void defineResources(Localizer localizer, String keyProp ) throws ClientException {
+    String key = config.getString( keyProp );
     try {
       localizer.defineResources( resources, key );
     } catch (DfsFacadeException e) {

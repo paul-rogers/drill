@@ -103,8 +103,10 @@ DRILL_AM_HEAP="${DRILL_AM_HEAP:-512M}"
 # log.path_IS_UNDEFINED in the launch directory.
 
 AM_LOG_CONF="-Dlogback.configurationFile=drill-am-log.xml"
+SITE_OPT="-Ddrill.yarn.siteDir=$DRILL_CONF_DIR"
 
-AM_JAVA_OPTS="-Xms$DRILL_AM_HEAP -Xmx$DRILL_AM_HEAP -XX:MaxPermSize=512M $DRILL_AM_JAVA_OPTS $AM_LOG_CONF"
+AM_JAVA_OPTS="-Xms$DRILL_AM_HEAP -Xmx$DRILL_AM_HEAP -XX:MaxPermSize=512M"
+AM_JAVA_OPTS="$AM_JAVA_OPTS $SITE_OPT $DRILL_AM_JAVA_OPTS $AM_LOG_CONF"
 
 # drill-config.sh built the class path.
 # Note that the class path uses the Hadoop, YARN and DFS jars

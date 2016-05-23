@@ -19,7 +19,12 @@ package org.apache.drill.yarn.core;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.drill.yarn.appMaster.DrillControllerFactory;
 import org.apache.drill.yarn.client.ClientException;
 import org.apache.hadoop.fs.FileContext;
 import org.apache.hadoop.fs.FileStatus;
@@ -48,6 +53,7 @@ import org.apache.hadoop.yarn.util.Records;
 
 public class AppSpec extends LaunchSpec {
 
+  private static final Log LOG = LogFactory.getLog(LaunchSpec.class);
   /**
    * The memory required in the allocated container, in MB.
    */
@@ -60,6 +66,14 @@ public class AppSpec extends LaunchSpec {
    */
 
   public int vCores = 1;
+
+  /**
+   * The number of disk resources (that is, disk channels) used
+   * by the process. Available only on some YARN distributions.
+   * Fractional values allowed.
+   */
+
+  public double disks;
 
   /**
    * The name of the application given to YARN. Appears in the YARN
@@ -123,7 +137,30 @@ public class AppSpec extends LaunchSpec {
     Resource capability = Records.newRecord(Resource.class);
     capability.setMemory(memoryMb);
     capability.setVirtualCores(vCores);
+    callIfExists( capability, "setDisks", disks );
     return capability;
+  }
+
+  public static void callIfExists(Object target, String fnName, double arg) {
+    String methodLabel = target.getClass().getName() + "." + fnName;
+    Method m;
+    try {
+      m = target.getClass().getMethod( fnName, Double.class );
+    } catch (NoSuchMethodException e) {
+      // Ignore, the method does not exist in this distribution.
+      LOG.trace( "Not supported in this YARN distribution: " + methodLabel + "( " + arg + ")" );
+      return;
+    } catch (SecurityException e) {
+      LOG.error( "Security prevents dynamic method calls", e );
+      return;
+    }
+    try {
+      m.invoke( target, arg );
+    } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+      LOG.error( "Failed to dynamically call " + methodLabel, e );
+      return;
+    }
+    LOG.trace( "Successfully called " + methodLabel + "( " + arg + ")" );
   }
 
   @Override

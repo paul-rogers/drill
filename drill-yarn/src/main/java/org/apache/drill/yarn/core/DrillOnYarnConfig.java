@@ -60,8 +60,6 @@ public class DrillOnYarnConfig
 
   public static final String DFS_CONNECTION = append( DFS_PARENT, "connection" );
   public static final String DFS_APP_DIR = append( DFS_PARENT, "app-dir" );
-//  public static final String DFS_CONFIG_DIR = append( DFS_PARENT, "config-dir" );
-//  public static final String DFS_USE_HADOOP_CONFIG = append( DFS_PARENT, "use-hadoop-config" );
 
   public static final String YARN_QUEUE = append( YARN_PARENT, "queue" );
   public static final String YARN_PRIORITY = append( YARN_PARENT, "priority" );
@@ -85,11 +83,13 @@ public class DrillOnYarnConfig
 
   public static final String MEMORY_KEY = "memory-mb";
   public static final String VCORES_KEY = "vcores";
+  public static final String DISKS_KEY = "disks";
   public static final String VM_ARGS_KEY = "vm-args";
   public static final String HEAP_KEY = "heap";
 
   public static final String AM_MEMORY = append( DOY_AM_PARENT, MEMORY_KEY );
   public static final String AM_VCORES = append( DOY_AM_PARENT, VCORES_KEY );
+  public static final String AM_DISKS = append( DOY_AM_PARENT, DISKS_KEY );
   public static final String AM_HEAP = append( DOY_AM_PARENT, HEAP_KEY );
   public static final String AM_VM_ARGS = append( DOY_AM_PARENT, VM_ARGS_KEY );
   public static final String AM_POLL_PERIOD_MS = append( DOY_AM_PARENT, "poll-ms" );
@@ -100,6 +100,7 @@ public class DrillOnYarnConfig
 
   public static final String DRILLBIT_MEMORY = append( DOY_DRILLBIT_PARENT, MEMORY_KEY );
   public static final String DRILLBIT_VCORES = append( DOY_DRILLBIT_PARENT, VCORES_KEY );
+  public static final String DRILLBIT_DISKS = append( DOY_DRILLBIT_PARENT, DISKS_KEY );
   public static final String DRILLBIT_VM_ARGS = append( DOY_DRILLBIT_PARENT, VM_ARGS_KEY );
   public static final String DRILLBIT_HEAP = append( DOY_DRILLBIT_PARENT, HEAP_KEY );
   public static final String DRILLBIT_DIRECT_MEM = append( DOY_DRILLBIT_PARENT, "max-direct-memory" );
@@ -150,8 +151,8 @@ public class DrillOnYarnConfig
   public static final String RM_WEBAPP_ENV_VAR = "YARN_RM_WEBAPP";
   public static final String DRILL_ARCHIVE_ENV_VAR = "DRILL_ARCHIVE";
   public static final String SITE_ARCHIVE_ENV_VAR = "SITE_ARCHIVE";
-  public static final String SITE_DIR_ENV_VAR = "DRILL_SITE_DIR";
-  public static final String SITE_DIR_NAME_ENV_VAR = "DRILL_SITE_DIR_NAME";
+//  public static final String SITE_DIR_ENV_VAR = "DRILL_SITE_DIR";
+//  public static final String SITE_DIR_NAME_ENV_VAR = "DRILL_SITE_DIR_NAME";
   public static final String DRILL_HOME_ENV_VAR = "DRILL_HOME";
   public static final String DRILL_SITE_ENV_VAR = "DRILL_CONF_DIR";
   public static final String AM_HEAP_ENV_VAR = "DRILL_AM_HEAP";
@@ -279,7 +280,13 @@ public class DrillOnYarnConfig
    * @throws DoyConfigException
    */
 
-  public void setClientDrillHome( ) throws DoyConfigException
+  public void setClientPaths( ) throws DoyConfigException
+  {
+    setClientDrillHome( );
+    setSiteDir( );
+  }
+
+  private void setClientDrillHome( ) throws DoyConfigException
   {
     // Try the environment variable that should have been
     // set in drill-on-yarn.sh (for the client) or in the
@@ -297,17 +304,33 @@ public class DrillOnYarnConfig
       throw new DoyConfigException( "The DRILL_HOME environment variable must point to your Drill install.");
     }
     drillHome = new File( homeDir );
+  }
 
-    // If we get this far, then we do have a config file. Resolve that
-    // file again and use it to infer the location of DRILL_HOME.
+  /**
+   * On both the client and the AM, the site directory is optional.
+   * If provided, it was set with the --config (or --site) option to
+   * the script that launched the client or AM. In both cases, the
+   * script sets the drill.yarn.siteDir system property (and leaks
+   * the DRILL_HOME environment variable.)
+   * <p>
+   * For ease of debugging, if neither of those are set, this method
+   * uses the location of the drill-on-yarn configuration file to infer
+   * the site directory.
+   * <p>
+   * On the client, the site directory will be the "original" directory
+   * that contains the user's "master" files. On the AM, the site directory
+   * is a localized version of the client directory. Because of the way
+   * tar works, both the client and AM site directories have the same
+   * name; though the path to that name obviously differs.
+   *
+   * @throws DoyConfigException
+   */
 
-    ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-    if (classLoader == null) {
-      classLoader = DrillOnYarnConfig.class.getClassLoader();
-    }
-
+  private void setSiteDir( ) throws DoyConfigException
+  {
     // The site directory is the one where the config file lives.
-    // This should have been set in an environment variable.
+    // This should have been set in an environment variable or
+    // system property by the launch script.
 
     String sitePath = System.getProperty( "drill.yarn.siteDir" );
     if ( ! DoYUtil.isBlank( sitePath ) ) {
@@ -319,6 +342,15 @@ public class DrillOnYarnConfig
         drillSite = new File( sitePath );
       }
       else {
+
+        // Otherwise, let's guess it from the config file. This version assists
+        // in debugging as it reduces setup steps.
+
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        if (classLoader == null) {
+          classLoader = DrillOnYarnConfig.class.getClassLoader();
+        }
+
         URL url = classLoader.getResource( CONFIG_FILE_NAME );
         if ( url == null ) {
           throw new DoyConfigException( "Drill-on-YARN configuration file is missing: " + CONFIG_FILE_NAME );
@@ -334,7 +366,8 @@ public class DrillOnYarnConfig
       }
     }
 
-    // Verify that the site directory is really a site directory (and not $DRILL_HOME/conf.)
+    // Verify that the site directory is not just $DRILL_HOME/conf.
+    // Since the calling script does not differentiate between the two cases.
 
     if ( drillHome.equals( drillSite.getParentFile() ) ) {
       drillSite = null;
@@ -342,12 +375,8 @@ public class DrillOnYarnConfig
   }
 
   /**
-   * Determine the Drill home and site directories for the AM. These locations
-   * are passed in from the client via the AM's launch environment.
-   * <p>
-   * If the application is localized, then the client sets variables that
-   * point to the localized locations. If the application is not localized,
-   * then the variables point to the non-localized locations.
+   * Retrieve the AM Drill home location from the DRILL_HOME variable
+   * set in the drill-am.sh launch script.
    *
    * @throws DoyConfigException
    */
@@ -356,17 +385,18 @@ public class DrillOnYarnConfig
   {
     String drillHomeStr = System.getenv( DRILL_HOME_ENV_VAR );
     drillHome = new File( drillHomeStr );
-    String siteDirStr = System.getenv( DRILL_SITE_ENV_VAR );
-    if ( ! DoYUtil.isBlank( siteDirStr ) ) {
-      drillSite = new File( siteDirStr );
-    }
-
-    // Should have been done by the client, but check if the
-    // site directory is in the default location.
-
-    if ( drillHome.equals( drillSite.getParentFile() ) ) {
-      drillSite = null;
-    }
+//    String siteDirStr = System.getenv( DRILL_SITE_ENV_VAR );
+//    if ( ! DoYUtil.isBlank( siteDirStr ) ) {
+//      drillSite = new File( siteDirStr );
+//    }
+//
+//    // Should have been done by the client, but check if the
+//    // site directory is in the default location.
+//
+//    if ( drillHome.equals( drillSite.getParentFile() ) ) {
+//      drillSite = null;
+//    }
+    setSiteDir( );
   }
 
   public Config getConfig( ) {
@@ -436,6 +466,7 @@ public class DrillOnYarnConfig
 
     AM_MEMORY,
     AM_VCORES,
+    AM_DISKS,
     AM_VM_ARGS,
     AM_HEAP,
     AM_POLL_PERIOD_MS,
@@ -457,6 +488,7 @@ public class DrillOnYarnConfig
 
     DRILLBIT_MEMORY,
     DRILLBIT_VCORES,
+    DRILLBIT_DISKS,
     DRILLBIT_VM_ARGS,
     DRILLBIT_HEAP,
     DRILLBIT_DIRECT_MEM,
@@ -485,8 +517,8 @@ public class DrillOnYarnConfig
       DRILL_CLASSPATH_ENV_VAR,
       DRILL_ARCHIVE_ENV_VAR,
       SITE_ARCHIVE_ENV_VAR,
-      SITE_DIR_ENV_VAR,
-      SITE_DIR_NAME_ENV_VAR,
+//      SITE_DIR_ENV_VAR,
+//      SITE_DIR_NAME_ENV_VAR,
       DRILL_DEBUG_ENV_VAR
   };
 
@@ -613,7 +645,7 @@ public class DrillOnYarnConfig
     String drillHome = "$PWD/" + config.getString( DRILL_ARCHIVE_KEY );
 
     String home = config.getString( DRILL_DIR_NAME );
-    if ( ! DoYUtil.isBlank( home ) ) {
+    if ( DoYUtil.isBlank( home ) ) {
       // Assume the archive expands without a subdirectory.
     }
 
@@ -641,9 +673,15 @@ public class DrillOnYarnConfig
 
   /**
    * Get the optional remote site directory name. This name will
-   * includes the absolute path for non-localized, or a (possibly partial)
-   * path the the localized directory. If the site archive includes
-   * a subdirectory, the caller must add that part of the path.
+   * include the absolute path for a non-localized application. It
+   * will return the path relative to the container for a localized
+   * application. In the localized case, the site archive is tar'ed
+   * relative to the site directory so that its contents are unarchived
+   * directly into the YARN-provided folder (with the name of the archive)
+   * key. That is, if the site directory on the client is /var/drill/my-site,
+   * the contents of the tar file will be "./drill-override.conf", etc.,
+   * and the remote location is $PWD/site-key/drill-override.conf, where
+   * site-key is the key name used to localize the site archive.
    *
    * @return
    */

@@ -92,7 +92,7 @@ public class DrillOnYarn
     // Load configuration.
 
     try {
-      DrillOnYarnConfig.load().setClientDrillHome();
+      DrillOnYarnConfig.load().setClientPaths();
     } catch (DoyConfigException e) {
       System.err.println( e.getMessage() );
       System.exit( -1 );
