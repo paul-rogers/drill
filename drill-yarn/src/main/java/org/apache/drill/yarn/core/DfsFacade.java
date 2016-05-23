@@ -141,6 +141,7 @@ public class DfsFacade
       this.dfs = dfs;
       localArchivePath = archivePath;
       dfsArchivePath = dfs.getUploadPath( localArchivePath );
+      this.label = label;
     }
 
     public Localizer( DfsFacade dfs, File archivePath, String destName, String label )
@@ -148,13 +149,8 @@ public class DfsFacade
       this.dfs = dfs;
       localArchivePath = archivePath;
       dfsArchivePath = dfs.getUploadPath( destName );
+      this.label = label;
     }
-
-//    public Localizer( DfsFacade dfs, File archivePath, FileStatus fileStatus )
-//    {
-//      this( dfs, archivePath );
-//      this.fileStatus = fileStatus;
-//    }
 
     public Localizer( DfsFacade dfs, String destPath )
     {
@@ -194,10 +190,17 @@ public class DfsFacade
       resources.put( key, drillResource );
     }
 
-    public boolean filesMatch() throws DfsFacadeException {
-      FileStatus status = getStatus( );
-      if ( status == null ) {
-        return false; }
+    public boolean filesMatch() {
+      FileStatus status;
+      try {
+        status = getStatus( );
+      } catch (DfsFacadeException e) {
+
+        // An exception is DFS's way of tell us the file does
+        // not exist.
+
+        return false;
+      }
       return status.getLen() == localArchivePath.length();
     }
 
@@ -208,9 +211,9 @@ public class DfsFacade
     }
   }
 
-  public File getLocalPath( String localPathParam ) {
-    return new File( config.getString( localPathParam ) );
-  }
+//  public File getLocalPath( String localPathParam ) {
+//    return new File( config.getString( localPathParam ) );
+//  }
 
   public boolean exists(Path path) throws IOException {
     return fs.exists( path );
@@ -250,23 +253,6 @@ public class DfsFacade
       throw new DfsFacadeException( "Failed to create DFS directory: " + dfsDirStr, e );
     }
 
-    // Thoroughly check the Drill archive. Errors with the archive seem a likely
-    // source of confusion, so provide detailed error messages for common cases.
-
-    String localArchivePath = config.getString( DrillOnYarnConfig.DRILL_ARCHIVE_PATH );
-    if ( DoYUtil.isBlank( localArchivePath ) ) {
-      throw new DfsFacadeException( label + " archive path (" + DrillOnYarnConfig.DRILL_ARCHIVE_PATH  + ") is not set." );
-    }
-    if ( ! localArchiveFile.exists() ) {
-      throw new DfsFacadeException( label + " archive not found: " + localArchivePath );
-    }
-    if ( ! localArchiveFile.canRead() ) {
-      throw new DfsFacadeException( label + " archive is not readable: " + localArchivePath );
-    }
-    if ( localArchiveFile.isDirectory() ) {
-      throw new DfsFacadeException( label + " archive cannot be a directory: " + localArchivePath );
-    }
-
     // The file must be an archive type so YARN knows to extract its contents.
 
     String baseName = localArchiveFile.getName( );
@@ -274,7 +260,7 @@ public class DfsFacade
       throw new DfsFacadeException( label + " archive must be .tar.gz, .tgz or .zip: " + baseName );
     }
 
-    Path srcPath = new Path( localArchivePath );
+    Path srcPath = new Path( localArchiveFile.getAbsolutePath() );
 
     // Do the upload, replacing the old archive.
 

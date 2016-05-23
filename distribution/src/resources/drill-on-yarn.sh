@@ -48,13 +48,20 @@ fi
 DRILL_CLIENT_HEAP=${DRILL_CLIENT_HEAP:-512M}
 VM_OPTS="-Xms$DRILL_CLIENT_HEAP -Xmx$DRILL_CLIENT_HEAP $DRILL_CLIENT_VM_OPTS"
 VM_OPTS="$VM_OPTS -Dlogback.configurationFile=yarn-client-log.xml"
+VM_OPTS="$VM_OPTS -Ddrill.yarn.siteDir=$DRILL_CONF_DIR"
+
+# Add Hadoop configuration at the end of the class path. This will
+# fail if the 1.6-and earlier core-site.xml file resides in the conf
+# directory.
+
+CP="$CP:$HADOOP_CONF_DIR"
 
 if [ ${#args[@]} = 0 ]; then
   echo $usage
   exit 1
 fi
 
-CLIENT_CMD="$JAVA $VM_OPTS -cp $CP:$HADOOP_CONF_DIR org.apache.drill.yarn.client.DrillOnYarn ${args[@]}"
+CLIENT_CMD="$JAVA $VM_OPTS -cp $CP org.apache.drill.yarn.client.DrillOnYarn ${args[@]}"
 
 case ${args[0]} in
 debug)

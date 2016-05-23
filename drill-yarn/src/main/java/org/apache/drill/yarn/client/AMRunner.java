@@ -28,6 +28,7 @@ import org.apache.drill.yarn.appMaster.DrillApplicationMaster;
 import org.apache.drill.yarn.core.AppSpec;
 import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
+import org.apache.drill.yarn.core.LaunchSpec;
 import org.apache.drill.yarn.core.YarnClientException;
 import org.apache.drill.yarn.core.YarnRMClient;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
@@ -113,26 +114,17 @@ public class AMRunner
 
     // Any additional VM arguments from the config file.
 
-    String customVMArgs = config.getString( DrillOnYarnConfig.AM_VM_ARGS );
-    if ( ! DoYUtil.isBlank( customVMArgs ) ) {
-      master.env.put( DrillOnYarnConfig.AM_JAVA_OPTS_ENV_VAR, customVMArgs );
-    }
+    addIfSet( master, DrillOnYarnConfig.AM_VM_ARGS, DrillOnYarnConfig.AM_JAVA_OPTS_ENV_VAR );
 
     // Any user specified override jars
     // Not really needed by the AM.
 
-    String prefixCp = config.getString( DrillOnYarnConfig.AM_PREFIX_CLASSPATH );
-    if ( ! DoYUtil.isBlank( prefixCp ) ) {
-      master.env.put( DrillOnYarnConfig.DRILL_CLASSPATH_ENV_VAR, prefixCp );
-    }
+    addIfSet( master, DrillOnYarnConfig.AM_PREFIX_CLASSPATH, DrillOnYarnConfig.DRILL_CLASSPATH_ENV_VAR );
 
     // Any user specified classpath.
     // Not really needed by the AM.
 
-    String customCp = config.getString( DrillOnYarnConfig.AM_CLASSPATH );
-    if ( ! DoYUtil.isBlank( customCp ) ) {
-      master.env.put( DrillOnYarnConfig.DRILL_CLASSPATH_PREFIX_ENV_VAR, customCp );
-    }
+    addIfSet( master, DrillOnYarnConfig.AM_CLASSPATH, DrillOnYarnConfig.DRILL_CLASSPATH_PREFIX_ENV_VAR );
 
     // AM launch script
     // The drill home location is either a non-localized location,
@@ -151,25 +143,21 @@ public class AMRunner
       master.cmdArgs.add( remoteSiteDir );
     }
 
-    // Localized resources
-
-    master.resources.putAll( resources );
-
     // Strangely, YARN has no way to tell an AM what its app ID
     // is. So, we pass it along here.
 
-    String appIdStr;
-    if ( dryRun ) {
-      appIdStr = "Unknown";
-    } else {
-      appIdStr = appId.toString();
-    }
+    String appIdStr = dryRun ? "Unknown" : appId.toString();
     master.env.put( DrillOnYarnConfig.APP_ID_ENV_VAR, appIdStr );
     master.env.put( DrillOnYarnConfig.RM_WEBAPP_ENV_VAR, client.getNMWebAddr() );
+
+    // Debug launch: dumps environment variables and other information
+    // in the launch script.
 
     if ( config.getBoolean( DrillOnYarnConfig.AM_DEBUG_LAUNCH ) ) {
       master.env.put( DrillOnYarnConfig.DRILL_DEBUG_ENV_VAR, "1" );
     }
+
+    // If localized, add the drill and optionally site archive.
 
     if ( config.getBoolean( DrillOnYarnConfig.LOCALIZE_DRILL) ) {
 
@@ -182,14 +170,26 @@ public class AMRunner
       }
     }
 
+    // Localized resources
+
+    master.resources.putAll( resources );
+
     // Container specification.
 
     master.memoryMb = config.getInt( DrillOnYarnConfig.AM_MEMORY );
     master.vCores = config.getInt( DrillOnYarnConfig.AM_VCORES );
+    master.disks = config.getDouble( DrillOnYarnConfig.AM_DISKS );
     master.appName = config.getString( DrillOnYarnConfig.APP_NAME );
     master.queueName = config.getString( DrillOnYarnConfig.YARN_QUEUE );
     master.priority = config.getInt( DrillOnYarnConfig.YARN_PRIORITY );
     return master;
+  }
+
+  private void addIfSet( LaunchSpec spec, String configParam, String envVar ) {
+    String value = config.getString( configParam );
+    if ( ! DoYUtil.isBlank( value ) ) {
+      spec.env.put( envVar, value );
+    }
   }
 
   private void createApp( ) throws ClientException
@@ -213,6 +213,9 @@ public class AMRunner
       System.out.println("Max Memory: " + maxMemory);
       System.out.println("Max Cores: " + maxCores );
     }
+
+    // YARN behaves very badly if we request a container larger than the maximum.
+
     if ( master.memoryMb > maxMemory ) {
       throw new ClientException( "YARN maximum memory is " + maxMemory + " but the application master requests " + master.memoryMb );
     }

@@ -61,7 +61,7 @@ public class DrillApplicationMaster
     // on the class-path.
 
     try {
-      DrillOnYarnConfig.load();
+      DrillOnYarnConfig.load().setAmDrillHome();
     } catch (DoyConfigException e) {
       System.err.println( e.getMessage( ) );
       System.exit( -1 );

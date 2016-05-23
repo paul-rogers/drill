@@ -111,13 +111,23 @@ public class DrillControllerFactory implements ControllerFactory
       dfs.connect();
       Map<String, LocalResource> resources = new HashMap<>( );
       DrillOnYarnConfig drillConfig = DrillOnYarnConfig.instance();
+
+      // Localize the Drill archive.
+
       drillArchivePath = drillConfig.getDrillArchiveDfsPath( );
       DfsFacade.Localizer localizer = new DfsFacade.Localizer( dfs, drillArchivePath );
-      localizer.defineResources( resources, DrillOnYarnConfig.DRILL_ARCHIVE_KEY );
+      String key = config.getString( DrillOnYarnConfig.DRILL_ARCHIVE_KEY );
+      localizer.defineResources( resources, key );
+      LOG.info( "Localizing " + drillArchivePath + " with key" + key );
+
+      // Localize the site archive, if any.
+
       siteArchivePath = drillConfig.getSiteArchiveDfsPath( );
       if ( siteArchivePath != null ) {
         localizer = new DfsFacade.Localizer( dfs, siteArchivePath );
-        localizer.defineResources( resources, DrillOnYarnConfig.SITE_ARCHIVE_KEY );
+        key = config.getString( DrillOnYarnConfig.SITE_ARCHIVE_KEY );
+        localizer.defineResources( resources, key );
+        LOG.info( "Localizing " + siteArchivePath + " with key" + key );
       }
       return resources;
     } catch (DfsFacadeException e) {
@@ -152,13 +162,16 @@ public class DrillControllerFactory implements ControllerFactory
    * @return
    */
 
-  private TaskSpec buildDrillTaskSpec(Map<String, LocalResource> resources) {
+  private TaskSpec buildDrillTaskSpec(Map<String, LocalResource> resources)
+  {
+    DrillOnYarnConfig doyConfig = DrillOnYarnConfig.instance( );
 
     // Drillbit launch description
 
     ContainerRequestSpec containerSpec = new ContainerRequestSpec();
     containerSpec.memoryMb = config.getInt( DrillOnYarnConfig.DRILLBIT_MEMORY );
     containerSpec.vCores = config.getInt( DrillOnYarnConfig.DRILLBIT_VCORES );
+    containerSpec.disks = config.getDouble( DrillOnYarnConfig.DRILLBIT_DISKS );
 
     LaunchSpec drillbitSpec = new LaunchSpec();
 
@@ -169,7 +182,7 @@ public class DrillControllerFactory implements ControllerFactory
     // set to the container directory, so we just need the name
     // of the Drill folder under the cwd.
 
-    String drillHome = DrillOnYarnConfig.instance( ).getRemoteDrillHome( );
+    String drillHome = doyConfig.getRemoteDrillHome( );
     drillbitSpec.env.put( "DRILL_HOME", drillHome );
     LOG.trace( "Drillbit DRILL_HOME: " + drillHome );
 
@@ -199,9 +212,10 @@ public class DrillControllerFactory implements ControllerFactory
       drillbitSpec.env.put( "DRILL_DEBUG", "1" );
     }
 
-    // Hadoop home
+    // Hadoop home should be set in drill-env.sh since it is needed
+    // for client launch as well as the AM.
 
-    addIfSet( drillbitSpec, DrillOnYarnConfig.HADOOP_HOME, "HADOOP_HOME" );
+//    addIfSet( drillbitSpec, DrillOnYarnConfig.HADOOP_HOME, "HADOOP_HOME" );
 
     // When localized, the config directory must be $DRILL_HOME/conf, which
     // contains the localized files. We set this explicitly to prevent
@@ -209,9 +223,9 @@ public class DrillControllerFactory implements ControllerFactory
     // Note that we can do the obvious: $DRILL_HOME/conf, because env vars
     // are set in random order, one value set here can't rely on another.
 
-    if ( config.getBoolean( DrillOnYarnConfig.LOCALIZE_DRILL ) ) {
-      drillbitSpec.env.put( "DRILL_CONF_DIR", drillHome + "/conf" );
-    }
+//    if ( config.getBoolean( DrillOnYarnConfig.LOCALIZE_DRILL ) ) {
+//      drillbitSpec.env.put( "DRILL_CONF_DIR", drillHome + "/conf" );
+//    }
 
     // Garbage collection (gc) logging. In drillbit.sh logging can be
     // configured to go anywhere. In YARN, all logs go to the YARN log
@@ -245,17 +259,10 @@ public class DrillControllerFactory implements ControllerFactory
 
     // Configuration (site directory), if given.
 
-    String siteDirPath = null;
-    if ( localized ) {
-      siteDirPath = "$PWD/" + config.getString( DrillOnYarnConfig.DRILL_ARCHIVE_KEY ) +
-                    "/" + System.getenv( DrillOnYarnConfig.SITE_DIR_NAME_ENV_VAR );
-    }
-    else {
-      siteDirPath = System.getenv( DrillOnYarnConfig.SITE_DIR_ENV_VAR );
-    }
+    String siteDirPath = doyConfig.getRemoteSiteDir();
     if ( siteDirPath != null ) {
       drillbitSpec.cmdArgs.add( "--site" );
-      drillbitSpec.classPath.add( siteDirPath );
+      drillbitSpec.cmdArgs.add( siteDirPath );
     }
 
     // Localized resources
