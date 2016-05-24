@@ -188,6 +188,7 @@ public class PageTree extends ResourceConfig
         return new Viewable( "/drill-am/confirm.ftl", toModel( confirm ) );
       }
       else if ( confirmed || curSize < newSize ) {
+        dispatcher.getController().resizeTo( newSize );
         Acknowledge confirm = new Acknowledge( );
         confirm.value = newSize;
         confirm.type = "resized";
