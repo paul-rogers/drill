@@ -622,9 +622,10 @@ public class DrillOnYarnConfig
    * PWD environment variable to get the absolute path.
    *
    * @return the remote path, with the "$PWD" environment variable.
+   * @throws DoyConfigException
    */
 
-  public String getRemoteDrillHome( )
+  public String getRemoteDrillHome( ) throws DoyConfigException
   {
     // If the application is not localized, then the user can tell us the remote
     // path in the config file. Otherwise, we assume that the remote path is the
@@ -657,9 +658,16 @@ public class DrillOnYarnConfig
       // Otherwise, assume that the archive expands to a directory with the
       // same name as the archive itself (minus the archive suffix.)
 
-      File localArchiveFile = new File( config.getString( DrillOnYarnConfig.DRILL_ARCHIVE_PATH ) );
+      String drillArchivePath = config.getString( DrillOnYarnConfig.DRILL_ARCHIVE_PATH );
+      if ( DoYUtil.isBlank( drillArchivePath ) ) {
+        throw new DoyConfigException( "Required config property not set: " + DrillOnYarnConfig.DRILL_ARCHIVE_PATH );
+      }
+      File localArchiveFile = new File( drillArchivePath );
       home = localArchiveFile.getName( );
       String suffix = findSuffix( home );
+      if ( suffix == null ) {
+        throw new DoyConfigException( DrillOnYarnConfig.DRILL_ARCHIVE_PATH + " does not name a valid archive: " + drillArchivePath );
+      }
       drillHome +=  "/" + home.substring( 0, home.length() - suffix.length() );
     }
     else {

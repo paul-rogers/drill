@@ -29,6 +29,7 @@ import java.util.Map;
 
 import org.apache.drill.yarn.core.DfsFacade;
 import org.apache.drill.yarn.core.DoYUtil;
+import org.apache.drill.yarn.core.DoyConfigException;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.DfsFacade.DfsFacadeException;
 import org.apache.drill.yarn.core.DfsFacade.Localizer;
@@ -419,7 +420,11 @@ public abstract class FileUploader
     // Local and remote Drill home locations.
 
     localDrillHome = doyConfig.getLocalDrillHome();
-    remoteDrillHome = doyConfig.getRemoteDrillHome();
+    try {
+      remoteDrillHome = doyConfig.getRemoteDrillHome();
+    } catch (DoyConfigException e) {
+      throw new ClientException( e );
+    }
 
     // Site directory is optional. Local and remote locations, if provided.
     // Check that the site directory is an existing directory.

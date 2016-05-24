@@ -19,5 +19,14 @@ package org.apache.drill.yarn.appMaster;
 
 public interface ControllerFactory
 {
-  Dispatcher build() throws YarnFacadeException;
+  public static class ControllerFactoryException extends Exception
+  {
+    private static final long serialVersionUID = 1L;
+
+    public ControllerFactoryException(String msg, Exception e) {
+      super( msg, e );
+    }
+  }
+
+  Dispatcher build() throws ControllerFactoryException;
 }
