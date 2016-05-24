@@ -25,6 +25,7 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.drill.yarn.core.DfsFacade;
 import org.apache.drill.yarn.core.DfsFacade.DfsFacadeException;
 import org.apache.drill.yarn.core.DoYUtil;
+import org.apache.drill.yarn.core.DoyConfigException;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.DrillOnYarnConfig.Pool;
 import org.apache.drill.yarn.core.LaunchSpec;
@@ -64,29 +65,34 @@ public class DrillControllerFactory implements ControllerFactory
   private boolean localized;
 
   @Override
-  public Dispatcher build() throws YarnFacadeException {
+  public Dispatcher build() throws ControllerFactoryException
+  {
+    Dispatcher dispatcher;
+    try {
+      Map<String, LocalResource> resources = prepareResources( );
 
-    Map<String, LocalResource> resources = prepareResources( );
+      TaskSpec taskSpec = buildDrillTaskSpec( resources );
 
-    TaskSpec taskSpec = buildDrillTaskSpec( resources );
+      // Prepare dispatcher
 
-    // Prepare dispatcher
+      dispatcher = new Dispatcher();
+      int pollPeriodMs = config.getInt( DrillOnYarnConfig.AM_POLL_PERIOD_MS );
+      int timerPeriodMs = config.getInt( DrillOnYarnConfig.AM_TICK_PERIOD_MS );
+      AMYarnFacadeImpl yarn = new AMYarnFacadeImpl(pollPeriodMs, timerPeriodMs);
+      dispatcher.setYarn(yarn);
+      dispatcher.getController().setMaxRetries( config.getInt( DrillOnYarnConfig.DRILLBIT_MAX_RETRIES ) );
 
-    Dispatcher dispatcher = new Dispatcher();
-    int pollPeriodMs = config.getInt( DrillOnYarnConfig.AM_POLL_PERIOD_MS );
-    int timerPeriodMs = config.getInt( DrillOnYarnConfig.AM_TICK_PERIOD_MS );
-    AMYarnFacadeImpl yarn = new AMYarnFacadeImpl(pollPeriodMs, timerPeriodMs);
-    dispatcher.setYarn(yarn);
-    dispatcher.getController().setMaxRetries( config.getInt( DrillOnYarnConfig.DRILLBIT_MAX_RETRIES ) );
+      // Assume basic scheduler for now.
+      Pool pool = DrillOnYarnConfig.instance().getPool( 0 );
+      Scheduler testGroup = new DrillbitScheduler(pool.name, taskSpec, pool.count);
+      dispatcher.getController().registerScheduler(testGroup);
 
-    // Assume basic scheduler for now.
-    Pool pool = DrillOnYarnConfig.instance().getPool( 0 );
-    Scheduler testGroup = new DrillbitScheduler(pool.name, taskSpec, pool.count);
-    dispatcher.getController().registerScheduler(testGroup);
+      // ZooKeeper setup
 
-    // ZooKeeper setup
-
-    buildZooKeeper( config, dispatcher );
+      buildZooKeeper( config, dispatcher );
+    } catch (YarnFacadeException | DoyConfigException e) {
+      throw new ControllerFactoryException( "Drill AM intitialization failed", e );
+    }
 
     // Tracking Url
     // TODO: HTTPS support
@@ -160,9 +166,10 @@ public class DrillControllerFactory implements ControllerFactory
    *
    * @param config
    * @return
+   * @throws DoyConfigException
    */
 
-  private TaskSpec buildDrillTaskSpec(Map<String, LocalResource> resources)
+  private TaskSpec buildDrillTaskSpec(Map<String, LocalResource> resources) throws DoyConfigException
   {
     DrillOnYarnConfig doyConfig = DrillOnYarnConfig.instance( );
 

@@ -17,8 +17,6 @@
  */
 package org.apache.drill.yarn.client;
 
-import org.apache.drill.yarn.core.YarnClientException;
-
 public class ClientException extends Exception
 {
   private static final long serialVersionUID = 1L;
@@ -31,8 +29,7 @@ public class ClientException extends Exception
     super( msg, e );
   }
 
-  public ClientException(YarnClientException e) {
+  public ClientException( Exception e) {
     super( e.getMessage(), e );
   }
-
 }

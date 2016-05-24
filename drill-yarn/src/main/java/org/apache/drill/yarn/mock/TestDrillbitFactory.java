@@ -26,6 +26,7 @@ import org.apache.drill.yarn.appMaster.DrillbitScheduler;
 import org.apache.drill.yarn.appMaster.Scheduler;
 import org.apache.drill.yarn.appMaster.TaskSpec;
 import org.apache.drill.yarn.appMaster.YarnFacadeException;
+import org.apache.drill.yarn.appMaster.ControllerFactory.ControllerFactoryException;
 import org.apache.drill.yarn.core.LaunchSpec;
 import org.apache.drill.yarn.zk.ZKClusterCoordinatorDriver;
 import org.apache.drill.yarn.zk.ZKConfigException;
@@ -59,10 +60,14 @@ public class TestDrillbitFactory implements ControllerFactory
   }
 
   @Override
-  public Dispatcher build() throws YarnFacadeException {
+  public Dispatcher build() throws ControllerFactoryException {
     Dispatcher dispatcher = new Dispatcher();
     AMYarnFacadeImpl yarn = new AMYarnFacadeImpl(pollPeriodMs, timerPeriodMs);
-    dispatcher.setYarn(yarn);
+    try {
+      dispatcher.setYarn(yarn);
+    } catch (YarnFacadeException e) {
+      throw new ControllerFactoryException( "Yarn Setup failed", e );
+    }
 
     ContainerRequestSpec containerSpec = new ContainerRequestSpec();
     // containerSpec.priority = 1;
