@@ -17,7 +17,6 @@
  */
 package org.apache.drill.yarn.appMaster.http;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,8 +34,8 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
 import org.apache.drill.yarn.appMaster.Dispatcher;
-import org.apache.drill.yarn.appMaster.http.ControllerModel.PoolModel;
 import org.apache.drill.yarn.appMaster.http.AbstractTasksModel.TaskModel;
+import org.apache.drill.yarn.appMaster.http.ControllerModel.PoolModel;
 import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.NameValuePair;
@@ -91,7 +90,35 @@ public class PageTree extends ResourceConfig
     public Viewable getRoot( ) {
       AbstractTasksModel.TasksModel model = new AbstractTasksModel.TasksModel( );
       dispatcher.getController().visitTasks( model );
+      model.sortTasks( );
       return new Viewable( "/drill-am/tasks.ftl", toModel( model.results ) );
+    }
+  }
+
+  @Path("/cancel/")
+  @PermitAll
+  public static class CancelDrillbitPage
+  {
+    @QueryParam("id")
+    int id;
+
+    @GET
+    public Viewable getPage( ) {
+      ConfirmShrink confirm = new ConfirmShrink( ConfirmShrink.Mode.CANCEL );
+      confirm.id = id;
+      return new Viewable( "/drill-am/shrink-warning.ftl", toModel( confirm ) );
+    }
+
+    @POST
+    public Viewable postPage( ) {
+      Acknowledge ack;
+      if ( dispatcher.getController().cancelTask( id ) ) {
+        ack = new Acknowledge( Acknowledge.Mode.CANCELLED );
+      } else {
+        ack = new Acknowledge( Acknowledge.Mode.INVALID_TASK );
+      }
+      ack.value = id;
+      return new Viewable( "/drill-am/confirm.ftl", toModel( ack ) );
     }
   }
 
@@ -119,25 +146,50 @@ public class PageTree extends ResourceConfig
     }
   }
 
+  /**
+   * Pass information to the acknowledgement page.
+   */
+
   public static class Acknowledge
   {
-    String type;
+    public enum Mode {
+      STOPPED, INVALID_RESIZE, INVALID_ACTION, NULL_RESIZE, RESIZED, CANCELLED, INVALID_TASK };
+
+    Mode mode;
     Object value;
 
-    public String getType( ) { return type; }
+    public Acknowledge( Mode mode ) {
+      this.mode = mode;
+    }
+
+    public String getType( ) { return mode.toString(); }
     public Object getValue( ) { return value; }
   }
 
+  /**
+   * Pass information to the confirmation page.
+   */
+
   public static class ConfirmShrink
   {
-    boolean isStop;
-    int value;
+    public enum Mode { SHRINK, STOP, CANCEL };
 
-    public boolean isStop( ) { return isStop; }
+    Mode mode;
+    int value;
+    int id;
+
+    public ConfirmShrink( Mode mode ) {
+      this.mode = mode;
+    }
+
+    public boolean isStop( ) { return mode == Mode.STOP; }
+    public boolean isCancel( ) { return mode == Mode.CANCEL; }
+    public boolean isShrink( ) { return mode == Mode.SHRINK; }
     public int getCount( ) { return value; }
+    public int getId( ) { return id; }
   }
 
-  @Path("/resize/")
+  @Path("/resize")
   @PermitAll
   public static class ResizePage
   {
@@ -151,9 +203,8 @@ public class PageTree extends ResourceConfig
     public Viewable resize( ) {
       int curSize = dispatcher.getController().getTargetCount( );
       if ( n <= 0 ) {
-        Acknowledge confirm = new Acknowledge( );
+        Acknowledge confirm = new Acknowledge( Acknowledge.Mode.INVALID_RESIZE );
         confirm.value = n;
-        confirm.type = "invalid-resize";
         return new Viewable( "/drill-am/confirm.ftl", toModel( confirm ) );
       }
       if ( type == null ) {
@@ -175,28 +226,24 @@ public class PageTree extends ResourceConfig
         confirmed = true;
       }
       else {
-        Acknowledge confirm = new Acknowledge( );
+        Acknowledge confirm = new Acknowledge( Acknowledge.Mode.INVALID_ACTION );
         confirm.value = type;
-        confirm.type = "invalid-action";
         return new Viewable( "/drill-am/confirm.ftl", toModel( confirm ) );
       }
 
       if ( curSize == newSize ) {
-        Acknowledge confirm = new Acknowledge( );
+        Acknowledge confirm = new Acknowledge( Acknowledge.Mode.NULL_RESIZE );
         confirm.value = newSize;
-        confirm.type = "null-resize";
         return new Viewable( "/drill-am/confirm.ftl", toModel( confirm ) );
       }
       else if ( confirmed || curSize < newSize ) {
         dispatcher.getController().resizeTo( newSize );
-        Acknowledge confirm = new Acknowledge( );
+        Acknowledge confirm = new Acknowledge( Acknowledge.Mode.RESIZED );
         confirm.value = newSize;
-        confirm.type = "resized";
         return new Viewable( "/drill-am/confirm.ftl", toModel( confirm ) );
       }
       else {
-        ConfirmShrink confirm = new ConfirmShrink( );
-        confirm.isStop = false;
+        ConfirmShrink confirm = new ConfirmShrink( ConfirmShrink.Mode.SHRINK );
         confirm.value = curSize - newSize;
         return new Viewable( "/drill-am/shrink-warning.ftl", toModel( confirm ) );
       }
@@ -209,16 +256,14 @@ public class PageTree extends ResourceConfig
   {
     @GET
     public Viewable requestStop( ) {
-      ConfirmShrink confirm = new ConfirmShrink( );
-      confirm.isStop = true;
+      ConfirmShrink confirm = new ConfirmShrink( ConfirmShrink.Mode.STOP );
       return new Viewable( "/drill-am/shrink-warning.ftl", toModel( confirm ) );
     }
 
     @POST
     public Viewable doStop( ) {
       dispatcher.getController().shutDown();
-      Acknowledge confirm = new Acknowledge( );
-      confirm.type = "stopped";
+      Acknowledge confirm = new Acknowledge( Acknowledge.Mode.STOPPED );
       return new Viewable( "/drill-am/confirm.ftl", toModel( confirm ) );
     }
   }
@@ -411,6 +456,7 @@ public class PageTree extends ResourceConfig
     register(RedirectPage.class);
     register(ConfigPage.class);
     register(DrillbitsPage.class);
+    register(CancelDrillbitPage.class);
     register(HistoryPage.class);
     register(ManagePage.class);
     register(ResizePage.class);

@@ -93,4 +93,8 @@ public interface SchedulerStateActions
   void visitTaskModels( TaskVisitor visitor );
 
   void checkTasks(EventContext context, long curTime);
+
+  void cancel(Task task);
+
+  Task getTask(int id);
 }

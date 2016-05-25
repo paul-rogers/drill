@@ -230,7 +230,7 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
     assert !activeContainers.containsValue(task);
     assert !allocatingTasks.contains(task);
     assert !pendingTasks.contains(task);
-    activeContainers.put(task.getId(), task);
+    activeContainers.put(task.getContainerId(), task);
     controller.containerAllocated(task);
   }
 
@@ -245,8 +245,8 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
    */
 
   public void containerReleased(Task task) {
-    assert activeContainers.containsKey(task.getId());
-    activeContainers.remove(task.getId());
+    assert activeContainers.containsKey(task.getContainerId());
+    activeContainers.remove(task.getContainerId());
     controller.containerReleased(task);
   }
 
@@ -400,5 +400,25 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
     for ( Task task : activeContainers.values() ) {
       visitor.visit( task );
     }
+  }
+
+  @Override
+  public Task getTask(int id) {
+    for ( Task task : pendingTasks ) {
+      if ( task.getId( ) == id ) {
+        return task;
+      }
+    }
+    for ( Task task : allocatingTasks ) {
+      if ( task.getId() == id ) {
+        return task;
+      }
+    }
+    for ( Task task : activeContainers.values() ) {
+      if ( task.getId() == id ) {
+        return task;
+      }
+    }
+    return null;
   }
 }

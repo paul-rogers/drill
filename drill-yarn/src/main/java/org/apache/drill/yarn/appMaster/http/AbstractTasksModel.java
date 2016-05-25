@@ -18,6 +18,8 @@
 package org.apache.drill.yarn.appMaster.http;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
@@ -39,7 +41,9 @@ public abstract class AbstractTasksModel
     public int id;
     public String poolName;
     public boolean isLive;
+    public TaskState taskState;
     public String state;
+    public boolean cancelled;
     public String trackingState;
     public Container container;
     public DrillbitEndpoint endpoint;
@@ -56,8 +60,9 @@ public abstract class AbstractTasksModel
     {
       id = task.taskId;
       poolName = task.scheduler.getName();
-      TaskState taskState = task.getState();
+      taskState = task.getState();
       state = taskState.getLabel( );
+      cancelled = task.isCancelled();
       isLive = live &&  taskState == TaskState.RUNNING;
       trackingState = task.getTrackingState( ).toString();
       container = task.container;
@@ -128,6 +133,14 @@ public abstract class AbstractTasksModel
       return state.toString();
     }
 
+    public boolean isCancelled( ) {
+      return cancelled;
+    }
+
+    public boolean isCancellable( ) {
+      return ! cancelled  &&  taskState.isCancellable( );
+    }
+
     public String getTrackingState( ) {
       return trackingState.toString();
     }
@@ -160,6 +173,19 @@ public abstract class AbstractTasksModel
     @Override
     public void visit(Task task) {
       results.add( new TaskModel( task, true ) );
+    }
+
+    /**
+     * Sort tasks by Task ID.
+     */
+
+    public void sortTasks() {
+      Collections.sort( results, new Comparator<TaskModel>( ) {
+        @Override
+        public int compare(TaskModel t1, TaskModel t2) {
+          return Integer.compare( t1.id, t2.id );
+        }
+      });
     }
   }
 

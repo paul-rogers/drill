@@ -63,7 +63,7 @@ command=${base/.*/}
 # Setup environment. This parses, and removes, the
 # options --config conf-dir parameters.
 
-. "$bin"/drill-config.sh
+. "$bin/drill-config.sh"
 
 # if no args specified, show usage
 if [ ${#args[@]} = 0 ]; then
