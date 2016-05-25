@@ -169,13 +169,14 @@ public class Task
     trackingState = scheduler.isTracked() ? TrackingState.NEW : TrackingState.UNTRACKED;
   }
 
+  public int getId( ) { return taskId; }
   public ContainerRequestSpec getContainerSpec() { return taskSpec.containerSpec; }
 
   public LaunchSpec getLaunchSpec() { return taskSpec.launchSpec; }
 
   public TaskState getState() { return state; }
 
-  public ContainerId getId() {
+  public ContainerId getContainerId() {
     assert container != null;
     return container.getId();
   }

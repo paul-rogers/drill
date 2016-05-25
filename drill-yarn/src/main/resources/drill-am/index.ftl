@@ -20,16 +20,19 @@
   <table class="table table-hover" style="width: auto;">
     <tr>
       <td>YARN Application ID</td>
-      <td><a href="${model.getRmAppLink( )}">${model.getAppId( )}</a></td>
+      <td><a href="${model.getRmAppLink( )}" data-toggle="tooltip" title="YARN Resource Manager page for this application">
+      ${model.getAppId( )}</a></td>
     </tr>
     <tr>
       <td>YARN Resource Manager</td>
-      <td><a href="${model.getRmLink( )}">${model.getRmHost( )}</a></td>
+      <td><a href="${model.getRmLink( )}" data-toggle="tooltip" title="YARN Resource Manager page for this container">
+      ${model.getRmHost( )}</a></td>
     </tr>
     <tr>
       <td>YARN Node Manager for AM</td>
-      <td><a href="${model.getNmLink( )}">${model.getNmHost( )}</a> |
-          <a href="${model.getNmAppLink( )}">App info</a></td>
+      <td><a href="${model.getNmLink( )}" data-toggle="tooltip" title="YARN Node Manager">
+      ${model.getNmHost( )}</a> |
+          <a href="${model.getNmAppLink( )}" data-toggle="tooltip" title="YARN Node Manager page for this application">App info</a></td>
     </tr>
     <tr>
       <td>State</td>

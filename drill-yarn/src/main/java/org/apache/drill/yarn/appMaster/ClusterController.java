@@ -154,4 +154,6 @@ public interface ClusterController
   void visitTasks( TaskVisitor visitor );
 
   int getTargetCount();
+
+  boolean cancelTask(int id);
 }

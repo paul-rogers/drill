@@ -37,13 +37,20 @@
           <td><b>${task.getTaskId( )}</b></td>
           <td>${task.getPoolName( )}</td>
           <td>
-          <#if task.isLive( )><a href="${task.getLink( )}"></#if>
+          <#if task.isLive( )>
+            <a href="${task.getLink( )}" data-toggle="tooltip" title="Drillbit Web UI"></#if>
           ${task.getHost( )}
           <#if task.isLive( )></a></#if>
           </td>
-          <td>${task.getState( )}</td>
+          <td> ${task.getState( )}
+          <#if task.isCancelled( )><br/>(Cancelled)</#if>
+          <#if task.isCancellable( )>
+            <a href="/cancel?id=${task.getTaskId( )}" data-toggle="tooltip" title="Kill this Drillbit">[x]</a>
+          </#if>
+          </td>
           <td>${task.getTrackingState( )}</td>
-          <td><#if task.hasContainer( )><a href="${task.getNmLink( )}">${task.getContainerId()}</a>
+          <td><#if task.hasContainer( )>
+            <a href="${task.getNmLink( )}" data-toggle="tooltip" title="Node Manager UI for Drillbit container">${task.getContainerId()}</a>
           <#else>&nbsp;</#if></td>
           <td>${task.getMemory( )}</td>
           <td>${task.getVcores( )}</td>

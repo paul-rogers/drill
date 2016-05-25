@@ -74,7 +74,7 @@ public abstract class TaskState
 
   private static class StartState extends TaskState
   {
-    protected StartState() { super(false, TaskLifecycleListener.Event.CREATED); }
+    protected StartState() { super(false, TaskLifecycleListener.Event.CREATED, true); }
 
     @Override
     public void requestContainer(EventContext context) {
@@ -106,7 +106,7 @@ public abstract class TaskState
 
   private static class RequestingState extends TaskState
   {
-    protected RequestingState() { super(false, TaskLifecycleListener.Event.CREATED); }
+    protected RequestingState() { super(false, TaskLifecycleListener.Event.CREATED, true); }
 
     /**
      * Handle REQUESING --> LAUNCHING. Indicates that we've asked YARN to start
@@ -141,7 +141,7 @@ public abstract class TaskState
         context.yarn.launchContainer(container, task.getLaunchSpec());
         task.launchTime = System.currentTimeMillis();
       } catch (YarnFacadeException e) {
-        LOG.error("Container launch failed: " + task.getId(), e);
+        LOG.error("Container launch failed: " + task.getContainerId(), e);
         // This may not be the right response. RM may still think
         // we have the container if the above is a local failure.
 
@@ -187,7 +187,7 @@ public abstract class TaskState
 
   private static class LaunchingState extends TaskState
   {
-    protected LaunchingState( ) { super( true, TaskLifecycleListener.Event.ALLOCATED ); }
+    protected LaunchingState( ) { super( true, TaskLifecycleListener.Event.ALLOCATED, true ); }
 
     /**
      * Handle launch failure. Results in a LAUNCHING --> END transition
@@ -283,7 +283,7 @@ public abstract class TaskState
 
   private static class WaitStartAckState extends TaskState
   {
-    protected WaitStartAckState() { super(true, TaskLifecycleListener.Event.RUNNING); }
+    protected WaitStartAckState() { super(true, TaskLifecycleListener.Event.RUNNING, true); }
 
     @Override
     public void startAck(EventContext context) {
@@ -316,7 +316,7 @@ public abstract class TaskState
 
   private static class RunningState extends TaskState
   {
-    protected RunningState() { super(true, TaskLifecycleListener.Event.RUNNING); }
+    protected RunningState() { super(true, TaskLifecycleListener.Event.RUNNING, true); }
 
     /**
      * Normal task completion. Implements the RUNNING --> END transition.
@@ -364,7 +364,7 @@ public abstract class TaskState
 
   public static class EndingState extends TaskState
   {
-    protected EndingState() { super(true, TaskLifecycleListener.Event.RUNNING); }
+    protected EndingState() { super(true, TaskLifecycleListener.Event.RUNNING, false); }
 
     /*
      * Normal ENDING --> WAIT_COMPLETE transition, awaiting Resource Manager
@@ -420,7 +420,7 @@ public abstract class TaskState
 
   public static class KillingState extends TaskState
   {
-    protected KillingState() { super(true, TaskLifecycleListener.Event.RUNNING); }
+    protected KillingState() { super(true, TaskLifecycleListener.Event.RUNNING, false); }
 
     /*
      * Normal KILLING --> WAIT_COMPLETE transition, awaiting Resource Manager
@@ -525,7 +525,7 @@ public abstract class TaskState
 
   private static class WaitEndAckState extends TaskState
   {
-    protected WaitEndAckState() { super(false, TaskLifecycleListener.Event.RUNNING); }
+    protected WaitEndAckState() { super(false, TaskLifecycleListener.Event.RUNNING, false); }
 
     @Override
     public void cancel(EventContext context) {
@@ -548,7 +548,7 @@ public abstract class TaskState
 
   private static class EndState extends TaskState
   {
-    protected EndState() { super(false, TaskLifecycleListener.Event.ENDED); }
+    protected EndState() { super(false, TaskLifecycleListener.Event.ENDED, false); }
 
     /*
      * Ignore out-of-order Node Manager completion notices.
@@ -580,10 +580,12 @@ public abstract class TaskState
   protected final boolean hasContainer;
   protected final TaskLifecycleListener.Event lifeCycleEvent;
   protected final String label;
+  protected final boolean cancellable;
 
-  public TaskState(boolean hasContainer, TaskLifecycleListener.Event lcEvent) {
+  public TaskState(boolean hasContainer, TaskLifecycleListener.Event lcEvent, boolean cancellable) {
     this.hasContainer = hasContainer;
     lifeCycleEvent = lcEvent;
+    this.cancellable = cancellable;
     String name = toString( );
     name = name.replace( "State", "" );
     name = name.replaceAll( "([a-z]+)([A-Z])", "$1_$2" );
@@ -872,4 +874,8 @@ public abstract class TaskState
   public boolean hasContainer() { return hasContainer; }
 
   public String getLabel() { return label; }
+
+  public boolean isCancellable() {
+    return cancellable;
+  }
 }

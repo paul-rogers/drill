@@ -24,6 +24,8 @@
     <strong>Warning!</strong> You have requested to
     <#if model.isStop()>
     stop the Drill cluster.
+    <#elseif model.isCancel()>
+    cancel Drillbit ${model.getId()}.
     <#else>
     remove ${model.getCount( )}
     <#if model.getCount() == 1>Drillbit<#else>Drillbits</#if>.
@@ -33,6 +35,8 @@
   </div>
   <#if model.isStop( )>
   <form method="POST" action="/stop">
+  <#elseif model.isCancel( )>
+  <form method="POST" action="/cancel?id=${model.getId( )}">
   <#else>
   <form method="POST" action="/resize">
   </#if>

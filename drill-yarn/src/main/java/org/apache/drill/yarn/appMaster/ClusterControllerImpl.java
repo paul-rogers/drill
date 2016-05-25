@@ -423,13 +423,13 @@ public class ClusterControllerImpl implements ClusterController
   }
 
   public void containerAllocated(Task task) {
-    activeContainers.put(task.getId(), task);
+    activeContainers.put(task.getContainerId(), task);
   }
 
   public AMYarnFacade getYarn() { return yarn; }
 
   public void containerReleased(Task task) {
-    activeContainers.remove(task.getId());
+    activeContainers.remove(task.getContainerId());
   }
 
   public void taskEnded(Task task) {
@@ -503,4 +503,16 @@ public class ClusterControllerImpl implements ClusterController
   }
 
   public List<Task> getHistory() { return completedTasks; }
+
+  @Override
+  public boolean cancelTask(int id) {
+    for (SchedulerStateActions group : prioritizedPools) {
+      Task task = group.getTask( id );
+      if ( task != null ) {
+        group.cancel( task );
+        return true;
+      }
+    }
+    return false;
+  }
 }

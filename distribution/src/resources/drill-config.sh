@@ -118,7 +118,13 @@ fi
 # Set Drill-provided defaults here. Do not put Drill defaults
 # in the distribution or user environment config files.
 
+# The Drillbit needs a large code cache.
+
 export DRILL_JAVA_OPTS="-XX:MaxPermSize=512M -XX:ReservedCodeCacheSize=1G -Ddrill.exec.enable-epoll=true"
+
+# The SQLline client does not need the code cache.
+
+export SQLLINE_JAVA_OPTS="-XX:MaxPermSize=512M"
 
 # Class unloading is disabled by default in Java 7
 # http://hg.openjdk.java.net/jdk7u/jdk7u60/hotspot/file/tip/src/share/vm/runtime/globals.hpp#l1622
