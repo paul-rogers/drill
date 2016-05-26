@@ -20,15 +20,19 @@
   <div class="table-responsive">
     <table class="table table-hover">
       <tr>
-        <th>ID</th>
-        <th>Pool</th>
-        <th>Host</th>
-        <th>State</th>
-        <th>ZK State</th>
-        <th>Container</th>
-        <th>Memory (MB)</th>
-        <th>Virtual Cores</th>
-        <th>Start Time</th>
+        <th><span data-toggle="tooltip" title="Internal AM ID for the Drillbit.">ID</span></th>
+        <th><span data-toggle="tooltip" title="Host pool from config file">Pool</span></th>
+        <th><span data-toggle="tooltip"
+                  title="Host name or IP running the Drillbit and ink to Drillbit web UI.">
+            Host</span></th>
+        <th><span data-toggle="tooltip" title="State of the Drillbit process, hover for details.">State</span></th>
+        <th><span data-toggle="tooltip" title="ZooKeeper tracking state for the Drillbit, hover for details.">ZK State</span></th>
+        <th><span data-toggle="tooltip"
+                  title="YARN Container allocated to the Drillbit and link to the YARN Node Manager container UI.">
+            Container</span></th>
+        <th><span data-toggle="tooltip" title="Memory granted by YARN to the Drillbit.">Memory (MB)</span></th>
+        <th><span data-toggle="tooltip" title="Virtual cores granted by YARN to the Drillbit.">Virtual Cores</span></th>
+        <th><span data-toggle="tooltip" title="Start time in the AM server time zone.">Start Time</span></th>
       </th>
        <#assign count=0>
        <#list model as task>
@@ -38,17 +42,17 @@
           <td>${task.getPoolName( )}</td>
           <td>
           <#if task.isLive( )>
-            <a href="${task.getLink( )}" data-toggle="tooltip" title="Drillbit Web UI"></#if>
+            <a href="${task.getLink( )}" data-toggle="tooltip" title="Link to the Drillbit Web UI"></#if>
           ${task.getHost( )}
           <#if task.isLive( )></a></#if>
           </td>
-          <td> ${task.getState( )}
+          <td><span data-toggle="tooltip" title="${task.getStateHint( )}">${task.getState( )}</span>
           <#if task.isCancelled( )><br/>(Cancelled)</#if>
           <#if task.isCancellable( )>
             <a href="/cancel?id=${task.getTaskId( )}" data-toggle="tooltip" title="Kill this Drillbit">[x]</a>
           </#if>
           </td>
-          <td>${task.getTrackingState( )}</td>
+          <td><span data-toggle="tooltip" title="${task.getTrackingStateHint( )}">${task.getTrackingState( )}</span></td>
           <td><#if task.hasContainer( )>
             <a href="${task.getNmLink( )}" data-toggle="tooltip" title="Node Manager UI for Drillbit container">${task.getContainerId()}</a>
           <#else>&nbsp;</#if></td>

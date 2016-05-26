@@ -24,7 +24,6 @@ import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.util.Map;
 
-import org.apache.drill.yarn.appMaster.DrillApplicationMaster;
 import org.apache.drill.yarn.core.AppSpec;
 import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
@@ -33,6 +32,7 @@ import org.apache.drill.yarn.core.YarnClientException;
 import org.apache.drill.yarn.core.YarnRMClient;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
+import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 
@@ -148,7 +148,7 @@ public class AMRunner
 
     String appIdStr = dryRun ? "Unknown" : appId.toString();
     master.env.put( DrillOnYarnConfig.APP_ID_ENV_VAR, appIdStr );
-    master.env.put( DrillOnYarnConfig.RM_WEBAPP_ENV_VAR, client.getNMWebAddr() );
+//    master.env.put( DrillOnYarnConfig.RM_TRACKING_ENV_VAR, trackingUrl );
 
     // Debug launch: dumps environment variables and other information
     // in the launch script.

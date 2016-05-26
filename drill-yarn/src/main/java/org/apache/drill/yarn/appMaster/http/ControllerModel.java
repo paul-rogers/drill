@@ -20,10 +20,13 @@ package org.apache.drill.yarn.appMaster.http;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.xml.bind.annotation.XmlRootElement;
 
+import org.apache.drill.yarn.appMaster.AMYarnFacade.YarnAppHostReport;
 import org.apache.drill.yarn.appMaster.ClusterController;
 import org.apache.drill.yarn.appMaster.ClusterControllerImpl;
 import org.apache.drill.yarn.appMaster.ContainerRequestSpec;
@@ -39,13 +42,13 @@ public class ControllerModel implements ControllerVisitor
 {
   public static class PoolModel
   {
-    public String name;
-    public String type;
-    public int targetCount;
-    public int taskCount;
-    public int liveCount;
-    public int memory;
-    public int vcores;
+    protected String name;
+    protected String type;
+    protected int targetCount;
+    protected int taskCount;
+    protected int liveCount;
+    protected int memory;
+    protected int vcores;
 
     public String getName( ) { return name; }
     public String getType( ) { return type; }
@@ -56,32 +59,28 @@ public class ControllerModel implements ControllerVisitor
     public int getVcores( ) { return vcores; }
   }
 
-  public ClusterControllerImpl.State state;
-  public int yarnMemory;
-  public int yarnVcores;
-  public int yarnNodeCount;
-  public int taskCount;
-  public int liveCount;
-  public int targetCount;
-  public int totalDrillMemory;
-  public int totalDrillVcores;
-  public String appId;
-  public String rmHost;
-  public String rmLink;
-  public String nmHost;
-  public String nmLink;
-  public String rmAppLink;
-  public String nmAppLink;
-  public List<PoolModel> pools = new ArrayList<>( );
+  protected ClusterControllerImpl.State state;
+  protected String stateHint;
+  protected int yarnMemory;
+  protected int yarnVcores;
+  protected int yarnNodeCount;
+  protected int taskCount;
+  protected int liveCount;
+  protected int targetCount;
+  protected int totalDrillMemory;
+  protected int totalDrillVcores;
+  protected YarnAppHostReport appRpt;
+  protected List<PoolModel> pools = new ArrayList<>( );
 
-  public String getAppId( ) { return appId; }
-  public String getRmHost( ) { return rmHost; }
-  public String getRmLink( ) { return rmLink; }
-  public String getNmHost( ) { return nmHost; }
-  public String getNmLink( ) { return nmLink; }
-  public String getRmAppLink( ) { return rmAppLink; }
-  public String getNmAppLink( ) { return nmAppLink; }
+  public String getAppId( ) { return appRpt.appId; }
+  public String getRmHost( ) { return appRpt.rmHost; }
+  public String getRmLink( ) { return appRpt.rmUrl; }
+  public String getNmHost( ) { return appRpt.nmHost; }
+  public String getNmLink( ) { return appRpt.nmUrl; }
+  public String getRmAppLink( ) { return appRpt.rmAppUrl; }
+  public String getNmAppLink( ) { return appRpt.nmAppUrl; }
   public String getState( ) { return state.toString( ); }
+  public String getStateHint( ) { return stateHint; }
   public int getYarnMemory( ) { return yarnMemory; }
   public int getYarnVcores( ) { return yarnVcores; }
   public int getDrillTotalMemory( ) { return totalDrillMemory; }
@@ -92,28 +91,16 @@ public class ControllerModel implements ControllerVisitor
   public int getTargetCount( ) { return targetCount; }
   public List<PoolModel> getPools( ) { return pools; }
 
+  private static Map<ClusterControllerImpl.State,String> stateHints = makeStateHints( );
+
   @Override
   public void visit(ClusterController controller) {
     ClusterControllerImpl impl = (ClusterControllerImpl) controller;
 
-    // Cobble together YARN links to simplify debugging.
-
-    rmLink = System.getenv( DrillOnYarnConfig.RM_WEBAPP_ENV_VAR );
-    rmHost = "Resource Manager";
-    try {
-      URL url = new URL( rmLink );
-      rmHost = url.getHost();
-    }
-    catch ( MalformedURLException e ) {
-      // Ignore.
-    }
-    nmHost = System.getenv( "NM_HOST" );
-    nmLink = "http://" + nmHost + ":" + System.getenv( "NM_HTTP_PORT" );
-    appId = System.getenv( DrillOnYarnConfig.APP_ID_ENV_VAR );
-    rmAppLink = rmLink + "/cluster/app/" + appId;
-    nmAppLink = nmLink + "/node/application/" + appId;
+    appRpt = impl.getYarn().getAppHostReport();
 
     state = impl.getState( );
+    stateHint = stateHints.get( state );
     if ( state == State.LIVE ) {
       RegisterApplicationMasterResponse resp = impl.getYarn( ).getRegistrationResponse();
       yarnVcores = resp.getMaximumResourceCapability().getVirtualCores();
@@ -141,6 +128,19 @@ public class ControllerModel implements ControllerVisitor
     if ( state != State.LIVE ) {
       targetCount = 0;
     }
+  }
+
+  private static Map<State, String> makeStateHints() {
+    Map<ClusterControllerImpl.State,String> hints = new HashMap<>( );
+    // UI likely will never display the FAILED state.
+    hints.put( ClusterControllerImpl.State.START, "AM is starting up." );
+    hints.put( ClusterControllerImpl.State.LIVE, "AM is operating normally." );
+    hints.put( ClusterControllerImpl.State.ENDING, "AM is shutting down." );
+    // UI will never display the ENDED state.
+    hints.put( ClusterControllerImpl.State.ENDED, "AM is about to exit." );
+    // UI will never display the FAILED state.
+    hints.put( ClusterControllerImpl.State.FAILED, "AM failed to start and is about to exit." );
+    return hints;
   }
 
 }

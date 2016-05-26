@@ -148,7 +148,7 @@ public class DrillOnYarnConfig
   public static String LOCAL_DIR_NAME = "drill";
 
   public static final String APP_ID_ENV_VAR = "DRILL_AM_APP_ID";
-  public static final String RM_WEBAPP_ENV_VAR = "YARN_RM_WEBAPP";
+//  public static final String RM_TRACKING_ENV_VAR = "YARN_RM_APP_URL";
   public static final String DRILL_ARCHIVE_ENV_VAR = "DRILL_ARCHIVE";
   public static final String SITE_ARCHIVE_ENV_VAR = "SITE_ARCHIVE";
 //  public static final String SITE_DIR_ENV_VAR = "DRILL_SITE_DIR";
@@ -508,7 +508,7 @@ public class DrillOnYarnConfig
 
   private static String envVars[] = {
       APP_ID_ENV_VAR,
-      RM_WEBAPP_ENV_VAR,
+//      RM_TRACKING_ENV_VAR,
       DRILL_HOME_ENV_VAR,
       DRILL_SITE_ENV_VAR,
       AM_HEAP_ENV_VAR,

@@ -123,6 +123,9 @@ public class DrillOnYarn
       case STOP:
         cmd = new StopCommand( );
         break;
+      case CLEAN:
+        cmd = new CleanCommand( );
+        break;
       default:
         cmd = new HelpCommand( );
     }

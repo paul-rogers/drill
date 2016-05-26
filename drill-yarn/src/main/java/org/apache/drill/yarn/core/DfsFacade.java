@@ -30,6 +30,7 @@ import org.apache.hadoop.fs.FileContext;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.UnsupportedFileSystemException;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.yarn.api.records.LocalResource;
@@ -320,4 +321,22 @@ public class DfsFacade
     return resource;
   }
 
+  public void removeDrillFile(String fileName) throws DfsFacadeException {
+    Path destPath = getUploadPath( fileName );
+    try {
+      fs.delete( destPath, false );
+    } catch (IOException e) {
+      throw new DfsFacadeException( "Failed to delete file: " + destPath.toString(), e );
+    }
+
+    Path dir = destPath.getParent();
+    try {
+      RemoteIterator<FileStatus> iter = fs.listStatusIterator( dir );
+      if ( ! iter.hasNext() ) {
+        fs.delete( dir, false );
+      }
+    } catch (IOException e) {
+      throw new DfsFacadeException( "Failed to delete directory: " + dir.toString(), e );
+    }
+  }
 }
