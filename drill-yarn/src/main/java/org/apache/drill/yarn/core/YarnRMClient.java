@@ -204,7 +204,7 @@ public class YarnRMClient {
     }
   }
 
-  public String getNMWebAddr( ) {
-    return "http://" + conf.get( "yarn.resourcemanager.webapp.address" );
-  }
+//  public String getNMWebAddr( ) {
+//    return "http://" + conf.get( "yarn.resourcemanager.webapp.address" );
+//  }
 }

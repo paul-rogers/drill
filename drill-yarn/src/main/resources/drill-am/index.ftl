@@ -19,51 +19,52 @@
 
   <table class="table table-hover" style="width: auto;">
     <tr>
-      <td>YARN Application ID</td>
+      <td>YARN Application ID:</td>
       <td><a href="${model.getRmAppLink( )}" data-toggle="tooltip" title="YARN Resource Manager page for this application">
       ${model.getAppId( )}</a></td>
     </tr>
     <tr>
-      <td>YARN Resource Manager</td>
+      <td>YARN Resource Manager:</td>
       <td><a href="${model.getRmLink( )}" data-toggle="tooltip" title="YARN Resource Manager page for this container">
       ${model.getRmHost( )}</a></td>
     </tr>
     <tr>
-      <td>YARN Node Manager for AM</td>
+      <td>YARN Node Manager for AM:</td>
       <td><a href="${model.getNmLink( )}" data-toggle="tooltip" title="YARN Node Manager">
       ${model.getNmHost( )}</a> |
           <a href="${model.getNmAppLink( )}" data-toggle="tooltip" title="YARN Node Manager page for this application">App info</a></td>
     </tr>
     <tr>
-      <td>State</td>
-      <td>${model.getState( )}</td>
+      <td>State:</td>
+      <td><span data-toggle="tooltip" title="${model.getStateHint( )}">
+      ${model.getState( )}</span></td>
     </tr>
     <tr>
-      <td>Target Drillbit Count</td>
+      <td>Target Drillbit Count:</td>
       <td>${model.getTargetCount( )}</td>
     </tr>
     <tr>
-      <td>Live Drillbit Count</td>
+      <td>Live Drillbit Count:</td>
       <td>${model.getLiveCount( )}</td>
     </tr>
     <tr>
-      <td>Total Drill Virtual Cores</td>
+      <td>Total Drill Virtual Cores:</td>
       <td>${model.getDrillTotalVcores( )}</td>
     </tr>
     <tr>
-      <td>Total Drill Memory (MB)</td>
+      <td>Total Drill Memory (MB):</td>
       <td>${model.getDrillTotalMemory( )}</td>
     </tr>
     <tr>
-      <td>Yarn Node Count</td>
+      <td>Yarn Node Count:</td>
       <td>${model.getYarnNodeCount( )}</td>
     </tr>
     <tr>
-      <td>Total Yarn Virtual Cores</td>
+      <td>Available Yarn Virtual Cores:</td>
       <td>${model.getYarnVcores( )}</td>
     </tr>
     <tr>
-      <td>Total Yarn Memory (MB)</td>
+      <td>Available Yarn Memory (MB):</td>
       <td>${model.getYarnMemory( )}</td>
     </tr>
   </table>

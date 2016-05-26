@@ -89,7 +89,15 @@ public class CommandLineOptions {
      * settings without launching the Drill cluster.
      */
 
-    UPLOAD( "upload", "Upload archives to validate DFS." );
+    UPLOAD( "upload", "Upload archives to validate DFS." ),
+
+    /**
+     * Convenience command to remove the Drill-on-YARN archive(s) from DFS.
+     * Note: doing this while a Drill cluster is running will cause subsequent
+     * Drillbit launches to fail.
+     */
+
+    CLEAN( "clean", "Remove archives stored in DFS." );
 
     private String cmd;
     private String descrip;

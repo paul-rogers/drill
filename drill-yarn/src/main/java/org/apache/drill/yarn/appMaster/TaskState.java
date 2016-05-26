@@ -572,8 +572,6 @@ public abstract class TaskState
   public static final TaskState RUNNING = new RunningState();
   public static final TaskState ENDING = new EndingState();
   public static final TaskState KILLING = new KillingState();
-//  public static final TaskState WAIT_STOP = new WaitStopState();
-//  public static final TaskState WAIT_COMPLETE = new WaitCompleteState();
   public static final TaskState WAIT_END_ACK = new WaitEndAckState();
   public static final TaskState END = new EndState();
 

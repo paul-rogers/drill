@@ -20,13 +20,16 @@ package org.apache.drill.yarn.appMaster.http;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.yarn.appMaster.ClusterController;
 import org.apache.drill.yarn.appMaster.ClusterControllerImpl;
 import org.apache.drill.yarn.appMaster.ControllerVisitor;
 import org.apache.drill.yarn.appMaster.Task;
+import org.apache.drill.yarn.appMaster.Task.TrackingState;
 import org.apache.drill.yarn.appMaster.TaskState;
 import org.apache.drill.yarn.appMaster.TaskVisitor;
 import org.apache.drill.yarn.core.DoYUtil;
@@ -39,32 +42,40 @@ public abstract class AbstractTasksModel
   public static class TaskModel
   {
     public int id;
-    public String poolName;
-    public boolean isLive;
-    public TaskState taskState;
-    public String state;
-    public boolean cancelled;
-    public String trackingState;
-    public Container container;
-    public DrillbitEndpoint endpoint;
-    public long startTime;
-    public int memoryMb;
-    public int vcores;
-    public String containerId;
-    public String nmLink;
-    public long endTime;
-    public String disposition;
-    public int tryCount;
+    protected String poolName;
+    protected boolean isLive;
+    protected TaskState taskState;
+    protected String taskStateHint;
+    protected String state;
+    protected boolean cancelled;
+    protected String trackingState;
+    protected String trackingStateHint;
+    protected Container container;
+    protected DrillbitEndpoint endpoint;
+    protected long startTime;
+    protected int memoryMb;
+    protected int vcores;
+    protected String containerId;
+    protected String nmLink;
+    protected long endTime;
+    protected String disposition;
+    protected int tryCount;
+
+    private Map<TaskState,String> stateHints = makeStateHints( );
+    private Map<TrackingState,String> trackingStateHints = makeTrackingStateHints( );
 
     public TaskModel( Task task, boolean live )
     {
       id = task.taskId;
       poolName = task.scheduler.getName();
       taskState = task.getState();
+      taskStateHint = stateHints.get( taskState );
       state = taskState.getLabel( );
       cancelled = task.isCancelled();
       isLive = live &&  taskState == TaskState.RUNNING;
-      trackingState = task.getTrackingState( ).toString();
+      TrackingState tState = task.getTrackingState( );
+      trackingState = tState.toString();
+      trackingStateHint = trackingStateHints.get( tState );
       container = task.container;
       startTime = task.launchTime;
       if ( task.container != null ) {
@@ -106,6 +117,31 @@ public abstract class AbstractTasksModel
       }
     }
 
+    private Map<TaskState, String> makeStateHints() {
+      Map<TaskState, String> hints = new HashMap<>( );
+      hints.put( TaskState.START, "Queued to send a container request to YARN." );
+      hints.put( TaskState.REQUESTING, "Container request sent to YARN." );
+      hints.put( TaskState.LAUNCHING, "YARN provided a container, send launch request." );
+      hints.put( TaskState.WAIT_START_ACK, "Drillbit launched, waiting for ZooKeeper registration." );
+      hints.put( TaskState.RUNNING, "Drillbit is running normally." );
+      hints.put( TaskState.ENDING, "Graceful shutdown request sent to the Drillbit." );
+      hints.put( TaskState.KILLING, "Sent the YARN Node Manager a request to forcefully kill the Drillbit." );
+      hints.put( TaskState.WAIT_END_ACK, "Drillbit has shut down; waiting for ZooKeeper to confirm." );
+      // The UI will never display the END state.
+      hints.put( TaskState.END, "The Drillbit has shut down." );
+      return hints;
+    }
+
+    private Map<TrackingState, String> makeTrackingStateHints() {
+      Map<TrackingState, String> hints = new HashMap<>( );
+      // UNTRACKED state is not used by Drillbits.
+      hints.put( TrackingState.UNTRACKED, "Task is not tracked in ZooKeeper." );
+      hints.put( TrackingState.NEW, "Drillbit has not yet registered with ZooKeeper." );
+      hints.put( TrackingState.START_ACK, "Drillbit has registered normally with ZooKeeper." );
+      hints.put( TrackingState.END_ACK, "Drillbit is no longer registered with ZooKeeper." );
+      return hints;
+    }
+
     public String getTaskId( ) {
       return Integer.toString( id );
     }
@@ -124,26 +160,21 @@ public abstract class AbstractTasksModel
 
     public String getLink( ) {
       if ( endpoint == null ) {
-        return null; }
+        return ""; }
       String port = DrillOnYarnConfig.config( ).getString( DrillOnYarnConfig.DRILLBIT_HTTP_PORT );
       return "http://" + endpoint.getAddress() + ":" + port + "/";
     }
 
-    public String getState( ) {
-      return state.toString();
-    }
-
-    public boolean isCancelled( ) {
-      return cancelled;
-    }
+    public String getState( ) { return state.toString(); }
+    public String getStateHint( ) { return taskStateHint; }
+    public boolean isCancelled( ) { return cancelled; }
 
     public boolean isCancellable( ) {
       return ! cancelled  &&  taskState.isCancellable( );
     }
 
-    public String getTrackingState( ) {
-      return trackingState.toString();
-    }
+    public String getTrackingState( ) { return trackingState; }
+    public String getTrackingStateHint( ) { return trackingStateHint; }
 
     public String getStartTime( ) {
       if ( startTime == 0 ) {
@@ -154,10 +185,11 @@ public abstract class AbstractTasksModel
     public int getMemory( ) { return memoryMb; }
     public int getVcores( ) { return vcores; }
     public boolean hasContainer( ) { return containerId != null; }
-    public String getContainerId( ) { return containerId; }
-    public String getNmLink( ) { return nmLink; }
-    public String getDisposition( ) { return disposition; }
+    public String getContainerId( ) { return displayString( containerId ); }
+    public String getNmLink( ) { return displayString( nmLink ); }
+    public String getDisposition( ) { return displayString( disposition ); }
     public int getTryCount( ) { return tryCount; }
+    public String displayString( String value ) { return (value == null) ? "" : value; }
 
     public String getEndTime( ) {
       if ( endTime == 0 ) {
@@ -166,7 +198,7 @@ public abstract class AbstractTasksModel
     }
   }
 
-  List<TaskModel> results = new ArrayList<>( );
+  protected List<TaskModel> results = new ArrayList<>( );
 
   public static class TasksModel extends AbstractTasksModel implements TaskVisitor
   {

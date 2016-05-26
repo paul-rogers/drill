@@ -18,15 +18,21 @@
 package org.apache.drill.yarn.appMaster;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Collections;
 import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.drill.yarn.appMaster.AMYarnFacade.YarnAppHostReport;
 import org.apache.drill.yarn.appMaster.PulseRunnable.PulseCallback;
+import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.LaunchSpec;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
+import org.apache.hadoop.yarn.api.records.ApplicationId;
+import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
 import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
@@ -40,6 +46,7 @@ import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync.CallbackHandler;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.util.ConverterUtils;
 
 /**
  * Wrapper around the asynchronous versions of the YARN AM-RM and AM-NM
@@ -63,6 +70,10 @@ public class AMYarnFacadeImpl implements AMYarnFacade
   private PulseRunnable timer;
 
   private String appMasterTrackingUrl;
+
+  private ApplicationId appId;
+
+  private ApplicationReport appReport;
 
   public AMYarnFacadeImpl(int pollPeriodMs, int timerPeriodMs) {
     this.pollPeriodMs = pollPeriodMs;
@@ -88,6 +99,16 @@ public class AMYarnFacadeImpl implements AMYarnFacade
     client = YarnClient.createYarnClient();
     client.init(conf);
     client.start();
+
+    String appIdStr = System.getenv( DrillOnYarnConfig.APP_ID_ENV_VAR );
+    if ( appIdStr != null ) {
+      appId = ConverterUtils.toApplicationId(appIdStr);
+      try {
+        appReport = client.getApplicationReport(appId);
+      } catch (YarnException | IOException e) {
+        LOG.error( "Failed to get YARN applicaiton report for App ID: " + appIdStr, e );
+      }
+    }
 
     timer = new PulseRunnable(timerPeriodMs, timerCallback);
   }
@@ -240,5 +261,37 @@ public class AMYarnFacadeImpl implements AMYarnFacade
     } catch (Exception e) {
       throw new YarnFacadeException( "getNodeReports failed" , e );
     }
+  }
+
+  @Override
+  public YarnAppHostReport getAppHostReport( )
+  {
+    // Cobble together YARN links to simplify debugging.
+
+    YarnAppHostReport hostRpt = new YarnAppHostReport( );
+    if ( appId != null ) {
+      hostRpt.appId = appId.toString();
+    }
+    if ( appReport == null ) {
+      return hostRpt;
+    }
+    try {
+      String rmLink = appReport.getTrackingUrl();
+      URL url = new URL( rmLink );
+      hostRpt.rmHost = url.getHost();
+      hostRpt.rmUrl = "http://" + hostRpt.rmHost + ":" + url.getPort() + "/";
+      hostRpt.rmAppUrl = hostRpt.rmUrl + "cluster/app/" + appId.toString();
+    }
+    catch ( MalformedURLException e ) {
+      return null;
+    }
+
+    hostRpt.nmHost = System.getenv( "NM_HOST" );
+    String nmPort = System.getenv( "NM_HTTP_PORT" );
+    if ( hostRpt.nmHost != null  ||  nmPort != null ) {
+      hostRpt.nmUrl = "http://" + hostRpt.nmHost + ":" + nmPort + "/";
+      hostRpt.nmAppUrl =  hostRpt.nmUrl + "node/application/" + hostRpt.appId;
+    }
+    return hostRpt;
   }
 }

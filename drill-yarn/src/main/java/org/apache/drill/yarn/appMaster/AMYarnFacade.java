@@ -35,6 +35,23 @@ import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 
 public interface AMYarnFacade
 {
+  /**
+   * Provides a collection of web UI links for the YARN Resource
+   * Manager and the Node Manager that is running the Drill-on-YARN AM.
+   * This information is primarily for use in the AM's own web UI.
+   */
+
+  public static class YarnAppHostReport
+  {
+    public String appId;
+    public String rmHost;
+    public String rmUrl;
+    public String rmAppUrl;
+    public String nmHost;
+    public String nmUrl;
+    public String nmAppUrl;
+  }
+
   void start(AMRMClientAsync.CallbackHandler resourceCallback, NMClientAsync.CallbackHandler nodeCallback,
       PulseCallback timerCallback);
 
@@ -65,4 +82,6 @@ public interface AMYarnFacade
   void removeBlacklist(String nodeName);
 
   List<NodeReport> getNodeReports() throws YarnFacadeException;
+
+  YarnAppHostReport getAppHostReport( );
 }
