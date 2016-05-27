@@ -171,8 +171,9 @@ public class ClusterControllerImpl implements ClusterController
   private void adjustTasks( long curTime ) {
     if ( nodeInventory.getFreeNodeCount() <= 0 ) {
       checkForFailure( curTime );
-      return;
     }
+    if ( state != State.LIVE ) {
+      return; }
     for (SchedulerStateActions group : prioritizedPools) {
       group.adjustTasks();
     }
