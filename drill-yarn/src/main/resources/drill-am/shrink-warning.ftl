@@ -40,7 +40,7 @@
   <#else>
   <form method="POST" action="/resize">
   </#if>
-  <#if ! model.isStop( )>
+  <#if model.isShrink( )>
     <input type="hidden" name="n" value="${model.getCount( )}">
     <input type="hidden" name="type" value="force-shrink">
   </#if>
