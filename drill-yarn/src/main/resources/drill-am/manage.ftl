@@ -18,31 +18,50 @@
 
   Current Status: ${model.getLiveCount( )} Drillbits running
   <p><p>
-  Management Actions:
-  <form action="/resize" method="POST">
-  <input hidden name="type" value="grow">
-  Add &nbsp;&nbsp;
-  <input type="text" name="n" size="6"> &nbsp;&nbsp; drillbits.
-  &nbsp;&nbsp; <input type="submit" value="Go">
-  </form>
-  <p>
-  <form action="/resize" method="POST">
-  <input hidden name="type" value="shrink">
-  Remove &nbsp;&nbsp;
-  <input type="text" name="n" size="6">  &nbsp;&nbsp; drillbits.
-  &nbsp;&nbsp; <input type="submit" value="Go">
-  </form>
-  <p>
-  <form action="/resize" method="POST">
-  <input hidden name="type" value="resize">
-  Resize to &nbsp;&nbsp;
-  <input type="text" name="n" size="6"> &nbsp;&nbsp; drillbits.
-  &nbsp;&nbsp; <input type="submit" value="Go">
-  </form>
-  <p>
-  <form action="/stop" method="GET">Stop the Cluster.
-  &nbsp;&nbsp; <input type="submit" value="Go">
-  </form>
+  
+  <table class="table table-hover" style="width: auto;">
+    <tr><td style="vertical-align: middle;">
+      <form action="/resize" method="POST" class="form-inline" role="form">
+        <div class="form-group">
+          <input hidden name="type" value="grow">
+          <label for="add">Add</label>
+          <input type="text" name="n" size="6" id="add" class="form-control" style="padding: 0 1em; margin: 0 1em;"/>
+          drillbits.
+          <button type="submit" class="btn btn-primary" style="margin: 0 1em;">Go</button>
+        </div>
+      </form>
+    </td></tr>
+    <tr><td>
+      <form action="/resize" method="POST" class="form-inline" role="form">
+        <div class="form-group">
+          <input hidden name="type" value="shrink">
+          <label for="shrink">Remove</label>
+          <input type="text" name="n" size="6" id="shrink" class="form-control" style="padding: 0 1em; margin: 0 1em;"/>
+          drillbits.
+          <button type="submit" class="btn btn-primary" style="margin: 0 1em;">Go</button>
+        </div>
+      </form>
+    </td></tr>
+    <tr><td>
+      <form action="/resize" method="POST" class="form-inline" role="form">
+        <div class="form-group">
+          <input hidden name="type" value="resize">
+          <label for="resize">Resize to</label>
+          <input type="text" name="n" id="resize" size="6" class="form-control" style="padding: 0 1em; margin: 0 1em;"/>
+          drillbits.
+          <button type="submit" class="btn btn-primary" style="margin: 0 1em;">Go</button>
+        </div>
+      </form>
+    </td></tr>
+    <tr><td>
+      <form action="/stop" method="GET" class="form-inline" role="form">
+        <div class="form-group">
+          <label for="stop">Stop</label> the Drill cluster.
+          <button type="submit" id="stop" class="btn btn-primary" style="margin: 0 1em;">Go</button>
+        </div>
+      </form>
+    </td></tr>
+  </table>
 
 </#macro>
 
