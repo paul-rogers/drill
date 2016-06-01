@@ -24,62 +24,62 @@ import static org.junit.Assert.assertNull;
 
 import org.apache.drill.yarn.client.CommandLineOptions;
 
-public class TestCommandLineOptions {
+public class TestCommandLineOptions
+{
+  @Test
+  public void testOptions() {
+    CommandLineOptions opts = new CommandLineOptions();
+    opts.parse(new String[] {});
+    assertNull(opts.getCommand());
 
-    @Test
-    public void testOptions( ) {
-        CommandLineOptions opts = new CommandLineOptions( );
-        opts.parse( new String[] { } );
-        assertNull( opts.getCommand() );
+    opts = new CommandLineOptions();
+    opts.parse(new String[] { "-h" });
+    assertEquals(CommandLineOptions.Command.HELP, opts.getCommand());
 
-        opts = new CommandLineOptions( );
-        opts.parse( new String[] { "-h" } );
-        assertEquals( CommandLineOptions.Command.HELP, opts.getCommand() );
+    opts = new CommandLineOptions();
+    opts.parse(new String[] { "-?" });
+    assertEquals(CommandLineOptions.Command.HELP, opts.getCommand());
 
-        opts = new CommandLineOptions( );
-        opts.parse( new String[] { "-?" } );
-        assertEquals( CommandLineOptions.Command.HELP, opts.getCommand() );
+    opts = new CommandLineOptions();
+    opts.parse(new String[] { "help" });
+    assertEquals(CommandLineOptions.Command.HELP, opts.getCommand());
 
-        opts = new CommandLineOptions( );
-        opts.parse( new String[] { "help" } );
-        assertEquals( CommandLineOptions.Command.HELP, opts.getCommand() );
+    opts = new CommandLineOptions();
+    opts.parse(new String[] { "start" });
+    assertEquals(CommandLineOptions.Command.START, opts.getCommand());
 
-        opts = new CommandLineOptions( );
-        opts.parse( new String[] { "start" } );
-        assertEquals( CommandLineOptions.Command.START, opts.getCommand() );
+    opts = new CommandLineOptions();
+    opts.parse(new String[] { "stop" });
+    assertEquals(CommandLineOptions.Command.STOP, opts.getCommand());
 
-        opts = new CommandLineOptions( );
-        opts.parse( new String[] { "stop" } );
-        assertEquals( CommandLineOptions.Command.STOP, opts.getCommand() );
+    opts = new CommandLineOptions();
+    opts.parse(new String[] { "status" });
+    assertEquals(CommandLineOptions.Command.STATUS, opts.getCommand());
 
-        opts = new CommandLineOptions( );
-        opts.parse( new String[] { "status" } );
-        assertEquals( CommandLineOptions.Command.STATUS, opts.getCommand() );
+    opts = new CommandLineOptions();
+    opts.parse(new String[] { "resize" });
+    assertNull(opts.getCommand());
 
-        opts = new CommandLineOptions( );
-        opts.parse( new String[] { "resize" } );
-        assertNull( opts.getCommand() );
+    opts = new CommandLineOptions();
+    opts.parse(new String[] { "resize", "10" });
+    assertEquals(CommandLineOptions.Command.RESIZE, opts.getCommand());
+    assertEquals("", opts.getResizePrefix());
+    assertEquals(10, opts.getResizeValue());
 
-        opts = new CommandLineOptions( );
-        opts.parse( new String[] { "resize", "10" } );
-        assertEquals( CommandLineOptions.Command.RESIZE, opts.getCommand() );
-        assertEquals( "", opts.getResizePrefix() );
-        assertEquals( 10, opts.getResizeValue() );
+    opts = new CommandLineOptions();
+    opts.parse(new String[] { "resize", "+2" });
+    assertEquals(CommandLineOptions.Command.RESIZE, opts.getCommand());
+    assertEquals("+", opts.getResizePrefix());
+    assertEquals(2, opts.getResizeValue());
 
-        opts = new CommandLineOptions( );
-        opts.parse( new String[] { "resize", "+2" } );
-        assertEquals( CommandLineOptions.Command.RESIZE, opts.getCommand() );
-        assertEquals( "+", opts.getResizePrefix() );
-        assertEquals( 2, opts.getResizeValue() );
+    opts = new CommandLineOptions();
+    opts.parse(new String[] { "resize", "-3" });
+    assertEquals(CommandLineOptions.Command.RESIZE, opts.getCommand());
+    assertEquals("-", opts.getResizePrefix());
+    assertEquals(3, opts.getResizeValue());
 
-        opts = new CommandLineOptions( );
-        opts.parse( new String[] { "resize", "-3" } );
-        assertEquals( CommandLineOptions.Command.RESIZE, opts.getCommand() );
-        assertEquals( "-", opts.getResizePrefix() );
-        assertEquals( 3, opts.getResizeValue() );
-
-        opts = new CommandLineOptions( );
-        opts.parse( new String[] { "myDrill" } );
-        assertNull( opts.getCommand() );
-    }
+    opts = new CommandLineOptions();
+    opts.parse(new String[] { "myDrill" });
+    assertNull(opts.getCommand());
+  }
 }

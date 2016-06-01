@@ -122,7 +122,9 @@ public class DrillOnYarnConfig
   // Names selected to be parallel to Drillbit HTTP config.
 
   public static final String HTTP_ENABLED = append( HTTP_PARENT, "enabled" );
+  public static final String HTTP_ENABLE_SSL = append( HTTP_PARENT, "ssl_enabled" );
   public static final String HTTP_PORT = append( HTTP_PARENT, "port" );
+  public static final String HTTP_AUTH_ENABLED = append( HTTP_PARENT, "auth-enabled" );
   public static final String HTTP_REST_KEY = append( HTTP_PARENT, "rest-key" );
 
   public static final String CLIENT_POLL_SEC = append( CLIENT_PARENT, "poll-sec" );
@@ -147,12 +149,12 @@ public class DrillOnYarnConfig
 
   public static String LOCAL_DIR_NAME = "drill";
 
+  // Environment variables used to pass information from the Drill-on-YARN
+  // Client to the AM, or from the AM to the Drillbit launch script.
+
   public static final String APP_ID_ENV_VAR = "DRILL_AM_APP_ID";
-//  public static final String RM_TRACKING_ENV_VAR = "YARN_RM_APP_URL";
   public static final String DRILL_ARCHIVE_ENV_VAR = "DRILL_ARCHIVE";
   public static final String SITE_ARCHIVE_ENV_VAR = "SITE_ARCHIVE";
-//  public static final String SITE_DIR_ENV_VAR = "DRILL_SITE_DIR";
-//  public static final String SITE_DIR_NAME_ENV_VAR = "DRILL_SITE_DIR_NAME";
   public static final String DRILL_HOME_ENV_VAR = "DRILL_HOME";
   public static final String DRILL_SITE_ENV_VAR = "DRILL_CONF_DIR";
   public static final String AM_HEAP_ENV_VAR = "DRILL_AM_HEAP";
@@ -474,7 +476,6 @@ public class DrillOnYarnConfig
     AM_PREFIX_CLASSPATH,
     AM_CLASSPATH,
     AM_DEBUG_LAUNCH,
-    // Do not include AM_REST_KEY: it is supposed to be secret.
 
     // drill.yarn.zk
 
@@ -503,7 +504,10 @@ public class DrillOnYarnConfig
     // drill.yarn.http
 
     HTTP_ENABLED,
-    HTTP_PORT
+    HTTP_ENABLE_SSL,
+    HTTP_PORT,
+    HTTP_AUTH_ENABLED,
+    // Do not include AM_REST_KEY: it is supposed to be secret.
   };
 
   private static String envVars[] = {

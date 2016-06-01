@@ -481,8 +481,11 @@ public class ClusterControllerImpl implements ClusterController
 
   @Override
   public int getTargetCount() {
-    // TODO: Handle multiple pools
-    return prioritizedPools.get( 0 ).getScheduler().getTarget();
+    int count = 0;
+    for ( SchedulerStateActions pool : prioritizedPools ) {
+      count += pool.getScheduler().getTarget();
+    }
+    return count;
   }
 
   public State getState() { return state; }
@@ -511,7 +514,7 @@ public class ClusterControllerImpl implements ClusterController
       Task task = group.getTask( id );
       if ( task != null ) {
         group.cancel( task );
-        return true;
+        group.getScheduler().change( -1 );
       }
     }
     return false;

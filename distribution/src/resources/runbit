@@ -17,11 +17,16 @@
 
 # Invoke Drill using Java. Command line arguments are assumed to be
 # of the form
-#   -Dname=value
-# and are passed to Java as JVM arguments.
+#   exec|debug
+# The debug option simply prints the command line option, but does not
+# run Drill. Anything else runs Drill. (Command line options passed to
+# drillbit.sh are passed into this script in the args[] variable, see
+# below.)
 #
 # Environment Variables
 #
+#   SERVER_LOG_GC           Set to "1" to enable Java garbage collector
+#                           logging.
 #   DRILL_LOG_PREFIX        Path and name prefix for log files.
 #                           (Set in drill-config.sh.)
 #   DRILLBIT_LOG_PATH       Path to the Drillbit log file.
@@ -34,9 +39,11 @@
 #                           the server (drillbit). Set in the
 #                           environment or in the user defined
 #                           drill-env.sh
-#   SERVER_GC_OPTS          Set in drill-env.sh, customized by
-#                           drillbit.sh.
+#   SERVER_GC_OPTS          Defaults set in drill-config.sh, customized
+#                           in drill-env.sh.
 #   CP                      Drillbit classpath set in drill-config.sh
+#   args[]                  -Dname=value arguments to pass to the JVM
+#                           for per-run override of configuration options.
 
 cmd=$1
 shift
@@ -58,16 +65,28 @@ drill_rotate_log ()
     fi
 }
 
-if [ -n "$SERVER_GC_OPTS" ]; then
+# Enable GC logging if requested.
+# Note: if using YARN log dir, then no log rotation because each run under YARN
+# gets a new log directory.
+
+if [ "$SERVER_LOG_GC" == "1" ]; then
   loggc="${DRILL_LOG_PREFIX}.gc"
-  export SERVER_GC_OPTS=${SERVER_GC_OPTS/"-Xloggc:<FILE-PATH>"/"-Xloggc:${loggc}"}
-  drill_rotate_log $loggc
+  SERVER_GC_OPTS="${SERVER_GC_OPTS} -Xloggc:${loggc}"
+  if [ -z "$DRILL_YARN_LOG_DIR" ]; then
+    drill_rotate_log $loggc
+  fi
 fi
 
-export logqueries="${DRILL_LOG_PREFIX}_queries.json"
+logqueries="${DRILL_LOG_PREFIX}_queries.json"
 LOG_OPTS="-Dlog.path=$DRILLBIT_LOG_PATH -Dlog.query.path=$logqueries"
 DRILL_ALL_JAVA_OPTS="$DRILLBIT_OPTS $DRILL_JAVA_OPTS $DRILLBIT_JAVA_OPTS $SERVER_GC_OPTS $@ $LOG_OPTS"
 BITCMD="$JAVA $DRILL_ALL_JAVA_OPTS -cp $CP org.apache.drill.exec.server.Drillbit"
+
+# The wrapper is purely for unit testing.
+
+if [ -n "$_DRILL_WRAPPER_" ]; then
+  BITCMD="$_DRILL_WRAPPER_ $BITCMD"
+fi
 
 # Run the command (exec) or just print it (debug).
 # Three options: run as a child (run), run & replace this process (exec) or

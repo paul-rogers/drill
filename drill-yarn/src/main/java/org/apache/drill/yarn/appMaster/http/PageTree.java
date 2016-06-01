@@ -17,12 +17,17 @@
  */
 package org.apache.drill.yarn.appMaster.http;
 
+import java.net.URI;
+import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import javax.annotation.security.PermitAll;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.FormParam;
@@ -31,21 +36,36 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.SecurityContext;
+import javax.ws.rs.core.UriBuilder;
+import javax.ws.rs.core.UriInfo;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.apache.drill.exec.server.rest.ViewableWithPermissions;
 import org.apache.drill.yarn.appMaster.Dispatcher;
+import org.apache.drill.yarn.appMaster.DrillApplicationMaster;
 import org.apache.drill.yarn.appMaster.http.AbstractTasksModel.TaskModel;
 import org.apache.drill.yarn.appMaster.http.ControllerModel.PoolModel;
 import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.NameValuePair;
 import org.apache.drill.yarn.zk.ZKClusterCoordinatorDriver;
+import org.eclipse.jetty.security.authentication.FormAuthenticator;
 import org.glassfish.jersey.server.ResourceConfig;
+import org.glassfish.jersey.server.filter.RolesAllowedDynamicFeature;
 import org.glassfish.jersey.server.mvc.Viewable;
 import org.glassfish.jersey.server.mvc.freemarker.FreemarkerMvcFeature;
 
+import com.typesafe.config.Config;
+
 public class PageTree extends ResourceConfig
 {
+  private static final Log LOG = LogFactory.getLog(PageTree.class);
+
   @Path("/")
   @PermitAll
   public static class RootPage
@@ -55,6 +75,56 @@ public class PageTree extends ResourceConfig
       ControllerModel model = new ControllerModel( );
       dispatcher.getController().visit( model );
       return new Viewable( "/drill-am/index.ftl", toModel( model ) );
+    }
+  }
+
+  @Path("/")
+  @PermitAll
+  public class LogInLogOutPages {
+    public static final String REDIRECT_QUERY_PARM = "redirect";
+    public static final String LOGIN_RESOURCE = "login";
+
+    @GET
+    @Path("/login")
+    @Produces(MediaType.TEXT_HTML)
+    public Viewable getLoginPage(@Context HttpServletRequest request, @Context HttpServletResponse response,
+        @Context SecurityContext sc, @Context UriInfo uriInfo, @QueryParam(REDIRECT_QUERY_PARM) String redirect)
+        throws Exception {
+      if (AuthDynamicFeature.isUserLoggedIn(sc)) {
+        // if the user is already login, forward the request to homepage.
+        request.getRequestDispatcher("/").forward(request, response);
+        return null;
+      }
+
+      if (!StringUtils.isEmpty(redirect)) {
+        // If the URL has redirect in it, set the redirect URI in session, so that after the login is successful, request
+        // is forwarded to the redirect page.
+        final HttpSession session = request.getSession(true);
+        final URI destURI = UriBuilder.fromUri(URLDecoder.decode(redirect, "UTF-8")).build();
+        session.setAttribute(FormAuthenticator.__J_URI, destURI.toString());
+      }
+
+      return new Viewable("/drill-am/login.ftl", null);
+    }
+
+    // Request type is POST because POST request which contains the login credentials are invalid and the request is
+    // dispatched here directly.
+    @POST
+    @Path("/login")
+    @Produces(MediaType.TEXT_HTML)
+    public Viewable getLoginPageAfterValidationError() {
+      return new Viewable("/drill-am/login.ftl", "Invalid user name or password.");
+    }
+
+    @GET
+    @Path("/logout")
+    public void logout(@Context HttpServletRequest req, @Context HttpServletResponse resp) throws Exception {
+      final HttpSession session = req.getSession();
+      if (session != null) {
+        session.invalidate();
+      }
+
+      req.getRequestDispatcher("/").forward(req, resp);
     }
   }
 
@@ -268,64 +338,6 @@ public class PageTree extends ResourceConfig
     }
   }
 
-//  public static class LogItem
-//  {
-//    File logPath;
-//    String logDir;
-//
-//    public String getName( ) {
-//      return logPath.getName();
-//    }
-//
-//    public String getLink( ) {
-//      String link = "/logs/";
-//      if ( logDir != null )
-//        link += logDir + "/";
-//      return link + getName( );
-//    }
-//  }
-//
-//  public static class LogManager
-//  {
-//    String logDirs;
-//
-//    public LogManager( ) {
-//      logDirs = System.getenv("LOG_DIRS");
-//      if ( logDirs == null )
-//        return;
-//    }
-//
-//    public List<LogItem> list( ) {
-//      List<LogItem> logs = new ArrayList<>( );
-//      if ( logDirs == null )
-//        return logs;
-//      String dirs[] = logDirs.split( ":" );
-//      for ( int i = 0;  i < dirs.length;  i++ ) {
-//        File logDir = new File( dirs[i] );
-//        for ( File logFile : logDir.listFiles( ) ) {
-//          LogItem item = new LogItem( );
-//          item.logPath = logFile;
-//          if ( dirs.length > 1 ) {
-//            item.logDir = Integer.toString( i + 1 );
-//          }
-//          logs.add( item );
-//        }
-//      }
-//      return logs;
-//    }
-//  }
-//
-//  @Path("/logs/")
-//  @PermitAll
-//  public static class LogPage
-//  {
-//    @GET
-//    @Path("/")
-//    public Viewable listLogs( ) {
-//      return new Viewable( "/drill-am/log-list.ftl", toModel( confirm ) );
-//    }
-//  }
-
   @Path("/rest/config")
   @PermitAll
   public static class ConfigResource
@@ -446,7 +458,8 @@ public class PageTree extends ResourceConfig
 
   public PageTree( Dispatcher dispatcher ) {
     PageTree.dispatcher = dispatcher;
-    clusterName = DrillOnYarnConfig.config( ).getString( DrillOnYarnConfig.APP_NAME );
+    Config config = DrillOnYarnConfig.config( );
+    clusterName = config.getString( DrillOnYarnConfig.APP_NAME );
 
     // Markup engine
     register(FreemarkerMvcFeature.class);
@@ -467,6 +480,14 @@ public class PageTree extends ResourceConfig
     register(ConfigResource.class);
     register(StatusResource.class);
     register(StopResource.class);
+
+    // Authorization
+
+    if (config.getBoolean(DrillOnYarnConfig.HTTP_AUTH_ENABLED)) {
+      register(LogInLogOutPages.class);
+      register(AuthDynamicFeature.class);
+      register(RolesAllowedDynamicFeature.class);
+    }
   }
 
   public static Map<String,Object> toModel( Object base ) {
