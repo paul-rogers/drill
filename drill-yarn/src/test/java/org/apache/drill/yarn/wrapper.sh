@@ -29,6 +29,22 @@ do
   shift
 done
 
+function clean_up {
+  echo "Received SIGTERM"
+  if [ "PRETEND_HUNG" == "1" ]; then
+    echo "Pretending to be hung."
+  else
+    echo "Exiting"
+    if [ "PRETEND_FAIL" == "1" ]; then
+      exit 55
+    else
+      exit 0
+    fi
+  fi
+}
+
+trap clean_up SIGTERM
+
 if [ "$KEEP_RUNNING" == "1" ]; then
   while [[ 1 > 0 ]]
   do
