@@ -26,6 +26,7 @@
 
 echo "`date` Starting $command on `hostname`" >> "$DRILLBIT_LOG_PATH"
 echo "`ulimit -a`" >> "$DRILLBIT_LOG_PATH" 2>&1
-nice -n $DRILL_NICENESS "$DRILL_HOME/bin/runbit" exec >> "$logout" 2>&1 &
+echo "Command: $DRILL_HOME/bin/runbit" exec $@" >> "$DRILLBIT_LOG_PATH"
+"$DRILL_HOME/bin/runbit" exec $@ >> "$logout" 2>&1 &
 echo $! > $pid
 wait

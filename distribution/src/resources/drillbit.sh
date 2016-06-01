@@ -99,7 +99,7 @@ waitForProcessEnd()
    done
   # process still there : kill -9
   if kill -0 $pidKilled > /dev/null 2>&1; then
-    echo -n force stopping $commandName with kill -9 $pidKilled
+    echo -n "Force stopping $commandName with kill -9 $pidKilled"
     $JAVA_HOME/bin/jstack -l $pidKilled > "$logout" 2>&1
     kill -9 $pidKilled > /dev/null 2>&1
   fi
@@ -113,7 +113,7 @@ check_before_start()
   mkdir -p "$DRILL_PID_DIR"
   if [ -f $pid ]; then
     if kill -0 `cat $pid` > /dev/null 2>&1; then
-      echo $command running as process `cat $pid`.  Stop it first.
+      echo "$command is already running as process `cat $pid`.  Stop it first."
       exit 1
     fi
   fi
@@ -140,13 +140,12 @@ wait_until_done ()
 start_bit ( )
 {
   check_before_start
-  echo "starting $command, logging to $logout"
-  export command
-  export args
-  export logout
-  export pid
-  nohup start-bit.sh >> ${logout} 2>&1  &
-  sleep 1;
+  echo "Starting $command, logging to $logout"
+  echo "`date` Starting $command on `hostname`" >> "$DRILLBIT_LOG_PATH"
+  echo "`ulimit -a`" >> "$DRILLBIT_LOG_PATH" 2>&1
+  nohup nice -n $DRILL_NICENESS "$DRILL_HOME/bin/runbit" exec ${args[@]} >> "$logout" 2>&1 &
+  echo $! > $pid
+  sleep 1
 }
 
 stop_bit ( )
@@ -155,19 +154,21 @@ stop_bit ( )
     pidToKill=`cat $pid`
     # kill -0 == see if the PID exists
     if kill -0 $pidToKill > /dev/null 2>&1; then
-      echo stopping $command
+      echo "Stopping $command"
       echo "`date` Terminating $command" pid $pidToKill>> "$DRILLBIT_LOG_PATH"
       kill $pidToKill > /dev/null 2>&1
       waitForProcessEnd $pidToKill $command
-      rm $pid
+      retval=0
     else
       retval=$?
-      echo no $command to stop because kill -0 of pid $pidToKill failed with status $retval
+      echo "No $command to stop because kill -0 of pid $pidToKill failed with status $retval"
     fi
     rm $pid > /dev/null 2>&1
   else
-    echo no $command to stop because no pid file $pid
-  fi 
+    echo "No $command to stop because no pid file $pid"
+    retval=1
+  fi
+  return $retval
 }
 
 pid=$DRILL_PID_DIR/drillbit.pid
@@ -194,6 +195,7 @@ case $startStopStatus in
 
 (stop)
   stop_bit
+  exit $?
   ;;
 
 (restart)
@@ -212,15 +214,14 @@ case $startStopStatus in
   if [ -f $pid ]; then
     TARGET_PID=`cat $pid`
     if kill -0 $TARGET_PID > /dev/null 2>&1; then
-      echo $command is running.
-      exit 0
+      echo "$command is running."
     else
-      echo $pid file is present but $command not running.
+      echo "$pid file is present but $command is not running."
       exit 1
     fi
   else
-    echo $command not running.
-    exit 2
+    echo "$command is not running."
+    exit 1
   fi
   ;;
 

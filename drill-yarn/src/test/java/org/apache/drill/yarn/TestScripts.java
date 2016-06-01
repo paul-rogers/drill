@@ -328,6 +328,9 @@ public class TestScripts
     int returnCode;
     String classPath[];
     private String log;
+    public File pidFile;
+    public File outFile;
+    private String out;
 
     /**
      * Split the class path into strings for easier validation.
@@ -351,12 +354,16 @@ public class TestScripts
      */
 
     public void loadLog( ) throws IOException {
+      log = loadFile( logFile );
+    }
+
+    private String loadFile( File file ) throws IOException {
       StringBuilder buf = new StringBuilder( );
       BufferedReader reader;
       try {
-        reader = new BufferedReader( new FileReader( logFile ) );
+        reader = new BufferedReader( new FileReader( file ) );
       } catch (FileNotFoundException e) {
-        return;
+        return null;
       }
       String line;
       while ( (line = reader.readLine()) != null ) {
@@ -364,7 +371,7 @@ public class TestScripts
         buf.append( "\n" );
       }
       reader.close();
-      log = buf.toString( );
+      return buf.toString( );
     }
 
     /**
@@ -463,6 +470,10 @@ public class TestScripts
         }
       }
       return false;
+    }
+
+    public void loadOut() throws IOException {
+      out = loadFile( outFile );
     }
 
   }
@@ -638,6 +649,7 @@ public class TestScripts
     {
       RunResult result = runDrillbit( new String[ ] { "run" }, null, null );
       assertEquals( 0, result.returnCode );
+      result.validateJava( );
       result.validateArgs( );
       result.validateClassPath( stdCp );
       validateStdOut( result );
@@ -655,7 +667,7 @@ public class TestScripts
       result.validateArg( propArg );
     }
 
-    // Custom Java Opts to achieve the same result
+    // Custom Java opts to achieve the same result
 
     {
       String propArg = "-Dproperty=value";
@@ -1099,6 +1111,184 @@ public class TestScripts
     }
   }
 
+  public void asDaemon( Map<String,String> env )
+  {
+    env.put( "KEEP_RUNNING", "1" );
+  }
+  
+  public RunResult startDrillbit( String args[ ], Map<String,String> env, File logDir, File pidDir ) throws IOException
+  {
+    if ( pidDir == null ) {
+      pidDir = testDistribDir;
+    }
+    File pidFile = new File( pidDir, "drillbit.pid" );
+    pidFile.delete();
+    
+//    int count = 1;
+//    if ( args != null ) {
+//      count += args.length;
+//    }
+//    String cmdArgs[] = new String[ count ];
+//    cmdArgs[0] = "start";
+//    for ( int i = 0;  i < args.length;  i++ ) {
+//      cmdArgs[i+1] = args[i];
+//    }
+    if ( env == null ) {
+      env = new HashMap<>( );
+    }
+    env.put( "KEEP_RUNNING", "1" );
+    RunResult result = runDrillbit( args, env, logDir );
+    if ( result.returnCode != 0 ) {
+      return result;
+    }
+    
+    assertTrue( pidFile.exists() );
+    result.pidFile = pidFile;
+
+    // Drillbit.out
+    
+    result.outFile = new File( result.logDir, "drillbit.out" );
+    if ( result.outFile.exists() ) {
+      result.loadOut( );
+    }
+    else {
+      result.outFile = null;
+    }
+    return result;
+  }
+  
+  public void copyFile( File source, File dest ) throws IOException {
+    Files.copy( source.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING );
+  }
+
+  /**
+   * Test running a (simulated) Drillbit as a daemon with start, status, stop.
+   * 
+   * @throws IOException
+   */
+  
+  @Test
+  public void testStockDaemon( ) throws IOException
+  {
+    createMockDistrib( );
+    File siteDir = new File( testDistribDir, "conf" );
+    createMockConf( siteDir );
+
+    // No drill-env.sh, no distrib-env.sh
+
+    File pidFile;
+    {
+      RunResult result = startDrillbit( new String[] { "start" }, null, null, null );
+      assertEquals( 0, result.returnCode );
+      result.validateJava( );
+      result.validateArgs( );
+      result.validateClassPath( stdCp );
+      assertTrue( result.stdout.contains( "Starting drillbit, logging") );
+      assertTrue( result.log.contains( "Starting drillbit on" ) );
+      assertTrue( result.log.contains( "Drill Log Message" ) );
+      assertTrue( result.out.contains( "Drill Stdout Message" ) );
+      assertTrue( result.out.contains( "Stderr Message" ) );
+      pidFile = result.pidFile;
+    }
+
+    // Save the pid file for reuse.
+    
+    assertTrue( pidFile.exists() );
+    File saveDir = new File( testDir, "save" );
+    createDir( saveDir );
+    File savedPidFile = new File( saveDir, pidFile.getName( ) );
+    copyFile( pidFile, savedPidFile );
+    
+    // Status should be running
+    
+    {
+      RunResult result = runDrillbit( new String[] { "status" }, null, null );
+      assertEquals( 0, result.returnCode );
+      assertTrue( result.stdout.contains( "drillbit is running" ) );
+    }
+    
+    // Start should refuse to start a second Drillbit.
+    
+    {
+      RunResult result = runDrillbit( new String[] { "start" }, null, null );
+      assertEquals( 1, result.returnCode );
+      assertTrue( result.stdout.contains( "drillbit is already running as process" ) );
+    }
+    
+    // Normal start, allow normal shutdown
+    
+    {
+      RunResult result = runDrillbit( new String[] { "stop" }, null, null );
+      assertEquals( 0, result.returnCode );
+      assertTrue( result.log.contains( "Terminating drillbit pid" ) );
+      assertTrue( result.stdout.contains( "Stopping drillbit" ) );
+    }
+    
+    // Status should report no drillbit (no pid file)
+    
+    {
+      RunResult result = runDrillbit( new String[] { "status" }, null, null );
+      assertEquals( 1, result.returnCode );
+      assertTrue( result.stdout.contains( "drillbit is not running" ) );
+    }
+    
+    // Stop should report no pid file
+    
+    {
+      RunResult result = runDrillbit( new String[] { "stop" }, null, null );
+      assertEquals( 1, result.returnCode );
+      assertTrue( result.stdout.contains( "No drillbit to stop because no pid file" ) );
+    }
+    
+    // Get nasty. Put the pid file back. But, there is no process with that pid.
+    
+    copyFile( savedPidFile, pidFile );
+    
+    // Status should now complain.
+    
+    {
+      RunResult result = runDrillbit( new String[] { "status" }, null, null );
+      assertEquals( 1, result.returnCode );
+      assertTrue( result.stdout.contains( "file is present but drillbit is not running" ) );
+    }
+    
+    // As should stop.
+    
+    {
+      RunResult result = runDrillbit( new String[] { "stop" }, null, null );
+      assertEquals( 1, result.returnCode );
+      assertTrue( result.stdout.contains( "No drillbit to stop because kill -0 of pid" ) );
+    }
+  }
+    
+  @Test
+  public void testStockDaemonWithArg( ) throws IOException
+  {
+    createMockDistrib( );
+    File siteDir = new File( testDistribDir, "conf" );
+    createMockConf( siteDir );
+    
+    // As above, but pass an argument.
+
+    {
+      String propArg = "-Dproperty=value";
+      RunResult result = startDrillbit( new String[ ] { "start", propArg }, null, null, null );
+      assertEquals( 0, result.returnCode );
+      result.validateArg( propArg );
+    }
+
+    {
+      RunResult result = runDrillbit( new String[] { "status" }, null, null );
+      assertEquals( 0, result.returnCode );
+      assertTrue( result.stdout.contains( "drillbit is running" ) );
+    }
+    
+    {
+      RunResult result = runDrillbit( new String[] { "stop" }, null, null );
+      assertEquals( 0, result.returnCode );
+    }
+  }
+
   @Test
   public void testPidDir( ) throws IOException
   {
@@ -1109,4 +1299,12 @@ public class TestScripts
 
     // TODO: Needs to create a PID file
   }
+  
+  // Drillbit is a symlink
+  
+  // Invalid conf dir
+  
+  // Invalid log dir
+  
+  // Drillbit restart
 }
