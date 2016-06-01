@@ -110,6 +110,14 @@
 #     Enables Java GC logging. Passed from the drill.yarn.drillbit.log-gc
 #     garbage collection option.
 
+if [ -n "$DRILL_DEBUG" ]; then
+  echo
+  echo "Drillbit Environment from YARN:"
+  echo "-----------------------------------"
+  env
+  echo "-----------------------------------"
+fi
+
 # DRILL_HOME is set by the AM to point to the Drill distribution.
 
 # In YARN, configuration defaults to the the standard location.
@@ -149,30 +157,11 @@ fi
 
 . "$DRILL_HOME/bin/drill-config.sh"
 
-if [ -n "$DRILL_DEBUG" ]; then
-  echo
-  echo "Drillbit Environment from YARN:"
-  echo "-----------------------------------"
-  env
-  echo "-----------------------------------"
-fi
-
-# Note: if using YARN log dir, then no log rotation because each run under YARN
-# gets a new log directory.
-
-if [ -n "$ENABLE_GC_LOG" ]; then
-  export SERVER_GC_OPTS="$SERVER_GC_OPTS -Xloggc:<FILE-PATH>"
-  if [ -z "$DRILL_YARN_LOG_DIR" ]; then
-    drill_rotate_log $loggc
-  fi
-fi
-$args=$@
-
 # Debugging information
 
 if [ -n "$DRILL_DEBUG" ]; then
   echo "Command:"
-  "$DRILL_HOME/bin/runbit" debug $args
+  "$DRILL_HOME/bin/runbit" debug
   echo
   echo "Local Environment:"
   echo "-----------------------------------"
@@ -186,4 +175,4 @@ fi
 echo "`date` Starting drillbit on `hostname` under YARN, logging to $DRILLBIT_LOG_PATH"
 echo "`ulimit -a`" >> "$DRILLBIT_LOG_PATH" 2>&1
 
-"$DRILL_HOME/bin/runbit" exec $args
+"$DRILL_HOME/bin/runbit" exec

@@ -33,6 +33,23 @@
 #   HADOOP_HOME                Hadoop home
 #
 #   HBASE_HOME                 HBase home
+#
+# Variables may be set in one of four places:
+#
+#   Environment (per run)
+#   drill-env.sh (per site)
+#   distrib-env.sh (per distribution)
+#   drill-config.sh (this file, Drill defaults)
+#
+# Properties "inherit" from items lower on the list, and may be "overridden" by items
+# higher on the list. In the environment, just set the variable:
+#
+#   export FOO=value
+#
+# The three files must set values as shown below:
+#
+#   export FOO=${FOO:-"value"}
+#
 
 # resolve links - "${BASH_SOURCE-$0}" may be a softlink
 this="${BASH_SOURCE-$0}"
@@ -59,7 +76,8 @@ DRILL_HOME=${DRILL_HOME:-$home}
 
 fatal_error() {
   echo "ERROR: $@" 1>&2
-  exit 1
+  # Exit code of 110 means bad config.
+  exit 110
 }
 
 # Check to see if the conf dir or drill home are given as an optional arguments
@@ -84,6 +102,7 @@ do
     ;;
   esac
 done
+export args
 
 # If config dir is given, it must exist.
 
@@ -118,17 +137,32 @@ fi
 # Set Drill-provided defaults here. Do not put Drill defaults
 # in the distribution or user environment config files.
 
-# The Drillbit needs a large code cache.
-
-export DRILL_JAVA_OPTS="-XX:MaxPermSize=512M -XX:ReservedCodeCacheSize=1G -Ddrill.exec.enable-epoll=true"
-
 # The SQLline client does not need the code cache.
 
 export SQLLINE_JAVA_OPTS="-XX:MaxPermSize=512M"
 
 # Class unloading is disabled by default in Java 7
 # http://hg.openjdk.java.net/jdk7u/jdk7u60/hotspot/file/tip/src/share/vm/runtime/globals.hpp#l1622
-export SERVER_GC_OPTS="-XX:+CMSClassUnloadingEnabled -XX:+UseG1GC"
+export SERVER_GC_OPTS="$SERVER_GC_OPTS -XX:+CMSClassUnloadingEnabled -XX:+UseG1GC"
+
+# No GC options by default for SQLLine
+export CLIENT_GC_OPTS=""
+
+# Source the optional drill-env.sh for any user configured values.
+# We read the file only in the $DRILL_CONF_DIR, which might be a
+# site-specific folder. By design, we do not search both the site
+# folder and the $DRILL_HOME/conf folder; we look in just the one
+# identified by $DRILL_CONF_DIR.
+#
+# Note: the env files must set properties as follows for "inheritance"
+# to work correctly:
+#
+# export FOO=${FOO:-"value"}
+
+drillEnv="$DRILL_CONF_DIR/drill-env.sh"
+if [ -r "$drillEnv" ]; then
+  . "$drillEnv"
+fi
 
 # Source distrib-env.sh for any distribution-specific settings.
 # distrib-env.sh is optional; it is created by some distribution installers
@@ -139,23 +173,18 @@ if [ -r "$distribEnv" ]; then
   . "$distribEnv"
 fi
 
-# Source the optional drill-env.sh for any user configured values.
-# We read the file only in the $DRILL_CONF_DIR, which might be a
-# site-specific folder. By design, we do not search both the site
-# folder and the $DRILL_HOME/conf folder; we look in just the one
-# identified by $DRILL_CONF_DIR.
-
-drillEnv="$DRILL_CONF_DIR/drill-env.sh"
-if [ -r "$drillEnv" ]; then
-  . "$drillEnv"
-fi
-
 # Default memory settings if none provided by the environment or
 # above config files.
+# The Drillbit needs a large code cache.
 
 export DRILL_MAX_DIRECT_MEMORY=${DRILL_MAX_DIRECT_MEMORY:-"8G"}
 export DRILL_HEAP=${DRILL_HEAP:-"4G"}
+export DRILLBIT_MAX_PERM=${DRILLBIT_MAX_PERM:-"512M"}
+export DRILLBIT_CODE_CACHE_SIZE=${DRILLBIT_CODE_CACHE_SIZE:-"1G"}
+
 export DRILLBIT_OPTS="-Xms$DRILL_HEAP -Xmx$DRILL_HEAP -XX:MaxDirectMemorySize=$DRILL_MAX_DIRECT_MEMORY"
+export DRILLBIT_OPTS="$DRILLBIT_OPTS -XX:ReservedCodeCacheSize=$DRILLBIT_CODE_CACHE_SIZE -Ddrill.exec.enable-epoll=true"
+export DRILLBIT_OPTS="$DRILLBIT_OPTS -XX:MaxPermSize=$DRILLBIT_MAX_PERM"
 
 # Under YARN, the log directory is usually YARN-provided. Replace any
 # value that may have been set in drill-env.sh.
@@ -173,7 +202,7 @@ if [ -z "$DRILL_LOG_DIR" ]; then
     # if not present.
 
     DRILL_LOG_DIR=$DRILL_HOME/log
-    fi
+  fi
 fi
 
 # Regardless of how we got the directory, it must exist

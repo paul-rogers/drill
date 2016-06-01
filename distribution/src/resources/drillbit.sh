@@ -23,15 +23,19 @@
 #   DRILL_LOG_DIR       Where log files are stored. Default is /var/log/drill if
 #                       that exists, else $DRILL_HOME/log
 #   DRILL_PID_DIR       The pid files are stored. $DRILL_HOME by default.
-#   DRILL_IDENT_STRING  A string representing this instance of drillbit. $USER by default
+#   DRILL_IDENT_STRING  A string representing this instance of drillbit.
+#                       $USER by default
 #   DRILL_NICENESS      The scheduling priority for daemons. Defaults to 0.
-#   DRILL_STOP_TIMEOUT  Time, in seconds, after which we kill -9 the server if it has not stopped.
+#   DRILL_STOP_TIMEOUT  Time, in seconds, after which we kill -9 the server if
+#                       it has not stopped.
 #                       Default 120 seconds.
+#   SERVER_LOG_GC       Set to "1" to enable Java garbage collector logging.
 #
 # See also the environment variables defined in drill-config.sh
-# and runbit
+# and runbit. Most of the above can be set in drill-env.sh for
+# each site.
 #
-# Modelled after $HADOOP_HOME/bin/hadoop-daemon.sh
+# Modeled after $HADOOP_HOME/bin/hadoop-daemon.sh
 #
 # Usage:
 #
@@ -41,7 +45,7 @@
 # configuration file. The option takes precedence over the
 # DRILL_CONF_DIR environment variable.
 #
-# The command is one of: start|stop|status|restart|autorestart
+# The command is one of: start|stop|status|restart|run
 #
 # Additional arguments are passed as JVM options to the Drill-bit.
 # They typically are of the form:
@@ -52,7 +56,7 @@
 # The value overrides any value in the user or Drill configuration files.
 
 usage="Usage: drillbit.sh [--config <conf-dir>]\
- (start|stop|status|restart|autorestart) [args]"
+ (start|stop|status|restart|run) [args]"
 
 bin=`dirname "${BASH_SOURCE-$0}"`
 bin=`cd "$bin">/dev/null; pwd`
@@ -74,6 +78,10 @@ fi
 # Get command. all other args are JVM args, typically properties.
 startStopStatus="${args[0]}"
 args[0]=''
+export args
+
+# Set default scheduling priority
+DRILL_NICENESS=${DRILL_NICENESS:-0}
 
 waitForProcessEnd()
 {
@@ -101,122 +109,131 @@ waitForProcessEnd()
 
 check_before_start()
 {
-    #check if the process is not running
-    mkdir -p "$DRILL_PID_DIR"
-    if [ -f $pid ]; then
-      if kill -0 `cat $pid` > /dev/null 2>&1; then
-        echo $command running as process `cat $pid`.  Stop it first.
-        exit 1
-      fi
+  #check if the process is not running
+  mkdir -p "$DRILL_PID_DIR"
+  if [ -f $pid ]; then
+    if kill -0 `cat $pid` > /dev/null 2>&1; then
+      echo $command running as process `cat $pid`.  Stop it first.
+      exit 1
     fi
+  fi
 }
 
 wait_until_done ()
 {
-    p=$1
-    cnt=${DRILLBIT_TIMEOUT:-300}
-    origcnt=$cnt
-    while kill -0 $p > /dev/null 2>&1; do
-      if [ $cnt -gt 1 ]; then
-        cnt=`expr $cnt - 1`
-        sleep 1
-      else
-        echo "Process did not complete after $origcnt seconds, killing."
-        kill -9 $p
-        exit 1
-      fi
-    done
-    return 0
+  p=$1
+  cnt=${DRILLBIT_TIMEOUT:-300}
+  origcnt=$cnt
+  while kill -0 $p > /dev/null 2>&1; do
+    if [ $cnt -gt 1 ]; then
+      cnt=`expr $cnt - 1`
+      sleep 1
+    else
+      echo "Process did not complete after $origcnt seconds, killing."
+      kill -9 $p
+      exit 1
+    fi
+  done
+  return 0
+}
+
+start_bit ( )
+{
+  check_before_start
+  echo "starting $command, logging to $logout"
+  export command
+  export args
+  export logout
+  export pid
+  nohup start-bit.sh >> ${logout} 2>&1  &
+  sleep 1;
+}
+
+stop_bit ( )
+{
+  if [ -f $pid ]; then
+    pidToKill=`cat $pid`
+    # kill -0 == see if the PID exists
+    if kill -0 $pidToKill > /dev/null 2>&1; then
+      echo stopping $command
+      echo "`date` Terminating $command" pid $pidToKill>> "$DRILLBIT_LOG_PATH"
+      kill $pidToKill > /dev/null 2>&1
+      waitForProcessEnd $pidToKill $command
+      rm $pid
+    else
+      retval=$?
+      echo no $command to stop because kill -0 of pid $pidToKill failed with status $retval
+    fi
+    rm $pid > /dev/null 2>&1
+  else
+    echo no $command to stop because no pid file $pid
+  fi 
 }
 
 pid=$DRILL_PID_DIR/drillbit.pid
 logout="${DRILL_LOG_PREFIX}.out"
-
-# Set default scheduling priority
-DRILL_NICENESS=${DRILL_NICENESS:-0}
 
 thiscmd=$0
 
 case $startStopStatus in
 
 (start)
-    check_before_start
-    echo "starting $command, logging to $logout"
-    nohup $thiscmd internal_start ${args[@]} < /dev/null >> ${logout} 2>&1  &
-    sleep 1;
+  start_bit
   ;;
 
-(internal_start)
-    # Add to the command log file vital stats on our environment.
-    echo "`date` Starting $command on `hostname`" >> "$DRILLBIT_LOG_PATH"
-    echo "`ulimit -a`" >> "$DRILLBIT_LOG_PATH" 2>&1
-    nice -n $DRILL_NICENESS $DRILL_HOME/bin/runbit exec ${args[@]} >> "$logout" 2>&1 &
-    echo $! > $pid
-    wait
+(run)
+  # Launch Drill as a child process. Does not redirect stderr or stdout.
+  # Does not capture the Drillbit pid.
+  # Use this when launching Drill from your own script that manages the
+  # process, such as (roll-your-own) YARN, Mesos, supervisord, etc.
+
+  echo "`date` Starting $command on `hostname`"
+  echo "`ulimit -a`"
+  $DRILL_HOME/bin/runbit exec ${args[@]}
   ;;
 
 (stop)
-    rm -f "$DRILL_START_FILE"
-    if [ -f $pid ]; then
-      pidToKill=`cat $pid`
-      # kill -0 == see if the PID exists
-      if kill -0 $pidToKill > /dev/null 2>&1; then
-        echo stopping $command
-        echo "`date` Terminating $command" pid $pidToKill>> "$DRILLBIT_LOG_PATH"
-        kill $pidToKill > /dev/null 2>&1
-        waitForProcessEnd $pidToKill $command
-        rm $pid
-      else
-        retval=$?
-        echo no $command to stop because kill -0 of pid $pidToKill failed with status $retval
-      fi
-    else
-      echo no $command to stop because no pid file $pid
-    fi
+  stop_bit
   ;;
 
 (restart)
-    # stop the command
-    $thiscmd --config "${DRILL_CONF_DIR}" stop ${args[@]} &
-    wait_until_done $!
-    # wait a user-specified sleep period
-    sp=${DRILL_RESTART_SLEEP:-3}
-    if [ $sp -gt 0 ]; then
-      sleep $sp
-    fi
-    # start the command
-    $thiscmd --config "${DRILL_CONF_DIR}" start ${args[@]} &
-    wait_until_done $!
+  # stop the command
+  stop_bit
+  # wait a user-specified sleep period
+  sp=${DRILL_RESTART_SLEEP:-3}
+  if [ $sp -gt 0 ]; then
+    sleep $sp
+  fi
+  # start the command
+  start_bit
   ;;
 
 (status)
-
-    if [ -f $pid ]; then
-      TARGET_PID=`cat $pid`
-      if kill -0 $TARGET_PID > /dev/null 2>&1; then
-        echo $command is running.
-        exit 0
-      else
-        echo $pid file is present but $command not running.
-        exit 1
-      fi
+  if [ -f $pid ]; then
+    TARGET_PID=`cat $pid`
+    if kill -0 $TARGET_PID > /dev/null 2>&1; then
+      echo $command is running.
+      exit 0
     else
-      echo $command not running.
-      exit 2
+      echo $pid file is present but $command not running.
+      exit 1
     fi
-    ;;
+  else
+    echo $command not running.
+    exit 2
+  fi
+  ;;
 
 (debug)
+  # Undocumented command to print out environment and Drillbit
+  # command line after all adjustments.
 
-    # Undocumented command to print out environment and Drillbit
-    # command line after all adjustments.
-
-    echo "command: $command"
-    echo "args: ${args[@]}"
-    echo "cwd:" `pwd`
-    # Print Drill command line
-    "$DRILL_HOME/bin/runbit" debug ${args[@]}
-    ;;
+  echo "command: $command"
+  echo "args: ${args[@]}"
+  echo "cwd:" `pwd`
+  # Print Drill command line
+  "$DRILL_HOME/bin/runbit" debug ${args[@]}
+  ;;
 
 (*)
   echo $usage

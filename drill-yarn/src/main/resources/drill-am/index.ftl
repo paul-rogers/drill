@@ -15,7 +15,6 @@
 
 <#macro page_body>
   <h4>Drill Cluster Status</h4>
-  <p>&nbsp;
 
   <table class="table table-hover" style="width: auto;">
     <tr>
