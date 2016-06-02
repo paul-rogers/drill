@@ -88,28 +88,28 @@ waitForProcessEnd()
   pidKilled=$1
   commandName=$2
   processedAt=`date +%s`
+  origcnt=${DRILL_STOP_TIMEOUT:-120}
   while kill -0 $pidKilled > /dev/null 2>&1;
    do
      echo -n "."
      sleep 1;
      # if process persists more than $DRILL_STOP_TIMEOUT (default 120 sec) no mercy
-     if [ $(( `date +%s` - $processedAt )) -gt ${DRILL_STOP_TIMEOUT:-120} ]; then
+     if [ $(( `date +%s` - $processedAt )) -gt $origcnt ]; then
        break;
      fi
-   done
+  done
+  echo
   # process still there : kill -9
   if kill -0 $pidKilled > /dev/null 2>&1; then
-    echo -n "Force stopping $commandName with kill -9 $pidKilled"
+    echo "$commandName did not complete after $origcnt seconds, killing with kill -9 $pidKilled"
     $JAVA_HOME/bin/jstack -l $pidKilled > "$logout" 2>&1
     kill -9 $pidKilled > /dev/null 2>&1
   fi
-  # Add a CR after we're done w/ dots.
-  echo
 }
 
 check_before_start()
 {
-  #check if the process is not running
+  #check that the process is not running
   mkdir -p "$DRILL_PID_DIR"
   if [ -f $pid ]; then
     if kill -0 `cat $pid` > /dev/null 2>&1; then
@@ -155,7 +155,7 @@ stop_bit ( )
     # kill -0 == see if the PID exists
     if kill -0 $pidToKill > /dev/null 2>&1; then
       echo "Stopping $command"
-      echo "`date` Terminating $command" pid $pidToKill>> "$DRILLBIT_LOG_PATH"
+      echo "`date` Terminating $command pid $pidToKill" >> "$DRILLBIT_LOG_PATH"
       kill $pidToKill > /dev/null 2>&1
       waitForProcessEnd $pidToKill $command
       retval=0

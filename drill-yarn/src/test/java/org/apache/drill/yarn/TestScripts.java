@@ -64,7 +64,7 @@ public class TestScripts
   public static boolean useSource = USE_SOURCE;
   public static String javaHome = JAVA_HOME;
   public static File testDir;
-  public static File testDistribDir;
+  public static File testDrillHome;
   public static File testSiteDir;
   private static File testLogDir;
 
@@ -79,13 +79,12 @@ public class TestScripts
       "-XX:MaxDirectMemorySize=8G",
       "-XX:MaxPermSize=512M",
       "-XX:ReservedCodeCacheSize=1G",
-      "-Ddrill.exec.enable-epoll=true",
-      "-XX:+CMSClassUnloadingEnabled",
-      "-XX:+UseG1GC",
-      "-Dlog.path=/private/tmp/script-test/drill/log/drillbit.log",
-      "-Dlog.query.path=/private/tmp/script-test/drill/log/drillbit_queries.json",
-      "-cp",
-      "org.apache.drill.exec.server.Drillbit"
+      "-Ddrill\\.exec\\.enable-epoll=true",
+      "-XX:\\+CMSClassUnloadingEnabled",
+      "-XX:\\+UseG1GC",
+      "-Dlog\\.path=/.*/script-test/drill/log/drillbit\\.log",
+      "-Dlog\\.query\\.path=/.*/script-test/drill/log/drillbit_queries\\.json",
+      "org\\.apache\\.drill\\.exec\\.server\\.Drillbit"
   };
 
   /**
@@ -138,7 +137,6 @@ public class TestScripts
       //hadoop-excludes.txt
       "runbit",
       "sqlline",
-      "start-bit.sh",
       //sqlline.bat
       //submit_plan
       "yarn-drillbit.sh"
@@ -152,7 +150,7 @@ public class TestScripts
   public static void initialSetup( ) throws IOException {
     File tempDir = new File( TEMP_DIR );
     testDir = new File( tempDir, "script-test" );
-    testDistribDir = new File( testDir, "drill" );
+    testDrillHome = new File( testDir, "drill" );
     testSiteDir = new File( testDir, "site" );
     testLogDir = new File( testDir, "logs" );
     if ( testDir.exists() ) {
@@ -190,16 +188,16 @@ public class TestScripts
    */
 
   private void createMockDirs() throws IOException {
-    if ( testDistribDir.exists() ) {
-      FileUtils.forceDelete( testDistribDir );
+    if ( testDrillHome.exists() ) {
+      FileUtils.forceDelete( testDrillHome );
     }
-    testDistribDir.mkdir();
+    testDrillHome.mkdir();
     for ( String path : distribDirs ) {
-      File subDir = new File( testDistribDir, path );
+      File subDir = new File( testDrillHome, path );
       subDir.mkdirs();
     }
     for ( String path : jarDirs ) {
-      makeDummyJar( new File( testDistribDir, path ), "dist" );
+      makeDummyJar( new File( testDrillHome, path ), "dist" );
     }
   }
 
@@ -257,11 +255,11 @@ public class TestScripts
    */
 
   private void copyScripts(File sourceDir) throws IOException {
-    File binDir = new File( testDistribDir, "bin" );
+    File binDir = new File( testDrillHome, "bin" );
     for ( String script : scripts ) {
       File source = new File( sourceDir, script );
       File dest = new File( binDir, script );
-      Files.copy(source.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
+      copyFile(source, dest );
       dest.setExecutable( true );
     }
 
@@ -393,8 +391,10 @@ public class TestScripts
       return false;
     }
 
-    public void validateArgs( ) {
-      validateArgs( stdArgs );
+    public void validateStockArgs( ) {
+      for ( String arg : stdArgs ) {
+        assertTrue( "Argument not found: " + arg, containsArgRegex( arg ) );
+      }
     }
 
     public void validateArg( String arg ) {
@@ -457,7 +457,7 @@ public class TestScripts
       if ( classPath == null ) {
         fail( "No classpath returned" );
       }
-      String tail = "/" + testDir.getName( ) + "/" + testDistribDir.getName() + "/";
+      String tail = "/" + testDir.getName( ) + "/" + testDrillHome.getName() + "/";
       String expectedPath;
       if ( expectedCP.startsWith("/") ) {
         expectedPath = expectedCP;
@@ -476,103 +476,258 @@ public class TestScripts
       out = loadFile( outFile );
     }
 
-  }
+    /**
+     * Ensure that the Drill log file contains at least the sample message
+     * written by the wrapper.
+     */
 
-  private void cleanLogs(File logDir) throws IOException {
-    if ( logDir.exists( ) ) {
-      FileUtils.forceDelete( logDir );
+    public void validateDrillLog( ) {
+      assertNotNull(  log );
+      assertTrue(  log.contains( "Drill Log Message" ) );
     }
+
+    /**
+     * Validate that the stdout contained the expected message.
+     */
+
+    public void validateStdOut( ) {
+      assertTrue(  stdout.contains( "Starting drillbit on" ) );
+    }
+
+    /**
+     * Validate that the stderr contained the sample error message from
+     * the wrapper.
+     */
+
+    public void validateStdErr( ) {
+      assertTrue(  stderr.contains( "Stderr Message" ) );
+    }
+
+    public int getPid() throws IOException {
+      BufferedReader reader = new BufferedReader( new FileReader( pidFile ) );
+      int pid = Integer.parseInt( reader.readLine() );
+      reader.close( );
+      return pid;
+    }
+
   }
+  
+  // Drillbit commands
+  
+  public static String DRILLBIT_RUN = "run";
+  public static String DRILLBIT_START = "start";
+  public static String DRILLBIT_STATUS = "status";
+  public static String DRILLBIT_STOP = "stop";
+  public static String DRILLBIT_RESTART = "restart";
 
   /**
    * The "business end" of the tests: runs drillbit.sh and captures results.
    */
 
-  private RunResult runDrillbit( String args[ ], Map<String,String> env ) throws IOException {
-    File outputFile = new File( testDir, "output.txt" );
-    outputFile.delete();
-    List<String> cmd = new ArrayList<>( );
-    String drillbit = testDistribDir.getName() + "/bin/drillbit.sh";
-    cmd.add( drillbit );
-    for ( String arg : args ) {
-      cmd.add( arg );
-    }
-    ProcessBuilder pb = new ProcessBuilder( )
-        .command(cmd)
-        .directory( testDir );
-    Map<String,String> pbEnv = pb.environment();
-    pbEnv.clear();
-    if ( env != null ) {
-      pbEnv.putAll( env );
-    }
-    File binDir = new File( testDistribDir, "bin" );
-    File wrapperCmd = new File( binDir, "wrapper.sh" );
-
-    // Set the magic wrapper to capture output.
-
-    pbEnv.put( "_DRILL_WRAPPER_", wrapperCmd.getAbsolutePath() );
-    pbEnv.put( "JAVA_HOME", javaHome );
-    Process proc = pb.start( );
-    StreamGobbler errorGobbler = new StreamGobbler(proc.getErrorStream());
-    StreamGobbler outputGobbler = new StreamGobbler(proc.getInputStream());
-    outputGobbler.start();
-    errorGobbler.start();
-
-    try {
-      proc.waitFor();
-    } catch (InterruptedException e) {
-      // Won't occur.
+  public static class DrillbitRun
+  {
+    public File cwd = testDir;
+    public File drillHome = testDrillHome;
+    public File drillbit;
+    public List<String> args = new ArrayList<>( );
+    public Map<String,String> env = new HashMap<>( );
+    public File logDir;
+    public File pidDir;
+    public File pidFile;
+    public File outputFile;
+    public boolean preserveLogs;
+    
+    public DrillbitRun( ) {
     }
 
-    RunResult result = new RunResult( );
-    result.stderr = errorGobbler.buf.toString();
-    result.stdout = outputGobbler.buf.toString();
-    result.returnCode = proc.exitValue();
-    if ( result.returnCode != 0 ) {
-      return result;
+    public DrillbitRun( String cmd ) {
+      args.add( cmd );
     }
-
-    // Capture the Java arguments which the wrapper script wrote to a file.
-
-    BufferedReader reader;
-    try {
-      reader = new BufferedReader( new FileReader( outputFile ) );
-    } catch (FileNotFoundException e) {
-      return result;
-    }
-    try {
-      result.echoArgs = new ArrayList<>( );
-      String line;
-      while ( (line = reader.readLine()) != null ) {
-        result.echoArgs.add( line );
+    
+    public DrillbitRun( String cmd[] ) {
+      for ( String arg : cmd ) {
+        args.add( arg );
       }
-      result.analyze( );
     }
-    finally {
-      reader.close( );
+    
+    public DrillbitRun withArg( String arg ) {
+      args.add( arg );
+      return this;
     }
-    return result;
-  }
+    
+    public DrillbitRun withSite( File siteDir ) {
+      if ( siteDir != null ) {
+        args.add( "--site" );
+        args.add( siteDir.getAbsolutePath() );
+      }
+      return this;
+    }
+    
+    public DrillbitRun withEnvironment( Map<String,String> env ) {
+      if ( env != null ) {
+        this.env.putAll( env );
+      }
+      return this;
+    }
+    
+    public DrillbitRun addEnv( String key, String value ) {
+      env.put( key, value );
+      return this;
+    }
+    
+    public DrillbitRun withLogDir( File logDir ) {
+      this.logDir = logDir;
+      return this;
+    }
+    
+    public DrillbitRun withPidDir( File pidDir ) {
+      this.pidDir = pidDir;
+      return this;
+    }
+    
+    public DrillbitRun preserveLogs( ) {
+      preserveLogs = true;
+      return this;
+    }
+    
+    public DrillbitRun asDaemon( )
+    {
+      return addEnv( "KEEP_RUNNING", "1" );
+    }  
+    
+    public RunResult run( ) throws IOException {
+      if ( drillbit == null ) {
+        drillbit = new File ( drillHome, "bin/drillbit.sh" );
+      }
+      outputFile = new File( testDir, "output.txt" );
+      outputFile.delete();   
+      if ( logDir == null ) {
+        logDir = new File( testDrillHome, "log" );
+      }
+      if ( ! preserveLogs ) {
+        cleanLogs( logDir );
+      }
+      
+      Process proc = startProcess( );
+      RunResult result = runProcess( proc );
+      if ( result.returnCode == 0 ) {
+        captureOutput( result );
+        captureLog( result );
+      }
+      return result;
+    }
+    
+    private void cleanLogs(File logDir) throws IOException {
+      if ( logDir.exists( ) ) {
+        FileUtils.forceDelete( logDir );
+      }
+    }
 
-  /**
-   * Run drillbit.sh and capture log output as well from the given log directory.
-   */
+    private Process startProcess( ) throws IOException {
+      outputFile.delete();
+      List<String> cmd = new ArrayList<>( );
+      cmd.add( drillbit.getAbsolutePath( ) );
+      cmd.addAll( args );
+      ProcessBuilder pb = new ProcessBuilder( )
+          .command(cmd)
+          .directory( cwd );
+      Map<String,String> pbEnv = pb.environment();
+      pbEnv.clear();
+      pbEnv.putAll( env );
+      File binDir = new File( drillHome, "bin" );
+      File wrapperCmd = new File( binDir, "wrapper.sh" );
 
-  private RunResult runDrillbit( String args[ ], Map<String,String> env, File logDir ) throws IOException {
-    if ( logDir == null ) {
-      logDir = new File( testDistribDir, "log" );
+      // Set the magic wrapper to capture output.
+
+      pbEnv.put( "_DRILL_WRAPPER_", wrapperCmd.getAbsolutePath() );
+      pbEnv.put( "JAVA_HOME", javaHome );
+      return pb.start( );
     }
-    cleanLogs( logDir );
-    RunResult result = runDrillbit( args, env );
-    result.logDir = logDir;
-    result.logFile = new File( logDir, "drillbit.log" );
-    if ( result.logFile.exists() ) {
-      result.loadLog( );
+    
+    private RunResult runProcess(Process proc) {
+      StreamGobbler errorGobbler = new StreamGobbler(proc.getErrorStream());
+      StreamGobbler outputGobbler = new StreamGobbler(proc.getInputStream());
+      outputGobbler.start();
+      errorGobbler.start();
+
+      try {
+        proc.waitFor();
+      } catch (InterruptedException e) {
+        // Won't occur.
+      }
+
+      RunResult result = new RunResult( );
+      result.stderr = errorGobbler.buf.toString();
+      result.stdout = outputGobbler.buf.toString();
+      result.returnCode = proc.exitValue();
+      return result;
     }
-    else {
-      result.logFile = null;
+
+    private void captureOutput(RunResult result) throws IOException {
+      // Capture the Java arguments which the wrapper script wrote to a file.
+
+      BufferedReader reader;
+      try {
+        reader = new BufferedReader( new FileReader( outputFile ) );
+      } catch (FileNotFoundException e) {
+        return;
+      }
+      try {
+        result.echoArgs = new ArrayList<>( );
+        String line;
+        while ( (line = reader.readLine()) != null ) {
+          result.echoArgs.add( line );
+        }
+        result.analyze( );
+      }
+      finally {
+        reader.close( );
+      }
     }
-    return result;
+
+    private void captureLog(RunResult result) throws IOException {
+      result.logDir = logDir;
+      result.logFile = new File( logDir, "drillbit.log" );
+      if ( result.logFile.exists() ) {
+        result.loadLog( );
+      }
+      else {
+        result.logFile = null;
+      }
+    }
+
+    public RunResult start( ) throws IOException {
+      if ( pidDir == null ) {
+        pidDir = drillHome;
+      }
+      pidFile = new File( pidDir, "drillbit.pid" );
+//      pidFile.delete();
+      asDaemon( );
+      RunResult result = run( );
+      if ( result.returnCode == 0 ) {
+        capturePidFile( result );
+        captureDrillOut( result );
+      }
+      return result;
+    }
+    
+    private void capturePidFile( RunResult result ) {
+      assertTrue( pidFile.exists() );
+      result.pidFile = pidFile;
+    }
+
+    private void captureDrillOut( RunResult result ) throws IOException {
+      // Drillbit.out
+      
+      result.outFile = new File( result.logDir, "drillbit.out" );
+      if ( result.outFile.exists() ) {
+        result.loadOut( );
+      }
+      else {
+        result.outFile = null;
+      }
+    }
+    
   }
 
   /**
@@ -584,33 +739,6 @@ public class TestScripts
     createDir( siteDir );
     File override = new File( siteDir, "drill-override.conf" );
     writeFile( override, "# Dummy override" );
-  }
-
-  /**
-   * Ensure that the Drill log file contains at least the sample message
-   * written by the wrapper.
-   */
-
-  private void validateDrillLog(RunResult result) {
-    assertNotNull( result.log );
-    assertTrue( result.log.contains( "Drill Log Message" ) );
-  }
-
-  /**
-   * Validate that the stdout contained the expected message.
-   */
-
-  private void validateStdOut(RunResult result) {
-    assertTrue( result.stdout.contains( "Starting drillbit on" ) );
-  }
-
-  /**
-   * Validate that the stderr contained the sample error message from
-   * the wrapper.
-   */
-
-  private void validateStdErr(RunResult result) {
-    assertTrue( result.stderr.contains( "Stderr Message" ) );
   }
 
   private void removeDir(File dir) throws IOException {
@@ -641,29 +769,32 @@ public class TestScripts
   public void testStockCombined( ) throws IOException
   {
     createMockDistrib( );
-    File siteDir = new File( testDistribDir, "conf" );
+    File siteDir = new File( testDrillHome, "conf" );
     createMockConf( siteDir );
 
     // No drill-env.sh, no distrib-env.sh
 
     {
-      RunResult result = runDrillbit( new String[ ] { "run" }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .run( );
       assertEquals( 0, result.returnCode );
       result.validateJava( );
-      result.validateArgs( );
+      result.validateStockArgs( );
       result.validateClassPath( stdCp );
-      validateStdOut( result );
-      validateStdErr( result );
-      validateDrillLog( result );
+      result.validateStdOut( );
+      result.validateStdErr( );
+      result.validateDrillLog( );
     }
 
     // As above, but pass an argument.
 
     {
       String propArg = "-Dproperty=value";
-      RunResult result = runDrillbit( new String[ ] { "run", propArg }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .withArg( propArg )
+          .run( );
       assertEquals( 0, result.returnCode );
-      validateStdOut( result );
+      result.validateStdOut( );
       result.validateArg( propArg );
     }
 
@@ -671,12 +802,12 @@ public class TestScripts
 
     {
       String propArg = "-Dproperty=value";
-      Map<String,String> env = new HashMap<>( );
-      env.put( "DRILL_JAVA_OPTS", propArg );
-      RunResult result = runDrillbit( new String[ ] { "run" }, env, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .addEnv( "DRILL_JAVA_OPTS", propArg )
+          .run( );
       assertEquals( 0, result.returnCode );
-      result.validateArgs( ); // Should not lose standard JVM args
-      validateStdOut( result );
+      result.validateStockArgs( ); // Should not lose standard JVM args
+      result.validateStdOut( );
       result.validateArg( propArg );
     }
 
@@ -684,12 +815,12 @@ public class TestScripts
 
     {
       String propArg = "-Dproperty2=value2";
-      Map<String,String> env = new HashMap<>( );
-      env.put( "DRILLBIT_JAVA_OPTS", propArg );
-      RunResult result = runDrillbit( new String[ ] { "run" }, env, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .addEnv( "DRILLBIT_JAVA_OPTS", propArg )
+          .run( );
       assertEquals( 0, result.returnCode );
-      result.validateArgs( ); // Should not lose standard JVM args
-      validateStdOut( result );
+      result.validateStockArgs( ); // Should not lose standard JVM args
+      result.validateStdOut( );
       result.validateArg( propArg );
     }
 
@@ -698,10 +829,10 @@ public class TestScripts
     {
       String propArg = "-Dproperty=value";
       String propArg2 = "-Dproperty2=value2";
-      Map<String,String> env = new HashMap<>( );
-      env.put( "DRILL_JAVA_OPTS", propArg );
-      env.put( "DRILLBIT_JAVA_OPTS", propArg2 );
-      RunResult result = runDrillbit( new String[ ] { "run" }, env, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .addEnv( "DRILL_JAVA_OPTS", propArg )
+          .addEnv( "DRILLBIT_JAVA_OPTS", propArg2 )
+          .run( );
       assertEquals( 0, result.returnCode );
       result.validateArgs( new String[] { propArg, propArg2 } );
     }
@@ -709,47 +840,46 @@ public class TestScripts
     // Custom heap memory
 
     {
-      Map<String,String> env = new HashMap<>( );
-      env.put( "DRILL_HEAP", "5G" );
-      RunResult result = runDrillbit( new String[ ] { "run" }, env, null );
-      String args[] = { "-Xms5G", "-Xmx5G" };
-      result.validateArgs( args );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .addEnv( "DRILL_HEAP", "5G" )
+          .run( );
+      result.validateArgs( new String[] { "-Xms5G", "-Xmx5G" } );
     }
 
     // Custom direct memory
 
     {
-      Map<String,String> env = new HashMap<>( );
-      env.put( "DRILL_MAX_DIRECT_MEMORY", "7G" );
-      RunResult result = runDrillbit( new String[ ] { "run" }, env, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .addEnv( "DRILL_MAX_DIRECT_MEMORY", "7G" )
+          .run( );
       result.validateArg( "-XX:MaxDirectMemorySize=7G" );
     }
 
     // Enable GC logging
 
     {
-      Map<String,String> env = new HashMap<>( );
-      env.put( "SERVER_LOG_GC", "1" );
-      RunResult result = runDrillbit( new String[ ] { "run" }, env, null );
-      String logTail = testDistribDir.getName() + "/log/drillbit.gc";
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .addEnv( "SERVER_LOG_GC", "1" )
+          .run( );
+      String logTail = testDrillHome.getName() + "/log/drillbit.gc";
       result.validateArgRegex( "-Xloggc:.*/" + logTail );
     }
 
     // Max Perm Size
 
     {
-      Map<String,String> env = new HashMap<>( );
-      env.put( "DRILLBIT_MAX_PERM", "600M" );
-      RunResult result = runDrillbit( new String[ ] { "run" }, env, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .addEnv( "DRILLBIT_MAX_PERM", "600M" )
+          .run( );
       result.validateArg( "-XX:MaxPermSize=600M" );
     }
 
     // Code cache size
 
     {
-      Map<String,String> env = new HashMap<>( );
-      env.put( "DRILLBIT_CODE_CACHE_SIZE", "2G" );
-      RunResult result = runDrillbit( new String[ ] { "run" }, env, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .addEnv( "DRILLBIT_CODE_CACHE_SIZE", "2G" )
+          .run( );
       result.validateArg( "-XX:ReservedCodeCacheSize=2G" );
     }
   }
@@ -765,7 +895,7 @@ public class TestScripts
   public void testClassPath( ) throws IOException
   {
     createMockDistrib( );
-    File siteDir = new File( testDistribDir, "conf" );
+    File siteDir = new File( testDrillHome, "conf" );
     createMockConf( siteDir );
 
     File extrasDir = createDir( new File( testDir, "extras" ) );
@@ -777,44 +907,44 @@ public class TestScripts
     File toolsJar = makeDummyJar( extrasDir, "tools" );
 
     {
-      Map<String,String> env = new HashMap<>( );
-      env.put( "DRILL_CLASSPATH_PREFIX", prefixJar.getAbsolutePath() );
-      RunResult result = runDrillbit( new String[ ] { "run" }, env, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .addEnv( "DRILL_CLASSPATH_PREFIX", prefixJar.getAbsolutePath() )
+          .run( );
       result.validateClassPath( prefixJar.getAbsolutePath() );
     }
 
     {
-      Map<String,String> env = new HashMap<>( );
-      env.put( "DRILL_TOOL_CP", toolsJar.getAbsolutePath() );
-      RunResult result = runDrillbit( new String[ ] { "run" }, env, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .addEnv( "DRILL_TOOL_CP", toolsJar.getAbsolutePath() )
+          .run( );
       result.validateClassPath( toolsJar.getAbsolutePath() );
     }
 
     {
-      Map<String,String> env = new HashMap<>( );
-      env.put( "HADOOP_CLASSPATH", hadoopJar.getAbsolutePath() );
-      RunResult result = runDrillbit( new String[ ] { "run" }, env, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .addEnv( "HADOOP_CLASSPATH", hadoopJar.getAbsolutePath() )
+          .run( );
       result.validateClassPath( hadoopJar.getAbsolutePath() );
     }
 
     {
-      Map<String,String> env = new HashMap<>( );
-      env.put( "HBASE_CLASSPATH", hbaseJar.getAbsolutePath() );
-      RunResult result = runDrillbit( new String[ ] { "run" }, env, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .addEnv( "HBASE_CLASSPATH", hbaseJar.getAbsolutePath() )
+          .run( );
       result.validateClassPath( hbaseJar.getAbsolutePath() );
     }
 
     {
-      Map<String,String> env = new HashMap<>( );
-      env.put( "EXTN_CLASSPATH", extnJar.getAbsolutePath() );
-      RunResult result = runDrillbit( new String[ ] { "run" }, env, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .addEnv( "EXTN_CLASSPATH", extnJar.getAbsolutePath() )
+          .run( );
       result.validateClassPath( extnJar.getAbsolutePath() );
     }
 
     {
-      Map<String,String> env = new HashMap<>( );
-      env.put( "DRILL_CLASSPATH", cpJar.getAbsolutePath() );
-      RunResult result = runDrillbit( new String[ ] { "run" }, env, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .addEnv( "DRILL_CLASSPATH", cpJar.getAbsolutePath() )
+          .run( );
       result.validateClassPath( cpJar.getAbsolutePath() );
     }
 
@@ -822,7 +952,8 @@ public class TestScripts
 
     File siteJars = new File( siteDir, "jars" );
     {
-      RunResult result = runDrillbit( new String[ ] { "run" }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .run( );
       assertFalse( result.classPathContains( siteJars.getAbsolutePath() ) );
     }
 
@@ -832,7 +963,8 @@ public class TestScripts
     makeDummyJar( siteJars, "site" );
 
     {
-      RunResult result = runDrillbit( new String[ ] { "run" }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .run( );
       result.validateClassPath( siteJars.getAbsolutePath() + "/*" );
     }
   }
@@ -845,24 +977,25 @@ public class TestScripts
   public void testLogDir( ) throws IOException
   {
     createMockDistrib( );
-    File siteDir = new File( testDistribDir, "conf" );
+    File siteDir = new File( testDrillHome, "conf" );
     createMockConf( siteDir );
     File logsDir = createDir( new File( testDir, "logs" ) );
-    removeDir( new File( testDistribDir, "log" ) );
+    removeDir( new File( testDrillHome, "log" ) );
 
     {
       String logPath = logsDir.getAbsolutePath();
-      Map<String,String> env = new HashMap<>( );
-      env.put( "DRILL_LOG_DIR", logPath );
-      RunResult result = runDrillbit( new String[ ] { "run" }, env, logsDir );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .addEnv( "DRILL_LOG_DIR", logPath )
+          .withLogDir( logsDir )
+          .run( );
       assertEquals( 0, result.returnCode );
       result.validateArgs( new String[] {
           "-Dlog.path=" + logPath + "/drillbit.log",
           "-Dlog.query.path=" + logPath + "/drillbit_queries.json",
       } );
-      validateStdOut( result );
-      validateStdErr( result );
-      validateDrillLog( result );
+      result.validateStdOut( );
+      result.validateStdErr( );
+      result.validateDrillLog( );
     }
 
   }
@@ -896,7 +1029,7 @@ public class TestScripts
   private void doEnvFileTest( String fileName ) throws IOException
   {
     createMockDistrib( );
-    File siteDir = new File( testDistribDir, "conf" );
+    File siteDir = new File( testDrillHome, "conf" );
     createMockConf( siteDir );
 
     /**
@@ -914,7 +1047,8 @@ public class TestScripts
     createEnvFile( new File( siteDir, fileName ), drillEnv );
 
     {
-      RunResult result = runDrillbit( new String[ ] { "run" }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .run( );
       assertEquals( 0, result.returnCode );
 
       String expectedArgs[] = {
@@ -926,7 +1060,7 @@ public class TestScripts
       };
 
       result.validateArgs( expectedArgs );
-      String logTail = testDistribDir.getName() + "/log/drillbit.gc";
+      String logTail = testDrillHome.getName() + "/log/drillbit.gc";
       result.validateArgRegex( "-Xloggc:.*/" + logTail );
     }
 
@@ -935,15 +1069,14 @@ public class TestScripts
     // (The generated form is the form that customers should use.)
 
     {
-      Map<String,String> env = new HashMap<>( );
-      env.put( "SERVER_LOG_GC", "0" );
-      env.put( "DRILL_MAX_DIRECT_MEMORY", "9G" );
-
-      RunResult result = runDrillbit( new String[ ] { "run" }, env, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .addEnv( "SERVER_LOG_GC", "0" )
+          .addEnv( "DRILL_MAX_DIRECT_MEMORY", "9G" )
+          .run( );
       assertEquals( 0, result.returnCode );
       result.validateArg( "-XX:MaxDirectMemorySize=9G" );
       result.validateArg( "-XX:MaxPermSize=600M" );
-      String logTail = testDistribDir.getName() + "/log/drillbit.gc";
+      String logTail = testDrillHome.getName() + "/log/drillbit.gc";
       assertFalse( result.containsArgRegex( "-Xloggc:.*/" + logTail ) );
     }
   }
@@ -959,7 +1092,7 @@ public class TestScripts
   public void testDrillAndDistribEnv( ) throws IOException
   {
     createMockDistrib( );
-    File siteDir = new File( testDistribDir, "conf" );
+    File siteDir = new File( testDrillHome, "conf" );
     createMockConf( siteDir );
 
     Map<String,String> distribEnv = new HashMap<>( );
@@ -974,7 +1107,8 @@ public class TestScripts
     createEnvFile( new File( siteDir, "drill-env.sh" ), drillEnv );
 
     {
-      RunResult result = runDrillbit( new String[ ] { "run" }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .run( );
       assertEquals( 0, result.returnCode );
       String expectedArgs[] = {
           "-Xms6G", "-Xmx6G",
@@ -987,10 +1121,9 @@ public class TestScripts
     }
 
     {
-      Map<String,String> env = new HashMap<>( );
-      env.put( "DRILL_MAX_DIRECT_MEMORY", "5G" );
-
-      RunResult result = runDrillbit( new String[ ] { "run" }, env, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .addEnv( "DRILL_MAX_DIRECT_MEMORY", "5G" )
+          .run( );
       assertEquals( 0, result.returnCode );
       String expectedArgs[] = {
           "-Xms6G", "-Xmx6G",
@@ -1006,6 +1139,42 @@ public class TestScripts
   @Test
   public void testBadSiteDir( ) throws IOException
   {
+    createMockDistrib( );
+    File siteDir = new File( testDrillHome, "conf" );
+    removeDir( siteDir );
+    
+    // Directory does not exist.
+    
+    {
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .withSite( siteDir )
+          .run( );
+      assertEquals( 1, result.returnCode );
+      assertTrue( result.stderr.contains( "Config dir does not exist" ) );
+    }
+    
+    // Not a directory
+    
+    writeFile( siteDir, "dummy" );
+    {
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .withSite( siteDir )
+          .run( );
+      assertEquals( 1, result.returnCode );
+      assertTrue( result.stderr.contains( "Config dir does not exist" ) );
+    }
+    
+    // Directory exists, but drill-override.conf does not
+    
+    siteDir.delete( );
+    createDir( siteDir );
+    {
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .withSite( siteDir )
+          .run( );
+      assertEquals( 1, result.returnCode );
+      assertTrue( result.stderr.contains( "Drill config file missing" ) );
+    }
   }
 
   /**
@@ -1021,7 +1190,7 @@ public class TestScripts
   public void testSiteDir( ) throws IOException
   {
     createMockDistrib( );
-    File confDir = new File( testDistribDir, "conf" );
+    File confDir = new File( testDrillHome, "conf" );
     createDir( confDir );
     File siteDir = new File( testDir, "site" );
     createMockConf( siteDir );
@@ -1055,20 +1224,31 @@ public class TestScripts
     // Site set using argument
 
     {
-      RunResult result = runDrillbit( new String[ ] { "run", "--config", siteDir.getAbsolutePath() }, null, null );
+      // Use --config explicitly
+      
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .withArg( "--config" )
+          .withArg( siteDir.getAbsolutePath() )
+          .run( );
       assertEquals( 0, result.returnCode );
       result.validateArgs(expectedArgs );
       result.validateClassPath( siteDir.getAbsolutePath() );
     }
 
     {
-      RunResult result = runDrillbit( new String[ ] { "--config", siteDir.getAbsolutePath(), "run" }, null, null );
+      RunResult result = new DrillbitRun( )
+          .withArg( "--config" )
+          .withArg( siteDir.getAbsolutePath() )
+          .withArg( DRILLBIT_RUN )
+          .run( );
       assertEquals( 0, result.returnCode );
       result.validateArgs(expectedArgs );
     }
 
     {
-      RunResult result = runDrillbit( new String[ ] { "run", "--site", siteDir.getAbsolutePath() }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .withSite( siteDir )
+          .run( );
       assertEquals( 0, result.returnCode );
       result.validateArgs(expectedArgs );
     }
@@ -1077,7 +1257,10 @@ public class TestScripts
 
     {
       String propArg = "-Dproperty=value";
-      RunResult result = runDrillbit( new String[ ] { "run", "--site", siteDir.getAbsolutePath(), propArg }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .withSite( siteDir )
+          .withArg( propArg )
+          .run( );
       assertEquals( 0, result.returnCode );
       result.validateArgs(expectedArgs );
       result.validateArg( propArg );
@@ -1086,9 +1269,9 @@ public class TestScripts
     // Set as an environment variable
 
     {
-      Map<String,String> env = new HashMap<>( );
-      env.put( "DRILL_CONF_DIR", siteDir.getAbsolutePath() );
-      RunResult result = runDrillbit( new String[ ] { "run" }, env, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .addEnv( "DRILL_CONF_DIR", siteDir.getAbsolutePath() )
+          .run( );
       assertEquals( 0, result.returnCode );
       result.validateArgs(expectedArgs );
     }
@@ -1096,7 +1279,9 @@ public class TestScripts
     // Site jars not on path if not created
 
     {
-      RunResult result = runDrillbit( new String[ ] { "run", "--site", siteDir.getAbsolutePath() }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .withSite( siteDir )
+          .run( );
       assertFalse( result.classPathContains( siteJars.getAbsolutePath() ) );
     }
 
@@ -1106,57 +1291,13 @@ public class TestScripts
     makeDummyJar( siteJars, "site" );
 
     {
-      RunResult result = runDrillbit( new String[ ] { "run", "--site", siteDir.getAbsolutePath() }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_RUN )
+          .withSite( siteDir )
+          .run( );
       assertTrue( result.classPathContains( siteJars.getAbsolutePath() + "/*" ) );
     }
   }
 
-  public void asDaemon( Map<String,String> env )
-  {
-    env.put( "KEEP_RUNNING", "1" );
-  }
-  
-  public RunResult startDrillbit( String args[ ], Map<String,String> env, File logDir, File pidDir ) throws IOException
-  {
-    if ( pidDir == null ) {
-      pidDir = testDistribDir;
-    }
-    File pidFile = new File( pidDir, "drillbit.pid" );
-    pidFile.delete();
-    
-//    int count = 1;
-//    if ( args != null ) {
-//      count += args.length;
-//    }
-//    String cmdArgs[] = new String[ count ];
-//    cmdArgs[0] = "start";
-//    for ( int i = 0;  i < args.length;  i++ ) {
-//      cmdArgs[i+1] = args[i];
-//    }
-    if ( env == null ) {
-      env = new HashMap<>( );
-    }
-    env.put( "KEEP_RUNNING", "1" );
-    RunResult result = runDrillbit( args, env, logDir );
-    if ( result.returnCode != 0 ) {
-      return result;
-    }
-    
-    assertTrue( pidFile.exists() );
-    result.pidFile = pidFile;
-
-    // Drillbit.out
-    
-    result.outFile = new File( result.logDir, "drillbit.out" );
-    if ( result.outFile.exists() ) {
-      result.loadOut( );
-    }
-    else {
-      result.outFile = null;
-    }
-    return result;
-  }
-  
   public void copyFile( File source, File dest ) throws IOException {
     Files.copy( source.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING );
   }
@@ -1171,17 +1312,18 @@ public class TestScripts
   public void testStockDaemon( ) throws IOException
   {
     createMockDistrib( );
-    File siteDir = new File( testDistribDir, "conf" );
+    File siteDir = new File( testDrillHome, "conf" );
     createMockConf( siteDir );
 
     // No drill-env.sh, no distrib-env.sh
 
     File pidFile;
     {
-      RunResult result = startDrillbit( new String[] { "start" }, null, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_START )
+          .start( );
       assertEquals( 0, result.returnCode );
       result.validateJava( );
-      result.validateArgs( );
+      result.validateStockArgs( );
       result.validateClassPath( stdCp );
       assertTrue( result.stdout.contains( "Starting drillbit, logging") );
       assertTrue( result.log.contains( "Starting drillbit on" ) );
@@ -1202,7 +1344,8 @@ public class TestScripts
     // Status should be running
     
     {
-      RunResult result = runDrillbit( new String[] { "status" }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_STATUS )
+          .run( );
       assertEquals( 0, result.returnCode );
       assertTrue( result.stdout.contains( "drillbit is running" ) );
     }
@@ -1210,7 +1353,8 @@ public class TestScripts
     // Start should refuse to start a second Drillbit.
     
     {
-      RunResult result = runDrillbit( new String[] { "start" }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_START )
+          .start( );
       assertEquals( 1, result.returnCode );
       assertTrue( result.stdout.contains( "drillbit is already running as process" ) );
     }
@@ -1218,7 +1362,8 @@ public class TestScripts
     // Normal start, allow normal shutdown
     
     {
-      RunResult result = runDrillbit( new String[] { "stop" }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_STOP )
+          .run( );
       assertEquals( 0, result.returnCode );
       assertTrue( result.log.contains( "Terminating drillbit pid" ) );
       assertTrue( result.stdout.contains( "Stopping drillbit" ) );
@@ -1227,7 +1372,8 @@ public class TestScripts
     // Status should report no drillbit (no pid file)
     
     {
-      RunResult result = runDrillbit( new String[] { "status" }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_STATUS )
+          .run( );
       assertEquals( 1, result.returnCode );
       assertTrue( result.stdout.contains( "drillbit is not running" ) );
     }
@@ -1235,7 +1381,8 @@ public class TestScripts
     // Stop should report no pid file
     
     {
-      RunResult result = runDrillbit( new String[] { "stop" }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_STOP )
+          .run( );
       assertEquals( 1, result.returnCode );
       assertTrue( result.stdout.contains( "No drillbit to stop because no pid file" ) );
     }
@@ -1247,7 +1394,8 @@ public class TestScripts
     // Status should now complain.
     
     {
-      RunResult result = runDrillbit( new String[] { "status" }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_STATUS )
+          .run( );
       assertEquals( 1, result.returnCode );
       assertTrue( result.stdout.contains( "file is present but drillbit is not running" ) );
     }
@@ -1255,7 +1403,8 @@ public class TestScripts
     // As should stop.
     
     {
-      RunResult result = runDrillbit( new String[] { "stop" }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_STOP )
+          .run( );
       assertEquals( 1, result.returnCode );
       assertTrue( result.stdout.contains( "No drillbit to stop because kill -0 of pid" ) );
     }
@@ -1265,46 +1414,270 @@ public class TestScripts
   public void testStockDaemonWithArg( ) throws IOException
   {
     createMockDistrib( );
-    File siteDir = new File( testDistribDir, "conf" );
+    File siteDir = new File( testDrillHome, "conf" );
     createMockConf( siteDir );
     
     // As above, but pass an argument.
 
     {
       String propArg = "-Dproperty=value";
-      RunResult result = startDrillbit( new String[ ] { "start", propArg }, null, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_START )
+          .withArg( propArg )
+          .start( );
       assertEquals( 0, result.returnCode );
       result.validateArg( propArg );
     }
-
+    
+    validateAndCloseDaemon( null );
+  }
+  
+  private void validateAndCloseDaemon( File siteDir ) throws IOException
+  {
     {
-      RunResult result = runDrillbit( new String[] { "status" }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_STATUS )
+          .withSite( siteDir )
+          .run( );
       assertEquals( 0, result.returnCode );
       assertTrue( result.stdout.contains( "drillbit is running" ) );
     }
     
     {
-      RunResult result = runDrillbit( new String[] { "stop" }, null, null );
+      RunResult result = new DrillbitRun( DRILLBIT_STOP )
+          .withSite( siteDir )
+          .run( );
       assertEquals( 0, result.returnCode );
     }
   }
+  
+  /**
+   * The Daemon process creates a pid file. Verify that the DRILL_PID_DIR can
+   * be set to put the pid file in a custom location. The test is done with
+   * the site (conf) dir in the default location.
+   * 
+   * @throws IOException
+   */
 
   @Test
   public void testPidDir( ) throws IOException
   {
     createMockDistrib( );
-    File siteDir = new File( testDistribDir, "conf" );
+    File siteDir = new File( testDrillHome, "conf" );
     createMockConf( siteDir );
     File pidDir = createDir( new File( testDir, "pid" ) );
+    Map<String,String> drillEnv = new HashMap<>( );
+    drillEnv.put( "DRILL_PID_DIR", pidDir.getAbsolutePath() );
+    createEnvFile( new File( siteDir, "drill-env.sh" ), drillEnv );
 
-    // TODO: Needs to create a PID file
+    {
+      RunResult result = new DrillbitRun( DRILLBIT_START )
+          .withPidDir( pidDir )
+          .start( );
+      assertEquals( 0, result.returnCode );
+      assertTrue( result.pidFile.getParentFile().equals( pidDir ) );
+      assertTrue( result.pidFile.exists() );
+    }
+    
+    validateAndCloseDaemon( null );
   }
   
-  // Drillbit is a symlink
+  /**
+   * Test a custom site directory with the Drill daemon process.
+   * The custom directory contains a drill-env.sh with a custom
+   * option. Verify that that option is picked up when starting Drill.
+   * 
+   * @throws IOException
+   */
+
+  @Test
+  public void testSiteDirWithDaemon( ) throws IOException
+  {
+    createMockDistrib( );
+
+    File siteDir = new File( testDir, "site" );
+    createMockConf( siteDir );
+    
+    Map<String,String> drillEnv = new HashMap<>( );
+    drillEnv.put( "DRILL_MAX_DIRECT_MEMORY", "9G" );
+    createEnvFile( new File( siteDir, "drill-env.sh" ), drillEnv );
+    
+    // Use the -site (--config) option.
+    
+    {
+      RunResult result = new DrillbitRun( DRILLBIT_START )
+          .withSite( siteDir )
+          .start( );
+      assertEquals( 0, result.returnCode );
+      result.validateArg( "-XX:MaxDirectMemorySize=9G" );
+    }
+    
+    validateAndCloseDaemon( siteDir );
+    
+    // Set an env var.
+    
+    {
+      RunResult result = new DrillbitRun( DRILLBIT_START )
+          .addEnv( "DRILL_CONF_DIR", siteDir.getAbsolutePath() )
+          .start( );
+      assertEquals( 0, result.returnCode );
+      result.validateArg( "-XX:MaxDirectMemorySize=9G" );
+    }
+    
+    validateAndCloseDaemon( siteDir );
+  }
   
-  // Invalid conf dir
+  /**
+   * Launch the Drill daemon using a custom log file location.
+   * The config is in the default location.
+   * 
+   * @throws IOException
+   */
+
+  @Test
+  public void testLogDirWithDaemon( ) throws IOException
+  {
+    createMockDistrib( );
+    File siteDir = new File( testDrillHome, "conf" );
+    createMockConf( siteDir );
+    File logsDir = createDir( new File( testDir, "logs" ) );
+    removeDir( new File( testDrillHome, "log" ) );
+    Map<String,String> drillEnv = new HashMap<>( );
+    drillEnv.put( "DRILL_LOG_DIR", logsDir.getAbsolutePath() );
+    createEnvFile( new File( siteDir, "drill-env.sh" ), drillEnv );
+
+    {
+      RunResult result = new DrillbitRun( DRILLBIT_START )
+          .withLogDir( logsDir )
+          .start( );
+      assertEquals( 0, result.returnCode );
+      assertNotNull( result.logFile );
+      assertTrue( result.logFile.getParentFile().equals( logsDir ) );
+      assertTrue( result.logFile.exists() );
+      assertNotNull( result.outFile );
+      assertTrue( result.outFile.getParentFile().equals( logsDir ) );
+      assertTrue( result.outFile.exists() );
+    }
+    
+    validateAndCloseDaemon( null );
+  }
   
-  // Invalid log dir
+  /**
+   * Some distributions create symlinks to drillbit.sh in standard locations
+   * such as /usr/bin. Because drillbit.sh uses its own location to compute
+   * DRILL_HOME, it must handle symlinks. This test verifies that process.
+   * 
+   * @throws IOException
+   */
+
+  @Test
+  public void testDrillbitSymlink( ) throws IOException
+  {
+    createMockDistrib( );
+    File siteDir = new File( testDrillHome, "conf" );
+    createMockConf( siteDir );
+    
+    File drillbitFile = new File( testDrillHome, "bin/drillbit.sh" );
+    File linksDir = createDir( new File( testDir, "links" ) );
+    File link = new File( linksDir, drillbitFile.getName( ) );
+    try {
+      Files.createSymbolicLink(link.toPath(), drillbitFile.toPath() );
+    }
+    catch ( UnsupportedOperationException e ) {
+      // Well. This is a system without symlinks, so we won't be testing
+      // syminks here...
+
+      return;
+    }
+    
+    {
+      RunResult result = new DrillbitRun( DRILLBIT_START )
+          .start( );
+      assertEquals( 0, result.returnCode );
+      assertEquals( result.pidFile.getParentFile( ), testDrillHome );
+    }
+    validateAndCloseDaemon( null );
+  }
   
-  // Drillbit restart
+  /**
+   * Test the restart command of drillbit.sh
+   * @throws IOException 
+   */
+
+  @Test
+  public void testRestart( ) throws IOException
+  {
+    createMockDistrib( );
+    File siteDir = new File( testDrillHome, "conf" );
+    createMockConf( siteDir );
+
+    int firstPid;
+    {
+      RunResult result = new DrillbitRun( DRILLBIT_START )
+          .start( );
+      assertEquals( 0, result.returnCode );
+      firstPid = result.getPid( );
+    }
+    
+    // Make sure it is running.
+    
+    {
+      RunResult result = new DrillbitRun( DRILLBIT_STATUS )
+          .withSite( siteDir )
+          .run( );
+      assertEquals( 0, result.returnCode );
+      assertTrue( result.stdout.contains( "drillbit is running" ) );
+    }
+    
+    // Restart. Should get new pid.
+    
+    {
+      RunResult result = new DrillbitRun( DRILLBIT_RESTART )
+          .start( );
+      assertEquals( 0, result.returnCode );
+      int secondPid = result.getPid( );
+      assertNotEquals( firstPid, secondPid );
+    }
+    
+    validateAndCloseDaemon( null );
+  }
+  
+  /**
+   * Simulate a Drillbit that refuses to die. The stop script wait a while,
+   * then forces killing.
+   * 
+   * @throws IOException
+   */
+  
+  @Test
+  public void testForcedKill( ) throws IOException
+  {
+    createMockDistrib( );
+    File siteDir = new File( testDrillHome, "conf" );
+    createMockConf( siteDir );
+    
+    {
+      RunResult result = new DrillbitRun( DRILLBIT_START )
+          .addEnv( "PRETEND_HUNG", "1")
+          .start( );
+      assertEquals( 0, result.returnCode );
+    }
+    
+    {
+      RunResult result = new DrillbitRun( DRILLBIT_STATUS )
+          .preserveLogs( )
+          .run( );
+      assertEquals( 0, result.returnCode );
+      assertTrue( result.stdout.contains( "drillbit is running" ) );
+    }
+    
+    {
+      RunResult result = new DrillbitRun( DRILLBIT_STOP )
+          .addEnv( "DRILL_STOP_TIMEOUT", "5" )
+          .preserveLogs( )
+          .run( );
+      assertEquals( 0, result.returnCode );
+      assertTrue( result.stdout.contains( "drillbit did not complete after" ) );
+    }
+  }
+  
+  // Fixed locations (may be hard to test)
 }
