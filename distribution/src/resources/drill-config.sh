@@ -76,8 +76,7 @@ DRILL_HOME=${DRILL_HOME:-$home}
 
 fatal_error() {
   echo "ERROR: $@" 1>&2
-  # Exit code of 110 means bad config.
-  exit 110
+  exit 1
 }
 
 # Check to see if the conf dir or drill home are given as an optional arguments
@@ -128,10 +127,10 @@ fi
 
 testFile="$DRILL_CONF_DIR/drill-override.conf"
 if [[ ! -a "$testFile" ]]; then
-  fatal_error "Drill Log config file missing: $testFile -- Wrong config dir?"
+  fatal_error "Drill config file missing: $testFile -- Wrong config dir?"
 fi
 if [[ ! -r "$testFile" ]]; then
-  fatal_error "Drill Log config file not readable: $testFile - Wrong user?"
+  fatal_error "Drill config file not readable: $testFile - Wrong user?"
 fi
 
 # Set Drill-provided defaults here. Do not put Drill defaults
