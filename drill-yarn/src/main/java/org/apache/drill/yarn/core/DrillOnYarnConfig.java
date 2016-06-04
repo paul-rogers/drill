@@ -122,10 +122,12 @@ public class DrillOnYarnConfig
   // Names selected to be parallel to Drillbit HTTP config.
 
   public static final String HTTP_ENABLED = append( HTTP_PARENT, "enabled" );
-  public static final String HTTP_ENABLE_SSL = append( HTTP_PARENT, "ssl_enabled" );
+  public static final String HTTP_ENABLE_SSL = append( HTTP_PARENT, "ssl-enabled" );
   public static final String HTTP_PORT = append( HTTP_PARENT, "port" );
   public static final String HTTP_AUTH_ENABLED = append( HTTP_PARENT, "auth-enabled" );
   public static final String HTTP_REST_KEY = append( HTTP_PARENT, "rest-key" );
+  public static final String HTTP_SESSION_MAX_IDLE_SECS = append( HTTP_PARENT, "session-max-idle-secs" );
+  public static final String HTTP_DOCS_LINK = append( HTTP_PARENT, "docs-link" );
 
   public static final String CLIENT_POLL_SEC = append( CLIENT_PARENT, "poll-sec" );
   public static final String CLIENT_START_WAIT_SEC = append( CLIENT_PARENT, "start-wait-sec" );
@@ -507,6 +509,8 @@ public class DrillOnYarnConfig
     HTTP_ENABLE_SSL,
     HTTP_PORT,
     HTTP_AUTH_ENABLED,
+    HTTP_SESSION_MAX_IDLE_SECS,
+    HTTP_DOCS_LINK,
     // Do not include AM_REST_KEY: it is supposed to be secret.
   };
 

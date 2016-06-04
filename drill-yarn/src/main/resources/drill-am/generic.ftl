@@ -57,20 +57,13 @@
               <li><a href="/history">History</a></li>
             </ul>
             <ul class="nav navbar-nav navbar-right">
-              <#--
-              <#if showOptions == true>
-              <li><a href="/options">Options</a></li>
-              </#if>
-              -->
-              <li><a href="http://drill.apache.org/docs/">Documentation</a>
-              <#--
+              <li><a href="${docsLink}">Documentation</a>
               <#if showLogin == true >
               <li><a href="/login">Log In</a>
               </#if>
               <#if showLogout == true >
               <li><a href="/logout">Log Out (${loggedInUserName})</a>
-              </#if>
-              -->
+             </#if>
             </ul>
           </div>
         </div>

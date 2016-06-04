@@ -25,7 +25,8 @@
         <div class="form-group">
           <input hidden name="type" value="grow">
           <label for="add">Add</label>
-          <input type="text" name="n" size="6" id="add" class="form-control" style="padding: 0 1em; margin: 0 1em;"/>
+          <input type="text" name="n" size="6" id="add" class="form-control"
+                  placeholder="+n" style="padding: 0 1em; margin: 0 1em;"/>
           drillbits.
           <button type="submit" class="btn btn-primary" style="margin: 0 1em;">Go</button>
         </div>
@@ -36,7 +37,8 @@
         <div class="form-group">
           <input hidden name="type" value="shrink">
           <label for="shrink">Remove</label>
-          <input type="text" name="n" size="6" id="shrink" class="form-control" style="padding: 0 1em; margin: 0 1em;"/>
+          <input type="text" name="n" size="6" id="shrink" class="form-control"
+                  placeholder="-n" style="padding: 0 1em; margin: 0 1em;"/>
           drillbits.
           <button type="submit" class="btn btn-primary" style="margin: 0 1em;">Go</button>
         </div>
@@ -47,7 +49,8 @@
         <div class="form-group">
           <input hidden name="type" value="resize">
           <label for="resize">Resize to</label>
-          <input type="text" name="n" id="resize" size="6" class="form-control" style="padding: 0 1em; margin: 0 1em;"/>
+          <input type="text" name="n" id="resize" size="6"
+                  placeholder="Size" class="form-control" style="padding: 0 1em; margin: 0 1em;"/>
           drillbits.
           <button type="submit" class="btn btn-primary" style="margin: 0 1em;">Go</button>
         </div>

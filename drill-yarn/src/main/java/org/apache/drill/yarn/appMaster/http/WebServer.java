@@ -17,18 +17,29 @@
  */
 package org.apache.drill.yarn.appMaster.http;
 
+import static org.apache.drill.exec.server.rest.auth.DrillUserPrincipal.ADMIN_ROLE;
+import static org.apache.drill.exec.server.rest.auth.DrillUserPrincipal.AUTHENTICATED_ROLE;
+
+import java.io.IOException;
 import java.math.BigInteger;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
+import java.util.Collections;
 import java.util.Date;
+import java.util.Set;
+
+import javax.servlet.http.HttpSession;
+import javax.servlet.http.HttpSessionEvent;
+import javax.servlet.http.HttpSessionListener;
 
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.drill.exec.ExecConstants;
+import org.apache.drill.exec.server.rest.auth.DrillRestLoginService;
 import org.apache.drill.yarn.appMaster.Dispatcher;
 import org.apache.drill.yarn.appMaster.DrillApplicationMaster;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
@@ -40,22 +51,38 @@ import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.eclipse.jetty.http.HttpVersion;
+import org.eclipse.jetty.security.ConstraintMapping;
+import org.eclipse.jetty.security.ConstraintSecurityHandler;
+import org.eclipse.jetty.security.HashLoginService;
+import org.eclipse.jetty.security.LoginService;
+import org.eclipse.jetty.security.MappedLoginService;
+import org.eclipse.jetty.security.SecurityHandler;
+import org.eclipse.jetty.security.authentication.BasicAuthenticator;
+import org.eclipse.jetty.security.authentication.FormAuthenticator;
+import org.eclipse.jetty.security.authentication.SessionAuthentication;
 import org.eclipse.jetty.server.HttpConfiguration;
 import org.eclipse.jetty.server.HttpConnectionFactory;
 import org.eclipse.jetty.server.SecureRequestCustomizer;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
+import org.eclipse.jetty.server.SessionManager;
 import org.eclipse.jetty.server.SslConnectionFactory;
+import org.eclipse.jetty.server.UserIdentity;
 import org.eclipse.jetty.server.handler.ErrorHandler;
+import org.eclipse.jetty.server.session.HashSessionManager;
+import org.eclipse.jetty.server.session.SessionHandler;
 import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.resource.Resource;
+import org.eclipse.jetty.util.security.Constraint;
+import org.eclipse.jetty.util.security.Password;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.glassfish.jersey.servlet.ServletContainer;
 import org.joda.time.DateTime;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableSet;
 import com.typesafe.config.Config;
 
 /**
@@ -64,21 +91,24 @@ import com.typesafe.config.Config;
  * Adapted from Drill's drill.exec.WebServer class. Would be good to create
  * a common base class later, but the goal for the initial project is to
  * avoid Drill code changes.
+ *
+ * @see <a href="http://www.eclipse.org/jetty/documentation/current/embedding-jetty.html">
+ * Jetty Embedding documentation</a>
  */
 
 public class WebServer implements AutoCloseable
 {
   private static final Log LOG = LogFactory.getLog(WebServer.class);
-  private final Server embeddedJetty;
+  private final Server jettyServer;
   private Dispatcher dispatcher;
 
   public WebServer( Dispatcher dispatcher ) {
     this.dispatcher = dispatcher;
     Config config = DrillOnYarnConfig.config();
     if (config.getBoolean(DrillOnYarnConfig.HTTP_ENABLED)) {
-      embeddedJetty = new Server();
+      jettyServer = new Server();
     } else {
-      embeddedJetty = null;
+      jettyServer = null;
     }
   }
 
@@ -87,48 +117,92 @@ public class WebServer implements AutoCloseable
    * @throws Exception
    */
   public void start() throws Exception {
-    if (embeddedJetty == null) {
+    if (jettyServer == null) {
       return;
     }
 
+     build( );
+    jettyServer.start();
+  }
+
+  private void build() throws Exception {
     Config config = DrillOnYarnConfig.config();
+    buildConnector( config );
+    buildServlets( config );
+  }
+
+  private void buildConnector( Config config ) throws Exception {
     final ServerConnector serverConnector;
     if (config.getBoolean(DrillOnYarnConfig.HTTP_ENABLE_SSL)) {
       serverConnector = createHttpsConnector( config );
     } else {
       serverConnector = createHttpConnector( config );
     }
-    embeddedJetty.addConnector(serverConnector);
+    jettyServer.addConnector(serverConnector);
+  }
 
-    // Add resources
-    final ErrorHandler errorHandler = new ErrorHandler();
-    errorHandler.setShowStacks(true);
-    errorHandler.setShowMessageInTitle(true);
+  /**
+   * Build the web app with embedded servlets.
+   * <p>
+   * <b>ServletContextHandler</b>: is a Jetty-provided handler that add the extra
+   * bits needed to set up the context that servlets expect. Think of it as an
+   * adapter between the (simple) Jetty handler and the (more complex) servlet
+   * API.
+   *
+   */
+  private void buildServlets(Config config) {
 
-    final ServletContextHandler servletContextHandler = new ServletContextHandler(ServletContextHandler.SESSIONS);
-    servletContextHandler.setErrorHandler(errorHandler);
-    servletContextHandler.setContextPath("/");
-    embeddedJetty.setHandler(servletContextHandler);
+    final ServletContextHandler servletContextHandler = new ServletContextHandler( null, "/" );
+    servletContextHandler.setErrorHandler( createErrorHandler( ) );
+    jettyServer.setHandler(servletContextHandler);
 
-    final ServletHolder servletHolder = new ServletHolder(new ServletContainer(new PageTree( dispatcher )));
+    // Servlet holder for the pages of the Drill AM web app. The web app is a
+    // javax.ws application driven from annotations. The servlet holder "does
+    // the right thing" to drive the application, which is rooted at "/".
+    // The servlet container comes from Jersey, and manages the servlet
+    // lifecycle.
+
+    final ServletHolder servletHolder = new ServletHolder(new ServletContainer(new WebUiPageTree( dispatcher )));
     servletHolder.setInitOrder(1);
     servletContextHandler.addServlet(servletHolder, "/*");
 
-//    embeddedJetty.setHandler( new WebTest.HelloServlet( ) );
-//    ServletHandler handler = new ServletHandler();
-//    embeddedJetty.setHandler(handler);
-//    handler.addServletWithMapping(WebTest.HelloServlet.class, "/*");
-//    servletContextHandler.addServlet(
-//        new ServletHolder(new MetricsServlet(metrics)), "/status/metrics");
-//    servletContextHandler.addServlet(new ServletHolder(new ThreadDumpServlet()), "/status/threads");
-//
-//    if (config.getBoolean(ExecConstants.USER_AUTHENTICATION_ENABLED)) {
-//      servletContextHandler.setSecurityHandler(createSecurityHandler());
-//      servletContextHandler.setSessionHandler(createSessionHandler(servletContextHandler.getSecurityHandler()));
-//    }
+    final ServletHolder restHolder = new ServletHolder(new ServletContainer(new AmRestApi( dispatcher )));
+    restHolder.setInitOrder(2);
+    servletContextHandler.addServlet(restHolder, "/rest/*");
+
+    // Static resources (CSS, images, etc.)
+
+    setupStaticResources( servletContextHandler );
+
+    // Security, if requested.
+
+    if (config.getBoolean(DrillOnYarnConfig.HTTP_AUTH_ENABLED) ) {
+      servletContextHandler.setSecurityHandler(createSecurityHandler( config ));
+      servletContextHandler.setSessionHandler(createSessionHandler( config, servletContextHandler.getSecurityHandler()));
+    }
+  }
+
+  private ErrorHandler createErrorHandler() {
+    // Error handler to show detailed errors.
+    // Should probably be turned off in production.
+    final ErrorHandler errorHandler = new ErrorHandler();
+    errorHandler.setShowStacks(true);
+    errorHandler.setShowMessageInTitle(true);
+    return errorHandler;
+  }
+
+  private void setupStaticResources( ServletContextHandler servletContextHandler ) {
 
     // Access to static resources (JS pages, images, etc.)
-    // The static resources themselves come from Drill exec sub-project.
+    // The static resources themselves come from Drill exec sub-project
+    // and the Drill-on-YARN project.
+    //
+    // We handle static content this way because we want to do it
+    // in the context of a servlet app, so we need the Jetty "default servlet"
+    // that handles static content. That servlet is designed to take its properties
+    // from the web.xml, file; but can also take them programmatically as done
+    // here. (The Jetty manual suggests a simpler handler, but that is a non-Servlet
+    // version.)
 
     final ServletHolder staticHolder = new ServletHolder("static", DefaultServlet.class);
     staticHolder.setInitParameter("resourceBase", Resource.newClassPathResource("/rest/static").toString());
@@ -141,8 +215,71 @@ public class WebServer implements AutoCloseable
     amStaticHolder.setInitParameter("dirAllowed", "false");
     amStaticHolder.setInitParameter("pathInfoOnly", "true");
     servletContextHandler.addServlet(amStaticHolder, "/drill-am/static/*");
+  }
 
-    embeddedJetty.start();
+  public class AmLoginService extends MappedLoginService
+  {
+
+    @Override
+    protected UserIdentity loadUser(String username) {
+      // TODO Auto-generated method stub
+      return null;
+    }
+
+    @Override
+    protected void loadUsers() throws IOException {
+      putUser( "fred", new Password( "wilma" ), new String[] { ADMIN_ROLE } );
+    }
+
+  }
+
+  /**
+   * @return
+   * @return
+   * @see http://www.eclipse.org/jetty/documentation/current/embedded-examples.html
+   */
+
+  private ConstraintSecurityHandler createSecurityHandler(Config config) {
+    ConstraintSecurityHandler security = new ConstraintSecurityHandler();
+
+    Set<String> knownRoles = ImmutableSet.of(ADMIN_ROLE);
+    security.setConstraintMappings(Collections.<ConstraintMapping>emptyList(), knownRoles);
+
+    security.setAuthenticator(new FormAuthenticator("/login", "/login", true));
+    security.setLoginService(new AmLoginService( ));
+
+    return security;
+  }
+
+  /**
+   * @return A {@link SessionHandler} which contains a {@link HashSessionManager}
+   */
+  private SessionHandler createSessionHandler(Config config, final SecurityHandler securityHandler) {
+    SessionManager sessionManager = new HashSessionManager();
+    sessionManager.setMaxInactiveInterval(config.getInt(DrillOnYarnConfig.HTTP_SESSION_MAX_IDLE_SECS));
+    sessionManager.addEventListener(new HttpSessionListener() {
+      @Override
+      public void sessionCreated(HttpSessionEvent se) {
+        // No-op
+      }
+
+      @Override
+      public void sessionDestroyed(HttpSessionEvent se) {
+        final HttpSession session = se.getSession();
+        if (session == null) {
+          return;
+        }
+
+        final Object authCreds = session.getAttribute(SessionAuthentication.__J_AUTHENTICATED);
+        if (authCreds != null) {
+          final SessionAuthentication sessionAuth = (SessionAuthentication) authCreds;
+          securityHandler.logout(sessionAuth);
+          session.removeAttribute(SessionAuthentication.__J_AUTHENTICATED);
+        }
+      }
+    });
+
+    return new SessionHandler(sessionManager);
   }
 
   /**
@@ -153,7 +290,7 @@ public class WebServer implements AutoCloseable
   private ServerConnector createHttpConnector( Config config ) throws Exception {
     LOG.info("Setting up HTTP connector for web server");
     final HttpConfiguration httpConfig = new HttpConfiguration();
-    final ServerConnector httpConnector = new ServerConnector(embeddedJetty, new HttpConnectionFactory(httpConfig));
+    final ServerConnector httpConnector = new ServerConnector(jettyServer, new HttpConnectionFactory(httpConfig));
     httpConnector.setPort(config.getInt(DrillOnYarnConfig.HTTP_PORT));
 
     return httpConnector;
@@ -247,7 +384,7 @@ public class WebServer implements AutoCloseable
     httpsConfig.addCustomizer(new SecureRequestCustomizer());
 
     // SSL Connector
-    final ServerConnector sslConnector = new ServerConnector(embeddedJetty,
+    final ServerConnector sslConnector = new ServerConnector(jettyServer,
         new SslConnectionFactory(sslContextFactory, HttpVersion.HTTP_1_1.asString()),
         new HttpConnectionFactory(httpsConfig));
     sslConnector.setPort(config.getInt(DrillOnYarnConfig.HTTP_PORT));
@@ -257,8 +394,8 @@ public class WebServer implements AutoCloseable
 
   @Override
   public void close() throws Exception {
-    if (embeddedJetty != null) {
-      embeddedJetty.stop();
+    if (jettyServer != null) {
+      jettyServer.stop();
     }
   }
 }
