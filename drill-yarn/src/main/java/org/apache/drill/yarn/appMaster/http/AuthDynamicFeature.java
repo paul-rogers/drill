@@ -19,7 +19,7 @@ package org.apache.drill.yarn.appMaster.http;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.drill.yarn.appMaster.http.PageTree.LogInLogOutPages;
+import org.apache.drill.yarn.appMaster.http.WebUiPageTree.LogInLogOutPages;
 import org.glassfish.jersey.server.model.AnnotatedMethod;
 
 import javax.annotation.Priority;
@@ -43,7 +43,7 @@ import java.net.URLEncoder;
  * page.
  * <p>
  * Shameless copy of {@link org.apache.drill.exec.server.rest.auth.DynamicFeature}; the two implementations
- * should be merged at some point.
+ * should be merged at some point. The difference is oly the log in/log out constant references.
  */
 
 public class AuthDynamicFeature implements DynamicFeature {

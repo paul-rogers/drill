@@ -14,8 +14,6 @@
 </#macro>
 
 <#macro page_body>
-  <h4>Login</h4>
-
   <div align="center" class="table-responsive">
     <form role="form" name="input" action="/j_security_check" method="POST">
       <fieldset>

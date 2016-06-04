@@ -1,0 +1,167 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.drill.yarn.appMaster.http;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import javax.annotation.security.PermitAll;
+import javax.ws.rs.DefaultValue;
+import javax.ws.rs.GET;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.MediaType;
+
+import org.apache.drill.yarn.appMaster.Dispatcher;
+import org.apache.drill.yarn.appMaster.http.AbstractTasksModel.TaskModel;
+import org.apache.drill.yarn.appMaster.http.ControllerModel.PoolModel;
+import org.apache.drill.yarn.core.DoYUtil;
+import org.apache.drill.yarn.core.DrillOnYarnConfig;
+import org.apache.drill.yarn.core.NameValuePair;
+import org.apache.drill.yarn.zk.ZKClusterCoordinatorDriver;
+
+public class AmRestApi extends PageTree
+{
+  @Path("/config")
+  @PermitAll
+  public static class ConfigResource
+  {
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    public Map<String,Object> getConfig( ) {
+      Map<String,Object> map = new HashMap<>( );
+      for ( NameValuePair pair : DrillOnYarnConfig.instance().getPairs() ) {
+        map.put( pair.getName(), pair.getValue( ) );
+      }
+      return map;
+    }
+  }
+
+  /**
+   * Returns cluster status as a tree of JSON objects. Done as explicitly-defined
+   * maps to specify the key names (which must not change to avoid breaking
+   * compatibility) and to handle type conversions.
+   */
+
+  @Path("/status")
+  @PermitAll
+  public static class StatusResource
+  {
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    public Map<String,Object> getStatus( ) {
+      ControllerModel model = new ControllerModel( );
+      dispatcher.getController().visit( model );
+
+      Map<String,Object> root = new HashMap<>( );
+      root.put( "state", model.state.toString() );
+
+      Map<String,Object> summary = new HashMap<>( );
+      summary.put( "drillMemoryMb", model.totalDrillMemory );
+      summary.put( "drillVcores", model.totalDrillVcores );
+      summary.put( "yarnMemoryMb", model.yarnMemory );
+      summary.put( "yarnVcores", model.yarnVcores );
+      summary.put( "liveBitCount", model.liveCount );
+      summary.put( "totalBitCount", model.taskCount );
+      summary.put( "targetBitCount", model.targetCount );
+      root.put( "summary", summary );
+
+      List<Map<String,Object>> pools = new ArrayList<>( );
+      for ( PoolModel pool : model.pools ) {
+        Map<String,Object> poolObj = new HashMap<>( );
+        poolObj.put( "name", pool.name );
+        poolObj.put( "type", pool.type );
+        poolObj.put( "liveBitCount", pool.liveCount );
+        poolObj.put( "targetBitCount", pool.targetCount );
+        poolObj.put( "totalBitCount", pool.taskCount );
+        poolObj.put( "totalMemoryMb", pool.memory );
+        poolObj.put( "totalVcores", pool.vcores );
+        pools.add( poolObj );
+      }
+      root.put( "pools", pools );
+
+      AbstractTasksModel.TasksModel tasksModel = new AbstractTasksModel.TasksModel( );
+      dispatcher.getController().visitTasks( tasksModel );
+      List<Map<String,Object>> bits = new ArrayList<>( );
+      for ( TaskModel task : tasksModel.results ) {
+        Map<String,Object> bitObj = new HashMap<>( );
+        bitObj.put( "containerId", task.container.getId().toString() );
+        bitObj.put( "host", task.getHost() );
+        bitObj.put( "id", task.id );
+        bitObj.put( "live", task.isLive() );
+        bitObj.put( "memoryMb", task.memoryMb );
+        bitObj.put( "vcores", task.vcores );
+        bitObj.put( "pool", task.poolName );
+        bitObj.put( "state", task.state );
+        bitObj.put( "trackingState", task.trackingState );
+        bitObj.put( "endpoint", ZKClusterCoordinatorDriver.asString( task.endpoint ) );
+        bitObj.put( "link", task.getLink() );
+        bitObj.put( "startTime", task.getStartTime() );
+        bits.add( bitObj );
+      }
+      root.put( "drillbits", bits );
+
+      return root;
+    }
+  }
+
+  /**
+   * Stop the cluster. Uses a key to validate the request. The value of the key is
+   * set in the Drill-on-YARN configuration file. The purpose is simply to prevent
+   * accidental cluster shutdown when experimenting with the REST API; this is
+   * not meant to be a security mechanism.
+   *
+   * @param key
+   * @return
+   */
+
+  @Path("/stop")
+  @PermitAll
+  public static class StopResource
+  {
+    @DefaultValue( "" )
+    @QueryParam( "key" )
+    String key;
+
+    @POST
+    @Produces(MediaType.APPLICATION_JSON)
+    public String postStop(
+           )
+    {
+      String masterKey = DrillOnYarnConfig.config( ).getString( DrillOnYarnConfig.HTTP_REST_KEY );
+      if ( ! DoYUtil.isBlank( masterKey ) && ! masterKey.equals( key ) ) {
+        return "Invalid Key";
+      }
+      dispatcher.getController().shutDown();
+      return "OK";
+    }
+  }
+
+  public AmRestApi( Dispatcher dispatcher ) {
+    super( dispatcher );
+
+    register(ConfigResource.class);
+    register(StatusResource.class);
+    register(StopResource.class);
+  }
+
+}
