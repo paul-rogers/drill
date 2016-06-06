@@ -339,6 +339,7 @@ public class WebUiPageTree extends PageTree
     }
   }
 
+  @Path("/stop/")
   @RolesAllowed(ADMIN_ROLE)
   public static class StopPage
   {

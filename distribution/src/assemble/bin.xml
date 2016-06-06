@@ -261,11 +261,6 @@
       <outputDirectory>bin</outputDirectory>
     </file>
     <file>
-      <source>src/resources/start-bit.sh</source>
-      <fileMode>0755</fileMode>
-      <outputDirectory>bin</outputDirectory>
-    </file>
-    <file>
       <source>src/resources/drill-conf</source>
       <fileMode>0755</fileMode>
       <outputDirectory>bin</outputDirectory>
