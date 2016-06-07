@@ -30,8 +30,12 @@
     </#list>
   </table>
   <p>
-  To modify these values, edit <code>$DRILL_HOME/conf/drill-on-yarn.conf</code>, then rebuild your archive
-  and restart your Drill cluster using the Drill-on-YARN client.
+  To modify these values:
+  <ol>
+  <li>Edit <code>$DRILL_SITE/drill-on-yarn.conf</code> (for the drill.yarn settings),</li>
+  <li>Edit <code>$DRILL_SITE/drill-override.conf</code> (for tehe drill.exec settings).</li>
+  <li>Restart your Drill cluster using the Drill-on-YARN client.</li>
+  </ol>
 </#macro>
 
 <@page_html/>

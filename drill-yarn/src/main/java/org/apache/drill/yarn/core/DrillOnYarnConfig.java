@@ -26,6 +26,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.drill.common.config.CommonConstants;
+import org.apache.drill.common.config.DrillConfig;
+import org.apache.drill.exec.ExecConstants;
+
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;
@@ -33,11 +37,20 @@ import com.typesafe.config.ConfigList;
 import com.typesafe.config.ConfigValue;
 
 /**
- * Configuration used within the Drill-on-YARN code.
- * Refers to configuration in the user configuration file
- * (drill-on-yarn.conf), the defaults file or overridden
- * by system properties.
+ * Configuration used within the Drill-on-YARN code. Configuration comes from four
+ * sources (in order of precedence):
+ * <ol>
+ * <li>System properties</li>
+ * <li>$SITE_DIR/drill-on-yarn.conf</li>
+ * <li>Drill-on-YARN defaults in drill-on-yarn-defaults.conf. (Which should be disjoint from the Drill settings.)</li>
+ * <li>Drill properties (via the Drill override system)</li>
+ * </ol>
+ * <p>
+ * Defines constants for each property, including those defined in Drill. This provides
+ * a uniform property access interface even if some properties migrate between DoY and
+ * Drill proper.
  */
+
 public class DrillOnYarnConfig
 {
   public static final String DEFAULTS_FILE_NAME = "drill-on-yarn-defaults.conf";
@@ -47,7 +60,7 @@ public class DrillOnYarnConfig
   public static final String DOY_CLIENT_PARENT = append( DRILL_ON_YARN_PARENT, "client" );
   public static final String DOY_AM_PARENT = append( DRILL_ON_YARN_PARENT, "am" );
   public static final String DOY_DRILLBIT_PARENT = append( DRILL_ON_YARN_PARENT, "drillbit" );
-  public static final String DOY_ZK_PARENT = append( DRILL_ON_YARN_PARENT, "zk" );
+//  public static final String DOY_ZK_PARENT = append( DRILL_ON_YARN_PARENT, "zk" );
   public static final String FILES_PARENT = append( DRILL_ON_YARN_PARENT, "drill-install" );
   public static final String DFS_PARENT = append( DRILL_ON_YARN_PARENT, "dfs" );
   public static final String HTTP_PARENT = append( DRILL_ON_YARN_PARENT, "http" );
@@ -56,7 +69,8 @@ public class DrillOnYarnConfig
   public static final String CLIENT_PARENT = append( DRILL_ON_YARN_PARENT, "client" );
 
   public static final String APP_NAME = append( DRILL_ON_YARN_PARENT, "app-name" );
-  public static final String CLUSTER_ID = append( DRILL_ON_YARN_PARENT, "cluster-id" );
+//  public static final String CLUSTER_ID = append( DRILL_ON_YARN_PARENT, "cluster-id" );
+  public static final String CLUSTER_ID = ExecConstants.SERVICE_NAME;
 
   public static final String DFS_CONNECTION = append( DFS_PARENT, "connection" );
   public static final String DFS_APP_DIR = append( DFS_PARENT, "app-dir" );
@@ -113,11 +127,16 @@ public class DrillOnYarnConfig
   public static final String DRILLBIT_HTTP_PORT = append( DOY_DRILLBIT_PARENT, "http-port" );
   public static final String DISABLE_YARN_LOGS = append( DOY_DRILLBIT_PARENT, "disable-yarn-logs" );
 
-  public static final String ZK_CONNECT = append( DOY_ZK_PARENT, "connect" );
-  public static final String ZK_ROOT = append( DOY_ZK_PARENT, "root" );
-  public static final String ZK_FAILURE_TIMEOUT_MS = append( DOY_ZK_PARENT, "timeout" );
-  public static final String ZK_RETRY_COUNT = append( DOY_ZK_PARENT, "retry.count" );
-  public static final String ZK_RETRY_DELAY_MS = append( DOY_ZK_PARENT, "retry.delay" );
+//  public static final String ZK_CONNECT = append( DOY_ZK_PARENT, "connect" );
+//  public static final String ZK_ROOT = append( DOY_ZK_PARENT, "root" );
+//  public static final String ZK_FAILURE_TIMEOUT_MS = append( DOY_ZK_PARENT, "timeout" );
+//  public static final String ZK_RETRY_COUNT = append( DOY_ZK_PARENT, "retry.count" );
+//  public static final String ZK_RETRY_DELAY_MS = append( DOY_ZK_PARENT, "retry.delay" );
+  public static final String ZK_CONNECT = ExecConstants.ZK_CONNECTION;
+  public static final String ZK_ROOT = ExecConstants.ZK_ROOT;
+  public static final String ZK_FAILURE_TIMEOUT_MS = ExecConstants.ZK_TIMEOUT;
+  public static final String ZK_RETRY_COUNT = ExecConstants.ZK_RETRY_TIMES;
+  public static final String ZK_RETRY_DELAY_MS = ExecConstants.ZK_RETRY_DELAY;
 
   // Names selected to be parallel to Drillbit HTTP config.
 
@@ -245,6 +264,8 @@ public class DrillOnYarnConfig
 
   public static DrillOnYarnConfig load( ) throws DoyConfigException
   {
+    Config drillConfig = loadDrillConfig( );
+
     // Resolution order, larger numbers take precedence.
     // 1. Drill-on-YARN defaults.
     // File is at root of the package tree.
@@ -252,7 +273,7 @@ public class DrillOnYarnConfig
     URL url = DrillOnYarnConfig.class.getResource( DEFAULTS_FILE_NAME );
     Config config = null;
     if ( url != null ) {
-      config = ConfigFactory.parseURL(url);
+      config = ConfigFactory.parseURL(url).withFallback( drillConfig );
     }
 
     // 2. User's Drill-on-YARN configuration.
@@ -271,6 +292,11 @@ public class DrillOnYarnConfig
     config = config.resolve();
     instance = new DrillOnYarnConfig( config );
     return instance;
+  }
+
+  private static Config loadDrillConfig() {
+    DrillConfig drillConfig = DrillConfig.create( CommonConstants.CONFIG_OVERRIDE_RESOURCE_PATHNAME );
+    return drillConfig.resolve();
   }
 
   /**
