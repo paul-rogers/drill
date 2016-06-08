@@ -93,7 +93,7 @@ public class ZKClusterCoordinator extends ClusterCoordinator {
   private ServiceCache<DrillbitEndpoint> serviceCache;
 
   public ZKClusterCoordinator(String connect, String zkRoot, String clusterId, int retryCount, int retryDelayMs, int connectTimeoutMs) throws IOException {
-    logger.debug("Connect " + connect + ", zkRoot " + zkRoot + ", clusterId: " + clusterId);
+    logger.debug("ZK connect: " + connect + ", zkRoot: " + zkRoot + ", clusterId: " + clusterId);
 
     this.serviceName = clusterId;
     RetryPolicy rp = new RetryNTimes(retryCount,

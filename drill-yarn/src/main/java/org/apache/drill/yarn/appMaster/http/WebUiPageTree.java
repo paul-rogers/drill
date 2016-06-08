@@ -69,6 +69,7 @@ public class WebUiPageTree extends PageTree
 
   @Path("/")
   @RolesAllowed(ADMIN_ROLE)
+  @Produces(MediaType.TEXT_HTML)
   public static class RootPage
   {
     @Inject SecurityContext sc;
@@ -136,6 +137,7 @@ public class WebUiPageTree extends PageTree
 
   @Path("/redirect")
   @PermitAll
+  @Produces(MediaType.TEXT_HTML)
   public static class RedirectPage
   {
     @Inject SecurityContext sc;
@@ -151,6 +153,7 @@ public class WebUiPageTree extends PageTree
 
   @Path("/config")
   @RolesAllowed(ADMIN_ROLE)
+  @Produces(MediaType.TEXT_HTML)
   public static class ConfigPage
   {
     @Inject SecurityContext sc;
@@ -163,6 +166,7 @@ public class WebUiPageTree extends PageTree
 
   @Path("/drillbits")
   @RolesAllowed(ADMIN_ROLE)
+  @Produces(MediaType.TEXT_HTML)
   public static class DrillbitsPage
   {
     @Inject SecurityContext sc;
@@ -178,6 +182,7 @@ public class WebUiPageTree extends PageTree
 
   @Path("/cancel/")
   @RolesAllowed(ADMIN_ROLE)
+  @Produces(MediaType.TEXT_HTML)
   public static class CancelDrillbitPage
   {
     @Inject SecurityContext sc;
@@ -207,6 +212,7 @@ public class WebUiPageTree extends PageTree
 
   @Path("/history")
   @RolesAllowed(ADMIN_ROLE)
+  @Produces(MediaType.TEXT_HTML)
   public static class HistoryPage
   {
     @Inject SecurityContext sc;
@@ -221,6 +227,7 @@ public class WebUiPageTree extends PageTree
 
   @Path("/manage")
   @RolesAllowed(ADMIN_ROLE)
+  @Produces(MediaType.TEXT_HTML)
   public static class ManagePage
   {
     @Inject SecurityContext sc;
@@ -278,6 +285,7 @@ public class WebUiPageTree extends PageTree
 
   @Path("/resize")
   @RolesAllowed(ADMIN_ROLE)
+  @Produces(MediaType.TEXT_HTML)
   public static class ResizePage
   {
     @Inject SecurityContext sc;
@@ -341,6 +349,7 @@ public class WebUiPageTree extends PageTree
 
   @Path("/stop/")
   @RolesAllowed(ADMIN_ROLE)
+  @Produces(MediaType.TEXT_HTML)
   public static class StopPage
   {
     @Inject SecurityContext sc;

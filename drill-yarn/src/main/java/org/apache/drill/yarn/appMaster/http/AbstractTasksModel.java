@@ -162,7 +162,11 @@ public abstract class AbstractTasksModel
       if ( endpoint == null ) {
         return ""; }
       String port = DrillOnYarnConfig.config( ).getString( DrillOnYarnConfig.DRILLBIT_HTTP_PORT );
-      return "http://" + endpoint.getAddress() + ":" + port + "/";
+      String protocol = "http:";
+      if ( DrillOnYarnConfig.config().getBoolean( DrillOnYarnConfig.DRILLBIT_USE_HTTPS ) ) {
+        protocol = "https:";
+      }
+      return protocol + "//" + endpoint.getAddress() + ":" + port + "/";
     }
 
     public String getState( ) { return state.toString(); }

@@ -28,6 +28,7 @@ import org.apache.curator.framework.state.ConnectionState;
 import org.apache.curator.framework.state.ConnectionStateListener;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.work.foreman.DrillbitStatusListener;
+import org.apache.hadoop.yarn.api.records.Container;
 
 /**
  * Driver class for the ZooKeeper cluster coordinator. Provides
@@ -68,12 +69,21 @@ public class ZKClusterCoordinatorDriver
   // in the Drill implementation.
 
   private int maxStartWaitMs = 30_000;
+
+  // Expected ports used to match ZK registries with
+  // containers. ZK lists the ports as part of its key, we have to anticipate
+  // these values in order to match.
+
+  private int userPort = 31010;
+  private int controlPort = 31011;
+  private int dataPort = 31012;
+
   private List<DrillbitEndpoint> initialEndpoints;
   private ConnectionStateListener stateListener = new ConnectionStateListener( ) {
 
-  @Override
-  public void stateChanged(CuratorFramework client, ConnectionState newState) {
-    ZKClusterCoordinatorDriver.this.stateChanged( newState ); }
+    @Override
+    public void stateChanged(CuratorFramework client, ConnectionState newState) {
+      ZKClusterCoordinatorDriver.this.stateChanged( newState ); }
   };
 
   private ZKClusterCoordinator zkCoord;
@@ -113,6 +123,13 @@ public class ZKClusterCoordinatorDriver
   public ZKClusterCoordinatorDriver setRetryDelayMs( int ms ) { retryDelayMs  = ms; return this; }
   public ZKClusterCoordinatorDriver setMaxStartWaitMs( int ms ) { maxStartWaitMs  = ms; return this; }
   public ZKClusterCoordinatorDriver setFailureTimoutMs( int ms ) { failureTimeoutMs  = ms; return this; }
+
+  public ZKClusterCoordinatorDriver setPorts( int userPort, int controlPort, int dataPort ) {
+    this.userPort = userPort;
+    this.controlPort = controlPort;
+    this.dataPort = dataPort;
+    return this;
+  }
 
   /**
    * Builds and starts the ZooKeeper cluster coordinator, translating any
@@ -164,15 +181,28 @@ public class ZKClusterCoordinatorDriver
    */
 
   public static String asString(DrillbitEndpoint bit) {
-    StringBuilder builder = new StringBuilder();
-    builder.append(bit.getAddress())
-           .append(':')
-           .append(bit.getUserPort())
-           .append(':')
-           .append(bit.getControlPort())
-           .append(':')
-           .append(bit.getDataPort());
-    return builder.toString();
+    return formatKey( bit.getAddress(),
+                      bit.getUserPort(),
+                      bit.getControlPort(),
+                      bit.getDataPort() );
+  }
+
+  public String toKey( String host )
+  {
+    return formatKey( host, userPort, controlPort, dataPort );
+  }
+
+  public static String formatKey( String host, int userPort, int controlPort, int dataPort )
+  {
+    StringBuilder buf = new StringBuilder( );
+    buf.append( host )
+       .append( ":" )
+       .append( userPort )
+       .append(':')
+       .append( controlPort )
+       .append(':')
+       .append( dataPort );
+    return buf.toString();
   }
 
   /**
@@ -234,5 +264,4 @@ public class ZKClusterCoordinatorDriver
     }
     zkCoord = null;
   }
-
 }

@@ -60,7 +60,6 @@ public class DrillOnYarnConfig
   public static final String DOY_CLIENT_PARENT = append( DRILL_ON_YARN_PARENT, "client" );
   public static final String DOY_AM_PARENT = append( DRILL_ON_YARN_PARENT, "am" );
   public static final String DOY_DRILLBIT_PARENT = append( DRILL_ON_YARN_PARENT, "drillbit" );
-//  public static final String DOY_ZK_PARENT = append( DRILL_ON_YARN_PARENT, "zk" );
   public static final String FILES_PARENT = append( DRILL_ON_YARN_PARENT, "drill-install" );
   public static final String DFS_PARENT = append( DRILL_ON_YARN_PARENT, "dfs" );
   public static final String HTTP_PARENT = append( DRILL_ON_YARN_PARENT, "http" );
@@ -69,7 +68,6 @@ public class DrillOnYarnConfig
   public static final String CLIENT_PARENT = append( DRILL_ON_YARN_PARENT, "client" );
 
   public static final String APP_NAME = append( DRILL_ON_YARN_PARENT, "app-name" );
-//  public static final String CLUSTER_ID = append( DRILL_ON_YARN_PARENT, "cluster-id" );
   public static final String CLUSTER_ID = ExecConstants.SERVICE_NAME;
 
   public static final String DFS_CONNECTION = append( DFS_PARENT, "connection" );
@@ -124,14 +122,12 @@ public class DrillOnYarnConfig
   public static final String DRILLBIT_CLASSPATH = append( DOY_DRILLBIT_PARENT, "class-path" );
   public static final String DRILLBIT_MAX_RETRIES = append( DOY_DRILLBIT_PARENT, "max-retries" );
   public static final String DRILLBIT_DEBUG_LAUNCH = append( DOY_DRILLBIT_PARENT, "debug-launch" );
-  public static final String DRILLBIT_HTTP_PORT = append( DOY_DRILLBIT_PARENT, "http-port" );
+  public static final String DRILLBIT_HTTP_PORT = ExecConstants.HTTP_PORT;
   public static final String DISABLE_YARN_LOGS = append( DOY_DRILLBIT_PARENT, "disable-yarn-logs" );
+  public static final String DRILLBIT_USER_PORT = ExecConstants.INITIAL_USER_PORT;
+  public static final String DRILLBIT_BIT_PORT = ExecConstants.INITIAL_BIT_PORT;
+  public static final String DRILLBIT_USE_HTTPS = ExecConstants.HTTP_ENABLE_SSL;
 
-//  public static final String ZK_CONNECT = append( DOY_ZK_PARENT, "connect" );
-//  public static final String ZK_ROOT = append( DOY_ZK_PARENT, "root" );
-//  public static final String ZK_FAILURE_TIMEOUT_MS = append( DOY_ZK_PARENT, "timeout" );
-//  public static final String ZK_RETRY_COUNT = append( DOY_ZK_PARENT, "retry.count" );
-//  public static final String ZK_RETRY_DELAY_MS = append( DOY_ZK_PARENT, "retry.delay" );
   public static final String ZK_CONNECT = ExecConstants.ZK_CONNECTION;
   public static final String ZK_ROOT = ExecConstants.ZK_ROOT;
   public static final String ZK_FAILURE_TIMEOUT_MS = ExecConstants.ZK_TIMEOUT;
@@ -526,8 +522,11 @@ public class DrillOnYarnConfig
     DRILLBIT_CLASSPATH,
     DRILLBIT_MAX_RETRIES,
     DRILLBIT_DEBUG_LAUNCH,
-    DRILLBIT_HTTP_PORT,
     DISABLE_YARN_LOGS,
+    DRILLBIT_HTTP_PORT,
+    DRILLBIT_USER_PORT,
+    DRILLBIT_BIT_PORT,
+    DRILLBIT_USE_HTTPS,
 
     // drill.yarn.http
 
@@ -542,7 +541,6 @@ public class DrillOnYarnConfig
 
   private static String envVars[] = {
       APP_ID_ENV_VAR,
-//      RM_TRACKING_ENV_VAR,
       DRILL_HOME_ENV_VAR,
       DRILL_SITE_ENV_VAR,
       AM_HEAP_ENV_VAR,
@@ -551,8 +549,6 @@ public class DrillOnYarnConfig
       DRILL_CLASSPATH_ENV_VAR,
       DRILL_ARCHIVE_ENV_VAR,
       SITE_ARCHIVE_ENV_VAR,
-//      SITE_DIR_ENV_VAR,
-//      SITE_DIR_NAME_ENV_VAR,
       DRILL_DEBUG_ENV_VAR
   };
 
@@ -755,6 +751,7 @@ public class DrillOnYarnConfig
   }
 
   public Pool getPool( int n ) {
+    int index = n + 1;
     ConfigList pools = config.getList(CLUSTER_POOLS);
     ConfigValue value = pools.get( n );
     @SuppressWarnings("unchecked")
@@ -764,11 +761,11 @@ public class DrillOnYarnConfig
       type = pool.get( POOL_TYPE ).toString();
     }
     catch ( NullPointerException e ) {
-      throw new IllegalArgumentException( "Pool type is required for pool " + n );
+      throw new IllegalArgumentException( "Pool type is required for pool " + index );
     }
     PoolType poolType = PoolType.toEnum( type );
     if ( poolType == null ) {
-      throw new IllegalArgumentException( "Undefined type for pool " + n + ": " + type );
+      throw new IllegalArgumentException( "Undefined type for pool " + index + ": " + type );
     }
     Pool poolDef;
     switch ( poolType ) {
@@ -787,11 +784,14 @@ public class DrillOnYarnConfig
       poolDef.count = (Integer) pool.get( POOL_SIZE );
     }
     catch ( ClassCastException e ) {
-      throw new IllegalArgumentException( "Expected an integer for " + POOL_SIZE + " for pool " + n );
+      throw new IllegalArgumentException( "Expected an integer for " + POOL_SIZE + " for pool " + index );
     }
-    poolDef.name = pool.get( POOL_NAME ).toString();
+    Object nameValue = pool.get( POOL_NAME );
+    if ( nameValue != null ) {
+      poolDef.name = nameValue.toString();
+    }
     if ( DoYUtil.isBlank( poolDef.name ) ) {
-      poolDef.name = "pool-" + Integer.toString( n + 1 );
+      poolDef.name = "pool-" + Integer.toString( index );
     }
     return poolDef;
   }

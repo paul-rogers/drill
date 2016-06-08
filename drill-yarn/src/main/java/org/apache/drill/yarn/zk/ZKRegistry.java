@@ -73,13 +73,6 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
   private ClusterController controller;
   private long lastUpdateTime;
 
-  // Put here for now. These should be either from the config or
-  // assigned per task on task creation and passed to the bit.
-
-  private int userPort = 31010;
-  private int controlPort = 31011;
-  private int dataPort = 31012;
-
   public ZKRegistry( ZKClusterCoordinatorDriver zkDriver ) {
     this.zkDriver = zkDriver;
   }
@@ -135,15 +128,7 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
 
   private String toKey( Container container )
   {
-    StringBuilder buf = new StringBuilder( );
-    buf.append( container.getNodeId().getHost() )
-       .append( ":" )
-       .append( userPort )
-       .append(':')
-       .append( controlPort )
-       .append(':')
-       .append( dataPort );
-       return buf.toString();
+    return zkDriver.toKey( container.getNodeId().getHost() );
   }
 
   /**
