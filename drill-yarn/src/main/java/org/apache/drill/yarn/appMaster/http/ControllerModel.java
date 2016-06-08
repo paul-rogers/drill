@@ -33,6 +33,9 @@ import org.apache.drill.yarn.appMaster.ContainerRequestSpec;
 import org.apache.drill.yarn.appMaster.ClusterControllerImpl.State;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
+
+import com.typesafe.config.Config;
+
 import org.apache.drill.yarn.appMaster.ControllerVisitor;
 import org.apache.drill.yarn.appMaster.Scheduler;
 import org.apache.drill.yarn.appMaster.SchedulerStateActions;
@@ -59,6 +62,7 @@ public class ControllerModel implements ControllerVisitor
     public int getVcores( ) { return vcores; }
   }
 
+  protected String zkId;
   protected ClusterControllerImpl.State state;
   protected String stateHint;
   protected int yarnMemory;
@@ -72,6 +76,7 @@ public class ControllerModel implements ControllerVisitor
   protected YarnAppHostReport appRpt;
   protected List<PoolModel> pools = new ArrayList<>( );
 
+  public String getZkId( ) { return zkId; }
   public String getAppId( ) { return appRpt.appId; }
   public String getRmHost( ) { return appRpt.rmHost; }
   public String getRmLink( ) { return appRpt.rmUrl; }
@@ -96,6 +101,11 @@ public class ControllerModel implements ControllerVisitor
   @Override
   public void visit(ClusterController controller) {
     ClusterControllerImpl impl = (ClusterControllerImpl) controller;
+
+    Config config = DrillOnYarnConfig.config();
+    zkId = config.getString( DrillOnYarnConfig.ZK_CONNECT ) +
+           "/" + config.getString( DrillOnYarnConfig.ZK_ROOT ) +
+           "/" + config.getString( DrillOnYarnConfig.CLUSTER_ID );
 
     appRpt = impl.getYarn().getAppHostReport();
 

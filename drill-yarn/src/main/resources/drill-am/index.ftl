@@ -24,14 +24,25 @@
     </tr>
     <tr>
       <td>YARN Resource Manager:</td>
-      <td><a href="${model.getRmLink( )}" data-toggle="tooltip" title="YARN Resource Manager page for this container">
-      ${model.getRmHost( )}</a></td>
+      <td><#if model.getRmLink()?? > <#-- Occurs early in startup before app is fully registered. -->
+      <a href="${model.getRmLink( )}" data-toggle="tooltip" title="YARN Resource Manager page for this container">
+      ${model.getRmHost( )}</a>
+      <#else>Unavailable
+      </#if></td>
     </tr>
     <tr>
       <td>YARN Node Manager for AM:</td>
-      <td><a href="${model.getNmLink( )}" data-toggle="tooltip" title="YARN Node Manager">
+      <td><#if model.getNmLink()?? > <#-- Occurs early in startup before app is fully registered. -->
+      <a href="${model.getNmLink( )}" data-toggle="tooltip" title="YARN Node Manager">
       ${model.getNmHost( )}</a> |
-          <a href="${model.getNmAppLink( )}" data-toggle="tooltip" title="YARN Node Manager page for this application">App info</a></td>
+          <a href="${model.getNmAppLink( )}" data-toggle="tooltip" title="YARN Node Manager page for this application">App info</a>
+      <#else>Unavailable
+      </#if></td>
+    </tr>
+    <tr>
+      <td>ZooKeeper:</td>
+      <td><span data-toggle="tooltip" title="ZooKeeper connection string, Drill root and cluster-id.">
+      ${model.getZkId( )}</span></td>
     </tr>
     <tr>
       <td>State:</td>

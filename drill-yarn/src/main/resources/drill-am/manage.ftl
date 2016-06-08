@@ -16,7 +16,10 @@
 <#macro page_body>
   <h4>Manage Drill Cluster</h4>
 
-  Current Status: ${model.getLiveCount( )} Drillbits running
+  Current Status: ${model.getLiveCount( )}
+  <#if ${model.getLiveCount( ) == 1 >Drillbit is
+  <#else>Drillbits are
+  </#if>running.
   <p><p>
   
   <table class="table table-hover" style="width: auto;">
