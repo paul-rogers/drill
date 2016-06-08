@@ -69,12 +69,12 @@ public class WebUiPageTree extends PageTree
 
   @Path("/")
   @RolesAllowed(ADMIN_ROLE)
-  @Produces(MediaType.TEXT_HTML)
   public static class RootPage
   {
     @Inject SecurityContext sc;
 
     @GET
+    @Produces(MediaType.TEXT_HTML)
     public Viewable getRoot( ) {
       ControllerModel model = new ControllerModel( );
       dispatcher.getController().visit( model );
@@ -137,12 +137,12 @@ public class WebUiPageTree extends PageTree
 
   @Path("/redirect")
   @PermitAll
-  @Produces(MediaType.TEXT_HTML)
   public static class RedirectPage
   {
     @Inject SecurityContext sc;
 
     @GET
+    @Produces(MediaType.TEXT_HTML)
     public Viewable getRoot( ) {
       Map<String,String> map = new HashMap<>( );
       String baseUrl = DoYUtil.unwrapAmUrl( dispatcher.getTrackingUrl() );
@@ -153,12 +153,12 @@ public class WebUiPageTree extends PageTree
 
   @Path("/config")
   @RolesAllowed(ADMIN_ROLE)
-  @Produces(MediaType.TEXT_HTML)
   public static class ConfigPage
   {
     @Inject SecurityContext sc;
 
     @GET
+    @Produces(MediaType.TEXT_HTML)
     public Viewable getRoot( ) {
       return new Viewable( "/drill-am/config.ftl", toModel( sc, DrillOnYarnConfig.instance().getPairs() ) );
     }
@@ -166,12 +166,12 @@ public class WebUiPageTree extends PageTree
 
   @Path("/drillbits")
   @RolesAllowed(ADMIN_ROLE)
-  @Produces(MediaType.TEXT_HTML)
   public static class DrillbitsPage
   {
     @Inject SecurityContext sc;
 
     @GET
+    @Produces(MediaType.TEXT_HTML)
     public Viewable getRoot( ) {
       AbstractTasksModel.TasksModel model = new AbstractTasksModel.TasksModel( );
       dispatcher.getController().visitTasks( model );
@@ -182,7 +182,6 @@ public class WebUiPageTree extends PageTree
 
   @Path("/cancel/")
   @RolesAllowed(ADMIN_ROLE)
-  @Produces(MediaType.TEXT_HTML)
   public static class CancelDrillbitPage
   {
     @Inject SecurityContext sc;
@@ -191,6 +190,7 @@ public class WebUiPageTree extends PageTree
     int id;
 
     @GET
+    @Produces(MediaType.TEXT_HTML)
     public Viewable getPage( ) {
       ConfirmShrink confirm = new ConfirmShrink( ConfirmShrink.Mode.CANCEL );
       confirm.id = id;
@@ -198,6 +198,7 @@ public class WebUiPageTree extends PageTree
     }
 
     @POST
+    @Produces(MediaType.TEXT_HTML)
     public Viewable postPage( ) {
       Acknowledge ack;
       if ( dispatcher.getController().cancelTask( id ) ) {
@@ -212,12 +213,12 @@ public class WebUiPageTree extends PageTree
 
   @Path("/history")
   @RolesAllowed(ADMIN_ROLE)
-  @Produces(MediaType.TEXT_HTML)
   public static class HistoryPage
   {
     @Inject SecurityContext sc;
 
     @GET
+    @Produces(MediaType.TEXT_HTML)
     public Viewable getRoot( ) {
       AbstractTasksModel.HistoryModel model = new AbstractTasksModel.HistoryModel( );
       dispatcher.getController().visit( model );
@@ -227,12 +228,12 @@ public class WebUiPageTree extends PageTree
 
   @Path("/manage")
   @RolesAllowed(ADMIN_ROLE)
-  @Produces(MediaType.TEXT_HTML)
   public static class ManagePage
   {
     @Inject SecurityContext sc;
 
     @GET
+    @Produces(MediaType.TEXT_HTML)
     public Viewable getRoot( ) {
       ControllerModel model = new ControllerModel( );
       dispatcher.getController().visit( model );
@@ -285,7 +286,6 @@ public class WebUiPageTree extends PageTree
 
   @Path("/resize")
   @RolesAllowed(ADMIN_ROLE)
-  @Produces(MediaType.TEXT_HTML)
   public static class ResizePage
   {
     @Inject SecurityContext sc;
@@ -297,6 +297,7 @@ public class WebUiPageTree extends PageTree
 
     @POST
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
+    @Produces(MediaType.TEXT_HTML)
     public Viewable resize( ) {
       int curSize = dispatcher.getController().getTargetCount( );
       if ( n <= 0 ) {
@@ -349,18 +350,19 @@ public class WebUiPageTree extends PageTree
 
   @Path("/stop/")
   @RolesAllowed(ADMIN_ROLE)
-  @Produces(MediaType.TEXT_HTML)
   public static class StopPage
   {
     @Inject SecurityContext sc;
 
     @GET
+    @Produces(MediaType.TEXT_HTML)
     public Viewable requestStop( ) {
       ConfirmShrink confirm = new ConfirmShrink( ConfirmShrink.Mode.STOP );
       return new Viewable( "/drill-am/shrink-warning.ftl", toModel( sc, confirm ) );
     }
 
     @POST
+    @Produces(MediaType.TEXT_HTML)
     public Viewable doStop( ) {
       dispatcher.getController().shutDown();
       Acknowledge confirm = new Acknowledge( Acknowledge.Mode.STOPPED );

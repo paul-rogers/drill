@@ -17,7 +17,7 @@
   <h4>Manage Drill Cluster</h4>
 
   Current Status: ${model.getLiveCount( )}
-  <#if ${model.getLiveCount( ) == 1 >Drillbit is
+  <#if model.getLiveCount( ) == 1 >Drillbit is
   <#else>Drillbits are
   </#if>running.
   <p><p>
