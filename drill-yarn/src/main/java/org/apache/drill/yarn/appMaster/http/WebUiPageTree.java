@@ -139,15 +139,14 @@ public class WebUiPageTree extends PageTree
   @PermitAll
   public static class RedirectPage
   {
-    @Inject SecurityContext sc;
-
     @GET
     @Produces(MediaType.TEXT_HTML)
     public Viewable getRoot( ) {
       Map<String,String> map = new HashMap<>( );
       String baseUrl = DoYUtil.unwrapAmUrl( dispatcher.getTrackingUrl() );
       map.put( "amLink", baseUrl );
-      return new Viewable( "/drill-am/redirect.ftl", toModel( sc, map ) );
+      map.put( "clusterName", config.getString( DrillOnYarnConfig.APP_NAME ) );
+      return new Viewable( "/drill-am/redirect.ftl", map );
     }
   }
 
