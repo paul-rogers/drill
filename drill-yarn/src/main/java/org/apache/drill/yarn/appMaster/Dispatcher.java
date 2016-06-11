@@ -24,6 +24,9 @@ import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.drill.yarn.appMaster.AMRegistrar.AMRegistrationException;
+import org.apache.drill.yarn.appMaster.AMYarnFacade.YarnAppHostReport;
+import org.apache.drill.yarn.appMaster.PulseRunnable.PulseCallback;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
@@ -183,6 +186,15 @@ public class Dispatcher
 
   private List<DispatcherAddOn> addOns = new ArrayList<>();
   private String trackingUrl;
+  private AMRegistrar amRegistrar;
+  private int httpPort;
+  private PulseRunnable timer;
+  private Thread pulseThread;
+  private final int timerPeriodMs;
+
+  public Dispatcher(int timerPeriodMs) {
+    this.timerPeriodMs = timerPeriodMs;
+  }
 
   public void setYarn(AMYarnFacade yarn) throws YarnFacadeException {
     this.yarn = yarn;
@@ -190,41 +202,72 @@ public class Dispatcher
   }
 
   public ClusterController getController() { return controller; }
-
-  public void registerPollable(Pollable pollable) {
-    pollables.add(pollable);
-  }
-
-  public void registerAddOn(DispatcherAddOn addOn) {
-    addOns.add(addOn);
-  }
-
-  public void setTrackingUrl( String trackingUrl) {
-    this.trackingUrl = trackingUrl;
-  }
-
+  public void registerPollable(Pollable pollable) { pollables.add(pollable); }
+  public void registerAddOn(DispatcherAddOn addOn) { addOns.add(addOn); }
+  public void setHttpPort( int port ) { httpPort = port; }
+  public void setTrackingUrl( String trackingUrl) { this.trackingUrl = trackingUrl; }
   public String getTrackingUrl( ) { return yarn.getTrackingUrl(); }
+  public void setAMRegistrar(AMRegistrar registrar) { amRegistrar = registrar; }
 
-  public void run() throws YarnFacadeException {
+  /**
+   * Start the dispatcher by initializing YARN and registering the AM.
+   *
+   * @return true if successful, false if the dispatcher did not start.
+   */
+
+  public boolean start() throws YarnFacadeException
+  {
+
+    // Start the connection to YARN to get information about this app, and to
+    // create a session we can use to report problems.
+
     try {
       setup();
     } catch (AMException e) {
       String msg = e.getMessage();
       LOG.error( "Fatal error: " + msg );
       yarn.finish(false, msg);
-      return;
+      return false;
     }
+
+    // Ensure that this is the only AM. If not, shut down the AM,
+    // reporting to YARN that this is a failure and the message explaining
+    // the conflict. Report this as a SUCCESS run so that YARN does not
+    // attempt to retry the AM.
+
+    try {
+      register( );
+    } catch (AMRegistrationException e) {
+      LOG.error( e.getMessage(), e );
+      yarn.finish( true, e.getMessage() );
+      return false;
+    }
+    return true;
+  }
+
+  public void run() throws YarnFacadeException
+  {
+    // Only if registration is successful do we start the pulse thread
+    // which will cause containers to be requested.
+
+    startTimer( );
+
+    // Run until the controller decides to shut down.
+
     LOG.trace("Running");
     boolean success = controller.waitForCompletion();
+
+    // Shut down.
+
     LOG.trace("Finishing");
     finish(success, null);
   }
 
   private void setup() throws YarnFacadeException, AMException {
     LOG.trace("Starting YARN agent");
-    yarn.start(new ResourceCallback(), new NodeCallback(), new TimerCallback());
+    yarn.start(new ResourceCallback(), new NodeCallback());
     LOG.trace("Registering YARN application");
-    yarn.register( trackingUrl );
+    yarn.register( trackingUrl.replace( "<port>", Integer.toString( httpPort ) ) );
     controller.started();
 
     for (DispatcherAddOn addOn : addOns) {
@@ -232,12 +275,50 @@ public class Dispatcher
     }
   }
 
-  private void finish(boolean success, String msg) throws YarnFacadeException {
+  private void register() throws AMRegistrationException {
+    if ( amRegistrar == null ) {
+      LOG.warn( "No AM Registrar provided: cannot check if this is the only AM for the Drill cluster." );
+    }
+    else {
+      YarnAppHostReport rpt = yarn.getAppHostReport();
+      amRegistrar.register( rpt.amHost, httpPort, rpt.appId );
+    }
+  }
+
+  private void startTimer( )
+  {
+    timer = new PulseRunnable(timerPeriodMs, new TimerCallback());
+
+    // Start the pulse thread after registering so that we're in
+    // a state where we can interact with the RM.
+
+    pulseThread = new Thread(timer);
+    pulseThread.setName("Pulse");
+    pulseThread.start();
+  }
+
+  private void finish(boolean success, String msg) throws YarnFacadeException
+  {
     for (DispatcherAddOn addOn : addOns) {
       addOn.finish(controller);
     }
 
     LOG.trace("Shutting down YARN agent");
+
+    // Stop the timer thread first. This ensures that the
+    // timer events don't try to use the YARN API during
+    // shutdown.
+
+    stopTimer( );
     yarn.finish(success, msg);
+  }
+
+  private void stopTimer() {
+    timer.stop();
+    try {
+      pulseThread.join();
+    } catch (InterruptedException e) {
+      // Ignore
+    }
   }
 }

@@ -61,8 +61,8 @@ public class TestDrillbitFactory implements ControllerFactory
 
   @Override
   public Dispatcher build() throws ControllerFactoryException {
-    Dispatcher dispatcher = new Dispatcher();
-    AMYarnFacadeImpl yarn = new AMYarnFacadeImpl(pollPeriodMs, timerPeriodMs);
+    Dispatcher dispatcher = new Dispatcher(timerPeriodMs);
+    AMYarnFacadeImpl yarn = new AMYarnFacadeImpl(pollPeriodMs);
     try {
       dispatcher.setYarn(yarn);
     } catch (YarnFacadeException e) {

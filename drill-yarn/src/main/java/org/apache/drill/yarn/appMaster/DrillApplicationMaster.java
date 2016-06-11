@@ -47,14 +47,9 @@ public class DrillApplicationMaster
 {
   private static final Log LOG = LogFactory.getLog(DrillApplicationMaster.class);
 
-  public static void main(String[] args) {
-
-    // Temporary
-
-//    Logger logger = Logger.getLogger("org.apache.drill.yarn");
-//    logger.setLevel(Level.TRACE);
-
-    LOG.trace( "Drill Application Master starting." );
+  public static void main(String[] args)
+  {
+     LOG.trace( "Drill Application Master starting." );
 
     // Load the configuration. Assumes that the user's Drill-on-YARN
     // configuration was archived along with the Drill software in
@@ -68,25 +63,48 @@ public class DrillApplicationMaster
       System.exit( -1 );
     }
 
+    // Build the dispatcher using the Drillbit factory. Allows inserting
+    // other factories for testing, or if we need to manage a cluster of
+    // processes other than Drillbits.
+
     // Dispatcher am = (new SimpleBatchFactory( )).build( );
     // Dispatcher am = (new MockDrillbitFactory( )).build( );
-    Dispatcher am;
+    Dispatcher dispatcher;
     try {
-      am = (new DrillControllerFactory()).build();
+      dispatcher = (new DrillControllerFactory()).build();
     } catch (ControllerFactoryException e) {
       LOG.error("Setup failed, exiting: " + e.getMessage(), e);
       System.exit(-1);
       return;
     }
-    WebServer webServer = new WebServer( am );
+
+    // Start the Dispatcher. This will return false if this AM conflicts with
+    // a running AM.
+
+    try {
+      if ( ! dispatcher.start() ) {
+        return; }
+    } catch (Throwable e) {
+      LOG.error("Fatal error, exiting: " + e.getMessage(), e);
+      System.exit(-1);
+    }
+
+    // Create and start the web server. Do this after starting the AM
+    // so that we don't learn about a conflict via the a web server port
+    // conflict.
+
+    WebServer webServer = new WebServer( dispatcher );
     try {
       webServer.start();
     } catch (Exception e) {
       LOG.error("Web server setup failed, exiting: " + e.getMessage(), e);
       System.exit(-1);
     }
+
+    // Run the dispatcher until the cluster shuts down.
+
     try {
-      am.run();
+      dispatcher.run();
     } catch (Throwable e) {
       LOG.error("Fatal error, exiting: " + e.getMessage(), e);
       System.exit(-1);
