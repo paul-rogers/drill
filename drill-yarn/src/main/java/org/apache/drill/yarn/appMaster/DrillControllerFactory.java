@@ -30,7 +30,6 @@ import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.DrillOnYarnConfig.Pool;
 import org.apache.drill.yarn.core.LaunchSpec;
 import org.apache.drill.yarn.zk.ZKClusterCoordinatorDriver;
-import org.apache.drill.yarn.zk.ZKConfigException;
 import org.apache.drill.yarn.zk.ZKRegistry;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.records.LocalResource;
@@ -76,10 +75,10 @@ public class DrillControllerFactory implements ControllerFactory
 
       // Prepare dispatcher
 
-      dispatcher = new Dispatcher();
-      int pollPeriodMs = config.getInt( DrillOnYarnConfig.AM_POLL_PERIOD_MS );
       int timerPeriodMs = config.getInt( DrillOnYarnConfig.AM_TICK_PERIOD_MS );
-      AMYarnFacadeImpl yarn = new AMYarnFacadeImpl(pollPeriodMs, timerPeriodMs);
+      dispatcher = new Dispatcher( timerPeriodMs );
+      int pollPeriodMs = config.getInt( DrillOnYarnConfig.AM_POLL_PERIOD_MS );
+      AMYarnFacadeImpl yarn = new AMYarnFacadeImpl(pollPeriodMs);
       dispatcher.setYarn(yarn);
       dispatcher.getController().setMaxRetries( config.getInt( DrillOnYarnConfig.DRILLBIT_MAX_RETRIES ) );
 
@@ -98,10 +97,10 @@ public class DrillControllerFactory implements ControllerFactory
     // Tracking Url
     // TODO: HTTPS support
 
+    dispatcher.setHttpPort( config.getInt( DrillOnYarnConfig.HTTP_PORT ) );
     String trackingUrl = null;
     if ( config.getBoolean( DrillOnYarnConfig.HTTP_ENABLED ) ) {
       trackingUrl = "http://<host>:<port>/redirect";
-      trackingUrl = trackingUrl.replace( "<port>", Integer.toString( config.getInt( DrillOnYarnConfig.HTTP_PORT ) ) );
       dispatcher.setTrackingUrl(trackingUrl);
     }
 
@@ -315,6 +314,7 @@ public class DrillControllerFactory implements ControllerFactory
     ZKRegistry zkRegistry = new ZKRegistry(driver);
     dispatcher.registerAddOn(zkRegistry);
     dispatcher.getController().registerLifecycleListener(zkRegistry);
+    dispatcher.setAMRegistrar( driver );
   }
 
 }

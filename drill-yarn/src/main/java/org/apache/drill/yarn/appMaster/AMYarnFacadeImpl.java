@@ -25,7 +25,6 @@ import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.drill.yarn.appMaster.AMYarnFacade.YarnAppHostReport;
 import org.apache.drill.yarn.appMaster.PulseRunnable.PulseCallback;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.LaunchSpec;
@@ -64,10 +63,7 @@ public class AMYarnFacadeImpl implements AMYarnFacade
   private NMClientAsync nodeMgr;
   private RegisterApplicationMasterResponse registration;
   private YarnClient client;
-  private Thread pulseThread;
   private int pollPeriodMs;
-  private int timerPeriodMs;
-  private PulseRunnable timer;
 
   private String appMasterTrackingUrl;
 
@@ -75,14 +71,15 @@ public class AMYarnFacadeImpl implements AMYarnFacade
 
   private ApplicationReport appReport;
 
-  public AMYarnFacadeImpl(int pollPeriodMs, int timerPeriodMs) {
+  private String amHost;
+
+  public AMYarnFacadeImpl(int pollPeriodMs) {
     this.pollPeriodMs = pollPeriodMs;
-    this.timerPeriodMs = timerPeriodMs;
   }
 
   @Override
   public void start(CallbackHandler resourceCallback,
-      org.apache.hadoop.yarn.client.api.async.NMClientAsync.CallbackHandler nodeCallback, PulseCallback timerCallback) {
+      org.apache.hadoop.yarn.client.api.async.NMClientAsync.CallbackHandler nodeCallback ) {
 
     conf = new YarnConfiguration();
 
@@ -109,8 +106,6 @@ public class AMYarnFacadeImpl implements AMYarnFacade
         LOG.error( "Failed to get YARN applicaiton report for App ID: " + appIdStr, e );
       }
     }
-
-    timer = new PulseRunnable(timerPeriodMs, timerCallback);
   }
 
   @Override
@@ -121,7 +116,8 @@ public class AMYarnFacadeImpl implements AMYarnFacade
       // YARN seems to provide multiple names: MACHNAME.local/10.250.56.235
       // The second seems to be the IP address, which is what we want.
       String names[] = thisHostName.split( "/" );
-      appMasterTrackingUrl = trackingUrl.replace( "<host>", names[names.length - 1] );
+      amHost = names[names.length - 1];
+      appMasterTrackingUrl = trackingUrl.replace( "<host>", amHost );
       LOG.info( "Tracking URL: " + appMasterTrackingUrl );
     }
     try {
@@ -130,13 +126,6 @@ public class AMYarnFacadeImpl implements AMYarnFacade
     } catch (YarnException | IOException e) {
       throw new YarnFacadeException("Register AM failed", e);
     }
-
-    // Start the pulse thread after registering so that we're in
-    // a state where we can interact with the RM.
-
-    pulseThread = new Thread(timer);
-    pulseThread.setName("Pulse");
-    pulseThread.start();
   }
 
   @Override
@@ -170,20 +159,7 @@ public class AMYarnFacadeImpl implements AMYarnFacade
   @Override
   public void finish(boolean succeeded, String msg) throws YarnFacadeException
   {
-    // Stop the timer thread first. This ensures that the
-    // timer events don't try to use the YARN API during
-    // shutdown.
-
-    timer.stop();
-    while (pulseThread.isAlive()) {
-      try {
-        Thread.sleep(1000);
-      } catch (InterruptedException e) {
-        // Ignore;
-      }
-    }
-
-    // Then the Node Manager client.
+    // Stop the Node Manager client.
 
     nodeMgr.stop();
 
@@ -240,17 +216,11 @@ public class AMYarnFacadeImpl implements AMYarnFacade
 
   @Override
   public void blacklistNode(String nodeName) {
-//    String nodeAddr = nodeMap.get( nodeName );
-//    if ( nodeAddr == null )
-//      nodeAddr = nodeName;
     resourceMgr.updateBlacklist(Collections.singletonList(nodeName), null);
   }
 
   @Override
   public void removeBlacklist(String nodeName) {
-//    String nodeAddr = nodeMap.get( nodeName );
-//    if ( nodeAddr == null )
-//      nodeAddr = nodeName;
     resourceMgr.updateBlacklist(null, Collections.singletonList(nodeName));
   }
 
@@ -269,6 +239,7 @@ public class AMYarnFacadeImpl implements AMYarnFacade
     // Cobble together YARN links to simplify debugging.
 
     YarnAppHostReport hostRpt = new YarnAppHostReport( );
+    hostRpt.amHost = amHost;
     if ( appId != null ) {
       hostRpt.appId = appId.toString();
     }

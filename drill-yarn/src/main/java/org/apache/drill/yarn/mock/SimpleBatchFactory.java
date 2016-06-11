@@ -49,8 +49,8 @@ public class SimpleBatchFactory implements ControllerFactory
 
   @Override
   public Dispatcher build() throws ControllerFactoryException {
-    Dispatcher dispatcher = new Dispatcher();
-    AMYarnFacadeImpl yarn = new AMYarnFacadeImpl(1000, 2000);
+    Dispatcher dispatcher = new Dispatcher(2000);
+    AMYarnFacadeImpl yarn = new AMYarnFacadeImpl(1000);
     try {
       dispatcher.setYarn(yarn);
     } catch (YarnFacadeException e) {

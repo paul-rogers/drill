@@ -22,4 +22,6 @@ public class ZKRuntimeException extends Exception
   private static final long serialVersionUID = 1L;
 
   public ZKRuntimeException(String msg, Exception e) { super( msg, e ); }
+
+  public ZKRuntimeException(String msg) { super( msg ); }
 }

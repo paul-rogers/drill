@@ -17,7 +17,7 @@
  */
 package org.apache.drill.yarn.appMaster;
 import java.util.List;
-import org.apache.drill.yarn.appMaster.PulseRunnable.PulseCallback;
+
 import org.apache.drill.yarn.core.LaunchSpec;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
 import org.apache.hadoop.yarn.api.records.Container;
@@ -44,6 +44,7 @@ public interface AMYarnFacade
   public static class YarnAppHostReport
   {
     public String appId;
+    public String amHost;
     public String rmHost;
     public String rmUrl;
     public String rmAppUrl;
@@ -52,8 +53,7 @@ public interface AMYarnFacade
     public String nmAppUrl;
   }
 
-  void start(AMRMClientAsync.CallbackHandler resourceCallback, NMClientAsync.CallbackHandler nodeCallback,
-      PulseCallback timerCallback);
+  void start(AMRMClientAsync.CallbackHandler resourceCallback, NMClientAsync.CallbackHandler nodeCallback);
 
   void register( String trackingUrl ) throws YarnFacadeException;
 

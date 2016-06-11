@@ -17,6 +17,8 @@
  */
 package org.apache.drill.yarn.client;
 
+import java.io.File;
+
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 
 import com.typesafe.config.Config;
@@ -52,6 +54,11 @@ public class StartCommand extends ClientCommand
   @Override
   public void run() throws ClientException
   {
+    File appIdFile = getAppIdFile( );
+    if ( ! opts.force  &&  appIdFile.exists() ) {
+      throw new ClientException( "Error: Application ID file ready exists, AM may already be running. Use -f to override: " + appIdFile.getAbsolutePath() );
+    }
+
     dryRun = opts.dryRun;
     config = DrillOnYarnConfig.config();
     FileUploader uploader = upload( );
@@ -78,7 +85,7 @@ public class StartCommand extends ClientCommand
 
   private void launch(FileUploader uploader) throws ClientException
   {
-    AMRunner runner = new AMRunner( config, opts.verbose, dryRun );
+    AMRunner runner = new AMRunner( config, opts.verbose, dryRun, opts.force );
     runner.resources = uploader.resources;
     runner.remoteDrillHome = uploader.remoteDrillHome;
     runner.remoteSiteDir = uploader.remoteSiteDir;

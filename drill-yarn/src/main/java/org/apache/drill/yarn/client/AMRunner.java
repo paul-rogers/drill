@@ -57,11 +57,13 @@ public class AMRunner
   private YarnRMClient client;
   private GetNewApplicationResponse appResponse;
   private boolean dryRun;
+  private boolean force;
 
-  public AMRunner( Config config, boolean verbose, boolean dryRun ) {
+  public AMRunner( Config config, boolean verbose, boolean dryRun, boolean force ) {
     this.config = config;
     this.verbose = verbose;
     this.dryRun = dryRun;
+    this.force = force;
   }
 
   public void run( ) throws ClientException {
