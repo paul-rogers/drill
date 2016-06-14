@@ -21,27 +21,16 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.security.CodeSource;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.drill.yarn.appMaster.DrillControllerFactory;
-import org.apache.drill.yarn.client.ClientException;
-import org.apache.hadoop.fs.FileContext;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.UnsupportedFileSystemException;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
 import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
-import org.apache.hadoop.yarn.api.records.LocalResource;
-import org.apache.hadoop.yarn.api.records.LocalResourceType;
-import org.apache.hadoop.yarn.api.records.LocalResourceVisibility;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
-import org.apache.hadoop.yarn.api.records.URL;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
-import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.hadoop.yarn.util.Records;
 
 /**
@@ -148,7 +137,12 @@ public class AppSpec extends LaunchSpec {
       m = target.getClass().getMethod( fnName, Double.TYPE );
     } catch (NoSuchMethodException e) {
       // Ignore, the method does not exist in this distribution.
-      LOG.trace( "Not supported in this YARN distribution: " + methodLabel + "( " + arg + ")" );
+      LOG.trace( "Not supported in this YARN distribution: " + methodLabel + "(" + arg + ")" );
+      CodeSource src = target.getClass().getProtectionDomain().getCodeSource();
+      if (src != null) {
+          java.net.URL jar = src.getLocation();
+          LOG.trace( "Class found in URL: " + jar.toString() );
+      }
       return;
     } catch (SecurityException e) {
       LOG.error( "Security prevents dynamic method calls", e );
