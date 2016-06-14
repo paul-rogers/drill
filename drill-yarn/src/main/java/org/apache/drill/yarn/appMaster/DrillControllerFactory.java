@@ -288,12 +288,31 @@ public class DrillControllerFactory implements ControllerFactory
     return taskSpec;
   }
 
+  /**
+   * Utility method to create an environment variable in the process launch
+   * specification if a given Drill-on-YARN configuration variable is set,
+   * copying the config value to the environment variable.
+   *
+   * @param spec
+   * @param configParam
+   * @param envVar
+   */
+
   public void addIfSet( LaunchSpec spec, String configParam, String envVar ) {
     String value = config.getString( configParam );
     if ( ! DoYUtil.isBlank( value ) ) {
       spec.env.put( envVar, value );
     }
   }
+
+  /**
+   * Create the Drill-on-YARN version of the ZooKeeper cluster coordinator.
+   * Compared to the Drill version, this one takes its parameters via a
+   * builder pattern in the form of the cluster coordinator driver.
+   *
+   * @param config
+   * @param dispatcher
+   */
 
   private void buildZooKeeper(Config config, Dispatcher dispatcher) {
     ZKClusterCoordinatorDriver driver;
@@ -313,8 +332,20 @@ public class DrillControllerFactory implements ControllerFactory
         .setPorts( userPort, bitPort, bitPort + 1);
     ZKRegistry zkRegistry = new ZKRegistry(driver);
     dispatcher.registerAddOn(zkRegistry);
+
+    // The ZK driver is started and stopped in conjunction with the
+    // controlle lifecycle.
+
     dispatcher.getController().registerLifecycleListener(zkRegistry);
+
+    // The ZK driver also handles registering the AM for the cluster.
+
     dispatcher.setAMRegistrar( driver );
+
+    // The UI needs access to ZK to report unmanaged drillbits. We use
+    // a property to avoid unnecessary code dependencies.
+
+    dispatcher.getController().setProperty(ZKRegistry.CONTROLLER_PROPERTY, zkRegistry);
   }
 
 }

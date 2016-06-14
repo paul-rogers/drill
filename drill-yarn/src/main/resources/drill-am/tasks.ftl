@@ -17,53 +17,71 @@
   <h4>Drillbit Status</h4>
   <p>&nbsp;
 
-  <div class="table-responsive">
-    <table class="table table-hover">
-      <tr>
-        <th><span data-toggle="tooltip" title="Internal AM ID for the Drillbit.">ID</span></th>
-        <th><span data-toggle="tooltip" title="Host pool from config file">Pool</span></th>
-        <th><span data-toggle="tooltip"
-                  title="Host name or IP running the Drillbit and ink to Drillbit web UI.">
-            Host</span></th>
-        <th><span data-toggle="tooltip" title="State of the Drillbit process, hover for details.">State</span></th>
-        <th><span data-toggle="tooltip" title="ZooKeeper tracking state for the Drillbit, hover for details.">ZK State</span></th>
-        <th><span data-toggle="tooltip"
-                  title="YARN Container allocated to the Drillbit and link to the YARN Node Manager container UI.">
-            Container</span></th>
-        <th><span data-toggle="tooltip" title="Memory granted by YARN to the Drillbit.">Memory (MB)</span></th>
-        <th><span data-toggle="tooltip" title="Virtual cores granted by YARN to the Drillbit.">Virtual Cores</span></th>
-        <th><span data-toggle="tooltip" title="Start time in the AM server time zone.">Start Time</span></th>
-      </th>
-       <#assign count=0>
-       <#list model as task>
-        <#assign count=count+1>
+  <#if model.hasTasks( ) >
+    <div class="table-responsive">
+      <table class="table table-hover">
         <tr>
-          <td><b>${task.getTaskId( )}</b></td>
-          <td>${task.getPoolName( )}</td>
-          <td>
-          <#if task.isLive( )>
-            <a href="${task.getLink( )}" data-toggle="tooltip" title="Link to the Drillbit Web UI"></#if>
-          ${task.getHost( )}
-          <#if task.isLive( )></a></#if>
-          </td>
-          <td><span data-toggle="tooltip" title="${task.getStateHint( )}">${task.getState( )}</span>
-          <#if task.isCancelled( )><br/>(Cancelled)</#if>
-          <#if task.isCancellable( )>
-            <a href="/cancel?id=${task.getTaskId( )}" data-toggle="tooltip" title="Kill this Drillbit">[x]</a>
-          </#if>
-          </td>
-          <td><span data-toggle="tooltip" title="${task.getTrackingStateHint( )}">${task.getTrackingState( )}</span></td>
-          <td><#if task.hasContainer( )>
-            <a href="${task.getNmLink( )}" data-toggle="tooltip" title="Node Manager UI for Drillbit container">${task.getContainerId()}</a>
-          <#else>&nbsp;</#if></td>
-          <td>${task.getMemory( )}</td>
-          <td>${task.getVcores( )}</td>
-          <td>${task.getStartTime( )}</td>
-        </tr>
-      </#list>
-    </table>
-    <#if count == 0>
-    No drillbits are running.
+          <th><span data-toggle="tooltip" title="Internal AM ID for the Drillbit.">ID</span></th>
+          <th><span data-toggle="tooltip" title="Host pool from config file">Pool</span></th>
+          <th><span data-toggle="tooltip"
+                    title="Host name or IP running the Drillbit and ink to Drillbit web UI.">
+              Host</span></th>
+          <th><span data-toggle="tooltip" title="State of the Drillbit process, hover for details.">State</span></th>
+          <th><span data-toggle="tooltip" title="ZooKeeper tracking state for the Drillbit, hover for details.">ZK State</span></th>
+          <th><span data-toggle="tooltip"
+                    title="YARN Container allocated to the Drillbit and link to the YARN Node Manager container UI.">
+              Container</span></th>
+          <th><span data-toggle="tooltip" title="Memory granted by YARN to the Drillbit.">Memory (MB)</span></th>
+          <th><span data-toggle="tooltip" title="Virtual cores granted by YARN to the Drillbit.">Virtual Cores</span></th>
+          <th><span data-toggle="tooltip" title="Start time in the AM server time zone.">Start Time</span></th>
+        </th>
+        <#list tasks as task>
+          <tr>
+            <td><b>${task.getTaskId( )}</b></td>
+            <td>${task.getPoolName( )}</td>
+            <td>
+            <#if task.isLive( )>
+              <a href="${task.getLink( )}" data-toggle="tooltip" title="Link to the Drillbit Web UI"></#if>
+            ${task.getHost( )}
+            <#if task.isLive( )></a></#if>
+            </td>
+            <td><span data-toggle="tooltip" title="${task.getStateHint( )}">${task.getState( )}</span>
+            <#if task.isCancelled( )><br/>(Cancelled)</#if>
+            <#if task.isCancellable( )>
+              <a href="/cancel?id=${task.getTaskId( )}" data-toggle="tooltip" title="Kill this Drillbit">[x]</a>
+            </#if>
+            </td>
+            <td><span data-toggle="tooltip" title="${task.getTrackingStateHint( )}">${task.getTrackingState( )}</span></td>
+            <td><#if task.hasContainer( )>
+              <a href="${task.getNmLink( )}" data-toggle="tooltip" title="Node Manager UI for Drillbit container">${task.getContainerId()}</a>
+            <#else>&nbsp;</#if></td>
+            <td>${task.getMemory( )}</td>
+            <td>${task.getVcores( )}</td>
+            <td>${task.getStartTime( )}</td>
+          </tr>
+        </#list>
+      </table>
+    <#else>
+      <div class="alert alert-danger">
+        No drillbits are running.
+      </div>
+    </#if>
+    <#if model.hasUnmanagedDrillbits( ) >
+      <hr>
+      <div class="alert alert-danger">
+        <strong>Warning:</strong> ZooKeeper reports that
+        ${model.getUnmanagedDrillbitCount( )} Drillbit(s) are running that were not
+        started by the YARN Application Master. Perhaps they were started manually.
+      </div>
+      <table class="table table-hover" style="width: auto;">
+        <tr><th>Host</th><th>Ports</th></tr>
+        <#list strays as stray >
+          <tr>
+            <td>${stray.getHost( )}</td>
+            <td>${stray.getPorts( )}</td>
+          </tr>
+        </#list>
+      </table>
     </#if>
   </div>
 </#macro>

@@ -108,7 +108,6 @@ public class ClusterControllerImpl implements ClusterController
 
   private int configPollPeriod = 60_000;
   private long nextResourcePollTime;
-  private int yarnNodeCount;
 
   private NodeInventory nodeInventory;
 
@@ -121,7 +120,9 @@ public class ClusterControllerImpl implements ClusterController
 
   private List<TaskLifecycleListener> lifecycleListeners = new ArrayList<>( );
 
-   public ClusterControllerImpl(AMYarnFacade yarn) {
+  private Map<String,Object> properties = new HashMap<>( );
+
+  public ClusterControllerImpl(AMYarnFacade yarn) {
     this.yarn = yarn;
   }
 
@@ -213,7 +214,7 @@ public class ClusterControllerImpl implements ClusterController
     if (nextResourcePollTime > curTime) {
       return; }
 
-    yarnNodeCount = yarn.getNodeCount();
+//    yarnNodeCount = yarn.getNodeCount();
 //    LOG.info("YARN reports " + yarnNodeCount + " nodes.");
 
 //    Resource yarnResources = yarn.getResources();
@@ -462,6 +463,16 @@ public class ClusterControllerImpl implements ClusterController
   }
 
   public NodeInventory getNodeInventory() {return nodeInventory;}
+
+  @Override
+  public void setProperty(String key, Object value) {
+    properties.put( key, value );
+  }
+
+  @Override
+  public Object getProperty( String key ) {
+    return properties.get( key );
+  }
 
   @Override
   public void registerLifecycleListener( TaskLifecycleListener listener ) {

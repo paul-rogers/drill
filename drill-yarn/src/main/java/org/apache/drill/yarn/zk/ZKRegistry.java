@@ -17,7 +17,9 @@
  */
 package org.apache.drill.yarn.zk;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -59,7 +61,42 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
       this.task = task;
       state = DrillbitTracker.State.NEW;
     }
+
+    /**
+     * Mark that a YARN-managed task has become registered in ZK. This
+     * indicates that the task has come online. Tell the task to update
+     * its state to record that the task
+     * is, in fact, registered in ZK. This indicates a normal, healthy
+     * task.
+     *
+     * @param tracker
+     */
+
+    private void becomeRegistered( ClusterController controller ) {
+      state = DrillbitTracker.State.REGISTERED;
+      task.properties.put( ENDPOINT_PROPERTY, endpoint );
+      EventContext context = new EventContext( controller );
+      context.setTask( task );
+      context.getState().startAck( context );
+    }
+
+    public void becomeUnregistered(ClusterController controller) {
+
+      // Normal case of a YARN-managed drill-bit.
+      // Tell the task that we've received the completion ack
+      // event.
+
+      assert state == DrillbitTracker.State.REGISTERED;
+      state = DrillbitTracker.State.DEREGISTERED;
+      task.properties.remove( ENDPOINT_PROPERTY );
+      EventContext context = new EventContext( controller );
+      context.setTask( task );
+      context.getState().completionAck( context );
+    }
+
   }
+
+  public static final String CONTROLLER_PROPERTY = "zk";
 
   // TODO: longer for production
 
@@ -159,7 +196,7 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
       return;
     }
 
-    // Managed drillbit case. Might be known if we lost, then regained
+    // Managed drillbit case. Might be we lost, then regained
     // ZK connection.
 
     if ( tracker.state == DrillbitTracker.State.REGISTERED ) {
@@ -170,7 +207,7 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
     // state changes from DEREGISTERED --> REGISTERED
 
     tracker.endpoint = dbe;
-    becomeRegistered( tracker );
+    tracker.becomeRegistered( controller );
   }
 
   /**
@@ -219,17 +256,7 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
       controller.releaseHost( dbe.getAddress() );
       return;
     }
-
-    // Normal case of a YARN-managed drill-bit.
-    // Tell the task that we've received the completion ack
-    // event.
-
-    assert tracker.state == DrillbitTracker.State.REGISTERED;
-    tracker.state = DrillbitTracker.State.DEREGISTERED;
-    tracker.task.properties.remove( ENDPOINT_PROPERTY );
-    EventContext context = new EventContext( controller );
-    context.setTask( tracker.task );
-    context.getState().completionAck( context );
+    tracker.becomeUnregistered( controller );
   }
 
   /**
@@ -281,29 +308,11 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
 
       LOG.info( "Unmanaged drillbit became managed: " + key );
       tracker.task = task;
-      becomeRegistered( tracker );
+      tracker.becomeRegistered( controller );
     }
     else {
       LOG.error( task.getLabel() + " - Drillbit registry in wrong state " + tracker.state + " for new task: " + key );
     }
-  }
-
-  /**
-   * Mark that a YARN-managed task has become registered in ZK. This
-   * indicates that the task has come online. Tell the task to update
-   * its state to record that the task
-   * is, in fact, registered in ZK. This indicates a normal, healthy
-   * task.
-   *
-   * @param tracker
-   */
-
-  private void becomeRegistered(DrillbitTracker tracker) {
-    tracker.state = DrillbitTracker.State.REGISTERED;
-    tracker.task.properties.put( ENDPOINT_PROPERTY, tracker.endpoint );
-    EventContext context = new EventContext( controller );
-    context.setTask( tracker.task );
-    context.getState().startAck( context );
   }
 
   /**
@@ -348,5 +357,17 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
   public void finish(ClusterController controller) {
     zkDriver.removeDrillbitListener( this );
     zkDriver.close();
+  }
+
+  public synchronized List<String> listUnmanagedDrillits() {
+    List<String> drillbits = new ArrayList<>( );
+    for ( DrillbitTracker item : registry.values() ) {
+      if ( item.state == DrillbitTracker.State.UNMANAGED ) {
+        drillbits.add( item.toString() );
+      }
+    }
+    // TESTING
+//    drillbits.add( "foo:123:456:789" );
+    return drillbits;
   }
 }
