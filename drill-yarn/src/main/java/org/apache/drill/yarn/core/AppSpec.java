@@ -145,7 +145,7 @@ public class AppSpec extends LaunchSpec {
     String methodLabel = target.getClass().getName() + "." + fnName;
     Method m;
     try {
-      m = target.getClass().getMethod( fnName, Double.class );
+      m = target.getClass().getMethod( fnName, Double.TYPE );
     } catch (NoSuchMethodException e) {
       // Ignore, the method does not exist in this distribution.
       LOG.trace( "Not supported in this YARN distribution: " + methodLabel + "( " + arg + ")" );
