@@ -34,7 +34,23 @@ public interface ClusterController
 {
   void registerLifecycleListener(TaskLifecycleListener listener);
 
+  void registerScheduler(Scheduler resourceGroup);
+
+  void setProperty(String key, Object value);
+  Object getProperty( String key );
+
+  /**
+   * Called after the dispatcher has started YARN and other server
+   * components. The controller can now begin to spin up tasks.
+   */
+
   void started( ) throws YarnFacadeException, AMException;
+
+  /**
+   * Called by the timer ("pulse") thread to trigger time-based events.
+   *
+   * @param curTime
+   */
 
   void tick(long curTime);
 
@@ -124,22 +140,20 @@ public interface ClusterController
 
   void shutDown();
 
-  boolean waitForCompletion();
+  /**
+   * Called by the main thread to wait for the normal shutdown of the
+   * controller. Such shutdown occurs when the admin sends a sutdown
+   * command from the UI or REST API.
+   *
+   * @return
+   */
 
-  void registerScheduler(Scheduler resourceGroup);
+  boolean waitForCompletion();
 
   void reserveHost(String hostName);
   void releaseHost(String hostName);
 
   void updateRMStatus();
-
-//  /**
-//   * Return a copy of the current tasks. Creates the copy in
-//   * a synchronized method, allowing display of the copy
-//   * in non-synchronized code.
-//   * @return
-//   */
-//  List<TaskModel> getTaskModels( );
 
   void setMaxRetries(int value);
 
@@ -151,9 +165,32 @@ public interface ClusterController
 
   void visit( ControllerVisitor visitor );
 
+  /**
+   * Allow an observer to see a consistent view of the controller's
+   * task state by performing the visit in a synchronized block.
+   *
+   * @param visitor
+   */
+
   void visitTasks( TaskVisitor visitor );
 
+  /**
+   * Return the target number of tasks that the controller seeks to maintain.
+   * This is the sum across all pools.
+   *
+   * @return
+   */
+
   int getTargetCount();
+
+  /**
+   * Cancels the given task, reducing the target task count. Called
+   * from the UI to allow the user to select the specific task to end
+   * when reducing cluster size.
+   *
+   * @param id
+   * @return
+   */
 
   boolean cancelTask(int id);
 }

@@ -57,6 +57,12 @@
       <td>Live Drillbit Count:</td>
       <td>${model.getLiveCount( )}</td>
     </tr>
+    <#if model.getUnmanagedCount( ) gt 0 >
+      <tr>
+        <td style="color: red">Unmanaged Drillbit Count:</td>
+        <td>${model.getUnmanagedCount( )}</td>
+      </tr>
+    </#if>
     <tr>
       <td>Total Drill Virtual Cores:</td>
       <td>${model.getDrillTotalVcores( )}</td>

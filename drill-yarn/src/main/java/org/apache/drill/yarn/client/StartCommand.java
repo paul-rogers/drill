@@ -85,7 +85,7 @@ public class StartCommand extends ClientCommand
 
   private void launch(FileUploader uploader) throws ClientException
   {
-    AMRunner runner = new AMRunner( config, opts.verbose, dryRun, opts.force );
+    AMRunner runner = new AMRunner( config, opts.verbose, dryRun );
     runner.resources = uploader.resources;
     runner.remoteDrillHome = uploader.remoteDrillHome;
     runner.remoteSiteDir = uploader.remoteSiteDir;

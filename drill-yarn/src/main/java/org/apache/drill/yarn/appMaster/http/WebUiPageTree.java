@@ -78,6 +78,7 @@ public class WebUiPageTree extends PageTree
     public Viewable getRoot( ) {
       ControllerModel model = new ControllerModel( );
       dispatcher.getController().visit( model );
+      model.countStrayDrillbits( dispatcher.getController() );
       return new Viewable( "/drill-am/index.ftl", toModel( sc, model ) );
     }
   }
@@ -174,8 +175,19 @@ public class WebUiPageTree extends PageTree
     public Viewable getRoot( ) {
       AbstractTasksModel.TasksModel model = new AbstractTasksModel.TasksModel( );
       dispatcher.getController().visitTasks( model );
+      model.listUnmanaged( dispatcher.getController() );
       model.sortTasks( );
-      return new Viewable( "/drill-am/tasks.ftl", toModel( sc, model.results ) );
+
+      // Done this funky way because FreeMarker only understands lists if they
+      // are members of a hash (grumble, grumble...)
+
+      Map<String,Object> map = new HashMap<>( );
+      map.put( "model", model );
+      map.put( "tasks", model.getTasks() );
+      if ( model.hasUnmanagedDrillbits() ) {
+        map.put( "strays", model.getUnnamaged() );
+      }
+      return new Viewable( "/drill-am/tasks.ftl", toMapModel( sc, map ) );
     }
   }
 

@@ -202,10 +202,34 @@ public abstract class AbstractTasksModel
     }
   }
 
+  public static class UnmanagedDrillbitModel
+  {
+    protected String host;
+    protected String ports;
+
+    public UnmanagedDrillbitModel( String endpoint ) {
+      String parts[] = endpoint.split( ":" );
+      host = parts[0];
+      List<String> thePorts = new ArrayList<>( );
+      thePorts.add( parts[1] );
+      thePorts.add( parts[2] );
+      thePorts.add( parts[3] );
+      ports = DoYUtil.join( ", ", thePorts );
+    }
+
+    public String getHost( ) { return host; }
+    public String getPorts( ) { return ports; }
+  }
+
   protected List<TaskModel> results = new ArrayList<>( );
+
+  public List<TaskModel> getTasks( ) { return results; }
+  public boolean hasTasks( ) { return ! results.isEmpty(); }
 
   public static class TasksModel extends AbstractTasksModel implements TaskVisitor
   {
+    protected List<UnmanagedDrillbitModel> unmanaged;
+
     @Override
     public void visit(Task task) {
       results.add( new TaskModel( task, true ) );
@@ -222,6 +246,33 @@ public abstract class AbstractTasksModel
           return Integer.compare( t1.id, t2.id );
         }
       });
+    }
+
+    /**
+     * To avoid race conditions, do not use the controller visitor to invoke this method,
+     * we want to leave the controller unlocked and instead lock only the ZK registry.
+     *
+     * @param controller
+     */
+
+    public void listUnmanaged(ClusterController controller) {
+      ZKRegistry zkRegistry = (ZKRegistry) controller.getProperty( ZKRegistry.CONTROLLER_PROPERTY );
+      if ( zkRegistry == null ) {
+        return;
+      }
+      List<String> endpoints = zkRegistry.listUnmanagedDrillits( );
+      if ( endpoints.isEmpty() ) {
+        return; }
+      unmanaged = new ArrayList<>( );
+      for ( String endpoint : endpoints ) {
+        unmanaged.add( new UnmanagedDrillbitModel( endpoint ) );
+      }
+    }
+
+    public List<UnmanagedDrillbitModel>getUnnamaged( ) { return unmanaged; }
+    public boolean hasUnmanagedDrillbits( ) { return unmanaged != null; }
+    public int getUnmanagedDrillbitCount( ) {
+      return (unmanaged == null) ? 0 : unmanaged.size( );
     }
   }
 

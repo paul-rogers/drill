@@ -17,8 +17,6 @@
  */
 package org.apache.drill.yarn.appMaster.http;
 
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,16 +27,17 @@ import javax.xml.bind.annotation.XmlRootElement;
 import org.apache.drill.yarn.appMaster.AMYarnFacade.YarnAppHostReport;
 import org.apache.drill.yarn.appMaster.ClusterController;
 import org.apache.drill.yarn.appMaster.ClusterControllerImpl;
-import org.apache.drill.yarn.appMaster.ContainerRequestSpec;
 import org.apache.drill.yarn.appMaster.ClusterControllerImpl.State;
-import org.apache.drill.yarn.core.DrillOnYarnConfig;
-import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
-
-import com.typesafe.config.Config;
-
+import org.apache.drill.yarn.appMaster.ContainerRequestSpec;
 import org.apache.drill.yarn.appMaster.ControllerVisitor;
 import org.apache.drill.yarn.appMaster.Scheduler;
 import org.apache.drill.yarn.appMaster.SchedulerStateActions;
+import org.apache.drill.yarn.core.DoYUtil;
+import org.apache.drill.yarn.core.DrillOnYarnConfig;
+import org.apache.drill.yarn.zk.ZKRegistry;
+import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
+
+import com.typesafe.config.Config;
 
 @XmlRootElement
 public class ControllerModel implements ControllerVisitor
@@ -70,6 +69,7 @@ public class ControllerModel implements ControllerVisitor
   protected int yarnNodeCount;
   protected int taskCount;
   protected int liveCount;
+  protected int unmanagedCount;
   protected int targetCount;
   protected int totalDrillMemory;
   protected int totalDrillVcores;
@@ -93,6 +93,7 @@ public class ControllerModel implements ControllerVisitor
   public int getYarnNodeCount( ) { return yarnNodeCount; }
   public int getTaskCount( ) { return taskCount; }
   public int getLiveCount( ) { return liveCount; }
+  public int getUnmanagedCount( ) { return unmanagedCount; }
   public int getTargetCount( ) { return targetCount; }
   public List<PoolModel> getPools( ) { return pools; }
 
@@ -117,6 +118,11 @@ public class ControllerModel implements ControllerVisitor
       yarnMemory = resp.getMaximumResourceCapability().getMemory();
       yarnNodeCount = impl.getYarn( ).getNodeCount();
     }
+    capturePools( impl );
+  }
+
+  private void capturePools( ClusterControllerImpl impl )
+  {
     for ( SchedulerStateActions pool : impl.getPools( ) ) {
       ControllerModel.PoolModel poolModel = new ControllerModel.PoolModel( );
       Scheduler sched = pool.getScheduler();
@@ -139,6 +145,27 @@ public class ControllerModel implements ControllerVisitor
       targetCount = 0;
     }
   }
+
+  /**
+   * Count the unmanaged drillbits. Do this as a separate call, not via the
+   * {@link #visit(ClusterController) visit} method, to avoid locking both
+   * the cluster controller and ZK registry.
+   *
+   * @param controller
+   */
+
+  public void countStrayDrillbits(ClusterController controller) {
+    ZKRegistry zkRegistry = (ZKRegistry) controller.getProperty( ZKRegistry.CONTROLLER_PROPERTY );
+    if ( zkRegistry != null ) {
+      unmanagedCount = zkRegistry.listUnmanagedDrillits().size();
+    }
+  }
+
+  /**
+   * Create a table of user-visible descriptions for each controller state.
+   *
+   * @return
+   */
 
   private static Map<State, String> makeStateHints() {
     Map<ClusterControllerImpl.State,String> hints = new HashMap<>( );
