@@ -81,7 +81,7 @@ public class CleanCommand extends ClientCommand
     DrillOnYarnConfig doyConfig = DrillOnYarnConfig.instance();
     if ( ! doyConfig.hasSiteDir() ) {
       return; }
-    String archiveName = config.getString( DrillOnYarnConfig.SITE_ARCHIVE_NAME );
+    String archiveName = DrillOnYarnConfig.SITE_ARCHIVE_NAME;
     removeArchive( archiveName );
   }
 
