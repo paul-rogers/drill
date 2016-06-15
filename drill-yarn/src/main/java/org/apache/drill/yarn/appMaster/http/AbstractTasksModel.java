@@ -209,12 +209,20 @@ public abstract class AbstractTasksModel
 
     public UnmanagedDrillbitModel( String endpoint ) {
       String parts[] = endpoint.split( ":" );
-      host = parts[0];
-      List<String> thePorts = new ArrayList<>( );
-      thePorts.add( parts[1] );
-      thePorts.add( parts[2] );
-      thePorts.add( parts[3] );
-      ports = DoYUtil.join( ", ", thePorts );
+      if ( parts.length < 4 ) {
+        // Should never occur, but better save than sorry.
+        
+        host = endpoint;
+        ports = "";
+      }
+      else {
+        host = parts[0];
+        List<String> thePorts = new ArrayList<>( );
+        thePorts.add( parts[1] );
+        thePorts.add( parts[2] );
+        thePorts.add( parts[3] );
+        ports = DoYUtil.join( ", ", thePorts );
+      }
     }
 
     public String getHost( ) { return host; }
