@@ -363,7 +363,7 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
     List<String> drillbits = new ArrayList<>( );
     for ( DrillbitTracker item : registry.values() ) {
       if ( item.state == DrillbitTracker.State.UNMANAGED ) {
-        drillbits.add( item.toString() );
+        drillbits.add( toKey( item.endpoint ) );
       }
     }
     // TESTING
