@@ -109,6 +109,7 @@ public class DrillOnYarnConfig
   public static final String AM_PREFIX_CLASSPATH = append( DOY_AM_PARENT, "prefix-class-path" );
   public static final String AM_CLASSPATH = append( DOY_AM_PARENT, "class-path" );
   public static final String AM_DEBUG_LAUNCH = append( DOY_AM_PARENT, "debug-launch" );
+  public static final String AM_ENABLE_AUTO_SHUTDOWN = append( DOY_AM_PARENT, "auto-shutdown" );
 
   public static final String DRILLBIT_MEMORY = append( DOY_DRILLBIT_PARENT, MEMORY_KEY );
   public static final String DRILLBIT_VCORES = append( DOY_DRILLBIT_PARENT, VCORES_KEY );
@@ -500,6 +501,7 @@ public class DrillOnYarnConfig
     AM_PREFIX_CLASSPATH,
     AM_CLASSPATH,
     AM_DEBUG_LAUNCH,
+    AM_ENABLE_AUTO_SHUTDOWN,
 
     // drill.yarn.zk
 

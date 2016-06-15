@@ -32,6 +32,8 @@ import org.apache.hadoop.yarn.api.records.ContainerStatus;
 
 public interface ClusterController
 {
+  void enableFailureCheck( boolean flag );
+
   void registerLifecycleListener(TaskLifecycleListener listener);
 
   void registerScheduler(Scheduler resourceGroup);

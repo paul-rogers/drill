@@ -122,8 +122,15 @@ public class ClusterControllerImpl implements ClusterController
 
   private Map<String,Object> properties = new HashMap<>( );
 
+  private boolean enableFailureCheck = true;
+
   public ClusterControllerImpl(AMYarnFacade yarn) {
     this.yarn = yarn;
+  }
+
+  @Override
+  public void enableFailureCheck( boolean flag ) {
+    this.enableFailureCheck = flag;
   }
 
   /**
@@ -170,7 +177,7 @@ public class ClusterControllerImpl implements ClusterController
   }
 
   private void adjustTasks( long curTime ) {
-    if ( nodeInventory.getFreeNodeCount() <= 0 ) {
+    if ( enableFailureCheck  && nodeInventory.getFreeNodeCount() <= 0 ) {
       checkForFailure( curTime );
     }
     if ( state != State.LIVE ) {
@@ -193,9 +200,15 @@ public class ClusterControllerImpl implements ClusterController
   }
 
   private void checkTasks(long curTime) {
+
+    // Check periodically, not on every tick.
+
     if ( lastTaskCheckTime + taskCheckPeriodMs > curTime ) {
       return; }
     lastTaskCheckTime = curTime;
+
+    // Check for task timeouts in states that have a timeout.
+
     EventContext context = new EventContext(this);
     for (SchedulerStateActions group : prioritizedPools) {
       context.setGroup(group);
@@ -403,7 +416,7 @@ public class ClusterControllerImpl implements ClusterController
     if ( state != State.ENDING ) {
       return; }
     for (SchedulerStateActions group : prioritizedPools) {
-      if (!group.isDone()) {
+      if ( ! group.isDone() ) {
         return; }
     }
     terminate( State.ENDED );

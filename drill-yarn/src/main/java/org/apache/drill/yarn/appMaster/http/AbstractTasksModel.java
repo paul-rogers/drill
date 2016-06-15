@@ -211,7 +211,7 @@ public abstract class AbstractTasksModel
       String parts[] = endpoint.split( ":" );
       if ( parts.length < 4 ) {
         // Should never occur, but better save than sorry.
-        
+
         host = endpoint;
         ports = "";
       }
