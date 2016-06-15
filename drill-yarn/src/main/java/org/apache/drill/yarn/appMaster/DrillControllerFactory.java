@@ -104,6 +104,10 @@ public class DrillControllerFactory implements ControllerFactory
       dispatcher.setTrackingUrl(trackingUrl);
     }
 
+    // Enable/disable check for auto shutdown when no nodes are running.
+
+    dispatcher.getController().enableFailureCheck( config.getBoolean( DrillOnYarnConfig.AM_ENABLE_AUTO_SHUTDOWN ) );
+
     return dispatcher;
   }
 
