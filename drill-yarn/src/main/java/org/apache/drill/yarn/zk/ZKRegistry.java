@@ -192,7 +192,9 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
       // Unmanaged drillbit case
 
       LOG.info( "Registration of unmanaged drillbit: " + key );
-      registry.put( key, new DrillbitTracker( key ) );
+      tracker = new DrillbitTracker( key );
+      tracker.endpoint = dbe;
+      registry.put( key, tracker );
       return;
     }
 
@@ -363,7 +365,7 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
     List<String> drillbits = new ArrayList<>( );
     for ( DrillbitTracker item : registry.values() ) {
       if ( item.state == DrillbitTracker.State.UNMANAGED ) {
-        drillbits.add( toKey( item.endpoint ) );
+        drillbits.add( item.key );
       }
     }
     // TESTING
