@@ -19,13 +19,21 @@ package org.apache.drill.yarn.appMaster;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 /**
  * Clock driver that calls a callback once each pulse period. Used to react to
  * time-based events such as timeouts, checking for changed files, etc.
+ * This is called a "pulse" because it is periodic, like your pulse. But,
+ * unlike the "heartbeat" between the AM and YARN or the AM and ZK,
+ * this is purely internal.
  */
 
 public class PulseRunnable implements Runnable
 {
+  private static final Log LOG = LogFactory.getLog(PulseRunnable.class);
+
   /**
    * Interface implemented to receive calls on each clock "tick."
    */
@@ -52,7 +60,20 @@ public class PulseRunnable implements Runnable
       } catch (InterruptedException e) {
         break;
       }
-      callback.onTick(System.currentTimeMillis());
+      try {
+        callback.onTick(System.currentTimeMillis());
+      }
+      catch ( Exception e ) {
+
+        // Ignore exceptions. Seems strange, but is required to allow
+        // graceful shutdown of the AM when errors occur. For example, we
+        // start tasks on tick events. If those tasks fail, the timer
+        // goes down. But, the timer is also needed to time out failed
+        // requests in order to bring down the AM. So, just log the error
+        // and soldier on.
+
+        LOG.error( "Timer thread caught, ignored an exception", e );
+      }
     }
   }
 

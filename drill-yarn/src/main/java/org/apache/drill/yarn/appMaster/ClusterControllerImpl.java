@@ -51,9 +51,50 @@ import org.apache.hadoop.yarn.proto.YarnServiceProtos.SchedulerResourceTypes;
 
 public class ClusterControllerImpl implements ClusterController
 {
+  /**
+   * Controller lifecycle state.
+   */
+
   public enum State
   {
-    START, LIVE, ENDING, ENDED, FAILED
+    /**
+     * Cluster is starting. Things are in a partially-built state.
+     * No tasks are started until the cluster moves to LIVE.
+     */
+
+    START,
+
+    /**
+     * Normal operating state: the controller seeks to maintain the desired
+     * number of tasks.
+     */
+
+    LIVE,
+
+    /**
+     * Controller is shutting down. Tasks are gracefully (where possible)
+     * ended; no new tasks are started. (That is, when we detect the exit
+     * of a task, the controller no longer immediately tries to start a
+     * replacement.
+     */
+
+    ENDING,
+
+    /**
+     * The controller has shut down. All tasks and threads are stopped.
+     * The controller allows the main thread (which has been patiently
+     * waiting) to continue, allowing the AM itself to shut down. Thus,
+     * this is a very short-lived state.
+     */
+
+    ENDED,
+
+    /**
+     * Something bad happened on start-up; the AM can't start and
+     * must shut down.
+     */
+
+    FAILED
   }
 
   private final static int PRIORITY_OFFSET = 1;
@@ -68,7 +109,17 @@ public class ClusterControllerImpl implements ClusterController
 
   private Object completionMutex = new Object();
 
+  /**
+   * Maximum number of retries for each task launch.
+   */
+
   protected int maxRetries = 3;
+
+  /**
+   * Controller state.
+   *
+   * @see {@link State}
+   */
 
   State state = State.START;
 
@@ -79,7 +130,23 @@ public class ClusterControllerImpl implements ClusterController
 
   private Map<String, SchedulerStateActions> taskPools = new HashMap<>();
 
+  /**
+   * List of task pools prioritized in the order in which tasks
+   * should start. DoY supports only one task pool at present.
+   * The idea is to, later, support multiple pools that represent,
+   * say, pool 1 as the minimum number of Drillbits to run at all times,
+   * with pool 2 as extra Drillbits to start up during peak demand.
+   * <p>
+   * The priority also gives rise to YARN request priorities which are
+   * the only tool the AM has to associate container grants with the
+   * requests to which they correspond.
+   */
+
   private List<SchedulerStateActions> prioritizedPools = new ArrayList<>();
+
+  /**
+   * Cluster-wide association of YARN container IDs to tasks.
+   */
 
   private Set<ContainerId> allocatedContainers = new HashSet<>();
 
@@ -100,14 +167,34 @@ public class ClusterControllerImpl implements ClusterController
 
   private List<Task> completedTasks = new LinkedList<>();
 
+  /**
+   * Wrapper around the YARN API. Abstracts the details of YARN
+   * operations.
+   */
+
   private final AMYarnFacade yarn;
+
+  /**
+   * Maximum number of new tasks to start on each "pulse" tick.
+   */
 
   private int maxRequestsPerTick = 2;
 
   private int stopTimoutMs = 10_000;
 
+  /**
+   * Time (in ms) between request to YARN to get an updated list
+   * of the node "inventory".
+   */
+
   private int configPollPeriod = 60_000;
   private long nextResourcePollTime;
+
+  /**
+   * List of nodes available in the cluster. Necessary as part of the process of
+   * ensuring that we run one Drillbit per node. (The YARN blacklist only
+   * half works for this purpose.)
+   */
 
   private NodeInventory nodeInventory;
 
@@ -118,9 +205,30 @@ public class ClusterControllerImpl implements ClusterController
   private int taskCheckPeriodMs = 10_000;
   private long lastTaskCheckTime;
 
+  /**
+   * To increase code modularity, add-ons (such as the ZK monitor)
+   * register as lifecycle listeners that are alerted to "interesting"
+   * lifecycle events.
+   */
+
   private List<TaskLifecycleListener> lifecycleListeners = new ArrayList<>( );
 
+  /**
+   * Handy mechanism for setting properties on this controller that are
+   * available to plugins and UI without cluttering this class with
+   * member variables.
+   */
+
   private Map<String,Object> properties = new HashMap<>( );
+
+  /**
+   * When enabled, allows the controller to check for failures
+   * that result in no drillbits running. The controller will then
+   * automatically exit as no useful work can be done. Disable this
+   * to make debugging easier on a single-node cluster (lets you,
+   * say, start a "stray" drill bit and see what happens without
+   * the AM exiting.)
+   */
 
   private boolean enableFailureCheck = true;
 
@@ -150,6 +258,11 @@ public class ClusterControllerImpl implements ClusterController
     prioritizedPools.add(taskGroup);
   }
 
+  /**
+   * Called when the caller has completed start-up and the
+   * controller should become live.
+   */
+
   @Override
   public synchronized void started( ) throws YarnFacadeException, AMException
   {
@@ -176,6 +289,12 @@ public class ClusterControllerImpl implements ClusterController
     }
   }
 
+  /**
+   * Adjust the number of running tasks to match the desired level.
+   *
+   * @param curTime
+   */
+
   private void adjustTasks( long curTime ) {
     if ( enableFailureCheck  && nodeInventory.getFreeNodeCount() <= 0 ) {
       checkForFailure( curTime );
@@ -186,6 +305,13 @@ public class ClusterControllerImpl implements ClusterController
       group.adjustTasks();
     }
   }
+
+  /**
+   * Check if the controller is unable to run any tasks. If so, and the option is
+   * enabled, then automatically exit since no useful work can be done.
+   *
+   * @param curTime
+   */
 
   private void checkForFailure(long curTime) {
     if ( lastFailureCheckTime + failureCheckPeriodMs > curTime ) {
@@ -198,6 +324,12 @@ public class ClusterControllerImpl implements ClusterController
     LOG.error("Application failure: no tasks are running and no nodes are available -- exiting.");
     terminate( State.FAILED );
   }
+
+  /**
+   * Periodically check tasks, handling any timeout issues.
+   *
+   * @param curTime
+   */
 
   private void checkTasks(long curTime) {
 

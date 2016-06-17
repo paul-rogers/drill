@@ -23,10 +23,10 @@ import java.io.IOException;
 import java.io.PrintWriter;
 
 import org.apache.drill.yarn.appMaster.AbstractTaskManager;
-import org.apache.drill.yarn.appMaster.ContainerRequestSpec;
 import org.apache.drill.yarn.appMaster.PersistentTaskScheduler;
 import org.apache.drill.yarn.appMaster.Task;
 import org.apache.drill.yarn.appMaster.TaskSpec;
+import org.apache.drill.yarn.core.ContainerRequestSpec;
 import org.apache.drill.yarn.core.LaunchSpec;
 
 public class MockDrillbitScheduler extends PersistentTaskScheduler

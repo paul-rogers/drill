@@ -19,7 +19,6 @@ package org.apache.drill.yarn.mock;
 
 import org.apache.drill.yarn.appMaster.AMWrapperException;
 import org.apache.drill.yarn.appMaster.AMYarnFacadeImpl;
-import org.apache.drill.yarn.appMaster.ContainerRequestSpec;
 import org.apache.drill.yarn.appMaster.ControllerFactory;
 import org.apache.drill.yarn.appMaster.Dispatcher;
 import org.apache.drill.yarn.appMaster.DrillbitScheduler;
@@ -27,6 +26,7 @@ import org.apache.drill.yarn.appMaster.Scheduler;
 import org.apache.drill.yarn.appMaster.TaskSpec;
 import org.apache.drill.yarn.appMaster.YarnFacadeException;
 import org.apache.drill.yarn.appMaster.ControllerFactory.ControllerFactoryException;
+import org.apache.drill.yarn.core.ContainerRequestSpec;
 import org.apache.drill.yarn.core.LaunchSpec;
 import org.apache.drill.yarn.zk.ZKClusterCoordinatorDriver;
 import org.apache.drill.yarn.zk.ZKConfigException;

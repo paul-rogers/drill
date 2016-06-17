@@ -20,6 +20,7 @@ package org.apache.drill.yarn.appMaster;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.drill.yarn.core.ContainerRequestSpec;
 import org.apache.drill.yarn.core.LaunchSpec;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
@@ -46,7 +47,18 @@ public class Task
 
   public enum TrackingState
   {
-    UNTRACKED, NEW, START_ACK, END_ACK
+    UNTRACKED( "N/A" ),
+    NEW( "Waiting" ),
+    START_ACK( "OK" ),
+    END_ACK( "Deregistered" );
+
+    private String displayName;
+
+    private TrackingState( String displayName ) {
+      this.displayName = displayName;
+    }
+
+    public String getDisplayName( ) { return displayName; }
   }
 
   public enum Disposition
@@ -54,9 +66,26 @@ public class Task
     CANCELLED, LAUNCH_FAILED, RUN_FAILED, COMPLETED, TOO_MANY_RETRIES, RETRIED
   }
 
-  public static final long MAX_CANCELLATION_TIME = 10_000;
+  /**
+   * Maximum amount of time to wait when cancelling a job in the REQUESTING
+   * state. YARN will happily wait forever for a resource, this setting allows
+   * the user to request to cancel a task, give YARN a while to respond, then
+   * forcibly cancel the job at timeout.
+   */
 
-  private static int taskCounter = 0;
+  public static final long MAX_CANCELLATION_TIME = 10_000; // ms = 10s
+
+  /**
+   * Tasks receive a sequential internal task ID. Since all task
+   * creation is single-threaded, no additional concurrency controls
+   * are needed to protect this value.
+   */
+
+  private static volatile int taskCounter = 0;
+
+  /**
+   * Internal identifier for the task.
+   */
 
   public final int taskId;
 

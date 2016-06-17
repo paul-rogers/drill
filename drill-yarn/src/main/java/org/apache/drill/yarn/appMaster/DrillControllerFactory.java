@@ -22,13 +22,14 @@ import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.drill.yarn.core.ContainerRequestSpec;
 import org.apache.drill.yarn.core.DfsFacade;
 import org.apache.drill.yarn.core.DfsFacade.DfsFacadeException;
 import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DoyConfigException;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
-import org.apache.drill.yarn.core.DrillOnYarnConfig.Pool;
 import org.apache.drill.yarn.core.LaunchSpec;
+import org.apache.drill.yarn.core.NodePool;
 import org.apache.drill.yarn.zk.ZKClusterCoordinatorDriver;
 import org.apache.drill.yarn.zk.ZKRegistry;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
@@ -83,9 +84,10 @@ public class DrillControllerFactory implements ControllerFactory
       dispatcher.getController().setMaxRetries( config.getInt( DrillOnYarnConfig.DRILLBIT_MAX_RETRIES ) );
 
       // Assume basic scheduler for now.
-      Pool pool = DrillOnYarnConfig.instance().getPool( 0 );
+      NodePool.Pool pool = NodePool.getPool( config, 0 );
       Scheduler testGroup = new DrillbitScheduler(pool.name, taskSpec, pool.count);
       dispatcher.getController().registerScheduler(testGroup);
+      pool.modifyTaskSpec( taskSpec );
 
       // ZooKeeper setup
 
@@ -110,6 +112,15 @@ public class DrillControllerFactory implements ControllerFactory
 
     return dispatcher;
   }
+
+  /**
+   * Prepare the files ("resources" in YARN terminology) that YARN should download
+   * ("localize") for the Drillbit. We need both the Drill software and the user's
+   * site-specific configuration.
+   *
+   * @return
+   * @throws YarnFacadeException
+   */
 
   private Map<String, LocalResource> prepareResources( ) throws YarnFacadeException {
     try {
@@ -146,14 +157,9 @@ public class DrillControllerFactory implements ControllerFactory
   }
 
   /**
-   * Constructs the Drill launch command. Performs the equivalent of
-   * drillbit.sh, drill-config.sh, drill-env.sh and runbit.
-   * <p>
-   * We launch Drill directly from YARN (rather than indirectly via a
-   * script) because doing so is more in the spirit of YARN and using
-   * a script simply introduces another layer of complexity.
-   * The cost is that we have to change this code to change the launch
-   * environment or command.
+   * Constructs the Drill launch command. The launch uses the YARN-specific
+   * yarn-drillbit.sh script, setting up the required input environment
+   * variables.
    * <p>
    * This is an exercise in getting
    * many details just right. The code here sets the environment variables
@@ -227,16 +233,6 @@ public class DrillControllerFactory implements ControllerFactory
     // for client launch as well as the AM.
 
 //    addIfSet( drillbitSpec, DrillOnYarnConfig.HADOOP_HOME, "HADOOP_HOME" );
-
-    // When localized, the config directory must be $DRILL_HOME/conf, which
-    // contains the localized files. We set this explicitly to prevent
-    // drill-config.sh from using any of the default locations.
-    // Note that we can do the obvious: $DRILL_HOME/conf, because env vars
-    // are set in random order, one value set here can't rely on another.
-
-//    if ( config.getBoolean( DrillOnYarnConfig.LOCALIZE_DRILL ) ) {
-//      drillbitSpec.env.put( "DRILL_CONF_DIR", drillHome + "/conf" );
-//    }
 
     // Garbage collection (gc) logging. In drillbit.sh logging can be
     // configured to go anywhere. In YARN, all logs go to the YARN log

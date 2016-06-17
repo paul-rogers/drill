@@ -74,7 +74,7 @@ public abstract class AbstractTasksModel
       cancelled = task.isCancelled();
       isLive = live &&  taskState == TaskState.RUNNING;
       TrackingState tState = task.getTrackingState( );
-      trackingState = tState.toString();
+      trackingState = tState.getDisplayName();
       trackingStateHint = trackingStateHints.get( tState );
       container = task.container;
       startTime = task.launchTime;
