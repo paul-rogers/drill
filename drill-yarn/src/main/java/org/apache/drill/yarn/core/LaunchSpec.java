@@ -104,15 +104,15 @@ public class LaunchSpec {
   public LaunchSpec() {
   }
 
-  public LaunchSpec(LaunchSpec from) {
-    resources.putAll(from.resources);
-    env.putAll(from.env);
-    command = from.command;
-    mainClass = from.mainClass;
-    classPath.addAll(from.classPath);
-    vmArgs.addAll( vmArgs );
-    cmdArgs.addAll(from.cmdArgs);
-  }
+//  public LaunchSpec(LaunchSpec from) {
+//    resources.putAll(from.resources);
+//    env.putAll(from.env);
+//    command = from.command;
+//    mainClass = from.mainClass;
+//    classPath.addAll(from.classPath);
+//    vmArgs.addAll( vmArgs );
+//    cmdArgs.addAll(from.cmdArgs);
+//  }
 
   /**
    * Create the command line to run on the remote node. The
@@ -168,7 +168,7 @@ public class LaunchSpec {
 
   public ContainerLaunchContext createLaunchContext(YarnConfiguration conf) throws IOException {
     // Set up the container launch context
-    ContainerLaunchContext amContainer =
+    ContainerLaunchContext container =
             Records.newRecord(ContainerLaunchContext.class);
 
     // Set up the list of commands to run. Here, we assume that we run only
@@ -176,19 +176,19 @@ public class LaunchSpec {
     // launch.
 
     if (command != null || mainClass != null) {
-      amContainer.setCommands(
+      container.setCommands(
               Collections.singletonList(getCommand()));
     }
 
     // Add localized resources
-    amContainer.setLocalResources(resources);
 
-    // Environment and class path.
-    Map<String, String> appMasterEnv = new HashMap<String, String>();
-    appMasterEnv.putAll(env);
-//    appMasterEnv.put(Environment.CLASSPATH.name(), DoYUtil.join(File.pathSeparator, classPath));
-    amContainer.setEnvironment(appMasterEnv);
-    return amContainer;
+    container.setLocalResources(resources);
+
+    // Environment.
+
+    container.setEnvironment(env);
+
+    return container;
   }
 
   public void dump(PrintStream out) {

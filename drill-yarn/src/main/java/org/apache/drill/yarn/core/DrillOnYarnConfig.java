@@ -24,7 +24,6 @@ import java.net.URL;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.drill.common.config.CommonConstants;
 import org.apache.drill.common.config.DrillConfig;
@@ -33,8 +32,6 @@ import org.apache.drill.exec.ExecConstants;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
 import com.typesafe.config.ConfigFactory;
-import com.typesafe.config.ConfigList;
-import com.typesafe.config.ConfigValue;
 
 /**
  * Configuration used within the Drill-on-YARN code. Configuration comes from four
@@ -102,6 +99,7 @@ public class DrillOnYarnConfig
   public static final String AM_MEMORY = append( DOY_AM_PARENT, MEMORY_KEY );
   public static final String AM_VCORES = append( DOY_AM_PARENT, VCORES_KEY );
   public static final String AM_DISKS = append( DOY_AM_PARENT, DISKS_KEY );
+  public static final String AM_NODE_LABEL_EXPR = append( DOY_AM_PARENT, "node-label-expr" );
   public static final String AM_HEAP = append( DOY_AM_PARENT, HEAP_KEY );
   public static final String AM_VM_ARGS = append( DOY_AM_PARENT, VM_ARGS_KEY );
   public static final String AM_POLL_PERIOD_MS = append( DOY_AM_PARENT, "poll-ms" );
@@ -151,12 +149,6 @@ public class DrillOnYarnConfig
 
   public static final String CLUSTER_POOLS = append( DRILL_ON_YARN_PARENT, "pools" );
 
-  // The following keys are relative to the cluster pool definition
-
-  public static final String POOL_NAME = "name";
-  public static final String POOL_TYPE = "type";
-  public static final String POOL_SIZE = "count";
-
   /**
    * Name of the subdirectory of the container directory that will hold
    * localized Drill distribution files. This name must be consistent between
@@ -200,56 +192,6 @@ public class DrillOnYarnConfig
   private static File drillSite;
   private static File drillHome;
   private Config config;
-
-  /**
-   * Defined cluster types. The value of the type appears as the
-   * value of the {@link $CLUSTER_TYPE} parameter in the config file.
-   */
-
-  public enum PoolType {
-    BASIC( "basic" ),
-    LABELED( "labeled" );
-
-    private String value;
-
-    private PoolType( String value ) {
-      this.value = value;
-    }
-
-    public static PoolType toEnum( String value ) {
-      for ( PoolType type : PoolType.values() ) {
-        if ( type.value.equalsIgnoreCase( value ) ) {
-          return type; }
-      }
-      return null;
-    }
-
-    public String toValue( ) { return value; }
-  }
-
-  public static class Pool
-  {
-    public String name;
-    public int count;
-    public PoolType type;
-
-    public void getPairs(int index, List<NameValuePair> pairs) {
-      String key = append( CLUSTER_POOLS, Integer.toString( index ) );
-      pairs.add( new NameValuePair( append( key, POOL_NAME ), name ) );
-      pairs.add( new NameValuePair( append( key, POOL_TYPE ), type ) );
-      pairs.add( new NameValuePair( append( key, POOL_SIZE ), count ) );
-    }
-  }
-
-  public static class BasicPool extends Pool
-  {
-
-  }
-
-  public static class LabeledPool extends Pool
-  {
-
-  }
 
   public static String append( String parent, String key ) {
     return parent + "." + key;
@@ -494,6 +436,7 @@ public class DrillOnYarnConfig
     AM_MEMORY,
     AM_VCORES,
     AM_DISKS,
+    AM_NODE_LABEL_EXPR,
     AM_VM_ARGS,
     AM_HEAP,
     AM_POLL_PERIOD_MS,
@@ -568,15 +511,10 @@ public class DrillOnYarnConfig
     out.print( CLUSTER_POOLS );
     out.println( "[" );
     for ( int i = 0;  i < poolCount( );  i++ ) {
-      Pool pool = getPool( i );
+      NodePool.Pool pool = NodePool.getPool( config, i );
       out.print( i );
       out.println( " = {" );
-      out.print( "  name = " );
-      out.println( pool.name );
-      out.print( "  type = " );
-      out.println( pool.type.toValue() );
-      out.print( "  count = " );
-      out.println( pool.count );
+      pool.dump( "  ", out );
       out.println( "  }" );
     }
     out.println( "]" );
@@ -609,7 +547,7 @@ public class DrillOnYarnConfig
       pairs.add( new NameValuePair( key, config.getString( key ) ) );
     }
     for ( int i = 0;  i < poolCount( );  i++ ) {
-      Pool pool = getPool( i );
+      NodePool.Pool pool = NodePool.getPool( config, i );
       pool.getPairs( i, pairs );
     }
 
@@ -750,52 +688,6 @@ public class DrillOnYarnConfig
     // The caller must include a archive subdirectory name if required.
 
     return "$PWD/" + config.getString( SITE_ARCHIVE_KEY );
-  }
-
-  public Pool getPool( int n ) {
-    int index = n + 1;
-    ConfigList pools = config.getList(CLUSTER_POOLS);
-    ConfigValue value = pools.get( n );
-    @SuppressWarnings("unchecked")
-    Map<String,Object> pool = (Map<String,Object>) value.unwrapped();
-    String type;
-    try {
-      type = pool.get( POOL_TYPE ).toString();
-    }
-    catch ( NullPointerException e ) {
-      throw new IllegalArgumentException( "Pool type is required for pool " + index );
-    }
-    PoolType poolType = PoolType.toEnum( type );
-    if ( poolType == null ) {
-      throw new IllegalArgumentException( "Undefined type for pool " + index + ": " + type );
-    }
-    Pool poolDef;
-    switch ( poolType ) {
-    case BASIC:
-      poolDef = new BasicPool( );
-      break;
-    case LABELED:
-      poolDef = new LabeledPool( );
-      break;
-    default:
-      assert false;
-      throw new IllegalStateException( "Undefined pool type: " + poolType );
-    }
-    poolDef.type = poolType;
-    try {
-      poolDef.count = (Integer) pool.get( POOL_SIZE );
-    }
-    catch ( ClassCastException e ) {
-      throw new IllegalArgumentException( "Expected an integer for " + POOL_SIZE + " for pool " + index );
-    }
-    Object nameValue = pool.get( POOL_NAME );
-    if ( nameValue != null ) {
-      poolDef.name = nameValue.toString();
-    }
-    if ( DoYUtil.isBlank( poolDef.name ) ) {
-      poolDef.name = "pool-" + Integer.toString( index );
-    }
-    return poolDef;
   }
 
   /**

@@ -182,6 +182,7 @@ public class AMRunner
     master.appName = config.getString( DrillOnYarnConfig.APP_NAME );
     master.queueName = config.getString( DrillOnYarnConfig.YARN_QUEUE );
     master.priority = config.getInt( DrillOnYarnConfig.YARN_PRIORITY );
+    master.nodeLabelExpr = config.getString( DrillOnYarnConfig.AM_NODE_LABEL_EXPR );
     return master;
   }
 
@@ -217,10 +218,12 @@ public class AMRunner
     // YARN behaves very badly if we request a container larger than the maximum.
 
     if ( master.memoryMb > maxMemory ) {
-      throw new ClientException( "YARN maximum memory is " + maxMemory + " but the application master requests " + master.memoryMb );
+      System.err.println( "YARN maximum memory is " + maxMemory + " but the application master requests " + master.memoryMb );
+      master.memoryMb = maxMemory;
     }
     if ( master.vCores > maxCores ) {
-      throw new ClientException( "YARN maximum vcores is " + maxCores + " but the application master requests " + master.vCores );
+      System.err.println( "YARN maximum vcores is " + maxCores + " but the application master requests " + master.vCores );
+      master.vCores = maxCores;
     }
 
     try {

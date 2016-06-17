@@ -18,9 +18,9 @@
 package org.apache.drill.yarn.mock;
 
 import org.apache.drill.yarn.appMaster.BatchScheduler;
-import org.apache.drill.yarn.appMaster.ContainerRequestSpec;
 import org.apache.drill.yarn.appMaster.Scheduler;
 import org.apache.drill.yarn.appMaster.TaskSpec;
+import org.apache.drill.yarn.core.ContainerRequestSpec;
 import org.apache.drill.yarn.core.LaunchSpec;
 
 public class TestBatchScheduler extends BatchScheduler implements Scheduler {

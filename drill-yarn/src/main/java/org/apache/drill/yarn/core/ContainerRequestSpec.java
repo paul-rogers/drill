@@ -15,12 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.yarn.appMaster;
+package org.apache.drill.yarn.core;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.yarn.core.AppSpec;
+import org.apache.drill.yarn.appMaster.Scheduler;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
@@ -62,9 +62,17 @@ public class ContainerRequestSpec
 
   /**
    * Number of virtual disks (channels, spindles) to request.
+   * Not supported in Apache YARN, is supported in selected
+   * distributions.
    */
 
   public double disks;
+
+  /**
+   * Node label expression to apply to this request.
+   */
+
+  public String nodeLabelExpr;
 
   public List<String> racks = new ArrayList<>();
   public List<String> hosts = new ArrayList<>();
@@ -85,16 +93,29 @@ public class ContainerRequestSpec
     capability.setVirtualCores(vCores);
     AppSpec.callIfExists( capability, "setDisks", disks );
 
+    boolean relaxLocality = true;
     String nodeArr[] = null;
     if (!hosts.isEmpty()) {
       nodeArr = new String[hosts.size()];
       hosts.toArray(nodeArr);
+      relaxLocality = false;
     }
     String rackArr[] = null;
     if (!racks.isEmpty()) {
       nodeArr = new String[racks.size()];
       racks.toArray(rackArr);
+      relaxLocality = false;
     }
-    return new ContainerRequest(capability, nodeArr, rackArr, priorityRec);
+    String nodeExpr = null;
+    if ( ! DoYUtil.isBlank( nodeLabelExpr) ) {
+      nodeExpr = nodeLabelExpr;
+    }
+
+    // YARN is fragile. To (potentially) pass a node expression, we must use the
+    // 5-argument constructor. The fourth argument (relax locality) MUST be set
+    // to true if we omit the rack and node specs. (Else we get a runtime
+    // error.
+
+    return new ContainerRequest(capability, nodeArr, rackArr, priorityRec, relaxLocality, nodeExpr);
   }
 }

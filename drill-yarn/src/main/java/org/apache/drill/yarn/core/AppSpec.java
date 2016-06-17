@@ -35,7 +35,10 @@ import org.apache.hadoop.yarn.util.Records;
 
 /**
  * Abstract description of a remote process launch that describes the many
- * details needed to launch a process on a remote node.
+ * details needed to launch a process on a remote node. The YARN launch
+ * specification is a mess to work with; this class provides a simpler
+ * facade to gather the information, then turns around and builds the
+ * required YARN object.
  * <p>
  * Based on <a href="https://github.com/hortonworks/simple-yarn-app">Simple YARN App</a>.
  */
@@ -87,6 +90,13 @@ public class AppSpec extends LaunchSpec {
   public boolean unmanaged;
 
   /**
+   * Optional node label expression for the launch. Selects the nodes
+   * on which the task can run.
+   */
+
+  public String nodeLabelExpr;
+
+  /**
    * Given this generic description of an application, create the detailed
    * YARN application submission context required to launch the
    * application.
@@ -112,8 +122,16 @@ public class AppSpec extends LaunchSpec {
     appContext.setResource(getCapability());
     appContext.setQueue(queueName); // queue
     appContext.setPriority( Priority.newInstance( priority ) );
+    if ( ! DoYUtil.isBlank( nodeLabelExpr) ) {
+      appContext.setNodeLabelExpression( nodeLabelExpr );
+    }
 
     appContext.setUnmanagedAM(unmanaged);
+
+    // Only try the AM once. It will fail if things are misconfigured. Retrying is unlikely
+    // to fix the configuration problem.
+
+    appContext.setMaxAppAttempts( 1 );
 
     // TODO: Security tokens
 

@@ -17,6 +17,7 @@
  */
 package org.apache.drill.yarn.appMaster;
 
+import org.apache.drill.yarn.core.ContainerRequestSpec;
 import org.apache.hadoop.yarn.api.records.Resource;
 
 public abstract class AbstractScheduler implements Scheduler

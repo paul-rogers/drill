@@ -15,4 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+/**
+ * Implements a "YARN client" for Drill-on-YARN. The client uploads files to
+ * DFS, then requests that YARN start the Application Master. Much fiddling
+ * about is required to support this, such as zipping up the user's configuration,
+ * creating a local file with the app id so we can get app status and shut down
+ * the app, etc.
+ */
+
 package org.apache.drill.yarn.client;
