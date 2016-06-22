@@ -116,3 +116,15 @@
 # (including the default unset value) disables logging.
 
 #export SERVER_LOG_GC=${SERVER_LOG_GC:-1}
+
+# JVM options when running the sqlline Drill client. For example, adjust the
+# JVM heap memory here. These are used ONLY in non-embedded mode; these
+# are client-only settings. (The Drillbit settings are used when Drill
+# is embedded.)
+
+#export SQLLINE_JAVA_OPTS="-XX:MaxPermSize=512M"
+
+# Arguments passed to sqlline (the Drill shell) at all times: whether
+# Drill is embedded in Sqlline or not.
+
+#export DRILL_SHELL_JAVA_OPTS="..."
