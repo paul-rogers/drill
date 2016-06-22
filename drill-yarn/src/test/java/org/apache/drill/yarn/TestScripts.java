@@ -129,10 +129,11 @@ public class TestScripts
 
   public static String scripts[] = {
       "drill-config.sh",
-      //drill-embedded
-      //drill-localhost
+      "drill-embedded",
+      "drill-localhost",
       "drill-on-yarn.sh",
       "drillbit.sh",
+      "drill-conf",
       //dumpcat
       //hadoop-excludes.txt
       "runbit",
@@ -268,7 +269,7 @@ public class TestScripts
 
     String wrapper = "wrapper.sh";
     File dest = new File( binDir, wrapper );
-    InputStream is = getClass( ).getResourceAsStream( wrapper );
+    InputStream is = getClass( ).getResourceAsStream( "/" + wrapper );
     Files.copy( is, dest.toPath(), StandardCopyOption.REPLACE_EXISTING );
     is.close();
     dest.setExecutable( true );
@@ -428,6 +429,14 @@ public class TestScripts
       return true;
     }
 
+    public boolean containsArgsRegex( String args[]) {
+      for ( String arg : args ) {
+        if ( ! containsArgRegex( arg ) ) {
+          return false; }
+      }
+      return true;
+    }
+
     public boolean containsArgRegex( String arg ) {
       for ( String actual: echoArgs ) {
         if ( actual.matches( arg ) ) {
@@ -524,38 +533,40 @@ public class TestScripts
    * The "business end" of the tests: runs drillbit.sh and captures results.
    */
 
-  public static class DrillbitRun
+  public static class ScriptRunner
   {
     public File cwd = testDir;
     public File drillHome = testDrillHome;
-    public File drillbit;
+    public String script;
     public List<String> args = new ArrayList<>( );
     public Map<String,String> env = new HashMap<>( );
     public File logDir;
-    public File pidDir;
     public File pidFile;
     public File outputFile;
     public boolean preserveLogs;
 
-    public DrillbitRun( ) {
+    public ScriptRunner( String script ) {
+      this.script = script;
     }
 
-    public DrillbitRun( String cmd ) {
+    public ScriptRunner( String script, String cmd ) {
+      this( script );
       args.add( cmd );
     }
 
-    public DrillbitRun( String cmd[] ) {
-      for ( String arg : cmd ) {
+    public ScriptRunner( String script, String cmdArgs[] ) {
+      this( script );
+      for ( String arg : cmdArgs ) {
         args.add( arg );
       }
     }
 
-    public DrillbitRun withArg( String arg ) {
+    public ScriptRunner withArg( String arg ) {
       args.add( arg );
       return this;
     }
 
-    public DrillbitRun withSite( File siteDir ) {
+    public ScriptRunner withSite( File siteDir ) {
       if ( siteDir != null ) {
         args.add( "--site" );
         args.add( siteDir.getAbsolutePath() );
@@ -563,42 +574,30 @@ public class TestScripts
       return this;
     }
 
-    public DrillbitRun withEnvironment( Map<String,String> env ) {
+    public ScriptRunner withEnvironment( Map<String,String> env ) {
       if ( env != null ) {
         this.env.putAll( env );
       }
       return this;
     }
 
-    public DrillbitRun addEnv( String key, String value ) {
+    public ScriptRunner addEnv( String key, String value ) {
       env.put( key, value );
       return this;
     }
 
-    public DrillbitRun withLogDir( File logDir ) {
+    public ScriptRunner withLogDir( File logDir ) {
       this.logDir = logDir;
       return this;
     }
-
-    public DrillbitRun withPidDir( File pidDir ) {
-      this.pidDir = pidDir;
-      return this;
-    }
-
-    public DrillbitRun preserveLogs( ) {
+    public ScriptRunner preserveLogs( ) {
       preserveLogs = true;
       return this;
     }
 
-    public DrillbitRun asDaemon( )
-    {
-      return addEnv( "KEEP_RUNNING", "1" );
-    }
-
     public RunResult run( ) throws IOException {
-      if ( drillbit == null ) {
-        drillbit = new File ( drillHome, "bin/drillbit.sh" );
-      }
+      File binDir = new File( drillHome, "bin" );
+      File scriptFile = new File( binDir, script );
       outputFile = new File( testDir, "output.txt" );
       outputFile.delete();
       if ( logDir == null ) {
@@ -608,7 +607,7 @@ public class TestScripts
         cleanLogs( logDir );
       }
 
-      Process proc = startProcess( );
+      Process proc = startProcess( scriptFile );
       RunResult result = runProcess( proc );
       if ( result.returnCode == 0 ) {
         captureOutput( result );
@@ -623,10 +622,10 @@ public class TestScripts
       }
     }
 
-    private Process startProcess( ) throws IOException {
+    private Process startProcess( File scriptFile ) throws IOException {
       outputFile.delete();
       List<String> cmd = new ArrayList<>( );
-      cmd.add( drillbit.getAbsolutePath( ) );
+      cmd.add( scriptFile.getAbsolutePath( ) );
       cmd.addAll( args );
       ProcessBuilder pb = new ProcessBuilder( )
           .command(cmd)
@@ -695,6 +694,30 @@ public class TestScripts
         result.logFile = null;
       }
     }
+  }
+
+  public static class DrillbitRun extends ScriptRunner
+  {
+    public File pidDir;
+    
+    public DrillbitRun( ) {
+      super( "drillbit.sh" );
+    }
+    
+    public DrillbitRun( String cmd ) {
+      super( "drillbit.sh", cmd );
+    }
+
+    public DrillbitRun withPidDir( File pidDir ) {
+      this.pidDir = pidDir;
+      return this;
+    }
+
+    public DrillbitRun asDaemon( )
+    {
+      addEnv( "KEEP_RUNNING", "1" );
+      return this;
+    }
 
     public RunResult start( ) throws IOException {
       if ( pidDir == null ) {
@@ -729,7 +752,7 @@ public class TestScripts
     }
 
   }
-
+  
   /**
    * Build a "starter" conf or site directory by creating a mock drill-override.conf
    * file.
@@ -1421,9 +1444,9 @@ public class TestScripts
 
     {
       String propArg = "-Dproperty=value";
-      RunResult result = new DrillbitRun( DRILLBIT_START )
-          .withArg( propArg )
-          .start( );
+      DrillbitRun runner = new DrillbitRun( DRILLBIT_START );
+      runner.withArg( propArg );
+      RunResult result = runner.start( );
       assertEquals( 0, result.returnCode );
       result.validateArg( propArg );
     }
@@ -1503,9 +1526,9 @@ public class TestScripts
     // Use the -site (--config) option.
 
     {
-      RunResult result = new DrillbitRun( DRILLBIT_START )
-          .withSite( siteDir )
-          .start( );
+      DrillbitRun runner = new DrillbitRun( DRILLBIT_START );
+      runner.withSite( siteDir );
+      RunResult result = runner.start( );
       assertEquals( 0, result.returnCode );
       result.validateArg( "-XX:MaxDirectMemorySize=9G" );
     }
@@ -1515,9 +1538,9 @@ public class TestScripts
     // Set an env var.
 
     {
-      RunResult result = new DrillbitRun( DRILLBIT_START )
-          .addEnv( "DRILL_CONF_DIR", siteDir.getAbsolutePath() )
-          .start( );
+      DrillbitRun runner = new DrillbitRun( DRILLBIT_START );
+      runner.addEnv( "DRILL_CONF_DIR", siteDir.getAbsolutePath() );
+      RunResult result =  runner.start( );
       assertEquals( 0, result.returnCode );
       result.validateArg( "-XX:MaxDirectMemorySize=9G" );
     }
@@ -1545,9 +1568,9 @@ public class TestScripts
     createEnvFile( new File( siteDir, "drill-env.sh" ), drillEnv );
 
     {
-      RunResult result = new DrillbitRun( DRILLBIT_START )
-          .withLogDir( logsDir )
-          .start( );
+      DrillbitRun runner = new DrillbitRun( DRILLBIT_START );
+      runner.withLogDir( logsDir );
+      RunResult result = runner.start( );
       assertEquals( 0, result.returnCode );
       assertNotNull( result.logFile );
       assertTrue( result.logFile.getParentFile().equals( logsDir ) );
@@ -1655,9 +1678,9 @@ public class TestScripts
     createMockConf( siteDir );
 
     {
-      RunResult result = new DrillbitRun( DRILLBIT_START )
-          .addEnv( "PRETEND_HUNG", "1")
-          .start( );
+      DrillbitRun runner = new DrillbitRun( DRILLBIT_START );
+      runner.addEnv( "PRETEND_HUNG", "1");
+      RunResult result = runner.start( );
       assertEquals( 0, result.returnCode );
     }
 
@@ -1680,4 +1703,239 @@ public class TestScripts
   }
 
   // Fixed locations (may be hard to test)
+  
+  /**
+   * Out-of-the-box command-line arguments when launching sqlline.
+   * Order is not important here (though it is to Java.)
+   */
+
+  public static String sqlLineArgs[] = {
+      "-Dlog.path=/.*/drill/log/sqlline\\.log",
+      "-Dlog.query.path=/.*/drill/log/sqlline_queries\\.json",
+      "-XX:MaxPermSize=512M",
+      "sqlline\\.SqlLine",
+      "-d",
+      "org\\.apache\\.drill\\.jdbc\\.Driver",
+      "--maxWidth=10000",
+      "--color=true"
+  };
+
+  /**
+   * Verify the basics of the sqlline script, including the
+   * env vars that can be customized. Also validate running
+   * in embedded mode (using drillbit memory and other options.)
+   * @throws IOException
+   */
+
+  @Test
+  public void testSqlline( ) throws IOException
+  {
+    createMockDistrib( );
+    File siteDir = new File( testDrillHome, "conf" );
+    createMockConf( siteDir );
+    
+    int stockArgCount;
+    {
+      // Out-of-the-box sqlline
+      
+      RunResult result = new ScriptRunner( "sqlline" ).run( );
+      assertEquals( 0, result.returnCode );
+      result.validateJava( );
+      System.out.println( "-- Class path --" );
+      for ( String str : result.classPath ) {
+        System.out.println( str );
+      }
+      System.out.println( "-- args --" );
+      for ( String str : result.echoArgs ) {
+        System.out.println( str );
+      }
+      result.validateClassPath( stdCp );
+      assertTrue( result.containsArgsRegex( sqlLineArgs ) );
+      stockArgCount = result.echoArgs.size();
+    }
+    
+    {
+      RunResult result = new ScriptRunner( "sqlline" )
+          .withArg( "arg1" )
+          .withArg( "arg2" )
+          .run( );
+      assertTrue( result.containsArg( "arg1" ) );
+      assertTrue( result.containsArg( "arg2" ) );
+    }
+    {
+      // Change drill memory and other drill-specific
+      // settings: should not affect sqlline
+      
+      Map<String,String> drillEnv = new HashMap<>( );
+      drillEnv.put( "DRILL_JAVA_OPTS", "-Dprop=value" );
+      drillEnv.put( "DRILL_HEAP", "5G" );
+      drillEnv.put( "DRILL_MAX_DIRECT_MEMORY", "7G" );
+      drillEnv.put( "SERVER_LOG_GC", "1" );
+      drillEnv.put( "DRILLBIT_MAX_PERM", "600M" );
+      drillEnv.put( "DRILLBIT_CODE_CACHE_SIZE", "2G" );
+      RunResult result = new ScriptRunner( "sqlline" )
+          .withEnvironment( drillEnv )
+          .run( );
+      assertTrue( result.containsArgsRegex( sqlLineArgs ) );
+      
+      // Nothing new should have been added
+      
+      assertEquals( stockArgCount, result.echoArgs.size() );
+    }
+    {
+      // Change client memory: should affect sqlline
+      
+      Map<String,String> shellEnv = new HashMap<>( );
+      shellEnv.put( "CLIENT_GC_OPTS", "-XX:+UseG1GC" );
+      shellEnv.put( "SQLLINE_JAVA_OPTS", "-XX:MaxPermSize=256M" );
+      RunResult result = new ScriptRunner( "sqlline" )
+          .withEnvironment( shellEnv )
+          .run( );
+      assertTrue( result.containsArg( "-XX:MaxPermSize=256M" ) );
+      assertTrue( result.containsArg( "-XX:+UseG1GC" ) );
+    }
+    {
+      // Change drill memory and other drill-specific
+      // settings: then set the "magic" variable that says
+      // that Drill is embedded. The scripts should now use
+      // the Drillbit options.
+      
+      Map<String,String> drillEnv = new HashMap<>( );
+      drillEnv.put( "DRILL_JAVA_OPTS", "-Dprop=value" );
+      drillEnv.put( "DRILL_HEAP", "5G" );
+      drillEnv.put( "DRILL_MAX_DIRECT_MEMORY", "7G" );
+      drillEnv.put( "SERVER_LOG_GC", "1" );
+      drillEnv.put( "DRILLBIT_MAX_PERM", "600M" );
+      drillEnv.put( "DRILLBIT_CODE_CACHE_SIZE", "2G" );
+      drillEnv.put( "DRILL_EMBEDDED", "1" );
+      RunResult result = new ScriptRunner( "sqlline" )
+          .withEnvironment( drillEnv )
+          .run( );
+
+      String expectedArgs[] = {
+          "-Dprop=value",
+          "-Xms5G", "-Xmx5G",
+          "-XX:MaxDirectMemorySize=7G",
+          "-XX:ReservedCodeCacheSize=2G",
+          "-XX:MaxPermSize=600M"
+      };
+
+      result.validateArgs( expectedArgs );
+      assertTrue( result.containsArg( "sqlline.SqlLine" ) );
+    }
+  }
+  
+  /**
+   * Verify that the sqlline client works with the --site
+   * option by customizing items in the site directory.
+   * 
+   * @throws IOException
+   */
+  
+  @Test
+  public void testSqllineSiteDir( ) throws IOException
+  {
+    createMockDistrib( );
+    File siteDir = new File( testDir, "site" );
+    createMockConf( siteDir );
+
+    // Dummy drill-env.sh to simulate the shipped "example" file
+    // with some client-specific changes.
+
+    writeFile( new File( siteDir, "drill-env.sh" ),
+        "#!/usr/bin/env bash\n" +
+        "# Example file\n" +
+        "export SQLLINE_JAVA_OPTS=\"-XX:MaxPermSize=256M\"\n"
+        );
+    File siteJars = new File( siteDir, "jars" );
+    createDir( siteJars );
+    makeDummyJar( siteJars, "site" );
+    {
+      RunResult result = new ScriptRunner( "sqlline" )
+          .withSite(siteDir)
+          .run( );
+      assertEquals( 0, result.returnCode );
+      assertTrue( result.containsArg( "-XX:MaxPermSize=256M" ) );
+      result.validateClassPath( siteJars.getAbsolutePath() + "/*" );
+    }
+  }
+  
+  /**
+   * Tests the three scripts that wrap sqlline for specific purposes:
+   * <ul>
+   * <li>drill-conf — Wrapper for sqlline, uses drill config to find Drill. 
+   * Seems this one needs fixing to use a config other than the hard-coded 
+   * $DRILL_HOME/conf location.</li>
+   * <li>drill-embedded — Starts a drill “embedded” in SqlLine, using a local ZK.</li>
+   * <li>drill-localhost — Wrapper for sqlline, uses a local ZK.</li>
+   * </ul>
+   *
+   * Of these, drill-embedded runs an embedded Drillbit and so should use the
+   * Drillbit memory options. The other two are clients, but with simple
+   * default options for finding the Drillbit.
+   * <p>
+   * Because the scripts are simple wrappers, all we do is verify that the right
+   * "extra" options are set, not the fundamentals (which were already covered
+   * in the sqlline tests.)
+   * 
+   * @throws IOException
+   */
+  
+  @Test
+  public void testSqllineWrappers( ) throws IOException
+  {
+    createMockDistrib( );
+    File siteDir = new File( testDrillHome, "conf" );
+    createMockConf( siteDir );
+    
+    {
+      // drill-conf: just adds a stub JDBC connect string.
+      
+      RunResult result = new ScriptRunner( "drill-conf" )
+          .withArg( "arg1" )
+          .run( );
+      assertEquals( 0, result.returnCode );
+      result.validateJava( );
+      result.validateClassPath( stdCp );
+      assertTrue( result.containsArgsRegex( sqlLineArgs ) );
+      assertTrue( result.containsArg( "-u" ) );
+      assertTrue( result.containsArg( "jdbc:drill:" ) );
+      assertTrue( result.containsArg( "arg1" ) );
+    }
+    
+    {
+      // drill-localhost: Adds a JDBC connect string to a drillbit
+      // on the localhost
+      
+      RunResult result = new ScriptRunner( "drill-localhost" )
+          .withArg( "arg1" )
+          .run( );
+      assertEquals( 0, result.returnCode );
+      result.validateJava( );
+      result.validateClassPath( stdCp );
+      assertTrue( result.containsArgsRegex( sqlLineArgs ) );
+      assertTrue( result.containsArg( "-u" ) );
+      assertTrue( result.containsArg( "jdbc:drill:drillbit=localhost" ) );
+      assertTrue( result.containsArg( "arg1" ) );
+   }
+    
+    {
+      // drill-embedded: Uses drillbit startup options and
+      // connects to the embedded drillbit.
+      
+      RunResult result = new ScriptRunner( "drill-embedded" )
+          .withArg( "arg1" )
+          .run( );
+      assertEquals( 0, result.returnCode );
+      result.validateJava( );
+      result.validateClassPath( stdCp );
+      assertTrue( result.containsArgsRegex( sqlLineArgs ) );
+      assertTrue( result.containsArg( "-u" ) );
+      assertTrue( result.containsArg( "jdbc:drill:zk=local" ) );
+      assertTrue( result.containsArg( "-Xms4G" ) );
+      assertTrue( result.containsArg( "-XX:MaxDirectMemorySize=8G" ) );
+      assertTrue( result.containsArg( "arg1" ) );
+    }
+  }
+
 }

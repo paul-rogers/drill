@@ -138,14 +138,14 @@ fi
 
 # The SQLline client does not need the code cache.
 
-export SQLLINE_JAVA_OPTS="-XX:MaxPermSize=512M"
+export SQLLINE_JAVA_OPTS=${SQLLINE_JAVA_OPTS:-"-XX:MaxPermSize=512M"}
 
 # Class unloading is disabled by default in Java 7
 # http://hg.openjdk.java.net/jdk7u/jdk7u60/hotspot/file/tip/src/share/vm/runtime/globals.hpp#l1622
 export SERVER_GC_OPTS="$SERVER_GC_OPTS -XX:+CMSClassUnloadingEnabled -XX:+UseG1GC"
 
 # No GC options by default for SQLLine
-export CLIENT_GC_OPTS=""
+export CLIENT_GC_OPTS=${CLIENT_GC_OPTS:-""}
 
 # Source the optional drill-env.sh for any user configured values.
 # We read the file only in the $DRILL_CONF_DIR, which might be a
