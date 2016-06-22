@@ -20,9 +20,30 @@ package org.apache.drill.yarn.appMaster;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+/**
+ * Base class for schedulers (pools) for Drillbits. Derived classes implement
+ * various policies for node selection. This class handles the common tasks
+ * such as holding the Drillbit launch specification, providing Drillbit-
+ * specific behaviors and so on.
+ * <p>
+ * The key purpose of this class is to abstract Drillbit-speicific code from
+ * the rest of the AM cluster controller. We do so for several reasons:
+ * ease of testing (we can use mock tasks), ability to handle additional
+ * server types in the future, and a way to keep each module focused on
+ * a single task (as the controller and its state machine is complex
+ * enough without mixing in Drillbit specifics.)
+ */
+
 public abstract class AbstractDrillbitScheduler extends PersistentTaskScheduler
 {
-  // No way to gracefully shut down a Drillbit at present
+  /**
+   * Interface to provide Drill-bit specific behavior. Ideally, this
+   * class would provide the interface to gracefully shut down a Drillbit,
+   * but Drill has no API to do graceful shutdown in this release.
+   * (The only graceful shutdown is by issuing a SIGTERM from the
+   * node runing the Drillbit, but YARN has no way to do this, despite
+   * active discussions on several YARN JIRA entries.
+   */
 
   public class DrilbitManager extends AbstractTaskManager
   {

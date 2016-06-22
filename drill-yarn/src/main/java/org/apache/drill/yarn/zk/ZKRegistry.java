@@ -36,20 +36,110 @@ import org.apache.drill.yarn.appMaster.Task;
 import org.apache.drill.yarn.appMaster.TaskLifecycleListener;
 import org.apache.hadoop.yarn.api.records.Container;
 
+/**
+ * AM-specific implementation of a Drillbit registry backed
+ * by ZooKeeper. Listens to ZK events for registering a Drillbit
+ * and deregistering. Alerts the Cluster Controller of these events.
+ * Note, however, that the Cluster Controller <b>does not</b> send
+ * events to this registry: doing so would introduce a possible
+ * deadlock. This registry is aware ONLY of ZK events, not of the
+ * YARN state of a node.
+ */
+
 public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener,
                                    Pollable, DispatcherAddOn
 {
+  /**
+   * State of each Drillbit that we've discovered through ZK or
+   * launched via the AM. The tracker is where we combine the
+   * ZK information with AM to correlate overall Drillbit
+   * health.
+   */
+
   private static class DrillbitTracker
   {
+    /**
+     * A Drillbit can be in one of four states.
+     */
+
     public enum State {
-      UNMANAGED, NEW, REGISTERED, DEREGISTERED
+
+      /**
+       * An unmanaged Drillbit is one that has announced itself
+       * via ZK, but which the AM didn't launch (or has not yet received
+       * confirmation from YARN that it was launched.) In the normal
+       * state, this state either does not occur (YARN reports the task
+       * launch before the Drillbit registers in ZK) or is transient
+       * (if the Drillbit registers in ZK before YARN gets around to telling
+       * the AM that the Drillbit was launched.) A Drillbit that stays in
+       * the unregistered state is likely one launched outside the AM:
+       * either launched manually or (possibly), one left from a previous,
+       * failed AM run (though YARN is supposed to kill left-over child
+       * processes in that case.)
+       */
+
+      UNMANAGED,
+
+      /**
+       * A new Drillbit is one that the AM has launched, but that has
+       * not yet registered itself with ZK. This is normally a transient
+       * state that occurs as ZK registration catches up with the YARN
+       * launch notification. If a Drillbit says in this state, then something
+       * is seriously wrong (perhaps a mis-configuration). The cluster controller
+       * will patiently wait a while, then decide bad things are happening and
+       * will ask YARN to kill the Drillbit, then will retry a time or two,
+       * after which it will throw up its hands, blacklist the node, and wait
+       * for the admin to sort things out.
+       */
+
+      NEW,
+
+      /**
+       * Normal operating state: the AM launched the Drillbit, which then
+       * dutifully registered itself in ZK. Nothing to see here, move along.
+       */
+
+      REGISTERED,
+
+      /**
+       * The Drillbit was working just fine, but its registration has dropped out
+       * of ZK for a reason best left to the cluster controller to determine.
+       * Perhaps the controller has decided to kill the Drillbit. Perhaps the
+       * Drillbit became unresponsive (in which case the controller will kill it
+       * and retry) or has died (in which case YARN will alert the AM that the
+       * process exited.)
+       */
+
+      DEREGISTERED
     }
 
-    @SuppressWarnings("unused")
-    final String key;
-    State state;
-    Task task;
-    DrillbitEndpoint endpoint;
+    /**
+     * The common key used between tasks and ZK registrations. The key is of
+     * the form:<br>
+     * <pre>host:port:port:port</pre>
+     */
+
+    protected final String key;
+
+    /**
+     * ZK tracking state.
+     * @see {@link State}
+     */
+
+    protected State state;
+
+    /**
+     * For Drillbits started by the AM, the task object for this Drillbit.
+     */
+
+    protected Task task;
+
+    /**
+     * For Drillbits discovered through ZK, the Drill endpoint for the
+     * Drillbit.
+     */
+
+    protected DrillbitEndpoint endpoint;
 
     public DrillbitTracker(String key) {
       this.key = key;
@@ -80,12 +170,13 @@ public class ZKRegistry implements TaskLifecycleListener, DrillbitStatusListener
       context.getState().startAck( context );
     }
 
-    public void becomeUnregistered(ClusterController controller) {
+    /**
+     * Mark that a YARN-managed Drillbit has dropped out of ZK.
+     * @param controller
+     */
 
-      // Normal case of a YARN-managed drill-bit.
-      // Tell the task that we've received the completion ack
-      // event.
-
+    public void becomeUnregistered(ClusterController controller)
+    {
       assert state == DrillbitTracker.State.REGISTERED;
       state = DrillbitTracker.State.DEREGISTERED;
       task.properties.remove( ENDPOINT_PROPERTY );
