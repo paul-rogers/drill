@@ -90,6 +90,11 @@ public abstract class TaskState
       }
     }
 
+    /**
+     * Cancellation is trivial: just drop the task; no need to coordinate
+     * with YARN.
+     */
+
     @Override
     public void cancel(EventContext context) {
       Task task = context.task;
@@ -135,13 +140,23 @@ public abstract class TaskState
       task.error = null;
       task.completionStatus = null;
       transition(context, LAUNCHING);
+
+      // The pool that manages this task wants to know that we have
+      // a container. The task manager may want to do some task-
+      // specific setup.
+
       context.group.containerAllocated(context.task);
       context.getTaskManager().allocated( context );
+
+      // Go ahead and launch a task in the container using the launch
+      // specification provided by the task group (pool).
+
       try {
         context.yarn.launchContainer(container, task.getLaunchSpec());
         task.launchTime = System.currentTimeMillis();
       } catch (YarnFacadeException e) {
         LOG.error("Container launch failed: " + task.getContainerId(), e);
+
         // This may not be the right response. RM may still think
         // we have the container if the above is a local failure.
 
@@ -214,11 +229,25 @@ public abstract class TaskState
     @Override
     public void containerStarted(EventContext context) {
       Task task = context.task;
+
+      // If this task is tracked (that is, it is a Drillbit which
+      // we monitor using ZK) then we have to decide if we've
+      // seen the task in the tracker yet. If we have, then the
+      // task is fully running. If we haven't, then we need to
+      // wait for the start acknowledgement.
+
       if (task.trackingState == Task.TrackingState.NEW) {
         transition(context, WAIT_START_ACK);
       } else {
         transition(context, RUNNING); }
       task.error = null;
+
+      // If someone came along and marked the task as cancelled,
+      // we are now done waiting for YARN so we can immediately
+      // turn around and kill the task. (Can't kill the task,
+      // however, until YARN starts it, hence the need to wait
+      // for YARN to start the task before killing it.)
+
       if (task.cancelled) {
         transition(context, KILLING);
         context.yarn.killContainer(task.getContainer());
