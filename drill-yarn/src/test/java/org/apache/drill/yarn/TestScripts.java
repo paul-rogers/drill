@@ -699,11 +699,11 @@ public class TestScripts
   public static class DrillbitRun extends ScriptRunner
   {
     public File pidDir;
-    
+
     public DrillbitRun( ) {
       super( "drillbit.sh" );
     }
-    
+
     public DrillbitRun( String cmd ) {
       super( "drillbit.sh", cmd );
     }
@@ -752,7 +752,7 @@ public class TestScripts
     }
 
   }
-  
+
   /**
    * Build a "starter" conf or site directory by creating a mock drill-override.conf
    * file.
@@ -1703,7 +1703,7 @@ public class TestScripts
   }
 
   // Fixed locations (may be hard to test)
-  
+
   /**
    * Out-of-the-box command-line arguments when launching sqlline.
    * Order is not important here (though it is to Java.)
@@ -1733,11 +1733,11 @@ public class TestScripts
     createMockDistrib( );
     File siteDir = new File( testDrillHome, "conf" );
     createMockConf( siteDir );
-    
+
     int stockArgCount;
     {
       // Out-of-the-box sqlline
-      
+
       RunResult result = new ScriptRunner( "sqlline" ).run( );
       assertEquals( 0, result.returnCode );
       result.validateJava( );
@@ -1753,7 +1753,7 @@ public class TestScripts
       assertTrue( result.containsArgsRegex( sqlLineArgs ) );
       stockArgCount = result.echoArgs.size();
     }
-    
+
     {
       RunResult result = new ScriptRunner( "sqlline" )
           .withArg( "arg1" )
@@ -1765,7 +1765,7 @@ public class TestScripts
     {
       // Change drill memory and other drill-specific
       // settings: should not affect sqlline
-      
+
       Map<String,String> drillEnv = new HashMap<>( );
       drillEnv.put( "DRILL_JAVA_OPTS", "-Dprop=value" );
       drillEnv.put( "DRILL_HEAP", "5G" );
@@ -1777,14 +1777,14 @@ public class TestScripts
           .withEnvironment( drillEnv )
           .run( );
       assertTrue( result.containsArgsRegex( sqlLineArgs ) );
-      
+
       // Nothing new should have been added
-      
+
       assertEquals( stockArgCount, result.echoArgs.size() );
     }
     {
       // Change client memory: should affect sqlline
-      
+
       Map<String,String> shellEnv = new HashMap<>( );
       shellEnv.put( "CLIENT_GC_OPTS", "-XX:+UseG1GC" );
       shellEnv.put( "SQLLINE_JAVA_OPTS", "-XX:MaxPermSize=256M" );
@@ -1799,7 +1799,7 @@ public class TestScripts
       // settings: then set the "magic" variable that says
       // that Drill is embedded. The scripts should now use
       // the Drillbit options.
-      
+
       Map<String,String> drillEnv = new HashMap<>( );
       drillEnv.put( "DRILL_JAVA_OPTS", "-Dprop=value" );
       drillEnv.put( "DRILL_HEAP", "5G" );
@@ -1824,14 +1824,14 @@ public class TestScripts
       assertTrue( result.containsArg( "sqlline.SqlLine" ) );
     }
   }
-  
+
   /**
    * Verify that the sqlline client works with the --site
    * option by customizing items in the site directory.
-   * 
+   *
    * @throws IOException
    */
-  
+
   @Test
   public void testSqllineSiteDir( ) throws IOException
   {
@@ -1859,12 +1859,12 @@ public class TestScripts
       result.validateClassPath( siteJars.getAbsolutePath() + "/*" );
     }
   }
-  
+
   /**
    * Tests the three scripts that wrap sqlline for specific purposes:
    * <ul>
-   * <li>drill-conf — Wrapper for sqlline, uses drill config to find Drill. 
-   * Seems this one needs fixing to use a config other than the hard-coded 
+   * <li>drill-conf — Wrapper for sqlline, uses drill config to find Drill.
+   * Seems this one needs fixing to use a config other than the hard-coded
    * $DRILL_HOME/conf location.</li>
    * <li>drill-embedded — Starts a drill “embedded” in SqlLine, using a local ZK.</li>
    * <li>drill-localhost — Wrapper for sqlline, uses a local ZK.</li>
@@ -1877,20 +1877,20 @@ public class TestScripts
    * Because the scripts are simple wrappers, all we do is verify that the right
    * "extra" options are set, not the fundamentals (which were already covered
    * in the sqlline tests.)
-   * 
+   *
    * @throws IOException
    */
-  
+
   @Test
   public void testSqllineWrappers( ) throws IOException
   {
     createMockDistrib( );
     File siteDir = new File( testDrillHome, "conf" );
     createMockConf( siteDir );
-    
+
     {
       // drill-conf: just adds a stub JDBC connect string.
-      
+
       RunResult result = new ScriptRunner( "drill-conf" )
           .withArg( "arg1" )
           .run( );
@@ -1902,11 +1902,11 @@ public class TestScripts
       assertTrue( result.containsArg( "jdbc:drill:" ) );
       assertTrue( result.containsArg( "arg1" ) );
     }
-    
+
     {
       // drill-localhost: Adds a JDBC connect string to a drillbit
       // on the localhost
-      
+
       RunResult result = new ScriptRunner( "drill-localhost" )
           .withArg( "arg1" )
           .run( );
@@ -1918,11 +1918,11 @@ public class TestScripts
       assertTrue( result.containsArg( "jdbc:drill:drillbit=localhost" ) );
       assertTrue( result.containsArg( "arg1" ) );
    }
-    
+
     {
       // drill-embedded: Uses drillbit startup options and
       // connects to the embedded drillbit.
-      
+
       RunResult result = new ScriptRunner( "drill-embedded" )
           .withArg( "arg1" )
           .run( );

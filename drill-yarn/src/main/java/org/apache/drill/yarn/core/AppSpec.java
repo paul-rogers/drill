@@ -19,9 +19,6 @@ package org.apache.drill.yarn.core;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.security.CodeSource;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -45,7 +42,7 @@ import org.apache.hadoop.yarn.util.Records;
 
 public class AppSpec extends LaunchSpec {
 
-  private static final Log LOG = LogFactory.getLog(LaunchSpec.class);
+  static final Log LOG = LogFactory.getLog(LaunchSpec.class);
   /**
    * The memory required in the allocated container, in MB.
    */
@@ -144,35 +141,8 @@ public class AppSpec extends LaunchSpec {
     Resource capability = Records.newRecord(Resource.class);
     capability.setMemory(memoryMb);
     capability.setVirtualCores(vCores);
-    callIfExists( capability, "setDisks", disks );
+    DoYUtil.callSetDiskIfExists( capability, "setDisks", disks );
     return capability;
-  }
-
-  public static void callIfExists(Object target, String fnName, double arg) {
-    String methodLabel = target.getClass().getName() + "." + fnName;
-    Method m;
-    try {
-      m = target.getClass().getMethod( fnName, Double.TYPE );
-    } catch (NoSuchMethodException e) {
-      // Ignore, the method does not exist in this distribution.
-      LOG.trace( "Not supported in this YARN distribution: " + methodLabel + "(" + arg + ")" );
-      CodeSource src = target.getClass().getProtectionDomain().getCodeSource();
-      if (src != null) {
-          java.net.URL jar = src.getLocation();
-          LOG.trace( "Class found in URL: " + jar.toString() );
-      }
-      return;
-    } catch (SecurityException e) {
-      LOG.error( "Security prevents dynamic method calls", e );
-      return;
-    }
-    try {
-      m.invoke( target, arg );
-    } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
-      LOG.error( "Failed to dynamically call " + methodLabel, e );
-      return;
-    }
-    LOG.trace( "Successfully called " + methodLabel + "( " + arg + ")" );
   }
 
   @Override
@@ -181,6 +151,8 @@ public class AppSpec extends LaunchSpec {
     out.println( memoryMb );
     out.print( "Vcores: " );
     out.println( vCores );
+    out.print( "Disks: " );
+    out.println( disks );
     out.print( "Application Name: " );
     out.println( appName );
     out.print( "Queue: " );

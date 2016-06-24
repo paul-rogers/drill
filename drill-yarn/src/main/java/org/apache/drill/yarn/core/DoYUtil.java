@@ -17,7 +17,10 @@
  */
 package org.apache.drill.yarn.core;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URL;
+import java.security.CodeSource;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -97,5 +100,65 @@ public class DoYUtil {
 
   public static String unwrapAmUrl( String trackingUrl ) {
     return  trackingUrl.replace( "/redirect", "/" );
+  }
+
+  public static void callSetDiskIfExists(Object target, String fnName, double arg) {
+    String methodLabel = target.getClass().getName() + "." + fnName;
+    Method m;
+    try {
+      m = target.getClass().getMethod( fnName, Double.TYPE );
+    } catch (NoSuchMethodException e) {
+      // Ignore, the method does not exist in this distribution.
+      AppSpec.LOG.trace( "Not supported in this YARN distribution: " + methodLabel + "(" + arg + ")" );
+      CodeSource src = target.getClass().getProtectionDomain().getCodeSource();
+      if (src != null) {
+          java.net.URL jar = src.getLocation();
+          AppSpec.LOG.trace( "Class found in URL: " + jar.toString() );
+      }
+      return;
+    } catch (SecurityException e) {
+      AppSpec.LOG.error( "Security prevents dynamic method calls", e );
+      return;
+    }
+    try {
+      m.invoke( target, arg );
+    } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+      AppSpec.LOG.error( "Failed to dynamically call " + methodLabel, e );
+      return;
+    }
+    AppSpec.LOG.trace( "Successfully called " + methodLabel + "( " + arg + ")" );
+  }
+
+  public static double callGetDiskIfExists(Object target, String fnName) {
+    String methodLabel = target.getClass().getName() + "." + fnName;
+    Method m;
+    try {
+      m = target.getClass().getMethod( fnName );
+    } catch (NoSuchMethodException e) {
+      // Ignore, the method does not exist in this distribution.
+      AppSpec.LOG.trace( "Not supported in this YARN distribution: " + methodLabel + "( )" );
+      CodeSource src = target.getClass().getProtectionDomain().getCodeSource();
+      if (src != null) {
+          java.net.URL jar = src.getLocation();
+          AppSpec.LOG.trace( "Class found in URL: " + jar.toString() );
+      }
+      return 0;
+    } catch (SecurityException e) {
+      AppSpec.LOG.error( "Security prevents dynamic method calls", e );
+      return 0;
+    }
+    try {
+      Object ret = m.invoke( target );
+      AppSpec.LOG.trace( "Successfully called " + methodLabel + "( ) --> " + ret );
+      if ( ret instanceof Double ) {
+        return (Double) ret;
+      }
+      AppSpec.LOG.warn( "Method " + methodLabel + " returned " +
+            ((ret == null) ? "null" : ret.getClass().getName()) );
+      return 0;
+    } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+      AppSpec.LOG.error( "Failed to dynamically call " + methodLabel, e );
+      return 0;
+    }
   }
 }

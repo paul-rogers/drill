@@ -23,6 +23,7 @@
   <p><p>
   
   <table class="table table-hover" style="width: auto;">
+    <#-- Removed per user feedback. (Kept in REST API as client needs them.
     <tr><td style="vertical-align: middle;">
       <form action="/resize" method="POST" class="form-inline" role="form">
         <div class="form-group">
@@ -47,6 +48,7 @@
         </div>
       </form>
     </td></tr>
+    -->
     <tr><td>
       <form action="/resize" method="POST" class="form-inline" role="form">
         <div class="form-group">

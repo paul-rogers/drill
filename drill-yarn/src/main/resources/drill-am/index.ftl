@@ -40,9 +40,14 @@
       </#if></td>
     </tr>
     <tr>
-      <td>ZooKeeper:</td>
-      <td><span data-toggle="tooltip" title="ZooKeeper connection string, Drill root and cluster-id.">
-      ${model.getZkId( )}</span></td>
+      <td>ZooKeeper Hosts:</td>
+      <td><span data-toggle="tooltip" title="ZooKeeper connection string.">
+      ${model.getZkConnectionStr( )}</span></td>
+    </tr>
+    <tr>
+      <td>ZooKeeper Path:</td>
+      <td><span data-toggle="tooltip" title="ZooKeeper Drill root and cluster-id.">
+      ${model.getZkPath( )}</span></td>
     </tr>
     <tr>
       <td>State:</td>
@@ -71,18 +76,12 @@
       <td>Total Drill Memory (MB):</td>
       <td>${model.getDrillTotalMemory( )}</td>
     </tr>
-    <tr>
-      <td>Yarn Node Count:</td>
-      <td>${model.getYarnNodeCount( )}</td>
-    </tr>
-    <tr>
-      <td>Available Yarn Virtual Cores:</td>
-      <td>${model.getYarnVcores( )}</td>
-    </tr>
-    <tr>
-      <td>Available Yarn Memory (MB):</td>
-      <td>${model.getYarnMemory( )}</td>
-    </tr>
+    <#if model.supportsDiskResource( ) >
+      <tr>
+        <td>Total Drill Disks:</td>
+        <td>${model.getDrillTotalDisks( )}</td>
+      </tr>
+    </#if>
   </table>
   <table class="table table-hover" style="width: auto;">
     <tr>
@@ -93,6 +92,9 @@
       <th>Live Drillbits</th>
       <th>Memory per Drillbit (MB)</th>
       <th>VCores per Drillbit</th>
+      <#if model.supportsDiskResource( ) >
+        <th>Disks per Drillbit</th>
+      </#if>
     </tr>
     <#list model.getPools( ) as pool>
       <tr>
@@ -103,6 +105,9 @@
         <td>${pool.getLiveCount( )}</td>
         <td>${pool.getMemory( )}</td>
         <td>${pool.getVcores( )}</td>
+        <#if model.supportsDiskResource( ) >
+          <td>${pool.getDisks( )}</td>
+        </#if>
       </tr>
     </#list>
   </table>

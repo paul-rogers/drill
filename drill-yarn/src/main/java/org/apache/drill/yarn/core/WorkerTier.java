@@ -28,13 +28,13 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigList;
 import com.typesafe.config.ConfigValue;
 
-public class NodePool
+public class WorkerTier
 {
   // The following keys are relative to the cluster pool definition
 
-  public static final String POOL_NAME = "name";
-  public static final String POOL_TYPE = "type";
-  public static final String POOL_SIZE = "count";
+  public static final String TIER_NAME = "name";
+  public static final String TIER_TYPE = "type";
+  public static final String TIER_SIZE = "count";
 
   // For the labeled pool
 
@@ -43,22 +43,22 @@ public class NodePool
 
 
   /**
-   * Defined cluster types. The value of the type appears as the
+   * Defined cluster tier types. The value of the type appears as the
    * value of the {@link $CLUSTER_TYPE} parameter in the config file.
    */
 
-  public enum PoolType {
+  public enum TierType {
     BASIC( "basic" ),
     LABELED( "labeled" );
 
     private String value;
 
-    private PoolType( String value ) {
+    private TierType( String value ) {
       this.value = value;
     }
 
-    public static PoolType toEnum( String value ) {
-      for ( PoolType type : PoolType.values() ) {
+    public static TierType toEnum( String value ) {
+      for ( TierType type : TierType.values() ) {
         if ( type.value.equalsIgnoreCase( value ) ) {
           return type; }
       }
@@ -68,22 +68,22 @@ public class NodePool
     public String toValue( ) { return value; }
   }
 
-  public static class Pool
+  public static class Tier
   {
     public String name;
     public int count;
-    public PoolType type;
+    public TierType type;
 
     public void getPairs(int index, List<NameValuePair> pairs) {
-      String key = DrillOnYarnConfig.append( DrillOnYarnConfig.CLUSTER_POOLS, Integer.toString( index ) );
+      String key = DrillOnYarnConfig.append( DrillOnYarnConfig.WORKER_TIERS, Integer.toString( index ) );
       addPairs( pairs, key );
     }
 
     protected void addPairs( List<NameValuePair> pairs, String key )
     {
-      pairs.add( new NameValuePair( DrillOnYarnConfig.append( key, POOL_NAME ), name ) );
-      pairs.add( new NameValuePair( DrillOnYarnConfig.append( key, POOL_TYPE ), type ) );
-      pairs.add( new NameValuePair( DrillOnYarnConfig.append( key, POOL_SIZE ), count ) );
+      pairs.add( new NameValuePair( DrillOnYarnConfig.append( key, TIER_NAME ), name ) );
+      pairs.add( new NameValuePair( DrillOnYarnConfig.append( key, TIER_TYPE ), type ) );
+      pairs.add( new NameValuePair( DrillOnYarnConfig.append( key, TIER_SIZE ), count ) );
     }
 
     public void dump(String prefix, PrintStream out) {
@@ -100,17 +100,17 @@ public class NodePool
 
     public void load(Map<String,Object> pool, int index) {
       try {
-        count = (Integer) pool.get( POOL_SIZE );
+        count = (Integer) pool.get( TIER_SIZE );
       }
       catch ( ClassCastException e ) {
-        throw new IllegalArgumentException( "Expected an integer for " + POOL_SIZE + " for pool " + index );
+        throw new IllegalArgumentException( "Expected an integer for " + TIER_SIZE + " for tier " + index );
       }
-      Object nameValue = pool.get( POOL_NAME );
+      Object nameValue = pool.get( TIER_NAME );
       if ( nameValue != null ) {
         name = nameValue.toString();
       }
       if ( DoYUtil.isBlank( name ) ) {
-        name = "pool-" + Integer.toString( index );
+        name = "tier-" + Integer.toString( index );
       }
     }
 
@@ -118,12 +118,12 @@ public class NodePool
     }
   }
 
-  public static class BasicPool extends Pool
+  public static class BasicTier extends Tier
   {
 
   }
 
-  public static class LabeledPool extends Pool
+  public static class LabeledTier extends Tier
   {
     public String drillbitLabelExpr;
 
@@ -159,43 +159,43 @@ public class NodePool
   }
 
   /**
-   * Deserialize a node pool from the configuration file.
+   * Deserialize a node tier from the configuration file.
    *
    * @param n
    * @return
    */
 
-  public static Pool getPool( Config config, int n ) {
+  public static Tier getTier( Config config, int n ) {
     int index = n + 1;
-    ConfigList pools = config.getList(DrillOnYarnConfig.CLUSTER_POOLS);
-    ConfigValue value = pools.get( n );
+    ConfigList tiers = config.getList(DrillOnYarnConfig.WORKER_TIERS);
+    ConfigValue value = tiers.get( n );
     @SuppressWarnings("unchecked")
-    Map<String,Object> pool = (Map<String,Object>) value.unwrapped();
+    Map<String,Object> tier = (Map<String,Object>) value.unwrapped();
     String type;
     try {
-      type = pool.get( POOL_TYPE ).toString();
+      type = tier.get( TIER_TYPE ).toString();
     }
     catch ( NullPointerException e ) {
-      throw new IllegalArgumentException( "Pool type is required for pool " + index );
+      throw new IllegalArgumentException( "Pool type is required for tier " + index );
     }
-    PoolType poolType = PoolType.toEnum( type );
+    TierType poolType = TierType.toEnum( type );
     if ( poolType == null ) {
-      throw new IllegalArgumentException( "Undefined type for pool " + index + ": " + type );
+      throw new IllegalArgumentException( "Undefined type for tier " + index + ": " + type );
     }
-    Pool poolDef;
+    Tier tierDef;
     switch ( poolType ) {
     case BASIC:
-      poolDef = new BasicPool( );
+      tierDef = new BasicTier( );
       break;
     case LABELED:
-      poolDef = new LabeledPool( );
+      tierDef = new LabeledTier( );
       break;
     default:
       assert false;
-      throw new IllegalStateException( "Undefined pool type: " + poolType );
+      throw new IllegalStateException( "Undefined tier type: " + poolType );
     }
-    poolDef.type = poolType;
-    poolDef.load( pool, index );
-    return poolDef;
+    tierDef.type = poolType;
+    tierDef.load( tier, index );
+    return tierDef;
   }
 }

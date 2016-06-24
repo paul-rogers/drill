@@ -266,15 +266,16 @@ public class ClusterControllerImpl implements ClusterController
   @Override
   public synchronized void started( ) throws YarnFacadeException, AMException
   {
+    nodeInventory = new NodeInventory( yarn );
+
     // Verify that no resource seeks a container larger than
     // what YARN can provide. Ensures a graceful exit in this
     // case.
 
     Resource maxResource = yarn.getRegistrationResponse().getMaximumResourceCapability();
     for (SchedulerStateActions group : prioritizedPools) {
-      group.getScheduler().checkResources( maxResource );
+      group.getScheduler().limitContainerSize( maxResource );
     }
-    nodeInventory = new NodeInventory( yarn );
     state = State.LIVE;
   }
 
@@ -665,7 +666,7 @@ public class ClusterControllerImpl implements ClusterController
   public List<Task> getHistory() { return completedTasks; }
 
   @Override
-  public boolean cancelTask(int id) {
+  public synchronized boolean cancelTask(int id) {
     for (SchedulerStateActions group : prioritizedPools) {
       Task task = group.getTask( id );
       if ( task != null ) {
@@ -674,5 +675,30 @@ public class ClusterControllerImpl implements ClusterController
       }
     }
     return false;
+  }
+
+  @Override
+  public synchronized void completionAck(Task task, String propertyKey) {
+    EventContext context = new EventContext( this );
+    context.setTask( task );
+    context.getState().completionAck( context );
+    if ( propertyKey != null ) {
+      task.properties.remove( propertyKey );
+    }
+  }
+
+  @Override
+  public synchronized void startAck(Task task, String propertyKey, Object value) {
+    if ( propertyKey != null  &&  value != null ) {
+      task.properties.put( propertyKey, value );
+    }
+    EventContext context = new EventContext( this );
+    context.setTask( task );
+    context.getState().startAck( context );
+  }
+
+  @Override
+  public boolean supportsDiskResource() {
+    return getYarn().supportsDiskResource();
   }
 }

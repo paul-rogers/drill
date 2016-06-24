@@ -133,5 +133,5 @@ public interface Scheduler
 
   ContainerRequestSpec getResource( );
 
-  void checkResources(Resource maxResource) throws AMException;
+  void limitContainerSize(Resource maxResource) throws AMException;
 }

@@ -33,7 +33,7 @@
   To modify these values:
   <ol>
   <li>Edit <code>$DRILL_SITE/drill-on-yarn.conf</code> (for the drill.yarn settings),</li>
-  <li>Edit <code>$DRILL_SITE/drill-override.conf</code> (for tehe drill.exec settings).</li>
+  <li>Edit <code>$DRILL_SITE/drill-override.conf</code> (for the drill.exec settings).</li>
   <li>Restart your Drill cluster using the Drill-on-YARN client.</li>
   </ol>
 </#macro>

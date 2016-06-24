@@ -91,7 +91,7 @@ public class ContainerRequestSpec
     Resource capability = Records.newRecord(Resource.class);
     capability.setMemory(memoryMb);
     capability.setVirtualCores(vCores);
-    AppSpec.callIfExists( capability, "setDisks", disks );
+    DoYUtil.callSetDiskIfExists( capability, "setDisks", disks );
 
     boolean relaxLocality = true;
     String nodeArr[] = null;
