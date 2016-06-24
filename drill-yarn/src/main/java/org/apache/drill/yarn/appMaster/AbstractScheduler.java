@@ -17,11 +17,14 @@
  */
 package org.apache.drill.yarn.appMaster;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.drill.yarn.core.ContainerRequestSpec;
 import org.apache.hadoop.yarn.api.records.Resource;
 
 public abstract class AbstractScheduler implements Scheduler
 {
+  private static final Log LOG = LogFactory.getLog(AbstractScheduler.class);
   private final String name;
   private final String type;
   protected TaskSpec taskSpec;
@@ -63,9 +66,6 @@ public abstract class AbstractScheduler implements Scheduler
   @Override
   public TaskManager getTaskManager() { return taskManager; }
 
-//  @Override
-//  public void setListener(SchedulerListener listener) { this.listener = listener; }
-
   @Override
   public void change(int delta) { resize(getTarget() + delta); }
 
@@ -80,23 +80,24 @@ public abstract class AbstractScheduler implements Scheduler
 
   @Override
   public ContainerRequestSpec getResource() {
-    // TODO Auto-generated method stub
     return taskSpec.containerSpec;
   }
 
   @Override
-  public void checkResources(Resource maxResource) throws AMException {
+  public void limitContainerSize(Resource maxResource) throws AMException {
     if ( taskSpec.containerSpec.memoryMb > maxResource.getMemory() ) {
-      throw new AMException( taskSpec.name + " requires " +
+      LOG.warn( taskSpec.name + " requires " +
                              taskSpec.containerSpec.memoryMb +
                              " MB but the maximum YARN container size is " +
                              maxResource.getMemory() + " MB" );
+      taskSpec.containerSpec.memoryMb = maxResource.getMemory();
     }
     if ( taskSpec.containerSpec.vCores > maxResource.getVirtualCores() ) {
-      throw new AMException( taskSpec.name + " requires " +
+      LOG.warn( taskSpec.name + " requires " +
                              taskSpec.containerSpec.vCores +
                              " vcores but the maximum YARN container size is " +
                              maxResource.getVirtualCores() + " vcores" );
+      taskSpec.containerSpec.vCores = maxResource.getVirtualCores();
     }
   }
 }

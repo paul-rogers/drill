@@ -45,6 +45,7 @@ import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync.CallbackHandler;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.proto.YarnServiceProtos.SchedulerResourceTypes;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 
 /**
@@ -72,6 +73,8 @@ public class AMYarnFacadeImpl implements AMYarnFacade
   private ApplicationReport appReport;
 
   private String amHost;
+
+  private boolean supportsDisks;
 
   public AMYarnFacadeImpl(int pollPeriodMs) {
     this.pollPeriodMs = pollPeriodMs;
@@ -126,10 +129,24 @@ public class AMYarnFacadeImpl implements AMYarnFacade
     } catch (YarnException | IOException e) {
       throw new YarnFacadeException("Register AM failed", e);
     }
+
+    // Some distributions (but not the stock YARN) support Disk
+    // resources. Since Drill compiles against Apache YARN, without disk
+    // resources, we have to use an indirect mechnanism to look for the
+    // disk enum at runtime when we don't have that enum value at compile time.
+
+    for ( SchedulerResourceTypes type : registration.getSchedulerResourceTypes() ) {
+      if ( type.name().equals( "DISK" ) ) {
+        supportsDisks = true;
+      }
+    }
   }
 
   @Override
   public String getTrackingUrl( ) { return appMasterTrackingUrl; }
+
+  @Override
+  public boolean supportsDiskResource( ) { return supportsDisks; }
 
   @Override
   public ContainerRequest requestContainer(ContainerRequestSpec containerSpec) {

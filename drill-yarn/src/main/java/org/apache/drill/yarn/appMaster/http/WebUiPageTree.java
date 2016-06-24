@@ -187,6 +187,8 @@ public class WebUiPageTree extends PageTree
       if ( model.hasUnmanagedDrillbits() ) {
         map.put( "strays", model.getUnnamaged() );
       }
+      map.put( "showDisks", dispatcher.getController().supportsDiskResource( ) );
+      map.put( "refreshSecs", DrillOnYarnConfig.config().getInt( DrillOnYarnConfig.HTTP_REFRESH_SECS ) );
       return new Viewable( "/drill-am/tasks.ftl", toMapModel( sc, map ) );
     }
   }

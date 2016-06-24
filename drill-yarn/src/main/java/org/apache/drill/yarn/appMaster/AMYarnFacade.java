@@ -85,4 +85,6 @@ public interface AMYarnFacade
   List<NodeReport> getNodeReports() throws YarnFacadeException;
 
   YarnAppHostReport getAppHostReport( );
+
+  boolean supportsDiskResource();
 }

@@ -195,4 +195,15 @@ public interface ClusterController
    */
 
   boolean cancelTask(int id);
+
+  void startAck(Task task, String propertyKey, Object value);
+
+  void completionAck(Task task, String endpointProperty);
+
+  /**
+   * Whether this distribution of YARN supports disk resources.
+   * @return
+   */
+
+  boolean supportsDiskResource();
 }

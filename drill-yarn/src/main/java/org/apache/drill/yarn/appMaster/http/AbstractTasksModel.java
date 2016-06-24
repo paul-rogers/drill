@@ -36,6 +36,7 @@ import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.zk.ZKRegistry;
 import org.apache.hadoop.yarn.api.records.Container;
+import org.apache.hadoop.yarn.api.records.Resource;
 
 public abstract class AbstractTasksModel
 {
@@ -55,6 +56,7 @@ public abstract class AbstractTasksModel
     protected long startTime;
     protected int memoryMb;
     protected int vcores;
+    protected double disks;
     protected String containerId;
     protected String nmLink;
     protected long endTime;
@@ -80,8 +82,10 @@ public abstract class AbstractTasksModel
       startTime = task.launchTime;
       if ( task.container != null ) {
         containerId = task.container.getId().toString();
-        memoryMb = task.container.getResource().getMemory();
-        vcores = task.container.getResource().getVirtualCores();
+        Resource resource = task.container.getResource();
+        memoryMb = resource.getMemory();
+        vcores = resource.getVirtualCores();
+        disks = task.getContainerSpec().disks;
 
         // Emulate the NM link. Used for debugging, gets us to
         // the page on the NM UI for this container so we can see
@@ -188,6 +192,9 @@ public abstract class AbstractTasksModel
 
     public int getMemory( ) { return memoryMb; }
     public int getVcores( ) { return vcores; }
+    public String getDisks( ) {
+      return String.format( "%.2f", disks );
+    }
     public boolean hasContainer( ) { return containerId != null; }
     public String getContainerId( ) { return displayString( containerId ); }
     public String getNmLink( ) { return displayString( nmLink ); }
@@ -229,10 +236,12 @@ public abstract class AbstractTasksModel
     public String getPorts( ) { return ports; }
   }
 
+  protected boolean supportsDisks;
   protected List<TaskModel> results = new ArrayList<>( );
 
   public List<TaskModel> getTasks( ) { return results; }
   public boolean hasTasks( ) { return ! results.isEmpty(); }
+  public boolean supportsDiskResource( ) { return supportsDisks; }
 
   public static class TasksModel extends AbstractTasksModel implements TaskVisitor
   {

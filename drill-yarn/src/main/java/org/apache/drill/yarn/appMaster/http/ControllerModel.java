@@ -51,6 +51,7 @@ public class ControllerModel implements ControllerVisitor
     protected int liveCount;
     protected int memory;
     protected int vcores;
+    protected double disks;
 
     public String getName( ) { return name; }
     public String getType( ) { return type; }
@@ -59,11 +60,16 @@ public class ControllerModel implements ControllerVisitor
     public int getLiveCount( ) { return liveCount; }
     public int getMemory( ) { return memory; }
     public int getVcores( ) { return vcores; }
+    public String getDisks( ) {
+      return String.format( "%.02f", disks );
+    }
   }
 
-  protected String zkId;
+  protected String zkConnectStr;
+  protected String zkPath;
   protected ClusterControllerImpl.State state;
   protected String stateHint;
+  protected boolean supportsDisks;
   protected int yarnMemory;
   protected int yarnVcores;
   protected int yarnNodeCount;
@@ -73,10 +79,13 @@ public class ControllerModel implements ControllerVisitor
   protected int targetCount;
   protected int totalDrillMemory;
   protected int totalDrillVcores;
+  protected double totalDrillDisks;
   protected YarnAppHostReport appRpt;
   protected List<PoolModel> pools = new ArrayList<>( );
 
-  public String getZkId( ) { return zkId; }
+  public boolean supportsDiskResource( ) { return supportsDisks; }
+  public String getZkConnectionStr( ) { return zkConnectStr; }
+  public String getZkPath( ) { return zkPath; }
   public String getAppId( ) { return appRpt.appId; }
   public String getRmHost( ) { return appRpt.rmHost; }
   public String getRmLink( ) { return appRpt.rmUrl; }
@@ -90,6 +99,9 @@ public class ControllerModel implements ControllerVisitor
   public int getYarnVcores( ) { return yarnVcores; }
   public int getDrillTotalMemory( ) { return totalDrillMemory; }
   public int getDrillTotalVcores( ) { return totalDrillVcores; }
+  public String getTotalDrillDisks( ) {
+    return String.format( "%.2f", totalDrillDisks );
+  }
   public int getYarnNodeCount( ) { return yarnNodeCount; }
   public int getTaskCount( ) { return taskCount; }
   public int getLiveCount( ) { return liveCount; }
@@ -104,21 +116,26 @@ public class ControllerModel implements ControllerVisitor
     ClusterControllerImpl impl = (ClusterControllerImpl) controller;
 
     Config config = DrillOnYarnConfig.config();
-    zkId = config.getString( DrillOnYarnConfig.ZK_CONNECT ) +
-           "/" + config.getString( DrillOnYarnConfig.ZK_ROOT ) +
+    zkConnectStr = config.getString( DrillOnYarnConfig.ZK_CONNECT );
+    zkPath = config.getString( DrillOnYarnConfig.ZK_ROOT ) +
            "/" + config.getString( DrillOnYarnConfig.CLUSTER_ID );
 
     appRpt = impl.getYarn().getAppHostReport();
 
     state = impl.getState( );
     stateHint = stateHints.get( state );
-    if ( state == State.LIVE ) {
-      RegisterApplicationMasterResponse resp = impl.getYarn( ).getRegistrationResponse();
-      yarnVcores = resp.getMaximumResourceCapability().getVirtualCores();
-      yarnMemory = resp.getMaximumResourceCapability().getMemory();
-      yarnNodeCount = impl.getYarn( ).getNodeCount();
-    }
+
+    // Removed based on feedback. Users should check the
+    // YARN RM UI instead.
+
+//    if ( state == State.LIVE ) {
+//      RegisterApplicationMasterResponse resp = impl.getYarn( ).getRegistrationResponse();
+//      yarnVcores = resp.getMaximumResourceCapability().getVirtualCores();
+//      yarnMemory = resp.getMaximumResourceCapability().getMemory();
+//      yarnNodeCount = impl.getYarn( ).getNodeCount();
+//    }
     capturePools( impl );
+    supportsDisks = impl.supportsDiskResource();
   }
 
   private void capturePools( ClusterControllerImpl impl )
@@ -132,6 +149,7 @@ public class ControllerModel implements ControllerVisitor
       poolModel.targetCount = sched.getTarget();
       poolModel.memory = containerSpec.memoryMb;
       poolModel.vcores = containerSpec.vCores;
+      poolModel.disks = containerSpec.disks;
       poolModel.taskCount = pool.getTaskCount();
       poolModel.liveCount = pool.getLiveCount( );
       targetCount += poolModel.targetCount;
@@ -139,6 +157,7 @@ public class ControllerModel implements ControllerVisitor
       liveCount += poolModel.liveCount;
       totalDrillMemory += poolModel.liveCount * poolModel.memory;
       totalDrillVcores += poolModel.liveCount * poolModel.vcores;
+      totalDrillDisks += poolModel.liveCount * poolModel.disks;
       pools.add( poolModel );
     }
     if ( state != State.LIVE ) {

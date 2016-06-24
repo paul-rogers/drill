@@ -51,6 +51,7 @@ import com.typesafe.config.ConfigFactory;
 public class DrillOnYarnConfig
 {
   public static final String DEFAULTS_FILE_NAME = "drill-on-yarn-defaults.conf";
+  public static final String DISTRIB_FILE_NAME = "doy-distrib.conf";
   public static final String CONFIG_FILE_NAME = "drill-on-yarn.conf";
 
   public static final String DRILL_ON_YARN_PARENT = "drill.yarn";
@@ -142,12 +143,13 @@ public class DrillOnYarnConfig
   public static final String HTTP_REST_KEY = append( HTTP_PARENT, "rest-key" );
   public static final String HTTP_SESSION_MAX_IDLE_SECS = append( HTTP_PARENT, "session-max-idle-secs" );
   public static final String HTTP_DOCS_LINK = append( HTTP_PARENT, "docs-link" );
+  public static final String HTTP_REFRESH_SECS = append( HTTP_PARENT, "refresh-secs" );
 
   public static final String CLIENT_POLL_SEC = append( CLIENT_PARENT, "poll-sec" );
   public static final String CLIENT_START_WAIT_SEC = append( CLIENT_PARENT, "start-wait-sec" );
   public static final String CLIENT_STOP_WAIT_SEC = append( CLIENT_PARENT, "stop-wait-sec" );
 
-  public static final String CLUSTER_POOLS = append( DRILL_ON_YARN_PARENT, "pools" );
+  public static final String WORKER_TIERS = append( DRILL_ON_YARN_PARENT, "tiers" );
 
   /**
    * Name of the subdirectory of the container directory that will hold
@@ -215,9 +217,15 @@ public class DrillOnYarnConfig
       config = ConfigFactory.parseURL(url).withFallback( drillConfig );
     }
 
-    // 2. User's Drill-on-YARN configuration.
+    // 2. Optional distribution-specific configuration-file.
+    // (Lets a vendor, for example, specify the default DFS upload location without
+    // tinkering with the user's own settings.
 
-    // 3. System properties
+    config = ConfigFactory.load( DISTRIB_FILE_NAME ).withFallback( config );
+
+    // 3. User's Drill-on-YARN configuration.
+
+    // 4. System properties
     // Allows -Dfoo=bar on the command line.
     // But, note that substitutions are NOT allowed in system properties!
 
@@ -481,6 +489,7 @@ public class DrillOnYarnConfig
     HTTP_AUTH_ENABLED,
     HTTP_SESSION_MAX_IDLE_SECS,
     HTTP_DOCS_LINK,
+    HTTP_REFRESH_SECS,
     // Do not include AM_REST_KEY: it is supposed to be secret.
   };
 
@@ -508,10 +517,10 @@ public class DrillOnYarnConfig
         out.println( "<missing>" );
       }
     }
-    out.print( CLUSTER_POOLS );
+    out.print( WORKER_TIERS );
     out.println( "[" );
     for ( int i = 0;  i < poolCount( );  i++ ) {
-      NodePool.Pool pool = NodePool.getPool( config, i );
+      WorkerTier.Tier pool = WorkerTier.getTier( config, i );
       out.print( i );
       out.println( " = {" );
       pool.dump( "  ", out );
@@ -547,7 +556,7 @@ public class DrillOnYarnConfig
       pairs.add( new NameValuePair( key, config.getString( key ) ) );
     }
     for ( int i = 0;  i < poolCount( );  i++ ) {
-      NodePool.Pool pool = NodePool.getPool( config, i );
+      WorkerTier.Tier pool = WorkerTier.getTier( config, i );
       pool.getPairs( i, pairs );
     }
 
@@ -562,11 +571,11 @@ public class DrillOnYarnConfig
   }
 
   public static String poolKey( int index, String key ) {
-    return CLUSTER_POOLS + "." + index + "." + key;
+    return WORKER_TIERS + "." + index + "." + key;
   }
 
   public int poolCount( ) {
-    return config.getList(CLUSTER_POOLS).size();
+    return config.getList(WORKER_TIERS).size();
   }
 
   private static String suffixes[] = {

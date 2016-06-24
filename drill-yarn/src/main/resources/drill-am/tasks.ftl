@@ -11,6 +11,7 @@
 
 <#include "*/generic.ftl">
 <#macro page_head>
+  <meta http-equiv="refresh" content="${refreshSecs}" >
 </#macro>
 
 <#macro page_body>
@@ -33,6 +34,9 @@
               Container</span></th>
           <th><span data-toggle="tooltip" title="Memory granted by YARN to the Drillbit.">Memory (MB)</span></th>
           <th><span data-toggle="tooltip" title="Virtual cores granted by YARN to the Drillbit.">Virtual Cores</span></th>
+          <#if showDisks >
+            <th><span data-toggle="tooltip" title="Disk resources granted by YARN to the Drillbit.">Disks</span></th>
+          </#if>
           <th><span data-toggle="tooltip" title="Start time in the AM server time zone.">Start Time</span></th>
         </th>
         <#list tasks as task>
@@ -57,6 +61,9 @@
             <#else>&nbsp;</#if></td>
             <td>${task.getMemory( )}</td>
             <td>${task.getVcores( )}</td>
+            <#if showDisks >
+              <td>${task.getDisks( )}</td>
+            </#if>
             <td>${task.getStartTime( )}</td>
           </tr>
         </#list>
