@@ -66,7 +66,8 @@ public class ControllerModel implements ControllerVisitor
   }
 
   protected String zkConnectStr;
-  protected String zkPath;
+  protected String zkRoot;
+  protected String zkClusterId;
   protected ClusterControllerImpl.State state;
   protected String stateHint;
   protected boolean supportsDisks;
@@ -85,7 +86,8 @@ public class ControllerModel implements ControllerVisitor
 
   public boolean supportsDiskResource( ) { return supportsDisks; }
   public String getZkConnectionStr( ) { return zkConnectStr; }
-  public String getZkPath( ) { return zkPath; }
+  public String getZkRoot( ) { return zkRoot; }
+  public String getZkClusterId( ) { return zkClusterId; }
   public String getAppId( ) { return appRpt.appId; }
   public String getRmHost( ) { return appRpt.rmHost; }
   public String getRmLink( ) { return appRpt.rmUrl; }
@@ -99,7 +101,7 @@ public class ControllerModel implements ControllerVisitor
   public int getYarnVcores( ) { return yarnVcores; }
   public int getDrillTotalMemory( ) { return totalDrillMemory; }
   public int getDrillTotalVcores( ) { return totalDrillVcores; }
-  public String getTotalDrillDisks( ) {
+  public String getDrillTotalDisks( ) {
     return String.format( "%.2f", totalDrillDisks );
   }
   public int getYarnNodeCount( ) { return yarnNodeCount; }
@@ -117,8 +119,8 @@ public class ControllerModel implements ControllerVisitor
 
     Config config = DrillOnYarnConfig.config();
     zkConnectStr = config.getString( DrillOnYarnConfig.ZK_CONNECT );
-    zkPath = config.getString( DrillOnYarnConfig.ZK_ROOT ) +
-           "/" + config.getString( DrillOnYarnConfig.CLUSTER_ID );
+    zkRoot = config.getString( DrillOnYarnConfig.ZK_ROOT );
+    zkClusterId = config.getString( DrillOnYarnConfig.CLUSTER_ID );
 
     appRpt = impl.getYarn().getAppHostReport();
 
