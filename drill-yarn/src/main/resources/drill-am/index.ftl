@@ -45,9 +45,14 @@
       ${model.getZkConnectionStr( )}</span></td>
     </tr>
     <tr>
-      <td>ZooKeeper Path:</td>
-      <td><span data-toggle="tooltip" title="ZooKeeper Drill root and cluster-id.">
-      ${model.getZkPath( )}</span></td>
+      <td>ZooKeeper Root:</td>
+      <td><span data-toggle="tooltip" title="ZooKeeper Drill root.">
+      ${model.getZkRoot( )}</span></td>
+    </tr>
+    <tr>
+      <td>ZooKeeper Cluster ID:</td>
+      <td><span data-toggle="tooltip" title="ZooKeeper Drill cluster-id.">
+      ${model.getZkClusterId( )}</span></td>
     </tr>
     <tr>
       <td>State:</td>
