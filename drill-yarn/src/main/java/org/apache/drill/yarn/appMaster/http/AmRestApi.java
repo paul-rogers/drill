@@ -172,19 +172,6 @@ public class AmRestApi extends PageTree
       ResizeRequest request = new ResizeRequest( key, quantity );
       if ( request.error != null ) { return request.error; }
 
-//      String masterKey = DrillOnYarnConfig.config( ).getString( DrillOnYarnConfig.HTTP_REST_KEY );
-//      if ( ! DoYUtil.isBlank( masterKey ) && ! masterKey.equals( key ) ) {
-//        return errorResponse( "Invalid Key" );
-//      }
-//      int n;
-//      try {
-//        n = Integer.parseInt( quantity );
-//      } catch (NumberFormatException e) {
-//        return errorResponse( "Invalid argument: " + quantity );
-//      }
-//      if ( n < 1 ) {
-//        return errorResponse( "Invalid argument: " + quantity );
-//      }
       int curSize = dispatcher.getController().getTargetCount( );
       dispatcher.getController().resizeTo( request.n );
       return successResponse( "Resizing from " + curSize + " to " + request.n );
@@ -227,19 +214,7 @@ public class AmRestApi extends PageTree
     {
       ResizeRequest request = new ResizeRequest( key, quantity );
       if ( request.error != null ) { return request.error; }
-//      String masterKey = DrillOnYarnConfig.config( ).getString( DrillOnYarnConfig.HTTP_REST_KEY );
-//      if ( ! DoYUtil.isBlank( masterKey ) && ! masterKey.equals( key ) ) {
-//        return errorResponse( "Invalid Key" );
-//      }
-//      int n;
-//      try {
-//        n = Integer.parseInt( quantity );
-//      } catch (NumberFormatException e) {
-//        return errorResponse( "Invalid argument: " + quantity );
-//      }
-//      if ( n < 1 ) {
-//        return errorResponse( "Invalid argument: " + quantity );
-//      }
+
       int curSize = dispatcher.getController().getTargetCount( );
       int newSize = curSize + request.n;
       dispatcher.getController().resizeTo( newSize );
@@ -264,21 +239,8 @@ public class AmRestApi extends PageTree
     {
       ResizeRequest request = new ResizeRequest( key, quantity );
       if ( request.error != null ) { return request.error; }
-//      String masterKey = DrillOnYarnConfig.config( ).getString( DrillOnYarnConfig.HTTP_REST_KEY );
-//      if ( ! DoYUtil.isBlank( masterKey ) && ! masterKey.equals( key ) ) {
-//        return errorResponse( "Invalid Key" );
-//      }
-//      int n;
-//      try {
-//        n = Integer.parseInt( quantity );
-//      } catch (NumberFormatException e) {
-//        return errorResponse( "Invalid argument: " + quantity );
-//      }
-//      if ( n < 1 ) {
-//        return errorResponse( "Invalid argument: " + quantity );
-//      }
       int curSize = dispatcher.getController().getTargetCount( );
-      int newSize = Math.min( curSize - request.n, 0 );
+      int newSize = Math.max( curSize - request.n, 0 );
       dispatcher.getController().resizeTo( newSize );
       return successResponse( "Shrinking by " + request.n + " to " + newSize );
     }

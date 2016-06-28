@@ -142,7 +142,7 @@ public class ClusterControllerImpl implements ClusterController
    * requests to which they correspond.
    */
 
-  private List<SchedulerStateActions> prioritizedPools = new ArrayList<>();
+  private List<SchedulerStateActions> prioritizedGroups = new ArrayList<>();
 
   /**
    * Cluster-wide association of YARN container IDs to tasks.
@@ -255,7 +255,7 @@ public class ClusterControllerImpl implements ClusterController
     scheduler.setPriority(taskPools.size() + PRIORITY_OFFSET);
     SchedulerStateActions taskGroup = new SchedulerStateImpl(this, scheduler);
     taskPools.put(taskGroup.getName(), taskGroup);
-    prioritizedPools.add(taskGroup);
+    prioritizedGroups.add(taskGroup);
   }
 
   /**
@@ -273,7 +273,7 @@ public class ClusterControllerImpl implements ClusterController
     // case.
 
     Resource maxResource = yarn.getRegistrationResponse().getMaximumResourceCapability();
-    for (SchedulerStateActions group : prioritizedPools) {
+    for (SchedulerStateActions group : prioritizedGroups) {
       group.getScheduler().limitContainerSize( maxResource );
     }
     state = State.LIVE;
@@ -302,7 +302,7 @@ public class ClusterControllerImpl implements ClusterController
     }
     if ( state != State.LIVE ) {
       return; }
-    for (SchedulerStateActions group : prioritizedPools) {
+    for (SchedulerStateActions group : prioritizedGroups) {
       group.adjustTasks();
     }
   }
@@ -318,7 +318,7 @@ public class ClusterControllerImpl implements ClusterController
     if ( lastFailureCheckTime + failureCheckPeriodMs > curTime ) {
       return; }
     lastFailureCheckTime = curTime;
-    for (SchedulerStateActions group : prioritizedPools) {
+    for (SchedulerStateActions group : prioritizedGroups) {
       if ( group.getTaskCount( ) > 0 ) {
         return; }
     }
@@ -343,7 +343,7 @@ public class ClusterControllerImpl implements ClusterController
     // Check for task timeouts in states that have a timeout.
 
     EventContext context = new EventContext(this);
-    for (SchedulerStateActions group : prioritizedPools) {
+    for (SchedulerStateActions group : prioritizedGroups) {
       context.setGroup(group);
       group.checkTasks( context, curTime );
     }
@@ -377,7 +377,7 @@ public class ClusterControllerImpl implements ClusterController
 
   private void requestContainers() {
     EventContext context = new EventContext(this);
-    for (SchedulerStateActions group : prioritizedPools) {
+    for (SchedulerStateActions group : prioritizedGroups) {
       context.setGroup(group);
       if ( group.requestContainers( context, maxRequestsPerTick ) ) {
         break; }
@@ -393,11 +393,11 @@ public class ClusterControllerImpl implements ClusterController
       allocatedContainers.add(container.getId());
       int priority = container.getPriority().getPriority();
       int offset = priority - PRIORITY_OFFSET;
-      if (offset < 0 || offset > prioritizedPools.size()) {
+      if (offset < 0 || offset > prioritizedGroups.size()) {
         LOG.error("Container allocated with unknown priority " + priority);
         continue;
       }
-      context.setGroup(prioritizedPools.get(offset));
+      context.setGroup(prioritizedGroups.get(offset));
       context.group.containerAllocated(context, container);
     }
   }
@@ -483,7 +483,7 @@ public class ClusterControllerImpl implements ClusterController
     // TODO: offer the delta to each scheduler in turn.
     // For now, we support only one scheduler.
 
-    prioritizedPools.get(0).getScheduler().change(delta);
+    prioritizedGroups.get(0).getScheduler().change(delta);
   }
 
   @Override
@@ -491,7 +491,7 @@ public class ClusterControllerImpl implements ClusterController
     // TODO: offer the delta to each scheduler in turn.
     // For now, we support only one scheduler.
 
-    prioritizedPools.get(0).getScheduler().resize(n);
+    prioritizedGroups.get(0).getScheduler().resize(n);
   }
 
   @Override
@@ -499,7 +499,7 @@ public class ClusterControllerImpl implements ClusterController
     LOG.info("Shut down request received");
     this.state = State.ENDING;
     EventContext context = new EventContext(this);
-    for (SchedulerStateActions group : prioritizedPools) {
+    for (SchedulerStateActions group : prioritizedGroups) {
       group.shutDown(context);
     }
     checkStatus( );
@@ -548,7 +548,7 @@ public class ClusterControllerImpl implements ClusterController
   private void checkStatus() {
     if ( state != State.ENDING ) {
       return; }
-    for (SchedulerStateActions group : prioritizedPools) {
+    for (SchedulerStateActions group : prioritizedGroups) {
       if ( ! group.isDone() ) {
         return; }
     }
@@ -639,8 +639,8 @@ public class ClusterControllerImpl implements ClusterController
   @Override
   public int getTargetCount() {
     int count = 0;
-    for ( SchedulerStateActions pool : prioritizedPools ) {
-      count += pool.getScheduler().getTarget();
+    for ( SchedulerStateActions group : prioritizedGroups ) {
+      count += group.getScheduler().getTarget();
     }
     return count;
   }
@@ -653,12 +653,12 @@ public class ClusterControllerImpl implements ClusterController
   }
 
   public List<SchedulerStateActions> getPools() {
-    return prioritizedPools;
+    return prioritizedGroups;
   }
 
   @Override
   public synchronized void visitTasks(TaskVisitor visitor) {
-    for ( SchedulerStateActions pool : prioritizedPools ) {
+    for ( SchedulerStateActions pool : prioritizedGroups ) {
       pool.visitTaskModels( visitor );
     }
   }
@@ -667,7 +667,7 @@ public class ClusterControllerImpl implements ClusterController
 
   @Override
   public synchronized boolean cancelTask(int id) {
-    for (SchedulerStateActions group : prioritizedPools) {
+    for (SchedulerStateActions group : prioritizedGroups) {
       Task task = group.getTask( id );
       if ( task != null ) {
         group.cancel( task );
