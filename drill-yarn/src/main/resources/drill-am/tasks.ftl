@@ -23,7 +23,7 @@
       <table class="table table-hover">
         <tr>
           <th><span data-toggle="tooltip" title="Internal AM ID for the Drillbit.">ID</span></th>
-          <th><span data-toggle="tooltip" title="Host pool from config file">Pool</span></th>
+          <th><span data-toggle="tooltip" title="Cluster group from config file">Group</span></th>
           <th><span data-toggle="tooltip"
                     title="Host name or IP running the Drillbit and ink to Drillbit web UI.">
               Host</span></th>

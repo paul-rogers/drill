@@ -90,7 +90,7 @@
   </table>
   <table class="table table-hover" style="width: auto;">
     <tr>
-      <th>Pool</th>
+      <th>Group</th>
       <th>Type</th>
       <th>Target Drillbit Count</th>
       <th>Total Drillbits</th>
@@ -101,17 +101,17 @@
         <th>Disks per Drillbit</th>
       </#if>
     </tr>
-    <#list model.getPools( ) as pool>
+    <#list model.getGroups( ) as group>
       <tr>
-        <td>${pool.getName( )}</td>
-        <td>${pool.getType( )}</td>
-        <td>${pool.getTargetCount( )}</td>
-        <td>${pool.getTaskCount( )}</td>
-        <td>${pool.getLiveCount( )}</td>
-        <td>${pool.getMemory( )}</td>
-        <td>${pool.getVcores( )}</td>
+        <td>${group.getName( )}</td>
+        <td>${group.getType( )}</td>
+        <td>${group.getTargetCount( )}</td>
+        <td>${group.getTaskCount( )}</td>
+        <td>${group.getLiveCount( )}</td>
+        <td>${group.getMemory( )}</td>
+        <td>${group.getVcores( )}</td>
         <#if model.supportsDiskResource( ) >
-          <td>${pool.getDisks( )}</td>
+          <td>${group.getDisks( )}</td>
         </#if>
       </tr>
     </#list>

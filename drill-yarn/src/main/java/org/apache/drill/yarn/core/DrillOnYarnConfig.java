@@ -149,7 +149,7 @@ public class DrillOnYarnConfig
   public static final String CLIENT_START_WAIT_SEC = append( CLIENT_PARENT, "start-wait-sec" );
   public static final String CLIENT_STOP_WAIT_SEC = append( CLIENT_PARENT, "stop-wait-sec" );
 
-  public static final String WORKER_TIERS = append( DRILL_ON_YARN_PARENT, "tiers" );
+  public static final String CLUSTERS = append( DRILL_ON_YARN_PARENT, "cluster" );
 
   /**
    * Name of the subdirectory of the container directory that will hold
@@ -517,13 +517,13 @@ public class DrillOnYarnConfig
         out.println( "<missing>" );
       }
     }
-    out.print( WORKER_TIERS );
+    out.print( CLUSTERS );
     out.println( "[" );
     for ( int i = 0;  i < poolCount( );  i++ ) {
-      WorkerTier.Tier pool = WorkerTier.getTier( config, i );
+      ClusterDef.ClusterGroup cluster = ClusterDef.getCluster( config, i );
       out.print( i );
       out.println( " = {" );
-      pool.dump( "  ", out );
+      cluster.dump( "  ", out );
       out.println( "  }" );
     }
     out.println( "]" );
@@ -556,7 +556,7 @@ public class DrillOnYarnConfig
       pairs.add( new NameValuePair( key, config.getString( key ) ) );
     }
     for ( int i = 0;  i < poolCount( );  i++ ) {
-      WorkerTier.Tier pool = WorkerTier.getTier( config, i );
+      ClusterDef.ClusterGroup pool = ClusterDef.getCluster( config, i );
       pool.getPairs( i, pairs );
     }
 
@@ -571,11 +571,11 @@ public class DrillOnYarnConfig
   }
 
   public static String poolKey( int index, String key ) {
-    return WORKER_TIERS + "." + index + "." + key;
+    return CLUSTERS + "." + index + "." + key;
   }
 
   public int poolCount( ) {
-    return config.getList(WORKER_TIERS).size();
+    return config.getList(CLUSTERS).size();
   }
 
   private static String suffixes[] = {

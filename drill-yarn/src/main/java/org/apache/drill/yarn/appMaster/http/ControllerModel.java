@@ -42,7 +42,7 @@ import com.typesafe.config.Config;
 @XmlRootElement
 public class ControllerModel implements ControllerVisitor
 {
-  public static class PoolModel
+  public static class ClusterGroupModel
   {
     protected String name;
     protected String type;
@@ -82,7 +82,7 @@ public class ControllerModel implements ControllerVisitor
   protected int totalDrillVcores;
   protected double totalDrillDisks;
   protected YarnAppHostReport appRpt;
-  protected List<PoolModel> pools = new ArrayList<>( );
+  protected List<ClusterGroupModel> groups = new ArrayList<>( );
 
   public boolean supportsDiskResource( ) { return supportsDisks; }
   public String getZkConnectionStr( ) { return zkConnectStr; }
@@ -109,7 +109,7 @@ public class ControllerModel implements ControllerVisitor
   public int getLiveCount( ) { return liveCount; }
   public int getUnmanagedCount( ) { return unmanagedCount; }
   public int getTargetCount( ) { return targetCount; }
-  public List<PoolModel> getPools( ) { return pools; }
+  public List<ClusterGroupModel> getGroups( ) { return groups; }
 
   private static Map<ClusterControllerImpl.State,String> stateHints = makeStateHints( );
 
@@ -143,7 +143,7 @@ public class ControllerModel implements ControllerVisitor
   private void capturePools( ClusterControllerImpl impl )
   {
     for ( SchedulerStateActions pool : impl.getPools( ) ) {
-      ControllerModel.PoolModel poolModel = new ControllerModel.PoolModel( );
+      ControllerModel.ClusterGroupModel poolModel = new ControllerModel.ClusterGroupModel( );
       Scheduler sched = pool.getScheduler();
       ContainerRequestSpec containerSpec = sched.getResource( );
       poolModel.name = sched.getName();
@@ -160,7 +160,7 @@ public class ControllerModel implements ControllerVisitor
       totalDrillMemory += poolModel.liveCount * poolModel.memory;
       totalDrillVcores += poolModel.liveCount * poolModel.vcores;
       totalDrillDisks += poolModel.liveCount * poolModel.disks;
-      pools.add( poolModel );
+      groups.add( poolModel );
     }
     if ( state != State.LIVE ) {
       targetCount = 0;
