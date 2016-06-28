@@ -82,9 +82,11 @@ public class ControllerModel implements ControllerVisitor
   protected int totalDrillVcores;
   protected double totalDrillDisks;
   protected YarnAppHostReport appRpt;
+  protected int refreshSecs;
   protected List<ClusterGroupModel> groups = new ArrayList<>( );
 
   public boolean supportsDiskResource( ) { return supportsDisks; }
+  public int getRefreshSecs( ) { return refreshSecs; }
   public String getZkConnectionStr( ) { return zkConnectStr; }
   public String getZkRoot( ) { return zkRoot; }
   public String getZkClusterId( ) { return zkClusterId; }
@@ -115,13 +117,13 @@ public class ControllerModel implements ControllerVisitor
 
   @Override
   public void visit(ClusterController controller) {
-    ClusterControllerImpl impl = (ClusterControllerImpl) controller;
-
     Config config = DrillOnYarnConfig.config();
+    refreshSecs = config.getInt( DrillOnYarnConfig.HTTP_REFRESH_SECS );
     zkConnectStr = config.getString( DrillOnYarnConfig.ZK_CONNECT );
     zkRoot = config.getString( DrillOnYarnConfig.ZK_ROOT );
     zkClusterId = config.getString( DrillOnYarnConfig.CLUSTER_ID );
 
+    ClusterControllerImpl impl = (ClusterControllerImpl) controller;
     appRpt = impl.getYarn().getAppHostReport();
 
     state = impl.getState( );

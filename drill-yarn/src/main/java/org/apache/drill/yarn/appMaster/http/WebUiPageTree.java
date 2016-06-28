@@ -235,7 +235,10 @@ public class WebUiPageTree extends PageTree
     public Viewable getRoot( ) {
       AbstractTasksModel.HistoryModel model = new AbstractTasksModel.HistoryModel( );
       dispatcher.getController().visit( model );
-      return new Viewable( "/drill-am/history.ftl", toModel( sc, model.results ) );
+      Map<String,Object> map = new HashMap<>( );
+      map.put( "model", model.results );
+      map.put( "refreshSecs", DrillOnYarnConfig.config().getInt( DrillOnYarnConfig.HTTP_REFRESH_SECS ) );
+      return new Viewable( "/drill-am/history.ftl", toMapModel( sc, map ) );
     }
   }
 
