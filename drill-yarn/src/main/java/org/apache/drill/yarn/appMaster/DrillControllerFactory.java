@@ -29,7 +29,7 @@ import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DoyConfigException;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.LaunchSpec;
-import org.apache.drill.yarn.core.WorkerTier;
+import org.apache.drill.yarn.core.ClusterDef;
 import org.apache.drill.yarn.zk.ZKClusterCoordinatorDriver;
 import org.apache.drill.yarn.zk.ZKRegistry;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
@@ -84,7 +84,7 @@ public class DrillControllerFactory implements ControllerFactory
       dispatcher.getController().setMaxRetries( config.getInt( DrillOnYarnConfig.DRILLBIT_MAX_RETRIES ) );
 
       // Assume basic scheduler for now.
-      WorkerTier.Tier pool = WorkerTier.getTier( config, 0 );
+      ClusterDef.ClusterGroup pool = ClusterDef.getCluster( config, 0 );
       Scheduler testGroup = new DrillbitScheduler(pool.name, taskSpec, pool.count);
       dispatcher.getController().registerScheduler(testGroup);
       pool.modifyTaskSpec( taskSpec );

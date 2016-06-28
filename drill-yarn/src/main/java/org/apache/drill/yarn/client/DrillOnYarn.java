@@ -126,6 +126,9 @@ public class DrillOnYarn
       case CLEAN:
         cmd = new CleanCommand( );
         break;
+      case RESIZE:
+        cmd = new ResizeCommand( );
+        break;
       default:
         cmd = new HelpCommand( );
     }

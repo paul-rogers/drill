@@ -123,7 +123,7 @@ public class CommandLineOptions {
   Command command;
   public String appId;
   public boolean dryRun;
-  private String prefix;
+  public String resizePrefix;
   public int resizeValue;
   public boolean verbose = false;
   public boolean force = false;
@@ -194,7 +194,7 @@ public class CommandLineOptions {
     Pattern p = Pattern.compile("([+-]?)(\\d+)");
     Matcher m = p.matcher(resize);
     if (m.matches()) {
-      prefix = m.group(1);
+      resizePrefix = m.group(1);
       resizeValue = Integer.parseInt(m.group(2));
     } else {
       command = null;
@@ -207,7 +207,7 @@ public class CommandLineOptions {
   }
 
   public String getResizePrefix() {
-    return prefix;
+    return resizePrefix;
   }
 
   public int getResizeValue() {

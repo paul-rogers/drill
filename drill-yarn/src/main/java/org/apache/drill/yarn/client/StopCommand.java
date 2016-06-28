@@ -202,7 +202,7 @@ public class StopCommand extends ClientCommand
         System.out.println( "Stopping with POST " + baseUrl + "/" + tail );
       }
       String result = restClient.send( baseUrl, tail, true );
-      if ( "OK".equals( result ) ) {
+      if ( result.contains( "\"ok\"" ) ) {
         return true;
       }
       System.err.println( "Failed to stop the application master. Response = " + result );

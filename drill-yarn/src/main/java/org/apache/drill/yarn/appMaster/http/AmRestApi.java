@@ -27,13 +27,14 @@ import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
 import org.apache.drill.yarn.appMaster.Dispatcher;
 import org.apache.drill.yarn.appMaster.http.AbstractTasksModel.TaskModel;
-import org.apache.drill.yarn.appMaster.http.ControllerModel.PoolModel;
+import org.apache.drill.yarn.appMaster.http.ControllerModel.ClusterGroupModel;
 import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.NameValuePair;
@@ -86,7 +87,7 @@ public class AmRestApi extends PageTree
       root.put( "summary", summary );
 
       List<Map<String,Object>> pools = new ArrayList<>( );
-      for ( PoolModel pool : model.pools ) {
+      for ( ClusterGroupModel pool : model.groups ) {
         Map<String,Object> poolObj = new HashMap<>( );
         poolObj.put( "name", pool.name );
         poolObj.put( "type", pool.type );
@@ -144,16 +145,165 @@ public class AmRestApi extends PageTree
 
     @POST
     @Produces(MediaType.APPLICATION_JSON)
-    public String postStop(
-           )
+    public Map<String,String> postStop( )
     {
-      String masterKey = DrillOnYarnConfig.config( ).getString( DrillOnYarnConfig.HTTP_REST_KEY );
-      if ( ! DoYUtil.isBlank( masterKey ) && ! masterKey.equals( key ) ) {
-        return "Invalid Key";
-      }
+      Map<String,String> error = checkKey( key );
+      if ( error != null ) { return error; }
+
       dispatcher.getController().shutDown();
-      return "OK";
+      return successResponse( "Shutting down" );
     }
+  }
+
+  @Path("/resize/{quantity}")
+  @PermitAll
+  public static class ResizeResource
+  {
+    @PathParam(value = "quantity")
+    String quantity;
+    @DefaultValue( "" )
+    @QueryParam( "key" )
+    String key;
+
+    @POST
+    @Produces(MediaType.APPLICATION_JSON)
+    public Map<String,String> postResize( )
+    {
+      ResizeRequest request = new ResizeRequest( key, quantity );
+      if ( request.error != null ) { return request.error; }
+
+//      String masterKey = DrillOnYarnConfig.config( ).getString( DrillOnYarnConfig.HTTP_REST_KEY );
+//      if ( ! DoYUtil.isBlank( masterKey ) && ! masterKey.equals( key ) ) {
+//        return errorResponse( "Invalid Key" );
+//      }
+//      int n;
+//      try {
+//        n = Integer.parseInt( quantity );
+//      } catch (NumberFormatException e) {
+//        return errorResponse( "Invalid argument: " + quantity );
+//      }
+//      if ( n < 1 ) {
+//        return errorResponse( "Invalid argument: " + quantity );
+//      }
+      int curSize = dispatcher.getController().getTargetCount( );
+      dispatcher.getController().resizeTo( request.n );
+      return successResponse( "Resizing from " + curSize + " to " + request.n );
+    }
+  }
+
+  protected static class ResizeRequest
+  {
+    Map<String,String> error;
+    int n;
+
+    public ResizeRequest( String key, String quantity ) {
+      error = checkKey( key );
+      if ( error != null ) { return; }
+      try {
+        n = Integer.parseInt( quantity );
+      } catch (NumberFormatException e) {
+        error = errorResponse( "Invalid argument: " + quantity );
+      }
+      if ( n < 0 ) {
+        error = errorResponse( "Invalid argument: " + quantity );
+      }
+    }
+  }
+
+  @Path("/grow/{quantity}")
+  @PermitAll
+  public static class GrowResource
+  {
+    @PathParam(value = "quantity")
+    @DefaultValue( "1" )
+    String quantity;
+    @DefaultValue( "" )
+    @QueryParam( "key" )
+    String key;
+
+    @POST
+    @Produces(MediaType.APPLICATION_JSON)
+    public Map<String,String> postResize( )
+    {
+      ResizeRequest request = new ResizeRequest( key, quantity );
+      if ( request.error != null ) { return request.error; }
+//      String masterKey = DrillOnYarnConfig.config( ).getString( DrillOnYarnConfig.HTTP_REST_KEY );
+//      if ( ! DoYUtil.isBlank( masterKey ) && ! masterKey.equals( key ) ) {
+//        return errorResponse( "Invalid Key" );
+//      }
+//      int n;
+//      try {
+//        n = Integer.parseInt( quantity );
+//      } catch (NumberFormatException e) {
+//        return errorResponse( "Invalid argument: " + quantity );
+//      }
+//      if ( n < 1 ) {
+//        return errorResponse( "Invalid argument: " + quantity );
+//      }
+      int curSize = dispatcher.getController().getTargetCount( );
+      int newSize = curSize + request.n;
+      dispatcher.getController().resizeTo( newSize );
+      return successResponse( "Growing by " + request.n + " to " + newSize );
+    }
+  }
+
+  @Path("/shrink/{quantity}")
+  @PermitAll
+  public static class ShrinkResource
+  {
+    @PathParam(value = "quantity")
+    @DefaultValue( "1" )
+    String quantity;
+    @DefaultValue( "" )
+    @QueryParam( "key" )
+    String key;
+
+    @POST
+    @Produces(MediaType.APPLICATION_JSON)
+    public Map<String,String> postResize( )
+    {
+      ResizeRequest request = new ResizeRequest( key, quantity );
+      if ( request.error != null ) { return request.error; }
+//      String masterKey = DrillOnYarnConfig.config( ).getString( DrillOnYarnConfig.HTTP_REST_KEY );
+//      if ( ! DoYUtil.isBlank( masterKey ) && ! masterKey.equals( key ) ) {
+//        return errorResponse( "Invalid Key" );
+//      }
+//      int n;
+//      try {
+//        n = Integer.parseInt( quantity );
+//      } catch (NumberFormatException e) {
+//        return errorResponse( "Invalid argument: " + quantity );
+//      }
+//      if ( n < 1 ) {
+//        return errorResponse( "Invalid argument: " + quantity );
+//      }
+      int curSize = dispatcher.getController().getTargetCount( );
+      int newSize = Math.min( curSize - request.n, 0 );
+      dispatcher.getController().resizeTo( newSize );
+      return successResponse( "Shrinking by " + request.n + " to " + newSize );
+    }
+  }
+
+  private static Map<String,String> checkKey( String key ) {
+    String masterKey = DrillOnYarnConfig.config( ).getString( DrillOnYarnConfig.HTTP_REST_KEY );
+    if ( ! DoYUtil.isBlank( masterKey ) && ! masterKey.equals( key ) ) {
+      return errorResponse( "Invalid Key" );
+    }
+    return null;
+  }
+
+  private static Map<String,String> errorResponse( String msg ) {
+    Map<String,String> resp = new HashMap<>( );
+    resp.put( "status", "error" );
+    resp.put( "message", msg );
+    return resp;
+  }
+
+  private static Map<String,String> successResponse( String msg ) {
+    Map<String,String> resp = new HashMap<>( );
+    resp.put( "status", "ok" );
+    resp.put( "message", msg );
+    return resp;
   }
 
   public AmRestApi( Dispatcher dispatcher ) {
@@ -162,6 +312,9 @@ public class AmRestApi extends PageTree
     register(ConfigResource.class);
     register(StatusResource.class);
     register(StopResource.class);
+    register(ResizeResource.class);
+    register(GrowResource.class);
+    register(ShrinkResource.class);
   }
 
 }
