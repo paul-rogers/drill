@@ -215,6 +215,10 @@ public class DrillControllerFactory implements ControllerFactory
 
     addIfSet( drillbitSpec, DrillOnYarnConfig.DRILLBIT_VM_ARGS, "DRILL_JVM_OPTS" );
 
+    // Any user-specified library path
+
+    addIfSet( drillbitSpec, DrillOnYarnConfig.JAVA_LIB_PATH, DrillOnYarnConfig.DOY_LIBPATH_ENV_VAR );
+
     // Drill logs.
     // Relies on the LOG_DIR_EXPANSION_VAR marker which is replaced by
     // the container log directory.

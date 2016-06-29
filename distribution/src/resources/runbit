@@ -79,6 +79,9 @@ fi
 
 logqueries="${DRILL_LOG_PREFIX}_queries.json"
 LOG_OPTS="-Dlog.path=$DRILLBIT_LOG_PATH -Dlog.query.path=$logqueries"
+if [ -n "$DRILL_JAVA_LIB_PATH" ]; then
+  DRILL_JAVA_OPTS="$DRILL_JAVA_OPTS -Djava.library.path=$DRILL_JAVA_LIB_PATH"
+fi
 DRILL_ALL_JAVA_OPTS="$DRILLBIT_OPTS $DRILL_JAVA_OPTS $DRILLBIT_JAVA_OPTS $SERVER_GC_OPTS $@ $LOG_OPTS"
 BITCMD="$JAVA $DRILL_ALL_JAVA_OPTS -cp $CP org.apache.drill.exec.server.Drillbit"
 
