@@ -51,6 +51,12 @@
 
 #export DRILLBIT_MAX_PERM=${DRILLBIT_MAX_PERM:-"512M"}
 
+# Native library path passed to Java. Note: use this form instead
+# of the old form of DRILLBIT_JAVA_OPTS="-Djava.library.path=<dir>"
+# The old form is not compatible with Drill-on-YARN.
+
+# export DRILL_JAVA_LIB_PATH="<lib1>:<lib2>"
+
 # Value for the code cache size for the Drillbit. Because the Drillbit generates
 # code, it benefits from a large cache. Default is 1G.
 

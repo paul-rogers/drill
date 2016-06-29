@@ -86,6 +86,7 @@ public class DrillOnYarnConfig
   public static final String LOCALIZE_DRILL = append( FILES_PARENT, "localize" );
   public static final String DRILL_HOME = append( FILES_PARENT, "drill-home" );
   public static final String SITE_DIR = append( FILES_PARENT, "site-dir" );
+  public static final String JAVA_LIB_PATH = append( FILES_PARENT, "library-path" );
 
   public static final String HADOOP_HOME = append( HADOOP_PARENT, "home" );
   public static final String HADOOP_CLASSPATH = append( HADOOP_PARENT, "class-path" );
@@ -173,6 +174,7 @@ public class DrillOnYarnConfig
   public static final String AM_JAVA_OPTS_ENV_VAR = "DRILL_AM_JAVA_OPTS";
   public static final String DRILL_CLASSPATH_ENV_VAR = "DRILL_CLASSPATH";
   public static final String DRILL_CLASSPATH_PREFIX_ENV_VAR = "DRILL_CLASSPATH_PREFIX";
+  public static final String DOY_LIBPATH_ENV_VAR = "DOY_JAVA_LIB_PATH";
   public static final String DRILL_DEBUG_ENV_VAR = "DRILL_DEBUG";
 
   /**
@@ -432,6 +434,7 @@ public class DrillOnYarnConfig
     DRILL_HOME,
     DRILL_ARCHIVE_KEY,
     SITE_ARCHIVE_KEY,
+    JAVA_LIB_PATH,
 
     // drill.yarn.client
 

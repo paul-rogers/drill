@@ -227,6 +227,28 @@ export DRILLBIT_LOG_PATH="${DRILL_LOG_PREFIX}.log"
 # Add Drill conf folder at the beginning of the classpath
 CP="$DRILL_CONF_DIR"
 
+# If both user and YARN-provided Java lib paths exist,
+# combine them.
+
+if [ -n "$DOY_JAVA_LIB_PATH" ]; then
+  if [ -z "$DRILL_JAVA_LIB_PATH" ]; then
+    export DRILL_JAVA_LIB_PATH="$DOY_JAVA_LIB_PATH"
+  else
+    export DRILL_JAVA_LIB_PATH="$DOY_JAVA_LIB_PATH:$DRILL_JAVA_LIB_PATH"
+  fi
+fi
+
+# Add the lib directory to the library path, if it exists.
+
+libDir="$DRILL_CONF_DIR/lib"
+if [ -d "$libDir" ]; then
+  if [ -z "$DRILL_JAVA_LIB_PATH" ]; then
+    export DRILL_JAVA_LIB_PATH="$libDir"
+  else
+    export DRILL_JAVA_LIB_PATH="$libDir:$DRILL_JAVA_LIB_PATH"
+  fi
+fi
+
 # Add $DRILL_HOME/conf if the user has provided their own
 # site configuration directory.
 # Ensures we pick up the default logback.xml, etc. if the
