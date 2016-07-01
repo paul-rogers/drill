@@ -107,6 +107,9 @@ SITE_OPT="-Ddrill.yarn.siteDir=$DRILL_CONF_DIR"
 
 AM_JAVA_OPTS="-Xms$DRILL_AM_HEAP -Xmx$DRILL_AM_HEAP -XX:MaxPermSize=512M"
 AM_JAVA_OPTS="$AM_JAVA_OPTS $SITE_OPT $DRILL_AM_JAVA_OPTS $AM_LOG_CONF"
+if [ -n "$DRILL_JAVA_LIB_PATH" ]; then
+  AM_JAVA_OPTS="$AM_JAVA_OPTS -Djava.library.path=$DRILL_JAVA_LIB_PATH"
+fi
 
 # drill-config.sh built the class path.
 # Note that the class path uses the Hadoop, YARN and DFS jars

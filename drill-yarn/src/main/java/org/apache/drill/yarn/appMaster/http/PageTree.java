@@ -66,7 +66,7 @@ public class PageTree extends ResourceConfig
 
   public static Map<String,Object> toMapModel( SecurityContext sc, Map<String,Object> model ) {
     model.put( "clusterName", config.getString( DrillOnYarnConfig.APP_NAME ) );
-    boolean useAuth = config.getBoolean( DrillOnYarnConfig.HTTP_AUTH_ENABLED );
+    boolean useAuth = AMSecurityManagerImpl.isEnabled();
     final boolean isUserLoggedIn = (useAuth) ? AuthDynamicFeature.isUserLoggedIn(sc) : false;
     model.put( "showLogin", useAuth && ! isUserLoggedIn );
     model.put( "showLogout", isUserLoggedIn );

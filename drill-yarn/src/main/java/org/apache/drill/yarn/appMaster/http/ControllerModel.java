@@ -32,10 +32,8 @@ import org.apache.drill.yarn.appMaster.ControllerVisitor;
 import org.apache.drill.yarn.appMaster.Scheduler;
 import org.apache.drill.yarn.appMaster.SchedulerStateActions;
 import org.apache.drill.yarn.core.ContainerRequestSpec;
-import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.zk.ZKRegistry;
-import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
 
 import com.typesafe.config.Config;
 

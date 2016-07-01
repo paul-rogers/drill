@@ -18,13 +18,12 @@
 package org.apache.drill.yarn.appMaster.http;
 
 import static org.apache.drill.exec.server.rest.auth.DrillUserPrincipal.ADMIN_ROLE;
-import static org.apache.drill.exec.server.rest.auth.DrillUserPrincipal.AUTHENTICATED_ROLE;
 
-import java.io.IOException;
 import java.math.BigInteger;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.KeyStore;
+import java.security.Principal;
 import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.Collections;
@@ -38,10 +37,7 @@ import javax.servlet.http.HttpSessionListener;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.server.rest.auth.DrillRestLoginService;
 import org.apache.drill.yarn.appMaster.Dispatcher;
-import org.apache.drill.yarn.appMaster.DrillApplicationMaster;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.bouncycastle.asn1.x500.X500NameBuilder;
 import org.bouncycastle.asn1.x500.style.BCStyle;
@@ -53,11 +49,11 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.eclipse.jetty.http.HttpVersion;
 import org.eclipse.jetty.security.ConstraintMapping;
 import org.eclipse.jetty.security.ConstraintSecurityHandler;
-import org.eclipse.jetty.security.HashLoginService;
+import org.eclipse.jetty.security.DefaultIdentityService;
+import org.eclipse.jetty.security.DefaultUserIdentity;
+import org.eclipse.jetty.security.IdentityService;
 import org.eclipse.jetty.security.LoginService;
-import org.eclipse.jetty.security.MappedLoginService;
 import org.eclipse.jetty.security.SecurityHandler;
-import org.eclipse.jetty.security.authentication.BasicAuthenticator;
 import org.eclipse.jetty.security.authentication.FormAuthenticator;
 import org.eclipse.jetty.security.authentication.SessionAuthentication;
 import org.eclipse.jetty.server.HttpConfiguration;
@@ -75,13 +71,10 @@ import org.eclipse.jetty.servlet.DefaultServlet;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.resource.Resource;
-import org.eclipse.jetty.util.security.Constraint;
-import org.eclipse.jetty.util.security.Password;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.glassfish.jersey.servlet.ServletContainer;
 import org.joda.time.DateTime;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.typesafe.config.Config;
 
@@ -176,7 +169,7 @@ public class WebServer implements AutoCloseable
 
     // Security, if requested.
 
-    if (config.getBoolean(DrillOnYarnConfig.HTTP_AUTH_ENABLED) ) {
+    if ( AMSecurityManagerImpl.isEnabled( ) ) {
       servletContextHandler.setSecurityHandler(createSecurityHandler( config ));
       servletContextHandler.setSessionHandler(createSessionHandler( config, servletContextHandler.getSecurityHandler()));
     }
@@ -217,19 +210,71 @@ public class WebServer implements AutoCloseable
     servletContextHandler.addServlet(amStaticHolder, "/drill-am/static/*");
   }
 
-  public class AmLoginService extends MappedLoginService
+  public static class AMUserPrincipal implements Principal
   {
+    public final String userName;
 
-    @Override
-    protected UserIdentity loadUser(String username) {
-      // TODO Auto-generated method stub
-      return null;
+    public AMUserPrincipal( String userName ) {
+      this.userName = userName;
     }
 
     @Override
-    protected void loadUsers() throws IOException {
-      putUser( "fred", new Password( "wilma" ), new String[] { ADMIN_ROLE } );
+    public String getName() {
+      return userName;
     }
+  }
+
+  public static class AmLoginService implements LoginService
+  {
+    private AMSecurityManager securityMgr;
+    protected IdentityService identityService = new DefaultIdentityService();
+
+    public AmLoginService( AMSecurityManager securityMgr ) {
+      this.securityMgr = securityMgr;
+    }
+
+    @Override
+    public String getName() {
+      return "drill-am";
+    }
+
+    @Override
+    public UserIdentity login(String username, Object credentials) {
+      if ( ! securityMgr.login(username, (String) credentials) ) {
+        return null;
+      }
+      return new DefaultUserIdentity( null, new AMUserPrincipal( username ), new String[] { ADMIN_ROLE } );
+    }
+
+    @Override
+    public boolean validate(UserIdentity user) {
+      return true;
+    }
+
+    @Override
+    public IdentityService getIdentityService() {
+      return identityService;
+    }
+
+    @Override
+    public void setIdentityService(IdentityService service) {
+      this.identityService = service;
+    }
+
+    @Override
+    public void logout(UserIdentity user) {
+    }
+
+//    @Override
+//    protected UserIdentity loadUser(String username) {
+//      // TODO Auto-generated method stub
+//      return null;
+//    }
+//
+//    @Override
+//    protected void loadUsers() throws IOException {
+//      putUser( "fred", new Password( "wilma" ), new String[] { ADMIN_ROLE } );
+//    }
 
   }
 
@@ -246,7 +291,7 @@ public class WebServer implements AutoCloseable
     security.setConstraintMappings(Collections.<ConstraintMapping>emptyList(), knownRoles);
 
     security.setAuthenticator(new FormAuthenticator("/login", "/login", true));
-    security.setLoginService(new AmLoginService( ));
+    security.setLoginService(new AmLoginService( AMSecurityManagerImpl.instance( ) ));
 
     return security;
   }

@@ -17,7 +17,6 @@
  */
 package org.apache.drill.yarn.core;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;

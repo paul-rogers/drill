@@ -19,7 +19,10 @@ package org.apache.drill.yarn.client;
 
 import java.io.File;
 
+import org.apache.drill.yarn.client.StatusCommand.Reporter;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
+import org.apache.drill.yarn.core.YarnRMClient;
+import org.apache.hadoop.yarn.api.records.ApplicationId;
 
 import com.typesafe.config.Config;
 
@@ -54,10 +57,7 @@ public class StartCommand extends ClientCommand
   @Override
   public void run() throws ClientException
   {
-    File appIdFile = getAppIdFile( );
-    if ( ! opts.force  &&  appIdFile.exists() ) {
-      throw new ClientException( "Error: Application ID file ready exists, AM may already be running. Use -f to override: " + appIdFile.getAbsolutePath() );
-    }
+    checkExistingApp( );
 
     dryRun = opts.dryRun;
     config = DrillOnYarnConfig.config();
@@ -65,6 +65,55 @@ public class StartCommand extends ClientCommand
     if ( launch ) {
       launch( uploader );
     }
+  }
+
+  /**
+   * Check if an application ID file exists. If it does, check if an application
+   * is running. If an app is running, then we can't start a new one. If the
+   * app is not running, then clean up the "orphan" app id file.
+   *
+   * @throws ClientException
+   */
+
+  private void checkExistingApp() throws ClientException {
+    File appIdFile = getAppIdFile( );
+    if ( ! appIdFile.exists() ) {
+      return; }
+
+    // File exists. Ask YARN about status.
+
+    Reporter reporter;
+    ApplicationId appId;
+    try {
+      System.out.println( "Found app ID file: " + appIdFile.getAbsolutePath() );
+      appId = checkAppId( );
+      System.out.print( "Checking application ID: " + appId.toString() + "..." );
+      YarnRMClient client = new YarnRMClient( appId );
+      reporter = new Reporter( client );
+      reporter.getReport( );
+    }
+    catch ( ClientException e ) {
+      // This exception occurs when we ask for a report about an application that
+      // YARN does not know about. (YARN has likely been restarted.)
+
+      System.out.println( " Not running." );
+      appIdFile.delete();
+      return;
+    }
+
+    // YARN knows about the application. But, was it stopped, perhaps from the
+    // web UI?
+
+    if ( reporter.isStopped() ) {
+      System.out.println( " Completed with state " + reporter.getState() );
+      appIdFile.delete();
+      return;
+    }
+
+    // The app (or another one with the same App ID) is running.
+
+    System.out.println( " Still running!" );
+    throw new ClientException( "Error: AM already running as Application ID: " + appId );
   }
 
   private FileUploader upload() throws ClientException
