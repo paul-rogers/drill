@@ -27,6 +27,8 @@ import java.util.List;
 
 import org.apache.drill.common.config.CommonConstants;
 import org.apache.drill.common.config.DrillConfig;
+import org.apache.drill.common.scanner.ClassPathScanner;
+import org.apache.drill.common.scanner.persistence.ScanResult;
 import org.apache.drill.exec.ExecConstants;
 
 import com.typesafe.config.Config;
@@ -140,11 +142,17 @@ public class DrillOnYarnConfig
   public static final String HTTP_ENABLED = append( HTTP_PARENT, "enabled" );
   public static final String HTTP_ENABLE_SSL = append( HTTP_PARENT, "ssl-enabled" );
   public static final String HTTP_PORT = append( HTTP_PARENT, "port" );
-  public static final String HTTP_AUTH_ENABLED = append( HTTP_PARENT, "auth-enabled" );
+  public static final String HTTP_AUTH_TYPE = append( HTTP_PARENT, "auth-type" );
   public static final String HTTP_REST_KEY = append( HTTP_PARENT, "rest-key" );
   public static final String HTTP_SESSION_MAX_IDLE_SECS = append( HTTP_PARENT, "session-max-idle-secs" );
   public static final String HTTP_DOCS_LINK = append( HTTP_PARENT, "docs-link" );
   public static final String HTTP_REFRESH_SECS = append( HTTP_PARENT, "refresh-secs" );
+  public static final String HTTP_USER_NAME = append( HTTP_PARENT, "user-name" );
+  public static final String HTTP_PASSWORD = append( HTTP_PARENT, "password" );
+
+  public static final String AUTH_TYPE_NONE = "none";
+  public static final String AUTH_TYPE_DRILL = "drill";
+  public static final String AUTH_TYPE_SIMPLE = "simple";
 
   public static final String CLIENT_POLL_SEC = append( CLIENT_PARENT, "poll-sec" );
   public static final String CLIENT_START_WAIT_SEC = append( CLIENT_PARENT, "start-wait-sec" );
@@ -195,7 +203,9 @@ public class DrillOnYarnConfig
   private static DrillOnYarnConfig instance;
   private static File drillSite;
   private static File drillHome;
+  private static DrillConfig drillConfig;
   private Config config;
+  private ScanResult classPathScan;
 
   public static String append( String parent, String key ) {
     return parent + "." + key;
@@ -244,8 +254,26 @@ public class DrillOnYarnConfig
   }
 
   private static Config loadDrillConfig() {
-    DrillConfig drillConfig = DrillConfig.create( CommonConstants.CONFIG_OVERRIDE_RESOURCE_PATHNAME );
+    drillConfig = DrillConfig.create( CommonConstants.CONFIG_OVERRIDE_RESOURCE_PATHNAME );
     return drillConfig.resolve();
+  }
+
+  public DrillConfig getDrillConfig( ) {
+    return drillConfig;
+  }
+
+  /**
+   * Return Drill's class path scan. This is used only in the main thread during
+   * initialization. Not needed by the client, so done in an unsynchronized,
+   * lazy fashion.
+   * @return
+   */
+
+  public ScanResult getClassPathScan( ) {
+    if ( classPathScan == null ) {
+      classPathScan = ClassPathScanner.fromPrescan( drillConfig );
+    }
+    return classPathScan;
   }
 
   /**
@@ -489,11 +517,12 @@ public class DrillOnYarnConfig
     HTTP_ENABLED,
     HTTP_ENABLE_SSL,
     HTTP_PORT,
-    HTTP_AUTH_ENABLED,
+    HTTP_AUTH_TYPE,
     HTTP_SESSION_MAX_IDLE_SECS,
     HTTP_DOCS_LINK,
     HTTP_REFRESH_SECS,
     // Do not include AM_REST_KEY: it is supposed to be secret.
+    // Same is true of HTTP_USER_NAME and HTTP_PASSWORD
   };
 
   private static String envVars[] = {

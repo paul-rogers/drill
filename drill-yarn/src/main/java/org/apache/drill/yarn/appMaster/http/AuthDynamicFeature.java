@@ -43,7 +43,7 @@ import java.net.URLEncoder;
  * page.
  * <p>
  * Shameless copy of {@link org.apache.drill.exec.server.rest.auth.DynamicFeature}; the two implementations
- * should be merged at some point. The difference is oly the log in/log out constant references.
+ * should be merged at some point. The difference is only the log in/log out constant references.
  */
 
 public class AuthDynamicFeature implements DynamicFeature {

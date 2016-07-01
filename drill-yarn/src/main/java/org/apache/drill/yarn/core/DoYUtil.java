@@ -19,7 +19,6 @@ package org.apache.drill.yarn.core;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.URL;
 import java.security.CodeSource;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -28,9 +27,6 @@ import java.util.List;
 import java.util.TimeZone;
 
 import org.apache.hadoop.yarn.api.records.Container;
-import org.apache.hadoop.yarn.api.records.Resource;
-
-import com.sun.tools.javac.util.Log;
 
 public class DoYUtil {
 

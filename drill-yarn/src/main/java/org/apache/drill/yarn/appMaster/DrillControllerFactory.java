@@ -29,6 +29,7 @@ import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DoyConfigException;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.LaunchSpec;
+import org.apache.drill.yarn.appMaster.http.AMSecurityManagerImpl;
 import org.apache.drill.yarn.core.ClusterDef;
 import org.apache.drill.yarn.zk.ZKClusterCoordinatorDriver;
 import org.apache.drill.yarn.zk.ZKRegistry;
@@ -109,6 +110,10 @@ public class DrillControllerFactory implements ControllerFactory
     // Enable/disable check for auto shutdown when no nodes are running.
 
     dispatcher.getController().enableFailureCheck( config.getBoolean( DrillOnYarnConfig.AM_ENABLE_AUTO_SHUTDOWN ) );
+
+    // Define the security manager
+
+    AMSecurityManagerImpl.setup( );
 
     return dispatcher;
   }

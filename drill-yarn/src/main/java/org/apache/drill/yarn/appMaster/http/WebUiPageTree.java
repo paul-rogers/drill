@@ -52,8 +52,6 @@ import org.glassfish.jersey.server.filter.RolesAllowedDynamicFeature;
 import org.glassfish.jersey.server.mvc.Viewable;
 import org.glassfish.jersey.server.mvc.freemarker.FreemarkerMvcFeature;
 
-import com.typesafe.config.Config;
-
 /**
  * The Drill AM web UI. The format is highly compact. We use javax.ws.rs to
  * mark up a Pojo with page path, permissions and HTTP methods. The ADMIN_ROLE
@@ -404,12 +402,9 @@ public class WebUiPageTree extends PageTree
     register(StopPage.class);
 
     // Authorization
-
-    Config config = DrillOnYarnConfig.config( );
-
     // See: https://jersey.java.net/documentation/latest/security.html
 
-    if (config.getBoolean(DrillOnYarnConfig.HTTP_AUTH_ENABLED)) {
+    if ( AMSecurityManagerImpl.isEnabled( ) ) {
       register(LogInLogOutPages.class);
       register(AuthDynamicFeature.class);
       register(RolesAllowedDynamicFeature.class);
