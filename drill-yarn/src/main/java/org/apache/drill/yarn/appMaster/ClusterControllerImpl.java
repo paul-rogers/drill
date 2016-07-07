@@ -49,17 +49,15 @@ import org.apache.hadoop.yarn.proto.YarnServiceProtos.SchedulerResourceTypes;
  * This object is shared between threads, thus synchronized.
  */
 
-public class ClusterControllerImpl implements ClusterController
-{
+public class ClusterControllerImpl implements ClusterController {
   /**
    * Controller lifecycle state.
    */
 
-  public enum State
-  {
+  public enum State {
     /**
-     * Cluster is starting. Things are in a partially-built state.
-     * No tasks are started until the cluster moves to LIVE.
+     * Cluster is starting. Things are in a partially-built state. No tasks are
+     * started until the cluster moves to LIVE.
      */
 
     START,
@@ -72,26 +70,25 @@ public class ClusterControllerImpl implements ClusterController
     LIVE,
 
     /**
-     * Controller is shutting down. Tasks are gracefully (where possible)
-     * ended; no new tasks are started. (That is, when we detect the exit
-     * of a task, the controller no longer immediately tries to start a
-     * replacement.
+     * Controller is shutting down. Tasks are gracefully (where possible) ended;
+     * no new tasks are started. (That is, when we detect the exit of a task,
+     * the controller no longer immediately tries to start a replacement.
      */
 
     ENDING,
 
     /**
-     * The controller has shut down. All tasks and threads are stopped.
-     * The controller allows the main thread (which has been patiently
-     * waiting) to continue, allowing the AM itself to shut down. Thus,
-     * this is a very short-lived state.
+     * The controller has shut down. All tasks and threads are stopped. The
+     * controller allows the main thread (which has been patiently waiting) to
+     * continue, allowing the AM itself to shut down. Thus, this is a very
+     * short-lived state.
      */
 
     ENDED,
 
     /**
-     * Something bad happened on start-up; the AM can't start and
-     * must shut down.
+     * Something bad happened on start-up; the AM can't start and must shut
+     * down.
      */
 
     FAILED
@@ -131,15 +128,15 @@ public class ClusterControllerImpl implements ClusterController
   private Map<String, SchedulerStateActions> taskPools = new HashMap<>();
 
   /**
-   * List of task pools prioritized in the order in which tasks
-   * should start. DoY supports only one task pool at present.
-   * The idea is to, later, support multiple pools that represent,
-   * say, pool 1 as the minimum number of Drillbits to run at all times,
-   * with pool 2 as extra Drillbits to start up during peak demand.
+   * List of task pools prioritized in the order in which tasks should start.
+   * DoY supports only one task pool at present. The idea is to, later, support
+   * multiple pools that represent, say, pool 1 as the minimum number of
+   * Drillbits to run at all times, with pool 2 as extra Drillbits to start up
+   * during peak demand.
    * <p>
-   * The priority also gives rise to YARN request priorities which are
-   * the only tool the AM has to associate container grants with the
-   * requests to which they correspond.
+   * The priority also gives rise to YARN request priorities which are the only
+   * tool the AM has to associate container grants with the requests to which
+   * they correspond.
    */
 
   private List<SchedulerStateActions> prioritizedGroups = new ArrayList<>();
@@ -159,17 +156,15 @@ public class ClusterControllerImpl implements ClusterController
 
   /**
    * Tracks the tasks that have completed: either successfully (state == ENDED)
-   * or failed (state == FAILED). Eventually store this information
-   * elsewhere to avoid cluttering memory with historical data.
-   *  Entries here are static copies, preserving the state
-   * at the time that the task completed.
+   * or failed (state == FAILED). Eventually store this information elsewhere to
+   * avoid cluttering memory with historical data. Entries here are static
+   * copies, preserving the state at the time that the task completed.
    */
 
   private List<Task> completedTasks = new LinkedList<>();
 
   /**
-   * Wrapper around the YARN API. Abstracts the details of YARN
-   * operations.
+   * Wrapper around the YARN API. Abstracts the details of YARN operations.
    */
 
   private final AMYarnFacade yarn;
@@ -183,8 +178,8 @@ public class ClusterControllerImpl implements ClusterController
   private int stopTimoutMs = 10_000;
 
   /**
-   * Time (in ms) between request to YARN to get an updated list
-   * of the node "inventory".
+   * Time (in ms) between request to YARN to get an updated list of the node
+   * "inventory".
    */
 
   private int configPollPeriod = 60_000;
@@ -192,8 +187,8 @@ public class ClusterControllerImpl implements ClusterController
 
   /**
    * List of nodes available in the cluster. Necessary as part of the process of
-   * ensuring that we run one Drillbit per node. (The YARN blacklist only
-   * half works for this purpose.)
+   * ensuring that we run one Drillbit per node. (The YARN blacklist only half
+   * works for this purpose.)
    */
 
   private NodeInventory nodeInventory;
@@ -206,28 +201,26 @@ public class ClusterControllerImpl implements ClusterController
   private long lastTaskCheckTime;
 
   /**
-   * To increase code modularity, add-ons (such as the ZK monitor)
-   * register as lifecycle listeners that are alerted to "interesting"
-   * lifecycle events.
+   * To increase code modularity, add-ons (such as the ZK monitor) register as
+   * lifecycle listeners that are alerted to "interesting" lifecycle events.
    */
 
-  private List<TaskLifecycleListener> lifecycleListeners = new ArrayList<>( );
+  private List<TaskLifecycleListener> lifecycleListeners = new ArrayList<>();
 
   /**
    * Handy mechanism for setting properties on this controller that are
-   * available to plugins and UI without cluttering this class with
-   * member variables.
+   * available to plugins and UI without cluttering this class with member
+   * variables.
    */
 
-  private Map<String,Object> properties = new HashMap<>( );
+  private Map<String, Object> properties = new HashMap<>();
 
   /**
-   * When enabled, allows the controller to check for failures
-   * that result in no drillbits running. The controller will then
-   * automatically exit as no useful work can be done. Disable this
-   * to make debugging easier on a single-node cluster (lets you,
-   * say, start a "stray" drill bit and see what happens without
-   * the AM exiting.)
+   * When enabled, allows the controller to check for failures that result in no
+   * drillbits running. The controller will then automatically exit as no useful
+   * work can be done. Disable this to make debugging easier on a single-node
+   * cluster (lets you, say, start a "stray" drill bit and see what happens
+   * without the AM exiting.)
    */
 
   private boolean enableFailureCheck = true;
@@ -237,7 +230,7 @@ public class ClusterControllerImpl implements ClusterController
   }
 
   @Override
-  public void enableFailureCheck( boolean flag ) {
+  public void enableFailureCheck(boolean flag) {
     this.enableFailureCheck = flag;
   }
 
@@ -259,14 +252,13 @@ public class ClusterControllerImpl implements ClusterController
   }
 
   /**
-   * Called when the caller has completed start-up and the
-   * controller should become live.
+   * Called when the caller has completed start-up and the controller should
+   * become live.
    */
 
   @Override
-  public synchronized void started( ) throws YarnFacadeException, AMException
-  {
-    nodeInventory = new NodeInventory( yarn );
+  public synchronized void started() throws YarnFacadeException, AMException {
+    nodeInventory = new NodeInventory(yarn);
 
     // Verify that no resource seeks a container larger than
     // what YARN can provide. Ensures a graceful exit in this
@@ -274,18 +266,18 @@ public class ClusterControllerImpl implements ClusterController
 
     Resource maxResource = yarn.getRegistrationResponse().getMaximumResourceCapability();
     for (SchedulerStateActions group : prioritizedGroups) {
-      group.getScheduler().limitContainerSize( maxResource );
+      group.getScheduler().limitContainerSize(maxResource);
     }
     state = State.LIVE;
   }
 
   @Override
   public synchronized void tick(long curTime) {
-    if ( state == State.LIVE ) {
+    if (state == State.LIVE) {
       adjustTasks(curTime);
       requestContainers();
     }
-    if ( state == State.LIVE  ||  state == State.ENDING ) {
+    if (state == State.LIVE || state == State.ENDING) {
       checkTasks(curTime);
     }
   }
@@ -296,34 +288,37 @@ public class ClusterControllerImpl implements ClusterController
    * @param curTime
    */
 
-  private void adjustTasks( long curTime ) {
-    if ( enableFailureCheck  && nodeInventory.getFreeNodeCount() <= 0 ) {
-      checkForFailure( curTime );
+  private void adjustTasks(long curTime) {
+    if (enableFailureCheck && nodeInventory.getFreeNodeCount() <= 0) {
+      checkForFailure(curTime);
     }
-    if ( state != State.LIVE ) {
-      return; }
+    if (state != State.LIVE) {
+      return;
+    }
     for (SchedulerStateActions group : prioritizedGroups) {
       group.adjustTasks();
     }
   }
 
   /**
-   * Check if the controller is unable to run any tasks. If so, and the option is
-   * enabled, then automatically exit since no useful work can be done.
+   * Check if the controller is unable to run any tasks. If so, and the option
+   * is enabled, then automatically exit since no useful work can be done.
    *
    * @param curTime
    */
 
   private void checkForFailure(long curTime) {
-    if ( lastFailureCheckTime + failureCheckPeriodMs > curTime ) {
-      return; }
+    if (lastFailureCheckTime + failureCheckPeriodMs > curTime) {
+      return;
+    }
     lastFailureCheckTime = curTime;
     for (SchedulerStateActions group : prioritizedGroups) {
-      if ( group.getTaskCount( ) > 0 ) {
-        return; }
+      if (group.getTaskCount() > 0) {
+        return;
+      }
     }
     LOG.error("Application failure: no tasks are running and no nodes are available -- exiting.");
-    terminate( State.FAILED );
+    terminate(State.FAILED);
   }
 
   /**
@@ -336,8 +331,9 @@ public class ClusterControllerImpl implements ClusterController
 
     // Check periodically, not on every tick.
 
-    if ( lastTaskCheckTime + taskCheckPeriodMs > curTime ) {
-      return; }
+    if (lastTaskCheckTime + taskCheckPeriodMs > curTime) {
+      return;
+    }
     lastTaskCheckTime = curTime;
 
     // Check for task timeouts in states that have a timeout.
@@ -345,7 +341,7 @@ public class ClusterControllerImpl implements ClusterController
     EventContext context = new EventContext(this);
     for (SchedulerStateActions group : prioritizedGroups) {
       context.setGroup(group);
-      group.checkTasks( context, curTime );
+      group.checkTasks(context, curTime);
     }
   }
 
@@ -354,20 +350,21 @@ public class ClusterControllerImpl implements ClusterController
    */
 
   @Override
-  public void updateRMStatus()
-  {
+  public void updateRMStatus() {
     long curTime = System.currentTimeMillis();
     if (nextResourcePollTime > curTime) {
-      return; }
+      return;
+    }
 
-//    yarnNodeCount = yarn.getNodeCount();
-//    LOG.info("YARN reports " + yarnNodeCount + " nodes.");
+    // yarnNodeCount = yarn.getNodeCount();
+    // LOG.info("YARN reports " + yarnNodeCount + " nodes.");
 
-//    Resource yarnResources = yarn.getResources();
-//    if (yarnResources != null) {
-//      LOG.info("YARN reports " + yarnResources.getMemory() + " MB, " + yarnResources.getVirtualCores()
-//          + " vcores available.");
-//    }
+    // Resource yarnResources = yarn.getResources();
+    // if (yarnResources != null) {
+    // LOG.info("YARN reports " + yarnResources.getMemory() + " MB, " +
+    // yarnResources.getVirtualCores()
+    // + " vcores available.");
+    // }
     nextResourcePollTime = curTime + configPollPeriod;
   }
 
@@ -379,9 +376,10 @@ public class ClusterControllerImpl implements ClusterController
     EventContext context = new EventContext(this);
     for (SchedulerStateActions group : prioritizedGroups) {
       context.setGroup(group);
-      if ( group.requestContainers( context, maxRequestsPerTick ) ) {
-        break; }
-   }
+      if (group.requestContainers(context, maxRequestsPerTick)) {
+        break;
+      }
+    }
   }
 
   @Override
@@ -389,7 +387,8 @@ public class ClusterControllerImpl implements ClusterController
     EventContext context = new EventContext(this);
     for (Container container : containers) {
       if (allocatedContainers.contains(container.getId())) {
-        continue; }
+        continue;
+      }
       allocatedContainers.add(container.getId());
       int priority = container.getPriority().getPriority();
       int offset = priority - PRIORITY_OFFSET;
@@ -406,7 +405,8 @@ public class ClusterControllerImpl implements ClusterController
   public synchronized void containerStarted(ContainerId containerId) {
     Task task = getTask(containerId);
     if (task == null) {
-      return; }
+      return;
+    }
     EventContext context = new EventContext(this, task);
     context.getState().containerStarted(context);
     LOG.trace("Container started: " + containerId);
@@ -416,7 +416,8 @@ public class ClusterControllerImpl implements ClusterController
   public synchronized void taskStartFailed(ContainerId containerId, Throwable t) {
     Task task = getTask(containerId);
     if (task == null) {
-      return; }
+      return;
+    }
     EventContext context = new EventContext(this, task);
     context.getState().launchFailed(context, t);
   }
@@ -434,11 +435,11 @@ public class ClusterControllerImpl implements ClusterController
     // Ignored because the node manager notification is very
     // unreliable. Better to rely on the Resource Manager
     // completion request.
-//    Task task = getTask(containerId);
-//    if (task == null) {
-//      return; }
-//    EventContext context = new EventContext(this, task);
-//    context.getState().containerStopped(context);
+    // Task task = getTask(containerId);
+    // if (task == null) {
+    // return; }
+    // EventContext context = new EventContext(this, task);
+    // context.getState().containerStopped(context);
   }
 
   @Override
@@ -447,11 +448,12 @@ public class ClusterControllerImpl implements ClusterController
     for (ContainerStatus status : statuses) {
       Task task = getTask(status.getContainerId());
       if (task == null) {
-        continue; }
+        continue;
+      }
       context.setTask(task);
       context.getState().containerCompleted(context, status);
     }
-    checkStatus( );
+    checkStatus();
   }
 
   @Override
@@ -465,7 +467,8 @@ public class ClusterControllerImpl implements ClusterController
       denominator += progress[1];
     }
     if (numerator == 0) {
-      return 1; }
+      return 1;
+    }
     return (float) denominator / (float) numerator;
   }
 
@@ -473,7 +476,8 @@ public class ClusterControllerImpl implements ClusterController
   public synchronized void stopTaskFailed(ContainerId containerId, Throwable t) {
     Task task = getTask(containerId);
     if (task == null) {
-      return; }
+      return;
+    }
     EventContext context = new EventContext(this, task);
     context.getState().stopTaskFailed(context, t);
   }
@@ -502,7 +506,7 @@ public class ClusterControllerImpl implements ClusterController
     for (SchedulerStateActions group : prioritizedGroups) {
       group.shutDown(context);
     }
-    checkStatus( );
+    checkStatus();
   }
 
   @Override
@@ -516,12 +520,10 @@ public class ClusterControllerImpl implements ClusterController
         // Should not happen
       }
     }
-    return succeeded( );
+    return succeeded();
   }
 
-  private void start() {
-    yarnReport();
-  }
+  private void start() { yarnReport(); }
 
   private void yarnReport() {
     RegisterApplicationMasterResponse response = yarn.getRegistrationResponse();
@@ -546,29 +548,26 @@ public class ClusterControllerImpl implements ClusterController
    */
 
   private void checkStatus() {
-    if ( state != State.ENDING ) {
-      return; }
-    for (SchedulerStateActions group : prioritizedGroups) {
-      if ( ! group.isDone() ) {
-        return; }
+    if (state != State.ENDING) {
+      return;
     }
-    terminate( State.ENDED );
+    for (SchedulerStateActions group : prioritizedGroups) {
+      if (!group.isDone()) {
+        return;
+      }
+    }
+    terminate(State.ENDED);
   }
 
-  private void terminate(State state ) {
+  private void terminate(State state) {
     this.state = state;
     synchronized (completionMutex) {
       completionMutex.notify();
     }
   }
 
-  public boolean isLive() {
-    return state == State.LIVE;
-  }
-
-  public boolean succeeded( ) {
-    return state == State.ENDED;
-  }
+  public boolean isLive() { return state == State.LIVE; }
+  public boolean succeeded() { return state == State.ENDED; }
 
   public void containerAllocated(Task task) {
     activeContainers.put(task.getContainerId(), task);
@@ -580,12 +579,10 @@ public class ClusterControllerImpl implements ClusterController
     activeContainers.remove(task.getContainerId());
   }
 
-  public void taskEnded(Task task) {
-    completedTasks.add(task);
-  }
+  public void taskEnded(Task task) { completedTasks.add(task); }
 
   public void taskRetried(Task task) {
-    Task copy = task.copy( );
+    Task copy = task.copy();
     copy.disposition = Task.Disposition.RETRIED;
     completedTasks.add(copy);
   }
@@ -595,7 +592,6 @@ public class ClusterControllerImpl implements ClusterController
   }
 
   public int getMaxRetries() { return maxRetries; }
-
   public int getStopTimeoutMs() { return stopTimoutMs; }
 
   @Override
@@ -608,38 +604,36 @@ public class ClusterControllerImpl implements ClusterController
     nodeInventory.release(hostName);
   }
 
-  public NodeInventory getNodeInventory() {return nodeInventory;}
+  public NodeInventory getNodeInventory() { return nodeInventory; }
 
   @Override
   public void setProperty(String key, Object value) {
-    properties.put( key, value );
+    properties.put(key, value);
   }
 
   @Override
-  public Object getProperty( String key ) {
-    return properties.get( key );
+  public Object getProperty(String key) {
+    return properties.get(key);
   }
 
   @Override
-  public void registerLifecycleListener( TaskLifecycleListener listener ) {
-    lifecycleListeners.add( listener );
+  public void registerLifecycleListener(TaskLifecycleListener listener) {
+    lifecycleListeners.add(listener);
   }
 
   public void fireLifecycleChange(Event event, EventContext context) {
-    for ( TaskLifecycleListener listener : lifecycleListeners ) {
-      listener.stateChange( event, context);
+    for (TaskLifecycleListener listener : lifecycleListeners) {
+      listener.stateChange(event, context);
     }
   }
 
   @Override
-  public void setMaxRetries(int value) {
-    maxRetries = value;
-  }
+  public void setMaxRetries(int value) { maxRetries = value; }
 
   @Override
   public int getTargetCount() {
     int count = 0;
-    for ( SchedulerStateActions group : prioritizedGroups ) {
+    for (SchedulerStateActions group : prioritizedGroups) {
       count += group.getScheduler().getTarget();
     }
     return count;
@@ -649,17 +643,15 @@ public class ClusterControllerImpl implements ClusterController
 
   @Override
   public synchronized void visit(ControllerVisitor visitor) {
-    visitor.visit( this );
+    visitor.visit(this);
   }
 
-  public List<SchedulerStateActions> getPools() {
-    return prioritizedGroups;
-  }
+  public List<SchedulerStateActions> getPools() { return prioritizedGroups; }
 
   @Override
   public synchronized void visitTasks(TaskVisitor visitor) {
-    for ( SchedulerStateActions pool : prioritizedGroups ) {
-      pool.visitTaskModels( visitor );
+    for (SchedulerStateActions pool : prioritizedGroups) {
+      pool.visitTaskModels(visitor);
     }
   }
 
@@ -668,10 +660,10 @@ public class ClusterControllerImpl implements ClusterController
   @Override
   public synchronized boolean cancelTask(int id) {
     for (SchedulerStateActions group : prioritizedGroups) {
-      Task task = group.getTask( id );
-      if ( task != null ) {
-        group.cancel( task );
-        group.getScheduler().change( -1 );
+      Task task = group.getTask(id);
+      if (task != null) {
+        group.cancel(task);
+        group.getScheduler().change(-1);
       }
     }
     return false;
@@ -679,26 +671,29 @@ public class ClusterControllerImpl implements ClusterController
 
   @Override
   public synchronized void completionAck(Task task, String propertyKey) {
-    EventContext context = new EventContext( this );
-    context.setTask( task );
-    context.getState().completionAck( context );
-    if ( propertyKey != null ) {
-      task.properties.remove( propertyKey );
+    EventContext context = new EventContext(this);
+    context.setTask(task);
+    context.getState().completionAck(context);
+    if (propertyKey != null) {
+      task.properties.remove(propertyKey);
     }
   }
 
   @Override
   public synchronized void startAck(Task task, String propertyKey, Object value) {
-    if ( propertyKey != null  &&  value != null ) {
-      task.properties.put( propertyKey, value );
+    if (propertyKey != null && value != null) {
+      task.properties.put(propertyKey, value);
     }
-    EventContext context = new EventContext( this );
-    context.setTask( task );
-    context.getState().startAck( context );
+    EventContext context = new EventContext(this);
+    context.setTask(task);
+    context.getState().startAck(context);
   }
 
   @Override
   public boolean supportsDiskResource() {
     return getYarn().supportsDiskResource();
   }
+
+  @Override
+  public void registryDown() { shutDown( ); }
 }

@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.yarn;
+package org.apache.drill.yarn.scripts;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -30,9 +30,9 @@ import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.drill.yarn.ScriptUtils.DrillbitRun;
-import org.apache.drill.yarn.ScriptUtils.RunResult;
-import org.apache.drill.yarn.ScriptUtils.ScriptRunner;
+import org.apache.drill.yarn.scripts.ScriptUtils.DrillbitRun;
+import org.apache.drill.yarn.scripts.ScriptUtils.RunResult;
+import org.apache.drill.yarn.scripts.ScriptUtils.ScriptRunner;
 import org.junit.BeforeClass;
 import org.junit.Test;
 

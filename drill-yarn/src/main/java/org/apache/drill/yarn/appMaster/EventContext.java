@@ -40,6 +40,18 @@ public class EventContext
     setTask(task);
   }
 
+  /**
+   * For testing only, omits the controller and YARN.
+   *
+   * @param task
+   */
+
+  public EventContext(Task task) {
+    controller = null;
+    yarn = null;
+    this.task = task;
+  }
+
   public void setTask(Task task) {
     this.task = task;
     group = task.getGroup();

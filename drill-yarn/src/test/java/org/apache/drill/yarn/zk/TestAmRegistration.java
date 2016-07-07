@@ -15,17 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-/**
- * Interface between the Application Master and ZooKeeper. Classes here manage two
- * registrations: Drillbits and the AM itself.
- * <p>
- * Drillbit registration is used to confirm that Drillbits have indeed come online.
- * If Drillbits fail to come online, then the AM concludes that somethign went wrong.
- * If Drilbits drop offline unexpectedly, the AM concludes that the Drillbit is sick
- * and restarts it.
- * <p>
- * The AM registry prevents two AMs from attempting to manage the same cluster.
- */
-
 package org.apache.drill.yarn.zk;
+
+public class TestAmRegistration
+{
+
+}
