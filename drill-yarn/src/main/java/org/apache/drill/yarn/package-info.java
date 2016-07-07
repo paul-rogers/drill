@@ -26,6 +26,10 @@
  * needed. The core of the AM is a "cluster controller" which starts,
  * monitors and stops Drillbits, tracking their state transitions though
  * the several lifecycle stages that result.
+ * <p>
+ * Note about logs here: Drill-on-YARN is a YARN application and so it
+ * uses the same logging system used by the YARN code. This is different
+ * than that used by Drill.
  */
 
 package org.apache.drill.yarn;

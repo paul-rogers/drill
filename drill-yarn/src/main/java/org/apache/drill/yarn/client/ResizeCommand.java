@@ -17,9 +17,6 @@
  */
 package org.apache.drill.yarn.client;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.YarnRMClient;
@@ -27,8 +24,6 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
 import com.typesafe.config.Config;
 
 public class ResizeCommand extends ClientCommand

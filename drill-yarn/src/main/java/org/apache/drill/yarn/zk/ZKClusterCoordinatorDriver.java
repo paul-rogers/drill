@@ -29,8 +29,6 @@ import org.apache.curator.framework.state.ConnectionStateListener;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.work.foreman.DrillbitStatusListener;
 import org.apache.drill.yarn.appMaster.AMRegistrar;
-import org.apache.zookeeper.CreateMode;
-import org.apache.zookeeper.KeeperException.NodeExistsException;
 
 /**
  * Driver class for the ZooKeeper cluster coordinator. Provides

@@ -23,6 +23,5 @@ public interface TaskLifecycleListener
     CREATED, ALLOCATED, RUNNING, ENDED
   }
 
-  void stateChange( Event event, EventContext context );
-//  void decorateTaskModel( Task task, TaskModel model );
+  void stateChange(Event event, EventContext context);
 }

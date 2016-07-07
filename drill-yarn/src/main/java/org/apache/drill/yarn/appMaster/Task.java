@@ -20,6 +20,7 @@ package org.apache.drill.yarn.appMaster;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.drill.yarn.appMaster.Task.TrackingState;
 import org.apache.drill.yarn.core.ContainerRequestSpec;
 import org.apache.drill.yarn.core.LaunchSpec;
 import org.apache.hadoop.yarn.api.records.Container;
@@ -308,5 +309,9 @@ public class Task
 
   public String getLabel( ) {
     return "[" + Integer.toString( taskId ) + ", " + getName( ) + "]";
+  }
+
+  public void setTrackingState(TrackingState tState) {
+    trackingState = tState;
   }
 }

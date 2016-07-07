@@ -30,7 +30,7 @@ import org.apache.hadoop.yarn.api.records.ContainerStatus;
  * synchronized to coordinate between event threads.
  */
 
-public interface ClusterController
+public interface ClusterController extends RegistryHandler
 {
   void enableFailureCheck( boolean flag );
 
@@ -152,9 +152,6 @@ public interface ClusterController
 
   boolean waitForCompletion();
 
-  void reserveHost(String hostName);
-  void releaseHost(String hostName);
-
   void updateRMStatus();
 
   void setMaxRetries(int value);
@@ -195,10 +192,6 @@ public interface ClusterController
    */
 
   boolean cancelTask(int id);
-
-  void startAck(Task task, String propertyKey, Object value);
-
-  void completionAck(Task task, String endpointProperty);
 
   /**
    * Whether this distribution of YARN supports disk resources.
