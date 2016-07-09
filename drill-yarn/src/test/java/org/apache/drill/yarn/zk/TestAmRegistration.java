@@ -23,8 +23,7 @@ import org.apache.curator.test.TestingServer;
 import org.apache.drill.yarn.appMaster.AMRegistrar.AMRegistrationException;
 import org.junit.Test;
 
-public class TestAmRegistration
-{
+public class TestAmRegistration {
   private static final String TEST_CLUSTER_ID = "drillbits";
   private static final String TEST_ZK_ROOT = "drill";
   private static final String TEST_AM_HOST = "localhost";
@@ -46,83 +45,83 @@ public class TestAmRegistration
         .setConnect(connStr, TEST_ZK_ROOT, TEST_CLUSTER_ID).build();
 
     // Register an AM using the above.
-    
-    driver.register( TEST_AM_HOST, TEST_AM_PORT, TEST_APP_ID );
-    
+
+    driver.register(TEST_AM_HOST, TEST_AM_PORT, TEST_APP_ID);
+
     // Simulate a second AM for the same cluster.
-    
+
     {
       ZKClusterCoordinatorDriver driver2 = new ZKClusterCoordinatorDriver()
           .setConnect(connStr, TEST_ZK_ROOT, TEST_CLUSTER_ID).build();
 
       // Register an AM on the same (root, cluster id).
-      
+
       try {
-        driver.register( PROBE_AM_HOST, PROBE_AM_PORT, PROBE_APP_ID );
-        fail( );
+        driver.register(PROBE_AM_HOST, PROBE_AM_PORT, PROBE_APP_ID);
+        fail();
       } catch (AMRegistrationException e) {
-        String msg = e.getMessage( );
-        assertTrue( msg.contains( "Application Master already exists" ) );
-        assertTrue( msg.contains( " " + TEST_ZK_ROOT + "/" + TEST_CLUSTER_ID + " " ) );
-        assertTrue( msg.contains( " host: " + TEST_AM_HOST ) );
-        assertTrue( msg.contains( " Application ID: " + TEST_APP_ID ) );
+        String msg = e.getMessage();
+        assertTrue(msg.contains("Application Master already exists"));
+        assertTrue(
+            msg.contains(" " + TEST_ZK_ROOT + "/" + TEST_CLUSTER_ID + " "));
+        assertTrue(msg.contains(" host: " + TEST_AM_HOST));
+        assertTrue(msg.contains(" Application ID: " + TEST_APP_ID));
       }
-      
+
       driver2.close();
     }
-    
+
     {
       ZKClusterCoordinatorDriver driver2 = new ZKClusterCoordinatorDriver()
           .setConnect(connStr, TEST_ZK_ROOT, PROBE_CLUSTER_ID).build();
 
       // Register an AM on a different cluster id, same root.
-      
+
       try {
-        driver2.register( PROBE_AM_HOST, PROBE_AM_PORT, PROBE_APP_ID );
+        driver2.register(PROBE_AM_HOST, PROBE_AM_PORT, PROBE_APP_ID);
       } catch (AMRegistrationException e) {
-        fail( "Registration should be OK" );
+        fail("Registration should be OK");
       }
-      
+
       driver2.close();
     }
-    
-    
+
     {
       ZKClusterCoordinatorDriver driver2 = new ZKClusterCoordinatorDriver()
           .setConnect(connStr, PROBE_ZK_ROOT, TEST_CLUSTER_ID).build();
 
       // Register an AM on a different root.
-      
+
       try {
-        driver2.register( PROBE_AM_HOST, PROBE_AM_PORT, PROBE_APP_ID );
+        driver2.register(PROBE_AM_HOST, PROBE_AM_PORT, PROBE_APP_ID);
       } catch (AMRegistrationException e) {
-        fail( "Registration should be OK" );
+        fail("Registration should be OK");
       }
-      
+
       driver2.close();
     }
-    
+
     // First AM exits.
-    
+
     driver.close();
-    
+
     {
       // Should be able to register an AM for the same cluster.
-      
+
       ZKClusterCoordinatorDriver driver2 = new ZKClusterCoordinatorDriver()
           .setConnect(connStr, TEST_ZK_ROOT, TEST_CLUSTER_ID).build();
 
       // Register an AM on the same (root, cluster id).
-      
+
       try {
-        driver2.register( PROBE_AM_HOST, PROBE_AM_PORT, PROBE_APP_ID );
+        driver2.register(PROBE_AM_HOST, PROBE_AM_PORT, PROBE_APP_ID);
       } catch (AMRegistrationException e) {
-        fail( "Registration should be OK" );
+        fail("Registration should be OK");
       }
-      
+
       driver2.close();
     }
-    
+
     server.stop();
     server.close();
   }
