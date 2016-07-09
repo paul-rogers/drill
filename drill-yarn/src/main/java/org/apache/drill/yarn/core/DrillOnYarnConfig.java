@@ -200,9 +200,9 @@ public class DrillOnYarnConfig
 
   public static final String SITE_ARCHIVE_NAME = "site.tar.gz";
 
-  private static DrillOnYarnConfig instance;
-  private static File drillSite;
-  private static File drillHome;
+  protected static DrillOnYarnConfig instance;
+  private File drillSite;
+  private File drillHome;
   private static DrillConfig drillConfig;
   private Config config;
   private ScanResult classPathScan;
@@ -211,11 +211,25 @@ public class DrillOnYarnConfig
     return parent + "." + key;
   }
 
-  private DrillOnYarnConfig( Config config ) {
-    this.config = config;
+  public static DrillOnYarnConfig load( ) throws DoyConfigException
+  {
+    instance = new DrillOnYarnConfig( );
+    instance.doLoad( Thread.currentThread().getContextClassLoader() );
+    return instance;
   }
 
-  public static DrillOnYarnConfig load( ) throws DoyConfigException
+  /**
+   * Load the config.
+   * @param cl class loader to use for resource searches (except defaults).
+   * Allows test to specify a specialized version.
+   * <p>
+   * Implemented in a way that allows unit testing. The parseUrl( ) methods
+   * let us mock the files; the load( ) methods seem to not actually use the
+   * provided class loader.
+   *
+   * @throws DoyConfigException
+   */
+  protected void doLoad( ClassLoader cl ) throws DoyConfigException
   {
     Config drillConfig = loadDrillConfig( );
 
@@ -224,33 +238,38 @@ public class DrillOnYarnConfig
     // File is at root of the package tree.
 
     URL url = DrillOnYarnConfig.class.getResource( DEFAULTS_FILE_NAME );
-    Config config = null;
-    if ( url != null ) {
-      config = ConfigFactory.parseURL(url).withFallback( drillConfig );
+    if ( url == null ) {
+      throw new DoyConfigException( "Drill-on-YARN defaults file is required: " + DEFAULTS_FILE_NAME );
     }
+    config = ConfigFactory.parseURL(url).withFallback( drillConfig );
 
     // 2. Optional distribution-specific configuration-file.
     // (Lets a vendor, for example, specify the default DFS upload location without
     // tinkering with the user's own settings.
 
-    config = ConfigFactory.load( DISTRIB_FILE_NAME ).withFallback( config );
+    url = cl.getResource( DISTRIB_FILE_NAME );
+    if ( url != null ) {
+      config = ConfigFactory.parseURL(url).withFallback( config );
+    }
 
     // 3. User's Drill-on-YARN configuration.
+
+    url = cl.getResource( CONFIG_FILE_NAME );
+    if ( url == null ) {
+      throw new DoyConfigException( "Drill-on-YARN config file is required: " + CONFIG_FILE_NAME );
+    }
+    config = ConfigFactory.parseURL(url).withFallback( config );
 
     // 4. System properties
     // Allows -Dfoo=bar on the command line.
     // But, note that substitutions are NOT allowed in system properties!
 
-    config = ConfigFactory.load( CONFIG_FILE_NAME ).withFallback( config );
+    config = ConfigFactory.systemProperties( ).withFallback( config );
 
-    // Yes, the doc for load( ) seems to imply that the config is resolved.
-    // But, it is not really resolved, so do so here.
     // Resolution allows ${foo.bar} syntax in values, but only for values
     // from config files, not from system properties.
 
     config = config.resolve();
-    instance = new DrillOnYarnConfig( config );
-    return instance;
   }
 
   private static Config loadDrillConfig() {
@@ -299,18 +318,31 @@ public class DrillOnYarnConfig
     // set in drill-on-yarn.sh (for the client) or in the
     // launch environment (for the AM.)
 
-    String homeDir = System.getenv( "DRILL_HOME" );
+    String homeDir = getEnv( DRILL_HOME_ENV_VAR );
 
     // For ease in debugging, allow setting the Drill home in drill-on-yarn.conf.
     // This setting is also used for a non-localized run.
 
     if ( DoYUtil.isBlank( homeDir ) ) {
-      homeDir = instance.config.getString( DRILL_HOME );
+      homeDir = config.getString( DRILL_HOME );
     }
     if ( DoYUtil.isBlank( homeDir ) ) {
       throw new DoyConfigException( "The DRILL_HOME environment variable must point to your Drill install.");
     }
     drillHome = new File( homeDir );
+  }
+
+  /**
+   * All environment variable access goes through this function to allow unit tests
+   * to replace this function to set test values. (The Java environment is immutable,
+   * so it is not possible for unit tests to change the actual environment.)
+   *
+   * @param key
+   * @return
+   */
+
+  protected String getEnv( String key ) {
+    return System.getenv( key );
   }
 
   /**
@@ -336,41 +368,34 @@ public class DrillOnYarnConfig
   private void setSiteDir( ) throws DoyConfigException
   {
     // The site directory is the one where the config file lives.
-    // This should have been set in an environment variable or
-    // system property by the launch script.
+    // This should have been set in an environment variable by the launch script.
 
-    String sitePath = System.getProperty( "drill.yarn.siteDir" );
+    String sitePath = getEnv( "DRILL_CONF_DIR" );
     if ( ! DoYUtil.isBlank( sitePath ) ) {
       drillSite = new File( sitePath );
     }
     else {
-      sitePath = System.getenv( "DRILL_CONF_DIR" );
-      if ( ! DoYUtil.isBlank( sitePath ) ) {
-        drillSite = new File( sitePath );
+
+      // Otherwise, let's guess it from the config file. This version assists
+      // in debugging as it reduces setup steps.
+
+      ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+      if (classLoader == null) {
+        classLoader = DrillOnYarnConfig.class.getClassLoader();
       }
-      else {
 
-        // Otherwise, let's guess it from the config file. This version assists
-        // in debugging as it reduces setup steps.
-
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        if (classLoader == null) {
-          classLoader = DrillOnYarnConfig.class.getClassLoader();
-        }
-
-        URL url = classLoader.getResource( CONFIG_FILE_NAME );
-        if ( url == null ) {
-          throw new DoyConfigException( "Drill-on-YARN configuration file is missing: " + CONFIG_FILE_NAME );
-        }
-        File confFile;
-        try {
-          java.nio.file.Path confPath = Paths.get( url.toURI() );
-          confFile = confPath.toFile( );
-        } catch (URISyntaxException e) {
-          throw new DoyConfigException( "Invalid path to Drill-on-YARN configuration file: " + url.toString(), e );
-        }
-        drillSite = confFile.getParentFile();
+      URL url = classLoader.getResource( CONFIG_FILE_NAME );
+      if ( url == null ) {
+        throw new DoyConfigException( "Drill-on-YARN configuration file is missing: " + CONFIG_FILE_NAME );
       }
+      File confFile;
+      try {
+        java.nio.file.Path confPath = Paths.get( url.toURI() );
+        confFile = confPath.toFile( );
+      } catch (URISyntaxException e) {
+        throw new DoyConfigException( "Invalid path to Drill-on-YARN configuration file: " + url.toString(), e );
+      }
+      drillSite = confFile.getParentFile();
     }
 
     // Verify that the site directory is not just $DRILL_HOME/conf.
@@ -390,19 +415,8 @@ public class DrillOnYarnConfig
 
   public void setAmDrillHome( ) throws DoyConfigException
   {
-    String drillHomeStr = System.getenv( DRILL_HOME_ENV_VAR );
+    String drillHomeStr = getEnv( DRILL_HOME_ENV_VAR );
     drillHome = new File( drillHomeStr );
-//    String siteDirStr = System.getenv( DRILL_SITE_ENV_VAR );
-//    if ( ! DoYUtil.isBlank( siteDirStr ) ) {
-//      drillSite = new File( siteDirStr );
-//    }
-//
-//    // Should have been done by the client, but check if the
-//    // site directory is in the default location.
-//
-//    if ( drillHome.equals( drillSite.getParentFile() ) ) {
-//      drillSite = null;
-//    }
     setSiteDir( );
   }
 
@@ -551,7 +565,7 @@ public class DrillOnYarnConfig
     }
     out.print( CLUSTERS );
     out.println( "[" );
-    for ( int i = 0;  i < poolCount( );  i++ ) {
+    for ( int i = 0;  i < clusterGroupCount( );  i++ ) {
       ClusterDef.ClusterGroup cluster = ClusterDef.getCluster( config, i );
       out.print( i );
       out.println( " = {" );
@@ -566,7 +580,7 @@ public class DrillOnYarnConfig
     out.print( "environment" );
     out.println( "[" );
     for ( String envVar : envVars ) {
-      String value = System.getenv( envVar );
+      String value = getEnv( envVar );
       out.print( envVar );
       out.print( " = " );
       if ( value == null ) {
@@ -587,7 +601,7 @@ public class DrillOnYarnConfig
     for ( String key : keys ) {
       pairs.add( new NameValuePair( key, config.getString( key ) ) );
     }
-    for ( int i = 0;  i < poolCount( );  i++ ) {
+    for ( int i = 0;  i < clusterGroupCount( );  i++ ) {
       ClusterDef.ClusterGroup pool = ClusterDef.getCluster( config, i );
       pool.getPairs( i, pairs );
     }
@@ -597,16 +611,16 @@ public class DrillOnYarnConfig
 
     for ( String envVar : envVars ) {
       pairs.add( new NameValuePair( "envt." + envVar,
-                 System.getenv( envVar ) ) );
+                 getEnv( envVar ) ) );
     }
     return pairs;
   }
 
-  public static String poolKey( int index, String key ) {
+  public static String clusterGroupKey( int index, String key ) {
     return CLUSTERS + "." + index + "." + key;
   }
 
-  public int poolCount( ) {
+  public int clusterGroupCount( ) {
     return config.getList(CLUSTERS).size();
   }
 
@@ -738,19 +752,26 @@ public class DrillOnYarnConfig
    * the file does NOT go into the site dir or Drill home as we upload
    * these directories (via archives) to DFS so we don't want to change
    * them by adding a file.
+   * <p>
+   * It turns out that Drill allows two distinct clusters to share the
+   * same ZK root and/or cluster ID (just not the same combination), so
+   * the file name contains both parts.
    *
    * @param clusterId
    * @return
    */
 
-  public File getLocalAppIdFile( String clusterId ) {
+  public File getLocalAppIdFile( ) {
+    String rootDir = config.getString( DrillOnYarnConfig.ZK_ROOT );
+    String clusterId = config.getString( DrillOnYarnConfig.CLUSTER_ID );
+    String key = rootDir + "-" + clusterId;
+    String appIdFileName = key + ".appid";
     File appIdDir;
     if ( hasSiteDir( ) ) {
       appIdDir = drillSite.getParentFile();
     } else {
       appIdDir = drillHome.getParentFile();
     }
-    String appIdFileName = clusterId + ".appid";
     return new File( appIdDir, appIdFileName );
   }
 
@@ -772,7 +793,7 @@ public class DrillOnYarnConfig
    */
 
   public String getDrillArchiveDfsPath() {
-    return System.getenv( DrillOnYarnConfig.DRILL_ARCHIVE_ENV_VAR );
+    return getEnv( DrillOnYarnConfig.DRILL_ARCHIVE_ENV_VAR );
   }
 
   /**
@@ -787,6 +808,6 @@ public class DrillOnYarnConfig
    */
 
   public String getSiteArchiveDfsPath() {
-    return System.getenv( DrillOnYarnConfig.SITE_ARCHIVE_ENV_VAR );
+    return getEnv( DrillOnYarnConfig.SITE_ARCHIVE_ENV_VAR );
   }
 }
