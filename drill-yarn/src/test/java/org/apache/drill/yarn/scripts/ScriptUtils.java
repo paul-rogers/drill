@@ -46,13 +46,13 @@ import org.apache.commons.io.FileUtils;
 
 public class ScriptUtils
 {
-  public static final String MASTER_DISTRIB = "/Users/progers/git/drill/distribution/target/apache-drill-1.7.0-SNAPSHOT/apache-drill-1.7.0-SNAPSHOT";
-  public static final String MASTER_SOURCE = "/Users/progers/git/drill";
-  public static final String JAVA_HOME = "/Library/Java/JavaVirtualMachines/jdk1.7.0_79.jdk/Contents/Home";
+//  public static final String MASTER_DISTRIB = "/Users/progers/git/drill/distribution/target/apache-drill-1.7.0-SNAPSHOT/apache-drill-1.7.0-SNAPSHOT";
+//  public static final String MASTER_SOURCE = "/Users/progers/git/drill";
+//  public static final String JAVA_HOME = "/Library/Java/JavaVirtualMachines/jdk1.7.0_79.jdk/Contents/Home";
 
   private static ScriptUtils instance = new ScriptUtils( );
   public File distribDir;
-  public File sourceDir;
+//  public File sourceDir;
   public File javaHome;
   public File testDir;
   public File testDrillHome;
@@ -63,8 +63,6 @@ public class ScriptUtils
    * Out-of-the-box command-line arguments when launching sqlline.
    * Order is not important here (though it is to Java.)
    */
-
-  // Fixed locations (may be hard to test)
 
   public static String sqlLineArgs[] = {
       "-Dlog.path=/.*/drill/log/sqlline\\.log",
@@ -83,9 +81,11 @@ public class ScriptUtils
 //  public static String javaHome = JAVA_HOME;
 
   private ScriptUtils( ) {
-    distribDir = new File( MASTER_DISTRIB );
-    sourceDir = new File( MASTER_SOURCE );
-    javaHome = new File( JAVA_HOME );
+    String drillScriptsDir = System.getProperty( "drillScriptDir" );
+    assertNotNull( drillScriptsDir );
+    distribDir = new File( drillScriptsDir );
+//    sourceDir = new File( MASTER_SOURCE );
+    javaHome = new File( System.getProperty( "java.home" ) );
   }
 
   public static ScriptUtils instance( ) {
@@ -93,7 +93,7 @@ public class ScriptUtils
   }
 
   public ScriptUtils fromSource( String sourceDir ) {
-    this.sourceDir = new File( sourceDir );
+//    this.sourceDir = new File( sourceDir );
     useSource = true;
     return this;
   }
@@ -213,9 +213,7 @@ public class ScriptUtils
 
   private void buildFromSource() throws IOException {
     createMockDirs( );
-    File drillDir = new File( ScriptUtils.MASTER_SOURCE );
-    File resources = new File( drillDir, "distribution/src/resources" );
-    copyScripts( resources );
+    copyScripts( ScriptUtils.instance().distribDir );
   }
 
   /**

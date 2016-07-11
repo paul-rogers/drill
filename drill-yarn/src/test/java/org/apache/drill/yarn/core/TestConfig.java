@@ -131,7 +131,7 @@ public class TestConfig {
    * <li>drill.yarn.app-name</li>
    * <li>drill.yarn.zk.connect</li>
    * </ul>
-   * 
+   *
    * @throws IOException
    * @throws DoyConfigException
    */
