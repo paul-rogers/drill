@@ -29,6 +29,7 @@
   <name>Drill-on-YARN</name>
 
   <build>
+  <!-- 
     <plugins>
       <plugin>
          <groupId>org.apache.maven.plugins</groupId>
@@ -40,7 +41,28 @@
            </systemPropertyVariables>
          </configuration>
       </plugin>
+      <plugin>  -->
+        <!-- See http://stackoverflow.com/questions/31173467/maven-cannot-find-git-dotgitdirectory -->
+  <!-- 
+        <groupId>pl.project13.maven</groupId>
+        <artifactId>git-commit-id-plugin</artifactId>
+        <version>2.1.9</version>
+        <executions>
+          <execution>
+            <id>for-jars</id>
+            <inherited>true</inherited>
+            <goals>
+              <goal>revision</goal>
+            </goals>
+            <configuration>
+              <dotGitDirectory>${project.basedir}/../.git</dotGitDirectory>
+              <generateGitPropertiesFilename>target/classes/git.properties</generateGitPropertiesFilename>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
+     -->
   </build>
   
   <dependencies>
