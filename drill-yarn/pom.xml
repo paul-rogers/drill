@@ -36,6 +36,7 @@
          <configuration>
            <systemPropertyVariables>
              <drillScriptDir>${project.basedir}/../distribution/src/resources</drillScriptDir>
+             <logback.configurationFile>doy-test-logback.xml</logback.configurationFile>
            </systemPropertyVariables>
          </configuration>
       </plugin>

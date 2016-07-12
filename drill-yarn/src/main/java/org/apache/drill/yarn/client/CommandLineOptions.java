@@ -215,12 +215,12 @@ public class CommandLineOptions {
   }
 
   public void usage() {
-    System.out.println( "drill-on-yarn.sh [--site site-dir][--hadoop hadoop-home][-v|--verbose] command args");
-    System.out.println( "Where command is one of:" );
+    ClientContext.out.println( "Usage: drill-on-yarn.sh [--site site-dir] command [-v|--verbose][-a app-id]");
+    ClientContext.out.println( "Where command is one of:" );
     for ( Command cmd : Command.values() ) {
       if ( cmd.isHidden( ) ) {
         continue; }
-      System.out.println( "  " + cmd.getCommand( ) + " - " + cmd.getDescription( ) );
+      ClientContext.out.println( "  " + cmd.getCommand( ) + " - " + cmd.getDescription( ) );
     }
   }
 }

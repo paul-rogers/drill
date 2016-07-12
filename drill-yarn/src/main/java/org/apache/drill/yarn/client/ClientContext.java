@@ -15,17 +15,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.drill.yarn.client;
+
+import java.io.PrintStream;
 
 /**
- * Implements a "YARN client" for Drill-on-YARN. The client uploads files to
- * DFS, then requests that YARN start the Application Master. Much fiddling
- * about is required to support this, such as zipping up the user's configuration,
- * creating a local file with the app id so we can get app status and shut down
- * the app, etc.
- * <p>
- * Divided into a main program ({@link DrillOnYarn}) and a series of commands.
- * Some commands are further divided into tasks. Builds on the
- * YARN and DFS facades defined in the core module.
+ * Provides a static set of contextual operations that can be
+ * configured one way for production, a separate way for unit tests.
  */
 
-package org.apache.drill.yarn.client;
+public class ClientContext {
+  
+  private static ClientContext instance;
+  public static PrintStream err = System.err;
+  public static PrintStream out = System.out;
+  
+  public static void init( ) {
+    init( new ClientContext( ) );
+  }
+
+  protected static void init(ClientContext instance) {
+    ClientContext.instance = instance;
+  }
+
+  public static ClientContext instance( ) {
+    return instance;
+  }
+  
+  public void exit( int exitCode ) {
+    System.exit( exitCode );
+  }
+}

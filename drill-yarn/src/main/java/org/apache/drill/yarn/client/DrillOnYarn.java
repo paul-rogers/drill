@@ -76,17 +76,25 @@ public class DrillOnYarn
 {
   public static void main(String argv[])
   {
+    BasicConfigurator.configure();
+    ClientContext.init( );
+    run( argv );
+  }
+  
+  public static void run( String argv[] )
+  {
+    ClientContext context = ClientContext.instance();
+    
     // Parse command-line options.
 
-    BasicConfigurator.configure();
     CommandLineOptions opts = new CommandLineOptions();
     if ( ! opts.parse(argv) ) {
       opts.usage();
-      System.exit( -1 );
+      context.exit( -1 );
     }
     if ( opts.getCommand() == null ) {
       opts.usage();
-      System.exit( -1 );
+      context.exit( -1 );
     }
 
     // Load configuration.
@@ -94,17 +102,14 @@ public class DrillOnYarn
     try {
       DrillOnYarnConfig.load().setClientPaths();
     } catch (DoyConfigException e) {
-      System.err.println( e.getMessage() );
-      System.exit( -1 );
+      ClientContext.err.println( e.getMessage() );
+      context.exit( -1 );
     }
 
     // Create the required command object.
 
     ClientCommand cmd;
     switch (opts.getCommand()) {
-      case TEST: // TODO: Remove this
-        cmd = new TestCommand( );
-        break;
       case UPLOAD:
         cmd = new StartCommand( true, false );
         break;
@@ -139,8 +144,8 @@ public class DrillOnYarn
     try {
       cmd.run();
     } catch (ClientException e) {
-      System.err.println( e.getMessage() );
-      System.exit( 1 );
+      ClientContext.err.println( e.getMessage() );
+      context.exit( 1 );
     }
   }
 }
