@@ -80,11 +80,11 @@ public class DrillOnYarn
     ClientContext.init( );
     run( argv );
   }
-  
+
   public static void run( String argv[] )
   {
     ClientContext context = ClientContext.instance();
-    
+
     // Parse command-line options.
 
     CommandLineOptions opts = new CommandLineOptions();

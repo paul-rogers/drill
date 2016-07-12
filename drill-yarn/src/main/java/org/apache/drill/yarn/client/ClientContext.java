@@ -25,11 +25,11 @@ import java.io.PrintStream;
  */
 
 public class ClientContext {
-  
+
   private static ClientContext instance;
   public static PrintStream err = System.err;
   public static PrintStream out = System.out;
-  
+
   public static void init( ) {
     init( new ClientContext( ) );
   }
@@ -41,7 +41,7 @@ public class ClientContext {
   public static ClientContext instance( ) {
     return instance;
   }
-  
+
   public void exit( int exitCode ) {
     System.exit( exitCode );
   }
