@@ -136,4 +136,7 @@ public class TestClient {
     }
   }
 
+  // The idea here is to set up a simulated client environment, then
+  // test each command. This is a big project.
+
 }

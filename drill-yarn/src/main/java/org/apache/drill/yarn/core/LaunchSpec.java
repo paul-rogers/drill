@@ -103,16 +103,6 @@ public class LaunchSpec {
   public LaunchSpec() {
   }
 
-//  public LaunchSpec(LaunchSpec from) {
-//    resources.putAll(from.resources);
-//    env.putAll(from.env);
-//    command = from.command;
-//    mainClass = from.mainClass;
-//    classPath.addAll(from.classPath);
-//    vmArgs.addAll( vmArgs );
-//    cmdArgs.addAll(from.cmdArgs);
-//  }
-
   /**
    * Create the command line to run on the remote node. The
    * command can either be a simple OS command (if the
