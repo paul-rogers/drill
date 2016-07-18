@@ -41,11 +41,13 @@ import com.typesafe.config.ConfigFactory;
  * <ol>
  * <li>System properties</li>
  * <li>$SITE_DIR/drill-on-yarn.conf</li>
- * <li>Drill-on-YARN defaults in drill-on-yarn-defaults.conf. (Which should be disjoint from the Drill settings.)</li>
+ * <li>Distribution-specific properties in $SITE_HOME/conf/doy-distrib.conf</li>
+ * <li>Drill-on-YARN defaults in drill-on-yarn-defaults.conf. (Which should be
+ * disjoint from the Drill settings.)</li>
  * <li>Drill properties (via the Drill override system)</li>
  * </ol>
  * <p>
- * Defines constants for each property, including those defined in Drill. This provides
+ * Defines constants for each property, including some defined in Drill. This provides
  * a uniform property access interface even if some properties migrate between DoY and
  * Drill proper.
  */
@@ -239,7 +241,7 @@ public class DrillOnYarnConfig
 
     URL url = DrillOnYarnConfig.class.getResource( DEFAULTS_FILE_NAME );
     if ( url == null ) {
-      throw new DoyConfigException( "Drill-on-YARN defaults file is required: " + DEFAULTS_FILE_NAME );
+      throw new IllegalStateException( "Drill-on-YARN defaults file is required: " + DEFAULTS_FILE_NAME );
     }
     config = ConfigFactory.parseURL(url).withFallback( drillConfig );
 
