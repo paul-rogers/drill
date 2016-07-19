@@ -21,23 +21,28 @@ visible to Drill itself.
 
 ## Understanding the Code
 
-The DoY code divides into x main modules:
+The DoY code divides into three main modules:
 
 1. The DoY command-line client application.
 2. The DoY AM server application.
 3. Scripts around the client, AM and Drillbit applications.
 
-Scripts reside in the distribution project under src/resources.
+Scripts reside in the distribution project under `src/resources`.
 
 All DoY code resides in this module in the `org.apache.drill.yarn` package.
 
-`client`: The command-line client application.
-`appMaster`: The DoY AM.
-`core`: Code shared between the client and AM.
-`zk`: Integration with ZooKeeper to monitor Drillbits.
+- `client`: The command-line client application.
+- `appMaster`: The DoY AM.
+- `core`: Code shared between the client and AM.
+- `zk`: Integration with ZooKeeper to monitor Drillbits.
 
 DoY depends on Drill modules, but only the `distribution` project depends on
 DoY.
+
+Because DoY is a YARN application, we recommend that you become familiar with
+YARN itself before diving into the DoY code. YARN has a very particular model
+for how to run distributed applications and that model drove the design of
+the DoY modules and classes.
 
 ### Major Components
 
@@ -51,13 +56,13 @@ of the DoY AM. The RM locates a node to run the AM's container and asks the
 Node Manager (NM) on that node to start the AM. The AM starts and registers
 itself with ZooKeeper to prevent multiple AMs for the same Drill cluster.
 
-The AM then requests containers from the RM in which to run Drillbits. The
-AM then requests that the assigned NMs start the Drillbit.
-
-The Drillbit starts and registers itself with ZooKeeper. The AM monitors
+The AM then requests containers from the RM in which to run Drillbits. Next, the
+AM asks the assigned NMs to start each Drillbit. The Drillbit starts and 
+registers itself with ZooKeeper (ZK). The AM monitors
 ZK to confirm that the Drillbit did, in fact, start.
 
-To shut down, the client contacts the AM directly and requests shutdown.
+To shut down, the client contacts the AM directly using the AM REST API
+and requests shutdown.
 The AM sends a kill request to each NM, which kills the Drillbit processes.
 The AM monitors ZK to confirm that the Drillbit has dropped its registration.
 Once the last Drillbit has completed, the AM itself exits. The client will
@@ -72,10 +77,11 @@ resize, and so on. The client is designed to start, perform one operation,
 and exit. That is, while the AM is a persistent process, the client is not.
 
 A user will start their Drill cluster, then later will want to stop it. The
-Drill cluster is represented by a YARN application, represented by YARN as
+Drill cluster is a YARN application, represented by YARN with
 an "application id" (app id). To stop a Drill cluster, the client needs the
 app id assigned to the application at start time. While the user can use the
--a option to provide it explicitly, it is more convenient to "remember" the
+`-a` option to provide the app id explicitly, it is more convenient for
+the client to "remember" the
 app id. DoY uses an "app id file" for this purpose. This convenience works
 if the user starts, manages and stops the cluster from a single host.
 
@@ -96,7 +102,8 @@ starts with the client uploading the files to the distributed file system (DFS),
 typically HDFS. DoY localizes two separate files. The first is the Drill software
 itself, typically using the original Drill archive from Apache or your distribution.
 Drill requires site-specific configuration, optionally including custom code
-for UDFS, etc. Site files reside in a Drill site directory. For YARN, the site
+for user-defined functions (UDFs), etc. Site files reside in a Drill 
+site directory. For YARN, the site
 directory must be outside of the drill software distribution (see the user
 documentation for details.) DoY archives the site directory and uploads it to
 DFS along with the Drill archive. The code that does that work resides in the
@@ -168,15 +175,15 @@ the timer; `Pollable` is the listener for each "tick" event.
 The `Scheduler` and its subclasses (such as `DrillbitScheduler`) maintain the
 desired number of Drillbits, asking the `ClusterController` to start and stop
 tasks as needed. The `Scheduler` also handles task-specific tasks. At present,
-Drill has no means to perform a gracefull shutdown. However, when it does,
+Drill has no means to perform a graceful shutdown. However, when Drill does,
 the `DrillbitScheduler` will be responsible for sending the required message.
 
 The `appMaster.http` package contains the implementation for the web UI and
-REST API usign an embedded Jetty server. If Drill security is enabled, the
+REST API using an embedded Jetty server. If Drill security is enabled, the
 web UI will prompt the user to log in. The only recognized user is the one
 that launched DoY.
 
-The `NodeRegistry` tracks he set of nodes running Drillbits so we can avoid
+The `NodeRegistry` tracks the set of nodes running Drillbits so we can avoid
 starting a second on any of them. Drillbits are started though YARN, of course,
 but can also be "stray": Drillbits started outside of DoY and discovered
 though ZK. Even stray Drillbits are registered to avoid nasty surprises if
