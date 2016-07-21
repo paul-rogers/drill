@@ -107,7 +107,16 @@
       <useProjectArtifact>false</useProjectArtifact>
     </dependencySet>
 
-
+    <dependencySet>
+      <!-- Drill-on-YARN goes into its own directory so it does not end up
+           on the Drillbit class path. Define the jars/tools folder as any jar
+           we ship that is not used by drillbits. -->
+      <includes>
+        <include>org.apache.drill:drill-yarn:jar</include>
+      </includes>
+      <outputDirectory>jars/tools</outputDirectory>
+      <useProjectArtifact>false</useProjectArtifact>
+    </dependencySet>
 
     <dependencySet>
       <outputDirectory>jars/3rdparty/</outputDirectory>
@@ -281,6 +290,21 @@
       <outputDirectory>bin</outputDirectory>
     </file>
     <file>
+      <source>src/resources/drill-on-yarn.sh</source>
+      <fileMode>0755</fileMode>
+      <outputDirectory>bin</outputDirectory>
+    </file>
+    <file>
+      <source>src/resources/drill-am.sh</source>
+      <fileMode>0755</fileMode>
+      <outputDirectory>bin</outputDirectory>
+    </file>
+    <file>
+      <source>src/resources/yarn-drillbit.sh</source>
+      <fileMode>0755</fileMode>
+      <outputDirectory>bin</outputDirectory>
+    </file>
+    <file>
       <source>src/resources/submit_plan</source>
       <fileMode>0755</fileMode>
       <outputDirectory>bin</outputDirectory>
@@ -299,6 +323,14 @@
       <outputDirectory>conf</outputDirectory>
     </file>
     <file>
+      <source>src/resources/yarn-client-log.xml</source>
+      <outputDirectory>conf</outputDirectory>
+    </file>
+    <file>
+      <source>src/resources/drill-am-log.xml</source>
+      <outputDirectory>conf</outputDirectory>
+    </file>
+    <file>
       <source>src/resources/drill-env.sh</source>
       <fileMode>0755</fileMode>
       <outputDirectory>conf</outputDirectory>
@@ -309,6 +341,10 @@
     </file>
     <file>
       <source>src/resources/core-site.xml</source>
+      <outputDirectory>conf</outputDirectory>
+    </file>
+    <file>
+      <source>src/resources/drill-on-yarn-example.conf</source>
       <outputDirectory>conf</outputDirectory>
     </file>
   </files>
