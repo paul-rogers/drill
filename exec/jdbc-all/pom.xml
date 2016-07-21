@@ -314,6 +314,12 @@
               <exclude>org.mockito:mockito-core</exclude>
               <exclude>org.objenesis:objenesis</exclude>
               <exclude>org.eclipse.jetty:*</exclude>
+              <exclude>org.apache.hadoop:*</exclude>
+              <exclude>javax.xml.bind:jaxb-api</exclude>
+              <exclude>javax.xml.stream:stax-api</exclude>
+              <exclude>javax.activation:activation</exclude>
+              <exclude>commons-cli:commons-cli</exclude>
+              <exclude>commons-io:commons-io</exclude>
             </excludes>
           </artifactSet>
           <relocations>
