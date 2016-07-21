@@ -25,8 +25,7 @@ import org.apache.hadoop.yarn.api.records.Container;
  * scheduler.
  */
 
-public interface SchedulerStateActions
-{
+public interface SchedulerStateActions {
   /**
    * Returns the name of the scheduler associated with this task action group.
    *

@@ -17,8 +17,7 @@
  */
 package org.apache.drill.yarn.appMaster;
 
-public interface TaskLifecycleListener
-{
+public interface TaskLifecycleListener {
   public enum Event {
     CREATED, ALLOCATED, RUNNING, ENDED
   }

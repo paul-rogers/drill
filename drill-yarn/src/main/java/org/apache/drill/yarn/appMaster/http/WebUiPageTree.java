@@ -53,38 +53,38 @@ import org.glassfish.jersey.server.mvc.Viewable;
 import org.glassfish.jersey.server.mvc.freemarker.FreemarkerMvcFeature;
 
 /**
- * The Drill AM web UI. The format is highly compact. We use javax.ws.rs to
- * mark up a Pojo with page path, permissions and HTTP methods. The ADMIN_ROLE
- * is reused from Drill's web UI.
+ * The Drill AM web UI. The format is highly compact. We use javax.ws.rs to mark
+ * up a Pojo with page path, permissions and HTTP methods. The ADMIN_ROLE is
+ * reused from Drill's web UI.
  * <p>
  * In general, all pages require admin role, except for two: the login page and
  * the redirect page which the YARN web UI follows to start the AM UI.
  */
 
-public class WebUiPageTree extends PageTree
-{
-//  private static final Log LOG = LogFactory.getLog(WebUiPageTree.class);
+public class WebUiPageTree extends PageTree {
+  // private static final Log LOG = LogFactory.getLog(WebUiPageTree.class);
 
   @Path("/")
   @RolesAllowed(ADMIN_ROLE)
-  public static class RootPage
-  {
-    @Inject SecurityContext sc;
+  public static class RootPage {
+    @Inject
+    SecurityContext sc;
 
     @GET
     @Produces(MediaType.TEXT_HTML)
-    public Viewable getRoot( ) {
-      ControllerModel model = new ControllerModel( );
-      dispatcher.getController().visit( model );
-      model.countStrayDrillbits( dispatcher.getController() );
-      return new Viewable( "/drill-am/index.ftl", toModel( sc, model ) );
+    public Viewable getRoot() {
+      ControllerModel model = new ControllerModel();
+      dispatcher.getController().visit(model);
+      model.countStrayDrillbits(dispatcher.getController());
+      return new Viewable("/drill-am/index.ftl", toModel(sc, model));
     }
   }
 
   @Path("/")
   @PermitAll
   public static class LogInLogOutPages {
-    @Inject SecurityContext sc;
+    @Inject
+    SecurityContext sc;
 
     public static final String REDIRECT_QUERY_PARM = "redirect";
     public static final String LOGIN_RESOURCE = "login";
@@ -92,38 +92,39 @@ public class WebUiPageTree extends PageTree
     @GET
     @Path("/login")
     @Produces(MediaType.TEXT_HTML)
-    public Viewable getLoginPage(@Context HttpServletRequest request, @Context HttpServletResponse response,
-        @Context SecurityContext sc, @Context UriInfo uriInfo, @QueryParam(REDIRECT_QUERY_PARM) String redirect)
-        throws Exception {
-//      if (AuthDynamicFeature.isUserLoggedIn(sc)) {
-//        // if the user is already login, forward the request to homepage.
-//        request.getRequestDispatcher("/").forward(request, response);
-//        return null;
-//      }
+    public Viewable getLoginPage(@Context HttpServletRequest request,
+        @Context HttpServletResponse response, @Context SecurityContext sc,
+        @Context UriInfo uriInfo,
+        @QueryParam(REDIRECT_QUERY_PARM) String redirect) throws Exception {
 
       if (!StringUtils.isEmpty(redirect)) {
-        // If the URL has redirect in it, set the redirect URI in session, so that after the login is successful, request
+        // If the URL has redirect in it, set the redirect URI in session, so
+        // that after the login is successful, request
         // is forwarded to the redirect page.
         final HttpSession session = request.getSession(true);
-        final URI destURI = UriBuilder.fromUri(URLDecoder.decode(redirect, "UTF-8")).build();
+        final URI destURI = UriBuilder
+            .fromUri(URLDecoder.decode(redirect, "UTF-8")).build();
         session.setAttribute(FormAuthenticator.__J_URI, destURI.toString());
       }
 
-      return new Viewable("/drill-am/login.ftl", toModel( sc, (Object) null ) );
+      return new Viewable("/drill-am/login.ftl", toModel(sc, (Object) null));
     }
 
-    // Request type is POST because POST request which contains the login credentials are invalid and the request is
+    // Request type is POST because POST request which contains the login
+    // credentials are invalid and the request is
     // dispatched here directly.
     @POST
     @Path("/login")
     @Produces(MediaType.TEXT_HTML)
     public Viewable getLoginPageAfterValidationError() {
-      return new Viewable("/drill-am/login.ftl", toModel( sc, "Invalid user name or password." ) );
+      return new Viewable("/drill-am/login.ftl",
+          toModel(sc, "Invalid user name or password."));
     }
 
     @GET
     @Path("/logout")
-    public Viewable logout(@Context HttpServletRequest req, @Context HttpServletResponse resp) throws Exception {
+    public Viewable logout(@Context HttpServletRequest req,
+        @Context HttpServletResponse resp) throws Exception {
       final HttpSession session = req.getSession();
       if (session != null) {
         session.invalidate();
@@ -136,122 +137,124 @@ public class WebUiPageTree extends PageTree
 
   @Path("/redirect")
   @PermitAll
-  public static class RedirectPage
-  {
+  public static class RedirectPage {
     @GET
     @Produces(MediaType.TEXT_HTML)
-    public Viewable getRoot( ) {
-      Map<String,String> map = new HashMap<>( );
-      String baseUrl = DoYUtil.unwrapAmUrl( dispatcher.getTrackingUrl() );
-      map.put( "amLink", baseUrl );
-      map.put( "clusterName", config.getString( DrillOnYarnConfig.APP_NAME ) );
-      return new Viewable( "/drill-am/redirect.ftl", map );
+    public Viewable getRoot() {
+      Map<String, String> map = new HashMap<>();
+      String baseUrl = DoYUtil.unwrapAmUrl(dispatcher.getTrackingUrl());
+      map.put("amLink", baseUrl);
+      map.put("clusterName", config.getString(DrillOnYarnConfig.APP_NAME));
+      return new Viewable("/drill-am/redirect.ftl", map);
     }
   }
 
   @Path("/config")
   @RolesAllowed(ADMIN_ROLE)
-  public static class ConfigPage
-  {
-    @Inject SecurityContext sc;
+  public static class ConfigPage {
+    @Inject
+    SecurityContext sc;
 
     @GET
     @Produces(MediaType.TEXT_HTML)
-    public Viewable getRoot( ) {
-      return new Viewable( "/drill-am/config.ftl", toModel( sc, DrillOnYarnConfig.instance().getPairs() ) );
+    public Viewable getRoot() {
+      return new Viewable("/drill-am/config.ftl",
+          toModel(sc, DrillOnYarnConfig.instance().getPairs()));
     }
   }
 
   @Path("/drillbits")
   @RolesAllowed(ADMIN_ROLE)
-  public static class DrillbitsPage
-  {
-    @Inject SecurityContext sc;
+  public static class DrillbitsPage {
+    @Inject
+    SecurityContext sc;
 
     @GET
     @Produces(MediaType.TEXT_HTML)
-    public Viewable getRoot( ) {
-      AbstractTasksModel.TasksModel model = new AbstractTasksModel.TasksModel( );
-      dispatcher.getController().visitTasks( model );
-      model.listUnmanaged( dispatcher.getController() );
-      model.sortTasks( );
+    public Viewable getRoot() {
+      AbstractTasksModel.TasksModel model = new AbstractTasksModel.TasksModel();
+      dispatcher.getController().visitTasks(model);
+      model.listUnmanaged(dispatcher.getController());
+      model.sortTasks();
 
       // Done this funky way because FreeMarker only understands lists if they
       // are members of a hash (grumble, grumble...)
 
-      Map<String,Object> map = new HashMap<>( );
-      map.put( "model", model );
-      map.put( "tasks", model.getTasks() );
-      if ( model.hasUnmanagedDrillbits() ) {
-        map.put( "strays", model.getUnnamaged() );
+      Map<String, Object> map = new HashMap<>();
+      map.put("model", model);
+      map.put("tasks", model.getTasks());
+      if (model.hasUnmanagedDrillbits()) {
+        map.put("strays", model.getUnnamaged());
       }
-      map.put( "showDisks", dispatcher.getController().supportsDiskResource( ) );
-      map.put( "refreshSecs", DrillOnYarnConfig.config().getInt( DrillOnYarnConfig.HTTP_REFRESH_SECS ) );
-      return new Viewable( "/drill-am/tasks.ftl", toMapModel( sc, map ) );
+      map.put("showDisks", dispatcher.getController().supportsDiskResource());
+      map.put("refreshSecs", DrillOnYarnConfig.config()
+          .getInt(DrillOnYarnConfig.HTTP_REFRESH_SECS));
+      return new Viewable("/drill-am/tasks.ftl", toMapModel(sc, map));
     }
   }
 
   @Path("/cancel/")
   @RolesAllowed(ADMIN_ROLE)
-  public static class CancelDrillbitPage
-  {
-    @Inject SecurityContext sc;
+  public static class CancelDrillbitPage {
+    @Inject
+    SecurityContext sc;
 
     @QueryParam("id")
     int id;
 
     @GET
     @Produces(MediaType.TEXT_HTML)
-    public Viewable getPage( ) {
-      ConfirmShrink confirm = new ConfirmShrink( ConfirmShrink.Mode.CANCEL );
+    public Viewable getPage() {
+      ConfirmShrink confirm = new ConfirmShrink(ConfirmShrink.Mode.CANCEL);
       confirm.id = id;
-      return new Viewable( "/drill-am/shrink-warning.ftl", toModel( sc, confirm ) );
+      return new Viewable("/drill-am/shrink-warning.ftl", toModel(sc, confirm));
     }
 
     @POST
     @Produces(MediaType.TEXT_HTML)
-    public Viewable postPage( ) {
+    public Viewable postPage() {
       Acknowledge ack;
-      if ( dispatcher.getController().cancelTask( id ) ) {
-        ack = new Acknowledge( Acknowledge.Mode.CANCELLED );
+      if (dispatcher.getController().cancelTask(id)) {
+        ack = new Acknowledge(Acknowledge.Mode.CANCELLED);
       } else {
-        ack = new Acknowledge( Acknowledge.Mode.INVALID_TASK );
+        ack = new Acknowledge(Acknowledge.Mode.INVALID_TASK);
       }
       ack.value = id;
-      return new Viewable( "/drill-am/confirm.ftl", toModel( sc, ack ) );
+      return new Viewable("/drill-am/confirm.ftl", toModel(sc, ack));
     }
   }
 
   @Path("/history")
   @RolesAllowed(ADMIN_ROLE)
-  public static class HistoryPage
-  {
-    @Inject SecurityContext sc;
+  public static class HistoryPage {
+    @Inject
+    SecurityContext sc;
 
     @GET
     @Produces(MediaType.TEXT_HTML)
-    public Viewable getRoot( ) {
-      AbstractTasksModel.HistoryModel model = new AbstractTasksModel.HistoryModel( );
-      dispatcher.getController().visit( model );
-      Map<String,Object> map = new HashMap<>( );
-      map.put( "model", model.results );
-      map.put( "refreshSecs", DrillOnYarnConfig.config().getInt( DrillOnYarnConfig.HTTP_REFRESH_SECS ) );
-      return new Viewable( "/drill-am/history.ftl", toMapModel( sc, map ) );
+    public Viewable getRoot() {
+      AbstractTasksModel.HistoryModel model = new AbstractTasksModel.HistoryModel();
+      dispatcher.getController().visit(model);
+      Map<String, Object> map = new HashMap<>();
+      map.put("model", model.results);
+      map.put("refreshSecs", DrillOnYarnConfig.config()
+          .getInt(DrillOnYarnConfig.HTTP_REFRESH_SECS));
+      return new Viewable("/drill-am/history.ftl", toMapModel(sc, map));
     }
   }
 
   @Path("/manage")
   @RolesAllowed(ADMIN_ROLE)
-  public static class ManagePage
-  {
-    @Inject SecurityContext sc;
+  public static class ManagePage {
+    @Inject
+    SecurityContext sc;
 
     @GET
     @Produces(MediaType.TEXT_HTML)
-    public Viewable getRoot( ) {
-      ControllerModel model = new ControllerModel( );
-      dispatcher.getController().visit( model );
-      return new Viewable( "/drill-am/manage.ftl", toModel( sc, model ) );
+    public Viewable getRoot() {
+      ControllerModel model = new ControllerModel();
+      dispatcher.getController().visit(model);
+      return new Viewable("/drill-am/manage.ftl", toModel(sc, model));
     }
   }
 
@@ -259,133 +262,148 @@ public class WebUiPageTree extends PageTree
    * Pass information to the acknowledgement page.
    */
 
-  public static class Acknowledge
-  {
+  public static class Acknowledge {
     public enum Mode {
-      STOPPED, INVALID_RESIZE, INVALID_ACTION, NULL_RESIZE, RESIZED, CANCELLED, INVALID_TASK };
+      STOPPED, INVALID_RESIZE, INVALID_ACTION, NULL_RESIZE, RESIZED, CANCELLED, INVALID_TASK
+    };
 
     Mode mode;
     Object value;
 
-    public Acknowledge( Mode mode ) {
+    public Acknowledge(Mode mode) {
       this.mode = mode;
     }
 
-    public String getType( ) { return mode.toString(); }
-    public Object getValue( ) { return value; }
+    public String getType() {
+      return mode.toString();
+    }
+
+    public Object getValue() {
+      return value;
+    }
   }
 
   /**
    * Pass information to the confirmation page.
    */
 
-  public static class ConfirmShrink
-  {
-    public enum Mode { SHRINK, STOP, CANCEL };
+  public static class ConfirmShrink {
+    public enum Mode {
+      SHRINK, STOP, CANCEL
+    };
 
     Mode mode;
     int value;
     int id;
 
-    public ConfirmShrink( Mode mode ) {
+    public ConfirmShrink(Mode mode) {
       this.mode = mode;
     }
 
-    public boolean isStop( ) { return mode == Mode.STOP; }
-    public boolean isCancel( ) { return mode == Mode.CANCEL; }
-    public boolean isShrink( ) { return mode == Mode.SHRINK; }
-    public int getCount( ) { return value; }
-    public int getId( ) { return id; }
+    public boolean isStop() {
+      return mode == Mode.STOP;
+    }
+
+    public boolean isCancel() {
+      return mode == Mode.CANCEL;
+    }
+
+    public boolean isShrink() {
+      return mode == Mode.SHRINK;
+    }
+
+    public int getCount() {
+      return value;
+    }
+
+    public int getId() {
+      return id;
+    }
   }
 
   @Path("/resize")
   @RolesAllowed(ADMIN_ROLE)
-  public static class ResizePage
-  {
-    @Inject SecurityContext sc;
+  public static class ResizePage {
+    @Inject
+    SecurityContext sc;
 
     @FormParam("n")
     int n;
-    @FormParam( "type" )
+    @FormParam("type")
     String type;
 
     @POST
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)
     @Produces(MediaType.TEXT_HTML)
-    public Viewable resize( ) {
-      int curSize = dispatcher.getController().getTargetCount( );
-      if ( n <= 0 ) {
-        Acknowledge confirm = new Acknowledge( Acknowledge.Mode.INVALID_RESIZE );
+    public Viewable resize() {
+      int curSize = dispatcher.getController().getTargetCount();
+      if (n <= 0) {
+        Acknowledge confirm = new Acknowledge(Acknowledge.Mode.INVALID_RESIZE);
         confirm.value = n;
-        return new Viewable( "/drill-am/confirm.ftl", toModel( sc, confirm ) );
+        return new Viewable("/drill-am/confirm.ftl", toModel(sc, confirm));
       }
-      if ( type == null ) {
+      if (type == null) {
         type = "null";
       }
       int newSize;
       boolean confirmed = false;
-      if ( type.equalsIgnoreCase( "resize" ) ) {
+      if (type.equalsIgnoreCase("resize")) {
         newSize = n;
-      }
-      else if ( type.equalsIgnoreCase( "grow" ) ) {
+      } else if (type.equalsIgnoreCase("grow")) {
         newSize = curSize + n;
-      }
-      else if ( type.equalsIgnoreCase( "shrink" ) ) {
+      } else if (type.equalsIgnoreCase("shrink")) {
         newSize = curSize - n;
-      }
-      else if ( type.equalsIgnoreCase( "force-shrink" ) ) {
+      } else if (type.equalsIgnoreCase("force-shrink")) {
         newSize = curSize - n;
         confirmed = true;
-      }
-      else {
-        Acknowledge confirm = new Acknowledge( Acknowledge.Mode.INVALID_ACTION );
+      } else {
+        Acknowledge confirm = new Acknowledge(Acknowledge.Mode.INVALID_ACTION);
         confirm.value = type;
-        return new Viewable( "/drill-am/confirm.ftl", toModel( sc, confirm ) );
+        return new Viewable("/drill-am/confirm.ftl", toModel(sc, confirm));
       }
 
-      if ( curSize == newSize ) {
-        Acknowledge confirm = new Acknowledge( Acknowledge.Mode.NULL_RESIZE );
+      if (curSize == newSize) {
+        Acknowledge confirm = new Acknowledge(Acknowledge.Mode.NULL_RESIZE);
         confirm.value = newSize;
-        return new Viewable( "/drill-am/confirm.ftl", toModel( sc, confirm ) );
-      }
-      else if ( confirmed || curSize < newSize ) {
-        dispatcher.getController().resizeTo( newSize );
-        Acknowledge confirm = new Acknowledge( Acknowledge.Mode.RESIZED );
+        return new Viewable("/drill-am/confirm.ftl", toModel(sc, confirm));
+      } else if (confirmed || curSize < newSize) {
+        dispatcher.getController().resizeTo(newSize);
+        Acknowledge confirm = new Acknowledge(Acknowledge.Mode.RESIZED);
         confirm.value = newSize;
-        return new Viewable( "/drill-am/confirm.ftl", toModel( sc, confirm ) );
-      }
-      else {
-        ConfirmShrink confirm = new ConfirmShrink( ConfirmShrink.Mode.SHRINK );
+        return new Viewable("/drill-am/confirm.ftl", toModel(sc, confirm));
+      } else {
+        ConfirmShrink confirm = new ConfirmShrink(ConfirmShrink.Mode.SHRINK);
         confirm.value = curSize - newSize;
-        return new Viewable( "/drill-am/shrink-warning.ftl", toModel( sc, confirm ) );
+        return new Viewable("/drill-am/shrink-warning.ftl",
+            toModel(sc, confirm));
       }
     }
   }
 
   @Path("/stop/")
   @RolesAllowed(ADMIN_ROLE)
-  public static class StopPage
-  {
-    @Inject SecurityContext sc;
+  public static class StopPage {
+    @Inject
+    SecurityContext sc;
 
     @GET
     @Produces(MediaType.TEXT_HTML)
-    public Viewable requestStop( ) {
-      ConfirmShrink confirm = new ConfirmShrink( ConfirmShrink.Mode.STOP );
-      return new Viewable( "/drill-am/shrink-warning.ftl", toModel( sc, confirm ) );
+    public Viewable requestStop() {
+      ConfirmShrink confirm = new ConfirmShrink(ConfirmShrink.Mode.STOP);
+      return new Viewable("/drill-am/shrink-warning.ftl", toModel(sc, confirm));
     }
 
     @POST
     @Produces(MediaType.TEXT_HTML)
-    public Viewable doStop( ) {
+    public Viewable doStop() {
       dispatcher.getController().shutDown();
-      Acknowledge confirm = new Acknowledge( Acknowledge.Mode.STOPPED );
-      return new Viewable( "/drill-am/confirm.ftl", toModel( sc, confirm ) );
+      Acknowledge confirm = new Acknowledge(Acknowledge.Mode.STOPPED);
+      return new Viewable("/drill-am/confirm.ftl", toModel(sc, confirm));
     }
   }
 
-  public WebUiPageTree( Dispatcher dispatcher ) {
-    super( dispatcher );
+  public WebUiPageTree(Dispatcher dispatcher) {
+    super(dispatcher);
 
     // Markup engine
     register(FreemarkerMvcFeature.class);
@@ -404,7 +422,7 @@ public class WebUiPageTree extends PageTree
     // Authorization
     // See: https://jersey.java.net/documentation/latest/security.html
 
-    if ( AMSecurityManagerImpl.isEnabled( ) ) {
+    if (AMSecurityManagerImpl.isEnabled()) {
       register(LogInLogOutPages.class);
       register(AuthDynamicFeature.class);
       register(RolesAllowedDynamicFeature.class);

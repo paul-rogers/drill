@@ -35,8 +35,7 @@ import org.apache.hadoop.yarn.util.Records;
  * then is translated to the YARN structure when needed.
  */
 
-public class ContainerRequestSpec
-{
+public class ContainerRequestSpec {
   static final Log LOG = LogFactory.getLog(ContainerRequestSpec.class);
 
   /**
@@ -45,8 +44,8 @@ public class ContainerRequestSpec
    * arrives, we use the priority to trace back to the scheduler that requested
    * it, and from there to the task to be run in the allocation.
    * <p>
-   * For this reason, the priority is set by the Drill-on-YARN application; it is
-   * not a user-adjustable value.
+   * For this reason, the priority is set by the Drill-on-YARN application; it
+   * is not a user-adjustable value.
    */
 
   public int priority = 0;
@@ -65,9 +64,8 @@ public class ContainerRequestSpec
   public int vCores = 1;
 
   /**
-   * Number of virtual disks (channels, spindles) to request.
-   * Not supported in Apache YARN, is supported in selected
-   * distributions.
+   * Number of virtual disks (channels, spindles) to request. Not supported in
+   * Apache YARN, is supported in selected distributions.
    */
 
   public double disks;
@@ -95,7 +93,7 @@ public class ContainerRequestSpec
     Resource capability = Records.newRecord(Resource.class);
     capability.setMemory(memoryMb);
     capability.setVirtualCores(vCores);
-    DoYUtil.callSetDiskIfExists( capability, disks );
+    DoYUtil.callSetDiskIfExists(capability, disks);
 
     boolean relaxLocality = true;
     String nodeArr[] = null;
@@ -111,9 +109,9 @@ public class ContainerRequestSpec
       relaxLocality = false;
     }
     String nodeExpr = null;
-    if ( ! DoYUtil.isBlank( nodeLabelExpr) ) {
+    if (!DoYUtil.isBlank(nodeLabelExpr)) {
       nodeExpr = nodeLabelExpr;
-      LOG.info( "Requesting a container using node expression: " + nodeExpr );
+      LOG.info("Requesting a container using node expression: " + nodeExpr);
     }
 
     // YARN is fragile. To (potentially) pass a node expression, we must use the
@@ -121,6 +119,7 @@ public class ContainerRequestSpec
     // to true if we omit the rack and node specs. (Else we get a runtime
     // error.
 
-    return new ContainerRequest(capability, nodeArr, rackArr, priorityRec, relaxLocality, nodeExpr);
+    return new ContainerRequest(capability, nodeArr, rackArr, priorityRec,
+        relaxLocality, nodeExpr);
   }
 }

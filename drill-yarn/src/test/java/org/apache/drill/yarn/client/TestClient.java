@@ -32,107 +32,102 @@ import org.junit.Test;
 public class TestClient {
 
   /**
-   * Unchecked exception to allow capturing "exit" events without
-   * actually exiting.
+   * Unchecked exception to allow capturing "exit" events without actually
+   * exiting.
    */
 
-  public static class SimulatedExitException extends RuntimeException
-  {
-     private static final long serialVersionUID = 1L;
+  public static class SimulatedExitException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
     public int exitCode;
 
-    public SimulatedExitException( int exitCode ) {
+    public SimulatedExitException(int exitCode) {
       this.exitCode = exitCode;
     }
   }
 
-  public static class TestContext extends ClientContext
-  {
-    public static ByteArrayOutputStream captureOut = new ByteArrayOutputStream( );
-    public static ByteArrayOutputStream captureErr = new ByteArrayOutputStream( );
+  public static class TestContext extends ClientContext {
+    public static ByteArrayOutputStream captureOut = new ByteArrayOutputStream();
+    public static ByteArrayOutputStream captureErr = new ByteArrayOutputStream();
 
-    public static void testInit( ) {
-      init( new TestContext( ) );
-      resetOutput( );
+    public static void testInit() {
+      init(new TestContext());
+      resetOutput();
     }
 
     @Override
-    public void exit( int exitCode ) {
-      throw new SimulatedExitException( exitCode );
+    public void exit(int exitCode) {
+      throw new SimulatedExitException(exitCode);
     }
 
-    public static void resetOutput( ) {
+    public static void resetOutput() {
       try {
-        out.flush( );
+        out.flush();
         captureOut.reset();
-        out = new PrintStream( captureOut, true, "UTF-8" );
-        err.flush( );
+        out = new PrintStream(captureOut, true, "UTF-8");
+        err.flush();
         captureErr.reset();
-        err = new PrintStream( captureErr, true, "UTF-8" );
+        err = new PrintStream(captureErr, true, "UTF-8");
       } catch (UnsupportedEncodingException e) {
-        throw new IllegalStateException( e );
+        throw new IllegalStateException(e);
       }
     }
 
-    public static String getOut( ) {
-      out.flush( );
+    public static String getOut() {
+      out.flush();
       try {
-        return captureOut.toString( "UTF-8" );
+        return captureOut.toString("UTF-8");
       } catch (UnsupportedEncodingException e) {
-        throw new IllegalStateException( e );
+        throw new IllegalStateException(e);
       }
     }
 
-    public static String getErr( ) {
-      out.flush( );
+    public static String getErr() {
+      out.flush();
       try {
-        return captureErr.toString( "UTF-8" );
+        return captureErr.toString("UTF-8");
       } catch (UnsupportedEncodingException e) {
-        throw new IllegalStateException( e );
+        throw new IllegalStateException(e);
       }
     }
   }
 
   /**
-   * Test the basics of the DrillOnYarn app. Does not try any real commands,
-   * but does check for the basic error conditions.
+   * Test the basics of the DrillOnYarn app. Does not try any real commands, but
+   * does check for the basic error conditions.
    */
 
   @Test
   public void testBasics() {
-    TestContext.testInit( );
+    TestContext.testInit();
 
     // No arguments provided.
 
     try {
-      DrillOnYarn.run( new String[] { } );
-      fail( );
-    }
-    catch ( SimulatedExitException e ) {
-      assert( e.exitCode == -1 );
-      assertTrue( TestContext.getOut().contains( "Usage: " ) );
+      DrillOnYarn.run(new String[] {});
+      fail();
+    } catch (SimulatedExitException e) {
+      assert (e.exitCode == -1);
+      assertTrue(TestContext.getOut().contains("Usage: "));
     }
 
     // Bogus command
 
     try {
-      DrillOnYarn.run( new String[] { "bogus" } );
-      fail( );
-    }
-    catch ( SimulatedExitException e ) {
-      assert( e.exitCode == -1 );
-      assertTrue( TestContext.getOut().contains( "Usage: " ) );
+      DrillOnYarn.run(new String[] { "bogus" });
+      fail();
+    } catch (SimulatedExitException e) {
+      assert (e.exitCode == -1);
+      assertTrue(TestContext.getOut().contains("Usage: "));
     }
 
     // Help command
 
     try {
-      DrillOnYarn.run( new String[] { "help" } );
-      fail( );
-    }
-    catch ( SimulatedExitException e ) {
-      assert( e.exitCode == -1 );
-      assertTrue( TestContext.getOut().contains( "Usage: " ) );
+      DrillOnYarn.run(new String[] { "help" });
+      fail();
+    } catch (SimulatedExitException e) {
+      assert (e.exitCode == -1);
+      assertTrue(TestContext.getOut().contains("Usage: "));
     }
   }
 

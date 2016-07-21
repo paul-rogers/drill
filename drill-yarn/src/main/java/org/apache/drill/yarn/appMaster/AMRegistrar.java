@@ -18,28 +18,26 @@
 package org.apache.drill.yarn.appMaster;
 
 /**
- * Interface to register the AM. Registration prevents two AMs from
- * running for the same Drill cluster. A normal return means that this
- * AM now "owns" the cluster. An exception means this is a duplicate AM
- * (or something went wrong.)
+ * Interface to register the AM. Registration prevents two AMs from running for
+ * the same Drill cluster. A normal return means that this AM now "owns" the
+ * cluster. An exception means this is a duplicate AM (or something went wrong.)
  * <p>
- * Although the interface contains a deregister call, the implementation
- * should automatically deregister on death of the AM to prevent zombie
- * registrations. (The production system, ZK, handles this via ephemeral
- * znodes.)
+ * Although the interface contains a deregister call, the implementation should
+ * automatically deregister on death of the AM to prevent zombie registrations.
+ * (The production system, ZK, handles this via ephemeral znodes.)
  */
 
-public interface AMRegistrar
-{
-  public static class AMRegistrationException extends Exception
-  {
+public interface AMRegistrar {
+  public static class AMRegistrationException extends Exception {
     private static final long serialVersionUID = 1L;
 
-    public AMRegistrationException( Exception e ) {
-      super( e.getMessage(), e );
+    public AMRegistrationException(Exception e) {
+      super(e.getMessage(), e);
     }
   }
 
-  void register( String amHost, int amPort, String appId ) throws AMRegistrationException;
-  void deregister( );
+  void register(String amHost, int amPort, String appId)
+      throws AMRegistrationException;
+
+  void deregister();
 }

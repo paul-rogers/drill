@@ -17,19 +17,18 @@
  */
 package org.apache.drill.yarn.client;
 
-public class ClientException extends Exception
-{
+public class ClientException extends Exception {
   private static final long serialVersionUID = 1L;
 
   public ClientException(String msg) {
-    super( msg );
+    super(msg);
   }
 
   public ClientException(String msg, Exception e) {
-    super( msg, e );
+    super(msg, e);
   }
 
-  public ClientException( Exception e) {
-    super( e.getMessage(), e );
+  public ClientException(Exception e) {
+    super(e.getMessage(), e);
   }
 }

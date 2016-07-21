@@ -28,8 +28,7 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigList;
 import com.typesafe.config.ConfigValue;
 
-public class ClusterDef
-{
+public class ClusterDef {
   // The following keys are relative to the cluster group definition
 
   public static final String GROUP_NAME = "name";
@@ -41,76 +40,79 @@ public class ClusterDef
   public static final String DRILLBIT_LABEL = "drillbit-label-expr";
   public static final String AM_LABEL = "am-label-expr";
 
-
   /**
-   * Defined cluster tier types. The value of the type appears as the
-   * value of the {@link $CLUSTER_TYPE} parameter in the config file.
+   * Defined cluster tier types. The value of the type appears as the value of
+   * the {@link $CLUSTER_TYPE} parameter in the config file.
    */
 
   public enum GroupType {
-    BASIC( "basic" ),
-    LABELED( "labeled" );
+    BASIC("basic"), LABELED("labeled");
 
     private String value;
 
-    private GroupType( String value ) {
+    private GroupType(String value) {
       this.value = value;
     }
 
-    public static GroupType toEnum( String value ) {
-      for ( GroupType type : GroupType.values() ) {
-        if ( type.value.equalsIgnoreCase( value ) ) {
-          return type; }
+    public static GroupType toEnum(String value) {
+      for (GroupType type : GroupType.values()) {
+        if (type.value.equalsIgnoreCase(value)) {
+          return type;
+        }
       }
       return null;
     }
 
-    public String toValue( ) { return value; }
+    public String toValue() {
+      return value;
+    }
   }
 
-  public static class ClusterGroup
-  {
+  public static class ClusterGroup {
     public String name;
     public int count;
     public GroupType type;
 
     public void getPairs(int index, List<NameValuePair> pairs) {
-      String key = DrillOnYarnConfig.append( DrillOnYarnConfig.CLUSTERS, Integer.toString( index ) );
-      addPairs( pairs, key );
+      String key = DrillOnYarnConfig.append(DrillOnYarnConfig.CLUSTERS,
+          Integer.toString(index));
+      addPairs(pairs, key);
     }
 
-    protected void addPairs( List<NameValuePair> pairs, String key )
-    {
-      pairs.add( new NameValuePair( DrillOnYarnConfig.append( key, GROUP_NAME ), name ) );
-      pairs.add( new NameValuePair( DrillOnYarnConfig.append( key, GROUP_TYPE ), type ) );
-      pairs.add( new NameValuePair( DrillOnYarnConfig.append( key, GROUP_SIZE ), count ) );
+    protected void addPairs(List<NameValuePair> pairs, String key) {
+      pairs.add(
+          new NameValuePair(DrillOnYarnConfig.append(key, GROUP_NAME), name));
+      pairs.add(
+          new NameValuePair(DrillOnYarnConfig.append(key, GROUP_TYPE), type));
+      pairs.add(
+          new NameValuePair(DrillOnYarnConfig.append(key, GROUP_SIZE), count));
     }
 
     public void dump(String prefix, PrintStream out) {
-      out.print( prefix );
-      out.print( "name = " );
-      out.println( name );
-      out.print( prefix );
-      out.print( "type = " );
-      out.println( type.toValue() );
-      out.print( prefix );
-      out.print( "count = " );
-      out.println( count );
+      out.print(prefix);
+      out.print("name = ");
+      out.println(name);
+      out.print(prefix);
+      out.print("type = ");
+      out.println(type.toValue());
+      out.print(prefix);
+      out.print("count = ");
+      out.println(count);
     }
 
-    public void load(Map<String,Object> pool, int index) {
+    public void load(Map<String, Object> pool, int index) {
       try {
-        count = (Integer) pool.get( GROUP_SIZE );
+        count = (Integer) pool.get(GROUP_SIZE);
+      } catch (ClassCastException e) {
+        throw new IllegalArgumentException(
+            "Expected an integer for " + GROUP_SIZE + " for tier " + index);
       }
-      catch ( ClassCastException e ) {
-        throw new IllegalArgumentException( "Expected an integer for " + GROUP_SIZE + " for tier " + index );
-      }
-      Object nameValue = pool.get( GROUP_NAME );
-      if ( nameValue != null ) {
+      Object nameValue = pool.get(GROUP_NAME);
+      if (nameValue != null) {
         name = nameValue.toString();
       }
-      if ( DoYUtil.isBlank( name ) ) {
-        name = "tier-" + Integer.toString( index );
+      if (DoYUtil.isBlank(name)) {
+        name = "tier-" + Integer.toString(index);
       }
     }
 
@@ -118,38 +120,35 @@ public class ClusterDef
     }
   }
 
-  public static class BasicGroup extends ClusterGroup
-  {
+  public static class BasicGroup extends ClusterGroup {
 
   }
 
-  public static class LabeledGroup extends ClusterGroup
-  {
+  public static class LabeledGroup extends ClusterGroup {
     public String drillbitLabelExpr;
 
-
     @Override
-    public void load(Map<String,Object> pool, int index) {
-      super.load( pool, index );
-      drillbitLabelExpr = (String) pool.get( DRILLBIT_LABEL );
-      if ( drillbitLabelExpr == null ) {
-        Log.warn( "Labeled pool is missing the drillbit label expression (" +
-                  DRILLBIT_LABEL + "), will treat pool as basic." );
+    public void load(Map<String, Object> pool, int index) {
+      super.load(pool, index);
+      drillbitLabelExpr = (String) pool.get(DRILLBIT_LABEL);
+      if (drillbitLabelExpr == null) {
+        Log.warn("Labeled pool is missing the drillbit label expression ("
+            + DRILLBIT_LABEL + "), will treat pool as basic.");
       }
     }
 
     @Override
     public void dump(String prefix, PrintStream out) {
-      out.print( prefix );
-      out.print( "Drillbit label expr = " );
-      out.println( (drillbitLabelExpr == null) ? "<none>" :  drillbitLabelExpr );
+      out.print(prefix);
+      out.print("Drillbit label expr = ");
+      out.println((drillbitLabelExpr == null) ? "<none>" : drillbitLabelExpr);
     }
 
     @Override
-    protected void addPairs( List<NameValuePair> pairs, String key )
-    {
-      super.addPairs( pairs, key );
-      pairs.add( new NameValuePair( DrillOnYarnConfig.append( key, DRILLBIT_LABEL ), drillbitLabelExpr ) );
+    protected void addPairs(List<NameValuePair> pairs, String key) {
+      super.addPairs(pairs, key);
+      pairs.add(new NameValuePair(DrillOnYarnConfig.append(key, DRILLBIT_LABEL),
+          drillbitLabelExpr));
     }
 
     @Override
@@ -165,37 +164,39 @@ public class ClusterDef
    * @return
    */
 
-  public static ClusterGroup getCluster( Config config, int n ) {
+  public static ClusterGroup getCluster(Config config, int n) {
     int index = n + 1;
     ConfigList tiers = config.getList(DrillOnYarnConfig.CLUSTERS);
-    ConfigValue value = tiers.get( n );
+    ConfigValue value = tiers.get(n);
     @SuppressWarnings("unchecked")
-    Map<String,Object> tier = (Map<String,Object>) value.unwrapped();
+    Map<String, Object> tier = (Map<String, Object>) value.unwrapped();
     String type;
     try {
-      type = tier.get( GROUP_TYPE ).toString();
+      type = tier.get(GROUP_TYPE).toString();
+    } catch (NullPointerException e) {
+      throw new IllegalArgumentException(
+          "Pool type is required for cluster group " + index);
     }
-    catch ( NullPointerException e ) {
-      throw new IllegalArgumentException( "Pool type is required for cluster group " + index );
-    }
-    GroupType groupType = GroupType.toEnum( type );
-    if ( groupType == null ) {
-      throw new IllegalArgumentException( "Undefined type for cluster group " + index + ": " + type );
+    GroupType groupType = GroupType.toEnum(type);
+    if (groupType == null) {
+      throw new IllegalArgumentException(
+          "Undefined type for cluster group " + index + ": " + type);
     }
     ClusterGroup tierDef;
-    switch ( groupType ) {
+    switch (groupType) {
     case BASIC:
-      tierDef = new BasicGroup( );
+      tierDef = new BasicGroup();
       break;
     case LABELED:
-      tierDef = new LabeledGroup( );
+      tierDef = new LabeledGroup();
       break;
     default:
       assert false;
-      throw new IllegalStateException( "Undefined cluster group type: " + groupType );
+      throw new IllegalStateException(
+          "Undefined cluster group type: " + groupType);
     }
     tierDef.type = groupType;
-    tierDef.load( tier, index );
+    tierDef.load(tier, index);
     return tierDef;
   }
 }

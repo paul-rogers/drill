@@ -39,8 +39,8 @@ import org.apache.hadoop.yarn.api.records.ContainerId;
  * higher priority groups.
  */
 
-public final class SchedulerStateImpl implements SchedulerState, SchedulerStateActions
-{
+public final class SchedulerStateImpl
+    implements SchedulerState, SchedulerStateActions {
   static final Log LOG = LogFactory.getLog(SchedulerStateImpl.class);
 
   private final Scheduler scheduler;
@@ -70,7 +70,8 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
 
   protected Map<ContainerId, Task> activeContainers = new HashMap<>();
 
-  public SchedulerStateImpl(ClusterControllerImpl controller, Scheduler scheduler) {
+  public SchedulerStateImpl(ClusterControllerImpl controller,
+      Scheduler scheduler) {
     this.controller = controller;
     this.scheduler = scheduler;
     scheduler.registerState(this);
@@ -120,22 +121,23 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
 
     // Special initial-state notification
 
-    EventContext context = new EventContext( controller, task );
-    controller.fireLifecycleChange( TaskLifecycleListener.Event.CREATED, context);
+    EventContext context = new EventContext(controller, task);
+    controller.fireLifecycleChange(TaskLifecycleListener.Event.CREATED,
+        context);
   }
 
   public int maxCurrentRequests() {
     return this.scheduler.getTaskManager().maxConcurrentAllocs();
   }
 
-
   @Override
   public boolean requestContainers(EventContext context, int maxRequests) {
     if (pendingTasks.isEmpty()) {
-      return false; }
+      return false;
+    }
 
-    maxRequests = Math.min( maxRequests, maxCurrentRequests() );
-    for ( int i = 0;  i < maxRequests &&  ! pendingTasks.isEmpty();  i++ ) {
+    maxRequests = Math.min(maxRequests, maxCurrentRequests());
+    for (int i = 0; i < maxRequests && !pendingTasks.isEmpty(); i++) {
       context.setTask(pendingTasks.get(0));
       context.getState().requestContainer(context);
     }
@@ -262,13 +264,15 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
     scheduler.completed(task);
     controller.taskEnded(task);
     if (isDone()) {
-      controller.taskGroupCompleted(this); }
+      controller.taskGroupCompleted(this);
+    }
     LOG.info("Task completed: " + task.toString());
   }
 
   /**
-   * Mark that a task is about to be retried. Task still retains its state
-   * from the current try.
+   * Mark that a task is about to be retried. Task still retains its state from
+   * the current try.
+   *
    * @param task
    */
 
@@ -301,7 +305,7 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
 
   @Override
   public boolean isDone() {
-    return ! hasTasks() && ! scheduler.hasMoreTasks();
+    return !hasTasks() && !scheduler.hasMoreTasks();
   }
 
   @Override
@@ -323,7 +327,8 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
 
   @Override
   public int getTaskCount() {
-    return pendingTasks.size() + allocatingTasks.size() + activeContainers.size();
+    return pendingTasks.size() + allocatingTasks.size()
+        + activeContainers.size();
   }
 
   @Override
@@ -335,15 +340,18 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
     int count = 0;
     for (Task task : pendingTasks) {
       if (task.isCancelled()) {
-        count++; }
+        count++;
+      }
     }
     for (Task task : allocatingTasks) {
       if (task.isCancelled()) {
-        count++; }
+        count++;
+      }
     }
     for (Task task : activeContainers.values()) {
       if (task.isCancelled()) {
-        count++; }
+        count++;
+      }
     }
     return count;
   }
@@ -353,11 +361,13 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
     List<Task> tasks = new ArrayList<>();
     for (Task task : pendingTasks) {
       if (!task.isCancelled()) {
-        tasks.add(task); }
+        tasks.add(task);
+      }
     }
     for (Task task : allocatingTasks) {
       if (!task.isCancelled()) {
-        tasks.add(task); }
+        tasks.add(task);
+      }
     }
     return tasks;
   }
@@ -367,7 +377,8 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
     List<Task> tasks = new ArrayList<>();
     for (Task task : activeContainers.values()) {
       if (!task.isCancelled()) {
-        tasks.add(task); }
+        tasks.add(task);
+      }
     }
     return tasks;
   }
@@ -381,8 +392,8 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
   @Override
   public int getLiveCount() {
     int count = 0;
-    for ( Task task : activeContainers.values() ) {
-      if ( task.isLive( ) ) {
+    for (Task task : activeContainers.values()) {
+      if (task.isLive()) {
         count++;
       }
     }
@@ -391,31 +402,31 @@ public final class SchedulerStateImpl implements SchedulerState, SchedulerStateA
 
   @Override
   public void visitTaskModels(TaskVisitor visitor) {
-    for ( Task task : pendingTasks ) {
-      visitor.visit( task );
+    for (Task task : pendingTasks) {
+      visitor.visit(task);
     }
-    for ( Task task : allocatingTasks ) {
-      visitor.visit( task );
+    for (Task task : allocatingTasks) {
+      visitor.visit(task);
     }
-    for ( Task task : activeContainers.values() ) {
-      visitor.visit( task );
+    for (Task task : activeContainers.values()) {
+      visitor.visit(task);
     }
   }
 
   @Override
   public Task getTask(int id) {
-    for ( Task task : pendingTasks ) {
-      if ( task.getId( ) == id ) {
+    for (Task task : pendingTasks) {
+      if (task.getId() == id) {
         return task;
       }
     }
-    for ( Task task : allocatingTasks ) {
-      if ( task.getId() == id ) {
+    for (Task task : allocatingTasks) {
+      if (task.getId() == id) {
         return task;
       }
     }
-    for ( Task task : activeContainers.values() ) {
-      if ( task.getId() == id ) {
+    for (Task task : activeContainers.values()) {
+      if (task.getId() == id) {
         return task;
       }
     }

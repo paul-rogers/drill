@@ -20,8 +20,7 @@ package org.apache.drill.yarn.appMaster;
 import org.apache.drill.yarn.core.ContainerRequestSpec;
 import org.apache.drill.yarn.core.LaunchSpec;
 
-public class TaskSpec
-{
+public class TaskSpec {
   /**
    * Number of YARN vcores (virtual cores) and amount of memory (in MB) needed
    * by this task.

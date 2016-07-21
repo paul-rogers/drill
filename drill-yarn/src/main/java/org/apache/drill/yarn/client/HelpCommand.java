@@ -17,8 +17,7 @@
  */
 package org.apache.drill.yarn.client;
 
-public class HelpCommand extends ClientCommand
-{
+public class HelpCommand extends ClientCommand {
   @Override
   public void run() {
     opts.usage();

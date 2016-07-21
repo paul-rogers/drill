@@ -61,53 +61,55 @@ import com.google.common.base.Function;
  * Manages cluster coordination utilizing zookeeper.
  * <p>
  * This is a clone of the Drill class
- * org.apache.drill.exec.coord.zk.ZKClusterCoordinator
- * with a number of modifications:
+ * org.apache.drill.exec.coord.zk.ZKClusterCoordinator with a number of
+ * modifications:
  * <ul>
- * <li>Removed dependency on the Drill config system. That
- * system uses Google's Guava library version 18, which conflicts
- * with the earlier versions used by YARN and Hadoop, which
- * resulted in runtime undefined method exceptions.</li>
- * <li>Instead of getting config information out of the Drill
- * config, the parameters are instead passed directly.</li>
- * <li>Adds support for the drillbits registered event which
- * was neither needed nor implemented by Drill.</li>
+ * <li>Removed dependency on the Drill config system. That system uses Google's
+ * Guava library version 18, which conflicts with the earlier versions used by
+ * YARN and Hadoop, which resulted in runtime undefined method exceptions.</li>
+ * <li>Instead of getting config information out of the Drill config, the
+ * parameters are instead passed directly.</li>
+ * <li>Adds support for the drillbits registered event which was neither needed
+ * nor implemented by Drill.</li>
  * <li>Use the YARN logging system instead of Drill's.</li>
  * </ul>
  * <p>
- * This class should be replaced by the Drill version if/when
- * the Guava conflicts can be resolved (and when registered
- * Drillbit notifications are added to the Drill version.)
+ * This class should be replaced by the Drill version if/when the Guava
+ * conflicts can be resolved (and when registered Drillbit notifications are
+ * added to the Drill version.)
  */
 
 public class ZKClusterCoordinator extends ClusterCoordinator {
 
-  protected static final Log logger = LogFactory.getLog(ZKClusterCoordinator.class);
+  protected static final Log logger = LogFactory
+      .getLog(ZKClusterCoordinator.class);
 
   private CuratorFramework curator;
   private ServiceDiscovery<DrillbitEndpoint> discovery;
-  private volatile Collection<DrillbitEndpoint> endpoints = Collections.emptyList();
+  private volatile Collection<DrillbitEndpoint> endpoints = Collections
+      .emptyList();
   private final String serviceName;
   private final CountDownLatch initialConnection = new CountDownLatch(1);
   private final TransientStoreFactory factory;
   private ServiceCache<DrillbitEndpoint> serviceCache;
 
-  public ZKClusterCoordinator(String connect, String zkRoot, String clusterId, int retryCount, int retryDelayMs, int connectTimeoutMs) throws IOException {
-    logger.debug("ZK connect: " + connect + ", zkRoot: " + zkRoot + ", clusterId: " + clusterId);
+  public ZKClusterCoordinator(String connect, String zkRoot, String clusterId,
+      int retryCount, int retryDelayMs, int connectTimeoutMs)
+      throws IOException {
+    logger.debug("ZK connect: " + connect + ", zkRoot: " + zkRoot
+        + ", clusterId: " + clusterId);
 
     this.serviceName = clusterId;
-    RetryPolicy rp = new RetryNTimes(retryCount,
-        retryDelayMs);
-    curator = CuratorFrameworkFactory.builder()
-      .namespace(zkRoot)
-      .connectionTimeoutMs(connectTimeoutMs)
-      .retryPolicy(rp)
-      .connectString(connect)
-      .build();
-    curator.getConnectionStateListenable().addListener(new InitialConnectionListener());
+    RetryPolicy rp = new RetryNTimes(retryCount, retryDelayMs);
+    curator = CuratorFrameworkFactory.builder().namespace(zkRoot)
+        .connectionTimeoutMs(connectTimeoutMs).retryPolicy(rp)
+        .connectString(connect).build();
+    curator.getConnectionStateListenable()
+        .addListener(new InitialConnectionListener());
     curator.start();
     discovery = newDiscovery();
-    factory = CachingTransientStoreFactory.of(new ZkTransientStoreFactory(curator));
+    factory = CachingTransientStoreFactory
+        .of(new ZkTransientStoreFactory(curator));
   }
 
   public CuratorFramework getCurator() {
@@ -119,29 +121,30 @@ public class ZKClusterCoordinator extends ClusterCoordinator {
     logger.debug("Starting ZKClusterCoordination.");
     discovery.start();
 
-    if(millisToWait != 0) {
-      boolean success = this.initialConnection.await(millisToWait, TimeUnit.MILLISECONDS);
+    if (millisToWait != 0) {
+      boolean success = this.initialConnection.await(millisToWait,
+          TimeUnit.MILLISECONDS);
       if (!success) {
-        throw new IOException(String.format("Failure to connect to the zookeeper cluster service within the allotted time of %d milliseconds.", millisToWait));
+        throw new IOException(String.format(
+            "Failure to connect to the zookeeper cluster service within the allotted time of %d milliseconds.",
+            millisToWait));
       }
-    }else{
+    } else {
       this.initialConnection.await();
     }
 
-    serviceCache = discovery
-        .serviceCacheBuilder()
-        .name(serviceName)
-        .build();
+    serviceCache = discovery.serviceCacheBuilder().name(serviceName).build();
     serviceCache.addListener(new EndpointListener());
     serviceCache.start();
     updateEndpoints();
   }
 
-  private class InitialConnectionListener implements ConnectionStateListener{
+  private class InitialConnectionListener implements ConnectionStateListener {
 
     @Override
-    public void stateChanged(CuratorFramework client, ConnectionState newState) {
-      if(newState == ConnectionState.CONNECTED) {
+    public void stateChanged(CuratorFramework client,
+        ConnectionState newState) {
+      if (newState == ConnectionState.CONNECTED) {
         initialConnection.countDown();
         client.getConnectionStateListenable().removeListener(this);
       }
@@ -151,7 +154,9 @@ public class ZKClusterCoordinator extends ClusterCoordinator {
 
   private class EndpointListener implements ServiceCacheListener {
     @Override
-    public void stateChanged(CuratorFramework client, ConnectionState newState) { }
+    public void stateChanged(CuratorFramework client,
+        ConnectionState newState) {
+    }
 
     @Override
     public void cacheChanged() {
@@ -162,16 +167,20 @@ public class ZKClusterCoordinator extends ClusterCoordinator {
 
   @Override
   public void close() throws Exception {
-    // discovery attempts to close its caches(ie serviceCache) already. however, being good citizens we make sure to
-    // explicitly close serviceCache. Not only that we make sure to close serviceCache before discovery to prevent
-    // double releasing and disallowing jvm to spit bothering warnings. simply put, we are great!
+    // discovery attempts to close its caches(ie serviceCache) already. however,
+    // being good citizens we make sure to
+    // explicitly close serviceCache. Not only that we make sure to close
+    // serviceCache before discovery to prevent
+    // double releasing and disallowing jvm to spit bothering warnings. simply
+    // put, we are great!
     AutoCloseables.close(serviceCache, discovery, curator, factory);
   }
 
   @Override
   public RegistrationHandle register(DrillbitEndpoint data) {
     try {
-      ServiceInstance<DrillbitEndpoint> serviceInstance = newServiceInstance(data);
+      ServiceInstance<DrillbitEndpoint> serviceInstance = newServiceInstance(
+          data);
       discovery.registerService(serviceInstance);
       return new ZKRegistrationHandle(serviceInstance.getId());
     } catch (Exception e) {
@@ -182,7 +191,8 @@ public class ZKClusterCoordinator extends ClusterCoordinator {
   @Override
   public void unregister(RegistrationHandle handle) {
     if (!(handle instanceof ZKRegistrationHandle)) {
-      throw new UnsupportedOperationException("Unknown handle type: " + handle.getClass().getName());
+      throw new UnsupportedOperationException(
+          "Unknown handle type: " + handle.getClass().getName());
     }
 
     // when Drillbit is unregistered, clean all the listeners registered in CC.
@@ -190,12 +200,9 @@ public class ZKClusterCoordinator extends ClusterCoordinator {
 
     ZKRegistrationHandle h = (ZKRegistrationHandle) handle;
     try {
-      ServiceInstance<DrillbitEndpoint> serviceInstance = ServiceInstance.<DrillbitEndpoint>builder()
-        .address("")
-        .port(0)
-        .id(h.id)
-        .name(serviceName)
-        .build();
+      ServiceInstance<DrillbitEndpoint> serviceInstance = ServiceInstance
+          .<DrillbitEndpoint> builder().address("").port(0).id(h.id)
+          .name(serviceName).build();
       discovery.unregisterService(serviceInstance);
     } catch (Exception e) {
       propagate(e);
@@ -207,28 +214,31 @@ public class ZKClusterCoordinator extends ClusterCoordinator {
     return this.endpoints;
   }
 
-
   @Override
   public DistributedSemaphore getSemaphore(String name, int maximumLeases) {
-    return new ZkDistributedSemaphore(curator, "/semaphore/" + name, maximumLeases);
+    return new ZkDistributedSemaphore(curator, "/semaphore/" + name,
+        maximumLeases);
   }
 
   @Override
-  public <V> TransientStore<V> getOrCreateTransientStore(final TransientStoreConfig<V> config) {
-    final ZkEphemeralStore<V> store = (ZkEphemeralStore<V>)factory.getOrCreateStore(config);
+  public <V> TransientStore<V> getOrCreateTransientStore(
+      final TransientStoreConfig<V> config) {
+    final ZkEphemeralStore<V> store = (ZkEphemeralStore<V>) factory
+        .getOrCreateStore(config);
     return store;
   }
 
   private synchronized void updateEndpoints() {
     try {
-      Collection<DrillbitEndpoint> newDrillbitSet =
-      transform(discovery.queryForInstances(serviceName),
-        new Function<ServiceInstance<DrillbitEndpoint>, DrillbitEndpoint>() {
-          @Override
-          public DrillbitEndpoint apply(ServiceInstance<DrillbitEndpoint> input) {
-            return input.getPayload();
-          }
-        });
+      Collection<DrillbitEndpoint> newDrillbitSet = transform(
+          discovery.queryForInstances(serviceName),
+          new Function<ServiceInstance<DrillbitEndpoint>, DrillbitEndpoint>() {
+            @Override
+            public DrillbitEndpoint apply(
+                ServiceInstance<DrillbitEndpoint> input) {
+              return input.getPayload();
+            }
+          });
 
       // set of newly dead bits : original bits - new set of active bits.
       Set<DrillbitEndpoint> unregisteredBits = new HashSet<>(endpoints);
@@ -245,10 +255,10 @@ public class ZKClusterCoordinator extends ClusterCoordinator {
         builder.append("Active drillbit set changed.  Now includes ");
         builder.append(newDrillbitSet.size());
         builder.append(" total bits.");
-        if ( ! newDrillbitSet.isEmpty() ) {
+        if (!newDrillbitSet.isEmpty()) {
           builder.append(" New active drillbits: \n");
         }
-        for (DrillbitEndpoint bit: newDrillbitSet) {
+        for (DrillbitEndpoint bit : newDrillbitSet) {
           builder.append('\t');
           builder.append(bit.getAddress());
           builder.append(':');
@@ -263,34 +273,29 @@ public class ZKClusterCoordinator extends ClusterCoordinator {
       }
 
       // Notify the drillbit listener for newly unregistered bits.
-      if (! (unregisteredBits.isEmpty()) ) {
+      if (!(unregisteredBits.isEmpty())) {
         drillbitUnregistered(unregisteredBits);
       }
       // Notify the drillbit listener for newly registered bits.
-      if (! (registeredBits.isEmpty()) ) {
-          drillbitRegistered(registeredBits);
-        }
+      if (!(registeredBits.isEmpty())) {
+        drillbitRegistered(registeredBits);
+      }
 
     } catch (Exception e) {
       logger.error("Failure while update Drillbit service location cache.", e);
     }
   }
 
-  protected ServiceInstance<DrillbitEndpoint> newServiceInstance(DrillbitEndpoint endpoint) throws Exception {
-    return ServiceInstance.<DrillbitEndpoint>builder()
-      .name(serviceName)
-      .payload(endpoint)
-      .build();
+  protected ServiceInstance<DrillbitEndpoint> newServiceInstance(
+      DrillbitEndpoint endpoint) throws Exception {
+    return ServiceInstance.<DrillbitEndpoint> builder().name(serviceName)
+        .payload(endpoint).build();
   }
 
-
   protected ServiceDiscovery<DrillbitEndpoint> newDiscovery() {
-    return ServiceDiscoveryBuilder
-      .builder(DrillbitEndpoint.class)
-      .basePath("/")
-      .client(curator)
-      .serializer(DrillServiceInstanceHelper.SERIALIZER)
-      .build();
+    return ServiceDiscoveryBuilder.builder(DrillbitEndpoint.class).basePath("/")
+        .client(curator).serializer(DrillServiceInstanceHelper.SERIALIZER)
+        .build();
   }
 
 }

@@ -61,17 +61,16 @@ public class Dispatcher
    * which events are from the Resource Manager.
    */
 
-  private class ResourceCallback implements AMRMClientAsync.CallbackHandler
-  {
+  private class ResourceCallback implements AMRMClientAsync.CallbackHandler {
     @Override
     public void onContainersAllocated(List<Container> containers) {
-      LOG.trace( "NM: Containers allocated: " + containers.size() );
+      LOG.trace("NM: Containers allocated: " + containers.size());
       controller.containersAllocated(containers);
     }
 
     @Override
     public void onContainersCompleted(List<ContainerStatus> statuses) {
-      LOG.trace( "NM: Containers completed: " + statuses.size() );
+      LOG.trace("NM: Containers completed: " + statuses.size());
       controller.containersCompleted(statuses);
     }
 
@@ -83,7 +82,7 @@ public class Dispatcher
 
     @Override
     public void onNodesUpdated(List<NodeReport> updatedNodes) {
-      LOG.trace("RM: Nodes updated, count= " + updatedNodes.size( ) );
+      LOG.trace("RM: Nodes updated, count= " + updatedNodes.size());
     }
 
     @Override
@@ -92,14 +91,14 @@ public class Dispatcher
       // This is a good time to update status, even if it looks a bit
       // bizarre...
 
-      controller.updateRMStatus( );
+      controller.updateRMStatus();
       return controller.getProgress();
     }
 
     @Override
     public void onError(Throwable e) {
       LOG.error("Fatal RM Error: " + e.getMessage());
-      LOG.error( "AM Shutting down!" );
+      LOG.error("AM Shutting down!");
       controller.shutDown();
     }
   }
@@ -109,39 +108,42 @@ public class Dispatcher
    * events are, in fact, from the node manager.
    */
 
-  public class NodeCallback implements NMClientAsync.CallbackHandler
-  {
+  public class NodeCallback implements NMClientAsync.CallbackHandler {
     @Override
     public void onStartContainerError(ContainerId containerId, Throwable t) {
-      LOG.trace( "CNM: ontainer start error: " + containerId, t );
+      LOG.trace("CNM: ontainer start error: " + containerId, t);
       controller.taskStartFailed(containerId, t);
     }
 
     @Override
-    public void onContainerStarted(ContainerId containerId, Map<String, ByteBuffer> allServiceResponse) {
-      LOG.trace( "NM: Container started: " + containerId );
+    public void onContainerStarted(ContainerId containerId,
+        Map<String, ByteBuffer> allServiceResponse) {
+      LOG.trace("NM: Container started: " + containerId);
       controller.containerStarted(containerId);
     }
 
     @Override
-    public void onContainerStatusReceived(ContainerId containerId, ContainerStatus containerStatus) {
-      LOG.trace("NM: Container status: " + containerId + " - " + containerStatus.toString());
+    public void onContainerStatusReceived(ContainerId containerId,
+        ContainerStatus containerStatus) {
+      LOG.trace("NM: Container status: " + containerId + " - "
+          + containerStatus.toString());
     }
 
     @Override
-    public void onGetContainerStatusError(ContainerId containerId, Throwable t) {
+    public void onGetContainerStatusError(ContainerId containerId,
+        Throwable t) {
       LOG.trace("NM: Container error: " + containerId, t);
     }
 
     @Override
     public void onStopContainerError(ContainerId containerId, Throwable t) {
-      LOG.trace( "NM: Stop container error: " + containerId, t );
+      LOG.trace("NM: Stop container error: " + containerId, t);
       controller.stopTaskFailed(containerId, t);
     }
 
     @Override
     public void onContainerStopped(ContainerId containerId) {
-      LOG.trace( "NM: Container stopped: " + containerId );
+      LOG.trace("NM: Container stopped: " + containerId);
       controller.containerStopped(containerId);
     }
   }
@@ -151,8 +153,7 @@ public class Dispatcher
    * timeouts.
    */
 
-  public class TimerCallback implements PulseRunnable.PulseCallback
-  {
+  public class TimerCallback implements PulseRunnable.PulseCallback {
     /**
      * The lifecycle of each task is driven by RM and NM callbacks. We use the
      * timer to start the process. While this is overkill here, in a real app,
@@ -200,13 +201,33 @@ public class Dispatcher
     controller = new ClusterControllerImpl(yarn);
   }
 
-  public ClusterController getController() { return controller; }
-  public void registerPollable(Pollable pollable) { pollables.add(pollable); }
-  public void registerAddOn(DispatcherAddOn addOn) { addOns.add(addOn); }
-  public void setHttpPort( int port ) { httpPort = port; }
-  public void setTrackingUrl( String trackingUrl) { this.trackingUrl = trackingUrl; }
-  public String getTrackingUrl( ) { return yarn.getTrackingUrl(); }
-  public void setAMRegistrar(AMRegistrar registrar) { amRegistrar = registrar; }
+  public ClusterController getController() {
+    return controller;
+  }
+
+  public void registerPollable(Pollable pollable) {
+    pollables.add(pollable);
+  }
+
+  public void registerAddOn(DispatcherAddOn addOn) {
+    addOns.add(addOn);
+  }
+
+  public void setHttpPort(int port) {
+    httpPort = port;
+  }
+
+  public void setTrackingUrl(String trackingUrl) {
+    this.trackingUrl = trackingUrl;
+  }
+
+  public String getTrackingUrl() {
+    return yarn.getTrackingUrl();
+  }
+
+  public void setAMRegistrar(AMRegistrar registrar) {
+    amRegistrar = registrar;
+  }
 
   /**
    * Start the dispatcher by initializing YARN and registering the AM.
@@ -214,8 +235,7 @@ public class Dispatcher
    * @return true if successful, false if the dispatcher did not start.
    */
 
-  public boolean start() throws YarnFacadeException
-  {
+  public boolean start() throws YarnFacadeException {
 
     // Start the connection to YARN to get information about this app, and to
     // create a session we can use to report problems.
@@ -224,7 +244,7 @@ public class Dispatcher
       setup();
     } catch (AMException e) {
       String msg = e.getMessage();
-      LOG.error( "Fatal error: " + msg );
+      LOG.error("Fatal error: " + msg);
       yarn.finish(false, msg);
       return false;
     }
@@ -235,21 +255,20 @@ public class Dispatcher
     // attempt to retry the AM.
 
     try {
-      register( );
+      register();
     } catch (AMRegistrationException e) {
-      LOG.error( e.getMessage(), e );
-      yarn.finish( true, e.getMessage() );
+      LOG.error(e.getMessage(), e);
+      yarn.finish(true, e.getMessage());
       return false;
     }
     return true;
   }
 
-  public void run() throws YarnFacadeException
-  {
+  public void run() throws YarnFacadeException {
     // Only if registration is successful do we start the pulse thread
     // which will cause containers to be requested.
 
-    startTimer( );
+    startTimer();
 
     // Run until the controller decides to shut down.
 
@@ -266,7 +285,7 @@ public class Dispatcher
     LOG.trace("Starting YARN agent");
     yarn.start(new ResourceCallback(), new NodeCallback());
     LOG.trace("Registering YARN application");
-    yarn.register( trackingUrl.replace( "<port>", Integer.toString( httpPort ) ) );
+    yarn.register(trackingUrl.replace("<port>", Integer.toString(httpPort)));
     controller.started();
 
     for (DispatcherAddOn addOn : addOns) {
@@ -275,17 +294,16 @@ public class Dispatcher
   }
 
   private void register() throws AMRegistrationException {
-    if ( amRegistrar == null ) {
-      LOG.warn( "No AM Registrar provided: cannot check if this is the only AM for the Drill cluster." );
-    }
-    else {
+    if (amRegistrar == null) {
+      LOG.warn(
+          "No AM Registrar provided: cannot check if this is the only AM for the Drill cluster.");
+    } else {
       YarnAppHostReport rpt = yarn.getAppHostReport();
-      amRegistrar.register( rpt.amHost, httpPort, rpt.appId );
+      amRegistrar.register(rpt.amHost, httpPort, rpt.appId);
     }
   }
 
-  private void startTimer( )
-  {
+  private void startTimer() {
     timer = new PulseRunnable(timerPeriodMs, new TimerCallback());
 
     // Start the pulse thread after registering so that we're in
@@ -296,8 +314,7 @@ public class Dispatcher
     pulseThread.start();
   }
 
-  private void finish(boolean success, String msg) throws YarnFacadeException
-  {
+  private void finish(boolean success, String msg) throws YarnFacadeException {
     for (DispatcherAddOn addOn : addOns) {
       addOn.finish(controller);
     }
@@ -308,7 +325,7 @@ public class Dispatcher
     // timer events don't try to use the YARN API during
     // shutdown.
 
-    stopTimer( );
+    stopTimer();
     yarn.finish(success, msg);
   }
 

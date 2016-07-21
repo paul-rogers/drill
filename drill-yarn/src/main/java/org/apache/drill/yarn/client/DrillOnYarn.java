@@ -72,29 +72,26 @@ import org.apache.log4j.BasicConfigurator;
  * -Dlogback.configurationFile=/path/to/drill-site/yarn-client-log.xml<br>
  */
 
-public class DrillOnYarn
-{
-  public static void main(String argv[])
-  {
+public class DrillOnYarn {
+  public static void main(String argv[]) {
     BasicConfigurator.configure();
-    ClientContext.init( );
-    run( argv );
+    ClientContext.init();
+    run(argv);
   }
 
-  public static void run( String argv[] )
-  {
+  public static void run(String argv[]) {
     ClientContext context = ClientContext.instance();
 
     // Parse command-line options.
 
     CommandLineOptions opts = new CommandLineOptions();
-    if ( ! opts.parse(argv) ) {
+    if (!opts.parse(argv)) {
       opts.usage();
-      context.exit( -1 );
+      context.exit(-1);
     }
-    if ( opts.getCommand() == null ) {
+    if (opts.getCommand() == null) {
       opts.usage();
-      context.exit( -1 );
+      context.exit(-1);
     }
 
     // Load configuration.
@@ -102,50 +99,50 @@ public class DrillOnYarn
     try {
       DrillOnYarnConfig.load().setClientPaths();
     } catch (DoyConfigException e) {
-      ClientContext.err.println( e.getMessage() );
-      context.exit( -1 );
+      ClientContext.err.println(e.getMessage());
+      context.exit(-1);
     }
 
     // Create the required command object.
 
     ClientCommand cmd;
     switch (opts.getCommand()) {
-      case UPLOAD:
-        cmd = new StartCommand( true, false );
-        break;
-      case START:
-        cmd = new StartCommand( true, true );
-        break;
-      case RESTART:
-        cmd = new StartCommand( false, true );
-        break;
-      case DESCRIBE:
-        cmd = new PrintConfigCommand( );
-        break;
-      case STATUS:
-        cmd = new StatusCommand( );
-        break;
-      case STOP:
-        cmd = new StopCommand( );
-        break;
-      case CLEAN:
-        cmd = new CleanCommand( );
-        break;
-      case RESIZE:
-        cmd = new ResizeCommand( );
-        break;
-      default:
-        cmd = new HelpCommand( );
+    case UPLOAD:
+      cmd = new StartCommand(true, false);
+      break;
+    case START:
+      cmd = new StartCommand(true, true);
+      break;
+    case RESTART:
+      cmd = new StartCommand(false, true);
+      break;
+    case DESCRIBE:
+      cmd = new PrintConfigCommand();
+      break;
+    case STATUS:
+      cmd = new StatusCommand();
+      break;
+    case STOP:
+      cmd = new StopCommand();
+      break;
+    case CLEAN:
+      cmd = new CleanCommand();
+      break;
+    case RESIZE:
+      cmd = new ResizeCommand();
+      break;
+    default:
+      cmd = new HelpCommand();
     }
 
     // Run the command.
 
-    cmd.setOpts( opts );
+    cmd.setOpts(opts);
     try {
       cmd.run();
     } catch (ClientException e) {
-      ClientContext.err.println( e.getMessage() );
-      context.exit( 1 );
+      ClientContext.err.println(e.getMessage());
+      context.exit(1);
     }
   }
 }

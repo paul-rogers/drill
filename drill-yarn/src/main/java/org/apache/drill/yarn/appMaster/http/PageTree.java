@@ -35,8 +35,7 @@ import com.typesafe.config.Config;
  * compact way to implement the UI.
  */
 
-public class PageTree extends ResourceConfig
-{
+public class PageTree extends ResourceConfig {
   // These items are a bit clumsy. We need them, but we can't make them
   // instance variables without a bunch of messiness in the page classes.
   // So, we let them be static. No harm in setting them multiple times.
@@ -44,9 +43,9 @@ public class PageTree extends ResourceConfig
   static Dispatcher dispatcher;
   static Config config;
 
-  public PageTree( Dispatcher dispatcher ) {
+  public PageTree(Dispatcher dispatcher) {
     PageTree.dispatcher = dispatcher;
-    config = DrillOnYarnConfig.config( );
+    config = DrillOnYarnConfig.config();
   }
 
   /**
@@ -58,21 +57,24 @@ public class PageTree extends ResourceConfig
    * @return
    */
 
-  public static Map<String,Object> toModel( SecurityContext sc, Object base ) {
-    Map<String,Object> model = new HashMap<>( );
-    model.put( "model", base );
-    return toMapModel( sc, model );
+  public static Map<String, Object> toModel(SecurityContext sc, Object base) {
+    Map<String, Object> model = new HashMap<>();
+    model.put("model", base);
+    return toMapModel(sc, model);
   }
 
-  public static Map<String,Object> toMapModel( SecurityContext sc, Map<String,Object> model ) {
-    model.put( "clusterName", config.getString( DrillOnYarnConfig.APP_NAME ) );
+  public static Map<String, Object> toMapModel(SecurityContext sc,
+      Map<String, Object> model) {
+    model.put("clusterName", config.getString(DrillOnYarnConfig.APP_NAME));
     boolean useAuth = AMSecurityManagerImpl.isEnabled();
-    final boolean isUserLoggedIn = (useAuth) ? AuthDynamicFeature.isUserLoggedIn(sc) : false;
-    model.put( "showLogin", useAuth && ! isUserLoggedIn );
-    model.put( "showLogout", isUserLoggedIn );
-    model.put( "docsLink", config.getString( DrillOnYarnConfig.HTTP_DOCS_LINK ) );
-    String userName = isUserLoggedIn ? sc.getUserPrincipal().getName() : DrillUserPrincipal.ANONYMOUS_USER;
-    model.put( "loggedInUserName", userName );
+    final boolean isUserLoggedIn = (useAuth)
+        ? AuthDynamicFeature.isUserLoggedIn(sc) : false;
+    model.put("showLogin", useAuth && !isUserLoggedIn);
+    model.put("showLogout", isUserLoggedIn);
+    model.put("docsLink", config.getString(DrillOnYarnConfig.HTTP_DOCS_LINK));
+    String userName = isUserLoggedIn ? sc.getUserPrincipal().getName()
+        : DrillUserPrincipal.ANONYMOUS_USER;
+    model.put("loggedInUserName", userName);
     return model;
   }
 }

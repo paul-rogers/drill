@@ -22,13 +22,11 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.drill.yarn.core.ContainerRequestSpec;
 import org.apache.hadoop.yarn.api.records.Resource;
 
-public abstract class AbstractScheduler implements Scheduler
-{
+public abstract class AbstractScheduler implements Scheduler {
   private static final Log LOG = LogFactory.getLog(AbstractScheduler.class);
   private final String name;
   private final String type;
   protected TaskSpec taskSpec;
-//  private SchedulerListener listener;
   protected int priority;
   protected int failCount;
   private TaskManager taskManager;
@@ -57,17 +55,24 @@ public abstract class AbstractScheduler implements Scheduler
   }
 
   @Override
-  public String getName() { return name; }
-
-
-  @Override
-  public String getType() { return type; }
+  public String getName() {
+    return name;
+  }
 
   @Override
-  public TaskManager getTaskManager() { return taskManager; }
+  public String getType() {
+    return type;
+  }
 
   @Override
-  public void change(int delta) { resize(getTarget() + delta); }
+  public TaskManager getTaskManager() {
+    return taskManager;
+  }
+
+  @Override
+  public void change(int delta) {
+    resize(getTarget() + delta);
+  }
 
   protected void addTasks(int n) {
     for (int i = 0; i < n; i++) {
@@ -76,7 +81,9 @@ public abstract class AbstractScheduler implements Scheduler
   }
 
   @Override
-  public boolean isTracked() { return isTracked; }
+  public boolean isTracked() {
+    return isTracked;
+  }
 
   @Override
   public ContainerRequestSpec getResource() {
@@ -85,18 +92,16 @@ public abstract class AbstractScheduler implements Scheduler
 
   @Override
   public void limitContainerSize(Resource maxResource) throws AMException {
-    if ( taskSpec.containerSpec.memoryMb > maxResource.getMemory() ) {
-      LOG.warn( taskSpec.name + " requires " +
-                             taskSpec.containerSpec.memoryMb +
-                             " MB but the maximum YARN container size is " +
-                             maxResource.getMemory() + " MB" );
+    if (taskSpec.containerSpec.memoryMb > maxResource.getMemory()) {
+      LOG.warn(taskSpec.name + " requires " + taskSpec.containerSpec.memoryMb
+          + " MB but the maximum YARN container size is "
+          + maxResource.getMemory() + " MB");
       taskSpec.containerSpec.memoryMb = maxResource.getMemory();
     }
-    if ( taskSpec.containerSpec.vCores > maxResource.getVirtualCores() ) {
-      LOG.warn( taskSpec.name + " requires " +
-                             taskSpec.containerSpec.vCores +
-                             " vcores but the maximum YARN container size is " +
-                             maxResource.getVirtualCores() + " vcores" );
+    if (taskSpec.containerSpec.vCores > maxResource.getVirtualCores()) {
+      LOG.warn(taskSpec.name + " requires " + taskSpec.containerSpec.vCores
+          + " vcores but the maximum YARN container size is "
+          + maxResource.getVirtualCores() + " vcores");
       taskSpec.containerSpec.vCores = maxResource.getVirtualCores();
     }
   }

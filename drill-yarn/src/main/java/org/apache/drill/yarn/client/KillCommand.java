@@ -21,28 +21,28 @@ import org.apache.drill.yarn.core.YarnClientException;
 import org.apache.drill.yarn.core.YarnRMClient;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 
-public class KillCommand extends ClientCommand
-{
+public class KillCommand extends ClientCommand {
 
   @Override
   public void run() throws ClientException {
-    ApplicationId appId = checkAppId( );
-    if ( appId == null ) {
-      System.exit( -1 );
+    ApplicationId appId = checkAppId();
+    if (appId == null) {
+      System.exit(-1);
     }
-    YarnRMClient client = new YarnRMClient( appId );
+    YarnRMClient client = new YarnRMClient(appId);
     try {
-      client.killApplication( );
+      client.killApplication();
     } catch (YarnClientException e) {
-      throw new ClientException( e );
+      throw new ClientException(e);
     }
-    System.out.println( "Kill request sent, waiting for shut-down." );
+    System.out.println("Kill request sent, waiting for shut-down.");
     try {
       client.waitForCompletion();
     } catch (YarnClientException e) {
-      throw new ClientException( "Wait for completion failed for app id: " + appId.toString(), e );
+      throw new ClientException(
+          "Wait for completion failed for app id: " + appId.toString(), e);
     }
-    System.out.println( "Application completed: " + appId.toString() );
+    System.out.println("Application completed: " + appId.toString());
   }
 
 }

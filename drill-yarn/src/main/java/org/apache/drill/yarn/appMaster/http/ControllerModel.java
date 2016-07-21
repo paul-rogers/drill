@@ -38,10 +38,8 @@ import org.apache.drill.yarn.zk.ZKRegistry;
 import com.typesafe.config.Config;
 
 @XmlRootElement
-public class ControllerModel implements ControllerVisitor
-{
-  public static class ClusterGroupModel
-  {
+public class ControllerModel implements ControllerVisitor {
+  public static class ClusterGroupModel {
     protected String name;
     protected String type;
     protected int targetCount;
@@ -140,8 +138,7 @@ public class ControllerModel implements ControllerVisitor
     supportsDisks = impl.supportsDiskResource();
   }
 
-  private void capturePools( ClusterControllerImpl impl )
-  {
+  private void capturePools(ClusterControllerImpl impl) {
     for ( SchedulerStateActions pool : impl.getPools( ) ) {
       ControllerModel.ClusterGroupModel poolModel = new ControllerModel.ClusterGroupModel( );
       Scheduler sched = pool.getScheduler();

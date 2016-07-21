@@ -38,12 +38,10 @@ import org.apache.drill.yarn.zk.ZKRegistry;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.Resource;
 
-public abstract class AbstractTasksModel
-{
-  public static class TaskModel
-  {
+public abstract class AbstractTasksModel {
+  public static class TaskModel {
     public int id;
-    protected String poolName;
+    protected String groupName;
     protected boolean isLive;
     protected TaskState taskState;
     protected String taskStateHint;
@@ -66,21 +64,20 @@ public abstract class AbstractTasksModel
     private Map<TaskState,String> stateHints = makeStateHints( );
     private Map<TrackingState,String> trackingStateHints = makeTrackingStateHints( );
 
-    public TaskModel( Task task, boolean live )
-    {
+    public TaskModel(Task task, boolean live) {
       id = task.taskId;
-      poolName = task.scheduler.getName();
+      groupName = task.scheduler.getName();
       taskState = task.getState();
-      taskStateHint = stateHints.get( taskState );
-      state = taskState.getLabel( );
+      taskStateHint = stateHints.get(taskState);
+      state = taskState.getLabel();
       cancelled = task.isCancelled();
-      isLive = live &&  taskState == TaskState.RUNNING;
-      TrackingState tState = task.getTrackingState( );
+      isLive = live && taskState == TaskState.RUNNING;
+      TrackingState tState = task.getTrackingState();
       trackingState = tState.getDisplayName();
-      trackingStateHint = trackingStateHints.get( tState );
+      trackingStateHint = trackingStateHints.get(tState);
       container = task.container;
       startTime = task.launchTime;
-      if ( task.container != null ) {
+      if (task.container != null) {
         containerId = task.container.getId().toString();
         Resource resource = task.container.getResource();
         memoryMb = resource.getMemory();
@@ -92,13 +89,13 @@ public abstract class AbstractTasksModel
         // logs, etc.
 
         nmLink = "http://" + task.container.getNodeHttpAddress();
-      }
-      else {
+      } else {
         memoryMb = task.scheduler.getResource().memoryMb;
         vcores = task.scheduler.getResource().vCores;
       }
-      endpoint = (DrillbitEndpoint) task.properties.get( ZKRegistry.ENDPOINT_PROPERTY );
-      if ( ! live ) {
+      endpoint = (DrillbitEndpoint) task.properties
+          .get(ZKRegistry.ENDPOINT_PROPERTY);
+      if (!live) {
         endTime = task.completionTime;
         tryCount = task.tryCount;
 
@@ -106,51 +103,59 @@ public abstract class AbstractTasksModel
         // specific sources of information.
 
         disposition = state;
-        if ( task.disposition != null ) {
+        if (task.disposition != null) {
           disposition = task.disposition.toString();
         }
-        if ( task.completionStatus != null ) {
+        if (task.completionStatus != null) {
           disposition = task.completionStatus.getDiagnostics();
-          if ( disposition != null ) {
-            disposition = disposition.replace( "\n", "<br>\n" );
+          if (disposition != null) {
+            disposition = disposition.replace("\n", "<br>\n");
           }
         }
-        if ( task.error != null ) {
-          disposition = task.error.getMessage( );
+        if (task.error != null) {
+          disposition = task.error.getMessage();
         }
       }
     }
 
     private Map<TaskState, String> makeStateHints() {
-      Map<TaskState, String> hints = new HashMap<>( );
-      hints.put( TaskState.START, "Queued to send a container request to YARN." );
-      hints.put( TaskState.REQUESTING, "Container request sent to YARN." );
-      hints.put( TaskState.LAUNCHING, "YARN provided a container, send launch request." );
-      hints.put( TaskState.WAIT_START_ACK, "Drillbit launched, waiting for ZooKeeper registration." );
-      hints.put( TaskState.RUNNING, "Drillbit is running normally." );
-      hints.put( TaskState.ENDING, "Graceful shutdown request sent to the Drillbit." );
-      hints.put( TaskState.KILLING, "Sent the YARN Node Manager a request to forcefully kill the Drillbit." );
-      hints.put( TaskState.WAIT_END_ACK, "Drillbit has shut down; waiting for ZooKeeper to confirm." );
+      Map<TaskState, String> hints = new HashMap<>();
+      hints.put(TaskState.START, "Queued to send a container request to YARN.");
+      hints.put(TaskState.REQUESTING, "Container request sent to YARN.");
+      hints.put(TaskState.LAUNCHING,
+          "YARN provided a container, send launch request.");
+      hints.put(TaskState.WAIT_START_ACK,
+          "Drillbit launched, waiting for ZooKeeper registration.");
+      hints.put(TaskState.RUNNING, "Drillbit is running normally.");
+      hints.put(TaskState.ENDING,
+          "Graceful shutdown request sent to the Drillbit.");
+      hints.put(TaskState.KILLING,
+          "Sent the YARN Node Manager a request to forcefully kill the Drillbit.");
+      hints.put(TaskState.WAIT_END_ACK,
+          "Drillbit has shut down; waiting for ZooKeeper to confirm.");
       // The UI will never display the END state.
-      hints.put( TaskState.END, "The Drillbit has shut down." );
+      hints.put(TaskState.END, "The Drillbit has shut down.");
       return hints;
     }
 
     private Map<TrackingState, String> makeTrackingStateHints() {
-      Map<TrackingState, String> hints = new HashMap<>( );
+      Map<TrackingState, String> hints = new HashMap<>();
       // UNTRACKED state is not used by Drillbits.
-      hints.put( TrackingState.UNTRACKED, "Task is not tracked in ZooKeeper." );
-      hints.put( TrackingState.NEW, "Drillbit has not yet registered with ZooKeeper." );
-      hints.put( TrackingState.START_ACK, "Drillbit has registered normally with ZooKeeper." );
-      hints.put( TrackingState.END_ACK, "Drillbit is no longer registered with ZooKeeper." );
+      hints.put(TrackingState.UNTRACKED, "Task is not tracked in ZooKeeper.");
+      hints.put(TrackingState.NEW,
+          "Drillbit has not yet registered with ZooKeeper.");
+      hints.put(TrackingState.START_ACK,
+          "Drillbit has registered normally with ZooKeeper.");
+      hints.put(TrackingState.END_ACK,
+          "Drillbit is no longer registered with ZooKeeper.");
       return hints;
     }
 
-    public String getTaskId( ) {
-      return Integer.toString( id );
+    public String getTaskId() {
+      return Integer.toString(id);
     }
 
-    public String getPoolName( ) { return poolName; }
+    public String getGroupName( ) { return groupName; }
 
     public boolean isLive( ) {
       return isLive;

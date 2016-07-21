@@ -27,162 +27,160 @@ import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
 
-public class StatusCommand extends ClientCommand
-{
-  public static class Reporter
-  {
+public class StatusCommand extends ClientCommand {
+  public static class Reporter {
     private YarnRMClient client;
     ApplicationReport report;
 
-    public Reporter( YarnRMClient client ) {
+    public Reporter(YarnRMClient client) {
       this.client = client;
     }
 
-    public void getReport( ) throws ClientException {
+    public void getReport() throws ClientException {
       try {
         report = client.getAppReport();
       } catch (YarnClientException e) {
-        throw new ClientException( "Failed to get report for Drill application master", e );
+        throw new ClientException(
+            "Failed to get report for Drill application master", e);
       }
     }
 
-    public void display( boolean verbose, boolean isNew ) {
+    public void display(boolean verbose, boolean isNew) {
       YarnApplicationState state = report.getYarnApplicationState();
-      if ( verbose || ! isNew ) {
-        System.out.println( "Application State: " + state.toString() );
-        System.out.println( "Host: " + report.getHost() );
+      if (verbose || !isNew) {
+        System.out.println("Application State: " + state.toString());
+        System.out.println("Host: " + report.getHost());
       }
-      if ( verbose || ! isNew ) {
-        System.out.println( "Queue: " + report.getQueue() );
-        System.out.println( "User: " + report.getUser() );
+      if (verbose || !isNew) {
+        System.out.println("Queue: " + report.getQueue());
+        System.out.println("User: " + report.getUser());
         long startTime = report.getStartTime();
-        System.out.println( "Start Time: " + DoYUtil.toIsoTime( startTime ) );
-        System.out.println( "Application Name: " + report.getName() );
+        System.out.println("Start Time: " + DoYUtil.toIsoTime(startTime));
+        System.out.println("Application Name: " + report.getName());
       }
-      System.out.println( "Tracking URL: " + report.getTrackingUrl() );
-      if ( isNew ) {
-        System.out.println( "Application Master URL: " + getAmUrl( ) );
+      System.out.println("Tracking URL: " + report.getTrackingUrl());
+      if (isNew) {
+        System.out.println("Application Master URL: " + getAmUrl());
       }
-      showFinalStatus( );
+      showFinalStatus();
     }
 
-    public String getAmUrl( ) {
-      return StatusCommand.getAmUrl( report );
+    public String getAmUrl() {
+      return StatusCommand.getAmUrl(report);
     }
 
-    public void showFinalStatus( )
-    {
+    public void showFinalStatus() {
       YarnApplicationState state = report.getYarnApplicationState();
-      if ( state == YarnApplicationState.FAILED  ||  state == YarnApplicationState.FINISHED ) {
+      if (state == YarnApplicationState.FAILED
+          || state == YarnApplicationState.FINISHED) {
         FinalApplicationStatus status = report.getFinalApplicationStatus();
-        System.out.println( "Final status: " + status.toString() );
-        if ( status != FinalApplicationStatus.SUCCEEDED ) {
+        System.out.println("Final status: " + status.toString());
+        if (status != FinalApplicationStatus.SUCCEEDED) {
           String diag = report.getDiagnostics();
-          if ( ! DoYUtil.isBlank( diag ) ) {
-            System.out.println( "Diagnostics: " + diag );
+          if (!DoYUtil.isBlank(diag)) {
+            System.out.println("Diagnostics: " + diag);
           }
         }
       }
     }
 
-    public YarnApplicationState getState( ) {
+    public YarnApplicationState getState() {
       return report.getYarnApplicationState();
     }
 
     public boolean isStarting() {
       YarnApplicationState state = getState();
-      return state == YarnApplicationState.ACCEPTED ||
-             state == YarnApplicationState.NEW  ||
-             state == YarnApplicationState.NEW_SAVING ||
-             state == YarnApplicationState.SUBMITTED;
+      return state == YarnApplicationState.ACCEPTED
+          || state == YarnApplicationState.NEW
+          || state == YarnApplicationState.NEW_SAVING
+          || state == YarnApplicationState.SUBMITTED;
     }
 
     public boolean isStopped() {
       YarnApplicationState state = getState();
-      return state == YarnApplicationState.FAILED  ||
-             state == YarnApplicationState.FINISHED  ||
-             state == YarnApplicationState.KILLED;
+      return state == YarnApplicationState.FAILED
+          || state == YarnApplicationState.FINISHED
+          || state == YarnApplicationState.KILLED;
     }
 
-    public boolean isRunning( ) {
+    public boolean isRunning() {
       YarnApplicationState state = getState();
       return state == YarnApplicationState.RUNNING;
     }
   }
 
-  public static String getAmUrl( ApplicationReport report ) {
-    return DoYUtil.unwrapAmUrl( report.getOriginalTrackingUrl() );
+  public static String getAmUrl(ApplicationReport report) {
+    return DoYUtil.unwrapAmUrl(report.getOriginalTrackingUrl());
   }
 
   @Override
   public void run() throws ClientException {
-    YarnRMClient client = getClient( );
+    YarnRMClient client = getClient();
     System.out.println("Application ID: " + client.getAppId().toString());
-    Reporter reporter = new Reporter( client );
+    Reporter reporter = new Reporter(client);
     try {
-      reporter.getReport( );
+      reporter.getReport();
     } catch (Exception e) {
-      removeAppIdFile( );
-      System.out.println( "Application is not running." );
+      removeAppIdFile();
+      System.out.println("Application is not running.");
       return;
     }
-    reporter.display( opts.verbose, false );
-    if ( reporter.isRunning( ) ) {
-      showAmStatus( reporter.report );
+    reporter.display(opts.verbose, false);
+    if (reporter.isRunning()) {
+      showAmStatus(reporter.report);
     }
   }
 
   private void showAmStatus(ApplicationReport report) {
     try {
-      String baseUrl = getAmUrl( report );
-      if ( DoYUtil.isBlank( baseUrl ) ) {
+      String baseUrl = getAmUrl(report);
+      if (DoYUtil.isBlank(baseUrl)) {
         return;
       }
-      SimpleRestClient restClient = new SimpleRestClient( );
+      SimpleRestClient restClient = new SimpleRestClient();
       String tail = "rest/status";
-      if ( opts.verbose ) {
-        System.out.println( "Getting status with " + baseUrl + "/" + tail );
+      if (opts.verbose) {
+        System.out.println("Getting status with " + baseUrl + "/" + tail);
       }
-      String result = restClient.send( baseUrl, tail, false );
-      formatResponse( result );
-      System.out.println( "For more information, visit: " + baseUrl );
-    }
-    catch ( ClientException e ) {
-      System.out.println( "Failed to get AM status" );
-      System.err.println( e.getMessage() );
+      String result = restClient.send(baseUrl, tail, false);
+      formatResponse(result);
+      System.out.println("For more information, visit: " + baseUrl);
+    } catch (ClientException e) {
+      System.out.println("Failed to get AM status");
+      System.err.println(e.getMessage());
     }
   }
 
   private void formatResponse(String result) {
-    JSONParser parser = new JSONParser( );
+    JSONParser parser = new JSONParser();
     Object status;
     try {
-      status = parser.parse( result );
+      status = parser.parse(result);
     } catch (ParseException e) {
-      System.err.println( "Invalid response received from AM" );
-      if ( opts.verbose ) {
-        System.out.println( result );
-        System.out.println( e.getMessage( ) );
+      System.err.println("Invalid response received from AM");
+      if (opts.verbose) {
+        System.out.println(result);
+        System.out.println(e.getMessage());
       }
       return;
     }
     JSONObject root = (JSONObject) status;
-    showMetric( "AM State", root, "state" );
-    showMetric( "Target Drillbit Count", root.get( "summary" ), "targetBitCount" );
-    showMetric( "Live Drillbit Count", root.get( "summary" ), "liveBitCount" );
+    showMetric("AM State", root, "state");
+    showMetric("Target Drillbit Count", root.get("summary"), "targetBitCount");
+    showMetric("Live Drillbit Count", root.get("summary"), "liveBitCount");
   }
 
   private void showMetric(String label, Object object, String key) {
-    if ( object == null ) {
+    if (object == null) {
       return;
     }
-    if ( ! (object instanceof JSONObject) ) {
+    if (!(object instanceof JSONObject)) {
       return;
     }
-    object = ((JSONObject) object).get( key );
-    if ( object == null ) {
+    object = ((JSONObject) object).get(key);
+    if (object == null) {
       return;
     }
-    System.out.println( label + ": " + object.toString() );
+    System.out.println(label + ": " + object.toString());
   }
 }

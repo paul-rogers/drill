@@ -24,13 +24,15 @@ import org.apache.drill.yarn.core.LaunchSpec;
  * Task manager that does nothing.
  */
 
-public class AbstractTaskManager implements TaskManager
-{
+public class AbstractTaskManager implements TaskManager {
   @Override
-  public int maxConcurrentAllocs() { return Integer.MAX_VALUE; }
+  public int maxConcurrentAllocs() {
+    return Integer.MAX_VALUE;
+  }
 
   @Override
-  public void allocated(EventContext context) { }
+  public void allocated(EventContext context) {
+  }
 
   @Override
   public LaunchSpec getLaunchSpec(Task task) {

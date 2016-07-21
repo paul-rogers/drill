@@ -66,7 +66,8 @@ public class DrillControllerFactory implements ControllerFactory {
 
   @Override
   public Dispatcher build() throws ControllerFactoryException {
-    LOG.info("Initializing AM for " + config.getString(DrillOnYarnConfig.APP_NAME));
+    LOG.info(
+        "Initializing AM for " + config.getString(DrillOnYarnConfig.APP_NAME));
     Dispatcher dispatcher;
     try {
       Map<String, LocalResource> resources = prepareResources();
@@ -80,11 +81,13 @@ public class DrillControllerFactory implements ControllerFactory {
       int pollPeriodMs = config.getInt(DrillOnYarnConfig.AM_POLL_PERIOD_MS);
       AMYarnFacadeImpl yarn = new AMYarnFacadeImpl(pollPeriodMs);
       dispatcher.setYarn(yarn);
-      dispatcher.getController().setMaxRetries(config.getInt(DrillOnYarnConfig.DRILLBIT_MAX_RETRIES));
+      dispatcher.getController()
+          .setMaxRetries(config.getInt(DrillOnYarnConfig.DRILLBIT_MAX_RETRIES));
 
       // Assume basic scheduler for now.
       ClusterDef.ClusterGroup pool = ClusterDef.getCluster(config, 0);
-      Scheduler testGroup = new DrillbitScheduler(pool.name, taskSpec, pool.count);
+      Scheduler testGroup = new DrillbitScheduler(pool.name, taskSpec,
+          pool.count);
       dispatcher.getController().registerScheduler(testGroup);
       pool.modifyTaskSpec(taskSpec);
 
@@ -92,7 +95,8 @@ public class DrillControllerFactory implements ControllerFactory {
 
       buildZooKeeper(config, dispatcher);
     } catch (YarnFacadeException | DoyConfigException e) {
-      throw new ControllerFactoryException("Drill AM intitialization failed", e);
+      throw new ControllerFactoryException("Drill AM intitialization failed",
+          e);
     }
 
     // Tracking Url
@@ -107,7 +111,8 @@ public class DrillControllerFactory implements ControllerFactory {
 
     // Enable/disable check for auto shutdown when no nodes are running.
 
-    dispatcher.getController().enableFailureCheck(config.getBoolean(DrillOnYarnConfig.AM_ENABLE_AUTO_SHUTDOWN));
+    dispatcher.getController().enableFailureCheck(
+        config.getBoolean(DrillOnYarnConfig.AM_ENABLE_AUTO_SHUTDOWN));
 
     // Define the security manager
 
@@ -125,7 +130,8 @@ public class DrillControllerFactory implements ControllerFactory {
    * @throws YarnFacadeException
    */
 
-  private Map<String, LocalResource> prepareResources() throws YarnFacadeException {
+  private Map<String, LocalResource> prepareResources()
+      throws YarnFacadeException {
     try {
       DfsFacade dfs = new DfsFacade(config);
       localized = dfs.isLocalized();
@@ -139,7 +145,8 @@ public class DrillControllerFactory implements ControllerFactory {
       // Localize the Drill archive.
 
       drillArchivePath = drillConfig.getDrillArchiveDfsPath();
-      DfsFacade.Localizer localizer = new DfsFacade.Localizer(dfs, drillArchivePath);
+      DfsFacade.Localizer localizer = new DfsFacade.Localizer(dfs,
+          drillArchivePath);
       String key = config.getString(DrillOnYarnConfig.DRILL_ARCHIVE_KEY);
       localizer.defineResources(resources, key);
       LOG.info("Localizing " + drillArchivePath + " with key" + key);
@@ -155,7 +162,8 @@ public class DrillControllerFactory implements ControllerFactory {
       }
       return resources;
     } catch (DfsFacadeException e) {
-      throw new YarnFacadeException("Failed to get DFS status for Drill archive", e);
+      throw new YarnFacadeException(
+          "Failed to get DFS status for Drill archive", e);
     }
   }
 
@@ -180,7 +188,8 @@ public class DrillControllerFactory implements ControllerFactory {
    * @throws DoyConfigException
    */
 
-  private TaskSpec buildDrillTaskSpec(Map<String, LocalResource> resources) throws DoyConfigException {
+  private TaskSpec buildDrillTaskSpec(Map<String, LocalResource> resources)
+      throws DoyConfigException {
     DrillOnYarnConfig doyConfig = DrillOnYarnConfig.instance();
 
     // Drillbit launch description
@@ -209,22 +218,26 @@ public class DrillControllerFactory implements ControllerFactory {
 
     // Direct memory
 
-    addIfSet(drillbitSpec, DrillOnYarnConfig.DRILLBIT_DIRECT_MEM, "DRILL_MAX_DIRECT_MEMORY");
+    addIfSet(drillbitSpec, DrillOnYarnConfig.DRILLBIT_DIRECT_MEM,
+        "DRILL_MAX_DIRECT_MEMORY");
 
     // Any additional VM arguments form the config file.
 
-    addIfSet(drillbitSpec, DrillOnYarnConfig.DRILLBIT_VM_ARGS, "DRILL_JVM_OPTS");
+    addIfSet(drillbitSpec, DrillOnYarnConfig.DRILLBIT_VM_ARGS,
+        "DRILL_JVM_OPTS");
 
     // Any user-specified library path
 
-    addIfSet(drillbitSpec, DrillOnYarnConfig.JAVA_LIB_PATH, DrillOnYarnConfig.DOY_LIBPATH_ENV_VAR);
+    addIfSet(drillbitSpec, DrillOnYarnConfig.JAVA_LIB_PATH,
+        DrillOnYarnConfig.DOY_LIBPATH_ENV_VAR);
 
     // Drill logs.
     // Relies on the LOG_DIR_EXPANSION_VAR marker which is replaced by
     // the container log directory.
 
     if (!config.getBoolean(DrillOnYarnConfig.DISABLE_YARN_LOGS)) {
-      drillbitSpec.env.put("DRILL_YARN_LOG_DIR", ApplicationConstants.LOG_DIR_EXPANSION_VAR);
+      drillbitSpec.env.put("DRILL_YARN_LOG_DIR",
+          ApplicationConstants.LOG_DIR_EXPANSION_VAR);
     }
 
     // Debug option.
@@ -248,16 +261,21 @@ public class DrillControllerFactory implements ControllerFactory {
 
     // Class path additions.
 
-    addIfSet(drillbitSpec, DrillOnYarnConfig.DRILLBIT_PREFIX_CLASSPATH, "DRILL_CLASSPATH_PREFIX");
-    addIfSet(drillbitSpec, DrillOnYarnConfig.DRILLBIT_CLASSPATH, "DRILL_CLASSPATH");
+    addIfSet(drillbitSpec, DrillOnYarnConfig.DRILLBIT_PREFIX_CLASSPATH,
+        "DRILL_CLASSPATH_PREFIX");
+    addIfSet(drillbitSpec, DrillOnYarnConfig.DRILLBIT_CLASSPATH,
+        "DRILL_CLASSPATH");
 
     // Drill-config.sh has specific entries for Hadoop and Hbase. To prevent
     // an endless number of such one-off cases, we add a general extension
     // class path. But, we retain Hadoop and Hbase for backward compatibility.
 
-    addIfSet(drillbitSpec, DrillOnYarnConfig.DRILLBIT_EXTN_CLASSPATH, "EXTN_CLASSPATH");
-    addIfSet(drillbitSpec, DrillOnYarnConfig.HADOOP_CLASSPATH, "DRILL_HADOOP_CLASSPATH");
-    addIfSet(drillbitSpec, DrillOnYarnConfig.HBASE_CLASSPATH, "DRILL_HBASE_CLASSPATH");
+    addIfSet(drillbitSpec, DrillOnYarnConfig.DRILLBIT_EXTN_CLASSPATH,
+        "EXTN_CLASSPATH");
+    addIfSet(drillbitSpec, DrillOnYarnConfig.HADOOP_CLASSPATH,
+        "DRILL_HADOOP_CLASSPATH");
+    addIfSet(drillbitSpec, DrillOnYarnConfig.HBASE_CLASSPATH,
+        "DRILL_HBASE_CLASSPATH");
 
     // Note that there is no equivalent of niceness for YARN: YARN controls
     // the niceness of its child processes.
@@ -317,10 +335,14 @@ public class DrillControllerFactory implements ControllerFactory {
     }
 
     @Override
-    public void start(ClusterController controller) { zkRegistry.start(controller); }
+    public void start(ClusterController controller) {
+      zkRegistry.start(controller);
+    }
 
     @Override
-    public void finish(ClusterController controller) { zkRegistry.finish(controller); }
+    public void finish(ClusterController controller) {
+      zkRegistry.finish(controller);
+    }
   }
 
   /**
@@ -337,14 +359,16 @@ public class DrillControllerFactory implements ControllerFactory {
     String zkConnect = config.getString(DrillOnYarnConfig.ZK_CONNECT);
     String zkRoot = config.getString(DrillOnYarnConfig.ZK_ROOT);
     String clusterId = config.getString(DrillOnYarnConfig.CLUSTER_ID);
-    int failureTimeoutMs = config.getInt(DrillOnYarnConfig.ZK_FAILURE_TIMEOUT_MS);
+    int failureTimeoutMs = config
+        .getInt(DrillOnYarnConfig.ZK_FAILURE_TIMEOUT_MS);
     int retryCount = config.getInt(DrillOnYarnConfig.ZK_RETRY_COUNT);
     int retryDelayMs = config.getInt(DrillOnYarnConfig.ZK_RETRY_DELAY_MS);
     int userPort = config.getInt(DrillOnYarnConfig.DRILLBIT_USER_PORT);
     int bitPort = config.getInt(DrillOnYarnConfig.DRILLBIT_BIT_PORT);
-    driver = new ZKClusterCoordinatorDriver().setConnect(zkConnect, zkRoot, clusterId)
-        .setFailureTimoutMs(failureTimeoutMs).setRetryCount(retryCount).setRetryDelayMs(retryDelayMs)
-        .setPorts(userPort, bitPort, bitPort + 1);
+    driver = new ZKClusterCoordinatorDriver()
+        .setConnect(zkConnect, zkRoot, clusterId)
+        .setFailureTimoutMs(failureTimeoutMs).setRetryCount(retryCount)
+        .setRetryDelayMs(retryDelayMs).setPorts(userPort, bitPort, bitPort + 1);
     ZKRegistry zkRegistry = new ZKRegistry(driver);
     dispatcher.registerAddOn(new ZKRegistryAddOn(zkRegistry));
 
@@ -360,7 +384,7 @@ public class DrillControllerFactory implements ControllerFactory {
     // The UI needs access to ZK to report unmanaged drillbits. We use
     // a property to avoid unnecessary code dependencies.
 
-    dispatcher.getController().setProperty(ZKRegistry.CONTROLLER_PROPERTY, zkRegistry);
+    dispatcher.getController().setProperty(ZKRegistry.CONTROLLER_PROPERTY,
+        zkRegistry);
   }
-
 }

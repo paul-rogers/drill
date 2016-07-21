@@ -28,64 +28,65 @@ import org.apache.drill.yarn.core.YarnRMClient;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 
-public abstract class ClientCommand
-{
+public abstract class ClientCommand {
   protected CommandLineOptions opts;
 
   public void setOpts(CommandLineOptions opts) {
     this.opts = opts;
   }
 
-  public abstract void run( ) throws ClientException;
+  public abstract void run() throws ClientException;
 
   /**
-   * Return the path to the app id file.
-   * The file goes into the directory above Drill Home (which should be the
-   * folder that contains the localized archive) and is named for the
-   * ZK cluster (to ensure that the name is a valid file name.)
+   * Return the path to the app id file. The file goes into the directory above
+   * Drill Home (which should be the folder that contains the localized archive)
+   * and is named for the ZK cluster (to ensure that the name is a valid file
+   * name.)
+   *
    * @return
    */
-  protected static File getAppIdFile( ) {
-    return DrillOnYarnConfig.instance().getLocalAppIdFile( );
+  protected static File getAppIdFile() {
+    return DrillOnYarnConfig.instance().getLocalAppIdFile();
   }
 
-  protected ApplicationId checkAppId( ) throws ClientException {
+  protected ApplicationId checkAppId() throws ClientException {
     String appIdStr;
-    if ( opts.appId != null ) {
+    if (opts.appId != null) {
       appIdStr = opts.appId;
-    }
-    else {
-      File appIdFile = getAppIdFile( );
-      appIdStr = loadAppId( appIdFile );
-      if ( appIdStr == null ) {
-        throw new ClientException( "No Drill cluster is running (did not find file appid file: " + appIdFile.toString( ) + ")" );
+    } else {
+      File appIdFile = getAppIdFile();
+      appIdStr = loadAppId(appIdFile);
+      if (appIdStr == null) {
+        throw new ClientException(
+            "No Drill cluster is running (did not find file appid file: "
+                + appIdFile.toString() + ")");
       }
     }
     return ConverterUtils.toApplicationId(appIdStr);
   }
 
-  protected YarnRMClient getClient( ) throws ClientException {
-    return new YarnRMClient( checkAppId( ) );
+  protected YarnRMClient getClient() throws ClientException {
+    return new YarnRMClient(checkAppId());
   }
 
-  protected String loadAppId( File appIdFile ) {
+  protected String loadAppId(File appIdFile) {
     BufferedReader reader = null;
     String appIdStr;
     try {
-      reader = new BufferedReader( new FileReader( appIdFile ) );
+      reader = new BufferedReader(new FileReader(appIdFile));
       appIdStr = reader.readLine();
-      if ( appIdStr != null ) {
-        appIdStr = appIdStr.trim( );
+      if (appIdStr != null) {
+        appIdStr = appIdStr.trim();
       }
     } catch (FileNotFoundException e) {
       return null;
     } catch (IOException e) {
       return null;
-    }
-    finally {
+    } finally {
       try {
-        if ( reader != null ) {
-          reader.close( ); }
+        if (reader != null) {
+          reader.close();
+        }
       } catch (IOException e) {
         // Ignore
       }

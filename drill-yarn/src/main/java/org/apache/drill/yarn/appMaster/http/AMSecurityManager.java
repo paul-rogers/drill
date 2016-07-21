@@ -23,10 +23,12 @@ package org.apache.drill.yarn.appMaster.http;
  * and DoY's static user/password, or an open AM web UI.
  */
 
-public interface AMSecurityManager
-{
-  void init( );
-  boolean requiresLogin( );
-  boolean login( String user, String password );
-  void close( );
+public interface AMSecurityManager {
+  void init();
+
+  boolean requiresLogin();
+
+  boolean login(String user, String password);
+
+  void close();
 }

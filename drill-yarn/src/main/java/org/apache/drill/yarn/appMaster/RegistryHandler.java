@@ -24,8 +24,12 @@ package org.apache.drill.yarn.appMaster;
 
 public interface RegistryHandler {
   void reserveHost(String hostName);
+
   void releaseHost(String hostName);
+
   void startAck(Task task, String propertyKey, Object value);
+
   void completionAck(Task task, String endpointProperty);
+
   void registryDown();
 }

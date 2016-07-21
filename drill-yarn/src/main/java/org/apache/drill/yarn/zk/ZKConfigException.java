@@ -17,10 +17,10 @@
  */
 package org.apache.drill.yarn.zk;
 
-
-public class ZKConfigException extends Exception
-{
+public class ZKConfigException extends Exception {
   private static final long serialVersionUID = 1L;
 
-  public ZKConfigException(String msg) { super( msg ); }
+  public ZKConfigException(String msg) {
+    super(msg);
+  }
 }

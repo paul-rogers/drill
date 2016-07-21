@@ -17,14 +17,12 @@
  */
 package org.apache.drill.yarn.appMaster;
 
-public interface ControllerFactory
-{
-  public static class ControllerFactoryException extends Exception
-  {
+public interface ControllerFactory {
+  public static class ControllerFactoryException extends Exception {
     private static final long serialVersionUID = 1L;
 
     public ControllerFactoryException(String msg, Exception e) {
-      super( msg, e );
+      super(msg, e);
     }
   }
 

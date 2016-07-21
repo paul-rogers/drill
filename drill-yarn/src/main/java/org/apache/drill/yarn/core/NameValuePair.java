@@ -17,8 +17,7 @@
  */
 package org.apache.drill.yarn.core;
 
-public class NameValuePair
-{
+public class NameValuePair {
   private String name;
   private Object value;
 
@@ -35,11 +34,11 @@ public class NameValuePair
     return value;
   }
 
-  public String getQuotedValue( ) {
-    if ( value == null ) {
+  public String getQuotedValue() {
+    if (value == null) {
       return "<unset>";
     }
-    if ( value instanceof String ) {
+    if (value instanceof String) {
       return "\"" + value + "\"";
     }
     return value.toString();

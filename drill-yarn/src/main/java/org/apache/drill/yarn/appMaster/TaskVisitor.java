@@ -17,7 +17,6 @@
  */
 package org.apache.drill.yarn.appMaster;
 
-public interface TaskVisitor
-{
-  void visit( Task task );
+public interface TaskVisitor {
+  void visit(Task task);
 }

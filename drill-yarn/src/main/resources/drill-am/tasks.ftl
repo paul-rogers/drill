@@ -42,7 +42,7 @@
         <#list tasks as task>
           <tr>
             <td><b>${task.getTaskId( )}</b></td>
-            <td>${task.getPoolName( )}</td>
+            <td>${task.getGroupName( )}</td>
             <td>
             <#if task.isLive( )>
               <a href="${task.getLink( )}" data-toggle="tooltip" title="Link to the Drillbit Web UI"></#if>

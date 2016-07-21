@@ -30,16 +30,16 @@ import org.apache.hadoop.yarn.api.records.ContainerStatus;
  * synchronized to coordinate between event threads.
  */
 
-public interface ClusterController extends RegistryHandler
-{
-  void enableFailureCheck( boolean flag );
+public interface ClusterController extends RegistryHandler {
+  void enableFailureCheck(boolean flag);
 
   void registerLifecycleListener(TaskLifecycleListener listener);
 
   void registerScheduler(Scheduler resourceGroup);
 
   void setProperty(String key, Object value);
-  Object getProperty( String key );
+
+  Object getProperty(String key);
 
   /**
    * Called after the dispatcher has started YARN and other server

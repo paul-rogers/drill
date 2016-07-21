@@ -40,43 +40,43 @@ import com.typesafe.config.Config;
  * hard-coded user and password, and open access.
  */
 
-public class AMSecurityManagerImpl implements AMSecurityManager
-{
+public class AMSecurityManagerImpl implements AMSecurityManager {
   private static final Log LOG = LogFactory.getLog(AMSecurityManagerImpl.class);
 
   /**
    * Thin layer around the Drill authentication system to adapt from
    * Drill-on-YARN's environment to that expected by the Drill classes.
    */
-  private static class DrillSecurityManager implements AMSecurityManager
-  {
+  private static class DrillSecurityManager implements AMSecurityManager {
     private UserAuthenticator authenticator;
 
     @Override
-    public void init( ) {
+    public void init() {
       try {
-        DrillOnYarnConfig doyConfig = DrillOnYarnConfig.instance( );
+        DrillOnYarnConfig doyConfig = DrillOnYarnConfig.instance();
         DrillConfig config = doyConfig.getDrillConfig();
         ScanResult classpathScan = doyConfig.getClassPathScan();
         if (config.getBoolean(ExecConstants.USER_AUTHENTICATION_ENABLED)) {
-          authenticator = UserAuthenticatorFactory.createAuthenticator(config, classpathScan);
+          authenticator = UserAuthenticatorFactory.createAuthenticator(config,
+              classpathScan);
         } else {
           authenticator = null;
         }
       } catch (DrillbitStartupException e) {
-        LOG.info( "Authentication initialization failed", e );
-        throw new AMWrapperException( "Security init failed", e );
+        LOG.info("Authentication initialization failed", e);
+        throw new AMWrapperException("Security init failed", e);
       }
     }
 
     @Override
     public boolean login(String user, String password) {
-      if ( authenticator == null ) {
-        return true; }
+      if (authenticator == null) {
+        return true;
+      }
       try {
         authenticator.authenticate(user, password);
       } catch (UserAuthenticationException e) {
-        LOG.info( "Authentication failed for user " + user, e );
+        LOG.info("Authentication failed for user " + user, e);
         return false;
       }
       return ImpersonationUtil.getProcessUserName().equals(user);
@@ -85,10 +85,11 @@ public class AMSecurityManagerImpl implements AMSecurityManager
     @Override
     public void close() {
       try {
-        if ( authenticator != null ) {
-          authenticator.close(); }
+        if (authenticator != null) {
+          authenticator.close();
+        }
       } catch (IOException e) {
-        LOG.info( "Ignoring error on authenticator close", e );
+        LOG.info("Ignoring error on authenticator close", e);
       }
     }
 
@@ -99,12 +100,11 @@ public class AMSecurityManagerImpl implements AMSecurityManager
   }
 
   /**
-   * Simple security manager: user name and password reside in the
-   * DoY config file.
+   * Simple security manager: user name and password reside in the DoY config
+   * file.
    */
 
-  private static class SimpleSecurityManager implements AMSecurityManager
-  {
+  private static class SimpleSecurityManager implements AMSecurityManager {
 
     private String userName;
     private String password;
@@ -112,28 +112,32 @@ public class AMSecurityManagerImpl implements AMSecurityManager
     @Override
     public void init() {
       Config config = DrillOnYarnConfig.config();
-      userName = config.getString( DrillOnYarnConfig.HTTP_USER_NAME );
-      password = config.getString( DrillOnYarnConfig.HTTP_PASSWORD );
-      if ( DoYUtil.isBlank( userName ) ) {
-        LOG.warn( "Simple HTTP authentication is enabled, but " + DrillOnYarnConfig.HTTP_USER_NAME + " is blank." );
+      userName = config.getString(DrillOnYarnConfig.HTTP_USER_NAME);
+      password = config.getString(DrillOnYarnConfig.HTTP_PASSWORD);
+      if (DoYUtil.isBlank(userName)) {
+        LOG.warn("Simple HTTP authentication is enabled, but "
+            + DrillOnYarnConfig.HTTP_USER_NAME + " is blank.");
       }
-      if ( DoYUtil.isBlank( userName ) ) {
-        LOG.warn( "Simple HTTP authentication is enabled, but " + DrillOnYarnConfig.HTTP_PASSWORD + " is blank." );
+      if (DoYUtil.isBlank(userName)) {
+        LOG.warn("Simple HTTP authentication is enabled, but "
+            + DrillOnYarnConfig.HTTP_PASSWORD + " is blank.");
       }
     }
 
     @Override
     public boolean requiresLogin() {
-      return ! DoYUtil.isBlank( userName );
+      return !DoYUtil.isBlank(userName);
     }
 
     @Override
     public boolean login(String user, String pwd) {
-      if ( ! requiresLogin( ) ) {
-        return true; }
-      boolean ok = userName.equals( user ) && password.equals( pwd );
-      if ( ! ok ) {
-        LOG.info( "Failed login attempt with simple authorization for user " + user );
+      if (!requiresLogin()) {
+        return true;
+      }
+      boolean ok = userName.equals(user) && password.equals(pwd);
+      if (!ok) {
+        LOG.info(
+            "Failed login attempt with simple authorization for user " + user);
       }
       return ok;
     }
@@ -149,49 +153,50 @@ public class AMSecurityManagerImpl implements AMSecurityManager
 
   private AMSecurityManager managerImpl;
 
-  private AMSecurityManagerImpl( ) { }
+  private AMSecurityManagerImpl() {
+  }
 
-  public static void setup( ) {
-    instance = new AMSecurityManagerImpl( );
+  public static void setup() {
+    instance = new AMSecurityManagerImpl();
     instance.init();
   }
 
   /**
-   * Look at the DoY config file to decide which security system
-   * (if any) to use.
+   * Look at the DoY config file to decide which security system (if any) to
+   * use.
    */
 
   @Override
   public void init() {
     Config config = DrillOnYarnConfig.config();
-    String authType = config.getString( DrillOnYarnConfig.HTTP_AUTH_TYPE );
-    if ( DrillOnYarnConfig.AUTH_TYPE_DRILL.equals( authType ) ) {
-      managerImpl = new DrillSecurityManager( );
-      managerImpl.init( );
-    }
-    else if ( DrillOnYarnConfig.AUTH_TYPE_SIMPLE.equals( authType ) ) {
-      managerImpl = new SimpleSecurityManager( );
-      managerImpl.init( );
-    }
-    else if ( DoYUtil.isBlank( authType ) ||
-        DrillOnYarnConfig.AUTH_TYPE_NONE.equals( authType ) ) {
+    String authType = config.getString(DrillOnYarnConfig.HTTP_AUTH_TYPE);
+    if (DrillOnYarnConfig.AUTH_TYPE_DRILL.equals(authType)) {
+      managerImpl = new DrillSecurityManager();
+      managerImpl.init();
+    } else if (DrillOnYarnConfig.AUTH_TYPE_SIMPLE.equals(authType)) {
+      managerImpl = new SimpleSecurityManager();
+      managerImpl.init();
+    } else if (DoYUtil.isBlank(authType)
+        || DrillOnYarnConfig.AUTH_TYPE_NONE.equals(authType)) {
       ;
-    }
-    else {
-      LOG.error( "Unrecognized authorization type for " + DrillOnYarnConfig.HTTP_AUTH_TYPE + ": " + authType + " - assuming no auth." );
+    } else {
+      LOG.error("Unrecognized authorization type for "
+          + DrillOnYarnConfig.HTTP_AUTH_TYPE + ": " + authType
+          + " - assuming no auth.");
     }
   }
 
   @Override
   public boolean login(String user, String password) {
-    if ( managerImpl == null ) {
-      return true; }
-    return managerImpl.login( user, password);
+    if (managerImpl == null) {
+      return true;
+    }
+    return managerImpl.login(user, password);
   }
 
   @Override
   public void close() {
-    if ( managerImpl != null ) {
+    if (managerImpl != null) {
       managerImpl.close();
       managerImpl = null;
     }
@@ -207,7 +212,6 @@ public class AMSecurityManagerImpl implements AMSecurityManager
   }
 
   public static boolean isEnabled() {
-    return instance != null &&
-           instance.managerImpl != null;
+    return instance != null && instance.managerImpl != null;
   }
 }

@@ -17,8 +17,7 @@
  */
 package org.apache.drill.yarn.appMaster;
 
-public class DrillbitScheduler extends AbstractDrillbitScheduler
-{
+public class DrillbitScheduler extends AbstractDrillbitScheduler {
   public DrillbitScheduler(String name, TaskSpec taskSpec, int quantity) {
     super("basic", name, quantity);
     this.taskSpec = taskSpec;

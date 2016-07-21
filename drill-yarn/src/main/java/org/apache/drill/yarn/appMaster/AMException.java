@@ -17,15 +17,14 @@
  */
 package org.apache.drill.yarn.appMaster;
 
-public class AMException extends Exception
-{
+public class AMException extends Exception {
   private static final long serialVersionUID = 1L;
 
   public AMException(String msg) {
-    super( msg );
+    super(msg);
   }
 
   public AMException(String msg, Exception e) {
-    super( msg, e );
+    super(msg, e);
   }
 }

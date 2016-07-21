@@ -16,6 +16,7 @@
  * limitations under the License.
  */
 package org.apache.drill.yarn.appMaster;
+
 import java.util.List;
 
 import org.apache.drill.yarn.core.ContainerRequestSpec;
@@ -34,16 +35,14 @@ import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
  * implementation that works with YARN.
  */
 
-public interface AMYarnFacade
-{
+public interface AMYarnFacade {
   /**
-   * Provides a collection of web UI links for the YARN Resource
-   * Manager and the Node Manager that is running the Drill-on-YARN AM.
-   * This information is primarily for use in the AM's own web UI.
+   * Provides a collection of web UI links for the YARN Resource Manager and the
+   * Node Manager that is running the Drill-on-YARN AM. This information is
+   * primarily for use in the AM's own web UI.
    */
 
-  public static class YarnAppHostReport
-  {
+  public static class YarnAppHostReport {
     public String appId;
     public String amHost;
     public String rmHost;
@@ -54,9 +53,10 @@ public interface AMYarnFacade
     public String nmAppUrl;
   }
 
-  void start(AMRMClientAsync.CallbackHandler resourceCallback, NMClientAsync.CallbackHandler nodeCallback);
+  void start(AMRMClientAsync.CallbackHandler resourceCallback,
+      NMClientAsync.CallbackHandler nodeCallback);
 
-  void register( String trackingUrl ) throws YarnFacadeException;
+  void register(String trackingUrl) throws YarnFacadeException;
 
   String getTrackingUrl();
 
@@ -64,7 +64,8 @@ public interface AMYarnFacade
 
   void removeContainerRequest(ContainerRequest containerRequest);
 
-  void launchContainer(Container container, LaunchSpec taskSpec) throws YarnFacadeException;
+  void launchContainer(Container container, LaunchSpec taskSpec)
+      throws YarnFacadeException;
 
   void finish(boolean success, String msg) throws YarnFacadeException;
 
@@ -84,7 +85,7 @@ public interface AMYarnFacade
 
   List<NodeReport> getNodeReports() throws YarnFacadeException;
 
-  YarnAppHostReport getAppHostReport( );
+  YarnAppHostReport getAppHostReport();
 
   boolean supportsDiskResource();
 }

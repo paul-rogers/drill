@@ -23,28 +23,27 @@ import java.io.OutputStreamWriter;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
-public class PrintConfigCommand extends ClientCommand
-{
+public class PrintConfigCommand extends ClientCommand {
   @Override
-  public void run()
-  {
+  public void run() {
     // Dump configuration if requested for diagnostic use.
 
-    System.out.println( "----------------------------------------------" );
-    System.out.println( "Effective Drill-on-YARN Configuration" );
-    DrillOnYarnConfig.instance( ).dump( );
-    System.out.println( "----------------------------------------------" );
+    System.out.println("----------------------------------------------");
+    System.out.println("Effective Drill-on-YARN Configuration");
+    DrillOnYarnConfig.instance().dump();
+    System.out.println("----------------------------------------------");
 
     // Dump YARN configuration.
 
-    System.out.println( "YARN, DFS and Hadoop Configuration" );
-    YarnConfiguration conf = new YarnConfiguration( );
+    System.out.println("YARN, DFS and Hadoop Configuration");
+    YarnConfiguration conf = new YarnConfiguration();
     try {
-      YarnConfiguration.dumpConfiguration(conf, new OutputStreamWriter( System.out ));
-      System.out.println( );
+      YarnConfiguration.dumpConfiguration(conf,
+          new OutputStreamWriter(System.out));
+      System.out.println();
     } catch (IOException e) {
       // Ignore;
     }
-    System.out.println( "----------------------------------------------" );
+    System.out.println("----------------------------------------------");
   }
 }

@@ -44,15 +44,10 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.io.FileUtils;
 
-public class ScriptUtils
-{
-//  public static final String MASTER_DISTRIB = "/Users/progers/git/drill/distribution/target/apache-drill-1.7.0-SNAPSHOT/apache-drill-1.7.0-SNAPSHOT";
-//  public static final String MASTER_SOURCE = "/Users/progers/git/drill";
-//  public static final String JAVA_HOME = "/Library/Java/JavaVirtualMachines/jdk1.7.0_79.jdk/Contents/Home";
+public class ScriptUtils {
 
-  private static ScriptUtils instance = new ScriptUtils( );
+  private static ScriptUtils instance = new ScriptUtils();
   public File distribDir;
-//  public File sourceDir;
   public File javaHome;
   public File testDir;
   public File testDrillHome;
@@ -78,28 +73,25 @@ public class ScriptUtils
   public static final boolean USE_SOURCE = true;
   public static final String TEMP_DIR = "/tmp";
   public static boolean useSource = USE_SOURCE;
-//  public static String javaHome = JAVA_HOME;
 
-  private ScriptUtils( ) {
-    String drillScriptsDir = System.getProperty( "drillScriptDir" );
-    assertNotNull( drillScriptsDir );
-    distribDir = new File( drillScriptsDir );
-//    sourceDir = new File( MASTER_SOURCE );
-    javaHome = new File( System.getProperty( "java.home" ) );
+  private ScriptUtils() {
+    String drillScriptsDir = System.getProperty("drillScriptDir");
+    assertNotNull(drillScriptsDir);
+    distribDir = new File(drillScriptsDir);
+    javaHome = new File(System.getProperty("java.home"));
   }
 
-  public static ScriptUtils instance( ) {
+  public static ScriptUtils instance() {
     return instance;
   }
 
-  public ScriptUtils fromSource( String sourceDir ) {
-//    this.sourceDir = new File( sourceDir );
+  public ScriptUtils fromSource(String sourceDir) {
     useSource = true;
     return this;
   }
 
-  public ScriptUtils fromDistrib( String distrib ) {
-    distribDir = new File( distrib );
+  public ScriptUtils fromDistrib(String distrib) {
+    distribDir = new File(distrib);
     useSource = false;
     return this;
   }
@@ -183,27 +175,25 @@ public class ScriptUtils
    * Create the basic test directory. Tests add or remove details.
    */
 
-  public void initialSetup( ) throws IOException {
-    File tempDir = new File( TEMP_DIR );
-    testDir = new File( tempDir, "script-test" );
-    testDrillHome = new File( testDir, "drill" );
-    testSiteDir = new File( testDir, "site" );
-    testLogDir = new File( testDir, "logs" );
-    if ( testDir.exists() ) {
-      FileUtils.forceDelete( testDir );
+  public void initialSetup() throws IOException {
+    File tempDir = new File(TEMP_DIR);
+    testDir = new File(tempDir, "script-test");
+    testDrillHome = new File(testDir, "drill");
+    testSiteDir = new File(testDir, "site");
+    testLogDir = new File(testDir, "logs");
+    if (testDir.exists()) {
+      FileUtils.forceDelete(testDir);
     }
     testDir.mkdirs();
     testSiteDir.mkdir();
-    testLogDir.mkdir( );
+    testLogDir.mkdir();
   }
 
-  public void createMockDistrib( ) throws IOException
-  {
-    if ( ScriptUtils.useSource ) {
-      buildFromSource( );
-    }
-    else {
-      buildFromDistrib( );
+  public void createMockDistrib() throws IOException {
+    if (ScriptUtils.useSource) {
+      buildFromSource();
+    } else {
+      buildFromDistrib();
     }
   }
 
@@ -212,26 +202,26 @@ public class ScriptUtils
    */
 
   private void buildFromSource() throws IOException {
-    createMockDirs( );
-    copyScripts( ScriptUtils.instance().distribDir );
+    createMockDirs();
+    copyScripts(ScriptUtils.instance().distribDir);
   }
 
   /**
-   * Build the shell of a Drill distribution directory by creating the
-   * required directory structure.
+   * Build the shell of a Drill distribution directory by creating the required
+   * directory structure.
    */
 
   private void createMockDirs() throws IOException {
-    if ( testDrillHome.exists() ) {
-      FileUtils.forceDelete( testDrillHome );
+    if (testDrillHome.exists()) {
+      FileUtils.forceDelete(testDrillHome);
     }
     testDrillHome.mkdir();
-    for ( String path : ScriptUtils.distribDirs ) {
-      File subDir = new File( testDrillHome, path );
+    for (String path : ScriptUtils.distribDirs) {
+      File subDir = new File(testDrillHome, path);
       subDir.mkdirs();
     }
-    for ( String path : ScriptUtils.jarDirs ) {
-      makeDummyJar( new File( testDrillHome, path ), "dist" );
+    for (String path : ScriptUtils.jarDirs) {
+      makeDummyJar(new File(testDrillHome, path), "dist");
     }
   }
 
@@ -242,12 +232,12 @@ public class ScriptUtils
 
   public File makeDummyJar(File dir, String prefix) throws IOException {
     String jarName = "";
-    if ( prefix != null ) {
+    if (prefix != null) {
       jarName += prefix + "-";
     }
-    jarName += dir.getName( ) + ".jar";
-    File jarFile = new File( dir, jarName );
-    writeFile( jarFile, "Dummy jar" );
+    jarName += dir.getName() + ".jar";
+    File jarFile = new File(dir, jarName);
+    writeFile(jarFile, "Dummy jar");
     return jarFile;
   }
 
@@ -255,11 +245,10 @@ public class ScriptUtils
    * Create a simple text file with the given contents.
    */
 
-  public void writeFile( File file, String contents ) throws IOException
-  {
-    PrintWriter out = new PrintWriter( new FileWriter( file ) );
-    out.println( contents );
-    out.close( );
+  public void writeFile(File file, String contents) throws IOException {
+    PrintWriter out = new PrintWriter(new FileWriter(file));
+    out.println(contents);
+    out.close();
   }
 
   /**
@@ -267,20 +256,21 @@ public class ScriptUtils
    * the recommended format.
    */
 
-  public void createEnvFile(File file, Map<String, String> env) throws IOException {
-    PrintWriter out = new PrintWriter( new FileWriter( file ) );
-    out.println( "#!/usr/bin/env bash" );
-    for ( String key : env.keySet() ) {
-      String value = env.get( key );
-      out.print( "export " );
-      out.print( key );
-      out.print( "=${" );
-      out.print( key );
-      out.print(":-\"" );
-      out.print( value );
-      out.println( "\"}" );
+  public void createEnvFile(File file, Map<String, String> env)
+      throws IOException {
+    PrintWriter out = new PrintWriter(new FileWriter(file));
+    out.println("#!/usr/bin/env bash");
+    for (String key : env.keySet()) {
+      String value = env.get(key);
+      out.print("export ");
+      out.print(key);
+      out.print("=${");
+      out.print(key);
+      out.print(":-\"");
+      out.print(value);
+      out.println("\"}");
     }
-    out.close( );
+    out.close();
   }
 
   /**
@@ -289,23 +279,23 @@ public class ScriptUtils
    */
 
   private void copyScripts(File sourceDir) throws IOException {
-    File binDir = new File( testDrillHome, "bin" );
-    for ( String script : ScriptUtils.scripts ) {
-      File source = new File( sourceDir, script );
-      File dest = new File( binDir, script );
-      copyFile(source, dest );
-      dest.setExecutable( true );
+    File binDir = new File(testDrillHome, "bin");
+    for (String script : ScriptUtils.scripts) {
+      File source = new File(sourceDir, script);
+      File dest = new File(binDir, script);
+      copyFile(source, dest);
+      dest.setExecutable(true);
     }
 
     // Create the "magic" wrapper script that simulates the Drillbit and
     // captures the output we need for testing.
 
     String wrapper = "wrapper.sh";
-    File dest = new File( binDir, wrapper );
-    InputStream is = getClass( ).getResourceAsStream( "/" + wrapper );
-    Files.copy( is, dest.toPath(), StandardCopyOption.REPLACE_EXISTING );
+    File dest = new File(binDir, wrapper);
+    InputStream is = getClass().getResourceAsStream("/" + wrapper);
+    Files.copy(is, dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
     is.close();
-    dest.setExecutable( true );
+    dest.setExecutable(true);
   }
 
   private void buildFromDistrib() {
@@ -314,16 +304,15 @@ public class ScriptUtils
   }
 
   /**
-   * Consume the input from a stream, specifically the stderr or
-   * stdout stream from a process.
+   * Consume the input from a stream, specifically the stderr or stdout stream
+   * from a process.
    *
    * @see http://stackoverflow.com/questions/14165517/processbuilder-forwarding-stdout-and-stderr-of-started-processes-without-blocki
    */
 
-  private static class StreamGobbler extends Thread
-  {
+  private static class StreamGobbler extends Thread {
     InputStream is;
-    public StringBuilder buf = new StringBuilder( );
+    public StringBuilder buf = new StringBuilder();
 
     private StreamGobbler(InputStream is) {
       this.is = is;
@@ -336,8 +325,8 @@ public class ScriptUtils
         BufferedReader br = new BufferedReader(isr);
         String line = null;
         while ((line = br.readLine()) != null) {
-          buf.append( line );
-          buf.append( "\n" );
+          buf.append(line);
+          buf.append("\n");
         }
       } catch (IOException ioe) {
         ioe.printStackTrace();
@@ -346,12 +335,11 @@ public class ScriptUtils
   }
 
   /**
-   * Handy run result class to capture the information we need for testing and to do
-   * various kinds of validation on it.
+   * Handy run result class to capture the information we need for testing and
+   * to do various kinds of validation on it.
    */
 
-  public static class RunResult
-  {
+  public static class RunResult {
     File logDir;
     File logFile;
     String stdout;
@@ -370,22 +358,22 @@ public class ScriptUtils
      */
 
     public void analyze() {
-      if ( echoArgs == null ) {
+      if (echoArgs == null) {
         return;
       }
-      for ( int i = 0;  i < echoArgs.size( );  i++ ) {
-        String arg = echoArgs.get( i );
-        if ( arg.equals( "-cp" ) ) {
-          classPath = Pattern.compile( ":" ).split( ( echoArgs.get( i + 1 ) ) );
+      for (int i = 0; i < echoArgs.size(); i++) {
+        String arg = echoArgs.get(i);
+        if (arg.equals("-cp")) {
+          classPath = Pattern.compile(":").split((echoArgs.get(i + 1)));
           break;
         }
       }
       String probe = "-Djava.library.path=";
-      for ( int i = 0;  i < echoArgs.size( );  i++ ) {
-        String arg = echoArgs.get( i );
-        if ( arg.startsWith( probe ) ) {
-          assertNull( libPath );
-          libPath = Pattern.compile( ":" ).split( ( arg.substring( probe.length() ) ) );
+      for (int i = 0; i < echoArgs.size(); i++) {
+        String arg = echoArgs.get(i);
+        if (arg.startsWith(probe)) {
+          assertNull(libPath);
+          libPath = Pattern.compile(":").split((arg.substring(probe.length())));
           break;
         }
       }
@@ -395,129 +383,134 @@ public class ScriptUtils
      * Read the log file, if any, generated by the process.
      */
 
-    public void loadLog( ) throws IOException {
-      log = loadFile( logFile );
+    public void loadLog() throws IOException {
+      log = loadFile(logFile);
     }
 
-    private String loadFile( File file ) throws IOException {
-      StringBuilder buf = new StringBuilder( );
+    private String loadFile(File file) throws IOException {
+      StringBuilder buf = new StringBuilder();
       BufferedReader reader;
       try {
-        reader = new BufferedReader( new FileReader( file ) );
+        reader = new BufferedReader(new FileReader(file));
       } catch (FileNotFoundException e) {
         return null;
       }
       String line;
-      while ( (line = reader.readLine()) != null ) {
-        buf.append( line );
-        buf.append( "\n" );
+      while ((line = reader.readLine()) != null) {
+        buf.append(line);
+        buf.append("\n");
       }
       reader.close();
-      return buf.toString( );
+      return buf.toString();
     }
 
     /**
      * Validate that the first argument invokes Java correctly.
      */
 
-    public void validateJava( ) {
-      assertNotNull( echoArgs );
+    public void validateJava() {
+      assertNotNull(echoArgs);
       String java = instance.javaHome + "/bin/java";
       List<String> actual = echoArgs;
-      assertEquals( java, actual.get( 0 ) );
+      assertEquals(java, actual.get(0));
     }
 
-    public boolean containsArg( String arg ) {
-      for ( String actual: echoArgs ) {
-        if ( actual.equals( arg ) ) {
-          return true; }
+    public boolean containsArg(String arg) {
+      for (String actual : echoArgs) {
+        if (actual.equals(arg)) {
+          return true;
+        }
       }
       return false;
     }
 
-    public void validateStockArgs( ) {
-      for ( String arg : ScriptUtils.stdArgs ) {
-        assertTrue( "Argument not found: " + arg, containsArgRegex( arg ) );
+    public void validateStockArgs() {
+      for (String arg : ScriptUtils.stdArgs) {
+        assertTrue("Argument not found: " + arg, containsArgRegex(arg));
       }
     }
 
-    public void validateArg( String arg ) {
-      validateArgs( Collections.singletonList( arg ) );
+    public void validateArg(String arg) {
+      validateArgs(Collections.singletonList(arg));
     }
 
-    public void validateArgs( String args[] ) {
-      validateArgs( Arrays.asList( args ) );
+    public void validateArgs(String args[]) {
+      validateArgs(Arrays.asList(args));
     }
 
-    public void validateArgs( List<String> args) {
-      validateJava( );
-      for ( String arg : args ) {
-        assertTrue( containsArg( arg ) );
+    public void validateArgs(List<String> args) {
+      validateJava();
+      for (String arg : args) {
+        assertTrue(containsArg(arg));
       }
     }
 
-    public void validateArgRegex( String arg ) {
-      assertTrue( containsArgRegex( arg ) );
+    public void validateArgRegex(String arg) {
+      assertTrue(containsArgRegex(arg));
     }
 
-    public void validateArgsRegex( List<String> args) {
-      assertTrue( containsArgsRegex( args ) );
+    public void validateArgsRegex(List<String> args) {
+      assertTrue(containsArgsRegex(args));
     }
 
-    public boolean containsArgsRegex( List<String> args) {
-      for ( String arg : args ) {
-        if ( ! containsArgRegex( arg ) ) {
-          return false; }
-      }
-      return true;
-    }
-
-    public boolean containsArgsRegex( String args[]) {
-      for ( String arg : args ) {
-        if ( ! containsArgRegex( arg ) ) {
-          return false; }
-      }
-      return true;
-    }
-
-    public boolean containsArgRegex( String arg ) {
-      for ( String actual: echoArgs ) {
-        if ( actual.matches( arg ) ) {
-          return true; }
-      }
-      return false;
-    }
-
-    public void validateClassPath( String expectedCP) {
-      assertTrue( classPathContains( expectedCP ) );
-    }
-
-    public void validateClassPath( String expectedCP[]) {
-      assertTrue( classPathContains( expectedCP ) );
-    }
-
-    public boolean classPathContains( String expectedCP[]) {
-      for ( String entry : expectedCP ) {
-        if ( ! classPathContains( entry ) ) {
+    public boolean containsArgsRegex(List<String> args) {
+      for (String arg : args) {
+        if (!containsArgRegex(arg)) {
           return false;
         }
       }
       return true;
     }
 
-    public boolean classPathContains( String expectedCP) {
-      if ( classPath == null ) {
-        fail( "No classpath returned" );
+    public boolean containsArgsRegex(String args[]) {
+      for (String arg : args) {
+        if (!containsArgRegex(arg)) {
+          return false;
+        }
       }
-      String tail = "/" + instance.testDir.getName( ) + "/" + instance.testDrillHome.getName() + "/";
+      return true;
+    }
+
+    public boolean containsArgRegex(String arg) {
+      for (String actual : echoArgs) {
+        if (actual.matches(arg)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    public void validateClassPath(String expectedCP) {
+      assertTrue(classPathContains(expectedCP));
+    }
+
+    public void validateClassPath(String expectedCP[]) {
+      assertTrue(classPathContains(expectedCP));
+    }
+
+    public boolean classPathContains(String expectedCP[]) {
+      for (String entry : expectedCP) {
+        if (!classPathContains(entry)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    public boolean classPathContains(String expectedCP) {
+      if (classPath == null) {
+        fail("No classpath returned");
+      }
+      String tail = "/" + instance.testDir.getName() + "/"
+          + instance.testDrillHome.getName() + "/";
       String expectedPath;
-      if ( expectedCP.startsWith("/") ) {
+      if (expectedCP.startsWith("/")) {
         expectedPath = expectedCP;
       } else {
         expectedPath = tail + expectedCP;
       }
-      for ( String entry : classPath ) {
-        if ( entry.endsWith( expectedPath ) ) {
+      for (String entry : classPath) {
+        if (entry.endsWith(expectedPath)) {
           return true;
         }
       }
@@ -525,7 +518,7 @@ public class ScriptUtils
     }
 
     public void loadOut() throws IOException {
-      out = loadFile( outFile );
+      out = loadFile(outFile);
     }
 
     /**
@@ -533,32 +526,32 @@ public class ScriptUtils
      * written by the wrapper.
      */
 
-    public void validateDrillLog( ) {
-      assertNotNull(  log );
-      assertTrue(  log.contains( "Drill Log Message" ) );
+    public void validateDrillLog() {
+      assertNotNull(log);
+      assertTrue(log.contains("Drill Log Message"));
     }
 
     /**
      * Validate that the stdout contained the expected message.
      */
 
-    public void validateStdOut( ) {
-      assertTrue(  stdout.contains( "Starting drillbit on" ) );
+    public void validateStdOut() {
+      assertTrue(stdout.contains("Starting drillbit on"));
     }
 
     /**
-     * Validate that the stderr contained the sample error message from
-     * the wrapper.
+     * Validate that the stderr contained the sample error message from the
+     * wrapper.
      */
 
-    public void validateStdErr( ) {
-      assertTrue(  stderr.contains( "Stderr Message" ) );
+    public void validateStdErr() {
+      assertTrue(stderr.contains("Stderr Message"));
     }
 
     public int getPid() throws IOException {
-      BufferedReader reader = new BufferedReader( new FileReader( pidFile ) );
-      int pid = Integer.parseInt( reader.readLine() );
-      reader.close( );
+      BufferedReader reader = new BufferedReader(new FileReader(pidFile));
+      int pid = Integer.parseInt(reader.readLine());
+      reader.close();
       return pid;
     }
 
@@ -568,8 +561,7 @@ public class ScriptUtils
    * The "business end" of the tests: runs drillbit.sh and captures results.
    */
 
-  public static class ScriptRunner
-  {
+  public static class ScriptRunner {
     // Drillbit commands
 
     public static String DRILLBIT_RUN = "run";
@@ -581,110 +573,109 @@ public class ScriptUtils
     public File cwd = instance.testDir;
     public File drillHome = instance.testDrillHome;
     public String script;
-    public List<String> args = new ArrayList<>( );
-    public Map<String,String> env = new HashMap<>( );
+    public List<String> args = new ArrayList<>();
+    public Map<String, String> env = new HashMap<>();
     public File logDir;
     public File pidFile;
     public File outputFile;
     public boolean preserveLogs;
 
-    public ScriptRunner( String script ) {
+    public ScriptRunner(String script) {
       this.script = script;
     }
 
-    public ScriptRunner( String script, String cmd ) {
-      this( script );
-      args.add( cmd );
+    public ScriptRunner(String script, String cmd) {
+      this(script);
+      args.add(cmd);
     }
 
-    public ScriptRunner( String script, String cmdArgs[] ) {
-      this( script );
-      for ( String arg : cmdArgs ) {
-        args.add( arg );
+    public ScriptRunner(String script, String cmdArgs[]) {
+      this(script);
+      for (String arg : cmdArgs) {
+        args.add(arg);
       }
     }
 
-    public ScriptRunner withArg( String arg ) {
-      args.add( arg );
+    public ScriptRunner withArg(String arg) {
+      args.add(arg);
       return this;
     }
 
-    public ScriptRunner withSite( File siteDir ) {
-      if ( siteDir != null ) {
-        args.add( "--site" );
-        args.add( siteDir.getAbsolutePath() );
-      }
-      return this;
-    }
-
-    public ScriptRunner withEnvironment( Map<String,String> env ) {
-      if ( env != null ) {
-        this.env.putAll( env );
+    public ScriptRunner withSite(File siteDir) {
+      if (siteDir != null) {
+        args.add("--site");
+        args.add(siteDir.getAbsolutePath());
       }
       return this;
     }
 
-    public ScriptRunner addEnv( String key, String value ) {
-      env.put( key, value );
+    public ScriptRunner withEnvironment(Map<String, String> env) {
+      if (env != null) {
+        this.env.putAll(env);
+      }
       return this;
     }
 
-    public ScriptRunner withLogDir( File logDir ) {
+    public ScriptRunner addEnv(String key, String value) {
+      env.put(key, value);
+      return this;
+    }
+
+    public ScriptRunner withLogDir(File logDir) {
       this.logDir = logDir;
       return this;
     }
-    public ScriptRunner preserveLogs( ) {
+
+    public ScriptRunner preserveLogs() {
       preserveLogs = true;
       return this;
     }
 
-    public RunResult run( ) throws IOException {
-      File binDir = new File( drillHome, "bin" );
-      File scriptFile = new File( binDir, script );
-      assertTrue( scriptFile.exists() );
-      outputFile = new File( instance.testDir, "output.txt" );
+    public RunResult run() throws IOException {
+      File binDir = new File(drillHome, "bin");
+      File scriptFile = new File(binDir, script);
+      assertTrue(scriptFile.exists());
+      outputFile = new File(instance.testDir, "output.txt");
       outputFile.delete();
-      if ( logDir == null ) {
-        logDir = new File( instance.testDrillHome, "log" );
+      if (logDir == null) {
+        logDir = new File(instance.testDrillHome, "log");
       }
-      if ( ! preserveLogs ) {
-        cleanLogs( logDir );
+      if (!preserveLogs) {
+        cleanLogs(logDir);
       }
 
-      Process proc = startProcess( scriptFile );
-      RunResult result = runProcess( proc );
-      if ( result.returnCode == 0 ) {
-        captureOutput( result );
-        captureLog( result );
+      Process proc = startProcess(scriptFile);
+      RunResult result = runProcess(proc);
+      if (result.returnCode == 0) {
+        captureOutput(result);
+        captureLog(result);
       }
       return result;
     }
 
     private void cleanLogs(File logDir) throws IOException {
-      if ( logDir.exists( ) ) {
-        FileUtils.forceDelete( logDir );
+      if (logDir.exists()) {
+        FileUtils.forceDelete(logDir);
       }
     }
 
-    private Process startProcess( File scriptFile ) throws IOException {
+    private Process startProcess(File scriptFile) throws IOException {
       outputFile.delete();
-      List<String> cmd = new ArrayList<>( );
-      cmd.add( scriptFile.getAbsolutePath( ) );
-      cmd.addAll( args );
-      ProcessBuilder pb = new ProcessBuilder( )
-          .command(cmd)
-          .directory( cwd );
-      Map<String,String> pbEnv = pb.environment();
+      List<String> cmd = new ArrayList<>();
+      cmd.add(scriptFile.getAbsolutePath());
+      cmd.addAll(args);
+      ProcessBuilder pb = new ProcessBuilder().command(cmd).directory(cwd);
+      Map<String, String> pbEnv = pb.environment();
       pbEnv.clear();
-      pbEnv.putAll( env );
-      File binDir = new File( drillHome, "bin" );
-      File wrapperCmd = new File( binDir, "wrapper.sh" );
+      pbEnv.putAll(env);
+      File binDir = new File(drillHome, "bin");
+      File wrapperCmd = new File(binDir, "wrapper.sh");
 
       // Set the magic wrapper to capture output.
 
-      pbEnv.put( "_DRILL_WRAPPER_", wrapperCmd.getAbsolutePath() );
-      pbEnv.put( "JAVA_HOME", instance.javaHome.getAbsolutePath() );
-      return pb.start( );
+      pbEnv.put("_DRILL_WRAPPER_", wrapperCmd.getAbsolutePath());
+      pbEnv.put("JAVA_HOME", instance.javaHome.getAbsolutePath());
+      return pb.start();
     }
 
     private RunResult runProcess(Process proc) {
@@ -699,7 +690,7 @@ public class ScriptUtils
         // Won't occur.
       }
 
-      RunResult result = new RunResult( );
+      RunResult result = new RunResult();
       result.stderr = errorGobbler.buf.toString();
       result.stdout = outputGobbler.buf.toString();
       result.returnCode = proc.exitValue();
@@ -711,86 +702,81 @@ public class ScriptUtils
 
       BufferedReader reader;
       try {
-        reader = new BufferedReader( new FileReader( outputFile ) );
+        reader = new BufferedReader(new FileReader(outputFile));
       } catch (FileNotFoundException e) {
         return;
       }
       try {
-        result.echoArgs = new ArrayList<>( );
+        result.echoArgs = new ArrayList<>();
         String line;
-        while ( (line = reader.readLine()) != null ) {
-          result.echoArgs.add( line );
+        while ((line = reader.readLine()) != null) {
+          result.echoArgs.add(line);
         }
-        result.analyze( );
-      }
-      finally {
-        reader.close( );
+        result.analyze();
+      } finally {
+        reader.close();
       }
     }
 
     private void captureLog(RunResult result) throws IOException {
       result.logDir = logDir;
-      result.logFile = new File( logDir, "drillbit.log" );
-      if ( result.logFile.exists() ) {
-        result.loadLog( );
-      }
-      else {
+      result.logFile = new File(logDir, "drillbit.log");
+      if (result.logFile.exists()) {
+        result.loadLog();
+      } else {
         result.logFile = null;
       }
     }
   }
 
-  public static class DrillbitRun extends ScriptRunner
-  {
+  public static class DrillbitRun extends ScriptRunner {
     public File pidDir;
 
-    public DrillbitRun( ) {
-      super( "drillbit.sh" );
+    public DrillbitRun() {
+      super("drillbit.sh");
     }
 
-    public DrillbitRun( String cmd ) {
-      super( "drillbit.sh", cmd );
+    public DrillbitRun(String cmd) {
+      super("drillbit.sh", cmd);
     }
 
-    public DrillbitRun withPidDir( File pidDir ) {
+    public DrillbitRun withPidDir(File pidDir) {
       this.pidDir = pidDir;
       return this;
     }
 
-    public DrillbitRun asDaemon( )
-    {
-      addEnv( "KEEP_RUNNING", "1" );
+    public DrillbitRun asDaemon() {
+      addEnv("KEEP_RUNNING", "1");
       return this;
     }
 
-    public RunResult start( ) throws IOException {
-      if ( pidDir == null ) {
+    public RunResult start() throws IOException {
+      if (pidDir == null) {
         pidDir = drillHome;
       }
-      pidFile = new File( pidDir, "drillbit.pid" );
-//      pidFile.delete();
-      asDaemon( );
-      RunResult result = run( );
-      if ( result.returnCode == 0 ) {
-        capturePidFile( result );
-        captureDrillOut( result );
+      pidFile = new File(pidDir, "drillbit.pid");
+      // pidFile.delete();
+      asDaemon();
+      RunResult result = run();
+      if (result.returnCode == 0) {
+        capturePidFile(result);
+        captureDrillOut(result);
       }
       return result;
     }
 
-    private void capturePidFile( RunResult result ) {
-      assertTrue( pidFile.exists() );
+    private void capturePidFile(RunResult result) {
+      assertTrue(pidFile.exists());
       result.pidFile = pidFile;
     }
 
-    private void captureDrillOut( RunResult result ) throws IOException {
+    private void captureDrillOut(RunResult result) throws IOException {
       // Drillbit.out
 
-      result.outFile = new File( result.logDir, "drillbit.out" );
-      if ( result.outFile.exists() ) {
-        result.loadOut( );
-      }
-      else {
+      result.outFile = new File(result.logDir, "drillbit.out");
+      if (result.outFile.exists()) {
+        result.loadOut();
+      } else {
         result.outFile = null;
       }
     }
@@ -798,19 +784,19 @@ public class ScriptUtils
   }
 
   /**
-   * Build a "starter" conf or site directory by creating a mock drill-override.conf
-   * file.
+   * Build a "starter" conf or site directory by creating a mock
+   * drill-override.conf file.
    */
 
   public void createMockConf(File siteDir) throws IOException {
-    createDir( siteDir );
-    File override = new File( siteDir, "drill-override.conf" );
-    writeFile( override, "# Dummy override" );
+    createDir(siteDir);
+    File override = new File(siteDir, "drill-override.conf");
+    writeFile(override, "# Dummy override");
   }
 
   public void removeDir(File dir) throws IOException {
-    if ( dir.exists() ) {
-      FileUtils.forceDelete( dir );
+    if (dir.exists()) {
+      FileUtils.forceDelete(dir);
     }
   }
 
@@ -819,13 +805,14 @@ public class ScriptUtils
    */
 
   public File createDir(File dir) throws IOException {
-    removeDir( dir );
+    removeDir(dir);
     dir.mkdirs();
     return dir;
   }
 
-  public void copyFile( File source, File dest ) throws IOException {
-    Files.copy( source.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING );
+  public void copyFile(File source, File dest) throws IOException {
+    Files.copy(source.toPath(), dest.toPath(),
+        StandardCopyOption.REPLACE_EXISTING);
   }
 
 }

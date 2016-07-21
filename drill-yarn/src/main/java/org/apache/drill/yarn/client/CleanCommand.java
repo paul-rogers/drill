@@ -26,63 +26,64 @@ import com.typesafe.config.Config;
 
 import org.apache.drill.yarn.core.DfsFacade.DfsFacadeException;
 
-public class CleanCommand extends ClientCommand
-{
+public class CleanCommand extends ClientCommand {
   private Config config;
   private DfsFacade dfs;
 
   @Override
   public void run() throws ClientException {
     config = DrillOnYarnConfig.config();
-    if ( ! isLocalized( ) ) {
-      System.out.println( "Not using localized files; nothing to clean." );
+    if (!isLocalized()) {
+      System.out.println("Not using localized files; nothing to clean.");
       return;
     }
-    connectToDfs( );
-    removeDrillArchive( );
-    removeSiteArchive( );
+    connectToDfs();
+    removeDrillArchive();
+    removeSiteArchive();
   }
 
-  public boolean isLocalized( ) {
-    return config.getBoolean( DrillOnYarnConfig.LOCALIZE_DRILL );
+  public boolean isLocalized() {
+    return config.getBoolean(DrillOnYarnConfig.LOCALIZE_DRILL);
   }
 
-  protected void connectToDfs( ) throws ClientException
-  {
+  protected void connectToDfs() throws ClientException {
     try {
-      System.out.print( "Connecting to DFS..." );
-      dfs = new DfsFacade( config );
+      System.out.print("Connecting to DFS...");
+      dfs = new DfsFacade(config);
       dfs.connect();
-      System.out.println( " Connected." );
+      System.out.println(" Connected.");
     } catch (DfsFacadeException e) {
-      System.out.println( "Failed." );
-      throw new ClientException( "Failed to connect to DFS", e );
+      System.out.println("Failed.");
+      throw new ClientException("Failed to connect to DFS", e);
     }
   }
 
   private void removeDrillArchive() {
-    String localArchivePath = config.getString( DrillOnYarnConfig.DRILL_ARCHIVE_PATH );
-    String archiveName = new File( localArchivePath ).getName( );
-    removeArchive( archiveName );
+    String localArchivePath = config
+        .getString(DrillOnYarnConfig.DRILL_ARCHIVE_PATH);
+    String archiveName = new File(localArchivePath).getName();
+    removeArchive(archiveName);
   }
 
-  private void removeArchive( String archiveName ) {
-    System.out.print( "Removing " + archiveName + " ..." );
+  private void removeArchive(String archiveName) {
+    System.out.print("Removing " + archiveName + " ...");
     try {
-      dfs.removeDrillFile( archiveName );
-      System.out.println( " Removed" );;
+      dfs.removeDrillFile(archiveName);
+      System.out.println(" Removed");
+      ;
     } catch (DfsFacadeException e) {
-      System.out.println( );
-      System.err.println( e.getMessage() );
+      System.out.println();
+      System.err.println(e.getMessage());
     }
   }
 
   private void removeSiteArchive() {
     DrillOnYarnConfig doyConfig = DrillOnYarnConfig.instance();
-    if ( ! doyConfig.hasSiteDir() ) {
-      return; }
+    if (!doyConfig.hasSiteDir()) {
+      return;
+    }
     String archiveName = DrillOnYarnConfig.SITE_ARCHIVE_NAME;
-    removeArchive( archiveName );
+    removeArchive(archiveName);
   }
 
 }

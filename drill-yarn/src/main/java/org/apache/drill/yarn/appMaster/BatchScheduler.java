@@ -17,8 +17,7 @@
  */
 package org.apache.drill.yarn.appMaster;
 
-public class BatchScheduler extends AbstractScheduler
-{
+public class BatchScheduler extends AbstractScheduler {
   private int quantity;
   private int completedCount;
 
@@ -31,7 +30,8 @@ public class BatchScheduler extends AbstractScheduler
   public void completed(Task task) {
     completedCount++;
     if (task.getDisposition() != Task.Disposition.COMPLETED) {
-      failCount++; }
+      failCount++;
+    }
   }
 
   @Override
@@ -50,9 +50,11 @@ public class BatchScheduler extends AbstractScheduler
     int activeCount = state.getTaskCount();
     int delta = quantity - activeCount - completedCount;
     if (delta < 0) {
-      addTasks(-delta); }
+      addTasks(-delta);
+    }
     if (delta > 0) {
-      cancelTasks(delta); }
+      cancelTasks(delta);
+    }
   }
 
   /**
@@ -65,7 +67,8 @@ public class BatchScheduler extends AbstractScheduler
     for (Task task : state.getStartingTasks()) {
       state.cancel(task);
       if (--n == 0) {
-        break; }
+        break;
+      }
     }
   }
 

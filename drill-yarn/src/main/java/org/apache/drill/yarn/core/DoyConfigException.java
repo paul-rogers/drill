@@ -17,15 +17,14 @@
  */
 package org.apache.drill.yarn.core;
 
-public class DoyConfigException extends Exception
-{
+public class DoyConfigException extends Exception {
   private static final long serialVersionUID = 1L;
 
   public DoyConfigException(String msg) {
-    super( msg );
+    super(msg);
   }
 
   public DoyConfigException(String msg, Exception e) {
-    super( msg, e );
+    super(msg, e);
   }
 }

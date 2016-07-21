@@ -24,8 +24,7 @@ import static org.junit.Assert.assertNull;
 
 import org.apache.drill.yarn.client.CommandLineOptions;
 
-public class TestCommandLineOptions
-{
+public class TestCommandLineOptions {
   @Test
   public void testOptions() {
     CommandLineOptions opts = new CommandLineOptions();

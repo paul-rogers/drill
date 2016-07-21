@@ -20,8 +20,8 @@ package org.apache.drill.yarn.client;
 import java.io.PrintStream;
 
 /**
- * Provides a static set of contextual operations that can be
- * configured one way for production, a separate way for unit tests.
+ * Provides a static set of contextual operations that can be configured one way
+ * for production, a separate way for unit tests.
  */
 
 public class ClientContext {
@@ -30,19 +30,19 @@ public class ClientContext {
   public static PrintStream err = System.err;
   public static PrintStream out = System.out;
 
-  public static void init( ) {
-    init( new ClientContext( ) );
+  public static void init() {
+    init(new ClientContext());
   }
 
   protected static void init(ClientContext instance) {
     ClientContext.instance = instance;
   }
 
-  public static ClientContext instance( ) {
+  public static ClientContext instance() {
     return instance;
   }
 
-  public void exit( int exitCode ) {
-    System.exit( exitCode );
+  public void exit(int exitCode) {
+    System.exit(exitCode);
   }
 }

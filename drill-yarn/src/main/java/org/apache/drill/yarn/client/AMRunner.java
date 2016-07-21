@@ -43,8 +43,7 @@ import com.typesafe.config.Config;
  * track the AM both through YARN and via the AM's own web UI.
  */
 
-public class AMRunner
-{
+public class AMRunner {
   private Config config;
   private boolean verbose;
   private ApplicationId appId;
@@ -57,53 +56,51 @@ public class AMRunner
   private GetNewApplicationResponse appResponse;
   private boolean dryRun;
 
-  public AMRunner( Config config, boolean verbose, boolean dryRun ) {
+  public AMRunner(Config config, boolean verbose, boolean dryRun) {
     this.config = config;
     this.verbose = verbose;
     this.dryRun = dryRun;
   }
 
-  public void run( ) throws ClientException {
-    connectToYarn( );
-    if ( dryRun ) {
-      doDryRun( );
-    }
-    else {
-      doLaunch( );
+  public void run() throws ClientException {
+    connectToYarn();
+    if (dryRun) {
+      doDryRun();
+    } else {
+      doLaunch();
     }
   }
 
   private void connectToYarn() {
-    System.out.print( "Loading YARN Config..." );
+    System.out.print("Loading YARN Config...");
     client = new YarnRMClient();
-    System.out.println( " Loaded." );
+    System.out.println(" Loaded.");
   }
 
   private void doDryRun() throws ClientException {
-    AppSpec master = buildSpec( );
-    dump( master, System.out );
+    AppSpec master = buildSpec();
+    dump(master, System.out);
   }
 
   private void doLaunch() throws ClientException {
-    createApp( );
-    AppSpec master = buildSpec( );
-    if ( verbose ) {
-      dump( master, System.out );
+    createApp();
+    AppSpec master = buildSpec();
+    if (verbose) {
+      dump(master, System.out);
     }
-    launchApp( master );
-    writeAppIdFile( );
-    waitForStartAndReport( master.appName );
+    launchApp(master);
+    writeAppIdFile();
+    waitForStartAndReport(master.appName);
   }
 
   private void dump(AppSpec master, PrintStream out) {
-    out.println( "----------------------------------------------" );
-    out.println( "Application Master Launch Spec" );
-    master.dump( out );
-    out.println( "----------------------------------------------" );
+    out.println("----------------------------------------------");
+    out.println("Application Master Launch Spec");
+    master.dump(out);
+    out.println("----------------------------------------------");
   }
 
-  private AppSpec buildSpec( ) throws ClientException
-  {
+  private AppSpec buildSpec() throws ClientException {
     AppSpec master = new AppSpec();
 
     // Heap memory
@@ -151,7 +148,6 @@ public class AMRunner
 
     String appIdStr = dryRun ? "Unknown" : appId.toString();
     master.env.put( DrillOnYarnConfig.APP_ID_ENV_VAR, appIdStr );
-//    master.env.put( DrillOnYarnConfig.RM_TRACKING_ENV_VAR, trackingUrl );
 
     // Debug launch: dumps environment variables and other information
     // in the launch script.
@@ -189,157 +185,158 @@ public class AMRunner
     return master;
   }
 
-  private void addIfSet( LaunchSpec spec, String configParam, String envVar ) {
-    String value = config.getString( configParam );
-    if ( ! DoYUtil.isBlank( value ) ) {
-      spec.env.put( envVar, value );
+  private void addIfSet(LaunchSpec spec, String configParam, String envVar) {
+    String value = config.getString(configParam);
+    if (!DoYUtil.isBlank(value)) {
+      spec.env.put(envVar, value);
     }
   }
 
-  private void createApp( ) throws ClientException
-  {
+  private void createApp() throws ClientException {
     try {
       appResponse = client.createAppMaster();
     } catch (YarnClientException e) {
-      throw new ClientException( "Failed to allocate Drill application master", e );
+      throw new ClientException("Failed to allocate Drill application master",
+          e);
     }
     appId = appResponse.getApplicationId();
     System.out.println("Application ID: " + appId.toString());
   }
 
-  private void launchApp( AppSpec master ) throws ClientException
-  {
+  private void launchApp(AppSpec master) throws ClientException {
     // Memory and core checks per YARN app specs.
 
     int maxMemory = appResponse.getMaximumResourceCapability().getMemory();
     int maxCores = appResponse.getMaximumResourceCapability().getVirtualCores();
-    if ( verbose ) {
+    if (verbose) {
       System.out.println("Max Memory: " + maxMemory);
-      System.out.println("Max Cores: " + maxCores );
+      System.out.println("Max Cores: " + maxCores);
     }
 
-    // YARN behaves very badly if we request a container larger than the maximum.
+    // YARN behaves very badly if we request a container larger than the
+    // maximum.
 
-    if ( master.memoryMb > maxMemory ) {
-      System.err.println( "YARN maximum memory is " + maxMemory + " but the application master requests " + master.memoryMb );
+    if (master.memoryMb > maxMemory) {
+      System.err.println("YARN maximum memory is " + maxMemory
+          + " but the application master requests " + master.memoryMb);
       master.memoryMb = maxMemory;
     }
-    if ( master.vCores > maxCores ) {
-      System.err.println( "YARN maximum vcores is " + maxCores + " but the application master requests " + master.vCores );
+    if (master.vCores > maxCores) {
+      System.err.println("YARN maximum vcores is " + maxCores
+          + " but the application master requests " + master.vCores);
       master.vCores = maxCores;
     }
 
     try {
       client.submitAppMaster(master);
     } catch (YarnClientException e) {
-      throw new ClientException( "Failed to start Drill application master", e );
+      throw new ClientException("Failed to start Drill application master", e);
     }
   }
 
   /**
-   * Write the app id file needed for subsequent commands. The app id file
-   * is the only way we know the YARN application associated with our Drill-on-YARN
+   * Write the app id file needed for subsequent commands. The app id file is
+   * the only way we know the YARN application associated with our Drill-on-YARN
    * session. This file is ready by subsequent status, resize and stop commands
    * so we can find our Drill AM on the YARN cluster.
    *
    * @throws ClientException
    */
 
-  private void writeAppIdFile( ) throws ClientException
-  {
+  private void writeAppIdFile() throws ClientException {
     // Write the appid file that lets us work with the app later
     // (Analogous to a pid file.)
     // File goes into the directory above Drill Home (which should be the
     // folder that contains the localized archive) and is named for the
     // ZK cluster (to ensure that the name is a valid file name.)
 
-    File appIdFile = ClientCommand.getAppIdFile( );
+    File appIdFile = ClientCommand.getAppIdFile();
     try {
-      PrintWriter writer = new PrintWriter( new FileWriter( appIdFile ) );
-      writer.println( appId );
-      writer.close( );
-    }
-    catch ( IOException e ) {
-      throw new ClientException( "Failed to write appid file: " + appIdFile.getAbsolutePath() );
+      PrintWriter writer = new PrintWriter(new FileWriter(appIdFile));
+      writer.println(appId);
+      writer.close();
+    } catch (IOException e) {
+      throw new ClientException(
+          "Failed to write appid file: " + appIdFile.getAbsolutePath());
     }
   }
 
   /**
    * Poll YARN to track the launch process of the application so that we can
-   * wait until the AM is live before pointing the user to the AM's
-   * web UI.
+   * wait until the AM is live before pointing the user to the AM's web UI.
    */
 
-  private class StartMonitor
-  {
+  private class StartMonitor {
     StatusCommand.Reporter reporter;
     private YarnApplicationState state;
     private int pollWaitSec;
     private int startupWaitSec;
 
-    public StartMonitor( ) {
-      pollWaitSec = config.getInt( DrillOnYarnConfig.CLIENT_POLL_SEC );
-      if ( pollWaitSec < 1 ) {
+    public StartMonitor() {
+      pollWaitSec = config.getInt(DrillOnYarnConfig.CLIENT_POLL_SEC);
+      if (pollWaitSec < 1) {
         pollWaitSec = 1;
       }
-      startupWaitSec = config.getInt( DrillOnYarnConfig.CLIENT_START_WAIT_SEC );
+      startupWaitSec = config.getInt(DrillOnYarnConfig.CLIENT_START_WAIT_SEC);
     }
 
-    void run( String appName ) throws ClientException {
-      System.out.print( "Launching " + appName + "..." );
-      reporter = new StatusCommand.Reporter( client );
+    void run(String appName) throws ClientException {
+      System.out.print("Launching " + appName + "...");
+      reporter = new StatusCommand.Reporter(client);
       reporter.getReport();
-      if ( ! reporter.isStarting() ) {
-        return; }
-      updateState( reporter.getState( ) );
+      if (!reporter.isStarting()) {
+        return;
+      }
+      updateState(reporter.getState());
       try {
         int attemptCount = startupWaitSec / pollWaitSec;
-        for ( int attempt = 0;  attempt < attemptCount;  attempt++ )
-        {
-          if ( ! poll( ) ) {
-            break; }
+        for (int attempt = 0; attempt < attemptCount; attempt++) {
+          if (!poll()) {
+            break;
+          }
         }
       } finally {
-        System.out.println( );
+        System.out.println();
       }
-      reporter.display( verbose, true );
-      if ( reporter.isStarting() ) {
-        System.out.println( "Application Master is slow to start, use the 'status' command later to check status." );
+      reporter.display(verbose, true);
+      if (reporter.isStarting()) {
+        System.out.println(
+            "Application Master is slow to start, use the 'status' command later to check status.");
       }
     }
 
-    private boolean poll( ) throws ClientException {
+    private boolean poll() throws ClientException {
       try {
-        Thread.sleep( pollWaitSec * 1000 );
+        Thread.sleep(pollWaitSec * 1000);
       } catch (InterruptedException e) {
         return false;
       }
-      reporter.getReport( );
-      if ( ! reporter.isStarting( ) ) {
+      reporter.getReport();
+      if (!reporter.isStarting()) {
         return false;
       }
-      YarnApplicationState newState = reporter.getState( );
-      if ( newState == state ) {
-        System.out.print( "." );
+      YarnApplicationState newState = reporter.getState();
+      if (newState == state) {
+        System.out.print(".");
         return true;
       }
-      System.out.println( );
-      updateState( newState );
+      System.out.println();
+      updateState(newState);
       return true;
     }
 
-    private void updateState( YarnApplicationState newState ) {
+    private void updateState(YarnApplicationState newState) {
       state = newState;
-      if ( verbose ) {
-        System.out.print( "Application State: " );
-        System.out.println( state.toString( ) );
-        System.out.print( "Starting..." );
+      if (verbose) {
+        System.out.print("Application State: ");
+        System.out.println(state.toString());
+        System.out.print("Starting...");
       }
     }
   }
 
-  private void waitForStartAndReport( String appName ) throws ClientException {
-    StartMonitor monitor = new StartMonitor( );
-    monitor.run( appName );
+  private void waitForStartAndReport(String appName) throws ClientException {
+    StartMonitor monitor = new StartMonitor();
+    monitor.run(appName);
   }
 }

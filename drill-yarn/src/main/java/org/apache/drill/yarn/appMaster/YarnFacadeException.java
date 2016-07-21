@@ -23,8 +23,7 @@ package org.apache.drill.yarn.appMaster;
  */
 
 @SuppressWarnings("serial")
-public class YarnFacadeException extends Exception
-{
+public class YarnFacadeException extends Exception {
   public YarnFacadeException(String msg, Exception e) {
     super(msg, e);
   }

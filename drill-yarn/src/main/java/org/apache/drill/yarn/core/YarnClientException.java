@@ -18,9 +18,6 @@
 package org.apache.drill.yarn.core;
 
 public class YarnClientException extends Exception {
-  /**
-   *
-   */
   private static final long serialVersionUID = -1411110715738266578L;
 
   public YarnClientException(String msg) {

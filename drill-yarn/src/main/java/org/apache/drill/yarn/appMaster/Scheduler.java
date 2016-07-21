@@ -33,14 +33,16 @@ import org.apache.hadoop.yarn.api.records.Resource;
  * persistent tasks.)
  */
 
-public interface Scheduler
-{
-  public interface TaskManager
-  {
-    int maxConcurrentAllocs( );
+public interface Scheduler {
+  public interface TaskManager {
+    int maxConcurrentAllocs();
+
     LaunchSpec getLaunchSpec(Task task);
+
     void allocated(EventContext context);
+
     boolean stop(Task task);
+
     void completed(EventContext context);
   }
 

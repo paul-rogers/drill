@@ -33,11 +33,12 @@ import org.apache.hadoop.yarn.exceptions.YarnException;
 import org.apache.hadoop.yarn.security.AMRMTokenIdentifier;
 
 /**
- * YARN resource manager client implementation for Drill. Provides a wrapper around
- * the YARN client interface to the Resource Manager. Used by the client app to
- * start the Drill application master.
+ * YARN resource manager client implementation for Drill. Provides a wrapper
+ * around the YARN client interface to the Resource Manager. Used by the client
+ * app to start the Drill application master.
  * <p>
- * Based on <a href="https://github.com/hortonworks/simple-yarn-app">simple-yarn-app</a>
+ * Based on
+ * <a href="https://github.com/hortonworks/simple-yarn-app">simple-yarn-app</a>
  */
 
 public class YarnRMClient {
@@ -45,8 +46,8 @@ public class YarnRMClient {
   private YarnClient yarnClient;
 
   /**
-   * Application ID. Semantics are such that each session of Drill-on-YARN
-   * works with no more than one application ID.
+   * Application ID. Semantics are such that each session of Drill-on-YARN works
+   * with no more than one application ID.
    */
 
   private ApplicationId appId;
@@ -56,8 +57,8 @@ public class YarnRMClient {
     this(new YarnConfiguration());
   }
 
-  public YarnRMClient( ApplicationId appId ) {
-    this( );
+  public YarnRMClient(ApplicationId appId) {
+    this();
     this.appId = appId;
   }
 
@@ -68,7 +69,8 @@ public class YarnRMClient {
     yarnClient.start();
   }
 
-  public GetNewApplicationResponse createAppMaster( ) throws YarnClientException {
+  public GetNewApplicationResponse createAppMaster()
+      throws YarnClientException {
     // Create application via yarnClient
     // Response is a new application ID along with cluster capacity info
 
@@ -83,8 +85,8 @@ public class YarnRMClient {
   }
 
   public void submitAppMaster(AppSpec spec) throws YarnClientException {
-    if ( app == null ) {
-      throw new IllegalStateException( "call createAppMaster( ) first" );
+    if (app == null) {
+      throw new IllegalStateException("call createAppMaster( ) first");
     }
 
     ApplicationSubmissionContext appContext;
@@ -115,8 +117,8 @@ public class YarnRMClient {
   }
 
   /**
-   * Waits for the application to start. This version is somewhat informal,
-   * the intended use is when debugging unmanaged applications.
+   * Waits for the application to start. This version is somewhat informal, the
+   * intended use is when debugging unmanaged applications.
    *
    * @throws YarnClientException
    */
@@ -124,13 +126,13 @@ public class YarnRMClient {
     ApplicationReport appReport;
     YarnApplicationState appState;
     ApplicationAttemptId attemptId;
-    for (; ; ) {
+    for (;;) {
       appReport = getAppReport();
       appState = appReport.getYarnApplicationState();
       attemptId = appReport.getCurrentApplicationAttemptId();
-      if (appState != YarnApplicationState.NEW &&
-              appState != YarnApplicationState.NEW_SAVING &&
-              appState != YarnApplicationState.SUBMITTED) {
+      if (appState != YarnApplicationState.NEW
+          && appState != YarnApplicationState.NEW_SAVING
+          && appState != YarnApplicationState.SUBMITTED) {
         break;
       }
       System.out.println("App State: " + appState);
@@ -141,15 +143,16 @@ public class YarnRMClient {
       }
     }
     if (appState != YarnApplicationState.ACCEPTED) {
-      throw new YarnClientException("Application start failed with status " + appState);
+      throw new YarnClientException(
+          "Application start failed with status " + appState);
     }
 
     return attemptId;
   }
 
   /**
-   * Wait for the application to enter one of the completion states. This is an informal
-   * implementation useful for testing.
+   * Wait for the application to enter one of the completion states. This is an
+   * informal implementation useful for testing.
    *
    * @throws YarnClientException
    */
@@ -157,12 +160,12 @@ public class YarnRMClient {
   public void waitForCompletion() throws YarnClientException {
     ApplicationReport appReport;
     YarnApplicationState appState;
-    for (; ; ) {
+    for (;;) {
       appReport = getAppReport();
       appState = appReport.getYarnApplicationState();
-      if (appState == YarnApplicationState.FINISHED ||
-              appState == YarnApplicationState.KILLED ||
-              appState == YarnApplicationState.FAILED) {
+      if (appState == YarnApplicationState.FINISHED
+          || appState == YarnApplicationState.KILLED
+          || appState == YarnApplicationState.FAILED) {
         break;
       }
       try {
@@ -172,10 +175,8 @@ public class YarnRMClient {
       }
     }
 
-    System.out.println(
-            "Application " + appId + " finished with" +
-                    " state " + appState +
-                    " at " + appReport.getFinishTime());
+    System.out.println("Application " + appId + " finished with" + " state "
+        + appState + " at " + appReport.getFinishTime());
   }
 
   public Token<AMRMTokenIdentifier> getAMRMToken() throws YarnClientException {
@@ -191,16 +192,16 @@ public class YarnRMClient {
    */
 
   public String[] getYarnAppClassPath() {
-    return conf.getStrings(
-        YarnConfiguration.YARN_APPLICATION_CLASSPATH,
+    return conf.getStrings(YarnConfiguration.YARN_APPLICATION_CLASSPATH,
         YarnConfiguration.DEFAULT_YARN_APPLICATION_CLASSPATH);
   }
 
-  public void killApplication( ) throws YarnClientException {
+  public void killApplication() throws YarnClientException {
     try {
-      yarnClient.killApplication( appId );
+      yarnClient.killApplication(appId);
     } catch (YarnException | IOException e) {
-      throw new YarnClientException( "Kill failed for application: " + appId.toString() );
+      throw new YarnClientException(
+          "Kill failed for application: " + appId.toString());
     }
   }
 }

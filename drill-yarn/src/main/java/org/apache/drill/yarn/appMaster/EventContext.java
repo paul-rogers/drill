@@ -19,8 +19,7 @@ package org.apache.drill.yarn.appMaster;
 
 import org.apache.drill.yarn.appMaster.Scheduler.TaskManager;
 
-public class EventContext
-{
+public class EventContext {
   public final AMYarnFacade yarn;
   public final ClusterControllerImpl controller;
   public SchedulerStateImpl group;

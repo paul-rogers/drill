@@ -26,100 +26,88 @@ import org.json.simple.parser.ParseException;
 
 import com.typesafe.config.Config;
 
-public class ResizeCommand extends ClientCommand
-{
+public class ResizeCommand extends ClientCommand {
   private Config config;
   private YarnRMClient client;
 
-
   @Override
   public void run() throws ClientException {
-    config = DrillOnYarnConfig.config( );
-    client = getClient( );
-    System.out.println("Resizing cluster for Application ID: " + client.getAppId().toString());
+    config = DrillOnYarnConfig.config();
+    client = getClient();
+    System.out.println(
+        "Resizing cluster for Application ID: " + client.getAppId().toString());
 
     // First get an application report to ensure that the AM is,
     // in fact, running, and to get the HTTP endpoint.
 
-    StatusCommand.Reporter reporter = new StatusCommand.Reporter( client );
+    StatusCommand.Reporter reporter = new StatusCommand.Reporter(client);
     try {
       reporter.getReport();
     } catch (ClientException e) {
       reporter = null;
     }
-//    String delta = opts.delta;
-//    if ( DoYUtil.isBlank( delta ) ) {
-//      throw new ClientException( "Usage: resize (+-)n" );
-//    }
-//    Pattern p = Pattern.compile( "([+-]?)(\\d+)" );
-//    Matcher m = p.matcher( delta );
-//    if ( ! m.matches() ) {
-//      throw new ClientException( "Invalid resize argument: " + delta );
-//    }
     String prefix = opts.resizePrefix;
     int quantity = opts.resizeValue;
     String cmd;
-    if ( prefix.equals( "+" ) ) {
+    if (prefix.equals("+")) {
       cmd = "grow";
-      if ( opts.verbose ) {
-        System.out.println( "Growing cluster by " + quantity + " nodes." );
+      if (opts.verbose) {
+        System.out.println("Growing cluster by " + quantity + " nodes.");
       }
-    }
-    else if ( prefix.equals( "-" ) ) {
+    } else if (prefix.equals("-")) {
       cmd = "shrink";
-      if ( opts.verbose ) {
-        System.out.println( "Shrinking cluster by " + quantity + " nodes." );
+      if (opts.verbose) {
+        System.out.println("Shrinking cluster by " + quantity + " nodes.");
       }
-    }
-    else {
+    } else {
       cmd = "resize";
-      if ( opts.verbose ) {
-        System.out.println( "Resizing cluster to " + quantity + " nodes." );
+      if (opts.verbose) {
+        System.out.println("Resizing cluster to " + quantity + " nodes.");
       }
     }
-    if ( sendResize( reporter.getAmUrl(), cmd, quantity ) ) {
-      System.out.println( "Use web UI or status command to check progress." );
+    if (sendResize(reporter.getAmUrl(), cmd, quantity)) {
+      System.out.println("Use web UI or status command to check progress.");
     }
   }
 
-  private boolean sendResize( String baseUrl, String cmd, int quantity ) {
+  private boolean sendResize(String baseUrl, String cmd, int quantity) {
     try {
-      if ( DoYUtil.isBlank( baseUrl ) ) {
+      if (DoYUtil.isBlank(baseUrl)) {
         return false;
       }
-      SimpleRestClient restClient = new SimpleRestClient( );
+      SimpleRestClient restClient = new SimpleRestClient();
       String tail = "rest/" + cmd + "/" + quantity;
-      String masterKey = config.getString( DrillOnYarnConfig.HTTP_REST_KEY );
-      if ( ! DoYUtil.isBlank( masterKey ) ) {
-        tail += "?key=" + masterKey; }
-      if ( opts.verbose ) {
-        System.out.println( "Resizing with POST " + baseUrl + "/" + tail );
+      String masterKey = config.getString(DrillOnYarnConfig.HTTP_REST_KEY);
+      if (!DoYUtil.isBlank(masterKey)) {
+        tail += "?key=" + masterKey;
       }
-      String result = restClient.send( baseUrl, tail, true );
+      if (opts.verbose) {
+        System.out.println("Resizing with POST " + baseUrl + "/" + tail);
+      }
+      String result = restClient.send(baseUrl, tail, true);
 
-      JSONParser parser = new JSONParser( );
+      JSONParser parser = new JSONParser();
       Object response;
       try {
-        response = parser.parse( result );
+        response = parser.parse(result);
       } catch (ParseException e) {
-        System.err.println( "Invalid response received from AM" );
-        if ( opts.verbose ) {
-          System.out.println( result );
-          System.out.println( e.getMessage( ) );
+        System.err.println("Invalid response received from AM");
+        if (opts.verbose) {
+          System.out.println(result);
+          System.out.println(e.getMessage());
         }
         return false;
       }
       JSONObject root = (JSONObject) response;
 
-      System.out.println( "AM responded: " + root.get( "message" ) );
-      if ( "ok".equals( root.get( "status" ) ) ) {
+      System.out.println("AM responded: " + root.get("message"));
+      if ("ok".equals(root.get("status"))) {
         return true;
       }
-      System.err.println( "Failed to resize the application master." );
+      System.err.println("Failed to resize the application master.");
       return false;
-    }
-    catch ( ClientException e ) {
-      System.err.println( "Resize failed: " + e.getMessage() );
+    } catch (ClientException e) {
+      System.err.println("Resize failed: " + e.getMessage());
       return false;
     }
   }

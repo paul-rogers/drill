@@ -16,9 +16,9 @@
  * limitations under the License.
  */
 package org.apache.drill.yarn.appMaster;
+
 @SuppressWarnings("serial")
-public class AMWrapperException extends Error
-{
+public class AMWrapperException extends Error {
   public AMWrapperException(String msg, Exception e) {
     super(msg, e);
   }

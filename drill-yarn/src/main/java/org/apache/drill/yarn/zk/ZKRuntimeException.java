@@ -17,11 +17,14 @@
  */
 package org.apache.drill.yarn.zk;
 
-public class ZKRuntimeException extends Exception
-{
+public class ZKRuntimeException extends Exception {
   private static final long serialVersionUID = 1L;
 
-  public ZKRuntimeException(String msg, Exception e) { super( msg, e ); }
+  public ZKRuntimeException(String msg, Exception e) {
+    super(msg, e);
+  }
 
-  public ZKRuntimeException(String msg) { super( msg ); }
+  public ZKRuntimeException(String msg) {
+    super(msg);
+  }
 }

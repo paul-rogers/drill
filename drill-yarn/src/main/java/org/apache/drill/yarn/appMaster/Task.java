@@ -20,7 +20,6 @@ package org.apache.drill.yarn.appMaster;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.drill.yarn.appMaster.Task.TrackingState;
 import org.apache.drill.yarn.core.ContainerRequestSpec;
 import org.apache.drill.yarn.core.LaunchSpec;
 import org.apache.hadoop.yarn.api.records.Container;
@@ -34,8 +33,7 @@ import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
  * {@link TaskState} subclasses.
  */
 
-public class Task
-{
+public class Task {
   /**
    * Tracking plugin state. A task can be untracked, or moves
    * though states<br>
@@ -165,7 +163,7 @@ public class Task
     this.scheduler = scheduler;
     this.taskSpec = taskSpec;
     state = TaskState.START;
-    resetTrackingState( );
+    resetTrackingState();
   }
 
   /**
@@ -240,7 +238,7 @@ public class Task
    */
 
   public void reset() {
-    assert ! cancelled;
+    assert !cancelled;
     error = null;
     disposition = null;
     completionStatus = null;
@@ -253,40 +251,37 @@ public class Task
 
   public long uptime() {
     long endTime = completionTime;
-    if ( endTime == 0 ) {
-      endTime = System.currentTimeMillis(); }
+    if (endTime == 0) {
+      endTime = System.currentTimeMillis();
+    }
     return endTime - launchTime;
   }
 
   public String getHostName() {
-    if ( container == null ) {
-      return null; }
+    if (container == null) {
+      return null;
+    }
     return container.getNodeId().getHost();
   }
 
-  public TrackingState getTrackingState( ) {
+  public TrackingState getTrackingState() {
     return trackingState;
   }
 
   @Override
-  public String toString( ) {
+  public String toString() {
     StringBuilder buf = new StringBuilder();
-    buf.append( "[id=" )
-       .append( taskId )
-       .append( ", type=" )
-       .append( scheduler.getName() );
-    if ( container != null ) {
-       buf.append( " host=" )
-          .append( getHostName( ) );
+    buf.append("[id=").append(taskId).append(", type=")
+        .append(scheduler.getName());
+    if (container != null) {
+      buf.append(" host=").append(getHostName());
     }
-    buf.append( ", state=" )
-       .append( state.toString() )
-       .append( "]" );
+    buf.append(", state=").append(state.toString()).append("]");
     return buf.toString();
   }
 
   public boolean isLive() {
-    return state == TaskState.RUNNING  &&  ! cancelled;
+    return state == TaskState.RUNNING && !cancelled;
   }
 
   public void cancel() {
@@ -295,7 +290,7 @@ public class Task
   }
 
   public Task copy() {
-     return new Task( this );
+    return new Task(this);
   }
 
   public String getName() {
@@ -304,11 +299,12 @@ public class Task
 
   /**
    * Label for this task displayed in log messages.
+   *
    * @return
    */
 
-  public String getLabel( ) {
-    return "[" + Integer.toString( taskId ) + ", " + getName( ) + "]";
+  public String getLabel() {
+    return "[" + Integer.toString(taskId) + ", " + getName() + "]";
   }
 
   public void setTrackingState(TrackingState tState) {

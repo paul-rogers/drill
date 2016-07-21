@@ -30,16 +30,14 @@ import org.apache.commons.logging.LogFactory;
  * this is purely internal.
  */
 
-public class PulseRunnable implements Runnable
-{
+public class PulseRunnable implements Runnable {
   private static final Log LOG = LogFactory.getLog(PulseRunnable.class);
 
   /**
    * Interface implemented to receive calls on each clock "tick."
    */
 
-  public interface PulseCallback
-  {
+  public interface PulseCallback {
     void onTick(long curTime);
   }
 
@@ -47,7 +45,8 @@ public class PulseRunnable implements Runnable
   private final PulseRunnable.PulseCallback callback;
   public AtomicBoolean isLive = new AtomicBoolean(true);
 
-  public PulseRunnable(int pulsePeriodMS, PulseRunnable.PulseCallback callback) {
+  public PulseRunnable(int pulsePeriodMS,
+      PulseRunnable.PulseCallback callback) {
     pulsePeriod = pulsePeriodMS;
     this.callback = callback;
   }
@@ -62,8 +61,7 @@ public class PulseRunnable implements Runnable
       }
       try {
         callback.onTick(System.currentTimeMillis());
-      }
-      catch ( Exception e ) {
+      } catch (Exception e) {
 
         // Ignore exceptions. Seems strange, but is required to allow
         // graceful shutdown of the AM when errors occur. For example, we
@@ -72,7 +70,7 @@ public class PulseRunnable implements Runnable
         // requests in order to bring down the AM. So, just log the error
         // and soldier on.
 
-        LOG.error( "Timer thread caught, ignored an exception", e );
+        LOG.error("Timer thread caught, ignored an exception", e);
       }
     }
   }

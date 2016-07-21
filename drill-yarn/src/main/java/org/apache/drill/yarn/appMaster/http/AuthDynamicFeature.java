@@ -38,20 +38,23 @@ import java.net.URI;
 import java.net.URLEncoder;
 
 /**
- * Implementation of {@link DynamicFeature}. As part of the setup it adds the auth check filter {@link AuthCheckFilter}
- * for resources that need to have user authenticated. If authentication is not done, request is forwarded to login
- * page.
+ * Implementation of {@link DynamicFeature}. As part of the setup it adds the
+ * auth check filter {@link AuthCheckFilter} for resources that need to have
+ * user authenticated. If authentication is not done, request is forwarded to
+ * login page.
  * <p>
- * Shameless copy of {@link org.apache.drill.exec.server.rest.auth.DynamicFeature}; the two implementations
- * should be merged at some point. The difference is only the log in/log out constant references.
+ * Shameless copy of
+ * {@link org.apache.drill.exec.server.rest.auth.DynamicFeature}; the two
+ * implementations should be merged at some point. The difference is only the
+ * log in/log out constant references.
  */
 
 public class AuthDynamicFeature implements DynamicFeature {
   private static final Log LOG = LogFactory.getLog(AuthDynamicFeature.class);
 
-
   @Override
-  public void configure(final ResourceInfo resourceInfo, final FeatureContext configuration) {
+  public void configure(final ResourceInfo resourceInfo,
+      final FeatureContext configuration) {
     AnnotatedMethod am = new AnnotatedMethod(resourceInfo.getResourceMethod());
 
     // RolesAllowed on the method takes precedence over PermitAll
@@ -74,30 +77,32 @@ public class AuthDynamicFeature implements DynamicFeature {
     }
   }
 
-  @Priority(Priorities.AUTHENTICATION) // authentication filter - should go first before all other filters.
+  @Priority(Priorities.AUTHENTICATION) // authentication filter - should go
+                                       // first before all other filters.
   private static class AuthCheckFilter implements ContainerRequestFilter {
     private static AuthCheckFilter INSTANCE = new AuthCheckFilter();
 
     @Override
-    public void filter(ContainerRequestContext requestContext) throws IOException {
+    public void filter(ContainerRequestContext requestContext)
+        throws IOException {
       final SecurityContext sc = requestContext.getSecurityContext();
       if (!isUserLoggedIn(sc)) {
         try {
-          final String destResource =
-              URLEncoder.encode(requestContext.getUriInfo().getRequestUri().toString(), "UTF-8");
+          final String destResource = URLEncoder.encode(
+              requestContext.getUriInfo().getRequestUri().toString(), "UTF-8");
           final URI loginURI = requestContext.getUriInfo().getBaseUriBuilder()
               .path(LogInLogOutPages.LOGIN_RESOURCE)
               .queryParam(LogInLogOutPages.REDIRECT_QUERY_PARM, destResource)
               .build();
-          requestContext.abortWith(Response.temporaryRedirect(loginURI).build()
-          );
+          requestContext
+              .abortWith(Response.temporaryRedirect(loginURI).build());
         } catch (final Exception ex) {
-          final String errMsg = String.format("Failed to forward the request to login page: %s", ex.getMessage());
+          final String errMsg = String.format(
+              "Failed to forward the request to login page: %s",
+              ex.getMessage());
           LOG.error(errMsg, ex);
-          requestContext.abortWith(
-              Response.serverError()
-                  .entity(errMsg)
-                  .build());
+          requestContext
+              .abortWith(Response.serverError().entity(errMsg).build());
         }
       }
     }

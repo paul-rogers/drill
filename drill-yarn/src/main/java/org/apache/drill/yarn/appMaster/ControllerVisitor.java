@@ -17,7 +17,6 @@
  */
 package org.apache.drill.yarn.appMaster;
 
-public interface ControllerVisitor
-{
-  void visit( ClusterController controller );
+public interface ControllerVisitor {
+  void visit(ClusterController controller);
 }

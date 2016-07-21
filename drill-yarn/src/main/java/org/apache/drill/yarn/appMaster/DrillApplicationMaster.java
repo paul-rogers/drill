@@ -43,13 +43,12 @@ import org.apache.drill.yarn.core.DrillOnYarnConfig;
  * </pre></code>
  */
 
-public class DrillApplicationMaster
-{
-  private static final Log LOG = LogFactory.getLog(DrillApplicationMaster.class);
+public class DrillApplicationMaster {
+  private static final Log LOG = LogFactory
+      .getLog(DrillApplicationMaster.class);
 
-  public static void main(String[] args)
-  {
-     LOG.trace( "Drill Application Master starting." );
+  public static void main(String[] args) {
+    LOG.trace("Drill Application Master starting.");
 
     // Load the configuration. Assumes that the user's Drill-on-YARN
     // configuration was archived along with the Drill software in
@@ -59,8 +58,8 @@ public class DrillApplicationMaster
     try {
       DrillOnYarnConfig.load().setAmDrillHome();
     } catch (DoyConfigException e) {
-      System.err.println( e.getMessage( ) );
-      System.exit( -1 );
+      System.err.println(e.getMessage());
+      System.exit(-1);
     }
 
     // Build the dispatcher using the Drillbit factory. Allows inserting
@@ -82,8 +81,9 @@ public class DrillApplicationMaster
     // a running AM.
 
     try {
-      if ( ! dispatcher.start() ) {
-        return; }
+      if (!dispatcher.start()) {
+        return;
+      }
     } catch (Throwable e) {
       LOG.error("Fatal error, exiting: " + e.getMessage(), e);
       System.exit(-1);
@@ -93,7 +93,7 @@ public class DrillApplicationMaster
     // so that we don't learn about a conflict via the a web server port
     // conflict.
 
-    WebServer webServer = new WebServer( dispatcher );
+    WebServer webServer = new WebServer(dispatcher);
     try {
       webServer.start();
     } catch (Exception e) {
@@ -108,10 +108,9 @@ public class DrillApplicationMaster
     } catch (Throwable e) {
       LOG.error("Fatal error, exiting: " + e.getMessage(), e);
       System.exit(-1);
-    }
-    finally {
+    } finally {
       try {
-        webServer.close( );
+        webServer.close();
       } catch (Exception e) {
         // Ignore
       }

@@ -44,8 +44,7 @@ import java.util.regex.Pattern;
 
 public class CommandLineOptions {
 
-  public enum Command
-  {
+  public enum Command {
     HELP( "help", "Provide description of usage."),
 
     /**
@@ -102,17 +101,17 @@ public class CommandLineOptions {
     private String cmd;
     private String descrip;
 
-    private Command( String cmd, String descrip ) {
+    private Command(String cmd, String descrip) {
       this.cmd = cmd;
       this.descrip = descrip;
     }
 
-    public boolean isMatch( String arg ) {
-      String key = (cmd == null) ? toString( ) : cmd;
-      return key.equalsIgnoreCase( arg );
+    public boolean isMatch(String arg) {
+      String key = (cmd == null) ? toString() : cmd;
+      return key.equalsIgnoreCase(arg);
     }
 
-    public boolean isHidden( ) {
+    public boolean isHidden() {
       return descrip == null;
     }
 
@@ -133,32 +132,32 @@ public class CommandLineOptions {
    * error option being set.
    */
   public boolean parse(String args[]) {
-    for ( int i = 0;  i < args.length;  i++ ) {
+    for (int i = 0; i < args.length; i++) {
       String arg = args[i];
-      if ( arg.equals( "-h" ) ||  arg.equals( "-?" ) ) {
+      if (arg.equals("-h") || arg.equals("-?")) {
         command = Command.HELP;
         break;
       }
-      if ( arg.equals( "-v" ) ||  arg.equals( "--verbose" ) ) {
+      if (arg.equals("-v") || arg.equals("--verbose")) {
         verbose = true;
         continue;
       }
-      if ( arg.equals( "-f" ) ||  arg.equals( "--force" ) ) {
+      if (arg.equals("-f") || arg.equals("--force")) {
         force = true;
         continue;
       }
-      if ( arg.equals( "-d" ) ||  arg.equals( "--dryrun" ) ) {
+      if (arg.equals("-d") || arg.equals("--dryrun")) {
         dryRun = true;
         continue;
       }
-      if ( arg.equals( "-a" ) ||  arg.equals( "--appid" ) ) {
-        if ( i + 1 == args.length ) {
+      if (arg.equals("-a") || arg.equals("--appid")) {
+        if (i + 1 == args.length) {
           return false;
         }
         appId = args[++i];
         continue;
       }
-      if ( command != null ) {
+      if (command != null) {
         command = null;
         return false;
       }
@@ -167,21 +166,20 @@ public class CommandLineOptions {
       // allow -foo and --foo in addition to the "proper" foo.
 
       String cmdStr = arg;
-      if ( cmdStr.startsWith( "--" ) ) {
-        cmdStr = arg.substring( 2 );
+      if (cmdStr.startsWith("--")) {
+        cmdStr = arg.substring(2);
+      } else if (cmdStr.startsWith("-")) {
+        cmdStr = cmdStr.substring(1);
       }
-      else if ( cmdStr.startsWith( "-" ) ) {
-        cmdStr = cmdStr.substring( 1 );
-      }
-      for ( Command cmd : Command.values() ) {
-        if ( cmd.isMatch( cmdStr ) ) {
+      for (Command cmd : Command.values()) {
+        if (cmd.isMatch(cmdStr)) {
           command = cmd;
-          if ( command == Command.RESIZE ) {
-            if ( i + 1 == args.length ) {
+          if (command == Command.RESIZE) {
+            if (i + 1 == args.length) {
               command = null;
               break;
             }
-            parseResizeOption( args[++i] );
+            parseResizeOption(args[++i]);
           }
           break;
         }
@@ -190,7 +188,7 @@ public class CommandLineOptions {
     return true;
   }
 
-  private void parseResizeOption( String resize ) {
+  private void parseResizeOption(String resize) {
     Pattern p = Pattern.compile("([+-]?)(\\d+)");
     Matcher m = p.matcher(resize);
     if (m.matches()) {
@@ -215,12 +213,15 @@ public class CommandLineOptions {
   }
 
   public void usage() {
-    ClientContext.out.println( "Usage: drill-on-yarn.sh [--site site-dir] command [-v|--verbose][-a app-id]");
-    ClientContext.out.println( "Where command is one of:" );
-    for ( Command cmd : Command.values() ) {
-      if ( cmd.isHidden( ) ) {
-        continue; }
-      ClientContext.out.println( "  " + cmd.getCommand( ) + " - " + cmd.getDescription( ) );
+    ClientContext.out.println(
+        "Usage: drill-on-yarn.sh [--site site-dir] command [-v|--verbose][-a app-id]");
+    ClientContext.out.println("Where command is one of:");
+    for (Command cmd : Command.values()) {
+      if (cmd.isHidden()) {
+        continue;
+      }
+      ClientContext.out
+          .println("  " + cmd.getCommand() + " - " + cmd.getDescription());
     }
   }
 }

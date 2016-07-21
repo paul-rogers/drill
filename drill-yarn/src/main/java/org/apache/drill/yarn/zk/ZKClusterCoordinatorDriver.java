@@ -31,26 +31,24 @@ import org.apache.drill.exec.work.foreman.DrillbitStatusListener;
 import org.apache.drill.yarn.appMaster.AMRegistrar;
 
 /**
- * Driver class for the ZooKeeper cluster coordinator. Provides
- * defaults for most options, but allows customizing each. Provides
- * a {@link #build()} method to create <i>and start</i> the ZK
- * service. Obtains the initial set of Drillbits (which should
- * be empty for a YARN-defined cluster) which can be retrieved
- * after building.
+ * Driver class for the ZooKeeper cluster coordinator. Provides defaults for
+ * most options, but allows customizing each. Provides a {@link #build()} method
+ * to create <i>and start</i> the ZK service. Obtains the initial set of
+ * Drillbits (which should be empty for a YARN-defined cluster) which can be
+ * retrieved after building.
  * <p>
- * Maintains the ZK connection and monitors for disconnect. This class
- * simply detects a disconnect timeout, it does not send a disconnect
- * event itself to avoid creating a timer thread just for this purpose.
- * Instead, the caller can poll {@link #hasFailed()}.
+ * Maintains the ZK connection and monitors for disconnect. This class simply
+ * detects a disconnect timeout, it does not send a disconnect event itself to
+ * avoid creating a timer thread just for this purpose. Instead, the caller can
+ * poll {@link #hasFailed()}.
  * <p>
- * Defaults
- * match those in Drill. (Actual Drill defaults are not yet used
- * due to code incompatibility issues.)
+ * Defaults match those in Drill. (Actual Drill defaults are not yet used due to
+ * code incompatibility issues.)
  */
 
-public class ZKClusterCoordinatorDriver implements AMRegistrar
-{
-  private static final Pattern ZK_COMPLEX_STRING = Pattern.compile("(^.*?)/(.*)/([^/]*)$");
+public class ZKClusterCoordinatorDriver implements AMRegistrar {
+  private static final Pattern ZK_COMPLEX_STRING = Pattern
+      .compile("(^.*?)/(.*)/([^/]*)$");
 
   // Defaults are taken from java-exec's drill-module.conf
 
@@ -79,11 +77,13 @@ public class ZKClusterCoordinatorDriver implements AMRegistrar
   private int dataPort = 31012;
 
   private List<DrillbitEndpoint> initialEndpoints;
-  private ConnectionStateListener stateListener = new ConnectionStateListener( ) {
+  private ConnectionStateListener stateListener = new ConnectionStateListener() {
 
     @Override
-    public void stateChanged(CuratorFramework client, ConnectionState newState) {
-      ZKClusterCoordinatorDriver.this.stateChanged( newState ); }
+    public void stateChanged(CuratorFramework client,
+        ConnectionState newState) {
+      ZKClusterCoordinatorDriver.this.stateChanged(newState);
+    }
   };
 
   private ZKClusterCoordinator zkCoord;
@@ -92,7 +92,8 @@ public class ZKClusterCoordinatorDriver implements AMRegistrar
 
   private AMRegistry amRegistry;
 
-  public ZKClusterCoordinatorDriver( ) { }
+  public ZKClusterCoordinatorDriver() {
+  }
 
   /**
    * Specify connect string in the form: host:/zkRoot/clusterId
@@ -101,32 +102,55 @@ public class ZKClusterCoordinatorDriver implements AMRegistrar
    * @return
    * @throws ZKConfigException
    */
-  public ZKClusterCoordinatorDriver setConnect( String connect ) throws ZKConfigException {
+  public ZKClusterCoordinatorDriver setConnect(String connect)
+      throws ZKConfigException {
 
-    // check if this is a complex zk string.  If so, parse into components.
+    // check if this is a complex zk string. If so, parse into components.
     Matcher m = ZK_COMPLEX_STRING.matcher(connect);
-    if(! m.matches()) {
-      throw new ZKConfigException( "Bad connect string: " + connect ); }
+    if (!m.matches()) {
+      throw new ZKConfigException("Bad connect string: " + connect);
+    }
     this.connect = m.group(1);
     zkRoot = m.group(2);
     clusterId = m.group(3);
     return this;
   }
 
-  public ZKClusterCoordinatorDriver setConnect( String connect, String zkRoot, String clusterId ) {
+  public ZKClusterCoordinatorDriver setConnect(String connect, String zkRoot,
+      String clusterId) {
     this.connect = connect;
     this.zkRoot = zkRoot;
     this.clusterId = clusterId;
     return this;
   }
 
-  public ZKClusterCoordinatorDriver setRetryCount( int n ) { retryCount = n; return this; }
-  public ZKClusterCoordinatorDriver setConnectTimeoutMs( int ms ) { connectTimeoutMs = ms; return this; }
-  public ZKClusterCoordinatorDriver setRetryDelayMs( int ms ) { retryDelayMs  = ms; return this; }
-  public ZKClusterCoordinatorDriver setMaxStartWaitMs( int ms ) { maxStartWaitMs  = ms; return this; }
-  public ZKClusterCoordinatorDriver setFailureTimoutMs( int ms ) { failureTimeoutMs  = ms; return this; }
+  public ZKClusterCoordinatorDriver setRetryCount(int n) {
+    retryCount = n;
+    return this;
+  }
 
-  public ZKClusterCoordinatorDriver setPorts( int userPort, int controlPort, int dataPort ) {
+  public ZKClusterCoordinatorDriver setConnectTimeoutMs(int ms) {
+    connectTimeoutMs = ms;
+    return this;
+  }
+
+  public ZKClusterCoordinatorDriver setRetryDelayMs(int ms) {
+    retryDelayMs = ms;
+    return this;
+  }
+
+  public ZKClusterCoordinatorDriver setMaxStartWaitMs(int ms) {
+    maxStartWaitMs = ms;
+    return this;
+  }
+
+  public ZKClusterCoordinatorDriver setFailureTimoutMs(int ms) {
+    failureTimeoutMs = ms;
+    return this;
+  }
+
+  public ZKClusterCoordinatorDriver setPorts(int userPort, int controlPort,
+      int dataPort) {
     this.userPort = userPort;
     this.controlPort = controlPort;
     this.dataPort = dataPort;
@@ -134,102 +158,102 @@ public class ZKClusterCoordinatorDriver implements AMRegistrar
   }
 
   /**
-   * Builds and starts the ZooKeeper cluster coordinator, translating any
-   * errors that occur. After this call, the listener will start receiving
-   * messages.
+   * Builds and starts the ZooKeeper cluster coordinator, translating any errors
+   * that occur. After this call, the listener will start receiving messages.
    *
    * @return
-   * @throws ZKRuntimeException if ZK startup fails
+   * @throws ZKRuntimeException
+   *           if ZK startup fails
    */
-  public ZKClusterCoordinatorDriver build( ) throws ZKRuntimeException {
+  public ZKClusterCoordinatorDriver build() throws ZKRuntimeException {
     try {
-      zkCoord = new ZKClusterCoordinator( connect, zkRoot, clusterId, retryCount, retryDelayMs, connectTimeoutMs );
+      zkCoord = new ZKClusterCoordinator(connect, zkRoot, clusterId, retryCount,
+          retryDelayMs, connectTimeoutMs);
     } catch (IOException e) {
-      throw new ZKRuntimeException( "Failed to initialize the ZooKeeper cluster coordination", e );
+      throw new ZKRuntimeException(
+          "Failed to initialize the ZooKeeper cluster coordination", e);
     }
     try {
       zkCoord.start(maxStartWaitMs);
     } catch (Exception e) {
-      throw new ZKRuntimeException( "Failed to start the ZooKeeper cluster coordination after " + maxStartWaitMs + " ms.", e );
+      throw new ZKRuntimeException(
+          "Failed to start the ZooKeeper cluster coordination after "
+              + maxStartWaitMs + " ms.",
+          e);
     }
     initialEndpoints = new ArrayList<>(zkCoord.getAvailableEndpoints());
-    zkCoord.getCurator().getConnectionStateListenable().addListener( stateListener );
-    amRegistry = new AMRegistry( zkCoord );
-    amRegistry.useLocalRegistry( zkRoot, clusterId );
+    zkCoord.getCurator().getConnectionStateListenable()
+        .addListener(stateListener);
+    amRegistry = new AMRegistry(zkCoord);
+    amRegistry.useLocalRegistry(zkRoot, clusterId);
     return this;
   }
 
-  public void addDrillbitListener( DrillbitStatusListener listener ) {
-    zkCoord.addDrillbitStatusListener( listener );
+  public void addDrillbitListener(DrillbitStatusListener listener) {
+    zkCoord.addDrillbitStatusListener(listener);
   }
 
   public void removeDrillbitListener(DrillbitStatusListener listener) {
-    zkCoord.removeDrillbitStatusListener( listener );
+    zkCoord.removeDrillbitStatusListener(listener);
   }
 
   /**
-   * Returns the set of Drillbits registered at the time of the {@link #build()} call.
-   * Should be empty for a cluster managed by YARN.
+   * Returns the set of Drillbits registered at the time of the {@link #build()}
+   * call. Should be empty for a cluster managed by YARN.
+   *
    * @return
    */
 
-  public List<DrillbitEndpoint> getInitialEndpoints( ) { return initialEndpoints; }
+  public List<DrillbitEndpoint> getInitialEndpoints() {
+    return initialEndpoints;
+  }
 
   /**
-   * Convenience method to convert a Drillbit to a string. Note that ZK
-   * does not advertise the HTTP port, so it does not appear in the
-   * generated string.
+   * Convenience method to convert a Drillbit to a string. Note that ZK does not
+   * advertise the HTTP port, so it does not appear in the generated string.
    *
    * @param bit
    * @return
    */
 
   public static String asString(DrillbitEndpoint bit) {
-    return formatKey( bit.getAddress(),
-                      bit.getUserPort(),
-                      bit.getControlPort(),
-                      bit.getDataPort() );
+    return formatKey(bit.getAddress(), bit.getUserPort(), bit.getControlPort(),
+        bit.getDataPort());
   }
 
-  public String toKey( String host )
-  {
-    return formatKey( host, userPort, controlPort, dataPort );
+  public String toKey(String host) {
+    return formatKey(host, userPort, controlPort, dataPort);
   }
 
-  public static String formatKey( String host, int userPort, int controlPort, int dataPort )
-  {
-    StringBuilder buf = new StringBuilder( );
-    buf.append( host )
-       .append( ":" )
-       .append( userPort )
-       .append(':')
-       .append( controlPort )
-       .append(':')
-       .append( dataPort );
+  public static String formatKey(String host, int userPort, int controlPort,
+      int dataPort) {
+    StringBuilder buf = new StringBuilder();
+    buf.append(host).append(":").append(userPort).append(':')
+        .append(controlPort).append(':').append(dataPort);
     return buf.toString();
   }
 
   /**
-   * Translate ZK connection events into a connected/disconnected
-   * state along with the time of the first disconnect not followed
-   * by a connect.
+   * Translate ZK connection events into a connected/disconnected state along
+   * with the time of the first disconnect not followed by a connect.
    *
    * @param newState
    */
 
   protected void stateChanged(ConnectionState newState) {
-    switch( newState ) {
+    switch (newState) {
     case CONNECTED:
     case READ_ONLY:
     case RECONNECTED:
-      if ( connectionLostTime != 0 ) {
-        ZKClusterCoordinator.logger.info( "ZK connection regained" ); }
+      if (connectionLostTime != 0) {
+        ZKClusterCoordinator.logger.info("ZK connection regained");
+      }
       connectionLostTime = 0;
       break;
     case LOST:
     case SUSPENDED:
-      if ( connectionLostTime == 0 ) {
-        ZKClusterCoordinator.logger.info( "ZK connection lost" );
+      if (connectionLostTime == 0) {
+        ZKClusterCoordinator.logger.info("ZK connection lost");
         connectionLostTime = System.currentTimeMillis();
       }
       break;
@@ -245,36 +269,42 @@ public class ZKClusterCoordinatorDriver implements AMRegistrar
    * @return
    */
 
-  public boolean hasFailed( ) {
-    if ( connectionLostTime == 0 ) {
-      return false; }
+  public boolean hasFailed() {
+    if (connectionLostTime == 0) {
+      return false;
+    }
     return System.currentTimeMillis() - connectionLostTime > failureTimeoutMs;
   }
 
-  public long getLostConnectionDurationMs( ) {
-    if ( connectionLostTime == 0 ) {
-      return 0; }
+  public long getLostConnectionDurationMs() {
+    if (connectionLostTime == 0) {
+      return 0;
+    }
     return System.currentTimeMillis() - connectionLostTime;
   }
 
-  public void close( ) {
-    if ( zkCoord == null ) {
-      return; }
-    zkCoord.getCurator().getConnectionStateListenable().removeListener( stateListener );
+  public void close() {
+    if (zkCoord == null) {
+      return;
+    }
+    zkCoord.getCurator().getConnectionStateListenable()
+        .removeListener(stateListener);
     try {
       zkCoord.close();
     } catch (Exception e) {
-      ZKClusterCoordinator.logger.error( "Error occurred on ZK close, ignored", e);
+      ZKClusterCoordinator.logger.error("Error occurred on ZK close, ignored",
+          e);
     }
     zkCoord = null;
   }
 
   @Override
-  public void register(String amHost, int amPort, String appId) throws AMRegistrationException {
+  public void register(String amHost, int amPort, String appId)
+      throws AMRegistrationException {
     try {
-      amRegistry.register( amHost, amPort, appId );
+      amRegistry.register(amHost, amPort, appId);
     } catch (ZKRuntimeException e) {
-      throw new AMRegistrationException( e );
+      throw new AMRegistrationException(e);
     }
   }
 

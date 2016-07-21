@@ -24,8 +24,8 @@ import java.util.List;
  * details of managing tasks, allowing the scheduler to work only with overall
  * number of tasks.
  */
-public interface SchedulerState
-{
+
+public interface SchedulerState {
   /**
    * The number of tasks in any active (non-ended) lifecycle state.
    *

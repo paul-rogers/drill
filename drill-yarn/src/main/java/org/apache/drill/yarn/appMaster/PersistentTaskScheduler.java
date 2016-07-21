@@ -32,8 +32,7 @@ package org.apache.drill.yarn.appMaster;
  * target level is reduced.
  */
 
-public abstract class PersistentTaskScheduler extends AbstractScheduler
-{
+public abstract class PersistentTaskScheduler extends AbstractScheduler {
   protected int quantity;
 
   public PersistentTaskScheduler(String type, String name, int quantity) {
@@ -44,14 +43,16 @@ public abstract class PersistentTaskScheduler extends AbstractScheduler
   /**
    * Set the number of running tasks to the quantity given.
    *
-   * @param level the target number of tasks
+   * @param level
+   *          the target number of tasks
    */
 
   @Override
   public void resize(int level) {
     quantity = level;
     if (quantity < 0) {
-      quantity = 0; }
+      quantity = 0;
+    }
   }
 
   @Override
@@ -94,7 +95,8 @@ public abstract class PersistentTaskScheduler extends AbstractScheduler
     if (delta > 0) {
       addTasks(delta);
     } else if (delta < 0) {
-      cancelTasks(activeCount); }
+      cancelTasks(activeCount);
+    }
   }
 
   /**
@@ -111,16 +113,19 @@ public abstract class PersistentTaskScheduler extends AbstractScheduler
     int cancellable = activeCount - cancelled;
     int n = cancellable - quantity;
     if (n <= 0) {
-      return; }
+      return;
+    }
     for (Task task : state.getStartingTasks()) {
       state.cancel(task);
       if (--n == 0) {
-        return; }
+        return;
+      }
     }
     for (Task task : state.getActiveTasks()) {
       state.cancel(task);
       if (--n == 0) {
-        return; }
+        return;
+      }
     }
 
     // If we get here it means that we've already cancelled tasks
@@ -130,15 +135,13 @@ public abstract class PersistentTaskScheduler extends AbstractScheduler
   }
 
   /**
-   * The persistent scheduler has no fixed sequence of tasks to run, it
-   * launches a set and is never "done". For purposes of completion tracking
-   * claim we have no further tasks.
+   * The persistent scheduler has no fixed sequence of tasks to run, it launches
+   * a set and is never "done". For purposes of completion tracking claim we
+   * have no further tasks.
    *
    * @return false
    */
 
   @Override
-  public boolean hasMoreTasks() {
-    return false;
-  }
+  public boolean hasMoreTasks() { return false; }
 }

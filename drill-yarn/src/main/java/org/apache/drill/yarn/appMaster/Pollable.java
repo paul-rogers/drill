@@ -23,7 +23,6 @@ package org.apache.drill.yarn.appMaster;
  * time-based tasks.
  */
 
-public interface Pollable
-{
+public interface Pollable {
   public void tick(long curTime);
 }

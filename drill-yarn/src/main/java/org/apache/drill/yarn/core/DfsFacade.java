@@ -43,22 +43,20 @@ import com.typesafe.config.Config;
 
 /**
  * Facade to the distributed file system (DFS) system that implements
- * Drill-on-YARN related operations. Some operations are used by both the
- * client and AM applications.
+ * Drill-on-YARN related operations. Some operations are used by both the client
+ * and AM applications.
  */
 
-public class DfsFacade
-{
-  public static class DfsFacadeException extends Exception
-  {
+public class DfsFacade {
+  public static class DfsFacadeException extends Exception {
     private static final long serialVersionUID = 1L;
 
     public DfsFacadeException(String msg) {
-      super( msg );
+      super(msg);
     }
 
     public DfsFacadeException(String msg, Exception e) {
-      super( msg, e );
+      super(msg, e);
     }
   }
 
@@ -67,63 +65,64 @@ public class DfsFacade
   private Config config;
   private boolean localize;
 
-  public DfsFacade( Config config ) {
+  public DfsFacade(Config config) {
     this.config = config;
-    localize = config.getBoolean( DrillOnYarnConfig.LOCALIZE_DRILL );
+    localize = config.getBoolean(DrillOnYarnConfig.LOCALIZE_DRILL);
   }
 
-  public boolean isLocalized( ) { return localize; }
-
-  public void dumpYarnConfig( OutputStreamWriter out ) throws IOException {
-    loadYarnConfig( );
-    Configuration.dumpConfiguration( yarnConf, out );
+  public boolean isLocalized() {
+    return localize;
   }
 
-  public void connect( ) throws DfsFacadeException
-  {
-    loadYarnConfig( );
-    String dfsConnection = config.getString( DrillOnYarnConfig.DFS_CONNECTION );
+  public void dumpYarnConfig(OutputStreamWriter out) throws IOException {
+    loadYarnConfig();
+    Configuration.dumpConfiguration(yarnConf, out);
+  }
+
+  public void connect() throws DfsFacadeException {
+    loadYarnConfig();
+    String dfsConnection = config.getString(DrillOnYarnConfig.DFS_CONNECTION);
     try {
-      if ( DoYUtil.isBlank( dfsConnection ) ) {
+      if (DoYUtil.isBlank(dfsConnection)) {
         fs = FileSystem.get(yarnConf);
-      }
-      else {
+      } else {
         URI uri;
         try {
-          uri = new URI( dfsConnection );
+          uri = new URI(dfsConnection);
         } catch (URISyntaxException e) {
-          throw new DfsFacadeException( "Illformed DFS connection: " + dfsConnection, e );
+          throw new DfsFacadeException(
+              "Illformed DFS connection: " + dfsConnection, e);
         }
         fs = FileSystem.get(uri, yarnConf);
       }
     } catch (IOException e) {
-      throw new DfsFacadeException( "Failed to create the DFS", e );
+      throw new DfsFacadeException("Failed to create the DFS", e);
     }
-//    try {
-//      RemoteIterator<LocatedFileStatus> iter = fs.listFiles( new Path( "/" ), true );
-//      while ( iter.hasNext() ) {
-//        LocatedFileStatus stat = iter.next();
-//        System.out.println( stat.getPath() );
-//      }
-//    } catch (IllegalArgumentException | IOException e) {
-//      // TODO Auto-generated catch block
-//      e.printStackTrace();
-//    }
+    // try {
+    // RemoteIterator<LocatedFileStatus> iter = fs.listFiles( new Path( "/" ),
+    // true );
+    // while ( iter.hasNext() ) {
+    // LocatedFileStatus stat = iter.next();
+    // System.out.println( stat.getPath() );
+    // }
+    // } catch (IllegalArgumentException | IOException e) {
+    // // TODO Auto-generated catch block
+    // e.printStackTrace();
+    // }
   }
 
   /**
-   * Lazy loading of YARN configuration since it takes a long time
-   * to load. (YARN provides no caching, sadly.
+   * Lazy loading of YARN configuration since it takes a long time to load.
+   * (YARN provides no caching, sadly.
    */
 
-  private void loadYarnConfig( ) {
-    if ( yarnConf == null ) {
+  private void loadYarnConfig() {
+    if (yarnConf == null) {
       yarnConf = new YarnConfiguration();
     }
   }
 
-  public static class Localizer
-  {
+  public static class Localizer {
     private final DfsFacade dfs;
     protected File localArchivePath;
     protected Path dfsArchivePath;
@@ -131,69 +130,65 @@ public class DfsFacade
     private String label;
 
     /**
-     * Resources to be localized (downloaded) to each AM or drillbit
-     * node.
+     * Resources to be localized (downloaded) to each AM or drillbit node.
      */
 
-
-    public Localizer( DfsFacade dfs, File archivePath, String label )
-    {
+    public Localizer(DfsFacade dfs, File archivePath, String label) {
       this.dfs = dfs;
       localArchivePath = archivePath;
-      dfsArchivePath = dfs.getUploadPath( localArchivePath );
+      dfsArchivePath = dfs.getUploadPath(localArchivePath);
       this.label = label;
     }
 
-    public Localizer( DfsFacade dfs, File archivePath, String destName, String label )
-    {
+    public Localizer(DfsFacade dfs, File archivePath, String destName,
+        String label) {
       this.dfs = dfs;
       localArchivePath = archivePath;
-      dfsArchivePath = dfs.getUploadPath( destName );
+      dfsArchivePath = dfs.getUploadPath(destName);
       this.label = label;
     }
 
-    public Localizer( DfsFacade dfs, String destPath )
-    {
+    public Localizer(DfsFacade dfs, String destPath) {
       this.dfs = dfs;
-      dfsArchivePath = new Path( destPath );
+      dfsArchivePath = new Path(destPath);
     }
 
-    public String getBaseName( ) {
+    public String getBaseName() {
       return localArchivePath.getName();
     }
 
-    public String getDestPath( ) {
+    public String getDestPath() {
       return dfsArchivePath.toString();
     }
 
-    public void upload( ) throws DfsFacadeException {
-      dfs.uploadArchive( localArchivePath, dfsArchivePath, label );
+    public void upload() throws DfsFacadeException {
+      dfs.uploadArchive(localArchivePath, dfsArchivePath, label);
       fileStatus = null;
     }
 
-    private FileStatus getStatus( ) throws DfsFacadeException {
-      if ( fileStatus == null ) {
-        fileStatus = dfs.getFileStatus( dfsArchivePath );
+    private FileStatus getStatus() throws DfsFacadeException {
+      if (fileStatus == null) {
+        fileStatus = dfs.getFileStatus(dfsArchivePath);
       }
       return fileStatus;
     }
 
-    public void defineResources( Map<String, LocalResource> resources, String key ) throws DfsFacadeException
-    {
+    public void defineResources(Map<String, LocalResource> resources,
+        String key) throws DfsFacadeException {
       // Put the application archive, visible to only the application.
       // Because it is an archive, it will be expanded by YARN prior to launch
       // of the AM.
 
-      LocalResource drillResource = dfs.makeResource(dfsArchivePath, getStatus( ),
-                                                     LocalResourceType.ARCHIVE,
-                                                     LocalResourceVisibility.APPLICATION);
-      resources.put( key, drillResource );
+      LocalResource drillResource = dfs.makeResource(dfsArchivePath,
+          getStatus(), LocalResourceType.ARCHIVE,
+          LocalResourceVisibility.APPLICATION);
+      resources.put(key, drillResource);
     }
 
     public boolean filesMatch() {
       FileStatus status;
       try {
-        status = getStatus( );
+        status = getStatus();
       } catch (DfsFacadeException e) {
 
         // An exception is DFS's way of tell us the file does
@@ -204,82 +199,87 @@ public class DfsFacade
       return status.getLen() == localArchivePath.length();
     }
 
-    public String getLabel() { return label; }
+    public String getLabel() {
+      return label;
+    }
 
     public boolean destExists() throws IOException {
-      return dfs.exists( dfsArchivePath );
+      return dfs.exists(dfsArchivePath);
     }
   }
 
-//  public File getLocalPath( String localPathParam ) {
-//    return new File( config.getString( localPathParam ) );
-//  }
+  // public File getLocalPath( String localPathParam ) {
+  // return new File( config.getString( localPathParam ) );
+  // }
 
   public boolean exists(Path path) throws IOException {
-    return fs.exists( path );
+    return fs.exists(path);
   }
 
-  public Path getUploadPath( File localArchiveFile ) {
-    return getUploadPath( localArchiveFile.getName( ) );
+  public Path getUploadPath(File localArchiveFile) {
+    return getUploadPath(localArchiveFile.getName());
   }
 
-  public Path getUploadPath( String baseName ) {
-    String dfsDirStr = config.getString( DrillOnYarnConfig.DFS_APP_DIR );
+  public Path getUploadPath(String baseName) {
+    String dfsDirStr = config.getString(DrillOnYarnConfig.DFS_APP_DIR);
 
     Path appDir;
-    if ( dfsDirStr.startsWith( "/" ) ) {
-      appDir = new Path( dfsDirStr );
-    }
-    else {
+    if (dfsDirStr.startsWith("/")) {
+      appDir = new Path(dfsDirStr);
+    } else {
       Path home = fs.getHomeDirectory();
-      appDir = new Path( home, dfsDirStr );
+      appDir = new Path(home, dfsDirStr);
     }
-    return new Path( appDir, baseName );
+    return new Path(appDir, baseName);
   }
 
-  public void uploadArchive( File localArchiveFile, Path destPath, String label ) throws DfsFacadeException
-  {
+  public void uploadArchive(File localArchiveFile, Path destPath, String label)
+      throws DfsFacadeException {
     // Create the application upload directory if it does not yet exist.
 
-    String dfsDirStr = config.getString( DrillOnYarnConfig.DFS_APP_DIR );
-    Path appDir = new Path( dfsDirStr );
+    String dfsDirStr = config.getString(DrillOnYarnConfig.DFS_APP_DIR);
+    Path appDir = new Path(dfsDirStr);
     try {
-      if ( ! fs.isDirectory( appDir ) ) {
+      if (!fs.isDirectory(appDir)) {
         // TODO: Set permissions explicitly.
         FsPermission perm = FsPermission.getDirDefault();
-        fs.mkdirs( appDir, perm );
+        fs.mkdirs(appDir, perm);
       }
     } catch (IOException e) {
-      throw new DfsFacadeException( "Failed to create DFS directory: " + dfsDirStr, e );
+      throw new DfsFacadeException(
+          "Failed to create DFS directory: " + dfsDirStr, e);
     }
 
     // The file must be an archive type so YARN knows to extract its contents.
 
-    String baseName = localArchiveFile.getName( );
-    if ( DrillOnYarnConfig.findSuffix( baseName ) == null ) {
-      throw new DfsFacadeException( label + " archive must be .tar.gz, .tgz or .zip: " + baseName );
+    String baseName = localArchiveFile.getName();
+    if (DrillOnYarnConfig.findSuffix(baseName) == null) {
+      throw new DfsFacadeException(
+          label + " archive must be .tar.gz, .tgz or .zip: " + baseName);
     }
 
-    Path srcPath = new Path( localArchiveFile.getAbsolutePath() );
+    Path srcPath = new Path(localArchiveFile.getAbsolutePath());
 
     // Do the upload, replacing the old archive.
 
     try {
       // TODO: Specify file permissions and owner.
 
-      fs.copyFromLocalFile( false, true, srcPath, destPath );
+      fs.copyFromLocalFile(false, true, srcPath, destPath);
     } catch (IOException e) {
-      throw new DfsFacadeException( "Failed to upload " + label + " archive to DFS: " +
-                                    localArchiveFile.getAbsolutePath() +
-                                    " --> " + destPath, e );
+      throw new DfsFacadeException(
+          "Failed to upload " + label + " archive to DFS: "
+              + localArchiveFile.getAbsolutePath() + " --> " + destPath,
+          e);
     }
   }
 
-  public FileStatus getFileStatus( Path dfsPath ) throws DfsFacadeException {
+  public FileStatus getFileStatus(Path dfsPath) throws DfsFacadeException {
     try {
       return fs.getFileStatus(dfsPath);
     } catch (IOException e) {
-      throw new DfsFacadeException( "Failed to get DFS status for file: " + dfsPath, e );
+      throw new DfsFacadeException(
+          "Failed to get DFS status for file: " + dfsPath, e);
     }
   }
 
@@ -288,54 +288,58 @@ public class DfsFacade
    * must be localized onto the remote node prior to running a command on that
    * node.
    * <p>
-   * YARN uses the size and timestamp are used to check if the file has changed on HDFS
-   * to check if YARN can use an existing copy, if any.
+   * YARN uses the size and timestamp are used to check if the file has changed
+   * on HDFS to check if YARN can use an existing copy, if any.
    * <p>
    * Resources are made public.
    *
-   * @param conf         Configuration created from the Hadoop config files,
-   *                     in this case, identifies the target file system.
-   * @param resourcePath the path (relative or absolute) to the file on the
-   *                     configured file system (usually HDFS).
-   * @return a YARN local resource records that contains information about
-   * path, size, type, resource and so on that YARN requires.
-   * @throws IOException if the resource does not exist on the configured
-   *                     file system
+   * @param conf
+   *          Configuration created from the Hadoop config files, in this case,
+   *          identifies the target file system.
+   * @param resourcePath
+   *          the path (relative or absolute) to the file on the configured file
+   *          system (usually HDFS).
+   * @return a YARN local resource records that contains information about path,
+   *         size, type, resource and so on that YARN requires.
+   * @throws IOException
+   *           if the resource does not exist on the configured file system
    */
 
-  public LocalResource makeResource( Path dfsPath, FileStatus dfsFileStatus,
-                                     LocalResourceType type,
-                                     LocalResourceVisibility visibility ) throws DfsFacadeException {
+  public LocalResource makeResource(Path dfsPath, FileStatus dfsFileStatus,
+      LocalResourceType type, LocalResourceVisibility visibility)
+      throws DfsFacadeException {
     URL destUrl;
     try {
       destUrl = ConverterUtils.getYarnUrlFromPath(
-          FileContext.getFileContext( ).makeQualified(dfsPath));
+          FileContext.getFileContext().makeQualified(dfsPath));
     } catch (UnsupportedFileSystemException e) {
-      throw new DfsFacadeException( "Unable to convert dfs file to a URL: " + dfsPath.toString(), e );
+      throw new DfsFacadeException(
+          "Unable to convert dfs file to a URL: " + dfsPath.toString(), e);
     }
-    LocalResource resource = LocalResource.newInstance(
-            destUrl,
-            type, visibility,
-            dfsFileStatus.getLen(), dfsFileStatus.getModificationTime());
+    LocalResource resource = LocalResource.newInstance(destUrl, type,
+        visibility, dfsFileStatus.getLen(),
+        dfsFileStatus.getModificationTime());
     return resource;
   }
 
   public void removeDrillFile(String fileName) throws DfsFacadeException {
-    Path destPath = getUploadPath( fileName );
+    Path destPath = getUploadPath(fileName);
     try {
-      fs.delete( destPath, false );
+      fs.delete(destPath, false);
     } catch (IOException e) {
-      throw new DfsFacadeException( "Failed to delete file: " + destPath.toString(), e );
+      throw new DfsFacadeException(
+          "Failed to delete file: " + destPath.toString(), e);
     }
 
     Path dir = destPath.getParent();
     try {
-      RemoteIterator<FileStatus> iter = fs.listStatusIterator( dir );
-      if ( ! iter.hasNext() ) {
-        fs.delete( dir, false );
+      RemoteIterator<FileStatus> iter = fs.listStatusIterator(dir);
+      if (!iter.hasNext()) {
+        fs.delete(dir, false);
       }
     } catch (IOException e) {
-      throw new DfsFacadeException( "Failed to delete directory: " + dir.toString(), e );
+      throw new DfsFacadeException(
+          "Failed to delete directory: " + dir.toString(), e);
     }
   }
 }

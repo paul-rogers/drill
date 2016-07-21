@@ -264,7 +264,8 @@ public class ClusterControllerImpl implements ClusterController {
     // what YARN can provide. Ensures a graceful exit in this
     // case.
 
-    Resource maxResource = yarn.getRegistrationResponse().getMaximumResourceCapability();
+    Resource maxResource = yarn.getRegistrationResponse()
+        .getMaximumResourceCapability();
     for (SchedulerStateActions group : prioritizedGroups) {
       group.getScheduler().limitContainerSize(maxResource);
     }
@@ -317,7 +318,8 @@ public class ClusterControllerImpl implements ClusterController {
         return;
       }
     }
-    LOG.error("Application failure: no tasks are running and no nodes are available -- exiting.");
+    LOG.error(
+        "Application failure: no tasks are running and no nodes are available -- exiting.");
     terminate(State.FAILED);
   }
 
@@ -413,7 +415,8 @@ public class ClusterControllerImpl implements ClusterController {
   }
 
   @Override
-  public synchronized void taskStartFailed(ContainerId containerId, Throwable t) {
+  public synchronized void taskStartFailed(ContainerId containerId,
+      Throwable t) {
     Task task = getTask(containerId);
     if (task == null) {
       return;
@@ -473,7 +476,8 @@ public class ClusterControllerImpl implements ClusterController {
   }
 
   @Override
-  public synchronized void stopTaskFailed(ContainerId containerId, Throwable t) {
+  public synchronized void stopTaskFailed(ContainerId containerId,
+      Throwable t) {
     Task task = getTask(containerId);
     if (task == null) {
       return;
@@ -523,14 +527,18 @@ public class ClusterControllerImpl implements ClusterController {
     return succeeded();
   }
 
-  private void start() { yarnReport(); }
+  private void start() {
+    yarnReport();
+  }
 
   private void yarnReport() {
     RegisterApplicationMasterResponse response = yarn.getRegistrationResponse();
     LOG.info("YARN queue: " + response.getQueue());
     Resource resource = response.getMaximumResourceCapability();
-    LOG.info("YARN max resource: " + resource.getMemory() + " MB, " + resource.getVirtualCores() + " cores");
-    EnumSet<SchedulerResourceTypes> types = response.getSchedulerResourceTypes();
+    LOG.info("YARN max resource: " + resource.getMemory() + " MB, "
+        + resource.getVirtualCores() + " cores");
+    EnumSet<SchedulerResourceTypes> types = response
+        .getSchedulerResourceTypes();
     StringBuilder buf = new StringBuilder();
     String sep = "";
     for (SchedulerResourceTypes type : types) {
@@ -566,20 +574,29 @@ public class ClusterControllerImpl implements ClusterController {
     }
   }
 
-  public boolean isLive() { return state == State.LIVE; }
-  public boolean succeeded() { return state == State.ENDED; }
+  public boolean isLive() {
+    return state == State.LIVE;
+  }
+
+  public boolean succeeded() {
+    return state == State.ENDED;
+  }
 
   public void containerAllocated(Task task) {
     activeContainers.put(task.getContainerId(), task);
   }
 
-  public AMYarnFacade getYarn() { return yarn; }
+  public AMYarnFacade getYarn() {
+    return yarn;
+  }
 
   public void containerReleased(Task task) {
     activeContainers.remove(task.getContainerId());
   }
 
-  public void taskEnded(Task task) { completedTasks.add(task); }
+  public void taskEnded(Task task) {
+    completedTasks.add(task);
+  }
 
   public void taskRetried(Task task) {
     Task copy = task.copy();
@@ -591,8 +608,13 @@ public class ClusterControllerImpl implements ClusterController {
     checkStatus();
   }
 
-  public int getMaxRetries() { return maxRetries; }
-  public int getStopTimeoutMs() { return stopTimoutMs; }
+  public int getMaxRetries() {
+    return maxRetries;
+  }
+
+  public int getStopTimeoutMs() {
+    return stopTimoutMs;
+  }
 
   @Override
   public synchronized void reserveHost(String hostName) {
@@ -604,7 +626,9 @@ public class ClusterControllerImpl implements ClusterController {
     nodeInventory.release(hostName);
   }
 
-  public NodeInventory getNodeInventory() { return nodeInventory; }
+  public NodeInventory getNodeInventory() {
+    return nodeInventory;
+  }
 
   @Override
   public void setProperty(String key, Object value) {
@@ -628,7 +652,9 @@ public class ClusterControllerImpl implements ClusterController {
   }
 
   @Override
-  public void setMaxRetries(int value) { maxRetries = value; }
+  public void setMaxRetries(int value) {
+    maxRetries = value;
+  }
 
   @Override
   public int getTargetCount() {
@@ -639,14 +665,18 @@ public class ClusterControllerImpl implements ClusterController {
     return count;
   }
 
-  public State getState() { return state; }
+  public State getState() {
+    return state;
+  }
 
   @Override
   public synchronized void visit(ControllerVisitor visitor) {
     visitor.visit(this);
   }
 
-  public List<SchedulerStateActions> getPools() { return prioritizedGroups; }
+  public List<SchedulerStateActions> getPools() {
+    return prioritizedGroups;
+  }
 
   @Override
   public synchronized void visitTasks(TaskVisitor visitor) {
@@ -655,7 +685,9 @@ public class ClusterControllerImpl implements ClusterController {
     }
   }
 
-  public List<Task> getHistory() { return completedTasks; }
+  public List<Task> getHistory() {
+    return completedTasks;
+  }
 
   @Override
   public synchronized boolean cancelTask(int id) {
@@ -680,7 +712,8 @@ public class ClusterControllerImpl implements ClusterController {
   }
 
   @Override
-  public synchronized void startAck(Task task, String propertyKey, Object value) {
+  public synchronized void startAck(Task task, String propertyKey,
+      Object value) {
     if (propertyKey != null && value != null) {
       task.properties.put(propertyKey, value);
     }

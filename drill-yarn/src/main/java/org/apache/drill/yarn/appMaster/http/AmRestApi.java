@@ -111,7 +111,7 @@ public class AmRestApi extends PageTree
         bitObj.put( "live", task.isLive() );
         bitObj.put( "memoryMb", task.memoryMb );
         bitObj.put( "vcores", task.vcores );
-        bitObj.put( "pool", task.poolName );
+        bitObj.put( "pool", task.groupName );
         bitObj.put( "state", task.state );
         bitObj.put( "trackingState", task.trackingState );
         bitObj.put( "endpoint", ZKClusterCoordinatorDriver.asString( task.endpoint ) );

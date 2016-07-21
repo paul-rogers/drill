@@ -23,8 +23,8 @@ package org.apache.drill.yarn.appMaster;
  * at the end of the run.
  */
 
-public interface DispatcherAddOn
-{
-  void start( ClusterController controller );
-  void finish( ClusterController controller );
+public interface DispatcherAddOn {
+  void start(ClusterController controller);
+
+  void finish(ClusterController controller);
 }

@@ -55,8 +55,7 @@ import org.apache.hadoop.yarn.util.ConverterUtils;
  * mock for unit testing.
  */
 
-public class AMYarnFacadeImpl implements AMYarnFacade
-{
+public class AMYarnFacadeImpl implements AMYarnFacade {
   private static final Log LOG = LogFactory.getLog(AMYarnFacadeImpl.class);
 
   private YarnConfiguration conf;
@@ -100,32 +99,34 @@ public class AMYarnFacadeImpl implements AMYarnFacade
     client.init(conf);
     client.start();
 
-    String appIdStr = System.getenv( DrillOnYarnConfig.APP_ID_ENV_VAR );
-    if ( appIdStr != null ) {
+    String appIdStr = System.getenv(DrillOnYarnConfig.APP_ID_ENV_VAR);
+    if (appIdStr != null) {
       appId = ConverterUtils.toApplicationId(appIdStr);
       try {
         appReport = client.getApplicationReport(appId);
       } catch (YarnException | IOException e) {
-        LOG.error( "Failed to get YARN applicaiton report for App ID: " + appIdStr, e );
+        LOG.error(
+            "Failed to get YARN applicaiton report for App ID: " + appIdStr, e);
       }
     }
   }
 
   @Override
-  public void register( String trackingUrl ) throws YarnFacadeException {
+  public void register(String trackingUrl) throws YarnFacadeException {
     String thisHostName = NetUtils.getHostname();
-    LOG.debug( "Host Name from YARN: " + thisHostName );
-    if ( trackingUrl != null ) {
+    LOG.debug("Host Name from YARN: " + thisHostName);
+    if (trackingUrl != null) {
       // YARN seems to provide multiple names: MACHNAME.local/10.250.56.235
       // The second seems to be the IP address, which is what we want.
-      String names[] = thisHostName.split( "/" );
+      String names[] = thisHostName.split("/");
       amHost = names[names.length - 1];
-      appMasterTrackingUrl = trackingUrl.replace( "<host>", amHost );
-      LOG.info( "Tracking URL: " + appMasterTrackingUrl );
+      appMasterTrackingUrl = trackingUrl.replace("<host>", amHost);
+      LOG.info("Tracking URL: " + appMasterTrackingUrl);
     }
     try {
-      LOG.trace( "Registering with YARN" );
-      registration = resourceMgr.registerApplicationMaster(thisHostName, 0, appMasterTrackingUrl);
+      LOG.trace("Registering with YARN");
+      registration = resourceMgr.registerApplicationMaster(thisHostName, 0,
+          appMasterTrackingUrl);
     } catch (YarnException | IOException e) {
       throw new YarnFacadeException("Register AM failed", e);
     }
@@ -135,8 +136,9 @@ public class AMYarnFacadeImpl implements AMYarnFacade
     // resources, we have to use an indirect mechnanism to look for the
     // disk enum at runtime when we don't have that enum value at compile time.
 
-    for ( SchedulerResourceTypes type : registration.getSchedulerResourceTypes() ) {
-      if ( type.name().equals( "DISK" ) ) {
+    for (SchedulerResourceTypes type : registration
+        .getSchedulerResourceTypes()) {
+      if (type.name().equals("DISK")) {
         supportsDisks = true;
       }
     }
@@ -156,12 +158,14 @@ public class AMYarnFacadeImpl implements AMYarnFacade
   }
 
   @Override
-  public void launchContainer(Container container, LaunchSpec taskSpec) throws YarnFacadeException {
+  public void launchContainer(Container container, LaunchSpec taskSpec)
+      throws YarnFacadeException {
     ContainerLaunchContext context = createLaunchContext(taskSpec);
     startContainerAsync(container, context);
   }
 
-  private ContainerLaunchContext createLaunchContext(LaunchSpec task) throws YarnFacadeException {
+  private ContainerLaunchContext createLaunchContext(LaunchSpec task)
+      throws YarnFacadeException {
     try {
       return task.createLaunchContext(conf);
     } catch (IOException e) {
@@ -169,13 +173,13 @@ public class AMYarnFacadeImpl implements AMYarnFacade
     }
   }
 
-  private void startContainerAsync(Container container, ContainerLaunchContext context) {
+  private void startContainerAsync(Container container,
+      ContainerLaunchContext context) {
     nodeMgr.startContainerAsync(container, context);
   }
 
   @Override
-  public void finish(boolean succeeded, String msg) throws YarnFacadeException
-  {
+  public void finish(boolean succeeded, String msg) throws YarnFacadeException {
     // Stop the Node Manager client.
 
     nodeMgr.stop();
@@ -184,12 +188,13 @@ public class AMYarnFacadeImpl implements AMYarnFacade
 
     String appMsg = "Drill Cluster Shut-Down";
     FinalApplicationStatus status = FinalApplicationStatus.SUCCEEDED;
-    if ( ! succeeded ) {
+    if (!succeeded) {
       appMsg = "Drill Cluster Fatal Error - check logs";
       status = FinalApplicationStatus.FAILED;
     }
-    if ( msg != null ) {
-      appMsg = msg; }
+    if (msg != null) {
+      appMsg = msg;
+    }
     try {
       resourceMgr.unregisterApplicationMaster(status, appMsg, "");
     } catch (YarnException | IOException e) {
@@ -246,39 +251,37 @@ public class AMYarnFacadeImpl implements AMYarnFacade
     try {
       return client.getNodeReports(NodeState.RUNNING);
     } catch (Exception e) {
-      throw new YarnFacadeException( "getNodeReports failed" , e );
+      throw new YarnFacadeException("getNodeReports failed", e);
     }
   }
 
   @Override
-  public YarnAppHostReport getAppHostReport( )
-  {
+  public YarnAppHostReport getAppHostReport() {
     // Cobble together YARN links to simplify debugging.
 
-    YarnAppHostReport hostRpt = new YarnAppHostReport( );
+    YarnAppHostReport hostRpt = new YarnAppHostReport();
     hostRpt.amHost = amHost;
-    if ( appId != null ) {
+    if (appId != null) {
       hostRpt.appId = appId.toString();
     }
-    if ( appReport == null ) {
+    if (appReport == null) {
       return hostRpt;
     }
     try {
       String rmLink = appReport.getTrackingUrl();
-      URL url = new URL( rmLink );
+      URL url = new URL(rmLink);
       hostRpt.rmHost = url.getHost();
       hostRpt.rmUrl = "http://" + hostRpt.rmHost + ":" + url.getPort() + "/";
       hostRpt.rmAppUrl = hostRpt.rmUrl + "cluster/app/" + appId.toString();
-    }
-    catch ( MalformedURLException e ) {
+    } catch (MalformedURLException e) {
       return null;
     }
 
-    hostRpt.nmHost = System.getenv( "NM_HOST" );
-    String nmPort = System.getenv( "NM_HTTP_PORT" );
-    if ( hostRpt.nmHost != null  ||  nmPort != null ) {
+    hostRpt.nmHost = System.getenv("NM_HOST");
+    String nmPort = System.getenv("NM_HTTP_PORT");
+    if (hostRpt.nmHost != null || nmPort != null) {
       hostRpt.nmUrl = "http://" + hostRpt.nmHost + ":" + nmPort + "/";
-      hostRpt.nmAppUrl =  hostRpt.nmUrl + "node/application/" + hostRpt.appId;
+      hostRpt.nmAppUrl = hostRpt.nmUrl + "node/application/" + hostRpt.appId;
     }
     return hostRpt;
   }
