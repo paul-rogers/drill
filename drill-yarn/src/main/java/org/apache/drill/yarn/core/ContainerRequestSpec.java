@@ -20,6 +20,8 @@ package org.apache.drill.yarn.core;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.drill.yarn.appMaster.Scheduler;
 import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
@@ -35,6 +37,8 @@ import org.apache.hadoop.yarn.util.Records;
 
 public class ContainerRequestSpec
 {
+  static final Log LOG = LogFactory.getLog(ContainerRequestSpec.class);
+
   /**
    * Application-specific priority. Drill-on-Yarn uses the priority to associate
    * YARN requests with a {@link Scheduler}. When the resource allocation
@@ -91,7 +95,7 @@ public class ContainerRequestSpec
     Resource capability = Records.newRecord(Resource.class);
     capability.setMemory(memoryMb);
     capability.setVirtualCores(vCores);
-    DoYUtil.callSetDiskIfExists( capability, "setDisks", disks );
+    DoYUtil.callSetDiskIfExists( capability, disks );
 
     boolean relaxLocality = true;
     String nodeArr[] = null;
@@ -109,6 +113,7 @@ public class ContainerRequestSpec
     String nodeExpr = null;
     if ( ! DoYUtil.isBlank( nodeLabelExpr) ) {
       nodeExpr = nodeLabelExpr;
+      LOG.info( "Requesting a container using node expression: " + nodeExpr );
     }
 
     // YARN is fragile. To (potentially) pass a node expression, we must use the

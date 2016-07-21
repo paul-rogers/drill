@@ -98,8 +98,9 @@ public class DoYUtil {
     return  trackingUrl.replace( "/redirect", "/" );
   }
 
-  public static void callSetDiskIfExists(Object target, String fnName, double arg) {
-    String methodLabel = target.getClass().getName() + "." + fnName;
+  public static void callSetDiskIfExists(Object target, double arg) {
+    final String fnName = "setDisks";
+    final String methodLabel = target.getClass().getName() + "." + fnName;
     Method m;
     try {
       m = target.getClass().getMethod( fnName, Double.TYPE );
@@ -125,8 +126,9 @@ public class DoYUtil {
     AppSpec.LOG.trace( "Successfully called " + methodLabel + "( " + arg + ")" );
   }
 
-  public static double callGetDiskIfExists(Object target, String fnName) {
-    String methodLabel = target.getClass().getName() + "." + fnName;
+  public static double callGetDiskIfExists(Object target ) {
+    final String fnName = "getDisks";
+    final String methodLabel = target.getClass().getName() + "." + fnName;
     Method m;
     try {
       m = target.getClass().getMethod( fnName );

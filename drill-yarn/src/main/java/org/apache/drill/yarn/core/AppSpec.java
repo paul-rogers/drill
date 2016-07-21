@@ -43,6 +43,7 @@ import org.apache.hadoop.yarn.util.Records;
 public class AppSpec extends LaunchSpec {
 
   static final Log LOG = LogFactory.getLog(LaunchSpec.class);
+
   /**
    * The memory required in the allocated container, in MB.
    */
@@ -120,6 +121,7 @@ public class AppSpec extends LaunchSpec {
     appContext.setQueue(queueName); // queue
     appContext.setPriority( Priority.newInstance( priority ) );
     if ( ! DoYUtil.isBlank( nodeLabelExpr) ) {
+      LOG.info( "Requesting to run the AM using node expression: " + nodeLabelExpr );
       appContext.setNodeLabelExpression( nodeLabelExpr );
     }
 
@@ -141,7 +143,7 @@ public class AppSpec extends LaunchSpec {
     Resource capability = Records.newRecord(Resource.class);
     capability.setMemory(memoryMb);
     capability.setVirtualCores(vCores);
-    DoYUtil.callSetDiskIfExists( capability, "setDisks", disks );
+    DoYUtil.callSetDiskIfExists( capability, disks );
     return capability;
   }
 
