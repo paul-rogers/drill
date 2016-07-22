@@ -249,6 +249,11 @@ public class DrillOnYarnConfig {
     return parent + "." + key;
   }
 
+  // Protected only to allow creating a test version of this class.
+
+  protected DrillOnYarnConfig( ) {
+  }
+
   public static DrillOnYarnConfig load() throws DoyConfigException {
     instance = new DrillOnYarnConfig();
     instance.doLoad(Thread.currentThread().getContextClassLoader());

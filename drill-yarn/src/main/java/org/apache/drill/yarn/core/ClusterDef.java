@@ -46,32 +46,51 @@ public class ClusterDef {
    */
 
   public enum GroupType {
-    BASIC("basic"), LABELED("labeled");
-
-    private String value;
-
-    private GroupType(String value) {
-      this.value = value;
-    }
+    BASIC,
+    LABELED;
 
     public static GroupType toEnum(String value) {
-      for (GroupType type : GroupType.values()) {
-        if (type.value.equalsIgnoreCase(value)) {
-          return type;
-        }
-      }
-      return null;
+      return GroupType.valueOf( value.toUpperCase() );
     }
 
     public String toValue() {
-      return value;
+      return name().toLowerCase();
     }
   }
 
   public static class ClusterGroup {
-    public String name;
-    public int count;
-    public GroupType type;
+    private final String name;
+    private final int count;
+    private final GroupType type;
+
+    public ClusterGroup( Map<String, Object> group, int index, GroupType type ) {
+      this.type = type;
+
+      // Config system has already parsed the value. We insist that the value,
+      // when parsed, was interpreted as an integer. That is, the value had
+      // to be, say 10. Not "10", not 10.0, but just a plain integer.
+
+      try {
+        count = (Integer) group.get(GROUP_SIZE);
+      } catch (ClassCastException e) {
+        throw new IllegalArgumentException(
+            "Expected an integer for " + GROUP_SIZE + " for tier " + index);
+      }
+      Object nameValue = group.get(GROUP_NAME);
+      String theName = null;
+      if (nameValue != null) {
+        theName = nameValue.toString();
+      }
+      if (DoYUtil.isBlank(theName)) {
+        theName = "tier-" + Integer.toString(index);
+      }
+      name = theName;
+    }
+
+
+    public String getName( ) { return name; }
+    public int getCount( ) { return count; }
+    public GroupType getType( ) { return type; }
 
     public void getPairs(int index, List<NameValuePair> pairs) {
       String key = DrillOnYarnConfig.append(DrillOnYarnConfig.CLUSTERS,
@@ -100,42 +119,32 @@ public class ClusterDef {
       out.println(count);
     }
 
-    public void load(Map<String, Object> pool, int index) {
-      try {
-        count = (Integer) pool.get(GROUP_SIZE);
-      } catch (ClassCastException e) {
-        throw new IllegalArgumentException(
-            "Expected an integer for " + GROUP_SIZE + " for tier " + index);
-      }
-      Object nameValue = pool.get(GROUP_NAME);
-      if (nameValue != null) {
-        name = nameValue.toString();
-      }
-      if (DoYUtil.isBlank(name)) {
-        name = "tier-" + Integer.toString(index);
-      }
-    }
-
     public void modifyTaskSpec(TaskSpec taskSpec) {
     }
   }
 
   public static class BasicGroup extends ClusterGroup {
 
+    public BasicGroup(Map<String, Object> pool, int index) {
+      super(pool, index, GroupType.BASIC);
+    }
+
   }
 
   public static class LabeledGroup extends ClusterGroup {
-    public String drillbitLabelExpr;
 
-    @Override
-    public void load(Map<String, Object> pool, int index) {
-      super.load(pool, index);
+    private final String drillbitLabelExpr;
+
+    public LabeledGroup(Map<String, Object> pool, int index) {
+      super(pool, index, GroupType.LABELED);
       drillbitLabelExpr = (String) pool.get(DRILLBIT_LABEL);
       if (drillbitLabelExpr == null) {
         Log.warn("Labeled pool is missing the drillbit label expression ("
             + DRILLBIT_LABEL + "), will treat pool as basic.");
       }
     }
+
+    public String getLabelExpr( ) { return drillbitLabelExpr; }
 
     @Override
     public void dump(String prefix, PrintStream out) {
@@ -168,6 +177,9 @@ public class ClusterDef {
     int index = n + 1;
     ConfigList tiers = config.getList(DrillOnYarnConfig.CLUSTERS);
     ConfigValue value = tiers.get(n);
+    if ( value == null ) {
+      throw new IllegalArgumentException( "If cluster group is provided, it cannot be null: group " + index );
+    }
     @SuppressWarnings("unchecked")
     Map<String, Object> tier = (Map<String, Object>) value.unwrapped();
     String type;
@@ -185,18 +197,16 @@ public class ClusterDef {
     ClusterGroup tierDef;
     switch (groupType) {
     case BASIC:
-      tierDef = new BasicGroup();
+      tierDef = new BasicGroup( tier, index );
       break;
     case LABELED:
-      tierDef = new LabeledGroup();
+      tierDef = new LabeledGroup( tier, index );
       break;
     default:
       assert false;
       throw new IllegalStateException(
           "Undefined cluster group type: " + groupType);
     }
-    tierDef.type = groupType;
-    tierDef.load(tier, index);
     return tierDef;
   }
 }

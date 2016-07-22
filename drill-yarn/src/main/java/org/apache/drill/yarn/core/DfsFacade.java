@@ -19,7 +19,6 @@ package org.apache.drill.yarn.core;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStreamWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
@@ -31,6 +30,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.fs.UnsupportedFileSystemException;
+import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.hadoop.yarn.api.records.LocalResourceType;
@@ -74,11 +74,6 @@ public class DfsFacade {
     return localize;
   }
 
-  public void dumpYarnConfig(OutputStreamWriter out) throws IOException {
-    loadYarnConfig();
-    Configuration.dumpConfiguration(yarnConf, out);
-  }
-
   public void connect() throws DfsFacadeException {
     loadYarnConfig();
     String dfsConnection = config.getString(DrillOnYarnConfig.DFS_CONNECTION);
@@ -98,17 +93,6 @@ public class DfsFacade {
     } catch (IOException e) {
       throw new DfsFacadeException("Failed to create the DFS", e);
     }
-    // try {
-    // RemoteIterator<LocatedFileStatus> iter = fs.listFiles( new Path( "/" ),
-    // true );
-    // while ( iter.hasNext() ) {
-    // LocatedFileStatus stat = iter.next();
-    // System.out.println( stat.getPath() );
-    // }
-    // } catch (IllegalArgumentException | IOException e) {
-    // // TODO Auto-generated catch block
-    // e.printStackTrace();
-    // }
   }
 
   /**
@@ -134,23 +118,23 @@ public class DfsFacade {
      */
 
     public Localizer(DfsFacade dfs, File archivePath, String label) {
-      this.dfs = dfs;
-      localArchivePath = archivePath;
-      dfsArchivePath = dfs.getUploadPath(localArchivePath);
-      this.label = label;
+      this(dfs, archivePath, dfs.getUploadPath(archivePath), label);
     }
 
     public Localizer(DfsFacade dfs, File archivePath, String destName,
         String label) {
-      this.dfs = dfs;
-      localArchivePath = archivePath;
-      dfsArchivePath = dfs.getUploadPath(destName);
-      this.label = label;
+      this(dfs, archivePath, dfs.getUploadPath(destName), label);
     }
 
     public Localizer(DfsFacade dfs, String destPath) {
+      this( dfs, null, new Path(destPath), null );
+    }
+
+    public Localizer(DfsFacade dfs, File archivePath, Path destPath, String label) {
       this.dfs = dfs;
-      dfsArchivePath = new Path(destPath);
+      dfsArchivePath = destPath;
+      this.label = label;
+      localArchivePath = archivePath;
     }
 
     public String getBaseName() {
@@ -165,6 +149,15 @@ public class DfsFacade {
       dfs.uploadArchive(localArchivePath, dfsArchivePath, label);
       fileStatus = null;
     }
+
+    /**
+     * The client may check file status multiple times. Cache it here so we
+     * only retrieve the status once. Cache it here so that the client
+     * doen't have to do the caching.
+     *
+     * @return
+     * @throws DfsFacadeException
+     */
 
     private FileStatus getStatus() throws DfsFacadeException {
       if (fileStatus == null) {
@@ -208,10 +201,6 @@ public class DfsFacade {
     }
   }
 
-  // public File getLocalPath( String localPathParam ) {
-  // return new File( config.getString( localPathParam ) );
-  // }
-
   public boolean exists(Path path) throws IOException {
     return fs.exists(path);
   }
@@ -240,10 +229,11 @@ public class DfsFacade {
     String dfsDirStr = config.getString(DrillOnYarnConfig.DFS_APP_DIR);
     Path appDir = new Path(dfsDirStr);
     try {
+      // If the directory does not exist, create it, giving this user
+      // (only) read and write access.
+
       if (!fs.isDirectory(appDir)) {
-        // TODO: Set permissions explicitly.
-        FsPermission perm = FsPermission.getDirDefault();
-        fs.mkdirs(appDir, perm);
+        fs.mkdirs(appDir, new FsPermission(FsAction.READ_WRITE, null, null));
       }
     } catch (IOException e) {
       throw new DfsFacadeException(
@@ -274,7 +264,7 @@ public class DfsFacade {
     }
   }
 
-  public FileStatus getFileStatus(Path dfsPath) throws DfsFacadeException {
+  private FileStatus getFileStatus(Path dfsPath) throws DfsFacadeException {
     try {
       return fs.getFileStatus(dfsPath);
     } catch (IOException e) {
@@ -330,6 +320,8 @@ public class DfsFacade {
       throw new DfsFacadeException(
           "Failed to delete file: " + destPath.toString(), e);
     }
+
+    // Remove the Drill directory, but only if it is now empty.
 
     Path dir = destPath.getParent();
     try {

@@ -86,8 +86,8 @@ public class DrillControllerFactory implements ControllerFactory {
 
       // Assume basic scheduler for now.
       ClusterDef.ClusterGroup pool = ClusterDef.getCluster(config, 0);
-      Scheduler testGroup = new DrillbitScheduler(pool.name, taskSpec,
-          pool.count);
+      Scheduler testGroup = new DrillbitScheduler(pool.getName( ), taskSpec,
+          pool.getCount( ));
       dispatcher.getController().registerScheduler(testGroup);
       pool.modifyTaskSpec(taskSpec);
 

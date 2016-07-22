@@ -42,8 +42,7 @@ import org.apache.hadoop.yarn.util.Records;
  */
 
 public class AppSpec extends LaunchSpec {
-
-  static final Log LOG = LogFactory.getLog(LaunchSpec.class);
+  static final private Log LOG = LogFactory.getLog(LaunchSpec.class);
 
   /**
    * The memory required in the allocated container, in MB.

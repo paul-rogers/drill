@@ -26,9 +26,12 @@ import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.yarn.api.records.Container;
 
 public class DoYUtil {
+  static final private Log LOG = LogFactory.getLog(DoYUtil.class);
 
   private DoYUtil() {
   }
@@ -45,14 +48,9 @@ public class DoYUtil {
   }
 
   public static void addNonEmpty(List<String> list, String value) {
-    if (value == null) {
-      return;
+    if ( ! isBlank( value ) ) {
+      list.add(value.trim( ));
     }
-    value = value.trim();
-    if (value.isEmpty()) {
-      return;
-    }
-    list.add(value);
   }
 
   public static boolean isBlank(String str) {
@@ -97,70 +95,75 @@ public class DoYUtil {
     return trackingUrl.replace("/redirect", "/");
   }
 
-  public static void callSetDiskIfExists(Object target, double arg) {
-    final String fnName = "setDisks";
+  public static Object dynamicCall(Object target, String fnName, Object args[],
+      Class<?> types[]) {
+
+    // First, look for the method using the names and types provided.
+
     final String methodLabel = target.getClass().getName() + "." + fnName;
     Method m;
     try {
-      m = target.getClass().getMethod(fnName, Double.TYPE);
+      m = target.getClass().getMethod(fnName, types);
     } catch (NoSuchMethodException e) {
-      // Ignore, the method does not exist in this distribution.
-      AppSpec.LOG.trace("Not supported in this YARN distribution: "
-          + methodLabel + "(" + arg + ")");
+
+      // Ignore, but log: the method does not exist in this distribution.
+
+      StringBuilder buf = new StringBuilder();
+      if (types != null) {
+        String sep = "";
+        for (Class<?> type : types) {
+          buf.append(sep);
+          buf.append(type.getName());
+          sep = ",";
+        }
+      }
+      LOG.trace("Not supported in this YARN distribution: " + methodLabel + "("
+          + buf.toString() + ")");
       CodeSource src = target.getClass().getProtectionDomain().getCodeSource();
       if (src != null) {
         java.net.URL jar = src.getLocation();
-        AppSpec.LOG.trace("Class found in URL: " + jar.toString());
+        LOG.trace("Class found in URL: " + jar.toString());
       }
-      return;
+      return null;
     } catch (SecurityException e) {
-      AppSpec.LOG.error("Security prevents dynamic method calls", e);
-      return;
+      LOG.error("Security prevents dynamic method calls", e);
+      return null;
     }
+
+    // Next, call the method with the arguments provided.
+
+    Object ret = null;
     try {
-      m.invoke(target, arg);
+      ret = m.invoke(target, args);
     } catch (IllegalAccessException | IllegalArgumentException
         | InvocationTargetException e) {
-      AppSpec.LOG.error("Failed to dynamically call " + methodLabel, e);
-      return;
+      LOG.error("Failed to dynamically call " + methodLabel, e);
+      return null;
     }
-    AppSpec.LOG.trace("Successfully called " + methodLabel + "( " + arg + ")");
+    StringBuilder buf = new StringBuilder();
+    if (args != null) {
+      String sep = "";
+      for (Object arg : args) {
+        buf.append(sep);
+        buf.append(arg == null ? "null" : arg.toString());
+        sep = ",";
+      }
+    }
+    LOG.trace(
+        "Successfully called " + methodLabel + "( " + buf.toString() + ")");
+
+    // Return any return value. Will be null if the method is returns void.
+
+    return ret;
+  }
+
+  public static void callSetDiskIfExists(Object target, double arg) {
+    dynamicCall(target, "setDisks", new Object[] { arg },
+        new Class<?>[] { Double.TYPE });
   }
 
   public static double callGetDiskIfExists(Object target) {
-    final String fnName = "getDisks";
-    final String methodLabel = target.getClass().getName() + "." + fnName;
-    Method m;
-    try {
-      m = target.getClass().getMethod(fnName);
-    } catch (NoSuchMethodException e) {
-      // Ignore, the method does not exist in this distribution.
-      AppSpec.LOG.trace(
-          "Not supported in this YARN distribution: " + methodLabel + "( )");
-      CodeSource src = target.getClass().getProtectionDomain().getCodeSource();
-      if (src != null) {
-        java.net.URL jar = src.getLocation();
-        AppSpec.LOG.trace("Class found in URL: " + jar.toString());
-      }
-      return 0;
-    } catch (SecurityException e) {
-      AppSpec.LOG.error("Security prevents dynamic method calls", e);
-      return 0;
-    }
-    try {
-      Object ret = m.invoke(target);
-      AppSpec.LOG
-          .trace("Successfully called " + methodLabel + "( ) --> " + ret);
-      if (ret instanceof Double) {
-        return (Double) ret;
-      }
-      AppSpec.LOG.warn("Method " + methodLabel + " returned "
-          + ((ret == null) ? "null" : ret.getClass().getName()));
-      return 0;
-    } catch (IllegalAccessException | IllegalArgumentException
-        | InvocationTargetException e) {
-      AppSpec.LOG.error("Failed to dynamically call " + methodLabel, e);
-      return 0;
-    }
+    Object ret = dynamicCall(target, "getDisks", null, null);
+    return (ret == null) ? 0.0 : (Double) ret;
   }
 }

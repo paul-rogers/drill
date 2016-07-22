@@ -162,12 +162,9 @@ public class LaunchSpec {
         .newRecord(ContainerLaunchContext.class);
 
     // Set up the list of commands to run. Here, we assume that we run only
-    // one command. The command can be null for an unmanaged (in-process)
-    // launch.
+    // one command.
 
-    if (command != null || mainClass != null) {
-      container.setCommands(Collections.singletonList(getCommand()));
-    }
+    container.setCommands(Collections.singletonList(getCommand()));
 
     // Add localized resources
 
