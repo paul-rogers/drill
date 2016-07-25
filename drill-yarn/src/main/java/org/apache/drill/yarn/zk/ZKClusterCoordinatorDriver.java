@@ -20,15 +20,19 @@ package org.apache.drill.yarn.zk;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.state.ConnectionState;
 import org.apache.curator.framework.state.ConnectionStateListener;
+import org.apache.drill.exec.coord.zk.ZKClusterCoordinator;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.work.foreman.DrillbitStatusListener;
 import org.apache.drill.yarn.appMaster.AMRegistrar;
+import org.apache.drill.yarn.core.DrillOnYarnConfig;
+
+import com.typesafe.config.Config;
 
 /**
  * Driver class for the ZooKeeper cluster coordinator. Provides defaults for
@@ -47,28 +51,18 @@ import org.apache.drill.yarn.appMaster.AMRegistrar;
  */
 
 public class ZKClusterCoordinatorDriver implements AMRegistrar {
-  private static final Pattern ZK_COMPLEX_STRING = Pattern
-      .compile("(^.*?)/(.*)/([^/]*)$");
-
-  // Defaults are taken from java-exec's drill-module.conf
-
-  private String connect = "localhost:2181";
-  private String clusterId = "drillbits1";
-  private String zkRoot = "drill";
-  private int retryCount = 7200;
-  private int connectTimeoutMs = 5_000;
-  private int retryDelayMs = 500;
+  protected static final Log logger = LogFactory
+      .getLog(ZKClusterCoordinatorDriver.class);
 
   // Default timeout before we declare that ZK is down: 2 minutes.
 
   private int failureTimeoutMs = 120_000;
-
   // Maximum ZK startup wait defaults to 30 seconds. It is only 10 seconds
   // in the Drill implementation.
 
   private int maxStartWaitMs = 30_000;
 
-  // Expected ports used to match ZK registries with
+  // Expected ports used to match ZK registrations with
   // containers. ZK lists the ports as part of its key, we have to anticipate
   // these values in order to match.
 
@@ -102,58 +96,8 @@ public class ZKClusterCoordinatorDriver implements AMRegistrar {
    * @return
    * @throws ZKConfigException
    */
-  public ZKClusterCoordinatorDriver setConnect(String connect)
+  public ZKClusterCoordinatorDriver setConnect( )
       throws ZKConfigException {
-
-    // check if this is a complex zk string. If so, parse into components.
-    Matcher m = ZK_COMPLEX_STRING.matcher(connect);
-    if (!m.matches()) {
-      throw new ZKConfigException("Bad connect string: " + connect);
-    }
-    this.connect = m.group(1);
-    zkRoot = m.group(2);
-    clusterId = m.group(3);
-    return this;
-  }
-
-  public ZKClusterCoordinatorDriver setConnect(String connect, String zkRoot,
-      String clusterId) {
-    this.connect = connect;
-    this.zkRoot = zkRoot;
-    this.clusterId = clusterId;
-    return this;
-  }
-
-  public ZKClusterCoordinatorDriver setRetryCount(int n) {
-    retryCount = n;
-    return this;
-  }
-
-  public ZKClusterCoordinatorDriver setConnectTimeoutMs(int ms) {
-    connectTimeoutMs = ms;
-    return this;
-  }
-
-  public ZKClusterCoordinatorDriver setRetryDelayMs(int ms) {
-    retryDelayMs = ms;
-    return this;
-  }
-
-  public ZKClusterCoordinatorDriver setMaxStartWaitMs(int ms) {
-    maxStartWaitMs = ms;
-    return this;
-  }
-
-  public ZKClusterCoordinatorDriver setFailureTimoutMs(int ms) {
-    failureTimeoutMs = ms;
-    return this;
-  }
-
-  public ZKClusterCoordinatorDriver setPorts(int userPort, int controlPort,
-      int dataPort) {
-    this.userPort = userPort;
-    this.controlPort = controlPort;
-    this.dataPort = dataPort;
     return this;
   }
 
@@ -167,8 +111,7 @@ public class ZKClusterCoordinatorDriver implements AMRegistrar {
    */
   public ZKClusterCoordinatorDriver build() throws ZKRuntimeException {
     try {
-      zkCoord = new ZKClusterCoordinator(connect, zkRoot, clusterId, retryCount,
-          retryDelayMs, connectTimeoutMs);
+      zkCoord = new ZKClusterCoordinator( DrillOnYarnConfig.instance().getDrillConfig());
     } catch (IOException e) {
       throw new ZKRuntimeException(
           "Failed to initialize the ZooKeeper cluster coordination", e);
@@ -181,10 +124,18 @@ public class ZKClusterCoordinatorDriver implements AMRegistrar {
               + maxStartWaitMs + " ms.",
           e);
     }
+    Config config = DrillOnYarnConfig.config();
+    failureTimeoutMs = config
+        .getInt(DrillOnYarnConfig.ZK_FAILURE_TIMEOUT_MS);
+    userPort = config.getInt(DrillOnYarnConfig.DRILLBIT_USER_PORT);
+    controlPort = config.getInt(DrillOnYarnConfig.DRILLBIT_BIT_PORT);
+    dataPort = controlPort + 1;
     initialEndpoints = new ArrayList<>(zkCoord.getAvailableEndpoints());
     zkCoord.getCurator().getConnectionStateListenable()
         .addListener(stateListener);
     amRegistry = new AMRegistry(zkCoord);
+    String zkRoot = config.getString(DrillOnYarnConfig.ZK_ROOT);
+    String clusterId = config.getString(DrillOnYarnConfig.CLUSTER_ID);
     amRegistry.useLocalRegistry(zkRoot, clusterId);
     return this;
   }
@@ -246,14 +197,14 @@ public class ZKClusterCoordinatorDriver implements AMRegistrar {
     case READ_ONLY:
     case RECONNECTED:
       if (connectionLostTime != 0) {
-        ZKClusterCoordinator.logger.info("ZK connection regained");
+        logger.info("ZK connection regained");
       }
       connectionLostTime = 0;
       break;
     case LOST:
     case SUSPENDED:
       if (connectionLostTime == 0) {
-        ZKClusterCoordinator.logger.info("ZK connection lost");
+        logger.info("ZK connection lost");
         connectionLostTime = System.currentTimeMillis();
       }
       break;
@@ -292,7 +243,7 @@ public class ZKClusterCoordinatorDriver implements AMRegistrar {
     try {
       zkCoord.close();
     } catch (Exception e) {
-      ZKClusterCoordinator.logger.error("Error occurred on ZK close, ignored",
+      logger.error("Error occurred on ZK close, ignored",
           e);
     }
     zkCoord = null;

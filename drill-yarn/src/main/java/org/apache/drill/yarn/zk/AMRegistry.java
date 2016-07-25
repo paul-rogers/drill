@@ -17,6 +17,7 @@
  */
 package org.apache.drill.yarn.zk;
 
+import org.apache.drill.exec.coord.zk.ZKClusterCoordinator;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException.NodeExistsException;
 

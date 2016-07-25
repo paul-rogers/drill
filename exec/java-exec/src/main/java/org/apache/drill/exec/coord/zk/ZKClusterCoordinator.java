@@ -231,6 +231,10 @@ public class ZKClusterCoordinator extends ClusterCoordinator {
       Set<DrillbitEndpoint> unregisteredBits = new HashSet<>(endpoints);
       unregisteredBits.removeAll(newDrillbitSet);
 
+      // Set of newly live bits : new set of active bits - original bits.
+      Set<DrillbitEndpoint> registeredBits = new HashSet<>(newDrillbitSet);
+      registeredBits.removeAll(endpoints);
+
       endpoints = newDrillbitSet;
 
       if (logger.isDebugEnabled()) {
@@ -252,9 +256,13 @@ public class ZKClusterCoordinator extends ClusterCoordinator {
         logger.debug(builder.toString());
       }
 
-      // Notify the drillbit listener for newly unregistered bits. For now, we only care when drillbits are down / unregistered.
-      if (! (unregisteredBits.isEmpty()) ) {
+      // Notify the drillbit listener for newly unregistered bits.
+      if (!(unregisteredBits.isEmpty())) {
         drillbitUnregistered(unregisteredBits);
+      }
+      // Notify the drillbit listener for newly registered bits.
+      if (!(registeredBits.isEmpty())) {
+        drillbitRegistered(registeredBits);
       }
 
     } catch (Exception e) {
