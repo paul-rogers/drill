@@ -325,8 +325,8 @@ public class DfsFacade {
 
     Path dir = destPath.getParent();
     try {
-      RemoteIterator<FileStatus> iter = fs.listStatusIterator(dir);
-      if (!iter.hasNext()) {
+      FileStatus status[] = fs.listStatus( dir );
+      if (status.length == 0) {
         fs.delete(dir, false);
       }
     } catch (IOException e) {
