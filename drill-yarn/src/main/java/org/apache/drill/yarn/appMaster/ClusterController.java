@@ -31,6 +31,12 @@ import org.apache.hadoop.yarn.api.records.ContainerStatus;
  */
 
 public interface ClusterController extends RegistryHandler {
+  public interface TaskVisitor {
+    void visit(Task task);
+  }
+  public interface ControllerVisitor {
+    void visit(ClusterController controller);
+  }
   void enableFailureCheck(boolean flag);
 
   void registerLifecycleListener(TaskLifecycleListener listener);

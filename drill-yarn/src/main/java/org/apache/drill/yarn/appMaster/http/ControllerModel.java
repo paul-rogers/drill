@@ -28,9 +28,9 @@ import org.apache.drill.yarn.appMaster.AMYarnFacade.YarnAppHostReport;
 import org.apache.drill.yarn.appMaster.ClusterController;
 import org.apache.drill.yarn.appMaster.ClusterControllerImpl;
 import org.apache.drill.yarn.appMaster.ClusterControllerImpl.State;
-import org.apache.drill.yarn.appMaster.ControllerVisitor;
+import org.apache.drill.yarn.appMaster.ClusterController.ControllerVisitor;
 import org.apache.drill.yarn.appMaster.Scheduler;
-import org.apache.drill.yarn.appMaster.SchedulerStateActions;
+import org.apache.drill.yarn.appMaster.SchedulerState;
 import org.apache.drill.yarn.core.ContainerRequestSpec;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.zk.ZKRegistry;
@@ -139,9 +139,9 @@ public class ControllerModel implements ControllerVisitor {
   }
 
   private void capturePools(ClusterControllerImpl impl) {
-    for ( SchedulerStateActions pool : impl.getPools( ) ) {
+    for ( SchedulerState scheduler : impl.getSchedulers( ) ) {
       ControllerModel.ClusterGroupModel poolModel = new ControllerModel.ClusterGroupModel( );
-      Scheduler sched = pool.getScheduler();
+      Scheduler sched = scheduler.getScheduler();
       ContainerRequestSpec containerSpec = sched.getResource( );
       poolModel.name = sched.getName();
       poolModel.type = sched.getType( );
@@ -149,8 +149,8 @@ public class ControllerModel implements ControllerVisitor {
       poolModel.memory = containerSpec.memoryMb;
       poolModel.vcores = containerSpec.vCores;
       poolModel.disks = containerSpec.disks;
-      poolModel.taskCount = pool.getTaskCount();
-      poolModel.liveCount = pool.getLiveCount( );
+      poolModel.taskCount = scheduler.getTaskCount();
+      poolModel.liveCount = scheduler.getLiveCount( );
       targetCount += poolModel.targetCount;
       taskCount += poolModel.taskCount;
       liveCount += poolModel.liveCount;

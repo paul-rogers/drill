@@ -57,6 +57,16 @@ public class Dispatcher
   private static final Log LOG = LogFactory.getLog(Dispatcher.class);
 
   /**
+   * Interface for objects that are polled on each
+   * controller clock tick in order to perform
+   * time-based tasks.
+   */
+
+  public interface Pollable {
+    public void tick(long curTime);
+  }
+  
+  /**
    * Handle YARN Resource Manager events. This is a separate class to clarify
    * which events are from the Resource Manager.
    */

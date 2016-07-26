@@ -17,12 +17,10 @@
  */
 package org.apache.drill.yarn.appMaster;
 
-import org.apache.drill.yarn.appMaster.Scheduler.TaskManager;
-
 public class EventContext {
   public final AMYarnFacade yarn;
   public final ClusterControllerImpl controller;
-  public SchedulerStateImpl group;
+  public SchedulerState group;
   public Task task;
 
   public EventContext(ClusterControllerImpl controller) {
@@ -60,8 +58,8 @@ public class EventContext {
     return task.state;
   }
 
-  public void setGroup(SchedulerStateActions group) {
-    this.group = (SchedulerStateImpl) group;
+  public void setGroup(SchedulerState group) {
+    this.group = (SchedulerState) group;
   }
 
   public TaskManager getTaskManager() {

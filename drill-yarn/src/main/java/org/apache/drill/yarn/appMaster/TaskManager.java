@@ -17,6 +17,20 @@
  */
 package org.apache.drill.yarn.appMaster;
 
-public interface ControllerVisitor {
-  void visit(ClusterController controller);
+import org.apache.drill.yarn.core.LaunchSpec;
+
+/**
+ * Task manager that does nothing.
+ */
+
+public class TaskManager {
+  public int maxConcurrentAllocs() { return Integer.MAX_VALUE; }
+  public void allocated(EventContext context) { }
+  
+  public LaunchSpec getLaunchSpec(Task task) {
+    return task.getLaunchSpec();
+  }
+
+  public boolean stop(Task task) { return false; }
+  public void completed(EventContext context) { }
 }

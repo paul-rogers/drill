@@ -19,7 +19,6 @@ package org.apache.drill.yarn.appMaster;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.drill.yarn.appMaster.ControllerFactory.ControllerFactoryException;
 import org.apache.drill.yarn.appMaster.http.WebServer;
 import org.apache.drill.yarn.core.DoyConfigException;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
@@ -71,7 +70,7 @@ public class DrillApplicationMaster {
     Dispatcher dispatcher;
     try {
       dispatcher = (new DrillControllerFactory()).build();
-    } catch (ControllerFactoryException e) {
+    } catch (AMException e) {
       LOG.error("Setup failed, exiting: " + e.getMessage(), e);
       System.exit(-1);
       return;

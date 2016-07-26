@@ -17,25 +17,47 @@
  */
 package org.apache.drill.yarn.appMaster;
 
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.Collections;
 import java.util.List;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.drill.yarn.core.ContainerRequestSpec;
+import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.LaunchSpec;
+import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
+import org.apache.hadoop.yarn.api.records.ApplicationId;
+import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.Container;
+import org.apache.hadoop.yarn.api.records.ContainerLaunchContext;
+import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
 import org.apache.hadoop.yarn.api.records.NodeReport;
+import org.apache.hadoop.yarn.api.records.NodeState;
 import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.client.api.AMRMClient.ContainerRequest;
+import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync;
+import org.apache.hadoop.yarn.client.api.async.AMRMClientAsync.CallbackHandler;
 import org.apache.hadoop.yarn.client.api.async.NMClientAsync;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
+import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.hadoop.yarn.proto.YarnServiceProtos.SchedulerResourceTypes;
+import org.apache.hadoop.yarn.util.ConverterUtils;
 
 /**
- * Defines the interface between the Application Master and YARN. This interface
- * enables the use of a mock implementation for testing as well as the actual
- * implementation that works with YARN.
+ * Wrapper around the asynchronous versions of the YARN AM-RM and AM-NM
+ * interfaces. Allows strategy code to factor out the YARN-specific bits so that
+ * strategy code is simpler. Also allows replacing the actual YARN code with a
+ * mock for unit testing.
  */
 
-public interface AMYarnFacade {
+public class AMYarnFacade {
+  private static final Log LOG = LogFactory.getLog(AMYarnFacade.class);
+
   /**
    * Provides a collection of web UI links for the YARN Resource Manager and the
    * Node Manager that is running the Drill-on-YARN AM. This information is
@@ -53,39 +75,214 @@ public interface AMYarnFacade {
     public String nmAppUrl;
   }
 
-  void start(AMRMClientAsync.CallbackHandler resourceCallback,
-      NMClientAsync.CallbackHandler nodeCallback);
+  private YarnConfiguration conf;
+  private AMRMClientAsync<ContainerRequest> resourceMgr;
+  private NMClientAsync nodeMgr;
+  private RegisterApplicationMasterResponse registration;
+  private YarnClient client;
+  private int pollPeriodMs;
 
-  void register(String trackingUrl) throws YarnFacadeException;
+  private String appMasterTrackingUrl;
 
-  String getTrackingUrl();
+  private ApplicationId appId;
 
-  ContainerRequest requestContainer(ContainerRequestSpec containerSpec);
+  private ApplicationReport appReport;
 
-  void removeContainerRequest(ContainerRequest containerRequest);
+  private String amHost;
 
-  void launchContainer(Container container, LaunchSpec taskSpec)
-      throws YarnFacadeException;
+  private boolean supportsDisks;
 
-  void finish(boolean success, String msg) throws YarnFacadeException;
+  public AMYarnFacade(int pollPeriodMs) {
+    this.pollPeriodMs = pollPeriodMs;
+  }
 
-  void releaseContainer(Container container);
+  public void start(CallbackHandler resourceCallback,
+      org.apache.hadoop.yarn.client.api.async.NMClientAsync.CallbackHandler nodeCallback ) {
 
-  void killContainer(Container container);
+    conf = new YarnConfiguration();
 
-  int getNodeCount();
+    resourceMgr = AMRMClientAsync.createAMRMClientAsync(pollPeriodMs, resourceCallback);
+    resourceMgr.init(conf);
+    resourceMgr.start();
 
-  Resource getResources();
+    // Create the asynchronous node manager client
 
-  RegisterApplicationMasterResponse getRegistrationResponse();
+    nodeMgr = NMClientAsync.createNMClientAsync(nodeCallback);
+    nodeMgr.init(conf);
+    nodeMgr.start();
 
-  void blacklistNode(String nodeName);
+    client = YarnClient.createYarnClient();
+    client.init(conf);
+    client.start();
 
-  void removeBlacklist(String nodeName);
+    String appIdStr = System.getenv(DrillOnYarnConfig.APP_ID_ENV_VAR);
+    if (appIdStr != null) {
+      appId = ConverterUtils.toApplicationId(appIdStr);
+      try {
+        appReport = client.getApplicationReport(appId);
+      } catch (YarnException | IOException e) {
+        LOG.error(
+            "Failed to get YARN applicaiton report for App ID: " + appIdStr, e);
+      }
+    }
+  }
 
-  List<NodeReport> getNodeReports() throws YarnFacadeException;
+  public void register(String trackingUrl) throws YarnFacadeException {
+    String thisHostName = NetUtils.getHostname();
+    LOG.debug("Host Name from YARN: " + thisHostName);
+    if (trackingUrl != null) {
+      // YARN seems to provide multiple names: MACHNAME.local/10.250.56.235
+      // The second seems to be the IP address, which is what we want.
+      String names[] = thisHostName.split("/");
+      amHost = names[names.length - 1];
+      appMasterTrackingUrl = trackingUrl.replace("<host>", amHost);
+      LOG.info("Tracking URL: " + appMasterTrackingUrl);
+    }
+    try {
+      LOG.trace("Registering with YARN");
+      registration = resourceMgr.registerApplicationMaster(thisHostName, 0,
+          appMasterTrackingUrl);
+    } catch (YarnException | IOException e) {
+      throw new YarnFacadeException("Register AM failed", e);
+    }
 
-  YarnAppHostReport getAppHostReport();
+    // Some distributions (but not the stock YARN) support Disk
+    // resources. Since Drill compiles against Apache YARN, without disk
+    // resources, we have to use an indirect mechnanism to look for the
+    // disk enum at runtime when we don't have that enum value at compile time.
 
-  boolean supportsDiskResource();
+    for (SchedulerResourceTypes type : registration
+        .getSchedulerResourceTypes()) {
+      if (type.name().equals("DISK")) {
+        supportsDisks = true;
+      }
+    }
+  }
+
+  public String getTrackingUrl( ) { return appMasterTrackingUrl; }
+
+  public boolean supportsDiskResource( ) { return supportsDisks; }
+
+  public ContainerRequest requestContainer(ContainerRequestSpec containerSpec) {
+    ContainerRequest request = containerSpec.makeRequest();
+    resourceMgr.addContainerRequest(containerSpec.makeRequest());
+    return request;
+  }
+
+  public void launchContainer(Container container, LaunchSpec taskSpec)
+      throws YarnFacadeException {
+    ContainerLaunchContext context = createLaunchContext(taskSpec);
+    startContainerAsync(container, context);
+  }
+
+  private ContainerLaunchContext createLaunchContext(LaunchSpec task)
+      throws YarnFacadeException {
+    try {
+      return task.createLaunchContext(conf);
+    } catch (IOException e) {
+      throw new YarnFacadeException("Failed to create launch context", e);
+    }
+  }
+
+  private void startContainerAsync(Container container,
+      ContainerLaunchContext context) {
+    nodeMgr.startContainerAsync(container, context);
+  }
+
+  public void finish(boolean succeeded, String msg) throws YarnFacadeException {
+    // Stop the Node Manager client.
+
+    nodeMgr.stop();
+
+    // Deregister the app from YARN.
+
+    String appMsg = "Drill Cluster Shut-Down";
+    FinalApplicationStatus status = FinalApplicationStatus.SUCCEEDED;
+    if (!succeeded) {
+      appMsg = "Drill Cluster Fatal Error - check logs";
+      status = FinalApplicationStatus.FAILED;
+    }
+    if (msg != null) {
+      appMsg = msg;
+    }
+    try {
+      resourceMgr.unregisterApplicationMaster(status, appMsg, "");
+    } catch (YarnException | IOException e) {
+      throw new YarnFacadeException("Deregister AM failed", e);
+    }
+
+    // Stop the Resource Manager client
+
+    resourceMgr.stop();
+  }
+
+  public void releaseContainer(Container container) {
+    resourceMgr.releaseAssignedContainer(container.getId());
+  }
+
+  public void killContainer(Container container) {
+    nodeMgr.stopContainerAsync(container.getId(), container.getNodeId());
+  }
+
+  public int getNodeCount() {
+    return resourceMgr.getClusterNodeCount();
+  }
+
+  public Resource getResources() {
+    return resourceMgr.getAvailableResources();
+  }
+
+  public void removeContainerRequest(ContainerRequest containerRequest) {
+    resourceMgr.removeContainerRequest(containerRequest);
+  }
+
+  public RegisterApplicationMasterResponse getRegistrationResponse() {
+    return registration;
+  }
+
+  public void blacklistNode(String nodeName) {
+    resourceMgr.updateBlacklist(Collections.singletonList(nodeName), null);
+  }
+
+  public void removeBlacklist(String nodeName) {
+    resourceMgr.updateBlacklist(null, Collections.singletonList(nodeName));
+  }
+
+  public List<NodeReport> getNodeReports() throws YarnFacadeException {
+    try {
+      return client.getNodeReports(NodeState.RUNNING);
+    } catch (Exception e) {
+      throw new YarnFacadeException("getNodeReports failed", e);
+    }
+  }
+
+  public YarnAppHostReport getAppHostReport() {
+    // Cobble together YARN links to simplify debugging.
+
+    YarnAppHostReport hostRpt = new YarnAppHostReport();
+    hostRpt.amHost = amHost;
+    if (appId != null) {
+      hostRpt.appId = appId.toString();
+    }
+    if (appReport == null) {
+      return hostRpt;
+    }
+    try {
+      String rmLink = appReport.getTrackingUrl();
+      URL url = new URL(rmLink);
+      hostRpt.rmHost = url.getHost();
+      hostRpt.rmUrl = "http://" + hostRpt.rmHost + ":" + url.getPort() + "/";
+      hostRpt.rmAppUrl = hostRpt.rmUrl + "cluster/app/" + appId.toString();
+    } catch (MalformedURLException e) {
+      return null;
+    }
+
+    hostRpt.nmHost = System.getenv("NM_HOST");
+    String nmPort = System.getenv("NM_HTTP_PORT");
+    if (hostRpt.nmHost != null || nmPort != null) {
+      hostRpt.nmUrl = "http://" + hostRpt.nmHost + ":" + nmPort + "/";
+      hostRpt.nmAppUrl = hostRpt.nmUrl + "node/application/" + hostRpt.appId;
+    }
+    return hostRpt;
+  }
 }

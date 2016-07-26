@@ -32,7 +32,7 @@ package org.apache.drill.yarn.appMaster;
  * target level is reduced.
  */
 
-public abstract class PersistentTaskScheduler extends AbstractScheduler {
+public abstract class PersistentTaskScheduler extends Scheduler {
   protected int quantity;
 
   public PersistentTaskScheduler(String type, String name, int quantity) {

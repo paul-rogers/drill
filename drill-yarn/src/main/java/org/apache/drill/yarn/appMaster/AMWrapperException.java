@@ -17,6 +17,12 @@
  */
 package org.apache.drill.yarn.appMaster;
 
+/**
+ * Translates checked exceptions "which should not occur" into
+ * errors to avoid cluttering method signatures with configuration-related
+ * exceptions.
+ */
+
 @SuppressWarnings("serial")
 public class AMWrapperException extends Error {
   public AMWrapperException(String msg, Exception e) {

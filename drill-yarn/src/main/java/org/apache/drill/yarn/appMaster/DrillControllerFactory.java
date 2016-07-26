@@ -57,15 +57,14 @@ import com.typesafe.config.Config;
  * information.
  */
 
-public class DrillControllerFactory implements ControllerFactory {
+public class DrillControllerFactory {
   private static final Log LOG = LogFactory.getLog(DrillControllerFactory.class);
   private Config config = DrillOnYarnConfig.config();
   private String drillArchivePath;
   private String siteArchivePath;
   private boolean localized;
 
-  @Override
-  public Dispatcher build() throws ControllerFactoryException {
+  public Dispatcher build() throws AMException {
     LOG.info(
         "Initializing AM for " + config.getString(DrillOnYarnConfig.APP_NAME));
     Dispatcher dispatcher;
@@ -79,7 +78,7 @@ public class DrillControllerFactory implements ControllerFactory {
       int timerPeriodMs = config.getInt(DrillOnYarnConfig.AM_TICK_PERIOD_MS);
       dispatcher = new Dispatcher(timerPeriodMs);
       int pollPeriodMs = config.getInt(DrillOnYarnConfig.AM_POLL_PERIOD_MS);
-      AMYarnFacadeImpl yarn = new AMYarnFacadeImpl(pollPeriodMs);
+      AMYarnFacade yarn = new AMYarnFacade(pollPeriodMs);
       dispatcher.setYarn(yarn);
       dispatcher.getController()
           .setMaxRetries(config.getInt(DrillOnYarnConfig.DRILLBIT_MAX_RETRIES));
@@ -95,8 +94,7 @@ public class DrillControllerFactory implements ControllerFactory {
 
       buildZooKeeper(config, dispatcher);
     } catch (YarnFacadeException | DoyConfigException e) {
-      throw new ControllerFactoryException("Drill AM intitialization failed",
-          e);
+      throw new AMException("Drill AM intitialization failed",e);
     }
 
     // Tracking Url
@@ -361,7 +359,7 @@ public class DrillControllerFactory implements ControllerFactory {
     dispatcher.registerAddOn(new ZKRegistryAddOn(zkRegistry));
 
     // The ZK driver is started and stopped in conjunction with the
-    // controlle lifecycle.
+    // controller lifecycle.
 
     dispatcher.getController().registerLifecycleListener(zkRegistry);
 
@@ -369,7 +367,7 @@ public class DrillControllerFactory implements ControllerFactory {
 
     dispatcher.setAMRegistrar(driver);
 
-    // The UI needs access to ZK to report unmanaged drillbits. We use
+    // The UI needs access to ZK to report unmanaged Drillbits. We use
     // a property to avoid unnecessary code dependencies.
 
     dispatcher.getController().setProperty(ZKRegistry.CONTROLLER_PROPERTY,

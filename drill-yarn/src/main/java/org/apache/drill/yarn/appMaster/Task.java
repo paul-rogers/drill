@@ -101,7 +101,7 @@ public class Task {
    * The scheduler group that manages this task.
    */
 
-  public SchedulerStateImpl taskGroup;
+  public SchedulerState taskGroup;
 
   /**
    * Tracking state for an additional task tracker (such as using
@@ -222,9 +222,9 @@ public class Task {
 
   public Disposition getDisposition() { return disposition; }
 
-  public SchedulerStateImpl getGroup() { return taskGroup; }
+  public SchedulerState getGroup() { return taskGroup; }
 
-  public void setGroup(SchedulerStateImpl taskGroup) { this.taskGroup = taskGroup; }
+  public void setGroup(SchedulerState taskGroup) { this.taskGroup = taskGroup; }
 
   public boolean retryable() {
     return !cancelled && disposition != Disposition.COMPLETED;
