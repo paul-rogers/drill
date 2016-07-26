@@ -49,7 +49,7 @@ public final class SchedulerState {
 
   private final Scheduler scheduler;
 
-  private final ClusterControllerImpl controller;
+  private final ClusterController controller;
 
   /**
    * Tracks the tasks to be started, but for which no work has yet been done.
@@ -74,7 +74,7 @@ public final class SchedulerState {
 
   protected Map<ContainerId, Task> activeContainers = new HashMap<>();
 
-  public SchedulerState(ClusterControllerImpl controller,
+  public SchedulerState(ClusterController controller,
       Scheduler scheduler) {
     this.controller = controller;
     this.scheduler = scheduler;

@@ -28,9 +28,9 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.work.foreman.DrillbitStatusListener;
 import org.apache.drill.yarn.appMaster.AMWrapperException;
+import org.apache.drill.yarn.appMaster.ClusterController;
 import org.apache.drill.yarn.appMaster.Dispatcher.Pollable;
 import org.apache.drill.yarn.appMaster.EventContext;
-import org.apache.drill.yarn.appMaster.RegistryHandler;
 import org.apache.drill.yarn.appMaster.Task;
 import org.apache.drill.yarn.appMaster.TaskLifecycleListener;
 
@@ -214,7 +214,7 @@ public class ZKRegistry
    * Drill's cluster coordinator (or, at least, Drill-on-YARN's version of it.
    */
 
-  private RegistryHandler registryHandler;
+  private ClusterController controller;
 
   /**
    * Last check of ZK status.
@@ -232,8 +232,8 @@ public class ZKRegistry
    * started them (since they predate the AM.)
    */
 
-  public void start(RegistryHandler controller) {
-    this.registryHandler = controller;
+  public void start(ClusterController controller) {
+    this.controller = controller;
     try {
       zkDriver.build();
     } catch (ZKRuntimeException e) {
@@ -307,9 +307,9 @@ public class ZKRegistry
     List<AckEvent> updates = registerDrillbits(registeredDrillbits);
     for (AckEvent event : updates) {
       if (event.task == null) {
-        registryHandler.reserveHost(event.endpoint.getAddress());
+        controller.reserveHost(event.endpoint.getAddress());
       } else {
-        registryHandler.startAck(event.task, ENDPOINT_PROPERTY, event.endpoint);
+        controller.startAck(event.task, ENDPOINT_PROPERTY, event.endpoint);
       }
     }
   }
@@ -371,7 +371,7 @@ public class ZKRegistry
       Set<DrillbitEndpoint> unregisteredDrillbits) {
     List<AckEvent> updates = unregisterDrillbits(unregisteredDrillbits);
     for (AckEvent event : updates) {
-      registryHandler.completionAck(event.task, ENDPOINT_PROPERTY);
+      controller.completionAck(event.task, ENDPOINT_PROPERTY);
     }
   }
 
@@ -418,7 +418,7 @@ public class ZKRegistry
       assert tracker.task == null;
       LOG.info("Unmanaged drillbit unregistered: " + key);
       registry.remove(key);
-      registryHandler.releaseHost(dbe.getAddress());
+      controller.releaseHost(dbe.getAddress());
       return null;
     }
     tracker.becomeUnregistered();
@@ -472,7 +472,7 @@ public class ZKRegistry
       // Note: safe to call this here as we are already in the controller
       // critical section.
 
-      registryHandler.startAck(task, ENDPOINT_PROPERTY, tracker.endpoint);
+      controller.startAck(task, ENDPOINT_PROPERTY, tracker.endpoint);
     } else {
       LOG.error(task.getLabel() + " - Drillbit registry in wrong state "
           + tracker.state + " for new task: " + key);
@@ -518,11 +518,11 @@ public class ZKRegistry
       int secs = (int) ((zkDriver.getLostConnectionDurationMs() + 500) / 1000);
       LOG.error(
           "ZooKeeper connection lost, failing after " + secs + " seconds.");
-      registryHandler.registryDown();
+      controller.registryDown();
     }
   }
 
-  public void finish(RegistryHandler handler) {
+  public void finish() {
     zkDriver.removeDrillbitListener(this);
     zkDriver.close();
   }

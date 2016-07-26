@@ -17,6 +17,8 @@
  */
 package org.apache.drill.yarn.appMaster;
 
+import org.apache.drill.yarn.zk.ZKRuntimeException;
+
 public class AMException extends Exception {
   private static final long serialVersionUID = 1L;
 
@@ -26,5 +28,9 @@ public class AMException extends Exception {
 
   public AMException(String msg, Exception e) {
     super(msg, e);
+  }
+
+  public AMException(ZKRuntimeException e) {
+    super(e.getMessage(),e);
   }
 }

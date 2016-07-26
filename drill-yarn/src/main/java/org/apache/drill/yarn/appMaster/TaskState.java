@@ -1,6 +1,6 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
+ * Licensed to the Apache Software Foundation (ASF) under one
  * distributed with this work for additional information
  * regarding copyright ownership.  The ASF licenses this file
  * to you under the Apache License, Version 2.0 (the
@@ -550,7 +550,7 @@ public abstract class TaskState {
     }
   }
 
-  private static final Log LOG = LogFactory.getLog(ClusterControllerImpl.class);
+  private static final Log LOG = LogFactory.getLog(TaskState.class);
 
   public static final TaskState START = new StartState();
   public static final TaskState REQUESTING = new RequestingState();

@@ -24,8 +24,9 @@ import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.drill.yarn.appMaster.AMRegistrar.AMRegistrationException;
 import org.apache.drill.yarn.appMaster.AMYarnFacade.YarnAppHostReport;
+import org.apache.drill.yarn.zk.ZKClusterCoordinatorDriver;
+import org.apache.drill.yarn.zk.ZKRegistry;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
@@ -190,13 +191,9 @@ public class Dispatcher
 
   private List<Pollable> pollables = new ArrayList<>();
 
-  /**
-   * Add-ons for which the dispatcher should managed the start/end lifecycle.
-   */
-
-  private List<DispatcherAddOn> addOns = new ArrayList<>();
+  private ZKRegistry zkRegistry;
   private String trackingUrl;
-  private AMRegistrar amRegistrar;
+  private ZKClusterCoordinatorDriver zkDriver;
   private int httpPort;
   private PulseRunnable timer;
   private Thread pulseThread;
@@ -208,7 +205,7 @@ public class Dispatcher
 
   public void setYarn(AMYarnFacade yarn) throws YarnFacadeException {
     this.yarn = yarn;
-    controller = new ClusterControllerImpl(yarn);
+    controller = new ClusterController(yarn);
   }
 
   public ClusterController getController() {
@@ -219,8 +216,8 @@ public class Dispatcher
     pollables.add(pollable);
   }
 
-  public void registerAddOn(DispatcherAddOn addOn) {
-    addOns.add(addOn);
+  public void setZkRegistry(ZKRegistry zkRegistry) {
+    this.zkRegistry = zkRegistry;
   }
 
   public void setHttpPort(int port) {
@@ -235,8 +232,8 @@ public class Dispatcher
     return yarn.getTrackingUrl();
   }
 
-  public void setAMRegistrar(AMRegistrar registrar) {
-    amRegistrar = registrar;
+  public void setAMRegistrar(ZKClusterCoordinatorDriver registrar) {
+    zkDriver = registrar;
   }
 
   /**
@@ -266,7 +263,7 @@ public class Dispatcher
 
     try {
       register();
-    } catch (AMRegistrationException e) {
+    } catch (AMException e) {
       LOG.error(e.getMessage(), e);
       yarn.finish(true, e.getMessage());
       return false;
@@ -297,19 +294,16 @@ public class Dispatcher
     LOG.trace("Registering YARN application");
     yarn.register(trackingUrl.replace("<port>", Integer.toString(httpPort)));
     controller.started();
-
-    for (DispatcherAddOn addOn : addOns) {
-      addOn.start(controller);
-    }
+    zkRegistry.start( controller );
   }
 
-  private void register() throws AMRegistrationException {
-    if (amRegistrar == null) {
+  private void register() throws AMException {
+    if (zkDriver == null) {
       LOG.warn(
           "No AM Registrar provided: cannot check if this is the only AM for the Drill cluster.");
     } else {
       YarnAppHostReport rpt = yarn.getAppHostReport();
-      amRegistrar.register(rpt.amHost, httpPort, rpt.appId);
+      zkDriver.register(rpt.amHost, httpPort, rpt.appId);
     }
   }
 
@@ -325,9 +319,7 @@ public class Dispatcher
   }
 
   private void finish(boolean success, String msg) throws YarnFacadeException {
-    for (DispatcherAddOn addOn : addOns) {
-      addOn.finish(controller);
-    }
+    zkRegistry.finish();
 
     LOG.trace("Shutting down YARN agent");
 

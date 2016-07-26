@@ -26,8 +26,8 @@ import javax.xml.bind.annotation.XmlRootElement;
 
 import org.apache.drill.yarn.appMaster.AMYarnFacade.YarnAppHostReport;
 import org.apache.drill.yarn.appMaster.ClusterController;
-import org.apache.drill.yarn.appMaster.ClusterControllerImpl;
-import org.apache.drill.yarn.appMaster.ClusterControllerImpl.State;
+import org.apache.drill.yarn.appMaster.ClusterController;
+import org.apache.drill.yarn.appMaster.ClusterController.State;
 import org.apache.drill.yarn.appMaster.ClusterController.ControllerVisitor;
 import org.apache.drill.yarn.appMaster.Scheduler;
 import org.apache.drill.yarn.appMaster.SchedulerState;
@@ -64,7 +64,7 @@ public class ControllerModel implements ControllerVisitor {
   protected String zkConnectStr;
   protected String zkRoot;
   protected String zkClusterId;
-  protected ClusterControllerImpl.State state;
+  protected ClusterController.State state;
   protected String stateHint;
   protected boolean supportsDisks;
   protected int yarnMemory;
@@ -109,7 +109,7 @@ public class ControllerModel implements ControllerVisitor {
   public int getTargetCount( ) { return targetCount; }
   public List<ClusterGroupModel> getGroups( ) { return groups; }
 
-  private static Map<ClusterControllerImpl.State,String> stateHints = makeStateHints( );
+  private static Map<ClusterController.State,String> stateHints = makeStateHints( );
 
   @Override
   public void visit(ClusterController controller) {
@@ -119,7 +119,7 @@ public class ControllerModel implements ControllerVisitor {
     zkRoot = config.getString( DrillOnYarnConfig.ZK_ROOT );
     zkClusterId = config.getString( DrillOnYarnConfig.CLUSTER_ID );
 
-    ClusterControllerImpl impl = (ClusterControllerImpl) controller;
+    ClusterController impl = (ClusterController) controller;
     appRpt = impl.getYarn().getAppHostReport();
 
     state = impl.getState( );
@@ -138,7 +138,7 @@ public class ControllerModel implements ControllerVisitor {
     supportsDisks = impl.supportsDiskResource();
   }
 
-  private void capturePools(ClusterControllerImpl impl) {
+  private void capturePools(ClusterController impl) {
     for ( SchedulerState scheduler : impl.getSchedulers( ) ) {
       ControllerModel.ClusterGroupModel poolModel = new ControllerModel.ClusterGroupModel( );
       Scheduler sched = scheduler.getScheduler();
@@ -186,15 +186,15 @@ public class ControllerModel implements ControllerVisitor {
    */
 
   private static Map<State, String> makeStateHints() {
-    Map<ClusterControllerImpl.State,String> hints = new HashMap<>( );
+    Map<ClusterController.State,String> hints = new HashMap<>( );
     // UI likely will never display the FAILED state.
-    hints.put( ClusterControllerImpl.State.START, "AM is starting up." );
-    hints.put( ClusterControllerImpl.State.LIVE, "AM is operating normally." );
-    hints.put( ClusterControllerImpl.State.ENDING, "AM is shutting down." );
+    hints.put( ClusterController.State.START, "AM is starting up." );
+    hints.put( ClusterController.State.LIVE, "AM is operating normally." );
+    hints.put( ClusterController.State.ENDING, "AM is shutting down." );
     // UI will never display the ENDED state.
-    hints.put( ClusterControllerImpl.State.ENDED, "AM is about to exit." );
+    hints.put( ClusterController.State.ENDED, "AM is about to exit." );
     // UI will never display the FAILED state.
-    hints.put( ClusterControllerImpl.State.FAILED, "AM failed to start and is about to exit." );
+    hints.put( ClusterController.State.FAILED, "AM failed to start and is about to exit." );
     return hints;
   }
 

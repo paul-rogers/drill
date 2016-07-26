@@ -29,7 +29,7 @@ import org.apache.curator.framework.state.ConnectionStateListener;
 import org.apache.drill.exec.coord.zk.ZKClusterCoordinator;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.work.foreman.DrillbitStatusListener;
-import org.apache.drill.yarn.appMaster.AMRegistrar;
+import org.apache.drill.yarn.appMaster.AMException;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 
 import com.typesafe.config.Config;
@@ -50,7 +50,7 @@ import com.typesafe.config.Config;
  * code incompatibility issues.)
  */
 
-public class ZKClusterCoordinatorDriver implements AMRegistrar {
+public class ZKClusterCoordinatorDriver {
   protected static final Log logger = LogFactory
       .getLog(ZKClusterCoordinatorDriver.class);
 
@@ -249,17 +249,15 @@ public class ZKClusterCoordinatorDriver implements AMRegistrar {
     zkCoord = null;
   }
 
-  @Override
   public void register(String amHost, int amPort, String appId)
-      throws AMRegistrationException {
+      throws AMException {
     try {
       amRegistry.register(amHost, amPort, appId);
     } catch (ZKRuntimeException e) {
-      throw new AMRegistrationException(e);
+      throw new AMException(e);
     }
   }
 
-  @Override
   public void deregister() {
     // Nothing to do: ZK does it for us.
   }

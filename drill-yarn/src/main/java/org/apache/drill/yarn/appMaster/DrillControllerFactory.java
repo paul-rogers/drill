@@ -325,24 +325,6 @@ public class DrillControllerFactory {
     }
   }
 
-  public static class ZKRegistryAddOn implements DispatcherAddOn {
-    ZKRegistry zkRegistry;
-
-    public ZKRegistryAddOn(ZKRegistry zkRegistry) {
-      this.zkRegistry = zkRegistry;
-    }
-
-    @Override
-    public void start(ClusterController controller) {
-      zkRegistry.start(controller);
-    }
-
-    @Override
-    public void finish(ClusterController controller) {
-      zkRegistry.finish(controller);
-    }
-  }
-
   /**
    * Create the Drill-on-YARN version of the ZooKeeper cluster coordinator.
    * Compared to the Drill version, this one takes its parameters via a builder
@@ -356,7 +338,7 @@ public class DrillControllerFactory {
     ZKClusterCoordinatorDriver driver;
     driver = new ZKClusterCoordinatorDriver();
     ZKRegistry zkRegistry = new ZKRegistry(driver);
-    dispatcher.registerAddOn(new ZKRegistryAddOn(zkRegistry));
+    dispatcher.setZkRegistry(zkRegistry);
 
     // The ZK driver is started and stopped in conjunction with the
     // controller lifecycle.

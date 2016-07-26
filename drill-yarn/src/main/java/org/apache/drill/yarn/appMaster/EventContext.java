@@ -19,20 +19,16 @@ package org.apache.drill.yarn.appMaster;
 
 public class EventContext {
   public final AMYarnFacade yarn;
-  public final ClusterControllerImpl controller;
+  public final ClusterController controller;
   public SchedulerState group;
   public Task task;
 
-  public EventContext(ClusterControllerImpl controller) {
+  public EventContext(ClusterController controller) {
     yarn = controller.getYarn();
     this.controller = controller;
   }
 
-  public EventContext(ClusterController controller) {
-    this((ClusterControllerImpl) controller);
-  }
-
-  public EventContext(ClusterControllerImpl controller, Task task) {
+  public EventContext(ClusterController controller, Task task) {
     this(controller);
     setTask(task);
   }

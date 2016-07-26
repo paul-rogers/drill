@@ -26,7 +26,7 @@ import java.util.Map;
 
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.yarn.appMaster.ClusterController;
-import org.apache.drill.yarn.appMaster.ClusterControllerImpl;
+import org.apache.drill.yarn.appMaster.ClusterController;
 import org.apache.drill.yarn.appMaster.ClusterController.ControllerVisitor;
 import org.apache.drill.yarn.appMaster.Task;
 import org.apache.drill.yarn.appMaster.Task.TrackingState;
@@ -302,7 +302,7 @@ public abstract class AbstractTasksModel {
   {
     @Override
     public void visit(ClusterController controller) {
-      ClusterControllerImpl impl = (ClusterControllerImpl) controller;
+      ClusterController impl = (ClusterController) controller;
       for ( Task task : impl.getHistory( ) ) {
         results.add( new TaskModel( task, false ) );
       }
