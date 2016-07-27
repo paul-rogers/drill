@@ -20,6 +20,7 @@ package org.apache.drill.yarn.appMaster;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.drill.yarn.core.ContainerRequestSpec;
+import org.apache.drill.yarn.core.LaunchSpec;
 import org.apache.hadoop.yarn.api.records.Resource;
 
 /**
@@ -35,6 +36,25 @@ import org.apache.hadoop.yarn.api.records.Resource;
  */
 
 public abstract class Scheduler {
+  public static class TaskSpec {
+    /**
+     * Number of YARN vcores (virtual cores) and amount of memory (in MB) needed
+     * by this task.
+     */
+
+    public ContainerRequestSpec containerSpec;
+
+    /**
+     * Description of of the task process, environment and so on.
+     */
+
+    public LaunchSpec launchSpec;
+
+    public int maxRetries;
+
+    public String name;
+  }
+  
   private static final Log LOG = LogFactory.getLog(Scheduler.class);
   private final String name;
   private final String type;

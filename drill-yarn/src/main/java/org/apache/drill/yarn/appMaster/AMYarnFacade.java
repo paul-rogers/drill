@@ -59,6 +59,18 @@ public class AMYarnFacade {
   private static final Log LOG = LogFactory.getLog(AMYarnFacade.class);
 
   /**
+   * Exceptions thrown from the YARN facade: the wrapper around the YARN AM
+   * interfaces.
+   */
+
+  @SuppressWarnings("serial")
+  public static class YarnFacadeException extends Exception {
+    public YarnFacadeException(String msg, Exception e) {
+      super(msg, e);
+    }
+  }
+  
+  /**
    * Provides a collection of web UI links for the YARN Resource Manager and the
    * Node Manager that is running the Drill-on-YARN AM. This information is
    * primarily for use in the AM's own web UI.

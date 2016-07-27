@@ -21,7 +21,7 @@ import java.io.PrintStream;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.drill.yarn.appMaster.TaskSpec;
+import org.apache.drill.yarn.appMaster.Scheduler.TaskSpec;
 import org.mortbay.log.Log;
 
 import com.typesafe.config.Config;

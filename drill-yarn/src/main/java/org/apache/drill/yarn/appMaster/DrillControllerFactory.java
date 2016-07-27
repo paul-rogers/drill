@@ -29,6 +29,8 @@ import org.apache.drill.yarn.core.DoyConfigException;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.LaunchSpec;
 import org.apache.drill.yarn.core.Localizer;
+import org.apache.drill.yarn.appMaster.AMYarnFacade.YarnFacadeException;
+import org.apache.drill.yarn.appMaster.Scheduler.TaskSpec;
 import org.apache.drill.yarn.appMaster.http.AMSecurityManagerImpl;
 import org.apache.drill.yarn.core.ClusterDef;
 import org.apache.drill.yarn.zk.ZKClusterCoordinatorDriver;

@@ -20,6 +20,7 @@ package org.apache.drill.yarn.appMaster;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.drill.yarn.appMaster.Scheduler.TaskSpec;
 import org.apache.drill.yarn.core.ContainerRequestSpec;
 import org.apache.drill.yarn.core.LaunchSpec;
 import org.apache.hadoop.yarn.api.records.Container;
