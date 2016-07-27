@@ -37,7 +37,6 @@ import org.apache.drill.yarn.appMaster.http.AbstractTasksModel.TaskModel;
 import org.apache.drill.yarn.appMaster.http.ControllerModel.ClusterGroupModel;
 import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
-import org.apache.drill.yarn.core.NameValuePair;
 import org.apache.drill.yarn.zk.ZKClusterCoordinatorDriver;
 
 public class AmRestApi extends PageTree
@@ -50,7 +49,7 @@ public class AmRestApi extends PageTree
     @Produces(MediaType.APPLICATION_JSON)
     public Map<String,Object> getConfig( ) {
       Map<String,Object> map = new HashMap<>( );
-      for ( NameValuePair pair : DrillOnYarnConfig.instance().getPairs() ) {
+      for ( DrillOnYarnConfig.PropertyPair pair : DrillOnYarnConfig.instance().getPairs() ) {
         map.put( pair.getName(), pair.getValue( ) );
       }
       return map;

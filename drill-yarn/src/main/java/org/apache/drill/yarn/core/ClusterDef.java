@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.drill.yarn.appMaster.Scheduler.TaskSpec;
+import org.apache.drill.yarn.core.DrillOnYarnConfig.PropertyPair;
 import org.mortbay.log.Log;
 
 import com.typesafe.config.Config;
@@ -92,19 +93,19 @@ public class ClusterDef {
     public int getCount( ) { return count; }
     public GroupType getType( ) { return type; }
 
-    public void getPairs(int index, List<NameValuePair> pairs) {
+    public void getPairs(int index, List<PropertyPair> pairs) {
       String key = DrillOnYarnConfig.append(DrillOnYarnConfig.CLUSTERS,
           Integer.toString(index));
       addPairs(pairs, key);
     }
 
-    protected void addPairs(List<NameValuePair> pairs, String key) {
+    protected void addPairs(List<PropertyPair> pairs, String key) {
       pairs.add(
-          new NameValuePair(DrillOnYarnConfig.append(key, GROUP_NAME), name));
+          new PropertyPair(DrillOnYarnConfig.append(key, GROUP_NAME), name));
       pairs.add(
-          new NameValuePair(DrillOnYarnConfig.append(key, GROUP_TYPE), type));
+          new PropertyPair(DrillOnYarnConfig.append(key, GROUP_TYPE), type));
       pairs.add(
-          new NameValuePair(DrillOnYarnConfig.append(key, GROUP_SIZE), count));
+          new PropertyPair(DrillOnYarnConfig.append(key, GROUP_SIZE), count));
     }
 
     public void dump(String prefix, PrintStream out) {
@@ -154,9 +155,9 @@ public class ClusterDef {
     }
 
     @Override
-    protected void addPairs(List<NameValuePair> pairs, String key) {
+    protected void addPairs(List<PropertyPair> pairs, String key) {
       super.addPairs(pairs, key);
-      pairs.add(new NameValuePair(DrillOnYarnConfig.append(key, DRILLBIT_LABEL),
+      pairs.add(new PropertyPair(DrillOnYarnConfig.append(key, DRILLBIT_LABEL),
           drillbitLabelExpr));
     }
 

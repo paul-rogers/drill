@@ -22,20 +22,17 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.drill.yarn.core.DoYUtil;
-import org.apache.drill.yarn.core.DoyConfigException;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
+import org.apache.drill.yarn.core.DrillOnYarnConfig.DoyConfigException;
 import org.apache.drill.yarn.core.Localizer;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.yarn.api.records.LocalResource;
-import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
 import com.typesafe.config.Config;
 

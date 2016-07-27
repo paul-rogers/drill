@@ -21,6 +21,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.drill.yarn.appMaster.AMYarnFacade.YarnFacadeException;
 import org.apache.drill.yarn.appMaster.Task.Disposition;
+import org.apache.drill.yarn.appMaster.Task.TaskLifecycleListener;
 import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;

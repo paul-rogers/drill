@@ -66,6 +66,14 @@ public class Task {
     CANCELLED, LAUNCH_FAILED, RUN_FAILED, COMPLETED, TOO_MANY_RETRIES, RETRIED
   }
 
+  public interface TaskLifecycleListener {
+    public enum Event {
+      CREATED, ALLOCATED, RUNNING, ENDED
+    }
+
+    void stateChange(Event event, EventContext context);
+  }
+  
   /**
    * Maximum amount of time to wait when cancelling a job in the REQUESTING
    * state. YARN will happily wait forever for a resource, this setting allows

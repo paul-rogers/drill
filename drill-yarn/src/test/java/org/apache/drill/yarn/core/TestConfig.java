@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.drill.yarn.core.DrillOnYarnConfig.DoyConfigException;
 import org.junit.Test;
 
 import com.typesafe.config.Config;

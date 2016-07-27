@@ -20,8 +20,8 @@ package org.apache.drill.yarn.appMaster;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.drill.yarn.appMaster.http.WebServer;
-import org.apache.drill.yarn.core.DoyConfigException;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
+import org.apache.drill.yarn.core.DrillOnYarnConfig.DoyConfigException;
 
 /**
  * Application Master for Drill. The name is visible when using the "jps"

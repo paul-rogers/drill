@@ -30,7 +30,6 @@ import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.scanner.ClassPathScanner;
 import org.apache.drill.common.scanner.persistence.ScanResult;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.hadoop.fs.Path;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
@@ -54,6 +53,51 @@ import com.typesafe.config.ConfigFactory;
  */
 
 public class DrillOnYarnConfig {
+  
+  /**
+   * Holds a property name and value for presentation in the REST API
+   * and the web UI.
+   */
+  public static class PropertyPair {
+    private String name;
+    private Object value;
+
+    public PropertyPair(String name, Object value) {
+      this.name = name;
+      this.value = value;
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public Object getValue() {
+      return value;
+    }
+
+    public String getQuotedValue() {
+      if (value == null) {
+        return "<unset>";
+      }
+      if (value instanceof String) {
+        return "\"" + value + "\"";
+      }
+      return value.toString();
+    }
+  }
+  
+  public static class DoyConfigException extends Exception {
+    private static final long serialVersionUID = 1L;
+
+    public DoyConfigException(String msg) {
+      super(msg);
+    }
+
+    public DoyConfigException(String msg, Exception e) {
+      super(msg, e);
+    }
+  }
+
   public static final String DEFAULTS_FILE_NAME = "drill-on-yarn-defaults.conf";
   public static final String DISTRIB_FILE_NAME = "doy-distrib.conf";
   public static final String CONFIG_FILE_NAME = "drill-on-yarn.conf";
@@ -644,10 +688,10 @@ public class DrillOnYarnConfig {
     out.println("]");
   }
 
-  public List<NameValuePair> getPairs() {
-    List<NameValuePair> pairs = new ArrayList<>();
+  public List<PropertyPair> getPairs() {
+    List<PropertyPair> pairs = new ArrayList<>();
     for (String key : keys) {
-      pairs.add(new NameValuePair(key, config.getString(key)));
+      pairs.add(new PropertyPair(key, config.getString(key)));
     }
     for (int i = 0; i < clusterGroupCount(); i++) {
       ClusterDef.ClusterGroup pool = ClusterDef.getCluster(config, i);
@@ -658,7 +702,7 @@ public class DrillOnYarnConfig {
     // prefixed with "envt.".
 
     for (String envVar : envVars) {
-      pairs.add(new NameValuePair("envt." + envVar, getEnv(envVar)));
+      pairs.add(new PropertyPair("envt." + envVar, getEnv(envVar)));
     }
     return pairs;
   }

@@ -18,8 +18,8 @@
 package org.apache.drill.yarn.client;
 
 
-import org.apache.drill.yarn.core.DoyConfigException;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
+import org.apache.drill.yarn.core.DrillOnYarnConfig.DoyConfigException;
 import org.apache.log4j.BasicConfigurator;
 
 /**

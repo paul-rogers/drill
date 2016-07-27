@@ -32,7 +32,6 @@ import org.apache.drill.yarn.appMaster.ClusterController;
 import org.apache.drill.yarn.appMaster.Dispatcher.Pollable;
 import org.apache.drill.yarn.appMaster.EventContext;
 import org.apache.drill.yarn.appMaster.Task;
-import org.apache.drill.yarn.appMaster.TaskLifecycleListener;
 
 /**
  * AM-specific implementation of a Drillbit registry backed by ZooKeeper.
@@ -58,7 +57,7 @@ import org.apache.drill.yarn.appMaster.TaskLifecycleListener;
  */
 
 public class ZKRegistry
-    implements TaskLifecycleListener, DrillbitStatusListener, Pollable {
+    implements org.apache.drill.yarn.appMaster.Task.TaskLifecycleListener, DrillbitStatusListener, Pollable {
   /**
    * State of each Drillbit that we've discovered through ZK or launched via the
    * AM. The tracker is where we combine the ZK information with AM to correlate
