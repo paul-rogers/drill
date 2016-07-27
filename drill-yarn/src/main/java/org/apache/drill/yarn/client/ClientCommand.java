@@ -22,10 +22,15 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 
+import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.YarnRMClient;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.util.ConverterUtils;
 
 public abstract class ClientCommand {
@@ -96,5 +101,18 @@ public abstract class ClientCommand {
 
   protected void removeAppIdFile() {
     getAppIdFile().delete();
+  }
+  
+  public static FileSystem connectToFs() throws ClientException {
+    System.out.print("Connecting to DFS...");
+    try {
+      FileSystem fs = DoYUtil.connectToFs();
+      System.out.println(" Connected.");
+      return fs;
+    }
+    catch ( IOException e ) {
+      System.out.println("Failed.");
+      throw new ClientException("Failed to create the DFS", e);
+    }
   }
 }

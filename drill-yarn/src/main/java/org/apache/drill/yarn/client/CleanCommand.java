@@ -18,17 +18,20 @@
 package org.apache.drill.yarn.client;
 
 import java.io.File;
+import java.io.IOException;
 
-import org.apache.drill.yarn.core.DfsFacade;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 
 import com.typesafe.config.Config;
 
-import org.apache.drill.yarn.core.DfsFacade.DfsFacadeException;
+import org.apache.drill.yarn.core.DoYUtil;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 
 public class CleanCommand extends ClientCommand {
   private Config config;
-  private DfsFacade dfs;
+  private FileSystem fs;
 
   @Override
   public void run() throws ClientException {
@@ -37,25 +40,13 @@ public class CleanCommand extends ClientCommand {
       System.out.println("Not using localized files; nothing to clean.");
       return;
     }
-    connectToDfs();
+    fs = connectToFs( );
     removeDrillArchive();
     removeSiteArchive();
   }
 
   public boolean isLocalized() {
     return config.getBoolean(DrillOnYarnConfig.LOCALIZE_DRILL);
-  }
-
-  protected void connectToDfs() throws ClientException {
-    try {
-      System.out.print("Connecting to DFS...");
-      dfs = new DfsFacade(config);
-      dfs.connect();
-      System.out.println(" Connected.");
-    } catch (DfsFacadeException e) {
-      System.out.println("Failed.");
-      throw new ClientException("Failed to connect to DFS", e);
-    }
   }
 
   private void removeDrillArchive() {
@@ -68,15 +59,38 @@ public class CleanCommand extends ClientCommand {
   private void removeArchive(String archiveName) {
     System.out.print("Removing " + archiveName + " ...");
     try {
-      dfs.removeDrillFile(archiveName);
+      removeDrillFile(archiveName);
       System.out.println(" Removed");
       ;
-    } catch (DfsFacadeException e) {
+    } catch (IOException e) {
       System.out.println();
       System.err.println(e.getMessage());
     }
   }
 
+  public void removeDrillFile(String fileName) throws IOException {
+    Path destPath = DoYUtil.getUploadPath(fs,fileName);
+    try {
+      fs.delete(destPath, false);
+    } catch (IOException e) {
+      throw new IOException(
+          "Failed to delete file: " + destPath.toString(), e);
+    }
+
+    // Remove the Drill directory, but only if it is now empty.
+
+    Path dir = destPath.getParent();
+    try {
+      FileStatus status[] = fs.listStatus( dir );
+      if (status.length == 0) {
+        fs.delete(dir, false);
+      }
+    } catch (IOException e) {
+      throw new IOException(
+          "Failed to delete directory: " + dir.toString(), e);
+    }
+  }
+  
   private void removeSiteArchive() {
     DrillOnYarnConfig doyConfig = DrillOnYarnConfig.instance();
     if (!doyConfig.hasSiteDir()) {

@@ -17,22 +17,23 @@
  */
 package org.apache.drill.yarn.appMaster;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.drill.yarn.core.ContainerRequestSpec;
-import org.apache.drill.yarn.core.DfsFacade;
-import org.apache.drill.yarn.core.DfsFacade.DfsFacadeException;
 import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DoyConfigException;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.LaunchSpec;
+import org.apache.drill.yarn.core.Localizer;
 import org.apache.drill.yarn.appMaster.http.AMSecurityManagerImpl;
 import org.apache.drill.yarn.core.ClusterDef;
 import org.apache.drill.yarn.zk.ZKClusterCoordinatorDriver;
 import org.apache.drill.yarn.zk.ZKRegistry;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 
@@ -131,19 +132,18 @@ public class DrillControllerFactory {
   private Map<String, LocalResource> prepareResources()
       throws YarnFacadeException {
     try {
-      DfsFacade dfs = new DfsFacade(config);
-      localized = dfs.isLocalized();
+      localized = config.getBoolean(DrillOnYarnConfig.LOCALIZE_DRILL);
       if (!localized) {
         return null;
       }
-      dfs.connect();
+      FileSystem fs = DoYUtil.connectToFs();
       Map<String, LocalResource> resources = new HashMap<>();
       DrillOnYarnConfig drillConfig = DrillOnYarnConfig.instance();
 
       // Localize the Drill archive.
 
       drillArchivePath = drillConfig.getDrillArchiveDfsPath();
-      DfsFacade.Localizer localizer = new DfsFacade.Localizer(dfs,
+      Localizer localizer = new Localizer(fs,
           drillArchivePath);
       String key = config.getString(DrillOnYarnConfig.DRILL_ARCHIVE_KEY);
       localizer.defineResources(resources, key);
@@ -153,13 +153,13 @@ public class DrillControllerFactory {
 
       siteArchivePath = drillConfig.getSiteArchiveDfsPath();
       if (siteArchivePath != null) {
-        localizer = new DfsFacade.Localizer(dfs, siteArchivePath);
+        localizer = new Localizer(fs, siteArchivePath);
         key = config.getString(DrillOnYarnConfig.SITE_ARCHIVE_KEY);
         localizer.defineResources(resources, key);
         LOG.info("Localizing " + siteArchivePath + " with key" + key);
       }
       return resources;
-    } catch (DfsFacadeException e) {
+    } catch (IOException e) {
       throw new YarnFacadeException(
           "Failed to get DFS status for Drill archive", e);
     }

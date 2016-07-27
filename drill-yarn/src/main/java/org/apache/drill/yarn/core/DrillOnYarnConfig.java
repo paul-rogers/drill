@@ -30,6 +30,7 @@ import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.scanner.ClassPathScanner;
 import org.apache.drill.common.scanner.persistence.ScanResult;
 import org.apache.drill.exec.ExecConstants;
+import org.apache.hadoop.fs.Path;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigException;
@@ -853,4 +854,5 @@ public class DrillOnYarnConfig {
   public String getSiteArchiveDfsPath() {
     return getEnv(DrillOnYarnConfig.SITE_ARCHIVE_ENV_VAR);
   }
+  
 }

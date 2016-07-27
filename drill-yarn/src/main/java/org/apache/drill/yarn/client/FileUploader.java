@@ -22,18 +22,20 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.drill.yarn.core.DfsFacade;
 import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.drill.yarn.core.DoyConfigException;
 import org.apache.drill.yarn.core.DrillOnYarnConfig;
-import org.apache.drill.yarn.core.DfsFacade.DfsFacadeException;
-import org.apache.drill.yarn.core.DfsFacade.Localizer;
+import org.apache.drill.yarn.core.Localizer;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.yarn.api.records.LocalResource;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
 import com.typesafe.config.Config;
 
@@ -82,7 +84,7 @@ import com.typesafe.config.Config;
 public abstract class FileUploader {
   protected DrillOnYarnConfig doyConfig;
   protected Config config;
-  protected DfsFacade dfs;
+  protected FileSystem fs;
   protected boolean dryRun;
   protected boolean verbose;
   protected File localDrillHome;
@@ -176,8 +178,8 @@ public abstract class FileUploader {
       // Print the progress message here because doing the connect takes
       // a while and the message makes it look like we're doing something.
 
-      DfsFacade.Localizer localizer = makeDrillLocalizer();
-      connectToDfs();
+      Localizer localizer = makeDrillLocalizer();
+      fs = ClientCommand.connectToFs();
       try {
         if (!localizer.destExists()) {
           throw new ClientException(
@@ -201,7 +203,7 @@ public abstract class FileUploader {
       // Print the progress message here because doing the connect takes
       // a while and the message makes it look like we're doing something.
 
-      DfsFacade.Localizer localizer = makeSiteLocalizer(null);
+      Localizer localizer = makeSiteLocalizer(null);
       try {
         if (!localizer.destExists()) {
           throw new ClientException(
@@ -272,8 +274,8 @@ public abstract class FileUploader {
       // Print the progress message here because doing the connect takes
       // a while and the message makes it look like we're doing something.
 
-      connectToDfs();
-      DfsFacade.Localizer localizer = makeDrillLocalizer();
+      fs = ClientCommand.connectToFs();
+      Localizer localizer = makeDrillLocalizer();
       boolean needsUpload = force || !localizer.filesMatch();
 
       if (needsUpload) {
@@ -389,7 +391,7 @@ public abstract class FileUploader {
      */
 
     private void uploadSiteArchive(File siteArchive) throws ClientException {
-      DfsFacade.Localizer localizer = makeSiteLocalizer(siteArchive);
+      Localizer localizer = makeSiteLocalizer(siteArchive);
 
       if (dryRun) {
         System.out.println("Upload site archive to " + siteArchivePath);
@@ -462,18 +464,6 @@ public abstract class FileUploader {
     return config.getBoolean(DrillOnYarnConfig.LOCALIZE_DRILL);
   }
 
-  protected void connectToDfs() throws ClientException {
-    try {
-      System.out.print("Connecting to DFS...");
-      dfs = new DfsFacade(config);
-      dfs.connect();
-      System.out.println(" Connected.");
-    } catch (DfsFacadeException e) {
-      System.out.println("Failed.");
-      throw new ClientException("Failed to connect to DFS", e);
-    }
-  }
-
   protected Localizer makeDrillLocalizer() throws ClientException {
     String localArchivePath = config
         .getString(DrillOnYarnConfig.DRILL_ARCHIVE_PATH);
@@ -482,14 +472,14 @@ public abstract class FileUploader {
           + DrillOnYarnConfig.DRILL_ARCHIVE_PATH + ") is not set.");
     }
     localDrillArchivePath = new File(localArchivePath);
-    DfsFacade.Localizer localizer = new DfsFacade.Localizer(dfs,
+    Localizer localizer = new Localizer(fs,
         localDrillArchivePath, "Drill");
     drillArchivePath = localizer.getDestPath();
     return localizer;
   }
 
   protected Localizer makeSiteLocalizer(File siteArchive) {
-    DfsFacade.Localizer localizer = new DfsFacade.Localizer(dfs, siteArchive,
+    Localizer localizer = new Localizer(fs, siteArchive,
         DrillOnYarnConfig.SITE_ARCHIVE_NAME, "Site");
     siteArchivePath = localizer.getDestPath();
     return localizer;
@@ -498,7 +488,7 @@ public abstract class FileUploader {
   protected void upload(Localizer localizer) throws ClientException {
     try {
       localizer.upload();
-    } catch (DfsFacadeException e) {
+    } catch (IOException e) {
       System.out.println("Failed.");
       throw new ClientException(
           "Failed to upload " + localizer.getLabel() + " archive", e);
@@ -511,7 +501,7 @@ public abstract class FileUploader {
     String key = config.getString(keyProp);
     try {
       localizer.defineResources(resources, key);
-    } catch (DfsFacadeException e) {
+    } catch (IOException e) {
       throw new ClientException(
           "Failed to get DFS status for " + localizer.getLabel() + " archive",
           e);

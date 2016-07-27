@@ -17,8 +17,12 @@
  */
 package org.apache.drill.yarn.core;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.security.CodeSource;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -28,7 +32,10 @@ import java.util.TimeZone;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.records.Container;
+import org.apache.hadoop.yarn.conf.YarnConfiguration;
 
 public class DoYUtil {
   static final private Log LOG = LogFactory.getLog(DoYUtil.class);
@@ -165,5 +172,41 @@ public class DoYUtil {
   public static double callGetDiskIfExists(Object target) {
     Object ret = dynamicCall(target, "getDisks", null, null);
     return (ret == null) ? 0.0 : (Double) ret;
+  }
+  
+  public static Path getUploadPath(FileSystem fs, File localArchiveFile) {
+    return getUploadPath(fs, localArchiveFile.getName());
+  }
+
+  public static Path getUploadPath(FileSystem fs, String baseName) {
+    String dfsDirStr = DrillOnYarnConfig.config( ).getString(DrillOnYarnConfig.DFS_APP_DIR);
+
+    Path appDir;
+    if (dfsDirStr.startsWith("/")) {
+      appDir = new Path(dfsDirStr);
+    } else {
+      Path home = fs.getHomeDirectory();
+      appDir = new Path(home, dfsDirStr);
+    }
+    return new Path(appDir, baseName);
+  }
+  
+  public static FileSystem connectToFs() throws IOException {
+    YarnConfiguration yarnConf = new YarnConfiguration();
+    String dfsConnection = DrillOnYarnConfig.config().getString(DrillOnYarnConfig.DFS_CONNECTION);
+    FileSystem fs;
+    if (DoYUtil.isBlank(dfsConnection)) {
+      fs = FileSystem.get(yarnConf);
+    } else {
+      URI uri;
+      try {
+        uri = new URI(dfsConnection);
+      } catch (URISyntaxException e) {
+        throw new IOException(
+            "Illformed DFS connection: " + dfsConnection, e);
+      }
+      fs = FileSystem.get(uri, yarnConf);
+    }
+    return fs;
   }
 }
