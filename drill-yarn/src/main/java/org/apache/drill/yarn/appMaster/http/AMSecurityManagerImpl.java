@@ -171,8 +171,12 @@ public class AMSecurityManagerImpl implements AMSecurityManager {
     Config config = DrillOnYarnConfig.config();
     String authType = config.getString(DrillOnYarnConfig.HTTP_AUTH_TYPE);
     if (DrillOnYarnConfig.AUTH_TYPE_DRILL.equals(authType)) {
-      managerImpl = new DrillSecurityManager();
-      managerImpl.init();
+      // Drill authentication. Requires both DoY to select Drill
+      // auth, and for Drill's auth to be enabled.
+      if(config.getBoolean(ExecConstants.USER_AUTHENTICATION_ENABLED)) {
+        managerImpl = new DrillSecurityManager();
+        managerImpl.init();
+      }
     } else if (DrillOnYarnConfig.AUTH_TYPE_SIMPLE.equals(authType)) {
       managerImpl = new SimpleSecurityManager();
       managerImpl.init();
