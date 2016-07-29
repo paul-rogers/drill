@@ -355,7 +355,6 @@ public class DrillControllerFactory implements ControllerFactory {
    */
 
   private void buildZooKeeper(Config config, Dispatcher dispatcher) {
-    ZKClusterCoordinatorDriver driver;
     String zkConnect = config.getString(DrillOnYarnConfig.ZK_CONNECT);
     String zkRoot = config.getString(DrillOnYarnConfig.ZK_ROOT);
     String clusterId = config.getString(DrillOnYarnConfig.CLUSTER_ID);
@@ -365,15 +364,17 @@ public class DrillControllerFactory implements ControllerFactory {
     int retryDelayMs = config.getInt(DrillOnYarnConfig.ZK_RETRY_DELAY_MS);
     int userPort = config.getInt(DrillOnYarnConfig.DRILLBIT_USER_PORT);
     int bitPort = config.getInt(DrillOnYarnConfig.DRILLBIT_BIT_PORT);
-    driver = new ZKClusterCoordinatorDriver()
+    ZKClusterCoordinatorDriver driver = new ZKClusterCoordinatorDriver()
         .setConnect(zkConnect, zkRoot, clusterId)
-        .setFailureTimoutMs(failureTimeoutMs).setRetryCount(retryCount)
-        .setRetryDelayMs(retryDelayMs).setPorts(userPort, bitPort, bitPort + 1);
+        .setFailureTimoutMs(failureTimeoutMs)
+        .setRetryCount(retryCount)
+        .setRetryDelayMs(retryDelayMs)
+        .setPorts(userPort, bitPort, bitPort + 1);
     ZKRegistry zkRegistry = new ZKRegistry(driver);
     dispatcher.registerAddOn(new ZKRegistryAddOn(zkRegistry));
 
     // The ZK driver is started and stopped in conjunction with the
-    // controlle lifecycle.
+    // controller lifecycle.
 
     dispatcher.getController().registerLifecycleListener(zkRegistry);
 
