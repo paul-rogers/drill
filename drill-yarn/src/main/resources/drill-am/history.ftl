@@ -38,7 +38,7 @@
         <tr>
           <td><b>${task.getTaskId( )}</b></td>
           <td>${task.getTryCount( )}</td>
-          <td>${task.getPoolName( )}</td>
+          <td>${task.getGroupName( )}</td>
           <td><#if task.hasContainer( )><a href="${task.getNmLink( )}">${task.getHost( )}</a>
           <#else>&nbsp;</#if></td>
           <td>${task.getContainerId()}</td>
