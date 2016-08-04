@@ -128,8 +128,8 @@ public class TestJdbcQuery extends JdbcTestQueryBase {
       .sql("SELECT TABLE_NAME FROM INFORMATION_SCHEMA.`TABLES` "+
         "WHERE TABLE_NAME SIMILAR TO '%(H|I)E%' AND TABLE_NAME NOT SIMILAR TO 'C%'")
       .returns(
-        "TABLE_NAME=SCHEMATA\n" +
-        "TABLE_NAME=VIEWS\n"
+        "TABLE_NAME=VIEWS\n" +
+        "TABLE_NAME=SCHEMATA\n"
       );
   }
 
