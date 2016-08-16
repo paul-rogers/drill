@@ -243,7 +243,7 @@ public class DrillControllerFactory implements ControllerFactory {
     // Debug option.
 
     if (config.getBoolean(DrillOnYarnConfig.DRILLBIT_DEBUG_LAUNCH)) {
-      drillbitSpec.env.put("DRILL_DEBUG", "1");
+      drillbitSpec.env.put(DrillOnYarnConfig.DRILL_DEBUG_ENV_VAR, "1");
     }
 
     // Hadoop home should be set in drill-env.sh since it is needed
@@ -262,9 +262,9 @@ public class DrillControllerFactory implements ControllerFactory {
     // Class path additions.
 
     addIfSet(drillbitSpec, DrillOnYarnConfig.DRILLBIT_PREFIX_CLASSPATH,
-        "DRILL_CLASSPATH_PREFIX");
+        DrillOnYarnConfig.DRILL_CLASSPATH_PREFIX_ENV_VAR);
     addIfSet(drillbitSpec, DrillOnYarnConfig.DRILLBIT_CLASSPATH,
-        "DRILL_CLASSPATH");
+        DrillOnYarnConfig.DRILL_CLASSPATH_ENV_VAR);
 
     // Drill-config.sh has specific entries for Hadoop and Hbase. To prevent
     // an endless number of such one-off cases, we add a general extension

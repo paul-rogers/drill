@@ -116,12 +116,11 @@ public class AMRunner {
     // Any user specified override jars
     // Not really needed by the AM.
 
-    addIfSet( master, DrillOnYarnConfig.AM_PREFIX_CLASSPATH, DrillOnYarnConfig.DRILL_CLASSPATH_ENV_VAR );
+    addIfSet( master, DrillOnYarnConfig.AM_PREFIX_CLASSPATH, DrillOnYarnConfig.DRILL_CLASSPATH_PREFIX_ENV_VAR );
 
     // Any user specified classpath.
-    // Not really needed by the AM.
 
-    addIfSet( master, DrillOnYarnConfig.AM_CLASSPATH, DrillOnYarnConfig.DRILL_CLASSPATH_PREFIX_ENV_VAR );
+    addIfSet( master, DrillOnYarnConfig.AM_CLASSPATH, DrillOnYarnConfig.DRILL_CLASSPATH_ENV_VAR );
 
     // Any user-specified library path
 
