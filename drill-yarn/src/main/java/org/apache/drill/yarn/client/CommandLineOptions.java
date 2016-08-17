@@ -53,12 +53,15 @@ public class CommandLineOptions {
 
     START( "start", "Start the cluster."),
 
-    /**
-     * Convenience method when debugging, testing. Restarts the cluster without the
-     * archive upload; assumes the upload was already done.
-     */
-
-    RESTART( "restart", "Restart the cluster (without archive upload)."),
+    // Removed at QA request. QA wants a "real" restart. Also, upload of the
+    // archive is fast enough that a "start without upload" option is not really
+    // needed.
+//    /**
+//     * Convenience method when debugging, testing. Restarts the cluster without the
+//     * archive upload; assumes the upload was already done.
+//     */
+//
+//    RESTART( "restart", "Restart the cluster (without archive upload)."),
 
     /**
      * Primary command to stop a running cluster.

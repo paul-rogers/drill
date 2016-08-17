@@ -131,12 +131,16 @@ public abstract class TaskState {
       // we tell it to stop.
 
       context.yarn.removeContainerRequest(task.containerRequest);
+
+      // The container is need both in the normal and in the cancellation
+      // path, so set it here.
+
+      task.container = container;
       if (task.cancelled) {
         context.yarn.releaseContainer(container);
         taskStartFailed(context, Disposition.CANCELLED);
         return;
       }
-      task.container = container;
       task.error = null;
       task.completionStatus = null;
       transition(context, LAUNCHING);

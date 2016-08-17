@@ -49,9 +49,9 @@ public class AmRestApi extends PageTree
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public Map<String,Object> getConfig( ) {
-      Map<String,Object> map = new HashMap<>( );
-      for ( NameValuePair pair : DrillOnYarnConfig.instance().getPairs() ) {
-        map.put( pair.getName(), pair.getValue( ) );
+      Map<String, Object> map = new HashMap<>();
+      for (NameValuePair pair : DrillOnYarnConfig.instance().getPairs()) {
+        map.put(pair.getName(), pair.getValue());
       }
       return map;
     }
@@ -76,50 +76,54 @@ public class AmRestApi extends PageTree
       Map<String,Object> root = new HashMap<>( );
       root.put( "state", model.state.toString() );
 
-      Map<String,Object> summary = new HashMap<>( );
-      summary.put( "drillMemoryMb", model.totalDrillMemory );
-      summary.put( "drillVcores", model.totalDrillVcores );
-      summary.put( "yarnMemoryMb", model.yarnMemory );
-      summary.put( "yarnVcores", model.yarnVcores );
-      summary.put( "liveBitCount", model.liveCount );
-      summary.put( "totalBitCount", model.taskCount );
-      summary.put( "targetBitCount", model.targetCount );
-      root.put( "summary", summary );
+      Map<String, Object> summary = new HashMap<>();
+      summary.put("drillMemoryMb", model.totalDrillMemory);
+      summary.put("drillVcores", model.totalDrillVcores);
+      summary.put("yarnMemoryMb", model.yarnMemory);
+      summary.put("yarnVcores", model.yarnVcores);
+      summary.put("liveBitCount", model.liveCount);
+      summary.put("totalBitCount", model.taskCount);
+      summary.put("targetBitCount", model.targetCount);
+      summary.put("unmanagedCount", model.getUnmanagedCount());
+      summary.put("blackListCount", model.getBlacklistCount());
+      summary.put("freeNodeCount", model.getFreeNodeCount());
+      root.put("summary", summary);
 
-      List<Map<String,Object>> pools = new ArrayList<>( );
-      for ( ClusterGroupModel pool : model.groups ) {
-        Map<String,Object> poolObj = new HashMap<>( );
-        poolObj.put( "name", pool.name );
-        poolObj.put( "type", pool.type );
-        poolObj.put( "liveBitCount", pool.liveCount );
-        poolObj.put( "targetBitCount", pool.targetCount );
-        poolObj.put( "totalBitCount", pool.taskCount );
-        poolObj.put( "totalMemoryMb", pool.memory );
-        poolObj.put( "totalVcores", pool.vcores );
-        pools.add( poolObj );
+      List<Map<String, Object>> pools = new ArrayList<>();
+      for (ClusterGroupModel pool : model.groups) {
+        Map<String, Object> poolObj = new HashMap<>();
+        poolObj.put("name", pool.name);
+        poolObj.put("type", pool.type);
+        poolObj.put("liveBitCount", pool.liveCount);
+        poolObj.put("targetBitCount", pool.targetCount);
+        poolObj.put("totalBitCount", pool.taskCount);
+        poolObj.put("totalMemoryMb", pool.memory);
+        poolObj.put("totalVcores", pool.vcores);
+        pools.add(poolObj);
       }
-      root.put( "pools", pools );
+      root.put("pools", pools);
 
-      AbstractTasksModel.TasksModel tasksModel = new AbstractTasksModel.TasksModel( );
-      dispatcher.getController().visitTasks( tasksModel );
-      List<Map<String,Object>> bits = new ArrayList<>( );
-      for ( TaskModel task : tasksModel.results ) {
-        Map<String,Object> bitObj = new HashMap<>( );
-        bitObj.put( "containerId", task.container.getId().toString() );
-        bitObj.put( "host", task.getHost() );
-        bitObj.put( "id", task.id );
-        bitObj.put( "live", task.isLive() );
-        bitObj.put( "memoryMb", task.memoryMb );
-        bitObj.put( "vcores", task.vcores );
-        bitObj.put( "pool", task.groupName );
-        bitObj.put( "state", task.state );
-        bitObj.put( "trackingState", task.trackingState );
-        bitObj.put( "endpoint", ZKClusterCoordinatorDriver.asString( task.endpoint ) );
-        bitObj.put( "link", task.getLink() );
-        bitObj.put( "startTime", task.getStartTime() );
-        bits.add( bitObj );
+      AbstractTasksModel.TasksModel tasksModel = new AbstractTasksModel.TasksModel();
+      dispatcher.getController().visitTasks(tasksModel);
+      List<Map<String, Object>> bits = new ArrayList<>();
+      for (TaskModel task : tasksModel.results) {
+        Map<String, Object> bitObj = new HashMap<>();
+        bitObj.put("containerId", task.container.getId().toString());
+        bitObj.put("host", task.getHost());
+        bitObj.put("id", task.id);
+        bitObj.put("live", task.isLive());
+        bitObj.put("memoryMb", task.memoryMb);
+        bitObj.put("vcores", task.vcores);
+        bitObj.put("pool", task.groupName);
+        bitObj.put("state", task.state);
+        bitObj.put("trackingState", task.trackingState);
+        bitObj.put("endpoint",
+            ZKClusterCoordinatorDriver.asString(task.endpoint));
+        bitObj.put("link", task.getLink());
+        bitObj.put("startTime", task.getStartTime());
+        bits.add(bitObj);
       }
-      root.put( "drillbits", bits );
+      root.put("drillbits", bits);
 
       return root;
     }
@@ -147,11 +151,13 @@ public class AmRestApi extends PageTree
     @Produces(MediaType.APPLICATION_JSON)
     public Map<String,String> postStop( )
     {
-      Map<String,String> error = checkKey( key );
-      if ( error != null ) { return error; }
+      Map<String, String> error = checkKey(key);
+      if (error != null) {
+        return error;
+      }
 
       dispatcher.getController().shutDown();
-      return successResponse( "Shutting down" );
+      return successResponse("Shutting down");
     }
   }
 
@@ -169,12 +175,14 @@ public class AmRestApi extends PageTree
     @Produces(MediaType.APPLICATION_JSON)
     public Map<String,String> postResize( )
     {
-      ResizeRequest request = new ResizeRequest( key, quantity );
-      if ( request.error != null ) { return request.error; }
+      ResizeRequest request = new ResizeRequest(key, quantity);
+      if (request.error != null) {
+        return request.error;
+      }
 
-      int curSize = dispatcher.getController().getTargetCount( );
-      dispatcher.getController().resizeTo( request.n );
-      return successResponse( "Resizing from " + curSize + " to " + request.n );
+      int curSize = dispatcher.getController().getTargetCount();
+      dispatcher.getController().resizeTo(request.n);
+      return successResponse("Resizing from " + curSize + " to " + request.n);
     }
   }
 
@@ -184,15 +192,17 @@ public class AmRestApi extends PageTree
     int n;
 
     public ResizeRequest( String key, String quantity ) {
-      error = checkKey( key );
-      if ( error != null ) { return; }
-      try {
-        n = Integer.parseInt( quantity );
-      } catch (NumberFormatException e) {
-        error = errorResponse( "Invalid argument: " + quantity );
+      error = checkKey(key);
+      if (error != null) {
+        return;
       }
-      if ( n < 0 ) {
-        error = errorResponse( "Invalid argument: " + quantity );
+      try {
+        n = Integer.parseInt(quantity);
+      } catch (NumberFormatException e) {
+        error = errorResponse("Invalid argument: " + quantity);
+      }
+      if (n < 0) {
+        error = errorResponse("Invalid argument: " + quantity);
       }
     }
   }
@@ -212,13 +222,15 @@ public class AmRestApi extends PageTree
     @Produces(MediaType.APPLICATION_JSON)
     public Map<String,String> postResize( )
     {
-      ResizeRequest request = new ResizeRequest( key, quantity );
-      if ( request.error != null ) { return request.error; }
+      ResizeRequest request = new ResizeRequest(key, quantity);
+      if (request.error != null) {
+        return request.error;
+      }
 
-      int curSize = dispatcher.getController().getTargetCount( );
+      int curSize = dispatcher.getController().getTargetCount();
       int newSize = curSize + request.n;
-      dispatcher.getController().resizeTo( newSize );
-      return successResponse( "Growing by " + request.n + " to " + newSize );
+      dispatcher.getController().resizeTo(newSize);
+      return successResponse("Growing by " + request.n + " to " + newSize);
     }
   }
 
@@ -237,39 +249,42 @@ public class AmRestApi extends PageTree
     @Produces(MediaType.APPLICATION_JSON)
     public Map<String,String> postResize( )
     {
-      ResizeRequest request = new ResizeRequest( key, quantity );
-      if ( request.error != null ) { return request.error; }
-      int curSize = dispatcher.getController().getTargetCount( );
-      int newSize = Math.max( curSize - request.n, 0 );
-      dispatcher.getController().resizeTo( newSize );
-      return successResponse( "Shrinking by " + request.n + " to " + newSize );
+      ResizeRequest request = new ResizeRequest(key, quantity);
+      if (request.error != null) {
+        return request.error;
+      }
+      int curSize = dispatcher.getController().getTargetCount();
+      int newSize = Math.max(curSize - request.n, 0);
+      dispatcher.getController().resizeTo(newSize);
+      return successResponse("Shrinking by " + request.n + " to " + newSize);
     }
   }
 
-  private static Map<String,String> checkKey( String key ) {
-    String masterKey = DrillOnYarnConfig.config( ).getString( DrillOnYarnConfig.HTTP_REST_KEY );
-    if ( ! DoYUtil.isBlank( masterKey ) && ! masterKey.equals( key ) ) {
-      return errorResponse( "Invalid Key" );
+  private static Map<String, String> checkKey(String key) {
+    String masterKey = DrillOnYarnConfig.config()
+        .getString(DrillOnYarnConfig.HTTP_REST_KEY);
+    if (!DoYUtil.isBlank(masterKey) && !masterKey.equals(key)) {
+      return errorResponse("Invalid Key");
     }
     return null;
   }
 
-  private static Map<String,String> errorResponse( String msg ) {
-    Map<String,String> resp = new HashMap<>( );
-    resp.put( "status", "error" );
-    resp.put( "message", msg );
+  private static Map<String, String> errorResponse(String msg) {
+    Map<String, String> resp = new HashMap<>();
+    resp.put("status", "error");
+    resp.put("message", msg);
     return resp;
   }
 
-  private static Map<String,String> successResponse( String msg ) {
-    Map<String,String> resp = new HashMap<>( );
-    resp.put( "status", "ok" );
-    resp.put( "message", msg );
+  private static Map<String, String> successResponse(String msg) {
+    Map<String, String> resp = new HashMap<>();
+    resp.put("status", "ok");
+    resp.put("message", msg);
     return resp;
   }
 
-  public AmRestApi( Dispatcher dispatcher ) {
-    super( dispatcher );
+  public AmRestApi(Dispatcher dispatcher) {
+    super(dispatcher);
 
     register(ConfigResource.class);
     register(StatusResource.class);
@@ -278,5 +293,4 @@ public class AmRestApi extends PageTree
     register(GrowResource.class);
     register(ShrinkResource.class);
   }
-
 }

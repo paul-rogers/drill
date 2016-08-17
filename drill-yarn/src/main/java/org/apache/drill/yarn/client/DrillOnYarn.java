@@ -113,9 +113,12 @@ public class DrillOnYarn {
     case START:
       cmd = new StartCommand(true, true);
       break;
-    case RESTART:
-      cmd = new StartCommand(false, true);
-      break;
+    // Removed at QA request. QA wants a "real" restart. Also, upload of the
+    // archive is fast enough that a "start without upload" option is not really
+    // needed.
+//    case RESTART:
+//      cmd = new StartCommand(false, true);
+//      break;
     case DESCRIBE:
       cmd = new PrintConfigCommand();
       break;

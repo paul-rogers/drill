@@ -48,11 +48,12 @@ public abstract class PersistentTaskScheduler extends AbstractScheduler {
    */
 
   @Override
-  public void resize(int level) {
+  public int resize(int level) {
     quantity = level;
     if (quantity < 0) {
       quantity = 0;
     }
+    return quantity;
   }
 
   @Override

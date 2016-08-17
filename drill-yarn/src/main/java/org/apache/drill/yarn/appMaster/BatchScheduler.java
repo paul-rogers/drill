@@ -35,7 +35,7 @@ public class BatchScheduler extends AbstractScheduler {
   }
 
   @Override
-  public void resize(int level) { quantity = level; }
+  public int resize(int level) { quantity = level; return quantity; }
 
   @Override
   public int getTarget() { return quantity; }
@@ -58,7 +58,10 @@ public class BatchScheduler extends AbstractScheduler {
   }
 
   /**
-   * Cancel any starting tasks. We don't cancel launched, in-flight tasks.
+   * Cancel any starting tasks. We don't cancel launched, in-flight tasks
+   * because there is no way to tell YARN to cancel tasks that are in the
+   * process of being launched: we have to wait for them to start
+   * before canceling.
    *
    * @param n
    */

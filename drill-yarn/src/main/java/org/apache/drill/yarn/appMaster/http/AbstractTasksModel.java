@@ -305,6 +305,7 @@ public abstract class AbstractTasksModel {
   public static class TasksModel extends AbstractTasksModel implements TaskVisitor
   {
     protected List<UnmanagedDrillbitModel> unmanaged;
+    protected List<String> blacklist;
 
     @Override
     public void visit(Task task) {
@@ -325,13 +326,24 @@ public abstract class AbstractTasksModel {
     }
 
     /**
+     * List any anomalies: either stray Drillbits (those in ZK but not launched by DoY),
+     * or blacklisted nodes.
+     * <p>
      * To avoid race conditions, do not use the controller visitor to invoke this method,
      * we want to leave the controller unlocked and instead lock only the ZK registry.
      *
      * @param controller
      */
 
-    public void listUnmanaged(ClusterController controller) {
+    public void listAnomalies(ClusterController controller) {
+        listUnmanaged(controller);
+        synchronized( controller ) {
+          blacklist = ((ClusterControllerImpl) controller).getNodeInventory().getBlacklist();
+        }
+        Collections.sort( blacklist );
+    }
+
+    private void listUnmanaged(ClusterController controller) {
       ZKRegistry zkRegistry = (ZKRegistry) controller.getProperty( ZKRegistry.CONTROLLER_PROPERTY );
       if ( zkRegistry == null ) {
         return;
@@ -350,6 +362,9 @@ public abstract class AbstractTasksModel {
     public int getUnmanagedDrillbitCount( ) {
       return (unmanaged == null) ? 0 : unmanaged.size( );
     }
+    public boolean hasBlacklist( ) { return ! blacklist.isEmpty(); }
+    public int getBlacklistCount( ) { return blacklist.size( ); }
+    public List<String> getBlacklist( ) { return blacklist; }
   }
 
   public static class HistoryModel extends AbstractTasksModel implements ControllerVisitor

@@ -17,9 +17,26 @@
  */
 package org.apache.drill.yarn.appMaster;
 
+import org.apache.drill.yarn.core.DrillOnYarnConfig;
+
 public class DrillbitScheduler extends AbstractDrillbitScheduler {
   public DrillbitScheduler(String name, TaskSpec taskSpec, int quantity) {
     super("basic", name, quantity);
     this.taskSpec = taskSpec;
   }
+
+  /**
+   * Set the number of running tasks to the quantity given.
+   * Limits the quantity to only a small margin above the number
+   * of estimated free YARN nodes. This avoids a common users error
+   * where someone requests 20 nodes on a 5-node cluster.
+   */
+
+  @Override
+  public int resize(int level) {
+    int limit = quantity + state.getController().getFreeNodeCount( ) +
+        DrillOnYarnConfig.config().getInt(DrillOnYarnConfig.DRILLBIT_MAX_EXTRA_NODES);
+    return super.resize( Math.min( limit, level ) );
+  }
+
 }

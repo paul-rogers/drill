@@ -290,7 +290,7 @@ public class ClusterControllerImpl implements ClusterController {
    */
 
   private void adjustTasks(long curTime) {
-    if (enableFailureCheck && nodeInventory.getFreeNodeCount() <= 0) {
+    if (enableFailureCheck && getFreeNodeCount() == 0) {
       checkForFailure(curTime);
     }
     if (state != State.LIVE) {
@@ -299,6 +299,27 @@ public class ClusterControllerImpl implements ClusterController {
     for (SchedulerStateActions group : prioritizedGroups) {
       group.adjustTasks();
     }
+  }
+
+  /**
+   * Get the approximate number of free YARN nodes (those that can
+   * accept a task request.) Starts with the number of nodes from
+   * the node inventory, then subtracts any in-flight requests (which
+   * do not, by definition, have node allocated.)
+   * <p>
+   * This approximation <b>does not</b> consider whether the node
+   * has sufficient resources to run a task; only whether the node
+   * itself exists.
+   * @return
+   */
+
+  @Override
+  public int getFreeNodeCount( ) {
+    int count = nodeInventory.getFreeNodeCount();
+    for (SchedulerStateActions group : prioritizedGroups) {
+      count -= group.getRequestCount( );
+    }
+    return Math.max( 0, count );
   }
 
   /**
@@ -495,11 +516,11 @@ public class ClusterControllerImpl implements ClusterController {
   }
 
   @Override
-  public synchronized void resizeTo(int n) {
+  public synchronized int resizeTo(int n) {
     // TODO: offer the delta to each scheduler in turn.
     // For now, we support only one scheduler.
 
-    prioritizedGroups.get(0).getScheduler().resize(n);
+    return prioritizedGroups.get(0).getScheduler().resize(n);
   }
 
   @Override
@@ -690,12 +711,24 @@ public class ClusterControllerImpl implements ClusterController {
   }
 
   @Override
+  public boolean isTaskLive(int id) {
+    for (SchedulerStateActions group : prioritizedGroups) {
+      Task task = group.getTask(id);
+      if (task != null) {
+        return task.isLive();
+      }
+    }
+    return false;
+  }
+
+  @Override
   public synchronized boolean cancelTask(int id) {
     for (SchedulerStateActions group : prioritizedGroups) {
       Task task = group.getTask(id);
       if (task != null) {
         group.cancel(task);
         group.getScheduler().change(-1);
+        return true;
       }
     }
     return false;

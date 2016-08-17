@@ -26,19 +26,25 @@
     stop the Drill cluster.
     <#elseif model.isCancel()>
     cancel Drillbit ${model.getId()}.
+    <#elseif model.isKill()>
+    kill Drillbit ${model.getId()}.
     <#else>
     remove ${model.getCount( )}
     <#if model.getCount() == 1>Drillbit<#else>Drillbits</#if>.
     </#if>
+    <#if ! model.isCancel()>
     In this version of Drill, stopping Drillbits will
     cause in-flight queries to fail.
+    </#if>
   </div>
   <#if model.isStop( )>
-  <form method="POST" action="/stop">
+    <form method="POST" action="/stop">
   <#elseif model.isCancel( )>
-  <form method="POST" action="/cancel?id=${model.getId( )}">
+    <form method="POST" action="/cancel?id=${model.getId( )}">
+  <#elseif model.isKill( )>
+    <form method="POST" action="/cancel?id=${model.getId( )}">
   <#else>
-  <form method="POST" action="/resize">
+    <form method="POST" action="/resize">
   </#if>
   <#if model.isShrink( )>
     <input type="hidden" name="n" value="${model.getCount( )}">

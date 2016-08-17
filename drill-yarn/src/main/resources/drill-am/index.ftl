@@ -74,6 +74,12 @@
         <td>${model.getUnmanagedCount( )}</td>
       </tr>
     </#if>
+    <#if model.getBlacklistCount( ) gt 0 >
+      <tr>
+        <td style="color: red">Blacklisted Node Count:</td>
+        <td>${model.getBlacklistCount( )}</td>
+      </tr>
+    </#if>
     <tr>
       <td>Total Drill Virtual Cores:</td>
       <td>${model.getDrillTotalVcores( )}</td>

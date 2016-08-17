@@ -97,8 +97,11 @@ public interface Scheduler {
    * Set the number of desired tasks to the given level.
    *
    * @param level
+   * @return the actual resize level, which may be lower than the requested
+   * level if the system cannot provide the requested level
    */
-  void resize(int level);
+
+  int resize(int level);
 
   void completed(Task task);
 

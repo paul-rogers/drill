@@ -29,7 +29,7 @@ public abstract class AbstractScheduler implements Scheduler {
   protected TaskSpec taskSpec;
   protected int priority;
   protected int failCount;
-  private TaskManager taskManager;
+  protected TaskManager taskManager;
   protected SchedulerState state;
   protected boolean isTracked;
 
