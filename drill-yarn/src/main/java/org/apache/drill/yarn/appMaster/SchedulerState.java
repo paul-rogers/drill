@@ -74,4 +74,6 @@ public interface SchedulerState {
   void start(Task task);
 
   void cancel(Task task);
+
+  ClusterController getController();
 }

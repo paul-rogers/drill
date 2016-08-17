@@ -432,4 +432,12 @@ public final class SchedulerStateImpl
     }
     return null;
   }
+
+  @Override
+  public int getRequestCount() {
+    return allocatingTasks.size();
+  }
+
+  @Override
+  public ClusterController getController( ) { return controller; }
 }

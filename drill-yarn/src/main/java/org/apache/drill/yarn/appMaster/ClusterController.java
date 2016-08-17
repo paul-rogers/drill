@@ -134,7 +134,7 @@ public interface ClusterController extends RegistryHandler {
    *          the desired cluster size
    */
 
-  void resizeTo(int n);
+  int resizeTo(int n);
 
   /**
    * Indicates a request to gracefully shut down the cluster.
@@ -182,6 +182,8 @@ public interface ClusterController extends RegistryHandler {
 
   int getTargetCount();
 
+  boolean isTaskLive(int id);
+
   /**
    * Cancels the given task, reducing the target task count. Called
    * from the UI to allow the user to select the specific task to end
@@ -199,4 +201,6 @@ public interface ClusterController extends RegistryHandler {
    */
 
   boolean supportsDiskResource();
+
+  int getFreeNodeCount();
 }

@@ -77,6 +77,8 @@ public class ControllerModel implements ControllerVisitor {
   protected int totalDrillMemory;
   protected int totalDrillVcores;
   protected double totalDrillDisks;
+  protected int blacklistCount;
+  protected int freeNodeCount;
   protected YarnAppHostReport appRpt;
   protected int refreshSecs;
   protected List<ClusterGroupModel> groups = new ArrayList<>( );
@@ -108,6 +110,8 @@ public class ControllerModel implements ControllerVisitor {
   public int getUnmanagedCount( ) { return unmanagedCount; }
   public int getTargetCount( ) { return targetCount; }
   public List<ClusterGroupModel> getGroups( ) { return groups; }
+  public int getBlacklistCount( ) { return blacklistCount; }
+  public int getFreeNodeCount( ) { return freeNodeCount; }
 
   private static Map<ClusterControllerImpl.State,String> stateHints = makeStateHints( );
 
@@ -136,6 +140,9 @@ public class ControllerModel implements ControllerVisitor {
 //    }
     capturePools( impl );
     supportsDisks = impl.supportsDiskResource();
+
+    blacklistCount = impl.getNodeInventory( ).getBlacklist( ).size( );
+    freeNodeCount = impl.getFreeNodeCount();
   }
 
   private void capturePools(ClusterControllerImpl impl) {

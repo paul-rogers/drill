@@ -168,6 +168,9 @@ public class StatusCommand extends ClientCommand {
     showMetric("AM State", root, "state");
     showMetric("Target Drillbit Count", root.get("summary"), "targetBitCount");
     showMetric("Live Drillbit Count", root.get("summary"), "liveBitCount");
+    showMetric("Unmanaged Drillbit Count", root.get("summary"), "unmanagedCount");
+    showMetric("Blacklisted Node Count", root.get("summary"), "blackListCount");
+    showMetric("Free Node Count", root.get("summary"), "freeNodeCount");
   }
 
   private void showMetric(String label, Object object, String key) {

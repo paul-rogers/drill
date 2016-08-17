@@ -81,11 +81,28 @@
         started by the YARN Application Master. Perhaps they were started manually.
       </div>
       <table class="table table-hover" style="width: auto;">
-        <tr><th>Host</th><th>Ports</th></tr>
+        <tr><th>Drillbit Host</th><th>Ports</th></tr>
         <#list strays as stray >
           <tr>
             <td>${stray.getHost( )}</td>
             <td>${stray.getPorts( )}</td>
+          </tr>
+        </#list>
+      </table>
+    </#if>
+    <#if model.hasBlacklist( ) >
+      <hr>
+      <div class="alert alert-danger">
+        <strong>Warning:</strong> 
+        ${model.getBlacklistCount( )} nodes have been black-listed due to
+        repeated Drillbit launch failures. Perhaps the nodes or Drill are
+        improperly configured.
+      </div>
+      <table class="table table-hover" style="width: auto;">
+        <tr><th>Blacklisted Host</th></tr>
+        <#list blacklist as node >
+          <tr>
+            <td>${node}</td>
           </tr>
         </#list>
       </table>

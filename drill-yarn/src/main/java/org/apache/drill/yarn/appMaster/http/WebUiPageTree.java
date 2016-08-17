@@ -174,7 +174,7 @@ public class WebUiPageTree extends PageTree {
     public Viewable getRoot() {
       AbstractTasksModel.TasksModel model = new AbstractTasksModel.TasksModel();
       dispatcher.getController().visitTasks(model);
-      model.listUnmanaged(dispatcher.getController());
+      model.listAnomalies(dispatcher.getController());
       model.sortTasks();
 
       // Done this funky way because FreeMarker only understands lists if they
@@ -185,6 +185,9 @@ public class WebUiPageTree extends PageTree {
       map.put("tasks", model.getTasks());
       if (model.hasUnmanagedDrillbits()) {
         map.put("strays", model.getUnnamaged());
+      }
+      if (model.hasBlacklist()) {
+        map.put("blacklist", model.getBlacklist());
       }
       map.put("showDisks", dispatcher.getController().supportsDiskResource());
       map.put("refreshSecs", DrillOnYarnConfig.config()
@@ -205,7 +208,12 @@ public class WebUiPageTree extends PageTree {
     @GET
     @Produces(MediaType.TEXT_HTML)
     public Viewable getPage() {
-      ConfirmShrink confirm = new ConfirmShrink(ConfirmShrink.Mode.CANCEL);
+      ConfirmShrink confirm;
+      if (dispatcher.getController().isTaskLive(id)) {
+        confirm = new ConfirmShrink(ConfirmShrink.Mode.KILL);
+      } else {
+        confirm = new ConfirmShrink(ConfirmShrink.Mode.CANCEL);
+      }
       confirm.id = id;
       return new Viewable("/drill-am/shrink-warning.ftl", toModel(sc, confirm));
     }
@@ -289,7 +297,7 @@ public class WebUiPageTree extends PageTree {
 
   public static class ConfirmShrink {
     public enum Mode {
-      SHRINK, STOP, CANCEL
+      SHRINK, STOP, CANCEL, KILL
     };
 
     Mode mode;
@@ -306,6 +314,10 @@ public class WebUiPageTree extends PageTree {
 
     public boolean isCancel() {
       return mode == Mode.CANCEL;
+    }
+
+    public boolean isKill() {
+      return mode == Mode.KILL;
     }
 
     public boolean isShrink() {
@@ -367,9 +379,8 @@ public class WebUiPageTree extends PageTree {
         confirm.value = newSize;
         return new Viewable("/drill-am/confirm.ftl", toModel(sc, confirm));
       } else if (confirmed || curSize < newSize) {
-        dispatcher.getController().resizeTo(newSize);
         Acknowledge confirm = new Acknowledge(Acknowledge.Mode.RESIZED);
-        confirm.value = newSize;
+        confirm.value = dispatcher.getController().resizeTo(newSize);
         return new Viewable("/drill-am/confirm.ftl", toModel(sc, confirm));
       } else {
         ConfirmShrink confirm = new ConfirmShrink(ConfirmShrink.Mode.SHRINK);

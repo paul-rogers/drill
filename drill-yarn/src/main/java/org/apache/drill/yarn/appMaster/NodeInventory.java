@@ -17,6 +17,7 @@
  */
 package org.apache.drill.yarn.appMaster;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -49,8 +50,29 @@ public class NodeInventory {
   private boolean failed;
 
   private Map<String, String> nodeMap = new HashMap<>();
+
+  /**
+   * The set of nodes available that YARN reports are available.
+   * Not clear if these are all nodes in the cluster, or just those usable
+   * by the current app (when the app is associated to a queue that
+   * uses node labels.)
+   */
+
   private Map<String, NodeReport> yarnNodes = new HashMap<>();
+
+  /**
+   * The set of nodes in use by Drill. Includes both nodes on which the AM
+   * has requested to run Drillbits, and those nodes found to be running
+   * "stray" Drillbits started outside of DoY.
+   */
+
   private Set<String> nodesInUse = new HashSet<>();
+
+  /**
+   * Nodes that have failed (typically due to mis-configuration) and
+   * are to be excluded from future container requests.
+   */
+
   private Set<String> blacklist = new HashSet<>();
   private final AMYarnFacade yarn;
 
@@ -119,12 +141,39 @@ public class NodeInventory {
     LOG.info("Node blacklisted: " + hostName);
   }
 
+  /**
+   * Determine the number of free nodes in the YARN cluster. The free set is the
+   * set of all YARN nodes minus those that are allocated and those that are
+   * blacklisted. Note that a node might be both in use and blacklisted if
+   * DoY blacklists a node, but then the user starts a "stray" Drillbit on
+   * that same node.
+   * <p>
+   * This number is an approximation: the set of nodes managed by YARN can
+   * change any time, and in-flight container requests will consume a node,
+   * but since the request is not yet completed, we don't know which node
+   * will be assigned, so the node does not yet appear in the in-use list.
+   *
+   * @return an approximation of the free node count
+   */
+
   public int getFreeNodeCount() {
-    if (failed) {
-      return 0;
-    }
-    int freeCount = yarnNodes.size() - nodesInUse.size() - blacklist.size();
-    assert freeCount >= 0;
-    return freeCount;
+    Set<String> free = new HashSet<>( );
+    free.addAll( yarnNodes.keySet() );
+    free.removeAll( nodesInUse );
+    free.removeAll( blacklist );
+    return free.size( );
+  }
+
+  /**
+   * Return a copy of the blacklist (list of failed nodes) for use in display
+   * to the user or similar purpose.
+   *
+   * @return a copy of the blacklist.
+   */
+
+  public List<String> getBlacklist() {
+    List<String> copy = new ArrayList<>( );
+    copy.addAll(blacklist);
+    return copy;
   }
 }

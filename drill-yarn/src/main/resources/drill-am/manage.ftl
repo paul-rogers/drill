@@ -20,6 +20,8 @@
   <#if model.getLiveCount( ) == 1 >Drillbit is
   <#else>Drillbits are
   </#if>running.
+  <p>
+  Free YARN nodes: Approximately ${model.getFreeNodeCount( )} 
   <p><p>
   
   <table class="table table-hover" style="width: auto;">
