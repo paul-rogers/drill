@@ -30,6 +30,7 @@ import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.drill.yarn.core.LaunchSpec;
 import org.apache.drill.yarn.core.YarnClientException;
 import org.apache.drill.yarn.core.YarnRMClient;
+import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.protocolrecords.GetNewApplicationResponse;
 import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.hadoop.yarn.api.records.LocalResource;
@@ -125,6 +126,17 @@ public class AMRunner {
     // Any user-specified library path
 
     addIfSet( master, DrillOnYarnConfig.JAVA_LIB_PATH, DrillOnYarnConfig.DOY_LIBPATH_ENV_VAR );
+
+    // AM logs (of which there are none.
+    // Relies on the LOG_DIR_EXPANSION_VAR marker which is replaced by
+    // the container log directory.
+    // Must be set for the AM to prevent drill-config.sh from trying to create
+    // the log directory in $DRILL_HOME (which won't be writable under YARN.)
+
+    if (!config.getBoolean(DrillOnYarnConfig.DISABLE_YARN_LOGS)) {
+      master.env.put("DRILL_YARN_LOG_DIR",
+          ApplicationConstants.LOG_DIR_EXPANSION_VAR);
+    }
 
     // AM launch script
     // The drill home location is either a non-localized location,
