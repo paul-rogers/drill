@@ -221,7 +221,12 @@ public class DrillControllerFactory implements ControllerFactory {
     addIfSet(drillbitSpec, DrillOnYarnConfig.DRILLBIT_DIRECT_MEM,
         "DRILL_MAX_DIRECT_MEMORY");
 
-    // Any additional VM arguments form the config file.
+    // Code cache
+
+    addIfSet(drillbitSpec, DrillOnYarnConfig.DRILLBIT_CODE_CACHE,
+        "DRILLBIT_CODE_CACHE_SIZE");
+
+    // Any additional VM arguments from the config file.
 
     addIfSet(drillbitSpec, DrillOnYarnConfig.DRILLBIT_VM_ARGS,
         "DRILL_JVM_OPTS");

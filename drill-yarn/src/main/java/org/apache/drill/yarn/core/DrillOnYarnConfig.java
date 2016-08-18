@@ -145,6 +145,8 @@ public class DrillOnYarnConfig {
       HEAP_KEY);
   public static final String DRILLBIT_DIRECT_MEM = append(DOY_DRILLBIT_PARENT,
       "max-direct-memory");
+  public static final String DRILLBIT_CODE_CACHE = append(DOY_DRILLBIT_PARENT,
+      "code-cache");
   public static final String DRILLBIT_LOG_GC = append(DOY_DRILLBIT_PARENT,
       "log-gc");
   public static final String DRILLBIT_PREFIX_CLASSPATH = append(
@@ -583,6 +585,7 @@ public class DrillOnYarnConfig {
     DRILLBIT_VM_ARGS,
     DRILLBIT_HEAP,
     DRILLBIT_DIRECT_MEM,
+    DRILLBIT_CODE_CACHE,
     DRILLBIT_PREFIX_CLASSPATH,
     DRILLBIT_EXTN_CLASSPATH,
     DRILLBIT_CLASSPATH,
