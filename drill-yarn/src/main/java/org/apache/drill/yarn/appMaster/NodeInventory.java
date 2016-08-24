@@ -109,11 +109,15 @@ public class NodeInventory {
 
   public void reserve(String hostName) {
     if (blacklist.contains(hostName)) {
+      LOG.error( "Node to be reserved is in the blacklist: " + hostName );
       failed = true;
     }
-    assert !nodesInUse.contains(hostName);
-    if (!yarnNodes.containsKey(hostName)) {
+    if (nodesInUse.contains(hostName)) {
+      LOG.error( "Node to be reserved is already in use: " + hostName );
       return;
+    }
+    if (!yarnNodes.containsKey(hostName)) {
+      LOG.warn( "Node to be reserved was not in YARN node inventory: " + hostName );
     }
     nodesInUse.add(hostName);
     yarn.blacklistNode(hostName);

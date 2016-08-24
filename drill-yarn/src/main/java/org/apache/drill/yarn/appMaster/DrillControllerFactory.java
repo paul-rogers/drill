@@ -149,7 +149,7 @@ public class DrillControllerFactory implements ControllerFactory {
           drillArchivePath);
       String key = config.getString(DrillOnYarnConfig.DRILL_ARCHIVE_KEY);
       localizer.defineResources(resources, key);
-      LOG.info("Localizing " + drillArchivePath + " with key" + key);
+      LOG.info("Localizing " + drillArchivePath + " with key \"" + key + "\"");
 
       // Localize the site archive, if any.
 
@@ -158,7 +158,7 @@ public class DrillControllerFactory implements ControllerFactory {
         localizer = new DfsFacade.Localizer(dfs, siteArchivePath);
         key = config.getString(DrillOnYarnConfig.SITE_ARCHIVE_KEY);
         localizer.defineResources(resources, key);
-        LOG.info("Localizing " + siteArchivePath + " with key" + key);
+        LOG.info("Localizing " + siteArchivePath + " with key \"" + key + "\"");
       }
       return resources;
     } catch (DfsFacadeException e) {
