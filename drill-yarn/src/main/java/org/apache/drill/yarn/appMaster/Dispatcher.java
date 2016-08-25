@@ -26,6 +26,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.drill.yarn.appMaster.AMRegistrar.AMRegistrationException;
 import org.apache.drill.yarn.appMaster.AMYarnFacade.YarnAppHostReport;
+import org.apache.drill.yarn.core.DrillOnYarnConfig;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 import org.apache.hadoop.yarn.api.records.ContainerStatus;
@@ -284,8 +285,12 @@ public class Dispatcher
   private void setup() throws YarnFacadeException, AMException {
     LOG.trace("Starting YARN agent");
     yarn.start(new ResourceCallback(), new NodeCallback());
-    LOG.trace("Registering YARN application");
-    yarn.register(trackingUrl.replace("<port>", Integer.toString(httpPort)));
+    String url = trackingUrl.replace("<port>", Integer.toString(httpPort));
+    if (DrillOnYarnConfig.config().getBoolean(DrillOnYarnConfig.HTTP_ENABLE_SSL)) {
+      url = url.replace("http:", "https:");
+    }
+    LOG.trace("Registering YARN application, URL: " + url);
+    yarn.register(url);
     controller.started();
 
     for (DispatcherAddOn addOn : addOns) {

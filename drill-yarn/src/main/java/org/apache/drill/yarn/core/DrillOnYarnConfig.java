@@ -166,7 +166,9 @@ public class DrillOnYarnConfig {
   public static final String DRILLBIT_BIT_PORT = ExecConstants.INITIAL_BIT_PORT;
   public static final String DRILLBIT_USE_HTTPS = ExecConstants.HTTP_ENABLE_SSL;
   public static final String DRILLBIT_MAX_EXTRA_NODES = append(DOY_DRILLBIT_PARENT,
-      "max-extra-nodes");;
+      "max-extra-nodes");
+  public static final String DRILLBIT_REQUEST_TIMEOUT_SEC = append(DOY_DRILLBIT_PARENT,
+      "request-timeout-secs");
 
   public static final String ZK_CONNECT = ExecConstants.ZK_CONNECTION;
   public static final String ZK_ROOT = ExecConstants.ZK_ROOT;
@@ -592,6 +594,7 @@ public class DrillOnYarnConfig {
     DRILLBIT_MAX_RETRIES,
     DRILLBIT_DEBUG_LAUNCH,
     DRILLBIT_MAX_EXTRA_NODES,
+    DRILLBIT_REQUEST_TIMEOUT_SEC,
     DISABLE_YARN_LOGS,
     DRILLBIT_HTTP_PORT,
     DRILLBIT_USER_PORT,

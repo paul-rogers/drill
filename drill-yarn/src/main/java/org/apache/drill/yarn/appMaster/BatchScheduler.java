@@ -79,4 +79,10 @@ public class BatchScheduler extends AbstractScheduler {
   public boolean hasMoreTasks() {
     return completedCount < quantity;
   }
+
+  @Override
+  public void requestTimedOut() {
+    // Not clear what to do here. Since this case is used only for testing,
+    // deal with this case later.
+  }
 }

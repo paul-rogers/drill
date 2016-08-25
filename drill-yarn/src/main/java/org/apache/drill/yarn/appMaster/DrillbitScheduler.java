@@ -17,12 +17,17 @@
  */
 package org.apache.drill.yarn.appMaster;
 
-import org.apache.drill.yarn.core.DrillOnYarnConfig;
-
 public class DrillbitScheduler extends AbstractDrillbitScheduler {
-  public DrillbitScheduler(String name, TaskSpec taskSpec, int quantity) {
+  private int requestTimeoutSecs;
+  private int maxExtraNodes;
+
+
+  public DrillbitScheduler(String name, TaskSpec taskSpec, int quantity,
+                           int requestTimeoutSecs, int maxExtraNodes) {
     super("basic", name, quantity);
     this.taskSpec = taskSpec;
+    this.requestTimeoutSecs = requestTimeoutSecs;
+    this.maxExtraNodes = maxExtraNodes;
   }
 
   /**
@@ -35,8 +40,12 @@ public class DrillbitScheduler extends AbstractDrillbitScheduler {
   @Override
   public int resize(int level) {
     int limit = quantity + state.getController().getFreeNodeCount( ) +
-        DrillOnYarnConfig.config().getInt(DrillOnYarnConfig.DRILLBIT_MAX_EXTRA_NODES);
+        maxExtraNodes;
     return super.resize( Math.min( limit, level ) );
   }
 
+  @Override
+  public int getRequestTimeoutSec() {
+    return requestTimeoutSecs;
+  }
 }

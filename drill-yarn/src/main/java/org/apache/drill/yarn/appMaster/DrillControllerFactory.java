@@ -84,10 +84,13 @@ public class DrillControllerFactory implements ControllerFactory {
       dispatcher.getController()
           .setMaxRetries(config.getInt(DrillOnYarnConfig.DRILLBIT_MAX_RETRIES));
 
+      int requestTimeoutSecs = DrillOnYarnConfig.config().getInt( DrillOnYarnConfig.DRILLBIT_REQUEST_TIMEOUT_SEC);
+      int maxExtraNodes = DrillOnYarnConfig.config().getInt(DrillOnYarnConfig.DRILLBIT_MAX_EXTRA_NODES);
+
       // Assume basic scheduler for now.
       ClusterDef.ClusterGroup pool = ClusterDef.getCluster(config, 0);
       Scheduler testGroup = new DrillbitScheduler(pool.getName(), taskSpec,
-          pool.getCount());
+          pool.getCount(), requestTimeoutSecs, maxExtraNodes);
       dispatcher.getController().registerScheduler(testGroup);
       pool.modifyTaskSpec(taskSpec);
 
@@ -95,8 +98,7 @@ public class DrillControllerFactory implements ControllerFactory {
 
       buildZooKeeper(config, dispatcher);
     } catch (YarnFacadeException | DoyConfigException e) {
-      throw new ControllerFactoryException("Drill AM intitialization failed",
-          e);
+      throw new ControllerFactoryException("Drill AM intitialization failed", e);
     }
 
     // Tracking Url

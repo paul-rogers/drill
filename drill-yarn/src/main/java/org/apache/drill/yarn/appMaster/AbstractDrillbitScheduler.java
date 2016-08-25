@@ -19,6 +19,7 @@ package org.apache.drill.yarn.appMaster;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.drill.yarn.zk.ZKRegistry;
 
 /**
  * Base class for schedulers (pools) for Drillbits. Derived classes implement
@@ -44,7 +45,7 @@ public abstract class AbstractDrillbitScheduler
    * to do this, despite active discussions on several YARN JIRA entries.
    */
 
-  public class DrilbitManager extends AbstractTaskManager {
+  public class DrillbitManager extends AbstractTaskManager {
     /**
      * Allow only one concurrent container request by default to ensure that the
      * node blacklist mechanism works to ensure that the RM does not allocate
@@ -67,8 +68,21 @@ public abstract class AbstractDrillbitScheduler
 
     @Override
     public void completed(EventContext context) {
-      context.controller.getNodeInventory().release(context.task.container);
+      // This method is called for all completed tasks, even those that
+      // completed (were cancelled) before a container was allocated.
+      // If we have no container, then we have nothing to tell the
+      // node inventory.
+
+      if (context.task.container != null) {
+        context.controller.getNodeInventory().release(context.task.container);
+      }
       analyzeResult(context);
+    }
+
+    @Override
+    public boolean isLive(EventContext context) {
+      ZKRegistry reg = (ZKRegistry) context.controller.getProperty(ZKRegistry.CONTROLLER_PROPERTY);
+      return reg.isRegistered(context.task);
     }
 
     /**
@@ -147,6 +161,6 @@ public abstract class AbstractDrillbitScheduler
   public AbstractDrillbitScheduler(String type, String name, int quantity) {
     super(type, name, quantity);
     isTracked = true;
-    setTaskManager(new DrilbitManager());
+    setTaskManager(new DrillbitManager());
   }
 }

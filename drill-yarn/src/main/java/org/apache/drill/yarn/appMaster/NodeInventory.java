@@ -180,4 +180,16 @@ public class NodeInventory {
     copy.addAll(blacklist);
     return copy;
   }
+
+  /**
+   * Report if the given host name is in use.
+   *
+   * @param hostName
+   * @return true if the host is reserved (in use by a container) or
+   * blacklisted (failed.)
+   */
+
+  public boolean isInUse(String hostName) {
+    return blacklist.contains(hostName) || nodesInUse.contains(hostName);
+  }
 }

@@ -66,7 +66,7 @@ public class Task {
   }
 
   /**
-   * Maximum amount of time to wait when cancelling a job in the REQUESTING
+   * Maximum amount of time to wait when canceling a job in the REQUESTING
    * state. YARN will happily wait forever for a resource, this setting allows
    * the user to request to cancel a task, give YARN a while to respond, then
    * forcibly cancel the job at timeout.
@@ -271,12 +271,19 @@ public class Task {
   @Override
   public String toString() {
     StringBuilder buf = new StringBuilder();
-    buf.append("[id=").append(taskId).append(", type=")
-        .append(scheduler.getName());
+    buf.append("[id=")
+       .append(taskId)
+       .append(", type=")
+       .append(scheduler.getName())
+       .append(", name=")
+       .append(getName());
     if (container != null) {
-      buf.append(" host=").append(getHostName());
+      buf.append(", host=")
+         .append(getHostName());
     }
-    buf.append(", state=").append(state.toString()).append("]");
+    buf.append(", state=")
+       .append(state.toString())
+       .append("]");
     return buf.toString();
   }
 
@@ -304,7 +311,7 @@ public class Task {
    */
 
   public String getLabel() {
-    return "[" + Integer.toString(taskId) + ", " + getName() + "]";
+    return toString( );
   }
 
   public void setTrackingState(TrackingState tState) {
