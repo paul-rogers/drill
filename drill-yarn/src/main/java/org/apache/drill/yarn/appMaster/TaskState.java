@@ -528,7 +528,19 @@ public abstract class TaskState {
       taskTerminated(context);
     }
 
-    // TODO: Handle timeout
+    /**
+     * Periodically check if the process is still live. We are supposed to
+     * receive events when the task becomes deregistered. But, we've seen
+     * cases where the task hangs in this state forever. Try to resolve
+     * the issue by polling periodically.
+     */
+
+    @Override
+    public void tick(EventContext context, long curTime) {
+      if(! context.getTaskManager().isLive(context)){
+        taskTerminated(context);
+      }
+    }
   }
 
   /**

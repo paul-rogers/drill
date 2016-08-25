@@ -480,6 +480,25 @@ public class ZKRegistry
   }
 
   /**
+   * Report whether the given task is still registered in ZK. Called while
+   * waiting for a deregistration event to catch possible cases where the
+   * messages is lost. The message should never be lost, but we've seen
+   * cases where tasks hang in this state. This is a potential work-around.
+   *
+   * @param task
+   * @return
+   */
+
+  public synchronized boolean isRegistered(Task task) {
+    String key = toKey(task);
+    DrillbitTracker tracker = registry.get(key);
+    if (tracker==null) {
+      return false;
+    }
+    return tracker.state != DrillbitTracker.State.REGISTERED;
+  }
+
+  /**
    * Mark that a task (YARN container) has ended. Updates the (zk --> task)
    * registry by removing the task. The cluster controller state machine
    * monitors ZK and does not end the task until the ZK registration for that

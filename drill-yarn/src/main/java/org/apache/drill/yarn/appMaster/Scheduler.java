@@ -44,6 +44,8 @@ public interface Scheduler {
     boolean stop(Task task);
 
     void completed(EventContext context);
+
+    boolean isLive(EventContext context);
   }
 
   /**

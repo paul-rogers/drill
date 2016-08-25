@@ -44,4 +44,7 @@ public class AbstractTaskManager implements TaskManager {
 
   @Override
   public void completed(EventContext context) { }
+
+  @Override
+  public boolean isLive(EventContext context) { return true; }
 }

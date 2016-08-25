@@ -412,6 +412,21 @@ public class ClusterControllerImpl implements ClusterController {
       if (allocatedContainers.contains(container.getId())) {
         continue;
       }
+
+      // We should never get a container on a node in the blacklist we
+      // sent to YARN. If we do, something is wrong. Log the error and
+      // reject the container. Else, bad things happen further along as
+      // the tracking mechanisms assume one task per node.
+
+      String host = container.getNodeId().getHost();
+      if (nodeInventory.isInUse(host)) {
+        LOG.error( "Host is in use, but YARN allocated a container: " + host + " - container rejected." );
+        yarn.releaseContainer(container);
+        continue;
+      }
+
+      // The container is fine.
+
       allocatedContainers.add(container.getId());
       int priority = container.getPriority().getPriority();
       int offset = priority - PRIORITY_OFFSET;
