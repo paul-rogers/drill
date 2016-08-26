@@ -509,6 +509,13 @@ public class ZKRegistry
    */
 
   private void taskEnded(Task task) {
+
+    // If the task has no host name then the task is being cancelled before
+    // a YARN container was allocated. Just ignore such a case.
+
+    if (task.getHostName() == null) {
+      return;
+    }
     String key = toKey(task);
     DrillbitTracker tracker = registry.get(key);
     assert tracker != null;

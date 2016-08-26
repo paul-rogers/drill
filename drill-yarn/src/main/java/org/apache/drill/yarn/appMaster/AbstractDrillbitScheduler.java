@@ -45,7 +45,7 @@ public abstract class AbstractDrillbitScheduler
    * to do this, despite active discussions on several YARN JIRA entries.
    */
 
-  public class DrilbitManager extends AbstractTaskManager {
+  public class DrillbitManager extends AbstractTaskManager {
     /**
      * Allow only one concurrent container request by default to ensure that the
      * node blacklist mechanism works to ensure that the RM does not allocate
@@ -161,6 +161,6 @@ public abstract class AbstractDrillbitScheduler
   public AbstractDrillbitScheduler(String type, String name, int quantity) {
     super(type, name, quantity);
     isTracked = true;
-    setTaskManager(new DrilbitManager());
+    setTaskManager(new DrillbitManager());
   }
 }
