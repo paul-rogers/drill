@@ -17,6 +17,9 @@
  */
 package org.apache.drill.yarn.appMaster;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
 /**
  * Abstract base class for schedulers that work with persistent
  * (long-running) tasks. Such tasks are intended to run until
@@ -33,6 +36,7 @@ package org.apache.drill.yarn.appMaster;
  */
 
 public abstract class PersistentTaskScheduler extends AbstractScheduler {
+  private static final Log LOG = LogFactory.getLog(PersistentTaskScheduler.class);
   protected int quantity;
 
   public PersistentTaskScheduler(String type, String name, int quantity) {
@@ -101,18 +105,20 @@ public abstract class PersistentTaskScheduler extends AbstractScheduler {
   }
 
   /**
-   * Cancel the required number of tasks. We exclude any tasks that are already
+   * Cancel the requested number of tasks. We exclude any tasks that are already
    * in the process of being cancelled. Because we ignore those tasks, it might
    * be that we want to reduce the task count, but there is nothing to cancel,
    * since the required number of tasks have already been cancelled.
    *
-   * @param activeCount
+   * @param cancelCount
    */
 
-  private void cancelTasks(int activeCount) {
+  private void cancelTasks(int cancelCount) {
     int cancelled = state.getCancelledTaskCount();
-    int cancellable = activeCount - cancelled;
+    int cancellable = cancelCount - cancelled;
     int n = cancellable - quantity;
+    LOG.info("Cancelling " + cancelCount + " tasks. " + cancelled + " are already cancelled, " +
+             cancellable + " more to be cancelled.");
     if (n <= 0) {
       return;
     }
@@ -129,10 +135,10 @@ public abstract class PersistentTaskScheduler extends AbstractScheduler {
       }
     }
 
-    // If we get here it means that we've already cancelled tasks
-    // but they have not yet shut down.
+    // If we get here it means something has gotten out of whack.
 
-    assert n <= cancelled;
+    LOG.error("Tried to cancel " + cancellable + " tasks, but " + n + " could not be cancelled.");
+    assert false;
   }
 
   /**
@@ -145,4 +151,24 @@ public abstract class PersistentTaskScheduler extends AbstractScheduler {
 
   @Override
   public boolean hasMoreTasks() { return false; }
+
+  @Override
+  public void requestTimedOut() {
+
+    // We requested a node a while back, requested a container from YARN,
+    // but waited too long to receive it. Most likely cause is that we
+    // want a container on a node that either does not exist, or is too
+    // heavily loaded. (That is, we have a 3-node cluster and are requesting
+    // a 4th node. Or, we have 2 nodes but node 3 has insufficient resources.)
+    // In either case, we're not likely to ever get the container, so just
+    // reduce the target size to what we an get.
+
+    assert quantity > 0;
+    if (quantity == 0) {
+      LOG.error("Container timed out, but target quantity is already 0!");
+    } else {
+      quantity--;
+    }
+    LOG.info("Container request timed out. Reducing target container count by 1 to " + quantity);
+  }
 }

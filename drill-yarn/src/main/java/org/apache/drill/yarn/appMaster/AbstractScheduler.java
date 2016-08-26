@@ -105,4 +105,7 @@ public abstract class AbstractScheduler implements Scheduler {
       taskSpec.containerSpec.vCores = maxResource.getVirtualCores();
     }
   }
+
+  @Override
+  public int getRequestTimeoutSec() { return 0; }
 }

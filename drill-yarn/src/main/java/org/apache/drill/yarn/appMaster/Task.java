@@ -66,7 +66,7 @@ public class Task {
   }
 
   /**
-   * Maximum amount of time to wait when cancelling a job in the REQUESTING
+   * Maximum amount of time to wait when canceling a job in the REQUESTING
    * state. YARN will happily wait forever for a resource, this setting allows
    * the user to request to cancel a task, give YARN a while to respond, then
    * forcibly cancel the job at timeout.

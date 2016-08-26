@@ -178,25 +178,41 @@ public abstract class TaskState {
 
     @Override
     public void cancel(EventContext context) {
+      Task task = context.task;
       context.task.cancel();
+      LOG.info(task.getLabel() + " - Cancelled at user request");
+      context.group.dequeueAllocatingTask(task);
+      task.disposition = Task.Disposition.CANCELLED;
+      task.completionTime = System.currentTimeMillis();
+      transition(context, END);
+      context.group.taskEnded(context.task);
     }
+
+    /**
+     * The task is requesting a container. If the request takes too long,
+     * cancel the request and shrink the target task count. This event
+     * generally indicates that the user wants to run more tasks than
+     * the cluster has capacity.
+     */
 
     @Override
     public void tick(EventContext context, long curTime) {
       Task task = context.task;
-      if (!task.cancelled) {
+      int timeoutSec = task.scheduler.getRequestTimeoutSec( );
+      if (timeoutSec == 0) {
         return;
       }
-      if (task.stateStartTime + Task.MAX_CANCELLATION_TIME > curTime) {
+      if (task.stateStartTime + timeoutSec * 1000 > curTime) {
         return;
       }
       LOG.info(task.getLabel() + " - Request timed out after + "
-          + Task.MAX_CANCELLATION_TIME / 1000 + " secs.");
+          + timeoutSec + " secs.");
       context.group.dequeueAllocatingTask(task);
       task.disposition = Task.Disposition.LAUNCH_FAILED;
       task.completionTime = System.currentTimeMillis();
       transition(context, END);
       context.group.taskEnded(context.task);
+      task.scheduler.requestTimedOut();
     }
   }
 
@@ -291,8 +307,7 @@ public abstract class TaskState {
     public void tick(EventContext context, long curTime) {
 
       // If we are canceling the task, and YARN has not reported container
-      // completion
-      // after some amount of time, just force failure.
+      // completion after some amount of time, just force failure.
 
       Task task = context.task;
       if (task.isCancelled()

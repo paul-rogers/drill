@@ -141,4 +141,22 @@ public interface Scheduler {
   ContainerRequestSpec getResource( );
 
   void limitContainerSize(Resource maxResource) throws AMException;
+
+  /**
+   * Maximum amount of time to wait when cancelling a job in the REQUESTING
+   * state. YARN will happily wait forever for a resource, this setting
+   * forcibly cancels the request at timeout.
+   *
+   * @return the number of seconds to wait for timeout. 0 means no timeout
+   */
+
+  int getRequestTimeoutSec();
+
+  /**
+   * Informs the scheduler that a YARN resource request timed out. The scheduler
+   * can either retry or (more productively) assume that the requested node is
+   * not available and adjust its target size downward.
+   */
+
+  void requestTimedOut();
 }
