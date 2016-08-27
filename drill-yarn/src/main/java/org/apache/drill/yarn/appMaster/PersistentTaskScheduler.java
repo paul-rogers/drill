@@ -168,7 +168,7 @@ public abstract class PersistentTaskScheduler extends AbstractScheduler {
       LOG.error("Container timed out, but target quantity is already 0!");
     } else {
       quantity--;
+      LOG.info("Container request timed out. Reducing target container count by 1 to " + quantity);
     }
-    LOG.info("Container request timed out. Reducing target container count by 1 to " + quantity);
   }
 }
