@@ -23,7 +23,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptUtil;
@@ -401,17 +400,13 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
       final RelMetadataProvider cachingMetaDataProvider = new CachingRelMetadataProvider(
           ChainedRelMetadataProvider.of(list), planner);
 
-      // Save original metadataProvider before call HepPlanner call.
-      RelMetadataProvider oldProvider = input.getCluster().getMetadataProvider();
-      input.getCluster().setMetadataProvider(cachingMetaDataProvider);
+      // Modify RelMetaProvider for every RelNode in the SQL operator Rel tree.
+      input.accept(new MetaDataProviderModifier(cachingMetaDataProvider));
       planner.setRoot(input);
       if (!input.getTraitSet().equals(targetTraits)) {
         planner.changeTraits(input, toTraits);
       }
       output = planner.findBestExp();
-
-      // Restore to original metadataProvider after HepPlanner call.
-      input.getCluster().setMetadataProvider(oldProvider);
       break;
     }
     case VOLCANO:
