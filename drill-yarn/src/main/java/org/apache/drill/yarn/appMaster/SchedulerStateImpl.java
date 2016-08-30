@@ -25,6 +25,7 @@ import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
 
@@ -175,7 +176,7 @@ public final class SchedulerStateImpl
   @Override
   public void containerAllocated(EventContext context, Container container) {
     if (activeContainers.containsKey(container.getId())) {
-      LOG.error("Container allocated again: " + container.getId());
+      LOG.error("Container allocated again: " + DoYUtil.labelContainer(container));
       return;
     }
     if (allocatingTasks.isEmpty()) {
@@ -183,8 +184,10 @@ public final class SchedulerStateImpl
       // Not sure why this happens. Maybe only in debug mode
       // due stopping execution one thread while the RM
       // heartbeat keeps sending our request over & over?
+      // One known case: the user requests a container. While YARN is
+      // considering the request, the user cancels the task.
 
-      LOG.error("Allocated more containers than there are allocating tasks");
+      LOG.warn("Releasing unwanted container: " + DoYUtil.labelContainer(container) );
       context.yarn.releaseContainer(container);
       return;
     }
@@ -266,7 +269,7 @@ public final class SchedulerStateImpl
     if (isDone()) {
       controller.taskGroupCompleted(this);
     }
-    LOG.info("Task completed: " + task.toString());
+    LOG.info(task.toString() + " - Task completed" );
   }
 
   /**

@@ -75,6 +75,7 @@ public abstract class AbstractScheduler implements Scheduler {
   }
 
   protected void addTasks(int n) {
+    LOG.info( "[" + getName( ) + "] - Adding " + n + " tasks" );
     for (int i = 0; i < n; i++) {
       state.start(new Task(this, taskSpec));
     }

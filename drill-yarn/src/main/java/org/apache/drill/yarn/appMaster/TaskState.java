@@ -98,7 +98,7 @@ public abstract class TaskState {
     public void cancel(EventContext context) {
       Task task = context.task;
       assert !task.cancelled;
-      context.group.dequeueAllocatingTask(task);
+      context.group.dequeuePendingRequest(task);
       task.cancel();
       taskStartFailed(context, Disposition.CANCELLED);
     }
@@ -121,7 +121,7 @@ public abstract class TaskState {
     @Override
     public void containerAllocated(EventContext context, Container container) {
       Task task = context.task;
-      LOG.trace(task.getLabel() + " - Received container: "
+      LOG.info(task.getLabel() + " - Received container: "
           + DoYUtil.describeContainer(container));
       context.group.dequeueAllocatingTask(task);
 
@@ -181,6 +181,7 @@ public abstract class TaskState {
       Task task = context.task;
       context.task.cancel();
       LOG.info(task.getLabel() + " - Cancelled at user request");
+      context.yarn.removeContainerRequest(task.containerRequest);
       context.group.dequeueAllocatingTask(task);
       task.disposition = Task.Disposition.CANCELLED;
       task.completionTime = System.currentTimeMillis();
@@ -581,7 +582,7 @@ public abstract class TaskState {
     }
   }
 
-  private static final Log LOG = LogFactory.getLog(ClusterControllerImpl.class);
+  private static final Log LOG = LogFactory.getLog(TaskState.class);
 
   public static final TaskState START = new StartState();
   public static final TaskState REQUESTING = new RequestingState();
@@ -618,7 +619,7 @@ public abstract class TaskState {
   }
 
   public void requestContainer(EventContext context) {
-    illegalState(context, "containerAllocated");
+    illegalState(context, "requestContainer");
   }
 
   /**
@@ -650,7 +651,7 @@ public abstract class TaskState {
    */
 
   public void containerStarted(EventContext context) {
-    illegalState(context, "containerAllocated");
+    illegalState(context, "containerStarted");
   }
 
   /**
@@ -670,7 +671,7 @@ public abstract class TaskState {
    */
 
   public void stopTaskFailed(EventContext context, Throwable t) {
-    illegalState(context, "containerAllocated");
+    illegalState(context, "stopTaskFailed");
   }
 
   /**
@@ -703,7 +704,7 @@ public abstract class TaskState {
 
   public void containerCompleted(EventContext context, ContainerStatus status) {
     completed(context, status);
-    illegalState(context, "containerAllocated");
+    illegalState(context, "containerCompleted");
   }
 
   /**
@@ -731,7 +732,7 @@ public abstract class TaskState {
 
   protected void transition(EventContext context, TaskState newState) {
     TaskState oldState = context.task.state;
-    LOG.trace(context.task.getLabel() + " " + oldState.toString() + " --> "
+    LOG.info(context.task.getLabel() + " " + oldState.toString() + " --> "
         + newState.toString());
     context.task.state = newState;
     if (newState.lifeCycleEvent != oldState.lifeCycleEvent) {

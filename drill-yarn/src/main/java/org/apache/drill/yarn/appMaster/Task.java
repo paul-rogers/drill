@@ -271,12 +271,19 @@ public class Task {
   @Override
   public String toString() {
     StringBuilder buf = new StringBuilder();
-    buf.append("[id=").append(taskId).append(", type=")
-        .append(scheduler.getName());
+    buf.append("[id=")
+       .append(taskId)
+       .append(", type=")
+       .append(scheduler.getName())
+       .append(", name=")
+       .append(getName());
     if (container != null) {
-      buf.append(" host=").append(getHostName());
+      buf.append(", host=")
+         .append(getHostName());
     }
-    buf.append(", state=").append(state.toString()).append("]");
+    buf.append(", state=")
+       .append(state.toString())
+       .append("]");
     return buf.toString();
   }
 
@@ -304,7 +311,7 @@ public class Task {
    */
 
   public String getLabel() {
-    return "[" + Integer.toString(taskId) + ", " + getName() + "]";
+    return toString( );
   }
 
   public void setTrackingState(TrackingState tState) {

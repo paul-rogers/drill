@@ -67,6 +67,18 @@ public class DoYUtil {
     return fmt.format(new Date(timestamp));
   }
 
+  public static String labelContainer(Container container) {
+    StringBuilder buf = new StringBuilder()
+        .append("[id: ")
+        .append(container.getId())
+        .append(", host: ")
+        .append(container.getNodeId().getHost())
+        .append(", priority: ")
+        .append(container.getPriority())
+        .append("]");
+    return buf.toString();
+  }
+
   /**
    * Utility method to display YARN container information in a useful way for
    * log messages.
@@ -76,10 +88,18 @@ public class DoYUtil {
    */
 
   public static String describeContainer(Container container) {
-    StringBuilder buf = new StringBuilder().append("Host: ")
-        .append(container.getNodeHttpAddress()).append(", Memory: ")
-        .append(container.getResource().getMemory()).append(" MB, Vcores: ")
-        .append(container.getResource().getVirtualCores());
+    StringBuilder buf = new StringBuilder()
+        .append("[id: ")
+        .append(container.getId())
+        .append(", host: ")
+        .append(container.getNodeId().getHost())
+        .append(", priority: ")
+        .append(container.getPriority())
+        .append(", memory: ")
+        .append(container.getResource().getMemory())
+        .append(" MB, vcores: ")
+        .append(container.getResource().getVirtualCores())
+        .append("]");
     return buf.toString();
   }
 

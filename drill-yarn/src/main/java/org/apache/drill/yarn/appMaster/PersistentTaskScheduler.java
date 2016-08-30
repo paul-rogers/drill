@@ -27,7 +27,7 @@ import org.apache.commons.logging.LogFactory;
  * some expected completion.)
  * <p>
  * Provides a target quantity of tasks
- * (see {@link #getTarget()}, along with opeations to increase,
+ * (see {@link #getTarget()}, along with operations to increase,
  * decrease or set the target number.
  * <p>
  * The scheduler acts as a controller: starting new tasks as needed to
@@ -114,11 +114,13 @@ public abstract class PersistentTaskScheduler extends AbstractScheduler {
    */
 
   private void cancelTasks(int cancelCount) {
+    int netCancelCount = Math.min(cancelCount, quantity);
     int cancelled = state.getCancelledTaskCount();
-    int cancellable = cancelCount - cancelled;
+    int cancellable = netCancelCount - cancelled;
     int n = cancellable - quantity;
-    LOG.info("Cancelling " + cancelCount + " tasks. " + cancelled + " are already cancelled, " +
-             cancellable + " more to be cancelled.");
+    LOG.info("[" + getName( ) + "] - Cancelling " + cancelCount +
+             " tasks. " + cancelled + " are already cancelled, " +
+             cancellable + " more can be cancelled.");
     if (n <= 0) {
       return;
     }

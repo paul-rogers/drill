@@ -29,6 +29,7 @@ import java.util.Set;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.drill.yarn.appMaster.TaskLifecycleListener.Event;
+import org.apache.drill.yarn.core.DoYUtil;
 import org.apache.hadoop.yarn.api.protocolrecords.RegisterApplicationMasterResponse;
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
@@ -420,7 +421,8 @@ public class ClusterControllerImpl implements ClusterController {
 
       String host = container.getNodeId().getHost();
       if (nodeInventory.isInUse(host)) {
-        LOG.error( "Host is in use, but YARN allocated a container: " + host + " - container rejected." );
+        LOG.error( "Host is in use, but YARN allocated a container: " +
+                   DoYUtil.labelContainer(container) + " - container rejected." );
         yarn.releaseContainer(container);
         continue;
       }
@@ -431,7 +433,7 @@ public class ClusterControllerImpl implements ClusterController {
       int priority = container.getPriority().getPriority();
       int offset = priority - PRIORITY_OFFSET;
       if (offset < 0 || offset > prioritizedGroups.size()) {
-        LOG.error("Container allocated with unknown priority " + priority);
+        LOG.error("Container allocated with unknown priority " + DoYUtil.labelContainer(container));
         continue;
       }
       context.setGroup(prioritizedGroups.get(offset));
@@ -462,11 +464,7 @@ public class ClusterControllerImpl implements ClusterController {
   }
 
   private Task getTask(ContainerId containerId) {
-    Task task = activeContainers.get(containerId);
-    if (task == null) {
-      LOG.error("No container state for " + containerId);
-    }
-    return task;
+    return activeContainers.get(containerId);
   }
 
   @Override
@@ -487,6 +485,12 @@ public class ClusterControllerImpl implements ClusterController {
     for (ContainerStatus status : statuses) {
       Task task = getTask(status.getContainerId());
       if (task == null) {
+        if (task == null) {
+          // Will occur if a container was allocated but rejected.
+          // Any other occurrence is unexpected and an error.
+
+          LOG.warn("Container completed but no associated tak state: " + status.getContainerId() );
+        }
         continue;
       }
       context.setTask(task);
