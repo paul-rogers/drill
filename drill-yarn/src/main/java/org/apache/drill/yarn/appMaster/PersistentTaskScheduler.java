@@ -107,20 +107,18 @@ public abstract class PersistentTaskScheduler extends AbstractScheduler {
   /**
    * Cancel the requested number of tasks. We exclude any tasks that are already
    * in the process of being cancelled. Because we ignore those tasks, it might
-   * be that we want to reduce the task count, but there is nothing to cancel,
-   * since the required number of tasks have already been cancelled.
+   * be that we want to reduce the task count, but there is nothing left to cancel.
    *
    * @param cancelCount
    */
 
   private void cancelTasks(int cancelCount) {
-    int netCancelCount = Math.min(cancelCount, quantity);
     int cancelled = state.getCancelledTaskCount();
-    int cancellable = netCancelCount - cancelled;
+    int cancellable = cancelCount - cancelled;
     int n = cancellable - quantity;
     LOG.info("[" + getName( ) + "] - Cancelling " + cancelCount +
              " tasks. " + cancelled + " are already cancelled, " +
-             cancellable + " more can be cancelled.");
+             cancellable + " more will be cancelled.");
     if (n <= 0) {
       return;
     }
