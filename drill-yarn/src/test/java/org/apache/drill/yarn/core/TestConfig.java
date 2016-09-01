@@ -145,7 +145,7 @@ public class TestConfig {
         config.getString(DrillOnYarnConfig.DRILL_ARCHIVE_KEY));
     assertEquals("/opt/drill", config.getString(DrillOnYarnConfig.DFS_APP_DIR));
     assertEquals("My-App", config.getString(DrillOnYarnConfig.APP_NAME));
-    assertEquals("sys-queue", config.getString(DrillOnYarnConfig.YARN_QUEUE));
+    assertEquals("my-queue", config.getString(DrillOnYarnConfig.YARN_QUEUE));
 
     // Should also have access to Drill options.
     // Does not test Drill's override mechanism because have not found a good
