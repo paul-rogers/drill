@@ -273,9 +273,12 @@ public class Task {
     StringBuilder buf = new StringBuilder();
     buf.append("[id=")
        .append(taskId)
-       .append(", type=")
-       .append(scheduler.getName())
-       .append(", name=")
+       .append(", type=");
+    // Scheduler is unset in some unit tests.
+    if (scheduler !=null ) {
+       buf.append(scheduler.getName());
+    }
+    buf.append(", name=")
        .append(getName());
     if (container != null) {
       buf.append(", host=")

@@ -189,8 +189,9 @@ public class TestConfig {
     doyConfig.mockEnv.put(DrillOnYarnConfig.DRILL_SITE_ENV_VAR,
         "/drill/home/conf");
     doyConfig.setClientPaths();
-    assertFalse(doyConfig.hasSiteDir());
-    assertNull(doyConfig.getRemoteSiteDir());
+    // If $DRILL_HOME/conf is used, we still treat id as a site dir.
+//    assertFalse(doyConfig.hasSiteDir());
+//    assertNull(doyConfig.getRemoteSiteDir());
 
     // Local app id file: composed from Drill home, ZK root and cluster id.
     // (Turns out that there can be two different clusters sharing the same
@@ -201,7 +202,7 @@ public class TestConfig {
         doyConfig.getLocalDrillHome().getAbsolutePath());
     assertEquals("drill", config.getString(DrillOnYarnConfig.ZK_ROOT));
     assertEquals("drillbits1", config.getString(DrillOnYarnConfig.CLUSTER_ID));
-    assertEquals("/drill/drill-drillbits1.appid",
+    assertEquals("/drill/home/drill-drillbits1.appid",
         doyConfig.getLocalAppIdFile().getAbsolutePath());
 
     // Again, but with a site directory. App id is in parent of the site
