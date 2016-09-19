@@ -51,6 +51,9 @@ import com.google.common.base.Stopwatch;
 public class ServiceEngine implements AutoCloseable {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ServiceEngine.class);
 
+  private static final boolean DISABLE_LOOPBACK_CHECK =
+      "true".equals(System.getProperty("drill.disable_loopback_check"));
+
   private final UserServer userServer;
   private final Controller controller;
   private final DataConnectionCreator dataPool;
@@ -178,6 +181,12 @@ public class ServiceEngine implements AutoCloseable {
         }
       }
     });
+  }
+
+  private void checkLoopbackAddress(String address) throws DrillbitStartupException, UnknownHostException {
+    if (!DISABLE_LOOPBACK_CHECK && isDistributedMode && InetAddress.getByName(address).isLoopbackAddress()) {
+      throw new DrillbitStartupException("Drillbit is disallowed to bind to loopback address in distributed mode.");
+    }
   }
 
   @Override
