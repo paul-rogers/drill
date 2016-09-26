@@ -115,6 +115,8 @@ public class ParquetGroupScan extends AbstractFileGroupScan {
   private List<RowGroupInfo> rowGroupInfos;
   private Metadata.ParquetTableMetadataBase parquetTableMetadata = null;
   private String cacheFileRoot = null;
+  private long numRecordsToRead;
+  private static final int  NUM_RECORDS_TO_READ_NOT_SPECIFIED = -1;
 
   /*
    * total number of rows (obtained from parquet footer)
@@ -150,7 +152,7 @@ public class ParquetGroupScan extends AbstractFileGroupScan {
     this.entries = entries;
     this.selectionRoot = selectionRoot;
     this.cacheFileRoot = cacheFileRoot;
-
+    this.numRecordsToRead = NUM_RECORDS_TO_READ_NOT_SPECIFIED;
     init(null);
   }
 
@@ -170,7 +172,7 @@ public class ParquetGroupScan extends AbstractFileGroupScan {
 
     this.selectionRoot = selectionRoot;
     this.cacheFileRoot = cacheFileRoot;
-
+    this.numRecordsToRead = NUM_RECORDS_TO_READ_NOT_SPECIFIED;
     final FileSelection fileSelection = expandIfNecessary(selection);
 
     this.entries = Lists.newArrayList();
@@ -213,6 +215,7 @@ public class ParquetGroupScan extends AbstractFileGroupScan {
     this.usedMetadataCache = that.usedMetadataCache;
     this.parquetTableMetadata = that.parquetTableMetadata;
     this.cacheFileRoot = that.cacheFileRoot;
+    this.numRecordsToRead = that.numRecordsToRead;
   }
 
   /**
@@ -825,7 +828,7 @@ public class ParquetGroupScan extends AbstractFileGroupScan {
         String.format("MinorFragmentId %d has no read entries assigned", minorFragmentId));
 
     return new ParquetRowGroupScan(
-        getUserName(), formatPlugin, convertToReadEntries(rowGroupsForMinor), columns, selectionRoot);
+        getUserName(), formatPlugin, convertToReadEntries(rowGroupsForMinor), numRecordsToRead, columns, selectionRoot);
   }
 
   private List<RowGroupReadEntry> convertToReadEntries(List<RowGroupInfo> rowGroups) {
@@ -840,6 +843,10 @@ public class ParquetGroupScan extends AbstractFileGroupScan {
   @Override
   public int getMaxParallelizationWidth() {
     return rowGroupInfos.size();
+  }
+
+  public long getNumRecordsToRead() {
+    return numRecordsToRead;
   }
 
   public List<SchemaPath> getColumns() {
@@ -862,6 +869,14 @@ public class ParquetGroupScan extends AbstractFileGroupScan {
   @Override
   public String getDigest() {
     return toString();
+  }
+
+  public void setCacheFileRoot(String cacheFileRoot) {
+    this.cacheFileRoot = cacheFileRoot;
+  }
+
+  public void setNumRecordsToRead(long numRecords) {
+    this.numRecordsToRead = numRecords;
   }
 
   @Override
@@ -894,7 +909,7 @@ public class ParquetGroupScan extends AbstractFileGroupScan {
   public FileGroupScan clone(FileSelection selection) throws IOException {
     ParquetGroupScan newScan = new ParquetGroupScan(this);
     newScan.modifyFileSelection(selection);
-    newScan.cacheFileRoot = selection.cacheFileRoot;
+    newScan.setCacheFileRoot(selection.cacheFileRoot);
     newScan.init(selection.getMetaContext());
     return newScan;
   }
@@ -921,11 +936,15 @@ public class ParquetGroupScan extends AbstractFileGroupScan {
       }
     }
 
+    // set numRecordsToRead to limit value.
+    setNumRecordsToRead(maxRecords);
+
     Set<String> fileNames = Sets.newHashSet(); // HashSet keeps a fileName unique.
     for (RowGroupInfo rowGroupInfo : rowGroupInfos.subList(0, index)) {
       fileNames.add(rowGroupInfo.getPath());
     }
 
+    // If there is no change in fileSet, no need to create new groupScan.
     if (fileNames.size() == fileSet.size() ) {
       // There is no reduction of rowGroups. Return the original groupScan.
       logger.debug("applyLimit() does not apply!");

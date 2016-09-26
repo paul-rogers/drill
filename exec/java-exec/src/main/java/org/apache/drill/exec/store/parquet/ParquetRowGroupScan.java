@@ -50,6 +50,7 @@ public class ParquetRowGroupScan extends AbstractBase implements SubScan {
   private final ParquetFormatPlugin formatPlugin;
   private final List<RowGroupReadEntry> rowGroupReadEntries;
   private final List<SchemaPath> columns;
+  private long  numRecordsToRead;
   private String selectionRoot;
 
   @JsonCreator
@@ -59,18 +60,20 @@ public class ParquetRowGroupScan extends AbstractBase implements SubScan {
       @JsonProperty("storage") StoragePluginConfig storageConfig, //
       @JsonProperty("format") FormatPluginConfig formatConfig, //
       @JsonProperty("entries") LinkedList<RowGroupReadEntry> rowGroupReadEntries, //
+      @JsonProperty("numRecordsToRead") long numRecordsToRead, //
       @JsonProperty("columns") List<SchemaPath> columns, //
       @JsonProperty("selectionRoot") String selectionRoot //
   ) throws ExecutionSetupException {
     this(userName, (ParquetFormatPlugin) registry.getFormatPlugin(Preconditions.checkNotNull(storageConfig),
             formatConfig == null ? new ParquetFormatConfig() : formatConfig),
-        rowGroupReadEntries, columns, selectionRoot);
+        rowGroupReadEntries, numRecordsToRead, columns, selectionRoot);
   }
 
   public ParquetRowGroupScan( //
       String userName, //
       ParquetFormatPlugin formatPlugin, //
       List<RowGroupReadEntry> rowGroupReadEntries, //
+      long numRecordsToRead, //
       List<SchemaPath> columns, //
       String selectionRoot //
   ) {
@@ -80,6 +83,7 @@ public class ParquetRowGroupScan extends AbstractBase implements SubScan {
     this.rowGroupReadEntries = rowGroupReadEntries;
     this.columns = columns == null ? GroupScan.ALL_COLUMNS : columns;
     this.selectionRoot = selectionRoot;
+    this.numRecordsToRead = numRecordsToRead;
   }
 
   @JsonProperty("entries")
@@ -114,7 +118,7 @@ public class ParquetRowGroupScan extends AbstractBase implements SubScan {
   @Override
   public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children) throws ExecutionSetupException {
     Preconditions.checkArgument(children.isEmpty());
-    return new ParquetRowGroupScan(getUserName(), formatPlugin, rowGroupReadEntries, columns, selectionRoot);
+    return new ParquetRowGroupScan(getUserName(), formatPlugin, rowGroupReadEntries, numRecordsToRead, columns, selectionRoot);
   }
 
   @Override
@@ -124,6 +128,11 @@ public class ParquetRowGroupScan extends AbstractBase implements SubScan {
 
   public List<SchemaPath> getColumns() {
     return columns;
+  }
+
+  @JsonProperty("numRecordsToRead")
+  public long getNumRecordsToRead() {
+    return numRecordsToRead;
   }
 
   @Override

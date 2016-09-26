@@ -67,7 +67,7 @@ public class ParquetScanBatchCreator implements BatchCreator<ParquetRowGroupScan
 
     if (!columnExplorer.isStarQuery()) {
       rowGroupScan = new ParquetRowGroupScan(rowGroupScan.getUserName(), rowGroupScan.getStorageEngine(),
-          rowGroupScan.getRowGroupReadEntries(), columnExplorer.getTableColumns(), rowGroupScan.getSelectionRoot());
+          rowGroupScan.getRowGroupReadEntries(), rowGroupScan.getNumRecordsToRead(), columnExplorer.getTableColumns(), rowGroupScan.getSelectionRoot());
       rowGroupScan.setOperatorId(rowGroupScan.getOperatorId());
     }
 
@@ -107,7 +107,7 @@ public class ParquetScanBatchCreator implements BatchCreator<ParquetRowGroupScan
         if (!context.getOptions().getOption(ExecConstants.PARQUET_NEW_RECORD_READER).bool_val && !isComplex(footers.get(e.getPath()))) {
           readers.add(
               new ParquetRecordReader(
-                  context, e.getPath(), e.getRowGroupIndex(), fs,
+                  context, e.getPath(), e.getRowGroupIndex(), rowGroupScan.getNumRecordsToRead(), fs,
                   CodecFactory.createDirectCodecFactory(
                   fs.getConf(),
                   new ParquetDirectByteBufferAllocator(oContext.getAllocator()), 0),
