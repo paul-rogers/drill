@@ -285,7 +285,7 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
     } catch (RelOptPlanner.CannotPlanException ex) {
       logger.error(ex.getMessage());
 
-      if(JoinUtils.checkCartesianJoin(relNode, new ArrayList<Integer>(), new ArrayList<Integer>())) {
+      if(JoinUtils.checkCartesianJoin(relNode, new ArrayList<Integer>(), new ArrayList<Integer>(), new ArrayList<Boolean>())) {
         throw new UnsupportedRelOperatorException("This query cannot be planned possibly due to either a cartesian join or an inequality join");
       } else {
         throw ex;
@@ -444,7 +444,7 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
     } catch (RelOptPlanner.CannotPlanException ex) {
       logger.error(ex.getMessage());
 
-      if(JoinUtils.checkCartesianJoin(drel, new ArrayList<Integer>(), new ArrayList<Integer>())) {
+      if(JoinUtils.checkCartesianJoin(drel, new ArrayList<Integer>(), new ArrayList<Integer>(), new ArrayList<Boolean>())) {
         throw new UnsupportedRelOperatorException("This query cannot be planned possibly due to either a cartesian join or an inequality join");
       } else {
         throw ex;
@@ -467,7 +467,7 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
       } catch (RelOptPlanner.CannotPlanException ex) {
         logger.error(ex.getMessage());
 
-        if(JoinUtils.checkCartesianJoin(drel, new ArrayList<Integer>(), new ArrayList<Integer>())) {
+        if(JoinUtils.checkCartesianJoin(drel, new ArrayList<Integer>(), new ArrayList<Integer>(), new ArrayList<Boolean>())) {
           throw new UnsupportedRelOperatorException("This query cannot be planned possibly due to either a cartesian join or an inequality join");
         } else {
           throw ex;
