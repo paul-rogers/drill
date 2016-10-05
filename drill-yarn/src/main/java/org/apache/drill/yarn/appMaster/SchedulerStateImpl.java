@@ -137,7 +137,17 @@ public final class SchedulerStateImpl
       return false;
     }
 
+    // Limit the maximum number of requests to the limit set by
+    // the scheduler.
+
     maxRequests = Math.min(maxRequests, maxCurrentRequests());
+
+    // Further limit requests to account for in-flight requests.
+
+    maxRequests -= allocatingTasks.size( );
+
+    // Request containers as long as there are pending tasks remaining.
+
     for (int i = 0; i < maxRequests && !pendingTasks.isEmpty(); i++) {
       context.setTask(pendingTasks.get(0));
       context.getState().requestContainer(context);
@@ -197,15 +207,25 @@ public final class SchedulerStateImpl
 
   @Override
   public void checkTasks(EventContext context, long curTime) {
-    for (Task task : allocatingTasks) {
+
+    // Iterate over tasks using a temporary list. The tick event may cause a timeout
+    // that turns around and modifies these lists.
+
+    List<Task> temp = new ArrayList<>( );
+    temp.addAll( allocatingTasks );
+    for (Task task : temp) {
       context.setTask(task);
       context.getState().tick(context, curTime);
     }
-    for (Task task : pendingTasks) {
+    temp.clear();
+    temp.addAll( pendingTasks );
+    for (Task task : temp) {
       context.setTask(task);
       context.getState().tick(context, curTime);
     }
-    for (Task task : activeContainers.values()) {
+    temp.clear();
+    temp.addAll( activeContainers.values( ) );
+    for (Task task : temp) {
       context.setTask(task);
       context.getState().tick(context, curTime);
     }
@@ -389,6 +409,7 @@ public final class SchedulerStateImpl
   @Override
   public void cancel(Task task) {
     EventContext context = new EventContext(controller, task);
+    LOG.info( task.getLabel() + " Task cancelled" );
     context.getState().cancel(context);
   }
 
