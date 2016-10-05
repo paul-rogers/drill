@@ -62,7 +62,12 @@ import org.glassfish.jersey.server.mvc.freemarker.FreemarkerMvcFeature;
  */
 
 public class WebUiPageTree extends PageTree {
-  // private static final Log LOG = LogFactory.getLog(WebUiPageTree.class);
+
+  /**
+   * Main DoY page that displays cluster status, and the status of
+   * the resource groups. Available only to the admin user when
+   * DoY is secured.
+   */
 
   @Path("/")
   @RolesAllowed(ADMIN_ROLE)
@@ -79,6 +84,14 @@ public class WebUiPageTree extends PageTree {
       return new Viewable("/drill-am/index.ftl", toModel(sc, model));
     }
   }
+
+  /**
+   * Pages, adapted from Drill, that display the login and logout pages.
+   * Login uses the security mechanism, again borrowed from Drill, to
+   * validate the user against either the simple user/password
+   * configured in DoY, or the user who launched DoY using the
+   * Drill security mechanism.
+   */
 
   @Path("/")
   @PermitAll
@@ -135,6 +148,13 @@ public class WebUiPageTree extends PageTree {
     }
   }
 
+  /**
+   * DoY provides a link to YARN to display the AM UI. YARN wants to display the
+   * linked page in a frame, which does not play well with the DoY UI. To avoid
+   * this, we give YARN a link to this redirect page which does nothing other
+   * than to redirect the browser to the (full) DoY main UI.
+   */
+
   @Path("/redirect")
   @PermitAll
   public static class RedirectPage {
@@ -149,11 +169,17 @@ public class WebUiPageTree extends PageTree {
     }
   }
 
+  /**
+   * Display the configuration page which displays the contents of
+   * DoY and selected Drill config as name/value pairs. Visible only
+   * to the admin when DoY is secure.
+   */
+
   @Path("/config")
   @RolesAllowed(ADMIN_ROLE)
   public static class ConfigPage {
     @Inject
-    SecurityContext sc;
+    private SecurityContext sc;
 
     @GET
     @Produces(MediaType.TEXT_HTML)
@@ -163,11 +189,17 @@ public class WebUiPageTree extends PageTree {
     }
   }
 
+  /**
+   * Displays the list of Drillbits showing details for each Drillbit.
+   * (DoY uses the generic term "task", but, at present, the only
+   * task that DoY runs is a Drillbit.
+   */
+
   @Path("/drillbits")
   @RolesAllowed(ADMIN_ROLE)
   public static class DrillbitsPage {
     @Inject
-    SecurityContext sc;
+    private SecurityContext sc;
 
     @GET
     @Produces(MediaType.TEXT_HTML)
@@ -196,14 +228,24 @@ public class WebUiPageTree extends PageTree {
     }
   }
 
+  /**
+   * Displays a warning page to ask the user if they want to cancel
+   * a Drillbit. This is a bit old-school; we display this as a
+   * separate page. A good future enhancement is to do this as
+   * a pop-up in Javascript. The GET request display the confirmation
+   * page, the PUT request confirms cancellation and does the deed.
+   * The task to be cancelled appears as a query parameter:
+   * <pre>.../cancel?id=&lt;task id></pre>
+   */
+
   @Path("/cancel/")
   @RolesAllowed(ADMIN_ROLE)
   public static class CancelDrillbitPage {
     @Inject
-    SecurityContext sc;
+    private SecurityContext sc;
 
     @QueryParam("id")
-    int id;
+    private int id;
 
     @GET
     @Produces(MediaType.TEXT_HTML)
@@ -232,6 +274,12 @@ public class WebUiPageTree extends PageTree {
     }
   }
 
+  /**
+   * Displays a history of completed tasks which indicates failed or cancelled
+   * Drillbits. Helps the admin to understand what has been happening on the
+   * cluster if Drillbits have died.
+   */
+
   @Path("/history")
   @RolesAllowed(ADMIN_ROLE)
   public static class HistoryPage {
@@ -251,6 +299,10 @@ public class WebUiPageTree extends PageTree {
     }
   }
 
+  /**
+   * Page that lets the admin change the cluster size or shut down the cluster.
+   */
+
   @Path("/manage")
   @RolesAllowed(ADMIN_ROLE)
   public static class ManagePage {
@@ -267,7 +319,7 @@ public class WebUiPageTree extends PageTree {
   }
 
   /**
-   * Pass information to the acknowledgement page.
+   * Passes information to the acknowledgement page.
    */
 
   public static class Acknowledge {
@@ -292,7 +344,7 @@ public class WebUiPageTree extends PageTree {
   }
 
   /**
-   * Pass information to the confirmation page.
+   * Passes information to the confirmation page.
    */
 
   public static class ConfirmShrink {
@@ -332,6 +384,21 @@ public class WebUiPageTree extends PageTree {
       return id;
     }
   }
+
+  /**
+   * Confirm that the user wants to resize the cluster. Displays a warning if
+   * the user wants to shrink the cluster, since, at present, doing so will
+   * kill any in-flight queries. The GET request display the warning,
+   * the POST request confirms the action. The action itself is provided
+   * as query parameters:
+   * <pre>.../resize?type=&lt;type>&n=&lt;quantity></pre>
+   * Where the type is one of "resize", "grow", "shrink" or
+   * "force-shrink" and n is the associated quantity.
+   * <p>
+   * Note that the manage page only provides the "resize" option; the
+   * grow and shrink options were removed from the Web UI and are only
+   * visible through the REST API.
+   */
 
   @Path("/resize")
   @RolesAllowed(ADMIN_ROLE)
@@ -391,6 +458,14 @@ public class WebUiPageTree extends PageTree {
     }
   }
 
+  /**
+   * Confirmation page when the admin asks to stop the cluster.
+   * The GET request displays the confirmation, the POST does
+   * the deed. As for other confirmation pages, this is an old-style,
+   * quick & dirty solution. A more modern solution would be to use JavaScript
+   * to pop up a confirmation dialog.
+   */
+
   @Path("/stop/")
   @RolesAllowed(ADMIN_ROLE)
   public static class StopPage {
@@ -412,6 +487,15 @@ public class WebUiPageTree extends PageTree {
       return new Viewable("/drill-am/confirm.ftl", toModel(sc, confirm));
     }
   }
+
+  /**
+   * Build the pages for the Web UI using Freemarker to implement the
+   * MVC mechanism. This class builds on a rather complex mechanism; understand
+   * that to understand what the lines of code below are doing.
+   *
+   * @param dispatcher the DoY AM dispatcher that receives requests for
+   * information about, or requests to change the state of, the Drill clutser
+   */
 
   public WebUiPageTree(Dispatcher dispatcher) {
     super(dispatcher);
