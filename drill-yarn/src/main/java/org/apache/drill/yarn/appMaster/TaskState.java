@@ -208,6 +208,7 @@ public abstract class TaskState {
       }
       LOG.info(task.getLabel() + " - Request timed out after + "
           + timeoutSec + " secs.");
+      context.yarn.removeContainerRequest(task.containerRequest);
       context.group.dequeueAllocatingTask(task);
       task.disposition = Task.Disposition.LAUNCH_FAILED;
       task.completionTime = System.currentTimeMillis();
@@ -856,6 +857,8 @@ public abstract class TaskState {
    */
 
   private void illegalState(EventContext context, String action) {
+    // Intentionally assert: fails during debugging, soldiers on in production.
+
     assert false;
     LOG.error(context.task.getLabel() + " - Action " + action
         + " in wrong state: " + toString(),

@@ -197,15 +197,25 @@ public final class SchedulerStateImpl
 
   @Override
   public void checkTasks(EventContext context, long curTime) {
-    for (Task task : allocatingTasks) {
+
+    // Iterate over tasks using a temporary list. The tick event may cause a timeout
+    // that turns around and modifies these lists.
+
+    List<Task> temp = new ArrayList<>( );
+    temp.addAll( allocatingTasks );
+    for (Task task : temp) {
       context.setTask(task);
       context.getState().tick(context, curTime);
     }
-    for (Task task : pendingTasks) {
+    temp.clear();
+    temp.addAll( pendingTasks );
+    for (Task task : temp) {
       context.setTask(task);
       context.getState().tick(context, curTime);
     }
-    for (Task task : activeContainers.values()) {
+    temp.clear();
+    temp.addAll( activeContainers.values( ) );
+    for (Task task : temp) {
       context.setTask(task);
       context.getState().tick(context, curTime);
     }

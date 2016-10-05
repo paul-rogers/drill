@@ -489,7 +489,7 @@ public class ClusterControllerImpl implements ClusterController {
           // Will occur if a container was allocated but rejected.
           // Any other occurrence is unexpected and an error.
 
-          LOG.warn("Container completed but no associated tak state: " + status.getContainerId() );
+          LOG.warn("Container completed but no associated task state: " + status.getContainerId() );
         }
         continue;
       }

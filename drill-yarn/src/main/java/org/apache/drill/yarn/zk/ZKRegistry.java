@@ -348,6 +348,7 @@ public class ZKRegistry
     // ZK connection.
 
     if (tracker.state == DrillbitTracker.State.REGISTERED) {
+      LOG.info("Re-registration of known drillbit: " + key);
       return null;
     }
 
@@ -355,6 +356,7 @@ public class ZKRegistry
     // Or, if the ZK connection was lost and regained, the
     // state changes from DEREGISTERED --> REGISTERED
 
+    LOG.info("Registration of expected drillbit: " + key + ", task: " + tracker.task.toString() );
     tracker.endpoint = dbe;
     tracker.becomeRegistered();
     return new AckEvent(tracker.task, dbe);
@@ -408,6 +410,9 @@ public class ZKRegistry
     assert tracker != null;
     if (tracker == null) {
       // Something is terribly wrong.
+      // Have seen this when a user kills the Drillbit just after it starts. Evidently, the
+      // Drillbit registers with ZK just before it is killed, but before DoY hears about
+      // the registration.
 
       LOG.error("Internal error - Unexpected drillbit unregistration: " + key);
       return null;
@@ -421,6 +426,7 @@ public class ZKRegistry
       registryHandler.releaseHost(dbe.getAddress());
       return null;
     }
+    LOG.info("Unregistration of known drillbit: " + key + ", task: " + tracker.task.toString() );
     tracker.becomeUnregistered();
     return new AckEvent(tracker.task, dbe);
   }
