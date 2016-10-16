@@ -217,7 +217,8 @@ public class DrillClient implements Closeable, ConnectionThrottle {
       if (ownsZkConnection) {
         try {
           this.clusterCoordinator = new ZKClusterCoordinator(this.config, connect);
-          this.clusterCoordinator.start(10000);
+          final String timeout = props.getProperty("zk_timeout", "10");
+          this.clusterCoordinator.start(Integer.parseInt(timeout) * 1000L);
         } catch (Exception e) {
           throw new RpcException("Failure setting up ZK for client.", e);
         }
