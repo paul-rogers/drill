@@ -750,6 +750,7 @@ public class ClusterControllerImpl implements ClusterController {
         return true;
       }
     }
+    LOG.warn( "Requested to cancel task, but no task found: " + id );
     return false;
   }
 

@@ -356,7 +356,7 @@ public class ZKRegistry
     // Or, if the ZK connection was lost and regained, the
     // state changes from DEREGISTERED --> REGISTERED
 
-    LOG.info("Registration of expected drillbit: " + key + ", task: " + tracker.task.toString() );
+    LOG.info("Drillbit registered: " + key + ", task: " + tracker.task.toString() );
     tracker.endpoint = dbe;
     tracker.becomeRegistered();
     return new AckEvent(tracker.task, dbe);
@@ -501,7 +501,7 @@ public class ZKRegistry
     if (tracker==null) {
       return false;
     }
-    return tracker.state != DrillbitTracker.State.REGISTERED;
+    return tracker.state == DrillbitTracker.State.REGISTERED;
   }
 
   /**

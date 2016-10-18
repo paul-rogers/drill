@@ -399,6 +399,7 @@ public final class SchedulerStateImpl
   @Override
   public void cancel(Task task) {
     EventContext context = new EventContext(controller, task);
+    LOG.info( task.getLabel() + " Task cancelled" );
     context.getState().cancel(context);
   }
 

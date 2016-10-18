@@ -529,6 +529,14 @@ public abstract class TaskState {
     }
   }
 
+  /**
+   * Task exited, but we are waiting for confirmation from Zookeeper that
+   * the Drillbit registration has been removed. Required to associate
+   * ZK registrations with Drillbits. Ensures that we don't try to
+   * start a new Drillbit on a node until the previous Drillbit
+   * completely shut down, including dropping out of ZK.
+   */
+
   private static class WaitEndAckState extends TaskState {
     protected WaitEndAckState() {
       super(false, TaskLifecycleListener.Event.RUNNING, false);
