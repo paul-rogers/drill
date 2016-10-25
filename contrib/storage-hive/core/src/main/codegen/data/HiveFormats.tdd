@@ -14,10 +14,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-data: {
-    drillOI:tdd(../data/HiveTypes.tdd)
-    hiveFormat:tdd(../data/HiveFormats.tdd)
-}
-freemarkerLinks: {
-    includes: includes/
+{
+  map: [
+    {
+      hiveFormat: "HiveAvro",
+      hiveReader: "Avro",
+    },
+    {
+      hiveFormat: "HiveParquet",
+      hiveReader: "Parquet",
+    },
+    {
+      hiveFormat: "HiveText",
+      hiveReader: "Text",
+    },
+    {
+      hiveFormat: "HiveOrc",
+      hiveReader: "Orc",
+    },
+    {
+       hiveFormat: "HiveRCFile",
+       hiveReader: "RCFile",
+    },
+    {
+      hiveFormat: "HiveDefault",
+      hiveReader: "Default",
+    }
+  ]
 }
