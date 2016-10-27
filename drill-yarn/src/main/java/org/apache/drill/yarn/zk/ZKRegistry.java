@@ -426,7 +426,7 @@ public class ZKRegistry
       registryHandler.releaseHost(dbe.getAddress());
       return null;
     }
-    LOG.info("Unregistration of known drillbit: " + key + ", task: " + tracker.task.toString() );
+    LOG.info("Drillbit unregistered: " + key + ", task: " + tracker.task.toString() );
     tracker.becomeUnregistered();
     return new AckEvent(tracker.task, dbe);
   }

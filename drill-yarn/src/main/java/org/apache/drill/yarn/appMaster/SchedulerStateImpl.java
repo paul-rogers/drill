@@ -137,7 +137,17 @@ public final class SchedulerStateImpl
       return false;
     }
 
+    // Limit the maximum number of requests to the limit set by
+    // the scheduler.
+
     maxRequests = Math.min(maxRequests, maxCurrentRequests());
+
+    // Further limit requests to account for in-flight requests.
+
+    maxRequests -= allocatingTasks.size( );
+
+    // Request containers as long as there are pending tasks remaining.
+
     for (int i = 0; i < maxRequests && !pendingTasks.isEmpty(); i++) {
       context.setTask(pendingTasks.get(0));
       context.getState().requestContainer(context);
