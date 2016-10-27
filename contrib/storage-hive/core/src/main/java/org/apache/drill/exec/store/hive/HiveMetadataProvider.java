@@ -83,7 +83,7 @@ public class HiveMetadataProvider {
   public HiveStats getStats(final HiveReadEntry hiveReadEntry) throws IOException {
     final Stopwatch timeGetStats = Stopwatch.createStarted();
 
-    final Table table = hiveReadEntry.getTable();
+    final HiveTable table = hiveReadEntry.getTable();
     try {
       if (!isPartitionedTable) {
         final Properties properties = MetaStoreUtils.getTableMetadata(table);
@@ -96,7 +96,7 @@ public class HiveMetadataProvider {
         return getStatsEstimateFromInputSplits(getTableInputSplits());
       } else {
         final HiveStats aggStats = new HiveStats(0, 0);
-        for(Partition partition : hiveReadEntry.getPartitions()) {
+        for(HivePartition partition : hiveReadEntry.getPartitions()) {
           final Properties properties = HiveUtilities.getPartitionMetadata(partition, table);
           HiveStats stats = getStatsFromProps(properties);
 
@@ -110,7 +110,7 @@ public class HiveMetadataProvider {
         return aggStats;
       }
     } catch (final Exception e) {
-      throw new IOException("Failed to get numRows from HiveTable", e);
+      throw new IOException("Failed to get numRows from HiveTableWrapper", e);
     } finally {
       logger.debug("Took {} µs to get stats from {}.{}", timeGetStats.elapsed(TimeUnit.NANOSECONDS) / 1000,
           table.getDbName(), table.getTableName());
@@ -124,7 +124,7 @@ public class HiveMetadataProvider {
       return tableInputSplits;
     }
 
-    final Properties properties = MetaStoreUtils.getTableMetadata(hiveReadEntry.getTable());
+    final Properties properties = HiveUtilities.getTableMetadata(hiveReadEntry.getTable());
     tableInputSplits = splitInputWithUGI(properties, hiveReadEntry.getTable().getSd(), null);
 
     return tableInputSplits;
@@ -133,7 +133,7 @@ public class HiveMetadataProvider {
   /** Helper method which returns the InputSplits for given partition. InputSplits are cached to speed up subsequent
    * metadata cache requests for the same partition(s).
    */
-  private List<InputSplitWrapper> getPartitionInputSplits(final Partition partition) throws Exception {
+  private List<InputSplitWrapper> getPartitionInputSplits(final HivePartition partition) throws Exception {
     if (partitionInputSplitMap.containsKey(partition)) {
       return partitionInputSplitMap.get(partition);
     }
@@ -161,7 +161,7 @@ public class HiveMetadataProvider {
       }
 
       final List<InputSplitWrapper> splits = Lists.newArrayList();
-      for (Partition p : hiveReadEntry.getPartitions()) {
+      for (HivePartition p : hiveReadEntry.getPartitions()) {
         splits.addAll(getPartitionInputSplits(p));
       }
       return splits;

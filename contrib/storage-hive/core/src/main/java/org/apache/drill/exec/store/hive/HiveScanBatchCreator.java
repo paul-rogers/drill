@@ -63,9 +63,9 @@ public class HiveScanBatchCreator implements BatchCreator<HiveSubScan> {
   public ScanBatch getBatch(FragmentContext context, HiveSubScan config, List<RecordBatch> children)
       throws ExecutionSetupException {
     List<RecordReader> readers = Lists.newArrayList();
-    Table table = config.getTable();
+    HiveTable table = config.getTable();
     List<InputSplit> splits = config.getInputSplits();
-    List<Partition> partitions = config.getPartitions();
+    List<HivePartition> partitions = config.getPartitions();
     boolean hasPartitions = (partitions != null && partitions.size() > 0);
     int i = 0;
     final UserGroupInformation proxyUgi = ImpersonationUtil.createProxyUgi(config.getUserName(),
@@ -80,7 +80,7 @@ public class HiveScanBatchCreator implements BatchCreator<HiveSubScan> {
     }
     Constructor<? extends HiveAbstractReader> readerConstructor = null;
     try {
-      readerConstructor = readerClass.getConstructor(Table.class, Partition.class,
+      readerConstructor = readerClass.getConstructor(HiveTable.class, HivePartition.class,
           InputSplit.class, List.class, FragmentContext.class, HiveConf.class,
           UserGroupInformation.class);
       for (InputSplit split : splits) {

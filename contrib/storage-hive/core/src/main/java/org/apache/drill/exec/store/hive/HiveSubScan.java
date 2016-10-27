@@ -58,9 +58,9 @@ public class HiveSubScan extends AbstractBase implements SubScan {
   @JsonIgnore
   protected List<InputSplit> inputSplits = Lists.newArrayList();
   @JsonIgnore
-  protected Table table;
+  protected HiveTable table;
   @JsonIgnore
-  protected List<Partition> partitions;
+  protected List<HivePartition> partitions;
   @JsonIgnore
   protected HiveStoragePlugin storagePlugin;
 
@@ -112,11 +112,11 @@ public class HiveSubScan extends AbstractBase implements SubScan {
     return splits;
   }
 
-  public Table getTable() {
+  public HiveTable getTable() {
     return table;
   }
 
-  public List<Partition> getPartitions() {
+  public List<HivePartition> getPartitions() {
     return partitions;
   }
 

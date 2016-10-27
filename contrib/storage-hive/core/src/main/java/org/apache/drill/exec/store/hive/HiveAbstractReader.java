@@ -67,8 +67,8 @@ public abstract class HiveAbstractReader extends AbstractRecordReader {
 
   protected final DrillBuf managedBuffer;
 
-  protected Table table;
-  protected Partition partition;
+  protected HiveTable table;
+  protected HivePartition partition;
   protected InputSplit inputSplit;
   protected List<String> selectedColumnNames;
   protected List<StructField> selectedStructFieldRefs = Lists.newArrayList();
@@ -106,7 +106,7 @@ public abstract class HiveAbstractReader extends AbstractRecordReader {
 
   protected static final int TARGET_RECORD_COUNT = 4000;
 
-  public HiveAbstractReader(Table table, Partition partition, InputSplit inputSplit, List<SchemaPath> projectedColumns,
+  public HiveAbstractReader(HiveTable table, HivePartition partition, InputSplit inputSplit, List<SchemaPath> projectedColumns,
                        FragmentContext context, final HiveConf hiveConf,
                        UserGroupInformation proxyUgi) throws ExecutionSetupException {
     this.table = table;
@@ -130,7 +130,7 @@ public abstract class HiveAbstractReader extends AbstractRecordReader {
 
     Properties tableProperties;
     try {
-      tableProperties = MetaStoreUtils.getTableMetadata(table);
+      tableProperties = HiveUtilities.getTableMetadata(table);
       final Properties partitionProperties =
           (partition == null) ?  tableProperties :
               HiveUtilities.getPartitionMetadata(partition, table);

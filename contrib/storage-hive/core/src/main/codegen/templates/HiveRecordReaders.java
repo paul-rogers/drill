@@ -31,8 +31,6 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.hadoop.hive.metastore.api.Partition;
-import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -63,7 +61,7 @@ public class Hive${entry.hiveReader}Reader extends HiveAbstractReader {
   Object value;
 </#if>
 
-  public Hive${entry.hiveReader}Reader(Table table, Partition partition, InputSplit inputSplit, List<SchemaPath> projectedColumns,
+  public Hive${entry.hiveReader}Reader(HiveTable table, HivePartition partition, InputSplit inputSplit, List<SchemaPath> projectedColumns,
                        FragmentContext context, final HiveConf hiveConf,
                        UserGroupInformation proxyUgi) throws ExecutionSetupException {
     super(table, partition, inputSplit, projectedColumns, context, hiveConf, proxyUgi);
