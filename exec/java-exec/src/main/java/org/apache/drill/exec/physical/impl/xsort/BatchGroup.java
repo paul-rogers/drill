@@ -42,6 +42,13 @@ import org.apache.hadoop.fs.Path;
 
 import com.google.common.base.Stopwatch;
 
+/**
+ * Represents a group of batches spilled to disk.
+ * <p>
+ * The batches are defined by a schema which can change over time. When the schema changes,
+ * all existing and new batches are coerced into the new schema.
+ */
+
 public class BatchGroup implements VectorAccessible, AutoCloseable {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BatchGroup.class);
 
