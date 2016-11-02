@@ -390,18 +390,15 @@ public class ScriptUtils {
 
     private String loadFile(File file) throws IOException {
       StringBuilder buf = new StringBuilder();
-      BufferedReader reader;
-      try {
-        reader = new BufferedReader(new FileReader(file));
+      try  (BufferedReader reader = new BufferedReader(new FileReader(file)) ) {
+        String line;
+        while ((line = reader.readLine()) != null) {
+          buf.append(line);
+          buf.append("\n");
+        }
       } catch (FileNotFoundException e) {
         return null;
       }
-      String line;
-      while ((line = reader.readLine()) != null) {
-        buf.append(line);
-        buf.append("\n");
-      }
-      reader.close();
       return buf.toString();
     }
 
@@ -580,6 +577,7 @@ public class ScriptUtils {
     public File pidFile;
     public File outputFile;
     public boolean preserveLogs;
+    private String logName = "drillbit";
 
     public ScriptRunner(String script) {
       this.script = script;
@@ -624,6 +622,11 @@ public class ScriptUtils {
 
     public ScriptRunner withLogDir(File logDir) {
       this.logDir = logDir;
+      return this;
+    }
+
+    public ScriptRunner withLogName(String logName) {
+      this.logName  = logName;
       return this;
     }
 
@@ -701,27 +704,21 @@ public class ScriptUtils {
     private void captureOutput(RunResult result) throws IOException {
       // Capture the Java arguments which the wrapper script wrote to a file.
 
-      BufferedReader reader;
-      try {
-        reader = new BufferedReader(new FileReader(outputFile));
-      } catch (FileNotFoundException e) {
-        return;
-      }
-      try {
+      try  (BufferedReader reader = new BufferedReader(new FileReader(outputFile))) {
         result.echoArgs = new ArrayList<>();
         String line;
         while ((line = reader.readLine()) != null) {
           result.echoArgs.add(line);
         }
         result.analyze();
-      } finally {
-        reader.close();
+      } catch (FileNotFoundException e) {
+        return;
       }
     }
 
     private void captureLog(RunResult result) throws IOException {
       result.logDir = logDir;
-      result.logFile = new File(logDir, "drillbit.log");
+      result.logFile = new File(logDir, logName + ".log");
       if (result.logFile.exists()) {
         result.loadLog();
       } else {

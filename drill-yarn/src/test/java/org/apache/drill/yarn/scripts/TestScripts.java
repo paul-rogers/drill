@@ -273,6 +273,25 @@ public class TestScripts {
       result.validateDrillLog();
     }
 
+    // Test the DRILL_LOG_NAME env var added late in Release 1.9.
+
+    {
+      String logPath = logsDir.getAbsolutePath();
+      RunResult result = new DrillbitRun(DrillbitRun.DRILLBIT_RUN)
+          .addEnv("DRILL_LOG_DIR", logPath)
+          .addEnv("DRILL_LOG_NAME", "mylog")
+          .withLogDir(logsDir)
+          .withLogName("mylog")
+          .run();
+      assertEquals(0, result.returnCode);
+      result.validateArgs(
+          new String[] { "-Dlog.path=" + logPath + "/mylog.log",
+              "-Dlog.query.path=" + logPath + "/mylog_queries.json", });
+      result.validateStdOut();
+      result.validateStdErr();
+      result.validateDrillLog();
+    }
+
   }
 
   /**
