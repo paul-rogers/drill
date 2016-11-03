@@ -143,7 +143,7 @@ public class TestBaseViewSupport extends BaseTestQuery {
           .sqlQuery(String.format("DROP VIEW IF EXISTS %s", viewFullName))
           .unOrdered()
           .baselineColumns("ok", "summary")
-          .baselineValues(true, String.format("View [%s] not found in schema [%s].", viewName, finalSchema))
+          .baselineValues(false, String.format("View [%s] not found in schema [%s].", viewName, finalSchema))
           .go();
     }
   }

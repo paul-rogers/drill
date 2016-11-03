@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.core.util.MinimalPrettyPrinter;
-import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.store.StorageStrategy;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.store.EventBasedRecordWriter;
 import org.apache.drill.exec.store.EventBasedRecordWriter.FieldConverter;
@@ -58,11 +58,13 @@ public class JsonRecordWriter extends JSONOutputRecordWriter implements RecordWr
   private FSDataOutputStream stream = null;
 
   private final JsonFactory factory = new JsonFactory();
+  private final StorageStrategy storageStrategy;
 
   // Record write status
   private boolean fRecordStarted = false; // true once the startRecord() is called until endRecord() is called
 
-  public JsonRecordWriter(){
+  public JsonRecordWriter(StorageStrategy storageStrategy){
+    this.storageStrategy = storageStrategy;
   }
 
   @Override
@@ -82,6 +84,9 @@ public class JsonRecordWriter extends JSONOutputRecordWriter implements RecordWr
     Path fileName = new Path(location, prefix + "_" + index + "." + extension);
     try {
       stream = fs.create(fileName);
+      // set storage strategy for folder and file
+      storageStrategy.apply(fs, fileName.getParent());
+      storageStrategy.apply(fs, fileName);
       JsonGenerator generator = factory.createGenerator(stream).useDefaultPrettyPrinter();
       if (uglify) {
         generator = generator.setPrettyPrinter(new MinimalPrettyPrinter(LINE_FEED));
@@ -238,6 +243,13 @@ public class JsonRecordWriter extends JSONOutputRecordWriter implements RecordWr
 
   @Override
   public void abort() throws IOException {
+    cleanup();
+    try {
+      fs.delete(new Path(location), true);
+    } catch (IOException ex) {
+      logger.error("Abort failed. There could be leftover output files");
+      throw ex;
+    }
   }
 
   @Override

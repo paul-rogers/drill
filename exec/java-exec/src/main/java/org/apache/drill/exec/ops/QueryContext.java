@@ -215,6 +215,14 @@ public class QueryContext implements AutoCloseable, OptimizerRulesContext, Schem
     return getOptions().getOption(optionKey);
   }
 
+  /**
+   * @return unique session id used for temporary tables
+   */
+  @Override
+  public String getUuid() {
+    return session.getUuid();
+  }
+
   public boolean isImpersonationEnabled() {
      return getConfig().getBoolean(ExecConstants.IMPERSONATION_ENABLED);
   }

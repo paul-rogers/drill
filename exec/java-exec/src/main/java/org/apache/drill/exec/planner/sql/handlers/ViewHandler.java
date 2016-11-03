@@ -74,36 +74,51 @@ public abstract class ViewHandler extends DefaultSqlHandler {
       final SchemaPlus defaultSchema = context.getNewDefaultSchema();
       final AbstractSchema drillSchema = SchemaUtilites.resolveToMutableDrillSchema(defaultSchema, createView.getSchemaPath());
 
-      final String schemaPath = drillSchema.getFullSchemaName();
       final View view = new View(newViewName, viewSql, newViewRelNode.getRowType(),
           SchemaUtilites.getSchemaPathAsList(defaultSchema));
 
-      final Table existingTable = SqlHandlerUtil.getTableFromSchema(drillSchema, newViewName);
+      validateViewCreationPossibility(drillSchema, newViewName, createView.getReplace());
+
+      final boolean replaced = drillSchema.createView(view);
+      final String summary = String.format("View '%s' %s successfully in '%s' schema",
+          createView.getName(), replaced ? "replaced" : "created", drillSchema.getFullSchemaName());
+
+      return DirectPlan.createDirectPlan(context, true, summary);
+    }
+
+    /**
+     * Validates if view can be created in indicated schema:
+     * checks if object (persistent / temporary table) with the same exists
+     * in indicated schema, or if view exists but replace flag is not set.
+     *
+     * @param drillSchema schema where views will be created
+     * @param viewName view name
+     * @param replaceView replace view if exists
+     * @throws UserException if views can be created in indicated schema
+     */
+    private void validateViewCreationPossibility(AbstractSchema drillSchema, String viewName, boolean replaceView) {
+      final String schemaPath = drillSchema.getFullSchemaName();
+      final Table existingTable = SqlHandlerUtil.getTableFromSchema(drillSchema, viewName);
 
       if (existingTable != null) {
         if (existingTable.getJdbcTableType() != Schema.TableType.VIEW) {
           // existing table is not a view
           throw UserException.validationError()
               .message("A non-view table with given name [%s] already exists in schema [%s]",
-                  newViewName, schemaPath)
+                  viewName, schemaPath)
               .build(logger);
         }
 
-        if (existingTable.getJdbcTableType() == Schema.TableType.VIEW && !createView.getReplace()) {
+        if (existingTable.getJdbcTableType() == Schema.TableType.VIEW && !replaceView) {
           // existing table is a view and create view has no "REPLACE" clause
           throw UserException.validationError()
               .message("A view with given name [%s] already exists in schema [%s]",
-                  newViewName, schemaPath)
+                  viewName, schemaPath)
               .build(logger);
         }
       }
-
-      final boolean replaced = drillSchema.createView(view);
-      final String summary = String.format("View '%s' %s successfully in '%s' schema",
-          createView.getName(), replaced ? "replaced" : "created", schemaPath);
-
-      return DirectPlan.createDirectPlan(context, true, summary);
     }
+
   }
 
   /** Handler for Drop View [If Exists] DDL command. */
@@ -124,7 +139,7 @@ public abstract class ViewHandler extends DefaultSqlHandler {
       final Table viewToDrop = SqlHandlerUtil.getTableFromSchema(drillSchema, viewName);
       if (dropView.checkViewExistence()) {
         if (viewToDrop == null || viewToDrop.getJdbcTableType() != Schema.TableType.VIEW){
-          return DirectPlan.createDirectPlan(context, true,
+          return DirectPlan.createDirectPlan(context, false,
               String.format("View [%s] not found in schema [%s].", viewName, schemaPath));
         }
       } else {

@@ -17,14 +17,29 @@
  */
 package org.apache.drill.exec.physical.base;
 
-public abstract class AbstractWriter extends AbstractSingle implements Writer{
+import org.apache.drill.exec.store.StorageStrategy;
+
+public abstract class AbstractWriter extends AbstractSingle implements Writer {
+
+  /** Storage strategy is used during table folder and files creation,
+  by default {@link StorageStrategy#PERSISTENT} strategy is applied. */
+  private StorageStrategy storageStrategy;
 
   public AbstractWriter(PhysicalOperator child) {
     super(child);
+    this.storageStrategy = StorageStrategy.PERSISTENT;
   }
 
   @Override
   public <T, X, E extends Throwable> T accept(PhysicalVisitor<T, X, E> physicalVisitor, X value) throws E {
     return physicalVisitor.visitWriter(this, value);
+  }
+
+  public void setStorageStrategy(StorageStrategy storageStrategy) {
+    this.storageStrategy = storageStrategy;
+  }
+
+  public StorageStrategy getStorageStrategy() {
+    return storageStrategy;
   }
 }

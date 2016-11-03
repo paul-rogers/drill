@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.record.VectorAccessible;
+import org.apache.drill.exec.store.StorageStrategy;
 import org.apache.drill.exec.store.EventBasedRecordWriter.FieldConverter;
 import org.apache.drill.exec.store.StringOutputRecordWriter;
 import org.apache.drill.exec.vector.complex.reader.FieldReader;
@@ -36,6 +36,8 @@ import com.google.common.base.Joiner;
 
 public class DrillTextRecordWriter extends StringOutputRecordWriter {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillTextRecordWriter.class);
+
+  private final StorageStrategy storageStrategy;
 
   private String location;
   private String prefix;
@@ -52,8 +54,9 @@ public class DrillTextRecordWriter extends StringOutputRecordWriter {
   private boolean fRecordStarted = false; // true once the startRecord() is called until endRecord() is called
   private StringBuilder currentRecord; // contains the current record separated by field delimiter
 
-  public DrillTextRecordWriter(BufferAllocator allocator) {
+  public DrillTextRecordWriter(BufferAllocator allocator, StorageStrategy storageStrategy) {
     super(allocator);
+    this.storageStrategy = storageStrategy;
   }
 
   @Override
@@ -80,6 +83,9 @@ public class DrillTextRecordWriter extends StringOutputRecordWriter {
     Path fileName = new Path(location, prefix + "_" + index + "." + extension);
     try {
       DataOutputStream fos = fs.create(fileName);
+      // apply storage strategy to folder and file
+      storageStrategy.apply(fs, fileName.getParent());
+      storageStrategy.apply(fs, fileName);
       stream = new PrintStream(fos);
       logger.debug("Created file: {}", fileName);
     } catch (IOException ex) {

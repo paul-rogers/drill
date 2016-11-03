@@ -83,7 +83,7 @@ public class JSONFormatPlugin extends EasyFormatPlugin<JSONFormatConfig> {
     options.put("uglify", Boolean.toString(context.getOptions().getOption(ExecConstants.JSON_WRITER_UGLIFY)));
     options.put("skipnulls", Boolean.toString(context.getOptions().getOption(ExecConstants.JSON_WRITER_SKIPNULLFIELDS)));
 
-    RecordWriter recordWriter = new JsonRecordWriter();
+    RecordWriter recordWriter = new JsonRecordWriter(writer.getStorageStrategy());
     recordWriter.init(options);
 
     return recordWriter;

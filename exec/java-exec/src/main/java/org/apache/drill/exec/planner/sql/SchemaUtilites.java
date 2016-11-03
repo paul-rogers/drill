@@ -116,6 +116,11 @@ public class SchemaUtilites {
     return SCHEMA_PATH_JOINER.join(getSchemaPathAsList(schema));
   }
 
+  /** Utility method to get the schema path for given list of schema path. */
+  public static String getSchemaPath(List<String> schemaPath) {
+    return SCHEMA_PATH_JOINER.join(schemaPath);
+  }
+
   /** Utility method to get the schema path as list for given schema instance. */
   public static List<String> getSchemaPathAsList(SchemaPlus schema) {
     if (isRootSchema(schema)) {

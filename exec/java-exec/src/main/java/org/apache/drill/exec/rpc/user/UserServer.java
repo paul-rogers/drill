@@ -299,6 +299,12 @@ public class UserServer extends BasicServer<RpcType, UserClientConnectionImpl> {
     public SocketAddress getRemoteAddress() {
       return getChannel().remoteAddress();
     }
+
+    @Override
+    public void close() {
+      session.close();
+      super.close();
+    }
   }
 
   @Override

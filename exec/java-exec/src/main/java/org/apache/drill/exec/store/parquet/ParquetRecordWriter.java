@@ -34,6 +34,7 @@ import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.OperatorContext;
+import org.apache.drill.exec.store.StorageStrategy;
 import org.apache.drill.exec.planner.physical.WriterPrel;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
@@ -80,6 +81,7 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
   public static final String DRILL_VERSION_PROPERTY = "drill.version";
   public static final String IS_DATE_CORRECT_PROPERTY = "is.date.correct";
 
+  private final StorageStrategy storageStrategy;
   private ParquetFileWriter parquetFileWriter;
   private MessageType schema;
   private Map<String, String> extraMetaData = new HashMap<>();
@@ -101,7 +103,9 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
   private BatchSchema batchSchema;
 
   private Configuration conf;
+  private FileSystem fs;
   private String location;
+  private Path locationPath;
   private String prefix;
   private int index = 0;
   private OperatorContext oContext;
@@ -117,6 +121,7 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
     this.hasPartitions = partitionColumns != null && partitionColumns.size() > 0;
     this.extraMetaData.put(DRILL_VERSION_PROPERTY, DrillVersionInfo.getVersion());
     this.extraMetaData.put(IS_DATE_CORRECT_PROPERTY, "true");
+    this.storageStrategy = writer.getStorageStrategy();
   }
 
   @Override
@@ -126,6 +131,7 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
 
     conf = new Configuration();
     conf.set(FileSystem.FS_DEFAULT_NAME_KEY, writerOptions.get(FileSystem.FS_DEFAULT_NAME_KEY));
+    fs = FileSystem.get(conf);
     blockSize = Integer.parseInt(writerOptions.get(ExecConstants.PARQUET_BLOCK_SIZE));
     pageSize = Integer.parseInt(writerOptions.get(ExecConstants.PARQUET_PAGE_SIZE));
     dictionaryPageSize= Integer.parseInt(writerOptions.get(ExecConstants.PARQUET_DICT_PAGE_SIZE));
@@ -362,8 +368,9 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
 
     // we wait until there is at least one record before creating the parquet file
     if (parquetFileWriter == null) {
-      Path path = new Path(location, prefix + "_" + index + ".parquet");
+      Path path = new Path(prepareLocationPath(), prefix + "_" + index + ".parquet");
       parquetFileWriter = new ParquetFileWriter(conf, schema, path);
+      storageStrategy.apply(fs, path);
       parquetFileWriter.start();
     }
 
@@ -374,6 +381,13 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
 
   @Override
   public void abort() throws IOException {
+    cleanup();
+    try {
+      fs.delete(new Path(location), true);
+    } catch (IOException ex) {
+      logger.error("Abort failed. There could be leftover output files");
+      throw ex;
+    }
   }
 
   @Override
@@ -381,5 +395,21 @@ public class ParquetRecordWriter extends ParquetOutputRecordWriter {
     flush();
 
     codecFactory.release();
+  }
+
+  /**
+   * Prepares location where files will be written to.
+   * Creates directory if not present, applies storage strategy.
+   *
+   * @return path to files location
+   * @throws IOException during directory creation or permission setting problems
+   */
+  private Path prepareLocationPath() throws IOException {
+    if (locationPath == null) {
+      locationPath = new Path(location);
+      fs.mkdirs(locationPath);
+      storageStrategy.apply(fs, locationPath);
+    }
+    return locationPath;
   }
 }

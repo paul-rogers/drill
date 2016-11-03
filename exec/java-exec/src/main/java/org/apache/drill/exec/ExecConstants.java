@@ -127,6 +127,12 @@ public interface ExecConstants {
    */
   String DRILL_TMP_DIR = "drill.tmp-dir";
 
+  /**
+   * When during temporary table creation workspace is not specified,
+   * temporary table is created in default temporary workspace.
+   */
+  String DEFAULT_TEMPORARY_WORKSPACE = "drill.exec.default_temporary_workspace";
+
   String OUTPUT_FORMAT_OPTION = "store.format";
   OptionValidator OUTPUT_FORMAT_VALIDATOR = new StringValidator(OUTPUT_FORMAT_OPTION, "parquet");
   String PARQUET_BLOCK_SIZE = "store.parquet.block-size";

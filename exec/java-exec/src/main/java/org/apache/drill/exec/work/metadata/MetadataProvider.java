@@ -555,6 +555,11 @@ public class MetadataProvider {
       public OptionValue getOption(String optionKey) {
         return session.getOptions().getOption(optionKey);
       }
+
+      @Override
+      public String getUuid() {
+        return session.getUuid();
+      }
     };
   }
 
