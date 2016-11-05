@@ -38,6 +38,7 @@ public class TestExternalSortRM extends BaseTestQuery {
       BufferingQueryEventListener listener = new BufferingQueryEventListener( );
       String sql = Files.toString(FileUtils.getResourceAsFile("/xsort/sort-big-all.sql"),
           Charsets.UTF_8);
+      long start = System.currentTimeMillis();
       client.runQuery(QueryType.SQL, sql, listener);
       int recordCount = 0;
       int batchCount = 0;
@@ -54,7 +55,7 @@ public class TestExternalSortRM extends BaseTestQuery {
         case EOF:
           break loop;
         case ERROR:
-          System.err.println( event.error.getMessage() );
+          event.error.printStackTrace();
           fail( );
           break loop;
         case QUERY_ID:
@@ -63,9 +64,12 @@ public class TestExternalSortRM extends BaseTestQuery {
           break;
         }
       }
-       assertEquals(2880404, recordCount);
+      long end = System.currentTimeMillis();
+      long elapsed = end - start;
+      
+      assertEquals(2880404, recordCount);
 
-      System.out.println(String.format("Sorted %,d records in %d batches.", recordCount, batchCount));
+      System.out.println(String.format("Sorted %,d records in %d batches; %d ms.", recordCount, batchCount, elapsed));
 
     }
   }
