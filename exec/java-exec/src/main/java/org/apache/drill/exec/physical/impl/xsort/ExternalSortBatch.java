@@ -330,6 +330,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     try{
       return loadResults( );
+    } catch(InterruptedException e) {
+      return IterOutcome.STOP;
     } catch (SchemaChangeException ex) {
       kill(false);
       context.fail(UserException.unsupportedError(ex)
@@ -352,9 +354,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * @throws SchemaChangeException
    * @throws ClassTransformationException
    * @throws IOException
+   * @throws InterruptedException 
    */
 
-  private IterOutcome loadResults() throws SchemaChangeException, ClassTransformationException, IOException {
+  private IterOutcome loadResults() throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
     container.clear();
 
     // Loop over all input batches
@@ -399,9 +402,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * @throws SchemaChangeException
    * @throws ClassTransformationException
    * @throws IOException
+   * @throws InterruptedException 
    */
 
-  private IterOutcome loadBatch() throws SchemaChangeException, ClassTransformationException, IOException {
+  private IterOutcome loadBatch() throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
     IterOutcome upstream = next(incoming);
     switch (upstream) {
     case NONE:
@@ -426,10 +430,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
       // Add the batch to our buffered set of batches.
 
-      IterOutcome result = processBatch( convertedBatch );
-      if ( result != null ) {
-        return result;
-      }
+      processBatch( convertedBatch );
       break;
     case OUT_OF_MEMORY:
       logger.debug("received OUT_OF_MEMORY, trying to spill");
@@ -511,23 +512,11 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * @throws SchemaChangeException
    * @throws ClassTransformationException
    * @throws IOException
+   * @throws InterruptedException 
    */
 
-  @SuppressWarnings("resource")
-  private IterOutcome processBatch(VectorContainer convertedBatch) throws SchemaChangeException, ClassTransformationException, IOException {
-    SelectionVector2 sv2;
-    if (incoming.getSchema().getSelectionVectorMode() == BatchSchema.SelectionVectorMode.TWO_BYTE) {
-      sv2 = incoming.getSelectionVector2().clone();
-    } else {
-      try {
-        sv2 = newSV2();
-      } catch(InterruptedException e) {
-        return IterOutcome.STOP;
-      } catch (OutOfMemoryException e) {
-        throw new OutOfMemoryException(e);
-      }
-    }
-
+  private void processBatch(VectorContainer convertedBatch) throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
+    SelectionVector2 sv2 = makeSelectionVector( );
     int count = sv2.getCount();
     totalCount += count;
     totalBatches++;
@@ -581,7 +570,18 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
         rbd.clear();
       }
     }
-    return null;
+  }
+
+  private SelectionVector2 makeSelectionVector() throws InterruptedException {
+    if (incoming.getSchema().getSelectionVectorMode() == BatchSchema.SelectionVectorMode.TWO_BYTE) {
+      return incoming.getSelectionVector2().clone();
+    } else {
+      try {
+        return newSV2();
+      } catch (OutOfMemoryException e) {
+        throw new OutOfMemoryException(e);
+      }
+    }
   }
 
   private IterOutcome mergeInMemory() throws SchemaChangeException, ClassTransformationException, IOException {

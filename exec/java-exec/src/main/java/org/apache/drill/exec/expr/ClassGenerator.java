@@ -246,6 +246,12 @@ public class ClassGenerator<T>{
     rotateBlock(BlkCreateMode.TRUE);
   }
 
+  /**
+   * Create a new code block, closing the current block.
+   *
+   * @param mode
+   */
+
   private void rotateBlock(BlkCreateMode mode) {
     boolean blockRotated = false;
     for (LinkedList<SizedJBlock> b : blocks) {
@@ -411,6 +417,10 @@ public class ClassGenerator<T>{
 
   }
 
+  /**
+   * Represents a (Nullable)?(Type)Holder instance.
+   */
+
   public static class HoldingContainer{
     private final JVar holder;
     private final JFieldRef value;
@@ -482,6 +492,30 @@ public class ClassGenerator<T>{
 
     public TypeProtos.MinorType getMinorType() {
       return type.getMinorType();
+    }
+
+    /**
+     * Convert holder to a string for debugging use.
+     */
+
+    @Override
+    public String toString( ) {
+      DebugStringBuilder buf = new DebugStringBuilder( this );
+      if ( isConstant( ) ) {
+        buf.append( "const " );
+      }
+      buf.append( holder.type().fullName() )
+        .append( " " )
+        .append( holder.name() )
+        .append( ", " )
+        .append( type.getMode( ).name() )
+        .append( " " )
+        .append( type.getMinorType().name() )
+        .append( ", " );
+      holder.generate( buf.fmt );
+      buf.append( ", " );
+      value.generate( buf.fmt );
+      return buf.toString( );
     }
   }
 

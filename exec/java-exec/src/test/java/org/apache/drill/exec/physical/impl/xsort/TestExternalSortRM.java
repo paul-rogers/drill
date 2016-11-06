@@ -3,13 +3,18 @@ package org.apache.drill.exec.physical.impl.xsort;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import java.util.List;
+
 import org.apache.drill.BaseTestQuery;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.util.FileUtils;
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.client.DrillClient;
 import org.apache.drill.exec.physical.impl.xsort.BufferingQueryEventListener.QueryEvent;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
+import org.apache.drill.exec.rpc.RpcException;
+import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.server.Drillbit;
 import org.apache.drill.exec.server.RemoteServiceSet;
 import org.apache.drill.exec.store.StoragePluginRegistry;
@@ -35,6 +40,7 @@ public class TestExternalSortRM extends BaseTestQuery {
       bit.run();
       defineWorkspace( bit, "dfs", "data", "/Users/paulrogers/work/data", "psv" );
       client.connect();
+      setMaxFragmentWidth( client, 1 );
       BufferingQueryEventListener listener = new BufferingQueryEventListener( );
       String sql = Files.toString(FileUtils.getResourceAsFile("/xsort/sort-big-all.sql"),
           Charsets.UTF_8);
@@ -84,5 +90,14 @@ public class TestExternalSortRM extends BaseTestQuery {
     pluginConfig.workspaces.put(schemaName, newTmpWSConfig);
 
     pluginRegistry.createOrUpdate(pluginName, pluginConfig, true);
+  }
+  
+  public void setMaxFragmentWidth( DrillClient drillClient, int maxFragmentWidth ) throws RpcException {
+    final List<QueryDataBatch> results = drillClient.runQuery(
+        QueryType.SQL, String.format("alter session set `%s` = %d",
+            ExecConstants.MAX_WIDTH_PER_NODE_KEY, maxFragmentWidth));
+    for (QueryDataBatch queryDataBatch : results) {
+      queryDataBatch.release();
+    }
   }
 }
