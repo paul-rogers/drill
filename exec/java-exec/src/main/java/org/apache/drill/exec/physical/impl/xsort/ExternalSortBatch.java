@@ -353,7 +353,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * @throws SchemaChangeException
    * @throws ClassTransformationException
    * @throws IOException
-   * @throws InterruptedException 
+   * @throws InterruptedException
    */
 
   private IterOutcome loadResults() throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
@@ -401,7 +401,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * @throws SchemaChangeException
    * @throws ClassTransformationException
    * @throws IOException
-   * @throws InterruptedException 
+   * @throws InterruptedException
    */
 
   private IterOutcome loadBatch() throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
@@ -511,7 +511,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * @throws SchemaChangeException
    * @throws ClassTransformationException
    * @throws IOException
-   * @throws InterruptedException 
+   * @throws InterruptedException
    */
 
   private void processBatch(VectorContainer convertedBatch) throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
@@ -532,42 +532,86 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       }
 
       batchesSinceLastSpill++;
-      if (// If we haven't spilled so far, do we have enough memory for MSorter if this turns out to be the last incoming batch?
-          (spillCount == 0 && !hasMemoryForInMemorySort(totalCount)) ||
-          // If we haven't spilled so far, make sure we don't exceed the maximum number of batches SV4 can address
-          (spillCount == 0 && totalBatches > Character.MAX_VALUE) ||
-          // TODO(DRILL-4438) - consider setting this threshold more intelligently,
-          // lowering caused a failing low memory condition (test in BasicPhysicalOpUnitTest)
-          // to complete successfully (although it caused perf decrease as there was more spilling)
-
-          // current memory used is more than 95% of memory usage limit of this operator
-          (oAllocator.getAllocatedMemory() > .95 * oAllocator.getLimit()) ||
-          // Number of incoming batches (BatchGroups) exceed the limit and number of incoming batches accumulated
-          // since the last spill exceed the defined limit
-          (batchGroups.size() > SPILL_THRESHOLD && batchesSinceLastSpill >= SPILL_BATCH_GROUP_SIZE)) {
-
-        if (firstSpillBatchCount == 0) {
-          firstSpillBatchCount = batchGroups.size();
-        }
-
-        if (spilledBatchGroups.size() > firstSpillBatchCount / 2) {
-          logger.info("Merging spills");
-          final BatchGroup merged = mergeAndSpill(spilledBatchGroups);
-          if (merged != null) {
-            spilledBatchGroups.addFirst(merged);
-          }
-        }
-        final BatchGroup merged = mergeAndSpill(batchGroups);
-        if (merged != null) { // make sure we don't add null to spilledBatchGroups
-          spilledBatchGroups.add(merged);
-          batchesSinceLastSpill = 0;
-        }
+      if ( spillNeeded( ) ) {
+        doSpill( );
       }
       success = true;
     } finally {
       if (!success) {
         rbd.clear();
       }
+    }
+  }
+
+  /**
+   * Determine if spill is needed after receiving the new record batch.
+   * A number of conditions trigger spilling.
+   *
+   * @return true if spilling is needed, false otherwise
+   */
+
+  private boolean spillNeeded() {
+
+    // If we haven't spilled so far...
+
+    if (spillCount == 0) {
+
+      // do we have enough memory for MSorter
+      // if this turns out to be the last incoming batch?
+
+      if ( !hasMemoryForInMemorySort(totalCount)) { return true; }
+
+      // Make sure we don't exceed the maximum
+      // number of batches SV4 can address
+
+      if (totalBatches > Character.MAX_VALUE) { return true; }
+    }
+
+    // TODO(DRILL-4438) - consider setting this threshold more intelligently,
+    // lowering caused a failing low memory condition (test in BasicPhysicalOpUnitTest)
+    // to complete successfully (although it caused perf decrease as there was more spilling)
+
+    // current memory used is more than 95% of memory usage limit of this operator
+
+    if (oAllocator.getAllocatedMemory() > .95 * oAllocator.getLimit()) { return true; }
+
+    // Number of incoming batches (BatchGroups) exceed the limit and number of incoming
+    // batches accumulated since the last spill exceed the defined limit
+
+    if (batchGroups.size() > SPILL_THRESHOLD &&
+        batchesSinceLastSpill >= SPILL_BATCH_GROUP_SIZE) { return true; }
+
+    return false;
+  }
+
+  /**
+   * Spill batches to disk. The first spill batch establishes a baseline spilled
+   * batch count. On subsequent spills, if the number of accumulated spilled
+   * batches exceeds half the baseline, read, merge, and respill the existing
+   * batches. (Thus, we can end up reading and writing the same data multiple
+   * times.) Then, spill the batch groups accumulated since the last spill
+   *
+   * @throws SchemaChangeException which should never actually happen as we
+   * caught schema changes while receiving the batches earlier
+   */
+
+  private void doSpill() throws SchemaChangeException {
+
+    if (firstSpillBatchCount == 0) {
+      firstSpillBatchCount = batchGroups.size();
+    }
+
+    if (spilledBatchGroups.size() > firstSpillBatchCount / 2) {
+      logger.info("Merging spills");
+      final BatchGroup merged = mergeAndSpill(spilledBatchGroups);
+      if (merged != null) {
+        spilledBatchGroups.addFirst(merged);
+      }
+    }
+    final BatchGroup merged = mergeAndSpill(batchGroups);
+    if (merged != null) { // make sure we don't add null to spilledBatchGroups
+      spilledBatchGroups.add(merged);
+      batchesSinceLastSpill = 0;
     }
   }
 
