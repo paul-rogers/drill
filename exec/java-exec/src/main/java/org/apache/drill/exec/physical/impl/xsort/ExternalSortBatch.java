@@ -503,8 +503,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   }
 
   /**
-   * Process the converted incoming batch by adding it to the in-memory store
-   * of data, or spilling data to disk when necessary.
+   * Process the converted incoming batch. Sort it, add it to the in-memory store
+   * of data, and spill to disk when necessary.
    *
    * @param convertedBatch
    * @return
@@ -552,6 +552,16 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   private boolean spillNeeded() {
 
+    // The amount of memory this allocator currently uses.
+
+    long allocMem = oAllocator.getAllocatedMemory();
+
+    // The maximum memory this operator can use. It is either the
+    // limit set on the allocator or on the operator, whichever is
+    // less.
+
+    long limitMem = Math.min( popConfig.getMaxAllocation(), oAllocator.getLimit() );
+
     // If we haven't spilled so far...
 
     if (spillCount == 0) {
@@ -559,7 +569,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       // do we have enough memory for MSorter
       // if this turns out to be the last incoming batch?
 
-      if ( !hasMemoryForInMemorySort(totalCount)) { return true; }
+      if ( !hasMemoryForInMemorySort(totalCount, limitMem - allocMem)) { return true; }
 
       // Make sure we don't exceed the maximum
       // number of batches SV4 can address
@@ -573,7 +583,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     // current memory used is more than 95% of memory usage limit of this operator
 
-    if (oAllocator.getAllocatedMemory() > .95 * oAllocator.getLimit()) { return true; }
+    if (allocMem > .95 * limitMem) { return true; }
 
     // Number of incoming batches (BatchGroups) exceed the limit and number of incoming
     // batches accumulated since the last spill exceed the defined limit
@@ -602,7 +612,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     }
 
     if (spilledBatchGroups.size() > firstSpillBatchCount / 2) {
-      logger.info("Merging spills");
+      logger.info("Merging spills: threshhold=" + (firstSpillBatchCount / 2) +
+                  ", spilled count: " + spilledBatchGroups.size());
       final BatchGroup merged = mergeAndSpill(spilledBatchGroups);
       if (merged != null) {
         spilledBatchGroups.addFirst(merged);
@@ -690,9 +701,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     return IterOutcome.OK_NEW_SCHEMA;
   }
 
-  private boolean hasMemoryForInMemorySort(int currentRecordCount) {
-    long currentlyAvailable =  popConfig.getMaxAllocation() - oAllocator.getAllocatedMemory();
-
+  private boolean hasMemoryForInMemorySort(int currentRecordCount, long currentlyAvailable) {
     long neededForInMemorySort = SortRecordBatchBuilder.memoryNeeded(currentRecordCount) +
         MSortTemplate.memoryNeeded(currentRecordCount);
 

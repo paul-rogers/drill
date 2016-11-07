@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.compile;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Modifier;
 import java.util.Collection;
 import java.util.Iterator;
@@ -39,6 +41,7 @@ import org.objectweb.asm.tree.FieldNode;
 import org.objectweb.asm.tree.MethodNode;
 
 import com.google.common.collect.Sets;
+import com.google.common.io.Files;
 
 /**
  * Serves two purposes. Renames all inner classes references to the outer class to the new name. Also adds all the
@@ -253,7 +256,13 @@ class MergeAdapter extends ClassVisitor {
       }
 
       // enable when you want all the generated merged class files to also be written to disk.
-//      Files.write(outputClass, new File(String.format("/src/scratch/drill-generated-classes/%s-output.class", set.generated.dot)));
+//      try { // Debug only, do not check in
+//        File destDir = new File( "/tmp/scratch/drill-generated-classes" );
+//        destDir.mkdirs();
+//        Files.write(outputClass, new File(destDir, String.format("%s-output.class", set.generated.dot)));
+//      } catch (IOException e) {
+//        // Ignore;
+//      }
 
       return new MergedClassResult(outputClass, re.getInnerClasses());
     } catch (Error | RuntimeException e) {
