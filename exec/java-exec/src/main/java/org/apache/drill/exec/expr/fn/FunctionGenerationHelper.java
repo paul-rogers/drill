@@ -113,8 +113,8 @@ public class FunctionGenerationHelper {
   }
 
   /**
-   * Wraps the comparison function in an If-statement which compares the types first, evaluating the comaprison function only
-   * if the types are equivialent
+   * Wraps the comparison function in an If-statement which compares the types first, evaluating the comparison function only
+   * if the types are equivalent.
    *
    * @param comparisonFunction
    * @param args

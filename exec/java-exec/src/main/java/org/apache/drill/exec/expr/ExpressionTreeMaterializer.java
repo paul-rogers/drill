@@ -22,7 +22,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
@@ -499,6 +498,7 @@ public class ExpressionTreeMaterializer {
       return new FunctionCall(isFuncName, args, ExpressionPosition.UNKNOWN);
     }
 
+    @Override
     public LogicalExpression visitIfExpression(IfExpression ifExpr, FunctionLookupContext functionLookupContext) {
       IfExpression.IfCondition conditions = ifExpr.ifCondition;
       LogicalExpression newElseExpr = ifExpr.elseExpression.accept(this, functionLookupContext);
@@ -514,7 +514,7 @@ public class ExpressionTreeMaterializer {
       if (unionTypeEnabled) {
         if (thenType != elseType && !(thenType == MinorType.NULL || elseType == MinorType.NULL)) {
 
-          MinorType leastRestrictive = MinorType.UNION;
+//          MinorType leastRestrictive = MinorType.UNION;
           MajorType.Builder builder = MajorType.newBuilder().setMinorType(MinorType.UNION).setMode(DataMode.OPTIONAL);
           if (thenType == MinorType.UNION) {
             for (MinorType subType : conditions.expression.getMajorType().getSubTypeList()) {

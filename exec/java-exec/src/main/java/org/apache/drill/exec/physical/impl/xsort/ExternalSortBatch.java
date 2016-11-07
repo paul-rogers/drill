@@ -226,8 +226,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
         if (mSorter != null) {
           mSorter.clear();
         }
-        for(Iterator iter = this.currSpillDirs.iterator(); iter.hasNext(); iter.remove()) {
-            Path path = (Path)iter.next();
+        for ( Path path : currSpillDirs ) {
             try {
                 if (fs != null && path != null && fs.exists(path)) {
                     if (fs.delete(path, true)) {
@@ -859,7 +858,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     for (Ordering od : popConfig.getOrderings()) {
       // first, we rewrite the evaluation stack for each side of the comparison.
       ErrorCollector collector = new ErrorCollectorImpl();
-      final LogicalExpression expr = ExpressionTreeMaterializer.materialize(od.getExpr(), batch, collector,context.getFunctionRegistry());
+      final LogicalExpression expr = ExpressionTreeMaterializer.materialize(od.getExpr(), batch, collector, context.getFunctionRegistry());
       if (collector.hasErrors()) {
         throw new SchemaChangeException("Failure while materializing expression. " + collector.toErrorString());
       }
