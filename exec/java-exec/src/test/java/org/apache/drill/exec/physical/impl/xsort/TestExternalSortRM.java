@@ -3,6 +3,7 @@ package org.apache.drill.exec.physical.impl.xsort;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import java.net.URL;
 import java.util.List;
 
 import org.apache.drill.BaseTestQuery;
@@ -10,6 +11,7 @@ import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.util.FileUtils;
 import org.apache.drill.exec.ExecConstants;
+import org.apache.drill.exec.ExecTest;
 import org.apache.drill.exec.client.DrillClient;
 import org.apache.drill.exec.physical.impl.xsort.BufferingQueryEventListener.QueryEvent;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
@@ -21,18 +23,19 @@ import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.dfs.FileSystemConfig;
 import org.apache.drill.exec.store.dfs.FileSystemPlugin;
 import org.apache.drill.exec.store.dfs.WorkspaceConfig;
+import org.apache.drill.test.DrillTest;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Files;
 
-public class TestExternalSortRM extends BaseTestQuery {
+public class TestExternalSortRM extends DrillTest {
 
   @Test
   public void test() throws Exception {
     RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
 
-    DrillConfig config = DrillConfig.create("drill-external-sort-rm.conf");
+    DrillConfig config = DrillConfig.create("xsort/drill-external-sort-rm.conf");
 
     try (Drillbit bit = new Drillbit(config, serviceSet);
         DrillClient client = new DrillClient(config, serviceSet.getCoordinator());) {

@@ -83,22 +83,27 @@ class OperatorContextImpl extends OperatorContext implements AutoCloseable {
     executor = context.getDrillbitContext().getExecutor();
   }
 
+  @Override
   public DrillBuf replace(DrillBuf old, int newSize) {
     return manager.replace(old, newSize);
   }
 
+  @Override
   public DrillBuf getManagedBuffer() {
     return manager.getManagedBuffer();
   }
 
+  @Override
   public DrillBuf getManagedBuffer(int size) {
     return manager.getManagedBuffer(size);
   }
 
+  @Override
   public ExecutionControls getExecutionControls() {
     return executionControls;
   }
 
+  @Override
   public BufferAllocator getAllocator() {
     if (allocator == null) {
       throw new UnsupportedOperationException("Operator context does not have an allocator");
@@ -134,6 +139,7 @@ class OperatorContextImpl extends OperatorContext implements AutoCloseable {
     closed = true;
   }
 
+  @Override
   public OperatorStats getStats() {
     return stats;
   }

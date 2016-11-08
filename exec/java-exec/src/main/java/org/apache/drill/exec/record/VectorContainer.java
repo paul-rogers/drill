@@ -265,6 +265,7 @@ public class VectorContainer implements Iterable<VectorWrapper<?>>, VectorAccess
     throw new IllegalStateException("You attempted to remove a vector that didn't exist.");
   }
 
+  @Override
   public TypedFieldId getValueVectorId(SchemaPath path) {
     for (int i = 0; i < wrappers.size(); i++) {
       VectorWrapper<?> va = wrappers.get(i);
@@ -310,6 +311,7 @@ public class VectorContainer implements Iterable<VectorWrapper<?>>, VectorAccess
     return schema != null;
   }
 
+  @Override
   public BatchSchema getSchema() {
     Preconditions
         .checkNotNull(schema,

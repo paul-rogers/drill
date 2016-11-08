@@ -54,7 +54,6 @@ public class TemplateClassDefinition<T>{
       logger.error("Failure while trying to build signature holder for signature. {}", template.getName(), ex);
     }
     this.signature = holder;
-    System.out.println( toString( ) ); // Debugging only, do not check in.
   }
 
   public long getNextClassNumber(){
