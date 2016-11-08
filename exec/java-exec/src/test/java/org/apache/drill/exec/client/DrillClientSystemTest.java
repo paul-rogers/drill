@@ -17,11 +17,15 @@
  */
 package org.apache.drill.exec.client;
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 import org.apache.drill.exec.DrillSystemTestBase;
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
+import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.junit.After;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
