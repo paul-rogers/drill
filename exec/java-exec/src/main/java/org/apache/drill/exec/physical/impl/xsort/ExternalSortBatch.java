@@ -838,10 +838,18 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   public BatchGroup mergeAndSpill(LinkedList<BatchGroup> batchGroups) throws SchemaChangeException {
     logger.debug("Copier allocator current allocation {}", copierAllocator.getAllocatedMemory());
     logger.debug("mergeAndSpill: starting total size in memory = {}", oAllocator.getAllocatedMemory());
+    System.out.println( // Debugging only, do not check in
+        "Before spilling, buffered batch count: " + batchGroups.size( ) );
     VectorContainer outputContainer = new VectorContainer();
+    
+    // Determine the number of batches to spill. This is set by the
+    // SPILL_BATCH_GROUP_SIZE parameter, but adjusted to not be fewer than
+    // half of the batches or more than all of them.
+    
+    int batchCount = batchGroups.size();
+    int spillCount = Math.min( Math.max( SPILL_BATCH_GROUP_SIZE, batchCount / 2 ), batchCount );
 
-    // Create a list of batch groups to spill. We spill 1/2 of the accumulated
-    // batches, pulled from the tail of the list. If batches are:
+    // Create a list of batch groups to spill. If batches are:
     //
     // [ 1 2 3 4 5 6 ]
     //
@@ -853,12 +861,11 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     //
     // [ 1 2 3 ]
     //
-    // This means that the earliest-arriving batches are never actually
-    // spilled, and at most 1/2 of the n accumulated batches are spilled.
+    // This means that the earliest-arriving batches may never actually
+    // spilled, preferring to spill the latest-arriving batches instead.
 
     List<BatchGroup> batchGroupList = Lists.newArrayList();
-    int batchCount = batchGroups.size();
-    for (int i = 0; i < batchCount / 2; i++) {
+    for (int i = 0; i < spillCount; i++) {
       if (batchGroups.size() == 0) {
         break;
       }
@@ -914,6 +921,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     //
     // Input:  [aceg] [bdfh]
     // Output: [abcdefgh]
+    //
+    // Here we bind the copier to the batchGroupList of sorted, buffered batches
+    // to be merged. We bind the copier output to outputContainer: the copier will write its
+    // merged "batches" of records to that container.
 
     VectorContainer hyperBatch = constructHyperBatch(batchGroupList);
     createCopier(hyperBatch, batchGroupList, outputContainer, copierAllocator);
@@ -951,10 +962,29 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     stats.setLongStat(Metric.SPILL_COUNT, spillCount);
     BatchGroup newGroup = new BatchGroup(c1, fs, outputFile, oContext);
     try (AutoCloseable a = AutoCloseables.all(batchGroupList)) {
+
+      // The copier will merge records from the buffered batches into
+      // the outputContainer up to targetRecordCount number of rows.
+      // The actual count may be less if fewer records are available.
+
       logger.info("Merging and spilling to {}", outputFile);
       while ((count = copier.next(targetRecordCount)) > 0) {
+
+        // Identify the schema to be used in the output container. (Since
+        // all merged batches have the same schema, the schema we identify
+        // here should be the same as that which we already had.
+
         outputContainer.buildSchema(BatchSchema.SelectionVectorMode.NONE);
+
+        // The copier does not set the record count in the output
+        // container, so do that here.
+
         outputContainer.setRecordCount(count);
+
+        // Add a new batch of records (given by outputContainer) to the spill
+        // file, opening the file if not yet open, and creating the target
+        // directory if it does not yet exist.
+        //
         // note that addBatch also clears the outputContainer
         newGroup.addBatch(outputContainer);
       }
@@ -974,6 +1004,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     }
     logger.debug("mergeAndSpill: final total size in memory = {}", oAllocator.getAllocatedMemory());
     logger.info("Completed spilling to {}", outputFile);
+    System.out.println( // Debugging only, do not check in
+        "After spilling, buffered batch count: " + batchGroups.size( ) );
     return newGroup;
   }
 
