@@ -87,6 +87,26 @@ import com.sun.codemodel.JExpr;
  * External sort batch: a sort batch which can spill to disk in
  * order to operate within a defined memory footprint.
  * <p>
+ * Basic operation:
+ * <ul>
+ * <li>The incoming (upstream) operator provides a series of batches.</ul>
+ * <li>This operator sorts each batch, and accumulates them in an in-memory
+ * buffer.</li>
+ * <li>If the in-memory buffer becomes too large, this operator selects
+ * a subset of the buffered batches to spill.</li>
+ * <li>Each spill set is merged to create a new, sorted collection of
+ * batches, and each is spilled to disk.</li>
+ * <li>To allow the use of multiple disk storage, each spill group is written
+ * round-robin to a set of spill directories.</li>
+ * <li>When the input operator is complete, this operator merges the accumulated
+ * batches (which may be all in memory or partially on disk), and returns
+ * them to the output (downstream) operator in chunks of no more than
+ * 32K records.</li>
+ * </ul>
+ * <p>
+ * Many complex details are involved in doing the above; the details are explained
+ * in the methods of this class.
+ * <p>
  * Configuration Options:
  * <dl>
  * <dt>drill.exec.sort.external.spill.fs</dt>
@@ -125,10 +145,34 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private final int SPILL_THRESHOLD;
   private final Iterator<String> dirs;
   private final RecordBatch incoming;
+
+  /**
+   * Memory allocator for this operator itself. Primarily used to create
+   * intermediate vectors used for merging the incoming batches.
+   */
+
   private final BufferAllocator oAllocator;
+
+  /**
+   * Allocator used for the "copier" (actually the merge) operation that
+   * takes a set of merged batches and creates new, sorted and merged
+   * output batches for spilling to disk.
+   */
+
   private final BufferAllocator copierAllocator;
 
+  /**
+   * Schema of batches that this operator produces.
+   */
+
   private BatchSchema schema;
+
+  /**
+   * Generated sort operation used to sort each incoming batch according to
+   * the sort criteria specified in the {@link ExternalSort} definition of
+   * this operator.
+   */
+
   private SingleBatchSorter sorter;
   private SortRecordBatchBuilder builder;
   private MSorter mSorter;
@@ -141,19 +185,45 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private LinkedList<BatchGroup> batchGroups = Lists.newLinkedList();
   private LinkedList<BatchGroup> spilledBatchGroups = Lists.newLinkedList();
   private SelectionVector4 sv4;
+
+  /**
+   * The HDFS file system (for local directories, HDFS storage, etc.) used to
+   * create the temporary spill files. Allows spill files to be either on local
+   * disk, or in a DFS. (The admin can choose to put spill files in DFS when
+   * nodes provide insufficient local disk space)
+   */
+
   private FileSystem fs;
+
+  /**
+   * Set of directories to which this operator should write spill files in a round-robin
+   * fashion. The operator requires at least one spill directory, but can
+   * support any number. The admin must ensure that sufficient space exists
+   * on all directories as this operator does not check space availability
+   * before writing to the directories.
+   */
+
+  private Set<Path> currSpillDirs = Sets.newTreeSet();
+
+  /**
+   * The base part of the file name for spill files. Each file has this
+   * name plus an appended spill serial number.
+   */
+
+  private final String fileName;
   private int spillCount = 0;
   private int batchesSinceLastSpill = 0;
   private int targetRecordCount;
-  private final String fileName;
-  private Set<Path> currSpillDirs = Sets.newTreeSet();
   private int firstSpillBatchCount = 0;
   private int peakNumBatches = -1;
 
   /**
    * The copier uses the COPIER_BATCH_MEM_LIMIT to estimate the target
-   * number of records to return in each batch.
+   * number of records to return in each batch. Note that this is purely a
+   * rule-of-thumb. Actual memory use depends on actual row width and can be
+   * much less or much more than this guideline value.
    */
+
   private static final int COPIER_BATCH_MEM_LIMIT = 256 * 1024;
 
   public static final String INTERRUPTION_AFTER_SORT = "after-sort";
@@ -589,7 +659,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // less.
 
     long limitMem = Math.min( popConfig.getMaxAllocation(), oAllocator.getLimit() );
-    
+
     long availableMem = limitMem - allocMem;
 
     // If we haven't spilled so far...
@@ -657,6 +727,17 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       batchesSinceLastSpill = 0;
     }
   }
+
+  /**
+   * Each batch is sorted individually before being spilled and/or merged.
+   * Sorting is done via a 2-byte selection vector, where the selection
+   * vector provides an indirection into the underlying records. The sort
+   * batch can reuse a selection vector provided by the incoming batch,
+   * or will create a new one if the incoming batch does not provide one.
+   *
+   * @return
+   * @throws InterruptedException
+   */
 
   private SelectionVector2 makeSelectionVector() throws InterruptedException {
     if (incoming.getSchema().getSelectionVectorMode() == BatchSchema.SelectionVectorMode.TWO_BYTE) {
@@ -733,11 +814,32 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     return IterOutcome.OK_NEW_SCHEMA;
   }
 
+  /**
+   * This operator has accumulated a set of sorted incoming record batches.
+   * We wish to spill some of them to disk. To do this, a "{@link #copier}"
+   * merges the target batches to produce a stream of new (merged) batches
+   * which are then written to disk.
+   * <p>
+   * This method spills only half the accumulated batches (presumably
+   * minimizing unnecessary disk writes.) Note that the number spilled here
+   * is not correlated with the {@link #SPILL_BATCH_GROUP_SIZE} used to
+   * detect spilling is needed.
+   * <p>
+   * In addition, one of the candidate batches is kept in memory for
+   * (...?)
+   *
+   * @param batchGroups the accumulated set of sorted incoming batches
+   * @return a new batch group representing the combined set of spilled
+   * batches
+   * @throws SchemaChangeException should never occur as schema change
+   * detection is done as each incoming batch arrives
+   */
+
   public BatchGroup mergeAndSpill(LinkedList<BatchGroup> batchGroups) throws SchemaChangeException {
     logger.debug("Copier allocator current allocation {}", copierAllocator.getAllocatedMemory());
     logger.debug("mergeAndSpill: starting total size in memory = {}", oAllocator.getAllocatedMemory());
     VectorContainer outputContainer = new VectorContainer();
-    
+
     // Create a list of batch groups to spill. We spill 1/2 of the accumulated
     // batches, pulled from the tail of the list. If batches are:
     //
@@ -746,14 +848,14 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // We create the spill list as:
     //
     // [ 6 5 4 ]
-    // 
+    //
     // Leaving the accumulated batches as:
     //
     // [ 1 2 3 ]
     //
     // This means that the earliest-arriving batches are never actually
     // spilled, and at most 1/2 of the n accumulated batches are spilled.
-    
+
     List<BatchGroup> batchGroupList = Lists.newArrayList();
     int batchCount = batchGroups.size();
     for (int i = 0; i < batchCount / 2; i++) {
@@ -768,14 +870,20 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     if (batchGroupList.size() == 0) {
       return null;
     }
-    
+
     // Estimate the size of each record in all the batches. Start with assumptions
     // about column width based on type (not on actual data), then sum up the
     // assumed column widths. This number is then used to limit the number of
     // records written to stay under the copier memory limit. (Needless to say,
     // this estimate causes the copier to use more or less memory than the limit
     // depending on how far actual record widths are from the estimated width.)
-    
+    //
+    // Actual memory use is:
+    //
+    //                                       actual row width
+    // memory use = COPIER_BATCH_MEM_LIMIT * -------------------
+    //                                       estimated row width
+
     int estimatedRecordSize = 0;
     for (VectorWrapper<?> w : batchGroupList.get(0)) {
       try {
@@ -785,7 +893,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       }
     }
     int targetRecordCount = Math.max(1, COPIER_BATCH_MEM_LIMIT / estimatedRecordSize);
-    
+
     // We've gathered a set of batches, each of which has been sorted. The batches
     // may have passed through a filter and thus may have "holes" where rows have
     // been filtered out. We will spill records in blocks of targetRecordCount.
@@ -795,7 +903,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // given threshold.
     //
     // Input (selection vector, data vector):
-    // [3 7 4 8 0 6 1] [5 3 6 8 2 0]  
+    // [3 7 4 8 0 6 1] [5 3 6 8 2 0]
     // [eh_ad_ibf]     [r_qm_kn_p]
     //
     // Output (assuming blocks of 5 records, data vectors only):
@@ -806,7 +914,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     //
     // Input:  [aceg] [bdfh]
     // Output: [abcdefgh]
-    
+
     VectorContainer hyperBatch = constructHyperBatch(batchGroupList);
     createCopier(hyperBatch, batchGroupList, outputContainer, copierAllocator);
 
@@ -821,6 +929,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     c1.buildSchema(BatchSchema.SelectionVectorMode.NONE);
     c1.setRecordCount(count);
 
+    // Identify the next directory from the round-robin list to
+    // the file created from this round of spilling. The directory must already
+    // exist and must have sufficient space for the output file.
+
     String spillDir = dirs.next();
     Path currSpillPath = new Path(Joiner.on("/").join(spillDir, fileName));
     currSpillDirs.add(currSpillPath);
@@ -831,6 +943,11 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
         // since this is meant to be used in a batches's spilling, we don't propagate the exception
         logger.warn("Unable to mark spill directory " + currSpillPath + " for deleting on exit", e);
     }
+
+    // Merge the selected set of matches and write them to the
+    // spill file. After each write, we release the memory associated
+    // with the just-written batch.
+
     stats.setLongStat(Metric.SPILL_COUNT, spillCount);
     BatchGroup newGroup = new BatchGroup(c1, fs, outputFile, oContext);
     try (AutoCloseable a = AutoCloseables.all(batchGroupList)) {
@@ -1052,9 +1169,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
         throw new RuntimeException(e);
       }
     } else {
-      
+
       // Generate the copier code and obtain the resulting class
-      
+
       CodeGenerator<PriorityQueueCopier> cg = CodeGenerator.get(PriorityQueueCopier.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
       ClassGenerator<PriorityQueueCopier> g = cg.getRoot();
 
@@ -1072,7 +1189,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     // Initialize the value vectors for the output container using the
     // allocator provided
-    
+
     for (VectorWrapper<?> i : batch) {
       ValueVector v = TypeHelper.getNewVector(i.getField(), allocator);
       outputContainer.add(v);
