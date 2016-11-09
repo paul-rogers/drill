@@ -235,19 +235,21 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private int spilledRecordCount;
 
   /**
-   * The copier uses the COPIER_BATCH_MEM_LIMIT to estimate the target
-   * number of records to return in each batch. Note that this is purely a
-   * rule-of-thumb. Actual memory use depends on actual row width and can be
-   * much less or much more than this guideline value.
+   * Target size, in bytes, of each batch written to disk when spilling,
+   * and each batch returned to the downstream operator. Since the copier
+   * works in terms of records, the code estimates row width, then
+   * divides the memory limit by row width to get the target batch
+   * sizes (in rows.)
    */
 
-  private static final int COPIER_BATCH_MEM_LIMIT = 256 * 1024;
+//  private static final int COPIER_BATCH_MEM_LIMIT = 256 * 1024;
+  private static final int COPIER_BATCH_MEM_LIMIT = (int) PriorityQueueCopier.MAX_ALLOCATION;
 
   public static final String INTERRUPTION_AFTER_SORT = "after-sort";
   public static final String INTERRUPTION_AFTER_SETUP = "after-setup";
   public static final String INTERRUPTION_WHILE_SPILLING = "spilling";
 
-  private boolean enableDebug = false; // Temporary, do not check in
+  private boolean enableDebug = true; // Temporary, do not check in
 
   public enum Metric implements MetricDef {
     SPILL_COUNT,            // number of times operator spilled to disk
@@ -903,25 +905,18 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       return null;
     }
 
-    // Estimate the size of each record in all the batches. Start with assumptions
-    // about column width based on type (not on actual data), then sum up the
-    // assumed column widths. This number is then used to limit the number of
-    // records written to stay under the copier memory limit. (Needless to say,
-    // this estimate causes the copier to use more or less memory than the limit
-    // depending on how far actual record widths are from the estimated width.)
-    //
-    // Actual memory use is:
-    //
-    //                                       actual row width
-    // memory use = COPIER_BATCH_MEM_LIMIT * -------------------
-    //                                       estimated row width
+    // Determine the number of records to spill per merge step. The goal is to
+    // spill batches of either 32K records, or as may records as fit into the
+    // amount of memory dedicated to the copier, whichever is less.
 
     int estimatedRecordSize = estimateRecordSize( );
     int targetRecordCount = Math.max(1, COPIER_BATCH_MEM_LIMIT / estimatedRecordSize);
-    if ( enableDebug ) { // Do not check in
-      System.out.println( "Original record width estimate: " + estimatedRecordSize ); // Do not check in
-      System.out.println( "Original target record count: " + targetRecordCount ); // Do not check in
-    }
+    targetRecordCount = Math.min( targetRecordCount, Short.MAX_VALUE );
+//    if ( enableDebug ) { // Do not check in
+//      System.out.println( "Spill - record width estimate: " + estimatedRecordSize ); // Do not check in
+//      System.out.println( "Spill - target record count: " + targetRecordCount ); // Do not check in
+//      System.out.println( "Spill - actual record count: " + (totalRecordCount - spilledRecordCount) ); // Do not check in
+//    }
 
     // We've gathered a set of batches, each of which has been sorted. The batches
     // may have passed through a filter and thus may have "holes" where rows have
@@ -951,7 +946,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     VectorContainer hyperBatch = constructHyperBatch(batchGroupList);
     createCopier(hyperBatch, batchGroupList, outputContainer, copierAllocator);
 
-    int count = copier.next(targetRecordCount);
+    int count = copier.next(10); // Temporary: do not check in
     assert count > 0;
 
     logger.debug("mergeAndSpill: estimated record size = {}, target record count = {}", estimatedRecordSize, targetRecordCount);
@@ -1045,6 +1040,15 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     return newGroup;
   }
 
+  /**
+   * Get an estimate of the record size for the current set of batches.
+   * Used to calculate memory needs. Required because generated code
+   * works with records, not bytes, when setting limits such as when
+   * creating a new merged batch.
+   * 
+   * @return the estimated record size, in bytes
+   */
+  
   private int estimateRecordSize( ) {
 
     // Whether to use the "old school" (prior to Drill 1.10) estimate
