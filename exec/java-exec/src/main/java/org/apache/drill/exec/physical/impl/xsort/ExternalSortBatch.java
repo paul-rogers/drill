@@ -245,17 +245,18 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * and each batch returned to the downstream operator. Since the copier
    * works in terms of records, the code estimates row width, then
    * divides the memory limit by row width to get the target batch
-   * sizes (in rows.)
+   * sizes (in rows.) The target size is the maximum memory allocated
+   * to the copier, though for smaller rows the memory used is often
+   * much less.
    */
 
-//  private static final int COPIER_BATCH_MEM_LIMIT = 256 * 1024;
   private static final int COPIER_BATCH_MEM_LIMIT = (int) PriorityQueueCopier.MAX_ALLOCATION;
 
   public static final String INTERRUPTION_AFTER_SORT = "after-sort";
   public static final String INTERRUPTION_AFTER_SETUP = "after-setup";
   public static final String INTERRUPTION_WHILE_SPILLING = "spilling";
 
-  private boolean enableDebug = true; // Temporary, do not check in
+  private boolean enableDebug = false; // Temporary, do not check in
 
   public enum Metric implements MetricDef {
     SPILL_COUNT,            // number of times operator spilled to disk
@@ -952,15 +953,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     VectorContainer hyperBatch = constructHyperBatch(batchGroupList);
     createCopier(hyperBatch, batchGroupList, outputContainer, copierAllocator);
 
-    int count = copier.next(10); // Temporary: do not check in
-    assert count > 0;
-
-    // 1 output container is kept in memory, so we want to hold on to it and transferClone
-    // allows keeping ownership
-    VectorContainer c1 = VectorContainer.getTransferClone(outputContainer, oContext);
-    c1.buildSchema(BatchSchema.SelectionVectorMode.NONE);
-    c1.setRecordCount(count);
-
     // Identify the next directory from the round-robin list to
     // the file created from this round of spilling. The directory must already
     // exist and must have sufficient space for the output file.
@@ -981,7 +973,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // with the just-written batch.
 
     stats.setLongStat(Metric.SPILL_COUNT, spillCount);
-    BatchGroup.SpilledBatchGroup newGroup = new BatchGroup.SpilledBatchGroup(c1, fs, outputFile, oContext);
+    BatchGroup.SpilledBatchGroup newGroup = new BatchGroup.SpilledBatchGroup(fs, outputFile, oContext);
     try (AutoCloseable a = AutoCloseables.all(batchGroupList)) {
 
       // The copier will merge records from the buffered batches into
@@ -992,6 +984,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       if ( enableDebug ) {
         System.out.println( "Copier allocator at start: " + copierAllocator.getAllocatedMemory() ); // Do not check in
       }
+      int count;
       while ((count = copier.next(targetRecordCount)) > 0) {
         if ( enableDebug ) {
           System.out.println( String.format("Copier allocator after copy: %d, Records: %d",
