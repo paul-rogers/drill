@@ -218,7 +218,20 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private int peakNumBatches = -1;
   private int totalRecordCount = 0;
   private int totalBatches = 0; // total number of batches received so far
+
+  /**
+   * Estimate of the average record width (including overhead) of all
+   * records currently stored in memory.
+   */
+
   private int revisedRecordWidthEstimate;
+
+  /**
+   * The cumulative count of the records spilled to disk thus
+   * far. Used to calculate the in-memory record count when
+   * estimating the average row width.
+   */
+
   private int spilledRecordCount;
 
   /**
@@ -717,7 +730,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   private void doSpill() throws SchemaChangeException {
 
-    // Temporary: produce a better record width estimate.
+    // Estimate the row width based on the total memory consumed
+    // by the in-memory batches, divided by the number or rows
+    // in those batches. This estimate "amortizes" overhead memory
+    // across rows so we get an accurate memory use estimate later.
 
     long memUsed = oAllocator.getAllocatedMemory();
     int inMemRecordCount = totalRecordCount - spilledRecordCount;
@@ -824,24 +840,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     return IterOutcome.OK_NEW_SCHEMA;
   }
 
-  private int estimateRecordSize( ) {
-    boolean oldSchool = true;
-    if ( oldSchool ) {
-      int estimatedRecordSize = 0;
-      for (VectorWrapper<?> w : batchGroups.get(0)) {
-        try {
-          estimatedRecordSize += TypeHelper.getSize(w.getField().getType());
-        } catch (UnsupportedOperationException e) {
-          estimatedRecordSize += 50;
-        }
-      }
-      return estimatedRecordSize;
-    } else {
-      return revisedRecordWidthEstimate;
-    }
-  }
-
-  /**
+   /**
    * This operator has accumulated a set of sorted incoming record batches.
    * We wish to spill some of them to disk. To do this, a "{@link #copier}"
    * merges the target batches to produce a stream of new (merged) batches
@@ -956,6 +955,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     assert count > 0;
 
     logger.debug("mergeAndSpill: estimated record size = {}, target record count = {}", estimatedRecordSize, targetRecordCount);
+    // Debug only, do not check in
+    if ( enableDebug ) {
+      System.out.println(String.format("mergeAndSpill: estimated record size = %s, target record count = %s", estimatedRecordSize, targetRecordCount));
+    }
 
     // 1 output container is kept in memory, so we want to hold on to it and transferClone
     // allows keeping ownership
@@ -996,7 +999,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       }
       while ((count = copier.next(targetRecordCount)) > 0) {
         if ( enableDebug ) {
-          System.out.println( "Copier allocator after copy: " + copierAllocator.getAllocatedMemory() ); // Do not check in
+          System.out.println( String.format("Copier allocator after copy: %d, Records: %d",
+              copierAllocator.getAllocatedMemory(), count ) ); // Do not check in
         }
 
         // Identify the schema to be used in the output container. (Since
@@ -1039,6 +1043,39 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
           "After spilling, buffered batch count: " + batchGroups.size( ) );
     }
     return newGroup;
+  }
+
+  private int estimateRecordSize( ) {
+
+    // Whether to use the "old school" (prior to Drill 1.10) estimate
+    // or the "revised" estimate.
+
+    boolean oldSchool = false;
+    if ( oldSchool ) {
+
+      // Estimate the size of each record in all the batches. Start with assumptions
+      // about column width based on type (not on actual data), then sum up the
+      // assumed column widths. This number is then used to limit the number of
+      // records written to stay under the copier memory limit. (Needless to say,
+      // this estimate causes the copier to use more or less memory than the limit
+      // depending on how far actual record widths are from the estimated width.)
+
+      int estimatedRecordSize = 0;
+      for (VectorWrapper<?> w : batchGroups.get(0)) {
+        try {
+          estimatedRecordSize += TypeHelper.getSize(w.getField().getType());
+        } catch (UnsupportedOperationException e) {
+          estimatedRecordSize += 50;
+        }
+      }
+      return estimatedRecordSize;
+    } else {
+
+      // Return the revised estimate based on actual data consumed.
+      // See revisedRecordWidthEstimate for details.
+
+      return revisedRecordWidthEstimate;
+    }
   }
 
   /**
@@ -1222,8 +1259,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     g.getEvalBlock()._return(JExpr.lit(0));
 
     return context.getImplementationClass(cg);
-
-
   }
 
   public SingleBatchSorter createNewSorter(FragmentContext context, VectorAccessible batch)
