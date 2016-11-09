@@ -46,14 +46,18 @@ import com.google.common.base.Stopwatch;
  * Represents a group of batches spilled to disk.
  * <p>
  * The batches are defined by a schema which can change over time. When the schema changes,
- * all existing and new batches are coerced into the new schema.
+ * all existing and new batches are coerced into the new schema. Provides a
+ * uniform way to iterate over records for one or more batches whether
+ * the batches are in memory or on disk.
  * <p>
- * The <code>BatchGroup</code> operates in two modes:
+ * The <code>BatchGroup</code> operates in two modes as given by the two
+ * subclasses:
  * <ul>
- * <li>Write mode: Used to spill batches to disk. In this mode, the
- * current container is not used.</li>
- * <li>Read mode: the current container holds the mostly recently
- * read batch.</li>
+ * <li>Input mode (@link InputBatchGroup): Used to buffer in-memory batches
+ * prior to spilling.</li>
+ * <li>Spill mode (@link SpilledBatchGroup): Holds a "memento" to a set
+ * of batches written to disk. Acts as both a reader and writer for
+ * those batches.</li>
  */
 
 public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
@@ -61,7 +65,13 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
 
   /**
    * The input batch group gathers batches buffered in memory before
-   * spilling.
+   * spilling. The structure of the data is:
+   * <ul>
+   * <li>Contains a single batch received from the upstream (input)
+   * operator.</li>
+   * <li>Associated selection vector that provides a sorted
+   * indirection to the values in the batch.</li>
+   * </ul>
    */
 
   public static class InputBatchGroup extends BatchGroup {
@@ -105,10 +115,20 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
 
   /**
    * Holds a set of spilled batches, represented by a file on disk.
-   * Handles reads from, and writes to the spill file.
+   * Handles reads from, and writes to the spill file. The data structure
+   * is:
+   * <ul>
+   * <li>A pointer to a file that contains serialized batches.</li>
+   * <li>When writing, each batch is appended to the output file.</li>
+   * <li>When reading, iterates over each spilled batch, and for each
+   * of those, each spilled record.</li>
+   * </ul>
    * <p>
    * Starts out with no current batch. Defines the current batch to be the
    * (shell: schema without data) of the last batch spilled to disk.
+   * <p>
+   * When reading, has destructive read-once behavior: closing the
+   * batch (after reading) deletes the underlying spill file.
    */
 
   public static class SpilledBatchGroup extends BatchGroup {
@@ -195,9 +215,7 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
     @Override
     public void close() throws IOException {
       super.close( );
-      if (outputStream != null) {
-        outputStream.close();
-      }
+      closeOutputStream( );
       if (inputStream != null) {
         inputStream.close();
       }
@@ -225,7 +243,8 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
   }
 
   /**
-   * Updates the schema for this batch group. The current as well as any deserialized batches will be coerced to this schema
+   * Updates the schema for this batch group. The current as well as any 
+   * deserialized batches will be coerced to this schema.
    * @param schema
    */
   public void setSchema(BatchSchema schema) {
@@ -285,5 +304,4 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
   public SelectionVector4 getSelectionVector4() {
     throw new UnsupportedOperationException();
   }
-
 }
