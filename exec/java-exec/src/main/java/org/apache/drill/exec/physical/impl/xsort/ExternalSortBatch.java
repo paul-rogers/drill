@@ -234,6 +234,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   public static final String INTERRUPTION_AFTER_SETUP = "after-setup";
   public static final String INTERRUPTION_WHILE_SPILLING = "spilling";
 
+  private boolean enableDebug = false; // Temporary, do not check in
+
   public enum Metric implements MetricDef {
     SPILL_COUNT,            // number of times operator spilled to disk
     PEAK_SIZE_IN_MEMORY,    // peak value for totalSizeInMemory
@@ -720,7 +722,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     long memUsed = oAllocator.getAllocatedMemory();
     int inMemRecordCount = totalRecordCount - spilledRecordCount;
     revisedRecordWidthEstimate = (int) (memUsed / inMemRecordCount);
-    System.out.println( "Revised record width estimate: " + revisedRecordWidthEstimate );
+    if ( enableDebug ) {
+      System.out.println( "Revised record width estimate: " + revisedRecordWidthEstimate );
+    }
 
     if (firstSpillBatchCount == 0) {
       firstSpillBatchCount = batchGroups.size();
@@ -858,8 +862,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   public BatchGroup mergeAndSpill(LinkedList<BatchGroup> batchGroups) throws SchemaChangeException {
     logger.debug("Copier allocator current allocation {}", copierAllocator.getAllocatedMemory());
     logger.debug("mergeAndSpill: starting total size in memory = {}", oAllocator.getAllocatedMemory());
-    System.out.println( // Debugging only, do not check in
-        "Before spilling, buffered batch count: " + batchGroups.size( ) );
+    if ( enableDebug ) {
+      System.out.println( // Debugging only, do not check in
+          "Before spilling, buffered batch count: " + batchGroups.size( ) );
+    }
     VectorContainer outputContainer = new VectorContainer();
 
     // Determine the number of batches to spill. This is set by the
@@ -913,8 +919,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     int estimatedRecordSize = estimateRecordSize( );
     int targetRecordCount = Math.max(1, COPIER_BATCH_MEM_LIMIT / estimatedRecordSize);
-    System.out.println( "Original record width estimate: " + estimatedRecordSize ); // Do not check in
-    System.out.println( "Original target record count: " + targetRecordCount ); // Do not check in
+    if ( enableDebug ) { // Do not check in
+      System.out.println( "Original record width estimate: " + estimatedRecordSize ); // Do not check in
+      System.out.println( "Original target record count: " + targetRecordCount ); // Do not check in
+    }
 
     // We've gathered a set of batches, each of which has been sorted. The batches
     // may have passed through a filter and thus may have "holes" where rows have
@@ -983,9 +991,13 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       // The actual count may be less if fewer records are available.
 
       logger.info("Merging and spilling to {}", outputFile);
-      System.out.println( "Copier allocator at start: " + copierAllocator.getAllocatedMemory() ); // Do not check in
+      if ( enableDebug ) {
+        System.out.println( "Copier allocator at start: " + copierAllocator.getAllocatedMemory() ); // Do not check in
+      }
       while ((count = copier.next(targetRecordCount)) > 0) {
-        System.out.println( "Copier allocator after copy: " + copierAllocator.getAllocatedMemory() ); // Do not check in
+        if ( enableDebug ) {
+          System.out.println( "Copier allocator after copy: " + copierAllocator.getAllocatedMemory() ); // Do not check in
+        }
 
         // Identify the schema to be used in the output container. (Since
         // all merged batches have the same schema, the schema we identify
@@ -1022,8 +1034,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     }
     logger.debug("mergeAndSpill: final total size in memory = {}", oAllocator.getAllocatedMemory());
     logger.info("Completed spilling to {}", outputFile);
-    System.out.println( // Debugging only, do not check in
-        "After spilling, buffered batch count: " + batchGroups.size( ) );
+    if ( enableDebug ) {
+      System.out.println( // Debugging only, do not check in
+          "After spilling, buffered batch count: " + batchGroups.size( ) );
+    }
     return newGroup;
   }
 
