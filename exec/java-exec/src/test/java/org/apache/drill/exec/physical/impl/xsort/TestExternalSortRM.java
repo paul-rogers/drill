@@ -53,7 +53,7 @@ public class TestExternalSortRM extends DrillTest {
     RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
 
     DrillConfig config = DrillConfig.create("xsort/drill-external-sort-rm.conf");
-    DrillConfig config = DrillConfig.create( );
+//    DrillConfig config = DrillConfig.create( );
 
     try (Drillbit bit = new Drillbit(config, serviceSet);
         DrillClient client = new DrillClient(config, serviceSet.getCoordinator());) {

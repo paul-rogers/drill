@@ -27,8 +27,8 @@ import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.record.VectorAccessible;
 
 public interface PriorityQueueCopier extends AutoCloseable {
-  public static final long INITIAL_ALLOCATION = 10000000;
-  public static final long MAX_ALLOCATION = 20000000;
+  public static final long INITIAL_ALLOCATION = 10_000_000;
+  public static final long MAX_ALLOCATION = 20_000_000;
 
   public void setup(FragmentContext context, BufferAllocator allocator, VectorAccessible hyperBatch,
       List<BatchGroup> batchGroups, VectorAccessible outgoing) throws SchemaChangeException;
