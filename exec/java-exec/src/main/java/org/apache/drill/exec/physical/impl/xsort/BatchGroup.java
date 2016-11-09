@@ -47,10 +47,29 @@ import com.google.common.base.Stopwatch;
  * <p>
  * The batches are defined by a schema which can change over time. When the schema changes,
  * all existing and new batches are coerced into the new schema.
+ * <p>
+ * The <code>BatchGroup</code> operates in two modes:
+ * <ul>
+ * <li>Write mode: Used to spill batches to disk. In this mode, the
+ * current container is not used.</li>
+ * <li>Read mode: the current container holds the mostly recently
+ * read batch.</li>
  */
 
-public class BatchGroup implements VectorAccessible, AutoCloseable {
+public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BatchGroup.class);
+  
+  public static class InputBatchGroup extends BatchGroup {
+    public InputBatchGroup(VectorContainer container, SelectionVector2 sv2, OperatorContext context) {
+      super( container, sv2, context );
+    }
+  }
+  
+  public static class SpilledBatchGroup extends BatchGroup {
+    public SpilledBatchGroup(VectorContainer container, FileSystem fs, String path, OperatorContext context) {
+      super( container, fs, path, context );
+    }
+  }
 
   private VectorContainer currentContainer;
   private SelectionVector2 sv2;

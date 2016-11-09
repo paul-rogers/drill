@@ -182,8 +182,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * 2. Merge sorted batches when all incoming data fits in memory
    */
   private PriorityQueueCopier copier;
-  private LinkedList<BatchGroup> batchGroups = Lists.newLinkedList();
-  private LinkedList<BatchGroup> spilledBatchGroups = Lists.newLinkedList();
+  private LinkedList<BatchGroup.InputBatchGroup> batchGroups = Lists.newLinkedList();
+  private LinkedList<BatchGroup.SpilledBatchGroup> spilledBatchGroups = Lists.newLinkedList();
   private SelectionVector4 sv4;
 
   /**
@@ -213,6 +213,12 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private final String fileName;
   private int spillCount = 0;
   private int batchesSinceLastSpill = 0;
+
+  /**
+   * The number of records to return per batch to the downstream
+   * operator.
+   */
+
   private int targetRecordCount;
   private int firstSpillBatchCount = 0;
   private int peakNumBatches = -1;
@@ -297,7 +303,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     return sv4;
   }
 
-  private void closeBatchGroups(Collection<BatchGroup> groups) {
+  private void closeBatchGroups(Collection<? extends BatchGroup> groups) {
     for (BatchGroup group: groups) {
       try {
         group.close();
@@ -555,7 +561,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
       logger.debug("received OUT_OF_MEMORY, trying to spill");
       if (batchesSinceLastSpill > 2) {
-        final BatchGroup merged = mergeAndSpill(batchGroups);
+        final BatchGroup.SpilledBatchGroup merged = mergeAndSpill(batchGroups);
         if (merged != null) {
           spilledBatchGroups.add(merged);
           batchesSinceLastSpill = 0;
@@ -646,7 +652,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     boolean success = false;
     try {
       rbd.setSv2(sv2);
-      batchGroups.add(new BatchGroup(rbd.getContainer(), rbd.getSv2(), oContext));
+      batchGroups.add(new BatchGroup.InputBatchGroup(rbd.getContainer(), rbd.getSv2(), oContext));
       if (peakNumBatches < batchGroups.size()) {
         peakNumBatches = batchGroups.size();
         stats.setLongStat(Metric.PEAK_BATCHES_IN_MEMORY, peakNumBatches);
@@ -751,12 +757,12 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     if (spilledBatchGroups.size() > firstSpillBatchCount / 2) {
       logger.info("Merging spills: threshhold=" + (firstSpillBatchCount / 2) +
                   ", spilled count: " + spilledBatchGroups.size());
-      final BatchGroup merged = mergeAndSpill(spilledBatchGroups);
+      final BatchGroup.SpilledBatchGroup merged = mergeAndSpill(spilledBatchGroups);
       if (merged != null) {
         spilledBatchGroups.addFirst(merged);
       }
     }
-    final BatchGroup merged = mergeAndSpill(batchGroups);
+    final BatchGroup.SpilledBatchGroup merged = mergeAndSpill(batchGroups);
     if (merged != null) { // make sure we don't add null to spilledBatchGroups
       spilledBatchGroups.add(merged);
       batchesSinceLastSpill = 0;
@@ -794,7 +800,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     }
     builder = new SortRecordBatchBuilder(oAllocator);
 
-    for (BatchGroup group : batchGroups) {
+    for (BatchGroup.InputBatchGroup group : batchGroups) {
       RecordBatchData rbd = new RecordBatchData(group.getContainer(), oAllocator);
       rbd.setSv2(group.getSv2());
       builder.add(rbd);
@@ -823,19 +829,21 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   }
 
   private IterOutcome mergeSpilled() throws SchemaChangeException {
-    final BatchGroup merged = mergeAndSpill(batchGroups);
+    final BatchGroup.SpilledBatchGroup merged = mergeAndSpill(batchGroups);
     if (merged != null) {
       spilledBatchGroups.add(merged);
     }
-    batchGroups.addAll(spilledBatchGroups);
+    List<BatchGroup> allBatches = new LinkedList<>( );
+    allBatches.addAll(batchGroups);
+    allBatches.addAll(spilledBatchGroups);
+    batchGroups = null;
     spilledBatchGroups = null; // no need to cleanup spilledBatchGroups, all it's batches are in batchGroups now
 
-    logger.warn("Starting to merge. {} batch groups. Current allocated memory: {}", batchGroups.size(), oAllocator.getAllocatedMemory());
-    VectorContainer hyperBatch = constructHyperBatch(batchGroups);
-    createCopier(hyperBatch, batchGroups, container, oAllocator);
+    logger.info("Starting to merge. {} batch groups. Current allocated memory: {}", allBatches.size(), oAllocator.getAllocatedMemory());
+    VectorContainer hyperBatch = constructHyperBatch(allBatches);
+    createCopier(hyperBatch, allBatches, container, oAllocator);
 
-    int estimatedRecordSize = estimateRecordSize( );
-    targetRecordCount = Math.min(MAX_BATCH_SIZE, Math.max(1, COPIER_BATCH_MEM_LIMIT / estimatedRecordSize));
+    targetRecordCount = getTargetRecordCount();
     int count = copier.next(targetRecordCount);
     container.buildSchema(SelectionVectorMode.NONE);
     container.setRecordCount(count);
@@ -860,7 +868,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * detection is done as each incoming batch arrives
    */
 
-  public BatchGroup mergeAndSpill(LinkedList<BatchGroup> batchGroups) throws SchemaChangeException {
+  public BatchGroup.SpilledBatchGroup mergeAndSpill(LinkedList<? extends BatchGroup> batchGroups) throws SchemaChangeException {
     logger.debug("Copier allocator current allocation {}", copierAllocator.getAllocatedMemory());
     logger.debug("mergeAndSpill: starting total size in memory = {}", oAllocator.getAllocatedMemory());
     if ( enableDebug ) {
@@ -909,9 +917,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // spill batches of either 32K records, or as may records as fit into the
     // amount of memory dedicated to the copier, whichever is less.
 
-    int estimatedRecordSize = estimateRecordSize( );
-    int targetRecordCount = Math.max(1, COPIER_BATCH_MEM_LIMIT / estimatedRecordSize);
-    targetRecordCount = Math.min( targetRecordCount, Short.MAX_VALUE );
+    int targetRecordCount = getTargetRecordCount( );
 //    if ( enableDebug ) { // Do not check in
 //      System.out.println( "Spill - record width estimate: " + estimatedRecordSize ); // Do not check in
 //      System.out.println( "Spill - target record count: " + targetRecordCount ); // Do not check in
@@ -949,12 +955,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     int count = copier.next(10); // Temporary: do not check in
     assert count > 0;
 
-    logger.debug("mergeAndSpill: estimated record size = {}, target record count = {}", estimatedRecordSize, targetRecordCount);
-    // Debug only, do not check in
-    if ( enableDebug ) {
-      System.out.println(String.format("mergeAndSpill: estimated record size = %s, target record count = %s", estimatedRecordSize, targetRecordCount));
-    }
-
     // 1 output container is kept in memory, so we want to hold on to it and transferClone
     // allows keeping ownership
     VectorContainer c1 = VectorContainer.getTransferClone(outputContainer, oContext);
@@ -981,7 +981,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // with the just-written batch.
 
     stats.setLongStat(Metric.SPILL_COUNT, spillCount);
-    BatchGroup newGroup = new BatchGroup(c1, fs, outputFile, oContext);
+    BatchGroup.SpilledBatchGroup newGroup = new BatchGroup.SpilledBatchGroup(c1, fs, outputFile, oContext);
     try (AutoCloseable a = AutoCloseables.all(batchGroupList)) {
 
       // The copier will merge records from the buffered batches into
@@ -1040,15 +1040,27 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     return newGroup;
   }
 
+  private int getTargetRecordCount() {
+    int estimatedRecordSize = estimateRecordSize( );
+    int targetRecordCount = Math.max(1, COPIER_BATCH_MEM_LIMIT / estimatedRecordSize);
+    targetRecordCount = Math.min( targetRecordCount, Short.MAX_VALUE );
+    logger.debug("mergeAndSpill: estimated record size = {}, target record count = {}", estimatedRecordSize, targetRecordCount);
+    // Debug only, do not check in
+    if ( enableDebug ) {
+      System.out.println(String.format("mergeAndSpill: estimated record size = %s, target record count = %s", estimatedRecordSize, targetRecordCount));
+    }
+    return targetRecordCount;
+  }
+
   /**
    * Get an estimate of the record size for the current set of batches.
    * Used to calculate memory needs. Required because generated code
    * works with records, not bytes, when setting limits such as when
    * creating a new merged batch.
-   * 
+   *
    * @return the estimated record size, in bytes
    */
-  
+
   private int estimateRecordSize( ) {
 
     // Whether to use the "old school" (prior to Drill 1.10) estimate
@@ -1144,10 +1156,11 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   }
 
   private SelectionVector2 newSV2() throws OutOfMemoryException, InterruptedException {
+    @SuppressWarnings("resource")
     SelectionVector2 sv2 = new SelectionVector2(oAllocator);
     if (!sv2.allocateNewSafe(incoming.getRecordCount())) {
       try {
-        final BatchGroup merged = mergeAndSpill(batchGroups);
+        final BatchGroup.SpilledBatchGroup merged = mergeAndSpill(batchGroups);
         if (merged != null) {
           spilledBatchGroups.add(merged);
         } else {
