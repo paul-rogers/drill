@@ -1,3 +1,20 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.drill.exec.physical.impl.xsort;
 
 import java.util.concurrent.BlockingQueue;
@@ -22,32 +39,32 @@ public class BufferingQueryEventListener implements UserResultsListener
   public static class QueryEvent
   {
     public enum Type { QUERY_ID, BATCH, EOF, ERROR }
-    
+
     final Type type;
     QueryId queryId;
     QueryDataBatch batch;
     UserException error;
-    
+
     public QueryEvent(QueryId queryId) {
       this.queryId = queryId;
       this.type = Type.QUERY_ID;
     }
-    
+
     public QueryEvent(UserException ex) {
       error = ex;
       type = Type.ERROR;
     }
-    
+
     public QueryEvent(QueryDataBatch batch) {
       this.batch = batch;
       type = Type.BATCH;
     }
-    
+
     public QueryEvent(Type type) {
       this.type = type;
     }
   }
-  
+
   private BlockingQueue<QueryEvent> queue = Queues.newLinkedBlockingQueue();
 
   @Override
@@ -69,7 +86,7 @@ public class BufferingQueryEventListener implements UserResultsListener
   public void queryCompleted(QueryState state) {
     silentPut( new QueryEvent( QueryEvent.Type.EOF ) );
   }
-  
+
   private void silentPut( QueryEvent event ) {
     try {
       queue.put( event );
@@ -78,7 +95,7 @@ public class BufferingQueryEventListener implements UserResultsListener
       e.printStackTrace();
     }
   }
-  
+
   public QueryEvent get( ) {
     try {
       return queue.take( );

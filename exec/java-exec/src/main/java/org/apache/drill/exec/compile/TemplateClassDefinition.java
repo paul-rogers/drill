@@ -80,7 +80,7 @@ public class TemplateClassDefinition<T>{
     buf.append( ", template=" );
     buf.append( (template == null) ? "null" : template.getName() );
     buf.append( ", signature=\n" );
-    buf.append( signature );      
+    buf.append( signature );
     buf.append( "]" );
     return buf.toString();
   }
