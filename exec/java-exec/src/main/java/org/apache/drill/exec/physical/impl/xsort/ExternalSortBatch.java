@@ -33,6 +33,7 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.ErrorCollector;
 import org.apache.drill.common.expression.ErrorCollectorImpl;
 import org.apache.drill.common.expression.LogicalExpression;
+import org.apache.drill.common.logical.data.Order;
 import org.apache.drill.common.logical.data.Order.Ordering;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.compile.sig.MappingSet;
@@ -130,22 +131,22 @@ import com.sun.codemodel.JExpr;
 
 public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExternalSortBatch.class);
-  private static final ControlsInjector injector = ControlsInjectorFactory.getInjector(ExternalSortBatch.class);
+  static final ControlsInjector injector = ControlsInjectorFactory.getInjector(ExternalSortBatch.class);
 
   static final MappingSet MAIN_MAPPING = new MappingSet( (String) null, null, ClassGenerator.DEFAULT_SCALAR_MAP, ClassGenerator.DEFAULT_SCALAR_MAP);
-  private static final MappingSet LEFT_MAPPING = new MappingSet("leftIndex", null, ClassGenerator.DEFAULT_SCALAR_MAP, ClassGenerator.DEFAULT_SCALAR_MAP);
-  private static final MappingSet RIGHT_MAPPING = new MappingSet("rightIndex", null, ClassGenerator.DEFAULT_SCALAR_MAP, ClassGenerator.DEFAULT_SCALAR_MAP);
+  static final MappingSet LEFT_MAPPING = new MappingSet("leftIndex", null, ClassGenerator.DEFAULT_SCALAR_MAP, ClassGenerator.DEFAULT_SCALAR_MAP);
+  static final MappingSet RIGHT_MAPPING = new MappingSet("rightIndex", null, ClassGenerator.DEFAULT_SCALAR_MAP, ClassGenerator.DEFAULT_SCALAR_MAP);
 
   private final int SPILL_BATCH_GROUP_SIZE;
   private final int SPILL_THRESHOLD;
-  private final RecordBatch incoming;
 
   /**
    * Memory allocator for this operator itself. Primarily used to create
    * intermediate vectors used for merging the incoming batches.
    */
 
-  private final BufferAllocator oAllocator;
+  final BufferAllocator oAllocator;
+  private final RecordBatch incoming;
 
   /**
    * Schema of batches that this operator produces.
@@ -153,9 +154,19 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   BatchSchema schema;
 
-  private LinkedList<BatchGroup.SpilledBatchGroup> spilledBatchGroups = Lists.newLinkedList();
-  private SelectionVector4 sv4;
+  /**
+   * Generated sort operation used to sort each incoming batch according to
+   * the sort criteria specified in the {@link ExternalSort} definition of
+   * this operator.
+   */
 
+  private SingleBatchSorter sorter;
+  private LinkedList<BatchGroup.InputBatchGroup> batchGroups = Lists.newLinkedList();
+  private LinkedList<BatchGroup.SpilledBatchGroup> spilledBatchGroups = Lists.newLinkedList();
+  SelectionVector4 sv4;
+  private int batchesSinceLastSpill = 0;
+  private int totalRecordCount = 0;
+  private int firstSpillBatchCount = 0;
   private int peakNumBatches = -1;
 
   private CopierHolder copierHolder;
@@ -178,6 +189,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   }
 
   protected SortState sortState = SortState.START;
+  private int totalBatches = 0; // total number of batches received so far
+  private SortResults resultsIterator;
 
   private static final int COPIER_BATCH_MEM_LIMIT = (int) PriorityQueueCopier.MAX_ALLOCATION;
 
@@ -205,487 +218,463 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     SPILL_BATCH_GROUP_SIZE = config.getInt(ExecConstants.EXTERNAL_SORT_SPILL_GROUP_SIZE);
     SPILL_THRESHOLD = config.getInt(ExecConstants.EXTERNAL_SORT_SPILL_THRESHOLD);
     oAllocator = oContext.getAllocator();
-    spillSet = new SpillSet( context );
+    spillSet = new SpillSession( context );
     copierHolder = new CopierHolder( this, context );
   }
 
-  public class SortBuilder {
+  /**
+   * Estimate of the average record width (including overhead) of all
+   * records currently stored in memory.
+   */
 
-    /**
-     * Generated sort operation used to sort each incoming batch according to
-     * the sort criteria specified in the {@link ExternalSort} definition of
-     * this operator.
-     */
+  private int recordWidthEstimate;
 
-    private SingleBatchSorter sorter;
-    private LinkedList<BatchGroup.InputBatchGroup> batchGroups = Lists.newLinkedList();
-    private SortResults resultsIterator;
-    private int batchesSinceLastSpill = 0;
-    private int firstSpillBatchCount = 0;
-    private int totalRecordCount = 0;
-    private int totalBatches = 0; // total number of batches received so far
-    private ExternalSortBatch esb;
-    FragmentContext context;
-    private final RecordBatch incoming;
+  /**
+   * The cumulative count of the records spilled to disk thus
+   * far. Used to calculate the in-memory record count when
+   * estimating the average row width.
+   */
 
-    /**
-     * Estimate of the average record width (including overhead) of all
-     * records currently stored in memory.
-     */
-
-    private int recordWidthEstimate;
-
-    /**
-     * The cumulative count of the records spilled to disk thus
-     * far. Used to calculate the in-memory record count when
-     * estimating the average row width.
-     */
-
-    private int spilledRecordCount;
+  private int spilledRecordCount;
 
 
-    public SortBuilder( ExternalSortBatch esb, FragmentContext context ) {
-      this.esb = esb;
-      incoming = esb.incoming;
-      this.context = context;
+  /**
+   * Load the results and sort them. May bail out early if an exceptional
+   * condition is passed up from the input batch.
+   *
+   * @return
+   * @throws SchemaChangeException
+   * @throws ClassTransformationException
+   * @throws IOException
+   * @throws InterruptedException
+   */
+
+  public IterOutcome sortResults() throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
+    IterOutcome upstreamOutcome = gatherBatches( );
+    if ( upstreamOutcome != IterOutcome.NONE ) {
+      return upstreamOutcome;
     }
 
-    /**
-     * Load the results and sort them. May bail out early if an exceptional
-     * condition is passed up from the input batch.
-     *
-     * @return
-     * @throws SchemaChangeException
-     * @throws ClassTransformationException
-     * @throws IOException
-     * @throws InterruptedException
-     */
+    return finalMerge( );
+  }
 
-    public IterOutcome build() throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
-      IterOutcome upstreamOutcome = gatherBatches( );
-      if ( upstreamOutcome != IterOutcome.NONE ) {
-        return upstreamOutcome;
-      }
+  /**
+   * Loop to read all batches from the upstream operator, buffer them in memory,
+   * and optionally spill to disk as needed.
+   *
+   * @return
+   * @throws SchemaChangeException
+   * @throws ClassTransformationException
+   * @throws IOException
+   * @throws InterruptedException
+   */
+  private IterOutcome gatherBatches() throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
 
-      return finalMerge( );
+    // Loop over all input batches
+
+    IterOutcome result;
+    for ( ; ; ) {
+      result = loadBatch( );
+
+      // None means all batches have been read.
+
+      if ( result == IterOutcome.NONE ) {
+        break; }
+
+      // Any outcome other than OK means something went wrong.
+
+      if ( result != IterOutcome.OK ) {
+        break; }
     }
+    return result;
+  }
 
-    /**
-     * Loop to read all batches from the upstream operator, buffer them in memory,
-     * and optionally spill to disk as needed.
-     *
-     * @return
-     * @throws SchemaChangeException
-     * @throws ClassTransformationException
-     * @throws IOException
-     * @throws InterruptedException
-     */
-    private IterOutcome gatherBatches() throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
+  /**
+   * Load and process a single batch, handling schema changes. In general, the
+   * external sort accepts only one schema. It can handle compatible schemas
+   * (which seems to mean the same columns in possibly different orders.)
+   *
+   * @return
+   * @throws SchemaChangeException
+   * @throws ClassTransformationException
+   * @throws IOException
+   * @throws InterruptedException
+   */
 
-      // Loop over all input batches
+  private IterOutcome loadBatch() throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
+    IterOutcome upstream = next(incoming);
+    switch (upstream) {
+    case NONE:
+      return upstream;
+    case NOT_YET:
+      throw new UnsupportedOperationException();
+    case STOP:
+      return upstream;
+    case OK_NEW_SCHEMA:
+    case OK:
+      // Unfortunately, the first batch is sometimes (always?) OK
+      // instead of OK_NEW_SCHEMA.
+      setupSchema( upstream );
 
-      IterOutcome result;
-      for ( ; ; ) {
-        result = loadBatch( );
+      // Convert the incoming batch to the agreed-upon schema.
+      // No converted batch means we got an empty input batch.
 
-        // None means all batches have been read.
-
-        if ( result == IterOutcome.NONE ) {
-          break; }
-
-        // Any outcome other than OK means something went wrong.
-
-        if ( result != IterOutcome.OK ) {
-          break; }
-      }
-      return result;
-    }
-
-    /**
-     * Load and process a single batch, handling schema changes. In general, the
-     * external sort accepts only one schema. It can handle compatible schemas
-     * (which seems to mean the same columns in possibly different orders.)
-     *
-     * @return
-     * @throws SchemaChangeException
-     * @throws ClassTransformationException
-     * @throws IOException
-     * @throws InterruptedException
-     */
-
-    private IterOutcome loadBatch() throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
-      IterOutcome upstream = esb.next(incoming);
-      switch (upstream) {
-      case NONE:
-        return upstream;
-      case NOT_YET:
-        throw new UnsupportedOperationException();
-      case STOP:
-        return upstream;
-      case OK_NEW_SCHEMA:
-      case OK:
-        // Unfortunately, the first batch is sometimes (always?) OK
-        // instead of OK_NEW_SCHEMA.
-        setupSchema( upstream );
-
-        // Convert the incoming batch to the agreed-upon schema.
-        // No converted batch means we got an empty input batch.
-
-        VectorContainer convertedBatch = convertBatch( );
-        if ( convertedBatch == null ) {
-          break;
-        }
-
-        // Add the batch to our buffered set of batches.
-
-        processBatch( convertedBatch );
+      VectorContainer convertedBatch = convertBatch( );
+      if ( convertedBatch == null ) {
         break;
-      case OUT_OF_MEMORY:
-
-        // Note: it is highly doubtful that this code actually works. It
-        // requires that the upstream batches got to a safe place to run
-        // out of memory and that no work as in-flight and thus abandoned.
-        // Consider removing this case once resource management is in place.
-
-        logger.debug("received OUT_OF_MEMORY, trying to spill");
-        if (batchesSinceLastSpill > 2) {
-          final SpillEvent spill = spillSet.mergeAndSpill(batchGroups, recordWidthEstimate);
-          if (spill != null && spill.recordCount > 0) {
-            spilledBatchGroups.add(spill.batchGroup);
-            spilledRecordCount += spill.recordCount;
-            batchesSinceLastSpill = 0;
-          }
-        } else {
-          logger.debug("not enough batches to spill, sending OUT_OF_MEMORY downstream");
-          return IterOutcome.OUT_OF_MEMORY;
-        }
-        break;
-      default:
-        throw new UnsupportedOperationException();
       }
-      return IterOutcome.OK;
-    }
 
-    private void setupSchema(IterOutcome upstream) throws SchemaChangeException {
-      // First batch: we won't have a schema.
+      // Add the batch to our buffered set of batches.
 
-      if (esb.schema == null) {
-        esb.schema = incoming.getSchema();
+      processBatch( convertedBatch );
+      break;
+    case OUT_OF_MEMORY:
 
-      // Subsequent batches, nothing to do if same schema.
+      // Note: it is highly doubtful that this code actually works. It
+      // requires that the upstream batches got to a safe place to run
+      // out of memory and that no work as in-flight and thus abandoned.
+      // Consider removing this case once resource management is in place.
 
-      } else if ( upstream == IterOutcome.OK ) {
-        return;
-
-      // only change in the case that the schema truly changes.  Artificial schema changes are ignored.
-      } else if (incoming.getSchema().equals(esb.schema)) {
-        return;
-      } else if (esb.unionTypeEnabled) {
-        esb.schema = SchemaUtil.mergeSchemas(esb.schema, incoming.getSchema());
-          sorter = null;
+      logger.debug("received OUT_OF_MEMORY, trying to spill");
+      if (batchesSinceLastSpill > 2) {
+        final SpillEvent spill = spillSet.mergeAndSpill(batchGroups, recordWidthEstimate);
+        if (spill != null && spill.recordCount > 0) {
+          spilledBatchGroups.add(spill.batchGroup);
+          spilledRecordCount += spill.recordCount;
+          batchesSinceLastSpill = 0;
+        }
       } else {
-        throw new SchemaChangeException("Schema changes not supported in External Sort. Please enable Union type.");
+        logger.debug("not enough batches to spill, sending OUT_OF_MEMORY downstream");
+        return IterOutcome.OUT_OF_MEMORY;
       }
+      break;
+    default:
+      throw new UnsupportedOperationException();
+    }
+    return IterOutcome.OK;
+  }
 
-      // Coerce all existing batches to the new schema.
+  private void setupSchema(IterOutcome upstream) throws SchemaChangeException {
+    // First batch: we won't have a schema.
 
-      for (BatchGroup b : batchGroups) {
-        b.setSchema(esb.schema);
-      }
-      for (BatchGroup b : spilledBatchGroups) {
-        b.setSchema(esb.schema);
-      }
+    if (schema == null) {
+      schema = incoming.getSchema();
+
+    // Subsequent batches, nothing to do if same schema.
+
+    } else if ( upstream == IterOutcome.OK ) {
+      return;
+
+    // only change in the case that the schema truly changes.  Artificial schema changes are ignored.
+    } else if (incoming.getSchema().equals(schema)) {
+      return;
+    } else if (unionTypeEnabled) {
+      schema = SchemaUtil.mergeSchemas(schema, incoming.getSchema());
+        sorter = null;
+    } else {
+      throw new SchemaChangeException("Schema changes not supported in External Sort. Please enable Union type.");
     }
 
-    /**
-     * Convert an incoming batch into the agree-upon format. (Also seems to
-     * make a persistent shallow copy of the batch saved until we are ready
-     * to sort or spill.)
-     *
-     * @return the converted batch, or null if the incoming batch is empty
-     * @throws ClassTransformationException
-     * @throws SchemaChangeException
-     * @throws IOException
-     */
+    // Coerce all existing batches to the new schema.
 
-    private VectorContainer convertBatch( ) throws ClassTransformationException, SchemaChangeException, IOException {
-      if ( incoming.getRecordCount() == 0 ) {
-        return null; }
-      return SchemaUtil.coerceContainer(incoming, schema, oContext);
+    for (BatchGroup b : batchGroups) {
+      b.setSchema(schema);
     }
-
-    /**
-     * Process the converted incoming batch. Sort it, add it to the in-memory store
-     * of data, and spill to disk when necessary.
-     *
-     * @param convertedBatch
-     * @return
-     * @throws SchemaChangeException
-     * @throws ClassTransformationException
-     * @throws IOException
-     * @throws InterruptedException
-     */
-
-    private void processBatch(VectorContainer convertedBatch) throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
-      SelectionVector2 sv2 = makeSelectionVector( );
-      int count = sv2.getCount();
-      totalRecordCount += count;
-      totalBatches++;
-      if ( sorter == null ) {
-        sorter = createNewSorter(context, convertedBatch);
-      }
-      sorter.setup(context, sv2, convertedBatch);
-      sorter.sort(sv2);
-      RecordBatchData rbd = new RecordBatchData(convertedBatch, esb.oAllocator);
-      boolean success = false;
-      try {
-        rbd.setSv2(sv2);
-        batchGroups.add(new BatchGroup.InputBatchGroup(rbd.getContainer(), rbd.getSv2(), oContext));
-        if (peakNumBatches < batchGroups.size()) {
-          peakNumBatches = batchGroups.size();
-          stats.setLongStat(Metric.PEAK_BATCHES_IN_MEMORY, peakNumBatches);
-        }
-
-        batchesSinceLastSpill++;
-        if ( spillNeeded( ) ) {
-          doSpill( );
-        }
-        success = true;
-      } finally {
-        if (!success) {
-          rbd.clear();
-        }
-      }
-    }
-
-    /**
-     * Determine if spill is needed after receiving the new record batch.
-     * A number of conditions trigger spilling.
-     *
-     * @return true if spilling is needed, false otherwise
-     */
-
-    private boolean spillNeeded() {
-
-      // The amount of memory this allocator currently uses.
-
-      long allocMem = esb.oAllocator.getAllocatedMemory();
-
-      // The maximum memory this operator can use. It is either the
-      // limit set on the allocator or on the operator, whichever is
-      // less.
-
-      long limitMem = Math.min( esb.popConfig.getMaxAllocation(), esb.oAllocator.getLimit() );
-
-      long availableMem = limitMem - allocMem;
-
-      // If we haven't spilled so far...
-
-      if (! spillSet.hasSpilled()) {
-
-        // Do we have enough memory for MSorter
-        // if this turns out to be the last incoming batch?
-
-        long neededForInMemorySort = SortRecordBatchBuilder.memoryNeeded(totalRecordCount) +
-                                     MSortTemplate.memoryNeeded(totalRecordCount);
-        if (availableMem < neededForInMemorySort) { return true; }
-
-        // Make sure we don't exceed the maximum
-        // number of batches SV4 can address
-
-        if (totalBatches > Character.MAX_VALUE) { return true; }
-      }
-
-      // TODO(DRILL-4438) - consider setting this threshold more intelligently,
-      // lowering caused a failing low memory condition (test in BasicPhysicalOpUnitTest)
-      // to complete successfully (although it caused perf decrease as there was more spilling)
-
-      // current memory used is more than 95% of memory usage limit of this operator
-
-      if (allocMem > .95 * limitMem) { return true; }
-
-      // Number of incoming batches (BatchGroups) exceed the limit and number of incoming
-      // batches accumulated since the last spill exceed the defined limit
-
-      if (batchGroups.size() > SPILL_THRESHOLD &&
-          batchesSinceLastSpill >= SPILL_BATCH_GROUP_SIZE) { return true; }
-
-      return false;
-    }
-
-    /**
-     * Spill batches to disk. The first spill batch establishes a baseline spilled
-     * batch count. On subsequent spills, if the number of accumulated spilled
-     * batches exceeds half the baseline, read, merge, and respill the existing
-     * batches. (Thus, we can end up reading and writing the same data multiple
-     * times.) Then, spill the batch groups accumulated since the last spill.
-     *
-     * @throws SchemaChangeException which should never actually happen as we
-     * caught schema changes while receiving the batches earlier
-     */
-
-    private void doSpill() throws SchemaChangeException {
-
-      updateRecordWidthEstimate( );
-     if (! spillSet.hasSpilled()) {
-        firstSpillBatchCount = batchGroups.size();
-      }
-
-      if (spilledBatchGroups.size() > firstSpillBatchCount / 2) {
-        logger.info("Merging spills: threshhold=" + (firstSpillBatchCount / 2) +
-                    ", spilled count: " + spilledBatchGroups.size());
-        final SpillEvent spill = spillSet.mergeAndSpill(spilledBatchGroups, recordWidthEstimate);
-        assert spill != null  &&  spill.recordCount > 0;
-        spilledBatchGroups.addFirst(spill.batchGroup);
-      }
-      final SpillEvent spill = spillSet.mergeAndSpill(batchGroups, recordWidthEstimate);
-      if (spill != null && spill.recordCount > 0) { // make sure we don't add null to spilledBatchGroups
-        spilledBatchGroups.add(spill.batchGroup);
-        batchesSinceLastSpill = 0;
-      }
-    }
-
-    /**
-     * Estimate the row width based on the total memory consumed
-     * by the in-memory batches, divided by the number or rows
-     * in those batches. This estimate "amortizes" overhead memory
-     * across rows so we get an accurate memory use estimate later.
-     */
-
-    private void updateRecordWidthEstimate() {
-
-      long memUsed = esb.getAllocator( ).getAllocatedMemory();
-      int inMemRecordCount = totalRecordCount - spilledRecordCount;
-      recordWidthEstimate = Math.max( recordWidthEstimate,
-                                             (int) (memUsed / inMemRecordCount) );
-      if ( esb.enableDebug ) {
-        System.out.println( String.format("Record width estimate: %d = %d bytes / %d records",
-                                          recordWidthEstimate, memUsed, inMemRecordCount ) );
-      }
-    }
-
-    /**
-     * Each batch is sorted individually before being spilled and/or merged.
-     * Sorting is done via a 2-byte selection vector, where the selection
-     * vector provides an indirection into the underlying records. The sort
-     * batch can reuse a selection vector provided by the incoming batch,
-     * or will create a new one if the incoming batch does not provide one.
-     *
-     * @return
-     * @throws InterruptedException
-     */
-
-    private SelectionVector2 makeSelectionVector() throws InterruptedException {
-      if (incoming.getSchema().getSelectionVectorMode() == BatchSchema.SelectionVectorMode.TWO_BYTE) {
-        return incoming.getSelectionVector2().clone();
-      } else {
-        try {
-          return newSV2();
-        } catch (OutOfMemoryException e) {
-          throw new OutOfMemoryException(e);
-        }
-      }
-    }
-
-    private SelectionVector2 newSV2() throws OutOfMemoryException, InterruptedException {
-      @SuppressWarnings("resource")
-      SelectionVector2 sv2 = new SelectionVector2(esb.oAllocator);
-      if (!sv2.allocateNewSafe(incoming.getRecordCount())) {
-        try {
-          final SpillEvent spill = spillSet.mergeAndSpill(batchGroups, recordWidthEstimate);
-          if (spill != null && spill.recordCount > 0) {
-            spilledBatchGroups.add(spill.batchGroup);
-          } else {
-            throw UserException.memoryError("Unable to allocate sv2 for %d records, and not enough batchGroups to spill.",
-                incoming.getRecordCount())
-              .addContext("batchGroups.size", batchGroups.size())
-              .addContext("spilledBatchGroups.size", spilledBatchGroups.size())
-              .addContext("allocated memory", esb.oAllocator.getAllocatedMemory())
-              .addContext("allocator limit", esb.oAllocator.getLimit())
-              .build(logger);
-          }
-        } catch (SchemaChangeException e) {
-          throw new RuntimeException(e);
-        }
-        int waitTime = 1;
-        while (true) {
-          try {
-            Thread.sleep(waitTime * 1000);
-          } catch(final InterruptedException e) {
-            if (!context.shouldContinue()) {
-              throw e;
-            }
-          }
-          waitTime *= 2;
-          if (sv2.allocateNewSafe(incoming.getRecordCount())) {
-            break;
-          }
-          if (waitTime >= 32) {
-            throw new OutOfMemoryException("Unable to allocate sv2 buffer after repeated attempts");
-          }
-        }
-      }
-      for (int i = 0; i < incoming.getRecordCount(); i++) {
-        sv2.setIndex(i, (char) i);
-      }
-      sv2.setRecordCount(incoming.getRecordCount());
-      return sv2;
-    }
-
-    public SingleBatchSorter createNewSorter(FragmentContext context,
-        VectorAccessible batch) throws ClassTransformationException,
-        IOException, SchemaChangeException {
-      CodeGenerator<SingleBatchSorter> cg = CodeGenerator.get(
-          SingleBatchSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(),
-          context.getOptions());
-      ClassGenerator<SingleBatchSorter> g = cg.getRoot();
-
-      generateComparisons(g, batch);
-
-      return context.getImplementationClass(cg);
-    }
-
-    private IterOutcome finalMerge( ) throws SchemaChangeException, ClassTransformationException, IOException {
-
-      // Anything to actually sort?
-
-      if (totalRecordCount == 0) {
-        return IterOutcome.NONE; }
-
-      // Do the actual sort. The sort can be done entirely in memory if
-      // the results fit; else we have to do a disk-based merge of
-      // pre-sorted spilled batches.
-
-      if (spillSet.hasSpilled( )) {
-        // some batches were spilled
-        resultsIterator = new SpilledMerge( batchGroups, recordWidthEstimate );
-      } else {
-        resultsIterator = new InMemoryMerge( esb, batchGroups );
-      }
-      IterOutcome mergeOutcome = resultsIterator.merge( );
-      return mergeOutcome;
-    }
-
-    public SortResults getResults( ) {
-      return resultsIterator;
-    }
-
-   /**
-     * Remove any left-over in-memory batches if the build phase fails.
-     * Note: if the phase succeeds, the list of in-memory batches is
-     * empty, so no close is required.
-     */
-
-    public void close() {
-      closeBatchGroups(batchGroups);
+    for (BatchGroup b : spilledBatchGroups) {
+      b.setSchema(schema);
     }
   }
 
-  public SpillSet spillSet;
-  private SortResults resultsIterator;
+  /**
+   * Convert an incoming batch into the agree-upon format. (Also seems to
+   * make a persistent shallow copy of the batch saved until we are ready
+   * to sort or spill.)
+   *
+   * @return the converted batch, or null if the incoming batch is empty
+   * @throws ClassTransformationException
+   * @throws SchemaChangeException
+   * @throws IOException
+   */
 
-  public class SpillSet {
+  private VectorContainer convertBatch( ) throws ClassTransformationException, SchemaChangeException, IOException {
+    if ( incoming.getRecordCount() == 0 ) {
+      return null; }
+    return SchemaUtil.coerceContainer(incoming, schema, oContext);
+  }
 
+  /**
+   * Process the converted incoming batch. Sort it, add it to the in-memory store
+   * of data, and spill to disk when necessary.
+   *
+   * @param convertedBatch
+   * @return
+   * @throws SchemaChangeException
+   * @throws ClassTransformationException
+   * @throws IOException
+   * @throws InterruptedException
+   */
+
+  private void processBatch(VectorContainer convertedBatch) throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
+    SelectionVector2 sv2 = makeSelectionVector( );
+    int count = sv2.getCount();
+    totalRecordCount += count;
+    totalBatches++;
+    if ( sorter == null ) {
+      sorter = createNewSorter(context, convertedBatch);
+    }
+    sorter.setup(context, sv2, convertedBatch);
+    sorter.sort(sv2);
+    RecordBatchData rbd = new RecordBatchData(convertedBatch, oAllocator);
+    boolean success = false;
+    try {
+      rbd.setSv2(sv2);
+      batchGroups.add(new BatchGroup.InputBatchGroup(rbd.getContainer(), rbd.getSv2(), oContext));
+      if (peakNumBatches < batchGroups.size()) {
+        peakNumBatches = batchGroups.size();
+        stats.setLongStat(Metric.PEAK_BATCHES_IN_MEMORY, peakNumBatches);
+      }
+
+      batchesSinceLastSpill++;
+      if ( spillNeeded( ) ) {
+        doSpill( );
+      }
+      success = true;
+    } finally {
+      if (!success) {
+        rbd.clear();
+      }
+    }
+  }
+
+  /**
+   * Determine if spill is needed after receiving the new record batch.
+   * A number of conditions trigger spilling.
+   *
+   * @return true if spilling is needed, false otherwise
+   */
+
+  private boolean spillNeeded() {
+
+    // The amount of memory this allocator currently uses.
+
+    long allocMem = oAllocator.getAllocatedMemory();
+
+    // The maximum memory this operator can use. It is either the
+    // limit set on the allocator or on the operator, whichever is
+    // less.
+
+    long limitMem = Math.min( popConfig.getMaxAllocation(), oAllocator.getLimit() );
+
+    long availableMem = limitMem - allocMem;
+
+    // If we haven't spilled so far...
+
+    if (! spillSet.hasSpilled()) {
+
+      // Do we have enough memory for MSorter
+      // if this turns out to be the last incoming batch?
+
+      long neededForInMemorySort = SortRecordBatchBuilder.memoryNeeded(totalRecordCount) +
+                                   MSortTemplate.memoryNeeded(totalRecordCount);
+      if (availableMem < neededForInMemorySort) { return true; }
+
+      // Make sure we don't exceed the maximum
+      // number of batches SV4 can address
+
+      if (totalBatches > Character.MAX_VALUE) { return true; }
+    }
+
+    // TODO(DRILL-4438) - consider setting this threshold more intelligently,
+    // lowering caused a failing low memory condition (test in BasicPhysicalOpUnitTest)
+    // to complete successfully (although it caused perf decrease as there was more spilling)
+
+    // current memory used is more than 95% of memory usage limit of this operator
+
+    if (allocMem > .95 * limitMem) { return true; }
+
+    // Number of incoming batches (BatchGroups) exceed the limit and number of incoming
+    // batches accumulated since the last spill exceed the defined limit
+
+    if (batchGroups.size() > SPILL_THRESHOLD &&
+        batchesSinceLastSpill >= SPILL_BATCH_GROUP_SIZE) { return true; }
+
+    return false;
+  }
+
+  /**
+   * Spill batches to disk. The first spill batch establishes a baseline spilled
+   * batch count. On subsequent spills, if the number of accumulated spilled
+   * batches exceeds half the baseline, read, merge, and respill the existing
+   * batches. (Thus, we can end up reading and writing the same data multiple
+   * times.) Then, spill the batch groups accumulated since the last spill.
+   *
+   * @throws SchemaChangeException which should never actually happen as we
+   * caught schema changes while receiving the batches earlier
+   */
+
+  private void doSpill() throws SchemaChangeException {
+
+    updateRecordWidthEstimate( );
+    if (! spillSet.hasSpilled()) {
+      firstSpillBatchCount = batchGroups.size();
+    }
+
+    // TODO: Reverse the order so we free up memory before
+    // rereading existing data.
+    
+    spillNewDiskGeneration( );
+    spillInMemoryGeneration( );
+  }
+  
+  private void spillInMemoryGeneration( ) throws SchemaChangeException {
+    final SpillEvent spill = spillSet.spillInMemoryGeneration(batchGroups, recordWidthEstimate);
+    if (spill != null && spill.recordCount > 0) { // make sure we don't add null to spilledBatchGroups
+      spilledBatchGroups.add(spill.batchGroup);
+      batchesSinceLastSpill = 0;
+    }
+  }
+  
+  private void spillNewDiskGeneration( ) throws SchemaChangeException {
+    if (spilledBatchGroups.size() > firstSpillBatchCount / 2) {
+      logger.info("Merging spills: threshhold=" + (firstSpillBatchCount / 2) +
+                  ", spilled count: " + spilledBatchGroups.size());
+      final SpillEvent spill = spillSet.mergeAndSpill(spilledBatchGroups, recordWidthEstimate);
+      assert spill != null  &&  spill.recordCount > 0;
+      spilledBatchGroups.addFirst(spill.batchGroup);
+    }
+  }
+
+  /**
+   * Estimate the row width based on the total memory consumed
+   * by the in-memory batches, divided by the number or rows
+   * in those batches. This estimate "amortizes" overhead memory
+   * across rows so we get an accurate memory use estimate later.
+   */
+
+  private void updateRecordWidthEstimate() {
+
+    long memUsed = oAllocator.getAllocatedMemory();
+    int inMemRecordCount = totalRecordCount - spilledRecordCount;
+    recordWidthEstimate = Math.max( recordWidthEstimate,
+                                           (int) (memUsed / inMemRecordCount) );
+    if ( enableDebug ) {
+      System.out.println( String.format("Record width estimate: %d = %d bytes / %d records",
+                                        recordWidthEstimate, memUsed, inMemRecordCount ) );
+    }
+  }
+
+  /**
+   * Each batch is sorted individually before being spilled and/or merged.
+   * Sorting is done via a 2-byte selection vector, where the selection
+   * vector provides an indirection into the underlying records. The sort
+   * batch can reuse a selection vector provided by the incoming batch,
+   * or will create a new one if the incoming batch does not provide one.
+   *
+   * @return
+   * @throws InterruptedException
+   */
+
+  private SelectionVector2 makeSelectionVector() throws InterruptedException {
+    if (incoming.getSchema().getSelectionVectorMode() == BatchSchema.SelectionVectorMode.TWO_BYTE) {
+      return incoming.getSelectionVector2().clone();
+    } else {
+      try {
+        return newSV2();
+      } catch (OutOfMemoryException e) {
+        throw new OutOfMemoryException(e);
+      }
+    }
+  }
+
+  private SelectionVector2 newSV2() throws OutOfMemoryException, InterruptedException {
+    @SuppressWarnings("resource")
+    SelectionVector2 sv2 = new SelectionVector2(oAllocator);
+    if (!sv2.allocateNewSafe(incoming.getRecordCount())) {
+      try {
+        final SpillEvent spill = spillSet.mergeAndSpill(batchGroups, recordWidthEstimate);
+        if (spill != null && spill.recordCount > 0) {
+          spilledBatchGroups.add(spill.batchGroup);
+        } else {
+          throw UserException.memoryError("Unable to allocate sv2 for %d records, and not enough batchGroups to spill.",
+              incoming.getRecordCount())
+            .addContext("batchGroups.size", batchGroups.size())
+            .addContext("spilledBatchGroups.size", spilledBatchGroups.size())
+            .addContext("allocated memory", oAllocator.getAllocatedMemory())
+            .addContext("allocator limit", oAllocator.getLimit())
+            .build(logger);
+        }
+      } catch (SchemaChangeException e) {
+        throw new RuntimeException(e);
+      }
+      int waitTime = 1;
+      while (true) {
+        try {
+          Thread.sleep(waitTime * 1000);
+        } catch(final InterruptedException e) {
+          if (!context.shouldContinue()) {
+            throw e;
+          }
+        }
+        waitTime *= 2;
+        if (sv2.allocateNewSafe(incoming.getRecordCount())) {
+          break;
+        }
+        if (waitTime >= 32) {
+          throw new OutOfMemoryException("Unable to allocate sv2 buffer after repeated attempts");
+        }
+      }
+    }
+    for (int i = 0; i < incoming.getRecordCount(); i++) {
+      sv2.setIndex(i, (char) i);
+    }
+    sv2.setRecordCount(incoming.getRecordCount());
+    return sv2;
+  }
+
+  public SingleBatchSorter createNewSorter(FragmentContext context,
+      VectorAccessible batch) throws ClassTransformationException,
+      IOException, SchemaChangeException {
+    CodeGenerator<SingleBatchSorter> cg = CodeGenerator.get(
+        SingleBatchSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(),
+        context.getOptions());
+    ClassGenerator<SingleBatchSorter> g = cg.getRoot();
+
+    generateComparisons(g, batch);
+
+    return context.getImplementationClass(cg);
+  }
+
+  private IterOutcome finalMerge( ) throws SchemaChangeException, ClassTransformationException, IOException {
+
+    // Anything to actually sort?
+
+    if (totalRecordCount == 0) {
+      return IterOutcome.NONE; }
+
+    // Do the actual sort. The sort can be done entirely in memory if
+    // the results fit; else we have to do a disk-based merge of
+    // pre-sorted spilled batches.
+
+    if (spillSet.hasSpilled( )) {
+      // some batches were spilled
+      resultsIterator = new SpilledMerge( batchGroups, recordWidthEstimate );
+    } else {
+      resultsIterator = new InMemoryMerge( this, context, batchGroups );
+    }
+    IterOutcome mergeOutcome = resultsIterator.merge( );
+    return mergeOutcome;
+  }
+
+  public SpillSession spillSet;
+
+  /**
+   * Manages the set of spill files for this sort session.
+   */
+  
+  public class SpillSession {
+    private LinkedList<BatchGroup.SpilledBatchGroup> newGeneration = new LinkedList<>( );
+    private LinkedList<BatchGroup.SpilledBatchGroup> oldGeneration = new LinkedList<>( );
+    
     /**
      * The HDFS file system (for local directories, HDFS storage, etc.) used to
      * create the temporary spill files. Allows spill files to be either on local
@@ -734,7 +723,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
      * detection is done as each incoming batch arrives
      */
 
-    public SpillSet( FragmentContext context ) {
+    public SpillSession( FragmentContext context ) {
       DrillConfig config = context.getConfig();
       dirs = Iterators.cycle(config.getStringList(ExecConstants.EXTERNAL_SORT_SPILL_DIRS));
       Configuration conf = new Configuration();
@@ -751,6 +740,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     public boolean hasSpilled() {
       return spillCount > 0;
+    }
+    
+    public SpillEvent spillInMemoryGeneration(LinkedList<? extends BatchGroup> inMemoryGen, int estimatedRecordSize) throws SchemaChangeException {
+      return mergeAndSpill( inMemoryGen, estimatedRecordSize );
     }
 
     public SpillEvent mergeAndSpill(LinkedList<? extends BatchGroup> batchGroups, int estimatedRecordSize) throws SchemaChangeException {
@@ -946,119 +939,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     void close();
   }
 
-  public static class InMemoryMerge implements SortResults {
-
-    private final ExternalSortBatch esb;
-    private SortRecordBatchBuilder builder;
-    private MSorter mSorter;
-    private LinkedList<BatchGroup.InputBatchGroup> batchGroups;
-    protected final FragmentContext context;
-    private SelectionVector4 sv4;
-
-    public InMemoryMerge( ExternalSortBatch esb, LinkedList<BatchGroup.InputBatchGroup> batchGroups ) {
-      this.esb = esb;
-      this.batchGroups = batchGroups;
-      context = esb.context;
-    }
-
-    @Override
-    public IterOutcome merge() throws SchemaChangeException, ClassTransformationException, IOException {
-      if (builder != null) {
-        builder.clear();
-        builder.close();
-      }
-      builder = new SortRecordBatchBuilder(esb.oAllocator);
-
-      while ( ! batchGroups.isEmpty() ) {
-        BatchGroup.InputBatchGroup group = batchGroups.pollLast();
-        RecordBatchData rbd = new RecordBatchData(group.getContainer(), esb.oAllocator);
-        rbd.setSv2(group.getSv2());
-        builder.add(rbd);
-      }
-
-      builder.build(context, esb.container);
-      sv4 = builder.getSv4();
-      mSorter = createNewMSorter();
-      mSorter.setup(context, esb.oAllocator, sv4, esb.container);
-
-      // For testing memory-leak purpose, inject exception after mSorter finishes setup
-      injector.injectUnchecked(context.getExecutionControls(), INTERRUPTION_AFTER_SETUP);
-      mSorter.sort(esb.container);
-
-      // sort may have prematurely exited due to should continue returning false.
-      if (!context.shouldContinue()) {
-        return IterOutcome.STOP;
-      }
-
-      // For testing memory-leak purpose, inject exception after mSorter finishes sorting
-      injector.injectUnchecked(context.getExecutionControls(), INTERRUPTION_AFTER_SORT);
-      esb.sv4 = mSorter.getSV4();
-
-      esb.container.buildSchema(SelectionVectorMode.FOUR_BYTE);
-      return IterOutcome.OK_NEW_SCHEMA;
-    }
-
-    @Override
-    public IterOutcome next() {
-      return (sv4.next()) ? IterOutcome.OK : IterOutcome.NONE;
-    }
-
-    private MSorter createNewMSorter() throws ClassTransformationException, IOException, SchemaChangeException {
-      return createNewMSorter(context, esb.popConfig.getOrderings(), esb, MAIN_MAPPING, LEFT_MAPPING, RIGHT_MAPPING);
-    }
-
-    private MSorter createNewMSorter(FragmentContext context, List<Ordering> orderings, VectorAccessible batch, MappingSet mainMapping, MappingSet leftMapping, MappingSet rightMapping)
-            throws ClassTransformationException, IOException, SchemaChangeException{
-      CodeGenerator<MSorter> cg = CodeGenerator.get(MSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
-      ClassGenerator<MSorter> g = cg.getRoot();
-      g.setMappingSet(mainMapping);
-
-      for (Ordering od : orderings) {
-        // first, we rewrite the evaluation stack for each side of the comparison.
-        ErrorCollector collector = new ErrorCollectorImpl();
-        final LogicalExpression expr = ExpressionTreeMaterializer.materialize(od.getExpr(), batch, collector, context.getFunctionRegistry());
-        if (collector.hasErrors()) {
-          throw new SchemaChangeException("Failure while materializing expression. " + collector.toErrorString());
-        }
-        g.setMappingSet(leftMapping);
-        HoldingContainer left = g.addExpr(expr, ClassGenerator.BlkCreateMode.FALSE);
-        g.setMappingSet(rightMapping);
-        HoldingContainer right = g.addExpr(expr, ClassGenerator.BlkCreateMode.FALSE);
-        g.setMappingSet(mainMapping);
-
-        // next we wrap the two comparison sides and add the expression block for the comparison.
-        LogicalExpression fh =
-            FunctionGenerationHelper.getOrderingComparator(od.nullsSortHigh(), left, right,
-                                                           context.getFunctionRegistry());
-        HoldingContainer out = g.addExpr(fh, ClassGenerator.BlkCreateMode.FALSE);
-        JConditional jc = g.getEvalBlock()._if(out.getValue().ne(JExpr.lit(0)));
-
-        if (od.getDirection() == Direction.ASCENDING) {
-          jc._then()._return(out.getValue());
-        }else{
-          jc._then()._return(out.getValue().minus());
-        }
-        g.rotateBlock();
-      }
-
-      g.rotateBlock();
-      g.getEvalBlock()._return(JExpr.lit(0));
-
-      return context.getImplementationClass(cg);
-    }
-
-    @Override
-    public void close() {
-      if (builder != null) {
-        builder.clear();
-        builder.close();
-      }
-      if (mSorter != null) {
-        mSorter.clear();
-      }
-    }
-  }
-
   public class SpilledMerge implements SortResults {
 
     private CopierHolder.BatchMerger merger;
@@ -1147,6 +1027,12 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   @Override
   public void close() {
     try {
+
+      // Remove any left-over in-memory batches if the build phase fails.
+      // Note: if the phase succeeds, the list of in-memory batches is
+      // empty, so no close is required.
+
+      closeBatchGroups(batchGroups);
       if (spilledBatchGroups != null) {
         closeBatchGroups(spilledBatchGroups);
         spilledBatchGroups = null;
@@ -1238,21 +1124,18 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private IterOutcome buildResults( ) {
 
     container.clear();
-    SortBuilder sortBuilder = new SortBuilder( this, context );
     try {
       try {
-        IterOutcome outcome = sortBuilder.build( );
+        IterOutcome outcome = sortResults( );
         if ( outcome == IterOutcome.NONE ) {
           sortState = SortState.END;
         } else {
           sortState = SortState.RESULTS;
-          resultsIterator = sortBuilder.getResults();
         }
         return outcome;
       }
       catch ( Exception e ) {
         sortState = SortState.ERROR;
-        sortBuilder.close( );
         throw e;
       }
     } catch(InterruptedException e) {
@@ -1330,7 +1213,15 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     g.getEvalBlock()._return(JExpr.lit(0));
   }
 
-  public BufferAllocator getAllocator() {
+  protected BufferAllocator getAllocator() {
     return oAllocator;
+  }
+
+  protected ExternalSort getOpConfig() {
+    return popConfig;
+  }
+
+  protected VectorContainer getDestContainer() {
+    return container;
   }
 }

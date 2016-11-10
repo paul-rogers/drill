@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.xsort;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import java.io.IOException;
 import java.net.URL;
 import java.util.List;
 
@@ -49,7 +50,7 @@ import com.google.common.io.Files;
 public class TestExternalSortRM extends DrillTest {
 
   @Test
-  public void test() throws Exception {
+  public void testManagedSpilled() throws Exception {
     RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
 
     DrillConfig config = DrillConfig.create("xsort/drill-external-sort-rm.conf");
@@ -62,43 +63,64 @@ public class TestExternalSortRM extends DrillTest {
       defineWorkspace( bit, "dfs", "data", "/Users/paulrogers/work/data", "psv" );
       client.connect();
       setMaxFragmentWidth( client, 1 );
-      BufferingQueryEventListener listener = new BufferingQueryEventListener( );
-      String sql = Files.toString(FileUtils.getResourceAsFile("/xsort/sort-big-all.sql"),
-          Charsets.UTF_8);
-      long start = System.currentTimeMillis();
-      client.runQuery(QueryType.SQL, sql, listener);
-      int recordCount = 0;
-      int batchCount = 0;
-      loop:
-      for ( ; ; ) {
-        QueryEvent event = listener.get();
-        switch ( event.type )
-        {
-        case BATCH:
-          batchCount++;
-          recordCount += event.batch.getHeader().getRowCount();
-          event.batch.release();
-          break;
-        case EOF:
-          break loop;
-        case ERROR:
-          event.error.printStackTrace();
-          fail( );
-          break loop;
-        case QUERY_ID:
-          break;
-        default:
-          break;
-        }
-      }
-      long end = System.currentTimeMillis();
-      long elapsed = end - start;
-
-      assertEquals(2880404, recordCount);
-
-      System.out.println(String.format("Sorted %,d records in %d batches; %d ms.", recordCount, batchCount, elapsed));
-
+      performSort( client );
     }
+  }
+
+  @Test
+  public void testManagedInMemory() throws Exception {
+    RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
+
+//    DrillConfig config = DrillConfig.create("xsort/drill-external-sort-rm.conf");
+    DrillConfig config = DrillConfig.create( );
+
+    try (Drillbit bit = new Drillbit(config, serviceSet);
+        DrillClient client = new DrillClient(config, serviceSet.getCoordinator());) {
+
+      bit.run();
+      defineWorkspace( bit, "dfs", "data", "/Users/paulrogers/work/data", "psv" );
+      client.connect();
+      setMaxFragmentWidth( client, 3 );
+      performSort( client );
+    }
+  }
+
+  private void performSort(DrillClient client) throws IOException {
+    BufferingQueryEventListener listener = new BufferingQueryEventListener( );
+    String sql = Files.toString(FileUtils.getResourceAsFile("/xsort/sort-big-all.sql"),
+        Charsets.UTF_8);
+    long start = System.currentTimeMillis();
+    client.runQuery(QueryType.SQL, sql, listener);
+    int recordCount = 0;
+    int batchCount = 0;
+    loop:
+    for ( ; ; ) {
+      QueryEvent event = listener.get();
+      switch ( event.type )
+      {
+      case BATCH:
+        batchCount++;
+        recordCount += event.batch.getHeader().getRowCount();
+        event.batch.release();
+        break;
+      case EOF:
+        break loop;
+      case ERROR:
+        event.error.printStackTrace();
+        fail( );
+        break loop;
+      case QUERY_ID:
+        break;
+      default:
+        break;
+      }
+    }
+    long end = System.currentTimeMillis();
+    long elapsed = end - start;
+
+    assertEquals(2880404, recordCount);
+
+    System.out.println(String.format("Sorted %,d records in %d batches; %d ms.", recordCount, batchCount, elapsed));
   }
 
   public void defineWorkspace( Drillbit drillbit, String pluginName, String schemaName, String path, String defaultFormat ) throws ExecutionSetupException {
