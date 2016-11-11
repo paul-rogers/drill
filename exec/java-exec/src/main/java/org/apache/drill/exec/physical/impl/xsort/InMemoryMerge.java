@@ -44,7 +44,6 @@ public class InMemoryMerge implements SortResults {
     this.context = context;
   }
 
-  @Override
   public IterOutcome merge() throws SchemaChangeException, ClassTransformationException, IOException {
     if (builder != null) {
       builder.clear();
@@ -79,7 +78,7 @@ public class InMemoryMerge implements SortResults {
     esb.sv4 = mSorter.getSV4();
 
     destContainer.buildSchema(SelectionVectorMode.FOUR_BYTE);
-    return IterOutcome.OK_NEW_SCHEMA;
+    return IterOutcome.OK;
   }
 
   @Override

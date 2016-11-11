@@ -48,11 +48,11 @@ public class CopierHolder {
     this.context = context;
   }
 
-  public CopierHolder.BatchMerger startMerge( List<BatchGroup> batchGroupList, int targetRecordCount ) throws SchemaChangeException {
+  public CopierHolder.BatchMerger startMerge( List<? extends BatchGroup> batchGroupList, int targetRecordCount ) throws SchemaChangeException {
     return new BatchMerger( this, batchGroupList, targetRecordCount );
   }
 
-  public CopierHolder.BatchMerger startFinalMerge( List<BatchGroup> batchGroupList, VectorContainer outputContainer, int targetRecordCount ) throws SchemaChangeException {
+  public CopierHolder.BatchMerger startFinalMerge( List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer, int targetRecordCount ) throws SchemaChangeException {
     return new BatchMerger( this, batchGroupList, outputContainer, targetRecordCount );
   }
 
@@ -71,7 +71,8 @@ public class CopierHolder {
    * schema changes were caught earlier as the batches were received
    */
 
-  private void createCopier(VectorAccessible batch, List<BatchGroup> batchGroupList, VectorContainer outputContainer) throws SchemaChangeException {
+  @SuppressWarnings("unchecked")
+  private void createCopier(VectorAccessible batch, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer) throws SchemaChangeException {
     if (copier != null) {
       try {
         copier.close();
@@ -105,7 +106,7 @@ public class CopierHolder {
       ValueVector v = TypeHelper.getNewVector(i.getField(), allocator);
       outputContainer.add(v);
     }
-    copier.setup(context, allocator, batch, batchGroupList, outputContainer);
+    copier.setup(context, allocator, batch, (List<BatchGroup>) batchGroupList, outputContainer);
   }
 
   public void close() throws IOException {
@@ -166,7 +167,7 @@ public class CopierHolder {
      * @param targetRecordCount
      * @throws SchemaChangeException
      */
-    private BatchMerger( CopierHolder holder, List<BatchGroup> batchGroupList, int targetRecordCount ) throws SchemaChangeException {
+    private BatchMerger( CopierHolder holder, List<? extends BatchGroup> batchGroupList, int targetRecordCount ) throws SchemaChangeException {
       this( holder, batchGroupList, new VectorContainer(), targetRecordCount );
     }
 
@@ -179,7 +180,7 @@ public class CopierHolder {
      * @param targetRecordCount
      * @throws SchemaChangeException
      */
-    private BatchMerger( CopierHolder holder, List<BatchGroup> batchGroupList, VectorContainer outputContainer, int targetRecordCount ) throws SchemaChangeException {
+    private BatchMerger( CopierHolder holder, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer, int targetRecordCount ) throws SchemaChangeException {
       this.holder = holder;
       hyperBatch = constructHyperBatch(batchGroupList);
       copyCount = 0;
@@ -240,7 +241,7 @@ public class CopierHolder {
      * (hence the "hyper" in the method name)
      */
 
-    private VectorContainer constructHyperBatch(List<BatchGroup> batchGroupList) {
+    private VectorContainer constructHyperBatch(List<? extends BatchGroup> batchGroupList) {
       VectorContainer cont = new VectorContainer();
       for (MaterializedField field : holder.esb.schema) {
         ValueVector[] vectors = new ValueVector[batchGroupList.size()];
@@ -258,6 +259,12 @@ public class CopierHolder {
     }
 
     public void clear() {
+      try {
+        holder.close( );
+      } catch (IOException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
       hyperBatch.clear();
     }
   }

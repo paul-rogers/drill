@@ -76,12 +76,10 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
 
   public static class InputBatchGroup extends BatchGroup {
     private SelectionVector2 sv2;
-    private int batchSize;
 
-    public InputBatchGroup(VectorContainer container, SelectionVector2 sv2, OperatorContext context, int batchSize) {
-      super( container, context );
+    public InputBatchGroup(VectorContainer container, SelectionVector2 sv2, OperatorContext context, long batchSize) {
+      super( container, context, batchSize );
       this.sv2 = sv2;
-      this.batchSize = batchSize;
     }
 
     public SelectionVector2 getSv2() {
@@ -97,8 +95,6 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
       }
     }
     
-    public int getBatchSize( ) { return batchSize; }
-
     @Override
     public int getNextIndex() {
       int val = super.getNextIndex();
@@ -143,8 +139,8 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
     private BufferAllocator allocator;
     private int spilledBatches = 0;
 
-    public SpilledBatchGroup(FileSystem fs, String path, OperatorContext context) {
-      super( null, context );
+    public SpilledBatchGroup(FileSystem fs, String path, OperatorContext context, long batchSize) {
+      super( null, context, batchSize );
       this.fs = fs;
       this.path = new Path(path);
       this.allocator = context.getAllocator();
@@ -240,10 +236,12 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
   protected int pointer = 0;
   protected OperatorContext context;
   protected BatchSchema schema;
+  private long batchSize;
 
-  public BatchGroup(VectorContainer container, OperatorContext context) {
+  public BatchGroup(VectorContainer container, OperatorContext context, long batchSize) {
     this.currentContainer = container;
     this.context = context;
+    this.batchSize = batchSize;
   }
 
   /**
@@ -293,6 +291,12 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
   public int getRecordCount() {
     return currentContainer.getRecordCount();
   }
+
+  public int getUnfilteredRecordCount() {
+    return currentContainer.getRecordCount();
+  }
+
+  public long getBatchSize( ) { return batchSize; }
 
   @Override
   public Iterator<VectorWrapper<?>> iterator() {
