@@ -1865,7 +1865,7 @@
           <dependency>
             <groupId>com.mapr.fs</groupId>
             <artifactId>mapr-hbase</artifactId>
-            <version>${mapr.core.version}</version>
+            <version>${mapr.release.version}</version>
             <exclusions>
               <exclusion>
                 <groupId>io.netty</groupId>
@@ -1908,12 +1908,12 @@
           <dependency>
             <groupId>com.mapr.hadoop</groupId>
             <artifactId>maprfs</artifactId>
-            <version>${mapr.core.version}</version>
+            <version>${mapr.release.version}</version>
           </dependency>
           <dependency>
             <groupId>com.mapr.db</groupId>
             <artifactId>maprdb</artifactId>
-            <version>${mapr.core.version}</version>
+            <version>${mapr.release.version}</version>
             <exclusions>
               <exclusion>
                 <groupId>com.mapr</groupId>
