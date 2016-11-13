@@ -33,7 +33,7 @@ import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.AllocationHelper;
 
 public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier {
-//  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(PriorityQueueCopierTemplate.class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(PriorityQueueCopierTemplate.class);
 
   private SelectionVector4 vector4;
   private List<BatchGroup> batchGroups;
@@ -91,7 +91,7 @@ public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier
   }
 
   private void setValueCount(int count) {
-    for (VectorWrapper<?> w: outgoing) {
+    for (VectorWrapper w: outgoing) {
       w.getValueVector().getMutator().setValueCount(count);
     }
   }
@@ -124,7 +124,7 @@ public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier
   }
 
   private void allocateVectors(int targetRecordCount) {
-    for (VectorWrapper<?> w: outgoing) {
+    for (VectorWrapper w: outgoing) {
       AllocationHelper.allocateNew(w.getValueVector(), targetRecordCount);
     }
   }
