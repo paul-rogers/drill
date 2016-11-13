@@ -774,7 +774,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       }
     }
     int targetRecordCount = Math.max(1, COPIER_BATCH_MEM_LIMIT / estimatedRecordSize);
-    
+
     // We've gathered a set of batches, each of which has been sorted. The batches
     // may have passed through a filter and thus may have "holes" where rows have
     // been filtered out. We will spill records in blocks of targetRecordCount.
@@ -784,7 +784,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // given threshold.
     //
     // Input (selection vector, data vector):
-    // [3 7 4 8 0 6 1] [5 3 6 8 2 0]  
+    // [3 7 4 8 0 6 1] [5 3 6 8 2 0]
     // [eh_ad_ibf]     [r_qm_kn_p]
     //
     // Output (assuming blocks of 5 records, data vectors only):
@@ -795,7 +795,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     //
     // Input:  [aceg] [bdfh]
     // Output: [abcdefgh]
-    
+
     VectorContainer hyperBatch = constructHyperBatch(batchGroupList);
     createCopier(hyperBatch, batchGroupList, outputContainer, copierAllocator);
 
@@ -1041,9 +1041,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
         throw new RuntimeException(e);
       }
     } else {
-      
+
       // Generate the copier code and obtain the resulting class
-      
+
       CodeGenerator<PriorityQueueCopier> cg = CodeGenerator.get(PriorityQueueCopier.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
       ClassGenerator<PriorityQueueCopier> g = cg.getRoot();
 
@@ -1061,7 +1061,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     // Initialize the value vectors for the output container using the
     // allocator provided
-    
+
     for (VectorWrapper<?> i : batch) {
       ValueVector v = TypeHelper.getNewVector(i.getField(), allocator);
       outputContainer.add(v);

@@ -19,10 +19,13 @@ package org.apache.drill.exec.physical.impl.xsort;
 
 import java.util.List;
 
+import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.config.ExternalSort;
 import org.apache.drill.exec.physical.impl.BatchCreator;
+import org.apache.drill.exec.record.AbstractRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
 
 import com.google.common.base.Preconditions;
@@ -31,11 +34,15 @@ public class ExternalSortBatchCreator implements BatchCreator<ExternalSort>{
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExternalSortBatchCreator.class);
 
   @Override
-  public ExternalSortBatch getBatch(FragmentContext context, ExternalSort config, List<RecordBatch> children)
+  public AbstractRecordBatch<ExternalSort> getBatch(FragmentContext context, ExternalSort config, List<RecordBatch> children)
       throws ExecutionSetupException {
     Preconditions.checkArgument(children.size() == 1);
-    return new ExternalSortBatch(config, context, children.iterator().next());
+    DrillConfig drillConfig = context.getConfig();
+    if ( drillConfig.hasPath(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED) &&
+         drillConfig.getBoolean(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED) ) {
+      return new ExternalSortBatch(config, context, children.iterator().next());
+    } else {
+      return new org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch(config, context, children.iterator().next());
+    }
   }
-
-
 }
