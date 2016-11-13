@@ -363,6 +363,12 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private SpillSet spillSet;
   private CopierHolder copierHolder;
 
+  private enum SortState { LOAD, DELIVER, DONE }
+  private SortState sortState = SortState.LOAD;
+  private int totalRecordCount = 0;
+  private int totalBatches = 0; // total number of batches received so far
+
+
   public enum Metric implements MetricDef {
     SPILL_COUNT,            // number of times operator spilled to disk
     RETIRED1,               // Was: peak value for totalSizeInMemory
