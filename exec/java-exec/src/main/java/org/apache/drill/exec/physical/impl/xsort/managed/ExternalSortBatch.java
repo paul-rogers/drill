@@ -345,7 +345,7 @@ import com.google.common.collect.Lists;
 
 public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExternalSortBatch.class);
-  private static final ControlsInjector injector = ControlsInjectorFactory.getInjector(ExternalSortBatch.class);
+  protected static final ControlsInjector injector = ControlsInjectorFactory.getInjector(ExternalSortBatch.class);
 
   /**
    * Smallest allowed output batch size. The smallest output batch
@@ -398,8 +398,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    */
 
   private SingleBatchSorter sorter;
-  private SortRecordBatchBuilder builder;
-  private MSorter mSorter;
+
   /**
    * A single PriorityQueueCopier instance is used for 2 purposes:
    * 1. Merge sorted batches before spilling
@@ -502,6 +501,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   // this enum MUST match those in the (unmanaged) ExternalSortBatch since
   // that is the enum used in the UI to display metrics for the query profile.
 
+  private long memoryLimit;
+  private final ExternalSort popConfig;
+  private SortResults resultsIterator;
+
   public enum Metric implements MetricDef {
     SPILL_COUNT,            // number of times operator spilled to disk
     RETIRED1,               // Was: peak value for totalSizeInMemory
@@ -535,6 +538,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   public ExternalSortBatch(ExternalSort popConfig, FragmentContext context, RecordBatch incoming) {
     super(popConfig, context, true);
+    this.popConfig = popConfig;
     this.incoming = incoming;
     allocator = oContext.getAllocator();
     opCodeGen = new OperatorCodeGenerator(context, popConfig);
@@ -617,6 +621,14 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     FragmentHandle handle = context.getHandle();
     fileName = String.format("%s_majorfragment%s_minorfragment%s_operator%s", QueryIdHelper.getQueryId(handle.getQueryId()),
         handle.getMajorFragmentId(), handle.getMinorFragmentId(), popConfig.getOperatorId());
+
+    // The maximum memory this operator can use. It is either the
+    // limit set on the allocator or on the operator, whichever is
+    // less.
+
+    memoryLimit = (long) (Math.min( popConfig.getMaxAllocation(), oAllocator.getLimit() ) * 0.95);
+
+    memoryLimit = 40_000_000;
   }
 
   @Override
@@ -839,15 +851,22 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
       // Convert the incoming batch to the agreed-upon schema.
       // No converted batch means we got an empty input batch.
+      // Converting the batch transfers memory ownership to our
+      // allocator. This gives a round-about way to learn the batch
+      // size: check the before and after memory levels, then use
+      // the difference as the batch size, in bytes.
 
+      long startMem = oAllocator.getAllocatedMemory();
       VectorContainer convertedBatch = convertBatch( );
+      long endMem = oAllocator.getAllocatedMemory();
       if ( convertedBatch == null ) {
         break;
       }
 
-      // Add the batch to our buffered set of batches.
+      // Add the batch to the in-memory generation, spilling if
+      // needed.
 
-      processBatch( convertedBatch );
+      processBatch( convertedBatch, endMem - startMem );
       break;
     case OUT_OF_MEMORY:
 
@@ -1036,7 +1055,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * @throws InterruptedException
    */
 
-  private void processBatch(VectorContainer convertedBatch) throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
+  private void processBatch(VectorContainer convertedBatch, long batchSize) throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
     SelectionVector2 sv2 = makeSelectionVector( );
     int count = sv2.getCount();
     totalRecordCount += count;
@@ -1047,7 +1066,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     boolean success = false;
     try {
       rbd.setSv2(sv2);
-      batchGroups.add(new BatchGroup.InputBatchGroup(rbd.getContainer(), rbd.getSv2(), oContext, 0)); // TODO Real size
+      batchGroups.add(new BatchGroup.InputBatchGroup(rbd.getContainer(), rbd.getSv2(), oContext, batchSize));
       if (peakNumBatches < batchGroups.size()) {
         peakNumBatches = batchGroups.size();
         stats.setLongStat(Metric.PEAK_BATCHES_IN_MEMORY, peakNumBatches);
@@ -1151,40 +1170,14 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   }
 
   public IterOutcome mergeInMemory( ) throws SchemaChangeException, ClassTransformationException, IOException {
-
-    if (builder != null) {
-      builder.clear();
-      builder.close();
-    }
-    builder = new SortRecordBatchBuilder(oAllocator);
-
-    for (BatchGroup.InputBatchGroup group : batchGroups) {
-      RecordBatchData rbd = new RecordBatchData(group.getContainer(), oAllocator);
-      rbd.setSv2(group.getSv2());
-      builder.add(rbd);
-    }
-
-    builder.build(context, container);
-    sv4 = builder.getSv4();
-    mSorter = createNewMSorter();
-    mSorter.setup(context, oAllocator, getSelectionVector4(), this.container);
-
-    // For testing memory-leak purpose, inject exception after mSorter finishes setup
-    injector.injectUnchecked(context.getExecutionControls(), INTERRUPTION_AFTER_SETUP);
-    mSorter.sort(this.container);
-
-    // sort may have prematurely exited due to should continue returning false.
-    if (!context.shouldContinue()) {
+    InMemoryMerge memoryMerge = new InMemoryMerge( context, oAllocator, popConfig );
+    sv4 = memoryMerge.merge( batchGroups, this, container );
+    if ( sv4 == null ) {
+      sortState = SortState.DONE;
       return IterOutcome.STOP;
     }
-
-    // For testing memory-leak purpose, inject exception after mSorter finishes sorting
-    injector.injectUnchecked(context.getExecutionControls(), INTERRUPTION_AFTER_SORT);
-    sv4 = mSorter.getSV4();
-
-    container.buildSchema(SelectionVectorMode.FOUR_BYTE);
-    sortState = SortState.MEM_RESULTS;
-
+    resultsIterator = memoryMerge;
+    sortState = SortState.DELIVER;
     return IterOutcome.OK_NEW_SCHEMA;
   }
 
