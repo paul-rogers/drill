@@ -175,6 +175,26 @@ import com.google.common.collect.Lists;
  * External sort batch: a sort batch which can spill to disk in
  * order to operate within a defined memory footprint.
  * <p>
+ * Basic operation:
+ * <ul>
+ * <li>The incoming (upstream) operator provides a series of batches.</ul>
+ * <li>This operator sorts each batch, and accumulates them in an in-memory
+ * buffer.</li>
+ * <li>If the in-memory buffer becomes too large, this operator selects
+ * a subset of the buffered batches to spill.</li>
+ * <li>Each spill set is merged to create a new, sorted collection of
+ * batches, and each is spilled to disk.</li>
+ * <li>To allow the use of multiple disk storage, each spill group is written
+ * round-robin to a set of spill directories.</li>
+ * <li>When the input operator is complete, this operator merges the accumulated
+ * batches (which may be all in memory or partially on disk), and returns
+ * them to the output (downstream) operator in chunks of no more than
+ * 32K records.</li>
+ * </ul>
+ * <p>
+ * Many complex details are involved in doing the above; the details are explained
+ * in the methods of this class.
+ * <p>
  * Configuration Options:
  * <dl>
  * <dt>drill.exec.sort.external.spill.fs</dt>
