@@ -388,6 +388,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   public interface SortResults {
     boolean next();
+    @Override
     void close();
     int getBatchCount();
     int getRecordCount();
