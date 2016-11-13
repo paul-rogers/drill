@@ -19,13 +19,10 @@ package org.apache.drill.exec.physical.impl.xsort.managed;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
-import com.google.common.collect.Sets;
 import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.drill.common.AutoCloseables;
 import org.apache.drill.common.config.DrillConfig;
@@ -55,10 +52,7 @@ import org.apache.drill.exec.physical.impl.sort.RecordBatchData;
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
 import org.apache.drill.exec.physical.impl.spill.SpillSet;
 import org.apache.drill.exec.physical.impl.xsort.MSortTemplate;
-import org.apache.drill.exec.physical.impl.xsort.MSorter;
 import org.apache.drill.exec.physical.impl.xsort.SingleBatchSorter;
-import org.apache.drill.exec.proto.ExecProtos.FragmentHandle;
-import org.apache.drill.exec.proto.helper.QueryIdHelper;
 import org.apache.drill.exec.record.AbstractRecordBatch;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
@@ -76,13 +70,8 @@ import org.apache.drill.exec.testing.ControlsInjectorFactory;
 import org.apache.drill.exec.vector.CopyUtil;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractContainerVector;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 
-import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.Iterators;
 import com.google.common.collect.Lists;
 
 /**
@@ -504,6 +493,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private long memoryLimit;
   private final ExternalSort popConfig;
   private SortResults resultsIterator;
+  private SpillSet spillSet;
+
 
   public enum Metric implements MetricDef {
     SPILL_COUNT,            // number of times operator spilled to disk
@@ -614,13 +605,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     }
     SPILL_BATCH_GROUP_SIZE = config.getInt(ExecConstants.EXTERNAL_SORT_SPILL_GROUP_SIZE);
     SPILL_THRESHOLD = config.getInt(ExecConstants.EXTERNAL_SORT_SPILL_THRESHOLD);
-    dirs = Iterators.cycle(config.getStringList(ExecConstants.EXTERNAL_SORT_SPILL_DIRS));
     oAllocator = oContext.getAllocator();
     copierAllocator = oAllocator.newChildAllocator(oAllocator.getName() + ":copier",
         PriorityQueueCopier.INITIAL_ALLOCATION, PriorityQueueCopier.MAX_ALLOCATION);
-    FragmentHandle handle = context.getHandle();
-    fileName = String.format("%s_majorfragment%s_minorfragment%s_operator%s", QueryIdHelper.getQueryId(handle.getQueryId()),
-        handle.getMajorFragmentId(), handle.getMinorFragmentId(), popConfig.getOperatorId());
+    spillSet = new SpillSet( context, popConfig );
 
     // The maximum memory this operator can use. It is either the
     // limit set on the allocator or on the operator, whichever is
@@ -936,10 +924,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // the results fit; else we have to do a disk-based merge of
     // pre-sorted spilled batches.
 
-    if (spillCount == 0) {
-      return mergeInMemory( );
-    } else { // some batches were spilled
+    if (spillSet.hasSpilled( )) {
       return mergeSpilledRuns( );
+    } else {
+      return mergeInMemory( );
     }
   }
 
@@ -1137,7 +1125,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     // If we haven't spilled so far...
 
-    if (spillCount == 0) {
+    if (! spillSet.hasSpilled()) {
 
       // Do we have enough memory for MSorter
       // if this turns out to be the last incoming batch?
@@ -1295,28 +1283,16 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     logger.debug("mergeAndSpill: estimated record size = {}, target record count = {}", estimatedRecordSize, targetRecordCount);
 
-    // Identify the next directory from the round-robin list to
-    // the file created from this round of spilling. The directory must already
-    // exist and must have sufficient space for the output file.
-
-    String spillDir = dirs.next();
-    Path currSpillPath = new Path(Joiner.on("/").join(spillDir, fileName));
-    currSpillDirs.add(currSpillPath);
-    String outputFile = Joiner.on("/").join(currSpillPath, spillCount++);
-    try {
-        fs.deleteOnExit(currSpillPath);
-    } catch (IOException e) {
-        // since this is meant to be used in a batches's spilling, we don't propagate the exception
-        logger.warn("Unable to mark spill directory " + currSpillPath + " for deleting on exit", e);
-    }
+    String outputFile = spillSet.getNextSpillFile();
 
     // Merge the selected set of matches and write them to the
     // spill file. After each write, we release the memory associated
     // with the just-written batch.
 
-    stats.setLongStat(Metric.SPILL_COUNT, spillCount);
-    BatchGroup.SpilledBatchGroup newGroup = new BatchGroup.SpilledBatchGroup(fs, outputFile, oContext, 0); // TODO Real size
+    stats.setLongStat(Metric.SPILL_COUNT, spillSet.getFileCount());
+    BatchGroup.SpilledBatchGroup newGroup = null;
     try (AutoCloseable a = AutoCloseables.all(batchGroupList)) {
+      newGroup = new BatchGroup.SpilledBatchGroup(spillSet, outputFile, oContext, 0); // TODO Real size
 
       // The copier will merge records from the buffered batches into
       // the outputContainer up to targetRecordCount number of rows.
@@ -1349,7 +1325,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     } catch (Throwable e) {
       // we only need to cleanup newGroup if spill failed
       try {
-        AutoCloseables.close(e, newGroup);
+        if ( newGroup != null ) {
+          AutoCloseables.close(e, newGroup);
+        }
       } catch (Throwable t) { /* close() may hit the same IO issue; just ignore */ }
       throw UserException.resourceError(e)
         .message("External Sort encountered an error while spilling to disk")
