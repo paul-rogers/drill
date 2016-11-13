@@ -56,7 +56,6 @@ import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
 import org.apache.drill.exec.physical.impl.spill.SpillSet;
 import org.apache.drill.exec.physical.impl.xsort.MSortTemplate;
 import org.apache.drill.exec.physical.impl.xsort.MSorter;
-import org.apache.drill.exec.physical.impl.xsort.PriorityQueueCopier;
 import org.apache.drill.exec.physical.impl.xsort.SingleBatchSorter;
 import org.apache.drill.exec.proto.ExecProtos.FragmentHandle;
 import org.apache.drill.exec.proto.helper.QueryIdHelper;
@@ -300,6 +299,26 @@ import com.google.common.collect.Lists;
  * External sort batch: a sort batch which can spill to disk in
  * order to operate within a defined memory footprint.
  * <p>
+ * Basic operation:
+ * <ul>
+ * <li>The incoming (upstream) operator provides a series of batches.</ul>
+ * <li>This operator sorts each batch, and accumulates them in an in-memory
+ * buffer.</li>
+ * <li>If the in-memory buffer becomes too large, this operator selects
+ * a subset of the buffered batches to spill.</li>
+ * <li>Each spill set is merged to create a new, sorted collection of
+ * batches, and each is spilled to disk.</li>
+ * <li>To allow the use of multiple disk storage, each spill group is written
+ * round-robin to a set of spill directories.</li>
+ * <li>When the input operator is complete, this operator merges the accumulated
+ * batches (which may be all in memory or partially on disk), and returns
+ * them to the output (downstream) operator in chunks of no more than
+ * 32K records.</li>
+ * </ul>
+ * <p>
+ * Many complex details are involved in doing the above; the details are explained
+ * in the methods of this class.
+ * <p>
  * Configuration Options:
  * <dl>
  * <dt>drill.exec.sort.external.spill.fs</dt>
@@ -366,7 +385,18 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   private final BufferAllocator allocator;
 
+  /**
+   * Schema of batches that this operator produces.
+   */
+
   private BatchSchema schema;
+
+  /**
+   * Generated sort operation used to sort each incoming batch according to
+   * the sort criteria specified in the {@link ExternalSort} definition of
+   * this operator.
+   */
+
   private SingleBatchSorter sorter;
   private SortRecordBatchBuilder builder;
   private MSorter mSorter;
@@ -376,8 +406,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * 2. Merge sorted batches when all incoming data fits in memory
    */
   private PriorityQueueCopier copier;
-  private LinkedList<BatchGroup> batchGroups = Lists.newLinkedList();
-  private LinkedList<BatchGroup> spilledBatchGroups = Lists.newLinkedList();
+  private LinkedList<BatchGroup.InputBatchGroup> batchGroups = Lists.newLinkedList();
+  private LinkedList<BatchGroup.SpilledBatchGroup> spilledBatchGroups = Lists.newLinkedList();
   private SelectionVector4 sv4;
 
   /**
@@ -602,7 +632,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     return sv4;
   }
 
-  private void closeBatchGroups(Collection<BatchGroup> groups) {
+  private void closeBatchGroups(Collection<? extends BatchGroup> groups) {
     for (BatchGroup group: groups) {
       try {
         group.close();
@@ -777,7 +807,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     }
   }
 
-  int totalCount = 0;
+  int totalRecordCount = 0;
   int totalBatches = 0; // total number of batches received so far
 
   /**
@@ -820,9 +850,15 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       processBatch( convertedBatch );
       break;
     case OUT_OF_MEMORY:
+
+      // Note: it is highly doubtful that this code actually works. It
+      // requires that the upstream batches got to a safe place to run
+      // out of memory and that no work as in-flight and thus abandoned.
+      // Consider removing this case once resource management is in place.
+
       logger.debug("received OUT_OF_MEMORY, trying to spill");
       if (batchesSinceLastSpill > 2) {
-        final BatchGroup merged = mergeAndSpill(batchGroups);
+        final BatchGroup.SpilledBatchGroup merged = mergeAndSpill(batchGroups);
         if (merged != null) {
           spilledBatchGroups.add(merged);
           batchesSinceLastSpill = 0;
@@ -872,7 +908,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     // Anything to actually sort?
 
-    if (totalCount == 0) {
+    if (totalRecordCount == 0) {
       sortState = SortState.DONE;
       return IterOutcome.NONE;
     }
@@ -967,8 +1003,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    */
 
   private VectorContainer convertBatch( ) throws ClassTransformationException, SchemaChangeException, IOException {
-    if ( incoming.getRecordCount() == 0 )
-      return null;
+    if ( incoming.getRecordCount() == 0 ) {
+      return null; }
     VectorContainer convertedBatch = SchemaUtil.coerceContainer(incoming, schema, oContext);
     if ( sorter == null ) {
       sorter = createNewSorter(context, convertedBatch);
@@ -1003,7 +1039,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private void processBatch(VectorContainer convertedBatch) throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
     SelectionVector2 sv2 = makeSelectionVector( );
     int count = sv2.getCount();
-    totalCount += count;
+    totalRecordCount += count;
     totalBatches++;
     sorter.setup(context, sv2, convertedBatch);
     sorter.sort(sv2);
@@ -1011,7 +1047,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     boolean success = false;
     try {
       rbd.setSv2(sv2);
-      batchGroups.add(new BatchGroup(rbd.getContainer(), rbd.getSv2(), oContext));
+      batchGroups.add(new BatchGroup.InputBatchGroup(rbd.getContainer(), rbd.getSv2(), oContext, 0)); // TODO Real size
       if (peakNumBatches < batchGroups.size()) {
         peakNumBatches = batchGroups.size();
         stats.setLongStat(Metric.PEAK_BATCHES_IN_MEMORY, peakNumBatches);
@@ -1047,12 +1083,12 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     if (spilledBatchGroups.size() > firstSpillBatchCount / 2) {
       logger.info("Merging spills");
-      final BatchGroup merged = mergeAndSpill(spilledBatchGroups);
+      final BatchGroup.SpilledBatchGroup merged = mergeAndSpill(spilledBatchGroups);
       if (merged != null) {
         spilledBatchGroups.addFirst(merged);
       }
     }
-    final BatchGroup merged = mergeAndSpill(batchGroups);
+    final BatchGroup.SpilledBatchGroup merged = mergeAndSpill(batchGroups);
     if (merged != null) { // make sure we don't add null to spilledBatchGroups
       spilledBatchGroups.add(merged);
       batchesSinceLastSpill = 0;
@@ -1087,8 +1123,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       // Do we have enough memory for MSorter
       // if this turns out to be the last incoming batch?
 
-      long neededForInMemorySort = SortRecordBatchBuilder.memoryNeeded(totalCount) +
-                                   MSortTemplate.memoryNeeded(totalCount);
+      long neededForInMemorySort = SortRecordBatchBuilder.memoryNeeded(totalRecordCount) +
+                                   MSortTemplate.memoryNeeded(totalRecordCount);
       if (availableMem < neededForInMemorySort) { return true; }
 
       // Make sure we don't exceed the maximum
@@ -1122,7 +1158,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     }
     builder = new SortRecordBatchBuilder(oAllocator);
 
-    for (BatchGroup group : batchGroups) {
+    for (BatchGroup.InputBatchGroup group : batchGroups) {
       RecordBatchData rbd = new RecordBatchData(group.getContainer(), oAllocator);
       rbd.setSv2(group.getSv2());
       builder.add(rbd);
@@ -1153,19 +1189,22 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   }
 
   private IterOutcome mergeSpilledRuns( ) throws SchemaChangeException {
-    final BatchGroup merged = mergeAndSpill(batchGroups);
+    final BatchGroup.SpilledBatchGroup merged = mergeAndSpill(batchGroups);
     if (merged != null) {
       spilledBatchGroups.add(merged);
     }
-    batchGroups.addAll(spilledBatchGroups);
-    spilledBatchGroups = null; // no need to cleanup spilledBatchGroups, all it's batches are in batchGroups now
+    List<BatchGroup> allBatches = new LinkedList<>( );
+    allBatches.addAll(batchGroups);
+    allBatches.addAll(spilledBatchGroups);
+    batchGroups = null;
+    spilledBatchGroups = null; // no need to cleanup spilledBatchGroups, all it's batches are in allBatches now
 
-    logger.warn("Starting to merge. {} batch groups. Current allocated memory: {}", batchGroups.size(), oAllocator.getAllocatedMemory());
-    VectorContainer hyperBatch = constructHyperBatch(batchGroups);
-    createCopier(hyperBatch, batchGroups, container, oAllocator);
+    logger.info("Starting to merge. {} batch groups. Current allocated memory: {}", allBatches.size(), oAllocator.getAllocatedMemory());
+    VectorContainer hyperBatch = constructHyperBatch(allBatches);
+    createCopier(hyperBatch, allBatches, container, oAllocator);
 
     int estimatedRecordSize = 0;
-    for (VectorWrapper<?> w : batchGroups.get(0)) {
+    for (VectorWrapper<?> w : allBatches.get(0)) {
       try {
         estimatedRecordSize += TypeHelper.getSize(w.getField().getType());
       } catch (UnsupportedOperationException e) {
@@ -1253,20 +1292,19 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     //
     // Input:  [aceg] [bdfh]
     // Output: [abcdefgh]
+    //
+    // Here we bind the copier to the batchGroupList of sorted, buffered batches
+    // to be merged. We bind the copier output to outputContainer: the copier will write its
+    // merged "batches" of records to that container.
 
     VectorContainer hyperBatch = constructHyperBatch(batchGroupList);
     createCopier(hyperBatch, batchGroupList, outputContainer, copierAllocator);
 
-    int count = copier.next(targetRecordCount);
-    assert count > 0;
-
     logger.debug("mergeAndSpill: estimated record size = {}, target record count = {}", estimatedRecordSize, targetRecordCount);
 
-    // 1 output container is kept in memory, so we want to hold on to it and transferClone
-    // allows keeping ownership
-    VectorContainer c1 = VectorContainer.getTransferClone(outputContainer, oContext);
-    c1.buildSchema(BatchSchema.SelectionVectorMode.NONE);
-    c1.setRecordCount(count);
+    // Identify the next directory from the round-robin list to
+    // the file created from this round of spilling. The directory must already
+    // exist and must have sufficient space for the output file.
 
     String spillDir = dirs.next();
     Path currSpillPath = new Path(Joiner.on("/").join(spillDir, fileName));
@@ -1278,13 +1316,38 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
         // since this is meant to be used in a batches's spilling, we don't propagate the exception
         logger.warn("Unable to mark spill directory " + currSpillPath + " for deleting on exit", e);
     }
+
+    // Merge the selected set of matches and write them to the
+    // spill file. After each write, we release the memory associated
+    // with the just-written batch.
+
     stats.setLongStat(Metric.SPILL_COUNT, spillCount);
-    BatchGroup newGroup = new BatchGroup(c1, fs, outputFile, oContext);
+    BatchGroup.SpilledBatchGroup newGroup = new BatchGroup.SpilledBatchGroup(fs, outputFile, oContext, 0); // TODO Real size
     try (AutoCloseable a = AutoCloseables.all(batchGroupList)) {
+
+      // The copier will merge records from the buffered batches into
+      // the outputContainer up to targetRecordCount number of rows.
+      // The actual count may be less if fewer records are available.
+
       logger.info("Merging and spilling to {}", outputFile);
+      int count;
       while ((count = copier.next(targetRecordCount)) > 0) {
+
+        // Identify the schema to be used in the output container. (Since
+        // all merged batches have the same schema, the schema we identify
+        // here should be the same as that which we already had.
+
         outputContainer.buildSchema(BatchSchema.SelectionVectorMode.NONE);
+
+        // The copier does not set the record count in the output
+        // container, so do that here.
+
         outputContainer.setRecordCount(count);
+
+        // Add a new batch of records (given by outputContainer) to the spill
+        // file, opening the file if not yet open, and creating the target
+        // directory if it does not yet exist.
+        //
         // note that addBatch also clears the outputContainer
         newGroup.addBatch(outputContainer);
       }
