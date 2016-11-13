@@ -207,7 +207,7 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
         inputStream = spillSet.openForInput(path);
       }
       VectorAccessibleSerializable vas = new VectorAccessibleSerializable(allocator);
-      Stopwatch watch = Stopwatch.createStarted();
+//      Stopwatch watch = Stopwatch.createStarted();
       vas.readFromStream(inputStream);
       VectorContainer c =  vas.get();
       if (schema != null) {

@@ -360,6 +360,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private long memoryLimit;
   private final ExternalSort popConfig;
   private SortResults resultsIterator;
+  private SpillSet spillSet;
+
 
   public enum Metric implements MetricDef {
     SPILL_COUNT,            // number of times operator spilled to disk
