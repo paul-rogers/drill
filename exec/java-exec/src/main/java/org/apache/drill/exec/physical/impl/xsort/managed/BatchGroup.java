@@ -18,6 +18,8 @@
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 
@@ -37,8 +39,6 @@ import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 
 import com.google.common.base.Stopwatch;
 
@@ -132,26 +132,22 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
    */
 
   public static class SpilledBatchGroup extends BatchGroup {
-    private FSDataInputStream inputStream;
-    private FSDataOutputStream outputStream;
-    private Path path;
-    private FileSystem fs;
+    private InputStream inputStream;
+    private OutputStream outputStream;
+    private String path;
+    private SpillSet spillSet;
     private BufferAllocator allocator;
     private int spilledBatches = 0;
 
-    public SpilledBatchGroup(FileSystem fs, String path, OperatorContext context, long batchSize) {
+    public SpilledBatchGroup(SpillSet spillSet, String path, OperatorContext context, long batchSize) throws IOException {
       super( null, context, batchSize );
-      this.fs = fs;
-      this.path = new Path(path);
+      this.spillSet = spillSet;
+      this.path = path;
       this.allocator = context.getAllocator();
+      outputStream = spillSet.openForOutput(path);
     }
 
     public void addBatch(VectorContainer newContainer) throws IOException {
-      assert fs != null;
-      assert path != null;
-      if (outputStream == null) {
-        outputStream = fs.create(path);
-      }
       int recordCount = newContainer.getRecordCount();
       WritableBatch batch = WritableBatch.getBatchNoHVWrap(recordCount, newContainer, false);
       VectorAccessibleSerializable outputBatch = new VectorAccessibleSerializable(batch, allocator);
@@ -187,13 +183,11 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
     }
 
     private VectorContainer getBatch() throws IOException {
-      assert fs != null;
-      assert path != null;
       if (inputStream == null) {
-        inputStream = fs.open(path);
+        inputStream = spillSet.openForInput(path);
       }
       VectorAccessibleSerializable vas = new VectorAccessibleSerializable(allocator);
-      Stopwatch watch = Stopwatch.createStarted();
+//      Stopwatch watch = Stopwatch.createStarted();
       vas.readFromStream(inputStream);
       VectorContainer c =  vas.get();
       if (schema != null) {
@@ -203,7 +197,7 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
       spilledBatches--;
       currentContainer.zeroVectors();
       Iterator<VectorWrapper<?>> wrapperIterator = c.iterator();
-      for (VectorWrapper w : currentContainer) {
+      for (@SuppressWarnings("rawtypes") VectorWrapper w : currentContainer) {
         TransferPair pair = wrapperIterator.next().getValueVector().makeTransferPair(w.getValueVector());
         pair.transfer();
       }
@@ -219,9 +213,7 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
       if (inputStream != null) {
         inputStream.close();
       }
-      if (fs != null && fs.exists(path)) {
-        fs.delete(path, false);
-      }
+      spillSet.delete( path );
     }
 
     public void closeOutputStream() throws IOException {
