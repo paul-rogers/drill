@@ -171,6 +171,34 @@ import com.google.common.collect.Lists;
  * accordingly.
  */
 
+/**
+ * External sort batch: a sort batch which can spill to disk in
+ * order to operate within a defined memory footprint.
+ * <p>
+ * Configuration Options:
+ * <dl>
+ * <dt>drill.exec.sort.external.spill.fs</dt>
+ * <dd>The file system (file://, hdfs://, etc.) of the spill directory.</dd>
+ * <dt>drill.exec.sort.external.spill.directories</dt>
+ * <dd>The (comma? space?) separated list of directories, on the above file
+ * system, to which to spill files in round-robin fashion. The query will
+ * fail if any one of the directories becomes full.</dt>
+ * <dt>drill.exec.sort.external.spill.group.size</dt>
+ * <dd>The number of batches to spill per spill event.
+ * (Represented as <code>SPILL_BATCH_GROUP_SIZE</code>.)</dd>
+ * <dt>drill.exec.sort.external.spill.threshold</dt>
+ * <dd>The number of batches to accumulate in memory before starting
+ * a spill event. (May be overridden if insufficient memory is available.)
+ * (Represented as <code>SPILL_THRESHOLD</code>.)</dd>
+ * </dl>
+ * <p>
+ * The memory limit observed by this operator is the lesser of:
+ * <ul>
+ * <li>The maximum allocation allowed the the allocator assigned to this batch, or</li>
+ * <li>The maximum limit set for this operator by the Foreman.</li>
+ * </ul>
+ */
+
 public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExternalSortBatch.class);
   protected static final ControlsInjector injector = ControlsInjectorFactory.getInjector(ExternalSortBatch.class);
@@ -212,10 +240,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    */
 
   private final BufferAllocator allocator;
-
-  /**
-   * Schema of batches that this operator produces.
-   */
 
   private BatchSchema schema;
 
@@ -1336,7 +1360,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
               .build(logger);
       }
     }
-  }
 
   /**
    * Allocate and initialize the selection vector used as the sort index.
