@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.impl.xsort.managed;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.compile.sig.GeneratorMapping;
@@ -30,6 +31,7 @@ import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
+import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch.SortResults;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorAccessible;
@@ -38,6 +40,8 @@ import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.vector.CopyUtil;
 import org.apache.drill.exec.vector.ValueVector;
 
+import com.google.common.base.Stopwatch;
+
 /**
  * Manages a {@link PriorityQueueCopier} instance produced from code generation.
  * Provides a wrapper around a copier "session" to simplify reading batches
@@ -45,6 +49,7 @@ import org.apache.drill.exec.vector.ValueVector;
  */
 
 public class CopierHolder {
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CopierHolder.class);
 
   private static final GeneratorMapping COPIER_MAPPING = new GeneratorMapping("doSetup", "doCopy", null, null);
   private static final MappingSet COPIER_MAPPING_SET = new MappingSet(COPIER_MAPPING, COPIER_MAPPING);
@@ -83,7 +88,7 @@ public class CopierHolder {
   }
 
   /**
-   * Start a merge oppeation using the specified vector container. Used for
+   * Start a merge operation using the specified vector container. Used for
    * the final merge operation.
    *
    * @param schema
@@ -256,7 +261,9 @@ public class CopierHolder {
      * are available
      */
 
-    public int next( ) {
+    @Override
+    public boolean next( ) {
+      Stopwatch w = Stopwatch.createStarted();
       int count = holder.copier.next(targetRecordCount);
       copyCount += count;
       if (count > 0) {
@@ -278,7 +285,7 @@ public class CopierHolder {
 
       outputContainer.setRecordCount(count);
 
-      return count;
+      return count > 0;
     }
 
     /**
@@ -316,13 +323,8 @@ public class CopierHolder {
       return cont;
     }
 
-    public void clear() {
-      try {
-        holder.close( );
-      } catch (IOException e) {
-        // TODO Auto-generated catch block
-        e.printStackTrace();
-      }
+    @Override
+    public void close() {
       hyperBatch.clear();
     }
   }
