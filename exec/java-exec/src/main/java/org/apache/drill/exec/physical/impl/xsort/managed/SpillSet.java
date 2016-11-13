@@ -53,7 +53,7 @@ public class SpillSet {
    * name plus an appended spill serial number.
    */
 
-  private final String fileName;
+  private final String spillDirName;
 
   private int fileCount = 0;
 
@@ -68,7 +68,7 @@ public class SpillSet {
       throw new RuntimeException(e);
     }
     FragmentHandle handle = context.getHandle();
-    fileName = String.format("%s_major%s_minor%s_op%s", QueryIdHelper.getQueryId(handle.getQueryId()),
+    spillDirName = String.format("%s_major%s_minor%s_op%s", QueryIdHelper.getQueryId(handle.getQueryId()),
         handle.getMajorFragmentId(), handle.getMinorFragmentId(), popConfig.getOperatorId());
   }
 
@@ -79,7 +79,7 @@ public class SpillSet {
     // must have sufficient space for the output file.
 
     String spillDir = dirs.next();
-    Path currSpillPath = new Path(Joiner.on("/").join(spillDir, fileName));
+    Path currSpillPath = new Path(Joiner.on("/").join(spillDir, spillDirName));
     currSpillDirs.add(currSpillPath);
     String outputFile = Joiner.on("/").join(currSpillPath, "spill" + ++fileCount);
     try {
@@ -115,7 +115,7 @@ public class SpillSet {
   public void close() {
     for ( Path path : currSpillDirs ) {
       try {
-          if (fs != null && path != null && fs.exists(path)) {
+          if (path != null && fs.exists(path)) {
               if (fs.delete(path, true)) {
                   fs.cancelDeleteOnExit(path);
               }
