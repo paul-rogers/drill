@@ -1,20 +1,3 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
 import java.io.IOException;
@@ -24,7 +7,6 @@ import java.util.Iterator;
 import java.util.Set;
 
 import org.apache.drill.common.config.DrillConfig;
-import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
@@ -71,24 +53,22 @@ public class SpillSet {
    * name plus an appended spill serial number.
    */
 
-  private final String spillDirName;
+  private final String fileName;
 
   private int fileCount = 0;
 
-  public SpillSet(FragmentContext context, PhysicalOperator popConfig) {
+  public SpillSet( FragmentContext context, PhysicalOperator popConfig ) {
     DrillConfig config = context.getConfig();
     dirs = Iterators.cycle(config.getStringList(ExecConstants.EXTERNAL_SORT_SPILL_DIRS));
     Configuration conf = new Configuration();
     conf.set("fs.default.name", config.getString(ExecConstants.EXTERNAL_SORT_SPILL_FILESYSTEM));
     try {
-      fs = FileSystem.get(conf);
+      this.fs = FileSystem.get(conf);
     } catch (IOException e) {
-      throw UserException.resourceError(e)
-            .message("Failed to get the File System for external sort")
-            .build(logger);
+      throw new RuntimeException(e);
     }
     FragmentHandle handle = context.getHandle();
-    spillDirName = String.format("%s_major%s_minor%s_op%s", QueryIdHelper.getQueryId(handle.getQueryId()),
+    fileName = String.format("%s_major%s_minor%s_op%s", QueryIdHelper.getQueryId(handle.getQueryId()),
         handle.getMajorFragmentId(), handle.getMinorFragmentId(), popConfig.getOperatorId());
   }
 
@@ -99,7 +79,7 @@ public class SpillSet {
     // must have sufficient space for the output file.
 
     String spillDir = dirs.next();
-    Path currSpillPath = new Path(Joiner.on("/").join(spillDir, spillDirName));
+    Path currSpillPath = new Path(Joiner.on("/").join(spillDir, fileName));
     currSpillDirs.add(currSpillPath);
     String outputFile = Joiner.on("/").join(currSpillPath, "spill" + ++fileCount);
     try {
@@ -111,21 +91,21 @@ public class SpillSet {
     return outputFile;
   }
 
-  public boolean hasSpilled() {
+  public boolean hasSpilled( ) {
     return fileCount > 0;
   }
 
-  public int getFileCount() { return fileCount; }
+  public int getFileCount( ) { return fileCount; }
 
-  public InputStream openForInput(String fileName) throws IOException {
+  public InputStream openForInput( String fileName ) throws IOException {
     return fs.open(new Path(fileName));
   }
 
-  public OutputStream openForOutput(String fileName) throws IOException {
+  public OutputStream openForOutput( String fileName ) throws IOException {
     return fs.create(new Path(fileName));
   }
 
-  public void delete(String fileName) throws IOException {
+  public void delete( String fileName ) throws IOException {
     Path path = new Path(fileName);
     if (fs.exists(path)) {
       fs.delete(path, false);
@@ -133,9 +113,9 @@ public class SpillSet {
   }
 
   public void close() {
-    for (Path path : currSpillDirs) {
+    for ( Path path : currSpillDirs ) {
       try {
-          if (path != null && fs.exists(path)) {
+          if (fs != null && path != null && fs.exists(path)) {
               if (fs.delete(path, true)) {
                   fs.cancelDeleteOnExit(path);
               }
