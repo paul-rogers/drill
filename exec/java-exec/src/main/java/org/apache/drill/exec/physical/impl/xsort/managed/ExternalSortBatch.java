@@ -357,6 +357,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   // this enum MUST match those in the (unmanaged) ExternalSortBatch since
   // that is the enum used in the UI to display metrics for the query profile.
 
+  private long memoryLimit;
+  private final ExternalSort popConfig;
+  private SortResults resultsIterator;
+
   public enum Metric implements MetricDef {
     SPILL_COUNT,            // number of times operator spilled to disk
     RETIRED1,               // Was: peak value for totalSizeInMemory
@@ -389,6 +393,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   public ExternalSortBatch(ExternalSort popConfig, FragmentContext context, RecordBatch incoming) {
     super(popConfig, context, true);
+    this.popConfig = popConfig;
     this.incoming = incoming;
     allocator = oContext.getAllocator();
     opCodeGen = new OperatorCodeGenerator(context, popConfig);
