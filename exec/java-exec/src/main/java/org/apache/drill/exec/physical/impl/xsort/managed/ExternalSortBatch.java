@@ -175,6 +175,12 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private SpillSet spillSet;
   private CopierHolder copierHolder;
 
+  private enum SortState { LOAD, DELIVER, DONE }
+  private SortState sortState = SortState.LOAD;
+  private int totalRecordCount = 0;
+  private int totalBatches = 0; // total number of batches received so far
+
+
   public enum Metric implements MetricDef {
     SPILL_COUNT,            // number of times operator spilled to disk
     PEAK_SIZE_IN_MEMORY,    // peak value for totalSizeInMemory
@@ -297,9 +303,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     }
   }
 
-  private enum SortState { LOAD, DELIVER, DONE }
-  private SortState sortState = SortState.LOAD;
-
   /**
    * Process each request for a batch. The first request retrieves
    * the all incoming batches and sorts them, optionally spilling to
@@ -329,9 +332,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       return IterOutcome.NONE;
     }
   }
-
-  int totalRecordCount = 0;
-  int totalBatches = 0; // total number of batches received so far
 
   /**
    * Load and process a single batch, handling schema changes. In general, the
@@ -425,13 +425,13 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
       // None means all batches have been read.
 
-      if ( result == IterOutcome.NONE )
-        break;
+      if ( result == IterOutcome.NONE ) {
+        break; }
 
       // Any outcome other than OK means something went wrong.
 
-      if ( result != IterOutcome.OK )
-        return result;
+      if ( result != IterOutcome.OK ) {
+        return result; }
     }
 
     // Anything to actually sort?
@@ -801,42 +801,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   }
 
   private SelectionVector2 newSV2() throws OutOfMemoryException, InterruptedException {
-    @SuppressWarnings("resource")
     SelectionVector2 sv2 = new SelectionVector2(oAllocator);
     if (!sv2.allocateNewSafe(incoming.getRecordCount())) {
-      try {
-        final BatchGroup.SpilledBatchGroup merged = mergeAndSpill(batchGroups);
-        if (merged != null) {
-          spilledBatchGroups.add(merged);
-        } else {
-          throw UserException.memoryError("Unable to allocate sv2 for %d records, and not enough batchGroups to spill.",
-              incoming.getRecordCount())
-            .addContext("batchGroups.size", batchGroups.size())
-            .addContext("spilledBatchGroups.size", spilledBatchGroups.size())
-            .addContext("allocated memory", oAllocator.getAllocatedMemory())
-            .addContext("allocator limit", oAllocator.getLimit())
-            .build(logger);
-        }
-      } catch (SchemaChangeException e) {
-        throw new RuntimeException(e);
-      }
-      int waitTime = 1;
-      while (true) {
-        try {
-          Thread.sleep(waitTime * 1000);
-        } catch(final InterruptedException e) {
-          if (!context.shouldContinue()) {
-            throw e;
-          }
-        }
-        waitTime *= 2;
-        if (sv2.allocateNewSafe(incoming.getRecordCount())) {
-          break;
-        }
-        if (waitTime >= 32) {
-          throw new OutOfMemoryException("Unable to allocate sv2 buffer after repeated attempts");
-        }
-      }
+      throw new OutOfMemoryException("Unable to allocate sv2 buffer after repeated attempts");
     }
     for (int i = 0; i < incoming.getRecordCount(); i++) {
       sv2.setIndex(i, (char) i);
