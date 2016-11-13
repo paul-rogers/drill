@@ -1,40 +1,25 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
+import java.io.IOException;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
-import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.exec.compile.sig.GeneratorMapping;
+import org.apache.drill.exec.compile.sig.MappingSet;
+import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.exception.SchemaChangeException;
+import org.apache.drill.exec.expr.ClassGenerator;
+import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
-import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch.SortResults;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
+import org.apache.drill.exec.vector.CopyUtil;
 import org.apache.drill.exec.vector.ValueVector;
-
-import com.google.common.base.Stopwatch;
 
 /**
  * Manages a {@link PriorityQueueCopier} instance produced from code generation.
@@ -43,18 +28,26 @@ import com.google.common.base.Stopwatch;
  */
 
 public class CopierHolder {
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CopierHolder.class);
+
+  private static final GeneratorMapping COPIER_MAPPING = new GeneratorMapping("doSetup", "doCopy", null, null);
+  private static final MappingSet COPIER_MAPPING_SET = new MappingSet(COPIER_MAPPING, COPIER_MAPPING);
+
+  /**
+   * A single PriorityQueueCopier instance is used for 2 purposes:
+   * 1. Merge sorted batches before spilling
+   * 2. Merge sorted batches when all incoming data fits in memory
+   */
 
   private PriorityQueueCopier copier;
 
+  private ExternalSortBatch esb;
   private final FragmentContext context;
   private final BufferAllocator allocator;
-  private OperatorCodeGenerator opCodeGen;
 
-  public CopierHolder(FragmentContext context, BufferAllocator allocator, OperatorCodeGenerator opCodeGen) {
+  public CopierHolder( ExternalSortBatch esb, FragmentContext context, BufferAllocator allocator ) {
+    this.esb = esb;
     this.context = context;
     this.allocator = allocator;
-    this.opCodeGen = opCodeGen;
   }
 
   /**
@@ -65,14 +58,15 @@ public class CopierHolder {
    * @param batchGroupList
    * @param targetRecordCount
    * @return
+   * @throws SchemaChangeException
    */
 
-  public CopierHolder.BatchMerger startMerge(BatchSchema schema, List<? extends BatchGroup> batchGroupList, int targetRecordCount) {
-    return new BatchMerger(this, schema, batchGroupList, targetRecordCount);
+  public CopierHolder.BatchMerger startMerge( BatchSchema schema, List<? extends BatchGroup> batchGroupList, int targetRecordCount ) throws SchemaChangeException {
+    return new BatchMerger( this, schema, batchGroupList, targetRecordCount );
   }
 
   /**
-   * Start a merge operation using the specified vector container. Used for
+   * Start a merge oppeation using the specified vector container. Used for
    * the final merge operation.
    *
    * @param schema
@@ -80,9 +74,10 @@ public class CopierHolder {
    * @param outputContainer
    * @param targetRecordCount
    * @return
+   * @throws SchemaChangeException
    */
-  public CopierHolder.BatchMerger startFinalMerge(BatchSchema schema, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer, int targetRecordCount) {
-    return new BatchMerger(this, schema, batchGroupList, outputContainer, targetRecordCount);
+  public CopierHolder.BatchMerger startFinalMerge( BatchSchema schema, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer, int targetRecordCount ) throws SchemaChangeException {
+    return new BatchMerger( this, schema, batchGroupList, outputContainer, targetRecordCount );
   }
 
   /**
@@ -96,14 +91,35 @@ public class CopierHolder {
    * of individual batches
    * @param outputContainer the container into which to copy the batches
    * @param allocator allocator to use to allocate memory in the operation
+   * @throws SchemaChangeException thrown, but should never occur because
+   * schema changes were caught earlier as the batches were received
    */
 
   @SuppressWarnings("unchecked")
-  private void createCopier(VectorAccessible batch, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer) {
+  private void createCopier(VectorAccessible batch, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer) throws SchemaChangeException {
     if (copier != null) {
-      opCodeGen.closeCopier();
+      try {
+        copier.close();
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
     } else {
-      copier = opCodeGen.getCopier(batch);
+
+      // Generate the copier code and obtain the resulting class
+
+      CodeGenerator<PriorityQueueCopier> cg = CodeGenerator.get(PriorityQueueCopier.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
+      ClassGenerator<PriorityQueueCopier> g = cg.getRoot();
+
+      esb.generateComparisons(g, batch);
+
+      g.setMappingSet(COPIER_MAPPING_SET);
+      CopyUtil.generateCopies(g, batch, true);
+      g.setMappingSet(ExternalSortBatch.MAIN_MAPPING);
+      try {
+        copier = context.getImplementationClass(cg);
+      } catch (ClassTransformationException | IOException e) {
+        throw new RuntimeException(e);
+      }
     }
 
     // Initialize the value vectors for the output container using the
@@ -113,18 +129,13 @@ public class CopierHolder {
       ValueVector v = TypeHelper.getNewVector(i.getField(), allocator);
       outputContainer.add(v);
     }
-    try {
-      copier.setup(context, allocator, batch, (List<BatchGroup>) batchGroupList, outputContainer);
-    } catch (SchemaChangeException e) {
-      throw UserException.unsupportedError(e)
-            .message("Unexpected schema change - likely code error.")
-            .build(logger);
-    }
+    copier.setup(context, allocator, batch, (List<BatchGroup>) batchGroupList, outputContainer);
   }
 
-  public void close() {
-    opCodeGen.closeCopier();
-    copier = null;
+  public void close() throws IOException {
+    if (copier != null) {
+      copier.close();
+    }
   }
 
   /**
@@ -155,16 +166,21 @@ public class CopierHolder {
    * <p>
    * Calls to the {@link #next()} method sequentially return merged batches
    * of the desired row count.
-    */
+   *
+   * @param batchGroupList
+   * @param outputContainer
+   * @param allocator
+   * @return
+   * @throws SchemaChangeException
+   */
 
-  public static class BatchMerger implements SortResults {
+  public static class BatchMerger {
 
     private CopierHolder holder;
     private VectorContainer hyperBatch;
     private VectorContainer outputContainer;
     private int targetRecordCount;
     private int copyCount;
-    private int batchCount;
 
     /**
      * Creates a merger with an temporary output container.
@@ -172,9 +188,10 @@ public class CopierHolder {
      * @param holder
      * @param batchGroupList
      * @param targetRecordCount
+     * @throws SchemaChangeException
      */
-    private BatchMerger(CopierHolder holder, BatchSchema schema, List<? extends BatchGroup> batchGroupList, int targetRecordCount) {
-      this(holder, schema, batchGroupList, new VectorContainer(), targetRecordCount);
+    private BatchMerger( CopierHolder holder, BatchSchema schema, List<? extends BatchGroup> batchGroupList, int targetRecordCount ) throws SchemaChangeException {
+      this( holder, schema, batchGroupList, new VectorContainer(), targetRecordCount );
     }
 
     /**
@@ -184,14 +201,15 @@ public class CopierHolder {
      * @param batchGroupList
      * @param outputContainer
      * @param targetRecordCount
+     * @throws SchemaChangeException
      */
-    private BatchMerger(CopierHolder holder, BatchSchema schema, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer, int targetRecordCount) {
+    private BatchMerger( CopierHolder holder, BatchSchema schema, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer, int targetRecordCount ) throws SchemaChangeException {
       this.holder = holder;
       hyperBatch = constructHyperBatch(schema, batchGroupList);
       copyCount = 0;
       this.targetRecordCount = targetRecordCount;
       this.outputContainer = outputContainer;
-      holder.createCopier(hyperBatch, batchGroupList, outputContainer);
+      holder.createCopier(hyperBatch, batchGroupList, outputContainer );
     }
 
     /**
@@ -199,7 +217,7 @@ public class CopierHolder {
      *
      * @return
      */
-    public VectorContainer getOutput() {
+    public VectorContainer getOutput( ) {
       return outputContainer;
     }
 
@@ -211,18 +229,9 @@ public class CopierHolder {
      * are available
      */
 
-    @Override
-    public boolean next() {
-      Stopwatch w = Stopwatch.createStarted();
+    public int next( ) {
       int count = holder.copier.next(targetRecordCount);
       copyCount += count;
-      if (count > 0) {
-        long t = w.elapsed(TimeUnit.MICROSECONDS);
-        logger.debug("Took {} us to merge {} records", t, count);
-      } else {
-        logger.debug("copier returned 0 records");
-      }
-      batchCount++;
 
       // Identify the schema to be used in the output container. (Since
       // all merged batches have the same schema, the schema we identify
@@ -235,7 +244,7 @@ public class CopierHolder {
 
       outputContainer.setRecordCount(count);
 
-      return count > 0;
+      return count;
     }
 
     /**
@@ -272,20 +281,14 @@ public class CopierHolder {
       return cont;
     }
 
-    @Override
-    public void close() {
+    public void clear() {
+      try {
+        holder.close( );
+      } catch (IOException e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
       hyperBatch.clear();
-      holder.close();
-    }
-
-    @Override
-    public int getRecordCount() {
-      return copyCount;
-    }
-
-    @Override
-    public int getBatchCount() {
-      return batchCount;
     }
   }
 }
