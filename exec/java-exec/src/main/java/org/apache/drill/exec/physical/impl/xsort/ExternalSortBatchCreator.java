@@ -41,20 +41,9 @@ public class ExternalSortBatchCreator implements BatchCreator<ExternalSort>{
   public AbstractRecordBatch<ExternalSort> getBatch(FragmentContext context, ExternalSort config, List<RecordBatch> children)
       throws ExecutionSetupException {
     Preconditions.checkArgument(children.size() == 1);
-
-    // Prefer the managed version, but provide runtime and boot-time options
-    // to disable it and revert to the "legacy" version. The legacy version
-    // is retained primarily to allow cross-check testing against the managed
-    // version, and as a fall back in the first release of the managed version.
-
-    OptionManager optionManager = context.getOptions();
-    boolean disableManaged = optionManager.getOption(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION);
-    if ( ! disableManaged ) {
-      DrillConfig drillConfig = context.getConfig();
-      disableManaged = drillConfig.hasPath(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED) &&
-                       drillConfig.getBoolean(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED);
-    }
-    if (disableManaged) {
+    DrillConfig drillConfig = context.getConfig();
+    if ( drillConfig.hasPath(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED) &&
+         drillConfig.getBoolean(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED) ) {
       return new ExternalSortBatch(config, context, children.iterator().next());
     } else {
       return new org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch(config, context, children.iterator().next());
