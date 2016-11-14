@@ -359,14 +359,31 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   private long memoryLimit;
   private final ExternalSort popConfig;
+
+  /**
+   * Iterates over the final, sorted results.
+   */
+
   private SortResults resultsIterator;
-  private SpillSet spillSet;
-  private CopierHolder copierHolder;
+
+  /**
+   * Manages the set of spill directories and files.
+   */
+
+  private final SpillSet spillSet;
+
+  /**
+   * Manages the copier used to merge a collection of batches into
+   * a new set of batches.
+   */
+
+  private final CopierHolder copierHolder;
 
   private enum SortState { LOAD, DELIVER, DONE }
   private SortState sortState = SortState.LOAD;
   private int totalRecordCount = 0;
   private int totalBatches = 0; // total number of batches received so far
+  private final OperatorCodeGenerator opCodeGen;
 
 
   public enum Metric implements MetricDef {
