@@ -1122,8 +1122,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     // The record count should never be zero, but better safe than sorry...
 
-    if ( recordCount == 0 )
-      return;
+    if ( recordCount == 0 ) {
+      return; }
 
     // We know the batch size and number of records. Use that to estimate
     // the average record size. Since a typical batch has many records,
