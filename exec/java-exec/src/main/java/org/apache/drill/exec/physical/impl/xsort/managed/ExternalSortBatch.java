@@ -358,7 +358,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   // that is the enum used in the UI to display metrics for the query profile.
 
   private long memoryLimit;
-  private final ExternalSort popConfig;
 
   /**
    * Iterates over the final, sorted results.
@@ -384,6 +383,30 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private int totalRecordCount = 0;
   private int totalBatches = 0; // total number of batches received so far
   private final OperatorCodeGenerator opCodeGen;
+
+  /**
+   * Estimated size of the records for this query, updated on each
+   * new batch received from upsteram.
+   */
+
+  private int estimatedRecordSize;
+
+  /**
+   * Estimated size of the spill and output batches that this
+   * operator produces, estimated from the estimated record
+   * size.
+   */
+
+  private int estimatedOutputBatchSize;
+
+  /**
+   * Amount of the memory given to this operator that can buffer
+   * batches from upstream in the in-memory generation, or the
+   * current batches of on-disk runs during the final merge
+   * phase.
+   */
+
+  private long batchMemoryPool;
 
 
   public enum Metric implements MetricDef {
@@ -419,7 +442,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   public ExternalSortBatch(ExternalSort popConfig, FragmentContext context, RecordBatch incoming) {
     super(popConfig, context, true);
-    this.popConfig = popConfig;
     this.incoming = incoming;
     allocator = oContext.getAllocator();
     opCodeGen = new OperatorCodeGenerator(context, popConfig);
