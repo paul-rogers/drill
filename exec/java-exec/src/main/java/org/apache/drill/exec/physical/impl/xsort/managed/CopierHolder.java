@@ -280,5 +280,9 @@ public class CopierHolder {
       hyperBatch.clear();
       holder.close();
     }
+
+    public int getRecordCount() {
+      return copyCount;
+    }
   }
 }

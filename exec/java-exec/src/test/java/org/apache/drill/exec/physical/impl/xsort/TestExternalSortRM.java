@@ -32,6 +32,7 @@ import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ExecTest;
 import org.apache.drill.exec.client.DrillClient;
 import org.apache.drill.exec.physical.impl.xsort.BufferingQueryEventListener.QueryEvent;
+import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
 import org.apache.drill.exec.rpc.RpcException;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
@@ -43,14 +44,24 @@ import org.apache.drill.exec.store.dfs.FileSystemPlugin;
 import org.apache.drill.exec.store.dfs.WorkspaceConfig;
 import org.apache.drill.test.DrillTest;
 import org.junit.Test;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Files;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.ConsoleAppender;
 
 public class TestExternalSortRM extends DrillTest {
 
   @Test
   public void testManagedSpilled() throws Exception {
+    setupLogging( );
+
     RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
 
     DrillConfig config = DrillConfig.create("xsort/drill-external-sort-rm.conf");
@@ -67,8 +78,28 @@ public class TestExternalSortRM extends DrillTest {
     }
   }
 
+  private void setupLogging() {
+    LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
+    Logger sortLogger = (Logger)LoggerFactory.getLogger(ExternalSortBatch.class);
+    sortLogger.setLevel(Level.DEBUG);
+
+    PatternLayoutEncoder ple = new PatternLayoutEncoder();
+    ple.setPattern("%level [%thread] [%file:%line] %msg%n");
+    ple.setContext(lc);
+    ple.start();
+
+    ConsoleAppender<ILoggingEvent> appender = new ConsoleAppender<>( );
+    appender.setContext(lc);
+    appender.setName("Console");
+    appender.setEncoder( ple );
+    appender.start();
+    sortLogger.addAppender(appender);
+  }
+
   @Test
   public void testManagedInMemory() throws Exception {
+    setupLogging( );
+
     RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
 
 //    DrillConfig config = DrillConfig.create("xsort/drill-external-sort-rm.conf");
