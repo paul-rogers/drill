@@ -17,17 +17,11 @@
  */
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.compile.sig.GeneratorMapping;
-import org.apache.drill.exec.compile.sig.MappingSet;
-import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.exception.SchemaChangeException;
-import org.apache.drill.exec.expr.ClassGenerator;
-import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
@@ -37,7 +31,6 @@ import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
-import org.apache.drill.exec.vector.CopyUtil;
 import org.apache.drill.exec.vector.ValueVector;
 
 import com.google.common.base.Stopwatch;
@@ -51,25 +44,16 @@ import com.google.common.base.Stopwatch;
 public class CopierHolder {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CopierHolder.class);
 
-  private static final GeneratorMapping COPIER_MAPPING = new GeneratorMapping("doSetup", "doCopy", null, null);
-  private static final MappingSet COPIER_MAPPING_SET = new MappingSet(COPIER_MAPPING, COPIER_MAPPING);
-
-  /**
-   * A single PriorityQueueCopier instance is used for 2 purposes:
-   * 1. Merge sorted batches before spilling
-   * 2. Merge sorted batches when all incoming data fits in memory
-   */
-
   private PriorityQueueCopier copier;
 
-  private ExternalSortBatch esb;
   private final FragmentContext context;
   private final BufferAllocator allocator;
+  private OperatorCodeGenerator cg;
 
   public CopierHolder( ExternalSortBatch esb, FragmentContext context, BufferAllocator allocator ) {
-    this.esb = esb;
     this.context = context;
     this.allocator = allocator;
+    cg = new OperatorCodeGenerator( esb, context );
   }
 
   /**
@@ -120,28 +104,9 @@ public class CopierHolder {
   @SuppressWarnings("unchecked")
   private void createCopier(VectorAccessible batch, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer) throws SchemaChangeException {
     if (copier != null) {
-      try {
-        copier.close();
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
+      cg.closeCopier();
     } else {
-
-      // Generate the copier code and obtain the resulting class
-
-      CodeGenerator<PriorityQueueCopier> cg = CodeGenerator.get(PriorityQueueCopier.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
-      ClassGenerator<PriorityQueueCopier> g = cg.getRoot();
-
-      esb.generateComparisons(g, batch);
-
-      g.setMappingSet(COPIER_MAPPING_SET);
-      CopyUtil.generateCopies(g, batch, true);
-      g.setMappingSet(ExternalSortBatch.MAIN_MAPPING);
-      try {
-        copier = context.getImplementationClass(cg);
-      } catch (ClassTransformationException | IOException e) {
-        throw new RuntimeException(e);
-      }
+      copier = cg.getCopier( batch );
     }
 
     // Initialize the value vectors for the output container using the
@@ -155,14 +120,8 @@ public class CopierHolder {
   }
 
   public void close() {
-    if (copier != null) {
-      try {
-        copier.close();
-      } catch (IOException e) {
-        logger.error( "Unexpected IO Exception on copier close", e);
-      }
-      copier = null;
-    }
+    cg.closeCopier();
+    copier = null;
   }
 
   /**
