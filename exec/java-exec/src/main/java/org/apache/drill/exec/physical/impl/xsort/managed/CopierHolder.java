@@ -48,12 +48,12 @@ public class CopierHolder {
 
   private final FragmentContext context;
   private final BufferAllocator allocator;
-  private OperatorCodeGenerator cg;
+  private OperatorCodeGenerator opCodeGen;
 
-  public CopierHolder( ExternalSortBatch esb, FragmentContext context, BufferAllocator allocator ) {
+  public CopierHolder( FragmentContext context, BufferAllocator allocator, OperatorCodeGenerator opCodeGen ) {
     this.context = context;
     this.allocator = allocator;
-    cg = new OperatorCodeGenerator( esb, context );
+    this.opCodeGen = opCodeGen;
   }
 
   /**
@@ -101,9 +101,9 @@ public class CopierHolder {
   @SuppressWarnings("unchecked")
   private void createCopier(VectorAccessible batch, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer) throws SchemaChangeException {
     if (copier != null) {
-      cg.closeCopier();
+      opCodeGen.closeCopier();
     } else {
-      copier = cg.getCopier( batch );
+      copier = opCodeGen.getCopier( batch );
     }
 
     // Initialize the value vectors for the output container
@@ -291,6 +291,7 @@ public class CopierHolder {
     @Override
     public void close() {
       hyperBatch.clear();
+      holder.close();
     }
   }
 }

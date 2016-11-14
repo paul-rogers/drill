@@ -18,17 +18,42 @@
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
 import java.io.IOException;
+import java.util.List;
 
+import org.apache.calcite.rel.RelFieldCollation.Direction;
+import org.apache.drill.common.expression.ErrorCollector;
+import org.apache.drill.common.expression.ErrorCollectorImpl;
+import org.apache.drill.common.expression.LogicalExpression;
+import org.apache.drill.common.logical.data.Order.Ordering;
 import org.apache.drill.exec.compile.sig.GeneratorMapping;
 import org.apache.drill.exec.compile.sig.MappingSet;
 import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.expr.ClassGenerator;
 import org.apache.drill.exec.expr.CodeGenerator;
+import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
+import org.apache.drill.exec.expr.ClassGenerator.HoldingContainer;
+import org.apache.drill.exec.expr.fn.FunctionGenerationHelper;
 import org.apache.drill.exec.ops.FragmentContext;
+import org.apache.drill.exec.physical.config.ExternalSort;
+import org.apache.drill.exec.physical.config.Sort;
+import org.apache.drill.exec.physical.impl.xsort.MSorter;
+import org.apache.drill.exec.physical.impl.xsort.SingleBatchSorter;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.vector.CopyUtil;
+
+import com.sun.codemodel.JConditional;
+import com.sun.codemodel.JExpr;
+
+/**
+ * Generates and manages the data-specific classes for this operator.
+ * <p>
+ * Several of the code generation methods take a batch, but the methods
+ * are called for many batches, and generate code only for the first one.
+ * Better would be to generate code from a schema; but Drill is not set
+ * up for that at present.
+ */
 
 public class OperatorCodeGenerator {
 
@@ -39,8 +64,8 @@ public class OperatorCodeGenerator {
   private static final GeneratorMapping COPIER_MAPPING = new GeneratorMapping("doSetup", "doCopy", null, null);
   private static final MappingSet COPIER_MAPPING_SET = new MappingSet(COPIER_MAPPING, COPIER_MAPPING);
 
-  private final ExternalSortBatch esb;
   private final FragmentContext context;
+  @SuppressWarnings("unused")
   private BatchSchema schema;
 
   /**
@@ -60,9 +85,9 @@ public class OperatorCodeGenerator {
 
   private SingleBatchSorter sorter;
 
-  public OperatorCodeGenerator( ExternalSortBatch esb, FragmentContext context ) {
-    this.esb = esb;
+  public OperatorCodeGenerator( FragmentContext context, Sort popConfig ) {
     this.context = context;
+    this.popConfig = popConfig;
   }
 
   public void setSchema( BatchSchema schema ) {
@@ -105,7 +130,7 @@ public class OperatorCodeGenerator {
 //  cg.saveCodeForDebugging(true);
 
     try {
-      esb.generateComparisons(g, batch);
+      generateComparisons(g, batch);
     } catch (SchemaChangeException e) {
       throw new RuntimeException("Unexpected schema change", e);
     }
