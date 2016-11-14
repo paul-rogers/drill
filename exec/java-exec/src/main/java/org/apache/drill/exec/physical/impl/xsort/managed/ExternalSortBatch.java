@@ -22,25 +22,14 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 
-import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.drill.common.AutoCloseables;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.expression.ErrorCollector;
-import org.apache.drill.common.expression.ErrorCollectorImpl;
-import org.apache.drill.common.expression.LogicalExpression;
-import org.apache.drill.common.logical.data.Order.Ordering;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.compile.sig.MappingSet;
 import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.exception.SchemaChangeException;
-import org.apache.drill.exec.expr.ClassGenerator;
-import org.apache.drill.exec.expr.ClassGenerator.HoldingContainer;
-import org.apache.drill.exec.expr.CodeGenerator;
-import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
 import org.apache.drill.exec.expr.TypeHelper;
-import org.apache.drill.exec.expr.fn.FunctionGenerationHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.MetricDef;
@@ -54,7 +43,6 @@ import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.SchemaUtil;
-import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.WritableBatch;
@@ -66,8 +54,6 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractContainerVector;
 
 import com.google.common.collect.Lists;
-import com.sun.codemodel.JConditional;
-import com.sun.codemodel.JExpr;
 
 /**
  * External sort batch: a sort batch which can spill to disk in
@@ -121,10 +107,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExternalSortBatch.class);
   protected static final ControlsInjector injector = ControlsInjectorFactory.getInjector(ExternalSortBatch.class);
 
-  protected static final MappingSet MAIN_MAPPING = new MappingSet( (String) null, null, ClassGenerator.DEFAULT_SCALAR_MAP, ClassGenerator.DEFAULT_SCALAR_MAP);
-  protected static final MappingSet LEFT_MAPPING = new MappingSet("leftIndex", null, ClassGenerator.DEFAULT_SCALAR_MAP, ClassGenerator.DEFAULT_SCALAR_MAP);
-  protected static final MappingSet RIGHT_MAPPING = new MappingSet("rightIndex", null, ClassGenerator.DEFAULT_SCALAR_MAP, ClassGenerator.DEFAULT_SCALAR_MAP);
-
   private final int SPILL_BATCH_GROUP_SIZE;
   private final int SPILL_THRESHOLD;
   private final RecordBatch incoming;
@@ -141,14 +123,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    */
 
   private BatchSchema schema;
-
-  /**
-   * Generated sort operation used to sort each incoming batch according to
-   * the sort criteria specified in the {@link ExternalSort} definition of
-   * this operator.
-   */
-
-  private SingleBatchSorter sorter;
 
   private LinkedList<BatchGroup.InputBatchGroup> batchGroups = Lists.newLinkedList();
   private LinkedList<BatchGroup.SpilledBatchGroup> spilledBatchGroups = Lists.newLinkedList();
@@ -171,14 +145,31 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   private long memoryLimit;
   private final ExternalSort popConfig;
+
+  /**
+   * Iterates over the final, sorted results.
+   */
+
   private SortResults resultsIterator;
-  private SpillSet spillSet;
-  private CopierHolder copierHolder;
+
+  /**
+   * Manages the set of spill directories and files.
+   */
+
+  private final SpillSet spillSet;
+
+  /**
+   * Manages the copier used to merge a collection of batches into
+   * a new set of batches.
+   */
+
+  private final CopierHolder copierHolder;
 
   private enum SortState { LOAD, DELIVER, DONE }
   private SortState sortState = SortState.LOAD;
   private int totalRecordCount = 0;
   private int totalBatches = 0; // total number of batches received so far
+  private final OperatorCodeGenerator opCodeGen;
 
 
   public enum Metric implements MetricDef {
@@ -191,6 +182,12 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       return ordinal();
     }
   }
+
+  /**
+   * Iterates over the final sorted results. Implemented differently
+   * depending on whether the results are in-memory or spilled to
+   * disk.
+   */
 
   public interface SortResults extends AutoCloseable {
     boolean next();
@@ -206,8 +203,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     SPILL_BATCH_GROUP_SIZE = config.getInt(ExecConstants.EXTERNAL_SORT_SPILL_GROUP_SIZE);
     SPILL_THRESHOLD = config.getInt(ExecConstants.EXTERNAL_SORT_SPILL_THRESHOLD);
     oAllocator = oContext.getAllocator();
+    opCodeGen = new OperatorCodeGenerator( context, popConfig );
+
     spillSet = new SpillSet( context, popConfig );
-    copierHolder = new CopierHolder( this, context, oAllocator );
+    copierHolder = new CopierHolder( context, oAllocator, opCodeGen );
 
     // The maximum memory this operator can use. It is either the
     // limit set on the allocator or on the operator, whichever is
@@ -263,12 +262,13 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       }
 
       copierHolder.close( );
-      super.close();
 
       if ( resultsIterator != null ) {
         resultsIterator.close( );
       }
       spillSet.close( );
+      opCodeGen.close( );
+      super.close();
     }
   }
 
@@ -491,8 +491,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
         // New schema: must generate a new sorter and copier.
 
-        sorter = null;
         copierHolder.close();
+        opCodeGen.setSchema( schema );
     } else {
       throw new SchemaChangeException("Schema changes not supported in External Sort. Please enable Union type.");
     }
@@ -522,9 +522,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     if ( incoming.getRecordCount() == 0 ) {
       return null; }
     VectorContainer convertedBatch = SchemaUtil.coerceContainer(incoming, schema, oContext);
-    if ( sorter == null ) {
-      sorter = createNewSorter(context, convertedBatch);
-    }
     return convertedBatch;
   }
 
@@ -557,6 +554,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     int count = sv2.getCount();
     totalRecordCount += count;
     totalBatches++;
+    SingleBatchSorter sorter = opCodeGen.getSorter(convertedBatch);
     sorter.setup(context, sv2, convertedBatch);
     sorter.sort(sv2);
     RecordBatchData rbd = new RecordBatchData(convertedBatch, oAllocator);
@@ -667,7 +665,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   }
 
   public IterOutcome mergeInMemory( ) throws SchemaChangeException, ClassTransformationException, IOException {
-    InMemoryMerge memoryMerge = new InMemoryMerge( context, oAllocator, popConfig );
+    InMemoryMerge memoryMerge = new InMemoryMerge( context, oAllocator, opCodeGen );
     sv4 = memoryMerge.merge( batchGroups, this, container );
     if ( sv4 == null ) {
       sortState = SortState.DONE;
@@ -810,51 +808,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     }
     sv2.setRecordCount(incoming.getRecordCount());
     return sv2;
-  }
-
-  public SingleBatchSorter createNewSorter(FragmentContext context, VectorAccessible batch)
-          throws ClassTransformationException, IOException, SchemaChangeException{
-    CodeGenerator<SingleBatchSorter> cg = CodeGenerator.get(SingleBatchSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
-    ClassGenerator<SingleBatchSorter> g = cg.getRoot();
-
-    generateComparisons(g, batch);
-
-    return context.getImplementationClass(cg);
-  }
-
-  protected void generateComparisons(ClassGenerator<?> g, VectorAccessible batch) throws SchemaChangeException {
-    g.setMappingSet(MAIN_MAPPING);
-
-    for (Ordering od : popConfig.getOrderings()) {
-      // first, we rewrite the evaluation stack for each side of the comparison.
-      ErrorCollector collector = new ErrorCollectorImpl();
-      final LogicalExpression expr = ExpressionTreeMaterializer.materialize(od.getExpr(), batch, collector, context.getFunctionRegistry());
-      if (collector.hasErrors()) {
-        throw new SchemaChangeException("Failure while materializing expression. " + collector.toErrorString());
-      }
-      g.setMappingSet(LEFT_MAPPING);
-      HoldingContainer left = g.addExpr(expr, ClassGenerator.BlkCreateMode.FALSE);
-      g.setMappingSet(RIGHT_MAPPING);
-      HoldingContainer right = g.addExpr(expr, ClassGenerator.BlkCreateMode.FALSE);
-      g.setMappingSet(MAIN_MAPPING);
-
-      // next we wrap the two comparison sides and add the expression block for the comparison.
-      LogicalExpression fh =
-          FunctionGenerationHelper.getOrderingComparator(od.nullsSortHigh(), left, right,
-                                                         context.getFunctionRegistry());
-      HoldingContainer out = g.addExpr(fh, ClassGenerator.BlkCreateMode.FALSE);
-      JConditional jc = g.getEvalBlock()._if(out.getValue().ne(JExpr.lit(0)));
-
-      if (od.getDirection() == Direction.ASCENDING) {
-        jc._then()._return(out.getValue());
-      }else{
-        jc._then()._return(out.getValue().minus());
-      }
-      g.rotateBlock();
-    }
-
-    g.rotateBlock();
-    g.getEvalBlock()._return(JExpr.lit(0));
   }
 
   @Override
