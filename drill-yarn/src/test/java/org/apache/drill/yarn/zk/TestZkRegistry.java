@@ -89,15 +89,15 @@ public class TestZkRegistry {
 
   @Test
   public void testBasics() throws Exception {
-    TestingServer server = new TestingServer();
-    server.start();
-    String connStr = server.getConnectString();
-    ZKClusterCoordinatorDriver driver = new ZKClusterCoordinatorDriver()
-        .setConnect(connStr, "drill", "drillbits").build();
-    assertTrue(driver.getInitialEndpoints().isEmpty());
-    driver.close();
-    server.stop();
-    server.close();
+    try (TestingServer server = new TestingServer()) {
+      server.start();
+      String connStr = server.getConnectString();
+      ZKClusterCoordinatorDriver driver = new ZKClusterCoordinatorDriver()
+          .setConnect(connStr, "drill", "drillbits").build();
+      assertTrue(driver.getInitialEndpoints().isEmpty());
+      driver.close();
+      server.stop();
+    }
   }
 
   private class TestDrillbitStatusListener implements DrillbitStatusListener {

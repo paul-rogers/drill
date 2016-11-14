@@ -304,7 +304,7 @@ public class Task {
   }
 
   public String getName() {
-    return taskSpec.name;
+    return taskSpec == null ? null : taskSpec.name;
   }
 
   /**

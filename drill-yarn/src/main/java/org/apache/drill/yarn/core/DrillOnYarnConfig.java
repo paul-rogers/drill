@@ -58,23 +58,17 @@ public class DrillOnYarnConfig {
   public static final String CONFIG_FILE_NAME = "drill-on-yarn.conf";
 
   public static final String DRILL_ON_YARN_PARENT = "drill.yarn";
-  public static final String DOY_CLIENT_PARENT = append(DRILL_ON_YARN_PARENT,
-      "client");
+  public static final String DOY_CLIENT_PARENT = append(DRILL_ON_YARN_PARENT, "client");
   public static final String DOY_AM_PARENT = append(DRILL_ON_YARN_PARENT, "am");
-  public static final String DOY_DRILLBIT_PARENT = append(DRILL_ON_YARN_PARENT,
-      "drillbit");
-  public static final String FILES_PARENT = append(DRILL_ON_YARN_PARENT,
-      "drill-install");
+  public static final String DOY_DRILLBIT_PARENT = append(DRILL_ON_YARN_PARENT, "drillbit");
+  public static final String FILES_PARENT = append(DRILL_ON_YARN_PARENT, "drill-install");
   public static final String DFS_PARENT = append(DRILL_ON_YARN_PARENT, "dfs");
   public static final String HTTP_PARENT = append(DRILL_ON_YARN_PARENT, "http");
   public static final String YARN_PARENT = append(DRILL_ON_YARN_PARENT, "yarn");
-  public static final String HADOOP_PARENT = append(DRILL_ON_YARN_PARENT,
-      "hadoop");
-  public static final String CLIENT_PARENT = append(DRILL_ON_YARN_PARENT,
-      "client");
+  public static final String HADOOP_PARENT = append(DRILL_ON_YARN_PARENT, "hadoop");
+  public static final String CLIENT_PARENT = append(DRILL_ON_YARN_PARENT, "client");
 
-  public static final String APP_NAME = append(DRILL_ON_YARN_PARENT,
-      "app-name");
+  public static final String APP_NAME = append(DRILL_ON_YARN_PARENT, "app-name");
   public static final String CLUSTER_ID = ExecConstants.SERVICE_NAME;
 
   public static final String DFS_CONNECTION = append(DFS_PARENT, "connection");
@@ -83,30 +77,24 @@ public class DrillOnYarnConfig {
   public static final String YARN_QUEUE = append(YARN_PARENT, "queue");
   public static final String YARN_PRIORITY = append(YARN_PARENT, "priority");
 
-  public static final String DRILL_ARCHIVE_PATH = append(FILES_PARENT,
-      "client-path");
+  public static final String DRILL_ARCHIVE_PATH = append(FILES_PARENT, "client-path");
   public static final String DRILL_DIR_NAME = append(FILES_PARENT, "dir-name");
 
   /**
    * Key used for the Drill archive file in the AM launch config.
    */
 
-  public static final String DRILL_ARCHIVE_KEY = append(FILES_PARENT,
-      "drill-key");
-  public static final String SITE_ARCHIVE_KEY = append(FILES_PARENT,
-      "site-key");
+  public static final String DRILL_ARCHIVE_KEY = append(FILES_PARENT, "drill-key");
+  public static final String SITE_ARCHIVE_KEY = append(FILES_PARENT, "site-key");
   public static final String LOCALIZE_DRILL = append(FILES_PARENT, "localize");
   public static final String CONF_AS_SITE = append(FILES_PARENT, "conf-as-site");
   public static final String DRILL_HOME = append(FILES_PARENT, "drill-home");
   public static final String SITE_DIR = append(FILES_PARENT, "site-dir");
-  public static final String JAVA_LIB_PATH = append(FILES_PARENT,
-      "library-path");
+  public static final String JAVA_LIB_PATH = append(FILES_PARENT, "library-path");
 
   public static final String HADOOP_HOME = append(HADOOP_PARENT, "home");
-  public static final String HADOOP_CLASSPATH = append(HADOOP_PARENT,
-      "class-path");
-  public static final String HBASE_CLASSPATH = append(HADOOP_PARENT,
-      "hbase-class-path");
+  public static final String HADOOP_CLASSPATH = append(HADOOP_PARENT, "class-path");
+  public static final String HBASE_CLASSPATH = append(HADOOP_PARENT, "hbase-class-path");
 
   public static final String MEMORY_KEY = "memory-mb";
   public static final String VCORES_KEY = "vcores";
@@ -117,58 +105,36 @@ public class DrillOnYarnConfig {
   public static final String AM_MEMORY = append(DOY_AM_PARENT, MEMORY_KEY);
   public static final String AM_VCORES = append(DOY_AM_PARENT, VCORES_KEY);
   public static final String AM_DISKS = append(DOY_AM_PARENT, DISKS_KEY);
-  public static final String AM_NODE_LABEL_EXPR = append(DOY_AM_PARENT,
-      "node-label-expr");
+  public static final String AM_NODE_LABEL_EXPR = append(DOY_AM_PARENT, "node-label-expr");
   public static final String AM_HEAP = append(DOY_AM_PARENT, HEAP_KEY);
   public static final String AM_VM_ARGS = append(DOY_AM_PARENT, VM_ARGS_KEY);
-  public static final String AM_POLL_PERIOD_MS = append(DOY_AM_PARENT,
-      "poll-ms");
-  public static final String AM_TICK_PERIOD_MS = append(DOY_AM_PARENT,
-      "tick-ms");
-  public static final String AM_PREFIX_CLASSPATH = append(DOY_AM_PARENT,
-      "prefix-class-path");
+  public static final String AM_POLL_PERIOD_MS = append(DOY_AM_PARENT, "poll-ms");
+  public static final String AM_TICK_PERIOD_MS = append(DOY_AM_PARENT, "tick-ms");
+  public static final String AM_PREFIX_CLASSPATH = append(DOY_AM_PARENT, "prefix-class-path");
   public static final String AM_CLASSPATH = append(DOY_AM_PARENT, "class-path");
-  public static final String AM_DEBUG_LAUNCH = append(DOY_AM_PARENT,
-      "debug-launch");
-  public static final String AM_ENABLE_AUTO_SHUTDOWN = append(DOY_AM_PARENT,
-      "auto-shutdown");
+  public static final String AM_DEBUG_LAUNCH = append(DOY_AM_PARENT, "debug-launch");
+  public static final String AM_ENABLE_AUTO_SHUTDOWN = append(DOY_AM_PARENT, "auto-shutdown");
 
-  public static final String DRILLBIT_MEMORY = append(DOY_DRILLBIT_PARENT,
-      MEMORY_KEY);
-  public static final String DRILLBIT_VCORES = append(DOY_DRILLBIT_PARENT,
-      VCORES_KEY);
-  public static final String DRILLBIT_DISKS = append(DOY_DRILLBIT_PARENT,
-      DISKS_KEY);
-  public static final String DRILLBIT_VM_ARGS = append(DOY_DRILLBIT_PARENT,
-      VM_ARGS_KEY);
-  public static final String DRILLBIT_HEAP = append(DOY_DRILLBIT_PARENT,
-      HEAP_KEY);
-  public static final String DRILLBIT_DIRECT_MEM = append(DOY_DRILLBIT_PARENT,
-      "max-direct-memory");
-  public static final String DRILLBIT_CODE_CACHE = append(DOY_DRILLBIT_PARENT,
-      "code-cache");
-  public static final String DRILLBIT_LOG_GC = append(DOY_DRILLBIT_PARENT,
-      "log-gc");
-  public static final String DRILLBIT_PREFIX_CLASSPATH = append(
-      DOY_DRILLBIT_PARENT, "prefix-class-path");
-  public static final String DRILLBIT_EXTN_CLASSPATH = append(
-      DOY_DRILLBIT_PARENT, "extn-class-path");
-  public static final String DRILLBIT_CLASSPATH = append(DOY_DRILLBIT_PARENT,
-      "class-path");
-  public static final String DRILLBIT_MAX_RETRIES = append(DOY_DRILLBIT_PARENT,
-      "max-retries");
-  public static final String DRILLBIT_DEBUG_LAUNCH = append(DOY_DRILLBIT_PARENT,
-      "debug-launch");
+  public static final String DRILLBIT_MEMORY = append(DOY_DRILLBIT_PARENT, MEMORY_KEY);
+  public static final String DRILLBIT_VCORES = append(DOY_DRILLBIT_PARENT, VCORES_KEY);
+  public static final String DRILLBIT_DISKS = append(DOY_DRILLBIT_PARENT, DISKS_KEY);
+  public static final String DRILLBIT_VM_ARGS = append(DOY_DRILLBIT_PARENT, VM_ARGS_KEY);
+  public static final String DRILLBIT_HEAP = append(DOY_DRILLBIT_PARENT, HEAP_KEY);
+  public static final String DRILLBIT_DIRECT_MEM = append(DOY_DRILLBIT_PARENT, "max-direct-memory");
+  public static final String DRILLBIT_CODE_CACHE = append(DOY_DRILLBIT_PARENT, "code-cache");
+  public static final String DRILLBIT_LOG_GC = append(DOY_DRILLBIT_PARENT, "log-gc");
+  public static final String DRILLBIT_PREFIX_CLASSPATH = append( DOY_DRILLBIT_PARENT, "prefix-class-path");
+  public static final String DRILLBIT_EXTN_CLASSPATH = append( DOY_DRILLBIT_PARENT, "extn-class-path");
+  public static final String DRILLBIT_CLASSPATH = append(DOY_DRILLBIT_PARENT, "class-path");
+  public static final String DRILLBIT_MAX_RETRIES = append(DOY_DRILLBIT_PARENT, "max-retries");
+  public static final String DRILLBIT_DEBUG_LAUNCH = append(DOY_DRILLBIT_PARENT, "debug-launch");
   public static final String DRILLBIT_HTTP_PORT = ExecConstants.HTTP_PORT;
-  public static final String DISABLE_YARN_LOGS = append(DOY_DRILLBIT_PARENT,
-      "disable-yarn-logs");
+  public static final String DISABLE_YARN_LOGS = append(DOY_DRILLBIT_PARENT, "disable-yarn-logs");
   public static final String DRILLBIT_USER_PORT = ExecConstants.INITIAL_USER_PORT;
   public static final String DRILLBIT_BIT_PORT = ExecConstants.INITIAL_BIT_PORT;
   public static final String DRILLBIT_USE_HTTPS = ExecConstants.HTTP_ENABLE_SSL;
-  public static final String DRILLBIT_MAX_EXTRA_NODES = append(DOY_DRILLBIT_PARENT,
-      "max-extra-nodes");
-  public static final String DRILLBIT_REQUEST_TIMEOUT_SEC = append(DOY_DRILLBIT_PARENT,
-      "request-timeout-secs");
+  public static final String DRILLBIT_MAX_EXTRA_NODES = append(DOY_DRILLBIT_PARENT, "max-extra-nodes");
+  public static final String DRILLBIT_REQUEST_TIMEOUT_SEC = append(DOY_DRILLBIT_PARENT, "request-timeout-secs");
 
   public static final String ZK_CONNECT = ExecConstants.ZK_CONNECTION;
   public static final String ZK_ROOT = ExecConstants.ZK_ROOT;
@@ -179,16 +145,13 @@ public class DrillOnYarnConfig {
   // Names selected to be parallel to Drillbit HTTP config.
 
   public static final String HTTP_ENABLED = append(HTTP_PARENT, "enabled");
-  public static final String HTTP_ENABLE_SSL = append(HTTP_PARENT,
-      "ssl-enabled");
+  public static final String HTTP_ENABLE_SSL = append(HTTP_PARENT, "ssl-enabled");
   public static final String HTTP_PORT = append(HTTP_PARENT, "port");
   public static final String HTTP_AUTH_TYPE = append(HTTP_PARENT, "auth-type");
   public static final String HTTP_REST_KEY = append(HTTP_PARENT, "rest-key");
-  public static final String HTTP_SESSION_MAX_IDLE_SECS = append(HTTP_PARENT,
-      "session-max-idle-secs");
+  public static final String HTTP_SESSION_MAX_IDLE_SECS = append(HTTP_PARENT, "session-max-idle-secs");
   public static final String HTTP_DOCS_LINK = append(HTTP_PARENT, "docs-link");
-  public static final String HTTP_REFRESH_SECS = append(HTTP_PARENT,
-      "refresh-secs");
+  public static final String HTTP_REFRESH_SECS = append(HTTP_PARENT, "refresh-secs");
   public static final String HTTP_USER_NAME = append(HTTP_PARENT, "user-name");
   public static final String HTTP_PASSWORD = append(HTTP_PARENT, "password");
 
@@ -196,12 +159,9 @@ public class DrillOnYarnConfig {
   public static final String AUTH_TYPE_DRILL = "drill";
   public static final String AUTH_TYPE_SIMPLE = "simple";
 
-  public static final String CLIENT_POLL_SEC = append(CLIENT_PARENT,
-      "poll-sec");
-  public static final String CLIENT_START_WAIT_SEC = append(CLIENT_PARENT,
-      "start-wait-sec");
-  public static final String CLIENT_STOP_WAIT_SEC = append(CLIENT_PARENT,
-      "stop-wait-sec");
+  public static final String CLIENT_POLL_SEC = append(CLIENT_PARENT, "poll-sec");
+  public static final String CLIENT_START_WAIT_SEC = append(CLIENT_PARENT, "start-wait-sec");
+  public static final String CLIENT_STOP_WAIT_SEC = append(CLIENT_PARENT, "stop-wait-sec");
 
   public static final String CLUSTERS = append(DRILL_ON_YARN_PARENT, "cluster");
 

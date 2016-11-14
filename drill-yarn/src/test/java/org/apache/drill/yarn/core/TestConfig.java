@@ -145,7 +145,7 @@ public class TestConfig {
         config.getString(DrillOnYarnConfig.DRILL_ARCHIVE_KEY));
     assertEquals("/opt/drill", config.getString(DrillOnYarnConfig.DFS_APP_DIR));
     assertEquals("My-App", config.getString(DrillOnYarnConfig.APP_NAME));
-    assertEquals("my-queue", config.getString(DrillOnYarnConfig.YARN_QUEUE));
+    assertEquals("sys-queue", config.getString(DrillOnYarnConfig.YARN_QUEUE));
 
     // Should also have access to Drill options.
     // Does not test Drill's override mechanism because have not found a good
@@ -160,7 +160,7 @@ public class TestConfig {
     // No DRILL_HOME: will only occur during testing. In that case, we use
     // the setting from the config file. Explicit site dir.
 
-    assertNull(System.getenv(DrillOnYarnConfig.DRILL_HOME_ENV_VAR));
+    assertNull(doyConfig.mockEnv.get(DrillOnYarnConfig.DRILL_HOME_ENV_VAR));
     doyConfig.mockEnv.put(DrillOnYarnConfig.DRILL_SITE_ENV_VAR, "/drill/site");
     doyConfig.setClientPaths();
     assertEquals("/config/drill/home",
