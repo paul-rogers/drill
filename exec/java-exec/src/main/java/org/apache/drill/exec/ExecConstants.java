@@ -76,6 +76,8 @@ public interface ExecConstants {
   String EXTERNAL_SORT_MSORT_MAX_BATCHSIZE = "drill.exec.sort.external.msort.batch.maxsize";
   String EXTERNAL_SORT_DISABLE_MANAGED = "drill.exec.sort.external.disable_managed";
   String EXTERNAL_SORT_MERGE_LIMIT = "drill.exec.sort.external.merge_limit";
+  String EXTERNAL_SORT_MIN_SPILL = "drill.exec.sort.external.spill.min_count";
+  String EXTERNAL_SORT_MAX_SPILL = "drill.exec.sort.external.spill.max_count";
   String EXTERNAL_SORT_MAX_MEMORY = "drill.exec.sort.external.mem_limit";
   String EXTERNAL_SORT_BATCH_LIMIT = "drill.exec.sort.external.batch_limit";
   String TEXT_LINE_READER_BATCH_SIZE = "drill.exec.storage.file.text.batch.size";
