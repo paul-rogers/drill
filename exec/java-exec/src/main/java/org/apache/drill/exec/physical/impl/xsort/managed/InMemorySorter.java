@@ -33,7 +33,7 @@ import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 
-public class InMemoryMerge implements SortResults {
+public class InMemorySorter implements SortResults {
 
   private SortRecordBatchBuilder builder;
   private MSorter mSorter;
@@ -42,13 +42,13 @@ public class InMemoryMerge implements SortResults {
   private SelectionVector4 sv4;
   private OperatorCodeGenerator opCg;
 
-  public InMemoryMerge( FragmentContext context, BufferAllocator allocator, OperatorCodeGenerator opCg ) {
+  public InMemorySorter( FragmentContext context, BufferAllocator allocator, OperatorCodeGenerator opCg ) {
     this.context = context;
     this.oAllocator = allocator;
     this.opCg = opCg;
   }
 
-  public SelectionVector4 merge( LinkedList<BatchGroup.InputBatchGroup> batchGroups, VectorAccessible batch, VectorContainer destContainer ) throws SchemaChangeException, ClassTransformationException, IOException {
+  public SelectionVector4 sort( LinkedList<BatchGroup.InputBatchGroup> batchGroups, VectorAccessible batch, VectorContainer destContainer ) throws SchemaChangeException, ClassTransformationException, IOException {
     if (builder != null) {
       builder.clear();
       builder.close();

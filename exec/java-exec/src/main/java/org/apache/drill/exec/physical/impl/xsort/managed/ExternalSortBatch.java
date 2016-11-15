@@ -416,6 +416,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    */
 
   private int bufferedBatchLimit;
+  private int mergeLimit;
 
 
   public enum Metric implements MetricDef {
