@@ -397,7 +397,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * size.
    */
 
-  private int estimatedOutputBatchSize;
+  private long estimatedOutputBatchSize;
 
   /**
    * Amount of the memory given to this operator that can buffer
@@ -406,7 +406,16 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * phase.
    */
 
-  private long batchMemoryPool;
+  private long inputMemoryPool;
+  private long estimatedInputBatchSize;
+  private long mergeMemoryPool;
+
+  /**
+   * Maximum number of batches to hold in memory.
+   * (Primarily for testing.)
+   */
+
+  private int bufferedBatchLimit;
 
 
   public enum Metric implements MetricDef {
