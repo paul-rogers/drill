@@ -167,6 +167,7 @@ public class CopierHolder {
     private VectorContainer outputContainer;
     private int targetRecordCount;
     private int copyCount;
+    private int batchCount;
 
     /**
      * Creates a merger with an temporary output container.
@@ -226,6 +227,7 @@ public class CopierHolder {
       } else {
         logger.debug("copier returned 0 records");
       }
+      batchCount++;
 
       // Identify the schema to be used in the output container. (Since
       // all merged batches have the same schema, the schema we identify
@@ -281,8 +283,14 @@ public class CopierHolder {
       holder.close();
     }
 
+    @Override
     public int getRecordCount() {
       return copyCount;
+    }
+
+    @Override
+    public int getBatchCount() {
+      return batchCount;
     }
   }
 }
