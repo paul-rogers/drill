@@ -72,10 +72,10 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
    * </ul>
    */
 
-  public static class InputBatchGroup extends BatchGroup {
+  public static class InputBatch extends BatchGroup {
     private SelectionVector2 sv2;
 
-    public InputBatchGroup(VectorContainer container, SelectionVector2 sv2, OperatorContext context, long batchSize) {
+    public InputBatch(VectorContainer container, SelectionVector2 sv2, OperatorContext context, long batchSize) {
       super( container, context, batchSize );
       this.sv2 = sv2;
     }
@@ -127,9 +127,14 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
    * <p>
    * When reading, has destructive read-once behavior: closing the
    * batch (after reading) deletes the underlying spill file.
+   * <p>
+   * This single class does three tasks: load data, hold data and
+   * read data. This should be split into three separate classes. But,
+   * the original (combined) structure is retained for expedience at
+   * present.
    */
 
-  public static class SpilledBatchGroup extends BatchGroup {
+  public static class SpilledRun extends BatchGroup {
     private InputStream inputStream;
     private OutputStream outputStream;
     private String path;
@@ -137,7 +142,7 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
     private BufferAllocator allocator;
     private int spilledBatches = 0;
 
-    public SpilledBatchGroup(SpillSet spillSet, String path, OperatorContext context, long batchSize) throws IOException {
+    public SpilledRun(SpillSet spillSet, String path, OperatorContext context, long batchSize) throws IOException {
       super( null, context, batchSize );
       this.spillSet = spillSet;
       this.path = path;
@@ -152,7 +157,7 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
       Stopwatch watch = Stopwatch.createStarted();
       outputBatch.writeToStream(outputStream);
       newContainer.zeroVectors();
-      logger.debug("Took {} us to spill {} records", watch.elapsed(TimeUnit.MICROSECONDS), recordCount);
+      logger.trace("Wrote {} records in {} us", recordCount, watch.elapsed(TimeUnit.MICROSECONDS));
       spilledBatches++;
 
       // Hold onto the husk of the last added container so that we have a
@@ -185,13 +190,13 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
         inputStream = spillSet.openForInput(path);
       }
       VectorAccessibleSerializable vas = new VectorAccessibleSerializable(allocator);
-//      Stopwatch watch = Stopwatch.createStarted();
+      Stopwatch watch = Stopwatch.createStarted();
       vas.readFromStream(inputStream);
       VectorContainer c =  vas.get();
       if (schema != null) {
         c = SchemaUtil.coerceContainer(c, schema, context);
       }
-//      logger.debug("Took {} us to read {} records", watch.elapsed(TimeUnit.MICROSECONDS), c.getRecordCount());
+      logger.trace("Read {} records in {} us", c.getRecordCount(), watch.elapsed(TimeUnit.MICROSECONDS));
       spilledBatches--;
       currentContainer.zeroVectors();
       Iterator<VectorWrapper<?>> wrapperIterator = c.iterator();
@@ -210,6 +215,8 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
       closeOutputStream( );
       if (inputStream != null) {
         inputStream.close();
+        inputStream = null;
+        logger.trace( "Summary: Read {} bytes from {}", dataSize, path );
       }
       spillSet.delete( path );
     }
@@ -218,6 +225,7 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
       if (outputStream != null) {
         outputStream.close();
         outputStream = null;
+        logger.trace( "Summary: Wrote {} bytes to {}", dataSize, path );
       }
     }
   }
@@ -226,12 +234,12 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
   protected int pointer = 0;
   protected OperatorContext context;
   protected BatchSchema schema;
-  private long batchSize;
+  protected long dataSize;
 
-  public BatchGroup(VectorContainer container, OperatorContext context, long batchSize) {
+  public BatchGroup(VectorContainer container, OperatorContext context, long dataSize) {
     this.currentContainer = container;
     this.context = context;
-    this.batchSize = batchSize;
+    this.dataSize = dataSize;
   }
 
   /**
@@ -286,7 +294,7 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
     return currentContainer.getRecordCount();
   }
 
-  public long getBatchSize( ) { return batchSize; }
+  public long getDataSize( ) { return dataSize; }
 
   @Override
   public Iterator<VectorWrapper<?>> iterator() {
