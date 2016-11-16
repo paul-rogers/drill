@@ -17,10 +17,14 @@
  */
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
+import com.typesafe.config.ConfigException;
+import io.netty.buffer.DrillBuf;
+
 import java.util.Queue;
 
 import javax.inject.Named;
 
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BaseAllocator;
 import org.apache.drill.exec.memory.BufferAllocator;
@@ -31,16 +35,14 @@ import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.hadoop.util.IndexedSortable;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.Queues;
-
-import io.netty.buffer.DrillBuf;
 
 public abstract class MSortTemplate implements MSorter, IndexedSortable {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MSortTemplate.class);
 
   private SelectionVector4 vector4;
   private SelectionVector4 aux;
-  @SuppressWarnings("unused")
   private long compares;
 
   /**

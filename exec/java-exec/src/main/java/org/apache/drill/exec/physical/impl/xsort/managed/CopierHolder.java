@@ -176,6 +176,7 @@ public class CopierHolder {
     private VectorContainer outputContainer;
     private int targetRecordCount;
     private int copyCount;
+    private int batchCount;
 
     /**
      * Creates a merger with an temporary output container.
@@ -294,8 +295,14 @@ public class CopierHolder {
       holder.close();
     }
 
+    @Override
     public int getRecordCount() {
       return copyCount;
+    }
+
+    @Override
+    public int getBatchCount() {
+      return batchCount;
     }
   }
 }
