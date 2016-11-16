@@ -21,18 +21,14 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
-import java.net.URL;
 import java.util.List;
 
-import org.apache.drill.BaseTestQuery;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.util.FileUtils;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.ExecTest;
 import org.apache.drill.exec.client.DrillClient;
 import org.apache.drill.exec.physical.impl.xsort.BufferingQueryEventListener.QueryEvent;
-import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
 import org.apache.drill.exec.rpc.RpcException;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
@@ -44,23 +40,16 @@ import org.apache.drill.exec.store.dfs.FileSystemPlugin;
 import org.apache.drill.exec.store.dfs.WorkspaceConfig;
 import org.apache.drill.test.DrillTest;
 import org.junit.Test;
-import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Files;
-
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.LoggerContext;
-import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.ConsoleAppender;
 
 public class TestExternalSortRM extends DrillTest {
 
   @Test
   public void testManagedSpilled() throws Exception {
-    setupLogging( );
+    LogAnalyzer analyzer = new LogAnalyzer( true );
+    analyzer.setupLogging( );
 
     RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
 
@@ -76,29 +65,37 @@ public class TestExternalSortRM extends DrillTest {
       setMaxFragmentWidth( client, 1 );
       performSort( client );
     }
+
+    analyzer.analyzeLog( );
   }
 
-  private void setupLogging() {
-    LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
-    Logger sortLogger = (Logger)LoggerFactory.getLogger(ExternalSortBatch.class);
-    sortLogger.setLevel(Level.DEBUG);
+  @Test
+  public void testLegacySpilled() throws Exception {
+    LogAnalyzer analyzer = new LogAnalyzer( false );
+    analyzer.setupLogging( );
 
-    PatternLayoutEncoder ple = new PatternLayoutEncoder();
-    ple.setPattern("%level [%thread] [%file:%line] %msg%n");
-    ple.setContext(lc);
-    ple.start();
+    RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
 
-    ConsoleAppender<ILoggingEvent> appender = new ConsoleAppender<>( );
-    appender.setContext(lc);
-    appender.setName("Console");
-    appender.setEncoder( ple );
-    appender.start();
-    sortLogger.addAppender(appender);
+    DrillConfig config = DrillConfig.create("xsort/drill-external-sort-legacy.conf");
+//    DrillConfig config = DrillConfig.create( );
+
+    try (Drillbit bit = new Drillbit(config, serviceSet);
+        DrillClient client = new DrillClient(config, serviceSet.getCoordinator());) {
+
+      bit.run();
+      defineWorkspace( bit, "dfs", "data", "/Users/paulrogers/work/data", "psv" );
+      client.connect();
+      setMaxFragmentWidth( client, 1 );
+      performSort( client );
+    }
+
+    analyzer.analyzeLog( );
   }
 
   @Test
   public void testManagedInMemory() throws Exception {
-    setupLogging( );
+    LogAnalyzer analyzer = new LogAnalyzer( true );
+    analyzer.setupLogging( );
 
     RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
 
@@ -114,6 +111,8 @@ public class TestExternalSortRM extends DrillTest {
       setMaxFragmentWidth( client, 3 );
       performSort( client );
     }
+
+    analyzer.analyzeLog( );
   }
 
   private void performSort(DrillClient client) throws IOException {
