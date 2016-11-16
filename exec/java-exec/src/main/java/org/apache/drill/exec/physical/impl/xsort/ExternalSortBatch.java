@@ -307,6 +307,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
         IterOutcome upstream;
         if (first) {
           upstream = IterOutcome.OK_NEW_SCHEMA;
+          logger.trace( "Starting load phase" );
         } else {
           upstream = next(incoming);
         }
