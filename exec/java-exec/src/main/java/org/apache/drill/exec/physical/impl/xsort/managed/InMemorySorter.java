@@ -26,7 +26,6 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.impl.sort.RecordBatchData;
 import org.apache.drill.exec.physical.impl.sort.SortRecordBatchBuilder;
-import org.apache.drill.exec.physical.impl.xsort.MSorter;
 import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch.SortResults;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorAccessible;
@@ -40,15 +39,20 @@ public class InMemorySorter implements SortResults {
   private final FragmentContext context;
   private final BufferAllocator oAllocator;
   private SelectionVector4 sv4;
-  private OperatorCodeGenerator opCg;
+  private final OperatorCodeGenerator opCg;
+  private final int outputBatchSize;
+  private int batchCount;
 
-  public InMemorySorter( FragmentContext context, BufferAllocator allocator, OperatorCodeGenerator opCg ) {
+  public InMemorySorter( FragmentContext context, BufferAllocator allocator, OperatorCodeGenerator opCg, int outputBatchSize ) {
     this.context = context;
     this.oAllocator = allocator;
     this.opCg = opCg;
+    this.outputBatchSize = outputBatchSize;
   }
 
-  public SelectionVector4 sort( LinkedList<BatchGroup.InputBatchGroup> batchGroups, VectorAccessible batch, VectorContainer destContainer ) throws SchemaChangeException, ClassTransformationException, IOException {
+  public SelectionVector4 sort( LinkedList<BatchGroup.InputBatch> batchGroups, VectorAccessible batch,
+                                VectorContainer destContainer )
+                              throws SchemaChangeException, ClassTransformationException, IOException {
     if (builder != null) {
       builder.clear();
       builder.close();
@@ -56,7 +60,7 @@ public class InMemorySorter implements SortResults {
     builder = new SortRecordBatchBuilder(oAllocator);
 
     while ( ! batchGroups.isEmpty() ) {
-      BatchGroup.InputBatchGroup group = batchGroups.pollLast();
+      BatchGroup.InputBatch group = batchGroups.pollLast();
       RecordBatchData rbd = new RecordBatchData(group.getContainer(), oAllocator);
       rbd.setSv2(group.getSv2());
       builder.add(rbd);
@@ -65,7 +69,7 @@ public class InMemorySorter implements SortResults {
     builder.build(context, destContainer);
     sv4 = builder.getSv4();
     mSorter = opCg.createNewMSorter( batch );
-    mSorter.setup(context, oAllocator, sv4, destContainer);
+    mSorter.setup(context, oAllocator, sv4, destContainer, outputBatchSize);
 
     // For testing memory-leak purpose, inject exception after mSorter finishes setup
     ExternalSortBatch.injector.injectUnchecked(context.getExecutionControls(), ExternalSortBatch.INTERRUPTION_AFTER_SETUP);
@@ -86,7 +90,9 @@ public class InMemorySorter implements SortResults {
 
   @Override
   public boolean next() {
-    return sv4.next();
+    boolean more = sv4.next();
+    if ( more ) { batchCount++; }
+    return more;
   }
 
   @Override
@@ -98,5 +104,15 @@ public class InMemorySorter implements SortResults {
     if (mSorter != null) {
       mSorter.clear();
     }
+  }
+
+  @Override
+  public int getBatchCount() {
+    return batchCount;
+  }
+
+  @Override
+  public int getRecordCount() {
+    return sv4.getTotalCount();
   }
 }

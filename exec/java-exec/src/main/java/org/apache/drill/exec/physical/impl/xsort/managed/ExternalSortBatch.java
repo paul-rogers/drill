@@ -177,7 +177,13 @@ import com.google.common.collect.Lists;
  * <p>
  * Basic operation:
  * <ul>
- * <li>The incoming (upstream) operator provides a series of batches.</ul>
+ * <li>The load phase in which batches are read from upstream.</li>
+ * <li>The sort/merge phase in which batches are combined to produce
+ * the final output.</li>
+ * </ul>
+ * During the load phase:
+ * <ul>
+ * <li>The incoming (upstream) operator provides a series of batches.</li>
  * <li>This operator sorts each batch, and accumulates them in an in-memory
  * buffer.</li>
  * <li>If the in-memory buffer becomes too large, this operator selects
@@ -186,16 +192,28 @@ import com.google.common.collect.Lists;
  * batches, and each is spilled to disk.</li>
  * <li>To allow the use of multiple disk storage, each spill group is written
  * round-robin to a set of spill directories.</li>
+ * </ul>
+ * <p>
+ * During the sort/merge phase:
+ * <ul>
  * <li>When the input operator is complete, this operator merges the accumulated
  * batches (which may be all in memory or partially on disk), and returns
  * them to the output (downstream) operator in chunks of no more than
  * 32K records.</li>
+ * <li>The final merge must combine a collection of in-memory and spilled
+ * batches. Several limits apply to the maximum "width" of this merge. For
+ * example, we each open spill run consumes a file handle, and we may wish
+ * to limit the number of file handles. A consolidation phase combines
+ * in-memory and spilled batches prior to the final merge to control final
+ * merge width.</li>
+ * <li>A special case occurs if no batches were spilled. In this case, the input
+ * batches are sorted in memory without merging.</li>
  * </ul>
  * <p>
  * Many complex details are involved in doing the above; the details are explained
  * in the methods of this class.
  * <p>
- * Configuration Options:
+ * <h4>Configuration Options</h4>
  * <dl>
  * <dt>drill.exec.sort.external.spill.fs</dt>
  * <dd>The file system (file://, hdfs://, etc.) of the spill directory.</dd>
@@ -203,20 +221,38 @@ import com.google.common.collect.Lists;
  * <dd>The (comma? space?) separated list of directories, on the above file
  * system, to which to spill files in round-robin fashion. The query will
  * fail if any one of the directories becomes full.</dt>
- * <dt>drill.exec.sort.external.spill.group.size</dt>
- * <dd>The number of batches to spill per spill event.
- * (Represented as <code>SPILL_BATCH_GROUP_SIZE</code>.)</dd>
- * <dt>drill.exec.sort.external.spill.threshold</dt>
- * <dd>The number of batches to accumulate in memory before starting
- * a spill event. (May be overridden if insufficient memory is available.)
- * (Represented as <code>SPILL_THRESHOLD</code>.)</dd>
+ * <dt>drill.exec.sort.external.mem_limit</dt>
+ * <dd>Maximum memory to use for the in-memory buffer. Primarily for testing.</dd>
+ * <dt>drill.exec.sort.external.batch_limit</dt>
+ * <dd>Maximum number of batches to hold in memory. Primarily for testing.</dd>
+ * <dt>drill.exec.sort.external.spill.max_count</dt>
+ * <dd>Maximum spill file size for “first generation” files.
+ * Defaults to 0 (no limit).</dd>
+ * <dt>drill.exec.sort.external.spill.min_count</dt>
+ * <dd>Minimum spill file size for “first generation” files.
+ * Defaults to 0 (no limit).</dd>
+ * <dt>drill.exec.sort.external.merge_limit</dt>
+ * <dd>Sets the maximum number of runs to be merged in a single pass (limits
+ * the number of open files.)</dd>
  * </dl>
  * <p>
  * The memory limit observed by this operator is the lesser of:
  * <ul>
  * <li>The maximum allocation allowed the the allocator assigned to this batch, or</li>
  * <li>The maximum limit set for this operator by the Foreman.</li>
+ * <li>The maximum limit configured in the mem_limit parameter above. (Primarily for
+ * testing.</li>
  * </ul>
+ * <h4>Logging</h4>
+ * Logging in this operator serves two purposes:
+ * <ul>
+ * <li>Normal diagnostic information.</li>
+ * <li>Capturing the essence of the operator functionality for analysis in unit
+ * tests.</li>
+ * </ul>
+ * The test logging is designed to capture key events and timings. Take care
+ * when changing or removing log messages as you may need to adjust unit tests
+ * accordingly.
  */
 
 public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
@@ -386,7 +422,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   /**
    * Estimated size of the records for this query, updated on each
-   * new batch received from upsteram.
+   * new batch received from upstream.
    */
 
   private int estimatedRecordSize;
@@ -777,6 +813,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     if (schema == null) {
       schema = incoming.getSchema();
+      logger.trace( "Start of load phase" );
 
     // Subsequent batches, nothing to do if same schema.
 
