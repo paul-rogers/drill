@@ -38,6 +38,34 @@ import org.codehaus.commons.compiler.CompileException;
 
 import com.google.common.collect.MapMaker;
 
+/**
+ * Per-compilation unit class loader that holds both caching and compilation
+ * steps. In addition, also manages compilation-related boot properties.
+ * <h4>Session Options</h4>
+ * <dl>
+ * <dt>exec.java_compiler</dt>
+ * <dd>The compiler to use. Valid options are defined in the
+ * {@link CompilerPolicy} enum.</dd>
+ * <dt>exec.java_compiler_debug</dt>
+ * <dd>If debug logging is enabled, then {@link AbstractClassCompiler} writes the
+ * generated Java code to the log file prior to compilation. This option
+ * adds line numbers to the logged code.</dd>
+ * <dt>exec.java_compiler_janino_maxsize</dt>
+ * <dd>The maximum size of code that the Janio compiler can handle. Larger code is
+ * handled by the JDK compiler. Defaults to 256K.</dd>
+ * </dl>
+ * <h4>Configuration Options</h4>
+ * Configuration options are used when the above session options are unset.
+ * <dl>
+ * <dt>drill.exec.compile.compiler</dt>
+ * <dd>Default for <var>exec.java_compiler</var></dd>
+ * <dt>drill.exec.compile.debug</dt>
+ * <dd>Default for <var>exec.java_compiler_debug</var></dd>
+ * <dt>drill.exec.compile.janino_maxsize</dt>
+ * <dd>Default for <var>exec.java_compiler_janino_maxsize</var></dd>
+ * </dl>
+ */
+
 public class QueryClassLoader extends URLClassLoader {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(QueryClassLoader.class);
 
