@@ -13,6 +13,7 @@ public abstract class CodeBuilder<T> {
   private CachedClassLoader classLoader;
   boolean straightJava;
   boolean useCache = true;
+  String className;
 
   public CodeBuilder( FragmentContext context ) {
     this.context = context;
@@ -27,31 +28,42 @@ public abstract class CodeBuilder<T> {
     useCache = flag;
   }
 
-  @SuppressWarnings("unchecked")
-  public Class<T> load( ) throws ClassTransformationException {
-    if ( straightJava ) {
-      // Do something
-      String className = null; // TODO
-      try {
-        return (Class<T>) classLoader.findClass( className );
-      } catch (ClassNotFoundException e) {
-        throw new ClassTransformationException(e);
-      }
-    } else {
-      return (Class<T>) context.getImplementationClass( getCg( ) );
-    }
-  }
+//  @SuppressWarnings("unchecked")
+//  public Class<T> load( ) throws ClassTransformationException {
+//    if ( straightJava ) {
+//      // Do something
+//      String className = null; // TODO
+//      try {
+//        return (Class<T>) classLoader.findClass( className );
+//      } catch (ClassNotFoundException e) {
+//        throw new ClassTransformationException(e);
+//      }
+//    } else {
+//      return (Class<T>) context.getImplementationClass( getCg( ) );
+//    }
+//  }
 
   public T newInstance( ) throws ClassTransformationException, IOException {
     if ( straightJava ) {
       try {
-        return load( ).newInstance( );
+        if ( className == null )
+          compileClass( );
+        @SuppressWarnings("unchecked")
+        Class<T> theClass = (Class<T>) classLoader.findClass( className );
+        return theClass.newInstance( );
+      } catch (ClassNotFoundException e) {
+        throw new ClassTransformationException(e);
       } catch (InstantiationException | IllegalAccessException e) {
         throw new ClassTransformationException(e);
       }
     } else {
-      return context.getImplementationClass( getCg( ) );
+      return (T) context.getImplementationClass( getCg( ) );
     }
+  }
+
+  private void compileClass() throws IOException {
+    cg.generate();
+    String code = cg.getGeneratedCode();
   }
 
   private CodeGenerator<T> getCg( ) {
