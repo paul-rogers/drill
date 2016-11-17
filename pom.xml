@@ -1906,33 +1906,6 @@
             </exclusions>
           </dependency>
           <dependency>
-            <groupId>com.mapr.hadoop</groupId>
-            <artifactId>maprfs</artifactId>
-            <version>${mapr.release.version}</version>
-          </dependency>
-          <dependency>
-            <groupId>com.mapr.db</groupId>
-            <artifactId>maprdb</artifactId>
-            <version>${mapr.release.version}</version>
-            <exclusions>
-              <exclusion>
-                <groupId>com.mapr</groupId>
-                <artifactId>mapr-java-utils</artifactId>
-              </exclusion>
-            </exclusions>
-          </dependency>
-          <dependency>
-            <groupId>org.ojai</groupId>
-            <artifactId>ojai</artifactId>
-            <version>1.0</version>
-            <exclusions>
-              <exclusion>
-                <groupId>org.apache.hadoop</groupId>
-                <artifactId>hadoop-common</artifactId>
-              </exclusion>
-            </exclusions>
-          </dependency>
-          <dependency>
             <groupId>org.antlr</groupId>
             <artifactId>antlr4-runtime</artifactId>
             <version>4.5</version>
