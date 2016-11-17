@@ -114,9 +114,17 @@ public class SignatureHolder implements Iterable<CodeGeneratorMethod> {
 
   @Override
   public String toString() {
+    StringBuilder buf = new StringBuilder( );
+    buf.append( "SignatureHolder [methods=" );
     final int maxLen = 10;
-    return "SignatureHolder [methods="
-        + (methods != null ? Arrays.asList(methods).subList(0, Math.min(methods.length, maxLen)) : null) + "]";
+    for ( int i = 0;  i < maxLen  &&  i < methods.length; i++ ) {
+      if ( i > 0 ) {
+        buf.append( ", \n" );
+      }
+      buf.append( methods[i] );
+    }
+    buf.append( "]" );
+    return buf.toString();
   }
 
 }
