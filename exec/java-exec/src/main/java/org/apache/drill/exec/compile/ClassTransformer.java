@@ -218,6 +218,7 @@ public class ClassTransformer {
     // unfortunately, this hasn't been set up at construction time, so we have to do it here
     final ScalarReplacementOption scalarReplacementOption = ScalarReplacementOption.fromString(optionManager.getOption(SCALAR_REPLACEMENT_VALIDATOR));
 
+    boolean straightJava = false;
     try {
       final long t1 = System.nanoTime();
       final ClassSet set = new ClassSet(null, templateDefinition.getTemplateClassName(), materializedClassName);
@@ -248,7 +249,9 @@ public class ClassTransformer {
         final ClassNames nextGenerated = nextSet.generated;
         final ClassNode generatedNode = classesToMerge.get(nextGenerated.slash);
 
-        /**
+        if ( ! straightJava ) {
+
+        /*
          * TODO
          * We're having a problem with some cases of scalar replacement, but we want to get
          * the code in so it doesn't rot anymore.
@@ -288,6 +291,9 @@ public class ClassTransformer {
           names.add(nextSet.getChild(s));
         }
         classLoader.injectByteCode(nextGenerated.dot, result.bytes);
+        } else {
+//          classLoader.injectByteCode(nextGenerated.dot, result.bytes);
+        }
         namesCompleted.add(nextSet);
       }
 

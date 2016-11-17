@@ -52,6 +52,7 @@ public class CodeGenerator<T> {
   private final ClassGenerator<T> rootGenerator;
   private String generatedCode;
   private String generifiedCode;
+  private boolean straightJava;
 
   CodeGenerator(TemplateClassDefinition<T> definition, FunctionImplementationRegistry funcRegistry, OptionManager optionManager) {
     this(ClassGenerator.getDefaultMapping(), definition, funcRegistry, optionManager);
@@ -67,6 +68,9 @@ public class CodeGenerator<T> {
     try {
       this.model = new JCodeModel();
       JDefinedClass clazz = model._package(PACKAGE_NAME)._class(className);
+      if ( straightJava ) {
+        clazz._extends(definition.getTemplateClass( ) );
+      }
       rootGenerator = new ClassGenerator<>(this, mappingSet, definition.getSignature(), new EvaluationVisitor(
           funcRegistry), clazz, model, optionManager);
     } catch (JClassAlreadyExistsException e) {
