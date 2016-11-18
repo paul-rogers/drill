@@ -33,6 +33,12 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Lists;
 
+/**
+ * Global code compiler mechanism shared by all threads and operators.
+ * Holds a single cache of generated code (keyed by code source) to
+ * prevent compiling identical code multiple times.
+ */
+
 public class CodeCompiler {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CodeCompiler.class);
 

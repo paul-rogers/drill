@@ -39,6 +39,14 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 
+/**
+ * Compiles generated code, merges the resulting class with the
+ * template class, and performs byte-code cleanup on the resulting
+ * byte codes. The most important transform is scalar replacement
+ * which replaces occurences of non-escaping objects with a
+ * collection of member variables.
+ */
+
 public class ClassTransformer {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ClassTransformer.class);
 
