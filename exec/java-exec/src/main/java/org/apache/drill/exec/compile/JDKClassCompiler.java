@@ -20,6 +20,7 @@ package org.apache.drill.exec.compile;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Map;
 
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaCompiler;
@@ -33,7 +34,7 @@ import org.codehaus.commons.compiler.CompileException;
 import com.google.common.base.Charsets;
 import com.google.common.collect.Lists;
 
-class JDKClassCompiler extends AbstractClassCompiler {
+public class JDKClassCompiler extends AbstractClassCompiler {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(JDKClassCompiler.class);
 
   private final Collection<String> compilerOptions;
@@ -75,6 +76,39 @@ class JDKClassCompiler extends AbstractClassCompiler {
       }
       // all good
       return compilationUnit.getByteCode();
+    } catch (RuntimeException rte) {
+      // Unwrap the compilation exception and throw it.
+      Throwable cause = rte.getCause();
+      if (cause != null) {
+        cause = cause.getCause();
+        if (cause instanceof CompileException) {
+          throw (CompileException) cause;
+        }
+        if (cause instanceof IOException) {
+          throw (IOException) cause;
+        }
+      }
+      throw rte;
+    }
+  }
+
+
+  public Map<String,byte[]> compile(final ClassNames className, final String sourceCode)
+      throws CompileException, IOException, ClassNotFoundException {
+    try {
+      // Create one Java source file in memory, which will be compiled later.
+      DrillJavaFileObject compilationUnit = new DrillJavaFileObject(className.dot, sourceCode);
+
+      CompilationTask task = compiler.getTask(null, fileManager, listener, compilerOptions, null, Collections.singleton(compilationUnit));
+
+      // Run the compiler.
+      if(!task.call()) {
+        throw new CompileException("Compilation failed", null);
+      } else if (!compilationUnit.isCompiled()) {
+        throw new ClassNotFoundException(className + ": Class file not created by compilation.");
+      }
+      // all good
+      return compilationUnit.getResults();
     } catch (RuntimeException rte) {
       // Unwrap the compilation exception and throw it.
       Throwable cause = rte.getCause();

@@ -31,4 +31,10 @@ public class CachedClassLoader extends URLClassLoader {
     return super.findClass(className);
   }
 
+  public void addClasses(Map<String, byte[]> results) {
+    for ( String key : results.keySet() ) {
+      addClass( key, results.get( key ) );
+    }
+  }
+
 }

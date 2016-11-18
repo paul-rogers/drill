@@ -36,6 +36,7 @@ import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.data.Order.Ordering;
 import org.apache.drill.exec.ExecConstants;
+import org.apache.drill.exec.codegen.CodeBuilder;
 import org.apache.drill.exec.compile.sig.GeneratorMapping;
 import org.apache.drill.exec.compile.sig.MappingSet;
 import org.apache.drill.exec.exception.ClassTransformationException;
@@ -718,12 +719,26 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   public SingleBatchSorter createNewSorter(FragmentContext context, VectorAccessible batch)
           throws ClassTransformationException, IOException, SchemaChangeException{
-    CodeGenerator<SingleBatchSorter> cg = CodeGenerator.get(SingleBatchSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
-    ClassGenerator<SingleBatchSorter> g = cg.getRoot();
+    CodeBuilder<SingleBatchSorter> builder = new CodeBuilder<SingleBatchSorter>( context ) {
 
-    generateComparisons(g, batch);
+      @Override
+      protected CodeGenerator<SingleBatchSorter> build() throws SchemaChangeException {
+        CodeGenerator<SingleBatchSorter> cg = CodeGenerator.get(SingleBatchSorter.TEMPLATE_DEFINITION, this);
+        ClassGenerator<SingleBatchSorter> g = cg.getRoot();
 
-    return context.getImplementationClass(cg);
+        generateComparisons(g, batch);
+        return cg;
+      }
+
+    };
+    builder.setStraightJava( true );
+    return builder.newInstance( );
+//    CodeGenerator<SingleBatchSorter> cg = CodeGenerator.get(SingleBatchSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
+//    ClassGenerator<SingleBatchSorter> g = cg.getRoot();
+//
+//    generateComparisons(g, batch);
+//
+//    return context.getImplementationClass(cg);
   }
 
   private void generateComparisons(ClassGenerator<?> g, VectorAccessible batch) throws SchemaChangeException {

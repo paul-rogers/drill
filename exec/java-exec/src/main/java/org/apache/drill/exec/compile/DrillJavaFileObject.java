@@ -24,6 +24,7 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.HashMap;
 import java.util.Map;
 
 import javax.tools.SimpleJavaFileObject;
@@ -38,14 +39,18 @@ final class DrillJavaFileObject extends SimpleJavaFileObject {
 
   private Map<String, DrillJavaFileObject> outputFiles;
 
+  private String className;
+
   public DrillJavaFileObject(final String className, final String sourceCode) {
     super(makeURI(className), Kind.SOURCE);
+    this.className = className;
     this.sourceCode = sourceCode;
     this.outputStream = null;
   }
 
   private DrillJavaFileObject(final String name, final Kind kind) {
     super(makeURI(name), kind);
+    this.className = name;
     this.outputStream = new ByteArrayOutputStream();
     this.sourceCode = null;
   }
@@ -65,6 +70,14 @@ final class DrillJavaFileObject extends SimpleJavaFileObject {
       }
       return byteCode;
     }
+  }
+
+  public Map<String,byte[]> getResults( ) {
+    Map<String,byte[]> results = new HashMap<>( );
+    for(DrillJavaFileObject outputFile : outputFiles.values()) {
+      results.put( outputFile.className, outputFile.outputStream.toByteArray() );
+    }
+    return results;
   }
 
   public DrillJavaFileObject addOutputJavaFile(String className) {

@@ -19,6 +19,7 @@ package org.apache.drill.exec.expr;
 
 import java.io.IOException;
 
+import org.apache.drill.exec.codegen.CodeBuilder;
 import org.apache.drill.exec.compile.TemplateClassDefinition;
 import org.apache.drill.exec.compile.sig.MappingSet;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
@@ -52,23 +53,37 @@ public class CodeGenerator<T> {
   private final ClassGenerator<T> rootGenerator;
   private String generatedCode;
   private String generifiedCode;
-  private boolean straightJava;
+  private CodeBuilder<T> builder;
 
   CodeGenerator(TemplateClassDefinition<T> definition, FunctionImplementationRegistry funcRegistry, OptionManager optionManager) {
     this(ClassGenerator.getDefaultMapping(), definition, funcRegistry, optionManager);
   }
 
+  CodeGenerator(TemplateClassDefinition<T> definition, CodeBuilder<T> builder) {
+    this(ClassGenerator.getDefaultMapping(), definition, builder);
+  }
+
   CodeGenerator(MappingSet mappingSet, TemplateClassDefinition<T> definition,
       FunctionImplementationRegistry funcRegistry, OptionManager optionManager) {
+    this( mappingSet, definition, funcRegistry, optionManager, null );
+  }
+
+  CodeGenerator(MappingSet mappingSet, TemplateClassDefinition<T> definition, CodeBuilder<T> builder) {
+     this( mappingSet, definition, builder.getFunctionRegistry( ), builder.getOptions( ), builder );
+  }
+
+  CodeGenerator(MappingSet mappingSet, TemplateClassDefinition<T> definition,
+     FunctionImplementationRegistry funcRegistry, OptionManager optionManager, CodeBuilder<T> builder) {
     Preconditions.checkNotNull(definition.getSignature(),
         "The signature for defintion %s was incorrectly initialized.", definition);
+    this.builder = builder;
     this.definition = definition;
     this.className = definition.getExternalInterface().getSimpleName() + "Gen" + definition.getNextClassNumber();
     this.fqcn = PACKAGE_NAME + "." + className;
     try {
       this.model = new JCodeModel();
       JDefinedClass clazz = model._package(PACKAGE_NAME)._class(className);
-      if ( straightJava ) {
+      if ( isStraightJava( ) ) {
         clazz._extends(definition.getTemplateClass( ) );
       }
       rootGenerator = new ClassGenerator<>(this, mappingSet, definition.getSignature(), new EvaluationVisitor(
@@ -76,6 +91,10 @@ public class CodeGenerator<T> {
     } catch (JClassAlreadyExistsException e) {
       throw new IllegalStateException(e);
     }
+  }
+
+  private boolean isStraightJava( ) {
+    return builder != null  &&  builder.isStraightJava( );
   }
 
   public ClassGenerator<T> getRoot() {
@@ -116,6 +135,11 @@ public class CodeGenerator<T> {
   }
 
   public static <T> CodeGenerator<T> get(TemplateClassDefinition<T> definition,
+      CodeBuilder<T> builder) {
+    return new CodeGenerator<T>(definition, builder);
+  }
+
+  public static <T> CodeGenerator<T> get(TemplateClassDefinition<T> definition,
       FunctionImplementationRegistry funcRegistry, OptionManager optionManager) {
     return new CodeGenerator<T>(definition, funcRegistry, optionManager);
   }
@@ -133,6 +157,11 @@ public class CodeGenerator<T> {
   public static <T> CodeGenerator<T> get(MappingSet mappingSet, TemplateClassDefinition<T> definition,
       FunctionImplementationRegistry funcRegistry, OptionManager optionManager) {
     return new CodeGenerator<T>(mappingSet, definition, funcRegistry, optionManager);
+  }
+
+  public static <T> CodeGenerator<T> get(MappingSet mappingSet, TemplateClassDefinition<T> definition,
+      CodeBuilder<T> builder) {
+    return new CodeGenerator<T>(mappingSet, definition, builder);
   }
 
   @Override
