@@ -53,7 +53,7 @@ public class TestClassTransformation extends BaseTestQuery {
   @Test
   public void testJaninoClassCompiler() throws Exception {
     logger.debug("Testing JaninoClassCompiler");
-    sessionOptions.setOption(OptionValue.createString(OptionType.SESSION, QueryClassLoader.JAVA_COMPILER_OPTION, QueryClassLoader.CompilerPolicy.JANINO.name()));
+    sessionOptions.setOption(OptionValue.createString(OptionType.SESSION, ClassCompilerSelector.JAVA_COMPILER_OPTION, ClassCompilerSelector.CompilerPolicy.JANINO.name()));
     QueryClassLoader loader = new QueryClassLoader(config, sessionOptions);
     for (int i = 0; i < ITERATION_COUNT; i++) {
       compilationInnerClass(loader);
@@ -64,7 +64,7 @@ public class TestClassTransformation extends BaseTestQuery {
   @Test
   public void testJDKClassCompiler() throws Exception {
     logger.debug("Testing JDKClassCompiler");
-    sessionOptions.setOption(OptionValue.createString(OptionType.SESSION, QueryClassLoader.JAVA_COMPILER_OPTION, QueryClassLoader.CompilerPolicy.JDK.name()));
+    sessionOptions.setOption(OptionValue.createString(OptionType.SESSION, ClassCompilerSelector.JAVA_COMPILER_OPTION, ClassCompilerSelector.CompilerPolicy.JDK.name()));
     QueryClassLoader loader = new QueryClassLoader(config, sessionOptions);
     for (int i = 0; i < ITERATION_COUNT; i++) {
       compilationInnerClass(loader);
@@ -77,9 +77,9 @@ public class TestClassTransformation extends BaseTestQuery {
     CodeGenerator<ExampleInner> cg = newCodeGenerator(ExampleInner.class, ExampleTemplateWithInner.class);
     ClassSet classSet = new ClassSet(null, cg.getDefinition().getTemplateClassName(), cg.getMaterializedClassName());
     String sourceCode = cg.generateAndGet();
-    sessionOptions.setOption(OptionValue.createString(OptionType.SESSION, QueryClassLoader.JAVA_COMPILER_OPTION, QueryClassLoader.CompilerPolicy.JDK.name()));
+    sessionOptions.setOption(OptionValue.createString(OptionType.SESSION, ClassCompilerSelector.JAVA_COMPILER_OPTION, ClassCompilerSelector.CompilerPolicy.JDK.name()));
 
-    sessionOptions.setOption(OptionValue.createBoolean(OptionType.SESSION, QueryClassLoader.JAVA_COMPILER_DEBUG_OPTION, false));
+    sessionOptions.setOption(OptionValue.createBoolean(OptionType.SESSION, ClassCompilerSelector.JAVA_COMPILER_DEBUG_OPTION, false));
     QueryClassLoader loader = new QueryClassLoader(config, sessionOptions);
     final byte[][] codeWithoutDebug = loader.getClassByteCode(classSet.generated, sourceCode);
     loader.close();
@@ -88,7 +88,7 @@ public class TestClassTransformation extends BaseTestQuery {
       sizeWithoutDebug += bs.length;
     }
 
-    sessionOptions.setOption(OptionValue.createBoolean(OptionType.SESSION, QueryClassLoader.JAVA_COMPILER_DEBUG_OPTION, true));
+    sessionOptions.setOption(OptionValue.createBoolean(OptionType.SESSION, ClassCompilerSelector.JAVA_COMPILER_DEBUG_OPTION, true));
     loader = new QueryClassLoader(config, sessionOptions);
     final byte[][] codeWithDebug = loader.getClassByteCode(classSet.generated, sourceCode);
     loader.close();

@@ -5,6 +5,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Map;
 
+import org.apache.drill.exec.compile.ClassCompilerSelector;
 import org.apache.drill.exec.compile.ClassTransformer;
 import org.apache.drill.exec.compile.ClassTransformer.ClassNames;
 import org.apache.drill.exec.compile.JDKClassCompiler;
@@ -86,9 +87,9 @@ public abstract class CodeBuilder<T> {
     String code = cg.getGeneratedCode();
     saveCode( code, name );
     classLoader = new CachedClassLoader( );
-    JDKClassCompiler compiler = JDKClassCompiler.newInstance(classLoader, saveCode);
+    ClassCompilerSelector compilerSelector = new ClassCompilerSelector(classLoader, context.getConfig(), getOptions());
     try {
-      Map<String,byte[]> results = compiler.compile( name, code );
+      Map<String,byte[]> results = compilerSelector.compile( name, code );
       classLoader.addClasses( results );
       built = true;
     } catch (CompileException | ClassNotFoundException e) {

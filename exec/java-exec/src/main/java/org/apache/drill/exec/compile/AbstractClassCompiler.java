@@ -20,6 +20,7 @@ package org.apache.drill.exec.compile;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Map;
 
 import org.apache.drill.common.util.DrillStringUtils;
 import org.apache.drill.exec.compile.ClassTransformer.ClassNames;
@@ -76,7 +77,8 @@ public abstract class AbstractClassCompiler {
 
   protected abstract byte[][] getByteCode(ClassNames className, String sourcecode)
       throws CompileException, IOException, ClassNotFoundException, ClassTransformationException;
-
+  public abstract Map<String,byte[]> compile(final ClassNames className, final String sourceCode)
+      throws CompileException, IOException, ClassNotFoundException;
   protected abstract org.slf4j.Logger getLogger();
 
 }

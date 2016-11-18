@@ -2,7 +2,6 @@ package org.apache.drill.exec.codegen;
 
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentMap;
 
