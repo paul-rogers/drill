@@ -73,7 +73,8 @@ public class TestScripts {
     // No drill-env.sh, no distrib-env.sh
 
     {
-      RunResult result = new DrillbitRun(DrillbitRun.DRILLBIT_RUN).run();
+      RunResult result = new DrillbitRun(DrillbitRun.DRILLBIT_RUN)
+          .run();
       assertEquals(0, result.returnCode);
       result.validateJava();
       result.validateStockArgs();
@@ -151,7 +152,7 @@ public class TestScripts {
     {
       RunResult result = new DrillbitRun(DrillbitRun.DRILLBIT_RUN)
           .addEnv("SERVER_LOG_GC", "1").run();
-      String logTail = context.testDrillHome.getName() + "/log/drillbit.gc";
+      String logTail = context.testLogDir.getName() + "/drillbit.gc";
       result.validateArgRegex("-Xloggc:.*/" + logTail);
     }
 
@@ -359,7 +360,7 @@ public class TestScripts {
       };
 
       result.validateArgs(expectedArgs);
-      String logTail = context.testDrillHome.getName() + "/log/drillbit.gc";
+      String logTail = context.testLogDir.getName() + "/drillbit.gc";
       result.validateArgRegex("-Xloggc:.*/" + logTail);
     }
 

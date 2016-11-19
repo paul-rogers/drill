@@ -53,13 +53,17 @@ public class ScriptUtils {
   public File testDrillHome;
   public File testSiteDir;
   public File testLogDir;
+  public boolean externalLogDir;
 
   /**
    * Out-of-the-box command-line arguments when launching sqlline.
    * Order is not important here (though it is to Java.)
    */
 
-  public static String sqlLineArgs[] = {
+  public static String sqlLineArgs[] = makeSqlLineArgs( );
+
+  private static String[] makeSqlLineArgs( ) {
+    String args[] = {
       "-Dlog.path=/.*/drill/log/sqlline\\.log",
       "-Dlog.query.path=/.*/drill/log/sqlline_queries\\.json",
       "-XX:MaxPermSize=512M",
@@ -68,7 +72,17 @@ public class ScriptUtils {
       "org\\.apache\\.drill\\.jdbc\\.Driver",
       "--maxWidth=10000",
       "--color=true"
-  };
+    };
+
+    // Special handling if this machine happens to have the default
+    // /var/log/drill log location.
+
+    if ( new File( "/var/log/drill" ).exists() ) {
+      args[ 0 ] = "-Dlog\\.path=/var/log/drill/sqlline\\.log";
+      args[ 1 ] = "-Dlog\\.query\\.path=/var/log/drill/sqlline_queries\\.json";
+    }
+    return args;
+  }
 
   public static final boolean USE_SOURCE = true;
   public static final String TEMP_DIR = "/tmp";
@@ -101,7 +115,11 @@ public class ScriptUtils {
    * Order is not important here (though it is to Java.)
    */
 
-  public static String stdArgs[] = {
+  public static String stdArgs[] = buildStdArgs( );
+
+  private static String[] buildStdArgs( )
+  {
+    String args[] = {
       "-Xms4G",
       "-Xmx4G",
       "-XX:MaxDirectMemorySize=8G",
@@ -111,9 +129,19 @@ public class ScriptUtils {
 //      "-Ddrill\\.exec\\.enable-epoll=true",
       "-XX:\\+CMSClassUnloadingEnabled",
       "-XX:\\+UseG1GC",
+      "org\\.apache\\.drill\\.exec\\.server\\.Drillbit",
       "-Dlog\\.path=/.*/script-test/drill/log/drillbit\\.log",
       "-Dlog\\.query\\.path=/.*/script-test/drill/log/drillbit_queries\\.json",
-      "org\\.apache\\.drill\\.exec\\.server\\.Drillbit"
+    };
+
+    // Special handling if this machine happens to have the default
+    // /var/log/drill log location.
+
+    if ( new File( "/var/log/drill" ).exists() ) {
+      args[ args.length-2 ] = "-Dlog\\.path=/var/log/drill/drillbit\\.log";
+      args[ args.length-1 ] = "-Dlog\\.query\\.path=/var/log/drill/drillbit_queries\\.json";
+    }
+    return args;
   };
 
   /**
@@ -181,7 +209,13 @@ public class ScriptUtils {
     testDir = new File(tempDir, "script-test");
     testDrillHome = new File(testDir, "drill");
     testSiteDir = new File(testDir, "site");
-    testLogDir = new File(testDir, "logs");
+    File varLogDrill = new File( "/var/log/drill" );
+    if ( varLogDrill.exists() ) {
+      testLogDir = varLogDrill;
+      externalLogDir = true;
+    } else {
+      testLogDir = new File(testDrillHome, "log");
+    }
     if (testDir.exists()) {
       FileUtils.forceDelete(testDir);
     }
@@ -247,9 +281,9 @@ public class ScriptUtils {
    */
 
   public void writeFile(File file, String contents) throws IOException {
-    PrintWriter out = new PrintWriter(new FileWriter(file));
-    out.println(contents);
-    out.close();
+    try (PrintWriter out = new PrintWriter(new FileWriter(file))) {
+      out.println(contents);
+    }
   }
 
   /**
@@ -259,19 +293,19 @@ public class ScriptUtils {
 
   public void createEnvFile(File file, Map<String, String> env)
       throws IOException {
-    PrintWriter out = new PrintWriter(new FileWriter(file));
-    out.println("#!/usr/bin/env bash");
-    for (String key : env.keySet()) {
-      String value = env.get(key);
-      out.print("export ");
-      out.print(key);
-      out.print("=${");
-      out.print(key);
-      out.print(":-\"");
-      out.print(value);
-      out.println("\"}");
+    try (PrintWriter out = new PrintWriter(new FileWriter(file))) {
+      out.println("#!/usr/bin/env bash");
+      for (String key : env.keySet()) {
+        String value = env.get(key);
+        out.print("export ");
+        out.print(key);
+        out.print("=${");
+        out.print(key);
+        out.print(":-\"");
+        out.print(value);
+        out.println("\"}");
+      }
     }
-    out.close();
   }
 
   /**
@@ -293,9 +327,9 @@ public class ScriptUtils {
 
     String wrapper = "wrapper.sh";
     File dest = new File(binDir, wrapper);
-    InputStream is = getClass().getResourceAsStream("/" + wrapper);
-    Files.copy(is, dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
-    is.close();
+    try (InputStream is = getClass().getResourceAsStream("/" + wrapper)) {
+      Files.copy(is, dest.toPath(), StandardCopyOption.REPLACE_EXISTING);
+    }
     dest.setExecutable(true);
   }
 
@@ -390,19 +424,16 @@ public class ScriptUtils {
 
     private String loadFile(File file) throws IOException {
       StringBuilder buf = new StringBuilder();
-      BufferedReader reader;
-      try {
-        reader = new BufferedReader(new FileReader(file));
+      try ( BufferedReader reader = new BufferedReader(new FileReader(file)) ) {
+        String line;
+        while ((line = reader.readLine()) != null) {
+          buf.append(line);
+          buf.append("\n");
+        }
+        return buf.toString();
       } catch (FileNotFoundException e) {
         return null;
       }
-      String line;
-      while ((line = reader.readLine()) != null) {
-        buf.append(line);
-        buf.append("\n");
-      }
-      reader.close();
-      return buf.toString();
     }
 
     /**
@@ -427,7 +458,7 @@ public class ScriptUtils {
 
     public void validateStockArgs() {
       for (String arg : ScriptUtils.stdArgs) {
-        assertTrue("Argument not found: " + arg, containsArgRegex(arg));
+        assertTrue("Argument not found: " + arg + " in " + echoArgs, containsArgRegex(arg));
       }
     }
 
@@ -550,10 +581,10 @@ public class ScriptUtils {
     }
 
     public int getPid() throws IOException {
-      BufferedReader reader = new BufferedReader(new FileReader(pidFile));
-      int pid = Integer.parseInt(reader.readLine());
-      reader.close();
-      return pid;
+      try (BufferedReader reader = new BufferedReader(new FileReader(pidFile))) {
+        return Integer.parseInt(reader.readLine());
+      }
+      finally { }
     }
 
   }
@@ -639,7 +670,7 @@ public class ScriptUtils {
       outputFile = new File(instance.testDir, "output.txt");
       outputFile.delete();
       if (logDir == null) {
-        logDir = new File(instance.testDrillHome, "log");
+        logDir = instance.testLogDir;
       }
       if (!preserveLogs) {
         cleanLogs(logDir);
@@ -655,6 +686,8 @@ public class ScriptUtils {
     }
 
     private void cleanLogs(File logDir) throws IOException {
+      if ( logDir == instance.testLogDir  &&  instance.externalLogDir )
+        return;
       if (logDir.exists()) {
         FileUtils.forceDelete(logDir);
       }
@@ -701,21 +734,15 @@ public class ScriptUtils {
     private void captureOutput(RunResult result) throws IOException {
       // Capture the Java arguments which the wrapper script wrote to a file.
 
-      BufferedReader reader;
-      try {
-        reader = new BufferedReader(new FileReader(outputFile));
-      } catch (FileNotFoundException e) {
-        return;
-      }
-      try {
-        result.echoArgs = new ArrayList<>();
+      try (BufferedReader reader = new BufferedReader(new FileReader(outputFile))) {
+         result.echoArgs = new ArrayList<>();
         String line;
         while ((line = reader.readLine()) != null) {
           result.echoArgs.add(line);
         }
         result.analyze();
-      } finally {
-        reader.close();
+      } catch (FileNotFoundException e) {
+        ;
       }
     }
 
