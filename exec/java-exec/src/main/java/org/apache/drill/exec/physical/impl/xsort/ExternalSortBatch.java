@@ -713,7 +713,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     cg.plainOldJavaCapable(true); // This class can generate plain-old Java.
  // Uncomment out this line to debug the generated code.
-//  cg.preferStraightJava(true);
+//  cg.preferPlainOldJavaJava(true);
     return context.getImplementationClass(cg);
   }
 
@@ -723,7 +723,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     cg.plainOldJavaCapable(true); // This class can generate plain-old Java.
 
     // Uncomment out this line to debug the generated code.
-//    cg.preferStraightJava(true);
+//    cg.preferPlainOldJavaJava(true);
     generateComparisons(cg.getRoot(), batch);
     return context.getImplementationClass(cg);
   }

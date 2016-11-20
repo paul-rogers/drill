@@ -1,3 +1,20 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.drill.exec.compile;
 
 import java.io.File;
@@ -23,6 +40,39 @@ import org.codehaus.commons.compiler.CompileException;
  * This means the generated class must be a subclass of the template
  * so that the JVM can use normal Java inheritance to associate the
  * template and generated methods.
+ * <p>
+ * Here is how to use the plain-old Java technique to debug
+ * generated code:
+ * <ul>
+ * <li>Set the config option <var>drill.exec.compile.save_source</var>
+ * to <var>true</var>.</li>
+ * <li>Set the config option <var>drill.exec.compile.code_dir</var>
+ * to the location where you want to save the generated source
+ * code.</li>
+ * <li>Where you generate code (using a {@link CodeGenerator}),
+ * set the "plain-old Java" options:<pre>
+ * CodeGenerator&lt;Foo> cg = ...
+ * cg.plainOldJavaCapable(true); // Class supports plain-old Java
+ * cg.preferPlainOldJava(true); // Actually generate plain-old Java
+ * ...</pre></li>
+ * <li>In your favorite IDE, add to the code lookup path the
+ * code directory saved earlier. In Eclipse, for example, you do
+ * this in the debug configuration you will use to debug Drill.</li>
+ * <li>Set a breakpoint in template used for the generated code.</li>
+ * <li>Run Drill. The IDE will stop at your breakpoint.</li>
+ * <li>Step into the generated code. Examine class field and
+ * local variables. Have fun!</li>
+ * </ul>
+ * <p>
+ * Note: not all generated code is ready to be compiled as plain-old
+ * Java. Some classes omit from the template the proper <code>throws</code>
+ * declarations. Other minor problems may also crop up. All are easy
+ * to fix. Once you've done so, add the following to mark that you've
+ * done the clean-up:<pre>
+ * cg.plainOldJavaCapable(true); // Class supports plain-old Java</pre>
+ * <p>
+ * The setting to prefer plain-old Java is ignored for generated
+ * classes not marked as plain-old Java capable.
  */
 
 public class ClassBuilder {

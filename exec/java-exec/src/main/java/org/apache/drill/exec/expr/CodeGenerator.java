@@ -78,7 +78,7 @@ public class CodeGenerator<T> {
    * capable of this technique.
    */
 
-  private boolean useStraightJava;
+  private boolean usePlainOldJava;
   private String generatedCode;
   private String generifiedCode;
 
@@ -96,7 +96,7 @@ public class CodeGenerator<T> {
     try {
       this.model = new JCodeModel();
       JDefinedClass clazz = model._package(PACKAGE_NAME)._class(className);
-      if ( isStraightJava( ) ) {
+      if ( isPlainOldJava( ) ) {
         clazz._extends(definition.getTemplateClass( ) );
       }
       rootGenerator = new ClassGenerator<>(this, mappingSet, definition.getSignature(), new EvaluationVisitor(
@@ -118,7 +118,7 @@ public class CodeGenerator<T> {
    * ready to be compiled as a plain-old Java class
    */
 
-  public void plainOldJavaCapable( boolean flag ) {
+  public void plainOldJavaCapable(boolean flag) {
     plainOldJavaCapable = flag;
   }
 
@@ -131,12 +131,12 @@ public class CodeGenerator<T> {
    * as a plain-old Java class (rather than via byte-code manipulations)
    */
 
-  public void preferStraightJava( boolean flag ) {
-    useStraightJava = flag;
+  public void preferPlainOJava(boolean flag) {
+    usePlainOldJava = flag;
   }
 
-  public boolean isStraightJava( ) {
-    return plainOldJavaCapable && useStraightJava;
+  public boolean isPlainOldJava() {
+    return plainOldJavaCapable && usePlainOldJava;
   }
 
   public ClassGenerator<T> getRoot() {
@@ -150,7 +150,7 @@ public class CodeGenerator<T> {
     // template so it plays by normal Java rules for finding the
     // template methods via inheritance rather than via code injection.
 
-    if ( isStraightJava( ) ) {
+    if (isPlainOldJava()) {
       rootGenerator.clazz._extends(definition.getTemplateClass( ));
     }
 

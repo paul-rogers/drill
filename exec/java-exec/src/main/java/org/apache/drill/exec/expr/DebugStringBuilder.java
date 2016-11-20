@@ -22,6 +22,11 @@ import java.io.StringWriter;
 
 import com.sun.codemodel.JFormatter;
 
+/**
+ * Utility class to build a debug string for an object
+ * in a standard format.
+ */
+
 public class DebugStringBuilder {
 
   private StringWriter strWriter;

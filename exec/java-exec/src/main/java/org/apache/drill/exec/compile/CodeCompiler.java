@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 import org.apache.drill.common.config.DrillConfig;
-import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.server.options.OptionManager;
@@ -118,7 +117,7 @@ public class CodeCompiler {
     @Override
     public GeneratedClassEntry load(final CodeGenerator<?> cg) throws Exception {
       final Class<?> c;
-      if ( cg.isStraightJava( ) ) {
+      if ( cg.isPlainOldJava( ) ) {
         // Generate class as plain old Java
 
         c = classBuilder.getImplementationClass(cg);
