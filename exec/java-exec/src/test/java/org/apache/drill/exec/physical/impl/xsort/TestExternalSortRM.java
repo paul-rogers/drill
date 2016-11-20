@@ -23,6 +23,7 @@ import static org.junit.Assert.fail;
 import java.io.IOException;
 import java.net.URL;
 import java.util.List;
+import java.util.Properties;
 
 import org.apache.drill.BaseTestQuery;
 import org.apache.drill.common.config.DrillConfig;
@@ -31,6 +32,7 @@ import org.apache.drill.common.util.FileUtils;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ExecTest;
 import org.apache.drill.exec.client.DrillClient;
+import org.apache.drill.exec.compile.ClassBuilder;
 import org.apache.drill.exec.physical.impl.xsort.BufferingQueryEventListener.QueryEvent;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
 import org.apache.drill.exec.rpc.RpcException;
@@ -72,7 +74,9 @@ public class TestExternalSortRM extends DrillTest {
     RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
 
 //    DrillConfig config = DrillConfig.create("xsort/drill-external-sort-rm.conf");
-    DrillConfig config = DrillConfig.create( );
+    Properties props = new Properties( );
+    props.put( ClassBuilder.SAVE_CODE_OPTION, "true");
+    DrillConfig config = DrillConfig.create( props );
 
     try (Drillbit bit = new Drillbit(config, serviceSet);
         DrillClient client = new DrillClient(config, serviceSet.getCoordinator());) {

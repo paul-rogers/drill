@@ -27,6 +27,7 @@ import org.apache.drill.exec.compile.ClassTransformer.ClassNames;
 import org.apache.drill.exec.exception.ClassTransformationException;
 import org.codehaus.commons.compiler.CompileException;
 
+@SuppressWarnings("unused")
 public abstract class AbstractClassCompiler {
   protected boolean debug = false;
 

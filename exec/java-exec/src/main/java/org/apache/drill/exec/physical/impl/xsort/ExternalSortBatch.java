@@ -36,7 +36,6 @@ import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.data.Order.Ordering;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.codegen.CodeBuilder;
 import org.apache.drill.exec.compile.sig.GeneratorMapping;
 import org.apache.drill.exec.compile.sig.MappingSet;
 import org.apache.drill.exec.exception.ClassTransformationException;
@@ -712,33 +711,21 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     g.rotateBlock();
     g.getEvalBlock()._return(JExpr.lit(0));
 
+    cg.plainOldJavaCapable(true); // This class can generate plain-old Java.
+ // Uncomment out this line to debug the generated code.
+//  cg.preferStraightJava(true);
     return context.getImplementationClass(cg);
-
-
   }
 
   public SingleBatchSorter createNewSorter(FragmentContext context, VectorAccessible batch)
           throws ClassTransformationException, IOException, SchemaChangeException{
-    CodeBuilder<SingleBatchSorter> builder = new CodeBuilder<SingleBatchSorter>( context ) {
+    CodeGenerator<SingleBatchSorter> cg = CodeGenerator.get(SingleBatchSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
+    cg.plainOldJavaCapable(true); // This class can generate plain-old Java.
 
-      @Override
-      protected CodeGenerator<SingleBatchSorter> build() throws SchemaChangeException {
-        CodeGenerator<SingleBatchSorter> cg = CodeGenerator.get(SingleBatchSorter.TEMPLATE_DEFINITION, this);
-        ClassGenerator<SingleBatchSorter> g = cg.getRoot();
-
-        generateComparisons(g, batch);
-        return cg;
-      }
-
-    };
-    builder.setStraightJava( true );
-    return builder.newInstance( );
-//    CodeGenerator<SingleBatchSorter> cg = CodeGenerator.get(SingleBatchSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
-//    ClassGenerator<SingleBatchSorter> g = cg.getRoot();
-//
-//    generateComparisons(g, batch);
-//
-//    return context.getImplementationClass(cg);
+    // Uncomment out this line to debug the generated code.
+//    cg.preferStraightJava(true);
+    generateComparisons(cg.getRoot(), batch);
+    return context.getImplementationClass(cg);
   }
 
   private void generateComparisons(ClassGenerator<?> g, VectorAccessible batch) throws SchemaChangeException {

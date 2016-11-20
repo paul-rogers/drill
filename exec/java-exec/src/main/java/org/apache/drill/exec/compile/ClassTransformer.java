@@ -22,12 +22,13 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.util.DrillStringUtils;
 import org.apache.drill.common.util.FileUtils;
 import org.apache.drill.exec.compile.MergeAdapter.MergedClassResult;
 import org.apache.drill.exec.exception.ClassTransformationException;
+import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.server.options.OptionManager;
-import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.server.options.TypeValidators.EnumeratedStringValidator;
 import org.codehaus.commons.compiler.CompileException;
 import org.objectweb.asm.ClassReader;
@@ -53,6 +54,7 @@ public class ClassTransformer {
   private static final int MAX_SCALAR_REPLACE_CODE_SIZE = 2*1024*1024; // 2meg
 
   private final ByteCodeLoader byteCodeLoader = new ByteCodeLoader();
+  private final DrillConfig config;
   private final OptionManager optionManager;
 
   public final static String SCALAR_REPLACEMENT_OPTION =
@@ -81,13 +83,14 @@ public class ClassTransformer {
         return TRY;
       case "on":
         return ON;
+      default:
+        throw new IllegalArgumentException("Invalid ScalarReplacementOption \"" + s + "\"");
       }
-
-      throw new IllegalArgumentException("Invalid ScalarReplacementOption \"" + s + "\"");
     }
   }
 
-  public ClassTransformer(final OptionManager optionManager) {
+  public ClassTransformer(final DrillConfig config, final OptionManager optionManager) {
+    this.config = config;
     this.optionManager = optionManager;
   }
 
@@ -216,6 +219,12 @@ public class ClassTransformer {
       }
       return true;
     }
+  }
+
+  public Class<?> getImplementationClass(CodeGenerator<?> cg) throws ClassTransformationException {
+    final QueryClassLoader loader = new QueryClassLoader(config, optionManager);
+    return getImplementationClass(loader, cg.getDefinition(),
+        cg.getGeneratedCode(), cg.getMaterializedClassName());
   }
 
   public Class<?> getImplementationClass(

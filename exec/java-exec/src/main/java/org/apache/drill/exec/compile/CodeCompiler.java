@@ -36,39 +36,68 @@ import com.google.common.collect.Lists;
 /**
  * Global code compiler mechanism shared by all threads and operators.
  * Holds a single cache of generated code (keyed by code source) to
- * prevent compiling identical code multiple times.
+ * prevent compiling identical code multiple times. Supports both
+ * the byte-code merging and plain-old Java methods of code
+ * generation and compilation.
  */
 
 public class CodeCompiler {
-//  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CodeCompiler.class);
+
+  public static final String COMPILE_BASE = "drill.exec.compile";
+  String MAX_LOADING_CACHE_SIZE_CONFIG = COMPILE_BASE + ".cache_max_size";
 
   private final ClassTransformer transformer;
+  private final ClassBuilder classBuilder;
+
+  /**
+   * Google Guava loading cache that defers creating a cache
+   * entry until first needed. Creation is done in a thread-safe
+   * way: if two threads try to create the same class at the same
+   * time, the first does the work, the second waits for the first
+   * to complete, then grabs the new entry.
+   */
+
   private final LoadingCache<CodeGenerator<?>, GeneratedClassEntry> cache;
-  private final DrillConfig config;
-  private final OptionManager optionManager;
 
   public CodeCompiler(final DrillConfig config, final OptionManager optionManager) {
-    transformer = new ClassTransformer(optionManager);
-    final int cacheMaxSize = config.getInt(ExecConstants.MAX_LOADING_CACHE_SIZE_CONFIG);
+    transformer = new ClassTransformer(config, optionManager);
+    classBuilder = new ClassBuilder(config, optionManager);
+    final int cacheMaxSize = config.getInt(MAX_LOADING_CACHE_SIZE_CONFIG);
     cache = CacheBuilder.newBuilder()
         .maximumSize(cacheMaxSize)
         .build(new Loader());
-    this.optionManager = optionManager;
-    this.config = config;
   }
 
+  /**
+   * Create a single instance of the generated class.
+   *
+   * @param cg
+   * @return
+   * @throws ClassTransformationException
+   * @throws IOException
+   */
   @SuppressWarnings("unchecked")
-  public <T> T getImplementationClass(final CodeGenerator<?> cg) throws ClassTransformationException, IOException {
-    return (T) getImplementationClass(cg, 1).get(0);
+  public <T> T createInstance(final CodeGenerator<?> cg) throws ClassTransformationException, IOException {
+    return (T) createInstances(cg, 1).get(0);
   }
 
+  /**
+   * Create multiple instances of the generated class.
+   *
+   * @param cg
+   * @param count
+   * @return
+   * @throws ClassTransformationException
+   * @throws IOException
+   */
+
   @SuppressWarnings("unchecked")
-  public <T> List<T> getImplementationClass(final CodeGenerator<?> cg, int instanceNumber) throws ClassTransformationException, IOException {
+  public <T> List<T> createInstances(final CodeGenerator<?> cg, int count) throws ClassTransformationException, IOException {
     cg.generate();
     try {
       final GeneratedClassEntry ce = cache.get(cg);
       List<T> tList = Lists.newArrayList();
-      for ( int i = 0; i < instanceNumber; i++) {
+      for ( int i = 0; i < count; i++) {
         tList.add((T) ce.clazz.newInstance());
       }
       return tList;
@@ -77,12 +106,27 @@ public class CodeCompiler {
     }
   }
 
+  /**
+   * Loader used to create an entry in the class cache when the entry
+   * does not yet exist. Here, we generate the code, compile it,
+   * and place the resulting class into the cache. The class has an
+   * associated class loader which "dangles" from the class itself;
+   * we don't keep track of the class loader itself.
+   */
+
   private class Loader extends CacheLoader<CodeGenerator<?>, GeneratedClassEntry> {
     @Override
     public GeneratedClassEntry load(final CodeGenerator<?> cg) throws Exception {
-      final QueryClassLoader loader = new QueryClassLoader(config, optionManager);
-      final Class<?> c = transformer.getImplementationClass(loader, cg.getDefinition(),
-          cg.getGeneratedCode(), cg.getMaterializedClassName());
+      final Class<?> c;
+      if ( cg.isStraightJava( ) ) {
+        // Generate class as plain old Java
+
+        c = classBuilder.getImplementationClass(cg);
+      } else {
+        // Generate class parts and assemble byte-codes.
+
+        c = transformer.getImplementationClass(cg);
+      }
       return new GeneratedClassEntry(c);
     }
   }

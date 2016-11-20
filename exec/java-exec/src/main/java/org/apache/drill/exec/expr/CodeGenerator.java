@@ -19,7 +19,6 @@ package org.apache.drill.exec.expr;
 
 import java.io.IOException;
 
-import org.apache.drill.exec.codegen.CodeBuilder;
 import org.apache.drill.exec.compile.TemplateClassDefinition;
 import org.apache.drill.exec.compile.sig.MappingSet;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
@@ -31,16 +30,30 @@ import com.sun.codemodel.JDefinedClass;
 import org.apache.drill.exec.server.options.OptionManager;
 
 /**
- * A code generator is responsible for generating the Java source code required to complete the implementation of an
- * abstract template. It is used with a class transformer to merge precompiled template code with runtime generated and
+ * A code generator is responsible for generating the Java source code required
+ * to complete the implementation of an abstract template.
+ * A code generator can contain one or more ClassGenerators that implement
+ * outer and inner classes associated with a particular runtime generated instance.
+ * <p>
+ * Drill supports two ways to generate and compile the code from a code
+ * generator: via byte-code manipulations or as "plain-old Java."
+ * <p>
+ * When using byte-code transformations, the code generator is used with a
+ * class transformer to merge precompiled template code with runtime generated and
  * compiled query specific code to create a runtime instance.
- *
- * A code generator can contain one or more ClassGenerators that implement outer and inner classes associated with a
- * particular runtime generated instance.
+ * <p>
+ * The code generator can optionally be marked as "plain-old Java" capable.
+ * This means that the generated code can be compiled directly as a Java
+ * class without the normal byte-code manipulations. Plain-old Java allows
+ * the option to persist, and debug, the generated code when building new
+ * generated classes or otherwise working with generated code. To turn
+ * on debugging, see the explanation in {@link ClassBuilder}.
  *
  * @param <T>
- *          The interface that results from compiling and merging the runtime code that is generated.
+ *          The interface that results from compiling and merging the runtime
+ *          code that is generated.
  */
+
 public class CodeGenerator<T> {
 
   private static final String PACKAGE_NAME = "org.apache.drill.exec.test.generated";
@@ -51,32 +64,32 @@ public class CodeGenerator<T> {
 
   private final JCodeModel model;
   private final ClassGenerator<T> rootGenerator;
+
+  /**
+   * True if the code generated for this class is suitable for compilation
+   * as a plain-old Java class.
+   */
+
+  private boolean plainOldJavaCapable;
+
+  /**
+   * True if the code generated for this class should actually be compiled
+   * via the plain-old Java mechanism. Considered only if the class is
+   * capable of this technique.
+   */
+
+  private boolean useStraightJava;
   private String generatedCode;
   private String generifiedCode;
-  private CodeBuilder<T> builder;
 
   CodeGenerator(TemplateClassDefinition<T> definition, FunctionImplementationRegistry funcRegistry, OptionManager optionManager) {
     this(ClassGenerator.getDefaultMapping(), definition, funcRegistry, optionManager);
   }
 
-  CodeGenerator(TemplateClassDefinition<T> definition, CodeBuilder<T> builder) {
-    this(ClassGenerator.getDefaultMapping(), definition, builder);
-  }
-
   CodeGenerator(MappingSet mappingSet, TemplateClassDefinition<T> definition,
-      FunctionImplementationRegistry funcRegistry, OptionManager optionManager) {
-    this( mappingSet, definition, funcRegistry, optionManager, null );
-  }
-
-  CodeGenerator(MappingSet mappingSet, TemplateClassDefinition<T> definition, CodeBuilder<T> builder) {
-     this( mappingSet, definition, builder.getFunctionRegistry( ), builder.getOptions( ), builder );
-  }
-
-  CodeGenerator(MappingSet mappingSet, TemplateClassDefinition<T> definition,
-     FunctionImplementationRegistry funcRegistry, OptionManager optionManager, CodeBuilder<T> builder) {
+     FunctionImplementationRegistry funcRegistry, OptionManager optionManager) {
     Preconditions.checkNotNull(definition.getSignature(),
         "The signature for defintion %s was incorrectly initialized.", definition);
-    this.builder = builder;
     this.definition = definition;
     this.className = definition.getExternalInterface().getSimpleName() + "Gen" + definition.getNextClassNumber();
     this.fqcn = PACKAGE_NAME + "." + className;
@@ -93,8 +106,37 @@ public class CodeGenerator<T> {
     }
   }
 
-  private boolean isStraightJava( ) {
-    return builder != null  &&  builder.isStraightJava( );
+  /**
+   * Indicates that the code for this class can be generated using the
+   * "Plain Old Java" mechanism based on inheritance. The byte-code
+   * method is more lenient, so some code is missing some features such
+   * as proper exception labeling, etc. Set this option to true once
+   * the generation mechanism for a class has been cleaned up to work
+   * via the plain-old Java mechanism.
+   *
+   * @param flag true if the code generated from this instance is
+   * ready to be compiled as a plain-old Java class
+   */
+
+  public void plainOldJavaCapable( boolean flag ) {
+    plainOldJavaCapable = flag;
+  }
+
+  /**
+   * Identifies that this generated class should be generated via the
+   * plain-old Java mechanism. This flag only has meaning if the
+   * generated class is capable of plain-old Java generation.
+   *
+   * @param flag true if the class should be generated and compiled
+   * as a plain-old Java class (rather than via byte-code manipulations)
+   */
+
+  public void preferStraightJava( boolean flag ) {
+    useStraightJava = flag;
+  }
+
+  public boolean isStraightJava( ) {
+    return plainOldJavaCapable && useStraightJava;
   }
 
   public ClassGenerator<T> getRoot() {
@@ -102,6 +144,16 @@ public class CodeGenerator<T> {
   }
 
   public void generate() throws IOException {
+
+    // If this generated class uses the "straight Java" technique
+    // (no byte code manipulation), then the class must extend the
+    // template so it plays by normal Java rules for finding the
+    // template methods via inheritance rather than via code injection.
+
+    if ( isStraightJava( ) ) {
+      rootGenerator.clazz._extends(definition.getTemplateClass( ));
+    }
+
     rootGenerator.flushCode();
 
     SingleClassStringWriter w = new SingleClassStringWriter();
@@ -109,7 +161,6 @@ public class CodeGenerator<T> {
 
     this.generatedCode = w.getCode().toString();
     this.generifiedCode = generatedCode.replaceAll(this.className, "GenericGenerated");
-
   }
 
   public String generateAndGet() throws IOException {
@@ -135,11 +186,6 @@ public class CodeGenerator<T> {
   }
 
   public static <T> CodeGenerator<T> get(TemplateClassDefinition<T> definition,
-      CodeBuilder<T> builder) {
-    return new CodeGenerator<T>(definition, builder);
-  }
-
-  public static <T> CodeGenerator<T> get(TemplateClassDefinition<T> definition,
       FunctionImplementationRegistry funcRegistry, OptionManager optionManager) {
     return new CodeGenerator<T>(definition, funcRegistry, optionManager);
   }
@@ -157,11 +203,6 @@ public class CodeGenerator<T> {
   public static <T> CodeGenerator<T> get(MappingSet mappingSet, TemplateClassDefinition<T> definition,
       FunctionImplementationRegistry funcRegistry, OptionManager optionManager) {
     return new CodeGenerator<T>(mappingSet, definition, funcRegistry, optionManager);
-  }
-
-  public static <T> CodeGenerator<T> get(MappingSet mappingSet, TemplateClassDefinition<T> definition,
-      CodeBuilder<T> builder) {
-    return new CodeGenerator<T>(mappingSet, definition, builder);
   }
 
   @Override
