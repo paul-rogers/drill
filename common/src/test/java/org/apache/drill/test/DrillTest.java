@@ -49,6 +49,12 @@ public class DrillTest {
 
   static final SystemManager manager = new SystemManager();
 
+  /**
+   * Logger for tests. Logging is set at the error level by default to
+   * keep Maven builds quiet. If needed, enable greater logging detail
+   * by setting the log level to debug in <var>src/test/resources/logback.xml</var>.
+   */
+
   static final Logger testReporter = org.slf4j.LoggerFactory.getLogger("org.apache.drill.TestReporter");
   static final TestLogReporter LOG_OUTCOME = new TestLogReporter();
 
@@ -71,7 +77,7 @@ public class DrillTest {
 
   @Before
   public void printID() throws Exception {
-    System.out.printf("Running %s#%s\n", getClass().getName(), TEST_NAME.getMethodName());
+    testReporter.info(String.format("Running %s#%s\n", getClass().getName(), TEST_NAME.getMethodName()));
   }
 
   @BeforeClass

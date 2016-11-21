@@ -21,6 +21,10 @@ import org.apache.drill.exec.proto.UserBitShared.DrillPBError;
 import org.apache.drill.exec.proto.UserBitShared.DrillPBError.ErrorType;
 import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.LoggerFactory;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
 
 /**
  * Test various use cases when creating user exceptions
@@ -41,6 +45,17 @@ public class TestUserException {
   // make sure system exceptions are created properly
   @Test
   public void testBuildSystemException() {
+
+    // Turn off logging so that the exception is not logged to
+    // stdout. (When logged to stdout, it looks like a test failed when
+    // it did not actually do so...)
+    //
+    // An enhancement would be to route logging to a file, then verify
+    // the file contents if we want to double-check behavior.
+
+    Logger root = (Logger)LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+    root.setLevel(Level.OFF);
+
     String message = "This is an exception";
     UserException uex = UserException.systemError(new Exception(new RuntimeException(message))).build(logger);
 

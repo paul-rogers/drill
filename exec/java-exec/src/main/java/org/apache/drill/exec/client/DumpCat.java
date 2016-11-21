@@ -19,6 +19,7 @@ package org.apache.drill.exec.client;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.PrintStream;
 import java.util.List;
 
 import org.apache.drill.common.config.DrillConfig;
@@ -165,6 +166,10 @@ public class DumpCat {
    * @throws Exception
    */
   protected void doQuery(FileInputStream input) throws Exception{
+    doQuery( input, System.out );
+  }
+
+  protected void doQuery(FileInputStream input, PrintStream out) throws Exception{
     int  batchNum = 0;
     int  emptyBatchNum = 0;
     BatchSchema prevSchema = null;
@@ -194,12 +199,12 @@ public class DumpCat {
     }
 
     /* output the summary stat */
-    System.out.println(String.format("Total # of batches: %d", batchNum));
+    out.println(String.format("Total # of batches: %d", batchNum));
     //output: rows, selectedRows, avg rec size, total data size.
-    System.out.println(aggBatchMetaInfo.toString());
-    System.out.println(String.format("Empty batch : %d", emptyBatchNum));
-    System.out.println(String.format("Schema changes : %d", schemaChangeIdx.size()));
-    System.out.println(String.format("Schema change batch index : %s", schemaChangeIdx.toString()));
+    out.println(aggBatchMetaInfo.toString());
+    out.println(String.format("Empty batch : %d", emptyBatchNum));
+    out.println(String.format("Schema changes : %d", schemaChangeIdx.size()));
+    out.println(String.format("Schema change batch index : %s", schemaChangeIdx.toString()));
   }
 
   /**
@@ -215,6 +220,10 @@ public class DumpCat {
    * @throws Exception
    */
   protected void doBatch(FileInputStream input, int targetBatchNum, boolean showHeader) throws Exception {
+    doBatch(input, targetBatchNum, showHeader, System.out);
+  }
+
+  protected void doBatch(FileInputStream input, int targetBatchNum, boolean showHeader, PrintStream out) throws Exception {
     int batchNum = -1;
 
     VectorAccessibleSerializable vcSerializable = null;
@@ -230,29 +239,29 @@ public class DumpCat {
     }
 
     if (batchNum < targetBatchNum) {
-      System.out.println(String.format("Wrong input of batch # ! Total # of batch in the file is %d. Please input a number 0..%d as batch #", batchNum+1, batchNum));
+      out.println(String.format("Wrong input of batch # ! Total # of batch in the file is %d. Please input a number 0..%d as batch #", batchNum+1, batchNum));
       input.close();
       System.exit(-1);
     }
 
     if (vcSerializable != null) {
-      showSingleBatch(vcSerializable, showHeader);
+      showSingleBatch(vcSerializable, showHeader, out);
       final VectorContainer vectorContainer = (VectorContainer) vcSerializable.get();
       vectorContainer.zeroVectors();
     }
   }
 
-  private void showSingleBatch (VectorAccessibleSerializable vcSerializable, boolean showHeader) {
+  private void showSingleBatch (VectorAccessibleSerializable vcSerializable, boolean showHeader, PrintStream out) {
     final VectorContainer vectorContainer = (VectorContainer) vcSerializable.get();
 
     /* show the header of the batch */
     if (showHeader) {
-      System.out.println(getBatchMetaInfo(vcSerializable).toString());
+      out.println(getBatchMetaInfo(vcSerializable).toString());
 
-      System.out.println("Schema Information");
-      for (final VectorWrapper w : vectorContainer) {
+      out.println("Schema Information");
+      for (final VectorWrapper<?> w : vectorContainer) {
         final MaterializedField field = w.getValueVector().getField();
-        System.out.println (String.format("name : %s, minor_type : %s, data_mode : %s",
+        out.println (String.format("name : %s, minor_type : %s, data_mode : %s",
                                           field.getPath(),
                                           field.getType().getMinorType().toString(),
                                           field.isNullable() ? "nullable":"non-nullable"
@@ -279,7 +288,7 @@ public class DumpCat {
       selectedRows = vcSerializable.getSv2().getCount();
     }
 
-    for (final VectorWrapper w : vectorContainer) {
+    for (final VectorWrapper<?> w : vectorContainer) {
        totalDataSize += w.getValueVector().getBufferSize();
     }
 

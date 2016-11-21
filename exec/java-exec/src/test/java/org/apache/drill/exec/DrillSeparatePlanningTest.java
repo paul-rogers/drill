@@ -32,8 +32,6 @@ import org.apache.drill.common.DrillAutoCloseables;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.util.TestTools;
 import org.apache.drill.exec.client.DrillClient;
-import org.apache.drill.exec.client.PrintingResultsListener;
-import org.apache.drill.exec.client.QuerySubmitter.Format;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.proto.BitControl.PlanFragment;
@@ -51,7 +49,6 @@ import org.apache.drill.exec.rpc.RpcException;
 import org.apache.drill.exec.rpc.user.AwaitableUserResultsListener;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.rpc.user.UserResultsListener;
-import org.apache.drill.exec.util.VectorUtil;
 import org.apache.drill.exec.vector.ValueVector;
 import org.junit.Test;
 
@@ -181,12 +178,13 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
     for(QueryDataBatch batch : results) {
       batch.release();
     }
+//    AwaitableUserResultsListener listener =
+//        new AwaitableUserResultsListener(new PrintingResultsListener(client.getConfig(), Format.TSV, VectorUtil.DEFAULT_COLUMN_WIDTH));
     AwaitableUserResultsListener listener =
-        new AwaitableUserResultsListener(new PrintingResultsListener(client.getConfig(), Format.TSV, VectorUtil.DEFAULT_COLUMN_WIDTH));
-    //AwaitableUserResultsListener listener =
-    //    new AwaitableUserResultsListener(new SilentListener());
+        new AwaitableUserResultsListener(new SilentListener());
     client.runQuery(QueryType.SQL, query, listener);
     int rows = listener.await();
+    assertEquals( 120, rows );
   }
 
   private QueryPlanFragments getFragmentsHelper(final String query) throws InterruptedException, ExecutionException, RpcException {
@@ -202,7 +200,7 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
     final QueryPlanFragments planFragments = queryFragmentsFutures.get();
 
     for (PlanFragment fragment : planFragments.getFragmentsList()) {
-      System.out.println(fragment.getFragmentJson());
+      logger.info(fragment.getFragmentJson());
     }
 
     return planFragments;
@@ -211,6 +209,7 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
   private void getResultsHelper(final QueryPlanFragments planFragments) throws Exception {
     for (PlanFragment fragment : planFragments.getFragmentsList()) {
       DrillbitEndpoint assignedNode = fragment.getAssignment();
+      @SuppressWarnings("resource")
       DrillClient fragmentClient = new DrillClient(true);
       Properties props = new Properties();
       props.setProperty("drillbit", assignedNode.getAddress() + ":" + assignedNode.getUserPort());
@@ -250,22 +249,24 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
       AwaitableUserResultsListener listener =
           new AwaitableUserResultsListener(new SilentListener());
       fragmentClient.runQuery(QueryType.EXECUTION, fragmentList, listener);
+      @SuppressWarnings("unused")
       int rows = listener.await();
       fragmentClient.close();
     }
   }
 
-  private void getCombinedResultsHelper(final QueryPlanFragments planFragments) throws Exception {
-      ShowResultsUserResultsListener myListener = new ShowResultsUserResultsListener(getAllocator());
-      AwaitableUserResultsListener listenerBits =
-          new AwaitableUserResultsListener(myListener);
+  private int getCombinedResultsHelper(final QueryPlanFragments planFragments) throws Exception {
+    ShowResultsUserResultsListener myListener = new ShowResultsUserResultsListener(getAllocator());
+    @SuppressWarnings({ "unused" })
+    AwaitableUserResultsListener listenerBits =
+        new AwaitableUserResultsListener(myListener);
 
-      //AwaitableUserResultsListener listener =
-     //     new AwaitableUserResultsListener(new PrintingResultsListener(client.getConfig(), Format.TSV, VectorUtil.DEFAULT_COLUMN_WIDTH));
-      AwaitableUserResultsListener listener =
-          new AwaitableUserResultsListener(new SilentListener());
-      client.runQuery(QueryType.EXECUTION, planFragments.getFragmentsList(), listener);
-      int rows = listener.await();
+    //AwaitableUserResultsListener listener =
+   //     new AwaitableUserResultsListener(new PrintingResultsListener(client.getConfig(), Format.TSV, VectorUtil.DEFAULT_COLUMN_WIDTH));
+    AwaitableUserResultsListener listener =
+        new AwaitableUserResultsListener(new SilentListener());
+    client.runQuery(QueryType.EXECUTION, planFragments.getFragmentsList(), listener);
+    return listener.await();
   }
 
   /**

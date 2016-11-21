@@ -26,6 +26,7 @@ import org.apache.drill.common.expression.ExpressionStringBuilder;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.parser.ExprParser.parse_return;
 import org.apache.drill.test.DrillTest;
+import org.junit.Assert;
 import org.junit.Test;
 
 public class TreeTest extends DrillTest {
@@ -122,10 +123,7 @@ public class TreeTest extends DrillTest {
     String newStringExpr = serializeExpression(e);
     logger.debug(newStringExpr);
     LogicalExpression e2 = parseExpression(newStringExpr);
-    //Assert.assertEquals(e, e2);
-
+//    Assert.assertEquals(e, e2); // Can't do this; LogicalExpression does not implement isEqual( )
+    Assert.assertEquals(newStringExpr, serializeExpression(e2));
   }
-
-
-
 }

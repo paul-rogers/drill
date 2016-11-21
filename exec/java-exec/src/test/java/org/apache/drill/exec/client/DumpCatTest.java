@@ -20,7 +20,10 @@ package org.apache.drill.exec.client;
 import static org.apache.drill.exec.planner.PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader;
 import static org.junit.Assert.assertTrue;
 
+import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
+import java.io.PrintStream;
+import java.io.StringWriter;
 
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.util.FileUtils;
@@ -54,7 +57,7 @@ import mockit.Injectable;
  */
 
 public class DumpCatTest  extends ExecTest {
-  //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DumpCatTest.class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DumpCatTest.class);
   private final DrillConfig c = DrillConfig.create();
 
   @Test
@@ -89,11 +92,11 @@ public class DumpCatTest  extends ExecTest {
 
       final String logLocation = c.getString(ExecConstants.TRACE_DUMP_DIRECTORY);
 
-      System.out.println("Found log location: " + logLocation);
+      logger.info("Found log location: " + logLocation);
 
       final String filename = String.format("%s//%s_%d_%d_mock-scan", logLocation, qid, majorFragmentId, minorFragmentId);
 
-      System.out.println("File Name: " + filename);
+      logger.info("File Name: " + filename);
 
       final Configuration conf = new Configuration();
       conf.set(FileSystem.FS_DEFAULT_NAME_KEY, c.getString(ExecConstants.TRACE_DUMP_FILESYSTEM));
@@ -104,14 +107,25 @@ public class DumpCatTest  extends ExecTest {
 
       final DumpCat dumpCat = new DumpCat();
 
+      ByteArrayOutputStream baStream = new ByteArrayOutputStream( );
+      PrintStream captureOut = new PrintStream( baStream );
+
       //Test Query mode
       try (final FileInputStream input = new FileInputStream(filename)) {
-        dumpCat.doQuery(input);
+        dumpCat.doQuery(input, captureOut);
       }
+
+      captureOut.flush();
+      String output = baStream.toString( "UTF-8" );
+      baStream.reset();
+      // Check the output here...
 
       //Test Batch mode
       try(final FileInputStream input = new FileInputStream(filename)) {
-        dumpCat.doBatch(input, 0, true);
+        dumpCat.doBatch(input, 0, true, captureOut);
       }
+      captureOut.flush();
+      output = baStream.toString( "UTF-8" );
+      // Check the output here...
   }
 }
