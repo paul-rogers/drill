@@ -686,8 +686,8 @@ public class ScriptUtils {
     }
 
     private void cleanLogs(File logDir) throws IOException {
-      if ( logDir == instance.testLogDir  &&  instance.externalLogDir )
-        return;
+      if ( logDir == instance.testLogDir  &&  instance.externalLogDir ) {
+        return; }
       if (logDir.exists()) {
         FileUtils.forceDelete(logDir);
       }
