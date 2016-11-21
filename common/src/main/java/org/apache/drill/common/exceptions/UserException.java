@@ -37,6 +37,7 @@ import org.slf4j.Logger;
  *
  * @see org.apache.drill.exec.proto.UserBitShared.DrillPBError.ErrorType
  */
+@SuppressWarnings("serial")
 public class UserException extends DrillRuntimeException {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(UserException.class);
 
@@ -549,7 +550,12 @@ public class UserException extends DrillRuntimeException {
       if (isSystemError) {
         logger.error(newException.getMessage(), newException);
       } else {
-        logger.info("User Error Occurred", newException);
+        String msg = "User Error Occurred";
+        if (message != null) {
+          msg += ": " + message; }
+        if (cause != null) {
+          msg += " (" + cause.getMessage() + ")"; }
+        logger.info(msg, newException);
       }
 
       return newException;

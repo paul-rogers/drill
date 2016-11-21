@@ -224,6 +224,7 @@ public class FragmentExecutor implements Runnable {
           ImpersonationUtil.getProcessUserUGI();
 
       queryUserUgi.doAs(new PrivilegedExceptionAction<Void>() {
+        @Override
         public Void run() throws Exception {
           injector.injectChecked(fragmentContext.getExecutionControls(), "fragment-execution", IOException.class);
           /*
@@ -413,17 +414,21 @@ public class FragmentExecutor implements Runnable {
   }
 
   private class ExecutorStateImpl implements ExecutorState {
+    @Override
     public boolean shouldContinue() {
       return FragmentExecutor.this.shouldContinue();
     }
 
+    @Override
     public void fail(final Throwable t) {
       FragmentExecutor.this.fail(t);
     }
 
+    @Override
     public boolean isFailed() {
       return fragmentState.get() == FragmentState.FAILED;
     }
+    @Override
     public Throwable getFailureCause(){
       return deferredException.getException();
     }
