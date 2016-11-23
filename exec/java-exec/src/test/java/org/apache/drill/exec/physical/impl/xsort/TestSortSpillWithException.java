@@ -49,8 +49,9 @@ public class TestSortSpillWithException extends BaseTestQuery {
   public static void initCluster() {
     // make sure memory sorter outputs 20 rows per batch
     final Properties props = cloneDefaultTestConfigProperties();
-    props.put(ExecConstants.EXTERNAL_SORT_SPILL_THRESHOLD, "1");
-    props.put(ExecConstants.EXTERNAL_SORT_SPILL_GROUP_SIZE, "1");
+    props.put(ExecConstants.EXTERNAL_SORT_SPILL_THRESHOLD, "1"); // Unmanaged
+    props.put(ExecConstants.EXTERNAL_SORT_SPILL_GROUP_SIZE, "1"); // Unmanaged
+    props.put(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, "3"); // Managed
 
     updateTestCluster(1, DrillConfig.create(props));
   }
