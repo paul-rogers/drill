@@ -178,10 +178,14 @@ import com.google.common.collect.Lists;
  * Basic operation:
  * <ul>
  * <li>The load phase in which batches are read from upstream.</li>
- * <li>The sort/merge phase in which batches are combined to produce
+ * <li>The merge phase in which spilled batches are combined to
+ * reduce the number of files below the configured limit. (Best
+ * practice is to configure the system to avoid this phase.)
+ * <li>The delivery phase in which batches are combined to produce
  * the final output.</li>
  * </ul>
  * During the load phase:
+ * <p>
  * <ul>
  * <li>The incoming (upstream) operator provides a series of batches.</li>
  * <li>This operator sorts each batch, and accumulates them in an in-memory
@@ -195,6 +199,7 @@ import com.google.common.collect.Lists;
  * </ul>
  * <p>
  * During the sort/merge phase:
+ * <p>
  * <ul>
  * <li>When the input operator is complete, this operator merges the accumulated
  * batches (which may be all in memory or partially on disk), and returns
@@ -221,16 +226,20 @@ import com.google.common.collect.Lists;
  * <dd>The (comma? space?) separated list of directories, on the above file
  * system, to which to spill files in round-robin fashion. The query will
  * fail if any one of the directories becomes full.</dt>
+ * <dt>drill.exec.sort.external.spill.file_size</dt>
+ * <dd>Target size for first-generation spill files Set this to large
+ * enough to get nice long writes, but not so large that spill directories
+ * are overwhelmed.</dd>
  * <dt>drill.exec.sort.external.mem_limit</dt>
- * <dd>Maximum memory to use for the in-memory buffer. Primarily for testing.</dd>
+ * <dd>Maximum memory to use for the in-memory buffer. (Primarily for testing.)</dd>
  * <dt>drill.exec.sort.external.batch_limit</dt>
- * <dd>Maximum number of batches to hold in memory. Primarily for testing.</dd>
+ * <dd>Maximum number of batches to hold in memory. (Primarily for testing.)</dd>
  * <dt>drill.exec.sort.external.spill.max_count</dt>
- * <dd>Maximum spill file size for “first generation” files.
- * Defaults to 0 (no limit).</dd>
+ * <dd>Maximum number of batches to add to “first generation” files.
+ * Defaults to 0 (no limit). (Primarily for testing.)</dd>
  * <dt>drill.exec.sort.external.spill.min_count</dt>
- * <dd>Minimum spill file size for “first generation” files.
- * Defaults to 0 (no limit).</dd>
+ * <dd>Minimum number of batches to add to “first generation” files.
+ * Defaults to 0 (no limit). (Primarily for testing.)</dd>
  * <dt>drill.exec.sort.external.merge_limit</dt>
  * <dd>Sets the maximum number of runs to be merged in a single pass (limits
  * the number of open files.)</dd>
@@ -245,12 +254,13 @@ import com.google.common.collect.Lists;
  * </ul>
  * <h4>Logging</h4>
  * Logging in this operator serves two purposes:
+ * <li>
  * <ul>
  * <li>Normal diagnostic information.</li>
  * <li>Capturing the essence of the operator functionality for analysis in unit
  * tests.</li>
  * </ul>
- * The test logging is designed to capture key events and timings. Take care
+ * Test logging is designed to capture key events and timings. Take care
  * when changing or removing log messages as you may need to adjust unit tests
  * accordingly.
  */
@@ -455,6 +465,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private int mergeLimit;
   private int minSpillLimit;
   private int maxSpillLimit;
+  private long spillFileSize;
 
 
   public enum Metric implements MetricDef {
