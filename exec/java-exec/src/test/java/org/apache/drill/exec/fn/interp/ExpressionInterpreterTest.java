@@ -22,15 +22,10 @@ import static org.junit.Assert.assertEquals;
 import java.nio.ByteBuffer;
 import java.util.List;
 
-import org.antlr.runtime.ANTLRStringStream;
-import org.antlr.runtime.CommonTokenStream;
-import org.antlr.runtime.RecognitionException;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.expression.ErrorCollector;
 import org.apache.drill.common.expression.ErrorCollectorImpl;
 import org.apache.drill.common.expression.LogicalExpression;
-import org.apache.drill.common.expression.parser.ExprLexer;
-import org.apache.drill.common.expression.parser.ExprParser;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.common.util.DrillStringUtils;
@@ -155,39 +150,39 @@ public class ExpressionInterpreterTest  extends PopUnitTestBase {
 
   protected void doTest(String expressionStr, String[] colNames, TypeProtos.MajorType[] colTypes, String[] expectFirstTwoValues, BitControl.PlanFragment planFragment) throws Exception {
     final RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
-    final Drillbit bit1 = new Drillbit(CONFIG, serviceSet);
+    try (Drillbit bit1 = new Drillbit(CONFIG, serviceSet)) {
 
-    bit1.run();
+      bit1.run();
 
-    // Create a mock scan batch as input for evaluation.
-    assertEquals(colNames.length, colTypes.length);
+      // Create a mock scan batch as input for evaluation.
+      assertEquals(colNames.length, colTypes.length);
 
-    final MockGroupScanPOP.MockColumn[] columns = new MockGroupScanPOP.MockColumn[colNames.length];
+      final MockGroupScanPOP.MockColumn[] columns = new MockGroupScanPOP.MockColumn[colNames.length];
 
-    for (int i = 0; i < colNames.length; i++ ) {
-      columns[i] = new MockGroupScanPOP.MockColumn(colNames[i], colTypes[i].getMinorType(), colTypes[i].getMode(),0,0,0);
+      for (int i = 0; i < colNames.length; i++ ) {
+        columns[i] = new MockGroupScanPOP.MockColumn(colNames[i], colTypes[i].getMinorType(), colTypes[i].getMode(),0,0,0);
+      }
+
+      final MockGroupScanPOP.MockScanEntry entry = new MockGroupScanPOP.MockScanEntry(10, columns);
+      final MockSubScanPOP scanPOP = new MockSubScanPOP("testTable", java.util.Collections.singletonList(entry));
+
+      final ScanBatch batch = createMockScanBatch(bit1, scanPOP, planFragment);
+
+      batch.next();
+
+      final ValueVector vv = evalExprWithInterpreter(expressionStr, batch, bit1);
+
+      // Verify the first 2 values in the output of evaluation.
+      assertEquals(2, expectFirstTwoValues.length);
+      assertEquals(expectFirstTwoValues[0], getValueFromVector(vv, 0));
+      assertEquals(expectFirstTwoValues[1], getValueFromVector(vv, 1));
+
+      showValueVectorContent(vv);
+
+      vv.clear();
+      batch.close();
+      batch.getContext().close();
     }
-
-    final MockGroupScanPOP.MockScanEntry entry = new MockGroupScanPOP.MockScanEntry(10, columns);
-    final MockSubScanPOP scanPOP = new MockSubScanPOP("testTable", java.util.Collections.singletonList(entry));
-
-    final ScanBatch batch = createMockScanBatch(bit1, scanPOP, planFragment);
-
-    batch.next();
-
-    final ValueVector vv = evalExprWithInterpreter(expressionStr, batch, bit1);
-
-    // Verify the first 2 values in the output of evaluation.
-    assertEquals(2, expectFirstTwoValues.length);
-    assertEquals(expectFirstTwoValues[0], getValueFromVector(vv, 0));
-    assertEquals(expectFirstTwoValues[1], getValueFromVector(vv, 1));
-
-    showValueVectorContent(vv);
-
-    vv.clear();
-    batch.close();
-    batch.getContext().close();
-    bit1.close();
   }
 
   private ScanBatch createMockScanBatch(Drillbit bit, MockSubScanPOP scanPOP, BitControl.PlanFragment planFragment) {
@@ -230,7 +225,7 @@ public class ExpressionInterpreterTest  extends PopUnitTestBase {
       } else {
         cellString = DrillStringUtils.escapeNewLines(String.valueOf(o));
       }
-      System.out.printf(row + "th value: " + cellString + "\n");
+      logger.info(row + "th value: " + cellString + "\n");
     }
   }
 

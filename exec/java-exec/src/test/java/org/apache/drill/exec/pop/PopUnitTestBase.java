@@ -18,9 +18,11 @@
 package org.apache.drill.exec.pop;
 
 import java.io.IOException;
+import java.util.Properties;
 
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.util.FileUtils;
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ExecTest;
 import org.apache.drill.exec.exception.FragmentSetupException;
 import org.apache.drill.exec.physical.PhysicalPlan;
@@ -42,7 +44,9 @@ public abstract class PopUnitTestBase  extends ExecTest{
 
   @BeforeClass
   public static void setup() {
-    CONFIG = DrillConfig.create();
+    Properties props = new Properties( );
+    props.put(ExecConstants.HTTP_ENABLE, "false");
+    CONFIG = DrillConfig.create(props);
   }
 
 
