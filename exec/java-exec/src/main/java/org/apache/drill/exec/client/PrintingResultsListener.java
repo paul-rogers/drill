@@ -95,6 +95,8 @@ public class PrintingResultsListener implements UserResultsListener {
         case CSV:
           VectorUtil.showVectorAccessibleContent(loader, ",");
           break;
+        default:
+          assert false;
       }
       loader.clear();
     }

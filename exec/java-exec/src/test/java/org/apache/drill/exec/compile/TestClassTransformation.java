@@ -54,22 +54,22 @@ public class TestClassTransformation extends BaseTestQuery {
   public void testJaninoClassCompiler() throws Exception {
     logger.debug("Testing JaninoClassCompiler");
     sessionOptions.setOption(OptionValue.createString(OptionType.SESSION, QueryClassLoader.JAVA_COMPILER_OPTION, QueryClassLoader.CompilerPolicy.JANINO.name()));
-    QueryClassLoader loader = new QueryClassLoader(config, sessionOptions);
-    for (int i = 0; i < ITERATION_COUNT; i++) {
-      compilationInnerClass(loader);
+    try (QueryClassLoader loader = new QueryClassLoader(config, sessionOptions)) {
+      for (int i = 0; i < ITERATION_COUNT; i++) {
+        compilationInnerClass(loader);
+      }
     }
-    loader.close();
   }
 
   @Test
   public void testJDKClassCompiler() throws Exception {
     logger.debug("Testing JDKClassCompiler");
     sessionOptions.setOption(OptionValue.createString(OptionType.SESSION, QueryClassLoader.JAVA_COMPILER_OPTION, QueryClassLoader.CompilerPolicy.JDK.name()));
-    QueryClassLoader loader = new QueryClassLoader(config, sessionOptions);
-    for (int i = 0; i < ITERATION_COUNT; i++) {
-      compilationInnerClass(loader);
+    try (QueryClassLoader loader = new QueryClassLoader(config, sessionOptions)) {
+      for (int i = 0; i < ITERATION_COUNT; i++) {
+        compilationInnerClass(loader);
+      }
     }
-    loader.close();
   }
 
   @Test
@@ -80,25 +80,26 @@ public class TestClassTransformation extends BaseTestQuery {
     sessionOptions.setOption(OptionValue.createString(OptionType.SESSION, QueryClassLoader.JAVA_COMPILER_OPTION, QueryClassLoader.CompilerPolicy.JDK.name()));
 
     sessionOptions.setOption(OptionValue.createBoolean(OptionType.SESSION, QueryClassLoader.JAVA_COMPILER_DEBUG_OPTION, false));
-    QueryClassLoader loader = new QueryClassLoader(config, sessionOptions);
-    final byte[][] codeWithoutDebug = loader.getClassByteCode(classSet.generated, sourceCode);
-    loader.close();
     int sizeWithoutDebug = 0;
-    for (byte[] bs : codeWithoutDebug) {
-      sizeWithoutDebug += bs.length;
-    }
+    try (QueryClassLoader loader = new QueryClassLoader(config, sessionOptions)) {
+      final byte[][] codeWithoutDebug = loader.getClassByteCode(classSet.generated, sourceCode);
+      loader.close();
+      for (byte[] bs : codeWithoutDebug) {
+        sizeWithoutDebug += bs.length;
+      }
 
-    sessionOptions.setOption(OptionValue.createBoolean(OptionType.SESSION, QueryClassLoader.JAVA_COMPILER_DEBUG_OPTION, true));
-    loader = new QueryClassLoader(config, sessionOptions);
-    final byte[][] codeWithDebug = loader.getClassByteCode(classSet.generated, sourceCode);
-    loader.close();
-    int sizeWithDebug = 0;
-    for (byte[] bs : codeWithDebug) {
-      sizeWithDebug += bs.length;
+      sessionOptions.setOption(OptionValue.createBoolean(OptionType.SESSION, QueryClassLoader.JAVA_COMPILER_DEBUG_OPTION, true));
     }
+    try (QueryClassLoader loader = new QueryClassLoader(config, sessionOptions)) {
+      final byte[][] codeWithDebug = loader.getClassByteCode(classSet.generated, sourceCode);
+       int sizeWithDebug = 0;
+      for (byte[] bs : codeWithDebug) {
+        sizeWithDebug += bs.length;
+      }
 
-    Assert.assertTrue("Debug code is smaller than optimized code!!!", sizeWithDebug > sizeWithoutDebug);
-    logger.debug("Optimized code is {}% smaller than debug code.", (int)((sizeWithDebug - sizeWithoutDebug)/(double)sizeWithDebug*100));
+      Assert.assertTrue("Debug code is smaller than optimized code!!!", sizeWithDebug > sizeWithoutDebug);
+      logger.debug("Optimized code is {}% smaller than debug code.", (int)((sizeWithDebug - sizeWithoutDebug)/(double)sizeWithDebug*100));
+    }
   }
 
   /**
@@ -109,28 +110,41 @@ public class TestClassTransformation extends BaseTestQuery {
     CodeGenerator<ExampleInner> cg = newCodeGenerator(ExampleInner.class, ExampleTemplateWithInner.class);
 
     ClassTransformer ct = new ClassTransformer(sessionOptions);
+    @SuppressWarnings({ "unchecked" })
     Class<? extends ExampleInner> c = (Class<? extends ExampleInner>) ct.getImplementationClass(loader, cg.getDefinition(), cg.generateAndGet(), cg.getMaterializedClassName());
     ExampleInner t = (ExampleInner) c.newInstance();
+    outside = 0;
+    inside = 0;
+    inside2 = 0;
     t.doOutside();
+    Assert.assertEquals( outside, 1 );
     t.doInsideOutside();
+    Assert.assertEquals( inside, 1 );
+    Assert.assertEquals( inside2, 1 );
   }
 
+  public static int outside = 0;
+  public static int inside = 0;
+  public static int inside2 = 0;
   private <T, X extends T> CodeGenerator<T> newCodeGenerator(Class<T> iface, Class<X> impl) {
     final TemplateClassDefinition<T> template = new TemplateClassDefinition<T>(iface, impl);
     CodeGenerator<T> cg = CodeGenerator.get(template, getDrillbitContext().getFunctionImplementationRegistry(), getDrillbitContext().getOptionManager());
 
     ClassGenerator<T> root = cg.getRoot();
     root.setMappingSet(new MappingSet(new GeneratorMapping("doOutside", null, null, null)));
-    root.getSetupBlock().directStatement("System.out.println(\"outside\");");
+    String thisClassName = getClass( ).getName();
+//    root.getSetupBlock().directStatement("System.out.println(\"outside\");");
+    root.getSetupBlock().directStatement(thisClassName + ".outside = 1;");
 
 
     ClassGenerator<T> inner = root.getInnerGenerator("TheInnerClass");
     inner.setMappingSet(new MappingSet(new GeneratorMapping("doInside", null, null, null)));
-    inner.getSetupBlock().directStatement("System.out.println(\"inside\");");
+    inner.getSetupBlock().directStatement(thisClassName + ".inside = 1;");
+//    inner.getSetupBlock().directStatement("System.out.println(\"inside\");");
 
     ClassGenerator<T> doubleInner = inner.getInnerGenerator("DoubleInner");
     doubleInner.setMappingSet(new MappingSet(new GeneratorMapping("doDouble", null, null, null)));
-    doubleInner.getSetupBlock().directStatement("System.out.println(\"double\");");
+    doubleInner.getSetupBlock().directStatement(thisClassName + ".inside2 = 1;");
     return cg;
   }
 }
