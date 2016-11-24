@@ -17,8 +17,13 @@
  */
 package org.apache.drill.exec.impersonation;
 
-import com.google.common.base.Joiner;
-import com.google.common.collect.Maps;
+import static org.hamcrest.core.StringContains.containsString;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
+
+import java.util.Map;
+
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.exceptions.UserRemoteException;
 import org.apache.drill.exec.store.dfs.WorkspaceConfig;
@@ -31,12 +36,8 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import java.util.Map;
-
-import static org.hamcrest.core.StringContains.containsString;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
+import com.google.common.base.Joiner;
+import com.google.common.collect.Maps;
 
 /**
  * Tests impersonation on metadata related queries as SHOW FILES, SHOW TABLES, CREATE VIEW, CREATE TABLE and DROP TABLE
@@ -55,6 +56,19 @@ public class TestImpersonationMetadata extends BaseTestImpersonation {
 
   @BeforeClass
   public static void setup() throws Exception {
+
+    // Suppress Parquet writer logging.
+    // This code works, but is very fragile. It can't move to
+    // a function. Both loggers must be adjusted. More work is
+    // needed to make this more stable.
+
+    @SuppressWarnings("unused")
+    Class<?> dummy = org.apache.parquet.Log.class;
+    java.util.logging.Logger logger = java.util.logging.Logger.getLogger("parquet");
+    logger.setLevel(java.util.logging.Level.SEVERE);
+    logger = java.util.logging.Logger.getLogger("org.apache.parquet.hadoop.ColumnChunkPageWriteStore");
+    logger.setLevel(java.util.logging.Level.SEVERE);
+
     startMiniDfsCluster(TestImpersonationMetadata.class.getSimpleName());
     startDrillCluster(true);
     addMiniDfsBasedStorage(createTestWorkspaces());
