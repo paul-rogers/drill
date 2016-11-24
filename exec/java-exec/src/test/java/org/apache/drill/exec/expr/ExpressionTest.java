@@ -18,14 +18,7 @@
 package org.apache.drill.exec.expr;
 
 import static org.junit.Assert.assertEquals;
-import mockit.Expectations;
-import mockit.Injectable;
-import mockit.NonStrict;
-import mockit.NonStrictExpectations;
 
-import org.antlr.runtime.ANTLRStringStream;
-import org.antlr.runtime.CommonTokenStream;
-import org.antlr.runtime.RecognitionException;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExpressionParsingException;
 import org.apache.drill.common.expression.ErrorCollector;
@@ -33,9 +26,6 @@ import org.apache.drill.common.expression.ErrorCollectorImpl;
 import org.apache.drill.common.expression.ExpressionPosition;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.expression.parser.ExprLexer;
-import org.apache.drill.common.expression.parser.ExprParser;
-import org.apache.drill.common.expression.parser.ExprParser.parse_return;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
@@ -51,6 +41,15 @@ import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.junit.Test;
 
+import mockit.Expectations;
+import mockit.Injectable;
+import mockit.NonStrict;
+import mockit.NonStrictExpectations;
+
+// Tests here generate the code, but don't double-check
+// the results. This should be done to verify that the
+// generated code is correct.
+
 public class ExpressionTest extends ExecTest {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExpressionTest.class);
 
@@ -59,7 +58,7 @@ public class ExpressionTest extends ExecTest {
 
   @Test
   public void testBasicExpression(@Injectable RecordBatch batch) throws Exception {
-    System.out.println(getExpressionCode("if(true) then 1 else 0 end", batch));
+    getExpressionCode("if(true) then 1 else 0 end", batch);
   }
 
   @Test
@@ -89,7 +88,7 @@ public class ExpressionTest extends ExecTest {
       }
 
     };
-    System.out.println(getExpressionCode("1 + 1", batch));
+    getExpressionCode("1 + 1", batch);
   }
 
   @Test
@@ -104,8 +103,7 @@ public class ExpressionTest extends ExecTest {
       }
 
     };
-    System.out.println(getExpressionCode("1 + alpha", batch));
-
+    getExpressionCode("1 + alpha", batch);
   }
 
   @Test(expected = ExpressionParsingException.class)
