@@ -73,9 +73,11 @@ public class TestAccountant {
   }
 
   private void ensureAccurateReservations(Accountant outsideParent) {
+    @SuppressWarnings("resource")
     final Accountant parent = new Accountant(outsideParent, 0, 10);
     assertEquals(0, parent.getAllocatedMemory());
 
+    @SuppressWarnings("resource")
     final Accountant child = new Accountant(parent, 2, Long.MAX_VALUE);
     assertEquals(2, parent.getAllocatedMemory());
 
