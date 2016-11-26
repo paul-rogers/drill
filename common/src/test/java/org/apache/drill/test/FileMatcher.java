@@ -31,7 +31,7 @@ import com.google.common.io.Closeables;
 public class FileMatcher {
 
   public interface Filter {
-    boolean accept( String line );
+    String filter( String line );
   }
 
   public static interface Source {
@@ -98,59 +98,81 @@ public class FileMatcher {
   }
 
   public static class Builder {
-    private boolean ignoreWhitespace;
+    private boolean ignoreWhitespace = true;
     private Filter filter;
     private Source expected;
     private Source actual;
+    private boolean capture;
+    public boolean allowComments = true;
 
-    Builder expectedFile( File file ) {
+    public Builder expectedFile( File file ) {
       expected = new FileSource( file );
       return this;
-   }
+    }
 
-    Builder expectedString( String text ) {
+    public Builder expectedString( String text ) {
       expected = new StringSource( text );
       return this;
     }
 
-    Builder expectedReader( Reader in ) {
+    public Builder expectedReader( Reader in ) {
       expected = new ReaderSource( in );
       return this;
     }
 
-    Builder expectedResource( String resource ) {
+    public Builder expectedResource( String resource ) {
       expected = new ResourceSource( resource );
       return this;
     }
 
-    Builder actualFile( File file ) {
+    public Builder actualFile( File file ) {
       actual = new FileSource( file );
       return this;
     }
 
-    Builder actualString( String text ) {
+    public Builder actualString( String text ) {
       actual = new StringSource( text );
       return this;
     }
 
-    Builder actualReader( Reader in ) {
+    public Builder actualReader( Reader in ) {
       actual = new ReaderSource( in );
       return this;
     }
 
-    Builder actualResource( String resource ) {
+    public Builder actualResource( String resource ) {
       actual = new ResourceSource( resource );
       return this;
     }
 
-    Builder ignoreWhitespace( boolean flag ) {
-      ignoreWhitespace = flag;
+    public Builder preserveWhitespace( ) {
+      ignoreWhitespace = false;
+      return this;
+    }
+    
+    public Builder disallowComments( ) {
+      allowComments = false;
       return this;
     }
 
-    Builder withFilter( Filter filter ) {
+    public Builder withFilter( Filter filter ) {
       this.filter = filter;
       return this;
+    }
+
+    public Builder capture( ) {
+      this.capture = true;
+      return this;
+    }
+
+    public boolean matches( ) throws IOException {
+      FileMatcher matcher = new FileMatcher( this );
+      if ( capture ) {
+        matcher.capture( );
+        return true;
+      } else {
+        return matcher.match( );
+      }
     }
   }
 
@@ -160,6 +182,23 @@ public class FileMatcher {
 
   private FileMatcher( Builder builder ) {
     this.builder = builder;
+  }
+
+  public void capture( ) throws IOException {
+    try (LineNumberReader actual = new LineNumberReader( builder.actual.reader() )) {
+      System.out.println( "----- Captured Results -----" );
+      String line;
+      while ((line = actual.readLine()) != null ) {
+        if ( builder.filter != null ) {
+          line = builder.filter.filter( line );
+          if ( line == null ) {
+            continue;
+          }
+        }
+        System.out.println( line );
+      }
+      System.out.println( "----- End Results -----" );
+    }
   }
 
   public boolean match( ) throws IOException {
@@ -189,6 +228,8 @@ public class FileMatcher {
           if ( expectedLine.isEmpty() ) {
             continue; }
         }
+        if ( builder.allowComments && expectedLine.charAt(0) == '#' ) {
+          continue; }
         break;
       }
       String actualLine;
@@ -196,13 +237,14 @@ public class FileMatcher {
         actualLine = actual.readLine();
         if ( actualLine == null ) {
           break; }
+        if ( builder.filter != null ) {
+          actualLine = builder.filter.filter( actualLine );
+          if ( actualLine == null ) {
+            continue; }
+        }
         if ( builder.ignoreWhitespace ) {
           actualLine = actualLine.trim();
           if ( actualLine.isEmpty() ) {
-            continue; }
-        }
-        if ( builder.filter != null ) {
-          if ( ! builder.filter.accept( actualLine ) ) {
             continue; }
         }
         break;
