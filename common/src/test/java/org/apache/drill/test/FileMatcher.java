@@ -149,7 +149,7 @@ public class FileMatcher {
       ignoreWhitespace = false;
       return this;
     }
-    
+
     public Builder disallowComments( ) {
       allowComments = false;
       return this;
@@ -192,8 +192,7 @@ public class FileMatcher {
         if ( builder.filter != null ) {
           line = builder.filter.filter( line );
           if ( line == null ) {
-            continue;
-          }
+            continue; }
         }
         System.out.println( line );
       }

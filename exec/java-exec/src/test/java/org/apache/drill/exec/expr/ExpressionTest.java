@@ -65,7 +65,7 @@ public class ExpressionTest extends ExecTest {
 
   @Test
   public void testBasicExpression(@Injectable RecordBatch batch) throws Exception {
-    checkExpressionCode("if(true) then 1 else 0 end", batch, "/code/expr/basicExpr.code");
+    checkExpressionCode("if(true) then 1 else 0 end", batch, "/code/expr/basicExpr.txt");
   }
 
   @Test
@@ -77,7 +77,7 @@ public class ExpressionTest extends ExecTest {
       batch.getValueVectorId(new SchemaPath("$f0", ExpressionPosition.UNKNOWN)); result=tfid;
     }};
 
-    checkExpressionCode("multiply(`$f0`, 1.0E-4)", batch, "/code/expr/upperExponent.code");
+    checkExpressionCode("multiply(`$f0`, 1.0E-4)", batch, "/code/expr/upperExponent.txt");
   }
 
   @Test
@@ -89,12 +89,12 @@ public class ExpressionTest extends ExecTest {
       batch.getValueVectorId(new SchemaPath("$f0", ExpressionPosition.UNKNOWN)); result=tfid;
     }};
 
-    checkExpressionCode("multiply(`$f0`, 1.0e-4)", batch, "/code/expr/lowerExponent.code");
+    checkExpressionCode("multiply(`$f0`, 1.0e-4)", batch, "/code/expr/lowerExponent.txt");
   }
 
   @Test
   public void testSpecial(final @Injectable RecordBatch batch) throws Exception {
-    checkExpressionCode("1 + 1", batch, "/code/expr/special.code");
+    checkExpressionCode("1 + 1", batch, "/code/expr/special.txt");
   }
 
   @Test
@@ -105,7 +105,7 @@ public class ExpressionTest extends ExecTest {
       batch.getValueVectorId(new SchemaPath("alpha", ExpressionPosition.UNKNOWN));
       result = tfid;
     }};
-    checkExpressionCode("1 + alpha", batch, "/code/expr/schemaExpr.code");
+    checkExpressionCode("1 + alpha", batch, "/code/expr/schemaExpr.txt");
   }
 
   @Test(expected = ExpressionParsingException.class)

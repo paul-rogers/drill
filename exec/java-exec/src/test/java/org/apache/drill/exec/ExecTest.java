@@ -17,14 +17,12 @@
  */
 package org.apache.drill.exec;
 
-import com.codahale.metrics.MetricRegistry;
-import com.google.common.io.Files;
+import java.io.File;
 
-import mockit.Expectations;
-import org.apache.commons.io.FileUtils;
 import org.antlr.runtime.ANTLRStringStream;
 import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.RecognitionException;
+import org.apache.commons.io.FileUtils;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.expression.LogicalExpression;
 import org.apache.drill.common.expression.parser.ExprLexer;
@@ -43,7 +41,11 @@ import org.apache.drill.test.DrillTest;
 import org.junit.After;
 import org.junit.BeforeClass;
 
-import java.io.File;
+import com.codahale.metrics.MetricRegistry;
+import com.google.common.io.Files;
+
+import mockit.Expectations;
+import mockit.internal.state.TestRun;
 
 
 public class ExecTest extends DrillTest {
@@ -88,6 +90,12 @@ public class ExecTest extends DrillTest {
   }
 
   protected void mockDrillbitContext(final DrillbitContext bitContext) throws Exception {
+
+    // This hack is necessary to work around the fact that JMockit insists
+    // that minTimes=0 be used only in a @Before method, but this test was
+    // already set up to do the work here.
+
+    TestRun.setRunningIndividualTest( TestRun.getCurrentTestInstance(), true );
     new Expectations() {{
       bitContext.getMetrics(); result = new MetricRegistry(); minTimes = 0;
       bitContext.getAllocator(); result = RootAllocatorFactory.newRoot(c);
@@ -96,6 +104,7 @@ public class ExecTest extends DrillTest {
       bitContext.getOptionManager(); result = optionManager; minTimes = 0;
       bitContext.getCompiler(); result = CodeCompilerTestFactory.getTestCompiler(c); minTimes = 0;
     }};
+    TestRun.setRunningIndividualTest( TestRun.getCurrentTestInstance(), false );
   }
 
   protected LogicalExpression parseExpr(String expr) throws RecognitionException {
