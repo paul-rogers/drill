@@ -1,0 +1,107 @@
+# Expected output for org.apache.drill.exec.compile.TestEvaluationVisitor.x
+
+package org.apache.drill.exec.test.generated;
+
+import org.apache.drill.exec.exception.SchemaChangeException;
+import org.apache.drill.exec.expr.holders.BitHolder;
+import org.apache.drill.exec.expr.holders.ComplexHolder;
+import org.apache.drill.exec.ops.FragmentContext;
+import org.apache.drill.exec.record.RecordBatch;
+import org.apache.drill.exec.vector.complex.MapVector;
+import org.apache.drill.exec.vector.complex.RepeatedMapVector;
+import org.apache.drill.exec.vector.complex.impl.NullReader;
+import org.apache.drill.exec.vector.complex.impl.RepeatedMapWriter;
+import org.apache.drill.exec.vector.complex.reader.FieldReader;
+
+public class ProjectorGen {
+
+    MapVector[] vv0;
+    FieldReader list5;
+    FieldReader list6;
+    FieldReader list7;
+    FieldReader reader8;
+    RepeatedMapVector vv9;
+    org.apache.drill.exec.vector.complex.writer.BaseWriter.MapWriter writer12;
+
+    public void doEval(int inIndex, int outIndex)
+        throws SchemaChangeException
+    {
+        {
+            ComplexHolder out3 = new ComplexHolder();
+            int isNull4 = 0;
+            complex:
+            {
+                vv0 [((inIndex)>>> 16)][((inIndex)>>> 16)].getReader().reset();
+                vv0 [((inIndex)>>> 16)][((inIndex)>>> 16)].getReader().setPosition(((inIndex)& 65535));
+                list5 = vv0 [((inIndex)>>> 16)][((inIndex)>>> 16)].getReader().reader("a").reader("b");
+                int desiredIndex0 = 4;
+                int currentIndex0 = -1;
+                while ((currentIndex0 <desiredIndex0)&&list5 .next()) {
+                    currentIndex0 = (currentIndex0 + 1);
+                }
+                if (desiredIndex0 != currentIndex0) {
+                    isNull4 = 1;
+                    break complex;
+                }
+                list6 = list5 .reader();
+                int desiredIndex1 = 2;
+                int currentIndex1 = -1;
+                while ((currentIndex1 <desiredIndex1)&&list6 .next()) {
+                    currentIndex1 = (currentIndex1 + 1);
+                }
+                if (desiredIndex1 != currentIndex1) {
+                    isNull4 = 1;
+                    break complex;
+                }
+                list7 = list6 .reader().reader("c");
+                int desiredIndex2 = 6;
+               int currentIndex2 = -1;
+                while ((currentIndex2 <desiredIndex2)&&list7 .next()) {
+                    currentIndex2 = (currentIndex2 + 1);
+                }
+                if (desiredIndex2 != currentIndex2) {
+                    isNull4 = 1;
+                    break complex;
+                }
+            }
+            if (isNull4 == 0) {
+                reader8 = list7 .reader();
+            } else {
+                reader8 = NullReader.EMPTY_MAP_INSTANCE;
+            }
+            writer12 .setPosition((outIndex));
+            reader8 .copyAsValue(writer12);
+            BitHolder out13 = new BitHolder();
+            out13 .value = 1;
+        }
+    }
+
+    public void doSetup(FragmentContext context, RecordBatch incoming, RecordBatch outgoing)
+        throws SchemaChangeException
+    {
+        {
+            int[] fieldIds1 = new int[ 2 ] ;
+            fieldIds1 [ 0 ] = 1;
+            fieldIds1 [ 1 ] = 3;
+            Object tmp2 = (incoming).getValueAccessorById(MapVector.class, fieldIds1).getValueVectors();
+            if (tmp2 == null) {
+                throw new SchemaChangeException("Failure while loading vector vv0 with id: TypedFieldId [fieldIds=[1, 3], remainder=NameSegment [path=a, getChild()=NameSegment [path=b, getChild()=ArraySegment [index=4, getChild()=ArraySegment [index=2, getChild()=NameSegment [path=c, getChild()=ArraySegment [index=6, getChild()=null]]]]]]].");
+            }
+            vv0 = ((MapVector[]) tmp2);
+            int[] fieldIds10 = new int[ 1 ] ;
+            fieldIds10 [ 0 ] = 1;
+            Object tmp11 = (outgoing).getValueAccessorById(RepeatedMapVector.class, fieldIds10).getValueVector();
+            if (tmp11 == null) {
+                throw new SchemaChangeException("Failure while loading vector vv9 with id: TypedFieldId [fieldIds=[1], remainder=null].");
+            }
+            vv9 = ((RepeatedMapVector) tmp11);
+            writer12 = new RepeatedMapWriter(vv9, null);
+        }
+    }
+
+    public void __DRILL_INIT__()
+        throws SchemaChangeException
+    {
+    }
+
+}

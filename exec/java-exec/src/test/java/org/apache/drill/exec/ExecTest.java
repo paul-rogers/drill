@@ -95,7 +95,7 @@ public class ExecTest extends DrillTest {
     // that minTimes=0 be used only in a @Before method, but this test was
     // already set up to do the work here.
 
-    TestRun.setRunningIndividualTest( TestRun.getCurrentTestInstance(), true );
+//    TestRun.setRunningIndividualTest( TestRun.getCurrentTestInstance(), true );
     new Expectations() {{
       bitContext.getMetrics(); result = new MetricRegistry(); minTimes = 0;
       bitContext.getAllocator(); result = RootAllocatorFactory.newRoot(c);
@@ -104,7 +104,7 @@ public class ExecTest extends DrillTest {
       bitContext.getOptionManager(); result = optionManager; minTimes = 0;
       bitContext.getCompiler(); result = CodeCompilerTestFactory.getTestCompiler(c); minTimes = 0;
     }};
-    TestRun.setRunningIndividualTest( TestRun.getCurrentTestInstance(), false );
+//    TestRun.setRunningIndividualTest( TestRun.getCurrentTestInstance(), false );
   }
 
   protected LogicalExpression parseExpr(String expr) throws RecognitionException {

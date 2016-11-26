@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.compile;
 
+import static org.junit.Assert.assertTrue;
+
 import org.antlr.runtime.ANTLRStringStream;
 import org.antlr.runtime.CommonTokenStream;
 import org.apache.drill.common.config.DrillConfig;
@@ -34,11 +36,11 @@ import org.apache.drill.exec.expr.ValueVectorWriteExpression;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.drill.exec.physical.impl.project.Projector;
 import org.apache.drill.exec.record.TypedFieldId;
+import org.apache.drill.test.FileMatcher;
 import org.junit.Test;
 
 public class TestEvaluationVisitor {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestEvaluationVisitor.class);
-
 
   @Test
   public void x() throws Exception{
@@ -69,7 +71,19 @@ public class TestEvaluationVisitor {
     ValueVectorWriteExpression e2 = new ValueVectorWriteExpression(outId, e, true);
 
     v.addExpr(e2,  g.getRoot());
-    logger.debug(g.generateAndGet());
+    String code = g.generateAndGet();
+    logger.debug(code);
+    FileMatcher.Builder builder = new FileMatcher.Builder( )
+        .actualString( code )
+        .withFilter( new FileMatcher.Filter( ) {
+          @Override
+          public String filter(String line) {
+            return line.replaceAll("ProjectorGen\\d+", "ProjectorGen");
+          }
+        })
+//        .capture( )
+        .expectedResource( "/code/compile/evalVisitor.txt" );
+    assertTrue( builder.matches( ) );
   }
 
   private LogicalExpression getExpr(String expr) throws Exception{
