@@ -17,14 +17,14 @@
  */
 package org.apache.drill.exec.cache;
 
+import static org.junit.Assert.assertEquals;
+
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.PrintStream;
 import java.util.List;
 
-import com.google.common.io.Files;
 import org.apache.drill.common.config.DrillConfig;
-import org.apache.drill.common.expression.ExpressionPosition;
-import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.scanner.ClassPathScanner;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.common.util.TestTools;
@@ -49,12 +49,13 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.junit.Rule;
 import org.junit.Test;
-
-import com.google.common.collect.Lists;
 import org.junit.rules.TestRule;
 
+import com.google.common.collect.Lists;
+import com.google.common.io.Files;
+
 public class TestWriteToDisk extends ExecTest {
-  @Rule public final TestRule TIMEOUT = TestTools.getTimeoutRule(90000); // 90secs
+  @Rule public final TestRule TIMEOUT = TestTools.getTimeoutRule(90_000); // 90secs
 
   @Test
   @SuppressWarnings("static-method")
@@ -115,6 +116,8 @@ public class TestWriteToDisk extends ExecTest {
           }
         }
 
+        ByteArrayOutputStream baStream = new ByteArrayOutputStream( );
+        PrintStream out = new PrintStream( baStream );
         final VectorAccessible newContainer = newWrap.get();
         for (VectorWrapper<?> w : newContainer) {
           try (ValueVector vv = w.getValueVector()) {
@@ -122,13 +125,16 @@ public class TestWriteToDisk extends ExecTest {
             for (int i = 0; i < values; i++) {
               final Object o = vv.getAccessor().getObject(i);
               if (o instanceof byte[]) {
-                System.out.println(new String((byte[]) o));
+                out.println(new String((byte[]) o));
               } else {
-                System.out.println(o);
+                out.println(o);
               }
             }
           }
         }
+        out.flush();
+        String output = baStream.toString( "UTF-8" );
+        assertEquals( "0\n1\n2\n3\nZERO\nONE\nTWO\nTHREE\n", output );
       }
     }
   }
