@@ -40,7 +40,6 @@ import org.apache.drill.common.scanner.persistence.AnnotatedClassDescriptor;
 import org.apache.drill.common.scanner.persistence.ScanResult;
 import org.apache.drill.exec.expr.DrillFunc;
 import org.apache.drill.exec.expr.annotations.FunctionTemplate;
-import org.apache.drill.exec.fn.impl.testing.GeneratorFunctions.IncreasingBigInt;
 import org.apache.drill.exec.fn.impl.testing.GeneratorFunctions.RandomBigIntGauss;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.junit.Assert;
@@ -48,6 +47,7 @@ import org.junit.Test;
 
 public class TestClassPathScanner {
 
+  @SuppressWarnings("unused")
   @SafeVarargs
   final private <T extends Comparable<? super T>> void assertListEqualsUnordered(Collection<T> list, T... expected) {
     List<T> expectedList = asList(expected);
