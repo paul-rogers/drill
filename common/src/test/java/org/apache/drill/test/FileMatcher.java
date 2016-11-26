@@ -20,6 +20,7 @@ package org.apache.drill.test;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.LineNumberReader;
 import java.io.Reader;
@@ -90,7 +91,11 @@ public class FileMatcher {
     @Override
     public Reader reader( ) {
       try {
-        return new InputStreamReader( getClass( ).getResourceAsStream( resource ), "UTF-8" );
+        InputStream stream = getClass( ).getResourceAsStream( resource );
+        if ( stream == null ) {
+          throw new IllegalStateException( "Resource not found: " + resource );
+        }
+        return new InputStreamReader( stream, "UTF-8" );
       } catch (UnsupportedEncodingException e) {
         throw new IllegalStateException( e );
       }
