@@ -45,7 +45,6 @@ import com.codahale.metrics.MetricRegistry;
 import com.google.common.io.Files;
 
 import mockit.Expectations;
-import mockit.internal.state.TestRun;
 
 
 public class ExecTest extends DrillTest {
