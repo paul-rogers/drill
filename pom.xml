@@ -580,7 +580,7 @@
       <!-- JMockit needs to be on class path before JUnit. -->
       <groupId>com.googlecode.jmockit</groupId>
       <artifactId>jmockit</artifactId>
-      <version>1.3</version>
+      <version>1.7</version>
       <scope>test</scope>
     </dependency>
     <dependency>
