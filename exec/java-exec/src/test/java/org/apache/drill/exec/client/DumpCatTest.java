@@ -18,14 +18,17 @@
 package org.apache.drill.exec.client;
 
 import static org.apache.drill.exec.planner.PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.io.StringWriter;
 
 import org.apache.drill.common.config.DrillConfig;
+import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.util.FileUtils;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ExecTest;
@@ -44,8 +47,10 @@ import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.junit.Before;
 import org.junit.Test;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.base.Charsets;
 import com.google.common.io.Files;
 
@@ -60,12 +65,19 @@ public class DumpCatTest  extends ExecTest {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DumpCatTest.class);
   private final DrillConfig c = DrillConfig.create();
 
+  @Injectable DrillbitContext bitContext;
+
+  @Before
+  public void setupMocks( ) throws Exception {
+    mockDrillbitContext(bitContext);
+  }
+
+  // The UserClientConnection is required, but not used, so an empty mock
+  // is used.
+
   @Test
-  public void testDumpCat(@Injectable final DrillbitContext bitContext, @Injectable UserClientConnection connection) throws Throwable
+  public void testDumpCat(@Injectable UserClientConnection connection) throws Throwable
   {
-
-      mockDrillbitContext(bitContext);
-
       final PhysicalPlanReader reader = defaultPhysicalPlanReader(c);
       final PhysicalPlan plan = reader.readPhysicalPlan(Files.toString(FileUtils.getResourceAsFile("/trace/simple_trace.json"), Charsets.UTF_8));
       final FunctionImplementationRegistry registry = new FunctionImplementationRegistry(c);
@@ -118,7 +130,9 @@ public class DumpCatTest  extends ExecTest {
       captureOut.flush();
       String output = baStream.toString( "UTF-8" );
       baStream.reset();
-      // Check the output here...
+      assertEquals( "Total # of batches: 1\nRecords : 1 / 1 \nAverage Record Size : 4 \n" +
+                    " Total Data Size : 4\nEmpty batch : 0\nSchema changes : 0\n" +
+                    "Schema change batch index : []\n", output );
 
       //Test Batch mode
       try(final FileInputStream input = new FileInputStream(filename)) {
@@ -126,6 +140,9 @@ public class DumpCatTest  extends ExecTest {
       }
       captureOut.flush();
       output = baStream.toString( "UTF-8" );
-      // Check the output here...
+      assertTrue( output.contains( "Records : 1 / 1" ) );
+      assertTrue( output.contains( "name : col1, minor_type : INT, data_mode : non-nullable" ) );
+      assertTrue( output.contains( "| col1<INT(REQUI |" ) );
+      assertTrue( output.contains( "| -2147483648    |" ) );
   }
 }

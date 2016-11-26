@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.util;
 
+import java.io.PrintStream;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
@@ -125,6 +126,18 @@ public class VectorUtil {
   }
 
   public static void showVectorAccessibleContent(VectorAccessible va, int[] columnWidths) {
+    showVectorAccessibleContent( va, columnWidths, System.out );
+  }
+
+  public static void showVectorAccessibleContent(VectorAccessible va, PrintStream out) {
+    showVectorAccessibleContent(va, DEFAULT_COLUMN_WIDTH, out);
+  }
+
+  public static void showVectorAccessibleContent(VectorAccessible va, int columnWidth, PrintStream out) {
+    showVectorAccessibleContent(va, new int[]{ columnWidth }, out);
+  }
+
+  public static void showVectorAccessibleContent(VectorAccessible va, int[] columnWidths, PrintStream out) {
     int width = 0;
     int columnIndex = 0;
     List<String> columns = Lists.newArrayList();
@@ -139,19 +152,19 @@ public class VectorUtil {
     }
 
     int rows = va.getRecordCount();
-    System.out.println(rows + " row(s):");
+    out.println(rows + " row(s):");
     for (int row = 0; row < rows; row++) {
       // header, every 50 rows.
       if (row%50 == 0) {
-        System.out.println(StringUtils.repeat("-", width + 1));
+        out.println(StringUtils.repeat("-", width + 1));
         columnIndex = 0;
         for (String column : columns) {
           int columnWidth = getColumnWidth(columnWidths, columnIndex);
-          System.out.printf(formats.get(columnIndex), column.length() <= columnWidth ? column : column.substring(0, columnWidth - 1));
+          out.printf(formats.get(columnIndex), column.length() <= columnWidth ? column : column.substring(0, columnWidth - 1));
           columnIndex++;
         }
-        System.out.printf("|\n");
-        System.out.println(StringUtils.repeat("-", width + 1));
+        out.printf("|\n");
+        out.println(StringUtils.repeat("-", width + 1));
       }
       // column values
       columnIndex = 0;
@@ -164,13 +177,13 @@ public class VectorUtil {
         } else {
           cellString = DrillStringUtils.escapeNewLines(String.valueOf(o));
         }
-        System.out.printf(formats.get(columnIndex), cellString.length() <= columnWidth ? cellString : cellString.substring(0, columnWidth - 1));
+        out.printf(formats.get(columnIndex), cellString.length() <= columnWidth ? cellString : cellString.substring(0, columnWidth - 1));
         columnIndex++;
       }
-      System.out.printf("|\n");
+      out.printf("|\n");
     }
     if (rows > 0) {
-      System.out.println(StringUtils.repeat("-", width + 1));
+      out.println(StringUtils.repeat("-", width + 1));
     }
 
     for (VectorWrapper<?> vw : va) {

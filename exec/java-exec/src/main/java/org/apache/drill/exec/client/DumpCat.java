@@ -261,7 +261,7 @@ public class DumpCat {
       out.println("Schema Information");
       for (final VectorWrapper<?> w : vectorContainer) {
         final MaterializedField field = w.getValueVector().getField();
-        out.println (String.format("name : %s, minor_type : %s, data_mode : %s",
+        out.println(String.format("name : %s, minor_type : %s, data_mode : %s",
                                           field.getPath(),
                                           field.getType().getMinorType().toString(),
                                           field.isNullable() ? "nullable":"non-nullable"
@@ -270,7 +270,7 @@ public class DumpCat {
     }
 
     /* show the contents in the batch */
-    VectorUtil.showVectorAccessibleContent(vectorContainer);
+    VectorUtil.showVectorAccessibleContent(vectorContainer, out);
   }
 
   /* Get batch meta info : rows, selectedRows, dataSize */
