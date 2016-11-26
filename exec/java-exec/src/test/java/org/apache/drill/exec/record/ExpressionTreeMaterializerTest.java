@@ -21,7 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import mockit.Injectable;
-import mockit.NonStrictExpectations;
+import mockit.Expectations;
 
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.expression.ErrorCollector;
@@ -79,7 +79,7 @@ public class ExpressionTreeMaterializerTest extends ExecTest {
     builder.addField(getField(2, "test", bigIntType));
     final BatchSchema schema = builder.build();
 
-    new NonStrictExpectations() {
+    new Expectations() {
       {
         batch.getValueVectorId(new SchemaPath("test", ExpressionPosition.UNKNOWN));
         result = new TypedFieldId(Types.required(MinorType.BIGINT), -5);
@@ -95,7 +95,7 @@ public class ExpressionTreeMaterializerTest extends ExecTest {
 
   @Test
   public void testMaterializingLateboundTree(final @Injectable RecordBatch batch) throws SchemaChangeException {
-    new NonStrictExpectations() {
+    new Expectations() {
       {
         batch.getValueVectorId(SchemaPath.getSimplePath("test"));
         result = new TypedFieldId(Types.required(MinorType.BIT), -4);
@@ -189,7 +189,7 @@ public class ExpressionTreeMaterializerTest extends ExecTest {
       }
     };
 
-    new NonStrictExpectations() {
+    new Expectations() {
       {
         batch.getValueVectorId(new SchemaPath("test", ExpressionPosition.UNKNOWN));
         result = new TypedFieldId(Types.required(MinorType.BIGINT), -5);

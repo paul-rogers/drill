@@ -21,7 +21,7 @@ import java.io.IOException;
 import java.net.URL;
 
 import mockit.Mocked;
-import mockit.NonStrictExpectations;
+import mockit.Expectations;
 
 import org.apache.calcite.jdbc.SimpleCalciteSchema;
 import org.apache.calcite.schema.SchemaPlus;
@@ -87,22 +87,29 @@ public class PlanningBase extends ExecTest{
     final QueryOptionManager queryOptions = new QueryOptionManager(sessionOptions);
     final ExecutionControls executionControls = new ExecutionControls(queryOptions, DrillbitEndpoint.getDefaultInstance());
 
-    new NonStrictExpectations() {
+    new Expectations() {
       {
         dbContext.getMetrics();
         result = new MetricRegistry();
+        minTimes = 0;
         dbContext.getAllocator();
         result = allocator;
+        minTimes = 0;
         dbContext.getConfig();
         result = config;
+        minTimes = 0;
         dbContext.getOptionManager();
         result = systemOptions;
+        minTimes = 0;
         dbContext.getStoreProvider();
         result = provider;
+        minTimes = 0;
         dbContext.getClasspathScan();
         result = scanResult;
+        minTimes = 0;
         dbContext.getLpPersistence();
         result = logicalPlanPersistence;
+        minTimes = 0;
       }
     };
 
@@ -113,36 +120,50 @@ public class PlanningBase extends ExecTest{
     final SchemaPlus root = SimpleCalciteSchema.createRootSchema(false);
     registry.getSchemaFactory().registerSchemas(SchemaConfig.newBuilder("foo", context).build(), root);
 
-    new NonStrictExpectations() {
+    new Expectations() {
       {
         context.getNewDefaultSchema();
         result = root;
+        minTimes = 0;
         context.getLpPersistence();
         result = new LogicalPlanPersistence(config, ClassPathScanner.fromPrescan(config));
+        minTimes = 0;
         context.getStorage();
         result = registry;
+        minTimes = 0;
         context.getFunctionRegistry();
         result = functionRegistry;
+        minTimes = 0;
         context.getSession();
         result = UserSession.Builder.newBuilder().setSupportComplexTypes(true).build();
+        minTimes = 0;
         context.getCurrentEndpoint();
         result = DrillbitEndpoint.getDefaultInstance();
+        minTimes = 0;
         context.getActiveEndpoints();
         result = ImmutableList.of(DrillbitEndpoint.getDefaultInstance());
+        minTimes = 0;
         context.getPlannerSettings();
         result = new PlannerSettings(queryOptions, functionRegistry);
+        minTimes = 0;
         context.getOptions();
         result = queryOptions;
+        minTimes = 0;
         context.getConfig();
         result = config;
+        minTimes = 0;
         context.getDrillOperatorTable();
         result = table;
+        minTimes = 0;
         context.getAllocator();
         result = allocator;
+        minTimes = 0;
         context.getExecutionControls();
         result = executionControls;
+        minTimes = 0;
         dbContext.getLpPersistence();
         result = logicalPlanPersistence;
+        minTimes = 0;
       }
     };
 

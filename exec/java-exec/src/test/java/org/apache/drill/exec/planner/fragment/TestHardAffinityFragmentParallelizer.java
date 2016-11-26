@@ -19,8 +19,9 @@ package org.apache.drill.exec.planner.fragment;
 
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
+
+import mockit.Expectations;
 import mockit.Mocked;
-import mockit.NonStrictExpectations;
 import org.apache.drill.exec.physical.EndpointAffinity;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
@@ -84,7 +85,7 @@ public class TestHardAffinityFragmentParallelizer {
   }
 
   private final Wrapper newWrapper(double cost, int minWidth, int maxWidth, List<EndpointAffinity> epAffs) {
-    new NonStrictExpectations() {
+    new Expectations() {
       {
         fragment.getRoot(); result = root;
       }

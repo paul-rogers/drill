@@ -608,7 +608,7 @@ public class ParquetRecordReaderTest extends BaseTestQuery {
     final FunctionImplementationRegistry registry = new FunctionImplementationRegistry(c);
     final FragmentContext context = new FragmentContext(bitContext, BitControl.PlanFragment.getDefaultInstance(), connection, registry);
 
-//    new NonStrictExpectations() {
+//    new Expectations() {
 //      {
 //        context.getAllocator(); result = BufferAllocator.getAllocator(DrillConfig.create());
 //      }

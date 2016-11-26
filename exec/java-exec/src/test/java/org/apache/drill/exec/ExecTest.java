@@ -19,7 +19,8 @@ package org.apache.drill.exec;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.common.io.Files;
-import mockit.NonStrictExpectations;
+
+import mockit.Expectations;
 import org.apache.commons.io.FileUtils;
 import org.antlr.runtime.ANTLRStringStream;
 import org.antlr.runtime.CommonTokenStream;
@@ -87,13 +88,13 @@ public class ExecTest extends DrillTest {
   }
 
   protected void mockDrillbitContext(final DrillbitContext bitContext) throws Exception {
-    new NonStrictExpectations() {{
-      bitContext.getMetrics(); result = new MetricRegistry();
+    new Expectations() {{
+      bitContext.getMetrics(); result = new MetricRegistry(); minTimes = 0;
       bitContext.getAllocator(); result = RootAllocatorFactory.newRoot(c);
-      bitContext.getOperatorCreatorRegistry(); result = new OperatorCreatorRegistry(ClassPathScanner.fromPrescan(c));
-      bitContext.getConfig(); result = c;
-      bitContext.getOptionManager(); result = optionManager;
-      bitContext.getCompiler(); result = CodeCompilerTestFactory.getTestCompiler(c);
+      bitContext.getOperatorCreatorRegistry(); result = new OperatorCreatorRegistry(ClassPathScanner.fromPrescan(c)); minTimes = 0;
+      bitContext.getConfig(); result = c; minTimes = 0;
+      bitContext.getOptionManager(); result = optionManager; minTimes = 0;
+      bitContext.getCompiler(); result = CodeCompilerTestFactory.getTestCompiler(c); minTimes = 0;
     }};
   }
 

@@ -100,7 +100,7 @@ public class TestAffinityCalculator extends ExecTest {
 //    final LinkedList<CoordinationProtos.DrillbitEndpoint> endPoints = buildEndpoints(numberOfHosts);
 //    buildRowGroups(rowGroups, numberOfBlocks, blockSize, 3);
 //
-//    new NonStrictExpectations() {{
+//    new Expectations() {{
 //      fs.getFileBlockLocations(file, 0, 3*blockSize); result = blockLocations;
 //      fs.getFileStatus(new Path(path)); result = file;
 //      file.getLen(); result = 3*blockSize;
@@ -172,7 +172,7 @@ public class TestAffinityCalculator extends ExecTest {
     final BlockLocation[] blockLocations = buildBlockLocations2(hosts, blockSize);
     final LinkedList<CoordinationProtos.DrillbitEndpoint> endPoints = buildEndpoints(numberOfHosts);
 
-    new NonStrictExpectations() {{
+    new Expectations() {{
       engine.getFileSystem(); result = fs;
       engine.getContext(); result = context;
       context.getBits(); result = endPoints;

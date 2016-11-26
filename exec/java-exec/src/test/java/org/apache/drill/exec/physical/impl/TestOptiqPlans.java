@@ -20,7 +20,7 @@ package org.apache.drill.exec.physical.impl;
 import java.util.List;
 
 import mockit.Injectable;
-import mockit.NonStrictExpectations;
+import mockit.Expectations;
 
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.logical.LogicalPlan;
@@ -94,7 +94,7 @@ public class TestOptiqPlans extends ExecTest {
 
   private SimpleRootExec doLogicalTest(final BootStrapContext context, UserClientConnection connection, String file,
       ClusterCoordinator coord, DataConnectionCreator com, Controller controller, WorkEventBus workBus) throws Exception {
-    new NonStrictExpectations() {
+    new Expectations() {
       {
         context.getMetrics();
         result = new MetricRegistry();

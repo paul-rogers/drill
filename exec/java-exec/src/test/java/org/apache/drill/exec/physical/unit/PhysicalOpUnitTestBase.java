@@ -23,7 +23,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import mockit.Delegate;
 import mockit.Injectable;
-import mockit.NonStrictExpectations;
+import mockit.Expectations;
 import org.antlr.runtime.ANTLRStringStream;
 import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.RecognitionException;
@@ -278,7 +278,7 @@ public class PhysicalOpUnitTestBase extends ExecTest {
   private void mockFragmentContext(long initReservation, long maxAllocation) throws Exception{
     final CodeCompiler compiler = new CodeCompiler(drillConf, optionManager);
     final BufferAllocator allocator = this.allocator.newChildAllocator("allocator_for_operator_test", initReservation, maxAllocation);
-    new NonStrictExpectations() {
+    new Expectations() {
       {
 //        optManager.getOption(withAny(new TypeValidators.BooleanValidator("", false))); result = false;
 //        // TODO(DRILL-4450) - Probably want to just create a default option manager, this is a hack to prevent

@@ -52,6 +52,7 @@ import mockit.integration.junit4.JMockit;
 // generated code is correct.
 
 //@RunWith(JMockit.class)
+@RunWith(mockit.integration.junit4.JMockit.class)
 public class ExpressionTest extends ExecTest {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExpressionTest.class);
 
