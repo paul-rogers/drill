@@ -40,16 +40,18 @@ import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import mockit.Expectations;
 import mockit.Injectable;
-import mockit.NonStrict;
 import mockit.NonStrictExpectations;
+import mockit.integration.junit4.JMockit;
 
-// Tests here generate the code, but don't double-check
+// Tests here generate code, but don't double-check
 // the results. This should be done to verify that the
 // generated code is correct.
 
+//@RunWith(JMockit.class)
 public class ExpressionTest extends ExecTest {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExpressionTest.class);
 
@@ -77,7 +79,7 @@ public class ExpressionTest extends ExecTest {
     final TypedFieldId tfid = new TypedFieldId(type, false, 0);
 
     new NonStrictExpectations() {
-      @NonStrict VectorWrapper<?> wrapper;
+      VectorWrapper<?> wrapper;
       {
         batch.getValueVectorId(new SchemaPath("alpha", ExpressionPosition.UNKNOWN));
         result = tfid;

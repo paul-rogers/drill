@@ -56,12 +56,15 @@ import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.VarBinaryVector;
 import org.apache.drill.exec.vector.VarCharVector;
 import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Files;
 
 import mockit.Injectable;
+import mockit.integration.junit4.JMockit;
 
+@RunWith(JMockit.class)
 public class TestCastFunctions extends PopUnitTestBase{
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestSimpleFunctions.class);
 
