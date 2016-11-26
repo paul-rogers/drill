@@ -43,6 +43,19 @@ import static org.junit.Assert.assertNull;
 public class TestImpersonationQueries extends BaseTestImpersonation {
   @BeforeClass
   public static void setup() throws Exception {
+
+    // Suppress Parquet writer logging.
+    // This code works, but is very fragile. It can't move to
+    // a function. Both loggers must be adjusted. More work is
+    // needed to make this more stable.
+
+    @SuppressWarnings("unused")
+    Class<?> dummy = org.apache.parquet.Log.class;
+    java.util.logging.Logger logger = java.util.logging.Logger.getLogger("parquet");
+    logger.setLevel(java.util.logging.Level.SEVERE);
+    logger = java.util.logging.Logger.getLogger("org.apache.parquet.hadoop.ColumnChunkPageWriteStore");
+    logger.setLevel(java.util.logging.Level.SEVERE);
+
     startMiniDfsCluster(TestImpersonationQueries.class.getSimpleName());
     startDrillCluster(true);
     addMiniDfsBasedStorage(createTestWorkspaces());
