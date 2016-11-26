@@ -18,6 +18,9 @@
 package org.apache.drill.exec.expr;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import java.io.IOException;
 
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExpressionParsingException;
@@ -31,28 +34,29 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.ExecTest;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
-import org.apache.drill.exec.memory.RootAllocatorFactory;
 import org.apache.drill.exec.physical.impl.project.Projector;
-import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.TypedFieldId;
-import org.apache.drill.exec.record.VectorWrapper;
-import org.apache.drill.exec.vector.IntVector;
-import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.test.FileMatcher;
+import org.junit.Assert;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 
 import mockit.Expectations;
 import mockit.Injectable;
-import mockit.NonStrictExpectations;
-import mockit.integration.junit4.JMockit;
 
-// Tests here generate code, but don't double-check
-// the results. This should be done to verify that the
-// generated code is correct.
+/**
+ * Light testing of the expression parser. Makes use of
+ * <a href="http://jmockit.org">JMockit</a> to for the
+ * {@link RecordBatch} needed to resolve references to fields.
+ * When the expression is null, the batch is required, but unused,
+ * so the mocked batch is used in its "bare" form. When an expression
+ * references a field, then the field resolution method is mocked
+ * to return the desired type.
+ * <p>
+ * A number of expressions are further verified by comparing the
+ * generated code to a "golden" version.
+ */
 
-//@RunWith(JMockit.class)
-@RunWith(mockit.integration.junit4.JMockit.class)
 public class ExpressionTest extends ExecTest {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExpressionTest.class);
 
@@ -61,52 +65,47 @@ public class ExpressionTest extends ExecTest {
 
   @Test
   public void testBasicExpression(@Injectable RecordBatch batch) throws Exception {
-    getExpressionCode("if(true) then 1 else 0 end", batch);
+    checkExpressionCode("if(true) then 1 else 0 end", batch, "/code/expr/basicExpr.code");
   }
 
   @Test
   public void testExprParseUpperExponent(@Injectable RecordBatch batch) throws Exception {
-    getExpressionCode("multiply(`$f0`, 1.0E-4)", batch);
+    final TypeProtos.MajorType type = Types.optional(MinorType.FLOAT8);
+    final TypedFieldId tfid = new TypedFieldId(type, false, 0);
+
+    new Expectations( ) {{
+      batch.getValueVectorId(new SchemaPath("$f0", ExpressionPosition.UNKNOWN)); result=tfid;
+    }};
+
+    checkExpressionCode("multiply(`$f0`, 1.0E-4)", batch, "/code/expr/upperExponent.code");
   }
 
   @Test
   public void testExprParseLowerExponent(@Injectable RecordBatch batch) throws Exception {
-    getExpressionCode("multiply(`$f0`, 1.0e-4)", batch);
+    final TypeProtos.MajorType type = Types.optional(MinorType.FLOAT8);
+    final TypedFieldId tfid = new TypedFieldId(type, false, 0);
+
+    new Expectations( ) {{
+      batch.getValueVectorId(new SchemaPath("$f0", ExpressionPosition.UNKNOWN)); result=tfid;
+    }};
+
+    checkExpressionCode("multiply(`$f0`, 1.0e-4)", batch, "/code/expr/lowerExponent.code");
   }
 
   @Test
-  public void testSpecial(final @Injectable RecordBatch batch, @Injectable ValueVector vector) throws Exception {
-    final TypeProtos.MajorType type = Types.optional(MinorType.INT);
-    final TypedFieldId tfid = new TypedFieldId(type, false, 0);
-
-    new NonStrictExpectations() {
-      VectorWrapper<?> wrapper;
-      {
-        batch.getValueVectorId(new SchemaPath("alpha", ExpressionPosition.UNKNOWN));
-        result = tfid;
-        batch.getValueAccessorById(IntVector.class, tfid.getFieldIds());
-        result = wrapper;
-        wrapper.getValueVector();
-        result = new IntVector(MaterializedField.create("result", type), RootAllocatorFactory.newRoot(c));
-      }
-
-    };
-    getExpressionCode("1 + 1", batch);
+  public void testSpecial(final @Injectable RecordBatch batch) throws Exception {
+    checkExpressionCode("1 + 1", batch, "/code/expr/special.code");
   }
 
   @Test
   public void testSchemaExpression(final @Injectable RecordBatch batch) throws Exception {
     final TypedFieldId tfid = new TypedFieldId(Types.optional(MinorType.BIGINT), false, 0);
 
-    new Expectations() {
-      {
-        batch.getValueVectorId(new SchemaPath("alpha", ExpressionPosition.UNKNOWN));
-        result = tfid;
-        // batch.getValueVectorById(tfid); result = new Fixed4(null, null);
-      }
-
-    };
-    getExpressionCode("1 + alpha", batch);
+    new Expectations() {{
+      batch.getValueVectorId(new SchemaPath("alpha", ExpressionPosition.UNKNOWN));
+      result = tfid;
+    }};
+    checkExpressionCode("1 + alpha", batch, "/code/expr/schemaExpr.code");
   }
 
   @Test(expected = ExpressionParsingException.class)
@@ -135,4 +134,28 @@ public class ExpressionTest extends ExecTest {
     cg.addExpr(new ValueVectorWriteExpression(new TypedFieldId(materializedExpr.getMajorType(), -1), materializedExpr));
     return cg.getCodeGenerator().generateAndGet();
   }
+
+  private void checkExpressionCode(String expression, RecordBatch batch,
+      String expected) throws Exception {
+    String code = getExpressionCode( expression, batch );
+    try {
+      FileMatcher.Builder builder = new FileMatcher.Builder( )
+          .actualString( code )
+          .withFilter( new FileMatcher.Filter( ) {
+            @Override
+            public String filter(String line) {
+              return line.replaceAll("ProjectorGen\\d+", "ProjectorGen");
+            }
+          });
+      if ( expected == null ) {
+        builder.capture( );
+      } else {
+        builder.expectedResource( expected );
+      }
+      assertTrue( builder.matches( ) );
+    } catch (IOException e) {
+      Assert.fail( e.getMessage() );
+    }
+  }
+
 }
