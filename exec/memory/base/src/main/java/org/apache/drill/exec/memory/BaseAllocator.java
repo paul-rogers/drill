@@ -98,9 +98,9 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       historicalLog = null;
       childLedgers = null;
     }
-
   }
 
+  @Override
   public void assertOpen() {
     if (AssertionUtil.ASSERT_ENABLED) {
       if (isClosed) {

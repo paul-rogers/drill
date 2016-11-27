@@ -57,8 +57,8 @@ import com.google.common.collect.Maps;
 
 /**
  * Class to test different planning use cases (separate form query execution)
- *
  */
+  
 public class DrillSeparatePlanningTest extends BaseTestQuery {
 
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillSeparatePlanningTest.class);
@@ -121,7 +121,6 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
     }
 
     getResultsHelper(planFragments);
-
   }
 
   @Test(timeout=30_000)
@@ -147,7 +146,6 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
     assertFalse(rootFragment.getLeafFragment());
 
     getCombinedResultsHelper(planFragments);
-
   }
 
   @Test(timeout=30_000)
