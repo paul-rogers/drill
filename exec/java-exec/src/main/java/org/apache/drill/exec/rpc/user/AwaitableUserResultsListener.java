@@ -60,14 +60,14 @@ public class AwaitableUserResultsListener implements UserResultsListener {
   @Override
   public void submissionFailed(UserException ex) {
     exception = ex;
-    latch.countDown();
     child.submissionFailed(ex);
+    latch.countDown();
   }
 
   @Override
   public void queryCompleted(QueryState state) {
-    latch.countDown();
     child.queryCompleted(state);
+    latch.countDown();
   }
 
   public int await() throws Exception {
