@@ -39,8 +39,18 @@ import static org.junit.Assert.assertNull;
 /**
  * Test queries involving direct impersonation and multilevel impersonation including join queries where each side is
  * a nested view.
+ * <p>
+ * This test uses a mini-DFS cluster that tries to use SFL4J logging.
+ * Since Drill uses Logback, you will see the following threee lines,
+ * which can be ignored:<pre>
+ * SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+ * SLF4J: Defaulting to no-operation (NOP) logger implementation
+ * SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+ * </pre>
  */
 public class TestImpersonationQueries extends BaseTestImpersonation {
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestImpersonationQueries.class);
+
   @BeforeClass
   public static void setup() throws Exception {
 
@@ -239,6 +249,7 @@ public class TestImpersonationQueries extends BaseTestImpersonation {
     assertThat(ex.getMessage(),
       containsString("Cannot issue token for view expansion as issuing the token exceeds the maximum allowed number " +
         "of user hops (3) in chained impersonation"));
+    logger.error( "Above two \"Cannot issue\" messages are expected." );
   }
 
   @Test
