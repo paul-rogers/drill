@@ -35,14 +35,32 @@ import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.Maps;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+
 /**
  * Tests impersonation on metadata related queries as SHOW FILES, SHOW TABLES, CREATE VIEW, CREATE TABLE and DROP TABLE
+ * <p>
+ * This test uses a mini-DFS cluster that tries to use SFL4J logging.
+ * Since Drill uses Logback, you will see the following threee lines,
+ * which can be ignored:<pre>
+ * SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
+ * SLF4J: Defaulting to no-operation (NOP) logger implementation
+ * SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+ * </pre>
  */
+
 public class TestImpersonationMetadata extends BaseTestImpersonation {
+  private static Logger writerLog = (Logger) LoggerFactory.getLogger(org.apache.drill.exec.physical.impl.WriterRecordBatch.class);
+  private static Level writerLogLevel = writerLog.getLevel();
+  private static Logger fragmentExecLog = (Logger) LoggerFactory.getLogger(org.apache.drill.exec.work.fragment.FragmentExecutor.class);
+  private static Level fragmentExecLevel = fragmentExecLog.getLevel();
+
   private static final String user1 = "drillTestUser1";
   private static final String user2 = "drillTestUser2";
 
@@ -364,15 +382,40 @@ public class TestImpersonationMetadata extends BaseTestImpersonation {
 
       test("USE " + Joiner.on(".").join(MINIDFS_STORAGE_PLUGIN_NAME, tableWS));
 
+      disableWriterLogging();
       test("CREATE TABLE " + tableName + " AS SELECT " +
           "c_custkey, c_nationkey FROM cp.`tpch/customer.parquet` ORDER BY c_custkey;");
     } catch(UserRemoteException e) {
       ex = e;
+    } finally {
+      enableWriterLogging();
     }
 
     assertNotNull("UserRemoteException is expected", ex);
     assertThat(ex.getMessage(),
         containsString("SYSTEM ERROR: RemoteException: Permission denied: user=drillTestUser2, access=WRITE, inode=\"/drillTestGrp0_755/"));
+  }
+
+  /**
+   * A permission error in the {@link WriterRecordBatch} class causes an
+   * enormous log entry with a very large and complex stack trace. We neither
+   * need nor want that entry in out test output. So, we turn off logging
+   * in that class (and the {@link FragmentExecutor} to keep the test quiet.
+   */
+
+  private void disableWriterLogging() {
+    writerLog.setLevel(Level.OFF);
+    fragmentExecLog.setLevel(Level.OFF);
+  }
+
+  /**
+   * Now turn logging back on to the original levels to catch
+   * unexpected errors.
+   */
+
+  private void enableWriterLogging() {
+    writerLog.setLevel(writerLogLevel);
+    fragmentExecLog.setLevel(fragmentExecLevel);
   }
 
   @Test
