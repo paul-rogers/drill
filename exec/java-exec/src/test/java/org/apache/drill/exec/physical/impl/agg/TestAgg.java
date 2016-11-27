@@ -38,6 +38,7 @@ import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.vector.BigIntVector;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.NullableBigIntVector;
+import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
@@ -48,11 +49,14 @@ import mockit.Injectable;
 public class TestAgg extends ExecTest {
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestAgg.class);
   private final DrillConfig c = DrillConfig.create();
-
-  private SimpleRootExec doTest(final DrillbitContext bitContext, UserClientConnection connection, String file) throws Exception {
-
+  private @Injectable DrillbitContext bitContext;
+  
+  @Before
+  public void init( ) throws Exception {
     mockDrillbitContext(bitContext);
+  }
 
+  private SimpleRootExec doTest(UserClientConnection connection, String file) throws Exception {
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(c);
     final PhysicalPlan plan = reader.readPhysicalPlan(Files.toString(FileUtils.getResourceAsFile(file), Charsets.UTF_8));
     final FunctionImplementationRegistry registry = new FunctionImplementationRegistry(c);
@@ -62,8 +66,8 @@ public class TestAgg extends ExecTest {
   }
 
   @Test
-  public void oneKeyAgg(@Injectable final DrillbitContext bitContext, @Injectable UserClientConnection connection) throws Throwable {
-    final SimpleRootExec exec = doTest(bitContext, connection, "/agg/test1.json");
+  public void oneKeyAgg(@Injectable UserClientConnection connection) throws Throwable {
+    final SimpleRootExec exec = doTest(connection, "/agg/test1.json");
 
     while(exec.next()) {
       final BigIntVector cnt = exec.getValueVectorById(SchemaPath.getSimplePath("cnt"), BigIntVector.class);
@@ -85,8 +89,8 @@ public class TestAgg extends ExecTest {
   }
 
   @Test
-  public void twoKeyAgg(@Injectable final DrillbitContext bitContext, @Injectable UserClientConnection connection) throws Throwable {
-    SimpleRootExec exec = doTest(bitContext, connection, "/agg/twokey.json");
+  public void twoKeyAgg(@Injectable UserClientConnection connection) throws Throwable {
+    SimpleRootExec exec = doTest(connection, "/agg/twokey.json");
 
     while(exec.next()) {
       final IntVector key1 = exec.getValueVectorById(SchemaPath.getSimplePath("key1"), IntVector.class);
