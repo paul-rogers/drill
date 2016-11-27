@@ -68,9 +68,9 @@ public class SignatureHolder implements Iterable<CodeGeneratorMethod> {
       }
       methodHolders.add(new CodeGeneratorMethod(m));
     }
-    
+
     // Alphabetize methods to ensure generated code is comparable.
-    
+
     Collections.sort( methodHolders, new Comparator<CodeGeneratorMethod>( ) {
       @Override
       public int compare(CodeGeneratorMethod o1, CodeGeneratorMethod o2) {
