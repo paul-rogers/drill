@@ -55,6 +55,7 @@ import org.apache.drill.exec.vector.Float8Vector;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.VarBinaryVector;
 import org.apache.drill.exec.vector.VarCharVector;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -67,13 +68,16 @@ import mockit.integration.junit4.JMockit;
 @RunWith(JMockit.class)
 public class TestCastFunctions extends PopUnitTestBase{
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestSimpleFunctions.class);
+  private @Injectable DrillbitContext bitContext;
+  
+  @Before
+  public void init( ) throws Exception {
+    mockDrillbitContext(bitContext);
+  }
 
   @Test
   // cast to bigint.
-  public void testCastBigInt(@Injectable final DrillbitContext bitContext,
-                            @Injectable UserServer.UserClientConnection connection) throws Throwable {
-
-    mockDrillbitContext(bitContext);
+  public void testCastBigInt(@Injectable UserServer.UserClientConnection connection) throws Throwable {
 
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(CONFIG);
     final PhysicalPlan plan = reader.readPhysicalPlan(Files.toString(FileUtils.getResourceAsFile("/functions/cast/testCastBigInt.json"), Charsets.UTF_8));
@@ -108,10 +112,7 @@ public class TestCastFunctions extends PopUnitTestBase{
 
   @Test
   //cast to int
-  public void testCastInt(@Injectable final DrillbitContext bitContext,
-                            @Injectable UserServer.UserClientConnection connection) throws Throwable {
-
-    mockDrillbitContext(bitContext);
+  public void testCastInt(@Injectable UserServer.UserClientConnection connection) throws Throwable {
 
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(CONFIG);
     final PhysicalPlan plan = reader.readPhysicalPlan(Files.toString(FileUtils.getResourceAsFile("/functions/cast/testCastInt.json"), Charsets.UTF_8));
@@ -145,9 +146,7 @@ public class TestCastFunctions extends PopUnitTestBase{
 
   @Test
   //cast to float4
-  public void testCastFloat4(@Injectable final DrillbitContext bitContext,
-                            @Injectable UserServer.UserClientConnection connection) throws Throwable {
-    mockDrillbitContext(bitContext);
+  public void testCastFloat4(@Injectable UserServer.UserClientConnection connection) throws Throwable {
 
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(CONFIG);
     final PhysicalPlan plan = reader.readPhysicalPlan(Files.toString(FileUtils.getResourceAsFile("/functions/cast/testCastFloat4.json"), Charsets.UTF_8));
@@ -182,9 +181,7 @@ public class TestCastFunctions extends PopUnitTestBase{
 
   @Test
   //cast to float8
-  public void testCastFloat8(@Injectable final DrillbitContext bitContext,
-                            @Injectable UserServer.UserClientConnection connection) throws Throwable {
-    mockDrillbitContext(bitContext);
+  public void testCastFloat8(@Injectable UserServer.UserClientConnection connection) throws Throwable {
 
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(CONFIG);
     final PhysicalPlan plan = reader.readPhysicalPlan(Files.toString(FileUtils.getResourceAsFile("/functions/cast/testCastFloat8.json"), Charsets.UTF_8));
@@ -219,9 +216,7 @@ public class TestCastFunctions extends PopUnitTestBase{
 
   @Test
   //cast to varchar(length)
-  public void testCastVarChar(@Injectable final DrillbitContext bitContext,
-                            @Injectable UserServer.UserClientConnection connection) throws Throwable {
-    mockDrillbitContext(bitContext);
+  public void testCastVarChar(@Injectable UserServer.UserClientConnection connection) throws Throwable {
 
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(CONFIG);
     final PhysicalPlan plan = reader.readPhysicalPlan(Files.toString(FileUtils.getResourceAsFile("/functions/cast/testCastVarChar.json"), Charsets.UTF_8));
@@ -255,9 +250,7 @@ public class TestCastFunctions extends PopUnitTestBase{
 
   @Test
   //cast to varbinary(length)
-  public void testCastVarBinary(@Injectable final DrillbitContext bitContext,
-                            @Injectable UserServer.UserClientConnection connection) throws Throwable {
-    mockDrillbitContext(bitContext);
+  public void testCastVarBinary(@Injectable UserServer.UserClientConnection connection) throws Throwable {
 
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(CONFIG);
     final PhysicalPlan plan = reader.readPhysicalPlan(Files.toString(FileUtils.getResourceAsFile("/functions/cast/testCastVarBinary.json"), Charsets.UTF_8));
@@ -291,10 +284,7 @@ public class TestCastFunctions extends PopUnitTestBase{
 
   @Test
   //nested: cast is nested in another cast, or another function.
-  public void testCastNested(@Injectable final DrillbitContext bitContext,
-                            @Injectable UserServer.UserClientConnection connection) throws Throwable {
-
-    mockDrillbitContext(bitContext);
+  public void testCastNested(@Injectable UserServer.UserClientConnection connection) throws Throwable {
 
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(CONFIG);
     final PhysicalPlan plan = reader.readPhysicalPlan(Files.toString(FileUtils.getResourceAsFile("/functions/cast/testCastNested.json"), Charsets.UTF_8));
@@ -329,10 +319,7 @@ public class TestCastFunctions extends PopUnitTestBase{
   }
 
   @Test(expected = NumberFormatException.class)
-  public void testCastNumException(@Injectable final DrillbitContext bitContext,
-                            @Injectable UserServer.UserClientConnection connection) throws Throwable {
-
-    mockDrillbitContext(bitContext);
+  public void testCastNumException(@Injectable UserServer.UserClientConnection connection) throws Throwable {
 
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(CONFIG);
     final PhysicalPlan plan = reader.readPhysicalPlan(Files.toString(FileUtils.getResourceAsFile("/functions/cast/testCastNumException.json"), Charsets.UTF_8));
