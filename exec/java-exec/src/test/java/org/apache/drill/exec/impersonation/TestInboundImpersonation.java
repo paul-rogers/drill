@@ -18,6 +18,8 @@
 package org.apache.drill.exec.impersonation;
 
 import com.google.common.collect.Maps;
+
+import org.apache.drill.common.exceptions.UserRemoteException;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.dotdrill.DotDrillType;
 import org.apache.drill.exec.proto.UserBitShared;
@@ -37,6 +39,8 @@ import java.util.Map;
 import java.util.Properties;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class TestInboundImpersonation extends BaseTestImpersonation {
 
@@ -53,6 +57,19 @@ public class TestInboundImpersonation extends BaseTestImpersonation {
 
   @BeforeClass
   public static void setup() throws Exception {
+
+    // Suppress Parquet writer logging.
+    // This code works, but is very fragile. It can't move to
+    // a function. Both loggers must be adjusted. More work is
+    // needed to make this more stable.
+
+    @SuppressWarnings("unused")
+    Class<?> dummy = org.apache.parquet.Log.class;
+    java.util.logging.Logger logger = java.util.logging.Logger.getLogger("parquet");
+    logger.setLevel(java.util.logging.Level.SEVERE);
+    logger = java.util.logging.Logger.getLogger("org.apache.parquet.hadoop.ColumnChunkPageWriteStore");
+    logger.setLevel(java.util.logging.Level.SEVERE);
+
     startMiniDfsCluster(TestInboundImpersonation.class.getSimpleName());
     Properties props = cloneDefaultTestConfigProperties();
     props.setProperty(ExecConstants.IMPERSONATION_ENABLED, Boolean.toString(true));
@@ -139,27 +156,50 @@ public class TestInboundImpersonation extends BaseTestImpersonation {
     connectionProps.setProperty(UserSession.USER, PROXY_NAME);
     connectionProps.setProperty(UserSession.PASSWORD, PROXY_PASSWORD);
     connectionProps.setProperty(UserSession.IMPERSONATION_TARGET, unauthorizedTarget);
-    updateClient(connectionProps); // throws up
+    try {
+      disableUserServerLogging( );
+      updateClient(connectionProps); // throws up
+    } finally {
+      enableUserServerLogging( );
+    }
   }
 
   @Test
   public void invalidPolicy() throws Exception {
-    thrownException.expect(new UserExceptionMatcher(UserBitShared.DrillPBError.ErrorType.VALIDATION,
-        "Invalid impersonation policies."));
+    // Testing with the following causes the test to be
+    // claimed as failed, though it later succeeds.
+//    thrownException.expect(new UserExceptionMatcher(UserBitShared.DrillPBError.ErrorType.VALIDATION,
+//        "Invalid impersonation policies."));
     updateClient(UserAuthenticatorTestImpl.PROCESS_USER,
         UserAuthenticatorTestImpl.PROCESS_USER_PASSWORD);
-    test("ALTER SYSTEM SET `%s`='%s'", ExecConstants.IMPERSONATION_POLICIES_KEY,
-        "[ invalid json ]");
+    try {
+      disableWriterLogging( );
+      test("ALTER SYSTEM SET `%s`='%s'", ExecConstants.IMPERSONATION_POLICIES_KEY,
+          "[ invalid json ]");
+      fail( );
+    } catch ( UserRemoteException e ) {
+      assertTrue( e.getMessage().contains( "Invalid impersonation policies." ) );
+    } finally {
+      enableWriterLogging( );
+    }
   }
 
   @Test
   public void invalidProxy() throws Exception {
-    thrownException.expect(new UserExceptionMatcher(UserBitShared.DrillPBError.ErrorType.VALIDATION,
-        "Proxy principals cannot have a wildcard entry."));
+//    thrownException.expect(new UserExceptionMatcher(UserBitShared.DrillPBError.ErrorType.VALIDATION,
+//        "Proxy principals cannot have a wildcard entry."));
     updateClient(UserAuthenticatorTestImpl.PROCESS_USER,
         UserAuthenticatorTestImpl.PROCESS_USER_PASSWORD);
-    test("ALTER SYSTEM SET `%s`='%s'", ExecConstants.IMPERSONATION_POLICIES_KEY,
-        "[ { proxy_principals : { users: [\"*\" ] },"
-            + "target_principals : { users : [\"" + TARGET_NAME + "\"] } } ]");
+    try {
+      disableUserServerLogging( );
+      test("ALTER SYSTEM SET `%s`='%s'", ExecConstants.IMPERSONATION_POLICIES_KEY,
+          "[ { proxy_principals : { users: [\"*\" ] },"
+              + "target_principals : { users : [\"" + TARGET_NAME + "\"] } } ]");
+      fail( );
+    } catch ( UserRemoteException e ) {
+      assertTrue( e.getMessage().contains( "Proxy principals cannot have a wildcard entry." ) );
+    } finally {
+      enableUserServerLogging( );
+    }
   }
 }

@@ -56,10 +56,6 @@ import ch.qos.logback.classic.Logger;
  */
 
 public class TestImpersonationMetadata extends BaseTestImpersonation {
-  private static Logger writerLog = (Logger) LoggerFactory.getLogger(org.apache.drill.exec.physical.impl.WriterRecordBatch.class);
-  private static Level writerLogLevel = writerLog.getLevel();
-  private static Logger fragmentExecLog = (Logger) LoggerFactory.getLogger(org.apache.drill.exec.work.fragment.FragmentExecutor.class);
-  private static Level fragmentExecLevel = fragmentExecLog.getLevel();
 
   private static final String user1 = "drillTestUser1";
   private static final String user2 = "drillTestUser2";
@@ -394,28 +390,6 @@ public class TestImpersonationMetadata extends BaseTestImpersonation {
     assertNotNull("UserRemoteException is expected", ex);
     assertThat(ex.getMessage(),
         containsString("SYSTEM ERROR: RemoteException: Permission denied: user=drillTestUser2, access=WRITE, inode=\"/drillTestGrp0_755/"));
-  }
-
-  /**
-   * A permission error in the {@link WriterRecordBatch} class causes an
-   * enormous log entry with a very large and complex stack trace. We neither
-   * need nor want that entry in out test output. So, we turn off logging
-   * in that class (and the {@link FragmentExecutor} to keep the test quiet.
-   */
-
-  private void disableWriterLogging() {
-    writerLog.setLevel(Level.OFF);
-    fragmentExecLog.setLevel(Level.OFF);
-  }
-
-  /**
-   * Now turn logging back on to the original levels to catch
-   * unexpected errors.
-   */
-
-  private void enableWriterLogging() {
-    writerLog.setLevel(writerLogLevel);
-    fragmentExecLog.setLevel(fragmentExecLevel);
   }
 
   @Test

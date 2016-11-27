@@ -20,6 +20,10 @@ package org.apache.drill.exec.impersonation;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+
 import org.apache.commons.io.FileUtils;
 import org.apache.drill.PlanTestBase;
 import org.apache.drill.common.config.DrillConfig;
@@ -35,6 +39,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.apache.hadoop.security.UserGroupInformation;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.util.Map;
@@ -43,6 +48,21 @@ import java.util.Properties;
 import static org.junit.Assert.assertEquals;
 
 public class BaseTestImpersonation extends PlanTestBase {
+
+  // Set of loggers used to enable/disable logging to avoid
+  // excessive expected error messages in test output.
+
+  private static Logger writerLog = (Logger) LoggerFactory.getLogger(org.apache.drill.exec.physical.impl.WriterRecordBatch.class);
+  private static Level writerLogLevel = writerLog.getLevel();
+  private static Logger fragmentExecLog = (Logger) LoggerFactory.getLogger(org.apache.drill.exec.work.fragment.FragmentExecutor.class);
+  private static Level fragmentExecLevel = fragmentExecLog.getLevel();
+  private static Logger userServerLog = (Logger) LoggerFactory.getLogger(org.apache.drill.exec.rpc.user.UserServer.class);
+  private static Level userServerLevel = userServerLog.getLevel();
+  private static Logger userClientLog = (Logger) LoggerFactory.getLogger(org.apache.drill.exec.rpc.user.UserClient.class);
+  private static Level userClientLevel = userClientLog.getLevel();
+  private static Logger rpcExceptionLog = (Logger) LoggerFactory.getLogger(org.apache.drill.exec.rpc.RpcExceptionHandler.class);
+  private static Level rpcExceptionLevel = rpcExceptionLog.getLevel();
+
   protected static final String MINIDFS_STORAGE_PLUGIN_NAME = "miniDfsPlugin";
   protected static final String processUser = System.getProperty("user.name");
 
@@ -191,5 +211,39 @@ public class BaseTestImpersonation extends PlanTestBase {
     test("CREATE VIEW %s.%s.%s AS %s", MINIDFS_STORAGE_PLUGIN_NAME, "tmp", viewName, viewDef);
     final Path viewFilePath = new Path("/tmp/", viewName + DotDrillType.VIEW.getEnding());
     fs.setOwner(viewFilePath, viewOwner, viewGroup);
+  }
+
+  /**
+   * A permission error in the {@link WriterRecordBatch} class causes an
+   * enormous log entry with a very large and complex stack trace. We neither
+   * need nor want that entry in out test output. So, we turn off logging
+   * in that class (and the {@link FragmentExecutor} to keep the test quiet.
+   */
+
+  protected void disableWriterLogging() {
+    writerLog.setLevel(Level.OFF);
+    fragmentExecLog.setLevel(Level.OFF);
+  }
+
+  /**
+   * Turn logging back on to the original levels to catch
+   * unexpected errors.
+   */
+
+  protected void enableWriterLogging() {
+    writerLog.setLevel(writerLogLevel);
+    fragmentExecLog.setLevel(fragmentExecLevel);
+  }
+
+  protected void disableUserServerLogging( ) {
+    userServerLog.setLevel(Level.OFF);
+    userClientLog.setLevel(Level.OFF);
+    rpcExceptionLog.setLevel(Level.OFF);
+  }
+
+  protected void enableUserServerLogging() {
+    userServerLog.setLevel(userServerLevel);
+    userClientLog.setLevel(userClientLevel);
+    rpcExceptionLog.setLevel(rpcExceptionLevel);
   }
 }
