@@ -38,6 +38,7 @@ import org.apache.drill.exec.rpc.user.UserServer;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VarCharVector;
+import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
@@ -51,6 +52,12 @@ public class TestNewMathFunctions extends ExecTest {
   private PhysicalPlanReader reader;
   private FunctionImplementationRegistry registry;
   private FragmentContext context;
+  private @Injectable DrillbitContext bitContext;
+  
+  @Before
+  public void init( ) throws Exception {
+    mockDrillbitContext(bitContext);
+  }
 
   public Object[] getRunResult(SimpleRootExec exec) {
     int size = 0;
@@ -70,10 +77,7 @@ public class TestNewMathFunctions extends ExecTest {
     return res;
   }
 
-  public void runTest(@Injectable final DrillbitContext bitContext,
-                      @Injectable UserServer.UserClientConnection connection, Object[] expectedResults, String planPath) throws Throwable {
-    mockDrillbitContext(bitContext);
-
+  public void runTest(@Injectable UserServer.UserClientConnection connection, Object[] expectedResults, String planPath) throws Throwable {
     final String planString = Resources.toString(Resources.getResource(planPath), Charsets.UTF_8);
     if (reader == null) {
       reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(c);
@@ -105,32 +109,28 @@ public class TestNewMathFunctions extends ExecTest {
   }
 
   @Test
-  public void testTrigoMathFunc(@Injectable final DrillbitContext bitContext,
-                           @Injectable UserServer.UserClientConnection connection) throws Throwable {
+  public void testTrigoMathFunc(@Injectable UserServer.UserClientConnection connection) throws Throwable {
     final Object [] expected = new Object[] {Math.sin(45), Math.cos(45), Math.tan(45),Math.asin(45), Math.acos(45), Math.atan(45),Math.sinh(45), Math.cosh(45), Math.tanh(45)};
-    runTest(bitContext, connection, expected, "functions/testTrigoMathFunctions.json");
+    runTest(connection, expected, "functions/testTrigoMathFunctions.json");
   }
 
   @Test
-  public void testExtendedMathFunc(@Injectable final DrillbitContext bitContext,
-                           @Injectable UserServer.UserClientConnection connection) throws Throwable {
+  public void testExtendedMathFunc(@Injectable UserServer.UserClientConnection connection) throws Throwable {
     final BigDecimal d = new BigDecimal("100111111111111111111111111111111111.00000000000000000000000000000000000000000000000000001");
     final Object [] expected = new Object[] {Math.cbrt(1000), Math.log(10), (Math.log(64.0)/Math.log(2.0)), Math.exp(10), Math.toDegrees(0.5), Math.toRadians(45.0), Math.PI, Math.cbrt(d.doubleValue()), Math.log(d.doubleValue()), (Math.log(d.doubleValue())/Math.log(2)), Math.exp(d.doubleValue()), Math.toDegrees(d.doubleValue()), Math.toRadians(d.doubleValue())};
 
-    runTest(bitContext, connection, expected, "functions/testExtendedMathFunctions.json");
+    runTest(connection, expected, "functions/testExtendedMathFunctions.json");
   }
 
   @Test
-  public void testTruncDivMod(@Injectable final DrillbitContext bitContext,
-                           @Injectable UserServer.UserClientConnection connection) throws Throwable{
+  public void testTruncDivMod(@Injectable UserServer.UserClientConnection connection) throws Throwable{
     final Object [] expected = new Object[] {101.0, 0, 101, 1010.0, 101, 481.0, 0.001099999999931267};
-    runTest(bitContext, connection, expected, "functions/testDivModTruncFunctions.json");
+    runTest(connection, expected, "functions/testDivModTruncFunctions.json");
   }
 
  @Test
- public void testIsNumeric(@Injectable final DrillbitContext bitContext,
-                           @Injectable UserServer.UserClientConnection connection) throws Throwable{
+ public void testIsNumeric(@Injectable UserServer.UserClientConnection connection) throws Throwable{
    final Object [] expected = new Object[] {1, 1, 1, 0};
-   runTest(bitContext, connection, expected, "functions/testIsNumericFunction.json");
+   runTest(connection, expected, "functions/testIsNumericFunction.json");
  }
 }
