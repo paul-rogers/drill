@@ -75,7 +75,7 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
   //final String query = String.format("SELECT dir0, sum(o_totalprice) FROM dfs_test.`%s/multilevel/json` group by dir0 order by dir0", TEST_RES_PATH);
 
 
-  @Test(timeout=30000)
+  @Test(timeout=30_000)
   public void testSingleFragmentQuery() throws Exception {
     final String query = "SELECT * FROM cp.`employee.json` where  employee_id > 1 and  employee_id < 1000";
 
@@ -89,7 +89,7 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
     getResultsHelper(planFragments);
   }
 
-  @Test(timeout=30000)
+  @Test(timeout=30_000)
   public void testMultiMinorFragmentSimpleQuery() throws Exception {
     final String query = String.format("SELECT o_orderkey FROM dfs_test.`%s/multilevel/json`", TEST_RES_PATH);
 
@@ -106,7 +106,7 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
     getResultsHelper(planFragments);
   }
 
-  @Test(timeout=30000)
+  @Test(timeout=30_000)
   public void testMultiMinorFragmentComplexQuery() throws Exception {
     final String query = String.format("SELECT dir0, sum(o_totalprice) FROM dfs_test.`%s/multilevel/json` group by dir0 order by dir0", TEST_RES_PATH);
 
@@ -124,7 +124,7 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
 
   }
 
-  @Test(timeout=30000)
+  @Test(timeout=30_000)
   public void testPlanningNoSplit() throws Exception {
     final String query = String.format("SELECT dir0, sum(o_totalprice) FROM dfs_test.`%s/multilevel/json` group by dir0 order by dir0", TEST_RES_PATH);
 
@@ -150,7 +150,7 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
 
   }
 
-  @Test(timeout=30000)
+  @Test(timeout=30_000)
   public void testPlanningNegative() throws Exception {
     final String query = String.format("SELECT dir0, sum(o_totalprice) FROM dfs_test.`%s/multilevel/json` group by dir0 order by dir0", TEST_RES_PATH);
 
@@ -165,10 +165,9 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
     assertNotNull(planFragments.getError());
 
     assertTrue(planFragments.getFragmentsCount()==0);
-
   }
 
-  @Test(timeout=30000)
+  @Test(timeout=30_000)
   public void testPlanning() throws Exception {
     final String query = String.format("SELECT dir0, columns[3] FROM dfs_test.`%s/multilevel/csv` order by dir0", TEST_RES_PATH);
 
