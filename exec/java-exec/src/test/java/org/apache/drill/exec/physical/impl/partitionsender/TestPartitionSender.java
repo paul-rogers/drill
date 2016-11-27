@@ -76,7 +76,6 @@ import com.google.common.collect.Lists;
 /**
  * PartitionerSenderRootExec test to cover mostly part that deals with multithreaded
  * ability to copy and flush data
- *
  */
 public class TestPartitionSender extends PlanTestBase {
 
@@ -115,13 +114,13 @@ public class TestPartitionSender extends PlanTestBase {
     final int empNumRecsPerFile = 100;
     for(int fileIndex=0; fileIndex<NUM_EMPLOYEES/empNumRecsPerFile; fileIndex++) {
       File file = new File(empTableLocation + File.separator + fileIndex + ".json");
-      PrintWriter printWriter = new PrintWriter(file);
-      for (int recordIndex = fileIndex*empNumRecsPerFile; recordIndex < (fileIndex+1)*empNumRecsPerFile; recordIndex++) {
-        String record = String.format("{ \"emp_id\" : %d, \"emp_name\" : \"Employee %d\", \"dept_id\" : %d }",
-            recordIndex, recordIndex, recordIndex % NUM_DEPTS);
-        printWriter.println(record);
+      try (PrintWriter printWriter = new PrintWriter(file)) {
+        for (int recordIndex = fileIndex*empNumRecsPerFile; recordIndex < (fileIndex+1)*empNumRecsPerFile; recordIndex++) {
+          String record = String.format("{ \"emp_id\" : %d, \"emp_name\" : \"Employee %d\", \"dept_id\" : %d }",
+              recordIndex, recordIndex, recordIndex % NUM_DEPTS);
+          printWriter.println(record);
+        }
       }
-      printWriter.close();
     }
 
     // Initialize test queries
@@ -155,7 +154,7 @@ public class TestPartitionSender extends PlanTestBase {
 
     test("ALTER SESSION SET `planner.slice_target`=1");
     String plan = getPlanInString("EXPLAIN PLAN FOR " + groupByQuery, JSON_FORMAT);
-    System.out.println("Plan: " + plan);
+//    System.out.println("Plan: " + plan);
 
     final DrillbitContext drillbitContext = getDrillbitContext();
     final PhysicalPlanReader planReader = drillbitContext.getPlanReader();
@@ -227,7 +226,9 @@ public class TestPartitionSender extends PlanTestBase {
       if (!planFragment.getFragmentJson().contains("hash-partition-sender")) {
         continue;
       }
+      @SuppressWarnings("resource")
       MockPartitionSenderRootExec partionSenderRootExec = null;
+      @SuppressWarnings("resource")
       FragmentContext context = null;
       try {
         context = new FragmentContext(drillbitContext, planFragment, null, registry);
@@ -254,6 +255,7 @@ public class TestPartitionSender extends PlanTestBase {
         int prevBatchCountSize = 0;
         int batchCountSize = 0;
         for (Partitioner part : partitioners ) {
+          @SuppressWarnings("unchecked")
           final List<PartitionOutgoingBatch> outBatch = (List<PartitionOutgoingBatch>) part.getOutgoingBatches();
           batchCountSize = outBatch.size();
           if ( !isFirst ) {
@@ -279,6 +281,7 @@ public class TestPartitionSender extends PlanTestBase {
         isFirst = true;
         // since we have fake Nullvector distribution is skewed
         for (Partitioner part : partitioners ) {
+          @SuppressWarnings("unchecked")
           final List<PartitionOutgoingBatch> outBatches = (List<PartitionOutgoingBatch>) part.getOutgoingBatches();
           for (PartitionOutgoingBatch partOutBatch : outBatches ) {
             final int recordCount = ((VectorAccessible) partOutBatch).getRecordCount();
@@ -363,6 +366,7 @@ public class TestPartitionSender extends PlanTestBase {
       super(context, incoming, operator);
     }
 
+    @Override
     public void close() throws Exception {
       ((AutoCloseable) oContext).close();
     }
