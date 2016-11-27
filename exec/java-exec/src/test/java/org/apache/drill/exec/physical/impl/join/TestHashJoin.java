@@ -45,6 +45,7 @@ import org.apache.drill.exec.server.Drillbit;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.RemoteServiceSet;
 import org.apache.drill.exec.vector.ValueVector;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
@@ -61,11 +62,14 @@ public class TestHashJoin extends PopUnitTestBase {
   @Rule public final TestRule TIMEOUT = TestTools.getTimeoutRule(100000);
 
   private final DrillConfig c = DrillConfig.create();
-
-  private void testHJMockScanCommon(final DrillbitContext bitContext, UserServer.UserClientConnection connection, String physicalPlan, int expectedRows) throws Throwable {
-
+  private @Injectable DrillbitContext bitContext;
+  
+  @Before
+  public void init( ) throws Exception {
     mockDrillbitContext(bitContext);
+  }
 
+  private void testHJMockScanCommon(UserServer.UserClientConnection connection, String physicalPlan, int expectedRows) throws Throwable {
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(c);
     final PhysicalPlan plan = reader.readPhysicalPlan(Files.toString(FileUtils.getResourceAsFile(physicalPlan), Charsets.UTF_8));
     final FunctionImplementationRegistry registry = new FunctionImplementationRegistry(c);
@@ -78,7 +82,7 @@ public class TestHashJoin extends PopUnitTestBase {
     }
     exec.close();
     assertEquals(expectedRows, totalRecordCount);
-    System.out.println("Total Record Count: " + totalRecordCount);
+//    System.out.println("Total Record Count: " + totalRecordCount);
     if (context.getFailureCause() != null) {
       throw context.getFailureCause();
     }
@@ -86,24 +90,21 @@ public class TestHashJoin extends PopUnitTestBase {
   }
 
   @Test
-  public void multiBatchEqualityJoin(@Injectable final DrillbitContext bitContext,
-                                 @Injectable UserServer.UserClientConnection connection) throws Throwable {
+  public void multiBatchEqualityJoin(@Injectable UserServer.UserClientConnection connection) throws Throwable {
 
-    testHJMockScanCommon(bitContext, connection, "/join/hash_join_multi_batch.json", 200000);
+    testHJMockScanCommon(connection, "/join/hash_join_multi_batch.json", 200000);
   }
 
   @Test
-  public void multiBatchRightOuterJoin(@Injectable final DrillbitContext bitContext,
-                                       @Injectable UserServer.UserClientConnection connection) throws Throwable {
+  public void multiBatchRightOuterJoin(@Injectable UserServer.UserClientConnection connection) throws Throwable {
 
-    testHJMockScanCommon(bitContext, connection, "/join/hj_right_outer_multi_batch.json", 100000);
+    testHJMockScanCommon(connection, "/join/hj_right_outer_multi_batch.json", 100000);
   }
 
   @Test
-  public void multiBatchLeftOuterJoin(@Injectable final DrillbitContext bitContext,
-                                      @Injectable UserServer.UserClientConnection connection) throws Throwable {
+  public void multiBatchLeftOuterJoin(@Injectable UserServer.UserClientConnection connection) throws Throwable {
 
-    testHJMockScanCommon(bitContext, connection, "/join/hj_left_outer_multi_batch.json", 100000);
+    testHJMockScanCommon(connection, "/join/hj_left_outer_multi_batch.json", 100000);
   }
 
   @Test
@@ -148,8 +149,7 @@ public class TestHashJoin extends PopUnitTestBase {
   }
 
   @Test
-  public void hjWithExchange(@Injectable final DrillbitContext bitContext,
-                             @Injectable UserServer.UserClientConnection connection) throws Throwable {
+  public void hjWithExchange(@Injectable UserServer.UserClientConnection connection) throws Throwable {
 
     // Function tests with hash join with exchanges
     try (final RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
@@ -170,14 +170,13 @@ public class TestHashJoin extends PopUnitTestBase {
         b.release();
       }
 
-      System.out.println("Total records: " + count);
+//      System.out.println("Total records: " + count);
       assertEquals(25, count);
     }
   }
 
   @Test
-  public void multipleConditionJoin(@Injectable final DrillbitContext bitContext,
-                                    @Injectable UserServer.UserClientConnection connection) throws Throwable {
+  public void multipleConditionJoin(@Injectable UserServer.UserClientConnection connection) throws Throwable {
 
     // Function tests hash join with multiple join conditions
     try (final RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
@@ -222,8 +221,7 @@ public class TestHashJoin extends PopUnitTestBase {
   }
 
   @Test
-  public void hjWithExchange1(@Injectable final DrillbitContext bitContext,
-                              @Injectable UserServer.UserClientConnection connection) throws Throwable {
+  public void hjWithExchange1(@Injectable UserServer.UserClientConnection connection) throws Throwable {
 
     // Another test for hash join with exchanges
     try (final RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
@@ -244,7 +242,7 @@ public class TestHashJoin extends PopUnitTestBase {
         b.release();
       }
 
-      System.out.println("Total records: " + count);
+//      System.out.println("Total records: " + count);
       assertEquals(272, count);
     }
   }

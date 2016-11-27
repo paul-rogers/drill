@@ -44,6 +44,7 @@ import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.RemoteServiceSet;
 import org.apache.drill.exec.store.StoragePluginRegistryImpl;
 import org.apache.drill.exec.vector.ValueVector;
+import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -57,13 +58,16 @@ import mockit.Injectable;
 public class TestMergeJoin extends PopUnitTestBase {
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestMergeJoin.class);
   private final DrillConfig c = DrillConfig.create();
+  private @Injectable DrillbitContext bitContext;
+  
+  @Before
+  public void init( ) throws Exception {
+    mockDrillbitContext(bitContext);
+  }
 
   @Test
   @Ignore // this doesn't have a sort.  it also causes an infinite loop.  these may or may not be related.
-  public void simpleEqualityJoin(@Injectable final DrillbitContext bitContext,
-                                 @Injectable UserServer.UserClientConnection connection) throws Throwable {
-
-    mockDrillbitContext(bitContext);
+  public void simpleEqualityJoin(@Injectable UserServer.UserClientConnection connection) throws Throwable {
 
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(c);
     final PhysicalPlan plan = reader.readPhysicalPlan(Files.toString(FileUtils.getResourceAsFile("/join/merge_join.json"), Charsets.UTF_8));
@@ -108,9 +112,7 @@ public class TestMergeJoin extends PopUnitTestBase {
 
   @Test
   @Ignore
-  public void orderedEqualityLeftJoin(@Injectable final DrillbitContext bitContext,
-                                      @Injectable UserServer.UserClientConnection connection) throws Throwable {
-    mockDrillbitContext(bitContext);
+  public void orderedEqualityLeftJoin(@Injectable UserServer.UserClientConnection connection) throws Throwable {
 
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(c,
         new StoragePluginRegistryImpl(bitContext));
@@ -159,9 +161,7 @@ public class TestMergeJoin extends PopUnitTestBase {
 
   @Test
   @Ignore
-  public void orderedEqualityInnerJoin(@Injectable final DrillbitContext bitContext,
-                                       @Injectable UserServer.UserClientConnection connection) throws Throwable {
-    mockDrillbitContext(bitContext);
+  public void orderedEqualityInnerJoin(@Injectable UserServer.UserClientConnection connection) throws Throwable {
 
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(c,
         new StoragePluginRegistryImpl(bitContext));
@@ -210,9 +210,7 @@ public class TestMergeJoin extends PopUnitTestBase {
 
   @Test
   @Ignore
-  public void orderedEqualityMultiBatchJoin(@Injectable final DrillbitContext bitContext,
-                                            @Injectable UserServer.UserClientConnection connection) throws Throwable {
-    mockDrillbitContext(bitContext);
+  public void orderedEqualityMultiBatchJoin(@Injectable UserServer.UserClientConnection connection) throws Throwable {
 
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(c,
         new StoragePluginRegistryImpl(bitContext));
@@ -259,8 +257,7 @@ public class TestMergeJoin extends PopUnitTestBase {
   }
 
   @Test
-  public void testJoinBatchSize(@Injectable final DrillbitContext bitContext, @Injectable UserClientConnection connection) throws Throwable{
-    mockDrillbitContext(bitContext);
+  public void testJoinBatchSize(@Injectable UserClientConnection connection) throws Throwable{
 
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(c);
     final PhysicalPlan plan = reader.readPhysicalPlan(Files.toString(FileUtils.getResourceAsFile("/join/join_batchsize.json"), Charsets.UTF_8));

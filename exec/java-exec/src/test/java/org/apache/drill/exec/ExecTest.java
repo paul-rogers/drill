@@ -95,14 +95,14 @@ public class ExecTest extends DrillTest {
    * (minTimes) for the method is 0. Unfortunately, JMockit allows this
    * option to be used only in a <tt>@Before</tt> block, so this call
    * must be made from there.
-   * 
+   *
    * @param bitContext
    * @throws Exception
    */
   protected void mockDrillbitContext(final DrillbitContext bitContext) throws Exception {
     new Expectations() {{
       bitContext.getMetrics(); result = new MetricRegistry(); minTimes = 0;
-      bitContext.getAllocator(); result = RootAllocatorFactory.newRoot(c);
+      bitContext.getAllocator(); result = RootAllocatorFactory.newRoot(c); minTimes = 0;
       bitContext.getOperatorCreatorRegistry(); result = new OperatorCreatorRegistry(ClassPathScanner.fromPrescan(c)); minTimes = 0;
       bitContext.getConfig(); result = c; minTimes = 0;
       bitContext.getOptionManager(); result = optionManager; minTimes = 0;
