@@ -18,6 +18,7 @@
 package org.apache.drill.exec.util;
 
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
@@ -36,9 +37,13 @@ public class VectorUtil {
   public static final int DEFAULT_COLUMN_WIDTH = 15;
 
   public static void showVectorAccessibleContent(VectorAccessible va, final String delimiter) {
+    showVectorAccessibleContent(va, delimiter, System.out);
+  }
+
+  public static void showVectorAccessibleContent(VectorAccessible va, final String delimiter, PrintStream out) {
 
     int rows = va.getRecordCount();
-    System.out.println(rows + " row(s):");
+    out.println(rows + " row(s):");
     List<String> columns = Lists.newArrayList();
     for (VectorWrapper<?> vw : va) {
       columns.add(vw.getValueVector().getField().getPath());
@@ -46,7 +51,7 @@ public class VectorUtil {
 
     int width = columns.size();
     for (String column : columns) {
-      System.out.printf("%s%s",column, column == columns.get(width - 1) ? "\n" : delimiter);
+      out.printf("%s%s",column, column == columns.get(width - 1) ? "\n" : delimiter);
     }
     for (int row = 0; row < rows; row++) {
       int columnCounter = 0;
@@ -61,14 +66,14 @@ public class VectorUtil {
         if (o == null) {
           //null value
           String value = "null";
-          System.out.printf("%s%s", value, lastColumn ? "\n" : delimiter);
+          out.printf("%s%s", value, lastColumn ? "\n" : delimiter);
         }
         else if (o instanceof byte[]) {
           String value = new String((byte[]) o);
-          System.out.printf("%s%s", value, lastColumn ? "\n" : delimiter);
+          out.printf("%s%s", value, lastColumn ? "\n" : delimiter);
         } else {
           String value = o.toString();
-          System.out.printf("%s%s", value, lastColumn ? "\n" : delimiter);
+          out.printf("%s%s", value, lastColumn ? "\n" : delimiter);
         }
         columnCounter++;
       }
