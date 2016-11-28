@@ -31,6 +31,7 @@ import org.apache.drill.exec.planner.PhysicalPlanReaderTestFactory;
 import org.apache.drill.exec.proto.BitControl.PlanFragment;
 import org.apache.drill.exec.rpc.user.UserServer;
 import org.apache.drill.exec.server.DrillbitContext;
+import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
@@ -45,10 +46,14 @@ public class TestComparisonFunctions extends ExecTest {
   private final String COMPARISON_TEST_PHYSICAL_PLAN = "functions/comparisonTest.json";
   private PhysicalPlanReader reader;
   private FunctionImplementationRegistry registry;
-
-  public void runTest(@Injectable final DrillbitContext bitContext,
-                      @Injectable UserServer.UserClientConnection connection, String expression, int expectedResults) throws Throwable {
+  private @Injectable DrillbitContext bitContext;
+  
+  @Before
+  public void init( ) throws Exception {
     mockDrillbitContext(bitContext);
+  }
+
+  public void runTest(@Injectable UserServer.UserClientConnection connection, String expression, int expectedResults) throws Throwable {
 
     final String planString = Resources.toString(Resources.getResource(COMPARISON_TEST_PHYSICAL_PLAN), Charsets.UTF_8).replaceAll("EXPRESSION", expression);
     if (reader == null) {
@@ -81,68 +86,62 @@ public class TestComparisonFunctions extends ExecTest {
   }
 
   @Test
-  public void testInt(@Injectable final DrillbitContext bitContext,
-                           @Injectable UserServer.UserClientConnection connection) throws Throwable {
-    runTest(bitContext, connection, "intColumn == intColumn", 100);
-    runTest(bitContext, connection, "intColumn != intColumn", 0);
-    runTest(bitContext, connection, "intColumn > intColumn", 0);
-    runTest(bitContext, connection, "intColumn < intColumn", 0);
-    runTest(bitContext, connection, "intColumn >= intColumn", 100);
-    runTest(bitContext, connection, "intColumn <= intColumn", 100);
+  public void testInt(@Injectable UserServer.UserClientConnection connection) throws Throwable {
+    runTest(connection, "intColumn == intColumn", 100);
+    runTest(connection, "intColumn != intColumn", 0);
+    runTest(connection, "intColumn > intColumn", 0);
+    runTest(connection, "intColumn < intColumn", 0);
+    runTest(connection, "intColumn >= intColumn", 100);
+    runTest(connection, "intColumn <= intColumn", 100);
   }
 
   @Test
-  public void testBigInt(@Injectable final DrillbitContext bitContext,
-                      @Injectable UserServer.UserClientConnection connection) throws Throwable {
-    runTest(bitContext, connection, "bigIntColumn == bigIntColumn", 100);
-    runTest(bitContext, connection, "bigIntColumn != bigIntColumn", 0);
-    runTest(bitContext, connection, "bigIntColumn > bigIntColumn", 0);
-    runTest(bitContext, connection, "bigIntColumn < bigIntColumn", 0);
-    runTest(bitContext, connection, "bigIntColumn >= bigIntColumn", 100);
-    runTest(bitContext, connection, "bigIntColumn <= bigIntColumn", 100);
+  public void testBigInt(@Injectable UserServer.UserClientConnection connection) throws Throwable {
+    runTest(connection, "bigIntColumn == bigIntColumn", 100);
+    runTest(connection, "bigIntColumn != bigIntColumn", 0);
+    runTest(connection, "bigIntColumn > bigIntColumn", 0);
+    runTest(connection, "bigIntColumn < bigIntColumn", 0);
+    runTest(connection, "bigIntColumn >= bigIntColumn", 100);
+    runTest(connection, "bigIntColumn <= bigIntColumn", 100);
   }
 
   @Test
-  public void testFloat4(@Injectable final DrillbitContext bitContext,
-                         @Injectable UserServer.UserClientConnection connection) throws Throwable {
-    runTest(bitContext, connection, "float4Column == float4Column", 100);
-    runTest(bitContext, connection, "float4Column != float4Column", 0);
-    runTest(bitContext, connection, "float4Column > float4Column", 0);
-    runTest(bitContext, connection, "float4Column < float4Column", 0);
-    runTest(bitContext, connection, "float4Column >= float4Column", 100);
-    runTest(bitContext, connection, "float4Column <= float4Column", 100);
+  public void testFloat4(@Injectable UserServer.UserClientConnection connection) throws Throwable {
+    runTest(connection, "float4Column == float4Column", 100);
+    runTest(connection, "float4Column != float4Column", 0);
+    runTest(connection, "float4Column > float4Column", 0);
+    runTest(connection, "float4Column < float4Column", 0);
+    runTest(connection, "float4Column >= float4Column", 100);
+    runTest(connection, "float4Column <= float4Column", 100);
   }
 
   @Test
-  public void testFloat8(@Injectable final DrillbitContext bitContext,
-                         @Injectable UserServer.UserClientConnection connection) throws Throwable {
-    runTest(bitContext, connection, "float8Column == float8Column", 100);
-    runTest(bitContext, connection, "float8Column != float8Column", 0);
-    runTest(bitContext, connection, "float8Column > float8Column", 0);
-    runTest(bitContext, connection, "float8Column < float8Column", 0);
-    runTest(bitContext, connection, "float8Column >= float8Column", 100);
-    runTest(bitContext, connection, "float8Column <= float8Column", 100);
+  public void testFloat8(@Injectable UserServer.UserClientConnection connection) throws Throwable {
+    runTest(connection, "float8Column == float8Column", 100);
+    runTest(connection, "float8Column != float8Column", 0);
+    runTest(connection, "float8Column > float8Column", 0);
+    runTest(connection, "float8Column < float8Column", 0);
+    runTest(connection, "float8Column >= float8Column", 100);
+    runTest(connection, "float8Column <= float8Column", 100);
   }
 
   @Test
-  public void testIntNullable(@Injectable final DrillbitContext bitContext,
-                      @Injectable UserServer.UserClientConnection connection) throws Throwable {
-    runTest(bitContext, connection, "intNullableColumn == intNullableColumn", 50);
-    runTest(bitContext, connection, "intNullableColumn != intNullableColumn", 0);
-    runTest(bitContext, connection, "intNullableColumn > intNullableColumn", 0);
-    runTest(bitContext, connection, "intNullableColumn < intNullableColumn", 0);
-    runTest(bitContext, connection, "intNullableColumn >= intNullableColumn", 50);
-    runTest(bitContext, connection, "intNullableColumn <= intNullableColumn", 50);
+  public void testIntNullable(@Injectable UserServer.UserClientConnection connection) throws Throwable {
+    runTest(connection, "intNullableColumn == intNullableColumn", 50);
+    runTest(connection, "intNullableColumn != intNullableColumn", 0);
+    runTest(connection, "intNullableColumn > intNullableColumn", 0);
+    runTest(connection, "intNullableColumn < intNullableColumn", 0);
+    runTest(connection, "intNullableColumn >= intNullableColumn", 50);
+    runTest(connection, "intNullableColumn <= intNullableColumn", 50);
   }
 
   @Test
-  public void testBigIntNullable(@Injectable final DrillbitContext bitContext,
-                         @Injectable UserServer.UserClientConnection connection) throws Throwable {
-    runTest(bitContext, connection, "bigIntNullableColumn == bigIntNullableColumn", 50);
-    runTest(bitContext, connection, "bigIntNullableColumn != bigIntNullableColumn", 0);
-    runTest(bitContext, connection, "bigIntNullableColumn > bigIntNullableColumn", 0);
-    runTest(bitContext, connection, "bigIntNullableColumn < bigIntNullableColumn", 0);
-    runTest(bitContext, connection, "bigIntNullableColumn >= bigIntNullableColumn", 50);
-    runTest(bitContext, connection, "bigIntNullableColumn <= bigIntNullableColumn", 50);
+  public void testBigIntNullable(@Injectable UserServer.UserClientConnection connection) throws Throwable {
+    runTest(connection, "bigIntNullableColumn == bigIntNullableColumn", 50);
+    runTest(connection, "bigIntNullableColumn != bigIntNullableColumn", 0);
+    runTest(connection, "bigIntNullableColumn > bigIntNullableColumn", 0);
+    runTest(connection, "bigIntNullableColumn < bigIntNullableColumn", 0);
+    runTest(connection, "bigIntNullableColumn >= bigIntNullableColumn", 50);
+    runTest(connection, "bigIntNullableColumn <= bigIntNullableColumn", 50);
   }
 }
