@@ -25,6 +25,10 @@ import org.apache.drill.exec.rpc.user.UserSession;
 import org.apache.drill.exec.rpc.user.security.testing.UserAuthenticatorTestImpl;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.slf4j.LoggerFactory;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
 
 import java.util.Properties;
 
@@ -37,6 +41,14 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 
 public class TestCustomUserAuthenticator extends BaseTestQuery {
+  private static Logger fragmentExecLog = (Logger) LoggerFactory.getLogger(org.apache.drill.exec.work.fragment.FragmentExecutor.class);
+  private static Level fragmentExecLevel = fragmentExecLog.getLevel();
+  private static Logger userServerLog = (Logger) LoggerFactory.getLogger(org.apache.drill.exec.rpc.user.UserServer.class);
+  private static Level userServerLevel = userServerLog.getLevel();
+  private static Logger userClientLog = (Logger) LoggerFactory.getLogger(org.apache.drill.exec.rpc.user.UserClient.class);
+  private static Level userClientLevel = userClientLog.getLevel();
+  private static Logger rpcExceptionLog = (Logger) LoggerFactory.getLogger(org.apache.drill.exec.rpc.RpcExceptionHandler.class);
+  private static Level rpcExceptionLevel = rpcExceptionLog.getLevel();
 
   @BeforeClass
   public static void setupCluster() {
@@ -59,16 +71,38 @@ public class TestCustomUserAuthenticator extends BaseTestQuery {
 
   @Test
   public void negativeUserAuth() throws Exception {
-    negativeAuthHelper(TEST_USER_1, "blah.. blah..");
-    negativeAuthHelper(TEST_USER_2, "blah.. blah..");
-    negativeAuthHelper(TEST_USER_2, "");
-    negativeAuthHelper("invalidUserName", "blah.. blah..");
+    try {
+      disableLogging( );
+      negativeAuthHelper(TEST_USER_1, "blah.. blah..");
+      negativeAuthHelper(TEST_USER_2, "blah.. blah..");
+      negativeAuthHelper(TEST_USER_2, "");
+      negativeAuthHelper("invalidUserName", "blah.. blah..");
+    } finally {
+      enableLogging( );
+    }
   }
 
   @Test
   public void positiveUserAuthAfterNegativeUserAuth() throws Exception {
-    negativeAuthHelper("blah.. blah..", "blah.. blah..");
-    runTest(TEST_USER_2, TEST_USER_2_PASSWORD);
+    try {
+      disableLogging( );
+      negativeAuthHelper("blah.. blah..", "blah.. blah..");
+      runTest(TEST_USER_2, TEST_USER_2_PASSWORD);
+    } finally {
+      enableLogging( );
+    }
+  }
+
+  private void disableLogging() {
+    userServerLog.setLevel(Level.OFF);
+    userClientLog.setLevel(Level.OFF);
+    rpcExceptionLog.setLevel(Level.OFF);
+  }
+
+  private void enableLogging() {
+    userServerLog.setLevel(userServerLevel);
+    userClientLog.setLevel(userClientLevel);
+    rpcExceptionLog.setLevel(rpcExceptionLevel);
   }
 
   private static void negativeAuthHelper(final String user, final String password) throws Exception {
