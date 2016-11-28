@@ -48,7 +48,7 @@ public class TestFragmentChecker extends PopUnitTestBase{
   }
 
   private void print(String fragmentFile, int bitCount, int expectedFragmentCount) throws Exception{
-    System.out.println(String.format("=================Building plan fragments for [%s].  Allowing %d total Drillbits.==================", fragmentFile, bitCount));
+//    System.out.println(String.format("=================Building plan fragments for [%s].  Allowing %d total Drillbits.==================", fragmentFile, bitCount));
     PhysicalPlanReader ppr = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(CONFIG);
     Fragment fragmentRoot = getRootFragment(ppr, fragmentFile);
     SimpleParallelizer par = new SimpleParallelizer(1000*1000, 5, 10, 1.2);
@@ -66,14 +66,15 @@ public class TestFragmentChecker extends PopUnitTestBase{
     QueryWorkUnit qwu = par.getFragments(new OptionList(), localBit, QueryId.getDefaultInstance(), endpoints, ppr, fragmentRoot,
         UserSession.Builder.newBuilder().withCredentials(UserBitShared.UserCredentials.newBuilder().setUserName("foo").build()).build(),
         queryContextInfo);
-    System.out.println(String.format("=========ROOT FRAGMENT [%d:%d] =========", qwu.getRootFragment().getHandle().getMajorFragmentId(), qwu.getRootFragment().getHandle().getMinorFragmentId()));
+    // TODO: Find a way to test this other than dumping to stdout.
+//    System.out.println(String.format("=========ROOT FRAGMENT [%d:%d] =========", qwu.getRootFragment().getHandle().getMajorFragmentId(), qwu.getRootFragment().getHandle().getMinorFragmentId()));
 
-    System.out.print(qwu.getRootFragment().getFragmentJson());
+//    System.out.print(qwu.getRootFragment().getFragmentJson());
 
-    for(PlanFragment f : qwu.getFragments()) {
-      System.out.println(String.format("=========Fragment [%d:%d]=====", f.getHandle().getMajorFragmentId(), f.getHandle().getMinorFragmentId()));
-      System.out.print(f.getFragmentJson());
-    }
+//    for(PlanFragment f : qwu.getFragments()) {
+//      System.out.println(String.format("=========Fragment [%d:%d]=====", f.getHandle().getMajorFragmentId(), f.getHandle().getMinorFragmentId()));
+//      System.out.print(f.getFragmentJson());
+//    }
 
     assertEquals(expectedFragmentCount,
         qwu.getFragments().size() + 1 /* root fragment is not part of the getFragments() list*/);
