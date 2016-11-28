@@ -80,45 +80,46 @@ public class TestLoad extends ExecTest {
     byteBuf.writerIndex(bytes);
 
     batchLoader.load(writableBatch.getDef(), byteBuf);
-    boolean firstColumn = true;
+    // TODO: Find a way to validate this without dumping to stdout
+//    boolean firstColumn = true;
     int recordCount = 0;
-    for (final VectorWrapper<?> v : batchLoader) {
-      if (firstColumn) {
-        firstColumn = false;
-      } else {
-        System.out.print("\t");
-      }
-      System.out.print(v.getField().getPath());
-      System.out.print("[");
-      System.out.print(v.getField().getType().getMinorType());
-      System.out.print("]");
-    }
+//    for (final VectorWrapper<?> v : batchLoader) {
+//      if (firstColumn) {
+//        firstColumn = false;
+//      } else {
+//        System.out.print("\t");
+//      }
+//      System.out.print(v.getField().getPath());
+//      System.out.print("[");
+//      System.out.print(v.getField().getType().getMinorType());
+//      System.out.print("]");
+//    }
 
-    System.out.println();
+//    System.out.println();
     for (int r = 0; r < batchLoader.getRecordCount(); r++) {
-      boolean first = true;
+//      boolean first = true;
       recordCount++;
       for (final VectorWrapper<?> v : batchLoader) {
-        if (first) {
-          first = false;
-        } else {
-          System.out.print("\t");
-        }
+//        if (first) {
+//          first = false;
+//        } else {
+//          System.out.print("\t");
+//        }
         final ValueVector.Accessor accessor = v.getValueVector().getAccessor();
-        if (v.getField().getType().getMinorType() == TypeProtos.MinorType.VARCHAR) {
-          final Object obj = accessor.getObject(r);
-          if (obj != null) {
-            System.out.print(accessor.getObject(r));
-          } else {
-            System.out.print("NULL");
-          }
-        } else {
-          System.out.print(accessor.getObject(r));
-        }
+//        if (v.getField().getType().getMinorType() == TypeProtos.MinorType.VARCHAR) {
+//          final Object obj = accessor.getObject(r);
+//          if (obj != null) {
+//            System.out.print(accessor.getObject(r));
+//          } else {
+//            System.out.print("NULL");
+//          }
+//        } else {
+//          System.out.print(accessor.getObject(r));
+//        }
       }
-      if (!first) {
-        System.out.println();
-      }
+//      if (!first) {
+//        System.out.println();
+//      }
     }
     assertEquals(100, recordCount);
     batchLoader.clear();
