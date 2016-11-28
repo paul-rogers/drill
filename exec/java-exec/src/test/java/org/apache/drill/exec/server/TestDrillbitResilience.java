@@ -86,16 +86,19 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
-import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
 
 /**
  * Test how resilient drillbits are to throwing exceptions during various phases of query
  * execution by injecting exceptions at various points, and to cancellations in various phases.
  */
 public class TestDrillbitResilience extends DrillTest {
-  private static final Logger logger = org.slf4j.LoggerFactory.getLogger(TestDrillbitResilience.class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestDrillbitResilience.class);
 
   private static ZookeeperHelper zkHelper;
   private static RemoteServiceSet remoteServiceSet;
@@ -198,6 +201,13 @@ public class TestDrillbitResilience extends DrillTest {
     final DrillConfig drillConfig = zkHelper.getConfig();
     drillClient = QueryTestUtil.createClient(drillConfig, remoteServiceSet, 1, null);
     clearAllInjections();
+    
+    // This test is brutal, causes many logging messages that we wish to ignore.
+    
+    Logger logger = (Logger) LoggerFactory.getLogger(org.apache.drill.exec.work.foreman.Foreman.class);
+    logger.setLevel(Level.OFF);
+    logger = (Logger) LoggerFactory.getLogger(org.apache.drill.exec.work.fragment.FragmentExecutor.class);
+    logger.setLevel(Level.OFF);
   }
 
   @AfterClass
