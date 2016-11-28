@@ -39,6 +39,10 @@ import org.junit.Test;
 import com.google.common.base.Charsets;
 import com.google.common.io.Files;
 
+// TODO: This test "verified" schema and results by printing them.
+// If the results are important, we should capture them to a "golden" fild
+// and compare the actual results.
+
 public class TestSimpleFragmentRun extends PopUnitTestBase {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestSimpleFragmentRun.class);
 
@@ -64,20 +68,20 @@ public class TestSimpleFragmentRun extends PopUnitTestBase {
 
       // print headers.
       if (schemaChanged) {
-        System.out.println("\n\n========NEW SCHEMA=========\n\n");
+//        System.out.println("\n\n========NEW SCHEMA=========\n\n");
         for (final VectorWrapper<?> value : batchLoader) {
 
           if (firstColumn) {
             firstColumn = false;
-          } else {
-            System.out.print("\t");
+//          } else {
+//            System.out.print("\t");
           }
-          System.out.print(value.getField().getPath());
-          System.out.print("[");
-          System.out.print(value.getField().getType().getMinorType());
-          System.out.print("]");
+//          System.out.print(value.getField().getPath());
+//          System.out.print("[");
+//          System.out.print(value.getField().getType().getMinorType());
+//          System.out.print("]");
         }
-        System.out.println();
+//        System.out.println();
       }
 
       for (int i = 0; i < batchLoader.getRecordCount(); i++) {
@@ -87,13 +91,13 @@ public class TestSimpleFragmentRun extends PopUnitTestBase {
           if (first) {
             first = false;
           } else {
-            System.out.print("\t");
+//            System.out.print("\t");
           }
-          System.out.print(value.getValueVector().getAccessor().getObject(i));
+//          System.out.print(value.getValueVector().getAccessor().getObject(i));
         }
-        if (!first) {
-          System.out.println();
-        }
+//        if (!first) {
+//          System.out.println();
+//        }
       }
       batchLoader.clear();
       batch.release();
@@ -139,22 +143,21 @@ public class TestSimpleFragmentRun extends PopUnitTestBase {
         boolean firstColumn = true;
 
         // print headers.
-        System.out.println("\n\n========NEW SCHEMA=========\n\n");
+//        System.out.println("\n\n========NEW SCHEMA=========\n\n");
         for (final VectorWrapper<?> v : batchLoader) {
 
           if (firstColumn) {
             firstColumn = false;
-          } else {
-            System.out.print("\t");
+//          } else {
+//            System.out.print("\t");
           }
-          System.out.print(v.getField().getPath());
-          System.out.print("[");
-          System.out.print(v.getField().getType().getMinorType());
-          System.out.print("]");
+//          System.out.print(v.getField().getPath());
+//          System.out.print("[");
+//          System.out.print(v.getField().getType().getMinorType());
+//          System.out.print("]");
         }
 
-        System.out.println();
-
+//        System.out.println();
 
         for (int r = 0; r < batchLoader.getRecordCount(); r++) {
           boolean first = true;
@@ -163,14 +166,14 @@ public class TestSimpleFragmentRun extends PopUnitTestBase {
             if (first) {
               first = false;
             } else {
-              System.out.print("\t");
+//              System.out.print("\t");
             }
 
             final ValueVector.Accessor accessor = v.getValueVector().getAccessor();
-            System.out.print(accessor.getObject(r));
+//            System.out.print(accessor.getObject(r));
           }
           if (!first) {
-            System.out.println();
+//            System.out.println();
           }
         }
         batchLoader.clear();
