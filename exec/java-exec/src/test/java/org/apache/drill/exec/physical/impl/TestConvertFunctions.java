@@ -24,15 +24,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import io.netty.buffer.DrillBuf;
 
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 
-import mockit.Injectable;
-
+import org.apache.commons.io.output.NullOutputStream;
 import org.apache.drill.BaseTestQuery;
-import org.apache.drill.TestBuilder;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.compile.ClassTransformer;
 import org.apache.drill.exec.compile.ClassTransformer.ScalarReplacementOption;
@@ -48,19 +46,28 @@ import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.server.options.OptionValue.OptionType;
 import org.apache.drill.exec.util.ByteBufUtil.HadoopWritables;
-import org.apache.drill.exec.util.VectorUtil;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VarCharVector;
 import org.joda.time.DateTime;
-import org.junit.BeforeClass;
+import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
+import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import io.netty.buffer.DrillBuf;
+import mockit.Injectable;
+
 public class TestConvertFunctions extends BaseTestQuery {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestConvertFunctions.class);
+  private static final Logger mergeLogger = (Logger) org.slf4j.LoggerFactory.getLogger("org.apache.drill.exec.compile.MergeAdapter");
+  private static final Level mergeLogLevel = mergeLogger.getLevel();
+  private static Logger fragmentExecLog = (Logger) LoggerFactory.getLogger(org.apache.drill.exec.work.fragment.FragmentExecutor.class);
+  private static Level fragmentExecLevel = fragmentExecLog.getLevel();
 
   private static final String CONVERSION_TEST_LOGICAL_PLAN = "functions/conv/conversionTestWithLogicalPlan.json";
   private static final String CONVERSION_TEST_PHYSICAL_PLAN = "functions/conv/conversionTestWithPhysicalPlan.json";
@@ -75,6 +82,22 @@ public class TestConvertFunctions extends BaseTestQuery {
   private static DateTime date = DateTime.parse("1980-01-01", DateUtility.getDateTimeFormatter());
 
   String textFileContent;
+  private PrintStream originalStdErr;
+
+  @Before
+  public void setup( ) {
+    // Suppress Parquet writer logging.
+    // This code works, but is very fragile. It can't move to
+    // a function. Both loggers must be adjusted. More work is
+    // needed to make this more stable.
+
+    @SuppressWarnings("unused")
+    Class<?> dummy = org.apache.parquet.Log.class;
+    java.util.logging.Logger logger = java.util.logging.Logger.getLogger("parquet");
+    logger.setLevel(java.util.logging.Level.SEVERE);
+    logger = java.util.logging.Logger.getLogger("org.apache.parquet.hadoop.ColumnChunkPageWriteStore");
+    logger.setLevel(java.util.logging.Level.SEVERE);
+  }
 
   @Test // DRILL-3854
   public void testConvertFromConvertToInt() throws Exception {
@@ -515,9 +538,9 @@ public class TestConvertFunctions extends BaseTestQuery {
     for (QueryDataBatch result : results) {
       count += result.getHeader().getRowCount();
       loader.load(result.getHeader().getDef(), result.getData());
-      if (loader.getRecordCount() > 0) {
-        VectorUtil.showVectorAccessibleContent(loader);
-      }
+//      if (loader.getRecordCount() > 0) {
+//        VectorUtil.showVectorAccessibleContent(loader);
+//      }
       loader.clear();
       result.release();
     }
@@ -580,10 +603,12 @@ public class TestConvertFunctions extends BaseTestQuery {
     final OptionValue srOption = setupScalarReplacementOption(bits[0], ScalarReplacementOption.TRY);
     try {
       // this should work fine
+      disableMergeAdapterLogging( );
       testBigIntVarCharReturnTripConvertLogical();
     } finally {
       // restore the system option
       restoreScalarReplacementOption(bits[0], srOption);
+      enableMergeAdapterLogging( );
     }
   }
 
@@ -593,14 +618,39 @@ public class TestConvertFunctions extends BaseTestQuery {
     boolean caughtException = false;
     try {
       // this will fail (with a JUnit assertion) until we fix the SR bug
+      disableMergeAdapterLogging( );
       testBigIntVarCharReturnTripConvertLogical();
     } catch(RpcException e) {
       caughtException = true;
     } finally {
       restoreScalarReplacementOption(bits[0], srOption);
+      enableMergeAdapterLogging( );
     }
 
     assertTrue(caughtException);
+  }
+
+  /**
+   * When scalar replacement fails, many hundreds of lines of error explanation
+   * are dumped to the log, and ASM does a hard-coded dump of the exception to
+   * stdout. Since we expect these errors, go ahead and disable the detailed
+   * log output for the duration of the test.
+   */
+
+  private void disableMergeAdapterLogging( ) {
+    mergeLogger.setLevel(Level.OFF);
+    fragmentExecLog.setLevel(Level.OFF);
+
+    // Works around the fact that CheckMethodAdapter in ASM prints
+    // a big, noisy exception to stdout.
+    originalStdErr = System.err;
+    System.setErr( new PrintStream( new NullOutputStream( ) ) );
+  }
+
+  private void enableMergeAdapterLogging( ) {
+    mergeLogger.setLevel(mergeLogLevel);
+    fragmentExecLog.setLevel(fragmentExecLevel);
+    System.setErr(originalStdErr);
   }
 
   @Test // TODO(DRILL-2326) temporary until we fix the scalar replacement bug for this case
@@ -658,7 +708,10 @@ public class TestConvertFunctions extends BaseTestQuery {
   @Test // DRILL-4862
   public void testBinaryString() throws Exception {
     // TODO(DRILL-2326) temporary until we fix the scalar replacement bug for this case
-    final OptionValue srOption = setupScalarReplacementOption(bits[0], ScalarReplacementOption.TRY);
+    // Original value was TRY, but this prints a huge log output.
+    // Disabling scalar replacement for now.
+//    final OptionValue srOption = setupScalarReplacementOption(bits[0], ScalarReplacementOption.TRY);
+    final OptionValue srOption = setupScalarReplacementOption(bits[0], ScalarReplacementOption.OFF);
 
     try {
       final String[] queries = {
