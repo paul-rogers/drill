@@ -32,6 +32,7 @@ import org.apache.drill.exec.proto.BitControl.PlanFragment;
 import org.apache.drill.exec.rpc.user.UserServer;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.vector.ValueVector;
+import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
@@ -46,6 +47,12 @@ public class TestImplicitCastFunctions extends ExecTest {
   private PhysicalPlanReader reader;
   private FunctionImplementationRegistry registry;
   private FragmentContext context;
+  private @Injectable DrillbitContext bitContext;
+  
+  @Before
+  public void init( ) throws Exception {
+    mockDrillbitContext(bitContext);
+  }
 
   public Object[] getRunResult(SimpleRootExec exec) {
     int size = 0;
@@ -61,10 +68,7 @@ public class TestImplicitCastFunctions extends ExecTest {
     return res;
  }
 
-  public void runTest(@Injectable final DrillbitContext bitContext,
-                      @Injectable UserServer.UserClientConnection connection, Object[] expectedResults, String planPath) throws Throwable {
-
-    mockDrillbitContext(bitContext);
+  public void runTest(@Injectable UserServer.UserClientConnection connection, Object[] expectedResults, String planPath) throws Throwable {
 
     final String planString = Resources.toString(Resources.getResource(planPath), Charsets.UTF_8);
     if (reader == null) {
@@ -98,8 +102,7 @@ public class TestImplicitCastFunctions extends ExecTest {
   }
 
   @Test
-  public void testImplicitCastWithConstant(@Injectable final DrillbitContext bitContext,
-                           @Injectable UserServer.UserClientConnection connection) throws Throwable{
+  public void testImplicitCastWithConstant(@Injectable UserServer.UserClientConnection connection) throws Throwable{
     final Object [] expected = new Object[21];
     expected [0] = new Double (30.1);
     expected [1] = new Double (30.1);
@@ -126,7 +129,7 @@ public class TestImplicitCastFunctions extends ExecTest {
     expected [19] = Boolean.TRUE;
     expected [20] = Boolean.TRUE;
 
-    runTest(bitContext, connection, expected, "functions/cast/testICastConstant.json");
+    runTest(connection, expected, "functions/cast/testICastConstant.json");
   }
 
   @Test
@@ -139,7 +142,7 @@ public class TestImplicitCastFunctions extends ExecTest {
     expected [3] = new Float (-2.14748365E9);
     expected [4] = new Double (-9.223372036854776E18);
 
-    runTest(bitContext, connection, expected, "functions/cast/testICastMockCol.json");
+    runTest(connection, expected, "functions/cast/testICastMockCol.json");
   }
 
   @Test
@@ -159,6 +162,6 @@ public class TestImplicitCastFunctions extends ExecTest {
     expected [8] = null;
     expected [9] = null;
 
-    runTest(bitContext, connection, expected, "functions/cast/testICastNullExp.json");
+    runTest(connection, expected, "functions/cast/testICastNullExp.json");
   }
 }

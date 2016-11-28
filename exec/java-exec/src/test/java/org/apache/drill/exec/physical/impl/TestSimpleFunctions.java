@@ -52,6 +52,7 @@ import org.apache.drill.exec.rpc.user.UserServer;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.vector.NullableVarBinaryVector;
 import org.apache.drill.exec.vector.NullableVarCharVector;
+import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
@@ -63,6 +64,12 @@ import mockit.Injectable;
 public class TestSimpleFunctions extends ExecTest {
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestSimpleFunctions.class);
   private final DrillConfig c = DrillConfig.create();
+  private @Injectable DrillbitContext bitContext;
+  
+  @Before
+  public void init( ) throws Exception {
+    mockDrillbitContext(bitContext);
+  }
 
   @Test
   public void testHashFunctionResolution() throws JClassAlreadyExistsException, IOException {
@@ -145,10 +152,7 @@ public class TestSimpleFunctions extends ExecTest {
   }
 
   @Test
-  public void testSubstring(@Injectable final DrillbitContext bitContext,
-                            @Injectable UserServer.UserClientConnection connection) throws Throwable {
-    mockDrillbitContext(bitContext);
-
+  public void testSubstring(@Injectable UserServer.UserClientConnection connection) throws Throwable {
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(c);
     final PhysicalPlan plan = reader.readPhysicalPlan(Files.toString(FileUtils.getResourceAsFile("/functions/testSubstring.json"), Charsets.UTF_8));
     final FunctionImplementationRegistry registry = new FunctionImplementationRegistry(c);
@@ -178,10 +182,7 @@ public class TestSimpleFunctions extends ExecTest {
   }
 
   @Test
-  public void testSubstringNegative(@Injectable final DrillbitContext bitContext,
-                                    @Injectable UserServer.UserClientConnection connection) throws Throwable {
-    mockDrillbitContext(bitContext);
-
+  public void testSubstringNegative(@Injectable UserServer.UserClientConnection connection) throws Throwable {
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(c);
     final PhysicalPlan plan = reader.readPhysicalPlan(Files.toString(FileUtils.getResourceAsFile("/functions/testSubstringNegative.json"), Charsets.UTF_8));
     final FunctionImplementationRegistry registry = new FunctionImplementationRegistry(c);
@@ -212,10 +213,7 @@ public class TestSimpleFunctions extends ExecTest {
   }
 
   @Test
-  public void testByteSubstring(@Injectable final DrillbitContext bitContext,
-                                  @Injectable UserServer.UserClientConnection connection) throws Throwable {
-    mockDrillbitContext(bitContext);
-
+  public void testByteSubstring(@Injectable UserServer.UserClientConnection connection) throws Throwable {
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(c);
     final PhysicalPlan plan = reader.readPhysicalPlan(Files.toString(FileUtils.getResourceAsFile("/functions/testByteSubstring.json"), Charsets.UTF_8));
     final FunctionImplementationRegistry registry = new FunctionImplementationRegistry(c);

@@ -42,6 +42,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
@@ -66,11 +67,15 @@ import mockit.Injectable;
 public class TestTraceOutputDump extends ExecTest {
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestTraceOutputDump.class);
   private final DrillConfig c = DrillConfig.create();
+  private @Injectable DrillbitContext bitContext;
+
+  @Before
+  public void init( ) throws Exception {
+    mockDrillbitContext(bitContext);
+  }
 
   @Test
-  public void testFilter(@Injectable final DrillbitContext bitContext, @Injectable UserClientConnection connection) throws Throwable {
-    mockDrillbitContext(bitContext);
-
+  public void testFilter(@Injectable UserClientConnection connection) throws Throwable {
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(c);
     final PhysicalPlan plan = reader.readPhysicalPlan(Files.toString(FileUtils.getResourceAsFile("/trace/simple_trace.json"), Charsets.UTF_8));
     final FunctionImplementationRegistry registry = new FunctionImplementationRegistry(c);
@@ -95,10 +100,10 @@ public class TestTraceOutputDump extends ExecTest {
     final int minorFragmentId = handle.getMinorFragmentId();
 
     final String logLocation = c.getString(ExecConstants.TRACE_DUMP_DIRECTORY);
-    System.out.println("Found log location: " + logLocation);
+//    System.out.println("Found log location: " + logLocation);
 
     final String filename = String.format("%s//%s_%d_%d_mock-scan", logLocation, qid, majorFragmentId, minorFragmentId);
-    System.out.println("File Name: " + filename);
+//    System.out.println("File Name: " + filename);
 
     final Configuration conf = new Configuration();
     conf.set(FileSystem.FS_DEFAULT_NAME_KEY, c.getString(ExecConstants.TRACE_DUMP_FILESYSTEM));

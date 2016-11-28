@@ -44,6 +44,7 @@ import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.rpc.user.UserServer;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.vector.ValueVector;
+import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
@@ -54,12 +55,15 @@ import java.util.List;
 public class TestRecordIterator extends PopUnitTestBase {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestRecordIterator.class);
   DrillConfig c = DrillConfig.create();
+  private @Injectable DrillbitContext bitContext;
+  
+  @Before
+  public void init( ) throws Exception {
+    mockDrillbitContext(bitContext);
+  }
 
   @Test
-  public void testSimpleIterator(@Injectable final DrillbitContext bitContext,
-                                  @Injectable UserServer.UserClientConnection connection) throws Throwable{
-    mockDrillbitContext(bitContext);
-
+  public void testSimpleIterator(@Injectable UserServer.UserClientConnection connection) throws Throwable{
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(c);
 
     final String planStr = Files.toString(FileUtils.getResourceAsFile("/record/test_recorditerator.json"), Charsets.UTF_8);
@@ -113,9 +117,7 @@ public class TestRecordIterator extends PopUnitTestBase {
   }
 
   @Test
-  public void testMarkResetIterator(@Injectable final DrillbitContext bitContext,
-                                 @Injectable UserServer.UserClientConnection connection) throws Throwable{
-    mockDrillbitContext(bitContext);
+  public void testMarkResetIterator(@Injectable UserServer.UserClientConnection connection) throws Throwable{
 
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(c);
 

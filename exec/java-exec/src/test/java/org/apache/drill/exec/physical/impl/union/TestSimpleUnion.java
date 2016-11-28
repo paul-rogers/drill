@@ -34,6 +34,7 @@ import org.apache.drill.exec.planner.PhysicalPlanReaderTestFactory;
 import org.apache.drill.exec.proto.BitControl.PlanFragment;
 import org.apache.drill.exec.rpc.user.UserServer;
 import org.apache.drill.exec.server.DrillbitContext;
+import org.junit.Before;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
@@ -44,11 +45,15 @@ import mockit.Injectable;
 public class TestSimpleUnion extends ExecTest {
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestSimpleUnion.class);
   private final DrillConfig c = DrillConfig.create();
+  private @Injectable DrillbitContext bitContext;
+
+  @Before
+  public void init( ) throws Exception {
+    mockDrillbitContext(bitContext);
+  }
 
   @Test
-  public void testUnion(@Injectable final DrillbitContext bitContext, @Injectable UserServer.UserClientConnection connection) throws Throwable {
-    mockDrillbitContext(bitContext);
-
+  public void testUnion(@Injectable UserServer.UserClientConnection connection) throws Throwable {
     final PhysicalPlanReader reader = PhysicalPlanReaderTestFactory.defaultPhysicalPlanReader(c);
     final PhysicalPlan plan = reader.readPhysicalPlan(Files.toString(FileUtils.getResourceAsFile("/union/test1.json"), Charsets.UTF_8));
     final FunctionImplementationRegistry registry = new FunctionImplementationRegistry(c);
@@ -58,7 +63,7 @@ public class TestSimpleUnion extends ExecTest {
     final int[] counts = new int[]{100,50};
     int i = 0;
     while(exec.next()) {
-      System.out.println("iteration count:" + exec.getRecordCount());
+//      System.out.println("iteration count:" + exec.getRecordCount());
       assertEquals(counts[i++], exec.getRecordCount());
     }
 
