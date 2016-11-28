@@ -121,11 +121,29 @@ public class TestParquetWriter extends BaseTestQuery {
 
   @BeforeClass
   public static void initFs() throws Exception {
+
+    silenceParquet( );
+    
     Configuration conf = new Configuration();
     conf.set(FileSystem.FS_DEFAULT_NAME_KEY, "local");
 
     fs = FileSystem.get(conf);
     test(String.format("alter session set `%s` = true", PlannerSettings.ENABLE_DECIMAL_DATA_TYPE_KEY));
+  }
+  
+  private static void silenceParquet( ) {
+    // Suppress Parquet writer logging.
+    // This code works, but is very fragile. It can't move to
+    // a function. Both loggers must be adjusted. More work is
+    // needed to make this more stable.
+
+    @SuppressWarnings("unused")
+    Class<?> dummy = org.apache.parquet.Log.class;
+    org.apache.parquet.Log dummyLog = org.apache.parquet.Log.getLog(org.apache.parquet.Log.class);
+    java.util.logging.Logger logger = java.util.logging.Logger.getLogger(org.apache.parquet.Log.class.getPackage().getName());
+    logger.setLevel(java.util.logging.Level.SEVERE);
+    logger = java.util.logging.Logger.getLogger("org.apache.parquet.hadoop.ColumnChunkPageWriteStore");
+    logger.setLevel(java.util.logging.Level.SEVERE);
   }
 
   @AfterClass
@@ -181,7 +199,7 @@ public class TestParquetWriter extends BaseTestQuery {
   }
 
   @Test
-  public void testAllScalarTypes() throws Exception {
+  public void testAllScalarTypes() throws Exception { // loud
     /// read once with the flat reader
     runTestAndValidate(allTypesSelection, "*", allTypesTable, "donuts_json");
 
@@ -192,6 +210,7 @@ public class TestParquetWriter extends BaseTestQuery {
     } finally {
       test(String.format("alter session set %s = false", ExecConstants.PARQUET_NEW_RECORD_READER));
     }
+    silenceParquet( );
   }
 
   @Test
@@ -356,19 +375,19 @@ public class TestParquetWriter extends BaseTestQuery {
   }
 
   @Test
-  public void testRepeatedLong() throws Exception {
+  public void testRepeatedLong() throws Exception { // ok
     String inputTable = "cp.`parquet/repeated_integer_data.json`";
     runTestAndValidate("*", "*", inputTable, "repeated_int_parquet");
   }
 
   @Test
-  public void testRepeatedBool() throws Exception {
+  public void testRepeatedBool() throws Exception { // ok
     String inputTable = "cp.`parquet/repeated_bool_data.json`";
     runTestAndValidate("*", "*", inputTable, "repeated_bool_parquet");
   }
 
   @Test
-  public void testNullReadWrite() throws Exception {
+  public void testNullReadWrite() throws Exception { // ok
     String inputTable = "cp.`parquet/null_test_data.json`";
     runTestAndValidate("*", "*", inputTable, "nullable_test");
   }
@@ -402,7 +421,7 @@ public class TestParquetWriter extends BaseTestQuery {
 
 
   @Test
-  public void testDate() throws Exception {
+  public void testDate() throws Exception { // ok
     String selection = "cast(hire_date as DATE) as hire_date";
     String validateSelection = "hire_date";
     String inputTable = "cp.`employee.json`";
@@ -893,18 +912,21 @@ public class TestParquetWriter extends BaseTestQuery {
         "c_varchar, c_integer, c_bigint, c_float, c_double, c_date, c_time, c_timestamp, c_boolean",
         "cp.`parquet/first_page_all_nulls.parquet`");
   }
+  
   @Test
   public void testLastPageAllNulls() throws Exception {
     compareParquetReadersColumnar(
         "c_varchar, c_integer, c_bigint, c_float, c_double, c_date, c_time, c_timestamp, c_boolean",
         "cp.`parquet/first_page_all_nulls.parquet`");
   }
+  
   @Test
   public void testFirstPageOneNull() throws Exception {
     compareParquetReadersColumnar(
         "c_varchar, c_integer, c_bigint, c_float, c_double, c_date, c_time, c_timestamp, c_boolean",
         "cp.`parquet/first_page_one_null.parquet`");
   }
+  
   @Test
   public void testLastPageOneNull() throws Exception {
     compareParquetReadersColumnar(
@@ -953,7 +975,7 @@ public class TestParquetWriter extends BaseTestQuery {
   }
 
   @Test
-  public void testTPCHReadWriteSnappy() throws Exception {
+  public void testTPCHReadWriteSnappy() throws Exception { // ok
     try {
       test(String.format("alter session set `%s` = 'snappy'", ExecConstants.PARQUET_WRITER_COMPRESSION_TYPE));
       String inputTable = "cp.`supplier_snappy.parquet`";
