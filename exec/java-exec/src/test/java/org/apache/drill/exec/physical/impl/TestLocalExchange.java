@@ -129,13 +129,13 @@ public class TestLocalExchange extends PlanTestBase {
     final int empNumRecsPerFile = 100;
     for(int fileIndex=0; fileIndex<NUM_EMPLOYEES/empNumRecsPerFile; fileIndex++) {
       File file = new File(empTableLocation + File.separator + fileIndex + ".json");
-      PrintWriter printWriter = new PrintWriter(file);
-      for (int recordIndex = fileIndex*empNumRecsPerFile; recordIndex < (fileIndex+1)*empNumRecsPerFile; recordIndex++) {
-        String record = String.format("{ \"emp_id\" : %d, \"emp_name\" : \"Employee %d\", \"dept_id\" : %d, \"mng_id\" : %d, \"some_id\" : %d }",
-            recordIndex, recordIndex, recordIndex % NUM_DEPTS, recordIndex % NUM_MNGRS, recordIndex % NUM_IDS);
-        printWriter.println(record);
+      try(PrintWriter printWriter = new PrintWriter(file)) {
+        for (int recordIndex = fileIndex*empNumRecsPerFile; recordIndex < (fileIndex+1)*empNumRecsPerFile; recordIndex++) {
+          String record = String.format("{ \"emp_id\" : %d, \"emp_name\" : \"Employee %d\", \"dept_id\" : %d, \"mng_id\" : %d, \"some_id\" : %d }",
+              recordIndex, recordIndex, recordIndex % NUM_DEPTS, recordIndex % NUM_MNGRS, recordIndex % NUM_IDS);
+          printWriter.println(record);
+        }
       }
-      printWriter.close();
     }
 
     // Table 2 consists of two columns "dept_id" and "dept_name"
@@ -145,13 +145,13 @@ public class TestLocalExchange extends PlanTestBase {
     final int deptNumRecsPerFile = 4;
     for(int fileIndex=0; fileIndex<NUM_DEPTS/deptNumRecsPerFile; fileIndex++) {
       File file = new File(deptTableLocation + File.separator + fileIndex + ".json");
-      PrintWriter printWriter = new PrintWriter(file);
-      for (int recordIndex = fileIndex*deptNumRecsPerFile; recordIndex < (fileIndex+1)*deptNumRecsPerFile; recordIndex++) {
-        String record = String.format("{ \"dept_id\" : %d, \"dept_name\" : \"Department %d\" }",
-            recordIndex, recordIndex);
-        printWriter.println(record);
+      try (PrintWriter printWriter = new PrintWriter(file)) {
+        for (int recordIndex = fileIndex*deptNumRecsPerFile; recordIndex < (fileIndex+1)*deptNumRecsPerFile; recordIndex++) {
+          String record = String.format("{ \"dept_id\" : %d, \"dept_name\" : \"Department %d\" }",
+              recordIndex, recordIndex);
+          printWriter.println(record);
+        }
       }
-      printWriter.close();
     }
 
     // Initialize test queries
@@ -206,7 +206,7 @@ public class TestLocalExchange extends PlanTestBase {
     final int numOccurrances = NUM_EMPLOYEES/NUM_DEPTS;
 
     final String plan = getPlanInString("EXPLAIN PLAN FOR " + groupByMultipleQuery, JSON_FORMAT);
-    System.out.println("Plan: " + plan);
+//    System.out.println("Plan: " + plan);
 
     jsonExchangeOrderChecker(plan, false, 1, "hash32asdouble\\(.*, hash32asdouble\\(.*, hash32asdouble\\(.*\\) \\) \\) ");
 
@@ -281,7 +281,7 @@ public class TestLocalExchange extends PlanTestBase {
     setupHelper(isMuxOn, isDeMuxOn);
 
     String plan = getPlanInString("EXPLAIN PLAN FOR " + query, JSON_FORMAT);
-    System.out.println("Plan: " + plan);
+//    System.out.println("Plan: " + plan);
 
     if ( isMuxOn ) {
       // # of hash exchanges should be = # of mux exchanges + # of demux exchanges
