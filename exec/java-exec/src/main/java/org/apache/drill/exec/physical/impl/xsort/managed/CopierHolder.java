@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.xsort.managed;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.expr.TypeHelper;
@@ -64,10 +65,9 @@ public class CopierHolder {
    * @param batchGroupList
    * @param targetRecordCount
    * @return
-   * @throws SchemaChangeException
    */
 
-  public CopierHolder.BatchMerger startMerge( BatchSchema schema, List<? extends BatchGroup> batchGroupList, int targetRecordCount ) throws SchemaChangeException {
+  public CopierHolder.BatchMerger startMerge( BatchSchema schema, List<? extends BatchGroup> batchGroupList, int targetRecordCount ) {
     return new BatchMerger( this, schema, batchGroupList, targetRecordCount );
   }
 
@@ -80,9 +80,8 @@ public class CopierHolder {
    * @param outputContainer
    * @param targetRecordCount
    * @return
-   * @throws SchemaChangeException
    */
-  public CopierHolder.BatchMerger startFinalMerge( BatchSchema schema, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer, int targetRecordCount ) throws SchemaChangeException {
+  public CopierHolder.BatchMerger startFinalMerge( BatchSchema schema, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer, int targetRecordCount ) {
     return new BatchMerger( this, schema, batchGroupList, outputContainer, targetRecordCount );
   }
 
@@ -97,12 +96,10 @@ public class CopierHolder {
    * of individual batches
    * @param outputContainer the container into which to copy the batches
    * @param allocator allocator to use to allocate memory in the operation
-   * @throws SchemaChangeException thrown, but should never occur because
-   * schema changes were caught earlier as the batches were received
    */
 
   @SuppressWarnings("unchecked")
-  private void createCopier(VectorAccessible batch, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer) throws SchemaChangeException {
+  private void createCopier(VectorAccessible batch, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer) {
     if (copier != null) {
       opCodeGen.closeCopier();
     } else {
@@ -116,7 +113,13 @@ public class CopierHolder {
       ValueVector v = TypeHelper.getNewVector(i.getField(), allocator);
       outputContainer.add(v);
     }
-    copier.setup(context, allocator, batch, (List<BatchGroup>) batchGroupList, outputContainer);
+    try {
+      copier.setup(context, allocator, batch, (List<BatchGroup>) batchGroupList, outputContainer);
+    } catch (SchemaChangeException e) {
+      throw UserException.unsupportedError(e)
+            .message("Unexpected schema change - likely code error.")
+            .build(logger);
+    }
   }
 
   public void close() {
@@ -152,13 +155,7 @@ public class CopierHolder {
    * <p>
    * Calls to the {@link #next()} method sequentially return merged batches
    * of the desired row count.
-   *
-   * @param batchGroupList
-   * @param outputContainer
-   * @param allocator
-   * @return
-   * @throws SchemaChangeException
-   */
+    */
 
   public static class BatchMerger implements SortResults {
 
@@ -175,9 +172,8 @@ public class CopierHolder {
      * @param holder
      * @param batchGroupList
      * @param targetRecordCount
-     * @throws SchemaChangeException
      */
-    private BatchMerger( CopierHolder holder, BatchSchema schema, List<? extends BatchGroup> batchGroupList, int targetRecordCount ) throws SchemaChangeException {
+    private BatchMerger( CopierHolder holder, BatchSchema schema, List<? extends BatchGroup> batchGroupList, int targetRecordCount ) {
       this( holder, schema, batchGroupList, new VectorContainer(), targetRecordCount );
     }
 
@@ -188,9 +184,8 @@ public class CopierHolder {
      * @param batchGroupList
      * @param outputContainer
      * @param targetRecordCount
-     * @throws SchemaChangeException
      */
-    private BatchMerger( CopierHolder holder, BatchSchema schema, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer, int targetRecordCount ) throws SchemaChangeException {
+    private BatchMerger( CopierHolder holder, BatchSchema schema, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer, int targetRecordCount ) {
       this.holder = holder;
       hyperBatch = constructHyperBatch(schema, batchGroupList);
       copyCount = 0;
