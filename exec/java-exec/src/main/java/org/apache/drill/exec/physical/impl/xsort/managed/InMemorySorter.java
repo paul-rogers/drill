@@ -17,10 +17,9 @@
  */
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
-import java.io.IOException;
 import java.util.LinkedList;
 
-import org.apache.drill.exec.exception.ClassTransformationException;
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
@@ -33,6 +32,7 @@ import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 
 public class InMemorySorter implements SortResults {
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(InMemorySorter.class);
 
   private SortRecordBatchBuilder builder;
   private MSorter mSorter;
@@ -51,8 +51,7 @@ public class InMemorySorter implements SortResults {
   }
 
   public SelectionVector4 sort( LinkedList<BatchGroup.InputBatch> batchGroups, VectorAccessible batch,
-                                VectorContainer destContainer )
-                              throws SchemaChangeException, ClassTransformationException, IOException {
+                                VectorContainer destContainer ) {
     if (builder != null) {
       builder.clear();
       builder.close();
@@ -66,10 +65,16 @@ public class InMemorySorter implements SortResults {
       builder.add(rbd);
     }
 
-    builder.build(context, destContainer);
-    sv4 = builder.getSv4();
-    mSorter = opCg.createNewMSorter( batch );
-    mSorter.setup(context, oAllocator, sv4, destContainer, outputBatchSize);
+    try {
+      builder.build(context, destContainer);
+      sv4 = builder.getSv4();
+      mSorter = opCg.createNewMSorter( batch );
+      mSorter.setup(context, oAllocator, sv4, destContainer, outputBatchSize);
+    } catch (SchemaChangeException e) {
+      throw UserException.unsupportedError(e)
+            .message("Unexpected schema change - likely code error.")
+            .build(logger);
+    }
 
     // For testing memory-leak purpose, inject exception after mSorter finishes setup
     ExternalSortBatch.injector.injectUnchecked(context.getExecutionControls(), ExternalSortBatch.INTERRUPTION_AFTER_SETUP);

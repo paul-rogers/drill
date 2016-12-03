@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.util.List;
 
 import org.apache.calcite.rel.RelFieldCollation.Direction;
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.ErrorCollector;
 import org.apache.drill.common.expression.ErrorCollectorImpl;
 import org.apache.drill.common.expression.LogicalExpression;
@@ -28,11 +29,10 @@ import org.apache.drill.common.logical.data.Order.Ordering;
 import org.apache.drill.exec.compile.sig.GeneratorMapping;
 import org.apache.drill.exec.compile.sig.MappingSet;
 import org.apache.drill.exec.exception.ClassTransformationException;
-import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.expr.ClassGenerator;
+import org.apache.drill.exec.expr.ClassGenerator.HoldingContainer;
 import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
-import org.apache.drill.exec.expr.ClassGenerator.HoldingContainer;
 import org.apache.drill.exec.expr.fn.FunctionGenerationHelper;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.config.ExternalSort;
@@ -55,6 +55,7 @@ import com.sun.codemodel.JExpr;
  */
 
 public class OperatorCodeGenerator {
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(OperatorCodeGenerator.class);
 
   protected static final MappingSet MAIN_MAPPING = new MappingSet( (String) null, null, ClassGenerator.DEFAULT_SCALAR_MAP, ClassGenerator.DEFAULT_SCALAR_MAP);
   protected static final MappingSet LEFT_MAPPING = new MappingSet("leftIndex", null, ClassGenerator.DEFAULT_SCALAR_MAP, ClassGenerator.DEFAULT_SCALAR_MAP);
@@ -110,7 +111,9 @@ public class OperatorCodeGenerator {
       try {
         copier.close();
       } catch (IOException e) {
-        throw new RuntimeException(e);
+        throw UserException.dataWriteError(e)
+              .message("Failure while flushing spilled data")
+              .build(logger);
       }
     }
   }
@@ -128,31 +131,22 @@ public class OperatorCodeGenerator {
     CodeGenerator<PriorityQueueCopier> cg = CodeGenerator.get(PriorityQueueCopier.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
     ClassGenerator<PriorityQueueCopier> g = cg.getRoot();
 
-    try {
-      generateComparisons(g, batch);
-    } catch (SchemaChangeException e) {
-      throw new RuntimeException("Unexpected schema change", e);
-    }
+    generateComparisons(g, batch);
 
     g.setMappingSet(COPIER_MAPPING_SET);
     CopyUtil.generateCopies(g, batch, true);
     g.setMappingSet(MAIN_MAPPING);
-    try {
-      return context.getImplementationClass(cg);
-    } catch (ClassTransformationException | IOException e) {
-      throw new RuntimeException(e);
-    }
+    return getInstance(cg);
   }
 
-  public MSorter createNewMSorter( VectorAccessible batch ) throws ClassTransformationException, IOException, SchemaChangeException {
+  public MSorter createNewMSorter( VectorAccessible batch ) {
     if ( mSorter == null ) {
       mSorter = createNewMSorter(popConfig.getOrderings(), batch, MAIN_MAPPING, LEFT_MAPPING, RIGHT_MAPPING);
     }
     return mSorter;
   }
 
-  private MSorter createNewMSorter(List<Ordering> orderings, VectorAccessible batch, MappingSet mainMapping, MappingSet leftMapping, MappingSet rightMapping)
-          throws ClassTransformationException, IOException, SchemaChangeException{
+  private MSorter createNewMSorter(List<Ordering> orderings, VectorAccessible batch, MappingSet mainMapping, MappingSet leftMapping, MappingSet rightMapping) {
     CodeGenerator<MSorter> cg = CodeGenerator.get(MSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
     ClassGenerator<MSorter> g = cg.getRoot();
     g.setMappingSet(mainMapping);
@@ -162,7 +156,9 @@ public class OperatorCodeGenerator {
       ErrorCollector collector = new ErrorCollectorImpl();
       final LogicalExpression expr = ExpressionTreeMaterializer.materialize(od.getExpr(), batch, collector, context.getFunctionRegistry());
       if (collector.hasErrors()) {
-        throw new SchemaChangeException("Failure while materializing expression. " + collector.toErrorString());
+        throw UserException.unsupportedError()
+              .message("Failure while materializing expression. " + collector.toErrorString())
+              .build(logger);
       }
       g.setMappingSet(leftMapping);
       HoldingContainer left = g.addExpr(expr, ClassGenerator.BlkCreateMode.FALSE);
@@ -188,30 +184,41 @@ public class OperatorCodeGenerator {
     g.rotateBlock();
     g.getEvalBlock()._return(JExpr.lit(0));
 
-    return context.getImplementationClass(cg);
+    return getInstance(cg);
   }
 
-  public SingleBatchSorter getSorter(VectorAccessible batch)
-      throws ClassTransformationException, IOException, SchemaChangeException {
+  public SingleBatchSorter getSorter(VectorAccessible batch) {
     if ( sorter == null ) {
       sorter = createNewSorter( batch );
     }
     return sorter;
   }
 
-  private SingleBatchSorter createNewSorter(VectorAccessible batch)
-      throws ClassTransformationException, IOException, SchemaChangeException {
+  private SingleBatchSorter createNewSorter(VectorAccessible batch) {
     CodeGenerator<SingleBatchSorter> cg = CodeGenerator.get(
         SingleBatchSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(),
         context.getOptions());
     ClassGenerator<SingleBatchSorter> g = cg.getRoot();
 
     generateComparisons(g, batch);
-
-    return context.getImplementationClass(cg);
+    return getInstance(cg);
   }
 
-  protected void generateComparisons(ClassGenerator<?> g, VectorAccessible batch) throws SchemaChangeException {
+  private <T> T getInstance( CodeGenerator<T> cg ) {
+    try {
+      return context.getImplementationClass(cg);
+    } catch (ClassTransformationException e) {
+      throw UserException.unsupportedError(e)
+            .message("Code generation error - likely code error.")
+            .build(logger);
+    } catch (IOException e) {
+      throw UserException.resourceError(e)
+            .message("IO Error during code generation.")
+            .build(logger);
+    }
+  }
+
+  protected void generateComparisons(ClassGenerator<?> g, VectorAccessible batch)  {
     g.setMappingSet(MAIN_MAPPING);
 
     for (Ordering od : popConfig.getOrderings()) {
@@ -219,7 +226,9 @@ public class OperatorCodeGenerator {
       ErrorCollector collector = new ErrorCollectorImpl();
       final LogicalExpression expr = ExpressionTreeMaterializer.materialize(od.getExpr(), batch, collector, context.getFunctionRegistry());
       if (collector.hasErrors()) {
-        throw new SchemaChangeException("Failure while materializing expression. " + collector.toErrorString());
+        throw UserException.unsupportedError()
+              .message("Failure while materializing expression. " + collector.toErrorString())
+              .build(logger);
       }
       g.setMappingSet(LEFT_MAPPING);
       HoldingContainer left = g.addExpr(expr, ClassGenerator.BlkCreateMode.FALSE);
