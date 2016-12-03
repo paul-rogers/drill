@@ -24,6 +24,7 @@ import java.util.Iterator;
 import java.util.Set;
 
 import org.apache.drill.common.config.DrillConfig;
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
@@ -80,9 +81,11 @@ public class SpillSet {
     Configuration conf = new Configuration();
     conf.set("fs.default.name", config.getString(ExecConstants.EXTERNAL_SORT_SPILL_FILESYSTEM));
     try {
-      this.fs = FileSystem.get(conf);
+      fs = FileSystem.get(conf);
     } catch (IOException e) {
-      throw new RuntimeException(e);
+      throw UserException.resourceError(e)
+            .message("Failed to get the File System for external sort")
+            .build(logger);
     }
     FragmentHandle handle = context.getHandle();
     spillDirName = String.format("%s_major%s_minor%s_op%s", QueryIdHelper.getQueryId(handle.getQueryId()),

@@ -23,6 +23,7 @@ import java.io.OutputStream;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.cache.VectorAccessibleSerializable;
 import org.apache.drill.exec.memory.BufferAllocator;
@@ -104,9 +105,13 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
 
     @Override
     public void close() throws IOException {
-      super.close( );
-      if (sv2 != null) {
-        sv2.clear();
+      try {
+        super.close( );
+      }
+      finally {
+        if (sv2 != null) {
+          sv2.clear();
+        }
       }
     }
   }
@@ -177,7 +182,9 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
           currentContainer.zeroVectors();
           getBatch();
         } catch (IOException e) {
-          throw new RuntimeException(e);
+          throw UserException.dataReadError(e)
+          .message("Failure while reading spilled data")
+          .build(logger);
         }
         pointer = 1;
         return 0;
@@ -211,14 +218,25 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
 
     @Override
     public void close() throws IOException {
-      super.close( );
-      closeOutputStream( );
-      if (inputStream != null) {
-        inputStream.close();
-        inputStream = null;
-        logger.trace( "Summary: Read {} bytes from {}", dataSize, path );
+      try {
+        super.close( );
       }
-      spillSet.delete( path );
+      finally {
+        try {
+          closeOutputStream( );
+        } finally {
+          try {
+            if (inputStream != null) {
+              inputStream.close();
+              inputStream = null;
+              logger.trace( "Summary: Read {} bytes from {}", dataSize, path );
+            }
+          }
+          finally {
+            spillSet.delete( path );
+          }
+        }
+      }
     }
 
     public void closeOutputStream() throws IOException {
