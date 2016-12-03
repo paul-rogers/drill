@@ -23,6 +23,7 @@ import java.io.OutputStream;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.cache.VectorAccessibleSerializable;
 import org.apache.drill.exec.memory.BufferAllocator;
@@ -105,9 +106,13 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
 
     @Override
     public void close() throws IOException {
-      super.close( );
-      if (sv2 != null) {
-        sv2.clear();
+      try {
+        super.close( );
+      }
+      finally {
+        if (sv2 != null) {
+          sv2.clear();
+        }
       }
     }
   }
