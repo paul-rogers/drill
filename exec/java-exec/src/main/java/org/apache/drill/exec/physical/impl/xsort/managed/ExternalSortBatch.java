@@ -26,7 +26,6 @@ import org.apache.drill.common.AutoCloseables;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BufferAllocator;
@@ -283,15 +282,18 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     int getRecordCount();
   }
 
-  public ExternalSortBatch(ExternalSort popConfig, FragmentContext context, RecordBatch incoming) throws OutOfMemoryException {
+  public ExternalSortBatch(ExternalSort popConfig, FragmentContext context, RecordBatch incoming) {
     super(popConfig, context, true);
     this.incoming = incoming;
-    DrillConfig config = context.getConfig();
     oAllocator = oContext.getAllocator();
     opCodeGen = new OperatorCodeGenerator( context, popConfig );
 
     spillSet = new SpillSet( context, popConfig );
     copierHolder = new CopierHolder( context, oAllocator, opCodeGen );
+    configure( context.getConfig() );
+  }
+
+  private void configure( DrillConfig config ) {
 
     // The maximum memory this operator can use. It is either the
     // limit set on the allocator or on the operator, whichever is
@@ -301,7 +303,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     // Optional configured memory limit, typically used only for testing.
 
-    long configLimit = config.getLong( ExecConstants.EXTERNAL_SORT_MAX_MEMORY );
+    long configLimit = config.getBytes( ExecConstants.EXTERNAL_SORT_MAX_MEMORY );
     if ( configLimit > 0 ) {
       memoryLimit = Math.min( memoryLimit, configLimit );
     }
@@ -330,7 +332,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     // Limits the size of first-generation spill files.
 
-    spillFileSize = config.getLong( ExecConstants.EXTERNAL_SORT_SPILL_FILE_SIZE );
+    spillFileSize = config.getBytes( ExecConstants.EXTERNAL_SORT_SPILL_FILE_SIZE );
 
     logger.trace( "Config: memory limit = {}, batch limit = {}, min, max spill limit: {}, {}, merge limit = {}",
                   memoryLimit, bufferedBatchLimit, minSpillLimit, maxSpillLimit, mergeLimit );
@@ -400,7 +402,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   }
 
   @Override
-  public void buildSchema() throws SchemaChangeException {
+  public void buildSchema() {
     IterOutcome outcome = next(incoming);
     switch (outcome) {
       case OK:
@@ -468,13 +470,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * (which seems to mean the same columns in possibly different orders.)
    *
    * @return
-   * @throws SchemaChangeException
-   * @throws ClassTransformationException
-   * @throws IOException
-   * @throws InterruptedException
    */
 
-  private IterOutcome loadBatch() throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
+  private IterOutcome loadBatch() {
     IterOutcome upstream = next(incoming);
     switch (upstream) {
     case NONE:
@@ -523,13 +521,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * condition is passed up from the input batch.
    *
    * @return
-   * @throws SchemaChangeException
-   * @throws ClassTransformationException
-   * @throws IOException
-   * @throws InterruptedException
    */
 
-  private IterOutcome loadIncoming() throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
+  private IterOutcome load() {
     container.clear();
 
     // Loop over all input batches
@@ -596,40 +590,13 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   }
 
   /**
-   * Load the incoming batches from upstream. Handles the several
-   * errors which can occur.
-   *
-   * @return
-   */
-
-  private IterOutcome load( ) {
-    try {
-      return loadIncoming( );
-    } catch(InterruptedException e) {
-      return IterOutcome.STOP;
-    } catch (SchemaChangeException ex) {
-      kill(false);
-      context.fail(UserException.unsupportedError(ex)
-        .message("Sort doesn't currently support sorts with changing schemas").build(logger));
-      return IterOutcome.STOP;
-    } catch(ClassTransformationException | IOException ex) {
-      kill(false);
-      context.fail(ex);
-      return IterOutcome.STOP;
-    } catch (UnsupportedOperationException e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  /**
    * Handle a new schema from upstream. The ESB is quite limited in its ability
    * to handle schema changes.
    *
    * @param upstream
-   * @throws SchemaChangeException
    */
 
-  private void setupSchema( IterOutcome upstream ) throws SchemaChangeException {
+  private void setupSchema( IterOutcome upstream )  {
     // First batch: we won't have a schema.
 
     if (schema == null) {
@@ -653,7 +620,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
         copierHolder.close();
         opCodeGen.setSchema( schema );
     } else {
-      throw new SchemaChangeException("Schema changes not supported in External Sort. Please enable Union type.");
+      throw UserException.unsupportedError( )
+            .message("Schema changes not supported in External Sort. Please enable Union type.")
+            .build(logger);
     }
 
     // Coerce all existing batches to the new schema.
@@ -672,27 +641,20 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * to sort or spill.)
    *
    * @return the converted batch, or null if the incoming batch is empty
-   * @throws ClassTransformationException
-   * @throws SchemaChangeException
-   * @throws IOException
    */
 
-  private VectorContainer convertBatch( ) throws ClassTransformationException, SchemaChangeException, IOException {
+  private VectorContainer convertBatch( ) {
     if ( incoming.getRecordCount() == 0 ) {
       return null; }
     VectorContainer convertedBatch = SchemaUtil.coerceContainer(incoming, schema, oContext);
     return convertedBatch;
   }
 
-  private SelectionVector2 makeSelectionVector() throws InterruptedException {
+  private SelectionVector2 makeSelectionVector() {
     if (incoming.getSchema().getSelectionVectorMode() == BatchSchema.SelectionVectorMode.TWO_BYTE) {
       return incoming.getSelectionVector2().clone();
     } else {
-      try {
-        return newSV2();
-      } catch (OutOfMemoryException e) {
-        throw new OutOfMemoryException(e);
-      }
+      return newSV2();
     }
   }
 
@@ -702,13 +664,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    *
    * @param convertedBatch
    * @return
-   * @throws SchemaChangeException
-   * @throws ClassTransformationException
-   * @throws IOException
-   * @throws InterruptedException
    */
 
-  private void processBatch( ) throws SchemaChangeException, ClassTransformationException, IOException, InterruptedException {
+  private void processBatch( ) {
 
     // Convert the incoming batch to the agreed-upon schema.
     // No converted batch means we got an empty input batch.
@@ -745,8 +703,15 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // Sort the incoming batch using either the original selection vector,
     // or a new one created here.
 
-    SingleBatchSorter sorter = opCodeGen.getSorter(convertedBatch);
-    sorter.setup(context, sv2, convertedBatch);
+    SingleBatchSorter sorter;
+    sorter = opCodeGen.getSorter(convertedBatch);
+    try {
+      sorter.setup(context, sv2, convertedBatch);
+    } catch (SchemaChangeException e) {
+      throw UserException.unsupportedError(e)
+            .message("Unexpected schema change.")
+            .build(logger);
+    }
     sorter.sort(sv2);
     RecordBatchData rbd = new RecordBatchData(convertedBatch, oAllocator);
     boolean success = false;
@@ -906,12 +871,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * be used only for the non-spilling case.
    *
    * @return
-   * @throws SchemaChangeException
-   * @throws ClassTransformationException
-   * @throws IOException
    */
 
-  private IterOutcome sortInMemory( ) throws SchemaChangeException, ClassTransformationException, IOException {
+  private IterOutcome sortInMemory( ) {
     logger.info("Starting in-memory sort. Batches = {}, Records = {}, Memory = {}",
                 bufferedBatches.size( ), totalRecordCount, oAllocator.getAllocatedMemory() );
     InMemorySorter memoryMerge = new InMemorySorter( context, oAllocator, opCodeGen, this.outputBatchRecordCount );
@@ -933,10 +895,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * to deliver batches to the downstream operator.
    *
    * @return
-   * @throws SchemaChangeException
    */
 
-  private IterOutcome mergeSpilledRuns( ) throws SchemaChangeException {
+  private IterOutcome mergeSpilledRuns( ) {
     logger.info("Starting consolidate phase. Batches = {}, Records = {}, Memory = {}, In-memory batches {}, spilled runs {}",
                 totalBatches, totalRecordCount, oAllocator.getAllocatedMemory(),
                 bufferedBatches.size( ), spilledRuns.size( ) );
@@ -1047,8 +1008,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * @param batchGroups the accumulated set of sorted incoming batches
    * @return a new batch group representing the combined set of spilled
    * batches
-   * @throws SchemaChangeException should never occur as schema change
-   * detection is done as each incoming batch arrives
    */
 
   private void spillFromMemory( ) {
@@ -1094,18 +1053,14 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private void mergeAndSpill(LinkedList<? extends BatchGroup> source, int count) {
     if ( count == 0 ) {
       return; }
-    try {
-      spilledRuns.add( doMergeAndSpill( source, count ) );
-    } catch (SchemaChangeException e) {
-      throw new RuntimeException( "Unexpected schema change", e );
-    }
+    spilledRuns.add( doMergeAndSpill( source, count ) );
   }
 
-  private BatchGroup.SpilledRun mergeAndSpill(LinkedList<? extends BatchGroup> batchGroups) throws SchemaChangeException {
+  private BatchGroup.SpilledRun mergeAndSpill(LinkedList<? extends BatchGroup> batchGroups) {
     return doMergeAndSpill( batchGroups, batchGroups.size( ) );
   }
 
-  private BatchGroup.SpilledRun doMergeAndSpill(LinkedList<? extends BatchGroup> batchGroups, int spillCount) throws SchemaChangeException {
+  private BatchGroup.SpilledRun doMergeAndSpill(LinkedList<? extends BatchGroup> batchGroups, int spillCount) {
     List<BatchGroup> batchGroupList = Lists.newArrayList();
     spillCount = Math.min( batchGroups.size( ), spillCount );
     assert spillCount > 0 : "Spill count to mergeAndSpill must not be zero";
@@ -1158,10 +1113,20 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       // Here the merger is holding onto a partially-completed batch.
       // It will release the memory in the close() call.
 
-      throw UserException.resourceError(e)
-        .message("External Sort encountered an error while spilling to disk")
-              .addContext(e.getMessage() /* more detail */)
-        .build(logger);
+      try {
+        // Rethrow so we can organize how to handle the error.
+
+        throw e;
+      }
+
+      // If error is a User Exception, just use as is.
+
+      catch ( UserException ue ) { throw ue; }
+      catch ( Throwable ex ) {
+        throw UserException.resourceError(ex)
+              .message("External Sort encountered an error while spilling to disk")
+              .build(logger);
+      }
     }
   }
 
@@ -1171,14 +1136,13 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * ensured space is available.
    *
    * @return
-   * @throws OutOfMemoryException
-   * @throws InterruptedException
    */
 
-  private SelectionVector2 newSV2() throws OutOfMemoryException, InterruptedException {
+  private SelectionVector2 newSV2() {
     SelectionVector2 sv2 = new SelectionVector2(oAllocator);
     if (!sv2.allocateNewSafe(incoming.getRecordCount())) {
-      throw new OutOfMemoryException("Unable to allocate sv2 buffer");
+      throw UserException.resourceError(new OutOfMemoryException("Unable to allocate sv2 buffer"))
+            .build(logger);
     }
     for (int i = 0; i < incoming.getRecordCount(); i++) {
       sv2.setIndex(i, (char) i);
