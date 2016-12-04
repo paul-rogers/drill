@@ -63,6 +63,9 @@ public interface ExecConstants {
   String SPOOLING_BUFFER_DELETE = "drill.exec.buffer.spooling.delete";
   String SPOOLING_BUFFER_MEMORY = "drill.exec.buffer.spooling.size";
   String BATCH_PURGE_THRESHOLD = "drill.exec.sort.purge.threshold";
+
+  // External Sort Boot configuration
+
   String EXTERNAL_SORT_TARGET_BATCH_SIZE = "drill.exec.sort.external.batch.size";
   String EXTERNAL_SORT_TARGET_SPILL_BATCH_SIZE = "drill.exec.sort.external.spill.batch.size";
   String EXTERNAL_SORT_SPILL_GROUP_SIZE = "drill.exec.sort.external.spill.group.size";
@@ -77,6 +80,12 @@ public interface ExecConstants {
   String EXTERNAL_SORT_MAX_SPILL = "drill.exec.sort.external.spill.max_batches";
   String EXTERNAL_SORT_MAX_MEMORY = "drill.exec.sort.external.mem_limit";
   String EXTERNAL_SORT_BATCH_LIMIT = "drill.exec.sort.external.batch_limit";
+
+  // External Sort Runtime options
+
+  BooleanValidator EXTERNAL_SORT_DISABLE_MANAGED_OPTION = new BooleanValidator("exec.sort.disable_managed", false);
+
+
   String TEXT_LINE_READER_BATCH_SIZE = "drill.exec.storage.file.text.batch.size";
   String TEXT_LINE_READER_BUFFER_SIZE = "drill.exec.storage.file.text.buffer.size";
   String HAZELCAST_SUBNETS = "drill.exec.cache.hazel.subnets";
