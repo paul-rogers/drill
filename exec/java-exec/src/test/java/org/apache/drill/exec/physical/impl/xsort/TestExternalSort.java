@@ -29,6 +29,8 @@ import java.io.FileOutputStream;
 
 public class TestExternalSort extends BaseTestQuery {
 
+  private static boolean testLegacy = false;
+
   @Test
   public void testNumericTypesManaged() throws Exception {
     testNumericTypes( false );
@@ -58,6 +60,10 @@ public class TestExternalSort extends BaseTestQuery {
       }
     }
     String query = "select * from dfs_test.tmp.numericTypes order by a desc";
+    String options = "alter session set `exec.enable_union_type` = true";
+    if (testLegacy) {
+      options += ";alter session set `" + ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName() + "` = true";
+    }
     TestBuilder builder = testBuilder()
             .sqlQuery(query)
             .optionSettingQueriesForTestQuery(getOptions(testLegacy))

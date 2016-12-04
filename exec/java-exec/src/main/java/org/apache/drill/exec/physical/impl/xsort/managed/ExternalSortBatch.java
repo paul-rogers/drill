@@ -424,8 +424,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   private final CopierHolder copierHolder;
 
-  private enum SortState { LOAD, DELIVER, DONE }
-  private SortState sortState = SortState.LOAD;
+  private enum SortState { START, LOAD, DELIVER, DONE }
+  private SortState sortState = SortState.START;
   private int totalRecordCount = 0;
   private int totalBatches = 0; // total number of batches received so far
   private final OperatorCodeGenerator opCodeGen;
@@ -604,6 +604,14 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       }
     }
   }
+
+  /**
+   * Called by {@link AbstractRecordBatch} as a fast-path to obtain
+   * the first record batch and setup the schema of this batch in order
+   * to quickly return the schema to the client. Note that this method
+   * fetches the first batch from upstream which will be waiting for
+   * us the first time that {@link #innerNext()} is called.
+   */
 
   /**
    * Called by {@link AbstractRecordBatch} as a fast-path to obtain
@@ -824,7 +832,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     if (schema == null) {
       schema = incoming.getSchema();
-      logger.trace( "Start of load phase" );
 
     // Subsequent batches, nothing to do if same schema.
 
