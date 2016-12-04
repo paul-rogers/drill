@@ -61,7 +61,8 @@ public class MemoryAllocationUtilities {
       logger.debug("Max sort alloc: {}", maxSortAlloc);
 
       for(final ExternalSort externalSort : sortList) {
-        externalSort.setMaxAllocation(maxSortAlloc);
+        long alloc = Math.max(maxSortAlloc, externalSort.getInitialAllocation());
+        externalSort.setMaxAllocation(alloc);
       }
     }
   }

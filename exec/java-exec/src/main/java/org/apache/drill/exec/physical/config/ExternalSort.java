@@ -31,11 +31,10 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 public class ExternalSort extends Sort {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExternalSort.class);
 
-  private long initialAllocation = 20000000;
-
   @JsonCreator
   public ExternalSort(@JsonProperty("child") PhysicalOperator child, @JsonProperty("orderings") List<Ordering> orderings, @JsonProperty("reverse") boolean reverse) {
     super(child, orderings, reverse);
+    initialAllocation = 20_000_000;
   }
 
   @Override
@@ -50,13 +49,12 @@ public class ExternalSort extends Sort {
     return CoreOperatorType.EXTERNAL_SORT_VALUE;
   }
 
+  // Set here, rather than the base class, because this is the only
+  // operator, at present, that makes use of the maximum allocation.
+  // Remove this, in favor of the base class version, when Drill
+  // sets the memory allocation for all operators.
+
   public void setMaxAllocation(long maxAllocation) {
-    this.maxAllocation = Math.max(initialAllocation, maxAllocation);
+    this.maxAllocation = maxAllocation;
   }
-
-  @Override
-  public long getInitialAllocation() {
-    return initialAllocation;
-  }
-
 }
