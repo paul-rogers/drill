@@ -34,6 +34,7 @@ public class ExternalSort extends Sort {
   @JsonCreator
   public ExternalSort(@JsonProperty("child") PhysicalOperator child, @JsonProperty("orderings") List<Ordering> orderings, @JsonProperty("reverse") boolean reverse) {
     super(child, orderings, reverse);
+    initialAllocation = 20_000_000;
   }
 
   @Override

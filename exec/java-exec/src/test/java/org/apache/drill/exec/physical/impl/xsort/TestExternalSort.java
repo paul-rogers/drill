@@ -63,13 +63,9 @@ public class TestExternalSort extends BaseTestQuery {
       }
     }
     String query = "select * from dfs_test.tmp.numericTypes order by a desc";
-    String options = "alter session set `exec.enable_union_type` = true";
-    if (testLegacy) {
-      options += ";alter session set `" + ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName() + "` = true";
-    }
     TestBuilder builder = testBuilder()
             .sqlQuery(query)
-            .optionSettingQueriesForTestQuery(options)
+            .optionSettingQueriesForTestQuery(getOptions(testLegacy))
             .ordered()
             .baselineColumns("a");
     for (int i = record_count; i >= 0;) {
@@ -79,6 +75,13 @@ public class TestExternalSort extends BaseTestQuery {
       }
     }
     builder.go();
+  }
+  
+  private String getOptions(boolean testLegacy) {
+    String options = "alter session set `exec.enable_union_type` = true";
+    options += ";alter session set `" + ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName() + "` = " +
+        Boolean.toString(testLegacy);
+    return options;
   }
 
   private String getOptions(boolean testLegacy) {
@@ -126,14 +129,10 @@ public class TestExternalSort extends BaseTestQuery {
       }
     }
     String query = "select * from dfs_test.tmp.numericAndStringTypes order by a desc";
-    String options = "alter session set `exec.enable_union_type` = true";
-    if (testLegacy) {
-      options += ";alter session set `" + ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName() + "` = true";
-    }
     TestBuilder builder = testBuilder()
             .sqlQuery(query)
             .ordered()
-            .optionSettingQueriesForTestQuery(options)
+            .optionSettingQueriesForTestQuery(getOptions(testLegacy))
             .baselineColumns("a");
     // Strings come first because order by is desc
     for (int i = record_count; i >= 0;) {
@@ -180,14 +179,10 @@ public class TestExternalSort extends BaseTestQuery {
     }
     String query = "select a, b, c from dfs_test.tmp.newColumns order by a desc";
 //    Test framework currently doesn't handle changing schema (i.e. new columns) on the client side
-    String options = "alter session set `exec.enable_union_type` = true";
-    if (testLegacy) {
-      options += ";alter session set `" + ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName() + "` = true";
-    }
     TestBuilder builder = testBuilder()
             .sqlQuery(query)
             .ordered()
-            .optionSettingQueriesForTestQuery(options)
+            .optionSettingQueriesForTestQuery(getOptions(testLegacy))
             .baselineColumns("a", "b", "c");
     for (int i = record_count; i >= 0;) {
       builder.baselineValues((long) i, (long) i--, null);
