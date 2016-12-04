@@ -27,19 +27,35 @@ import org.apache.drill.exec.physical.config.ExternalSort;
 import org.apache.drill.exec.physical.impl.BatchCreator;
 import org.apache.drill.exec.record.AbstractRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
+import org.apache.drill.exec.server.options.OptionManager;
+import org.apache.drill.exec.server.options.TypeValidators.BooleanValidator;
 
 import com.google.common.base.Preconditions;
 
 public class ExternalSortBatchCreator implements BatchCreator<ExternalSort>{
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExternalSortBatchCreator.class);
+//  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExternalSortBatchCreator.class);
+
+//  private static final BooleanValidator DISABLE_MANAGED_VALIDATOR =
+//          new BooleanValidator( ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION, false );
 
   @Override
   public AbstractRecordBatch<ExternalSort> getBatch(FragmentContext context, ExternalSort config, List<RecordBatch> children)
       throws ExecutionSetupException {
     Preconditions.checkArgument(children.size() == 1);
-    DrillConfig drillConfig = context.getConfig();
-    if ( drillConfig.hasPath(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED) &&
-         drillConfig.getBoolean(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED) ) {
+
+    // Prefer the managed version, but provide runtime and boot-time options
+    // to disable it and revert to the "legacy" version. The legacy version
+    // is retained primarily to allow cross-check testing against the managed
+    // version, and as a fall back in the first release of the managed version.
+
+    OptionManager optionManager = context.getOptions();
+    boolean disableManaged = optionManager.getOption(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION);
+    if ( ! disableManaged ) {
+      DrillConfig drillConfig = context.getConfig();
+      disableManaged = drillConfig.hasPath(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED) &&
+                       drillConfig.getBoolean(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED);
+    }
+    if (disableManaged) {
       return new ExternalSortBatch(config, context, children.iterator().next());
     } else {
       return new org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch(config, context, children.iterator().next());

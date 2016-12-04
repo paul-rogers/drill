@@ -98,23 +98,27 @@ public class OperatorCodeGenerator {
 
   public void close( ) {
     closeCopier( );
-    copier = null;
-    if ( mSorter != null ) {
-      mSorter.clear();
-      mSorter = null;
-    }
+    closeMSorter( );
     sorter = null;
   }
 
+  private void closeMSorter( ) {
+    if ( mSorter == null ) {
+      return; }
+    mSorter.clear();
+    mSorter = null;
+  }
+
   public void closeCopier( ) {
-    if ( copier != null ) {
-      try {
-        copier.close();
-      } catch (IOException e) {
-        throw UserException.dataWriteError(e)
-              .message("Failure while flushing spilled data")
-              .build(logger);
-      }
+    if ( copier == null ) {
+      return; }
+    try {
+      copier.close();
+      copier = null;
+    } catch (IOException e) {
+      throw UserException.dataWriteError(e)
+            .message("Failure while flushing spilled data")
+            .build(logger);
     }
   }
 

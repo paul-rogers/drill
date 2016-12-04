@@ -137,7 +137,7 @@ public class TestBuilder {
 
   public TestBuilder sqlQuery(String query) {
     this.query = QueryTestUtil.normalizeQuery(query);
-    this.queryType = UserBitShared.QueryType.SQL;
+    queryType = UserBitShared.QueryType.SQL;
     return this;
   }
 
@@ -154,24 +154,24 @@ public class TestBuilder {
   public TestBuilder sqlQueryFromFile(String queryFile) throws IOException {
     String query = BaseTestQuery.getFile(queryFile);
     this.query = query;
-    this.queryType = UserBitShared.QueryType.SQL;
+    queryType = UserBitShared.QueryType.SQL;
     return this;
   }
 
   public TestBuilder physicalPlanFromFile(String queryFile) throws IOException {
     String query = BaseTestQuery.getFile(queryFile);
     this.query = query;
-    this.queryType = UserBitShared.QueryType.PHYSICAL;
+    queryType = UserBitShared.QueryType.PHYSICAL;
     return this;
   }
 
   public TestBuilder ordered() {
-    this.ordered = true;
+    ordered = true;
     return this;
   }
 
   public TestBuilder unOrdered() {
-    this.ordered = false;
+    ordered = false;
     return this;
   }
 
@@ -179,36 +179,41 @@ public class TestBuilder {
   // a little harder to debug as it iterates over a hyper batch rather than reading all of the values into
   // large on-heap lists
   public TestBuilder highPerformanceComparison() throws Exception {
-    this.highPerformanceComparison = true;
+    highPerformanceComparison = true;
     return this;
   }
 
   // list of queries to run before the baseline query, can be used to set several options
   // list takes the form of a semi-colon separated list
   public TestBuilder optionSettingQueriesForBaseline(String queries) {
-    this.baselineOptionSettingQueries = queries;
+    baselineOptionSettingQueries = queries;
     return this;
   }
 
   public TestBuilder optionSettingQueriesForBaseline(String queries, Object... args) {
-    this.baselineOptionSettingQueries = String.format(queries, args);
+    baselineOptionSettingQueries = String.format(queries, args);
     return this;
   }
 
-  // list of queries to run before the test query, can be used to set several options
-  // list takes the form of a semi-colon separated list
+  /**
+   *  list of queries to run before the test query, can be used to set several options
+   *  list takes the form of a semi-colon separated list.
+   * @param queries
+   * @return
+   */
+
   public TestBuilder optionSettingQueriesForTestQuery(String queries) {
-    this.testOptionSettingQueries = queries;
+    testOptionSettingQueries = queries;
     return this;
   }
 
   public TestBuilder optionSettingQueriesForTestQuery(String query, Object... args) throws Exception {
-    this.testOptionSettingQueries = String.format(query, args);
+    testOptionSettingQueries = String.format(query, args);
     return this;
   }
 
   public TestBuilder approximateEquality() {
-    this.approximateEquality = true;
+    approximateEquality = true;
     return this;
   }
 
@@ -280,7 +285,10 @@ public class TestBuilder {
     }
   }
 
-  // indicate that the tests query should be checked for an empty result set
+  /**
+   * Indicate that the tests query should be checked for an empty result set.
+   * @return
+   */
   public TestBuilder expectsEmptyResultSet() {
     unOrdered();
     baselineRecords = new ArrayList<>();
@@ -298,6 +306,7 @@ public class TestBuilder {
     this.expectedNumBatches = expectedNumBatches;
     return this;
   }
+
   /**
    * This method is used to pass in a simple list of values for a single record verification without
    * the need to create a CSV or JSON file to store the baseline.
@@ -374,14 +383,18 @@ public class TestBuilder {
     return baselineRecords != null;
   }
 
-  // provide a SQL query to validate against
+  /**
+   * Provide a SQL query to validate against.
+   * @param baselineQuery
+   * @return
+   */
   public BaselineQueryTestBuilder sqlBaselineQuery(Object baselineQuery) {
     return new BaselineQueryTestBuilder(baselineQuery, UserBitShared.QueryType.SQL, allocator, query, queryType, ordered, approximateEquality,
         baselineTypeMap, baselineOptionSettingQueries, testOptionSettingQueries, highPerformanceComparison, expectedNumBatches);
   }
 
   public BaselineQueryTestBuilder sqlBaselineQuery(String query, String ...replacements) {
-    return sqlBaselineQuery(String.format(query, replacements));
+    return sqlBaselineQuery(String.format(query, (Object[]) replacements));
   }
 
   // provide a path to a file containing a SQL query to use as a baseline
