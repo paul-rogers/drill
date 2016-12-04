@@ -524,8 +524,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   private final CopierHolder copierHolder;
 
-  private enum SortState { LOAD, DELIVER, DONE }
-  private SortState sortState = SortState.LOAD;
+  private enum SortState { START, LOAD, DELIVER, DONE }
+  private SortState sortState = SortState.START;
   private int totalRecordCount = 0;
   private int totalBatches = 0; // total number of batches received so far
   private final OperatorCodeGenerator opCodeGen;
@@ -778,6 +778,14 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   }
 
+  /**
+   * Called by {@link AbstractRecordBatch} as a fast-path to obtain
+   * the first record batch and setup the schema of this batch in order
+   * to quickly return the schema to the client. Note that this method
+   * fetches the first batch from upstream which will be waiting for
+   * us the first time that {@link #innerNext()} is called.
+   */
+
   @Override
   public void buildSchema() {
     IterOutcome outcome = next(incoming);
@@ -936,7 +944,17 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    */
 
   private IterOutcome loadBatch() {
-    IterOutcome upstream = next(incoming);
+
+    // If this is the very first batch, then AbstractRecordBatch
+    // already loaded it for us in buildSchema( ).
+
+    IterOutcome upstream;
+    if ( sortState == SortState.START ) {
+      sortState = SortState.LOAD;
+      upstream = IterOutcome.OK_NEW_SCHEMA;
+    } else {
+      upstream = next(incoming);
+    }
     switch (upstream) {
     case NONE:
       return upstream;
@@ -946,8 +964,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       return upstream;
     case OK_NEW_SCHEMA:
     case OK:
-      // Unfortunately, the first batch is sometimes (always?) OK
-      // instead of OK_NEW_SCHEMA.
       setupSchema( upstream );
 
       // Convert the incoming batch to the agreed-upon schema.
@@ -1002,6 +1018,11 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    */
 
   private IterOutcome load() {
+    logger.trace( "Start of load phase" );
+
+    // Clear the temporary container created by
+    // buildSchema( ).
+
     container.clear();
 
     // Loop over all input batches
@@ -1127,7 +1148,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
         // New schema: must generate a new sorter and copier.
 
-        copierHolder.close();
         opCodeGen.setSchema( schema );
     } else {
       throw UserException.unsupportedError( )
@@ -1138,7 +1158,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // Coerce all existing batches to the new schema.
 
     for (BatchGroup b : bufferedBatches) {
+      System.out.println( "Before: " + oAllocator.getAllocatedMemory() ); // Debug only
       b.setSchema(schema);
+      System.out.println( "After: " + oAllocator.getAllocatedMemory() ); // Debug only
     }
     for (BatchGroup b : spilledRuns) {
       b.setSchema(schema);
@@ -1154,9 +1176,18 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    */
 
   private VectorContainer convertBatch( ) {
-    if ( incoming.getRecordCount() == 0 ) {
-      return null; }
+
+    // Must accept the batch even if no records. Then clear
+    // the vectors to release memory since we won't do any
+    // further processing with the empty batch.
+
     VectorContainer convertedBatch = SchemaUtil.coerceContainer(incoming, schema, oContext);
+    if ( incoming.getRecordCount() == 0 ) {
+      for (VectorWrapper<?> w : convertedBatch) {
+        w.clear();
+      }
+      return null;
+    }
     return convertedBatch;
   }
 
