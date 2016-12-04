@@ -481,7 +481,6 @@ public class DrillTestWrapper {
 
   public void compareMergedOnHeapVectors() throws Exception {
     RecordBatchLoader loader = new RecordBatchLoader(getAllocator());
-    BatchSchema schema = null;
 
     List<QueryDataBatch> actual = Collections.emptyList();
     List<QueryDataBatch> expected = Collections.emptyList();

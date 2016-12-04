@@ -23,11 +23,13 @@ import static org.junit.Assert.assertTrue;
 import java.util.List;
 
 import org.apache.drill.BaseTestQuery;
+import org.apache.drill.QueryTestUtil;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.expression.ExpressionPosition;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.util.FileUtils;
 import org.apache.drill.common.util.TestTools;
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.client.DrillClient;
 import org.apache.drill.exec.record.RecordBatchLoader;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
@@ -42,22 +44,28 @@ import org.junit.rules.TestRule;
 import com.google.common.base.Charsets;
 import com.google.common.io.Files;
 
-@Ignore
 public class TestSimpleExternalSort extends BaseTestQuery {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestSimpleExternalSort.class);
-  DrillConfig c = DrillConfig.create();
-
 
   @Rule public final TestRule TIMEOUT = TestTools.getTimeoutRule(80000);
 
   @Test
-  public void mergeSortWithSv2() throws Exception {
+  public void mergeSortWithSv2Managed() throws Exception {
+    chooseImpl(false);
+    mergeSortWithSv2();
+  }
+
+  @Test
+  public void mergeSortWithSv2Legacy() throws Exception {
+    chooseImpl(true);
+    mergeSortWithSv2();
+  }
+
+  private void mergeSortWithSv2() throws Exception {
     List<QueryDataBatch> results = testPhysicalFromFileWithResults("xsort/one_key_sort_descending_sv2.json");
     int count = 0;
     for(QueryDataBatch b : results) {
-      if (b.getHeader().getRowCount() != 0) {
-        count += b.getHeader().getRowCount();
-      }
+      count += b.getHeader().getRowCount();
     }
     assertEquals(500000, count);
 
@@ -68,7 +76,7 @@ public class TestSimpleExternalSort extends BaseTestQuery {
 
     for (QueryDataBatch b : results) {
       if (b.getHeader().getRowCount() == 0) {
-        break;
+        continue;
       }
       batchCount++;
       RecordBatchLoader loader = new RecordBatchLoader(allocator);
@@ -91,8 +99,25 @@ public class TestSimpleExternalSort extends BaseTestQuery {
     System.out.println(String.format("Sorted %,d records in %d batches.", recordCount, batchCount));
   }
 
+  private void chooseImpl(boolean testLegacy) throws Exception {
+    String options = "alter session set `" + ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName() + "` = " +
+        Boolean.toString(testLegacy);
+    QueryTestUtil.test(client, options);
+  }
+
   @Test
-  public void sortOneKeyDescendingMergeSort() throws Throwable{
+  public void sortOneKeyDescendingMergeSortManaged() throws Throwable {
+    chooseImpl(false);
+    sortOneKeyDescendingMergeSort();
+  }
+
+  @Test
+  public void sortOneKeyDescendingMergeSortLegacy() throws Throwable {
+    chooseImpl(true);
+    sortOneKeyDescendingMergeSort();
+  }
+
+  private void sortOneKeyDescendingMergeSort() throws Throwable {
     List<QueryDataBatch> results = testPhysicalFromFileWithResults("xsort/one_key_sort_descending.json");
     int count = 0;
     for (QueryDataBatch b : results) {
@@ -131,27 +156,37 @@ public class TestSimpleExternalSort extends BaseTestQuery {
     System.out.println(String.format("Sorted %,d records in %d batches.", recordCount, batchCount));
   }
 
+
   @Test
-  public void sortOneKeyDescendingExternalSort() throws Throwable{
+  public void sortOneKeyDescendingExternalSortManaged() throws Throwable {
+    chooseImpl(false);
+    sortOneKeyDescendingExternalSort();
+  }
+
+  @Test
+  public void sortOneKeyDescendingExternalSortLegacy() throws Throwable {
+    chooseImpl(true);
+    sortOneKeyDescendingExternalSort();
+  }
+
+  private void sortOneKeyDescendingExternalSort() throws Throwable {
     RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
 
-    DrillConfig config = DrillConfig.create("drill-external-sort.conf");
+    DrillConfig config = DrillConfig.create("/drill-external-sort.conf");
 
     try (Drillbit bit1 = new Drillbit(config, serviceSet);
-        Drillbit bit2 = new Drillbit(config, serviceSet);
+//        Drillbit bit2 = new Drillbit(config, serviceSet);
         DrillClient client = new DrillClient(config, serviceSet.getCoordinator());) {
 
       bit1.run();
-      bit2.run();
+//      bit2.run();
       client.connect();
       List<QueryDataBatch> results = client.runQuery(org.apache.drill.exec.proto.UserBitShared.QueryType.PHYSICAL,
-              Files.toString(FileUtils.getResourceAsFile("/xsort/one_key_sort_descending.json"),
+              Files.toString(FileUtils.getResourceAsFile("xsort/one_key_sort_descending.json"),
                       Charsets.UTF_8));
       int count = 0;
       for (QueryDataBatch b : results) {
-        if (b.getHeader().getRowCount() != 0) {
-          count += b.getHeader().getRowCount();
-        }
+        count += b.getHeader().getRowCount();
       }
       assertEquals(1000000, count);
 
@@ -162,7 +197,7 @@ public class TestSimpleExternalSort extends BaseTestQuery {
 
       for (QueryDataBatch b : results) {
         if (b.getHeader().getRowCount() == 0) {
-          break;
+          continue;
         }
         batchCount++;
         RecordBatchLoader loader = new RecordBatchLoader(bit1.getContext().getAllocator());
@@ -181,15 +216,25 @@ public class TestSimpleExternalSort extends BaseTestQuery {
         b.release();
       }
       System.out.println(String.format("Sorted %,d records in %d batches.", recordCount, batchCount));
-
     }
   }
 
   @Test
-  public void outOfMemoryExternalSort() throws Throwable{
+  public void outOfMemoryExternalSortManaged() throws Throwable{
+    chooseImpl(false);
+    outOfMemoryExternalSort();
+  }
+
+  @Test
+  public void outOfMemoryExternalSortLegacy() throws Throwable{
+    chooseImpl(true);
+    outOfMemoryExternalSort();
+  }
+
+  private void outOfMemoryExternalSort() throws Throwable{
     RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
 
-    DrillConfig config = DrillConfig.create("drill-oom-xsort.conf");
+    DrillConfig config = DrillConfig.create("/drill-oom-xsort.conf");
 
     try (Drillbit bit1 = new Drillbit(config, serviceSet);
         DrillClient client = new DrillClient(config, serviceSet.getCoordinator());) {
@@ -201,9 +246,7 @@ public class TestSimpleExternalSort extends BaseTestQuery {
                       Charsets.UTF_8));
       int count = 0;
       for (QueryDataBatch b : results) {
-        if (b.getHeader().getRowCount() != 0) {
-          count += b.getHeader().getRowCount();
-        }
+        count += b.getHeader().getRowCount();
       }
       assertEquals(10000000, count);
 
@@ -214,7 +257,7 @@ public class TestSimpleExternalSort extends BaseTestQuery {
 
       for (QueryDataBatch b : results) {
         if (b.getHeader().getRowCount() == 0) {
-          break;
+          continue;
         }
         batchCount++;
         RecordBatchLoader loader = new RecordBatchLoader(bit1.getContext().getAllocator());
@@ -234,8 +277,6 @@ public class TestSimpleExternalSort extends BaseTestQuery {
         b.release();
       }
       System.out.println(String.format("Sorted %,d records in %d batches.", recordCount, batchCount));
-
     }
   }
-
 }
