@@ -18,18 +18,18 @@
             ]
         },
         {
-                    @id: 2,
-                    pop: "project",
-                    child: 1,
-                    exprs: [
-                      { ref: "blue", expr: "randomBigInt(100000)" }
-                    ]
-                },
+            @id: 2,
+            pop: "project",
+            child: 1,
+            exprs: [
+              { ref: "blue", expr: "randomBigInt(100000)" }
+            ]
+        },
         {
             @id: 3,
             pop: "union-exchange",
             child: 2,
-            maxAllocation: 1000000
+            maxAllocation: 10000000
         },
         {
             @id:4,
@@ -38,20 +38,20 @@
             orderings: [
               {expr: "blue", order : "DESC"}
             ],
-            initialAllocation: 1000000,
+            initialAllocation: 30000000,
             maxAllocation: 30000000
         },
         {
             @id:5,
             child: 4,
             pop:"selection-vector-remover",
-            maxAllocation: 1000000
+            maxAllocation: 10000000
         },
         {
             @id: 6,
             child: 5,
             pop: "screen",
-            maxAllocation: 1000000
+            maxAllocation: 10000000
         }
     ]
 }
