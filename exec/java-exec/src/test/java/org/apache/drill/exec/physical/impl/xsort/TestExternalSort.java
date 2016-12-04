@@ -63,10 +63,6 @@ public class TestExternalSort extends BaseTestQuery {
       }
     }
     String query = "select * from dfs_test.tmp.numericTypes order by a desc";
-    String options = "alter session set `exec.enable_union_type` = true";
-    if (testLegacy) {
-      options += ";alter session set `" + ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName() + "` = true";
-    }
     TestBuilder builder = testBuilder()
             .sqlQuery(query)
             .optionSettingQueriesForTestQuery(getOptions(testLegacy))
@@ -79,6 +75,13 @@ public class TestExternalSort extends BaseTestQuery {
       }
     }
     builder.go();
+  }
+  
+  private String getOptions(boolean testLegacy) {
+    String options = "alter session set `exec.enable_union_type` = true";
+    options += ";alter session set `" + ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName() + "` = " +
+        Boolean.toString(testLegacy);
+    return options;
   }
 
   private String getOptions(boolean testLegacy) {
@@ -119,10 +122,6 @@ public class TestExternalSort extends BaseTestQuery {
       }
     }
     String query = "select * from dfs_test.tmp.numericAndStringTypes order by a desc";
-    String options = "alter session set `exec.enable_union_type` = true";
-    if (testLegacy) {
-      options += ";alter session set `" + ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName() + "` = true";
-    }
     TestBuilder builder = testBuilder()
             .sqlQuery(query)
             .ordered()
@@ -173,10 +172,6 @@ public class TestExternalSort extends BaseTestQuery {
     }
     String query = "select a, b, c from dfs_test.tmp.newColumns order by a desc";
 //    Test framework currently doesn't handle changing schema (i.e. new columns) on the client side
-    String options = "alter session set `exec.enable_union_type` = true";
-    if (testLegacy) {
-      options += ";alter session set `" + ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName() + "` = true";
-    }
     TestBuilder builder = testBuilder()
             .sqlQuery(query)
             .ordered()
