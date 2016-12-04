@@ -373,7 +373,7 @@ public class Foreman implements Runnable {
     }
 
     log(physicalPlan);
-    runPhysicalPlan(physicalPlan);
+    runPhysicalPlan(physicalPlan, true);
   }
 
   private void log(final LogicalPlan plan) {
@@ -395,7 +395,7 @@ public class Foreman implements Runnable {
 
   private void returnPhysical(final PhysicalPlan plan) throws ExecutionSetupException {
     final String jsonPlan = plan.unparse(queryContext.getLpPersistence().getMapper().writer());
-    runPhysicalPlan(DirectPlan.createDirectPlan(queryContext, new PhysicalFromLogicalExplain(jsonPlan)));
+    runPhysicalPlan(DirectPlan.createDirectPlan(queryContext, new PhysicalFromLogicalExplain(jsonPlan)), true);
   }
 
   public static class PhysicalFromLogicalExplain {
@@ -409,15 +409,17 @@ public class Foreman implements Runnable {
   private void parseAndRunPhysicalPlan(final String json) throws ExecutionSetupException {
     try {
       final PhysicalPlan plan = drillbitContext.getPlanReader().readPhysicalPlan(json);
-      runPhysicalPlan(plan);
+      runPhysicalPlan(plan, false);
     } catch (final IOException e) {
       throw new ForemanSetupException("Failure while parsing physical plan.", e);
     }
   }
 
-  private void runPhysicalPlan(final PhysicalPlan plan) throws ExecutionSetupException {
+  private void runPhysicalPlan(final PhysicalPlan plan, boolean replanMemory) throws ExecutionSetupException {
     validatePlan(plan);
-    MemoryAllocationUtilities.setupSortMemoryAllocations(plan, queryContext);
+    if (replanMemory) {
+      MemoryAllocationUtilities.setupSortMemoryAllocations(plan, queryContext);
+    }
     if (queuingEnabled) {
       acquireQuerySemaphore(plan);
       moveToState(QueryState.STARTING, null);
@@ -555,7 +557,6 @@ public class Foreman implements Runnable {
     final String queueName;
 
     try {
-      @SuppressWarnings("resource")
       final ClusterCoordinator clusterCoordinator = drillbitContext.getClusterCoordinator();
       final DistributedSemaphore distributedSemaphore;
 
@@ -1007,7 +1008,7 @@ public class Foreman implements Runnable {
     final Pointer<String> textPlan = new Pointer<>();
     final PhysicalPlan plan = DrillSqlWorker.getPlan(queryContext, sql, textPlan);
     queryManager.setPlanText(textPlan.value);
-    runPhysicalPlan(plan);
+    runPhysicalPlan(plan, true);
   }
 
   private PhysicalPlan convert(final LogicalPlan plan) throws OptimizerException {
@@ -1031,10 +1032,8 @@ public class Foreman implements Runnable {
    */
   private void setupRootFragment(final PlanFragment rootFragment, final FragmentRoot rootOperator)
       throws ExecutionSetupException {
-    @SuppressWarnings("resource")
     final FragmentContext rootContext = new FragmentContext(drillbitContext, rootFragment, queryContext,
         initiatingClient, drillbitContext.getFunctionImplementationRegistry());
-    @SuppressWarnings("resource")
     final IncomingBuffers buffers = new IncomingBuffers(rootFragment, rootContext);
     rootContext.setBuffers(buffers);
 
@@ -1161,7 +1160,6 @@ public class Foreman implements Runnable {
    */
   private void sendRemoteFragments(final DrillbitEndpoint assignment, final Collection<PlanFragment> fragments,
       final CountDownLatch latch, final FragmentSubmitFailures fragmentSubmitFailures) {
-    @SuppressWarnings("resource")
     final Controller controller = drillbitContext.getController();
     final InitializeFragments.Builder fb = InitializeFragments.newBuilder();
     for(final PlanFragment planFragment : fragments) {
@@ -1187,7 +1185,7 @@ public class Foreman implements Runnable {
       final DrillbitEndpoint drillbitEndpoint;
       final RpcException rpcException;
 
-      SubmissionException(@SuppressWarnings("unused") final DrillbitEndpoint drillbitEndpoint,
+      SubmissionException(final DrillbitEndpoint drillbitEndpoint,
           final RpcException rpcException) {
         this.drillbitEndpoint = drillbitEndpoint;
         this.rpcException = rpcException;
