@@ -708,19 +708,16 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     long startMem = oAllocator.getAllocatedMemory();
     VectorContainer convertedBatch = convertBatch( );
-    long endMem = oAllocator.getAllocatedMemory();
     if ( convertedBatch == null ) {
       return;
     }
 
-    // Compute batch size, including allowance for an sv2.
-
-    long batchSize = endMem - startMem;
-    if (incoming.getSchema().getSelectionVectorMode() != BatchSchema.SelectionVectorMode.TWO_BYTE) {
-      batchSize += 2 * convertedBatch.getRecordCount();
-    }
-
     SelectionVector2 sv2 = makeSelectionVector( );
+
+    // Compute batch size, including allocation of an sv2.
+
+    long endMem = oAllocator.getAllocatedMemory();
+    long batchSize = endMem - startMem;
     int count = sv2.getCount();
     totalRecordCount += count;
     totalBatches++;
@@ -813,18 +810,26 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     estimatedInputBatchSize = Math.max( estimatedInputBatchSize, batchSize );
 
+    // The output record size includes an sv4 created by the copier. We've already
+    // allowed for an sv2 in the input record size, so add the difference.
+    // Again, the allocator rounds up to the next power of two, so we want to
+    // allow for 6 more bytes, but need to actually allow for 12.
+
+    int outputRecordSize = estimatedRecordSize + 12;
+
     // Determine the number of records to spill per merge step. The goal is to
     // spill batches of either 32K records, or as many records as fit into the
     // amount of memory dedicated to each batch, whichever is less.
 
-    outputBatchRecordCount = Math.max(1, MAX_MERGED_BATCH_SIZE / estimatedRecordSize);
+    outputBatchRecordCount = Math.max(1, MAX_MERGED_BATCH_SIZE / outputRecordSize);
     outputBatchRecordCount = Math.min( outputBatchRecordCount, Short.MAX_VALUE );
 
     // Compute the estimated size of batches that this operator creates.
     // Note that this estimate DOES NOT apply to incoming batches as we have
-    // no control over those.
+    // no control over those. Also note that the estimate has a built-in
+    // allocation for an sv2.
 
-    estimatedOutputBatchSize = outputBatchRecordCount * estimatedRecordSize;
+    estimatedOutputBatchSize = outputBatchRecordCount * outputRecordSize;
 
     // Memory available for in-memory batches. These are batches arriving from
     // upstream and buffered in the "in-memory generation", or the "head"
@@ -835,11 +840,11 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     inputMemoryPool = (long) ((memoryLimit - estimatedOutputBatchSize - estimatedInputBatchSize) * 0.95);
 
-    // Must allow room for at least three input batches. (Really just two, but
-    // the size is not precise, so allow some wiggle room.) This estimate does
-    // not include the output batch produced from merging.
+    // Must allow room for at least three input batches and one output batch.
+    // (Two input batches to merge, a third that triggers the spill, and the
+    // output batch resorting from the spill.)
 
-    inputMemoryPool = Math.max( inputMemoryPool, 3 * estimatedInputBatchSize );
+    inputMemoryPool = Math.max( inputMemoryPool, estimatedOutputBatchSize + 3 * estimatedInputBatchSize );
 
     // The merge memory pool is similar, but excludes space for another input
     // batch because we're done reading the input by the time we get to merge.
