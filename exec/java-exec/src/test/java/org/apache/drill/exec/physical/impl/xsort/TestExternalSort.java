@@ -28,10 +28,17 @@ import java.io.FileOutputStream;
 
 public class TestExternalSort extends BaseTestQuery {
 
-  private static boolean testLegacy = false;
+  @Test
+  public void testNumericTypesManaged() throws Exception {
+    testNumericTypes( false );
+  }
 
   @Test
-  public void testNumericTypes() throws Exception {
+  public void testNumericTypesLegacy() throws Exception {
+    testNumericTypes( true );
+  }
+
+  private void testNumericTypes(boolean testLegacy) throws Exception {
     final int record_count = 10000;
     String dfs_temp = getDfsTestTmpSchemaLocation();
     System.out.println(dfs_temp);
@@ -69,7 +76,16 @@ public class TestExternalSort extends BaseTestQuery {
   }
 
   @Test
-  public void testNumericAndStringTypes() throws Exception {
+  public void testNumericAndStringTypesManaged() throws Exception {
+    testNumericAndStringTypes( false );
+  }
+
+  @Test
+  public void testNumericAndStringTypesLegacy() throws Exception {
+    testNumericAndStringTypes( true );
+  }
+
+  private void testNumericAndStringTypes(boolean testLegacy) throws Exception {
     final int record_count = 10000;
     String dfs_temp = getDfsTestTmpSchemaLocation();
     System.out.println(dfs_temp);
@@ -88,10 +104,14 @@ public class TestExternalSort extends BaseTestQuery {
       }
     }
     String query = "select * from dfs_test.tmp.numericAndStringTypes order by a desc";
+    String options = "alter session set `exec.enable_union_type` = true";
+    if (testLegacy) {
+      options += ";alter session set `" + ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName() + "` = true";
+    }
     TestBuilder builder = testBuilder()
             .sqlQuery(query)
             .ordered()
-            .optionSettingQueriesForTestQuery("alter session set `exec.enable_union_type` = true")
+            .optionSettingQueriesForTestQuery(options)
             .baselineColumns("a");
     // Strings come first because order by is desc
     for (int i = record_count; i >= 0;) {
@@ -108,7 +128,17 @@ public class TestExternalSort extends BaseTestQuery {
   }
 
   @Test
-  public void testNewColumns() throws Exception {
+  public void testNewColumnsManaged() throws Exception {
+    testNewColumns(false);
+  }
+
+
+  @Test
+  public void testNewColumnsLegacy() throws Exception {
+    testNewColumns(true);
+  }
+
+  private void testNewColumns(boolean testLegacy) throws Exception {
     final int record_count = 10000;
     String dfs_temp = getDfsTestTmpSchemaLocation();
     System.out.println(dfs_temp);
@@ -128,10 +158,14 @@ public class TestExternalSort extends BaseTestQuery {
     }
     String query = "select a, b, c from dfs_test.tmp.newColumns order by a desc";
 //    Test framework currently doesn't handle changing schema (i.e. new columns) on the client side
+    String options = "alter session set `exec.enable_union_type` = true";
+    if (testLegacy) {
+      options += ";alter session set `" + ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName() + "` = true";
+    }
     TestBuilder builder = testBuilder()
             .sqlQuery(query)
             .ordered()
-            .optionSettingQueriesForTestQuery("alter session set `exec.enable_union_type` = true")
+            .optionSettingQueriesForTestQuery(options)
             .baselineColumns("a", "b", "c");
     for (int i = record_count; i >= 0;) {
       builder.baselineValues((long) i, (long) i--, null);
