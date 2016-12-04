@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.impl.xsort;
 
 import org.apache.drill.BaseTestQuery;
 import org.apache.drill.TestBuilder;
+import org.apache.drill.exec.ExecConstants;
 import org.junit.Test;
 
 import java.io.BufferedOutputStream;
@@ -27,6 +28,8 @@ import java.io.FileOutputStream;
 
 public class TestExternalSort extends BaseTestQuery {
 
+  private static boolean testLegacy = false;
+
   @Test
   public void testNumericTypes() throws Exception {
     final int record_count = 10000;
@@ -34,22 +37,26 @@ public class TestExternalSort extends BaseTestQuery {
     System.out.println(dfs_temp);
     File table_dir = new File(dfs_temp, "numericTypes");
     table_dir.mkdir();
-    BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "a.json")));
-    String format = "{ a : %d }%n";
-    for (int i = 0; i <= record_count; i += 2) {
-      os.write(String.format(format, i).getBytes());
+    try(BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "a.json")))) {
+      String format = "{ a : %d }%n";
+      for (int i = 0; i <= record_count; i += 2) {
+        os.write(String.format(format, i).getBytes());
+      }
     }
-    os.close();
-    os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "b.json")));
-    format = "{ a : %.2f }%n";
-    for (int i = 1; i <= record_count; i+=2) {
-      os.write(String.format(format, (float) i).getBytes());
+    try(BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "b.json")))) {
+      String format = "{ a : %.2f }%n";
+      for (int i = 1; i <= record_count; i+=2) {
+        os.write(String.format(format, (float) i).getBytes());
+      }
     }
-    os.close();
     String query = "select * from dfs_test.tmp.numericTypes order by a desc";
+    String options = "alter session set `exec.enable_union_type` = true";
+    if (testLegacy) {
+      options += ";alter session set `" + ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName() + "` = true";
+    }
     TestBuilder builder = testBuilder()
             .sqlQuery(query)
-            .optionSettingQueriesForTestQuery("alter session set `exec.enable_union_type` = true")
+            .optionSettingQueriesForTestQuery(options)
             .ordered()
             .baselineColumns("a");
     for (int i = record_count; i >= 0;) {
@@ -68,18 +75,18 @@ public class TestExternalSort extends BaseTestQuery {
     System.out.println(dfs_temp);
     File table_dir = new File(dfs_temp, "numericAndStringTypes");
     table_dir.mkdir();
-    BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "a.json")));
-    String format = "{ a : %d }%n";
-    for (int i = 0; i <= record_count; i += 2) {
-      os.write(String.format(format, i).getBytes());
+    try (BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "a.json")))) {
+      String format = "{ a : %d }%n";
+      for (int i = 0; i <= record_count; i += 2) {
+        os.write(String.format(format, i).getBytes());
+      }
     }
-    os.close();
-    os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "b.json")));
-    format = "{ a : \"%05d\" }%n";
-    for (int i = 1; i <= record_count; i+=2) {
-      os.write(String.format(format, i).getBytes());
+    try (BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "b.json")))) {
+      String format = "{ a : \"%05d\" }%n";
+      for (int i = 1; i <= record_count; i+=2) {
+        os.write(String.format(format, i).getBytes());
+      }
     }
-    os.close();
     String query = "select * from dfs_test.tmp.numericAndStringTypes order by a desc";
     TestBuilder builder = testBuilder()
             .sqlQuery(query)
@@ -107,18 +114,18 @@ public class TestExternalSort extends BaseTestQuery {
     System.out.println(dfs_temp);
     File table_dir = new File(dfs_temp, "newColumns");
     table_dir.mkdir();
-    BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "a.json")));
-    String format = "{ a : %d, b : %d }%n";
-    for (int i = 0; i <= record_count; i += 2) {
-      os.write(String.format(format, i, i).getBytes());
+    try (BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "a.json")))) {
+      String format = "{ a : %d, b : %d }%n";
+      for (int i = 0; i <= record_count; i += 2) {
+        os.write(String.format(format, i, i).getBytes());
+      }
     }
-    os.close();
-    os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "b.json")));
-    format = "{ a : %d, c : %d }%n";
-    for (int i = 1; i <= record_count; i+=2) {
-      os.write(String.format(format, i, i).getBytes());
+    try (BufferedOutputStream os = new BufferedOutputStream(new FileOutputStream(new File(table_dir, "b.json")))) {
+      String format = "{ a : %d, c : %d }%n";
+      for (int i = 1; i <= record_count; i+=2) {
+        os.write(String.format(format, i, i).getBytes());
+      }
     }
-    os.close();
     String query = "select a, b, c from dfs_test.tmp.newColumns order by a desc";
 //    Test framework currently doesn't handle changing schema (i.e. new columns) on the client side
     TestBuilder builder = testBuilder()

@@ -138,7 +138,7 @@ public class TestBuilder {
 
   public TestBuilder sqlQuery(String query) {
     this.query = QueryTestUtil.normalizeQuery(query);
-    this.queryType = UserBitShared.QueryType.SQL;
+    queryType = UserBitShared.QueryType.SQL;
     return this;
   }
 
