@@ -57,7 +57,7 @@ import com.sun.codemodel.JExpr;
 public class OperatorCodeGenerator {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(OperatorCodeGenerator.class);
 
-  protected static final MappingSet MAIN_MAPPING = new MappingSet( (String) null, null, ClassGenerator.DEFAULT_SCALAR_MAP, ClassGenerator.DEFAULT_SCALAR_MAP);
+  protected static final MappingSet MAIN_MAPPING = new MappingSet((String) null, null, ClassGenerator.DEFAULT_SCALAR_MAP, ClassGenerator.DEFAULT_SCALAR_MAP);
   protected static final MappingSet LEFT_MAPPING = new MappingSet("leftIndex", null, ClassGenerator.DEFAULT_SCALAR_MAP, ClassGenerator.DEFAULT_SCALAR_MAP);
   protected static final MappingSet RIGHT_MAPPING = new MappingSet("rightIndex", null, ClassGenerator.DEFAULT_SCALAR_MAP, ClassGenerator.DEFAULT_SCALAR_MAP);
 
@@ -86,31 +86,31 @@ public class OperatorCodeGenerator {
 
   private SingleBatchSorter sorter;
 
-  public OperatorCodeGenerator( FragmentContext context, Sort popConfig ) {
+  public OperatorCodeGenerator(FragmentContext context, Sort popConfig) {
     this.context = context;
     this.popConfig = popConfig;
   }
 
-  public void setSchema( BatchSchema schema ) {
-    close( );
+  public void setSchema(BatchSchema schema) {
+    close();
     this.schema = schema;
   }
 
-  public void close( ) {
-    closeCopier( );
-    closeMSorter( );
+  public void close() {
+    closeCopier();
+    closeMSorter();
     sorter = null;
   }
 
-  private void closeMSorter( ) {
-    if ( mSorter == null ) {
+  private void closeMSorter() {
+    if (mSorter == null) {
       return; }
     mSorter.clear();
     mSorter = null;
   }
 
-  public void closeCopier( ) {
-    if ( copier == null ) {
+  public void closeCopier() {
+    if (copier == null) {
       return; }
     try {
       copier.close();
@@ -122,14 +122,14 @@ public class OperatorCodeGenerator {
     }
   }
 
-  public PriorityQueueCopier getCopier( VectorAccessible batch ) {
-    if ( copier == null ) {
-      copier = generateCopier( batch );
+  public PriorityQueueCopier getCopier(VectorAccessible batch) {
+    if (copier == null) {
+      copier = generateCopier(batch);
     }
     return copier;
   }
 
-  private PriorityQueueCopier generateCopier( VectorAccessible batch ) {
+  private PriorityQueueCopier generateCopier(VectorAccessible batch) {
     // Generate the copier code and obtain the resulting class
 
     CodeGenerator<PriorityQueueCopier> cg = CodeGenerator.get(PriorityQueueCopier.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
@@ -143,8 +143,8 @@ public class OperatorCodeGenerator {
     return getInstance(cg);
   }
 
-  public MSorter createNewMSorter( VectorAccessible batch ) {
-    if ( mSorter == null ) {
+  public MSorter createNewMSorter(VectorAccessible batch) {
+    if (mSorter == null) {
       mSorter = createNewMSorter(popConfig.getOrderings(), batch, MAIN_MAPPING, LEFT_MAPPING, RIGHT_MAPPING);
     }
     return mSorter;
@@ -192,8 +192,8 @@ public class OperatorCodeGenerator {
   }
 
   public SingleBatchSorter getSorter(VectorAccessible batch) {
-    if ( sorter == null ) {
-      sorter = createNewSorter( batch );
+    if (sorter == null) {
+      sorter = createNewSorter(batch);
     }
     return sorter;
   }
@@ -208,7 +208,7 @@ public class OperatorCodeGenerator {
     return getInstance(cg);
   }
 
-  private <T> T getInstance( CodeGenerator<T> cg ) {
+  private <T> T getInstance(CodeGenerator<T> cg) {
     try {
       return context.getImplementationClass(cg);
     } catch (ClassTransformationException e) {
