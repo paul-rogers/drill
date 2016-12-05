@@ -43,22 +43,22 @@ public class InMemorySorter implements SortResults {
   private final int outputBatchSize;
   private int batchCount;
 
-  public InMemorySorter( FragmentContext context, BufferAllocator allocator, OperatorCodeGenerator opCg, int outputBatchSize ) {
+  public InMemorySorter(FragmentContext context, BufferAllocator allocator, OperatorCodeGenerator opCg, int outputBatchSize) {
     this.context = context;
     this.oAllocator = allocator;
     this.opCg = opCg;
     this.outputBatchSize = outputBatchSize;
   }
 
-  public SelectionVector4 sort( LinkedList<BatchGroup.InputBatch> batchGroups, VectorAccessible batch,
-                                VectorContainer destContainer ) {
+  public SelectionVector4 sort(LinkedList<BatchGroup.InputBatch> batchGroups, VectorAccessible batch,
+                                VectorContainer destContainer) {
     if (builder != null) {
       builder.clear();
       builder.close();
     }
     builder = new SortRecordBatchBuilder(oAllocator);
 
-    while ( ! batchGroups.isEmpty() ) {
+    while (! batchGroups.isEmpty()) {
       BatchGroup.InputBatch group = batchGroups.pollLast();
       RecordBatchData rbd = new RecordBatchData(group.getContainer(), oAllocator);
       rbd.setSv2(group.getSv2());
@@ -68,7 +68,7 @@ public class InMemorySorter implements SortResults {
     try {
       builder.build(context, destContainer);
       sv4 = builder.getSv4();
-      mSorter = opCg.createNewMSorter( batch );
+      mSorter = opCg.createNewMSorter(batch);
       mSorter.setup(context, oAllocator, sv4, destContainer, outputBatchSize);
     } catch (SchemaChangeException e) {
       throw UserException.unsupportedError(e)
@@ -96,7 +96,7 @@ public class InMemorySorter implements SortResults {
   @Override
   public boolean next() {
     boolean more = sv4.next();
-    if ( more ) { batchCount++; }
+    if (more) { batchCount++; }
     return more;
   }
 
