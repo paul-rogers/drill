@@ -113,7 +113,6 @@ public class DrillTest {
           DrillStringUtils.readable(endNonHeap - startNonHeap), DrillStringUtils.readable(endNonHeap) //
        );
     }
-
   }
 
   private static class TestLogReporter extends TestWatcher {
@@ -148,7 +147,6 @@ public class DrillTest {
         Thread.sleep(250);
       }
     }
-
   }
 
   public static String escapeJsonString(String original) {
@@ -188,7 +186,5 @@ public class DrillTest {
     public long getMemNonHeap() {
       return memoryBean.getNonHeapMemoryUsage().getUsed();
     }
-
   }
-
 }
