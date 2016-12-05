@@ -77,7 +77,7 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
     private SelectionVector2 sv2;
 
     public InputBatch(VectorContainer container, SelectionVector2 sv2, OperatorContext context, long batchSize) {
-      super( container, context, batchSize );
+      super(container, context, batchSize);
       this.sv2 = sv2;
     }
 
@@ -97,7 +97,7 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
     @Override
     public int getNextIndex() {
       int val = super.getNextIndex();
-      if ( val == -1 ) {
+      if (val == -1) {
         return val;
       }
       return sv2.getIndex(val);
@@ -106,7 +106,7 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
     @Override
     public void close() throws IOException {
       try {
-        super.close( );
+        super.close();
       }
       finally {
         if (sv2 != null) {
@@ -148,7 +148,7 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
     private int spilledBatches = 0;
 
     public SpilledRun(SpillSet spillSet, String path, OperatorContext context, long batchSize) throws IOException {
-      super( null, context, batchSize );
+      super(null, context, batchSize);
       this.spillSet = spillSet;
       this.path = path;
       this.allocator = context.getAllocator();
@@ -219,21 +219,21 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
     @Override
     public void close() throws IOException {
       try {
-        super.close( );
+        super.close();
       }
       finally {
         try {
-          closeOutputStream( );
+          closeOutputStream();
         } finally {
           try {
             if (inputStream != null) {
               inputStream.close();
               inputStream = null;
-              logger.trace( "Summary: Read {} bytes from {}", dataSize, path );
+              logger.trace("Summary: Read {} bytes from {}", dataSize, path);
             }
           }
           finally {
-            spillSet.delete( path );
+            spillSet.delete(path);
           }
         }
       }
@@ -243,7 +243,7 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
       if (outputStream != null) {
         outputStream.close();
         outputStream = null;
-        logger.trace( "Summary: Wrote {} bytes to {}", dataSize, path );
+        logger.trace("Summary: Wrote {} bytes to {}", dataSize, path);
       }
     }
   }
@@ -312,7 +312,7 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
     return currentContainer.getRecordCount();
   }
 
-  public long getDataSize( ) { return dataSize; }
+  public long getDataSize() { return dataSize; }
 
   @Override
   public Iterator<VectorWrapper<?>> iterator() {
