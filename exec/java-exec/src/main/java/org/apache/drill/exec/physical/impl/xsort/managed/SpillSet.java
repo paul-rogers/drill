@@ -75,7 +75,7 @@ public class SpillSet {
 
   private int fileCount = 0;
 
-  public SpillSet( FragmentContext context, PhysicalOperator popConfig ) {
+  public SpillSet(FragmentContext context, PhysicalOperator popConfig) {
     DrillConfig config = context.getConfig();
     dirs = Iterators.cycle(config.getStringList(ExecConstants.EXTERNAL_SORT_SPILL_DIRS));
     Configuration conf = new Configuration();
@@ -111,21 +111,21 @@ public class SpillSet {
     return outputFile;
   }
 
-  public boolean hasSpilled( ) {
+  public boolean hasSpilled() {
     return fileCount > 0;
   }
 
-  public int getFileCount( ) { return fileCount; }
+  public int getFileCount() { return fileCount; }
 
-  public InputStream openForInput( String fileName ) throws IOException {
+  public InputStream openForInput(String fileName) throws IOException {
     return fs.open(new Path(fileName));
   }
 
-  public OutputStream openForOutput( String fileName ) throws IOException {
+  public OutputStream openForOutput(String fileName) throws IOException {
     return fs.create(new Path(fileName));
   }
 
-  public void delete( String fileName ) throws IOException {
+  public void delete(String fileName) throws IOException {
     Path path = new Path(fileName);
     if (fs.exists(path)) {
       fs.delete(path, false);
@@ -133,7 +133,7 @@ public class SpillSet {
   }
 
   public void close() {
-    for ( Path path : currSpillDirs ) {
+    for (Path path : currSpillDirs) {
       try {
           if (path != null && fs.exists(path)) {
               if (fs.delete(path, true)) {
