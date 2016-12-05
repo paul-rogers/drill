@@ -677,62 +677,62 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     SPILL_BATCH_GROUP_SIZE = config.getInt(ExecConstants.EXTERNAL_SORT_SPILL_GROUP_SIZE);
     SPILL_THRESHOLD = config.getInt(ExecConstants.EXTERNAL_SORT_SPILL_THRESHOLD);
     oAllocator = oContext.getAllocator();
-    opCodeGen = new OperatorCodeGenerator( context, popConfig );
+    opCodeGen = new OperatorCodeGenerator(context, popConfig);
 
-    spillSet = new SpillSet( context, popConfig );
-    copierHolder = new CopierHolder( context, oAllocator, opCodeGen );
-    configure( context.getConfig() );
+    spillSet = new SpillSet(context, popConfig);
+    copierHolder = new CopierHolder(context, oAllocator, opCodeGen);
+    configure(context.getConfig());
   }
 
-  private void configure( DrillConfig config ) {
+  private void configure(DrillConfig config) {
 
     // The maximum memory this operator can use. It is either the
     // limit set on the allocator or on the operator, whichever is
     // less.
 
-    memoryLimit = Math.min( popConfig.getMaxAllocation(), oAllocator.getLimit() );
+    memoryLimit = Math.min(popConfig.getMaxAllocation(), oAllocator.getLimit());
 
     // Optional configured memory limit, typically used only for testing.
 
-    long configLimit = config.getBytes( ExecConstants.EXTERNAL_SORT_MAX_MEMORY );
-    if ( configLimit > 0 ) {
-      memoryLimit = Math.min( memoryLimit, configLimit );
+    long configLimit = config.getBytes(ExecConstants.EXTERNAL_SORT_MAX_MEMORY);
+    if (configLimit > 0) {
+      memoryLimit = Math.min(memoryLimit, configLimit);
     }
 
     // Optional limit on the number of buffered in-memory batches.
     // 0 means no limit. Used primarily for testing. Must allow at least two
     // batches or no merging can occur.
 
-    bufferedBatchLimit = getConfigLimit( config, ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, Integer.MAX_VALUE, 2 );
+    bufferedBatchLimit = getConfigLimit(config, ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, Integer.MAX_VALUE, 2);
 
     // Optional limit on the number of spilled runs to merge in a single
     // pass. Limits the number of open file handles. Must allow at least
     // two batches to merge to make progress.
 
-    mergeLimit = getConfigLimit( config, ExecConstants.EXTERNAL_SORT_MERGE_LIMIT, Integer.MAX_VALUE, 2 );
+    mergeLimit = getConfigLimit(config, ExecConstants.EXTERNAL_SORT_MERGE_LIMIT, Integer.MAX_VALUE, 2);
 
     // Limits on the minimum and maximum buffered batches to spill per
     // spill event.
 
-    minSpillLimit = getConfigLimit( config, ExecConstants.EXTERNAL_SORT_MIN_SPILL, Integer.MAX_VALUE, 2 );
-    maxSpillLimit = getConfigLimit( config, ExecConstants.EXTERNAL_SORT_MAX_SPILL, Integer.MAX_VALUE, 2 );
-    if ( minSpillLimit > maxSpillLimit ) {
-      minSpillLimit = Math.min( minSpillLimit, maxSpillLimit );
+    minSpillLimit = getConfigLimit(config, ExecConstants.EXTERNAL_SORT_MIN_SPILL, Integer.MAX_VALUE, 2);
+    maxSpillLimit = getConfigLimit(config, ExecConstants.EXTERNAL_SORT_MAX_SPILL, Integer.MAX_VALUE, 2);
+    if (minSpillLimit > maxSpillLimit) {
+      minSpillLimit = Math.min(minSpillLimit, maxSpillLimit);
       maxSpillLimit = minSpillLimit;
     }
 
     // Limits the size of first-generation spill files.
 
-    spillFileSize = config.getBytes( ExecConstants.EXTERNAL_SORT_SPILL_FILE_SIZE );
+    spillFileSize = config.getBytes(ExecConstants.EXTERNAL_SORT_SPILL_FILE_SIZE);
 
-    logger.trace( "Config: memory limit = {}, batch limit = {}, min, max spill limit: {}, {}, merge limit = {}",
-                  memoryLimit, bufferedBatchLimit, minSpillLimit, maxSpillLimit, mergeLimit );
+    logger.trace("Config: memory limit = {}, batch limit = {}, min, max spill limit: {}, {}, merge limit = {}",
+                  memoryLimit, bufferedBatchLimit, minSpillLimit, maxSpillLimit, mergeLimit);
   }
 
-  private int getConfigLimit( DrillConfig config, String paramName, int valueIfZero, int minValue ) {
-    int limit = config.getInt( paramName );
-    if ( limit > 0 ) {
-      limit = Math.max( limit, minValue );
+  private int getConfigLimit(DrillConfig config, String paramName, int valueIfZero, int minValue) {
+    int limit = config.getInt(paramName);
+    if (limit > 0) {
+      limit = Math.max(limit, minValue);
     } else {
       limit = valueIfZero;
     }
@@ -946,10 +946,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private IterOutcome loadBatch() {
 
     // If this is the very first batch, then AbstractRecordBatch
-    // already loaded it for us in buildSchema( ).
+    // already loaded it for us in buildSchema().
 
     IterOutcome upstream;
-    if ( sortState == SortState.START ) {
+    if (sortState == SortState.START) {
       sortState = SortState.LOAD;
       upstream = IterOutcome.OK_NEW_SCHEMA;
     } else {
@@ -964,7 +964,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       return upstream;
     case OK_NEW_SCHEMA:
     case OK:
-      setupSchema( upstream );
+      setupSchema(upstream);
 
       // Convert the incoming batch to the agreed-upon schema.
       // No converted batch means we got an empty input batch.
@@ -1018,17 +1018,17 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    */
 
   private IterOutcome load() {
-    logger.trace( "Start of load phase" );
+    logger.trace("Start of load phase");
 
     // Clear the temporary container created by
-    // buildSchema( ).
+    // buildSchema().
 
     container.clear();
 
     // Loop over all input batches
 
-    for ( ; ; ) {
-      IterOutcome result = loadBatch( );
+    for (;;) {
+      IterOutcome result = loadBatch();
 
     if (inputRecordCount == 0) {
       sortState = SortState.DONE;
@@ -1039,7 +1039,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
       // Any outcome other than OK means something went wrong.
 
-      if ( result != IterOutcome.OK ) {
+      if (result != IterOutcome.OK) {
         return result; }
     }
 
@@ -1049,16 +1049,16 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       sortState = SortState.DONE;
       return IterOutcome.NONE;
     }
-    logger.trace( "Completed load phase: read {} batches", totalBatches );
+    logger.trace("Completed load phase: read {} batches", totalBatches);
 
     // Do the merge of the loaded batches. The merge can be done entirely in memory if
     // the results fit; else we have to do a disk-based merge of
     // pre-sorted spilled batches.
 
-    if (canUseMemoryMerge( )) {
-      return sortInMemory( );
+    if (canUseMemoryMerge()) {
+      return sortInMemory();
     } else {
-      return mergeSpilledRuns( );
+      return mergeSpilledRuns();
     }
   }
 
@@ -1070,8 +1070,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * @return
    */
 
-  private boolean canUseMemoryMerge( ) {
-    if ( spillSet.hasSpilled( ) ) { return false; }
+  private boolean canUseMemoryMerge() {
+    if (spillSet.hasSpilled()) { return false; }
 
     // Do we have enough memory for MSorter (the in-memory sorter)?
 
@@ -1083,7 +1083,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     // Make sure we don't exceed the maximum number of batches SV4 can address.
 
-    if (bufferedBatches.size( ) > Character.MAX_VALUE) { return false; }
+    if (bufferedBatches.size() > Character.MAX_VALUE) { return false; }
 
     // We can do an in-memory merge.
 

@@ -51,7 +51,7 @@ public class CopierHolder {
   private final BufferAllocator allocator;
   private OperatorCodeGenerator opCodeGen;
 
-  public CopierHolder( FragmentContext context, BufferAllocator allocator, OperatorCodeGenerator opCodeGen ) {
+  public CopierHolder(FragmentContext context, BufferAllocator allocator, OperatorCodeGenerator opCodeGen) {
     this.context = context;
     this.allocator = allocator;
     this.opCodeGen = opCodeGen;
@@ -67,8 +67,8 @@ public class CopierHolder {
    * @return
    */
 
-  public CopierHolder.BatchMerger startMerge( BatchSchema schema, List<? extends BatchGroup> batchGroupList, int targetRecordCount ) {
-    return new BatchMerger( this, schema, batchGroupList, targetRecordCount );
+  public CopierHolder.BatchMerger startMerge(BatchSchema schema, List<? extends BatchGroup> batchGroupList, int targetRecordCount) {
+    return new BatchMerger(this, schema, batchGroupList, targetRecordCount);
   }
 
   /**
@@ -81,8 +81,8 @@ public class CopierHolder {
    * @param targetRecordCount
    * @return
    */
-  public CopierHolder.BatchMerger startFinalMerge( BatchSchema schema, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer, int targetRecordCount ) {
-    return new BatchMerger( this, schema, batchGroupList, outputContainer, targetRecordCount );
+  public CopierHolder.BatchMerger startFinalMerge(BatchSchema schema, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer, int targetRecordCount) {
+    return new BatchMerger(this, schema, batchGroupList, outputContainer, targetRecordCount);
   }
 
   /**
@@ -102,7 +102,7 @@ public class CopierHolder {
     if (copier != null) {
       opCodeGen.closeCopier();
     } else {
-      copier = opCodeGen.getCopier( batch );
+      copier = opCodeGen.getCopier(batch);
     }
 
     // Initialize the value vectors for the output container
@@ -206,7 +206,7 @@ public class CopierHolder {
       copyCount = 0;
       this.targetRecordCount = targetRecordCount;
       this.outputContainer = outputContainer;
-      holder.createCopier(hyperBatch, batchGroupList, outputContainer );
+      holder.createCopier(hyperBatch, batchGroupList, outputContainer);
     }
 
     /**
@@ -214,7 +214,7 @@ public class CopierHolder {
      *
      * @return the output container
      */
-    public VectorContainer getOutput( ) {
+    public VectorContainer getOutput() {
       return outputContainer;
     }
 
@@ -227,7 +227,7 @@ public class CopierHolder {
      */
 
     @Override
-    public boolean next( ) {
+    public boolean next() {
       Stopwatch w = Stopwatch.createStarted();
       int count = holder.copier.next(targetRecordCount);
       copyCount += count;
