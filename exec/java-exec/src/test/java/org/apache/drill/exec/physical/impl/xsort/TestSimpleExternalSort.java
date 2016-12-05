@@ -22,85 +22,70 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.List;
 
-import org.apache.drill.BaseTestQuery;
-import org.apache.drill.QueryTestUtil;
-import org.apache.drill.common.config.DrillConfig;
+import org.apache.drill.ClientFixture;
+import org.apache.drill.ClientFixture.FixtureBuilder;
+import org.apache.drill.DrillEngineTest;
 import org.apache.drill.common.expression.ExpressionPosition;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.util.FileUtils;
 import org.apache.drill.common.util.TestTools;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.client.DrillClient;
 import org.apache.drill.exec.exception.SchemaChangeException;
+import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.RecordBatchLoader;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
-import org.apache.drill.exec.server.Drillbit;
-import org.apache.drill.exec.server.RemoteServiceSet;
 import org.apache.drill.exec.vector.BigIntVector;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
 
-import com.google.common.base.Charsets;
-import com.google.common.io.Files;
-
-public class TestSimpleExternalSort extends BaseTestQuery {
+public class TestSimpleExternalSort extends DrillEngineTest {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestSimpleExternalSort.class);
 
   @Rule public final TestRule TIMEOUT = TestTools.getTimeoutRule(80000);
 
   @Test
   public void mergeSortWithSv2Managed() throws Exception {
-    chooseImpl(client, false);
-    mergeSortWithSv2();
+    mergeSortWithSv2(false);
   }
 
   @Test
   public void mergeSortWithSv2Legacy() throws Exception {
-    chooseImpl(client, true);
-    mergeSortWithSv2();
+    mergeSortWithSv2(true);
   }
 
-  private void mergeSortWithSv2() throws Exception {
-    List<QueryDataBatch> results = testPhysicalFromFileWithResults("xsort/one_key_sort_descending_sv2.json");
-    assertEquals(500000, countResults( results ));
-    validateResults(results);
-  }
-
-  private int countResults(List<QueryDataBatch> results) {
-    int count = 0;
-    for(QueryDataBatch b : results) {
-      count += b.getHeader().getRowCount();
+  private void mergeSortWithSv2(boolean testLegacy) throws Exception {
+    try (ClientFixture client = standardClient( )) {
+      chooseImpl(client, testLegacy);
+      List<QueryDataBatch> results = client.runPhysicalFromResource("xsort/one_key_sort_descending_sv2.json");
+      assertEquals(500000, client.countResults( results ));
+      validateResults(client.allocator(), results);
     }
-    return count;
   }
 
-  private void chooseImpl(DrillClient client, boolean testLegacy) throws Exception {
-    String options = "alter session set `" + ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName() + "` = " +
-        Boolean.toString(testLegacy);
-    QueryTestUtil.test(client, options);
+  private void chooseImpl(ClientFixture client, boolean testLegacy) throws Exception {
+    client.alterSession(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName(), testLegacy);
   }
 
   @Test
   public void sortOneKeyDescendingMergeSortManaged() throws Throwable {
-    chooseImpl(client, false);
-    sortOneKeyDescendingMergeSort();
+    sortOneKeyDescendingMergeSort(false);
   }
 
   @Test
   public void sortOneKeyDescendingMergeSortLegacy() throws Throwable {
-    chooseImpl(client, true);
-    sortOneKeyDescendingMergeSort();
+    sortOneKeyDescendingMergeSort(true);
   }
 
-  private void sortOneKeyDescendingMergeSort() throws Throwable {
-    List<QueryDataBatch> results = testPhysicalFromFileWithResults("xsort/one_key_sort_descending.json");
-    assertEquals(1000000, countResults(results));
-    validateResults(results);
+  private void sortOneKeyDescendingMergeSort(boolean testLegacy) throws Throwable {
+    try (ClientFixture client = standardClient( )) {
+      chooseImpl(client, testLegacy);
+      List<QueryDataBatch> results = client.runPhysicalFromResource("xsort/one_key_sort_descending.json");
+      assertEquals(1000000, client.countResults(results));
+      validateResults(client.allocator(), results);
+    }
   }
 
-  private void validateResults(List<QueryDataBatch> results) throws SchemaChangeException {
+  private void validateResults(BufferAllocator allocator, List<QueryDataBatch> results) throws SchemaChangeException {
     long previousBigInt = Long.MAX_VALUE;
 
     int recordCount = 0;
@@ -139,21 +124,15 @@ public class TestSimpleExternalSort extends BaseTestQuery {
   }
 
   private void sortOneKeyDescendingExternalSort(boolean testLegacy) throws Throwable {
-    RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
-
-    DrillConfig config = DrillConfig.create("drill-external-sort.conf");
-
-    try (Drillbit bit1 = new Drillbit(config, serviceSet);
-         DrillClient client = new DrillClient(config, serviceSet.getCoordinator());) {
-
-      bit1.run();
-      client.connect();
+    FixtureBuilder builder = newBuilder( )
+        .property(ExecConstants.EXTERNAL_SORT_SPILL_THRESHOLD, 4 )
+        .property(ExecConstants.EXTERNAL_SORT_SPILL_GROUP_SIZE, 4)
+        .property(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 4);
+    try (ClientFixture client = builder.build( )) {
       chooseImpl(client,testLegacy);
-      List<QueryDataBatch> results = client.runQuery(org.apache.drill.exec.proto.UserBitShared.QueryType.PHYSICAL,
-              Files.toString(FileUtils.getResourceAsFile("/xsort/one_key_sort_descending.json"),
-                      Charsets.UTF_8));
-      assertEquals(1000000, countResults( results ));
-      validateResults(results);
+      List<QueryDataBatch> results = client.runPhysicalFromResource("/xsort/one_key_sort_descending.json");
+      assertEquals(1000000, client.countResults( results ));
+      validateResults(client.allocator(), results);
     }
   }
 
@@ -168,20 +147,16 @@ public class TestSimpleExternalSort extends BaseTestQuery {
   }
 
   private void outOfMemoryExternalSort(boolean testLegacy) throws Throwable{
-    RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
-
-    DrillConfig config = DrillConfig.create("drill-oom-xsort.conf");
-
-    try (Drillbit bit1 = new Drillbit(config, serviceSet);
-        DrillClient client = new DrillClient(config, serviceSet.getCoordinator());) {
-
-      bit1.run();
-      client.connect();
+    FixtureBuilder builder = newBuilder( )
+        // Probably do nothing in modern Drill
+        .property( "drill.memory.fragment.max", 50000000 )
+        .property( "drill.memory.fragment.initial", 2000000 )
+        .property( "drill.memory.operator.max", 30000000 )
+        .property( "drill.memory.operator.initial", 2000000 );
+    try (ClientFixture client = builder.build( )) {
       chooseImpl(client,testLegacy);
-      List<QueryDataBatch> results = client.runQuery(org.apache.drill.exec.proto.UserBitShared.QueryType.PHYSICAL,
-              Files.toString(FileUtils.getResourceAsFile("/xsort/oom_sort_test.json"),
-                      Charsets.UTF_8));
-      assertEquals(10000000, countResults( results ));
+      List<QueryDataBatch> results = client.runPhysicalFromResource("/xsort/oom_sort_test.json");
+      assertEquals(10000000, client.countResults( results ));
 
       long previousBigInt = Long.MAX_VALUE;
 
@@ -189,7 +164,7 @@ public class TestSimpleExternalSort extends BaseTestQuery {
       int batchCount = 0;
 
       for (QueryDataBatch b : results) {
-        RecordBatchLoader loader = new RecordBatchLoader(bit1.getContext().getAllocator());
+        RecordBatchLoader loader = new RecordBatchLoader(client.allocator());
         if (b.getHeader().getRowCount() > 0) {
           batchCount++;
           loader.load(b.getHeader().getDef(),b.getData());
