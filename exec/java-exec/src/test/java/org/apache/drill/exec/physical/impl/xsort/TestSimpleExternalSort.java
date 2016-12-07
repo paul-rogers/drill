@@ -53,6 +53,17 @@ public class TestSimpleExternalSort extends DrillEngineTest {
     mergeSortWithSv2(true);
   }
 
+  /**
+   * Tests the external sort using an in-memory sort. Relies on default memory
+   * settings to be large enough to do the in-memory sort (there is,
+   * unfortunately, no way to double-check that no spilling was done.)
+   * This must be checked manually by setting a breakpoint in the in-memory
+   * sort routine.
+   *
+   * @param testLegacy
+   * @throws Exception
+   */
+
   private void mergeSortWithSv2(boolean testLegacy) throws Exception {
     try (ClientFixture client = standardClient( )) {
       chooseImpl(client, testLegacy);
