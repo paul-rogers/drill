@@ -194,7 +194,7 @@ public class MergingRecordBatch extends AbstractRecordBatch<MergingReceiverPOP> 
       // set up each (non-empty) incoming record batch
       final List<RawFragmentBatch> rawBatches = Lists.newArrayList();
       int p = 0;
-      for (final RawFragmentBatchProvider provider : fragProviders) {
+      for (@SuppressWarnings("unused") final RawFragmentBatchProvider provider : fragProviders) {
         RawFragmentBatch rawBatch;
         // check if there is a batch in temp holder before calling getNext(), as it may have been used when building schema
         if (tempBatchHolder[p] != null) {
@@ -433,7 +433,7 @@ public class MergingRecordBatch extends AbstractRecordBatch<MergingReceiverPOP> 
     }
 
     // set the value counts in the outgoing vectors
-    for (final VectorWrapper vw : outgoingContainer) {
+    for (final VectorWrapper<?> vw : outgoingContainer) {
       vw.getValueVector().getMutator().setValueCount(outgoingPosition);
     }
 
@@ -607,7 +607,7 @@ public class MergingRecordBatch extends AbstractRecordBatch<MergingReceiverPOP> 
   }
 
   private void allocateOutgoing() {
-    for (final VectorWrapper w : outgoingContainer) {
+    for (final VectorWrapper<?> w : outgoingContainer) {
       final ValueVector v = w.getValueVector();
       if (v instanceof FixedWidthVector) {
         AllocationHelper.allocate(v, OUTGOING_BATCH_SIZE, 1);

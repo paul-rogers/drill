@@ -146,6 +146,7 @@ public abstract class RpcBus<T extends EnumLite, C extends RemoteConnection> imp
   public class ChannelClosedHandler implements GenericFutureListener<ChannelFuture> {
 
     final C clientConnection;
+    @SuppressWarnings("unused")
     private final Channel channel;
 
     public ChannelClosedHandler(C clientConnection, Channel channel) {
@@ -189,6 +190,7 @@ public abstract class RpcBus<T extends EnumLite, C extends RemoteConnection> imp
       sent.set(false);
     }
 
+    @Override
     public void send(Response r) {
       assert rpcConfig.checkResponseSend(r.rpcType, r.pBody.getClass());
       sendOnce();
@@ -405,6 +407,7 @@ public abstract class RpcBus<T extends EnumLite, C extends RemoteConnection> imp
       }
     }
 
+    @Override
     public void run(){
       try {
         MessageLite m = getResponseDefaultInstance(rpcType);

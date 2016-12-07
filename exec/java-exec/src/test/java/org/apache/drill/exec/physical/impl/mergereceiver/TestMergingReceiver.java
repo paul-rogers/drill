@@ -18,8 +18,7 @@
 
 package org.apache.drill.exec.physical.impl.mergereceiver;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import java.util.List;
 
@@ -37,7 +36,6 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
-import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 
 public class TestMergingReceiver extends PopUnitTestBase {
@@ -48,8 +46,8 @@ public class TestMergingReceiver extends PopUnitTestBase {
     final RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
 
     try (final Drillbit bit1 = new Drillbit(CONFIG, serviceSet);
-        final Drillbit bit2 = new Drillbit(CONFIG, serviceSet);
-        final DrillClient client = new DrillClient(CONFIG, serviceSet.getCoordinator());) {
+         final Drillbit bit2 = new Drillbit(CONFIG, serviceSet);
+         final DrillClient client = new DrillClient(CONFIG, serviceSet.getCoordinator());) {
       bit1.run();
       bit2.run();
       client.connect();
@@ -68,6 +66,9 @@ public class TestMergingReceiver extends PopUnitTestBase {
         batchLoader.clear();
       }
       assertEquals(200000, count);
+    } catch ( Exception e ) {
+//      fail( e.getMessage( ) );
+      throw e;
     }
   }
 
@@ -95,7 +96,7 @@ public class TestMergingReceiver extends PopUnitTestBase {
         final int batchRowCount = queryData.getRowCount();
         count += batchRowCount;
         batchLoader.load(queryData.getDef(), b.getData());
-        for (final VectorWrapper vw : batchLoader) {
+        for (final VectorWrapper<?> vw : batchLoader) {
           final ValueVector vv = vw.getValueVector();
           final ValueVector.Accessor va = vv.getAccessor();
           final MaterializedField materializedField = vv.getField();
