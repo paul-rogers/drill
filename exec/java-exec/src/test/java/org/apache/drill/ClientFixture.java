@@ -47,7 +47,7 @@ import com.google.common.io.Resources;
  */
 
 public class ClientFixture implements AutoCloseable {
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ClientFixture.class);
+//  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ClientFixture.class);
   private static final String ENABLE_FULL_CACHE = "drill.exec.test.use-full-cache";
   private static final int MAX_WIDTH_PER_NODE = 2;
 
@@ -109,7 +109,7 @@ public class ClientFixture implements AutoCloseable {
      * drill.exec.sys.store.provider.local.write : false,
      * drill.exec.http.enabled : false
      * </code></pre>
-     * It may be more convienient to add your settings to the default
+     * It may be more convenient to add your settings to the default
      * config settings with {@link #property(String, Object)}.
      * @param configResource
      * @return
