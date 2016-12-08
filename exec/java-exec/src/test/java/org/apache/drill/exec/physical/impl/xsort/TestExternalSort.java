@@ -76,7 +76,7 @@ public class TestExternalSort extends BaseTestQuery {
     }
     builder.go();
   }
-  
+
   private String getOptions(boolean testLegacy) {
     String options = "alter session set `exec.enable_union_type` = true";
     options += ";alter session set `" + ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName() + "` = " +
