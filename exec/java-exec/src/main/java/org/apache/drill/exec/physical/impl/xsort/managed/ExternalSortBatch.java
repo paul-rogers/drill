@@ -1058,8 +1058,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       spillCount = 0;
       for (InputBatch batch : bufferedBatches) {
         estSize += batch.getDataSize();
-        if (estSize > spillFileSize)
-          break;
+        if (estSize > spillFileSize) {
+          break; }
         spillCount++;
       }
     }
