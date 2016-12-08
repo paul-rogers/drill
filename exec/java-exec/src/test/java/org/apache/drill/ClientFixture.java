@@ -414,8 +414,8 @@ public class ClientFixture implements AutoCloseable {
 
   private Exception safeClose(AutoCloseable item, Exception ex) {
     try {
-      if ( item != null )
-        item.close( );
+      if ( item != null ) {
+        item.close( ); }
     } catch ( Exception e ) {
       ex = ex == null ? e : ex;
     }

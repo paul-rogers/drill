@@ -69,6 +69,30 @@ public class TestExternalSortRM extends DrillTest {
     analyzer.analyzeLog( );
   }
 
+  @Test(timeout=200_000)
+  public void testManagedSpilledWide() throws Exception {
+    LogAnalyzer analyzer = new LogAnalyzer( true );
+    analyzer.setupLogging( );
+
+    RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
+
+    DrillConfig config = DrillConfig.create("xsort/drill-external-sort-rm.conf");
+//    DrillConfig config = DrillConfig.create( );
+
+    try (Drillbit bit = new Drillbit(config, serviceSet);
+        DrillClient client = new DrillClient(config, serviceSet.getCoordinator());) {
+
+      bit.run();
+      defineWorkspace( bit, "dfs", "data", "/Users/paulrogers/work/data", "psv" );
+      client.connect();
+      setMaxFragmentWidth( client, 1 );
+      String sql = "select * from (select *, row_number() over(order by validitydate) as rn from `dfs.data`.`gen.json`) where rn=10";
+      performSort( client, sql );
+    }
+
+    analyzer.analyzeLog( );
+  }
+
   @Test
   public void testLegacySpilled() throws Exception {
     LogAnalyzer analyzer = new LogAnalyzer( false );
@@ -115,10 +139,8 @@ public class TestExternalSortRM extends DrillTest {
     analyzer.analyzeLog( );
   }
 
-  private void performSort(DrillClient client) throws IOException {
+  private int performSort(DrillClient client, String sql) throws IOException {
     BufferingQueryEventListener listener = new BufferingQueryEventListener( );
-    String sql = Files.toString(FileUtils.getResourceAsFile("/xsort/sort-big-all.sql"),
-        Charsets.UTF_8);
     long start = System.currentTimeMillis();
     client.runQuery(QueryType.SQL, sql, listener);
     int recordCount = 0;
@@ -148,9 +170,15 @@ public class TestExternalSortRM extends DrillTest {
     long end = System.currentTimeMillis();
     long elapsed = end - start;
 
-    assertEquals(2880404, recordCount);
-
     System.out.println(String.format("Sorted %,d records in %d batches; %d ms.", recordCount, batchCount, elapsed));
+    return recordCount;
+  }
+
+  private void performSort(DrillClient client) throws IOException {
+    int recordCount = performSort( client,
+        Files.toString(FileUtils.getResourceAsFile("/xsort/sort-big-all.sql"),
+        Charsets.UTF_8) );
+    assertEquals(2880404, recordCount);
   }
 
   public void defineWorkspace( Drillbit drillbit, String pluginName, String schemaName, String path, String defaultFormat ) throws ExecutionSetupException {
