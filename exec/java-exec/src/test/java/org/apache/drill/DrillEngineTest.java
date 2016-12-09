@@ -17,7 +17,7 @@
  ******************************************************************************/
 package org.apache.drill;
 
-import org.apache.drill.ClientFixture.FixtureBuilder;
+import org.apache.drill.ClusterFixture.FixtureBuilder;
 import org.apache.drill.exec.ExecTest;
 
 /**
@@ -37,10 +37,10 @@ public class DrillEngineTest extends ExecTest {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillEngineTest.class);
 
   public static FixtureBuilder newBuilder( ) {
-    return ClientFixture.builder( );
+    return ClusterFixture.builder( );
   }
 
-  public static ClientFixture standardClient( ) throws Exception {
+  public static ClusterFixture standardClient( ) throws Exception {
     return newBuilder( ).build( );
   }
 

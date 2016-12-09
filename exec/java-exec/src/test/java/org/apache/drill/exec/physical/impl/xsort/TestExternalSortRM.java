@@ -18,26 +18,21 @@
 package org.apache.drill.exec.physical.impl.xsort;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
-import java.util.List;
 
-import org.apache.drill.common.config.DrillConfig;
-import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.BufferingQueryEventListener;
+import org.apache.drill.BufferingQueryEventListener.QueryEvent;
+import org.apache.drill.ClusterFixture;
+import org.apache.drill.ClusterFixture.FixtureBuilder;
 import org.apache.drill.common.util.FileUtils;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.client.DrillClient;
-import org.apache.drill.exec.physical.impl.xsort.BufferingQueryEventListener.QueryEvent;
+import org.apache.drill.exec.physical.impl.xsort.LogAnalyzer.EventAnalyzer;
+import org.apache.drill.exec.physical.impl.xsort.LogAnalyzer.SortStats;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
-import org.apache.drill.exec.rpc.RpcException;
-import org.apache.drill.exec.rpc.user.QueryDataBatch;
-import org.apache.drill.exec.server.Drillbit;
-import org.apache.drill.exec.server.RemoteServiceSet;
-import org.apache.drill.exec.store.StoragePluginRegistry;
-import org.apache.drill.exec.store.dfs.FileSystemConfig;
-import org.apache.drill.exec.store.dfs.FileSystemPlugin;
-import org.apache.drill.exec.store.dfs.WorkspaceConfig;
 import org.apache.drill.test.DrillTest;
 import org.junit.Test;
 
@@ -51,22 +46,24 @@ public class TestExternalSortRM extends DrillTest {
     LogAnalyzer analyzer = new LogAnalyzer( true );
     analyzer.setupLogging( );
 
-    RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
-
-    DrillConfig config = DrillConfig.create("xsort/drill-external-sort-rm.conf");
-//    DrillConfig config = DrillConfig.create( );
-
-    try (Drillbit bit = new Drillbit(config, serviceSet);
-        DrillClient client = new DrillClient(config, serviceSet.getCoordinator());) {
-
-      bit.run();
-      defineWorkspace( bit, "dfs", "data", "/Users/paulrogers/work/data", "psv" );
-      client.connect();
-      setMaxFragmentWidth( client, 1 );
-      performSort( client );
+    FixtureBuilder builder = ClusterFixture.builder()
+        .property(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 40)
+        .property(ExecConstants.EXTERNAL_SORT_MERGE_LIMIT, 40)
+        .maxParallelization(1);
+    try (ClusterFixture cluster = builder.build()) {
+      cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
+      performSort( cluster.client() );
     }
 
-    analyzer.analyzeLog( );
+    EventAnalyzer analysis = analyzer.analyzeLog( );
+    SortStats stats = analysis.getStats( );
+
+    // Verify that spilling occurred. That it occurred
+    // correctly is verified by the query itself.
+
+    assertTrue( stats.gen1SpillCount > 0 );
+    assertTrue( stats.gen2SpillCount > 0 );
+    analysis.report( );
   }
 
   @Test(timeout=200_000)
@@ -74,20 +71,13 @@ public class TestExternalSortRM extends DrillTest {
     LogAnalyzer analyzer = new LogAnalyzer( true );
     analyzer.setupLogging( );
 
-    RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
-
-    DrillConfig config = DrillConfig.create("xsort/drill-external-sort-rm.conf");
-//    DrillConfig config = DrillConfig.create( );
-
-    try (Drillbit bit = new Drillbit(config, serviceSet);
-        DrillClient client = new DrillClient(config, serviceSet.getCoordinator());) {
-
-      bit.run();
-      defineWorkspace( bit, "dfs", "data", "/Users/paulrogers/work/data", "psv" );
-      client.connect();
-      setMaxFragmentWidth( client, 1 );
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configResource("xsort/drill-external-sort-rm.conf")
+        .maxParallelization(1);
+    try (ClusterFixture cluster = builder.build()) {
+      cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
       String sql = "select * from (select *, row_number() over(order by validitydate) as rn from `dfs.data`.`gen.json`) where rn=10";
-      performSort( client, sql );
+      performSort( cluster.client(), sql );
     }
 
     analyzer.analyzeLog( );
@@ -98,19 +88,12 @@ public class TestExternalSortRM extends DrillTest {
     LogAnalyzer analyzer = new LogAnalyzer( false );
     analyzer.setupLogging( );
 
-    RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
-
-    DrillConfig config = DrillConfig.create("xsort/drill-external-sort-legacy.conf");
-//    DrillConfig config = DrillConfig.create( );
-
-    try (Drillbit bit = new Drillbit(config, serviceSet);
-        DrillClient client = new DrillClient(config, serviceSet.getCoordinator());) {
-
-      bit.run();
-      defineWorkspace( bit, "dfs", "data", "/Users/paulrogers/work/data", "psv" );
-      client.connect();
-      setMaxFragmentWidth( client, 1 );
-      performSort( client );
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configResource("xsort/drill-external-sort-legacy.conf")
+        .maxParallelization(1);
+    try (ClusterFixture cluster = builder.build()) {
+      cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
+      performSort( cluster.client() );
     }
 
     analyzer.analyzeLog( );
@@ -121,19 +104,11 @@ public class TestExternalSortRM extends DrillTest {
     LogAnalyzer analyzer = new LogAnalyzer( true );
     analyzer.setupLogging( );
 
-    RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
-
-//    DrillConfig config = DrillConfig.create("xsort/drill-external-sort-rm.conf");
-    DrillConfig config = DrillConfig.create( );
-
-    try (Drillbit bit = new Drillbit(config, serviceSet);
-        DrillClient client = new DrillClient(config, serviceSet.getCoordinator());) {
-
-      bit.run();
-      defineWorkspace( bit, "dfs", "data", "/Users/paulrogers/work/data", "psv" );
-      client.connect();
-      setMaxFragmentWidth( client, 3 );
-      performSort( client );
+    FixtureBuilder builder = ClusterFixture.builder()
+        .maxParallelization(1);
+    try (ClusterFixture cluster = builder.build()) {
+      cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
+      performSort( cluster.client() );
     }
 
     analyzer.analyzeLog( );
@@ -179,26 +154,5 @@ public class TestExternalSortRM extends DrillTest {
         Files.toString(FileUtils.getResourceAsFile("/xsort/sort-big-all.sql"),
         Charsets.UTF_8) );
     assertEquals(2880404, recordCount);
-  }
-
-  public void defineWorkspace( Drillbit drillbit, String pluginName, String schemaName, String path, String defaultFormat ) throws ExecutionSetupException {
-    final StoragePluginRegistry pluginRegistry = drillbit.getContext().getStorage();
-    final FileSystemPlugin plugin = (FileSystemPlugin) pluginRegistry.getPlugin(pluginName);
-    final FileSystemConfig pluginConfig = (FileSystemConfig) plugin.getConfig();
-    final WorkspaceConfig newTmpWSConfig = new WorkspaceConfig(path, true, defaultFormat);
-
-    pluginConfig.workspaces.remove(schemaName);
-    pluginConfig.workspaces.put(schemaName, newTmpWSConfig);
-
-    pluginRegistry.createOrUpdate(pluginName, pluginConfig, true);
-  }
-
-  public void setMaxFragmentWidth( DrillClient drillClient, int maxFragmentWidth ) throws RpcException {
-    final List<QueryDataBatch> results = drillClient.runQuery(
-        QueryType.SQL, String.format("alter session set `%s` = %d",
-            ExecConstants.MAX_WIDTH_PER_NODE_KEY, maxFragmentWidth));
-    for (QueryDataBatch queryDataBatch : results) {
-      queryDataBatch.release();
-    }
   }
 }
