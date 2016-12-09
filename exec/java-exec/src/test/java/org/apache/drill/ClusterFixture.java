@@ -25,11 +25,14 @@ import java.util.Properties;
 
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.client.DrillClient;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.memory.RootAllocatorFactory;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
+import org.apache.drill.exec.record.RecordBatchLoader;
+import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.rpc.RpcException;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.server.Drillbit;
@@ -39,6 +42,8 @@ import org.apache.drill.exec.store.dfs.FileSystemConfig;
 import org.apache.drill.exec.store.dfs.FileSystemPlugin;
 import org.apache.drill.exec.store.dfs.WorkspaceConfig;
 import org.apache.drill.exec.util.TestUtilities;
+import org.apache.drill.exec.vector.NullableVarCharVector;
+import org.apache.drill.exec.vector.ValueVector;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
@@ -233,6 +238,7 @@ public class ClusterFixture implements AutoCloseable {
     }
   }
 
+  private DrillConfig config;
   private Drillbit bits[];
   private DrillClient client;
   private static BufferAllocator allocator;
@@ -243,7 +249,6 @@ public class ClusterFixture implements AutoCloseable {
 
     // Create a config
 
-    DrillConfig config;
     if ( builder.configResource != null ) {
       config = DrillConfig.create(builder.configResource);
      } else if ( builder.configProps != null ) {
@@ -470,6 +475,59 @@ public class ClusterFixture implements AutoCloseable {
     pluginConfig.workspaces.put(schemaName, newTmpWSConfig);
 
     pluginRegistry.createOrUpdate(pluginName, pluginConfig, true);
+  }
+
+  /**
+   * Submit an "EXPLAIN" statement, and return the column value which
+   * contains the plan's string.
+   * <p>
+   * Cribbed from {@link PlanTestBase#getPlanInString(String, String)}
+   * @throws Exception
+   */
+
+  public String queryPlan(String sql) throws Exception {
+    return queryPlan("EXPLAIN PLAN FOR " + sql,"text");
+  }
+
+  protected String queryPlan(String sql, String columnName)
+      throws Exception {
+    final List<QueryDataBatch> results = runSql(sql);
+    final RecordBatchLoader loader = new RecordBatchLoader(allocator);
+    final StringBuilder builder = new StringBuilder();
+    final boolean silent = config != null && config.getBoolean(QueryTestUtil.TEST_QUERY_PRINTING_SILENT);
+
+    for (final QueryDataBatch b : results) {
+      if (!b.hasData()) {
+        continue;
+      }
+
+      loader.load(b.getHeader().getDef(), b.getData());
+
+      final VectorWrapper<?> vw;
+      try {
+          vw = loader.getValueAccessorById(
+              NullableVarCharVector.class,
+              loader.getValueVectorId(SchemaPath.getSimplePath(columnName)).getFieldIds());
+      } catch (Throwable t) {
+        throw new Exception("Looks like you did not provide an explain plan query, please add EXPLAIN PLAN FOR to the beginning of your query.");
+      }
+
+      if (!silent) {
+        System.out.println(vw.getValueVector().getField().getPath());
+      }
+      final ValueVector vv = vw.getValueVector();
+      for (int i = 0; i < vv.getAccessor().getValueCount(); i++) {
+        final Object o = vv.getAccessor().getObject(i);
+        builder.append(o);
+        if (!silent) {
+          System.out.println(o);
+        }
+      }
+      loader.clear();
+      b.release();
+    }
+
+    return builder.toString();
   }
 
   public static FixtureBuilder builder() {
