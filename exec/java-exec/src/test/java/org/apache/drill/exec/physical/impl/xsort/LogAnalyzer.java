@@ -980,6 +980,8 @@ public class LogAnalyzer {
       }
     }
 
+    public SortStats getStats( ) { return stats; }
+
     public void report( ) {
       PrintWriter writer = new PrintWriter( new OutputStreamWriter( System.out ) );
       report( writer );
@@ -1175,11 +1177,11 @@ public class LogAnalyzer {
 //    }
   }
 
-  public void analyzeLog( ) {
+  public EventAnalyzer analyzeLog( ) {
     LogParser parser = parseLog( logFile );
     EventAnalyzer analyzer = new EventAnalyzer( );
     analyzer.analyze( parser.events );
-    analyzer.report( );
+    return analyzer;
   }
 
   private LogParser parseLog(File logFile) {
