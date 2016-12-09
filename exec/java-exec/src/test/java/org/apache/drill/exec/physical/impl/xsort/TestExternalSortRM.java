@@ -66,7 +66,7 @@ public class TestExternalSortRM extends DrillTest {
     analysis.report( );
   }
 
-  @Test(timeout=200_000)
+  @Test
   public void testManagedSpilledWide() throws Exception {
     LogAnalyzer analyzer = new LogAnalyzer( true );
     analyzer.setupLogging( );
@@ -77,6 +77,8 @@ public class TestExternalSortRM extends DrillTest {
     try (ClusterFixture cluster = builder.build()) {
       cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
       String sql = "select * from (select *, row_number() over(order by validitydate) as rn from `dfs.data`.`gen.json`) where rn=10";
+      String plan = cluster.queryPlan(sql);
+      System.out.println( plan );
       performSort( cluster.client(), sql );
     }
 
