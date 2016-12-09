@@ -77,6 +77,10 @@ public class WindowFrameRecordBatch extends AbstractRecordBatch<WindowPOP> {
     batches = Lists.newArrayList();
   }
 
+  long totalLoad; // Test only: do not check in
+  long totalWork;
+  long loadCount;
+
   /**
    * Hold incoming batches in memory until all window functions are ready to process the batch on top of the queue
    */
@@ -104,6 +108,7 @@ public class WindowFrameRecordBatch extends AbstractRecordBatch<WindowPOP> {
       return IterOutcome.NONE;
     }
 
+    long start = System.currentTimeMillis();
     // keep saving incoming batches until the first unprocessed batch can be processed, or upstream == NONE
     while (!noMoreBatches && !canDoWork()) {
       IterOutcome upstream = next(incoming);
@@ -135,16 +140,23 @@ public class WindowFrameRecordBatch extends AbstractRecordBatch<WindowPOP> {
           throw new UnsupportedOperationException("Unsupported upstream state " + upstream);
       }
     }
+    totalLoad += System.currentTimeMillis() - start;
+    loadCount++;
 
     if (batches.isEmpty()) {
       logger.trace("no more batches to handle, we are DONE");
+      System.out.println( "Work time: " + totalWork );
+      System.out.println( "Load time: " + totalLoad );
+      System.out.println( "Load count: " + loadCount );
       state = BatchState.DONE;
       return IterOutcome.NONE;
     }
 
     // process first saved batch, then release it
     try {
+      start = System.currentTimeMillis();
       doWork();
+      totalWork += System.currentTimeMillis() - start;
     } catch (DrillException e) {
       context.fail(e);
       cleanup();
