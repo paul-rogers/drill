@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.xsort;
+package org.apache.drill;
 
 import java.util.concurrent.BlockingQueue;
 
@@ -40,10 +40,10 @@ public class BufferingQueryEventListener implements UserResultsListener
   {
     public enum Type { QUERY_ID, BATCH, EOF, ERROR }
 
-    final Type type;
+    public final Type type;
     QueryId queryId;
-    QueryDataBatch batch;
-    UserException error;
+    public QueryDataBatch batch;
+    public UserException error;
 
     public QueryEvent(QueryId queryId) {
       this.queryId = queryId;
