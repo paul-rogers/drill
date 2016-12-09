@@ -22,8 +22,8 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.List;
 
-import org.apache.drill.ClientFixture;
-import org.apache.drill.ClientFixture.FixtureBuilder;
+import org.apache.drill.ClusterFixture;
+import org.apache.drill.ClusterFixture.FixtureBuilder;
 import org.apache.drill.DrillEngineTest;
 import org.apache.drill.common.expression.ExpressionPosition;
 import org.apache.drill.common.expression.SchemaPath;
@@ -65,7 +65,7 @@ public class TestSimpleExternalSort extends DrillEngineTest {
    */
 
   private void mergeSortWithSv2(boolean testLegacy) throws Exception {
-    try (ClientFixture client = standardClient( )) {
+    try (ClusterFixture client = standardClient( )) {
       chooseImpl(client, testLegacy);
       List<QueryDataBatch> results = client.runPhysicalFromResource("xsort/one_key_sort_descending_sv2.json");
       assertEquals(500000, client.countResults( results ));
@@ -73,7 +73,7 @@ public class TestSimpleExternalSort extends DrillEngineTest {
     }
   }
 
-  private void chooseImpl(ClientFixture client, boolean testLegacy) throws Exception {
+  private void chooseImpl(ClusterFixture client, boolean testLegacy) throws Exception {
     client.alterSession(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName(), testLegacy);
   }
 
@@ -88,7 +88,7 @@ public class TestSimpleExternalSort extends DrillEngineTest {
   }
 
   private void sortOneKeyDescendingMergeSort(boolean testLegacy) throws Throwable {
-    try (ClientFixture client = standardClient( )) {
+    try (ClusterFixture client = standardClient( )) {
       chooseImpl(client, testLegacy);
       List<QueryDataBatch> results = client.runPhysicalFromResource("xsort/one_key_sort_descending.json");
       assertEquals(1000000, client.countResults(results));
@@ -139,7 +139,7 @@ public class TestSimpleExternalSort extends DrillEngineTest {
         .property(ExecConstants.EXTERNAL_SORT_SPILL_THRESHOLD, 4 )
         .property(ExecConstants.EXTERNAL_SORT_SPILL_GROUP_SIZE, 4)
         .property(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 4);
-    try (ClientFixture client = builder.build( )) {
+    try (ClusterFixture client = builder.build( )) {
       chooseImpl(client,testLegacy);
       List<QueryDataBatch> results = client.runPhysicalFromResource("/xsort/one_key_sort_descending.json");
       assertEquals(1000000, client.countResults( results ));
@@ -164,7 +164,7 @@ public class TestSimpleExternalSort extends DrillEngineTest {
         .property( "drill.memory.fragment.initial", 2000000 )
         .property( "drill.memory.operator.max", 30000000 )
         .property( "drill.memory.operator.initial", 2000000 );
-    try (ClientFixture client = builder.build( )) {
+    try (ClusterFixture client = builder.build( )) {
       chooseImpl(client,testLegacy);
       List<QueryDataBatch> results = client.runPhysicalFromResource("/xsort/oom_sort_test.json");
       assertEquals(10000000, client.countResults( results ));
