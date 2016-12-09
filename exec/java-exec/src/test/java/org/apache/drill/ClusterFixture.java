@@ -17,45 +17,28 @@
  ******************************************************************************/
 package org.apache.drill;
 
-import static org.junit.Assert.fail;
-
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-import org.apache.drill.BaseTestQuery.SilentListener;
-import org.apache.drill.BufferingQueryEventListener.QueryEvent;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.client.DrillClient;
-import org.apache.drill.exec.client.PrintingResultsListener;
-import org.apache.drill.exec.client.QuerySubmitter.Format;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.memory.RootAllocatorFactory;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
-import org.apache.drill.exec.record.RecordBatchLoader;
-import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.rpc.RpcException;
-import org.apache.drill.exec.rpc.user.AwaitableUserResultsListener;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
-import org.apache.drill.exec.rpc.user.UserResultsListener;
 import org.apache.drill.exec.server.Drillbit;
 import org.apache.drill.exec.server.RemoteServiceSet;
 import org.apache.drill.exec.store.StoragePluginRegistry;
-import org.apache.drill.exec.store.StoragePluginRegistryImpl;
 import org.apache.drill.exec.store.dfs.FileSystemConfig;
 import org.apache.drill.exec.store.dfs.FileSystemPlugin;
 import org.apache.drill.exec.store.dfs.WorkspaceConfig;
-import org.apache.drill.exec.store.mock.MockStorageEngine;
-import org.apache.drill.exec.store.mock.MockStorageEngineConfig;
 import org.apache.drill.exec.util.TestUtilities;
-import org.apache.drill.exec.util.VectorUtil;
-import org.apache.drill.exec.vector.NullableVarCharVector;
-import org.apache.drill.exec.vector.ValueVector;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
@@ -168,7 +151,7 @@ public class ClusterFixture implements AutoCloseable {
       if ( configProps == null ) {
         configProps = defaultProps( );
       }
-      configProps.put(key, value.toString());
+      configProps.put(key, stringify(value));
       return this;
     }
 
@@ -250,226 +233,6 @@ public class ClusterFixture implements AutoCloseable {
     }
   }
 
-  public static class QuerySummary {
-    private final int records;
-    private final int batches;
-    private final long ms;
-
-    public QuerySummary(int recordCount, int batchCount, long elapsed) {
-      records = recordCount;
-      batches = batchCount;
-      ms = elapsed;
-    }
-
-    public long recordCount( ) { return records; }
-    public int batchCount( ) { return batches; }
-    public long runTimeMs( ) { return ms; }
-  }
-
-  public class QueryBuilder {
-
-    private QueryType queryType;
-    private String queryText;
-
-    public QueryBuilder sql(String sql) {
-      queryType = QueryType.SQL;
-      queryText = sql;
-      return this;
-    }
-
-    public QueryBuilder physical(String plan) {
-      queryType = QueryType.PHYSICAL;
-      queryText = plan;
-      return this;
-    }
-
-    public QueryBuilder sqlResource(String resource) {
-      sql(loadResource(resource));
-      return this;
-    }
-
-    public QueryBuilder physicalResource(String resource) {
-      physical(loadResource(resource));
-      return this;
-    }
-
-    /**
-     * Run the query returning just a summary of the results: record count,
-     * batch count and run time. Handy when doing performance tests when the
-     * validity of the results is verified in some other test.
-     *
-     * @return the query summary
-     */
-
-    public QuerySummary run() {
-      return produceSummary(withEventListener());
-    }
-
-    /**
-     * Run the query and return a list of the result batches. Use
-     * if the batch count is small and you want to work with them.
-     * @return a list of batches resulting from the query
-     * @throws RpcException
-     */
-
-    public List<QueryDataBatch> results() throws RpcException {
-      Preconditions.checkNotNull(queryType, "Query not provided.");
-      Preconditions.checkNotNull(queryText, "Query not provided.");
-      return client.runQuery(queryType, queryText);
-    }
-
-    /**
-     * Run the query with the listener provided. Use when the result
-     * count will be large, or you don't need the results.
-     *
-     * @param listener the Drill listener
-     */
-
-    public void withListener(UserResultsListener listener) {
-      Preconditions.checkNotNull(queryType, "Query not provided.");
-      Preconditions.checkNotNull(queryText, "Query not provided.");
-      client.runQuery(queryType, queryText, listener);
-    }
-
-    /**
-     * Run the query, return an easy-to-use event listener to process
-     * the query results. Use when the result set is large. The listener
-     * allows the caller to iterate over results in the test thread.
-     * (The listener implements a producer-consumer model to hide the
-     * details of Drill listeners.)
-     *
-     * @return the query event listener
-     */
-
-    public BufferingQueryEventListener withEventListener( ) {
-      BufferingQueryEventListener listener = new BufferingQueryEventListener( );
-      withListener(listener);
-      return listener;
-    }
-
-    public int printCsv() {
-      return print(Format.CSV);
-    }
-
-    public int print( Format format ) {
-      return print(format,20);
-    }
-
-    public int print(Format format, int colWidth) {
-      return runAndWait( new PrintingResultsListener( config, format, colWidth ) );
-    }
-
-    public int runAndWait(UserResultsListener listener) {
-      AwaitableUserResultsListener resultListener =
-          new AwaitableUserResultsListener(listener);
-      withListener( resultListener );
-      try {
-        return resultListener.await();
-      } catch (Exception e) {
-        throw new IllegalStateException(e);
-      }
-    }
-
-    /**
-     * Submit an "EXPLAIN" statement, and return text form of the
-     * plan.
-     * @throws Exception if the query fails
-     */
-
-    public String explainText() throws Exception {
-      return explain(EXPLAIN_PLAN_TEXT);
-    }
-
-    /**
-     * Submit an "EXPLAIN" statement, and return the JSON form of the
-     * plan.
-     * @throws Exception if the query fails
-     */
-
-    public String explainJson() throws Exception {
-      return explain(EXPLAIN_PLAN_JSON);
-    }
-
-    public String explain(String format) throws Exception {
-      queryText = "EXPLAIN PLAN FOR " + queryText;
-      return queryPlan(format);
-    }
-
-    private QuerySummary produceSummary(BufferingQueryEventListener listener) {
-      long start = System.currentTimeMillis();
-      int recordCount = 0;
-      int batchCount = 0;
-      loop:
-      for ( ; ; ) {
-        QueryEvent event = listener.get();
-        switch ( event.type )
-        {
-        case BATCH:
-          batchCount++;
-          recordCount += event.batch.getHeader().getRowCount();
-          event.batch.release();
-          break;
-        case EOF:
-          break loop;
-        case ERROR:
-          event.error.printStackTrace();
-          fail( );
-          break loop;
-        case QUERY_ID:
-          break;
-        default:
-          break;
-        }
-      }
-      long end = System.currentTimeMillis();
-      long elapsed = end - start;
-      return new QuerySummary( recordCount, batchCount, elapsed );
-    }
-
-    /**
-     * Submit an "EXPLAIN" statement, and return the column value which
-     * contains the plan's string.
-     * <p>
-     * Cribbed from {@link PlanTestBase#getPlanInString(String, String)}
-     * @throws Exception
-     */
-
-    protected String queryPlan(String columnName) throws Exception {
-      Preconditions.checkArgument(queryType == QueryType.SQL, "Can only explan an SQL query.");
-      final List<QueryDataBatch> results = results();
-      final RecordBatchLoader loader = new RecordBatchLoader(allocator);
-      final StringBuilder builder = new StringBuilder();
-
-      for (final QueryDataBatch b : results) {
-        if (!b.hasData()) {
-          continue;
-        }
-
-        loader.load(b.getHeader().getDef(), b.getData());
-
-        final VectorWrapper<?> vw;
-        try {
-            vw = loader.getValueAccessorById(
-                NullableVarCharVector.class,
-                loader.getValueVectorId(SchemaPath.getSimplePath(columnName)).getFieldIds());
-        } catch (Throwable t) {
-          throw new IllegalStateException("Looks like you did not provide an explain plan query, please add EXPLAIN PLAN FOR to the beginning of your query.");
-        }
-
-        final ValueVector vv = vw.getValueVector();
-        for (int i = 0; i < vv.getAccessor().getValueCount(); i++) {
-          final Object o = vv.getAccessor().getObject(i);
-          builder.append(o);
-        }
-        loader.clear();
-        b.release();
-      }
-
-      return builder.toString();
-    }
-  }
-
-  private DrillConfig config;
   private Drillbit bits[];
   private DrillClient client;
   private static BufferAllocator allocator;
@@ -480,6 +243,7 @@ public class ClusterFixture implements AutoCloseable {
 
     // Create a config
 
+    DrillConfig config;
     if ( builder.configResource != null ) {
       config = DrillConfig.create(builder.configResource);
      } else if ( builder.configProps != null ) {
@@ -510,12 +274,6 @@ public class ClusterFixture implements AutoCloseable {
       final StoragePluginRegistry pluginRegistry = bits[i].getContext().getStorage();
       TestUtilities.updateDfsTestTmpSchemaLocation(pluginRegistry, dfsTestTmpSchemaLocation);
       TestUtilities.makeDfsTmpSchemaImmutable(pluginRegistry);
-
-      // Create the mock data plugin
-
-      MockStorageEngineConfig config = MockStorageEngineConfig.INSTANCE;
-      MockStorageEngine plugin = new MockStorageEngine(MockStorageEngineConfig.INSTANCE, bits[i].getContext(), MockStorageEngineConfig.NAME);
-      ((StoragePluginRegistryImpl) pluginRegistry).definePlugin(MockStorageEngineConfig.NAME, config, plugin);
     }
 
     // Create a client.
@@ -585,48 +343,44 @@ public class ClusterFixture implements AutoCloseable {
    */
 
   public void runSqlSilently(String sql) throws RpcException {
-    queryBuilder().sql(sql).run();
+    discardResults( runSql(sql) );
   }
 
-  public QueryBuilder queryBuilder() {
-    return new QueryBuilder();
+  /**
+   * Discard the results returned from a query.
+   *
+   * @param results
+   */
+
+  public void discardResults(List<QueryDataBatch> results) {
+    for (QueryDataBatch queryDataBatch : results) {
+      queryDataBatch.release();
+    }
   }
 
-//  /**
-//   * Discard the results returned from a query.
-//   *
-//   * @param results
-//   */
-//
-//  public void discardResults(List<QueryDataBatch> results) {
-//    for (QueryDataBatch queryDataBatch : results) {
-//      queryDataBatch.release();
-//    }
-//  }
+  /**
+   * Run SQL and return the results.
+   *
+   * @param sql
+   * @return
+   * @throws RpcException
+   */
+  public List<QueryDataBatch> runSql(String sql) throws RpcException {
+    return runQuery(QueryType.SQL, sql);
+  }
 
-//  /**
-//   * Run SQL and return the results.
-//   *
-//   * @param sql
-//   * @return
-//   * @throws RpcException
-//   */
-//  public List<QueryDataBatch> runSql(String sql) throws RpcException {
-//    return runQuery(QueryType.SQL, sql);
-//  }
+  /**
+   * Run SQL stored in a resource file and return the results.
+   *
+   * @param file
+   * @throws Exception
+   */
 
-//  /**
-//   * Run SQL stored in a resource file and return the results.
-//   *
-//   * @param file
-//   * @throws Exception
-//   */
-//
-//  public List<QueryDataBatch> runSqlFromResource(String file) {
-//    return runSql(loadResource(file));
-//  }
+  public List<QueryDataBatch> runSqlFromResource(String file) throws Exception{
+    return runSql(getResource(file));
+  }
 
-  public static String getResource(String resource) throws IOException {
+  public static String getResource(String resource) throws IOException{
     // Unlike the Java routines, Guava does not like a leading slash.
 
     final URL url = Resources.getResource(trimSlash(resource));
@@ -636,38 +390,30 @@ public class ClusterFixture implements AutoCloseable {
     return Resources.toString(url, Charsets.UTF_8);
   }
 
-  public static String loadResource(String resource) {
-    try {
-      return getResource(resource);
-    } catch (IOException e) {
-      throw new IllegalStateException("Resource not found: " + resource, e);
-    }
+  /**
+   * Run a physical plan stored in a resource and return the results.
+   *
+   * @param file
+   * @return
+   * @throws Exception
+   */
+
+  public List<QueryDataBatch> runPhysicalFromResource(String file) throws Exception {
+    return runQuery(QueryType.PHYSICAL, getResource(file));
   }
 
-//  /**
-//   * Run a physical plan stored in a resource and return the results.
-//   *
-//   * @param file
-//   * @return
-//   * @throws Exception
-//   */
-//
-//  public List<QueryDataBatch> runPhysicalFromResource(String file) {
-//    return runQuery(QueryType.PHYSICAL, loadResource(file));
-//  }
-//
-//  /**
-//   * Generic method to run a query of the specifed type and return the results.
-//   *
-//   * @param type
-//   * @param query
-//   * @return
-//   * @throws RpcException
-//   */
-//
-//  public List<QueryDataBatch> runQuery(QueryType type, String query) throws RpcException {
-//    return client.runQuery(type, query);
-//  }
+  /**
+   * Generic method to run a query of the specifed type and return the results.
+   *
+   * @param type
+   * @param query
+   * @return
+   * @throws RpcException
+   */
+
+  public List<QueryDataBatch> runQuery(QueryType type, String query) throws RpcException {
+    return client.runQuery(type, query);
+  }
 
   public int countResults(List<QueryDataBatch> results) {
     int count = 0;
@@ -726,18 +472,11 @@ public class ClusterFixture implements AutoCloseable {
     pluginRegistry.createOrUpdate(pluginName, pluginConfig, true);
   }
 
-  public static final String EXPLAIN_PLAN_TEXT = "text";
-  public static final String EXPLAIN_PLAN_JSON = "json";
-
   public static FixtureBuilder builder() {
      return new FixtureBuilder( );
   }
 
   public TestBuilder testBuilder() {
     return new TestBuilder(allocator);
-  }
-
-  public static ClusterFixture standardClient( ) throws Exception {
-    return builder( ).build( );
   }
 }
