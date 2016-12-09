@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Properties;
 
 import org.apache.drill.common.config.DrillConfig;
+import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.client.DrillClient;
 import org.apache.drill.exec.memory.BufferAllocator;
@@ -34,9 +35,13 @@ import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.server.Drillbit;
 import org.apache.drill.exec.server.RemoteServiceSet;
 import org.apache.drill.exec.store.StoragePluginRegistry;
+import org.apache.drill.exec.store.dfs.FileSystemConfig;
+import org.apache.drill.exec.store.dfs.FileSystemPlugin;
+import org.apache.drill.exec.store.dfs.WorkspaceConfig;
 import org.apache.drill.exec.util.TestUtilities;
 
 import com.google.common.base.Charsets;
+import com.google.common.base.Preconditions;
 import com.google.common.io.Resources;
 
 /**
@@ -46,7 +51,7 @@ import com.google.common.io.Resources;
  * options, then creates the requested Drillbit and client.
  */
 
-public class ClientFixture implements AutoCloseable {
+public class ClusterFixture implements AutoCloseable {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ClientFixture.class);
   private static final String ENABLE_FULL_CACHE = "drill.exec.test.use-full-cache";
   private static final int MAX_WIDTH_PER_NODE = 2;
@@ -54,8 +59,15 @@ public class ClientFixture implements AutoCloseable {
   @SuppressWarnings("serial")
   protected static final Properties TEST_CONFIGURATIONS = new Properties() {
     {
+
+      // Properties here mimic those in drill-root/pom.xml, Surefire plugin
+      // configuration. They allow tests to run successfully in Eclipse.
+
       put(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, "false");
       put(ExecConstants.HTTP_ENABLE, "false");
+      put(Drillbit.SYSTEM_OPTIONS_NAME, "org.apache.drill.exec.compile.ClassTransformer.scalar_replacement=on");
+      put(QueryTestUtil.TEST_QUERY_PRINTING_SILENT, "true");
+      put("drill.catastrophic_to_standard_out", "true");
     }
   };
 
@@ -87,12 +99,13 @@ public class ClientFixture implements AutoCloseable {
     private Properties configProps;
     private Properties clientProps;
     private boolean enableFullCache;
-    private List<ClientFixture.RuntimeOption> runtimeSettings;
+    private List<ClusterFixture.RuntimeOption> runtimeSettings;
+    private int bitCount = 1;
 
     /**
      * Use the given configuration properties to start the embedded Drillbit.
-     * @param configProps
-     * @return
+     * @param configProps a collection of config properties
+     * @return this builder
      * @see {@link #property(String, Object)}
      */
 
@@ -111,8 +124,9 @@ public class ClientFixture implements AutoCloseable {
      * </code></pre>
      * It may be more convenient to add your settings to the default
      * config settings with {@link #property(String, Object)}.
-     * @param configResource
-     * @return
+     * @param configResource path to the file that contains the
+     * config file to be read
+     * @return this builder
      * @see {@link #property(String, Object)}
      */
 
@@ -128,9 +142,9 @@ public class ClientFixture implements AutoCloseable {
 
     /**
      * Add an additional boot-time property for the embedded Drillbit.
-     * @param key
-     * @param value
-     * @return
+     * @param key config property name
+     * @param value property value
+     * @return this builder
      */
 
     public FixtureBuilder property( String key, Object value ) {
@@ -143,9 +157,9 @@ public class ClientFixture implements AutoCloseable {
 
     /**
      * Specify an optional client property.
-     * @param key
-     * @param value
-     * @return
+     * @param key property name
+     * @param value property value
+     * @return this builder
      */
     public FixtureBuilder clientProperty( String key, Object value ) {
       if ( clientProps == null ) {
@@ -159,10 +173,10 @@ public class ClientFixture implements AutoCloseable {
      * Provide a runtime configuration option to be set once the Drillbit
      * is started.
      *
-     * @param key
-     * @param value
-     * @return
-     * @see {@link ClientFixture#alterSession(String, Object)}
+     * @param key the name of the runtime option
+     * @param value the value of the runtime option
+     * @return this builder
+     * @see {@link ClusterFixture#alterSession(String, Object)}
      */
 
     public FixtureBuilder option( String key, Object value ) {
@@ -177,8 +191,8 @@ public class ClientFixture implements AutoCloseable {
      * Set the maximum parallelization (max width per node). Defaults
      * to 2.
      *
-     * @param n
-     * @return
+     * @param n the "max width per node" parallelization option.
+     * @return this builder
      */
     public FixtureBuilder maxParallelization(int n) {
       return option( ExecConstants.MAX_WIDTH_PER_NODE_KEY, n );
@@ -186,6 +200,17 @@ public class ClientFixture implements AutoCloseable {
 
     public FixtureBuilder enableFullCache( ) {
       enableFullCache = true;
+      return this;
+    }
+
+    /**
+     * The number of Drillbits to start in the cluster.
+     *
+     * @param n the desired cluster size
+     * @return this builder
+     */
+    public FixtureBuilder clusterSize( int n ) {
+      bitCount = n;
       return this;
     }
 
@@ -203,18 +228,18 @@ public class ClientFixture implements AutoCloseable {
      * @return
      * @throws Exception
      */
-    public ClientFixture build( ) throws Exception {
-      return new ClientFixture( this );
+    public ClusterFixture build( ) throws Exception {
+      return new ClusterFixture( this );
     }
   }
 
-  private Drillbit bit;
+  private Drillbit bits[];
   private DrillClient client;
   private static BufferAllocator allocator;
   private RemoteServiceSet serviceSet;
   private String dfsTestTmpSchemaLocation;
 
-  private ClientFixture( FixtureBuilder  builder ) throws Exception {
+  private ClusterFixture( FixtureBuilder  builder ) throws Exception {
 
     // Create a config
 
@@ -236,15 +261,20 @@ public class ClientFixture implements AutoCloseable {
       serviceSet = RemoteServiceSet.getLocalServiceSet();
     }
 
-    bit = new Drillbit(config, serviceSet);
-    bit.run( );
-
-    // Create the dfs_test name space
-
     dfsTestTmpSchemaLocation = TestUtilities.createTempDir();
-    final StoragePluginRegistry pluginRegistry = bit.getContext().getStorage();
-    TestUtilities.updateDfsTestTmpSchemaLocation(pluginRegistry, dfsTestTmpSchemaLocation);
-    TestUtilities.makeDfsTmpSchemaImmutable(pluginRegistry);
+
+    Preconditions.checkArgument(builder.bitCount > 0);
+    bits = new Drillbit[builder.bitCount];
+    for ( int i = 0;  i < bits.length;  i++ ) {
+      bits[i] = new Drillbit(config, serviceSet);
+      bits[i].run( );
+
+      // Create the dfs_test name space
+
+      final StoragePluginRegistry pluginRegistry = bits[i].getContext().getStorage();
+      TestUtilities.updateDfsTestTmpSchemaLocation(pluginRegistry, dfsTestTmpSchemaLocation);
+      TestUtilities.makeDfsTmpSchemaImmutable(pluginRegistry);
+    }
 
     // Create a client.
 
@@ -259,7 +289,7 @@ public class ClientFixture implements AutoCloseable {
 
     boolean sawMaxWidth = false;
     if ( builder.runtimeSettings != null ) {
-      for ( ClientFixture.RuntimeOption option : builder.runtimeSettings ) {
+      for ( ClusterFixture.RuntimeOption option : builder.runtimeSettings ) {
         alterSession( option.key, option.value );
         if ( option.key.equals( ExecConstants.MAX_WIDTH_PER_NODE_KEY ) ) {
           sawMaxWidth = true;
@@ -393,7 +423,7 @@ public class ClientFixture implements AutoCloseable {
     return count;
   }
 
-  public Drillbit drillbit( ) { return bit; }
+  public Drillbit drillbit( ) { return bits[0]; }
   public DrillClient client() { return client; }
   public RemoteServiceSet serviceSet( ) { return serviceSet; }
   public BufferAllocator allocator( ) { return allocator; }
@@ -402,8 +432,10 @@ public class ClientFixture implements AutoCloseable {
   public void close() throws Exception {
     Exception ex = safeClose( client, null );
     client = null;
-    ex = safeClose( bit, ex );
-    bit = null;
+    for (int i = 0; i < bits.length; i++) {
+      ex = safeClose( bits[i], ex );
+    }
+    bits = null;
     ex = safeClose( serviceSet, ex );
     serviceSet = null;
     ex = safeClose( allocator, ex );
@@ -422,7 +454,29 @@ public class ClientFixture implements AutoCloseable {
     return ex;
   }
 
+  public void defineWorkspace( String pluginName, String schemaName, String path, String defaultFormat ) throws ExecutionSetupException {
+    for ( int i = 0; i < bits.length; i++ ) {
+      defineWorkspace(bits[i], pluginName, schemaName, path, defaultFormat);
+    }
+  }
+
+  public static void defineWorkspace( Drillbit drillbit, String pluginName, String schemaName, String path, String defaultFormat ) throws ExecutionSetupException {
+    final StoragePluginRegistry pluginRegistry = drillbit.getContext().getStorage();
+    final FileSystemPlugin plugin = (FileSystemPlugin) pluginRegistry.getPlugin(pluginName);
+    final FileSystemConfig pluginConfig = (FileSystemConfig) plugin.getConfig();
+    final WorkspaceConfig newTmpWSConfig = new WorkspaceConfig(path, true, defaultFormat);
+
+    pluginConfig.workspaces.remove(schemaName);
+    pluginConfig.workspaces.put(schemaName, newTmpWSConfig);
+
+    pluginRegistry.createOrUpdate(pluginName, pluginConfig, true);
+  }
+
   public static FixtureBuilder builder() {
      return new FixtureBuilder( );
+  }
+
+  public TestBuilder testBuilder() {
+    return new TestBuilder(allocator);
   }
 }
