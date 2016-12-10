@@ -228,6 +228,8 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
     try {
       final CodeGenerator<Copier> cg = CodeGenerator.get(Copier.TEMPLATE_DEFINITION2, context.getFunctionRegistry(), context.getOptions());
       CopyUtil.generateCopies(cg.getRoot(), incoming, false);
+      cg.plainOldJavaCapable(true);
+      cg.preferPlainOldJava(true);
       Copier copier = context.getImplementationClass(cg);
       copier.setupRemover(context, incoming, this);
 
