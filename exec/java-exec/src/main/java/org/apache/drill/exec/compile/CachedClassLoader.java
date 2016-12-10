@@ -49,7 +49,6 @@ public class CachedClassLoader extends URLClassLoader {
   }
 
   public void addClass(String fqcn, byte[] byteCodes) {
-    Preconditions.checkState(cache.containsKey(fqcn),"Internal error: class not loaded: " + fqcn);
     Class<?> newClass = defineClass(fqcn, byteCodes, 0, byteCodes.length);
     cache.put(fqcn, newClass);
   }

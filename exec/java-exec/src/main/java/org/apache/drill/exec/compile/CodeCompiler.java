@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.compile;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -40,13 +41,17 @@ import com.google.common.collect.Lists;
  * generation and compilation.
  */
 
-public class CodeCompiler {
+public class CodeCompiler implements Closeable {
 
   public static final String COMPILE_BASE = "drill.exec.compile";
   public static final String MAX_LOADING_CACHE_SIZE_CONFIG = COMPILE_BASE + ".cache_max_size";
+  public static final String DISABLE_CACHE_CONFIG = COMPILE_BASE + ".disable_cache";
 
   private final ClassTransformer transformer;
   private final ClassBuilder classBuilder;
+  private final boolean useCache;
+  private int classGenCount;
+  private int cacheMissCount;
 
   /**
    * Google Guava loading cache that defers creating a cache
@@ -62,6 +67,7 @@ public class CodeCompiler {
     transformer = new ClassTransformer(config, optionManager);
     classBuilder = new ClassBuilder(config, optionManager);
     final int cacheMaxSize = config.getInt(MAX_LOADING_CACHE_SIZE_CONFIG);
+    useCache = ! config.getBoolean(DISABLE_CACHE_CONFIG);
     cache = CacheBuilder.newBuilder()
         .maximumSize(cacheMaxSize)
         .build(new Loader());
@@ -94,14 +100,20 @@ public class CodeCompiler {
   @SuppressWarnings("unchecked")
   public <T> List<T> createInstances(final CodeGenerator<?> cg, int count) throws ClassTransformationException {
     cg.generate();
+    classGenCount++;
     try {
-      final GeneratedClassEntry ce = cache.get(cg);
+      final GeneratedClassEntry ce;
+      if (useCache) {
+        ce = cache.get(cg);
+      } else {
+        ce = makeClass(cg);
+      }
       List<T> tList = Lists.newArrayList();
       for ( int i = 0; i < count; i++) {
         tList.add((T) ce.clazz.newInstance());
       }
       return tList;
-    } catch (ExecutionException | InstantiationException | IllegalAccessException e) {
+    } catch (Exception e) {
       throw new ClassTransformationException(e);
     }
   }
@@ -117,18 +129,23 @@ public class CodeCompiler {
   private class Loader extends CacheLoader<CodeGenerator<?>, GeneratedClassEntry> {
     @Override
     public GeneratedClassEntry load(final CodeGenerator<?> cg) throws Exception {
-      final Class<?> c;
-      if ( cg.isPlainOldJava( ) ) {
-        // Generate class as plain old Java
-
-        c = classBuilder.getImplementationClass(cg);
-      } else {
-        // Generate class parts and assemble byte-codes.
-
-        c = transformer.getImplementationClass(cg);
-      }
-      return new GeneratedClassEntry(c);
+      return makeClass(cg);
     }
+  }
+
+  private GeneratedClassEntry makeClass(final CodeGenerator<?> cg) throws Exception {
+    cacheMissCount++;
+    final Class<?> c;
+    if ( cg.isPlainOldJava( ) ) {
+      // Generate class as plain old Java
+
+      c = classBuilder.getImplementationClass(cg);
+    } else {
+      // Generate class parts and assemble byte-codes.
+
+      c = transformer.getImplementationClass(cg);
+    }
+    return new GeneratedClassEntry(c);
   }
 
   private class GeneratedClassEntry {
@@ -152,5 +169,15 @@ public class CodeCompiler {
   @VisibleForTesting
   public void flushCache() {
     cache.invalidateAll();
+  }
+
+  @Override
+  public void close() throws IOException {
+    System.out.println( "Class gen count: " + classGenCount );
+    System.out.println( "Cache miss count: " + cacheMissCount );
+    if ( classGenCount > 0 ) {
+      int hitRate = (int) Math.round( (classGenCount - cacheMissCount) * 100.0 / classGenCount );
+      System.out.println( "Cache hit rate: " + hitRate );
+    }
   }
 }

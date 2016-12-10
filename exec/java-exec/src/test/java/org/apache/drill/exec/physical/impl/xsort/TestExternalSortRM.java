@@ -26,6 +26,8 @@ import org.apache.drill.BufferingQueryEventListener.QueryEvent;
 import org.apache.drill.ClusterFixture;
 import org.apache.drill.ClusterFixture.FixtureBuilder;
 import org.apache.drill.exec.client.DrillClient;
+import org.apache.drill.exec.compile.ClassBuilder;
+import org.apache.drill.exec.compile.CodeCompiler;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
 import org.apache.drill.test.DrillTest;
 import org.junit.Test;
@@ -63,13 +65,18 @@ public class TestExternalSortRM extends DrillTest {
 //    analyzer.setupLogging( );
 
     FixtureBuilder builder = ClusterFixture.builder()
+//        .property(ClassBuilder.SAVE_CODE_OPTION, true)
+      .property(CodeCompiler.DISABLE_CACHE_CONFIG, true)
+        .property(ClassBuilder.CODE_DIR_OPTION, "/tmp/code")
         .maxParallelization(1);
     try (ClusterFixture cluster = builder.build()) {
       cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
       String sql = "select * from (select *, row_number() over(order by validitydate) as rn from `dfs.data`.`gen.json`) where rn=10";
       String plan = cluster.queryPlan(sql);
       System.out.println( plan );
-      performSort( cluster.client(), sql );
+      for ( int i = 0;  i < 10;  i++ ) {
+        performSort( cluster.client(), sql );
+      }
     }
 
 //    analyzer.analyzeLog( );
