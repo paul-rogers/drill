@@ -108,7 +108,7 @@ public class WindowFrameRecordBatch extends AbstractRecordBatch<WindowPOP> {
       return IterOutcome.NONE;
     }
 
-    long start = System.currentTimeMillis();
+    long start;
     // keep saving incoming batches until the first unprocessed batch can be processed, or upstream == NONE
     while (!noMoreBatches && !canDoWork()) {
       IterOutcome upstream = next(incoming);
@@ -142,7 +142,6 @@ public class WindowFrameRecordBatch extends AbstractRecordBatch<WindowPOP> {
       }
       totalLoad += System.currentTimeMillis() - start;
     }
-    totalLoad += System.currentTimeMillis() - start;
     loadCount++;
 
     if (batches.isEmpty()) {
@@ -150,6 +149,11 @@ public class WindowFrameRecordBatch extends AbstractRecordBatch<WindowPOP> {
       System.out.println( "Work time: " + totalWork );
       System.out.println( "Load time: " + totalLoad );
       System.out.println( "Load count: " + loadCount );
+      System.out.println( "Alloc time: " + allocTime );
+      System.out.println( "DoWork time: " + doWorkTime );
+      System.out.println( "Transfer time: " + transferTime );
+      System.out.println( "TP Transfer time: " + tpTransferTime );
+      System.out.println( "TP Transfer count: " + tpTransferCount );
       state = BatchState.DONE;
       return IterOutcome.NONE;
     }
