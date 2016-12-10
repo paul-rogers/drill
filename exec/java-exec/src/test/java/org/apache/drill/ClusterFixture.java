@@ -156,7 +156,7 @@ public class ClusterFixture implements AutoCloseable {
       if ( configProps == null ) {
         configProps = defaultProps( );
       }
-      configProps.put(key, stringify(value));
+      configProps.put(key, value.toString());
       return this;
     }
 
