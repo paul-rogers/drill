@@ -58,7 +58,8 @@ public interface WindowFramer {
    * @return true if the rows are in the same partition
    */
   boolean isSamePartition(@Named("b1Index") int b1Index, @Named("b1") VectorAccessible b1,
-                                          @Named("b2Index") int b2Index, @Named("b2") VectorAccessible b2);
+                          @Named("b2Index") int b2Index, @Named("b2") VectorAccessible b2)
+                         throws SchemaChangeException;
 
   /**
    * compares two rows from different batches (can be the same), if they have the same value for the order by
@@ -70,5 +71,6 @@ public interface WindowFramer {
    * @return true if the rows are in the same partition
    */
   boolean isPeer(@Named("b1Index") int b1Index, @Named("b1") VectorAccessible b1,
-                                 @Named("b2Index") int b2Index, @Named("b2") VectorAccessible b2);
+                 @Named("b2Index") int b2Index, @Named("b2") VectorAccessible b2)
+                throws SchemaChangeException;
 }

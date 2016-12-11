@@ -60,7 +60,8 @@ public abstract class FilterTemplate2 implements Filterer{
     }
   }
 
-  public void filterBatch(int recordCount){
+  @Override
+  public void filterBatch(int recordCount) throws SchemaChangeException{
     if (recordCount == 0) {
       return;
     }
@@ -80,7 +81,7 @@ public abstract class FilterTemplate2 implements Filterer{
     doTransfers();
   }
 
-  private void filterBatchSV2(int recordCount){
+  private void filterBatchSV2(int recordCount) throws SchemaChangeException{
     int svIndex = 0;
     final int count = recordCount;
     for(int i = 0; i < count; i++){
@@ -93,7 +94,7 @@ public abstract class FilterTemplate2 implements Filterer{
     outgoingSelectionVector.setRecordCount(svIndex);
   }
 
-  private void filterBatchNoSV(int recordCount){
+  private void filterBatchNoSV(int recordCount) throws SchemaChangeException{
     int svIndex = 0;
     for(int i = 0; i < recordCount; i++){
       if(doEval(i, 0)){
@@ -104,7 +105,12 @@ public abstract class FilterTemplate2 implements Filterer{
     outgoingSelectionVector.setRecordCount(svIndex);
   }
 
-  public abstract void doSetup(@Named("context") FragmentContext context, @Named("incoming") RecordBatch incoming, @Named("outgoing") RecordBatch outgoing);
-  public abstract boolean doEval(@Named("inIndex") int inIndex, @Named("outIndex") int outIndex);
+  public abstract void doSetup(@Named("context") FragmentContext context,
+                               @Named("incoming") RecordBatch incoming,
+                               @Named("outgoing") RecordBatch outgoing)
+                              throws SchemaChangeException;
+  public abstract boolean doEval(@Named("inIndex") int inIndex,
+                                 @Named("outIndex") int outIndex)
+                                throws SchemaChangeException;
 
 }

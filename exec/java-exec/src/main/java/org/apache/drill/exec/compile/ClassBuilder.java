@@ -77,8 +77,8 @@ import org.codehaus.commons.compiler.CompileException;
 
 public class ClassBuilder {
 
-  public static final String SAVE_CODE_OPTION = CodeCompiler.COMPILE_BASE + ".save_source";
-  public static final String CODE_DIR_OPTION = CodeCompiler.COMPILE_BASE + ".code_dir";
+  public static final String SAVE_CODE_CONFIG = CodeCompiler.COMPILE_BASE + ".save_source";
+  public static final String CODE_DIR_CONFIG = CodeCompiler.COMPILE_BASE + ".code_dir";
 
   private final DrillConfig config;
   private final OptionManager options;
@@ -93,8 +93,8 @@ public class ClassBuilder {
     // it is used selectively during debugging, but can cause
     // excessive I/O in a running server if used to save all code.
 
-    saveCode = config.getBoolean(SAVE_CODE_OPTION);
-    codeDir = new File(config.getString(CODE_DIR_OPTION));
+    saveCode = config.getBoolean(SAVE_CODE_CONFIG);
+    codeDir = new File(config.getString(CODE_DIR_CONFIG));
   }
 
   /**
@@ -112,6 +112,7 @@ public class ClassBuilder {
     try {
       return compileClass(cg);
     } catch (CompileException | ClassNotFoundException|IOException e) {
+      System.out.println( "Compile error: " + e.getMessage() );
       throw new ClassTransformationException(e);
     }
   }

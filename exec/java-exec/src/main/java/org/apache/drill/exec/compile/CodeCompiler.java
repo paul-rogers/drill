@@ -46,6 +46,7 @@ public class CodeCompiler implements Closeable {
   public static final String COMPILE_BASE = "drill.exec.compile";
   public static final String MAX_LOADING_CACHE_SIZE_CONFIG = COMPILE_BASE + ".cache_max_size";
   public static final String DISABLE_CACHE_CONFIG = COMPILE_BASE + ".disable_cache";
+  public static final String PREFER_POJ_CONFIG = CodeCompiler.COMPILE_BASE + ".prefer_plain_java";
 
   private final ClassTransformer transformer;
   private final ClassBuilder classBuilder;
@@ -62,6 +63,7 @@ public class CodeCompiler implements Closeable {
    */
 
   private final LoadingCache<CodeGenerator<?>, GeneratedClassEntry> cache;
+  private final boolean preferPlainJava;
 
   public CodeCompiler(final DrillConfig config, final OptionManager optionManager) {
     transformer = new ClassTransformer(config, optionManager);
@@ -69,8 +71,9 @@ public class CodeCompiler implements Closeable {
     final int cacheMaxSize = config.getInt(MAX_LOADING_CACHE_SIZE_CONFIG);
     useCache = ! config.getBoolean(DISABLE_CACHE_CONFIG);
     cache = CacheBuilder.newBuilder()
-        .maximumSize(cacheMaxSize)
-        .build(new Loader());
+                        .maximumSize(cacheMaxSize)
+                        .build(new Loader());
+    preferPlainJava = config.getBoolean(PREFER_POJ_CONFIG);
   }
 
   /**
@@ -99,6 +102,9 @@ public class CodeCompiler implements Closeable {
 
   @SuppressWarnings("unchecked")
   public <T> List<T> createInstances(final CodeGenerator<?> cg, int count) throws ClassTransformationException {
+    if ( preferPlainJava && cg.supportsPlainJava( ) ) {
+      cg.preferPlainOldJava(true);
+    }
     cg.generate();
     classGenCount++;
     try {
@@ -137,6 +143,7 @@ public class CodeCompiler implements Closeable {
     cacheMissCount++;
     final Class<?> c;
     if ( cg.isPlainOldJava( ) ) {
+
       // Generate class as plain old Java
 
       c = classBuilder.getImplementationClass(cg);

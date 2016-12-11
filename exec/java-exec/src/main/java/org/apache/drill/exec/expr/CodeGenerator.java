@@ -17,13 +17,16 @@
  */
 package org.apache.drill.exec.expr;
 
+import java.io.File;
 import java.io.IOException;
 
 import org.apache.drill.exec.compile.TemplateClassDefinition;
 import org.apache.drill.exec.compile.sig.MappingSet;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 
+import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
+import com.google.common.io.Files;
 import com.sun.codemodel.JClassAlreadyExistsException;
 import com.sun.codemodel.JCodeModel;
 import com.sun.codemodel.JDefinedClass;
@@ -60,7 +63,7 @@ public class CodeGenerator<T> {
 
   private final TemplateClassDefinition<T> definition;
   private final String className;
-  private final String fqcn;
+  private String fqcn;
 
   private final JCodeModel model;
   private final ClassGenerator<T> rootGenerator;
@@ -81,6 +84,10 @@ public class CodeGenerator<T> {
   private boolean usePlainOldJava;
   private String generatedCode;
   private String generifiedCode;
+
+  private File mockSource;
+
+  private Class<?> mockClass;
 
   CodeGenerator(TemplateClassDefinition<T> definition, FunctionImplementationRegistry funcRegistry, OptionManager optionManager) {
     this(ClassGenerator.getDefaultMapping(), definition, funcRegistry, optionManager);
@@ -139,33 +146,55 @@ public class CodeGenerator<T> {
     return plainOldJavaCapable && usePlainOldJava;
   }
 
+  public boolean supportsPlainJava() {
+    return plainOldJavaCapable;
+  }
+
+  public void mockSource(String fqcn, String path) {
+    this.fqcn = fqcn;
+    mockSource = new File(path);
+  }
+
+  public void mockClass(Class<?> mockClass) {
+    fqcn = mockClass.getName();
+    this.mockClass = mockClass;
+  }
+
   public ClassGenerator<T> getRoot() {
     return rootGenerator;
   }
 
   public void generate() {
+    if (mockSource == null) {
 
-    // If this generated class uses the "straight Java" technique
-    // (no byte code manipulation), then the class must extend the
-    // template so it plays by normal Java rules for finding the
-    // template methods via inheritance rather than via code injection.
+      // If this generated class uses the "straight Java" technique
+      // (no byte code manipulation), then the class must extend the
+      // template so it plays by normal Java rules for finding the
+      // template methods via inheritance rather than via code injection.
 
-    if (isPlainOldJava()) {
-      rootGenerator.clazz._extends(definition.getTemplateClass( ));
+      if (isPlainOldJava()) {
+        rootGenerator.clazz._extends(definition.getTemplateClass( ));
+      }
+
+      rootGenerator.flushCode();
+
+      SingleClassStringWriter w = new SingleClassStringWriter();
+      try {
+        model.build(w);
+      } catch (IOException e) {
+        // No I/O errors should occur during model building
+        // unless something is terribly wrong.
+        throw new IllegalStateException(e);
+      }
+
+      this.generatedCode = w.getCode().toString();
+    } else {
+      try {
+        this.generatedCode = Files.toString(mockSource, Charsets.UTF_8);
+      } catch (IOException e) {
+        throw new IllegalStateException( "Mock source file is invalid", e );
+      }
     }
-
-    rootGenerator.flushCode();
-
-    SingleClassStringWriter w = new SingleClassStringWriter();
-    try {
-      model.build(w);
-    } catch (IOException e) {
-      // No I/O errors should occur during model building
-      // unless something is terribly wrong.
-      throw new IllegalStateException(e);
-    }
-
-    this.generatedCode = w.getCode().toString();
     this.generifiedCode = generatedCode.replaceAll(this.className, "GenericGenerated");
   }
 

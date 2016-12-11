@@ -481,7 +481,11 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
     }
 
     try {
-      this.projector = context.getImplementationClass(cg.getCodeGenerator());
+      CodeGenerator<Projector> codeGen = cg.getCodeGenerator();
+      codeGen.plainOldJavaCapable(true);
+      // Uncomment out this line to debug the generated code.
+//      codeGen.preferPlainOldJava(true);
+      this.projector = context.getImplementationClass(codeGen);
       projector.setup(context, incoming, this, transfers);
     } catch (ClassTransformationException | IOException e) {
       throw new SchemaChangeException("Failure while attempting to load generated class", e);

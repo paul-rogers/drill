@@ -56,6 +56,7 @@ import com.sun.codemodel.JMod;
 import com.sun.codemodel.JType;
 import com.sun.codemodel.JVar;
 import org.apache.drill.exec.server.options.OptionManager;
+import org.apache.drill.exec.vector.NullableVarCharVector;
 
 public class ClassGenerator<T>{
 
@@ -175,6 +176,29 @@ public class ClassGenerator<T>{
   public JVar declareVectorValueSetupAndMember(String batchName, TypedFieldId fieldId) {
     return declareVectorValueSetupAndMember(DirectExpression.direct(batchName), fieldId);
   }
+
+  /**
+   * Generates a code block like the following:
+   * <pre><code>
+   *            NullableVarCharVector vv0;
+   * ...
+   * // In doSetup():
+   *        int[] fieldIds1 = new int[ 1 ] ;
+   *        fieldIds1 [ 0 ] = 0;
+   *        Object tmp2 = (incoming).getValueAccessorById(NullableVarCharVector.class, fieldIds1).getValueVector();
+   *        if (tmp2 == null) {
+   *            throw new SchemaChangeException("Failure while loading vector vv0 with id: TypedFieldId [fieldIds=[0], remainder=null].");
+   *        }
+   *        vv0 = ((NullableVarCharVector) tmp2);
+   * </code></pre>
+   *
+   * @param batchName parameter name, in the generated Java code, of the batch
+   * that holds the value vectors. The "incoming" in the example.
+   * @param fieldId the id of the field to generate. The "fieldIds1" in the
+   * example
+   * @return the member variable for the vector. The "vv0" in the
+   * example.
+   */
 
   public JVar declareVectorValueSetupAndMember(DirectExpression batchName, TypedFieldId fieldId) {
     final ValueVectorSetup setup = new ValueVectorSetup(batchName, fieldId);

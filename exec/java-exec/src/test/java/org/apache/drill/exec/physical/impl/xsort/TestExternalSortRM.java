@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.xsort;
 
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 import java.io.IOException;
 
@@ -25,14 +25,32 @@ import org.apache.drill.BufferingQueryEventListener;
 import org.apache.drill.BufferingQueryEventListener.QueryEvent;
 import org.apache.drill.ClusterFixture;
 import org.apache.drill.ClusterFixture.FixtureBuilder;
+import org.apache.drill.common.util.FileUtils;
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.client.DrillClient;
 import org.apache.drill.exec.compile.ClassBuilder;
+import org.apache.drill.exec.compile.ClassCompilerSelector;
 import org.apache.drill.exec.compile.CodeCompiler;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
 import org.apache.drill.test.DrillTest;
 import org.junit.Test;
 
+import com.google.common.base.Charsets;
+import com.google.common.io.Files;
+
 public class TestExternalSortRM extends DrillTest {
+
+  public static class Results {
+    int records;
+    int batches;
+    long ms;
+
+    public Results(int recordCount, int batchCount, long elapsed) {
+      records = recordCount;
+      batches = batchCount;
+      ms = elapsed;
+    }
+  }
 
 //  @Test
 //  public void testManagedSpilled() throws Exception {
@@ -60,28 +78,53 @@ public class TestExternalSortRM extends DrillTest {
 //  }
 
   @Test
-  public void testManagedSpilledWide() throws Exception {
+  public void testInMemoryWide() throws Exception {
 //    LogAnalyzer analyzer = new LogAnalyzer( true );
 //    analyzer.setupLogging( );
 
     FixtureBuilder builder = ClusterFixture.builder()
 //        .property(ClassBuilder.SAVE_CODE_OPTION, true)
-      .property(CodeCompiler.DISABLE_CACHE_CONFIG, true)
-        .property(ClassBuilder.CODE_DIR_OPTION, "/tmp/code")
+//      .property(CodeCompiler.DISABLE_CACHE_CONFIG, true)
+      .property(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        .property(ClassBuilder.CODE_DIR_CONFIG, "/tmp/code")
+//        .property(ClassCompilerSelector.JAVA_COMPILER_CONFIG, "JDK")
+//        .systemOption(ClassCompilerSelector.JAVA_COMPILER_OPTION, "DEFAULT")
+        .property(CodeCompiler.PREFER_POJ_CONFIG, true)
         .maxParallelization(1);
     try (ClusterFixture cluster = builder.build()) {
       cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
       String sql = "select * from (select *, row_number() over(order by validitydate) as rn from `dfs.data`.`gen.json`) where rn=10";
       String plan = cluster.queryPlan(sql);
       System.out.println( plan );
-      for ( int i = 0;  i < 10;  i++ ) {
-        performSort( cluster.client(), sql );
+      int totalMs = 0;
+      for ( int i = 0;  i < 1;  i++ ) {
+        Results results = performSort( cluster.client(), sql );
+        totalMs += results.ms;
       }
+      System.out.println( "Total: " + totalMs + ", Ave.: " + (totalMs/10) );
     }
 
 //    analyzer.analyzeLog( );
   }
 
+  @Test
+  public void testLegacyInMemory() throws Exception {
+    FixtureBuilder builder = ClusterFixture.builder()
+        .property(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 2_000_000_000)
+        .property(ClassCompilerSelector.JAVA_COMPILER_CONFIG, "JDK")
+        .property(CodeCompiler.PREFER_POJ_CONFIG, true)
+        .maxParallelization(1);
+    try (ClusterFixture cluster = builder.build()) {
+      cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
+      int totalMs = 0;
+      for ( int i = 0;  i < 10;  i++ ) {
+        Results results = performSort( cluster.client() );
+        totalMs += results.ms;
+      }
+      System.out.println( "Total: " + totalMs + ", Ave.: " + (totalMs/10) );
+    }
+  }
+//
 //  @Test
 //  public void testLegacySpilled() throws Exception {
 //    LogAnalyzer analyzer = new LogAnalyzer( false );
@@ -113,7 +156,7 @@ public class TestExternalSortRM extends DrillTest {
 //    analyzer.analyzeLog( );
 //  }
 
-  private int performSort(DrillClient client, String sql) throws IOException {
+  private Results performSort(DrillClient client, String sql) throws IOException {
     BufferingQueryEventListener listener = new BufferingQueryEventListener( );
     long start = System.currentTimeMillis();
     client.runQuery(QueryType.SQL, sql, listener);
@@ -145,13 +188,14 @@ public class TestExternalSortRM extends DrillTest {
     long elapsed = end - start;
 
     System.out.println(String.format("Sorted %,d records in %d batches; %d ms.", recordCount, batchCount, elapsed));
-    return recordCount;
+    return new Results( recordCount, batchCount, elapsed );
   }
 
-//  private void performSort(DrillClient client) throws IOException {
-//    int recordCount = performSort( client,
-//        Files.toString(FileUtils.getResourceAsFile("/xsort/sort-big-all.sql"),
-//        Charsets.UTF_8) );
-//    assertEquals(2880404, recordCount);
-//  }
+  private Results performSort(DrillClient client) throws IOException {
+    Results results = performSort( client,
+        Files.toString(FileUtils.getResourceAsFile("/xsort/sort-big-all.sql"),
+        Charsets.UTF_8) );
+    assertEquals(2880404, results.records);
+    return results;
+  }
 }

@@ -27,6 +27,7 @@ import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.config.SelectionVectorRemover;
+import org.apache.drill.exec.physical.impl.xsort.CopierGenPrototype;
 import org.apache.drill.exec.record.AbstractSingleRecordBatch;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.RecordBatch;
@@ -97,7 +98,12 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
   @Override
   protected IterOutcome doWork() {
     int incomingRecordCount = incoming.getRecordCount();
-    int copiedRecords = copier.copyRecords(0, incomingRecordCount);
+    int copiedRecords;
+    try {
+      copiedRecords = copier.copyRecords(0, incomingRecordCount);
+    } catch (SchemaChangeException e) {
+      throw new IllegalStateException(e);
+    }
 
     if (copiedRecords < incomingRecordCount) {
       for(VectorWrapper<?> v : container){
@@ -136,9 +142,13 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
     int recordCount = incoming.getRecordCount();
     int remainingRecordCount = incoming.getRecordCount() - remainderIndex;
     int copiedRecords;
-    while((copiedRecords = copier.copyRecords(remainderIndex, remainingRecordCount)) == 0) {
-      logger.debug("Copied zero records. Retrying");
-      container.zeroVectors();
+    try {
+      while((copiedRecords = copier.copyRecords(remainderIndex, remainingRecordCount)) == 0) {
+        logger.debug("Copied zero records. Retrying");
+        container.zeroVectors();
+      }
+    } catch (SchemaChangeException e) {
+      throw new IllegalStateException(e);
     }
 
     /*
@@ -187,6 +197,7 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
   @Override
   public void close() {
     super.close();
+    System.out.println( "Setup time: " + setupCallTime );
   }
 
   private class StraightCopier implements Copier{
@@ -218,6 +229,8 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
     return copier;
   }
 
+  long setupCallTime;
+
   private Copier getGenerated2Copier() throws SchemaChangeException{
     Preconditions.checkArgument(incoming.getSchema().getSelectionVectorMode() == SelectionVectorMode.TWO_BYTE);
 
@@ -225,13 +238,22 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
       TransferPair tp = vv.getValueVector().makeTransferPair(container.addOrGet(vv.getField(), callBack));
     }
 
+  long start = System.currentTimeMillis();
+//  Copier copier = new CopierGenPrototype( );
+//  copier.setupRemover(context, incoming, this);
+//  setupCallTime += System.currentTimeMillis() - start;
+//    return copier;
     try {
       final CodeGenerator<Copier> cg = CodeGenerator.get(Copier.TEMPLATE_DEFINITION2, context.getFunctionRegistry(), context.getOptions());
       CopyUtil.generateCopies(cg.getRoot(), incoming, false);
       cg.plainOldJavaCapable(true);
+      // Uncomment out this line to debug the generated code.
 //      cg.preferPlainOldJava(true);
+//      cg.mockSource(CopierGenPrototype.class.getName(),
+//          "/Users/paulrogers/git/drill/exec/java-exec/src/test/java/org/apache/drill/exec/physical/impl/xsort/CopierGenPrototype.java");
       Copier copier = context.getImplementationClass(cg);
       copier.setupRemover(context, incoming, this);
+      setupCallTime += System.currentTimeMillis() - start;
 
       return copier;
     } catch (ClassTransformationException | IOException e) {
@@ -254,6 +276,9 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
     try {
       final CodeGenerator<Copier> cg = CodeGenerator.get(Copier.TEMPLATE_DEFINITION4, context.getFunctionRegistry(), context.getOptions());
       CopyUtil.generateCopies(cg.getRoot(), batch, true);
+      cg.plainOldJavaCapable(true);
+      // Uncomment out this line to debug the generated code.
+//      cg.preferPlainOldJava(true);
       Copier copier = context.getImplementationClass(cg);
       copier.setupRemover(context, batch, outgoing);
 

@@ -40,12 +40,13 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
   public static final String DEBUG_ALLOCATOR = "drill.memory.debug.allocator";
 
+  @SuppressWarnings("unused")
   private static final AtomicLong ID_GENERATOR = new AtomicLong(0);
   private static final int CHUNK_SIZE = AllocationManager.INNER_ALLOCATOR.getChunkSize();
 
   public static final int DEBUG_LOG_LENGTH = 6;
   public static final boolean DEBUG = AssertionUtil.isAssertionsEnabled()
-      || Boolean.parseBoolean(System.getProperty(DEBUG_ALLOCATOR, "false"));
+      && Boolean.parseBoolean(System.getProperty(DEBUG_ALLOCATOR, "false"));
   private final Object DEBUG_LOCK = DEBUG ? new Object() : null;
 
   private final BaseAllocator parentAllocator;
@@ -98,9 +99,9 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       historicalLog = null;
       childLedgers = null;
     }
-
   }
 
+  @Override
   public void assertOpen() {
     if (AssertionUtil.ASSERT_ENABLED) {
       if (isClosed) {
@@ -289,6 +290,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       }
     }
 
+    @Override
     public boolean add(final int nBytes) {
       assertOpen();
 
@@ -310,6 +312,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       return true;
     }
 
+    @Override
     public DrillBuf allocateBuffer() {
       assertOpen();
 
@@ -321,14 +324,17 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       return drillBuf;
     }
 
+    @Override
     public int getSize() {
       return nBytes;
     }
 
+    @Override
     public boolean isUsed() {
       return used;
     }
 
+    @Override
     public boolean isClosed() {
       return closed;
     }
@@ -366,6 +372,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       closed = true;
     }
 
+    @Override
     public boolean reserve(int nBytes) {
       assertOpen();
 
@@ -511,6 +518,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
   }
 
+  @Override
   public String toString() {
     final Verbosity verbosity = logger.isTraceEnabled() ? Verbosity.LOG_WITH_STACKTRACE
         : Verbosity.BASIC;
@@ -525,6 +533,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    *
    * @return A Verbose string of current allocator state.
    */
+  @Override
   public String toVerboseString() {
     final StringBuilder sb = new StringBuilder();
     print(sb, 0, Verbosity.LOG_WITH_STACKTRACE);

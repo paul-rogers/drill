@@ -104,7 +104,8 @@ public class ClusterFixture implements AutoCloseable {
     private Properties configProps;
     private Properties clientProps;
     private boolean enableFullCache;
-    private List<ClusterFixture.RuntimeOption> runtimeSettings;
+    private List<ClusterFixture.RuntimeOption> sessionOptions;
+    private List<ClusterFixture.RuntimeOption> systemOptions;
     private int bitCount = 1;
 
     /**
@@ -185,10 +186,18 @@ public class ClusterFixture implements AutoCloseable {
      */
 
     public FixtureBuilder option( String key, Object value ) {
-      if ( runtimeSettings == null ) {
-        runtimeSettings = new ArrayList<>( );
+      if ( sessionOptions == null ) {
+        sessionOptions = new ArrayList<>( );
       }
-      runtimeSettings.add( new RuntimeOption( key, value ) );
+      sessionOptions.add( new RuntimeOption( key, value ) );
+      return this;
+    }
+
+    public FixtureBuilder systemOption( String key, Object value ) {
+      if ( systemOptions == null ) {
+        systemOptions = new ArrayList<>( );
+      }
+      systemOptions.add( new RuntimeOption( key, value ) );
       return this;
     }
 
@@ -290,11 +299,17 @@ public class ClusterFixture implements AutoCloseable {
 
     allocator = RootAllocatorFactory.newRoot(config);
 
+    // Apply system options
+    if ( builder.systemOptions != null ) {
+      for ( ClusterFixture.RuntimeOption option : builder.systemOptions ) {
+        alterSystem( option.key, option.value );
+      }
+    }
     // Apply session options.
 
     boolean sawMaxWidth = false;
-    if ( builder.runtimeSettings != null ) {
-      for ( ClusterFixture.RuntimeOption option : builder.runtimeSettings ) {
+    if ( builder.sessionOptions != null ) {
+      for ( ClusterFixture.RuntimeOption option : builder.sessionOptions ) {
         alterSession( option.key, option.value );
         if ( option.key.equals( ExecConstants.MAX_WIDTH_PER_NODE_KEY ) ) {
           sawMaxWidth = true;
@@ -319,6 +334,11 @@ public class ClusterFixture implements AutoCloseable {
 
   public void alterSession(String key, Object value ) throws RpcException {
     String sql = "ALTER SESSION SET `" + key + "` = " + stringify( value );
+    runSqlSilently( sql );
+  }
+
+  public void alterSystem(String key, Object value ) throws RpcException {
+    String sql = "ALTER SYSTEM SET `" + key + "` = " + stringify( value );
     runSqlSilently( sql );
   }
 
