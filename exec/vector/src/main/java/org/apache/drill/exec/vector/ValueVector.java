@@ -175,6 +175,8 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    */
   void load(SerializedField metadata, DrillBuf buffer);
 
+  void copyEntry(int toIndex, ValueVector from, int fromIndex);
+
   /**
    * An abstraction that is used to read from this vector instance.
    */

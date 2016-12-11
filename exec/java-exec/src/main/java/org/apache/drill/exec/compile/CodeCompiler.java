@@ -20,7 +20,6 @@ package org.apache.drill.exec.compile;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.exec.exception.ClassTransformationException;
@@ -105,7 +104,9 @@ public class CodeCompiler implements Closeable {
     if ( preferPlainJava && cg.supportsPlainJava( ) ) {
       cg.preferPlainOldJava(true);
     }
+//    long start = System.currentTimeMillis();
     cg.generate();
+//    System.out.println( "CG Time: " + (System.currentTimeMillis() - start));
     classGenCount++;
     try {
       final GeneratedClassEntry ce;
@@ -142,16 +143,19 @@ public class CodeCompiler implements Closeable {
   private GeneratedClassEntry makeClass(final CodeGenerator<?> cg) throws Exception {
     cacheMissCount++;
     final Class<?> c;
+    long start = System.currentTimeMillis();
     if ( cg.isPlainOldJava( ) ) {
 
-      // Generate class as plain old Java
+      // Generate class as plain-old Java
 
       c = classBuilder.getImplementationClass(cg);
     } else {
+
       // Generate class parts and assemble byte-codes.
 
       c = transformer.getImplementationClass(cg);
     }
+//    System.out.println( "Compile Time for " + c.getName( ) + ": " + (System.currentTimeMillis() - start));
     return new GeneratedClassEntry(c);
   }
 

@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.svremover;
 import java.io.IOException;
 import java.util.List;
 
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.exception.SchemaChangeException;
@@ -46,6 +47,7 @@ import com.google.common.collect.Lists;
 public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVectorRemover>{
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(RemovingRecordBatch.class);
 
+  private boolean usePredefinedCopier;
   private Copier copier;
   private int recordCount;
   private boolean hasRemainder;
@@ -53,6 +55,7 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
 
   public RemovingRecordBatch(SelectionVectorRemover popConfig, FragmentContext context, RecordBatch incoming) throws OutOfMemoryException {
     super(popConfig, context, incoming);
+    usePredefinedCopier = context.getConfig().getBoolean(ExecConstants.REMOVER_USE_PREDEFINED_COPIER);
     logger.debug("Created.");
   }
 
@@ -66,13 +69,13 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
     container.clear();
     switch(incoming.getSchema().getSelectionVectorMode()){
     case NONE:
-      this.copier = getStraightCopier();
+      copier = getStraightCopier();
       break;
     case TWO_BYTE:
-      this.copier = getGenerated2Copier();
+      copier = getGenerated2Copier();
       break;
     case FOUR_BYTE:
-      this.copier = getGenerated4Copier();
+      copier = getGenerated4Copier();
       break;
     default:
       throw new UnsupportedOperationException();
@@ -197,7 +200,7 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
   @Override
   public void close() {
     super.close();
-    System.out.println( "Setup time: " + setupCallTime );
+//    System.out.println( "Setup time: " + setupCallTime );
   }
 
   private class StraightCopier implements Copier{
@@ -235,34 +238,40 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
     Preconditions.checkArgument(incoming.getSchema().getSelectionVectorMode() == SelectionVectorMode.TWO_BYTE);
 
     for(VectorWrapper<?> vv : incoming){
-      TransferPair tp = vv.getValueVector().makeTransferPair(container.addOrGet(vv.getField(), callBack));
+      vv.getValueVector().makeTransferPair(container.addOrGet(vv.getField(), callBack));
     }
 
-  long start = System.currentTimeMillis();
-//  Copier copier = new CopierGenPrototype( );
-//  copier.setupRemover(context, incoming, this);
-//  setupCallTime += System.currentTimeMillis() - start;
-//    return copier;
-    try {
-      final CodeGenerator<Copier> cg = CodeGenerator.get(Copier.TEMPLATE_DEFINITION2, context.getFunctionRegistry(), context.getOptions());
-      CopyUtil.generateCopies(cg.getRoot(), incoming, false);
-      cg.plainOldJavaCapable(true);
-      // Uncomment out this line to debug the generated code.
-//      cg.preferPlainOldJava(true);
-//      cg.mockSource(CopierGenPrototype.class.getName(),
-//          "/Users/paulrogers/git/drill/exec/java-exec/src/test/java/org/apache/drill/exec/physical/impl/xsort/CopierGenPrototype.java");
-      Copier copier = context.getImplementationClass(cg);
-      copier.setupRemover(context, incoming, this);
-      setupCallTime += System.currentTimeMillis() - start;
-
-      return copier;
-    } catch (ClassTransformationException | IOException e) {
-      throw new SchemaChangeException("Failure while attempting to load generated class", e);
+    Copier copier;
+    if (usePredefinedCopier) {
+      copier = new GenericSV2Copier( );
+    } else {
+      try {
+        final CodeGenerator<Copier> cg = CodeGenerator.get(Copier.TEMPLATE_DEFINITION2, context.getFunctionRegistry(), context.getOptions());
+        CopyUtil.generateCopies(cg.getRoot(), incoming, false);
+        cg.plainOldJavaCapable(true);
+        // Uncomment out this line to debug the generated code.
+  //      cg.preferPlainOldJava(true);
+        copier = context.getImplementationClass(cg);
+      } catch (ClassTransformationException | IOException e) {
+        throw new SchemaChangeException("Failure while attempting to load generated class", e);
+      }
     }
+    
+    copier.setupRemover(context, incoming, this);
+    return copier;
   }
 
   private Copier getGenerated4Copier() throws SchemaChangeException {
     Preconditions.checkArgument(incoming.getSchema().getSelectionVectorMode() == SelectionVectorMode.FOUR_BYTE);
+    if (usePredefinedCopier) {
+      for(VectorWrapper<?> vv : incoming){
+        ValueVector v = vv.getValueVectors()[0];
+        v.makeTransferPair(container.addOrGet(v.getField(), callBack));
+      }
+      Copier copier = new GenericSV4Copier( );
+      copier.setupRemover(context, incoming, this);
+      return copier;
+    }
     return getGenerated4Copier(incoming, context, oContext.getAllocator(), container, this, callBack);
   }
 
@@ -281,7 +290,6 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
 //      cg.preferPlainOldJava(true);
       Copier copier = context.getImplementationClass(cg);
       copier.setupRemover(context, batch, outgoing);
-
       return copier;
     } catch (ClassTransformationException | IOException e) {
       throw new SchemaChangeException("Failure while attempting to load generated class", e);
@@ -292,7 +300,4 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
   public WritableBatch getWritableBatch() {
     return WritableBatch.get(this);
   }
-
-
-
 }

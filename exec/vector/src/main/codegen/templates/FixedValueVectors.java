@@ -198,6 +198,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     data.writerIndex(actualLength);
     }
 
+  @Override
   public TransferPair getTransferPair(BufferAllocator allocator){
     return new TransferImpl(getField(), allocator);
   }
@@ -274,6 +275,11 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
         reAlloc();
     }
     copyFrom(fromIndex, thisIndex, from);
+  }
+
+  @Override
+  public void copyEntry(int toIndex, ValueVector from, int fromIndex) {
+    copyFrom(fromIndex, toIndex, (${minor.class}Vector) from);
   }
 
   public void decrementAllocationMonitor() {

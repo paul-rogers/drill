@@ -83,11 +83,12 @@ public class TestExternalSortRM extends DrillTest {
 //    analyzer.setupLogging( );
 
     FixtureBuilder builder = ClusterFixture.builder()
-//        .property(ClassBuilder.SAVE_CODE_OPTION, true)
+//        .property(ClassBuilder.SAVE_CODE_CONFIG, true)
 //      .property(CodeCompiler.DISABLE_CACHE_CONFIG, true)
-      .property(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+//      .property(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
         .property(ClassBuilder.CODE_DIR_CONFIG, "/tmp/code")
-//        .property(ClassCompilerSelector.JAVA_COMPILER_CONFIG, "JDK")
+        .property(ClassCompilerSelector.JAVA_COMPILER_CONFIG, "JDK")
+//        .property(ExecConstants.REMOVER_USE_PREDEFINED_COPIER, true)
 //        .systemOption(ClassCompilerSelector.JAVA_COMPILER_OPTION, "DEFAULT")
         .property(CodeCompiler.PREFER_POJ_CONFIG, true)
         .maxParallelization(1);
@@ -96,12 +97,19 @@ public class TestExternalSortRM extends DrillTest {
       String sql = "select * from (select *, row_number() over(order by validitydate) as rn from `dfs.data`.`gen.json`) where rn=10";
       String plan = cluster.queryPlan(sql);
       System.out.println( plan );
-      int totalMs = 0;
-      for ( int i = 0;  i < 1;  i++ ) {
+      long totalMs = 0;
+      long firstMs = 0;
+      int n = 10;
+      for ( int i = 0;  i < n;  i++ ) {
         Results results = performSort( cluster.client(), sql );
         totalMs += results.ms;
+        if ( i < 2 ) {
+          firstMs += results.ms;
+        }
       }
       System.out.println( "Total: " + totalMs + ", Ave.: " + (totalMs/10) );
+      long laterMs = totalMs - firstMs;
+      System.out.println( "Total (w/out first two): " + laterMs + ", Ave.: " + (laterMs/(n-2)) );
     }
 
 //    analyzer.analyzeLog( );
