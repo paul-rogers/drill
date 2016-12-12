@@ -69,7 +69,4 @@ public abstract class CopierTemplate4 implements Copier{
   public abstract void doEval(@Named("inIndex") int inIndex,
                               @Named("outIndex") int outIndex)
                              throws SchemaChangeException;
-
-
-
 }

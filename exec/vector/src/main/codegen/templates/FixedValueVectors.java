@@ -279,7 +279,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
   @Override
   public void copyEntry(int toIndex, ValueVector from, int fromIndex) {
-    copyFrom(fromIndex, toIndex, (${minor.class}Vector) from);
+    ((${minor.class}Vector) from).data.getBytes(fromIndex * ${type.width}, data, toIndex * ${type.width}, ${type.width});
   }
 
   public void decrementAllocationMonitor() {

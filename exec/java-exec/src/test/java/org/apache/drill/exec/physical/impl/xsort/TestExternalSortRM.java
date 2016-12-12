@@ -88,7 +88,7 @@ public class TestExternalSortRM extends DrillTest {
 //      .property(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
         .property(ClassBuilder.CODE_DIR_CONFIG, "/tmp/code")
         .property(ClassCompilerSelector.JAVA_COMPILER_CONFIG, "JDK")
-//        .property(ExecConstants.REMOVER_USE_PREDEFINED_COPIER, true)
+        .property(ExecConstants.REMOVER_USE_PREDEFINED_COPIER, true)
 //        .systemOption(ClassCompilerSelector.JAVA_COMPILER_OPTION, "DEFAULT")
         .property(CodeCompiler.PREFER_POJ_CONFIG, true)
         .maxParallelization(1);
