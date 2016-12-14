@@ -27,6 +27,7 @@ import org.apache.drill.BufferingQueryEventListener;
 import org.apache.drill.BufferingQueryEventListener.QueryEvent;
 import org.apache.drill.ClusterFixture;
 import org.apache.drill.ClusterFixture.FixtureBuilder;
+import org.apache.drill.ClusterFixture.QuerySummary;
 import org.apache.drill.common.util.FileUtils;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.client.DrillClient;
@@ -52,7 +53,7 @@ public class TestExternalSortRM extends DrillTest {
         .maxParallelization(1);
     try (ClusterFixture cluster = builder.build()) {
       cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
-      performSort( cluster.client() );
+      performSort( cluster );
     }
 
     EventAnalyzer analysis = analyzer.analyzeLog( );
@@ -77,9 +78,10 @@ public class TestExternalSortRM extends DrillTest {
     try (ClusterFixture cluster = builder.build()) {
       cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
       String sql = "select * from (select *, row_number() over(order by validitydate) as rn from `dfs.data`.`gen.json`) where rn=10";
-      String plan = cluster.queryPlan(sql);
+      String plan = cluster.queryBuilder().sql(sql).explainText();
       System.out.println( plan );
-      performSort( cluster.client(), sql );
+      QuerySummary summary = cluster.queryBuilder().sql(sql).run();
+      System.out.println(String.format("Sorted %,d records in %d batches; %d ms.", summary.recordCount(), summary.batchCount(), summary.runTimeMs()));
     }
 
     analyzer.analyzeLog( );
@@ -95,7 +97,7 @@ public class TestExternalSortRM extends DrillTest {
         .maxParallelization(1);
     try (ClusterFixture cluster = builder.build()) {
       cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
-      performSort( cluster.client() );
+      performSort( cluster );
     }
 
     analyzer.analyzeLog( );
@@ -110,51 +112,66 @@ public class TestExternalSortRM extends DrillTest {
         .maxParallelization(1);
     try (ClusterFixture cluster = builder.build()) {
       cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
-      performSort( cluster.client() );
+      String plan = cluster.queryBuilder().sqlResource("/xsort/sort-big-all.sql").explainJson();
+      System.out.println( plan );
+      performSort( cluster );
     }
 
     analyzer.analyzeLog( );
   }
 
-  private int performSort(DrillClient client, String sql) throws IOException {
-    BufferingQueryEventListener listener = new BufferingQueryEventListener( );
-    long start = System.currentTimeMillis();
-    client.runQuery(QueryType.SQL, sql, listener);
-    int recordCount = 0;
-    int batchCount = 0;
-    loop:
-    for ( ; ; ) {
-      QueryEvent event = listener.get();
-      switch ( event.type )
-      {
-      case BATCH:
-        batchCount++;
-        recordCount += event.batch.getHeader().getRowCount();
-        event.batch.release();
-        break;
-      case EOF:
-        break loop;
-      case ERROR:
-        event.error.printStackTrace();
-        fail( );
-        break loop;
-      case QUERY_ID:
-        break;
-      default:
-        break;
-      }
-    }
-    long end = System.currentTimeMillis();
-    long elapsed = end - start;
+  @Test
+  public void testManagedGenInMemory() throws Exception {
+    LogAnalyzer analyzer = new LogAnalyzer( true );
+    analyzer.setupLogging( );
 
-    System.out.println(String.format("Sorted %,d records in %d batches; %d ms.", recordCount, batchCount, elapsed));
-    return recordCount;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .maxParallelization(1);
+    try (ClusterFixture cluster = builder.build()) {
+//      cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
+      performSort( cluster );
+    }
+
+    analyzer.analyzeLog( );
   }
 
-  private void performSort(DrillClient client) throws IOException {
-    int recordCount = performSort( client,
-        Files.toString(FileUtils.getResourceAsFile("/xsort/sort-big-all.sql"),
-        Charsets.UTF_8) );
-    assertEquals(2880404, recordCount);
+//  private int performSort(DrillClient client, String sql) throws IOException {
+//    BufferingQueryEventListener listener = new BufferingQueryEventListener( );
+//    long start = System.currentTimeMillis();
+//    client.runQuery(QueryType.SQL, sql, listener);
+//    int recordCount = 0;
+//    int batchCount = 0;
+//    loop:
+//    for ( ; ; ) {
+//      QueryEvent event = listener.get();
+//      switch ( event.type )
+//      {
+//      case BATCH:
+//        batchCount++;
+//        recordCount += event.batch.getHeader().getRowCount();
+//        event.batch.release();
+//        break;
+//      case EOF:
+//        break loop;
+//      case ERROR:
+//        event.error.printStackTrace();
+//        fail( );
+//        break loop;
+//      case QUERY_ID:
+//        break;
+//      default:
+//        break;
+//      }
+//    }
+//    long end = System.currentTimeMillis();
+//    long elapsed = end - start;
+//
+//    return recordCount;
+//  }
+
+  private void performSort(ClusterFixture fixture) throws IOException {
+    QuerySummary summary = fixture.queryBuilder().sqlResource("/xsort/sort-big-all.sql").run();
+    System.out.println(String.format("Sorted %,d records in %d batches; %d ms.", summary.recordCount(), summary.batchCount(), summary.runTimeMs()));
+    assertEquals(2880404, summary.recordCount());
   }
 }
