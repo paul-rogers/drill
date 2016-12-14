@@ -42,10 +42,13 @@ public class MockSubScanPOP extends AbstractBase implements SubScan {
   protected final List<MockGroupScanPOP.MockScanEntry> readEntries;
 //  private final OperatorCost cost;
 //  private final Size size;
-  private  LinkedList<MockGroupScanPOP.MockScanEntry>[] mappings;
+  private LinkedList<MockGroupScanPOP.MockScanEntry>[] mappings;
+  private boolean extended;
 
   @JsonCreator
-  public MockSubScanPOP(@JsonProperty("url") String url, @JsonProperty("entries") List<MockGroupScanPOP.MockScanEntry> readEntries) {
+  public MockSubScanPOP(@JsonProperty("url") String url,
+                        @JsonProperty("extended") Boolean extended,
+                        @JsonProperty("entries") List<MockGroupScanPOP.MockScanEntry> readEntries) {
     this.readEntries = readEntries;
 //    OperatorCost cost = new OperatorCost(0,0,0,0);
 //    Size size = new Size(0,0);
@@ -56,11 +59,11 @@ public class MockSubScanPOP extends AbstractBase implements SubScan {
 //    this.cost = cost;
 //    this.size = size;
     this.url = url;
+    this.extended = extended == null ? false : extended;
   }
 
-  public String getUrl() {
-    return url;
-  }
+  public String getUrl() { return url; }
+  public boolean isExtended( ) { return extended; }
 
   @JsonProperty("entries")
   public List<MockGroupScanPOP.MockScanEntry> getReadEntries() {
@@ -88,7 +91,7 @@ public class MockSubScanPOP extends AbstractBase implements SubScan {
   @JsonIgnore
   public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children) {
     Preconditions.checkArgument(children.isEmpty());
-    return new MockSubScanPOP(url, readEntries);
+    return new MockSubScanPOP(url, extended, readEntries);
 
   }
 
@@ -96,5 +99,4 @@ public class MockSubScanPOP extends AbstractBase implements SubScan {
   public int getOperatorType() {
     return CoreOperatorType.MOCK_SUB_SCAN_VALUE;
   }
-
 }
