@@ -12,10 +12,14 @@
             @id:1,
             pop:"mock-scan",
             url: "http://apache.org",
+            extended: true,
             entries:[
                 {records: 1000000, types: [
                   {name: "blue", type: "INT", mode: "REQUIRED"},
-                  {name: "green", type: "INT", mode: "REQUIRED"}
+                  {name: "green", type: "INT", mode: "REQUIRED"},
+                  {name: "orange", type: "VARCHAR", mode: "REQUIRED", width: 400},
+                  {name: "beige", type: "FLOAT8", mode: "REQUIRED"},
+                  {name: "orange", type: "FLOAT8", mode: "REQUIRED", generator: "MoneyGen"}
                 ]}
             ]
         },

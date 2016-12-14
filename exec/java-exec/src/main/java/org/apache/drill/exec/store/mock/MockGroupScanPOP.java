@@ -68,19 +68,28 @@ public class MockGroupScanPOP extends AbstractGroupScan {
    */
   protected final List<MockScanEntry> readEntries;
   private LinkedList<MockScanEntry>[] mappings;
+<<<<<<< e87a6c6d939918fe2e5634cf89d2e25a4e62b6ec
 
   /**
    * Whether this group scan uses a newer "extended" schema definition, or the
    * original (non-extended) definition.
    */
 
+=======
+>>>>>>> Added revised mock data generator
   private boolean extended;
 
   @JsonCreator
   public MockGroupScanPOP(@JsonProperty("url") String url,
+<<<<<<< e87a6c6d939918fe2e5634cf89d2e25a4e62b6ec
       @JsonProperty("extended") Boolean extended,
       @JsonProperty("entries") List<MockScanEntry> readEntries) {
     super((String) null);
+=======
+                          @JsonProperty("extended") Boolean extended,
+                          @JsonProperty("entries") List<MockScanEntry> readEntries) {
+    super((String)null);
+>>>>>>> Added revised mock data generator
     this.readEntries = readEntries;
     this.url = url;
     this.extended = extended == null ? false : extended;
@@ -100,12 +109,15 @@ public class MockGroupScanPOP extends AbstractGroupScan {
     return readEntries;
   }
 
+<<<<<<< e87a6c6d939918fe2e5634cf89d2e25a4e62b6ec
   /**
    * Describes one simulated file (or block) within the logical file scan
    * described by this group scan. Each block can have a distinct schema to test
    * for schema changes.
    */
 
+=======
+>>>>>>> Added revised mock data generator
   public static class MockScanEntry {
 
     private final int records;
@@ -177,13 +189,13 @@ public class MockGroupScanPOP extends AbstractGroupScan {
 
     @JsonCreator
     public MockColumn(@JsonProperty("name") String name,
-        @JsonProperty("type") MinorType minorType,
-        @JsonProperty("mode") DataMode mode,
-        @JsonProperty("width") Integer width,
-        @JsonProperty("precision") Integer precision,
-        @JsonProperty("scale") Integer scale,
-        @JsonProperty("generator") String generator,
-        @JsonProperty("repeat") Integer repeat) {
+                      @JsonProperty("type") MinorType minorType,
+                      @JsonProperty("mode") DataMode mode,
+                      @JsonProperty("width") Integer width,
+                      @JsonProperty("precision") Integer precision,
+                      @JsonProperty("scale") Integer scale,
+                      @JsonProperty("generator") String generator,
+                      @JsonProperty("repeat") Integer repeat) {
       this.name = name;
       this.minorType = minorType;
       this.mode = mode;
@@ -195,42 +207,15 @@ public class MockGroupScanPOP extends AbstractGroupScan {
     }
 
     @JsonProperty("type")
-    public MinorType getMinorType() {
-      return minorType;
-    }
-
-    public String getName() {
-      return name;
-    }
-
-    public DataMode getMode() {
-      return mode;
-    }
-
-    public Integer getWidth() {
-      return width;
-    }
-
-    public Integer getPrecision() {
-      return precision;
-    }
-
-    public Integer getScale() {
-      return scale;
-    }
-
-    public String getGenerator() {
-      return generator;
-    }
-
-    public Integer getRepeat() {
-      return repeat;
-    }
-
-    @JsonIgnore
-    public int getRepeatCount() {
-      return repeat == null ? 1 : repeat;
-    }
+    public MinorType getMinorType() { return minorType; }
+    public String getName() { return name; }
+    public DataMode getMode() { return mode; }
+    public Integer getWidth() { return width; }
+    public Integer getPrecision() { return precision; }
+    public Integer getScale() { return scale; }
+    public String getGenerator( ) { return generator; }
+    public Integer getRepeat() { return repeat; }
+    public int getRepeatCount() { return repeat == null ? 1 : repeat; }
 
     @JsonIgnore
     public MajorType getMajorType() {
