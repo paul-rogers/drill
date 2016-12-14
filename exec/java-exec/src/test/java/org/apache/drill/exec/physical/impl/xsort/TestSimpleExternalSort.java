@@ -67,7 +67,7 @@ public class TestSimpleExternalSort extends DrillEngineTest {
   private void mergeSortWithSv2(boolean testLegacy) throws Exception {
     try (ClusterFixture client = standardClient( )) {
       chooseImpl(client, testLegacy);
-      List<QueryDataBatch> results = client.runPhysicalFromResource("xsort/one_key_sort_descending_sv2.json");
+      List<QueryDataBatch> results = client.queryBuilder( ).physicalResource("xsort/one_key_sort_descending_sv2.json").results();
       assertEquals(500000, client.countResults( results ));
       validateResults(client.allocator(), results);
     }
@@ -90,7 +90,7 @@ public class TestSimpleExternalSort extends DrillEngineTest {
   private void sortOneKeyDescendingMergeSort(boolean testLegacy) throws Throwable {
     try (ClusterFixture client = standardClient( )) {
       chooseImpl(client, testLegacy);
-      List<QueryDataBatch> results = client.runPhysicalFromResource("xsort/one_key_sort_descending.json");
+      List<QueryDataBatch> results = client.queryBuilder( ).physicalResource("xsort/one_key_sort_descending.json").results();
       assertEquals(1000000, client.countResults(results));
       validateResults(client.allocator(), results);
     }
@@ -141,7 +141,7 @@ public class TestSimpleExternalSort extends DrillEngineTest {
         .property(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 4);
     try (ClusterFixture client = builder.build( )) {
       chooseImpl(client,testLegacy);
-      List<QueryDataBatch> results = client.runPhysicalFromResource("/xsort/one_key_sort_descending.json");
+      List<QueryDataBatch> results = client.queryBuilder( ).physicalResource("/xsort/one_key_sort_descending.json").results();
       assertEquals(1000000, client.countResults( results ));
       validateResults(client.allocator(), results);
     }
@@ -166,7 +166,7 @@ public class TestSimpleExternalSort extends DrillEngineTest {
         .property( "drill.memory.operator.initial", 2000000 );
     try (ClusterFixture client = builder.build( )) {
       chooseImpl(client,testLegacy);
-      List<QueryDataBatch> results = client.runPhysicalFromResource("/xsort/oom_sort_test.json");
+      List<QueryDataBatch> results = client.queryBuilder( ).physicalResource("/xsort/oom_sort_test.json").results();
       assertEquals(10000000, client.countResults( results ));
 
       long previousBigInt = Long.MAX_VALUE;

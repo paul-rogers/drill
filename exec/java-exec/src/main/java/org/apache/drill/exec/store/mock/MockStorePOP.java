@@ -39,6 +39,7 @@ public class MockStorePOP extends AbstractStore {
     super(child);
   }
 
+  @Override
   public int getMaxWidth() {
     return 1;
   }
