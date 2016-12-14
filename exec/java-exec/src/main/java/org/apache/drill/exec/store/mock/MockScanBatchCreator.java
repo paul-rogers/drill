@@ -40,7 +40,11 @@ public class MockScanBatchCreator implements BatchCreator<MockSubScanPOP> {
     final List<MockScanEntry> entries = config.getReadEntries();
     final List<RecordReader> readers = Lists.newArrayList();
     for(final MockScanEntry e : entries) {
-      readers.add(new MockRecordReader(context, e));
+      if ( config.isExtended( ) ) {
+        readers.add(new ExtendedMockRecordReader(context, e));
+      } else {
+        readers.add(new MockRecordReader(context, e));
+      }
     }
     return new ScanBatch(config, context, readers.iterator());
   }
