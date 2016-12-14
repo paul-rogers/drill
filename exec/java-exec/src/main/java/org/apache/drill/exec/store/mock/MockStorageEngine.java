@@ -61,17 +61,7 @@ public class MockStorageEngine extends AbstractStoragePlugin {
         new TypeReference<ArrayList<MockScanEntry>>() {
         });
 
-    // The classic (logical-plan based) and extended (SQL-based) paths
-    // come through here. If this is a SQL query, then no columns are
-    // defined in the plan.
-
-    assert ! readEntries.isEmpty();
-    boolean extended = readEntries.size() == 1;
-    if (extended) {
-      MockScanEntry entry = readEntries.get(0);
-      extended = entry.getTypes() == null;
-    }
-    return new MockGroupScanPOP(null, extended, readEntries);
+    return new MockGroupScanPOP(null, false, readEntries);
   }
 
   @Override
@@ -88,15 +78,6 @@ public class MockStorageEngine extends AbstractStoragePlugin {
   public boolean supportsRead() {
     return true;
   }
-
-//  public static class ImplicitTable extends DynamicDrillTable {
-//
-//    public ImplicitTable(StoragePlugin plugin, String storageEngineName,
-//        Object selection) {
-//      super(plugin, storageEngineName, selection);
-//    }
-//
-//  }
 
   private static class MockSchema extends AbstractSchema {
 

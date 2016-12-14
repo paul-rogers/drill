@@ -18,6 +18,7 @@
 package org.apache.drill.exec.store.mock;
 
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.drill.exec.physical.base.AbstractBase;
@@ -45,6 +46,7 @@ public class MockSubScanPOP extends AbstractBase implements SubScan {
 
   private final String url;
   protected final List<MockGroupScanPOP.MockScanEntry> readEntries;
+  private LinkedList<MockGroupScanPOP.MockScanEntry>[] mappings;
   private final boolean extended;
 
   /**
