@@ -17,9 +17,12 @@
  */
 package org.apache.drill.exec.store.mock;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
@@ -205,7 +208,51 @@ public class MockGroupScanPOP extends AbstractGroupScan {
 
   @Override
   public GroupScan clone(List<SchemaPath> columns) {
-    return this;
+    if (columns.isEmpty()) {
+      throw new IllegalArgumentException("No columns for mock scan");
+    }
+    List<MockColumn> mockCols = new ArrayList<>( );
+    Pattern p = Pattern.compile( "(\\w+)_([isd])(\\d*)" );
+    for (SchemaPath path : columns) {
+      String col = path.getLastSegment().getNameSegment().getPath();
+      if (col.equals("*")) {
+        return this;
+      }
+      Matcher m = p.matcher(col);
+      if (! m.matches()) {
+        throw new IllegalArgumentException( "Badly formatted mock column name: " + col );
+      }
+      String name = m.group(1);
+      String type = m.group(2);
+      String length = m.group(3);
+      int width = 10;
+      if ( ! length.isEmpty() ) {
+        width = Integer.parseInt(length);
+      }
+      MinorType minorType;
+      switch(type) {
+      case "i":
+        minorType = MinorType.INT;
+        break;
+      case "s":
+        minorType = MinorType.VARCHAR;
+        break;
+      case "d":
+        minorType = MinorType.FLOAT8;
+        break;
+      default:
+        throw new IllegalArgumentException( "Unsupported field type " + type + " for mock column " + col );
+      }
+      MockColumn mockCol = new MockColumn(col, minorType, DataMode.REQUIRED, width, 0, 0, null, 1);
+      mockCols.add(mockCol);
+    }
+    MockScanEntry entry = readEntries.get(0);
+    MockColumn types[] = new MockColumn[mockCols.size()];
+    mockCols.toArray(types);
+    MockScanEntry newEntry = new MockScanEntry( entry.records, types );
+    List<MockScanEntry> newEntries = new ArrayList<>( );
+    newEntries.add(newEntry);
+    return new MockGroupScanPOP( url, true, newEntries );
   }
 
   @Override
@@ -219,4 +266,9 @@ public class MockGroupScanPOP extends AbstractGroupScan {
         + ", readEntries=" + readEntries + "]";
   }
 
+  @Override
+  @JsonIgnore
+  public boolean canPushdownProjects(List<SchemaPath> columns) {
+    return true;
+  }
 }

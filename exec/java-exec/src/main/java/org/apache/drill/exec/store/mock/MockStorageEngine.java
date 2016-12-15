@@ -19,44 +19,69 @@ package org.apache.drill.exec.store.mock;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
+import org.apache.calcite.linq4j.tree.Expression;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.schema.Function;
+import org.apache.calcite.schema.Schema;
+import org.apache.calcite.schema.Schema.TableType;
 import org.apache.calcite.schema.SchemaPlus;
-
+import org.apache.calcite.schema.Statistic;
+import org.apache.calcite.schema.Table;
 import org.apache.drill.common.JSONOptions;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
+import org.apache.drill.exec.planner.logical.DynamicDrillTable;
 import org.apache.drill.exec.server.DrillbitContext;
+import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
+import org.apache.drill.exec.store.RecordDataType;
 import org.apache.drill.exec.store.SchemaConfig;
+import org.apache.drill.exec.store.StoragePlugin;
+import org.apache.drill.exec.store.dfs.FileSystemConfig;
 import org.apache.drill.exec.store.mock.MockGroupScanPOP.MockScanEntry;
+import org.apache.drill.exec.store.sys.StaticDrillTable;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableList;
+
+import jersey.repackaged.com.google.common.collect.Sets;
 
 public class MockStorageEngine extends AbstractStoragePlugin {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MockStorageEngine.class);
 
   private final MockStorageEngineConfig configuration;
+  private final MockSchema schema;
 
   public MockStorageEngine(MockStorageEngineConfig configuration, DrillbitContext context, String name) {
     this.configuration = configuration;
+    this.schema = new MockSchema(this);
   }
 
   @Override
   public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection, List<SchemaPath> columns)
       throws IOException {
 
-    ArrayList<MockScanEntry> readEntries = selection.getListWith(new ObjectMapper(),
+    List<MockScanEntry> readEntries = selection.getListWith(new ObjectMapper(),
         new TypeReference<ArrayList<MockScanEntry>>() {
         });
 
-    return new MockGroupScanPOP(null, false, readEntries);
+    return new MockGroupScanPOP(null, true, readEntries);
   }
 
   @Override
   public void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent) throws IOException {
+    parent.add(schema.getName(), schema);
   }
 
   @Override
@@ -64,5 +89,51 @@ public class MockStorageEngine extends AbstractStoragePlugin {
     return configuration;
   }
 
+  @Override
+  public boolean supportsRead() {
+    return true;
+  }
 
+//  public static class ImplicitTable extends DynamicDrillTable {
+//
+//    public ImplicitTable(StoragePlugin plugin, String storageEngineName,
+//        Object selection) {
+//      super(plugin, storageEngineName, selection);
+//    }
+//
+//  }
+
+  private static class MockSchema extends AbstractSchema {
+
+    private MockStorageEngine engine;
+
+    public MockSchema(MockStorageEngine engine) {
+      super(ImmutableList.<String>of(), MockStorageEngineConfig.NAME);
+      this.engine = engine;
+    }
+
+    @Override
+    public Table getTable(String name) {
+      Pattern p = Pattern.compile( "implicit_(\\d+)", Pattern.CASE_INSENSITIVE);
+      Matcher m = p.matcher(name);
+      if ( ! m.matches() ) {
+        return null;
+      }
+      int n = Integer.parseInt(m.group(1));
+      MockScanEntry entry = new MockScanEntry(n, null);
+      List<MockScanEntry> list = new ArrayList<>();
+      list.add( entry );
+      return new DynamicDrillTable(engine, this.name, list );
+    }
+
+    @Override
+    public Set<String> getTableNames() {
+      return new HashSet<>( );
+    }
+
+    @Override
+    public String getTypeName() {
+      return MockStorageEngineConfig.NAME;
+    }
+  }
 }

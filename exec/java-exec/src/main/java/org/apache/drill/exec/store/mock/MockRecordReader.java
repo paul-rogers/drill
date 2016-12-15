@@ -42,6 +42,7 @@ public class MockRecordReader extends AbstractRecordReader {
   private ValueVector[] valueVectors;
   private int recordsRead;
   private int batchRecordCount;
+  @SuppressWarnings("unused")
   private OperatorContext operatorContext;
 
   public MockRecordReader(FragmentContext context, MockScanEntry config) {

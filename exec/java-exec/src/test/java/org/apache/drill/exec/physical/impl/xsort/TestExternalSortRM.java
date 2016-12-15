@@ -88,6 +88,21 @@ public class TestExternalSortRM extends DrillTest {
   }
 
   @Test
+  public void testManagedSpilledWideEx() throws Exception {
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configResource("xsort/drill-external-sort-rm.conf")
+        .maxParallelization(1);
+    try (ClusterFixture cluster = builder.build()) {
+      cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
+      String sql = "select `name`, `monisid`, `validitydate` from `dfs.data`.`gen.json` LIMIT 10";
+      String plan = cluster.queryBuilder().sql(sql).explainText();
+      System.out.println( plan );
+      QuerySummary summary = cluster.queryBuilder().sql(sql).run();
+      System.out.println(String.format("Sorted %,d records in %d batches; %d ms.", summary.recordCount(), summary.batchCount(), summary.runTimeMs()));
+    }
+  }
+
+  @Test
   public void testLegacySpilled() throws Exception {
     LogAnalyzer analyzer = new LogAnalyzer( false );
     analyzer.setupLogging( );
@@ -118,6 +133,35 @@ public class TestExternalSortRM extends DrillTest {
     }
 
     analyzer.analyzeLog( );
+  }
+
+  @Test
+  public void testManagedInMemory2() throws Exception {
+    LogAnalyzer analyzer = new LogAnalyzer( true );
+    analyzer.setupLogging( );
+
+    FixtureBuilder builder = ClusterFixture.builder()
+        .maxParallelization(1);
+    try (ClusterFixture cluster = builder.build()) {
+      cluster.defineWorkspace( "mock", "data", null, null );
+      String sql = "SELECT * FROM `mock.data`.`/xsort/test300M.json` ORDER BY sth";
+      String plan = cluster.queryBuilder().sql(sql).explainJson();
+      System.out.println( plan );
+      performSort( cluster );
+    }
+
+    analyzer.analyzeLog( );
+  }
+
+  @Test
+  public void testSqlMockTable( ) throws Throwable {
+    try (ClusterFixture cluster = ClusterFixture.standardClient( )) {
+//      cluster.defineWorkspace( "mock", "data", null, null );
+      cluster.queryBuilder().sql("SHOW DATABASES").printCsv();
+      String sql = "SELECT `id_i`, `num_d`, `name_s50` FROM `mock`.`implicit_10` ORDER BY `name_s50`";
+      int count = cluster.queryBuilder( ).sql(sql).printCsv();
+      System.out.println( "Rows: " + count );
+    }
   }
 
   @Test
