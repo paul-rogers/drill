@@ -18,8 +18,6 @@
 package org.apache.drill.exec.store.dfs;
 
 public class MagicString {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MagicString.class);
-
   private long offset;
   private byte[] bytes;
 
@@ -36,7 +34,4 @@ public class MagicString {
   public byte[] getBytes() {
     return bytes;
   }
-
-
-
 }
