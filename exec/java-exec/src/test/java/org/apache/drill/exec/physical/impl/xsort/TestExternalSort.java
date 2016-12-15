@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.xsort;
 import org.apache.drill.BaseTestQuery;
 import org.apache.drill.TestBuilder;
 import org.apache.drill.exec.ExecConstants;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.BufferedOutputStream;
@@ -79,11 +80,13 @@ public class TestExternalSort extends BaseTestQuery {
   }
 
   @Test
+  @Ignore("Schema changes are disabled in external sort")
   public void testNumericAndStringTypesManaged() throws Exception {
     testNumericAndStringTypes( false );
   }
 
   @Test
+  @Ignore("Schema changes are disabled in external sort")
   public void testNumericAndStringTypesLegacy() throws Exception {
     testNumericAndStringTypes( true );
   }
