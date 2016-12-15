@@ -95,6 +95,7 @@ public enum PlannerPhase {
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillRuleSets.class);
 
   LOGICAL_PRUNE_AND_JOIN("Loigcal Planning (with join and partition pruning)") {
+    @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return PlannerPhase.mergedRuleSets(
           getDrillBasicRules(context),
@@ -106,6 +107,7 @@ public enum PlannerPhase {
   },
 
   WINDOW_REWRITE("Window Function rewrites") {
+    @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return RuleSets.ofList(
           ReduceExpressionsRule.CALC_INSTANCE,
@@ -115,6 +117,7 @@ public enum PlannerPhase {
   },
 
   LOGICAL_PRUNE("Logical Planning (with partition pruning)") {
+    @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return PlannerPhase.mergedRuleSets(
           getDrillBasicRules(context),
@@ -125,6 +128,7 @@ public enum PlannerPhase {
   },
 
   JOIN_PLANNING("LOPT Join Planning") {
+    @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return PlannerPhase.mergedRuleSets(
           RuleSets.ofList(
@@ -137,6 +141,7 @@ public enum PlannerPhase {
   },
 
   SUM_CONVERSION("Convert SUM to $SUM0") {
+    @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return PlannerPhase.mergedRuleSets(
           RuleSets.ofList(
@@ -148,24 +153,28 @@ public enum PlannerPhase {
   },
 
   PARTITION_PRUNING("Partition Prune Planning") {
+    @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return PlannerPhase.mergedRuleSets(getPruneScanRules(context), getStorageRules(context, plugins, this));
     }
   },
 
   PHYSICAL_PARTITION_PRUNING("Physical Partition Prune Planning") {
+    @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return PlannerPhase.mergedRuleSets(getPhysicalPruneScanRules(context), getStorageRules(context, plugins, this));
     }
   },
 
   DIRECTORY_PRUNING("Directory Prune Planning") {
+    @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return PlannerPhase.mergedRuleSets(getDirPruneScanRules(context), getStorageRules(context, plugins, this));
     }
   },
 
   LOGICAL("Logical Planning (no pruning or join).") {
+    @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return PlannerPhase.mergedRuleSets(
           PlannerPhase.getDrillBasicRules(context),
@@ -175,6 +184,7 @@ public enum PlannerPhase {
   },
 
   PHYSICAL("Physical Planning") {
+    @Override
     public RuleSet getRules(OptimizerRulesContext context, Collection<StoragePlugin> plugins) {
       return PlannerPhase.mergedRuleSets(
           PlannerPhase.getPhysicalRules(context),
