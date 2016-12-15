@@ -45,7 +45,6 @@ public class DrillPushProjIntoScan extends RelOptRule {
     super(RelOptHelper.some(projectClass, RelOptHelper.any(scanClass)), "DrillPushProjIntoScan");
   }
 
-
   @Override
   public void onMatch(RelOptRuleCall call) {
     final Project proj = (Project) call.rel(0);
@@ -95,5 +94,4 @@ public class DrillPushProjIntoScan extends RelOptRule {
       throw new DrillRuntimeException(e);
     }
   }
-
 }
