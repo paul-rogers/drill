@@ -32,10 +32,6 @@ import org.apache.drill.exec.server.options.OptionManager;
 import com.google.common.base.Preconditions;
 
 public class ExternalSortBatchCreator implements BatchCreator<ExternalSort>{
-//  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExternalSortBatchCreator.class);
-
-//  private static final BooleanValidator DISABLE_MANAGED_VALIDATOR =
-//          new BooleanValidator( ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION, false );
 
   @Override
   public AbstractRecordBatch<ExternalSort> getBatch(FragmentContext context, ExternalSort config, List<RecordBatch> children)
