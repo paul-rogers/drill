@@ -25,27 +25,35 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
+import org.apache.drill.BaseTestQuery.SilentListener;
 import org.apache.drill.BufferingQueryEventListener.QueryEvent;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.client.DrillClient;
+import org.apache.drill.exec.client.PrintingResultsListener;
+import org.apache.drill.exec.client.QuerySubmitter.Format;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.memory.RootAllocatorFactory;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
 import org.apache.drill.exec.record.RecordBatchLoader;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.rpc.RpcException;
+import org.apache.drill.exec.rpc.user.AwaitableUserResultsListener;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.rpc.user.UserResultsListener;
 import org.apache.drill.exec.server.Drillbit;
 import org.apache.drill.exec.server.RemoteServiceSet;
 import org.apache.drill.exec.store.StoragePluginRegistry;
+import org.apache.drill.exec.store.StoragePluginRegistryImpl;
 import org.apache.drill.exec.store.dfs.FileSystemConfig;
 import org.apache.drill.exec.store.dfs.FileSystemPlugin;
 import org.apache.drill.exec.store.dfs.WorkspaceConfig;
+import org.apache.drill.exec.store.mock.MockStorageEngine;
+import org.apache.drill.exec.store.mock.MockStorageEngineConfig;
 import org.apache.drill.exec.util.TestUtilities;
+import org.apache.drill.exec.util.VectorUtil;
 import org.apache.drill.exec.vector.NullableVarCharVector;
 import org.apache.drill.exec.vector.ValueVector;
 
@@ -339,6 +347,29 @@ public class ClusterFixture implements AutoCloseable {
       return listener;
     }
 
+    public int printCsv() {
+      return print(Format.CSV);
+    }
+
+    public int print( Format format ) {
+      return print(format,20);
+    }
+
+    public int print(Format format, int colWidth) {
+      return runAndWait( new PrintingResultsListener( config, format, colWidth ) );
+    }
+
+    public int runAndWait(UserResultsListener listener) {
+      AwaitableUserResultsListener resultListener =
+          new AwaitableUserResultsListener(listener);
+      withListener( resultListener );
+      try {
+        return resultListener.await();
+      } catch (Exception e) {
+        throw new IllegalStateException(e);
+      }
+    }
+
     /**
      * Submit an "EXPLAIN" statement, and return text form of the
      * plan.
@@ -479,6 +510,12 @@ public class ClusterFixture implements AutoCloseable {
       final StoragePluginRegistry pluginRegistry = bits[i].getContext().getStorage();
       TestUtilities.updateDfsTestTmpSchemaLocation(pluginRegistry, dfsTestTmpSchemaLocation);
       TestUtilities.makeDfsTmpSchemaImmutable(pluginRegistry);
+
+      // Create the mock data plugin
+
+      MockStorageEngineConfig config = MockStorageEngineConfig.INSTANCE;
+      MockStorageEngine plugin = new MockStorageEngine(MockStorageEngineConfig.INSTANCE, bits[i].getContext(), MockStorageEngineConfig.NAME);
+      ((StoragePluginRegistryImpl) pluginRegistry).definePlugin(MockStorageEngineConfig.NAME, config, plugin);
     }
 
     // Create a client.
@@ -698,5 +735,9 @@ public class ClusterFixture implements AutoCloseable {
 
   public TestBuilder testBuilder() {
     return new TestBuilder(allocator);
+  }
+
+  public static ClusterFixture standardClient( ) throws Exception {
+    return builder( ).build( );
   }
 }
