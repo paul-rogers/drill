@@ -229,7 +229,7 @@ public class ScanBatch implements CloseableRecordBatch {
       hasReadNonEmptyFile = true;
       populateImplicitVectors();
 
-      for (VectorWrapper w : container) {
+      for (VectorWrapper<?> w : container) {
         w.getValueVector().getMutator().setValueCount(recordCount);
       }
 
