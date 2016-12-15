@@ -40,9 +40,6 @@ public class MockSubScanPOP extends AbstractBase implements SubScan {
 
   private final String url;
   protected final List<MockGroupScanPOP.MockScanEntry> readEntries;
-//  private final OperatorCost cost;
-//  private final Size size;
-  private LinkedList<MockGroupScanPOP.MockScanEntry>[] mappings;
   private boolean extended;
 
   @JsonCreator
