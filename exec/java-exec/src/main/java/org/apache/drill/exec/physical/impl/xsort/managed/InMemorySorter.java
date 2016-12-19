@@ -40,14 +40,12 @@ public class InMemorySorter implements SortResults {
   private final BufferAllocator oAllocator;
   private SelectionVector4 sv4;
   private final OperatorCodeGenerator opCg;
-  private final int outputBatchSize;
   private int batchCount;
 
-  public InMemorySorter(FragmentContext context, BufferAllocator allocator, OperatorCodeGenerator opCg, int outputBatchSize) {
+  public InMemorySorter(FragmentContext context, BufferAllocator allocator, OperatorCodeGenerator opCg) {
     this.context = context;
     this.oAllocator = allocator;
     this.opCg = opCg;
-    this.outputBatchSize = outputBatchSize;
   }
 
   public SelectionVector4 sort(LinkedList<BatchGroup.InputBatch> batchGroups, VectorAccessible batch,
@@ -58,18 +56,18 @@ public class InMemorySorter implements SortResults {
     }
     builder = new SortRecordBatchBuilder(oAllocator);
 
-    while (! batchGroups.isEmpty()) {
-      BatchGroup.InputBatch group = batchGroups.pollLast();
+    for (BatchGroup.InputBatch group : batchGroups) {
       RecordBatchData rbd = new RecordBatchData(group.getContainer(), oAllocator);
       rbd.setSv2(group.getSv2());
       builder.add(rbd);
     }
+    batchGroups.clear();
 
     try {
       builder.build(context, destContainer);
       sv4 = builder.getSv4();
       mSorter = opCg.createNewMSorter(batch);
-      mSorter.setup(context, oAllocator, sv4, destContainer, outputBatchSize);
+      mSorter.setup(context, oAllocator, sv4, destContainer, sv4.getCount());
     } catch (SchemaChangeException e) {
       throw UserException.unsupportedError(e)
             .message("Unexpected schema change - likely code error.")

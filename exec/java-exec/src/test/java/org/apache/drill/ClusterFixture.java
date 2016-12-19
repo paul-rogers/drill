@@ -19,13 +19,14 @@ package org.apache.drill;
 
 import static org.junit.Assert.fail;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
-import org.apache.drill.BaseTestQuery.SilentListener;
+import org.apache.commons.io.FileUtils;
 import org.apache.drill.BufferingQueryEventListener.QueryEvent;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
@@ -53,12 +54,12 @@ import org.apache.drill.exec.store.dfs.WorkspaceConfig;
 import org.apache.drill.exec.store.mock.MockStorageEngine;
 import org.apache.drill.exec.store.mock.MockStorageEngineConfig;
 import org.apache.drill.exec.util.TestUtilities;
-import org.apache.drill.exec.util.VectorUtil;
 import org.apache.drill.exec.vector.NullableVarCharVector;
 import org.apache.drill.exec.vector.ValueVector;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
+import com.google.common.io.Files;
 import com.google.common.io.Resources;
 
 /**
@@ -116,7 +117,8 @@ public class ClusterFixture implements AutoCloseable {
     private Properties configProps;
     private Properties clientProps;
     private boolean enableFullCache;
-    private List<ClusterFixture.RuntimeOption> runtimeSettings;
+    private List<ClusterFixture.RuntimeOption> sessionOptions;
+    private List<ClusterFixture.RuntimeOption> systemOptions;
     private int bitCount = 1;
 
     /**
@@ -187,20 +189,38 @@ public class ClusterFixture implements AutoCloseable {
     }
 
     /**
-     * Provide a runtime configuration option to be set once the Drillbit
+     * Provide a session option to be set once the Drillbit
      * is started.
      *
-     * @param key the name of the runtime option
-     * @param value the value of the runtime option
+     * @param key the name of the session option
+     * @param value the value of the session option
      * @return this builder
      * @see {@link ClusterFixture#alterSession(String, Object)}
      */
 
-    public FixtureBuilder option( String key, Object value ) {
-      if ( runtimeSettings == null ) {
-        runtimeSettings = new ArrayList<>( );
+    public FixtureBuilder sessionOption( String key, Object value ) {
+      if ( sessionOptions == null ) {
+        sessionOptions = new ArrayList<>( );
       }
-      runtimeSettings.add( new RuntimeOption( key, value ) );
+      sessionOptions.add( new RuntimeOption( key, value ) );
+      return this;
+    }
+
+    /**
+     * Provide a system option to be set once the Drillbit
+     * is started.
+     *
+     * @param key the name of the system option
+     * @param value the value of the system option
+     * @return this builder
+     * @see {@link ClusterFixture#alterSystem(String, Object)}
+     */
+
+    public FixtureBuilder systemOption( String key, Object value ) {
+      if ( systemOptions == null ) {
+        systemOptions = new ArrayList<>( );
+      }
+      systemOptions.add( new RuntimeOption( key, value ) );
       return this;
     }
 
@@ -212,7 +232,7 @@ public class ClusterFixture implements AutoCloseable {
      * @return this builder
      */
     public FixtureBuilder maxParallelization(int n) {
-      return option( ExecConstants.MAX_WIDTH_PER_NODE_KEY, n );
+      return sessionOption( ExecConstants.MAX_WIDTH_PER_NODE_KEY, n );
     }
 
     public FixtureBuilder enableFullCache( ) {
@@ -527,11 +547,17 @@ public class ClusterFixture implements AutoCloseable {
 
     allocator = RootAllocatorFactory.newRoot(config);
 
+    // Apply system options
+    if ( builder.systemOptions != null ) {
+      for ( ClusterFixture.RuntimeOption option : builder.systemOptions ) {
+        alterSystem( option.key, option.value );
+      }
+    }
     // Apply session options.
 
     boolean sawMaxWidth = false;
-    if ( builder.runtimeSettings != null ) {
-      for ( ClusterFixture.RuntimeOption option : builder.runtimeSettings ) {
+    if ( builder.sessionOptions != null ) {
+      for ( ClusterFixture.RuntimeOption option : builder.sessionOptions ) {
         alterSession( option.key, option.value );
         if ( option.key.equals( ExecConstants.MAX_WIDTH_PER_NODE_KEY ) ) {
           sawMaxWidth = true;
@@ -556,6 +582,11 @@ public class ClusterFixture implements AutoCloseable {
 
   public void alterSession(String key, Object value ) throws RpcException {
     String sql = "ALTER SESSION SET `" + key + "` = " + stringify( value );
+    runSqlSilently( sql );
+  }
+
+  public void alterSystem(String key, Object value ) throws RpcException {
+    String sql = "ALTER SYSTEM SET `" + key + "` = " + stringify( value );
     runSqlSilently( sql );
   }
 
@@ -715,7 +746,9 @@ public class ClusterFixture implements AutoCloseable {
   }
 
   public static void defineWorkspace( Drillbit drillbit, String pluginName, String schemaName, String path, String defaultFormat ) throws ExecutionSetupException {
+    @SuppressWarnings("resource")
     final StoragePluginRegistry pluginRegistry = drillbit.getContext().getStorage();
+    @SuppressWarnings("resource")
     final FileSystemPlugin plugin = (FileSystemPlugin) pluginRegistry.getPlugin(pluginName);
     final FileSystemConfig pluginConfig = (FileSystemConfig) plugin.getConfig();
     final WorkspaceConfig newTmpWSConfig = new WorkspaceConfig(path, true, defaultFormat);
@@ -734,10 +767,34 @@ public class ClusterFixture implements AutoCloseable {
   }
 
   public TestBuilder testBuilder() {
+    // Set the static client in BaseTestQuery as the
+    // test builder classes rely on it.
+
+    BaseTestQuery.client = client;
     return new TestBuilder(allocator);
   }
 
   public static ClusterFixture standardClient( ) throws Exception {
     return builder( ).build( );
+  }
+
+  /**
+   * Create a temp directory to store the given <i>dirName</i>.
+   * Directory will be deleted on exit. Directory is created if it does
+   * not exist.
+   * @param dirName directory name
+   * @return Full path including temp parent directory and given directory name.
+   */
+  public static File getTempDir(final String dirName) {
+    final File dir = Files.createTempDir();
+    Runtime.getRuntime().addShutdownHook(new Thread() {
+      @Override
+      public void run() {
+        FileUtils.deleteQuietly(dir);
+      }
+    });
+    File tempDir = new File( dir, dirName );
+    tempDir.mkdirs();
+    return tempDir;
   }
 }

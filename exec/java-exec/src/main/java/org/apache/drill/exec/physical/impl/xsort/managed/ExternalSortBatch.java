@@ -567,7 +567,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private int maxSpillLimit;
   private long spillFileSize;
 
-
   public enum Metric implements MetricDef {
     SPILL_COUNT,            // number of times operator spilled to disk
     RETIRED1,               // Was: peak value for totalSizeInMemory
@@ -940,7 +939,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * external sort accepts only one schema. It can handle compatible schemas
    * (which seems to mean the same columns in possibly different orders.)
    *
-   * @return
+   * @return return code depending on the amount of data read from upstream
    */
 
   private IterOutcome loadBatch() {
@@ -1014,7 +1013,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * Load the results and sort them. May bail out early if an exceptional
    * condition is passed up from the input batch.
    *
-   * @return
+   * @return return code: OK_NEW_SCHEMA if rows were sorted,
+   * NONE if no rows
    */
 
   private IterOutcome load() {
@@ -1067,7 +1067,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * can use a fast in-memory sort, or must use a merge (which typically,
    * but not always, involves spilled batches.)
    *
-   * @return
+   * @return whether sufficient resources exist to do an in-memory sort
+   * if all batches are still in memory
    */
 
   private boolean canUseMemoryMerge() {
