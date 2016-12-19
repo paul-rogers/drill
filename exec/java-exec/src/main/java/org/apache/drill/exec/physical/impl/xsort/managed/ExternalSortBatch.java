@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -256,7 +256,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private int maxSpillLimit;
   private long spillFileSize;
 
-
   public enum Metric implements MetricDef {
     SPILL_COUNT,            // number of times operator spilled to disk
     PEAK_SIZE_IN_MEMORY,    // peak value for totalSizeInMemory
@@ -478,7 +477,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * external sort accepts only one schema. It can handle compatible schemas
    * (which seems to mean the same columns in possibly different orders.)
    *
-   * @return
+   * @return return code depending on the amount of data read from upstream
    */
 
   private IterOutcome loadBatch() {
@@ -537,7 +536,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * Load the results and sort them. May bail out early if an exceptional
    * condition is passed up from the input batch.
    *
-   * @return
+   * @return return code: OK_NEW_SCHEMA if rows were sorted,
+   * NONE if no rows
    */
 
   private IterOutcome load() {
@@ -588,7 +588,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * can use a fast in-memory sort, or must use a merge (which typically,
    * but not always, involves spilled batches.)
    *
-   * @return
+   * @return whether sufficient resources exist to do an in-memory sort
+   * if all batches are still in memory
    */
 
   private boolean canUseMemoryMerge() {
@@ -615,7 +616,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * Handle a new schema from upstream. The ESB is quite limited in its ability
    * to handle schema changes.
    *
-   * @param upstream
+   * @param upstream the status code from upstream: either OK or OK_NEW_SCHEMA
    */
 
   private void setupSchema(IterOutcome upstream)  {
@@ -692,9 +693,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   /**
    * Process the converted incoming batch by adding it to the in-memory store
    * of data, or spilling data to disk when necessary.
-   *
-   * @param convertedBatch
-   * @return
    */
 
   private void processBatch() {
@@ -895,32 +893,39 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // Number of incoming batches (BatchGroups) exceed the limit and number of incoming
     // batches accumulated since the last spill exceed the defined limit
 
-    if (bufferedBatches.size() > bufferedBatchLimit) { return true; }
-
-    return false;
+    return bufferedBatches.size() > bufferedBatchLimit;
   }
 
   /**
    * Perform an in-memory sort of the buffered batches. Obviously can
    * be used only for the non-spilling case.
    *
-   * @return
+   * @return DONE if no rows, OK_NEW_SCHEMA if at least one row
    */
 
   private IterOutcome sortInMemory() {
     logger.info("Starting in-memory sort. Batches = {}, Records = {}, Memory = {}",
                 bufferedBatches.size(), totalRecordCount, oAllocator.getAllocatedMemory());
-    InMemorySorter memoryMerge = new InMemorySorter(context, oAllocator, opCodeGen, this.outputBatchRecordCount);
+
+    // Note the difference between how we handle batches here and in the spill/merge
+    // case. In the spill/merge case, this class decides on the batch size to send
+    // downstream. However, in the in-memory case, we must pass along all batches
+    // in a single SV4. Attempts to do paging will result in errors. In the memory
+    // merge case, the downstream Selection Vector Remover will split the one
+    // big SV4 into multiple smaller batches to send further downstream.
+
+    InMemorySorter memoryMerge = new InMemorySorter(context, oAllocator, opCodeGen);
     sv4 = memoryMerge.sort(bufferedBatches, this, container);
     if (sv4 == null) {
       sortState = SortState.DONE;
       return IterOutcome.STOP;
+    } else {
+      logger.info("Completed in-memory sort. Memory = {}",
+              oAllocator.getAllocatedMemory());
+      resultsIterator = memoryMerge;
+      sortState = SortState.DELIVER;
+      return IterOutcome.OK_NEW_SCHEMA;
     }
-    logger.info("Completed in-memory sort. Memory = {}",
-                oAllocator.getAllocatedMemory());
-    resultsIterator = memoryMerge;
-    sortState = SortState.DELIVER;
-    return IterOutcome.OK_NEW_SCHEMA;
   }
 
   /**
@@ -928,7 +933,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * as needed, then performs a final merge that is read one batch at a time
    * to deliver batches to the downstream operator.
    *
-   * @return
+   * @return always returns OK_NEW_SCHEMA
    */
 
   private IterOutcome mergeSpilledRuns() {
@@ -940,7 +945,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // a single last pass.
 
     while (consolidateBatches()) {
-      ;
+      // Empty loop
     }
 
     // Merge in-memory batches and spilled runs for the final merge.
@@ -1031,18 +1036,14 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   /**
    * This operator has accumulated a set of sorted incoming record batches.
-   * We wish to spill some of them to disk. To do this, a "{@link #copier}"
+   * We wish to spill some of them to disk. To do this, a "copier"
    * merges the target batches to produce a stream of new (merged) batches
    * which are then written to disk.
    * <p>
    * This method spills only half the accumulated batches
    * minimizing unnecessary disk writes. The exact count must lie between
    * the minimum and maximum spill counts.
-   *
-   * @param batchGroups the accumulated set of sorted incoming batches
-   * @return a new batch group representing the combined set of spilled
-   * batches
-   */
+    */
 
   private void spillFromMemory() {
     int spillCount;
@@ -1113,8 +1114,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     String outputFile = spillSet.getNextSpillFile();
     stats.setLongStat(Metric.SPILL_COUNT, spillSet.getFileCount());
     BatchGroup.SpilledRun newGroup = null;
-    try (AutoCloseable a = AutoCloseables.all(batchGroupList);
-        CopierHolder.BatchMerger merger = copierHolder.startMerge(schema, batchGroupList, outputBatchRecordCount)) {
+    try (AutoCloseable ignored = AutoCloseables.all(batchGroupList);
+         CopierHolder.BatchMerger merger = copierHolder.startMerge(schema, batchGroupList, outputBatchRecordCount)) {
       logger.info("Merging and spilling to {}", outputFile);
       newGroup = new BatchGroup.SpilledRun(spillSet, outputFile, oContext, spillSize);
 
@@ -1169,7 +1170,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * Assumes that memory is available for the vector since memory management
    * ensured space is available.
    *
-   * @return
+   * @return a new, populated selection vector 2
    */
 
   private SelectionVector2 newSV2() {
