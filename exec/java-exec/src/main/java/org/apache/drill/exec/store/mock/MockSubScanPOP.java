@@ -18,7 +18,6 @@
 package org.apache.drill.exec.store.mock;
 
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.drill.exec.physical.base.AbstractBase;
