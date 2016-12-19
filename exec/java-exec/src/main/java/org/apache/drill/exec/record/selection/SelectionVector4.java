@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -119,5 +119,42 @@ public class SelectionVector4 implements AutoCloseable {
   @Override
   public void close() {
     clear();
+  }
+
+  public String toString() {
+    StringBuilder buf = new StringBuilder();
+    buf.append("[SV4 ");
+    int prevUpper = -1;
+    int prevLower = -1;
+    int count=0;
+    for (int i = 0; i < recordCount; i++) {
+      int value = data.getInt(i*4);
+      int uField = value >>> 16;
+      int lField = value & 0xFFFF;
+      if (prevUpper != uField ) {
+        if (prevUpper != -1) {
+          buf.append(prevLower);
+          buf.append("), ");
+        }
+        if (count > 20) {
+          buf.append("...");
+          prevLower = -1;
+          break;
+        }
+        count++;
+        buf.append(uField);
+        buf.append("(");
+        buf.append(lField);
+        buf.append("-");
+      }
+      prevLower = lField;
+      prevUpper = uField;
+    }
+    if(prevUpper != -1) {
+      buf.append(prevLower);
+      buf.append(")");
+    }
+    buf.append("]");
+    return buf.toString();
   }
 }
