@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -307,7 +307,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
         IterOutcome upstream;
         if (first) {
           upstream = IterOutcome.OK_NEW_SCHEMA;
-          logger.trace( "Starting load phase" );
         } else {
           upstream = next(incoming);
         }
