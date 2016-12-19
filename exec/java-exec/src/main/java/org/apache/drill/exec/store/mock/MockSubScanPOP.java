@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -18,7 +18,6 @@
 package org.apache.drill.exec.store.mock;
 
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.drill.exec.physical.base.AbstractBase;
