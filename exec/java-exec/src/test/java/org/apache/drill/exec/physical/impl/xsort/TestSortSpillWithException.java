@@ -17,11 +17,15 @@
  */
 package org.apache.drill.exec.physical.impl.xsort;
 
-import org.apache.drill.BaseTestQuery;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import java.io.IOException;
+
 import org.apache.drill.ClusterFixture;
 import org.apache.drill.ClusterFixture.FixtureBuilder;
 import org.apache.drill.ClusterTest;
-import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.UserRemoteException;
 import org.apache.drill.common.util.TestTools;
 import org.apache.drill.exec.ExecConstants;
@@ -30,12 +34,6 @@ import org.apache.drill.exec.testing.Controls;
 import org.apache.drill.exec.testing.ControlsInjectionUtil;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
-import java.io.IOException;
-import java.util.Properties;
 
 /**
  * Testing External Sort's spilling to disk.
