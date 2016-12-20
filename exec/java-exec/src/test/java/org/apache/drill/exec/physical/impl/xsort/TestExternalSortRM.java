@@ -48,8 +48,8 @@ public class TestExternalSortRM extends DrillTest {
     analyzer.setupLogging( );
 
     FixtureBuilder builder = ClusterFixture.builder()
-        .property(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 40)
-        .property(ExecConstants.EXTERNAL_SORT_MERGE_LIMIT, 40)
+        .configProperty(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 40)
+        .configProperty(ExecConstants.EXTERNAL_SORT_MERGE_LIMIT, 40)
         .maxParallelization(1);
     try (ClusterFixture cluster = builder.build()) {
       cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );

@@ -17,25 +17,23 @@
  */
 package org.apache.drill.exec.physical.impl.join;
 
+import static org.junit.Assert.assertTrue;
+
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 
 import org.apache.drill.ClusterFixture;
 import org.apache.drill.ClusterFixture.FixtureBuilder;
+import org.apache.drill.ClusterTest;
 import org.apache.drill.TestBuilder;
-import org.apache.drill.common.AutoCloseables;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.rpc.RpcException;
 import org.apache.drill.test.DrillTest;
-import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
-public class TestMergeJoinWithSchemaChanges extends DrillTest {
-
-  protected static ClusterFixture cluster;
+public class TestMergeJoinWithSchemaChanges extends ClusterTest {
 
   @BeforeClass
   public static void setup() throws Exception {
@@ -44,12 +42,7 @@ public class TestMergeJoinWithSchemaChanges extends DrillTest {
         .sessionOption("planner.enable_hashagg", false)
         .sessionOption("exec.enable_union_type", true)
         ;
-    cluster = builder.build();
-  }
-
-  @AfterClass
-  public static void shutdown() throws Exception {
-    AutoCloseables.close(cluster);
+    startCluster(builder);
   }
 
   @Test
