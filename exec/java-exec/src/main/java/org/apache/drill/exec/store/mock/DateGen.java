@@ -46,10 +46,17 @@ public class DateGen implements FieldGen {
   private long baseTime;
   private SimpleDateFormat fmt;
 
+<<<<<<< 010f29f36b6c343470f0942a3407caf1f5fa5d97
   public DateGen() {
     // Start a year ago.
     baseTime = System.currentTimeMillis() - ONE_YEAR;
     fmt = new SimpleDateFormat("yyyy-mm-DD");
+=======
+  public DateGen( ) {
+    // Start a year ago.
+    baseTime = System.currentTimeMillis() - 365 * 24 * 60 * 60 * 1000;
+    fmt = new SimpleDateFormat( "yyyy-mm-DD" );
+>>>>>>> Mock data fix
   }
 
   @Override
@@ -62,7 +69,11 @@ public class DateGen implements FieldGen {
   @Override
   public void setValue(ValueVector v, int index) {
     VarCharVector vector = (VarCharVector) v;
+<<<<<<< 010f29f36b6c343470f0942a3407caf1f5fa5d97
     long randTime = baseTime + value();
+=======
+    long randTime = baseTime + value( );
+>>>>>>> Mock data fix
     String str = fmt.format(new Date(randTime));
     vector.getMutator().setSafe(index, str.getBytes());
   }
