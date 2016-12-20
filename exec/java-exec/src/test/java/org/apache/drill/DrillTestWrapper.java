@@ -61,7 +61,7 @@ import org.apache.drill.exec.vector.ValueVector;
  * To construct an instance easily, look at the TestBuilder class. From an implementation of
  * the BaseTestQuery class, and instance of the builder is accessible through the testBuilder() method.
  */
-public abstract class DrillTestWrapper {
+public class DrillTestWrapper {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseTestQuery.class);
 
   public interface TestServices {
