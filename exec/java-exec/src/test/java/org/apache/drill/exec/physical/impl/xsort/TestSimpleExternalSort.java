@@ -136,9 +136,9 @@ public class TestSimpleExternalSort extends DrillEngineTest {
 
   private void sortOneKeyDescendingExternalSort(boolean testLegacy) throws Throwable {
     FixtureBuilder builder = newBuilder( )
-        .property(ExecConstants.EXTERNAL_SORT_SPILL_THRESHOLD, 4 )
-        .property(ExecConstants.EXTERNAL_SORT_SPILL_GROUP_SIZE, 4)
-        .property(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 4);
+        .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_THRESHOLD, 4 )
+        .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_GROUP_SIZE, 4)
+        .configProperty(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 4);
     try (ClusterFixture client = builder.build( )) {
       chooseImpl(client,testLegacy);
       List<QueryDataBatch> results = client.queryBuilder( ).physicalResource("/xsort/one_key_sort_descending.json").results();
@@ -160,10 +160,10 @@ public class TestSimpleExternalSort extends DrillEngineTest {
   private void outOfMemoryExternalSort(boolean testLegacy) throws Throwable{
     FixtureBuilder builder = newBuilder( )
         // Probably do nothing in modern Drill
-        .property( "drill.memory.fragment.max", 50000000 )
-        .property( "drill.memory.fragment.initial", 2000000 )
-        .property( "drill.memory.operator.max", 30000000 )
-        .property( "drill.memory.operator.initial", 2000000 );
+        .configProperty( "drill.memory.fragment.max", 50000000 )
+        .configProperty( "drill.memory.fragment.initial", 2000000 )
+        .configProperty( "drill.memory.operator.max", 30000000 )
+        .configProperty( "drill.memory.operator.initial", 2000000 );
     try (ClusterFixture client = builder.build( )) {
       chooseImpl(client,testLegacy);
       List<QueryDataBatch> results = client.queryBuilder( ).physicalResource("/xsort/oom_sort_test.json").results();
