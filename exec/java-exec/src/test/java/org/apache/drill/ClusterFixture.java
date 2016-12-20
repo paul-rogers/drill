@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Properties;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.drill.BaseTestQuery.SilentListener;
 import org.apache.drill.BufferingQueryEventListener.QueryEvent;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
@@ -54,8 +55,10 @@ import org.apache.drill.exec.store.dfs.WorkspaceConfig;
 import org.apache.drill.exec.store.mock.MockStorageEngine;
 import org.apache.drill.exec.store.mock.MockStorageEngineConfig;
 import org.apache.drill.exec.util.TestUtilities;
+import org.apache.drill.exec.util.VectorUtil;
 import org.apache.drill.exec.vector.NullableVarCharVector;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.test.DrillTest;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
@@ -125,7 +128,7 @@ public class ClusterFixture implements AutoCloseable {
      * Use the given configuration properties to start the embedded Drillbit.
      * @param configProps a collection of config properties
      * @return this builder
-     * @see {@link #property(String, Object)}
+     * @see {@link #configProperty(String, Object)}
      */
 
     public FixtureBuilder configProps( Properties configProps ) {
@@ -142,11 +145,11 @@ public class ClusterFixture implements AutoCloseable {
      * drill.exec.http.enabled : false
      * </code></pre>
      * It may be more convenient to add your settings to the default
-     * config settings with {@link #property(String, Object)}.
+     * config settings with {@link #configProperty(String, Object)}.
      * @param configResource path to the file that contains the
      * config file to be read
      * @return this builder
-     * @see {@link #property(String, Object)}
+     * @see {@link #configProperty(String, Object)}
      */
 
     public FixtureBuilder configResource( String configResource ) {
@@ -166,7 +169,7 @@ public class ClusterFixture implements AutoCloseable {
      * @return this builder
      */
 
-    public FixtureBuilder property( String key, Object value ) {
+    public FixtureBuilder configProperty( String key, Object value ) {
       if ( configProps == null ) {
         configProps = defaultProps( );
       }
@@ -291,16 +294,18 @@ public class ClusterFixture implements AutoCloseable {
     private QueryType queryType;
     private String queryText;
 
-    public QueryBuilder sql(String sql) {
-      queryType = QueryType.SQL;
-      queryText = sql;
+    public QueryBuilder query(QueryType type, String text) {
+      queryType = type;
+      queryText = text;
       return this;
     }
 
+    public QueryBuilder sql(String sql) {
+      return query( QueryType.SQL, sql );
+    }
+
     public QueryBuilder physical(String plan) {
-      queryType = QueryType.PHYSICAL;
-      queryText = plan;
-      return this;
+      return query( QueryType.PHYSICAL, plan);
     }
 
     public QueryBuilder sqlResource(String resource) {
@@ -367,19 +372,36 @@ public class ClusterFixture implements AutoCloseable {
       return listener;
     }
 
-    public int printCsv() {
+    public long printCsv() {
       return print(Format.CSV);
     }
 
-    public int print( Format format ) {
+    public long print( Format format ) {
       return print(format,20);
     }
 
-    public int print(Format format, int colWidth) {
+    public long print(Format format, int colWidth) {
       return runAndWait( new PrintingResultsListener( config, format, colWidth ) );
     }
 
-    public int runAndWait(UserResultsListener listener) {
+    /**
+     * Run a query and optionally print the output in TSV format.
+     * Similar to {@link QueryTestUtil#test} with one query. Output is printed
+     * only if the tests are running as verbose.
+     *
+     * @return the number of rows returned
+     */
+    public long print() {
+      boolean verbose = ! config.getBoolean(QueryTestUtil.TEST_QUERY_PRINTING_SILENT) ||
+                        DrillTest.verbose();
+      if (verbose) {
+        return print(Format.TSV, VectorUtil.DEFAULT_COLUMN_WIDTH);
+      } else {
+        return run().recordCount();
+      }
+    }
+
+    public long runAndWait(UserResultsListener listener) {
       AwaitableUserResultsListener resultListener =
           new AwaitableUserResultsListener(listener);
       withListener( resultListener );
@@ -770,8 +792,8 @@ public class ClusterFixture implements AutoCloseable {
     // Set the static client in BaseTestQuery as the
     // test builder classes rely on it.
 
-    BaseTestQuery.client = client;
-    return new TestBuilder(allocator);
+//    BaseTestQuery.client = client;
+    return new TestBuilder.FixtureTestBuilder(this);
   }
 
   public static ClusterFixture standardClient( ) throws Exception {
@@ -796,5 +818,25 @@ public class ClusterFixture implements AutoCloseable {
     File tempDir = new File( dir, dirName );
     tempDir.mkdirs();
     return tempDir;
+  }
+
+  /**
+   * Run zero or more queries and optionally print the output in TSV format.
+   * Similar to {@link QueryTestUtil#test}. Output is printed
+   * only if the tests are running as verbose.
+   *
+   * @return the number of rows returned
+   */
+
+  public void runQueries(final String queryString) throws Exception{
+    final String query = QueryTestUtil.normalizeQuery(queryString);
+    String[] queries = query.split(";");
+    for (String q : queries) {
+      final String trimmedQuery = q.trim();
+      if (trimmedQuery.isEmpty()) {
+        continue;
+      }
+      queryBuilder( ).sql(trimmedQuery).print();
+    }
   }
 }
