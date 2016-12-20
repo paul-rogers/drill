@@ -145,14 +145,14 @@ public class WindowFrameRecordBatch extends AbstractRecordBatch<WindowPOP> {
 
     if (batches.isEmpty()) {
       logger.trace("no more batches to handle, we are DONE");
-      System.out.println( "Work time: " + totalWork );
-      System.out.println( "Load time: " + totalLoad );
-      System.out.println( "Load count: " + loadCount );
-      System.out.println( "Alloc time: " + allocTime );
-      System.out.println( "DoWork time: " + doWorkTime );
-      System.out.println( "Transfer time: " + transferTime );
-      System.out.println( "TP Transfer time: " + tpTransferTime );
-      System.out.println( "TP Transfer count: " + tpTransferCount );
+//      System.out.println( "Work time: " + totalWork );
+//      System.out.println( "Load time: " + totalLoad );
+//      System.out.println( "Load count: " + loadCount );
+//      System.out.println( "Alloc time: " + allocTime );
+//      System.out.println( "DoWork time: " + doWorkTime );
+//      System.out.println( "Transfer time: " + transferTime );
+//      System.out.println( "TP Transfer time: " + tpTransferTime );
+//      System.out.println( "TP Transfer count: " + tpTransferCount ); // Do not check in - test only
       state = BatchState.DONE;
       return IterOutcome.NONE;
     }

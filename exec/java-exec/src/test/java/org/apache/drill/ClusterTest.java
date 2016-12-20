@@ -1,5 +1,7 @@
 package org.apache.drill;
 
+import java.io.IOException;
+
 import org.apache.drill.ClusterFixture.FixtureBuilder;
 import org.apache.drill.common.AutoCloseables;
 import org.apache.drill.test.DrillTest;
@@ -66,4 +68,33 @@ public class ClusterTest extends DrillTest {
   public static void shutdown() throws Exception {
     AutoCloseables.close(cluster);
   }
+
+  /**
+   * Convenience method when converting classic tests to use the
+   * cluster fixture.
+   * @return a test builder that works against the cluster fixture
+   */
+
+  public TestBuilder testBuilder() {
+    return cluster.testBuilder();
+  }
+
+  /**
+   * Convenience method when converting classic tests to use the
+   * cluster fixture.
+   * @return the contents of the resource text file
+   */
+
+  public String getFile(String resource) throws IOException {
+    return ClusterFixture.getResource(resource);
+  }
+
+  public void test(String sqlQuery) throws Exception {
+    cluster.runQueries(sqlQuery);
+  }
+
+  public static void test(String query, Object... args) throws Exception {
+    cluster.queryBuilder().sql(query, args).run( );
+  }
+
 }
