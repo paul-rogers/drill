@@ -400,6 +400,5 @@ public class TestMergeJoinWithSchemaChanges extends ClusterTest {
     DrillTest.out.println(plan);
     assertTrue(plan.contains("\"pop\" : \"external-sort\","));
     assertTrue(plan.contains("\"pop\" : \"merge-join\","));
-
   }
 }
