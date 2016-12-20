@@ -61,7 +61,7 @@ import org.apache.drill.exec.vector.ValueVector;
  * To construct an instance easily, look at the TestBuilder class. From an implementation of
  * the BaseTestQuery class, and instance of the builder is accessible through the testBuilder() method.
  */
-public class DrillTestWrapper {
+public abstract class DrillTestWrapper {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseTestQuery.class);
 
   // TODO - when in JSON, read baseline in all text mode to avoid precision loss for decimal values
@@ -388,8 +388,8 @@ public class DrillTestWrapper {
     List<QueryDataBatch> actual;
     QueryDataBatch batch = null;
     try {
-      BaseTestQuery.test(testOptionSettingQueries);
-      actual = BaseTestQuery.testRunAndReturn(queryType, query);
+      test(testOptionSettingQueries);
+      actual = testRunAndReturn(queryType, query);
       batch = actual.get(0);
       loader.load(batch.getHeader().getDef(), batch.getData());
 
@@ -438,8 +438,8 @@ public class DrillTestWrapper {
     List<Map<String, Object>> actualRecords = new ArrayList<>();
 
     try {
-      BaseTestQuery.test(testOptionSettingQueries);
-      actual = BaseTestQuery.testRunAndReturn(queryType, query);
+      test(testOptionSettingQueries);
+      actual = testRunAndReturn(queryType, query);
 
       checkNumBatches(actual);
 
@@ -449,8 +449,8 @@ public class DrillTestWrapper {
       // If baseline data was not provided to the test builder directly, we must run a query for the baseline, this includes
       // the cases where the baseline is stored in a file.
       if (baselineRecords == null) {
-        BaseTestQuery.test(baselineOptionSettingQueries);
-        expected = BaseTestQuery.testRunAndReturn(baselineQueryType, testBuilder.getValidationQuery());
+        test(baselineOptionSettingQueries);
+        expected = testRunAndReturn(baselineQueryType, testBuilder.getValidationQuery());
         addToMaterializedResults(expectedRecords, expected, loader);
       } else {
         expectedRecords = baselineRecords;
@@ -488,8 +488,8 @@ public class DrillTestWrapper {
     Map<String, List<Object>> expectedSuperVectors;
 
     try {
-      BaseTestQuery.test(testOptionSettingQueries);
-      actual = BaseTestQuery.testRunAndReturn(queryType, query);
+      test(testOptionSettingQueries);
+      actual = testRunAndReturn(queryType, query);
 
       checkNumBatches(actual);
 
@@ -503,8 +503,8 @@ public class DrillTestWrapper {
       // If baseline data was not provided to the test builder directly, we must run a query for the baseline, this includes
       // the cases where the baseline is stored in a file.
       if (baselineRecords == null) {
-        BaseTestQuery.test(baselineOptionSettingQueries);
-        expected = BaseTestQuery.testRunAndReturn(baselineQueryType, testBuilder.getValidationQuery());
+        test(baselineOptionSettingQueries);
+        expected = testRunAndReturn(baselineQueryType, testBuilder.getValidationQuery());
         BatchIterator exBatchIter = new BatchIterator(expected, loader);
         expectedSuperVectors = addToCombinedVectorResults(exBatchIter);
         exBatchIter.close();
@@ -538,8 +538,8 @@ public class DrillTestWrapper {
   public void compareResultsHyperVector() throws Exception {
     RecordBatchLoader loader = new RecordBatchLoader(getAllocator());
 
-    BaseTestQuery.test(testOptionSettingQueries);
-    List<QueryDataBatch> results = BaseTestQuery.testRunAndReturn(queryType, query);
+    test(testOptionSettingQueries);
+    List<QueryDataBatch> results = testRunAndReturn(queryType, query);
 
     checkNumBatches(results);
 
@@ -548,8 +548,8 @@ public class DrillTestWrapper {
 
     Map<String, HyperVectorValueIterator> actualSuperVectors = addToHyperVectorMap(results, loader);
 
-    BaseTestQuery.test(baselineOptionSettingQueries);
-    List<QueryDataBatch> expected = BaseTestQuery.testRunAndReturn(baselineQueryType, testBuilder.getValidationQuery());
+    test(baselineOptionSettingQueries);
+    List<QueryDataBatch> expected = testRunAndReturn(baselineQueryType, testBuilder.getValidationQuery());
 
     Map<String, HyperVectorValueIterator> expectedSuperVectors = addToHyperVectorMap(expected, loader);
 
@@ -758,6 +758,68 @@ public class DrillTestWrapper {
       ret += s + " : "  + record.get(s) + ", ";
     }
     return ret + "\n";
+  }
+
+  protected abstract void test(String query) throws Exception;
+  protected abstract List<QueryDataBatch> testRunAndReturn(QueryType type, Object query) throws Exception;
+
+  /**
+   * To construct an instance easily, look at the TestBuilder class. From an implementation of
+   * the BaseTestQuery class, and instance of the builder is accessible through the testBuilder() method.
+   */
+
+  public static class ClassicTestWrapper extends DrillTestWrapper {
+
+    public ClassicTestWrapper(TestBuilder testBuilder, BufferAllocator allocator,
+        Object query, QueryType queryType, String baselineOptionSettingQueries,
+        String testOptionSettingQueries, QueryType baselineQueryType,
+        boolean ordered, boolean highPerformanceComparison,
+        List<Map<String, Object>> baselineRecords, int expectedNumBatches) {
+      super(testBuilder, allocator, query, queryType, baselineOptionSettingQueries,
+          testOptionSettingQueries, baselineQueryType, ordered,
+          highPerformanceComparison, baselineRecords, expectedNumBatches);
+    }
+
+    @Override
+    protected void test(String query) throws Exception {
+      BaseTestQuery.test(query);
+    }
+
+    @Override
+    protected List<QueryDataBatch> testRunAndReturn(QueryType type, Object query) throws Exception {
+      return BaseTestQuery.testRunAndReturn(type, query);
+    }
+  }
+
+  /**
+   * Test wrapper created from a {@link ClusterFixture} using the
+   * {@link ClusterFixture#testBuilder()} method.
+   */
+
+  public static class FixtureTestWrapper extends DrillTestWrapper {
+
+    private ClusterFixture cluster;
+
+    public FixtureTestWrapper(TestBuilder.FixtureTestBuilder testBuilder,
+        Object query, QueryType queryType, String baselineOptionSettingQueries,
+        String testOptionSettingQueries, QueryType baselineQueryType,
+        boolean ordered, boolean highPerformanceComparison,
+        List<Map<String, Object>> baselineRecords, int expectedNumBatches) {
+      super(testBuilder, testBuilder.cluster().allocator(), query, queryType, baselineOptionSettingQueries,
+          testOptionSettingQueries, baselineQueryType, ordered,
+          highPerformanceComparison, baselineRecords, expectedNumBatches);
+      cluster = testBuilder.cluster( );
+    }
+
+    @Override
+    protected void test(String query) throws Exception {
+      cluster.runQueries(query);
+    }
+
+    @Override
+    protected List<QueryDataBatch> testRunAndReturn(QueryType type, Object query) throws Exception {
+      return cluster.queryBuilder().query(type, (String) query).results( );
+    }
   }
 
 }

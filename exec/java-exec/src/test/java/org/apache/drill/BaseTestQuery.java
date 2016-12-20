@@ -249,7 +249,7 @@ public class BaseTestQuery extends ExecTest {
   }
 
   public static TestBuilder testBuilder() {
-    return new TestBuilder(allocator);
+    return new TestBuilder.ClassicTestBuilder(allocator);
   }
 
   @AfterClass
