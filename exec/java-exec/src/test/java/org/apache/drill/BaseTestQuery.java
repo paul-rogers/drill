@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.drill.DrillTestWrapper.TestServices;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.scanner.ClassPathScanner;
@@ -248,8 +249,26 @@ public class BaseTestQuery extends ExecTest {
     return testBuilder();
   }
 
+
+  public static class ClassicTestServices implements TestServices {
+    @Override
+    public BufferAllocator allocator() {
+      return allocator;
+    }
+
+    @Override
+    public void test(String query) throws Exception {
+      test(query);
+    }
+
+    @Override
+    public List<QueryDataBatch> testRunAndReturn(final QueryType type, final Object query) throws Exception {
+      return testRunAndReturn(type, query);
+    }
+  }
+
   public static TestBuilder testBuilder() {
-    return new TestBuilder.ClassicTestBuilder(allocator);
+    return new TestBuilder(new ClassicTestServices());
   }
 
   @AfterClass
