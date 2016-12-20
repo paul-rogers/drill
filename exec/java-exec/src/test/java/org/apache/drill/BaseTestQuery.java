@@ -258,12 +258,12 @@ public class BaseTestQuery extends ExecTest {
 
     @Override
     public void test(String query) throws Exception {
-      test(query);
+      BaseTestQuery.test(query);
     }
 
     @Override
     public List<QueryDataBatch> testRunAndReturn(final QueryType type, final Object query) throws Exception {
-      return testRunAndReturn(type, query);
+      return BaseTestQuery.testRunAndReturn(type, query);
     }
   }
 
