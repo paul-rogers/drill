@@ -403,7 +403,7 @@ public class HiveUtilities {
    * @param table     the source of table level parameters
    * @return properties
    */
-  public static Properties getPartitionMetadata(final HivePartition partition, final HiveTable table) {
+  public static Properties getPartitionMetadata(final HivePartition partition, final HiveTableWithColumnCache table) {
     final Properties properties;
     restoreColumns(table, partition);
     properties = MetaStoreUtils.getPartitionMetadata(partition, table);
@@ -426,7 +426,7 @@ public class HiveUtilities {
    * @param partition partition which will set column list
    * @param table     the source of column lists cache
    */
-  public static void restoreColumns(HiveTable table, HivePartition partition) {
+  public static void restoreColumns(HiveTableWithColumnCache table, HivePartition partition) {
     // exactly the same column lists for partitions or table
     // stored only one time to reduce physical plan serialization
     if (partition != null && partition.getSd().getCols() == null) {
@@ -442,7 +442,7 @@ public class HiveUtilities {
    * which also sets columns from table cache to table and returns properties returned by
    * {@link MetaStoreUtils#getSchema(StorageDescriptor, StorageDescriptor, Map, String, String, List)}.
    */
-  public static Properties getTableMetadata(HiveTable table) {
+  public static Properties getTableMetadata(HiveTableWithColumnCache table) {
     restoreColumns(table, null);
     return MetaStoreUtils.getSchema(table.getSd(), table.getSd(), table.getParameters(),
       table.getDbName(), table.getTableName(), table.getPartitionKeys());

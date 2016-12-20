@@ -30,7 +30,6 @@ import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
-import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.InputSplit;
@@ -83,7 +82,7 @@ public class HiveMetadataProvider {
   public HiveStats getStats(final HiveReadEntry hiveReadEntry) throws IOException {
     final Stopwatch timeGetStats = Stopwatch.createStarted();
 
-    final HiveTable table = hiveReadEntry.getTable();
+    final HiveTableWithColumnCache table = hiveReadEntry.getTable();
     try {
       if (!isPartitionedTable) {
         final Properties properties = MetaStoreUtils.getTableMetadata(table);
@@ -110,7 +109,7 @@ public class HiveMetadataProvider {
         return aggStats;
       }
     } catch (final Exception e) {
-      throw new IOException("Failed to get numRows from HiveTableWrapper", e);
+      throw new IOException("Failed to get numRows from HiveTable", e);
     } finally {
       logger.debug("Took {} µs to get stats from {}.{}", timeGetStats.elapsed(TimeUnit.NANOSECONDS) / 1000,
           table.getDbName(), table.getTableName());

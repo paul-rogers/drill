@@ -39,11 +39,10 @@ import org.apache.drill.exec.store.StoragePluginOptimizerRule;
 import org.apache.drill.exec.store.hive.HiveDrillNativeParquetScan;
 import org.apache.drill.exec.store.hive.HiveReadEntry;
 import org.apache.drill.exec.store.hive.HiveScan;
-import org.apache.drill.exec.store.hive.HiveTable;
+import org.apache.drill.exec.store.hive.HiveTableWithColumnCache;
 import org.apache.drill.exec.store.hive.HiveTableWrapper.HivePartitionWrapper;
 import org.apache.drill.exec.store.hive.HiveUtilities;
 import org.apache.hadoop.hive.conf.HiveConf;
-import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -98,7 +97,7 @@ public class ConvertHiveParquetScanToDrillParquetScan extends StoragePluginOptim
 
     final HiveScan hiveScan = (HiveScan) scanRel.getGroupScan();
     final HiveConf hiveConf = hiveScan.getHiveConf();
-    final HiveTable hiveTable = hiveScan.hiveReadEntry.getTable();
+    final HiveTableWithColumnCache hiveTable = hiveScan.hiveReadEntry.getTable();
 
     final Class<? extends InputFormat<?,?>> tableInputFormat =
         getInputFormatFromSD(HiveUtilities.getTableMetadata(hiveTable), hiveScan.hiveReadEntry, hiveTable.getSd(),

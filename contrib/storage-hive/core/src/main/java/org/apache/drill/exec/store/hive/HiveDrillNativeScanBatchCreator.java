@@ -60,7 +60,7 @@ public class HiveDrillNativeScanBatchCreator implements BatchCreator<HiveDrillNa
   @Override
   public ScanBatch getBatch(FragmentContext context, HiveDrillNativeParquetSubScan config, List<RecordBatch> children)
       throws ExecutionSetupException {
-    final HiveTable table = config.getTable();
+    final HiveTableWithColumnCache table = config.getTable();
     final List<InputSplit> splits = config.getInputSplits();
     final List<HivePartition> partitions = config.getPartitions();
     final List<SchemaPath> columns = config.getColumns();

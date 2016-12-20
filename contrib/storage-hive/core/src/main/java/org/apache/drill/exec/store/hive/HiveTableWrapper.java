@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.store.hive;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +37,7 @@ import com.google.common.collect.Lists;
 public class HiveTableWrapper {
 
   @JsonIgnore
-  private HiveTable table;
+  private HiveTableWithColumnCache table;
 
   @JsonProperty
   public String tableName;
@@ -98,11 +97,11 @@ public class HiveTableWrapper {
       partitionNameTypeMap.put(w.name, w.type);
     }
     StorageDescriptor sdUnwrapped = sd.getSd();
-    this.table = new HiveTable(tableName, dbName, owner, createTime, lastAccessTime, retention, sdUnwrapped, partitionKeysUnwrapped,
+    this.table = new HiveTableWithColumnCache(tableName, dbName, owner, createTime, lastAccessTime, retention, sdUnwrapped, partitionKeysUnwrapped,
         parameters, viewOriginalText, viewExpandedText, tableType, columnsCache.getColumnListsCache());
   }
 
-  public HiveTableWrapper(HiveTable table) {
+  public HiveTableWrapper(HiveTableWithColumnCache table) {
     if (table == null) {
       return;
     }
@@ -127,7 +126,7 @@ public class HiveTableWrapper {
   }
 
   @JsonIgnore
-  public HiveTable getTable() {
+  public HiveTableWithColumnCache getTable() {
     return table;
   }
 
@@ -212,11 +211,6 @@ public class HiveTableWrapper {
     }
 
     @JsonIgnore
-    public StorageDescriptorWrapper getSd() {
-      return sd;
-    }
-
-    @JsonIgnore
     public HivePartition getPartition() {
       return partition;
     }
@@ -293,9 +287,14 @@ public class HiveTableWrapper {
         colsUnwrapped = null;
       }
       SerDeInfo serDeInfoUnwrapped = serDeInfo.getSerDeInfo();
-      List<Order> sortColsUnwrapped = Lists.newArrayList();
-      for (OrderWrapper order : sortCols) {
-        sortColsUnwrapped.add(order.getOrder());
+      List<Order> sortColsUnwrapped;
+      if (sortCols != null) {
+        sortColsUnwrapped = Lists.newArrayList();
+        for (OrderWrapper order : sortCols) {
+          sortColsUnwrapped.add(order.getOrder());
+        }
+      } else {
+        sortColsUnwrapped = null;
       }
       sd = new StorageDescriptor(colsUnwrapped, location, inputFormat, outputFormat,
         compressed, numBuckets, serDeInfoUnwrapped, null, sortColsUnwrapped, parameters);
@@ -309,9 +308,11 @@ public class HiveTableWrapper {
       compressed = storageDescriptor.isCompressed();
       numBuckets = storageDescriptor.getNumBuckets();
       serDeInfo = new SerDeInfoWrapper(storageDescriptor.getSerdeInfo());
-      sortCols = Lists.newArrayList();
-      for (Order order : storageDescriptor.getSortCols()) {
-        sortCols.add(new OrderWrapper(order));
+      if (sd.getSortCols() != null) {
+        sortCols = Lists.newArrayList();
+        for (Order order : sd.getSortCols()) {
+          sortCols.add(new OrderWrapper(order));
+        }
       }
       parameters = storageDescriptor.getParameters();
       if (sd.getCols() != null) {
@@ -325,24 +326,6 @@ public class HiveTableWrapper {
     @JsonIgnore
     public StorageDescriptor getSd() {
       return sd;
-    }
-
-    @JsonIgnore
-    public void setColumns(List<FieldSchema> columns) {
-      sd.setCols(columns);
-      if (columns != null) {
-        this.columns = Lists.newArrayList();
-        for (FieldSchema fieldSchema : columns) {
-          this.columns.add(new FieldSchemaWrapper(fieldSchema));
-        }
-      } else {
-        this.columns = null;
-      }
-    }
-
-    @JsonIgnore
-    public List<FieldSchemaWrapper> getColumns() {
-      return columns;
     }
   }
 
@@ -454,7 +437,7 @@ public class HiveTableWrapper {
       this.keys = keys;
       this.columnListsCache = new ColumnListsCache();
       for (List<FieldSchemaWrapper> columns : keys) {
-        final List<FieldSchema> columnsUnwrapped = new ArrayList<>();
+        final List<FieldSchema> columnsUnwrapped = Lists.newArrayList();
         for (FieldSchemaWrapper field : columns) {
           columnsUnwrapped.add(field.getFieldSchema());
         }
@@ -464,9 +447,9 @@ public class HiveTableWrapper {
 
     public ColumnsCacheWrapper(ColumnListsCache columnListsCache) {
       this.columnListsCache = columnListsCache;
-      final List<List<FieldSchemaWrapper>> keysWrapped = new ArrayList<>();
+      final List<List<FieldSchemaWrapper>> keysWrapped = Lists.newArrayList();
       for (List<FieldSchema> columns : columnListsCache.getFields()) {
-        final List<FieldSchemaWrapper> columnsWrapped = new ArrayList<>();
+        final List<FieldSchemaWrapper> columnsWrapped = Lists.newArrayList();
         for (FieldSchema field : columns) {
           columnsWrapped.add(new FieldSchemaWrapper(field));
         }

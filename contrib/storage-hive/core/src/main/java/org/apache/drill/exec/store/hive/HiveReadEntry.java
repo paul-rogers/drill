@@ -22,8 +22,6 @@ import java.util.List;
 import org.apache.calcite.schema.Schema.TableType;
 
 import org.apache.drill.exec.store.hive.HiveTableWrapper.HivePartitionWrapper;
-import org.apache.hadoop.hive.metastore.api.Partition;
-import org.apache.hadoop.hive.metastore.api.Table;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -53,7 +51,7 @@ public class HiveReadEntry {
   }
 
   @JsonIgnore
-  public HiveTable getTable() {
+  public HiveTableWithColumnCache getTable() {
     return table.getTable();
   }
 

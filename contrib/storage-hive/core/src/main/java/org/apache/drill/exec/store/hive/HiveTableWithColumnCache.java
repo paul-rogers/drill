@@ -27,15 +27,15 @@ import java.util.Map;
  * This class is wrapper of {@link Table} class and used for
  * storage of such additional information as column lists cache.
  */
-public class HiveTable extends Table {
+public class HiveTableWithColumnCache extends Table {
 
   private ColumnListsCache columnListsCache;
 
-  public HiveTable() {
+  public HiveTableWithColumnCache() {
     super();
   }
 
-  public HiveTable(
+  public HiveTableWithColumnCache(
     String tableName,
     String dbName,
     String owner,
@@ -54,12 +54,12 @@ public class HiveTable extends Table {
     this.columnListsCache = columnListsCache;
   }
 
-  public HiveTable(HiveTable other) {
+  public HiveTableWithColumnCache(HiveTableWithColumnCache other) {
     super(other);
     columnListsCache = other.getColumnListsCache();
   }
 
-  public HiveTable(Table other, ColumnListsCache columnListsCache) {
+  public HiveTableWithColumnCache(Table other, ColumnListsCache columnListsCache) {
     super(other);
     this.columnListsCache = columnListsCache;
   }

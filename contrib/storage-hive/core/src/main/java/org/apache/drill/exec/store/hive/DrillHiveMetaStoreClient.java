@@ -305,7 +305,7 @@ public abstract class DrillHiveMetaStoreClient extends HiveMetaStoreClient {
     }
 
     List<HiveTableWrapper.HivePartitionWrapper> hivePartitionWrappers = Lists.newArrayList();
-    HiveTable hiveTable = new HiveTable(table, new ColumnListsCache(table));
+    HiveTableWithColumnCache hiveTable = new HiveTableWithColumnCache(table, new ColumnListsCache(table));
     for (Partition partition : partitions) {
       hivePartitionWrappers.add(createPartitionWithSpecColumns(hiveTable, partition));
     }
@@ -327,7 +327,7 @@ public abstract class DrillHiveMetaStoreClient extends HiveMetaStoreClient {
    * @param partition partition instance
    * @return hive partition wrapper
    */
-  public static HiveTableWrapper.HivePartitionWrapper createPartitionWithSpecColumns(HiveTable table, Partition partition) {
+  public static HiveTableWrapper.HivePartitionWrapper createPartitionWithSpecColumns(HiveTableWithColumnCache table, Partition partition) {
     int listIndex = table.getColumnListsCache().addOrGet(partition.getSd().getCols());
     HivePartition hivePartition = new HivePartition(partition, listIndex);
     HiveTableWrapper.HivePartitionWrapper hivePartitionWrapper = new HiveTableWrapper.HivePartitionWrapper(hivePartition);

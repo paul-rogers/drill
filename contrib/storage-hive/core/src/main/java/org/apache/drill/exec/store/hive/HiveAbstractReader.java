@@ -39,10 +39,7 @@ import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.conf.HiveConf.ConfVars;
-import org.apache.hadoop.hive.metastore.MetaStoreUtils;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.Partition;
-import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.serde2.ColumnProjectionUtils;
 import org.apache.hadoop.hive.serde2.SerDe;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
@@ -67,7 +64,7 @@ public abstract class HiveAbstractReader extends AbstractRecordReader {
 
   protected final DrillBuf managedBuffer;
 
-  protected HiveTable table;
+  protected HiveTableWithColumnCache table;
   protected HivePartition partition;
   protected InputSplit inputSplit;
   protected List<String> selectedColumnNames;
@@ -106,9 +103,9 @@ public abstract class HiveAbstractReader extends AbstractRecordReader {
 
   protected static final int TARGET_RECORD_COUNT = 4000;
 
-  public HiveAbstractReader(HiveTable table, HivePartition partition, InputSplit inputSplit, List<SchemaPath> projectedColumns,
-                       FragmentContext context, final HiveConf hiveConf,
-                       UserGroupInformation proxyUgi) throws ExecutionSetupException {
+  public HiveAbstractReader(HiveTableWithColumnCache table, HivePartition partition, InputSplit inputSplit, List<SchemaPath> projectedColumns,
+                            FragmentContext context, final HiveConf hiveConf,
+                            UserGroupInformation proxyUgi) throws ExecutionSetupException {
     this.table = table;
     this.partition = partition;
     this.inputSplit = inputSplit;

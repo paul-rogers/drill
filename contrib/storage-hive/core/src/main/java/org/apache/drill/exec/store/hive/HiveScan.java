@@ -160,8 +160,8 @@ public class HiveScan extends AbstractGroupScan {
       for (final InputSplitWrapper split : splits) {
         final Partition splitPartition = split.getPartition();
         if (splitPartition != null) {
-          HiveTable table = hiveReadEntry.getTable();
-          parts.add(createPartitionWithSpecColumns(new HiveTable(table, new ColumnListsCache(table)), splitPartition));
+          HiveTableWithColumnCache table = hiveReadEntry.getTable();
+          parts.add(createPartitionWithSpecColumns(new HiveTableWithColumnCache(table, new ColumnListsCache(table)), splitPartition));
         }
 
         encodedInputSplits.add(serializeInputSplit(split.getSplit()));

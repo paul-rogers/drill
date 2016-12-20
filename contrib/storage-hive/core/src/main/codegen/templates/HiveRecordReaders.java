@@ -61,7 +61,7 @@ public class Hive${entry.hiveReader}Reader extends HiveAbstractReader {
   Object value;
 </#if>
 
-  public Hive${entry.hiveReader}Reader(HiveTable table, HivePartition partition, InputSplit inputSplit, List<SchemaPath> projectedColumns,
+  public Hive${entry.hiveReader}Reader(HiveTableWithColumnCache table, HivePartition partition, InputSplit inputSplit, List<SchemaPath> projectedColumns,
                        FragmentContext context, final HiveConf hiveConf,
                        UserGroupInformation proxyUgi) throws ExecutionSetupException {
     super(table, partition, inputSplit, projectedColumns, context, hiveConf, proxyUgi);
