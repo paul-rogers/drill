@@ -20,7 +20,10 @@ package org.apache.drill.exec.physical.impl.window;
 import java.util.Properties;
 
 import org.apache.drill.BaseTestQuery;
+import org.apache.drill.ClusterFixture;
 import org.apache.drill.DrillTestWrapper;
+import org.apache.drill.ClusterFixture.FixtureBuilder;
+import org.apache.drill.ClusterTest;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.UserRemoteException;
 import org.apache.drill.common.util.TestTools;
@@ -32,18 +35,28 @@ import org.apache.drill.exec.proto.UserBitShared.DrillPBError.ErrorType;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-public class TestWindowFrame extends BaseTestQuery {
+public class TestWindowFrame extends ClusterTest {
 
   private static final String TEST_RES_PATH = TestTools.getWorkingPath() + "/src/test/resources";
 
   @BeforeClass
-  public static void setupMSortBatchSize() {
-    // make sure memory sorter outputs 20 rows per batch
-    final Properties props = cloneDefaultTestConfigProperties();
-    props.put(ExecConstants.EXTERNAL_SORT_MSORT_MAX_BATCHSIZE, Integer.toString(20));
-
-    updateTestCluster(1, DrillConfig.create(props));
+  public static void setup() throws Exception {
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.EXTERNAL_SORT_MSORT_MAX_BATCHSIZE, 20)
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, true)
+        ;
+    startCluster(builder);
   }
+
+//  @BeforeClass
+//  public static void setupMSortBatchSize() {
+//    // make sure memory sorter outputs 20 rows per batch
+//    final Properties props = cloneDefaultTestConfigProperties();
+//    props.put(ExecConstants.EXTERNAL_SORT_MSORT_MAX_BATCHSIZE, Integer.toString(20));
+//    props.put(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, "true");
+//
+//    updateTestCluster(1, DrillConfig.create(props));
+//  }
 
   private DrillTestWrapper buildWindowQuery(final String tableName, final boolean withPartitionBy, final int numBatches)
       throws Exception {
@@ -426,9 +439,9 @@ public class TestWindowFrame extends BaseTestQuery {
 
   @Test
   public void test4457() throws Exception {
-    runSQL(String.format("CREATE TABLE dfs_test.tmp.`4457` AS " +
+    test("CREATE TABLE dfs_test.tmp.`4457` AS " +
       "SELECT columns[0] AS c0, NULLIF(columns[1], 'null') AS c1 " +
-      "FROM dfs_test.`%s/window/4457.csv`", TEST_RES_PATH));
+      "FROM dfs_test.`%s/window/4457.csv`", TEST_RES_PATH);
 
     testBuilder()
       .sqlQuery("SELECT COALESCE(FIRST_VALUE(c1) OVER(ORDER BY c0 RANGE BETWEEN CURRENT ROW AND CURRENT ROW), 'EMPTY') AS fv FROM dfs_test.tmp.`4457`")

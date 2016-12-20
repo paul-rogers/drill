@@ -29,6 +29,7 @@ import java.util.Properties;
 import org.apache.commons.io.FileUtils;
 import org.apache.drill.BaseTestQuery.SilentListener;
 import org.apache.drill.BufferingQueryEventListener.QueryEvent;
+import org.apache.drill.ClusterFixture.QueryBuilder;
 import org.apache.drill.DrillTestWrapper.TestServices;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
@@ -305,6 +306,10 @@ public class ClusterFixture implements AutoCloseable {
       return query( QueryType.SQL, sql );
     }
 
+    public QueryBuilder sql(String query, Object[] args) {
+      return sql(String.format(query, args));
+    }
+
     public QueryBuilder physical(String plan) {
       return query( QueryType.PHYSICAL, plan);
     }
@@ -455,9 +460,7 @@ public class ClusterFixture implements AutoCloseable {
         case EOF:
           break loop;
         case ERROR:
-          event.error.printStackTrace();
-          fail( );
-          break loop;
+          throw event.error;
         case QUERY_ID:
           break;
         default:
@@ -646,40 +649,6 @@ public class ClusterFixture implements AutoCloseable {
     return new QueryBuilder();
   }
 
-//  /**
-//   * Discard the results returned from a query.
-//   *
-//   * @param results
-//   */
-//
-//  public void discardResults(List<QueryDataBatch> results) {
-//    for (QueryDataBatch queryDataBatch : results) {
-//      queryDataBatch.release();
-//    }
-//  }
-
-//  /**
-//   * Run SQL and return the results.
-//   *
-//   * @param sql
-//   * @return
-//   * @throws RpcException
-//   */
-//  public List<QueryDataBatch> runSql(String sql) throws RpcException {
-//    return runQuery(QueryType.SQL, sql);
-//  }
-
-//  /**
-//   * Run SQL stored in a resource file and return the results.
-//   *
-//   * @param file
-//   * @throws Exception
-//   */
-//
-//  public List<QueryDataBatch> runSqlFromResource(String file) {
-//    return runSql(loadResource(file));
-//  }
-
   public static String getResource(String resource) throws IOException {
     // Unlike the Java routines, Guava does not like a leading slash.
 
@@ -697,31 +666,6 @@ public class ClusterFixture implements AutoCloseable {
       throw new IllegalStateException("Resource not found: " + resource, e);
     }
   }
-
-//  /**
-//   * Run a physical plan stored in a resource and return the results.
-//   *
-//   * @param file
-//   * @return
-//   * @throws Exception
-//   */
-//
-//  public List<QueryDataBatch> runPhysicalFromResource(String file) {
-//    return runQuery(QueryType.PHYSICAL, loadResource(file));
-//  }
-//
-//  /**
-//   * Generic method to run a query of the specifed type and return the results.
-//   *
-//   * @param type
-//   * @param query
-//   * @return
-//   * @throws RpcException
-//   */
-//
-//  public List<QueryDataBatch> runQuery(QueryType type, String query) throws RpcException {
-//    return client.runQuery(type, query);
-//  }
 
   public int countResults(List<QueryDataBatch> results) {
     int count = 0;
