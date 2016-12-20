@@ -17,10 +17,8 @@
  */
 package org.apache.drill.exec.store.mock;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Random;
 
 import org.apache.drill.exec.vector.ValueVector;
@@ -30,10 +28,12 @@ public class DateGen implements FieldGen {
 
   private Random rand = new Random( );
   private long baseTime;
-  private DateTimeFormatter fmt = DateTimeFormatter.ISO_LOCAL_DATE;
+  private SimpleDateFormat fmt;
 
   public DateGen( ) {
+    // Start a year ago.
     baseTime = System.currentTimeMillis() - 365 * 24 * 60 * 60 * 1000;
+    fmt = new SimpleDateFormat( "yyyy-mm-DD" );
   }
 
   @Override
@@ -46,8 +46,8 @@ public class DateGen implements FieldGen {
   @Override
   public void setValue( ValueVector v, int index ) {
     VarCharVector vector = (VarCharVector) v;
-    Instant instant = Instant.ofEpochMilli( value( ) );
-    String str = fmt.format( LocalDateTime.ofInstant(instant, ZoneId.systemDefault()) );
+    long randTime = baseTime + value( );
+    String str = fmt.format(new Date(randTime));
     vector.getMutator().setSafe(index, str.getBytes());
   }
 }
