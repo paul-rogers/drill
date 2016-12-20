@@ -203,6 +203,7 @@ public class MockGroupScanPOP extends AbstractGroupScan {
     public Integer getScale() { return scale; }
     public String getGenerator( ) { return generator; }
     public Integer getRepeat() { return repeat; }
+    @JsonIgnore
     public int getRepeatCount() { return repeat == null ? 1 : repeat; }
 
     @JsonIgnore
