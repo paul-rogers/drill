@@ -159,7 +159,7 @@ public class TestExternalSortRM extends DrillTest {
 //      cluster.defineWorkspace( "mock", "data", null, null );
       cluster.queryBuilder().sql("SHOW DATABASES").printCsv();
       String sql = "SELECT `id_i`, `num_d`, `name_s50` FROM `mock`.`implicit_10` ORDER BY `name_s50`";
-      int count = cluster.queryBuilder( ).sql(sql).printCsv();
+      long count = cluster.queryBuilder().sql(sql).printCsv();
       System.out.println( "Rows: " + count );
     }
   }

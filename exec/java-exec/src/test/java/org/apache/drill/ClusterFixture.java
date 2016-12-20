@@ -29,6 +29,7 @@ import java.util.Properties;
 import org.apache.commons.io.FileUtils;
 import org.apache.drill.BaseTestQuery.SilentListener;
 import org.apache.drill.BufferingQueryEventListener.QueryEvent;
+import org.apache.drill.DrillTestWrapper.TestServices;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
@@ -788,12 +789,31 @@ public class ClusterFixture implements AutoCloseable {
      return new FixtureBuilder( );
   }
 
+  public class FixtureTestServices implements TestServices {
+
+    @Override
+    public BufferAllocator allocator() {
+      return allocator;
+    }
+
+    @Override
+    public void test(String query) throws Exception {
+      runQueries(query);
+    }
+
+    @Override
+    public List<QueryDataBatch> testRunAndReturn(QueryType type, Object query)
+        throws Exception {
+      return queryBuilder().query(type, (String) query).results( );
+    }
+  }
+
   public TestBuilder testBuilder() {
     // Set the static client in BaseTestQuery as the
     // test builder classes rely on it.
 
 //    BaseTestQuery.client = client;
-    return new TestBuilder.FixtureTestBuilder(this);
+    return new TestBuilder(new FixtureTestServices());
   }
 
   public static ClusterFixture standardClient( ) throws Exception {

@@ -61,8 +61,16 @@ import org.apache.drill.exec.vector.ValueVector;
  * To construct an instance easily, look at the TestBuilder class. From an implementation of
  * the BaseTestQuery class, and instance of the builder is accessible through the testBuilder() method.
  */
-public abstract class DrillTestWrapper {
+public class DrillTestWrapper {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseTestQuery.class);
+
+  public interface TestServices {
+    BufferAllocator allocator();
+
+    void test(String query) throws Exception;
+
+    List<QueryDataBatch> testRunAndReturn(QueryType type, Object query) throws Exception;
+  }
 
   // TODO - when in JSON, read baseline in all text mode to avoid precision loss for decimal values
 
@@ -91,7 +99,7 @@ public abstract class DrillTestWrapper {
   private UserBitShared.QueryType baselineQueryType;
   // should ordering be enforced in the baseline check
   private boolean ordered;
-  private BufferAllocator allocator;
+  private TestServices services;
   // queries to run before the baseline or test queries, can be used to set options
   private String baselineOptionSettingQueries;
   private String testOptionSettingQueries;
@@ -108,12 +116,12 @@ public abstract class DrillTestWrapper {
 
   private int expectedNumBatches;
 
-  public DrillTestWrapper(TestBuilder testBuilder, BufferAllocator allocator, Object query, QueryType queryType,
+  public DrillTestWrapper(TestBuilder testBuilder, TestServices services, Object query, QueryType queryType,
                           String baselineOptionSettingQueries, String testOptionSettingQueries,
                           QueryType baselineQueryType, boolean ordered, boolean highPerformanceComparison,
                           List<Map<String, Object>> baselineRecords, int expectedNumBatches) {
     this.testBuilder = testBuilder;
-    this.allocator = allocator;
+    this.services = services;
     this.query = query;
     this.queryType = queryType;
     this.baselineQueryType = baselineQueryType;
@@ -138,7 +146,7 @@ public abstract class DrillTestWrapper {
   }
 
   private BufferAllocator getAllocator() {
-    return allocator;
+    return services.allocator();
   }
 
   private void compareHyperVectors(Map<String, HyperVectorValueIterator> expectedRecords,
@@ -760,66 +768,11 @@ public abstract class DrillTestWrapper {
     return ret + "\n";
   }
 
-  protected abstract void test(String query) throws Exception;
-  protected abstract List<QueryDataBatch> testRunAndReturn(QueryType type, Object query) throws Exception;
-
-  /**
-   * To construct an instance easily, look at the TestBuilder class. From an implementation of
-   * the BaseTestQuery class, and instance of the builder is accessible through the testBuilder() method.
-   */
-
-  public static class ClassicTestWrapper extends DrillTestWrapper {
-
-    public ClassicTestWrapper(TestBuilder testBuilder, BufferAllocator allocator,
-        Object query, QueryType queryType, String baselineOptionSettingQueries,
-        String testOptionSettingQueries, QueryType baselineQueryType,
-        boolean ordered, boolean highPerformanceComparison,
-        List<Map<String, Object>> baselineRecords, int expectedNumBatches) {
-      super(testBuilder, allocator, query, queryType, baselineOptionSettingQueries,
-          testOptionSettingQueries, baselineQueryType, ordered,
-          highPerformanceComparison, baselineRecords, expectedNumBatches);
-    }
-
-    @Override
-    protected void test(String query) throws Exception {
-      BaseTestQuery.test(query);
-    }
-
-    @Override
-    protected List<QueryDataBatch> testRunAndReturn(QueryType type, Object query) throws Exception {
-      return BaseTestQuery.testRunAndReturn(type, query);
-    }
+  private void test(String query) throws Exception {
+    services.test(query);
   }
 
-  /**
-   * Test wrapper created from a {@link ClusterFixture} using the
-   * {@link ClusterFixture#testBuilder()} method.
-   */
-
-  public static class FixtureTestWrapper extends DrillTestWrapper {
-
-    private ClusterFixture cluster;
-
-    public FixtureTestWrapper(TestBuilder.FixtureTestBuilder testBuilder,
-        Object query, QueryType queryType, String baselineOptionSettingQueries,
-        String testOptionSettingQueries, QueryType baselineQueryType,
-        boolean ordered, boolean highPerformanceComparison,
-        List<Map<String, Object>> baselineRecords, int expectedNumBatches) {
-      super(testBuilder, testBuilder.cluster().allocator(), query, queryType, baselineOptionSettingQueries,
-          testOptionSettingQueries, baselineQueryType, ordered,
-          highPerformanceComparison, baselineRecords, expectedNumBatches);
-      cluster = testBuilder.cluster( );
-    }
-
-    @Override
-    protected void test(String query) throws Exception {
-      cluster.runQueries(query);
-    }
-
-    @Override
-    protected List<QueryDataBatch> testRunAndReturn(QueryType type, Object query) throws Exception {
-      return cluster.queryBuilder().query(type, (String) query).results( );
-    }
+  private List<QueryDataBatch> testRunAndReturn(QueryType type, Object query) throws Exception {
+    return services.testRunAndReturn(type, query);
   }
-
 }
