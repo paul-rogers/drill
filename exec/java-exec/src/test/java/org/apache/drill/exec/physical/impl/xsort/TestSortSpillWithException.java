@@ -18,6 +18,9 @@
 package org.apache.drill.exec.physical.impl.xsort;
 
 import org.apache.drill.BaseTestQuery;
+import org.apache.drill.ClusterFixture;
+import org.apache.drill.ClusterFixture.FixtureBuilder;
+import org.apache.drill.ClusterTest;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.UserRemoteException;
 import org.apache.drill.common.util.TestTools;
@@ -42,31 +45,54 @@ import java.util.Properties;
  * <br>
  * {@link ExecConstants#EXTERNAL_SORT_SPILL_GROUP_SIZE} = 1
  */
-public class TestSortSpillWithException extends BaseTestQuery {
+public class TestSortSpillWithException extends ClusterTest {
   private static final String TEST_RES_PATH = TestTools.getWorkingPath() + "/src/test/resources";
 
   @BeforeClass
-  public static void initCluster() {
-    // make sure memory sorter outputs 20 rows per batch
-    final Properties props = cloneDefaultTestConfigProperties();
-    props.put(ExecConstants.EXTERNAL_SORT_SPILL_THRESHOLD, "1"); // Unmanaged
-    props.put(ExecConstants.EXTERNAL_SORT_SPILL_GROUP_SIZE, "1"); // Unmanaged
-    props.put(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, "3"); // Managed
-
-    updateTestCluster(1, DrillConfig.create(props));
+  public static void setup( ) throws Exception {
+    FixtureBuilder builder = ClusterFixture.builder( )
+        .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_THRESHOLD, 1) // Unmanaged
+        .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_GROUP_SIZE, 1) // Unmanaged
+        .configProperty(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 1) // Managed
+        ;
+    startCluster(builder);
   }
 
   @Test
-  public void testSpilLeak() throws Exception {
+  public void testSpillLeakLegacy() throws Exception {
+    cluster.alterSession(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName(), true);
     // inject exception in sort while spilling
     final String controls = Controls.newBuilder()
       .addExceptionOnBit(
-          ExternalSortBatch.class,
-          ExternalSortBatch.INTERRUPTION_WHILE_SPILLING,
+          org.apache.drill.exec.physical.impl.xsort.ExternalSortBatch.class,
+          org.apache.drill.exec.physical.impl.xsort.ExternalSortBatch.INTERRUPTION_WHILE_SPILLING,
           IOException.class,
-          bits[0].getContext().getEndpoint())
+          cluster.drillbit( ).getContext().getEndpoint())
       .build();
-    ControlsInjectionUtil.setControls(client, controls);
+    ControlsInjectionUtil.setControls(cluster.client( ), controls);
+    // run a simple order by query
+    try {
+      test("select employee_id from dfs_test.`%s/xsort/2batches` order by employee_id", TEST_RES_PATH);
+      fail("Query should have failed!");
+    } catch (UserRemoteException e) {
+      assertEquals(ErrorType.RESOURCE, e.getErrorType());
+      assertTrue("Incorrect error message",
+        e.getMessage().contains("External Sort encountered an error while spilling to disk"));
+    }
+  }
+
+  @Test
+  public void testSpillLeakManaged() throws Exception {
+    cluster.alterSession(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName(), false);
+    // inject exception in sort while spilling
+    final String controls = Controls.newBuilder()
+      .addExceptionOnBit(
+          org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch.class,
+          org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch.INTERRUPTION_WHILE_SPILLING,
+          IOException.class,
+          cluster.drillbit( ).getContext().getEndpoint())
+      .build();
+    ControlsInjectionUtil.setControls(cluster.client( ), controls);
     // run a simple order by query
     try {
       test("select employee_id from dfs_test.`%s/xsort/2batches` order by employee_id", TEST_RES_PATH);

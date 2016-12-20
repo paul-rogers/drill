@@ -17,20 +17,16 @@
  ******************************************************************************/
 package org.apache.drill.exec.physical.impl.window;
 
-import java.util.Properties;
-
-import org.apache.drill.BaseTestQuery;
-import org.apache.drill.ClusterFixture;
-import org.apache.drill.DrillTestWrapper;
-import org.apache.drill.ClusterFixture.FixtureBuilder;
-import org.apache.drill.ClusterTest;
-import org.apache.drill.common.config.DrillConfig;
-import org.apache.drill.common.exceptions.UserRemoteException;
-import org.apache.drill.common.util.TestTools;
-import org.apache.drill.exec.ExecConstants;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import org.apache.drill.ClusterFixture;
+import org.apache.drill.ClusterFixture.FixtureBuilder;
+import org.apache.drill.ClusterTest;
+import org.apache.drill.DrillTestWrapper;
+import org.apache.drill.common.exceptions.UserRemoteException;
+import org.apache.drill.common.util.TestTools;
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.proto.UserBitShared.DrillPBError.ErrorType;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -43,7 +39,7 @@ public class TestWindowFrame extends ClusterTest {
   public static void setup() throws Exception {
     FixtureBuilder builder = ClusterFixture.builder()
         .configProperty(ExecConstants.EXTERNAL_SORT_MSORT_MAX_BATCHSIZE, 20)
-        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, true)
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
         ;
     startCluster(builder);
   }
