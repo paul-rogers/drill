@@ -5,5 +5,5 @@ SELECT
 FROM (
   SELECT *
   FROM dfs_test.`%s/window/b4.p4`
-  ORDER BY position_id, employee_id
 )
+  ORDER BY position_id, employee_id
