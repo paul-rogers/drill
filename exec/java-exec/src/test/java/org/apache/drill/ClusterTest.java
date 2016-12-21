@@ -20,6 +20,7 @@ package org.apache.drill;
 import java.io.IOException;
 
 import org.apache.drill.ClusterFixture.FixtureBuilder;
+import org.apache.drill.ClusterFixture.QueryBuilder;
 import org.apache.drill.common.AutoCloseables;
 import org.apache.drill.test.DrillTest;
 import org.junit.AfterClass;
@@ -111,6 +112,10 @@ public class ClusterTest extends DrillTest {
 
   public static void test(String query, Object... args) throws Exception {
     cluster.queryBuilder().sql(query, args).run( );
+  }
+
+  public QueryBuilder queryBuilder( ) {
+    return cluster.queryBuilder();
   }
 
 }
