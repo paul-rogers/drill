@@ -306,7 +306,7 @@ public class ClusterFixture implements AutoCloseable {
       return query( QueryType.SQL, sql );
     }
 
-    public QueryBuilder sql(String query, Object[] args) {
+    public QueryBuilder sql(String query, Object... args) {
       return sql(String.format(query, args));
     }
 
@@ -316,6 +316,11 @@ public class ClusterFixture implements AutoCloseable {
 
     public QueryBuilder sqlResource(String resource) {
       sql(loadResource(resource));
+      return this;
+    }
+
+    public QueryBuilder sqlResource(String resource, Object... args) {
+      sql(loadResource(resource), args);
       return this;
     }
 
@@ -553,6 +558,7 @@ public class ClusterFixture implements AutoCloseable {
 
       // Create the dfs_test name space
 
+      @SuppressWarnings("resource")
       final StoragePluginRegistry pluginRegistry = bits[i].getContext().getStorage();
       TestUtilities.updateDfsTestTmpSchemaLocation(pluginRegistry, dfsTestTmpSchemaLocation);
       TestUtilities.makeDfsTmpSchemaImmutable(pluginRegistry);
@@ -560,6 +566,7 @@ public class ClusterFixture implements AutoCloseable {
       // Create the mock data plugin
 
       MockStorageEngineConfig config = MockStorageEngineConfig.INSTANCE;
+      @SuppressWarnings("resource")
       MockStorageEngine plugin = new MockStorageEngine(MockStorageEngineConfig.INSTANCE, bits[i].getContext(), MockStorageEngineConfig.NAME);
       ((StoragePluginRegistryImpl) pluginRegistry).definePlugin(MockStorageEngineConfig.NAME, config, plugin);
     }
