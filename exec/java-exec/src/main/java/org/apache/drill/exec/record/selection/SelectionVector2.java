@@ -133,4 +133,23 @@ public class SelectionVector2 implements AutoCloseable {
   public void close() {
     clear();
   }
+
+  @Override
+  public String toString() {
+    StringBuilder buf = new StringBuilder();
+    buf.append("[SV2: recs=");
+    buf.append(recordCount);
+    buf.append(" - ");
+    int n = Math.min(20, recordCount);
+    for (int i = 0; i < n; i++) {
+      if (i > 0) { buf.append("," ); }
+      buf.append((int) getIndex(i));
+    }
+    if (recordCount > n) {
+      buf.append("...");
+      buf.append((int) getIndex(recordCount-1));
+    }
+    buf.append("]");
+    return buf.toString();
+  }
 }
