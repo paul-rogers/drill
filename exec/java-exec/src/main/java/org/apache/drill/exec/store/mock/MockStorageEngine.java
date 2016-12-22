@@ -99,12 +99,17 @@ public class MockStorageEngine extends AbstractStoragePlugin {
 
     @Override
     public Table getTable(String name) {
-      Pattern p = Pattern.compile( "implicit_(\\d+)", Pattern.CASE_INSENSITIVE);
+      Pattern p = Pattern.compile( "(\\w+)_(\\d+)(k|m)?", Pattern.CASE_INSENSITIVE);
       Matcher m = p.matcher(name);
       if ( ! m.matches() ) {
         return null;
       }
-      int n = Integer.parseInt(m.group(1));
+      @SuppressWarnings("unused")
+      String baseName = m.group(1);
+      int n = Integer.parseInt(m.group(2));
+      String unit = m.group(3);
+      if (unit.equalsIgnoreCase("K")) { n *= 1000; }
+      else if (unit.equalsIgnoreCase("M")) { n *= 1_000_000; }
       MockScanEntry entry = new MockScanEntry(n, null);
       List<MockScanEntry> list = new ArrayList<>();
       list.add( entry );
