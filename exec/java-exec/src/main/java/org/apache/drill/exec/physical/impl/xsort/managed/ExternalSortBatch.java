@@ -415,6 +415,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       case OK:
       case OK_NEW_SCHEMA:
         for (VectorWrapper<?> w : incoming) {
+          @SuppressWarnings("resource")
           ValueVector v = container.addOrGet(w.getField());
           if (v instanceof AbstractContainerVector) {
             w.getValueVector().makeTransferPair(v); // Can we remove this hack?
@@ -517,6 +518,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
       logger.debug("received OUT_OF_MEMORY, trying to spill");
       if (bufferedBatches.size() > 2) {
+        @SuppressWarnings("resource")
         final BatchGroup.SpilledRun merged = mergeAndSpill(bufferedBatches);
         if (merged != null) {
           spilledRuns.add(merged);
@@ -695,6 +697,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * of data, or spilling data to disk when necessary.
    */
 
+  @SuppressWarnings("resource")
   private void processBatch() {
 
     // Convert the incoming batch to the agreed-upon schema.
@@ -739,7 +742,13 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
             .message("Unexpected schema change.")
             .build(logger);
     }
-    sorter.sort(sv2);
+    try {
+      sorter.sort(sv2);
+    } catch (SchemaChangeException e) {
+      throw UserException.unsupportedError(e)
+                .message("Unexpected schema change.")
+                .build(logger);
+    }
     RecordBatchData rbd = new RecordBatchData(convertedBatch, oAllocator);
     try {
       rbd.setSv2(sv2);
@@ -1101,6 +1110,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     assert spillCount > 0 : "Spill count to mergeAndSpill must not be zero";
     long spillSize = 0;
     for (int i = 0; i < spillCount; i++) {
+      @SuppressWarnings("resource")
       BatchGroup batch = batchGroups.pollFirst();
       assert batch != null : "Encountered a null batch during merge and spill operation";
       batchGroupList.add(batch);
