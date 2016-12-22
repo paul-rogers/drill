@@ -79,13 +79,6 @@ public class TestExternalSort extends BaseTestQuery {
     return options;
   }
 
-  private String getOptions(boolean testLegacy) {
-    String options = "alter session set `exec.enable_union_type` = true";
-    options += ";alter session set `" + ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName() + "` = " +
-        Boolean.toString(testLegacy);
-    return options;
-  }
-
   @Test
   @Ignore("Schema changes are disabled in external sort")
   public void testNumericAndStringTypesManaged() throws Exception {
