@@ -134,6 +134,10 @@ public class OperatorCodeGenerator {
 
     CodeGenerator<PriorityQueueCopier> cg = CodeGenerator.get(PriorityQueueCopier.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
     ClassGenerator<PriorityQueueCopier> g = cg.getRoot();
+    cg.plainOldJavaCapable(true);
+
+    // Uncomment out this line to debug the generated code.
+//    cg.preferPlainOldJava(true);
 
     generateComparisons(g, batch);
 
@@ -152,6 +156,10 @@ public class OperatorCodeGenerator {
 
   private MSorter createNewMSorter(List<Ordering> orderings, VectorAccessible batch, MappingSet mainMapping, MappingSet leftMapping, MappingSet rightMapping) {
     CodeGenerator<MSorter> cg = CodeGenerator.get(MSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
+    cg.plainOldJavaCapable(true);
+
+    // Uncomment out this line to debug the generated code.
+//    cg.preferPlainOldJava(true);
     ClassGenerator<MSorter> g = cg.getRoot();
     g.setMappingSet(mainMapping);
 
@@ -203,6 +211,10 @@ public class OperatorCodeGenerator {
         SingleBatchSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(),
         context.getOptions());
     ClassGenerator<SingleBatchSorter> g = cg.getRoot();
+    cg.plainOldJavaCapable(true);
+
+    // Uncomment out this line to debug the generated code.
+//    cg.preferPlainOldJava(true);
 
     generateComparisons(g, batch);
     return getInstance(cg);
@@ -258,5 +270,4 @@ public class OperatorCodeGenerator {
     g.rotateBlock();
     g.getEvalBlock()._return(JExpr.lit(0));
   }
-
 }
