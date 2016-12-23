@@ -74,7 +74,7 @@ public class InMemorySorter implements SortResults {
             .build(logger);
     }
 
-    // For testing memory-leak purpose, inject exception after mSorter finishes setup
+    // For testing memory-leaks, inject exception after mSorter finishes setup
     ExternalSortBatch.injector.injectUnchecked(context.getExecutionControls(), ExternalSortBatch.INTERRUPTION_AFTER_SETUP);
     mSorter.sort(destContainer);
 

@@ -592,7 +592,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   public interface SortResults {
     boolean next();
-    @Override
     void close();
     int getBatchCount();
     int getRecordCount();
@@ -679,7 +678,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     opCodeGen = new OperatorCodeGenerator(context, popConfig);
 
     spillSet = new SpillSet(context, popConfig);
-    copierHolder = new CopierHolder(context, oAllocator, opCodeGen);
+    copierHolder = new CopierHolder(context, allocator, opCodeGen);
     configure(context.getConfig());
   }
 
@@ -689,7 +688,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // limit set on the allocator or on the operator, whichever is
     // less.
 
-    memoryLimit = Math.min(popConfig.getMaxAllocation(), oAllocator.getLimit());
+    memoryLimit = Math.min(popConfig.getMaxAllocation(), allocator.getLimit());
 
     // Optional configured memory limit, typically used only for testing.
 
@@ -1076,7 +1075,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     // Do we have enough memory for MSorter (the in-memory sorter)?
 
-    long allocMem = oAllocator.getAllocatedMemory();
+    long allocMem = allocator.getAllocatedMemory();
     long availableMem = mergeMemoryPool - allocMem;
     long neededForInMemorySort = SortRecordBatchBuilder.memoryNeeded(totalRecordCount) +
                                  MSortTemplate.memoryNeeded(totalRecordCount);
