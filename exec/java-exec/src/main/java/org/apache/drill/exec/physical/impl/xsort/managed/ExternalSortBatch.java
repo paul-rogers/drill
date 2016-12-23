@@ -162,7 +162,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * merge also reside here.
    */
 
-  private final BufferAllocator oAllocator;
+  private final BufferAllocator allocator;
 
   /**
    * Schema of batches that this operator produces.
@@ -273,9 +273,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    * disk.
    */
 
-  public interface SortResults extends AutoCloseable {
+  public interface SortResults {
     boolean next();
-    @Override
     void close();
     int getBatchCount();
     int getRecordCount();
@@ -284,11 +283,11 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   public ExternalSortBatch(ExternalSort popConfig, FragmentContext context, RecordBatch incoming) {
     super(popConfig, context, true);
     this.incoming = incoming;
-    oAllocator = oContext.getAllocator();
+    allocator = oContext.getAllocator();
     opCodeGen = new OperatorCodeGenerator(context, popConfig);
 
     spillSet = new SpillSet(context, popConfig);
-    copierHolder = new CopierHolder(context, oAllocator, opCodeGen);
+    copierHolder = new CopierHolder(context, allocator, opCodeGen);
     configure(context.getConfig());
   }
 
@@ -298,7 +297,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // limit set on the allocator or on the operator, whichever is
     // less.
 
-    memoryLimit = Math.min(popConfig.getMaxAllocation(), oAllocator.getLimit());
+    memoryLimit = Math.min(popConfig.getMaxAllocation(), allocator.getLimit());
 
     // Optional configured memory limit, typically used only for testing.
 
@@ -396,6 +395,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       copierHolder.close();
       spillSet.close();
       opCodeGen.close();
+      allocator.close();
       super.close();
     }
   }
@@ -599,7 +599,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     // Do we have enough memory for MSorter (the in-memory sorter)?
 
-    long allocMem = oAllocator.getAllocatedMemory();
+    long allocMem = allocator.getAllocatedMemory();
     long availableMem = mergeMemoryPool - allocMem;
     long neededForInMemorySort = SortRecordBatchBuilder.memoryNeeded(totalRecordCount) +
                                  MSortTemplate.memoryNeeded(totalRecordCount);
@@ -651,9 +651,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // Coerce all existing batches to the new schema.
 
     for (BatchGroup b : bufferedBatches) {
-      System.out.println("Before: " + oAllocator.getAllocatedMemory()); // Debug only
+      System.out.println("Before: " + allocator.getAllocatedMemory()); // Debug only
       b.setSchema(schema);
-      System.out.println("After: " + oAllocator.getAllocatedMemory()); // Debug only
+      System.out.println("After: " + allocator.getAllocatedMemory()); // Debug only
     }
     for (BatchGroup b : spilledRuns) {
       b.setSchema(schema);
@@ -707,7 +707,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // size: check the before and after memory levels, then use
     // the difference as the batch size, in bytes.
 
-    long startMem = oAllocator.getAllocatedMemory();
+    long startMem = allocator.getAllocatedMemory();
     VectorContainer convertedBatch = convertBatch();
     if (convertedBatch == null) {
       return;
@@ -717,7 +717,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     // Compute batch size, including allocation of an sv2.
 
-    long endMem = oAllocator.getAllocatedMemory();
+    long endMem = allocator.getAllocatedMemory();
     long batchSize = endMem - startMem;
     int count = sv2.getCount();
     totalRecordCount += count;
@@ -749,7 +749,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
                 .message("Unexpected schema change.")
                 .build(logger);
     }
-    RecordBatchData rbd = new RecordBatchData(convertedBatch, oAllocator);
+    RecordBatchData rbd = new RecordBatchData(convertedBatch, allocator);
     try {
       rbd.setSv2(sv2);
       bufferedBatches.add(new BatchGroup.InputBatch(rbd.getContainer(), rbd.getSv2(), oContext, batchSize));
@@ -895,7 +895,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     // The amount of memory this allocator currently uses.
 
-    long allocMem = oAllocator.getAllocatedMemory();
+    long allocMem = allocator.getAllocatedMemory();
 
     if (allocMem >= inputMemoryPool) { return true; }
 
@@ -914,7 +914,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   private IterOutcome sortInMemory() {
     logger.info("Starting in-memory sort. Batches = {}, Records = {}, Memory = {}",
-                bufferedBatches.size(), totalRecordCount, oAllocator.getAllocatedMemory());
+                bufferedBatches.size(), totalRecordCount, allocator.getAllocatedMemory());
 
     // Note the difference between how we handle batches here and in the spill/merge
     // case. In the spill/merge case, this class decides on the batch size to send
@@ -923,17 +923,27 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // merge case, the downstream Selection Vector Remover will split the one
     // big SV4 into multiple smaller batches to send further downstream.
 
-    InMemorySorter memoryMerge = new InMemorySorter(context, oAllocator, opCodeGen);
-    sv4 = memoryMerge.sort(bufferedBatches, this, container);
-    if (sv4 == null) {
-      sortState = SortState.DONE;
-      return IterOutcome.STOP;
-    } else {
-      logger.info("Completed in-memory sort. Memory = {}",
-              oAllocator.getAllocatedMemory());
-      resultsIterator = memoryMerge;
-      sortState = SortState.DELIVER;
-      return IterOutcome.OK_NEW_SCHEMA;
+    // If the sort fails or is empty, clean up here. Otherwise, cleanup is done
+    // by closing the resultsIterator after all results are returned downstream.
+
+    InMemorySorter memoryMerge = new InMemorySorter(context, allocator, opCodeGen);
+    try {
+      sv4 = memoryMerge.sort(bufferedBatches, this, container);
+      if (sv4 == null) {
+        sortState = SortState.DONE;
+        return IterOutcome.STOP;
+      } else {
+        logger.info("Completed in-memory sort. Memory = {}",
+                allocator.getAllocatedMemory());
+        resultsIterator = memoryMerge;
+        memoryMerge = null;
+        sortState = SortState.DELIVER;
+        return IterOutcome.OK_NEW_SCHEMA;
+      }
+    } finally {
+      if (memoryMerge != null) {
+        memoryMerge.close();
+      }
     }
   }
 
@@ -947,7 +957,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   private IterOutcome mergeSpilledRuns() {
     logger.info("Starting consolidate phase. Batches = {}, Records = {}, Memory = {}, In-memory batches {}, spilled runs {}",
-                totalBatches, totalRecordCount, oAllocator.getAllocatedMemory(),
+                totalBatches, totalRecordCount, allocator.getAllocatedMemory(),
                 bufferedBatches.size(), spilledRuns.size());
 
     // Consolidate batches to a number that can be merged in
@@ -965,7 +975,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     allBatches.addAll(spilledRuns);
     spilledRuns.clear();
 
-    logger.info("Starting merge phase. Runs = {}, Memory = {}", allBatches.size(), oAllocator.getAllocatedMemory());
+    logger.info("Starting merge phase. Runs = {}, Memory = {}", allBatches.size(), allocator.getAllocatedMemory());
 
     // Do the final merge as a results iterator.
 
@@ -983,7 +993,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     int inMemCount = bufferedBatches.size();
     int spilledRunsCount = spilledRuns.size();
-    long allocMem = oAllocator.getAllocatedMemory();
+    long allocMem = allocator.getAllocatedMemory();
     long readMemory = spilledRunsCount * estimatedOutputBatchSize;
     long deficit = allocMem + readMemory - mergeMemoryPool;
 
@@ -1029,7 +1039,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     int memSpill = Math.min(toSpill, inMemCount);
     if (memSpill > 0) {
       logger.trace("Merging {} in-memory batches, Memory = {}",
-          toSpill, oAllocator.getAllocatedMemory());
+          toSpill, allocator.getAllocatedMemory());
       mergeAndSpill(bufferedBatches, memSpill);
       return true;
     }
@@ -1038,7 +1048,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // all the target batches spilled in one go.
 
     logger.trace("Merging {} on-disk runs, Memory = {}",
-                  toSpill, oAllocator.getAllocatedMemory());
+                  toSpill, allocator.getAllocatedMemory());
     mergeAndSpill(spilledRuns, toSpill);
     return true;
   }
@@ -1090,7 +1100,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // Do the actual spill.
 
     logger.debug("Starting spill from memory. Memory = {}, Batch count = {}, Spill count = {}",
-                 oAllocator.getAllocatedMemory(), bufferedBatches.size(), spillCount);
+                 allocator.getAllocatedMemory(), bufferedBatches.size(), spillCount);
     mergeAndSpill(bufferedBatches, spillCount);
   }
 
@@ -1145,7 +1155,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       injector.injectChecked(context.getExecutionControls(), INTERRUPTION_WHILE_SPILLING, IOException.class);
       newGroup.closeOutputStream();
       logger.debug("mergeAndSpill: completed, memory = {}, spilled {} records to {}",
-                   oAllocator.getAllocatedMemory(), merger.getRecordCount(), outputFile);
+                   allocator.getAllocatedMemory(), merger.getRecordCount(), outputFile);
       return newGroup;
     } catch (Throwable e) {
       // we only need to cleanup newGroup if spill failed
@@ -1184,7 +1194,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    */
 
   private SelectionVector2 newSV2() {
-    SelectionVector2 sv2 = new SelectionVector2(oAllocator);
+    SelectionVector2 sv2 = new SelectionVector2(allocator);
     if (!sv2.allocateNewSafe(incoming.getRecordCount())) {
       throw UserException.resourceError(new OutOfMemoryException("Unable to allocate sv2 buffer"))
             .build(logger);
