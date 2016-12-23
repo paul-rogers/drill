@@ -118,6 +118,7 @@ public class Drillbit implements AutoCloseable {
     storeProvider.start();
     final DrillbitEndpoint md = engine.start();
     manager.start(md, engine.getController(), engine.getDataConnectionCreator(), coord, storeProvider);
+    @SuppressWarnings("resource")
     final DrillbitContext drillbitContext = manager.getContext();
     storageRegistry = drillbitContext.getStorage();
     storageRegistry.init();
@@ -180,6 +181,7 @@ public class Drillbit implements AutoCloseable {
       return;
     }
 
+    @SuppressWarnings("resource")
     final OptionManager optionManager = getContext().getOptionManager();
 
     // parse out the properties, validate, and then set them
@@ -276,6 +278,7 @@ public class Drillbit implements AutoCloseable {
     return start(config, null);
   }
 
+  @SuppressWarnings("resource")
   public static Drillbit start(final DrillConfig config, final RemoteServiceSet remoteServiceSet)
       throws DrillbitStartupException {
     logger.debug("Starting new Drillbit.");
