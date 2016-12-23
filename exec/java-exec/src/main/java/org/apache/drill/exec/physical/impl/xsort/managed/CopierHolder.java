@@ -157,7 +157,7 @@ public class CopierHolder {
    * of the desired row count.
     */
 
-  public static class BatchMerger implements SortResults {
+  public static class BatchMerger implements SortResults, AutoCloseable {
 
     private CopierHolder holder;
     private VectorContainer hyperBatch;
