@@ -17,24 +17,25 @@
  ******************************************************************************/
 package org.apache.drill;
 
-import static org.junit.Assert.fail;
-
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.drill.BaseTestQuery.SilentListener;
 import org.apache.drill.BufferingQueryEventListener.QueryEvent;
-import org.apache.drill.ClusterFixture.QueryBuilder;
 import org.apache.drill.DrillTestWrapper.TestServices;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.ExecConstants;
+import org.apache.drill.exec.ZookeeperHelper;
 import org.apache.drill.exec.client.DrillClient;
 import org.apache.drill.exec.client.PrintingResultsListener;
 import org.apache.drill.exec.client.QuerySubmitter.Format;
@@ -82,15 +83,31 @@ public class ClusterFixture implements AutoCloseable {
   @SuppressWarnings("serial")
   protected static final Properties TEST_CONFIGURATIONS = new Properties() {
     {
-
       // Properties here mimic those in drill-root/pom.xml, Surefire plugin
       // configuration. They allow tests to run successfully in Eclipse.
 
-      put(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, "false");
-      put(ExecConstants.HTTP_ENABLE, "false");
+      put(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, false);
+      put(ExecConstants.HTTP_ENABLE, false);
       put(Drillbit.SYSTEM_OPTIONS_NAME, "org.apache.drill.exec.compile.ClassTransformer.scalar_replacement=on");
-      put(QueryTestUtil.TEST_QUERY_PRINTING_SILENT, "true");
-      put("drill.catastrophic_to_standard_out", "true");
+      put(QueryTestUtil.TEST_QUERY_PRINTING_SILENT, true);
+      put("drill.catastrophic_to_standard_out", true);
+
+      // See Drillbit.close. The Drillbit normally waits a specified amount
+      // of time for ZK registration to drop. But, embedded Drillbits normally
+      // don't use ZK, so no need to wait.
+
+      put(ExecConstants.ZK_REFRESH, 0);
+
+      // This is just a test, no need to be heavy-duty on threads.
+      // This is the number of server and client RPC threads. The
+      // production default is DEFAULT_SERVER_RPC_THREADS.
+
+      put(ExecConstants.BIT_SERVER_RPC_THREADS, 2);
+
+      // No need for many scanners except when explicitly testing that
+      // behavior. Production default is DEFAULT_SCAN_THREADS
+
+      put(ExecConstants.SCAN_THREADPOOL_SIZE, 4);
     }
   };
 
@@ -112,6 +129,13 @@ public class ClusterFixture implements AutoCloseable {
 
   public static class FixtureBuilder {
 
+    // Values in the drill-module.conf file for values that are customized
+    // in the defaults.
+
+    public static final int DEFAULT_ZK_REFRESH = 500; // ms
+    public static final int DEFAULT_SERVER_RPC_THREADS = 10;
+    public static final int DEFAULT_SCAN_THREADS = 8;
+
     public static Properties defaultProps( ) {
       Properties props = new Properties( );
       props.putAll( TEST_CONFIGURATIONS );
@@ -125,6 +149,9 @@ public class ClusterFixture implements AutoCloseable {
     private List<ClusterFixture.RuntimeOption> sessionOptions;
     private List<ClusterFixture.RuntimeOption> systemOptions;
     private int bitCount = 1;
+    private String bitNames[];
+    private int zkCount;
+    private ZookeeperHelper zkHelper;
 
     /**
      * Use the given configuration properties to start the embedded Drillbit.
@@ -253,6 +280,56 @@ public class ClusterFixture implements AutoCloseable {
      */
     public FixtureBuilder clusterSize( int n ) {
       bitCount = n;
+      bitNames = null;
+      return this;
+    }
+
+    /**
+     * Define a cluster by providing names to the Drillbits.
+     * The cluster size is the same as the number of names provided.
+     *
+     * @param bitNames array of (unique) Drillbit names
+     * @return this builder
+     */
+    public FixtureBuilder withBits(String bitNames[]) {
+      this.bitNames = bitNames;
+      bitCount = bitNames.length;
+      return this;
+    }
+
+    /**
+     * By default the embedded Drillbits use an in-memory cluster coordinator.
+     * Use this option to start an in-memory ZK instance to coordinate the
+     * Drillbits.
+     * @return this builder
+     */
+    public FixtureBuilder withZk() {
+      return withZk(1);
+    }
+
+    public FixtureBuilder withZk(int count) {
+      zkCount = count;
+
+      // Using ZK. Turn refresh wait back on.
+
+      configProperty(ExecConstants.ZK_REFRESH, DEFAULT_ZK_REFRESH);
+      return this;
+    }
+
+    /**
+     * Run the cluster using a Zookeeper started externally. Use this if
+     * multiple tests start a cluster: allows ZK to be started once for
+     * the entire suite rather than once per test case.
+     *
+     * @param zk the global Zookeeper to use
+     * @return this builder
+     */
+    public FixtureBuilder withZk(ZookeeperHelper zk) {
+      zkHelper = zk;
+
+      // Using ZK. Turn refresh wait back on.
+
+      configProperty(ExecConstants.ZK_REFRESH, DEFAULT_ZK_REFRESH);
       return this;
     }
 
@@ -275,6 +352,10 @@ public class ClusterFixture implements AutoCloseable {
     }
   }
 
+  /**
+   * Summary results of a query: records, batches, run time.
+   */
+
   public static class QuerySummary {
     private final int records;
     private final int batches;
@@ -290,6 +371,11 @@ public class ClusterFixture implements AutoCloseable {
     public int batchCount( ) { return batches; }
     public long runTimeMs( ) { return ms; }
   }
+
+  /**
+   * Builder for a Drill query. Provides all types of query formats,
+   * and a variety of ways to run the query.
+   */
 
   public class QueryBuilder {
 
@@ -507,6 +593,7 @@ public class ClusterFixture implements AutoCloseable {
           throw new IllegalStateException("Looks like you did not provide an explain plan query, please add EXPLAIN PLAN FOR to the beginning of your query.");
         }
 
+        @SuppressWarnings("resource")
         final ValueVector vv = vw.getValueVector();
         for (int i = 0; i < vv.getAccessor().getValueCount(); i++) {
           final Object o = vv.getAccessor().getObject(i);
@@ -520,23 +607,40 @@ public class ClusterFixture implements AutoCloseable {
     }
   }
 
+  public static final String DEFAULT_BIT_NAME = "drillbit";
+
   private DrillConfig config;
-  private Drillbit bits[];
+  private Map<String,Drillbit> bits = new HashMap<>( );
   private DrillClient client;
-  private static BufferAllocator allocator;
+  private BufferAllocator allocator;
+  private boolean ownsZK;
+  private ZookeeperHelper zkHelper;
   private RemoteServiceSet serviceSet;
   private String dfsTestTmpSchemaLocation;
 
   private ClusterFixture( FixtureBuilder  builder ) throws Exception {
 
+    // Start ZK if requested.
+
+    if (builder.zkHelper != null) {
+      zkHelper = builder.zkHelper;
+      ownsZK = false;
+    } else if (builder.zkCount > 0) {
+      zkHelper = new ZookeeperHelper(true);
+      zkHelper.startZookeeper(builder.zkCount);
+      ownsZK = true;
+    }
+
     // Create a config
+    // Because of the way DrillConfig works, we can set the ZK
+    // connection string only if a property set is provided.
 
     if ( builder.configResource != null ) {
       config = DrillConfig.create(builder.configResource);
-     } else if ( builder.configProps != null ) {
-      config = DrillConfig.create(builder.configProps);
+    } else if (builder.configProps != null) {
+      config = DrillConfig.create(configProperties(builder.configProps));
     } else {
-      config = DrillConfig.create(TEST_CONFIGURATIONS);
+      config = DrillConfig.create(configProperties(TEST_CONFIGURATIONS));
     }
 
     // Not quite sure what this is, but some tests seem to use it.
@@ -551,15 +655,16 @@ public class ClusterFixture implements AutoCloseable {
     dfsTestTmpSchemaLocation = TestUtilities.createTempDir();
 
     Preconditions.checkArgument(builder.bitCount > 0);
-    bits = new Drillbit[builder.bitCount];
-    for ( int i = 0;  i < bits.length;  i++ ) {
-      bits[i] = new Drillbit(config, serviceSet);
-      bits[i].run( );
+    int bitCount = builder.bitCount;
+    for ( int i = 0;  i < bitCount;  i++ ) {
+      @SuppressWarnings("resource")
+      Drillbit bit = new Drillbit(config, serviceSet);
+      bit.run( );
 
       // Create the dfs_test name space
 
       @SuppressWarnings("resource")
-      final StoragePluginRegistry pluginRegistry = bits[i].getContext().getStorage();
+      final StoragePluginRegistry pluginRegistry = bit.getContext().getStorage();
       TestUtilities.updateDfsTestTmpSchemaLocation(pluginRegistry, dfsTestTmpSchemaLocation);
       TestUtilities.makeDfsTmpSchemaImmutable(pluginRegistry);
 
@@ -567,8 +672,22 @@ public class ClusterFixture implements AutoCloseable {
 
       MockStorageEngineConfig config = MockStorageEngineConfig.INSTANCE;
       @SuppressWarnings("resource")
-      MockStorageEngine plugin = new MockStorageEngine(MockStorageEngineConfig.INSTANCE, bits[i].getContext(), MockStorageEngineConfig.NAME);
+      MockStorageEngine plugin = new MockStorageEngine(MockStorageEngineConfig.INSTANCE, bit.getContext(), MockStorageEngineConfig.NAME);
       ((StoragePluginRegistryImpl) pluginRegistry).definePlugin(MockStorageEngineConfig.NAME, config, plugin);
+
+      // Bit name and registration.
+
+      String name;
+      if (builder.bitNames != null && i < builder.bitNames.length) {
+        name = builder.bitNames[i];
+      } else {
+        if (i == 0) {
+          name = DEFAULT_BIT_NAME;
+        } else {
+          name = DEFAULT_BIT_NAME + Integer.toString(i+1);
+        }
+      }
+      bits.put(name, bit);
     }
 
     // Create a client.
@@ -603,6 +722,17 @@ public class ClusterFixture implements AutoCloseable {
     if ( ! sawMaxWidth ) {
       alterSession( ExecConstants.MAX_WIDTH_PER_NODE_KEY, MAX_WIDTH_PER_NODE );
     }
+  }
+
+  private Properties configProperties(Properties configProps) {
+    Properties effectiveProps = new Properties( );
+    for (Entry<Object, Object> entry : configProps.entrySet()) {
+      effectiveProps.put(entry.getKey(), entry.getValue().toString());
+    }
+    if (zkHelper != null) {
+      effectiveProps.put(ExecConstants.ZK_CONNECTION, zkHelper.getConfig().getString(ExecConstants.ZK_CONNECTION));
+    }
+    return effectiveProps;
   }
 
   /**
@@ -682,23 +812,33 @@ public class ClusterFixture implements AutoCloseable {
     return count;
   }
 
-  public Drillbit drillbit( ) { return bits[0]; }
+  public Drillbit drillbit( ) { return bits.get(DEFAULT_BIT_NAME); }
+  public Drillbit drillbit(String name) { return bits.get(name); }
+  public Collection<Drillbit> drillbits( ) { return bits.values(); }
   public DrillClient client() { return client; }
   public RemoteServiceSet serviceSet( ) { return serviceSet; }
   public BufferAllocator allocator( ) { return allocator; }
 
   @Override
   public void close() throws Exception {
-    Exception ex = safeClose( client, null );
+    Exception ex = safeClose(client, null);
     client = null;
-    for (int i = 0; i < bits.length; i++) {
-      ex = safeClose( bits[i], ex );
+    for (Drillbit bit : drillbits()) {
+      ex = safeClose(bit, ex);
     }
-    bits = null;
-    ex = safeClose( serviceSet, ex );
+    bits.clear();
+    ex = safeClose(serviceSet, ex);
     serviceSet = null;
-    ex = safeClose( allocator, ex );
+    ex = safeClose(allocator, ex);
     allocator = null;
+    if (zkHelper != null && ownsZK) {
+      try {
+        zkHelper.stopZookeeper();
+      } catch (Exception e) {
+        ex = ex == null ? e : ex;
+      }
+    }
+    zkHelper = null;
     if ( ex != null ) {
       throw ex; }
   }
@@ -714,8 +854,8 @@ public class ClusterFixture implements AutoCloseable {
   }
 
   public void defineWorkspace( String pluginName, String schemaName, String path, String defaultFormat ) throws ExecutionSetupException {
-    for ( int i = 0; i < bits.length; i++ ) {
-      defineWorkspace(bits[i], pluginName, schemaName, path, defaultFormat);
+    for (Drillbit bit : drillbits()) {
+      defineWorkspace(bit, pluginName, schemaName, path, defaultFormat);
     }
   }
 
