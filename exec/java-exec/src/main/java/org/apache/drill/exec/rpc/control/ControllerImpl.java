@@ -92,6 +92,7 @@ public class ControllerImpl implements Controller {
   }
 
 
+  @Override
   public void close() throws Exception {
     List<AutoCloseable> closeables = Lists.newArrayList();
     closeables.add(server);

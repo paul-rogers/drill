@@ -131,9 +131,7 @@ public class ServiceEngine implements AutoCloseable {
         return dataAllocator.getPeakMemoryAllocation();
       }
     });
-
   }
-
 
   private static BufferAllocator newAllocator(
       BootStrapContext context, String name, String initReservation, String maxAllocation) {
@@ -213,6 +211,5 @@ public class ServiceEngine implements AutoCloseable {
       Thread.currentThread().interrupt();
     }
     AutoCloseables.close(userAllocator, controlAllocator, dataAllocator);
-
   }
 }

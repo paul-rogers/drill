@@ -449,8 +449,9 @@ public class DrillClient implements Closeable, ConnectionThrottle {
    */
   @Override
   public void close() {
-    if (this.client != null) {
-      this.client.close();
+    if (client != null) {
+      client.close();
+      client = null;
     }
     if (this.ownsAllocator && allocator != null) {
       DrillAutoCloseables.closeNoChecked(allocator);
