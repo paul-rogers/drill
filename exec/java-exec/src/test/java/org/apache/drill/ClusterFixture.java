@@ -144,7 +144,6 @@ public class ClusterFixture implements AutoCloseable {
 
     private String configResource;
     private Properties configProps;
-    private Properties clientProps;
     private boolean enableFullCache;
     private List<ClusterFixture.RuntimeOption> sessionOptions;
     private List<ClusterFixture.RuntimeOption> systemOptions;
@@ -206,21 +205,7 @@ public class ClusterFixture implements AutoCloseable {
       return this;
     }
 
-    /**
-     * Specify an optional client property.
-     * @param key property name
-     * @param value property value
-     * @return this builder
-     */
-    public FixtureBuilder clientProperty( String key, Object value ) {
-      if ( clientProps == null ) {
-        clientProps = new Properties( );
-      }
-      clientProps.put(key, value);
-      return this;
-    }
-
-    /**
+     /**
      * Provide a session option to be set once the Drillbit
      * is started.
      *
@@ -377,10 +362,15 @@ public class ClusterFixture implements AutoCloseable {
    * and a variety of ways to run the query.
    */
 
-  public class QueryBuilder {
+  public static class QueryBuilder {
 
+    private final ClientFixture client;
     private QueryType queryType;
     private String queryText;
+
+    private QueryBuilder(ClientFixture client) {
+      this.client = client;
+    }
 
     public QueryBuilder query(QueryType type, String text) {
       queryType = type;
@@ -437,7 +427,7 @@ public class ClusterFixture implements AutoCloseable {
     public List<QueryDataBatch> results() throws RpcException {
       Preconditions.checkNotNull(queryType, "Query not provided.");
       Preconditions.checkNotNull(queryText, "Query not provided.");
-      return client.runQuery(queryType, queryText);
+      return client.client().runQuery(queryType, queryText);
     }
 
     /**
@@ -450,7 +440,7 @@ public class ClusterFixture implements AutoCloseable {
     public void withListener(UserResultsListener listener) {
       Preconditions.checkNotNull(queryType, "Query not provided.");
       Preconditions.checkNotNull(queryText, "Query not provided.");
-      client.runQuery(queryType, queryText, listener);
+      client.client().runQuery(queryType, queryText, listener);
     }
 
     /**
@@ -478,7 +468,7 @@ public class ClusterFixture implements AutoCloseable {
     }
 
     public long print(Format format, int colWidth) {
-      return runAndWait( new PrintingResultsListener( config, format, colWidth ) );
+      return runAndWait( new PrintingResultsListener( client.cluster.config( ), format, colWidth ) );
     }
 
     /**
@@ -489,6 +479,7 @@ public class ClusterFixture implements AutoCloseable {
      * @return the number of rows returned
      */
     public long print() {
+      DrillConfig config = client.cluster.config( );
       boolean verbose = ! config.getBoolean(QueryTestUtil.TEST_QUERY_PRINTING_SILENT) ||
                         DrillTest.verbose();
       if (verbose) {
@@ -574,7 +565,7 @@ public class ClusterFixture implements AutoCloseable {
     protected String queryPlan(String columnName) throws Exception {
       Preconditions.checkArgument(queryType == QueryType.SQL, "Can only explan an SQL query.");
       final List<QueryDataBatch> results = results();
-      final RecordBatchLoader loader = new RecordBatchLoader(allocator);
+      final RecordBatchLoader loader = new RecordBatchLoader(client.allocator( ));
       final StringBuilder builder = new StringBuilder();
 
       for (final QueryDataBatch b : results) {
@@ -607,16 +598,149 @@ public class ClusterFixture implements AutoCloseable {
     }
   }
 
+  public static class ClientBuilder {
+
+    ClusterFixture cluster;
+    private Properties clientProps;
+
+    protected ClientBuilder(ClusterFixture cluster) {
+      this.cluster = cluster;
+    }
+    /**
+     * Specify an optional client property.
+     * @param key property name
+     * @param value property value
+     * @return this builder
+     */
+    public ClientBuilder property( String key, Object value ) {
+      if ( clientProps == null ) {
+        clientProps = new Properties( );
+      }
+      clientProps.put(key, value);
+      return this;
+    }
+
+    ClientFixture build( ) {
+      try {
+        return new ClientFixture(this);
+      } catch (RpcException e) {
+
+        // When used in a test with an embedded Drillbit, the
+        // RPC exception should not occur.
+
+        throw new IllegalStateException(e);
+      }
+    }
+  }
+
+  public static class ClientFixture implements AutoCloseable {
+
+    private ClusterFixture cluster;
+    private DrillClient client;
+
+    public ClientFixture(ClientBuilder builder) throws RpcException {
+      this.cluster = builder.cluster;
+
+      // Create a client.
+
+      client = new DrillClient(cluster.config( ), cluster.serviceSet( ).getCoordinator());
+      client.connect(builder.clientProps);
+      cluster.clients.add(this);
+    }
+
+    public DrillClient client() { return client; }
+    public ClusterFixture cluster( ) { return cluster; }
+    public BufferAllocator allocator( ) { return cluster.allocator( ); }
+
+    /**
+     * Set a runtime option.
+     *
+     * @param key
+     * @param value
+     * @throws RpcException
+     */
+
+    public void alterSession(String key, Object value ) throws RpcException {
+      String sql = "ALTER SESSION SET `" + key + "` = " + stringify( value );
+      runSqlSilently( sql );
+    }
+
+    public void alterSystem(String key, Object value ) throws RpcException {
+      String sql = "ALTER SYSTEM SET `" + key + "` = " + stringify( value );
+      runSqlSilently( sql );
+    }
+
+    /**
+     * Run SQL silently (discard results.)
+     *
+     * @param sql
+     * @throws RpcException
+     */
+
+    public void runSqlSilently(String sql) throws RpcException {
+      queryBuilder().sql(sql).run();
+    }
+
+    public QueryBuilder queryBuilder() {
+      return new QueryBuilder(this);
+    }
+
+    public int countResults(List<QueryDataBatch> results) {
+      int count = 0;
+      for(QueryDataBatch b : results) {
+        count += b.getHeader().getRowCount();
+      }
+      return count;
+    }
+
+    public TestBuilder testBuilder() {
+      return new TestBuilder(new FixtureTestServices(this));
+    }
+
+    /**
+     * Run zero or more queries and optionally print the output in TSV format.
+     * Similar to {@link QueryTestUtil#test}. Output is printed
+     * only if the tests are running as verbose.
+     *
+     * @return the number of rows returned
+     */
+
+    public void runQueries(final String queryString) throws Exception{
+      final String query = QueryTestUtil.normalizeQuery(queryString);
+      String[] queries = query.split(";");
+      for (String q : queries) {
+        final String trimmedQuery = q.trim();
+        if (trimmedQuery.isEmpty()) {
+          continue;
+        }
+        queryBuilder( ).sql(trimmedQuery).print();
+      }
+    }
+
+    @Override
+    public void close( ) {
+      if (client == null) {
+        return;
+      }
+      try {
+        client.close( );
+      } finally {
+        client = null;
+        cluster.clients.remove(this);
+      }
+    }
+  }
+
   public static final String DEFAULT_BIT_NAME = "drillbit";
 
   private DrillConfig config;
   private Map<String,Drillbit> bits = new HashMap<>( );
-  private DrillClient client;
   private BufferAllocator allocator;
   private boolean ownsZK;
   private ZookeeperHelper zkHelper;
   private RemoteServiceSet serviceSet;
   private String dfsTestTmpSchemaLocation;
+  private List<ClientFixture> clients = new ArrayList<>( );
 
   private ClusterFixture( FixtureBuilder  builder ) throws Exception {
 
@@ -690,11 +814,6 @@ public class ClusterFixture implements AutoCloseable {
       bits.put(name, bit);
     }
 
-    // Create a client.
-
-    client = new DrillClient(config, serviceSet.getCoordinator());
-    client.connect(builder.clientProps);
-
     // Some operations need an allocator.
 
     allocator = RootAllocatorFactory.newRoot(config);
@@ -702,7 +821,7 @@ public class ClusterFixture implements AutoCloseable {
     // Apply system options
     if ( builder.systemOptions != null ) {
       for ( ClusterFixture.RuntimeOption option : builder.systemOptions ) {
-        alterSystem( option.key, option.value );
+        clientFixture( ).alterSystem( option.key, option.value );
       }
     }
     // Apply session options.
@@ -710,7 +829,7 @@ public class ClusterFixture implements AutoCloseable {
     boolean sawMaxWidth = false;
     if ( builder.sessionOptions != null ) {
       for ( ClusterFixture.RuntimeOption option : builder.sessionOptions ) {
-        alterSession( option.key, option.value );
+        clientFixture( ).alterSession( option.key, option.value );
         if ( option.key.equals( ExecConstants.MAX_WIDTH_PER_NODE_KEY ) ) {
           sawMaxWidth = true;
         }
@@ -720,7 +839,7 @@ public class ClusterFixture implements AutoCloseable {
     // Set the default parallelization unless already set by the caller.
 
     if ( ! sawMaxWidth ) {
-      alterSession( ExecConstants.MAX_WIDTH_PER_NODE_KEY, MAX_WIDTH_PER_NODE );
+      clientFixture( ).alterSession( ExecConstants.MAX_WIDTH_PER_NODE_KEY, MAX_WIDTH_PER_NODE );
     }
   }
 
@@ -735,94 +854,39 @@ public class ClusterFixture implements AutoCloseable {
     return effectiveProps;
   }
 
-  /**
-   * Set a runtime option.
-   *
-   * @param key
-   * @param value
-   * @throws RpcException
-   */
-
-  public void alterSession(String key, Object value ) throws RpcException {
-    String sql = "ALTER SESSION SET `" + key + "` = " + stringify( value );
-    runSqlSilently( sql );
-  }
-
-  public void alterSystem(String key, Object value ) throws RpcException {
-    String sql = "ALTER SYSTEM SET `" + key + "` = " + stringify( value );
-    runSqlSilently( sql );
-  }
-
-  private static String stringify(Object value) {
-    if ( value instanceof String ) {
-      return "'" + (String) value + "'";
-    } else {
-      return value.toString();
-    }
-  }
-
-  private static String trimSlash(String path) {
-    if ( path == null ) {
-      return path;
-    } else if ( path.startsWith("/" ) ) {
-      return path.substring( 1 );
-    } else {
-      return path;
-    }
-  }
-
-  /**
-   * Run SQL silently (discard results.)
-   *
-   * @param sql
-   * @throws RpcException
-   */
-
-  public void runSqlSilently(String sql) throws RpcException {
-    queryBuilder().sql(sql).run();
-  }
-
-  public QueryBuilder queryBuilder() {
-    return new QueryBuilder();
-  }
-
-  public static String getResource(String resource) throws IOException {
-    // Unlike the Java routines, Guava does not like a leading slash.
-
-    final URL url = Resources.getResource(trimSlash(resource));
-    if (url == null) {
-      throw new IOException(String.format("Unable to find resource %s.", resource));
-    }
-    return Resources.toString(url, Charsets.UTF_8);
-  }
-
-  public static String loadResource(String resource) {
-    try {
-      return getResource(resource);
-    } catch (IOException e) {
-      throw new IllegalStateException("Resource not found: " + resource, e);
-    }
-  }
-
-  public int countResults(List<QueryDataBatch> results) {
-    int count = 0;
-    for(QueryDataBatch b : results) {
-      count += b.getHeader().getRowCount();
-    }
-    return count;
-  }
-
   public Drillbit drillbit( ) { return bits.get(DEFAULT_BIT_NAME); }
   public Drillbit drillbit(String name) { return bits.get(name); }
   public Collection<Drillbit> drillbits( ) { return bits.values(); }
-  public DrillClient client() { return client; }
   public RemoteServiceSet serviceSet( ) { return serviceSet; }
   public BufferAllocator allocator( ) { return allocator; }
+  public DrillConfig config() { return config; }
+
+  public ClientBuilder clientBuilder( ) {
+    return new ClientBuilder(this);
+  }
+
+  public ClientFixture clientFixture() {
+    if ( clients.isEmpty( ) ) {
+      clientBuilder( ).build( );
+    }
+    return clients.get(0);
+  }
+
+  public DrillClient client() {
+    return clientFixture().client();
+  }
 
   @Override
   public void close() throws Exception {
-    Exception ex = safeClose(client, null);
-    client = null;
+    Exception ex = null;
+
+    // Close clients. Clients remove themselves from the client
+    // list.
+
+    while (! clients.isEmpty( )) {
+      ex = safeClose(clients.get(0), ex);
+    }
+
     for (Drillbit bit : drillbits()) {
       ex = safeClose(bit, ex);
     }
@@ -880,35 +944,69 @@ public class ClusterFixture implements AutoCloseable {
      return new FixtureBuilder( );
   }
 
-  public class FixtureTestServices implements TestServices {
+  public static class FixtureTestServices implements TestServices {
+
+    private ClientFixture client;
+
+    public FixtureTestServices(ClientFixture client) {
+      this.client = client;
+    }
 
     @Override
     public BufferAllocator allocator() {
-      return allocator;
+      return client.allocator();
     }
 
     @Override
     public void test(String query) throws Exception {
-      runQueries(query);
+      client.runQueries(query);
     }
 
     @Override
     public List<QueryDataBatch> testRunAndReturn(QueryType type, Object query)
         throws Exception {
-      return queryBuilder().query(type, (String) query).results( );
+      return client.queryBuilder().query(type, (String) query).results( );
     }
   }
 
-  public TestBuilder testBuilder() {
-    // Set the static client in BaseTestQuery as the
-    // test builder classes rely on it.
-
-//    BaseTestQuery.client = client;
-    return new TestBuilder(new FixtureTestServices());
+  public static ClusterFixture standardCluster( ) throws Exception {
+    return builder( ).build( );
   }
 
-  public static ClusterFixture standardClient( ) throws Exception {
-    return builder( ).build( );
+  private static String stringify(Object value) {
+    if ( value instanceof String ) {
+      return "'" + (String) value + "'";
+    } else {
+      return value.toString();
+    }
+  }
+
+  public static String getResource(String resource) throws IOException {
+    // Unlike the Java routines, Guava does not like a leading slash.
+
+    final URL url = Resources.getResource(trimSlash(resource));
+    if (url == null) {
+      throw new IOException(String.format("Unable to find resource %s.", resource));
+    }
+    return Resources.toString(url, Charsets.UTF_8);
+  }
+
+  public static String loadResource(String resource) {
+    try {
+      return getResource(resource);
+    } catch (IOException e) {
+      throw new IllegalStateException("Resource not found: " + resource, e);
+    }
+  }
+
+  private static String trimSlash(String path) {
+    if ( path == null ) {
+      return path;
+    } else if ( path.startsWith("/" ) ) {
+      return path.substring( 1 );
+    } else {
+      return path;
+    }
   }
 
   /**
@@ -929,25 +1027,5 @@ public class ClusterFixture implements AutoCloseable {
     File tempDir = new File( dir, dirName );
     tempDir.mkdirs();
     return tempDir;
-  }
-
-  /**
-   * Run zero or more queries and optionally print the output in TSV format.
-   * Similar to {@link QueryTestUtil#test}. Output is printed
-   * only if the tests are running as verbose.
-   *
-   * @return the number of rows returned
-   */
-
-  public void runQueries(final String queryString) throws Exception{
-    final String query = QueryTestUtil.normalizeQuery(queryString);
-    String[] queries = query.split(";");
-    for (String q : queries) {
-      final String trimmedQuery = q.trim();
-      if (trimmedQuery.isEmpty()) {
-        continue;
-      }
-      queryBuilder( ).sql(trimmedQuery).print();
-    }
   }
 }

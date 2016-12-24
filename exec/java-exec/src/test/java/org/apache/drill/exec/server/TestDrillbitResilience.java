@@ -10,6 +10,7 @@ import java.io.IOException;
 import org.apache.commons.math3.util.Pair;
 import org.apache.drill.BaseTestQuery;
 import org.apache.drill.ClusterFixture;
+import org.apache.drill.ClusterFixture.ClientFixture;
 import org.apache.drill.ClusterFixture.FixtureBuilder;
 import org.apache.drill.common.concurrent.ExtendedLatch;
 import org.apache.drill.common.exceptions.UserException;
@@ -97,13 +98,11 @@ public class TestDrillbitResilience extends DrillTest {
     protected QueryId queryId = null;
     protected volatile Pointer<Exception> ex = new Pointer<>();
     protected volatile QueryState state = null;
-    protected final ClusterFixture cluster;
-    protected final DrillClient client;
+    protected final ClientFixture client;
 
-    public WaitUntilCompleteListener(ClusterFixture cluster) {
-      this.cluster = cluster;
-      client = cluster.client();
-    }
+    public WaitUntilCompleteListener(ClientFixture client) {
+      this.client = client;
+     }
 
     /**
      * Method that sets the exception if the condition is not met.
@@ -120,8 +119,8 @@ public class TestDrillbitResilience extends DrillTest {
     protected final void cancelAndResume() {
       Preconditions.checkNotNull(queryId);
       final ExtendedLatch trigger = new ExtendedLatch(1);
-      (new CancellingThread(client, queryId, ex, trigger)).start();
-      (new ResumingThread(client, queryId, ex, trigger)).start();
+      (new CancellingThread(client.client(), queryId, ex, trigger)).start();
+      (new ResumingThread(client.client(), queryId, ex, trigger)).start();
     }
 
     @Override
@@ -157,15 +156,15 @@ public class TestDrillbitResilience extends DrillTest {
 
     private boolean cancelRequested = false;
 
-    public ListenerThatCancelsQueryAfterFirstBatchOfData(ClusterFixture cluster) {
-      super(cluster);
+    public ListenerThatCancelsQueryAfterFirstBatchOfData(ClientFixture client) {
+      super(client);
     }
 
     @Override
     public void dataArrived(final QueryDataBatch result, final ConnectionThrottle throttle) {
       if (!cancelRequested) {
         check(queryId != null, "Query id should not be null, since we have waited long enough.");
-        (new CancellingThread(client, queryId, ex, null)).start();
+        (new CancellingThread(client.client(), queryId, ex, null)).start();
         cancelRequested = true;
       }
       result.release();
@@ -235,15 +234,16 @@ public class TestDrillbitResilience extends DrillTest {
 
   @Test
   public void settingNoOpInjectionsAndQuery() throws Exception {
-    try (ClusterFixture cluster = defaultBuilder().build()) {
+    try (ClusterFixture cluster = defaultBuilder().build();
+         ClientFixture client = cluster.clientFixture()) {
       final long before = countAllocatedMemory(cluster);
 
       final String controls = Controls.newBuilder()
         .addExceptionOnBit(getClass(), "noop", RuntimeException.class, getEndpoint(cluster, DRILLBIT_BETA))
         .build();
-      setControls(cluster, controls);
-      final WaitUntilCompleteListener listener = new WaitUntilCompleteListener(cluster);
-      cluster.queryBuilder().sql(TEST_QUERY).withListener(listener);
+      setControls(client, controls);
+      final WaitUntilCompleteListener listener = new WaitUntilCompleteListener(client);
+      client.queryBuilder().sql(TEST_QUERY).withListener(listener);
       final Pair<QueryState, Exception> pair = listener.waitForCompletion();
       assertStateCompleted(pair, QueryState.COMPLETED);
 
@@ -258,20 +258,21 @@ public class TestDrillbitResilience extends DrillTest {
    *
    * @param desc site description
    */
-  private static void testForeman(ClusterFixture cluster, final String desc) {
+  private static void testForeman(ClientFixture client, final String desc) {
     final String controls = Controls.newBuilder()
       .addException(Foreman.class, desc, ForemanException.class)
       .build();
-    assertFailsWithException(cluster, controls, ForemanException.class, desc);
+    assertFailsWithException(client, controls, ForemanException.class, desc);
   }
 
   @Test
   public void foreman_runTryBeginning() throws Exception {
-    try (ClusterFixture cluster = defaultBuilder().build()) {
+    try (ClusterFixture cluster = defaultBuilder().build();
+         ClientFixture client = cluster.clientFixture()) {
       for (int i = 0; i < NUM_RUNS; i++) {
         final long before = countAllocatedMemory(cluster);
 
-        testForeman(cluster, "run-try-beginning");
+        testForeman(client, "run-try-beginning");
 
         final long after = countAllocatedMemory(cluster);
         assertEquals(String.format("Leaked %d bytes", after - before), before, after);
@@ -282,11 +283,12 @@ public class TestDrillbitResilience extends DrillTest {
   @Test
   @Ignore // TODO(DRILL-3163, DRILL-3167)
   public void foreman_runTryEnd() throws Exception {
-    try (ClusterFixture cluster = defaultBuilder().build()) {
+    try (ClusterFixture cluster = defaultBuilder().build();
+        ClientFixture client = cluster.clientFixture()) {
       for (int i = 0; i < NUM_RUNS; i++) {
         final long before = countAllocatedMemory(cluster);
 
-        testForeman(cluster, "run-try-end");
+        testForeman(client, "run-try-end");
 
         final long after = countAllocatedMemory(cluster);
         assertEquals(String.format("We are leaking %d bytes", after - before), before, after);
@@ -297,15 +299,16 @@ public class TestDrillbitResilience extends DrillTest {
   // To test pause and resume. Test hangs and times out if resume did not happen.
   @Test
   public void passThrough() throws Exception {
-    try (ClusterFixture cluster = defaultBuilder().build()) {
+    try (ClusterFixture cluster = defaultBuilder().build();
+        ClientFixture client = cluster.clientFixture()) {
       final long before = countAllocatedMemory(cluster);
 
-      final WaitUntilCompleteListener listener = new WaitUntilCompleteListener(cluster) {
+      final WaitUntilCompleteListener listener = new WaitUntilCompleteListener(client) {
         @Override
         public void queryIdArrived(final QueryId queryId) {
           super.queryIdArrived(queryId);
           final ExtendedLatch trigger = new ExtendedLatch(1);
-          (new ResumingThread(client, queryId, ex, trigger)).start();
+          (new ResumingThread(client.client(), queryId, ex, trigger)).start();
           trigger.countDown();
         }
       };
@@ -313,9 +316,9 @@ public class TestDrillbitResilience extends DrillTest {
       final String controls = Controls.newBuilder()
         .addPause(PojoRecordReader.class, "read-next")
         .build();
-      setControls(cluster, controls);
+      setControls(client, controls);
 
-      cluster.queryBuilder().sql(TEST_QUERY).withListener(listener);
+      client.queryBuilder().sql(TEST_QUERY).withListener(listener);
       final Pair<QueryState, Exception> result = listener.waitForCompletion();
       assertStateCompleted(result, QueryState.COMPLETED);
 
@@ -331,10 +334,11 @@ public class TestDrillbitResilience extends DrillTest {
   @Ignore // TODO(DRILL-3192)
   //@Repeat(count = NUM_RUNS)
   public void cancelWhenQueryIdArrives() throws Exception {
-    try (ClusterFixture cluster = defaultBuilder().build()) {
+    try (ClusterFixture cluster = defaultBuilder().build();
+        ClientFixture client = cluster.clientFixture()) {
       final long before = countAllocatedMemory(cluster);
 
-      final WaitUntilCompleteListener listener = new WaitUntilCompleteListener(cluster) {
+      final WaitUntilCompleteListener listener = new WaitUntilCompleteListener(client) {
 
         @Override
         public void queryIdArrived(final QueryId queryId) {
@@ -346,7 +350,7 @@ public class TestDrillbitResilience extends DrillTest {
       final String controls = Controls.newBuilder()
         .addPause(FragmentExecutor.class, "fragment-running")
         .build();
-      assertCancelledWithoutException(cluster, controls, listener);
+      assertCancelledWithoutException(client, controls, listener);
 
       final long after = countAllocatedMemory(cluster);
       assertEquals(String.format("Leaked %d bytes", after - before), before, after);
@@ -356,17 +360,18 @@ public class TestDrillbitResilience extends DrillTest {
   // DRILL-2383: Cancellation TC 2: cancel in the middle of fetching result set
   @Test
   public void cancelInMiddleOfFetchingResults() throws Exception {
-    try (ClusterFixture cluster = defaultBuilder().build()) {
+    try (ClusterFixture cluster = defaultBuilder().build();
+        ClientFixture client = cluster.clientFixture()) {
       for (int i = 0; i < NUM_RUNS; i++) {
-        doCancelInMiddleOfFetchingResults(cluster);
+        doCancelInMiddleOfFetchingResults(client);
       }
     }
   }
 
-  private void doCancelInMiddleOfFetchingResults(ClusterFixture cluster) {
-    final long before = countAllocatedMemory(cluster);
+  private void doCancelInMiddleOfFetchingResults(ClientFixture client) {
+    final long before = countAllocatedMemory(client.cluster());
 
-    final WaitUntilCompleteListener listener = new WaitUntilCompleteListener(cluster) {
+    final WaitUntilCompleteListener listener = new WaitUntilCompleteListener(client) {
       private boolean cancelRequested = false;
 
       @Override
@@ -384,31 +389,32 @@ public class TestDrillbitResilience extends DrillTest {
     final String controls = Controls.newBuilder()
       .addPause(ScreenCreator.class, "sending-data", 1)
       .build();
-    assertCancelledWithoutException(cluster, controls, listener);
+    assertCancelledWithoutException(client, controls, listener);
 
-    final long after = countAllocatedMemory(cluster);
+    final long after = countAllocatedMemory(client.cluster());
     assertEquals(String.format("Leaked %d bytes", after - before), before, after);
   }
 
   // DRILL-2383: Cancellation TC 3: cancel after all result set are produced but not all are fetched
   @Test
   public void cancelAfterAllResultsProduced() throws Exception {
-    try (ClusterFixture cluster = defaultBuilder().build()) {
+    try (ClusterFixture cluster = defaultBuilder().build();
+        ClientFixture client = cluster.clientFixture()) {
       for (int i = 0; i < NUM_RUNS; i++) {
-        doCancelAfterAllResultsProduced(cluster);
+        doCancelAfterAllResultsProduced(client);
       }
     }
   }
 
-  private void doCancelAfterAllResultsProduced(ClusterFixture cluster) {
-    final long before = countAllocatedMemory(cluster);
+  private void doCancelAfterAllResultsProduced(ClientFixture client) {
+    final long before = countAllocatedMemory(client.cluster());
 
-    final WaitUntilCompleteListener listener = new WaitUntilCompleteListener(cluster) {
+    final WaitUntilCompleteListener listener = new WaitUntilCompleteListener(client) {
       private int count = 0;
 
       @Override
       public void dataArrived(final QueryDataBatch result, final ConnectionThrottle throttle) {
-        if (++count == cluster.drillbits().size()) {
+        if (++count == client.cluster().drillbits().size()) {
           check(queryId != null, "Query id should not be null, since we have waited long enough.");
           cancelAndResume();
         }
@@ -419,9 +425,9 @@ public class TestDrillbitResilience extends DrillTest {
     final String controls = Controls.newBuilder()
       .addPause(ScreenCreator.class, "send-complete")
       .build();
-    assertCancelledWithoutException(cluster, controls, listener);
+    assertCancelledWithoutException(client, controls, listener);
 
-    final long after = countAllocatedMemory(cluster);
+    final long after = countAllocatedMemory(client.cluster());
     assertEquals(String.format("Leaked %d bytes", after - before), before, after);
   }
 
@@ -430,22 +436,23 @@ public class TestDrillbitResilience extends DrillTest {
   @Test
   @Ignore("DRILL-3967")
   public void cancelAfterEverythingIsCompleted() throws Exception {
-    try (ClusterFixture cluster = defaultBuilder().build()) {
+    try (ClusterFixture cluster = defaultBuilder().build();
+        ClientFixture client = cluster.clientFixture()) {
       for (int i = 0; i < NUM_RUNS; i++) {
-        doCancelAfterEverythingIsCompleted(cluster);
+        doCancelAfterEverythingIsCompleted(client);
       }
     }
   }
 
-  private void doCancelAfterEverythingIsCompleted(ClusterFixture cluster) {
-    final long before = countAllocatedMemory(cluster);
+  private void doCancelAfterEverythingIsCompleted(ClientFixture client) {
+    final long before = countAllocatedMemory(client.cluster());
 
-    final WaitUntilCompleteListener listener = new WaitUntilCompleteListener(cluster) {
+    final WaitUntilCompleteListener listener = new WaitUntilCompleteListener(client) {
       private int count = 0;
 
       @Override
       public void dataArrived(final QueryDataBatch result, final ConnectionThrottle throttle) {
-        if (++count == cluster.drillbits().size()) {
+        if (++count == client.cluster().drillbits().size()) {
           check(queryId != null, "Query id should not be null, since we have waited long enough.");
           cancelAndResume();
         }
@@ -456,20 +463,21 @@ public class TestDrillbitResilience extends DrillTest {
     final String controls = Controls.newBuilder()
       .addPause(Foreman.class, "foreman-cleanup")
       .build();
-    assertCancelledWithoutException(cluster, controls, listener);
+    assertCancelledWithoutException(client, controls, listener);
 
-    final long after = countAllocatedMemory(cluster);
+    final long after = countAllocatedMemory(client.cluster());
     assertEquals(String.format("Leaked %d bytes", after - before), before, after);
   }
 
   //DRILL-2383: Completion TC 1: success
   @Test
   public void successfullyCompletes() throws Exception {
-    try (ClusterFixture cluster = defaultBuilder().build()) {
+    try (ClusterFixture cluster = defaultBuilder().build();
+        ClientFixture client = cluster.clientFixture()) {
       final long before = countAllocatedMemory(cluster);
 
-      final WaitUntilCompleteListener listener = new WaitUntilCompleteListener(cluster);
-      cluster.queryBuilder().sql(TEST_QUERY).withListener(listener);
+      final WaitUntilCompleteListener listener = new WaitUntilCompleteListener(client);
+      client.queryBuilder().sql(TEST_QUERY).withListener(listener);
       final Pair<QueryState, Exception> result = listener.waitForCompletion();
       assertStateCompleted(result, QueryState.COMPLETED);
 
@@ -481,7 +489,8 @@ public class TestDrillbitResilience extends DrillTest {
   //DRILL-2383: Completion TC 2: failed query - before query is executed - while sql parsing
   @Test
   public void failsWhenParsing() throws Exception {
-    try (ClusterFixture cluster = defaultBuilder().build()) {
+    try (ClusterFixture cluster = defaultBuilder().build();
+        ClientFixture client = cluster.clientFixture()) {
       final long before = countAllocatedMemory(cluster);
 
       final String exceptionDesc = "sql-parsing";
@@ -489,7 +498,7 @@ public class TestDrillbitResilience extends DrillTest {
       final String controls = Controls.newBuilder()
       .addException(DrillSqlWorker.class, exceptionDesc, exceptionClass)
         .build();
-      assertFailsWithException(cluster, controls, exceptionClass, exceptionDesc);
+      assertFailsWithException(client, controls, exceptionClass, exceptionDesc);
 
       final long after = countAllocatedMemory(cluster);
       assertEquals(String.format("Leaked %d bytes", after - before), before, after);
@@ -500,7 +509,8 @@ public class TestDrillbitResilience extends DrillTest {
   // drillbits
   @Test
   public void failsWhenSendingFragments() throws Exception {
-    try (ClusterFixture cluster = defaultBuilder().build()) {
+    try (ClusterFixture cluster = defaultBuilder().build();
+        ClientFixture client = cluster.clientFixture()) {
       final long before = countAllocatedMemory(cluster);
 
       final String exceptionDesc = "send-fragments";
@@ -508,7 +518,7 @@ public class TestDrillbitResilience extends DrillTest {
       final String controls = Controls.newBuilder()
               .addException(Foreman.class, exceptionDesc, exceptionClass)
               .build();
-      assertFailsWithException(cluster, controls, exceptionClass, exceptionDesc);
+      assertFailsWithException(client, controls, exceptionClass, exceptionDesc);
 
       final long after = countAllocatedMemory(cluster);
       assertEquals(String.format("Leaked %d bytes", after - before), before, after);
@@ -518,7 +528,8 @@ public class TestDrillbitResilience extends DrillTest {
   //DRILL-2383: Completion TC 4: failed query - during query execution
   @Test
   public void failsDuringExecution() throws Exception {
-    try (ClusterFixture cluster = defaultBuilder().build()) {
+    try (ClusterFixture cluster = defaultBuilder().build();
+        ClientFixture client = cluster.clientFixture()) {
       final long before = countAllocatedMemory(cluster);
 
       final String exceptionDesc = "fragment-execution";
@@ -526,7 +537,7 @@ public class TestDrillbitResilience extends DrillTest {
       final String controls = Controls.newBuilder()
         .addException(FragmentExecutor.class, exceptionDesc, exceptionClass)
         .build();
-      assertFailsWithException(cluster, controls, exceptionClass, exceptionDesc);
+      assertFailsWithException(client, controls, exceptionClass, exceptionDesc);
 
       final long after = countAllocatedMemory(cluster);
       assertEquals(String.format("We are leaking %d bytes", after - before), before, after);
@@ -543,14 +554,15 @@ public class TestDrillbitResilience extends DrillTest {
     FixtureBuilder builder = defaultBuilder()
         .sessionOption(ExecConstants.SLICE_TARGET, 1)
         .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false);
-    try (ClusterFixture cluster = builder.build()) {
+    try (ClusterFixture cluster = builder.build();
+        ClientFixture client = cluster.clientFixture()) {
       for (int i = 0; i < NUM_RUNS; i++) {
         final long before = countAllocatedMemory(cluster);
 
         final String control = Controls.newBuilder()
           .addPause(MergingRecordBatch.class, "waiting-for-data", 1)
           .build();
-        interruptingBlockedFragmentsWaitingForData(cluster, control);
+        interruptingBlockedFragmentsWaitingForData(client, control);
 
         final long after = countAllocatedMemory(cluster);
         assertEquals(String.format("Leaked %d bytes", after - before), before, after);
@@ -568,14 +580,15 @@ public class TestDrillbitResilience extends DrillTest {
     FixtureBuilder builder = defaultBuilder()
         .sessionOption(ExecConstants.SLICE_TARGET, 1)
         .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false);
-    try (ClusterFixture cluster = builder.build()) {
+    try (ClusterFixture cluster = builder.build();
+        ClientFixture client = cluster.clientFixture()) {
       for (int i = 0; i < NUM_RUNS; i++) {
         final long before = countAllocatedMemory(cluster);
 
         final String control = Controls.newBuilder()
           .addPause(UnorderedReceiverBatch.class, "waiting-for-data", 1)
           .build();
-        interruptingBlockedFragmentsWaitingForData(cluster, control);
+        interruptingBlockedFragmentsWaitingForData(client, control);
 
         final long after = countAllocatedMemory(cluster);
         assertEquals(String.format("Leaked %d bytes", after - before), before, after);
@@ -595,15 +608,16 @@ public class TestDrillbitResilience extends DrillTest {
         .sessionOption(ExecConstants.SLICE_TARGET, 1)
         .sessionOption(PlannerSettings.HASHAGG.getOptionName(), true)
         .sessionOption(PARTITION_SENDER_SET_THREADS.getOptionName(), 6);
-    try (ClusterFixture cluster = builder.build()) {
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
       for (int i = 0; i < NUM_RUNS; i++) {
-        doInterruptingPartitionerThreadFragment(cluster);
+        doInterruptingPartitionerThreadFragment(client);
       }
     }
   }
 
-  private void doInterruptingPartitionerThreadFragment(ClusterFixture cluster) {
-    final long before = countAllocatedMemory(cluster);
+  private void doInterruptingPartitionerThreadFragment(ClientFixture client) {
+    final long before = countAllocatedMemory(client.cluster());
 
     final String controls = Controls.newBuilder()
     .addLatch(PartitionerDecorator.class, "partitioner-sender-latch")
@@ -611,27 +625,28 @@ public class TestDrillbitResilience extends DrillTest {
     .build();
 
     final String query = "SELECT sales_city, COUNT(*) cnt FROM cp.`region.json` GROUP BY sales_city";
-    assertCancelledWithoutException(cluster, controls, new ListenerThatCancelsQueryAfterFirstBatchOfData(cluster), query);
+    assertCancelledWithoutException(client, controls, new ListenerThatCancelsQueryAfterFirstBatchOfData(client), query);
 
-    final long after = countAllocatedMemory(cluster);
+    final long after = countAllocatedMemory(client.cluster());
     assertEquals(String.format("Leaked %d bytes", after - before), before, after);
   }
 
-  private static void interruptingBlockedFragmentsWaitingForData(final ClusterFixture cluster, final String control) {
+  private static void interruptingBlockedFragmentsWaitingForData(final ClientFixture client, final String control) {
     final String query = "SELECT sales_city, COUNT(*) cnt FROM cp.`region.json` GROUP BY sales_city";
-    assertCancelledWithoutException(cluster, control, new ListenerThatCancelsQueryAfterFirstBatchOfData(cluster), query);
+    assertCancelledWithoutException(client, control, new ListenerThatCancelsQueryAfterFirstBatchOfData(client), query);
   }
 
   @Test
   @Ignore // TODO(DRILL-3193)
   public void interruptingWhileFragmentIsBlockedInAcquiringSendingTicket() throws Exception {
-    try (ClusterFixture cluster = defaultBuilder().build()) {
+    try (ClusterFixture cluster = defaultBuilder().build();
+         ClientFixture client = cluster.clientFixture()) {
       final long before = countAllocatedMemory(cluster);
 
       final String control = Controls.newBuilder()
         .addPause(SingleSenderRootExec.class, "data-tunnel-send-batch-wait-for-interrupt", 1)
         .build();
-      assertCancelledWithoutException(cluster, control, new ListenerThatCancelsQueryAfterFirstBatchOfData(cluster));
+      assertCancelledWithoutException(client, control, new ListenerThatCancelsQueryAfterFirstBatchOfData(client));
 
       final long after = countAllocatedMemory(cluster);
       assertEquals(String.format("Leaked %d bytes", after - before), before, after);
@@ -640,17 +655,18 @@ public class TestDrillbitResilience extends DrillTest {
 
   @Test
   public void memoryLeaksWhenCancelled() throws Exception {
-    FixtureBuilder builder = defaultBuilder( );
+    FixtureBuilder builder = defaultBuilder();
     builder.sessionOption(ExecConstants.SLICE_TARGET, 10);
-    try (ClusterFixture cluster = builder.build()) {
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
       for (int i = 0; i < NUM_RUNS; i++) {
-        doMemoryLeaksWhenCancelled(cluster);
+        doMemoryLeaksWhenCancelled(client);
       }
     }
   }
 
-  private void doMemoryLeaksWhenCancelled(ClusterFixture cluster) {
-    final long before = countAllocatedMemory(cluster);
+  private void doMemoryLeaksWhenCancelled(ClientFixture client) {
+    final long before = countAllocatedMemory(client.cluster());
 
     final String controls = Controls.newBuilder()
       .addPause(ScreenCreator.class, "sending-data", 1)
@@ -667,7 +683,7 @@ public class TestDrillbitResilience extends DrillTest {
 //      fail("Failed to get query file: " + e);
 //    }
 
-    final WaitUntilCompleteListener listener = new WaitUntilCompleteListener(cluster) {
+    final WaitUntilCompleteListener listener = new WaitUntilCompleteListener(client) {
       private volatile boolean cancelRequested = false;
 
       @Override
@@ -681,26 +697,27 @@ public class TestDrillbitResilience extends DrillTest {
       }
     };
 
-    assertCancelledWithoutException(cluster, controls, listener, query);
+    assertCancelledWithoutException(client, controls, listener, query);
 
-    final long after = countAllocatedMemory(cluster);
+    final long after = countAllocatedMemory(client.cluster());
     assertEquals(String.format("We are leaking %d bytes", after - before), before, after);
   }
 
   @Test
   @Ignore // TODO(DRILL-3194)
   public void memoryLeaksWhenFailed() throws Exception {
-    FixtureBuilder builder = defaultBuilder( );
+    FixtureBuilder builder = defaultBuilder();
     builder.sessionOption(ExecConstants.SLICE_TARGET, 10);
-    try (ClusterFixture cluster = builder.build()) {
+    try (ClusterFixture cluster = builder.build();
+        ClientFixture client = cluster.clientFixture()) {
       for (int i = 0; i < NUM_RUNS; i++) {
-        doMemoryLeaksWhenFailed(cluster);
+        doMemoryLeaksWhenFailed(client);
       }
     }
   }
 
-  private void doMemoryLeaksWhenFailed(ClusterFixture cluster) {
-    final long before = countAllocatedMemory(cluster);
+  private void doMemoryLeaksWhenFailed(ClientFixture client) {
+    final long before = countAllocatedMemory(client.cluster());
 
     final String exceptionDesc = "fragment-execution";
     final Class<? extends Throwable> exceptionClass = IOException.class;
@@ -720,22 +737,23 @@ public class TestDrillbitResilience extends DrillTest {
 //      fail("Failed to get query file: " + e);
 //    }
 
-    assertFailsWithException(cluster, controls, exceptionClass, exceptionDesc, query);
+    assertFailsWithException(client, controls, exceptionClass, exceptionDesc, query);
 
-    final long after = countAllocatedMemory(cluster);
+    final long after = countAllocatedMemory(client.cluster());
     assertEquals(String.format("Leaked %d bytes", after - before), before, after);
   }
 
   @Test // DRILL-3065
   public void failsAfterMSorterSorting() throws Exception {
-    try (ClusterFixture cluster = defaultBuilder( ).build()) {
-      doFailsAfterMSorterSorting(cluster, true);
-      doFailsAfterMSorterSorting(cluster, false);
+    try (ClusterFixture cluster = defaultBuilder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      doFailsAfterMSorterSorting(client, true);
+      doFailsAfterMSorterSorting(client, false);
     }
   }
 
-  private void doFailsAfterMSorterSorting(ClusterFixture cluster, boolean managedVersion) throws RpcException {
-    cluster.alterSession(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName(), ! managedVersion);
+  private void doFailsAfterMSorterSorting(ClientFixture client, boolean managedVersion) throws RpcException {
+    client.alterSession(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName(), ! managedVersion);
     // TODO: DRILL-5157: Using Parquet causes a failure in the Parquet async reader
     // on the Mac due to a missing Snappy decoder. Since we only need fake data, use
     // the mock data source instead.
@@ -743,7 +761,7 @@ public class TestDrillbitResilience extends DrillTest {
     final String query = "select name_s50 from mock.`nation_100K` order by name_s50";
     final Class<? extends Exception> typeOfException = RuntimeException.class;
 
-    final long before = countAllocatedMemory(cluster);
+    final long before = countAllocatedMemory(client.cluster());
     Class<?> opClass = managedVersion ?
           org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch.class :
           org.apache.drill.exec.physical.impl.xsort.ExternalSortBatch.class;
@@ -753,22 +771,23 @@ public class TestDrillbitResilience extends DrillTest {
     final String controls = Controls.newBuilder()
       .addException(opClass, event, typeOfException)
       .build();
-    assertFailsWithException(cluster, controls, typeOfException, event, query);
+    assertFailsWithException(client, controls, typeOfException, event, query);
 
-    final long after = countAllocatedMemory(cluster);
+    final long after = countAllocatedMemory(client.cluster());
     assertEquals(String.format("Leaked %d bytes", after - before), before, after);
   }
 
   @Test // DRILL-3085
   public void failsAfterMSorterSetup() throws Exception {
-    try (ClusterFixture cluster = defaultBuilder( ).build()) {
-      doFailsAfterMSorterSetup(cluster, true);
-      doFailsAfterMSorterSetup(cluster, false);
+    try (ClusterFixture cluster = defaultBuilder().build();
+         ClientFixture client = cluster.clientFixture()) {
+      doFailsAfterMSorterSetup(client, true);
+      doFailsAfterMSorterSetup(client, false);
     }
   }
 
-  private void doFailsAfterMSorterSetup(ClusterFixture cluster, boolean managedVersion) throws RpcException {
-    cluster.alterSession(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName(), ! managedVersion);
+  private void doFailsAfterMSorterSetup(ClientFixture client, boolean managedVersion) throws RpcException {
+    client.alterSession(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName(), ! managedVersion);
     // TODO: DRILL-5157: Using Parquet causes a failure in the Parquet async reader
     // on the Mac due to a missing Snappy decoder. Since we only need fake data, use
     // the mock data source instead.
@@ -776,7 +795,7 @@ public class TestDrillbitResilience extends DrillTest {
     final String query = "select name_s50 from mock.`nation_100K` order by name_s50";
     final Class<? extends Exception> typeOfException = RuntimeException.class;
 
-    final long before = countAllocatedMemory(cluster);
+    final long before = countAllocatedMemory(client.cluster());
     Class<?> opClass = managedVersion ?
         org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch.class :
         org.apache.drill.exec.physical.impl.xsort.ExternalSortBatch.class;
@@ -786,9 +805,9 @@ public class TestDrillbitResilience extends DrillTest {
     final String controls = Controls.newBuilder()
         .addException(opClass, event, typeOfException)
         .build();
-    assertFailsWithException(cluster, controls, typeOfException, event, query);
+    assertFailsWithException(client, controls, typeOfException, event, query);
 
-    final long after = countAllocatedMemory(cluster);
+    final long after = countAllocatedMemory(client.cluster());
     assertEquals(String.format("Leaked %d bytes", after - before), before, after);
   }
 
@@ -832,20 +851,20 @@ public class TestDrillbitResilience extends DrillTest {
     return allocated;
   }
 
-  private static void assertFailsWithException(final ClusterFixture cluster, final String controls,
+  private static void assertFailsWithException(final ClientFixture client, final String controls,
       final Class<? extends Throwable> exceptionClass,
       final String exceptionDesc) {
-    assertFailsWithException(cluster, controls, exceptionClass, exceptionDesc, TEST_QUERY);
+    assertFailsWithException(client, controls, exceptionClass, exceptionDesc, TEST_QUERY);
   }
 
   /**
    * Given a set of controls, this method ensures TEST_QUERY fails with the given class and desc.
    */
-  private static void assertFailsWithException(final ClusterFixture cluster, final String controls, final Class<? extends Throwable> exceptionClass,
+  private static void assertFailsWithException(final ClientFixture client, final String controls, final Class<? extends Throwable> exceptionClass,
                                                final String exceptionDesc, final String query) {
-    setControls(cluster, controls);
-    final WaitUntilCompleteListener listener = new WaitUntilCompleteListener(cluster);
-    cluster.queryBuilder().sql(query).withListener(listener);
+    setControls(client, controls);
+    final WaitUntilCompleteListener listener = new WaitUntilCompleteListener(client);
+    client.queryBuilder().sql(query).withListener(listener);
     final Pair<QueryState, Exception> result = listener.waitForCompletion();
     final QueryState state = result.getFirst();
     assertTrue(String.format("Query state should be FAILED (and not %s).", state), state == QueryState.FAILED);
@@ -884,12 +903,12 @@ public class TestDrillbitResilience extends DrillTest {
   /**
    * Given a set of controls, this method ensures that the given query completes with a CANCELED state.
    */
-  private static void assertCancelledWithoutException(final ClusterFixture cluster, final String controls,
+  private static void assertCancelledWithoutException(final ClientFixture client, final String controls,
                                                       final WaitUntilCompleteListener listener,
                                                       final String query) {
-    setControls(cluster, controls);
+    setControls(client, controls);
 
-    cluster.queryBuilder().sql(query).withListener(listener);
+    client.queryBuilder().sql(query).withListener(listener);
     final Pair<QueryState, Exception> result = listener.waitForCompletion();
     assertStateCompleted(result, QueryState.CANCELED);
   }
@@ -897,16 +916,16 @@ public class TestDrillbitResilience extends DrillTest {
   /**
    * Given a set of controls, this method ensures that the TEST_QUERY completes with a CANCELED state.
    */
-  private static void assertCancelledWithoutException(final ClusterFixture cluster, final String controls,
+  private static void assertCancelledWithoutException(final ClientFixture client, final String controls,
                                                       final WaitUntilCompleteListener listener) {
-    assertCancelledWithoutException(cluster, controls, listener, TEST_QUERY);
+    assertCancelledWithoutException(client, controls, listener, TEST_QUERY);
   }
 
   /**
    * Set the given controls.
    */
-  private static void setControls(final ClusterFixture cluster, final String controls) {
-    ControlsInjectionUtil.setControls(cluster.client(), controls);
+  private static void setControls(final ClientFixture client, final String controls) {
+    ControlsInjectionUtil.setControls(client.client(), controls);
   }
 
 }

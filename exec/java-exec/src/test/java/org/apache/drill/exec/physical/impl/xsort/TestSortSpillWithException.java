@@ -47,8 +47,8 @@ public class TestSortSpillWithException extends ClusterTest {
   private static final String TEST_RES_PATH = TestTools.getWorkingPath() + "/src/test/resources";
 
   @BeforeClass
-  public static void setup( ) throws Exception {
-    FixtureBuilder builder = ClusterFixture.builder( )
+  public static void setup() throws Exception {
+    FixtureBuilder builder = ClusterFixture.builder()
         .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_THRESHOLD, 1) // Unmanaged
         .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_GROUP_SIZE, 1) // Unmanaged
         .configProperty(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 1) // Managed
@@ -58,16 +58,16 @@ public class TestSortSpillWithException extends ClusterTest {
 
   @Test
   public void testSpillLeakLegacy() throws Exception {
-    cluster.alterSession(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName(), true);
+    client.alterSession(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName(), true);
     // inject exception in sort while spilling
     final String controls = Controls.newBuilder()
       .addExceptionOnBit(
           org.apache.drill.exec.physical.impl.xsort.ExternalSortBatch.class,
           org.apache.drill.exec.physical.impl.xsort.ExternalSortBatch.INTERRUPTION_WHILE_SPILLING,
           IOException.class,
-          cluster.drillbit( ).getContext().getEndpoint())
+          cluster.drillbit().getContext().getEndpoint())
       .build();
-    ControlsInjectionUtil.setControls(cluster.client( ), controls);
+    ControlsInjectionUtil.setControls(cluster.client(), controls);
     // run a simple order by query
     try {
       test("select employee_id from dfs_test.`%s/xsort/2batches` order by employee_id", TEST_RES_PATH);
@@ -81,16 +81,16 @@ public class TestSortSpillWithException extends ClusterTest {
 
   @Test
   public void testSpillLeakManaged() throws Exception {
-    cluster.alterSession(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName(), false);
+    client.alterSession(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName(), false);
     // inject exception in sort while spilling
     final String controls = Controls.newBuilder()
       .addExceptionOnBit(
           org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch.class,
           org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch.INTERRUPTION_WHILE_SPILLING,
           IOException.class,
-          cluster.drillbit( ).getContext().getEndpoint())
+          cluster.drillbit().getContext().getEndpoint())
       .build();
-    ControlsInjectionUtil.setControls(cluster.client( ), controls);
+    ControlsInjectionUtil.setControls(cluster.client(), controls);
     // run a simple order by query
     try {
       test("SELECT id_i, name_s5000 FROM `mock`.`employee_10K` ORDER BY id_i");

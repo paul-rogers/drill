@@ -23,6 +23,7 @@ import static org.junit.Assert.assertTrue;
 import java.util.List;
 
 import org.apache.drill.ClusterFixture;
+import org.apache.drill.ClusterFixture.ClientFixture;
 import org.apache.drill.ClusterFixture.FixtureBuilder;
 import org.apache.drill.DrillEngineTest;
 import org.apache.drill.common.expression.ExpressionPosition;
@@ -65,15 +66,16 @@ public class TestSimpleExternalSort extends DrillEngineTest {
    */
 
   private void mergeSortWithSv2(boolean testLegacy) throws Exception {
-    try (ClusterFixture client = standardClient( )) {
+    try (ClusterFixture cluster = standardCluster();
+         ClientFixture client = cluster.clientFixture()) {
       chooseImpl(client, testLegacy);
-      List<QueryDataBatch> results = client.queryBuilder( ).physicalResource("xsort/one_key_sort_descending_sv2.json").results();
-      assertEquals(500000, client.countResults( results ));
+      List<QueryDataBatch> results = client.queryBuilder().physicalResource("xsort/one_key_sort_descending_sv2.json").results();
+      assertEquals(500000, client.countResults(results));
       validateResults(client.allocator(), results);
     }
   }
 
-  private void chooseImpl(ClusterFixture client, boolean testLegacy) throws Exception {
+  private void chooseImpl(ClientFixture client, boolean testLegacy) throws Exception {
     client.alterSession(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName(), testLegacy);
   }
 
@@ -88,9 +90,10 @@ public class TestSimpleExternalSort extends DrillEngineTest {
   }
 
   private void sortOneKeyDescendingMergeSort(boolean testLegacy) throws Throwable {
-    try (ClusterFixture client = standardClient( )) {
+    try (ClusterFixture cluster = standardCluster();
+         ClientFixture client = cluster.clientFixture()) {
       chooseImpl(client, testLegacy);
-      List<QueryDataBatch> results = client.queryBuilder( ).physicalResource("xsort/one_key_sort_descending.json").results();
+      List<QueryDataBatch> results = client.queryBuilder().physicalResource("xsort/one_key_sort_descending.json").results();
       assertEquals(1000000, client.countResults(results));
       validateResults(client.allocator(), results);
     }
@@ -107,6 +110,7 @@ public class TestSimpleExternalSort extends DrillEngineTest {
       if (b.getHeader().getRowCount() > 0) {
         batchCount++;
         loader.load(b.getHeader().getDef(),b.getData());
+        @SuppressWarnings({ "deprecation", "resource" })
         BigIntVector c1 = (BigIntVector) loader.getValueAccessorById(BigIntVector.class, loader.getValueVectorId(new SchemaPath("blue", ExpressionPosition.UNKNOWN)).getFieldIds()).getValueVector();
         BigIntVector.Accessor a1 = c1.getAccessor();
 
@@ -135,14 +139,15 @@ public class TestSimpleExternalSort extends DrillEngineTest {
   }
 
   private void sortOneKeyDescendingExternalSort(boolean testLegacy) throws Throwable {
-    FixtureBuilder builder = newBuilder( )
-        .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_THRESHOLD, 4 )
+    FixtureBuilder builder = newBuilder()
+        .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_THRESHOLD, 4)
         .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_GROUP_SIZE, 4)
         .configProperty(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 4);
-    try (ClusterFixture client = builder.build( )) {
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
       chooseImpl(client,testLegacy);
-      List<QueryDataBatch> results = client.queryBuilder( ).physicalResource("/xsort/one_key_sort_descending.json").results();
-      assertEquals(1000000, client.countResults( results ));
+      List<QueryDataBatch> results = client.queryBuilder().physicalResource("/xsort/one_key_sort_descending.json").results();
+      assertEquals(1000000, client.countResults(results));
       validateResults(client.allocator(), results);
     }
   }
@@ -158,16 +163,17 @@ public class TestSimpleExternalSort extends DrillEngineTest {
   }
 
   private void outOfMemoryExternalSort(boolean testLegacy) throws Throwable{
-    FixtureBuilder builder = newBuilder( )
+    FixtureBuilder builder = newBuilder()
         // Probably do nothing in modern Drill
-        .configProperty( "drill.memory.fragment.max", 50000000 )
-        .configProperty( "drill.memory.fragment.initial", 2000000 )
-        .configProperty( "drill.memory.operator.max", 30000000 )
-        .configProperty( "drill.memory.operator.initial", 2000000 );
-    try (ClusterFixture client = builder.build( )) {
+        .configProperty("drill.memory.fragment.max", 50000000)
+        .configProperty("drill.memory.fragment.initial", 2000000)
+        .configProperty("drill.memory.operator.max", 30000000)
+        .configProperty("drill.memory.operator.initial", 2000000);
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
       chooseImpl(client,testLegacy);
-      List<QueryDataBatch> results = client.queryBuilder( ).physicalResource("/xsort/oom_sort_test.json").results();
-      assertEquals(10000000, client.countResults( results ));
+      List<QueryDataBatch> results = client.queryBuilder().physicalResource("/xsort/oom_sort_test.json").results();
+      assertEquals(10000000, client.countResults(results));
 
       long previousBigInt = Long.MAX_VALUE;
 
@@ -179,6 +185,7 @@ public class TestSimpleExternalSort extends DrillEngineTest {
         if (b.getHeader().getRowCount() > 0) {
           batchCount++;
           loader.load(b.getHeader().getDef(),b.getData());
+          @SuppressWarnings("resource")
           BigIntVector c1 = (BigIntVector) loader.getValueAccessorById(BigIntVector.class, loader.getValueVectorId(new SchemaPath("blue", ExpressionPosition.UNKNOWN)).getFieldIds()).getValueVector();
           BigIntVector.Accessor a1 = c1.getAccessor();
 
