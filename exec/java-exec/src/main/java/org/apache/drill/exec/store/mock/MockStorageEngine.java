@@ -61,7 +61,17 @@ public class MockStorageEngine extends AbstractStoragePlugin {
         new TypeReference<ArrayList<MockScanEntry>>() {
         });
 
-    return new MockGroupScanPOP(null, true, readEntries);
+    // The classic (logical-plan based) and extended (SQL-based) paths
+    // come through here. If this is a SQL query, then no columns are
+    // defined in the plan.
+
+    assert ! readEntries.isEmpty();
+    boolean extended = readEntries.size() == 1;
+    if (extended) {
+      MockScanEntry entry = readEntries.get(0);
+      extended = entry.getTypes() == null;
+    }
+    return new MockGroupScanPOP(null, extended, readEntries);
   }
 
   @Override
