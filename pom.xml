@@ -609,6 +609,11 @@
       <version>0.9.44</version>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.xerial.snappy</groupId>
+      <artifactId>snappy-java</artifactId>
+      <version>1.1.2.6</version>
+    </dependency>
 
   </dependencies>
 
@@ -1329,6 +1334,28 @@
                 <groupId>stax</groupId>
               </exclusion>
             </exclusions>
+          </dependency>
+          <dependency>
+          	<groupId>org.apache.avro</groupId>
+          	<artifactId>avro</artifactId>
+          	<version>1.7.4</version>
+          	<exclusions>
+          		<exclusion>
+          			<groupId>org.xerial.snappy</groupId>
+          			<artifactId>snappy-java</artifactId>
+          		</exclusion>
+          	</exclusions>
+          </dependency>
+          <dependency>
+          	<groupId>org.apache.parquet</groupId>
+          	<artifactId>parquet-hadoop</artifactId>
+          	<version>1.8.1-drill-r0</version>
+          	<exclusions>
+          		<exclusion>
+          			<groupId>org.xerial.snappy</groupId>
+          			<artifactId>snappy-java</artifactId>
+          		</exclusion>
+          	</exclusions>
           </dependency>
           <dependency>
             <groupId>org.apache.hbase</groupId>
