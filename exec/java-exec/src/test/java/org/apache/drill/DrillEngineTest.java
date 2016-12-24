@@ -40,7 +40,7 @@ public class DrillEngineTest extends ExecTest {
     return ClusterFixture.builder( );
   }
 
-  public static ClusterFixture standardClient( ) throws Exception {
+  public static ClusterFixture standardCluster( ) throws Exception {
     return newBuilder( ).build( );
   }
 

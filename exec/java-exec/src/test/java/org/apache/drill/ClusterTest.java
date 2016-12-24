@@ -19,6 +19,7 @@ package org.apache.drill;
 
 import java.io.IOException;
 
+import org.apache.drill.ClusterFixture.ClientFixture;
 import org.apache.drill.ClusterFixture.FixtureBuilder;
 import org.apache.drill.ClusterFixture.QueryBuilder;
 import org.apache.drill.common.AutoCloseables;
@@ -76,14 +77,16 @@ import org.junit.AfterClass;
 public class ClusterTest extends DrillTest {
 
   protected static ClusterFixture cluster;
+  protected static ClientFixture client;
 
   protected static void startCluster(FixtureBuilder builder) throws Exception {
     cluster = builder.build();
+    client = cluster.clientFixture();
   }
 
   @AfterClass
   public static void shutdown() throws Exception {
-    AutoCloseables.close(cluster);
+    AutoCloseables.close(client, cluster);
   }
 
   /**
@@ -93,7 +96,7 @@ public class ClusterTest extends DrillTest {
    */
 
   public TestBuilder testBuilder() {
-    return cluster.testBuilder();
+    return client.testBuilder();
   }
 
   /**
@@ -107,15 +110,15 @@ public class ClusterTest extends DrillTest {
   }
 
   public void test(String sqlQuery) throws Exception {
-    cluster.runQueries(sqlQuery);
+    client.runQueries(sqlQuery);
   }
 
   public static void test(String query, Object... args) throws Exception {
-    cluster.queryBuilder().sql(query, args).run( );
+    client.queryBuilder().sql(query, args).run( );
   }
 
   public QueryBuilder queryBuilder( ) {
-    return cluster.queryBuilder();
+    return client.queryBuilder();
   }
 
 }
