@@ -127,7 +127,6 @@ public class TestSimpleExternalSort extends DrillEngineTest {
     System.out.println(String.format("Sorted %,d records in %d batches.", recordCount, batchCount));
   }
 
-
   @Test
   public void sortOneKeyDescendingExternalSortManaged() throws Throwable {
     sortOneKeyDescendingExternalSort(false);
