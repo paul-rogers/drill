@@ -26,6 +26,7 @@ import java.io.IOException;
 import org.apache.drill.BufferingQueryEventListener;
 import org.apache.drill.BufferingQueryEventListener.QueryEvent;
 import org.apache.drill.ClusterFixture;
+import org.apache.drill.ClusterFixture.ClientFixture;
 import org.apache.drill.ClusterFixture.FixtureBuilder;
 import org.apache.drill.ClusterFixture.QuerySummary;
 import org.apache.drill.common.util.FileUtils;
@@ -44,47 +45,49 @@ public class TestExternalSortRM extends DrillTest {
 
   @Test
   public void testManagedSpilled() throws Exception {
-    LogAnalyzer analyzer = new LogAnalyzer( true );
-    analyzer.setupLogging( );
+    LogAnalyzer analyzer = new LogAnalyzer(true);
+    analyzer.setupLogging();
 
     FixtureBuilder builder = ClusterFixture.builder()
         .configProperty(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 40)
         .configProperty(ExecConstants.EXTERNAL_SORT_MERGE_LIMIT, 40)
         .maxParallelization(1);
-    try (ClusterFixture cluster = builder.build()) {
-      cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
-      performSort( cluster );
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      performSort(client);
     }
 
-    EventAnalyzer analysis = analyzer.analyzeLog( );
-    SortStats stats = analysis.getStats( );
+    EventAnalyzer analysis = analyzer.analyzeLog();
+    SortStats stats = analysis.getStats();
 
     // Verify that spilling occurred. That it occurred
     // correctly is verified by the query itself.
 
-    assertTrue( stats.gen1SpillCount > 0 );
-    assertTrue( stats.gen2SpillCount > 0 );
-    analysis.report( );
+    assertTrue(stats.gen1SpillCount > 0);
+    assertTrue(stats.gen2SpillCount > 0);
+    analysis.report();
   }
 
   @Test
   public void testManagedSpilledWide() throws Exception {
-    LogAnalyzer analyzer = new LogAnalyzer( true );
-    analyzer.setupLogging( );
+    LogAnalyzer analyzer = new LogAnalyzer(true);
+    analyzer.setupLogging();
 
     FixtureBuilder builder = ClusterFixture.builder()
         .configResource("xsort/drill-external-sort-rm.conf")
         .maxParallelization(1);
-    try (ClusterFixture cluster = builder.build()) {
-      cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
       String sql = "select * from (select *, row_number() over(order by validitydate) as rn from `dfs.data`.`gen.json`) where rn=10";
-      String plan = cluster.queryBuilder().sql(sql).explainText();
-      System.out.println( plan );
-      QuerySummary summary = cluster.queryBuilder().sql(sql).run();
+      String plan = client.queryBuilder().sql(sql).explainText();
+      System.out.println(plan);
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
       System.out.println(String.format("Sorted %,d records in %d batches; %d ms.", summary.recordCount(), summary.batchCount(), summary.runTimeMs()));
     }
 
-    analyzer.analyzeLog( );
+    analyzer.analyzeLog();
   }
 
   @Test
@@ -92,103 +95,109 @@ public class TestExternalSortRM extends DrillTest {
     FixtureBuilder builder = ClusterFixture.builder()
         .configResource("xsort/drill-external-sort-rm.conf")
         .maxParallelization(1);
-    try (ClusterFixture cluster = builder.build()) {
-      cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
       String sql = "select `name`, `monisid`, `validitydate` from `dfs.data`.`gen.json` LIMIT 10";
-      String plan = cluster.queryBuilder().sql(sql).explainText();
-      System.out.println( plan );
-      QuerySummary summary = cluster.queryBuilder().sql(sql).run();
+      String plan = client.queryBuilder().sql(sql).explainText();
+      System.out.println(plan);
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
       System.out.println(String.format("Sorted %,d records in %d batches; %d ms.", summary.recordCount(), summary.batchCount(), summary.runTimeMs()));
     }
   }
 
   @Test
   public void testLegacySpilled() throws Exception {
-    LogAnalyzer analyzer = new LogAnalyzer( false );
-    analyzer.setupLogging( );
+    LogAnalyzer analyzer = new LogAnalyzer(false);
+    analyzer.setupLogging();
 
     FixtureBuilder builder = ClusterFixture.builder()
         .configResource("xsort/drill-external-sort-legacy.conf")
         .maxParallelization(1);
-    try (ClusterFixture cluster = builder.build()) {
-      cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
-      performSort( cluster );
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      performSort(client);
     }
 
-    analyzer.analyzeLog( );
+    analyzer.analyzeLog();
   }
 
   @Test
   public void testManagedInMemory() throws Exception {
-    LogAnalyzer analyzer = new LogAnalyzer( true );
-    analyzer.setupLogging( );
+    LogAnalyzer analyzer = new LogAnalyzer(true);
+    analyzer.setupLogging();
 
     FixtureBuilder builder = ClusterFixture.builder()
         .maxParallelization(1);
-    try (ClusterFixture cluster = builder.build()) {
-      cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
-      String plan = cluster.queryBuilder().sqlResource("/xsort/sort-big-all.sql").explainJson();
-      System.out.println( plan );
-      performSort( cluster );
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      String plan = client.queryBuilder().sqlResource("/xsort/sort-big-all.sql").explainJson();
+      System.out.println(plan);
+      performSort(client);
     }
 
-    analyzer.analyzeLog( );
+    analyzer.analyzeLog();
   }
 
   @Test
   public void testManagedInMemory2() throws Exception {
-    LogAnalyzer analyzer = new LogAnalyzer( true );
-    analyzer.setupLogging( );
+    LogAnalyzer analyzer = new LogAnalyzer(true);
+    analyzer.setupLogging();
 
     FixtureBuilder builder = ClusterFixture.builder()
         .maxParallelization(1);
-    try (ClusterFixture cluster = builder.build()) {
-      cluster.defineWorkspace( "mock", "data", null, null );
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("mock", "data", null, null);
       String sql = "SELECT * FROM `mock.data`.`/xsort/test300M.json` ORDER BY sth";
-      String plan = cluster.queryBuilder().sql(sql).explainJson();
-      System.out.println( plan );
-      performSort( cluster );
+      String plan = client.queryBuilder().sql(sql).explainJson();
+      System.out.println(plan);
+      performSort(client);
     }
 
-    analyzer.analyzeLog( );
+    analyzer.analyzeLog();
   }
 
   @Test
-  public void testSqlMockTable( ) throws Throwable {
-    try (ClusterFixture cluster = ClusterFixture.standardClient( )) {
-//      cluster.defineWorkspace( "mock", "data", null, null );
-      cluster.queryBuilder().sql("SHOW DATABASES").printCsv();
+  public void testSqlMockTable() throws Throwable {
+    try (ClusterFixture cluster = ClusterFixture.standardCluster();
+         ClientFixture client = cluster.clientFixture()) {
+//      cluster.defineWorkspace("mock", "data", null, null);
+      client.queryBuilder().sql("SHOW DATABASES").printCsv();
       String sql = "SELECT `id_i`, `num_d`, `name_s50` FROM `mock`.`implicit_10` ORDER BY `name_s50`";
-      long count = cluster.queryBuilder().sql(sql).printCsv();
-      System.out.println( "Rows: " + count );
+      long count = client.queryBuilder().sql(sql).printCsv();
+      System.out.println("Rows: " + count);
     }
   }
 
   @Test
   public void testManagedGenInMemory() throws Exception {
-    LogAnalyzer analyzer = new LogAnalyzer( true );
-    analyzer.setupLogging( );
+    LogAnalyzer analyzer = new LogAnalyzer(true);
+    analyzer.setupLogging();
 
     FixtureBuilder builder = ClusterFixture.builder()
         .maxParallelization(1);
-    try (ClusterFixture cluster = builder.build()) {
-//      cluster.defineWorkspace( "dfs", "data", "/Users/paulrogers/work/data", "psv" );
-      performSort( cluster );
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+//      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      performSort(client);
     }
 
-    analyzer.analyzeLog( );
+    analyzer.analyzeLog();
   }
 
 //  private int performSort(DrillClient client, String sql) throws IOException {
-//    BufferingQueryEventListener listener = new BufferingQueryEventListener( );
+//    BufferingQueryEventListener listener = new BufferingQueryEventListener();
 //    long start = System.currentTimeMillis();
 //    client.runQuery(QueryType.SQL, sql, listener);
 //    int recordCount = 0;
 //    int batchCount = 0;
 //    loop:
-//    for ( ; ; ) {
+//    for (; ;) {
 //      QueryEvent event = listener.get();
-//      switch ( event.type )
+//      switch (event.type)
 //      {
 //      case BATCH:
 //        batchCount++;
@@ -199,7 +208,7 @@ public class TestExternalSortRM extends DrillTest {
 //        break loop;
 //      case ERROR:
 //        event.error.printStackTrace();
-//        fail( );
+//        fail();
 //        break loop;
 //      case QUERY_ID:
 //        break;
@@ -213,8 +222,8 @@ public class TestExternalSortRM extends DrillTest {
 //    return recordCount;
 //  }
 
-  private void performSort(ClusterFixture fixture) throws IOException {
-    QuerySummary summary = fixture.queryBuilder().sqlResource("/xsort/sort-big-all.sql").run();
+  private void performSort(ClientFixture client) throws IOException {
+    QuerySummary summary = client.queryBuilder().sqlResource("/xsort/sort-big-all.sql").run();
     System.out.println(String.format("Sorted %,d records in %d batches; %d ms.", summary.recordCount(), summary.batchCount(), summary.runTimeMs()));
     assertEquals(2880404, summary.recordCount());
   }

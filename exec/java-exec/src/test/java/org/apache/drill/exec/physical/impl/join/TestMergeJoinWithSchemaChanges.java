@@ -84,7 +84,7 @@ public class TestMergeJoinWithSchemaChanges extends ClusterTest {
   }
 
   public void enableManagedSort(boolean enable) throws RpcException {
-    cluster.alterSession(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName(), enable);
+    client.alterSession(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName(), enable);
   }
 
   // INNER JOIN
@@ -93,7 +93,7 @@ public class TestMergeJoinWithSchemaChanges extends ClusterTest {
       left_dir.toPath().toString(), "inner", right_dir.toPath().toString());
 
     verifyMergeJoin(query);
-    TestBuilder builder = cluster.testBuilder()
+    TestBuilder builder = client.testBuilder()
       .sqlQuery(query)
       .unOrdered()
       .baselineColumns("kl", "vl", "kr", "vr");
@@ -122,7 +122,7 @@ public class TestMergeJoinWithSchemaChanges extends ClusterTest {
       left_dir.toPath().toString(), "left", right_dir.toPath().toString());
 
     verifyMergeJoin(query);
-    TestBuilder builder = cluster.testBuilder()
+    TestBuilder builder = client.testBuilder()
       .sqlQuery(query)
       .optionSettingQueriesForTestQuery("alter session set `planner.enable_hashjoin` = false; alter session set `exec.enable_union_type` = true")
       .unOrdered()
@@ -194,7 +194,7 @@ public class TestMergeJoinWithSchemaChanges extends ClusterTest {
       left_dir.toPath().toString(), "inner", right_dir.toPath().toString());
 
     verifyMergeJoin(query);
-    TestBuilder builder = cluster.testBuilder()
+    TestBuilder builder = client.testBuilder()
       .sqlQuery(query)
       .unOrdered()
       .baselineColumns("kl", "vl", "kr", "vr");
@@ -215,7 +215,7 @@ public class TestMergeJoinWithSchemaChanges extends ClusterTest {
       left_dir.toPath().toString(), "right", right_dir.toPath().toString());
 
     verifyMergeJoin(query);
-    TestBuilder builder = cluster.testBuilder()
+    TestBuilder builder = client.testBuilder()
       .sqlQuery(query)
       .unOrdered()
       .baselineColumns("kl", "vl", "kr", "vr");
@@ -296,7 +296,7 @@ public class TestMergeJoinWithSchemaChanges extends ClusterTest {
       left_dir.toPath().toString(), "inner", right_dir.toPath().toString());
 
     verifyMergeJoin(query);
-    TestBuilder builder = cluster.testBuilder()
+    TestBuilder builder = client.testBuilder()
       .sqlQuery(query)
       .unOrdered()
       .baselineColumns("kl", "vl", "kr", "vr", "kl1", "vl1", "kl2", "vl2", "kr1", "vr1", "kr2", "vr2");
@@ -313,7 +313,7 @@ public class TestMergeJoinWithSchemaChanges extends ClusterTest {
       left_dir.toPath().toString(), "left", right_dir.toPath().toString());
 
     verifyMergeJoin(query);
-    TestBuilder builder = cluster.testBuilder()
+    TestBuilder builder = client.testBuilder()
       .sqlQuery(query)
       .unOrdered()
       .baselineColumns("kl", "vl", "kr", "vr", "kl1", "vl1", "kl2", "vl2", "kr1", "vr1", "kr2", "vr2");
@@ -336,7 +336,7 @@ public class TestMergeJoinWithSchemaChanges extends ClusterTest {
       left_dir.toPath().toString(), "right", right_dir.toPath().toString());
 
     verifyMergeJoin(query);
-    TestBuilder builder = cluster.testBuilder()
+    TestBuilder builder = client.testBuilder()
       .sqlQuery(query)
       .unOrdered()
       .baselineColumns("kl", "vl", "kr", "vr", "kl1", "vl1", "kl2", "vl2", "kr1", "vr1", "kr2", "vr2");
@@ -384,7 +384,7 @@ public class TestMergeJoinWithSchemaChanges extends ClusterTest {
       left_dir.toPath().toString(), "inner", right_dir.toPath().toString());
 
     verifyMergeJoin(query);
-    TestBuilder builder = cluster.testBuilder()
+    TestBuilder builder = client.testBuilder()
       .sqlQuery(query)
       .unOrdered()
       .baselineColumns("kl", "vl", "kl0", "vl0");
@@ -396,7 +396,7 @@ public class TestMergeJoinWithSchemaChanges extends ClusterTest {
   }
 
   private void verifyMergeJoin(String query) throws Exception {
-    String plan = cluster.queryBuilder().sql(query).explainJson();
+    String plan = client.queryBuilder().sql(query).explainJson();
     DrillTest.out.println(plan);
     assertTrue(plan.contains("\"pop\" : \"external-sort\","));
     assertTrue(plan.contains("\"pop\" : \"merge-join\","));
