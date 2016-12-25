@@ -238,6 +238,11 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
     return true;
   }
 
+  @Override
+  public void copyEntry(int toIndex, ValueVector from, int fromIndex) {
+    copyFromSafe(fromIndex, toIndex, (${minor.class}Vector) from);
+  }
+
   private class TransferImpl implements TransferPair{
     ${minor.class}Vector to;
 
