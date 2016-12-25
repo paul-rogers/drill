@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -174,6 +174,8 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
    *          The buffer that contains the ValueVector.
    */
   void load(SerializedField metadata, DrillBuf buffer);
+
+  void copyEntry(int toIndex, ValueVector from, int fromIndex);
 
   /**
    * An abstraction that is used to read from this vector instance.
