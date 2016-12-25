@@ -41,7 +41,9 @@ import org.apache.drill.exec.client.PrintingResultsListener;
 import org.apache.drill.exec.client.QuerySubmitter.Format;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.memory.RootAllocatorFactory;
+import org.apache.drill.exec.proto.UserBitShared.QueryId;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
+import org.apache.drill.exec.proto.helper.QueryIdHelper;
 import org.apache.drill.exec.record.RecordBatchLoader;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.rpc.RpcException;
@@ -342,11 +344,13 @@ public class ClusterFixture implements AutoCloseable {
    */
 
   public static class QuerySummary {
+    private final QueryId queryId;
     private final int records;
     private final int batches;
     private final long ms;
 
-    public QuerySummary(int recordCount, int batchCount, long elapsed) {
+    public QuerySummary(QueryId queryId, int recordCount, int batchCount, long elapsed) {
+      this.queryId = queryId;
       records = recordCount;
       batches = batchCount;
       ms = elapsed;
@@ -355,6 +359,8 @@ public class ClusterFixture implements AutoCloseable {
     public long recordCount( ) { return records; }
     public int batchCount( ) { return batches; }
     public long runTimeMs( ) { return ms; }
+    public QueryId queryId( ) { return queryId; }
+    public String queryIdString( ) { return QueryIdHelper.getQueryId(queryId); }
   }
 
   /**
@@ -529,6 +535,7 @@ public class ClusterFixture implements AutoCloseable {
       long start = System.currentTimeMillis();
       int recordCount = 0;
       int batchCount = 0;
+      QueryId queryId = null;
       loop:
       for ( ; ; ) {
         QueryEvent event = listener.get();
@@ -544,6 +551,7 @@ public class ClusterFixture implements AutoCloseable {
         case ERROR:
           throw event.error;
         case QUERY_ID:
+          queryId = event.queryId;
           break;
         default:
           break;
@@ -551,7 +559,7 @@ public class ClusterFixture implements AutoCloseable {
       }
       long end = System.currentTimeMillis();
       long elapsed = end - start;
-      return new QuerySummary( recordCount, batchCount, elapsed );
+      return new QuerySummary( queryId, recordCount, batchCount, elapsed );
     }
 
     /**
