@@ -164,15 +164,15 @@ public class TestSimpleExternalSort extends DrillEngineTest {
   private void outOfMemoryExternalSort(boolean testLegacy) throws Throwable{
     FixtureBuilder builder = newBuilder()
         // Probably do nothing in modern Drill
-        .configProperty("drill.memory.fragment.max", 50000000)
-        .configProperty("drill.memory.fragment.initial", 2000000)
-        .configProperty("drill.memory.operator.max", 30000000)
-        .configProperty("drill.memory.operator.initial", 2000000);
+        .configProperty("drill.memory.fragment.max", 50_000_000)
+        .configProperty("drill.memory.fragment.initial", 2_000_000)
+        .configProperty("drill.memory.operator.max", 30_000_000)
+        .configProperty("drill.memory.operator.initial", 2_000_000);
     try (ClusterFixture cluster = builder.build();
          ClientFixture client = cluster.clientFixture()) {
       chooseImpl(client,testLegacy);
       List<QueryDataBatch> results = client.queryBuilder().physicalResource("/xsort/oom_sort_test.json").results();
-      assertEquals(10000000, client.countResults(results));
+      assertEquals(10_000_000, client.countResults(results));
 
       long previousBigInt = Long.MAX_VALUE;
 

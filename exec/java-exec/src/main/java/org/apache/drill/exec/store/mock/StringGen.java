@@ -24,8 +24,8 @@ import org.apache.drill.exec.vector.VarCharVector;
 
 public class StringGen implements FieldGen {
 
-  Random rand = new Random( );
-  int length;
+  private Random rand = new Random( );
+  private int length;
 
   @Override
   public void setup( ColumnDef colDef ) {
