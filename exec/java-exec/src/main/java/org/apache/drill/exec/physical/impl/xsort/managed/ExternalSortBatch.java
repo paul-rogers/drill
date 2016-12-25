@@ -395,8 +395,13 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       copierHolder.close();
       spillSet.close();
       opCodeGen.close();
-      allocator.close();
+
+      // The call to super.close() clears out the output container.
+      // Doing so requires the allocator here, so it must be closed
+      // after the super call.
+
       super.close();
+      allocator.close();
     }
   }
 
