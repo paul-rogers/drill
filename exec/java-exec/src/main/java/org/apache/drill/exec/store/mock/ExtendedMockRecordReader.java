@@ -128,9 +128,6 @@ public class ExtendedMockRecordReader extends AbstractRecordReader {
       return 0;
     }
 
-//    for (final ValueVector v : valueVectors) {
-//      v.getMutator().reset( );
-//    }
     final int recordSetSize = Math.min(batchRecordCount, this.config.getRecords() - recordsRead);
     recordsRead += recordSetSize;
     for (int i = 0; i < recordSetSize; i++) {
@@ -139,9 +136,6 @@ public class ExtendedMockRecordReader extends AbstractRecordReader {
         fields[j++].generator.setValue(v, i);
       }
     }
-//    for (final ValueVector v : valueVectors) {
-//      v.getMutator().setValueCount(recordSetSize);
-//    }
 
     return recordSetSize;
   }

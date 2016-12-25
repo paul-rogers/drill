@@ -19,7 +19,7 @@
                   {name: "green", type: "INT", mode: "REQUIRED"},
                   {name: "orange", type: "VARCHAR", mode: "REQUIRED", width: 400},
                   {name: "beige", type: "FLOAT8", mode: "REQUIRED"},
-                  {name: "orange", type: "FLOAT8", mode: "REQUIRED", generator: "MoneyGen"}
+                  {name: "red", type: "FLOAT8", mode: "REQUIRED", generator: "MoneyGen"}
                 ]}
             ]
         },
