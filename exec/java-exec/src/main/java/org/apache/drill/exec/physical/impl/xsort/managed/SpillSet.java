@@ -17,6 +17,9 @@
  */
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -46,13 +49,124 @@ public class SpillSet {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SpillSet.class);
 
   /**
-   * The HDFS file system (for local directories, HDFS storage, etc.) used to
-   * create the temporary spill files. Allows spill files to be either on local
-   * disk, or in a DFS. (The admin can choose to put spill files in DFS when
-   * nodes provide insufficient local disk space)
+   * Spilling on the Mac using the HDFS file system is very inefficient,
+   * affects performance numbers. This interface allows using HDFS in
+   * production, but to bypass the HDFS file system when needed.
    */
 
-  private FileSystem fs;
+  private interface FileManager {
+
+    void deleteOnExit(String fragmentSpillDir) throws IOException;
+
+    OutputStream createForWrite(String fileName) throws IOException;
+
+    InputStream openForInput(String fileName) throws IOException;
+
+    void deleteFile(String fileName) throws IOException;
+
+    void deleteDir(String fragmentSpillDir) throws IOException;
+  }
+
+  /**
+   * Normal implementation of spill files using the HDFS file system.
+   */
+
+  private static class HadoopFileManager implements FileManager{
+    /**
+     * The HDFS file system (for local directories, HDFS storage, etc.) used to
+     * create the temporary spill files. Allows spill files to be either on local
+     * disk, or in a DFS. (The admin can choose to put spill files in DFS when
+     * nodes provide insufficient local disk space)
+     */
+
+    private FileSystem fs;
+
+    protected HadoopFileManager(String fsName) {
+      Configuration conf = new Configuration();
+      conf.set("fs.default.name", fsName);
+      try {
+        fs = FileSystem.get(conf);
+      } catch (IOException e) {
+        throw UserException.resourceError(e)
+              .message("Failed to get the File System for external sort")
+              .build(logger);
+      }
+    }
+
+    @Override
+    public void deleteOnExit(String fragmentSpillDir) throws IOException {
+      fs.deleteOnExit(new Path(fragmentSpillDir));
+    }
+
+    @Override
+    public OutputStream createForWrite(String fileName) throws IOException {
+      return fs.create(new Path(fileName));
+    }
+
+    @Override
+    public InputStream openForInput(String fileName) throws IOException {
+      return fs.open(new Path(fileName));
+    }
+
+    @Override
+    public void deleteFile(String fileName) throws IOException {
+      Path path = new Path(fileName);
+      if (fs.exists(path)) {
+        fs.delete(path, false);
+      }
+    }
+
+    @Override
+    public void deleteDir(String fragmentSpillDir) throws IOException {
+      Path path = new Path(fragmentSpillDir);
+      if (path != null && fs.exists(path)) {
+        if (fs.delete(path, true)) {
+            fs.cancelDeleteOnExit(path);
+        }
+      }
+    }
+  }
+
+  /**
+   * Performance-oriented direct access to the local file system which
+   * bypasses HDFS.
+   */
+
+  private static class LocalFileManager implements FileManager {
+
+    private File baseDir;
+
+    public LocalFileManager(String fsName) {
+      baseDir = new File(fsName.replace("file://", ""));
+    }
+
+    @Override
+    public void deleteOnExit(String fragmentSpillDir) throws IOException {
+      File dir = new File(baseDir, fragmentSpillDir);
+      dir.mkdirs();
+      dir.deleteOnExit();
+    }
+
+    @Override
+    public OutputStream createForWrite(String fileName) throws IOException {
+      return new FileOutputStream(new File(baseDir, fileName));
+    }
+
+    @Override
+    public InputStream openForInput(String fileName) throws IOException {
+      return new FileInputStream(new File(baseDir, fileName));
+    }
+
+    @Override
+    public void deleteFile(String fileName) throws IOException {
+      new File(baseDir, fileName).delete();
+    }
+
+    @Override
+    public void deleteDir(String fragmentSpillDir) throws IOException {
+      new File(baseDir, fragmentSpillDir).delete();
+    }
+  }
 
   private final Iterator<String> dirs;
 
@@ -64,7 +178,7 @@ public class SpillSet {
    * before writing to the directories.
    */
 
-  private Set<Path> currSpillDirs = Sets.newTreeSet();
+  private Set<String> currSpillDirs = Sets.newTreeSet();
 
   /**
    * The base part of the file name for spill files. Each file has this
@@ -75,17 +189,22 @@ public class SpillSet {
 
   private int fileCount = 0;
 
+  private FileManager fileManager;
+
   public SpillSet(FragmentContext context, PhysicalOperator popConfig) {
     DrillConfig config = context.getConfig();
     dirs = Iterators.cycle(config.getStringList(ExecConstants.EXTERNAL_SORT_SPILL_DIRS));
-    Configuration conf = new Configuration();
-    conf.set("fs.default.name", config.getString(ExecConstants.EXTERNAL_SORT_SPILL_FILESYSTEM));
-    try {
-      fs = FileSystem.get(conf);
-    } catch (IOException e) {
-      throw UserException.resourceError(e)
-            .message("Failed to get the File System for external sort")
-            .build(logger);
+
+    // Use the high-performance local file system if the local file
+    // system is selected and impersonation is off. (We use that
+    // as a proxy for a non-production Drill setup.)
+
+    String spillFs = config.getString(ExecConstants.EXTERNAL_SORT_SPILL_FILESYSTEM);
+    boolean impersonationEnabled = config.getBoolean(ExecConstants.IMPERSONATION_ENABLED);
+    if (spillFs.startsWith("file:///") && ! impersonationEnabled) {
+      fileManager = new LocalFileManager(spillFs);
+    } else {
+      fileManager = new HadoopFileManager(spillFs);
     }
     FragmentHandle handle = context.getHandle();
     spillDirName = String.format("%s_major%s_minor%s_op%s", QueryIdHelper.getQueryId(handle.getQueryId()),
@@ -99,11 +218,11 @@ public class SpillSet {
     // must have sufficient space for the output file.
 
     String spillDir = dirs.next();
-    Path currSpillPath = new Path(Joiner.on("/").join(spillDir, spillDirName));
+    String currSpillPath = Joiner.on("/").join(spillDir, spillDirName);
     currSpillDirs.add(currSpillPath);
     String outputFile = Joiner.on("/").join(currSpillPath, "spill" + ++fileCount);
     try {
-        fs.deleteOnExit(currSpillPath);
+        fileManager.deleteOnExit(currSpillPath);
     } catch (IOException e) {
         // since this is meant to be used in a batches's spilling, we don't propagate the exception
         logger.warn("Unable to mark spill directory " + currSpillPath + " for deleting on exit", e);
@@ -118,28 +237,21 @@ public class SpillSet {
   public int getFileCount() { return fileCount; }
 
   public InputStream openForInput(String fileName) throws IOException {
-    return fs.open(new Path(fileName));
+    return fileManager.openForInput(fileName);
   }
 
   public OutputStream openForOutput(String fileName) throws IOException {
-    return fs.create(new Path(fileName));
+    return fileManager.createForWrite(fileName);
   }
 
   public void delete(String fileName) throws IOException {
-    Path path = new Path(fileName);
-    if (fs.exists(path)) {
-      fs.delete(path, false);
-    }
+    fileManager.deleteFile(fileName);
   }
 
   public void close() {
-    for (Path path : currSpillDirs) {
+    for (String path : currSpillDirs) {
       try {
-          if (path != null && fs.exists(path)) {
-              if (fs.delete(path, true)) {
-                  fs.cancelDeleteOnExit(path);
-              }
-          }
+        fileManager.deleteDir(path);
       } catch (IOException e) {
           // since this is meant to be used in a batches's cleanup, we don't propagate the exception
           logger.warn("Unable to delete spill directory " + path,  e);
