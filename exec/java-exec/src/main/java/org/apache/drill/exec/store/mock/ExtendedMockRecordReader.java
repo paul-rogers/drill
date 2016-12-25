@@ -18,8 +18,10 @@
 package org.apache.drill.exec.store.mock;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.types.TypeProtos.MajorType;
@@ -55,9 +57,18 @@ public class ExtendedMockRecordReader extends AbstractRecordReader {
 
   private ColumnDef[] buildColumnDefs() {
     List<ColumnDef> defs = new ArrayList<>( );
+
+    // Look for duplicate names. Bad things happen when the sama name
+    // appears twice.
+
+    Set<String> names = new HashSet<>();
     MockColumn cols[] = config.getTypes();
     for ( int i = 0;  i < cols.length;  i++ ) {
       MockColumn col = cols[i];
+      if (names.contains(col.name)) {
+        throw new IllegalArgumentException("Duplicate column name: " + col.name);
+      }
+      names.add(col.name);
       int repeat = Math.min( 1, col.getRepeatCount( ) );
       if ( repeat == 1 ) {
         defs.add( new ColumnDef(col) );
@@ -115,15 +126,15 @@ public class ExtendedMockRecordReader extends AbstractRecordReader {
 //    }
     final int recordSetSize = Math.min(batchRecordCount, this.config.getRecords() - recordsRead);
     recordsRead += recordSetSize;
+//    for (final ValueVector v : valueVectors) {
+//      v.getMutator().setValueCount(recordSetSize);
+//    }
     for ( int i = 0;  i < recordSetSize;  i++ ) {
       int j = 0;
       for (final ValueVector v : valueVectors) {
         fields[j++].generator.setValue(v, i);
       }
     }
-//    for (final ValueVector v : valueVectors) {
-//      v.getMutator().setValueCount(recordSetSize);
-//    }
 
     return recordSetSize;
   }
