@@ -64,7 +64,4 @@ public abstract class CopierTemplate4 implements Copier{
 
   public abstract void doSetup(@Named("context") FragmentContext context, @Named("incoming") RecordBatch incoming, @Named("outgoing") RecordBatch outgoing);
   public abstract void doEval(@Named("inIndex") int inIndex, @Named("outIndex") int outIndex);
-
-
-
 }
