@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
+import java.util.LinkedList;
 import java.util.Queue;
 
 import javax.inject.Named;
@@ -35,7 +36,7 @@ import com.google.common.collect.Queues;
 
 import io.netty.buffer.DrillBuf;
 
-public abstract class MSortTemplate implements MSorter, IndexedSortable {
+public abstract class MSortTemplate2 implements MSorter, IndexedSortable {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MSortTemplate.class);
 
   protected SelectionVector4 vector4;
@@ -48,7 +49,7 @@ public abstract class MSortTemplate implements MSorter, IndexedSortable {
    * (sorted run.)
    */
 
-  private Queue<Integer> runStarts = Queues.newArrayDeque();
+  private Queue<Integer> runStarts = new LinkedList<>();
   private FragmentContext context;
 
   /**
@@ -73,6 +74,7 @@ public abstract class MSortTemplate implements MSorter, IndexedSortable {
     runStarts.add(0);
     int batch = 0;
     final int totalCount = this.vector4.getTotalCount();
+//    long start = System.currentTimeMillis();
     for (int i = 0; i < totalCount; i++) {
       final int newBatch = this.vector4.get(i) >>> 16;
       if (newBatch == batch) {
@@ -84,6 +86,7 @@ public abstract class MSortTemplate implements MSorter, IndexedSortable {
         throw new UnsupportedOperationException(String.format("Missing batch. batch: %d newBatch: %d", batch, newBatch));
       }
     }
+//    System.out.println( "Batch scan: " + (System.currentTimeMillis() - start));
 
     // Create a temporary SV4 to hold the merged results.
 
@@ -109,6 +112,17 @@ public abstract class MSortTemplate implements MSorter, IndexedSortable {
     return BaseAllocator.nextPowerOfTwo(recordCount * 4);
   }
 
+  /**
+   * Given two regions within the selection vector 4 (a left and a right), merge
+   * the two regions to produce a combined output region in the auxiliary
+   * selection vector.
+   *
+   * @param leftStart
+   * @param rightStart
+   * @param rightEnd
+   * @param outStart
+   * @return
+   */
   protected int merge(final int leftStart, final int rightStart, final int rightEnd, final int outStart) {
     int l = leftStart;
     int r = rightStart;
@@ -138,6 +152,16 @@ public abstract class MSortTemplate implements MSorter, IndexedSortable {
   protected long addrSv;
   protected long addrAux;
 
+  /**
+   * Sort (really, merge) a set of pre-sorted runs to produce a combined
+   * result set. Merging is done in the selection vector, record data does
+   * not move.
+   * <p>
+   * Runs are merge pairwise in multiple passes, providing performance
+   * of O(n * m * log(n)), where n = number of runs, m = number of records
+   * per run.
+   */
+
   @Override
   public void sort(final VectorContainer container) {
     while (runStarts.size() > 1) {
@@ -150,7 +174,7 @@ public abstract class MSortTemplate implements MSorter, IndexedSortable {
         return; }
 
       int outIndex = 0;
-      final Queue<Integer> newRunStarts = Queues.newLinkedBlockingQueue();
+      final Queue<Integer> newRunStarts = new LinkedList<>();
       newRunStarts.add(outIndex);
       final int size = runStarts.size();
       for (int i = 0; i < size / 2; i++) {

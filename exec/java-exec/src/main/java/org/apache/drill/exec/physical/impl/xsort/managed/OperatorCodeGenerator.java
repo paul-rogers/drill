@@ -37,7 +37,9 @@ import org.apache.drill.exec.expr.fn.FunctionGenerationHelper;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.config.ExternalSort;
 import org.apache.drill.exec.physical.config.Sort;
+import org.apache.drill.exec.physical.impl.xsort.MSorterExp;
 import org.apache.drill.exec.physical.impl.xsort.SingleBatchSorter;
+import org.apache.drill.exec.physical.impl.xsort.SorterExp;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.vector.CopyUtil;
@@ -155,48 +157,49 @@ public class OperatorCodeGenerator {
   }
 
   private MSorter createNewMSorter(List<Ordering> orderings, VectorAccessible batch, MappingSet mainMapping, MappingSet leftMapping, MappingSet rightMapping) {
-    CodeGenerator<MSorter> cg = CodeGenerator.get(MSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
-    cg.plainOldJavaCapable(true);
-
-    // Uncomment out this line to debug the generated code.
+    return new MSorterExp( );
+//    CodeGenerator<MSorter> cg = CodeGenerator.get(MSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
+//    cg.plainOldJavaCapable(true);
+//
+//    // Uncomment out this line to debug the generated code.
 //    cg.preferPlainOldJava(true);
-    ClassGenerator<MSorter> g = cg.getRoot();
-    g.setMappingSet(mainMapping);
-
-    for (Ordering od : orderings) {
-      // first, we rewrite the evaluation stack for each side of the comparison.
-      ErrorCollector collector = new ErrorCollectorImpl();
-      final LogicalExpression expr = ExpressionTreeMaterializer.materialize(od.getExpr(), batch, collector, context.getFunctionRegistry());
-      if (collector.hasErrors()) {
-        throw UserException.unsupportedError()
-              .message("Failure while materializing expression. " + collector.toErrorString())
-              .build(logger);
-      }
-      g.setMappingSet(leftMapping);
-      HoldingContainer left = g.addExpr(expr, ClassGenerator.BlkCreateMode.FALSE);
-      g.setMappingSet(rightMapping);
-      HoldingContainer right = g.addExpr(expr, ClassGenerator.BlkCreateMode.FALSE);
-      g.setMappingSet(mainMapping);
-
-      // next we wrap the two comparison sides and add the expression block for the comparison.
-      LogicalExpression fh =
-          FunctionGenerationHelper.getOrderingComparator(od.nullsSortHigh(), left, right,
-                                                         context.getFunctionRegistry());
-      HoldingContainer out = g.addExpr(fh, ClassGenerator.BlkCreateMode.FALSE);
-      JConditional jc = g.getEvalBlock()._if(out.getValue().ne(JExpr.lit(0)));
-
-      if (od.getDirection() == Direction.ASCENDING) {
-        jc._then()._return(out.getValue());
-      }else{
-        jc._then()._return(out.getValue().minus());
-      }
-      g.rotateBlock();
-    }
-
-    g.rotateBlock();
-    g.getEvalBlock()._return(JExpr.lit(0));
-
-    return getInstance(cg);
+//    ClassGenerator<MSorter> g = cg.getRoot();
+//    g.setMappingSet(mainMapping);
+//
+//    for (Ordering od : orderings) {
+//      // first, we rewrite the evaluation stack for each side of the comparison.
+//      ErrorCollector collector = new ErrorCollectorImpl();
+//      final LogicalExpression expr = ExpressionTreeMaterializer.materialize(od.getExpr(), batch, collector, context.getFunctionRegistry());
+//      if (collector.hasErrors()) {
+//        throw UserException.unsupportedError()
+//              .message("Failure while materializing expression. " + collector.toErrorString())
+//              .build(logger);
+//      }
+//      g.setMappingSet(leftMapping);
+//      HoldingContainer left = g.addExpr(expr, ClassGenerator.BlkCreateMode.FALSE);
+//      g.setMappingSet(rightMapping);
+//      HoldingContainer right = g.addExpr(expr, ClassGenerator.BlkCreateMode.FALSE);
+//      g.setMappingSet(mainMapping);
+//
+//      // next we wrap the two comparison sides and add the expression block for the comparison.
+//      LogicalExpression fh =
+//          FunctionGenerationHelper.getOrderingComparator(od.nullsSortHigh(), left, right,
+//                                                         context.getFunctionRegistry());
+//      HoldingContainer out = g.addExpr(fh, ClassGenerator.BlkCreateMode.FALSE);
+//      JConditional jc = g.getEvalBlock()._if(out.getValue().ne(JExpr.lit(0)));
+//
+//      if (od.getDirection() == Direction.ASCENDING) {
+//        jc._then()._return(out.getValue());
+//      }else{
+//        jc._then()._return(out.getValue().minus());
+//      }
+//      g.rotateBlock();
+//    }
+//
+//    g.rotateBlock();
+//    g.getEvalBlock()._return(JExpr.lit(0));
+//
+//    return getInstance(cg);
   }
 
   public SingleBatchSorter getSorter(VectorAccessible batch) {
@@ -207,17 +210,18 @@ public class OperatorCodeGenerator {
   }
 
   private SingleBatchSorter createNewSorter(VectorAccessible batch) {
-    CodeGenerator<SingleBatchSorter> cg = CodeGenerator.get(
-        SingleBatchSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(),
-        context.getOptions());
-    ClassGenerator<SingleBatchSorter> g = cg.getRoot();
-    cg.plainOldJavaCapable(true);
-
-    // Uncomment out this line to debug the generated code.
+    return new SorterExp( );
+//    CodeGenerator<SingleBatchSorter> cg = CodeGenerator.get(
+//        SingleBatchSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(),
+//        context.getOptions());
+//    ClassGenerator<SingleBatchSorter> g = cg.getRoot();
+//    cg.plainOldJavaCapable(true);
+//
+//    // Uncomment out this line to debug the generated code.
 //    cg.preferPlainOldJava(true);
-
-    generateComparisons(g, batch);
-    return getInstance(cg);
+//
+//    generateComparisons(g, batch);
+//    return getInstance(cg);
   }
 
   private <T> T getInstance(CodeGenerator<T> cg) {

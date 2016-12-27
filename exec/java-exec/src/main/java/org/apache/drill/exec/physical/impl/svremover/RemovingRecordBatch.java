@@ -96,8 +96,12 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
     return super.innerNext();
   }
 
+  long workTime;
+  long clearTime;
+
   @Override
   protected IterOutcome doWork() {
+    long start = System.currentTimeMillis();
     int incomingRecordCount = incoming.getRecordCount();
     int copiedRecords = copier.copyRecords(0, incomingRecordCount);
 
@@ -125,12 +129,16 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
       }
     }
 
+    long s2 = System.currentTimeMillis();
     assert recordCount >= copiedRecords;
     logger.debug("doWork(): {} records copied out of {}, remaining: {}, incoming schema {} ",
         copiedRecords,
         incomingRecordCount,
         incomingRecordCount - remainderIndex,
         incoming.getSchema());
+    clearTime += System.currentTimeMillis() - s2;
+    long duration = System.currentTimeMillis() - start;
+    workTime += duration;
     return IterOutcome.OK;
   }
 
@@ -189,7 +197,12 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
   @Override
   public void close() {
     super.close();
+    System.out.println( "Copier Time Ms: " + copierTime);
+    System.out.println( "Work Time Ms: " + workTime);
+    System.out.println( "Clear Time Ms: " + clearTime);
   }
+
+  long copierTime = 0;
 
   private class StraightCopier implements Copier{
 
@@ -206,9 +219,12 @@ public class RemovingRecordBatch extends AbstractSingleRecordBatch<SelectionVect
     @Override
     public int copyRecords(int index, int recordCount) {
       assert index == 0 && recordCount == incoming.getRecordCount() : "Straight copier cannot split batch";
+      long start = System.currentTimeMillis();
       for(TransferPair tp : pairs){
         tp.transfer();
       }
+      long duration = System.currentTimeMillis() - start;
+      copierTime += duration;
       return recordCount;
     }
 

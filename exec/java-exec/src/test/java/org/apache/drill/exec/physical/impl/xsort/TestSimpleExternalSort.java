@@ -167,7 +167,9 @@ public class TestSimpleExternalSort extends DrillEngineTest {
         .configProperty("drill.memory.fragment.max", 50_000_000)
         .configProperty("drill.memory.fragment.initial", 2_000_000)
         .configProperty("drill.memory.operator.max", 30_000_000)
-        .configProperty("drill.memory.operator.initial", 2_000_000);
+        .configProperty("drill.memory.operator.initial", 2_000_000)
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        ;
     try (ClusterFixture cluster = builder.build();
          ClientFixture client = cluster.clientFixture()) {
       chooseImpl(client,testLegacy);

@@ -18,6 +18,7 @@
 package org.apache.drill.exec.record.selection;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.DrillBuf;
 
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.record.DeadBuf;
@@ -156,5 +157,9 @@ public class SelectionVector4 implements AutoCloseable {
     }
     buf.append("]");
     return buf.toString();
+  }
+
+  public ByteBuf getBuffer() {
+    return data;
   }
 }

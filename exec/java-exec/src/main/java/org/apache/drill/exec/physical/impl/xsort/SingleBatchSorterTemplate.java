@@ -35,7 +35,7 @@ import com.google.common.base.Stopwatch;
 public abstract class SingleBatchSorterTemplate implements SingleBatchSorter, IndexedSortable{
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SingleBatchSorterTemplate.class);
 
-  private SelectionVector2 vector2;
+  protected SelectionVector2 vector2;
 
   @Override
   public void setup(FragmentContext context, SelectionVector2 vector2, VectorAccessible incoming) throws SchemaChangeException{
