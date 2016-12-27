@@ -563,7 +563,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    *          An integer value.
    * @return The closest power of two of that value.
    */
-  static int nextPowerOfTwo(int val) {
+  public static int nextPowerOfTwo(int val) {
     int highestBit = Integer.highestOneBit(val);
     if (highestBit == val) {
       return val;
