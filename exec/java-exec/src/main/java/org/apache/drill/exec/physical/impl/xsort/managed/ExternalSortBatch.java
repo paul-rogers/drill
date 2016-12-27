@@ -258,8 +258,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   public enum Metric implements MetricDef {
     SPILL_COUNT,            // number of times operator spilled to disk
-    PEAK_SIZE_IN_MEMORY,    // peak value for totalSizeInMemory
-    PEAK_BATCHES_IN_MEMORY; // maximum number of batches kept in memory
+    RETIRED1,               // Was: peak value for totalSizeInMemory
+                            // But operator already provides this value
+    PEAK_BATCHES_IN_MEMORY, // maximum number of batches kept in memory
+    MERGE_COUNT;            // Number of second+ generation merges
 
     @Override
     public int metricId() {
@@ -656,9 +658,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // Coerce all existing batches to the new schema.
 
     for (BatchGroup b : bufferedBatches) {
-      System.out.println("Before: " + allocator.getAllocatedMemory()); // Debug only
+//      System.out.println("Before: " + allocator.getAllocatedMemory()); // Debug only
       b.setSchema(schema);
-      System.out.println("After: " + allocator.getAllocatedMemory()); // Debug only
+//      System.out.println("After: " + allocator.getAllocatedMemory()); // Debug only
     }
     for (BatchGroup b : spilledRuns) {
       b.setSchema(schema);
@@ -968,9 +970,11 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // Consolidate batches to a number that can be merged in
     // a single last pass.
 
+    int mergeCount = 0;
     while (consolidateBatches()) {
-      // Empty loop
+      mergeCount++;
     }
+    stats.addLongStat(Metric.MERGE_COUNT, mergeCount);
 
     // Merge in-memory batches and spilled runs for the final merge.
 
