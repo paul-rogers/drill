@@ -310,6 +310,7 @@ public class VectorContainer implements Iterable<VectorWrapper<?>>, VectorAccess
     return schema != null;
   }
 
+  @Override
   public BatchSchema getSchema() {
     Preconditions
         .checkNotNull(schema,
