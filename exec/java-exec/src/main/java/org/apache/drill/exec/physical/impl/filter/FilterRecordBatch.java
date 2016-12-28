@@ -145,6 +145,9 @@ public class FilterRecordBatch extends AbstractSingleRecordBatch<Filter>{
     final ErrorCollector collector = new ErrorCollectorImpl();
     final List<TransferPair> transfers = Lists.newArrayList();
     final ClassGenerator<Filterer> cg = CodeGenerator.getRoot(Filterer.TEMPLATE_DEFINITION4, context.getFunctionRegistry(), context.getOptions());
+    cg.getCodeGenerator().plainOldJavaCapable(true);
+    // Uncomment out this line to debug the generated code.
+//    cg.getCodeGenerator().preferPlainOldJava(true);
 
     final LogicalExpression expr = ExpressionTreeMaterializer.materialize(popConfig.getExpr(), incoming, collector, context.getFunctionRegistry());
     if (collector.hasErrors()) {
@@ -179,6 +182,9 @@ public class FilterRecordBatch extends AbstractSingleRecordBatch<Filter>{
     final ErrorCollector collector = new ErrorCollectorImpl();
     final List<TransferPair> transfers = Lists.newArrayList();
     final ClassGenerator<Filterer> cg = CodeGenerator.getRoot(Filterer.TEMPLATE_DEFINITION2, context.getFunctionRegistry(), context.getOptions());
+    cg.getCodeGenerator().plainOldJavaCapable(true);
+    // Uncomment out this line to debug the generated code.
+//    cg.getCodeGenerator().preferPlainOldJava(true);
 
     final LogicalExpression expr = ExpressionTreeMaterializer.materialize(popConfig.getExpr(), incoming, collector,
             context.getFunctionRegistry(), false, unionTypeEnabled);

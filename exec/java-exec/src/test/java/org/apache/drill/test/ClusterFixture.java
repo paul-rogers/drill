@@ -342,8 +342,8 @@ public class ClusterFixture implements AutoCloseable {
   }
 
   public static FixtureBuilder bareBuilder() {
-    return new FixtureBuilder();
-  }
+    return new FixtureBuilder( );
+ }
 
   public static class FixtureTestServices implements TestServices {
 
