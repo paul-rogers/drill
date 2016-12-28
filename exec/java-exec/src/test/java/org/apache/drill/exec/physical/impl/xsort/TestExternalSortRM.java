@@ -118,6 +118,26 @@ public class TestExternalSortRM extends DrillTest {
   }
 
   @Test
+  public void testTPCH09() throws Exception {
+    System.setProperty(BaseAllocator.DEBUG_ALLOCATOR, "false");
+    FixtureBuilder builder = ClusterFixture.builder()
+//      .configProperty(ClassBuilder.SAVE_CODE_OPTION, true)
+      .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+      .maxParallelization(1);
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      String sql = ClusterFixture.loadResource("queries/tpch/09.sql");
+      sql = sql.substring(0, sql.length() - 1); // drop the ";"
+      String plan = client.queryBuilder().sql(sql).explainText();
+      System.out.println(plan);
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
+      System.out.println(String.format("Read %,d records in %d batches; %d ms.", summary.recordCount(), summary.batchCount(), summary.runTimeMs()));
+      Thread.sleep(1000);
+      client.parseProfile(summary).print( );
+    }
+  }
+
+  @Test
   public void testLegacySpilled() throws Exception {
     LogAnalyzer analyzer = new LogAnalyzer(false);
     analyzer.setupLogging();

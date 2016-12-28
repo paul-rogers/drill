@@ -310,8 +310,12 @@ public class ClusterFixture implements AutoCloseable {
   public static final String EXPLAIN_PLAN_JSON = "json";
 
   public static FixtureBuilder builder() {
-     return new FixtureBuilder( );
+     return new FixtureBuilder( ).configProps(FixtureBuilder.defaultProps());
   }
+
+  public static FixtureBuilder bareBuilder() {
+    return new FixtureBuilder( );
+ }
 
   public static class FixtureTestServices implements TestServices {
 

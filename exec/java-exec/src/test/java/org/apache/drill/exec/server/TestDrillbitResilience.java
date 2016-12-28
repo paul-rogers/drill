@@ -617,9 +617,6 @@ public class TestDrillbitResilience extends DrillTest {
       .addPause(ScreenCreator.class, "sending-data", 1)
       .build();
 
-    // Work around the Parquet Snappy problem described elsewhere.
-
-//    String query = "select name_s50 from mock.`nation_100K` order by name_s50";
     String query = ClusterFixture.loadResource("queries/tpch/09.sql");
     query = query.substring(0, query.length() - 1); // drop the ";"
 
