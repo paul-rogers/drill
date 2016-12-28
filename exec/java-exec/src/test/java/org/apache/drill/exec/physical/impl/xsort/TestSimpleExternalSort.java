@@ -22,9 +22,6 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.List;
 
-import org.apache.drill.ClusterFixture;
-import org.apache.drill.ClusterFixture.ClientFixture;
-import org.apache.drill.ClusterFixture.FixtureBuilder;
 import org.apache.drill.DrillEngineTest;
 import org.apache.drill.common.expression.ExpressionPosition;
 import org.apache.drill.common.expression.SchemaPath;
@@ -35,6 +32,9 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.RecordBatchLoader;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.vector.BigIntVector;
+import org.apache.drill.test.ClientFixture;
+import org.apache.drill.test.ClusterFixture;
+import org.apache.drill.test.FixtureBuilder;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;

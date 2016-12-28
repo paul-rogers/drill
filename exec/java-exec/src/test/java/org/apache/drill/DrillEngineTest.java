@@ -17,8 +17,9 @@
  ******************************************************************************/
 package org.apache.drill;
 
-import org.apache.drill.ClusterFixture.FixtureBuilder;
 import org.apache.drill.exec.ExecTest;
+import org.apache.drill.test.ClusterFixture;
+import org.apache.drill.test.FixtureBuilder;
 
 /**
  * Base class for tests that use the Drill engine for testing.

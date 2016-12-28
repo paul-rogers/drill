@@ -23,13 +23,13 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 
-import org.apache.drill.ClusterFixture;
-import org.apache.drill.ClusterFixture.FixtureBuilder;
-import org.apache.drill.ClusterTest;
 import org.apache.drill.TestBuilder;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.rpc.RpcException;
+import org.apache.drill.test.ClusterFixture;
+import org.apache.drill.test.ClusterTest;
 import org.apache.drill.test.DrillTest;
+import org.apache.drill.test.FixtureBuilder;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
