@@ -24,8 +24,6 @@ import static org.junit.Assert.fail;
 import java.io.IOException;
 
 import org.apache.commons.math3.util.Pair;
-import org.apache.drill.ClusterFixture;
-import org.apache.drill.ClusterFixture.ClientFixture;
 import org.apache.drill.common.concurrent.ExtendedLatch;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.util.RepeatTestRule.Repeat;
@@ -57,6 +55,8 @@ import org.apache.drill.exec.work.foreman.Foreman;
 import org.apache.drill.exec.work.foreman.ForemanException;
 import org.apache.drill.exec.work.foreman.ForemanSetupException;
 import org.apache.drill.exec.work.fragment.FragmentExecutor;
+import org.apache.drill.test.ClientFixture;
+import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.DrillTest;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;

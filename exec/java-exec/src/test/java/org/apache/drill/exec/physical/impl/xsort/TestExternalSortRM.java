@@ -22,20 +22,31 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
+import java.util.List;
 
-import org.apache.drill.BufferingQueryEventListener;
-import org.apache.drill.BufferingQueryEventListener.QueryEvent;
-import org.apache.drill.ClusterFixture;
-import org.apache.drill.ClusterFixture.ClientFixture;
-import org.apache.drill.ClusterFixture.FixtureBuilder;
-import org.apache.drill.ClusterFixture.QuerySummary;
+import org.apache.drill.common.expression.ExpressionPosition;
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.util.FileUtils;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.client.DrillClient;
+import org.apache.drill.exec.compile.ClassBuilder;
+import org.apache.drill.exec.exception.SchemaChangeException;
+import org.apache.drill.exec.memory.BaseAllocator;
+import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.xsort.LogAnalyzer.EventAnalyzer;
 import org.apache.drill.exec.physical.impl.xsort.LogAnalyzer.SortStats;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
+import org.apache.drill.exec.record.RecordBatchLoader;
+import org.apache.drill.exec.rpc.user.QueryDataBatch;
+import org.apache.drill.exec.vector.BigIntVector;
+import org.apache.drill.exec.vector.IntVector;
+import org.apache.drill.test.BufferingQueryEventListener;
+import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.DrillTest;
+import org.apache.drill.test.FixtureBuilder;
+import org.apache.drill.test.QueryBuilder.QuerySummary;
+import org.apache.drill.test.BufferingQueryEventListener.QueryEvent;
+import org.apache.drill.test.ClientFixture;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;

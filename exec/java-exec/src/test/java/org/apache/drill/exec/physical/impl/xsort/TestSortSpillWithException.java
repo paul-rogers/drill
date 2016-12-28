@@ -23,15 +23,15 @@ import static org.junit.Assert.fail;
 
 import java.io.IOException;
 
-import org.apache.drill.ClusterFixture;
-import org.apache.drill.ClusterFixture.FixtureBuilder;
-import org.apache.drill.ClusterTest;
 import org.apache.drill.common.exceptions.UserRemoteException;
 import org.apache.drill.common.util.TestTools;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.proto.UserBitShared.DrillPBError.ErrorType;
 import org.apache.drill.exec.testing.Controls;
 import org.apache.drill.exec.testing.ControlsInjectionUtil;
+import org.apache.drill.test.ClusterFixture;
+import org.apache.drill.test.ClusterTest;
+import org.apache.drill.test.FixtureBuilder;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
