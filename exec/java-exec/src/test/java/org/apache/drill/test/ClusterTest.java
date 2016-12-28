@@ -15,13 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.‰
  */
-package org.apache.drill;
+package org.apache.drill.test;
 
 import java.io.IOException;
 
-import org.apache.drill.ClusterFixture.ClientFixture;
-import org.apache.drill.ClusterFixture.FixtureBuilder;
-import org.apache.drill.ClusterFixture.QueryBuilder;
+import org.apache.drill.TestBuilder;
 import org.apache.drill.common.AutoCloseables;
 import org.apache.drill.test.DrillTest;
 import org.junit.AfterClass;

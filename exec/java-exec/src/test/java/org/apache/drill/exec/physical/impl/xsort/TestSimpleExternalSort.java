@@ -22,10 +22,6 @@ import static org.junit.Assert.assertTrue;
 
 import java.util.List;
 
-import org.apache.drill.ClusterFixture;
-import org.apache.drill.ClusterFixture.ClientFixture;
-import org.apache.drill.ClusterFixture.FixtureBuilder;
-import org.apache.drill.DrillEngineTest;
 import org.apache.drill.common.expression.ExpressionPosition;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.util.TestTools;
@@ -35,11 +31,16 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.RecordBatchLoader;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.vector.BigIntVector;
+import org.apache.drill.test.ClientFixture;
+import org.apache.drill.test.ClusterFixture;
+import org.apache.drill.test.ClusterTest;
+import org.apache.drill.test.DrillTest;
+import org.apache.drill.test.FixtureBuilder;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestRule;
 
-public class TestSimpleExternalSort extends DrillEngineTest {
+public class TestSimpleExternalSort extends DrillTest {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestSimpleExternalSort.class);
 
   @Rule public final TestRule TIMEOUT = TestTools.getTimeoutRule(80000);
@@ -66,7 +67,7 @@ public class TestSimpleExternalSort extends DrillEngineTest {
    */
 
   private void mergeSortWithSv2(boolean testLegacy) throws Exception {
-    try (ClusterFixture cluster = standardCluster();
+    try (ClusterFixture cluster = ClusterFixture.standardCluster();
          ClientFixture client = cluster.clientFixture()) {
       chooseImpl(client, testLegacy);
       List<QueryDataBatch> results = client.queryBuilder().physicalResource("xsort/one_key_sort_descending_sv2.json").results();
@@ -90,7 +91,7 @@ public class TestSimpleExternalSort extends DrillEngineTest {
   }
 
   private void sortOneKeyDescendingMergeSort(boolean testLegacy) throws Throwable {
-    try (ClusterFixture cluster = standardCluster();
+    try (ClusterFixture cluster = ClusterFixture.standardCluster();
          ClientFixture client = cluster.clientFixture()) {
       chooseImpl(client, testLegacy);
       List<QueryDataBatch> results = client.queryBuilder().physicalResource("xsort/one_key_sort_descending.json").results();
@@ -138,7 +139,7 @@ public class TestSimpleExternalSort extends DrillEngineTest {
   }
 
   private void sortOneKeyDescendingExternalSort(boolean testLegacy) throws Throwable {
-    FixtureBuilder builder = newBuilder()
+    FixtureBuilder builder = ClusterFixture.builder()
         .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_THRESHOLD, 4)
         .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_GROUP_SIZE, 4)
         .configProperty(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 4);
@@ -162,7 +163,7 @@ public class TestSimpleExternalSort extends DrillEngineTest {
   }
 
   private void outOfMemoryExternalSort(boolean testLegacy) throws Throwable{
-    FixtureBuilder builder = newBuilder()
+    FixtureBuilder builder = ClusterFixture.builder()
         // Probably do nothing in modern Drill
         .configProperty("drill.memory.fragment.max", 50_000_000)
         .configProperty("drill.memory.fragment.initial", 2_000_000)

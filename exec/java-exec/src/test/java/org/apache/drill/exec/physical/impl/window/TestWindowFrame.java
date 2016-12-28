@@ -20,14 +20,14 @@ package org.apache.drill.exec.physical.impl.window;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import org.apache.drill.ClusterFixture;
-import org.apache.drill.ClusterFixture.FixtureBuilder;
-import org.apache.drill.ClusterTest;
 import org.apache.drill.DrillTestWrapper;
 import org.apache.drill.common.exceptions.UserRemoteException;
 import org.apache.drill.common.util.TestTools;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.proto.UserBitShared.DrillPBError.ErrorType;
+import org.apache.drill.test.ClusterFixture;
+import org.apache.drill.test.ClusterTest;
+import org.apache.drill.test.FixtureBuilder;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
