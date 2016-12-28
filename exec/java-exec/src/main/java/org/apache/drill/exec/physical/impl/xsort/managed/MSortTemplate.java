@@ -42,7 +42,7 @@ public abstract class MSortTemplate implements MSorter, IndexedSortable {
   private SelectionVector4 aux;
   @SuppressWarnings("unused")
   private long compares;
-  
+
   /**
    * Holds offsets into the SV4 of the start of each batch
    * (sorted run.)
