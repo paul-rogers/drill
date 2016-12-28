@@ -1,4 +1,4 @@
-/*
+/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -32,9 +32,6 @@ import com.google.common.collect.Queues;
  * Drill query event listener that buffers rows into a producer-consumer
  * queue. Allows rows to be received asynchronously, but processed by
  * a synchronous reader.
- * <p>
- * Query messages are transformed into events: query ID, batch,
- * EOF or error.
  */
 
 public class BufferingQueryEventListener implements UserResultsListener
@@ -44,17 +41,16 @@ public class BufferingQueryEventListener implements UserResultsListener
     public enum Type { QUERY_ID, BATCH, EOF, ERROR }
 
     public final Type type;
-    public QueryId queryId;
+    QueryId queryId;
     public QueryDataBatch batch;
-    public Exception error;
-    public QueryState state;
+    public UserException error;
 
     public QueryEvent(QueryId queryId) {
       this.queryId = queryId;
       this.type = Type.QUERY_ID;
     }
 
-    public QueryEvent(Exception ex) {
+    public QueryEvent(UserException ex) {
       error = ex;
       type = Type.ERROR;
     }
@@ -64,9 +60,8 @@ public class BufferingQueryEventListener implements UserResultsListener
       type = Type.BATCH;
     }
 
-    public QueryEvent(QueryState state) {
-      this.type = Type.EOF;
-      this.state = state;
+    public QueryEvent(Type type) {
+      this.type = type;
     }
   }
 
@@ -74,39 +69,40 @@ public class BufferingQueryEventListener implements UserResultsListener
 
   @Override
   public void queryIdArrived(QueryId queryId) {
-    silentPut(new QueryEvent(queryId));
+    silentPut( new QueryEvent( queryId ) );
   }
 
   @Override
   public void submissionFailed(UserException ex) {
-    silentPut(new QueryEvent(ex));
+    silentPut( new QueryEvent( ex ) );
   }
 
   @Override
   public void dataArrived(QueryDataBatch result, ConnectionThrottle throttle) {
-    silentPut(new QueryEvent(result));
+    silentPut( new QueryEvent( result ) );
   }
 
   @Override
   public void queryCompleted(QueryState state) {
-    silentPut(new QueryEvent(state));
+    silentPut( new QueryEvent( QueryEvent.Type.EOF ) );
   }
 
-  private void silentPut(QueryEvent event) {
+  private void silentPut( QueryEvent event ) {
     try {
-      queue.put(event);
+      queue.put( event );
     } catch (InterruptedException e) {
       // What to do, what to do...
       e.printStackTrace();
     }
   }
 
-  public QueryEvent get() {
+  public QueryEvent get( ) {
     try {
-      return queue.take();
+      return queue.take( );
     } catch (InterruptedException e) {
-      // Should not occur, but if it does, just pass along the error.
-      return new QueryEvent(e);
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+      return null;
     }
   }
 }
