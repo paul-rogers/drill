@@ -559,6 +559,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     // Loop over all input batches
 
+    long start = System.currentTimeMillis();
     for (;;) {
       IterOutcome result = loadBatch();
 
@@ -572,6 +573,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       if (result != IterOutcome.OK) {
         return result; }
     }
+    System.out.println( "Load time: " + (System.currentTimeMillis() - start));
 
     // Anything to actually sort?
 
@@ -658,9 +660,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // Coerce all existing batches to the new schema.
 
     for (BatchGroup b : bufferedBatches) {
-//      System.out.println("Before: " + allocator.getAllocatedMemory()); // Debug only
+      System.out.println("Before: " + allocator.getAllocatedMemory()); // Debug only
       b.setSchema(schema);
-//      System.out.println("After: " + allocator.getAllocatedMemory()); // Debug only
+      System.out.println("After: " + allocator.getAllocatedMemory()); // Debug only
     }
     for (BatchGroup b : spilledRuns) {
       b.setSchema(schema);
@@ -935,7 +937,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     InMemorySorter memoryMerge = new InMemorySorter(context, allocator, opCodeGen);
     try {
+      long start = System.currentTimeMillis();
       sv4 = memoryMerge.sort(bufferedBatches, this, container);
+      System.out.println( "MSort time: " + (System.currentTimeMillis() - start));
       if (sv4 == null) {
         sortState = SortState.DONE;
         return IterOutcome.STOP;
