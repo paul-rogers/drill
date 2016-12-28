@@ -18,6 +18,8 @@
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
 
+import java.lang.reflect.Field;
+
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.record.RecordBatch;
@@ -25,10 +27,22 @@ import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.IntVector;
 
 import io.netty.util.internal.PlatformDependent;
+import sun.misc.Unsafe;
 
+@SuppressWarnings("restriction")
 public class MSorterExp
     extends MSortTemplate2
 {
+  public static Unsafe UNSAFE;
+  {
+    try {
+      Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
+      unsafeField.setAccessible(true);
+      UNSAFE = (Unsafe) unsafeField.get(null);
+    } catch (Throwable cause) {
+      throw new IllegalStateException(cause);
+    }
+  }
 
     IntVector[] vv0;
     IntVector[] vv4;
@@ -41,7 +55,8 @@ public class MSorterExp
       assert addrSv == vector4.getBuffer().memoryAddress();
       long destAddr = addrAux + (start << 2);
       long srcAddr = addrSv + (start << 2);
-      PlatformDependent.copyMemory(srcAddr, destAddr, 4 * (end - start));
+//      PlatformDependent.copyMemory(srcAddr, destAddr, 4 * (end - start));
+      UNSAFE.copyMemory(srcAddr, destAddr, 4 * (end - start));
 //      for (int i = start; i < end; i++) {
 //        PlatformDependent.copyMemory(srcAddr, destAddr, 4);
 ////        PlatformDependent.putInt(destAddr, PlatformDependent.getInt(srcAddr));
@@ -64,17 +79,21 @@ public class MSorterExp
         assert auxAddr == (addrAux + (o << 2));
         assert lAddr == (addrSv + (l << 2));
         assert rAddr == (addrSv + (r << 2));
-        int lIndex = PlatformDependent.getInt(lAddr);
-        int rIndex = PlatformDependent.getInt(rAddr);
+//        int lIndex = PlatformDependent.getInt(lAddr);
+//        int rIndex = PlatformDependent.getInt(rAddr);
+        int lIndex = UNSAFE.getInt(lAddr);
+        int rIndex = UNSAFE.getInt(rAddr);
 //        if (compare(l, r) <= 0) {
         if (compare2(lIndex, rIndex) <= 0) {
           assert PlatformDependent.getInt(lAddr) == vector4.get(l);
-          PlatformDependent.putInt(auxAddr, lIndex);
+//          PlatformDependent.putInt(auxAddr, lIndex);
+          UNSAFE.putInt(auxAddr, lIndex);
           l++; lAddr += 4;
 //          aux.set(o++, vector4.get(l++));
         } else {
           assert PlatformDependent.getInt(rAddr) == vector4.get(r);
-          PlatformDependent.putInt(auxAddr, rIndex);
+//          PlatformDependent.putInt(auxAddr, rIndex);
+          UNSAFE.putInt(auxAddr, rIndex);
 //          aux.set(o++, vector4.get(r++));
           r++; rAddr += 4;
         }
@@ -82,11 +101,13 @@ public class MSorterExp
       }
       if (l < rightStart) {
         final int n = rightStart - l;
-        PlatformDependent.copyMemory(lAddr, auxAddr, 4 * n);
+//        PlatformDependent.copyMemory(lAddr, auxAddr, 4 * n);
+        UNSAFE.copyMemory(lAddr, auxAddr, 4 * n);
         o += n;
       } else {
         final int n = rightEnd - r;
-        PlatformDependent.copyMemory(rAddr, auxAddr, 4 * n);
+//        PlatformDependent.copyMemory(rAddr, auxAddr, 4 * n);
+        UNSAFE.copyMemory(rAddr, auxAddr, 4 * n);
         o += n;
       }
 //      while (l < rightStart) {
@@ -108,8 +129,10 @@ public class MSorterExp
       final long addr0 = addrSv + (sv0 << 2);
       final long addr1 = addrSv + (sv1 << 2);
       final int tmp = PlatformDependent.getInt(addr0);
-      PlatformDependent.putInt(addr0, PlatformDependent.getInt(addr1));
-      PlatformDependent.putInt(addr1, tmp);
+//      PlatformDependent.putInt(addr0, PlatformDependent.getInt(addr1));
+//      PlatformDependent.putInt(addr1, tmp);
+      UNSAFE.putInt(addr0, PlatformDependent.getInt(addr1));
+      UNSAFE.putInt(addr1, tmp);
 //      final int tmp = vector4.get(sv0);
 //      vector4.set(sv0, vector4.get(sv1));
 //      vector4.set(sv1, tmp);
@@ -135,10 +158,12 @@ public class MSorterExp
 //      final int leftSv = vector4.get(leftIndex);
 //      final int rightSv = vector4.get(rightIndex);
 //      compares++;
-      final int left = PlatformDependent.getInt(addr0[(leftSv)>>> 16] + (((leftSv)& 65535)<<2));
+//      final int left = PlatformDependent.getInt(addr0[(leftSv)>>> 16] + (((leftSv)& 65535)<<2));
+      final int left = UNSAFE.getInt(addr0[(leftSv)>>> 16] + (((leftSv)& 65535)<<2));
 //      assert addr0[((leftSv)>>> 16)] == vv0[((leftSv)>>> 16)].getBuffer().memoryAddress();
 //      assert left == vv0 [((leftSv)>>> 16)].getAccessor().get(((leftSv)& 65535));
-      final int right = PlatformDependent.getInt(addr0[(rightSv)>>> 16] + (((rightSv)& 65535)<<2));
+//      final int right = PlatformDependent.getInt(addr0[(rightSv)>>> 16] + (((rightSv)& 65535)<<2));
+      final int right = UNSAFE.getInt(addr0[(rightSv)>>> 16] + (((rightSv)& 65535)<<2));
 //      assert right == vv4 [((rightSv)>>> 16)].getAccessor().get(((rightSv)& 65535));
       return left < right ? -1 : (left == right) ? 0 : 1;
 //      return left - right;

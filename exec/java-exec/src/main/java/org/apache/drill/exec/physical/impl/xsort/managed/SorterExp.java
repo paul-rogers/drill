@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
+import java.lang.reflect.Field;
+
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.impl.xsort.SingleBatchSorterTemplate;
@@ -25,11 +27,23 @@ import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.vector.IntVector;
 
 import io.netty.util.internal.PlatformDependent;
+import sun.misc.Unsafe;
 
+@SuppressWarnings("restriction")
 public class SorterExp
     extends SingleBatchSorterTemplate
 {
-
+    public static Unsafe UNSAFE;
+    {
+      try {
+        Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
+        unsafeField.setAccessible(true);
+        UNSAFE = (Unsafe) unsafeField.get(null);
+      } catch (Throwable cause) {
+        throw new IllegalStateException(cause);
+      }
+    }
+    
     IntVector vv0;
     IntVector vv4;
 //    IntVector.Accessor va0;
@@ -56,6 +70,9 @@ public class SorterExp
     public int compare(int leftIndex, int rightIndex) {
       int sv1 = PlatformDependent.getShort(addrSv + (leftIndex << 1)) & 0xFFFF;
       int sv2 = PlatformDependent.getShort(addrSv + (rightIndex << 1)) & 0xFFFF;
+//      int sv1 = UNSAFE.getShort(addrSv + (leftIndex << 1)) & 0xFFFF;
+//      int sv2 = UNSAFE.getShort(addrSv + (rightIndex << 1)) & 0xFFFF;
+//      assert sv1 == usv1;
 //      assert sv1 == vector2.getIndex(leftIndex);
 //      assert sv2 == vector2.getIndex(rightIndex);
 //      int sv1 = svb.getChar(leftIndex * 2);
@@ -64,6 +81,8 @@ public class SorterExp
 //      int sv2 = vector2.getIndex(rightIndex);
       int left = PlatformDependent.getInt(addr0 + (sv1<<2));
       int right = PlatformDependent.getInt(addr4 + (sv2<<2));
+//      int left = UNSAFE.getInt(addr0 + (sv1<<2));
+//      int right = UNSAFE.getInt(addr4 + (sv2<<2));
 //      assert left == vv0.getAccessor().get(sv1);
 //      assert right == vv4.getAccessor().get(sv2);
 //      int left = vb0.getInt(leftIndex<<2);
