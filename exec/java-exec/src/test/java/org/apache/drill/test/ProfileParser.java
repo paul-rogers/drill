@@ -60,8 +60,8 @@ public class ProfileParser {
   }
 
   public List<String> getPlans() {
-    if ( plans != null )
-      return plans;
+    if ( plans != null ) {
+      return plans; }
     String plan = getPlan( );
     Pattern p = Pattern.compile( "(\\d\\d-\\d+[^\\\\]*)\\\\n", Pattern.MULTILINE );
     Matcher m = p.matcher(plan);
@@ -79,8 +79,8 @@ public class ProfileParser {
       String plan = plans.get( i );
       Matcher m = p.matcher( plan );
       if ( ! m.find() ) { continue; }
-      if ( m.group(1).equals( "Scan" ) )
-        return plan;
+      if ( m.group(1).equals( "Scan" ) ) {
+        return plan; }
     }
     return null;
   }
@@ -130,8 +130,8 @@ public class ProfileParser {
 
     public long getMetric(int id) {
       JsonValue value = metrics.get(id);
-      if (value == null)
-        return 0;
+      if (value == null) {
+        return 0; }
       return ((JsonNumber) value).longValue();
     }
   }
@@ -207,10 +207,10 @@ public class ProfileParser {
     System.out.println( "  Setup:   " + totalSetup );
     System.out.println( "  Process: " + totalProcess );
   }
-  
+
   public static long percent( long value, long total ) {
-    if ( total == 0 )
-      return 0;
+    if ( total == 0 ) {
+      return 0; }
     return Math.round(value * 100 / total );
   }
 

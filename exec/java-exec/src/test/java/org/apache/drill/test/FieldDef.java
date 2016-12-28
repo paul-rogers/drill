@@ -65,8 +65,9 @@ public class FieldDef {
     String str = name + ": " + typeStr;
     if ( type != null ) {
       str += " - " + type.name();
-      if ( length != 0 )
+      if ( length != 0 ) {
         str += "(" + length + ")";
+      }
     }
     return str;
   }
