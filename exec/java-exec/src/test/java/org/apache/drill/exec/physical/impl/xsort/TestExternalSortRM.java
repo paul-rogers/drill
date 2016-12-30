@@ -47,11 +47,13 @@ import org.apache.drill.test.FixtureBuilder;
 import org.apache.drill.test.QueryBuilder.QuerySummary;
 import org.apache.drill.test.BufferingQueryEventListener.QueryEvent;
 import org.apache.drill.test.ClientFixture;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
 import com.google.common.io.Files;
 
+@Ignore
 public class TestExternalSortRM extends DrillTest {
 
   @Test
