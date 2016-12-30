@@ -112,5 +112,4 @@ public abstract class FilterTemplate2 implements Filterer{
   public abstract boolean doEval(@Named("inIndex") int inIndex,
                                  @Named("outIndex") int outIndex)
                           throws SchemaChangeException;
-
 }

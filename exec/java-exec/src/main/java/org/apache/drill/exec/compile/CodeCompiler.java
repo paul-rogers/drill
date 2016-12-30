@@ -221,7 +221,12 @@ public class CodeCompiler {
 
   private GeneratedClassEntry makeClass(final CodeGenerator<?> cg) throws Exception {
     cacheMissCount++;
-    return new GeneratedClassEntry(codeGenCompiler.compile(cg));
+//    try {
+      return new GeneratedClassEntry(codeGenCompiler.compile(cg));
+//    } catch (Exception e) {
+//      System.out.println(cg.getGeneratedCode());
+//      throw e;
+//    }
   }
 
   private class GeneratedClassEntry {
