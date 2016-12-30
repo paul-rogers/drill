@@ -18,16 +18,17 @@
 package org.apache.drill.exec.compile;
 
 import org.apache.drill.exec.compile.sig.RuntimeOverridden;
+import org.apache.drill.exec.exception.SchemaChangeException;
 
 public abstract class ExampleTemplateWithInner implements ExampleInner{
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExampleTemplateWithInner.class);
 
-  public abstract void doOutside();
+  @Override
+  public abstract void doOutside() throws SchemaChangeException;
   public class TheInnerClass{
 
     @RuntimeOverridden
-    public void doInside(){};
-
+    public void doInside() throws SchemaChangeException {};
 
     public void doDouble(){
       DoubleInner di = new DoubleInner();
@@ -38,13 +39,12 @@ public abstract class ExampleTemplateWithInner implements ExampleInner{
       @RuntimeOverridden
       public void doDouble(){};
     }
-
   }
 
-  public void doInsideOutside(){
+  @Override
+  public void doInsideOutside() throws SchemaChangeException {
     TheInnerClass inner = new TheInnerClass();
     inner.doInside();
     inner.doDouble();
   }
-
 }

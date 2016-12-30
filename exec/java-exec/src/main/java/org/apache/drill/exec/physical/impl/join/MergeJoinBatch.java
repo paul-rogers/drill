@@ -266,6 +266,9 @@ public class MergeJoinBatch extends AbstractRecordBatch<MergeJoinPOP> {
   private JoinWorker generateNewWorker() throws ClassTransformationException, IOException, SchemaChangeException{
 
     final ClassGenerator<JoinWorker> cg = CodeGenerator.getRoot(JoinWorker.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
+    cg.getCodeGenerator().plainOldJavaCapable(true);
+    // Uncomment out this line to debug the generated code.
+//    cg.getCodeGenerator().preferPlainOldJava(true);
     final ErrorCollector collector = new ErrorCollectorImpl();
 
     // Generate members and initialization code

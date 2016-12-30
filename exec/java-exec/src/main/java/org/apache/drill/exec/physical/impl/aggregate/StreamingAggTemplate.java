@@ -54,7 +54,6 @@ public abstract class StreamingAggTemplate implements StreamingAggregator {
     setupInterior(incoming, outgoing);
   }
 
-
   private void allocateOutgoing() {
     for (VectorWrapper<?> w : outgoing) {
       w.getValueVector().allocateNew();
@@ -348,5 +347,4 @@ public abstract class StreamingAggTemplate implements StreamingAggregator {
   public abstract void outputRecordValues(@Named("outIndex") int outIndex);
   public abstract int getVectorIndex(@Named("recordIndex") int recordIndex);
   public abstract boolean resetValues();
-
 }

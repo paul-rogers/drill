@@ -76,7 +76,12 @@ public abstract class SingleBatchSorterTemplate implements SingleBatchSorter, In
     }
   }
 
-  public abstract void doSetup(@Named("context") FragmentContext context, @Named("incoming") VectorAccessible incoming, @Named("outgoing") RecordBatch outgoing) throws SchemaChangeException;
-  public abstract int doEval(@Named("leftIndex") char leftIndex, @Named("rightIndex") char rightIndex) throws SchemaChangeException;
+  public abstract void doSetup(@Named("context") FragmentContext context,
+                               @Named("incoming") VectorAccessible incoming,
+                               @Named("outgoing") RecordBatch outgoing)
+                       throws SchemaChangeException;
+  public abstract int doEval(@Named("leftIndex") char leftIndex,
+                             @Named("rightIndex") char rightIndex)
+                      throws SchemaChangeException;
 
 }

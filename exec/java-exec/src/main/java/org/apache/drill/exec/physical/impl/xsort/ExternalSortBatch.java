@@ -767,6 +767,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     try {
       if (copier == null) {
         CodeGenerator<PriorityQueueCopier> cg = CodeGenerator.get(PriorityQueueCopier.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
+        cg.plainOldJavaCapable(true);
+        // Uncomment out this line to debug the generated code.
+//        cg.preferPlainOldJava(true);
         ClassGenerator<PriorityQueueCopier> g = cg.getRoot();
 
         generateComparisons(g, batch);
@@ -779,8 +782,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
         copier.close();
       }
 
+      @SuppressWarnings("resource")
       BufferAllocator allocator = spilling ? copierAllocator : oAllocator;
       for (VectorWrapper<?> i : batch) {
+        @SuppressWarnings("resource")
         ValueVector v = TypeHelper.getNewVector(i.getField(), allocator);
         outputContainer.add(v);
       }

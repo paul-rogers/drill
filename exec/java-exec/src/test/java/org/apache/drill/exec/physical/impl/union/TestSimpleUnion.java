@@ -41,6 +41,8 @@ import com.google.common.io.Files;
 
 import mockit.Injectable;
 
+// See also TestUnionDistinct for a test that does not need JMockit
+
 public class TestSimpleUnion extends ExecTest {
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestSimpleUnion.class);
   private final DrillConfig c = DrillConfig.create();

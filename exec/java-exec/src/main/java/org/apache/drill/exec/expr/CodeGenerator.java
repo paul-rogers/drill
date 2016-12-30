@@ -21,12 +21,20 @@ import java.io.IOException;
 
 import org.apache.drill.exec.compile.TemplateClassDefinition;
 import org.apache.drill.exec.compile.sig.MappingSet;
+import org.apache.drill.exec.compile.sig.SignatureHolder;
+import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 
 import com.google.common.base.Preconditions;
+import com.sun.codemodel.JBlock;
+import com.sun.codemodel.JCatchBlock;
 import com.sun.codemodel.JClassAlreadyExistsException;
 import com.sun.codemodel.JCodeModel;
 import com.sun.codemodel.JDefinedClass;
+import com.sun.codemodel.JExpr;
+import com.sun.codemodel.JMod;
+import com.sun.codemodel.JTryBlock;
+
 import org.apache.drill.exec.server.options.OptionManager;
 
 /**
@@ -79,6 +87,13 @@ public class CodeGenerator<T> {
    */
 
   private boolean usePlainOldJava;
+
+  /**
+   * Whether to write code to disk to aid in debugging. Should only be set
+   * during development, never in production.
+   */
+
+  private boolean persistCode;
   private String generatedCode;
   private String generifiedCode;
 
@@ -135,6 +150,10 @@ public class CodeGenerator<T> {
     usePlainOldJava = flag;
   }
 
+  public boolean supportsPlainJava() {
+    return plainOldJavaCapable;
+  }
+
   public boolean isPlainOldJava() {
     return plainOldJavaCapable && usePlainOldJava;
   }
@@ -152,6 +171,30 @@ public class CodeGenerator<T> {
 
     if (isPlainOldJava()) {
       rootGenerator.clazz._extends(definition.getTemplateClass( ));
+
+      // The code generator creates a method called __DRILL_INIT__ which takes the
+      // place of the constructor when the code goes though the byte code fixup.
+      // For Plain-old Java, we call the method from a constructor created for
+      // that purpose. (Generated code, fortunately, never includes a constructor,
+      // so we can create one.) Since the init block throws an exception (which
+      // should never occur), the generated constructor converts the checked
+      // exception into an unchecked one so as to not require changes to the
+      // various places that create instances of the generated classes.
+      //
+      // Example:
+      // public StreamingAggregatorGen1() {
+      //       try {
+      //         __DRILL_INIT__();
+      //     } catch (SchemaChangeException e) {
+      //         throw new UnsupportedOperationException(e);
+      //     }
+      // }
+
+      JBlock body = rootGenerator.clazz.constructor(JMod.PUBLIC).body();
+      JTryBlock tryBlock = body._try();
+      tryBlock.body().invoke(SignatureHolder.DRILL_INIT_METHOD);
+      JCatchBlock catchBlock = tryBlock._catch(model.ref(SchemaChangeException.class));
+      catchBlock.body()._throw( JExpr._new(model.ref(UnsupportedOperationException.class)).arg(catchBlock.param("e")) );
     }
 
     rootGenerator.flushCode();
@@ -165,8 +208,8 @@ public class CodeGenerator<T> {
       throw new IllegalStateException(e);
     }
 
-    this.generatedCode = w.getCode().toString();
-    this.generifiedCode = generatedCode.replaceAll(this.className, "GenericGenerated");
+    generatedCode = w.getCode().toString();
+    generifiedCode = generatedCode.replaceAll(className, "GenericGenerated");
   }
 
   public String generateAndGet() throws IOException {
@@ -248,6 +291,24 @@ public class CodeGenerator<T> {
       return false;
     }
     return true;
+  }
+
+  /**
+   * Debug-time option to persis the code for the generated class to permit debugging.
+   * Has effect only when code is generated using the plain-old Java option. Code
+   * is written to the code directory specified in {@link ClassBuilder}.
+   * To debug code, set this option, then point your IDE to the code directory
+   * when the IDE prompts you for the source code location.
+   *
+   * @param persist true to write the code to disk, false (the default) to keep
+   * code only in memory.
+   */
+  public void setPersistCode(boolean persist) {
+    persistCode = persist;
+  }
+
+  public boolean persistCode() {
+     return persistCode;
   }
 
 }

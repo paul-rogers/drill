@@ -122,7 +122,7 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
     if (!createAggregator()) {
       state = BatchState.DONE;
     }
-    for (VectorWrapper w : container) {
+    for (VectorWrapper<?> w : container) {
       AllocationHelper.allocatePrecomputedChildCount(w.getValueVector(), 0, 0, 0);
     }
   }
@@ -190,6 +190,9 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
         CodeGenerator.get(HashAggregator.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
     ClassGenerator<HashAggregator> cg = top.getRoot();
     ClassGenerator<HashAggregator> cgInner = cg.getInnerGenerator("BatchHolder");
+    top.plainOldJavaCapable(true);
+    // Uncomment out this line to debug the generated code.
+//    top.preferPlainOldJava(true);
 
     container.clear();
 
@@ -212,6 +215,7 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
       }
 
       final MaterializedField outputField = MaterializedField.create(ne.getRef().getAsNamePart().getName(), expr.getMajorType());
+      @SuppressWarnings("resource")
       ValueVector vv = TypeHelper.getNewVector(outputField, oContext.getAllocator());
 
       // add this group-by vector to the output container
@@ -236,6 +240,7 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
       }
 
       final MaterializedField outputField = MaterializedField.create(ne.getRef().getAsNamePart().getName(), expr.getMajorType());
+      @SuppressWarnings("resource")
       ValueVector vv = TypeHelper.getNewVector(outputField, oContext.getAllocator());
       aggrOutFieldIds[i] = container.add(vv);
 
@@ -268,7 +273,7 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
     cg.setMappingSet(UpdateAggrValuesMapping);
 
     for (LogicalExpression aggr : aggrExprs) {
-      HoldingContainer hc = cg.addExpr(aggr, ClassGenerator.BlkCreateMode.TRUE);
+      cg.addExpr(aggr, ClassGenerator.BlkCreateMode.TRUE);
     }
   }
 
@@ -290,9 +295,7 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
       cg.getBlock("getVectorIndex")._return(var.invoke("getIndex").arg(JExpr.direct("recordIndex")));
       return;
     }
-
     }
-
   }
 
   @Override
@@ -307,5 +310,4 @@ public class HashAggBatch extends AbstractRecordBatch<HashAggregate> {
   protected void killIncoming(boolean sendUpstream) {
     incoming.kill(sendUpstream);
   }
-
 }

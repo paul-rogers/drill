@@ -152,6 +152,7 @@ public class UnionAllRecordBatch extends AbstractRecordBatch<UnionAll> {
     return true;
   }
 
+  @SuppressWarnings("resource")
   private IterOutcome doWork() throws ClassTransformationException, IOException, SchemaChangeException {
     if (allocationVectors != null) {
       for (ValueVector v : allocationVectors) {
@@ -180,11 +181,13 @@ public class UnionAllRecordBatch extends AbstractRecordBatch<UnionAll> {
       return IterOutcome.OK_NEW_SCHEMA;
     }
 
-
     final ClassGenerator<UnionAller> cg = CodeGenerator.getRoot(UnionAller.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
+    cg.getCodeGenerator().plainOldJavaCapable(true);
+    // Uncomment out this line to debug the generated code.
+//    cg.getCodeGenerator().preferPlainOldJava(true);
     int index = 0;
     for(VectorWrapper<?> vw : current) {
-      ValueVector vvIn = vw.getValueVector();
+       ValueVector vvIn = vw.getValueVector();
       // get the original input column names
       SchemaPath inputPath = SchemaPath.getSimplePath(vvIn.getField().getPath());
       // get the renamed column names

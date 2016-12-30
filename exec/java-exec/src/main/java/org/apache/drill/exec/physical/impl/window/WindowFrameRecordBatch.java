@@ -40,6 +40,7 @@ import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
 import org.apache.drill.exec.expr.fn.FunctionGenerationHelper;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.config.WindowPOP;
+import org.apache.drill.exec.physical.impl.project.Projector;
 import org.apache.drill.exec.record.AbstractRecordBatch;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.RecordBatch;
@@ -76,10 +77,6 @@ public class WindowFrameRecordBatch extends AbstractRecordBatch<WindowPOP> {
     batches = Lists.newArrayList();
   }
 
-  long totalLoad; // Test only: do not check in
-  long totalWork;
-  long loadCount;
-
   /**
    * Hold incoming batches in memory until all window functions are ready to process the batch on top of the queue
    */
@@ -107,11 +104,9 @@ public class WindowFrameRecordBatch extends AbstractRecordBatch<WindowPOP> {
       return IterOutcome.NONE;
     }
 
-    long start;
     // keep saving incoming batches until the first unprocessed batch can be processed, or upstream == NONE
     while (!noMoreBatches && !canDoWork()) {
       IterOutcome upstream = next(incoming);
-      start = System.currentTimeMillis();
       logger.trace("next(incoming) returned {}", upstream);
 
       switch (upstream) {
@@ -139,29 +134,17 @@ public class WindowFrameRecordBatch extends AbstractRecordBatch<WindowPOP> {
         default:
           throw new UnsupportedOperationException("Unsupported upstream state " + upstream);
       }
-      totalLoad += System.currentTimeMillis() - start;
     }
-    loadCount++;
 
     if (batches.isEmpty()) {
       logger.trace("no more batches to handle, we are DONE");
-//      System.out.println( "Work time: " + totalWork );
-//      System.out.println( "Load time: " + totalLoad );
-//      System.out.println( "Load count: " + loadCount );
-//      System.out.println( "Alloc time: " + allocTime );
-//      System.out.println( "DoWork time: " + doWorkTime );
-//      System.out.println( "Transfer time: " + transferTime );
-//      System.out.println( "TP Transfer time: " + tpTransferTime );
-//      System.out.println( "TP Transfer count: " + tpTransferCount ); // Do not check in - test only
       state = BatchState.DONE;
       return IterOutcome.NONE;
     }
 
     // process first saved batch, then release it
     try {
-      start = System.currentTimeMillis();
       doWork();
-      totalWork += System.currentTimeMillis() - start;
     } catch (DrillException e) {
       context.fail(e);
       cleanup();
@@ -175,12 +158,6 @@ public class WindowFrameRecordBatch extends AbstractRecordBatch<WindowPOP> {
     return IterOutcome.OK;
   }
 
-  long allocTime;
-  long doWorkTime;
-  long transferTime;
-  long tpTransferTime;
-  int tpTransferCount;
-
   private void doWork() throws DrillException {
 
     final WindowDataBatch current = batches.get(0);
@@ -188,35 +165,21 @@ public class WindowFrameRecordBatch extends AbstractRecordBatch<WindowPOP> {
 
     logger.trace("WindowFramer.doWork() START, num batches {}, current batch has {} rows", batches.size(), recordCount);
 
-    long start = System.currentTimeMillis();
     // allocate outgoing vectors
     for (VectorWrapper<?> w : container) {
       w.getValueVector().allocateNew();
     }
-    long end = System.currentTimeMillis();
-    allocTime += end - start;
-    start = end;
 
     for (WindowFramer framer : framers) {
       framer.doWork();
     }
-    end = System.currentTimeMillis();
-    doWorkTime += end - start;
-    start = end;
 
     // transfer "non aggregated" vectors
     for (VectorWrapper<?> vw : current) {
       ValueVector v = container.addOrGet(vw.getField());
       TransferPair tp = vw.getValueVector().makeTransferPair(v);
-      long st = System.currentTimeMillis();
       tp.transfer();
-      end = System.currentTimeMillis();
-      tpTransferTime += end - st;
-      tpTransferCount++;
     }
-    end = System.currentTimeMillis();
-    transferTime += end - start;
-    start = end;
 
     container.setRecordCount(recordCount);
     for (VectorWrapper<?> v : container) {
@@ -246,13 +209,19 @@ public class WindowFrameRecordBatch extends AbstractRecordBatch<WindowPOP> {
     final VectorAccessible last = batches.get(batches.size() - 1);
     final int lastSize = last.getRecordCount();
 
-    final boolean partitionEndReached = !framers[0].isSamePartition(currentSize - 1, current, lastSize - 1, last);
-    final boolean frameEndReached = partitionEndReached || !framers[0].isPeer(currentSize - 1, current, lastSize - 1, last);
+    boolean partitionEndReached;
+    boolean frameEndReached;
+    try {
+      partitionEndReached = !framers[0].isSamePartition(currentSize - 1, current, lastSize - 1, last);
+      frameEndReached = partitionEndReached || !framers[0].isPeer(currentSize - 1, current, lastSize - 1, last);
 
-    for (final WindowFunction function : functions) {
-      if (!function.canDoWork(batches.size(), popConfig, frameEndReached, partitionEndReached)) {
-        return false;
+      for (final WindowFunction function : functions) {
+        if (!function.canDoWork(batches.size(), popConfig, frameEndReached, partitionEndReached)) {
+          return false;
+        }
       }
+    } catch (SchemaChangeException e) {
+      throw new UnsupportedOperationException(e);
     }
 
     return true;
@@ -391,8 +360,12 @@ public class WindowFrameRecordBatch extends AbstractRecordBatch<WindowPOP> {
     }
 
     cg.getBlock("resetValues")._return(JExpr.TRUE);
+    CodeGenerator<WindowFramer> codeGen = cg.getCodeGenerator();
+    codeGen.plainOldJavaCapable(true);
+    // Uncomment out this line to debug the generated code.
+//    codeGen.preferPlainOldJava(true);
 
-    return context.getImplementationClass(cg);
+    return context.getImplementationClass(codeGen);
   }
 
   /**

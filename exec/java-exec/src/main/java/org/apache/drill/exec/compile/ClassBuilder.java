@@ -82,18 +82,18 @@ public class ClassBuilder {
 
   private final DrillConfig config;
   private final OptionManager options;
-  private final boolean saveCode;
   private final File codeDir;
 
   public ClassBuilder(DrillConfig config, OptionManager optionManager) {
     this.config = config;
     options = optionManager;
 
-    // The option to save code is a boot-time option because
-    // it is used selectively during debugging, but can cause
-    // excessive I/O in a running server if used to save all code.
+    // Code can be saved per-class to enable debugging.
+    // Just mark the code generator as to be persistented,
+    // point your debugger to the directory set below, and you
+    // can step into the code for debugging. Code is not saved
+    // be default because doing so is expensive and unnecessary.
 
-    saveCode = config.getBoolean(SAVE_CODE_OPTION);
     codeDir = new File(config.getString(CODE_DIR_OPTION));
   }
 
@@ -127,6 +127,7 @@ public class ClassBuilder {
    * @throws ClassTransformationException generic "something is wrong" error from
    * Drill class compilation code.
    */
+  @SuppressWarnings("resource")
   private Class<?> compileClass(CodeGenerator<?> cg) throws IOException, CompileException, ClassNotFoundException, ClassTransformationException {
 
     // Get the plain-old Java code.
@@ -141,7 +142,9 @@ public class ClassBuilder {
     // A key advantage of this method is that the code can be
     // saved and debugged, if needed.
 
-    saveCode(code, name);
+    if (cg.persistCode()) {
+      saveCode(code, name);
+    }
 
     // Compile the code and load it into a class loader.
 
@@ -172,10 +175,6 @@ public class ClassBuilder {
    */
 
   private void saveCode(String code, ClassNames name) {
-
-    // Skip if we don't want to save the code.
-
-    if (! saveCode) { return; }
 
     String pathName = name.slash + ".java";
     File codeFile = new File(codeDir, pathName);

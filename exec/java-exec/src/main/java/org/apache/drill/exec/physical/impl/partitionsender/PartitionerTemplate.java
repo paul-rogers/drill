@@ -67,9 +67,6 @@ public abstract class PartitionerTemplate implements Partitioner {
 
   private int outgoingRecordBatchSize = DEFAULT_RECORD_BATCH_SIZE;
 
-  public PartitionerTemplate() throws SchemaChangeException {
-  }
-
   @Override
   public List<? extends PartitionOutgoingBatch> getOutgoingBatches() {
     return outgoingBatches;
@@ -202,12 +199,20 @@ public abstract class PartitionerTemplate implements Partitioner {
    * @throws IOException
    */
   private void doCopy(int svIndex) throws IOException {
-    int index = doEval(svIndex);
+    int index;
+    try {
+      index = doEval(svIndex);
+    } catch (SchemaChangeException e) {
+      throw new UnsupportedOperationException(e);
+    }
     if ( index >= start && index < end) {
       OutgoingRecordBatch outgoingBatch = outgoingBatches.get(index - start);
       outgoingBatch.copy(svIndex);
     }
   }
+
+  @Override
+  public void initialize() { }
 
   @Override
   public void clear() {
@@ -216,8 +221,11 @@ public abstract class PartitionerTemplate implements Partitioner {
     }
   }
 
-  public abstract void doSetup(@Named("context") FragmentContext context, @Named("incoming") RecordBatch incoming, @Named("outgoing") OutgoingRecordBatch[] outgoing) throws SchemaChangeException;
-  public abstract int doEval(@Named("inIndex") int inIndex);
+  public abstract void doSetup(@Named("context") FragmentContext context,
+                               @Named("incoming") RecordBatch incoming,
+                               @Named("outgoing") OutgoingRecordBatch[] outgoing)
+                       throws SchemaChangeException;
+  public abstract int doEval(@Named("inIndex") int inIndex) throws SchemaChangeException;
 
   public class OutgoingRecordBatch implements PartitionOutgoingBatch, VectorAccessible {
 
@@ -245,7 +253,11 @@ public abstract class PartitionerTemplate implements Partitioner {
     }
 
     protected void copy(int inIndex) throws IOException {
-      doEval(inIndex, recordCount);
+      try {
+        doEval(inIndex, recordCount);
+      } catch (SchemaChangeException e) {
+        throw new UnsupportedOperationException(e);
+      }
       recordCount++;
       totalRecords++;
       if (recordCount == outgoingRecordBatchSize) {
@@ -260,10 +272,12 @@ public abstract class PartitionerTemplate implements Partitioner {
     }
 
     @RuntimeOverridden
-    protected void doSetup(@Named("incoming") RecordBatch incoming, @Named("outgoing") VectorAccessible outgoing) {};
+    protected void doSetup(@Named("incoming") RecordBatch incoming,
+                           @Named("outgoing") VectorAccessible outgoing) throws SchemaChangeException { };
 
     @RuntimeOverridden
-    protected void doEval(@Named("inIndex") int inIndex, @Named("outIndex") int outIndex) { };
+    protected void doEval(@Named("inIndex") int inIndex,
+                          @Named("outIndex") int outIndex) throws SchemaChangeException { };
 
     public void flush(boolean schemaChanged) throws IOException {
       if (dropAll) {
@@ -355,7 +369,11 @@ public abstract class PartitionerTemplate implements Partitioner {
         vectorContainer.add(outgoingVector);
       }
       allocateOutgoingRecordBatch();
-      doSetup(incoming, vectorContainer);
+      try {
+        doSetup(incoming, vectorContainer);
+      } catch (SchemaChangeException e) {
+        throw new UnsupportedOperationException(e);
+      }
     }
 
     public void resetBatch() {

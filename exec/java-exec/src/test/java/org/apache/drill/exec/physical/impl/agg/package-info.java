@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,11 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.compile;
 
-import org.apache.drill.exec.exception.SchemaChangeException;
-
-public interface ExampleInner {
-  public abstract void doOutside() throws SchemaChangeException;
-  public abstract void doInsideOutside() throws SchemaChangeException;
-}
+/**
+ * No direct test of streaming aggregates exists. However, the test
+ * {@link TestAggregateFunctions} can be used to exercise this operator.
+ */
+package org.apache.drill.exec.physical.impl.agg;
