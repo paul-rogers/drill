@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -53,7 +53,6 @@ import org.junit.Test;
 import com.google.common.base.Charsets;
 import com.google.common.io.Files;
 
-@Ignore
 public class TestExternalSortRM extends DrillTest {
 
   @Test
@@ -136,6 +135,31 @@ public class TestExternalSortRM extends DrillTest {
       System.out.println(String.format("Read %,d records in %d batches; %d ms.", summary.recordCount(), summary.batchCount(), summary.runTimeMs()));
       Thread.sleep(1000);
       client.parseProfile(summary).print( );
+    }
+  }
+
+  @Test
+  public void exampleTest() throws Throwable {
+
+    // Configure the cluster. One Drillbit by default.
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        .configProperty(ExecConstants.REMOVER_ENABLE_GENERIC_COPIER, true)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
+        .maxParallelization(1)
+        ;
+
+    // Launch the cluster and client.
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+
+      // Run a query and print a summary.
+      String sql = "SELECT id_i FROM `mock`.employee_10M ORDER BY id_i";
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
+      assertEquals(10_000_000, summary.recordCount());
+      System.out.println(String.format("Sorted %,d records in %d batches.", summary.recordCount(), summary.batchCount()));
+      System.out.println(String.format("Query Id: %s, elapsed: %d ms", summary.queryIdString(), summary.runTimeMs()));
+      client.parseProfile(summary.queryIdString()).print();
     }
   }
 
