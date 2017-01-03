@@ -21,16 +21,29 @@ import java.io.IOException;
 
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.drill.common.logical.StoragePluginConfig;
+import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
 
-public class StoragePluginAdapter extends AbstractStoragePlugin {
+public abstract class StoragePluginAdapter<T extends TableSpaceSystem, C extends StoragePluginConfig> extends AbstractStoragePlugin {
+
+  protected C config;
+  private T system;
+  protected DrillbitContext context;
+  protected String name;
+
+  protected void init(C config, DrillbitContext context, String name) {
+    this.config = config;
+    this.context = context;
+    this.name = name;
+  }
 
   @Override
   public StoragePluginConfig getConfig() {
-    // TODO Auto-generated method stub
-    return null;
+    return config;
   }
+
+  public C config() { return config; }
 
   @Override
   public void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent)
@@ -39,4 +52,25 @@ public class StoragePluginAdapter extends AbstractStoragePlugin {
 
   }
 
+  protected T system( ) {
+    if (system == null) {
+      system = DataSourceRegistry.instance().system( this );
+    }
+    return system;
+  }
+
+  protected abstract T createSystem( );
+
+  @Override
+  public boolean equals(Object object) {
+    if (object == null  ||  ! (object instanceof StoragePluginAdapter))
+      return false;
+    StoragePluginAdapter<?, ?> other = (StoragePluginAdapter<?, ?>) object;
+    return name.equals(other.name);
+  }
+
+  @Override
+  public int hashCode() {
+    return name.hashCode();
+  }
 }
