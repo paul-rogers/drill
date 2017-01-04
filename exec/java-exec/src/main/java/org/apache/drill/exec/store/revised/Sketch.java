@@ -10,6 +10,9 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.Iterators;
+
 public class Sketch {
 
 //  interface RowSetBuilder {
@@ -28,8 +31,15 @@ public class Sketch {
 //    void eof();
 //  }
 
+  // Idea is to:
+  // - Ask for current schema
+  // - New batch with current schema
+  // - Revise schema & get new batch
+  // - New schema & get new batch
+
   public interface ScanReceiver {
     RowSetBuilder newSchema();
+    RowSetBuilder reviseSchema();
     RowSetReceiver rowSet();
     void close();
     int rowCount();
@@ -44,7 +54,6 @@ public class Sketch {
     RowSchema rootSchema();
     RowSchema rowSchema();
     RowBatchReceiver batch();
-    RowSetBuilder reviseSchema();
     int rowCount();
     void close();
   }
@@ -55,6 +64,8 @@ public class Sketch {
     boolean full( );
     void close();
   }
+
+  // Good - keep this, clear definition of a row
 
   public interface RowBuilder {
     ColumnBuilder column(int index);
@@ -96,9 +107,14 @@ public class Sketch {
 
   /**
    * Represents name space for tables referenceable in SQL statements.
+   * <p>
+   * Examples: a file system, a directory structure within a file system,
+   * a logical view of some set of directories within a file system, a
+   * database schema, an instance of an API, etc.
    */
 
-  interface TableSpace {
+  public interface TableSpace {
+    String schemaName();
     Iterator<LogicalTable> tables( );
     LogicalTable table(String name);
     StorageSpace storage();
@@ -108,14 +124,16 @@ public class Sketch {
    * Represents a model of the physical storage of a table, including
    * details of the formats available, the format for a table, the
    * partitions of the table, etc.
+   * <p>
+   * Examples: a DB server, a file system etc.
    */
-  interface StorageSpace {
+  public interface StorageSpace {
+    String schemaName();
+    TableSpace tableSpace( String schemaName );
     TableScan scan(LogicalTable table);
     TableWriter create(LogicalTable table);
     TableWriter update(LogicalTable table);
   }
-
-  enum TableCapabilities { READ, CREATE, UPDATE };
 
   /**
    * Represents a table visible to SQL and referenceable in the FROM
@@ -123,11 +141,16 @@ public class Sketch {
    * be anything; this is just the view as presented to SQL.
    */
 
-  interface LogicalTable {
+  public interface LogicalTable {
+    int READ = 1;
+    int CREATE = 2;
+    int UPDATE = 3;
+
     String name();
-    TableCapabilities capabilites( );
+    int capabilites( );
     boolean staticSchema();
     RowSchema schema();
+    <P> ExtendableLogicalScanPop<P> scan();
   }
 
   /**
@@ -136,7 +159,7 @@ public class Sketch {
    * filter condition internally.
    */
 
-  interface TableScan {
+  public interface TableScan {
     LogicalTable table();
     List<String> select( List<String> cols );
     List<FilterExpr> where( List<FilterExpr> exprs );
@@ -144,11 +167,11 @@ public class Sketch {
     Collection<TablePartition> partitions(TableScan table);
   }
 
-  interface TableWriter {
+  public interface TableWriter {
 
   }
 
-  interface FilterExpr {
+  public interface FilterExpr {
     String column();
     int op();
     Object arg();
@@ -159,7 +182,7 @@ public class Sketch {
    * An unit of scan work: blocks of a file, distributed query for a
    * underlying RDBMS, etc.
    */
-  interface TablePartition {
+  public interface TablePartition {
     TableScan scan();
   }
 
@@ -170,7 +193,7 @@ public class Sketch {
    * tuple in Drill.
    */
 
-  interface RowSchema {
+  public interface RowSchema {
     int size();
     int totalSize();
     List<ColumnSchema> schema();
@@ -185,7 +208,7 @@ public class Sketch {
    * cardinality. If the column is a map, it has its own tuple schema.
    */
 
-  interface ColumnSchema {
+  public interface ColumnSchema {
     String NAME_SEPARATOR = ".";
 
     int index();
@@ -203,14 +226,34 @@ public class Sketch {
 
   }
 
-  public interface ScanService {
+  public interface ScanOperation<P> {
     ScanReceiver receiver();
+    ExtendablePhysicalScanPop<P> definition();
   }
 
-  public interface Deserializer {
-    void bind(ScanService service);
+  public interface Deserializer<P> {
+    void bind(ScanOperation<P> service);
     void open() throws Exception;
     void readBatch() throws Exception;
     void close() throws Exception;
+  }
+
+  public static class SchemaId {
+    private String extensionId;
+    private String schema;
+
+    public SchemaId(
+            @JsonProperty("extensionId") String extensionId,
+            @JsonProperty("schema") String schema ) {
+      this.extensionId = extensionId;
+      this.schema = schema;
+    }
+
+    public String getExtensionId( ) { return extensionId; }
+    public String getSchema( ) { return schema; }
+  }
+
+  public interface StorageSpaceFactory {
+    <T> StorageSpace create(T config);
   }
 }
