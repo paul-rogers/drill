@@ -11,6 +11,7 @@ import org.apache.drill.exec.physical.base.AbstractSubScan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.PhysicalVisitor;
 import org.apache.drill.exec.physical.base.SubScan;
+import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -52,7 +53,7 @@ public class ExtendablePhysicalScanPop<P> extends AbstractSubScan {
 
   @Override
   public int getOperatorType() {
-    return CoreOperatorType.EXTENDABLE_SUB_SCAN;
+    return 0; //CoreOperatorType.EXTENDABLE_SUB_SCAN;
   }
 
   @Override

@@ -83,15 +83,17 @@ public class SchemaBuilderImpl implements SchemaBuilder {
 
   @Override
   public RowSchema build( ) {
-    if ( parent != null )
+    if ( parent != null ) {
       throw new IllegalStateException( "Can only build the root schema" );
+    }
     globalIndex = 0;
     return doBuild( "" );
   }
 
   protected int nextGlobalIndex( ) {
-    if (parent == null)
+    if (parent == null) {
       return globalIndex++;
+    }
     return parent.nextGlobalIndex();
   }
 

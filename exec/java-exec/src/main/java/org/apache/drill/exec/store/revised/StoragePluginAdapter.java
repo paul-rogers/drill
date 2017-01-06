@@ -63,8 +63,8 @@ public abstract class StoragePluginAdapter<T extends TableSpaceSystem, C extends
 
   @Override
   public boolean equals(Object object) {
-    if (object == null  ||  ! (object instanceof StoragePluginAdapter))
-      return false;
+    if (object == null  ||  ! (object instanceof StoragePluginAdapter)) {
+      return false; }
     StoragePluginAdapter<?, ?> other = (StoragePluginAdapter<?, ?>) object;
     return name.equals(other.name);
   }

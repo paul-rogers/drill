@@ -26,4 +26,10 @@ public class MockTableSpace implements TableSpace {
     return null;
   }
 
+  @Override
+  public String schemaName() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
 }

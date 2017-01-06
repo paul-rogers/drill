@@ -188,6 +188,7 @@
         </executions>
         <configuration>
           <excludeSubprojects>false</excludeSubprojects>
+          <skip>true</skip>
           <excludes>
             <exclude>**/*.log</exclude>
             <exclude>**/*.css</exclude>

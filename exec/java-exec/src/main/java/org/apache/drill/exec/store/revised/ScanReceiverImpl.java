@@ -63,8 +63,9 @@ public class ScanReceiverImpl implements ScanReceiver {
 
     @Override
     public RowSetReceiver build() {
-      if (schema == null)
+      if (schema == null) {
         throw new IllegalStateException( "No schema provided" );
+      }
       RowSetReceiverImpl rowSetReceiver = new RowSetReceiverImpl( scanReceiver, schema );
       scanReceiver.setActiveRowSet(rowSetReceiver);
       return rowSetReceiver;
@@ -132,17 +133,17 @@ public class ScanReceiverImpl implements ScanReceiver {
       activeBatch = null;
     }
 
-    @Override
-    public RowSetBuilder reviseSchema() {
-      scanReceiver.assertOpen();
-      close();
-      return new RowSetBuilderImpl( scanReceiver, schema );
-    }
+//    @Override
+//    public RowSetBuilder reviseSchema() {
+//      scanReceiver.assertOpen();
+//      close();
+//      return new RowSetBuilderImpl( scanReceiver, schema );
+//    }
 
     @Override
     public void close() {
-      if ( ! scanReceiver.isActiveRowSet(this) )
-        return;
+      if ( ! scanReceiver.isActiveRowSet(this) ) {
+        return; }
       if (activeBatch != null) {
         activeBatch.close();
       }
@@ -175,8 +176,8 @@ public class ScanReceiverImpl implements ScanReceiver {
 
     @Override
     public RowBuilder row() {
-      if ( full( ) )
-        return null;
+      if ( full( ) ) {
+        return null; }
       if ( ! rowSet.isActiveBatch(this)) {
         throw new IllegalStateException( "Not the active batch" );
       }
@@ -247,8 +248,8 @@ public class ScanReceiverImpl implements ScanReceiver {
 
   @Override
   public void close() {
-    if (state != State.ACTIVE)
-      return;
+    if (state != State.ACTIVE) {
+      return; }
     activeRowSet.close( );
     activeRowSet = null;
     state = State.CLOSED;
@@ -264,6 +265,12 @@ public class ScanReceiverImpl implements ScanReceiver {
   public int rowCount() {
     // TODO Auto-generated method stub
     return 0;
+  }
+
+  @Override
+  public RowSetBuilder reviseSchema() {
+    // TODO Auto-generated method stub
+    return null;
   }
 
 }
