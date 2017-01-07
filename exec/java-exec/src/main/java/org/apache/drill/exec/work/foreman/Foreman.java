@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,12 +17,6 @@
  */
 package org.apache.drill.exec.work.foreman;
 
-import com.codahale.metrics.Counter;
-import io.netty.buffer.ByteBuf;
-import io.netty.channel.ChannelFuture;
-import io.netty.util.concurrent.Future;
-import io.netty.util.concurrent.GenericFutureListener;
-
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Date;
@@ -30,7 +24,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 import org.apache.drill.common.CatastrophicFailure;
 import org.apache.drill.common.EventProcessor;
@@ -40,9 +33,6 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.logical.LogicalPlan;
 import org.apache.drill.common.logical.PlanProperties.Generator.ResultMode;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.coord.ClusterCoordinator;
-import org.apache.drill.exec.coord.DistributedSemaphore;
-import org.apache.drill.exec.coord.DistributedSemaphore.DistributedLease;
 import org.apache.drill.exec.exception.OptimizerException;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.metrics.DrillMetrics;
@@ -75,7 +65,6 @@ import org.apache.drill.exec.rpc.control.ControlTunnel;
 import org.apache.drill.exec.rpc.control.Controller;
 import org.apache.drill.exec.rpc.user.UserServer.UserClientConnection;
 import org.apache.drill.exec.server.DrillbitContext;
-import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.testing.ControlsInjector;
 import org.apache.drill.exec.testing.ControlsInjectorFactory;
 import org.apache.drill.exec.util.MemoryAllocationUtilities;
@@ -84,17 +73,26 @@ import org.apache.drill.exec.work.EndpointListener;
 import org.apache.drill.exec.work.QueryWorkUnit;
 import org.apache.drill.exec.work.WorkManager.WorkerBee;
 import org.apache.drill.exec.work.batch.IncomingBuffers;
+import org.apache.drill.exec.work.foreman.QueryQueue.QueryQueueException;
+import org.apache.drill.exec.work.foreman.QueryQueue.QueueLease;
+import org.apache.drill.exec.work.foreman.QueryQueue.QueueTimeoutException;
 import org.apache.drill.exec.work.fragment.FragmentExecutor;
 import org.apache.drill.exec.work.fragment.FragmentStatusReporter;
 import org.apache.drill.exec.work.fragment.RootFragmentManager;
 import org.codehaus.jackson.map.ObjectMapper;
 
+import com.codahale.metrics.Counter;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.protobuf.InvalidProtocolBufferException;
+
+import io.netty.buffer.ByteBuf;
+import io.netty.channel.ChannelFuture;
+import io.netty.util.concurrent.Future;
+import io.netty.util.concurrent.GenericFutureListener;
 
 /**
  * Foreman manages all the fragments (local and remote) for a single query where this
@@ -135,15 +133,13 @@ public class Foreman implements Runnable {
   private volatile QueryState state;
   private boolean resume = false;
 
-  private volatile DistributedLease lease; // used to limit the number of concurrent queries
+  private volatile QueueLease lease; // used to limit the number of concurrent queries
 
   private final ResponseSendListener responseListener = new ResponseSendListener();
   private final StateSwitch stateSwitch = new StateSwitch();
   private final ForemanResult foremanResult = new ForemanResult();
   private final ConnectionClosedListener closeListener = new ConnectionClosedListener();
   private final ChannelFuture closeFuture;
-  private final boolean queuingEnabled;
-
 
   private String queryText;
 
@@ -172,11 +168,7 @@ public class Foreman implements Runnable {
     queryManager = new QueryManager(queryId, queryRequest, drillbitContext.getStoreProvider(),
         drillbitContext.getClusterCoordinator(), this);
 
-    final OptionManager optionManager = queryContext.getOptions();
-    queuingEnabled = optionManager.getOption(ExecConstants.ENABLE_QUEUE);
-
-    final QueryState initialState = queuingEnabled ? QueryState.ENQUEUED : QueryState.STARTING;
-    recordNewState(initialState);
+    recordNewState(QueryState.ENQUEUED);
     enqueuedQueries.inc();
   }
 
@@ -337,17 +329,8 @@ public class Foreman implements Runnable {
   }
 
   private void releaseLease() {
-    while (lease != null) {
-      try {
-        lease.close();
-        lease = null;
-      } catch (final InterruptedException e) {
-        // if we end up here, the while loop will try again
-      } catch (final Exception e) {
-        logger.warn("Failure while releasing lease.", e);
-        break;
-      }
-    }
+    if (lease != null)
+      drillbitContext.getQueryQueue().release(lease);
   }
 
   private void parseAndRunLogicalPlan(final String json) throws ExecutionSetupException {
@@ -420,10 +403,8 @@ public class Foreman implements Runnable {
     if (replanMemory) {
       MemoryAllocationUtilities.setupSortMemoryAllocations(plan, queryContext);
     }
-    if (queuingEnabled) {
-      acquireQuerySemaphore(plan);
-      moveToState(QueryState.STARTING, null);
-    }
+    enqueue(plan);
+    moveToState(QueryState.STARTING, null);
 
     final QueryWorkUnit work = getQueryWorkUnit(plan);
     final List<PlanFragment> planFragments = work.getFragments();
@@ -442,6 +423,21 @@ public class Foreman implements Runnable {
 
     moveToState(QueryState.RUNNING, null);
     logger.debug("Fragments running.");
+  }
+
+  private void enqueue(PhysicalPlan plan) throws ForemanSetupException {
+    if (!drillbitContext.getQueryQueue().enabled()) {
+      return;
+    }
+    enqueue(planCost(plan));
+  }
+
+  private double planCost(final PhysicalPlan plan) {
+    double totalCost = 0;
+    for (final PhysicalOperator ops : plan.getSortedOperators()) {
+      totalCost += ops.getCost();
+    }
+    return totalCost;
   }
 
   /**
@@ -478,10 +474,8 @@ public class Foreman implements Runnable {
     } catch (IOException e) {
       throw new ExecutionSetupException(String.format("Unable to parse FragmentRoot from fragment: %s", rootFragment.getFragmentJson()));
     }
-    if (queuingEnabled) {
-      acquireQuerySemaphore(rootOperator.getCost());
-      moveToState(QueryState.STARTING, null);
-    }
+    enqueue(rootOperator.getCost());
+    moveToState(QueryState.STARTING, null);
     drillbitContext.getWorkBus().addFragmentStatusListener(queryId, queryManager.getFragmentStatusListener());
     drillbitContext.getClusterCoordinator().addDrillbitStatusListener(queryManager.getDrillbitStatusListener());
 
@@ -494,6 +488,19 @@ public class Foreman implements Runnable {
 
     moveToState(QueryState.RUNNING, null);
     logger.debug("Fragments running.");
+  }
+
+  private void enqueue(double cost) throws ForemanSetupException {
+    try {
+      lease = drillbitContext.getQueryQueue().queue(queryId, cost);
+    } catch (QueueTimeoutException e) {
+      throw UserException
+          .resourceError()
+          .message(e.getMessage())
+          .build(logger);
+    } catch (QueryQueueException e) {
+      throw new ForemanSetupException(e.getMessage(), e);
+    }
   }
 
   /**
@@ -527,62 +534,6 @@ public class Foreman implements Runnable {
       throw new ForemanSetupException(String.format(
           "Failure running plan.  You requested a result mode of %s and a physical plan can only be output as EXEC",
           plan.getProperties().resultMode));
-    }
-  }
-
-  /**
-   * This limits the number of "small" and "large" queries that a Drill cluster will run
-   * simultaneously, if queueing is enabled. If the query is unable to run, this will block
-   * until it can. Beware that this is called under run(), and so will consume a Thread
-   * while it waits for the required distributed semaphore.
-   *
-   * @param plan the query plan
-   * @throws ForemanSetupException
-   */
-  private void acquireQuerySemaphore(final PhysicalPlan plan) throws ForemanSetupException {
-    double totalCost = 0;
-    for (final PhysicalOperator ops : plan.getSortedOperators()) {
-      totalCost += ops.getCost();
-    }
-
-    acquireQuerySemaphore(totalCost);
-    return;
-  }
-
-  private void acquireQuerySemaphore(double totalCost) throws ForemanSetupException {
-    final OptionManager optionManager = queryContext.getOptions();
-    final long queueThreshold = optionManager.getOption(ExecConstants.QUEUE_THRESHOLD_SIZE);
-
-    final long queueTimeout = optionManager.getOption(ExecConstants.QUEUE_TIMEOUT);
-    final String queueName;
-
-    try {
-      final ClusterCoordinator clusterCoordinator = drillbitContext.getClusterCoordinator();
-      final DistributedSemaphore distributedSemaphore;
-
-      // get the appropriate semaphore
-      if (totalCost > queueThreshold) {
-        final int largeQueue = (int) optionManager.getOption(ExecConstants.LARGE_QUEUE_SIZE);
-        distributedSemaphore = clusterCoordinator.getSemaphore("query.large", largeQueue);
-        queueName = "large";
-      } else {
-        final int smallQueue = (int) optionManager.getOption(ExecConstants.SMALL_QUEUE_SIZE);
-        distributedSemaphore = clusterCoordinator.getSemaphore("query.small", smallQueue);
-        queueName = "small";
-      }
-
-      lease = distributedSemaphore.acquire(queueTimeout, TimeUnit.MILLISECONDS);
-    } catch (final Exception e) {
-      throw new ForemanSetupException("Unable to acquire slot for query.", e);
-    }
-
-    if (lease == null) {
-      throw UserException
-          .resourceError()
-          .message(
-              "Unable to acquire queue resources for query within timeout.  Timeout for %s queue was set at %d seconds.",
-              queueName, queueTimeout / 1000)
-          .build(logger);
     }
   }
 
@@ -1043,8 +994,10 @@ public class Foreman implements Runnable {
    */
   private void setupRootFragment(final PlanFragment rootFragment, final FragmentRoot rootOperator)
       throws ExecutionSetupException {
+    @SuppressWarnings("resource")
     final FragmentContext rootContext = new FragmentContext(drillbitContext, rootFragment, queryContext,
         initiatingClient, drillbitContext.getFunctionImplementationRegistry());
+    @SuppressWarnings("resource")
     final IncomingBuffers buffers = new IncomingBuffers(rootFragment, rootContext);
     rootContext.setBuffers(buffers);
 
@@ -1171,6 +1124,7 @@ public class Foreman implements Runnable {
    */
   private void sendRemoteFragments(final DrillbitEndpoint assignment, final Collection<PlanFragment> fragments,
       final CountDownLatch latch, final FragmentSubmitFailures fragmentSubmitFailures) {
+    @SuppressWarnings("resource")
     final Controller controller = drillbitContext.getController();
     final InitializeFragments.Builder fb = InitializeFragments.newBuilder();
     for(final PlanFragment planFragment : fragments) {
