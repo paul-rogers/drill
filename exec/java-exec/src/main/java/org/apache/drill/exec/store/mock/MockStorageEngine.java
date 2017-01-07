@@ -109,7 +109,8 @@ public class MockStorageEngine extends AbstractStoragePlugin {
       String baseName = m.group(1);
       int n = Integer.parseInt(m.group(2));
       String unit = m.group(3);
-      if (unit.equalsIgnoreCase("K")) { n *= 1000; }
+      if (unit == null) { }
+      else if (unit.equalsIgnoreCase("K")) { n *= 1000; }
       else if (unit.equalsIgnoreCase("M")) { n *= 1_000_000; }
       MockScanEntry entry = new MockScanEntry(n, null);
       List<MockScanEntry> list = new ArrayList<>();
