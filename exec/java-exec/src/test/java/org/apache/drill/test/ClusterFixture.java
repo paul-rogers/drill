@@ -64,7 +64,8 @@ import com.google.common.io.Resources;
  */
 
 public class ClusterFixture implements AutoCloseable {
-//  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ClientFixture.class);
+  // private static final org.slf4j.Logger logger =
+  // org.slf4j.LoggerFactory.getLogger(ClientFixture.class);
   public static final String ENABLE_FULL_CACHE = "drill.exec.test.use-full-cache";
   public static final int MAX_WIDTH_PER_NODE = 2;
 
@@ -78,6 +79,10 @@ public class ClusterFixture implements AutoCloseable {
       put(ExecConstants.HTTP_ENABLE, false);
       put(QueryTestUtil.TEST_QUERY_PRINTING_SILENT, true);
       put("drill.catastrophic_to_standard_out", true);
+
+      // Verbose errors.
+
+      put(ExecConstants.ENABLE_VERBOSE_ERRORS_KEY, true);
 
       // Verbose errors.
 
@@ -141,9 +146,10 @@ public class ClusterFixture implements AutoCloseable {
 
     // Not quite sure what this is, but some tests seem to use it.
 
-    if (builder.enableFullCache ||
-        (config.hasPath(ENABLE_FULL_CACHE) && config.getBoolean(ENABLE_FULL_CACHE))) {
-      serviceSet = RemoteServiceSet.getServiceSetWithFullCache(config, allocator);
+    if (builder.enableFullCache || (config.hasPath(ENABLE_FULL_CACHE)
+        && config.getBoolean(ENABLE_FULL_CACHE))) {
+      serviceSet = RemoteServiceSet.getServiceSetWithFullCache(config,
+          allocator);
     } else {
       serviceSet = RemoteServiceSet.getLocalServiceSet();
     }
@@ -160,8 +166,10 @@ public class ClusterFixture implements AutoCloseable {
       // Create the dfs_test name space
 
       @SuppressWarnings("resource")
-      final StoragePluginRegistry pluginRegistry = bit.getContext().getStorage();
-      TestUtilities.updateDfsTestTmpSchemaLocation(pluginRegistry, dfsTestTmpSchemaLocation);
+      final StoragePluginRegistry pluginRegistry = bit.getContext()
+          .getStorage();
+      TestUtilities.updateDfsTestTmpSchemaLocation(pluginRegistry,
+          dfsTestTmpSchemaLocation);
       TestUtilities.makeDfsTmpSchemaImmutable(pluginRegistry);
 
       // Create the mock data plugin
@@ -189,7 +197,7 @@ public class ClusterFixture implements AutoCloseable {
         if (bitCount == 1) {
           name = DEFAULT_BIT_NAME;
         } else {
-          name = DEFAULT_BIT_NAME + Integer.toString(i+1);
+          name = DEFAULT_BIT_NAME + Integer.toString(i + 1);
         }
       }
       bits.put(name, bit);
@@ -229,7 +237,8 @@ public class ClusterFixture implements AutoCloseable {
       effectiveProps.put(entry.getKey(), entry.getValue().toString());
     }
     if (zkHelper != null) {
-      effectiveProps.put(ExecConstants.ZK_CONNECTION, zkHelper.getConfig().getString(ExecConstants.ZK_CONNECTION));
+      effectiveProps.put(ExecConstants.ZK_CONNECTION,
+          zkHelper.getConfig().getString(ExecConstants.ZK_CONNECTION));
     }
     return effectiveProps;
   }
@@ -319,11 +328,14 @@ public class ClusterFixture implements AutoCloseable {
       String schemaName, String path, String defaultFormat)
       throws ExecutionSetupException {
     @SuppressWarnings("resource")
-    final StoragePluginRegistry pluginRegistry = drillbit.getContext().getStorage();
+    final StoragePluginRegistry pluginRegistry = drillbit.getContext()
+        .getStorage();
     @SuppressWarnings("resource")
-    final FileSystemPlugin plugin = (FileSystemPlugin) pluginRegistry.getPlugin(pluginName);
+    final FileSystemPlugin plugin = (FileSystemPlugin) pluginRegistry
+        .getPlugin(pluginName);
     final FileSystemConfig pluginConfig = (FileSystemConfig) plugin.getConfig();
-    final WorkspaceConfig newTmpWSConfig = new WorkspaceConfig(path, true, defaultFormat);
+    final WorkspaceConfig newTmpWSConfig = new WorkspaceConfig(path, true,
+        defaultFormat);
 
     pluginConfig.workspaces.remove(schemaName);
     pluginConfig.workspaces.put(schemaName, newTmpWSConfig);
@@ -342,8 +354,8 @@ public class ClusterFixture implements AutoCloseable {
   }
 
   public static FixtureBuilder bareBuilder() {
-    return new FixtureBuilder( );
- }
+    return new FixtureBuilder();
+  }
 
   public static class FixtureTestServices implements TestServices {
 
@@ -387,7 +399,8 @@ public class ClusterFixture implements AutoCloseable {
 
     final URL url = Resources.getResource(trimSlash(resource));
     if (url == null) {
-      throw new IOException(String.format("Unable to find resource %s.", resource));
+      throw new IOException(
+          String.format("Unable to find resource %s.", resource));
     }
     return Resources.toString(url, Charsets.UTF_8);
   }
@@ -411,10 +424,11 @@ public class ClusterFixture implements AutoCloseable {
   }
 
   /**
-   * Create a temp directory to store the given <i>dirName</i>.
-   * Directory will be deleted on exit. Directory is created if it does
-   * not exist.
-   * @param dirName directory name
+   * Create a temp directory to store the given <i>dirName</i>. Directory will
+   * be deleted on exit. Directory is created if it does not exist.
+   *
+   * @param dirName
+   *          directory name
    * @return Full path including temp parent directory and given directory name.
    */
   public static File getTempDir(final String dirName) {
