@@ -44,6 +44,7 @@ public class BufferingQueryEventListener implements UserResultsListener
     QueryId queryId;
     public QueryDataBatch batch;
     public UserException error;
+    public QueryState state;
 
     public QueryEvent(QueryId queryId) {
       this.queryId = queryId;
@@ -60,8 +61,9 @@ public class BufferingQueryEventListener implements UserResultsListener
       type = Type.BATCH;
     }
 
-    public QueryEvent(Type type) {
-      this.type = type;
+    public QueryEvent(QueryState state) {
+      this.type = Type.EOF;
+      this.state = state;
     }
   }
 
@@ -69,36 +71,36 @@ public class BufferingQueryEventListener implements UserResultsListener
 
   @Override
   public void queryIdArrived(QueryId queryId) {
-    silentPut( new QueryEvent( queryId ) );
+    silentPut(new QueryEvent(queryId));
   }
 
   @Override
   public void submissionFailed(UserException ex) {
-    silentPut( new QueryEvent( ex ) );
+    silentPut(new QueryEvent(ex));
   }
 
   @Override
   public void dataArrived(QueryDataBatch result, ConnectionThrottle throttle) {
-    silentPut( new QueryEvent( result ) );
+    silentPut(new QueryEvent(result));
   }
 
   @Override
   public void queryCompleted(QueryState state) {
-    silentPut( new QueryEvent( QueryEvent.Type.EOF ) );
+    silentPut(new QueryEvent(state));
   }
 
-  private void silentPut( QueryEvent event ) {
+  private void silentPut(QueryEvent event) {
     try {
-      queue.put( event );
+      queue.put(event);
     } catch (InterruptedException e) {
       // What to do, what to do...
       e.printStackTrace();
     }
   }
 
-  public QueryEvent get( ) {
+  public QueryEvent get() {
     try {
-      return queue.take( );
+      return queue.take();
     } catch (InterruptedException e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
