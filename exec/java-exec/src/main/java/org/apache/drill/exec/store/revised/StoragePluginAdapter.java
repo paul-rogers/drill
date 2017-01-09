@@ -28,16 +28,19 @@ import org.apache.drill.exec.store.SchemaConfig;
 public abstract class StoragePluginAdapter<T extends StorageExtension, C extends StoragePluginConfig> extends AbstractStoragePlugin {
 
   protected C config;
-  private T system;
+  private T extension;
   protected DrillbitContext context;
   protected String name;
 
-  protected StoragePluginAdapter(C config, DrillbitContext context, String schemaName) {
+  protected StoragePluginAdapter(C config, DrillbitContext context, String schemaName, T extension) {
     this.config = config;
     this.context = context;
     this.name = schemaName;
-    system = createSystem(schemaName, config, context);
+    this.extension = extension;
+//    system = createSystem(schemaName, config, context);
   }
+
+  public String name( ) { return name; }
 
   @Override
   public StoragePluginConfig getConfig() {
@@ -46,32 +49,33 @@ public abstract class StoragePluginAdapter<T extends StorageExtension, C extends
 
   public C config() { return config; }
 
-  @Override
-  public void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent)
-      throws IOException {
-    // TODO Auto-generated method stub
+//  @Override
+//  public void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent)
+//      throws IOException {
+//    // TODO Auto-generated method stub
+//
+//  }
 
-  }
-
-  protected T system( ) {
+  protected T extension( ) {
 //    if (system == null) {
 //      system = DataSourceRegistry.instance().system( this );
 //    }
-    return system;
+    return extension;
   }
-
-  protected abstract T createSystem(String schemaName, C config, DrillbitContext context);
 
   @Override
   public boolean equals(Object object) {
     if (object == null  ||  ! (object instanceof StoragePluginAdapter)) {
       return false; }
     StoragePluginAdapter<?, ?> other = (StoragePluginAdapter<?, ?>) object;
-    return name.equals(other.name);
+    if (! name.equals(other.name)) {
+      return false;
+    }
+    return config.equals(other.config);
   }
 
   @Override
   public int hashCode() {
-    return name.hashCode();
+    return config.hashCode();
   }
 }

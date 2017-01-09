@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -156,29 +157,7 @@ public class Sketch {
    * Every extension must have at least one logical schema to represent the
    * schema defined by the storage plugin configuration. It may also have
    * as many nested child schemas as needed for the extension.
-   */
-
-  public interface LogicalSchema {
-    LogicalSchema parent();
-    String schemaName();
-    SchemaPath fullName();
-    LogicalSchema resolveSchema(String name);
-    StorageSpace storage();
-    SchemaReader reader();
-    SchemaWriter writer();
-  }
-
-  public interface SchemaPath {
-    String tail();
-    String fullName();
-    String[] parts();
-  }
-
-  public interface LogicalSchemaFactory {
-    LogicalSchema create();
-  }
-
-  /**
+   * <p>
    * Provides read access to a schema (name space) defined by the extension. The
    * name space is defined to be occupied by a collection of zero or more tables,
    * however the extension elects to define the table. Each table must have a unique
@@ -197,11 +176,29 @@ public class Sketch {
    * sometimes using the name provided by the logical table itself.
    */
 
-  public interface SchemaReader {
+  public interface LogicalSchema {
+    LogicalSchema parent();
+    String schemaName();
+    QualifiedName fullName();
+    LogicalSchema resolveSchema(String name);
     Iterable<LogicalTable> tables( );
     LogicalTable table(String name);
     TableScan scan(LogicalTable table);
+//    SchemaWriter writer();
   }
+
+  public interface QualifiedName {
+    String tail();
+    String fullName();
+    List<String> parts();
+    List<String> parentName();
+  }
+
+  /**
+   */
+
+//  public interface SchemaReader {
+//  }
 
   public interface TableInterator {
     Iterable<LogicalTable> tables(LogicalSchema schema);
@@ -219,9 +216,9 @@ public class Sketch {
     TableScan scan(LogicalTable table);
   }
 
-  public interface SchemaWriter {
-
-  }
+//  public interface SchemaWriter {
+//
+//  }
 
   /**
    * Represents a model of the physical storage of a table, including
@@ -266,6 +263,7 @@ public class Sketch {
     int capabilites( );
     boolean staticSchema();
     RowSchema rowSchema();
+    int partitionCount();
   }
 
   /**
@@ -293,6 +291,10 @@ public class Sketch {
     List<FilterExpr> where( List<FilterExpr> exprs );
 //    FormatService format();
 //    Collection<TablePartition> partitions(TableScan table);
+    void userName(String userName);
+    String userName();
+    void columns(List<SchemaPath> columns);
+    int partitionCount();
   }
 
   public interface TableWriter {

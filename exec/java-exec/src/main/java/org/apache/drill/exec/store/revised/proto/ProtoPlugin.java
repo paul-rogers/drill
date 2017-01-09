@@ -27,6 +27,13 @@ import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
 import org.apache.drill.exec.store.mock.MockGroupScanPOP;
 import org.apache.drill.exec.store.mock.MockGroupScanPOP.MockScanEntry;
+import org.apache.drill.exec.store.revised.BaseImpl.BaseExtensionPlugin;
+import org.apache.drill.exec.store.revised.ExtensionBuilder;
+import org.apache.drill.exec.store.revised.ExtensionBuilder.LogicalSchemaBuilder;
+import org.apache.drill.exec.store.revised.Sketch.LogicalSchema;
+import org.apache.drill.exec.store.revised.Sketch.LogicalTable;
+import org.apache.drill.exec.store.revised.Sketch.TableScan;
+import org.apache.drill.exec.store.revised.Sketch.TableScanCreator;
 import org.apache.drill.exec.store.revised.StorageExtension;
 import org.apache.drill.exec.store.revised.StoragePluginAdapter;
 
@@ -39,44 +46,51 @@ import com.google.common.collect.ImmutableList;
 
 import jersey.repackaged.com.google.common.collect.Lists;
 
-public class ProtoPlugin extends StoragePluginAdapter<ProtoExtension, ProtoPluginConfig> {
-
-  private ProtoSchema schema;
+public class ProtoPlugin extends BaseExtensionPlugin<StorageExtension, ProtoPluginConfig> {
 
   public ProtoPlugin(ProtoPluginConfig configuration,
       DrillbitContext context, String name) {
-    super(configuration, context, name);
-    this.schema = new ProtoSchema();
+    super(configuration, context, name,
+        buildExtension(name, configuration));
   }
 
-  public class ProtoSchema extends AbstractSchema {
-
-    public ProtoSchema() {
-      super(ImmutableList.<String>of(), "proto");
-    }
-
-    @Override
-    public Table getTable(String tableName) {
-      return new DynamicDrillTable(ProtoPlugin.this, name, tableName);
-    }
-
-    @Override
-    public String getTypeName() {
-      return ProtoPluginConfig.NAME;
-    }
-
-    @Override
-    public Set<String> getTableNames() {
-      return new HashSet<>( );
-    }
-
+  private static StorageExtension buildExtension(String name,
+      ProtoPluginConfig configuration) {
+    LogicalSchema root = new LogicalSchemaBuilder(name)
+        .trivialTableResolver()
+        .build();
+    return new ExtensionBuilder<ProtoPluginConfig>(root, configuration)
+        .build();
   }
 
-  @Override
-  public void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent)
-      throws IOException {
-    parent.add(schema.getName(), schema);
-  }
+//  public class ProtoSchema extends AbstractSchema {
+//
+//    public ProtoSchema() {
+//      super(ImmutableList.<String>of(), "proto");
+//    }
+//
+//    @Override
+//    public Table getTable(String tableName) {
+//      return new DynamicDrillTable(ProtoPlugin.this, name, tableName);
+//    }
+//
+//    @Override
+//    public String getTypeName() {
+//      return ProtoPluginConfig.NAME;
+//    }
+//
+//    @Override
+//    public Set<String> getTableNames() {
+//      return new HashSet<>( );
+//    }
+//
+//  }
+
+//  @Override
+//  public void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent)
+//      throws IOException {
+//    parent.add(schema.getName(), schema);
+//  }
 
   @JsonTypeName("proto-group-scan")
   public static class ProtoGroupScanPop extends AbstractGroupScan {
@@ -159,22 +173,11 @@ public class ProtoPlugin extends StoragePluginAdapter<ProtoExtension, ProtoPlugi
     }
   }
 
-  @Override
-  public AbstractGroupScan getPhysicalScan(String userName, JSONOptions selection, List<SchemaPath> columns)
-      throws IOException {
-
-    String tableName = selection.getListWith(new ObjectMapper(),
-        new TypeReference<String>() {
-        });
-
-    return new ProtoGroupScanPop(tableName, null);
-  }
-
-  @Override
-  protected ProtoExtension createSystem(String schemaName,
-      ProtoPluginConfig config, DrillbitContext context) {
-    // TODO Auto-generated method stub
-    return null;
-  }
+//  @Override
+//  protected ProtoExtension createSystem(String schemaName,
+//      ProtoPluginConfig config, DrillbitContext context) {
+//    // TODO Auto-generated method stub
+//    return null;
+//  }
 
 }

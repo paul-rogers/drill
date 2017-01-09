@@ -7,8 +7,6 @@ import org.apache.drill.exec.store.revised.Sketch.FilterExpr;
 import org.apache.drill.exec.store.revised.Sketch.LogicalSchema;
 import org.apache.drill.exec.store.revised.Sketch.LogicalTable;
 import org.apache.drill.exec.store.revised.Sketch.RowSchema;
-import org.apache.drill.exec.store.revised.Sketch.SchemaReader;
-import org.apache.drill.exec.store.revised.Sketch.SchemaWriter;
 import org.apache.drill.exec.store.revised.Sketch.StorageSpace;
 import org.apache.drill.exec.store.revised.Sketch.TableScan;
 
@@ -19,11 +17,11 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.drill.exec.store.revised.StorageExtension;
 import org.apache.drill.exec.store.revised.BaseImpl.*;
 
-public class ProtoExtension extends BaseExtension {
+public class ProtoExtension /* extends BaseExtension */ {
 
-  public ProtoExtension(String schemaName) {
-    super(new AbstractLogicalSchema(schemaName, new ProtoSchemaReader(), null));
-  }
+//  public ProtoExtension(String schemaName) {
+//    super(new AbstractLogicalSchema(schemaName, new ProtoSchemaReader(), null));
+//  }
 
 //  public static class ProtoSchema extends AbstractLogicalSchema {
 //
@@ -39,16 +37,16 @@ public class ProtoExtension extends BaseExtension {
 //    }
 //  }
 
-  public static class ProtoSchemaReader extends AbstractSchemaReader {
-
-    @Override
-    public TableScan scan(LogicalTable table) {
-      // TODO Auto-generated method stub
-      return null;
-    }
-
-
-  }
+//  public static class ProtoSchemaReader extends AbstractSchemaReader {
+//
+//    @Override
+//    public TableScan scan(LogicalTable table) {
+//      // TODO Auto-generated method stub
+//      return null;
+//    }
+//
+//
+//  }
 
 //  @JsonTypeName("proto-table")
 //  public static class ProtoTableMemento {
