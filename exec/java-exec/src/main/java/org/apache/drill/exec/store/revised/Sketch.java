@@ -108,16 +108,119 @@ public class Sketch {
   /**
    * Represents name space for tables referenceable in SQL statements.
    * <p>
+   */
+
+//  public interface TableSpace {
+//    String schemaName();
+//    Iterable<LogicalTable> tables( );
+//    LogicalTable table(String name);
+//    StorageSpace storage();
+//  }
+
+  /**
+   * Represents a named name space for tables referencable from SQL statements
+   * in the form:<br>
+   * plugin-config-name [. exten-schema-name]* . table-name
+   * <p>
+   * The <tt>plugin-config-name</tt> can be thought of as an alias to some table
+   * name space.
    * Examples: a file system, a directory structure within a file system,
    * a logical view of some set of directories within a file system, a
    * database schema, an instance of an API, etc.
+   * <p>
+   * For example, suppose that you want Drill to access a database (via JDBC)
+   * called <tt>foo</tt> and a directory called <tt>foo</tt>. To to this, you
+   * create a storage plugin configuration for each, but must assign unique
+   * aliases, perhaps "foo-db" and "foo-dir" (or "db.foo" or "dfs.foo".) Thus,
+   * the root schema for an extension may have an alias known to Drill which is
+   * distinct from the schema name in the underlying system. Typically, the
+   * storage plugin configuration provides the underlying name as an
+   * extension-specific property.
+   * <p>
+   * The root level construct for a schema. A schema has a name. For root-level
+   * schemas defined via a storage plugin configuration, the schema name must
+   * match that defined in the storage plugin configuration, as that is the name
+   * that the planner will use to resolve to the logical schema. However, a
+   * logical schema can contain nested schemas. (The storage plugin name might
+   * resolve to a MySQL database, with the next level of schema mapping to the
+   * schemas defined within that one MySQL instance.) When resolving a child
+   * schema, the name is relative to the parent schema.
+   * <p>
+   * A schema can be readable (the most typical case), writable, or both.
+   * Writable schemas allow CREATE TABLE AS (CTAS) statements, along with
+   * DROP TABLE and so on.
+   * <p>
+   * The logical schema is assumed to exist indefinitely, but at least for the
+   * (undefined) duration of the planning session that uses it.
+   * <p>
+   * Every extension must have at least one logical schema to represent the
+   * schema defined by the storage plugin configuration. It may also have
+   * as many nested child schemas as needed for the extension.
    */
 
-  public interface TableSpace {
+  public interface LogicalSchema {
+    LogicalSchema parent();
     String schemaName();
-    Iterator<LogicalTable> tables( );
-    LogicalTable table(String name);
+    SchemaPath fullName();
+    LogicalSchema resolveSchema(String name);
     StorageSpace storage();
+    SchemaReader reader();
+    SchemaWriter writer();
+  }
+
+  public interface SchemaPath {
+    String tail();
+    String fullName();
+    String[] parts();
+  }
+
+  public interface LogicalSchemaFactory {
+    LogicalSchema create();
+  }
+
+  /**
+   * Provides read access to a schema (name space) defined by the extension. The
+   * name space is defined to be occupied by a collection of zero or more tables,
+   * however the extension elects to define the table. Each table must have a unique
+   * name within the name space. Case sensitivity is up to the extension.
+   * <p>
+   * The life of a schema reader is at least for a planning session (though, at present,
+   * there is no indication that the session is over.) More typically, the schema
+   * reader is a facade to some underlying name space such as a directory, a DB
+   * schema, an application concept, etc.
+   * <p>
+   * The table name is relative to this one name space: the schema name is removed.
+   * The table name reported by the logical table must be the same as the one used to
+   * look up the table. (Or, more generally, if the names differ, then both must resolve
+   * to the same logical table. This is important because the planner will request the
+   * same logical table multiple times: sometimes using the name from the SQL statement,
+   * sometimes using the name provided by the logical table itself.
+   */
+
+  public interface SchemaReader {
+    Iterable<LogicalTable> tables( );
+    LogicalTable table(String name);
+    TableScan scan(LogicalTable table);
+  }
+
+  public interface TableInterator {
+    Iterable<LogicalTable> tables(LogicalSchema schema);
+  }
+
+  public interface SchemaResolver {
+    LogicalSchema resolve(LogicalSchema parent, String name);
+  }
+
+  public interface TableResolver {
+    LogicalTable resolve(LogicalSchema schema, String name);
+  }
+
+  public interface TableScanCreator {
+    TableScan scan(LogicalTable table);
+  }
+
+  public interface SchemaWriter {
+
   }
 
   /**
@@ -129,42 +232,67 @@ public class Sketch {
    */
   public interface StorageSpace {
     String schemaName();
-    TableSpace tableSpace( String schemaName );
-    TableScan scan(LogicalTable table);
+//    TableSpace tableSpace( String schemaName );
+//    TableScan scan(LogicalTable table);
     TableWriter create(LogicalTable table);
     TableWriter update(LogicalTable table);
   }
 
   /**
-   * Represents a table visible to SQL and referenceable in the FROM
-   * clause of a SELECT statement. The storage of the table can
-   * be anything; this is just the view as presented to SQL.
+   * Represents a logical table resolved through a logical schema. A logical
+   * table is anything that can retrieve or consume rows. The term "logical"
+   * implies that the underlying representation can be anything: a file,
+   * a database table, an API or anything else. This interface forms the
+   * bridge between the Drill planner and that underlying implementation.
+   * <p>
+   * Regardless of the implementation, SQL expects the table to be visible
+   * as a simple table name. This interface represents the resolution of
+   * a table name to a set of information required by the planner.
+   * <p>
+   * The primary purpose of a logical table is to tell the planner what
+   * the table can do (readable, createable, updateable.) Also, to identify
+   * if the table has an a-priori known schema, or if the schema must be
+   * discovered at run time. If the schema is known, then the table can
+   * report the schema for use in the planner.
    */
 
   public interface LogicalTable {
     int READ = 1;
     int CREATE = 2;
-    int UPDATE = 3;
+    int UPDATE = 4;
 
+    LogicalSchema nameSpace();
     String name();
     int capabilites( );
     boolean staticSchema();
-    RowSchema schema();
-    <P> ExtendableLogicalScanPop<P> scan();
+    RowSchema rowSchema();
   }
 
   /**
-   * Represents a request to scan a table. Offers the scan opportunities
+   * Represents a request to scan a table, known as a "group scan" in the
+   * Drill planner. Offers the scan opportunities
    * to reduce scan cost by asking the scan if it can do a select and/or
-   * filter condition internally.
+   * filter condition internally. Handles splitting the scan across Drillbits.
+   * <p>
+   * The Drill planner works with immutable objects copied at each step of
+   * the planning process. This extension framework, however, works by
+   * maintaining a single object that evolves over the planning process.
    */
 
+//  public interface TableScanState {
+//    LogicalTable table();
+//    List<String> projection();
+//    List<FilterExpr> where( List<FilterExpr> exprs );
+////    FormatService format();
+//    Collection<TablePartition> partitions(TableScan table);
+//  }
+
   public interface TableScan {
-    LogicalTable table();
+//    LogicalTable table();
     List<String> select( List<String> cols );
     List<FilterExpr> where( List<FilterExpr> exprs );
-    FormatService format();
-    Collection<TablePartition> partitions(TableScan table);
+//    FormatService format();
+//    Collection<TablePartition> partitions(TableScan table);
   }
 
   public interface TableWriter {

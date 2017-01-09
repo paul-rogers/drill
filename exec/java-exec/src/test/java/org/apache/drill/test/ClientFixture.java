@@ -67,10 +67,49 @@ public class ClientFixture implements AutoCloseable {
         throw new IllegalStateException(e);
       }
     }
+
+    /**
+     * Builds a new "basic" client that owns the cluster: closing
+     * the client automatically closes the cluster.
+     * @return
+     */
+
+    public ClientFixture buildBasic() {
+      try {
+        return new BasicClientFixture(this);
+      } catch (RpcException e) {
+
+        // When used in a test with an embedded Drillbit, the
+        // RPC exception should not occur.
+
+        throw new IllegalStateException(e);
+      }
+    }
   }
 
-  private ClusterFixture cluster;
-  private DrillClient client;
+  public static class BasicClientFixture extends ClientFixture {
+
+    public BasicClientFixture(ClientBuilder builder) throws RpcException {
+      super(builder);
+    }
+
+    @Override
+    public void close( ) {
+      super.close( );
+      if (cluster != null) {
+        try {
+          cluster.close();
+        } catch (Exception e) {
+          throw new IllegalStateException(e);
+        } finally {
+          cluster = null;
+        }
+      }
+    }
+  }
+
+  protected ClusterFixture cluster;
+  protected DrillClient client;
 
   public ClientFixture(ClientBuilder builder) throws RpcException {
     this.cluster = builder.cluster;

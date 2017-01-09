@@ -130,6 +130,7 @@ public class StoragePluginRegistryImpl implements StoragePluginRegistry {
     plugins.putAll(createPlugins());
   }
 
+  @SuppressWarnings("resource")
   private Map<String, StoragePlugin> createPlugins() throws DrillbitStartupException {
     try {
       /*
@@ -212,6 +213,7 @@ public class StoragePluginRegistryImpl implements StoragePluginRegistry {
 
   @Override
   public void deletePlugin(String name) {
+    @SuppressWarnings("resource")
     StoragePlugin plugin = plugins.remove(name);
     closePlugin(plugin);
     pluginSystemTable.delete(name);
@@ -229,6 +231,7 @@ public class StoragePluginRegistryImpl implements StoragePluginRegistry {
     }
   }
 
+  @SuppressWarnings("resource")
   @Override
   public StoragePlugin createOrUpdate(String name, StoragePluginConfig config, boolean persist)
       throws ExecutionSetupException {
@@ -319,6 +322,7 @@ public class StoragePluginRegistryImpl implements StoragePluginRegistry {
     }
   }
 
+  @SuppressWarnings("resource")
   @Override
   public FormatPlugin getFormatPlugin(StoragePluginConfig storageConfig, FormatPluginConfig formatConfig)
       throws ExecutionSetupException {

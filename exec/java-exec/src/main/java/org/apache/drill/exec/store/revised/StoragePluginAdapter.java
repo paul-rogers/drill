@@ -25,17 +25,18 @@ import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
 
-public abstract class StoragePluginAdapter<T extends TableSpaceSystem, C extends StoragePluginConfig> extends AbstractStoragePlugin {
+public abstract class StoragePluginAdapter<T extends StorageExtension, C extends StoragePluginConfig> extends AbstractStoragePlugin {
 
   protected C config;
   private T system;
   protected DrillbitContext context;
   protected String name;
 
-  protected void init(C config, DrillbitContext context, String name) {
+  protected StoragePluginAdapter(C config, DrillbitContext context, String schemaName) {
     this.config = config;
     this.context = context;
-    this.name = name;
+    this.name = schemaName;
+    system = createSystem(schemaName, config, context);
   }
 
   @Override
@@ -53,13 +54,13 @@ public abstract class StoragePluginAdapter<T extends TableSpaceSystem, C extends
   }
 
   protected T system( ) {
-    if (system == null) {
-      system = DataSourceRegistry.instance().system( this );
-    }
+//    if (system == null) {
+//      system = DataSourceRegistry.instance().system( this );
+//    }
     return system;
   }
 
-  protected abstract T createSystem( );
+  protected abstract T createSystem(String schemaName, C config, DrillbitContext context);
 
   @Override
   public boolean equals(Object object) {

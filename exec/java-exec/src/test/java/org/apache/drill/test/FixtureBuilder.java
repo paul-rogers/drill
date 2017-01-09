@@ -248,4 +248,23 @@ public class FixtureBuilder {
   public ClusterFixture build() throws Exception {
     return new ClusterFixture(this);
   }
+
+  /**
+   * Create the cluster and a single client. This client owns the cluster
+   * and is responsible for closing it.
+   * <pre><code>
+   * FixtureBuilder builder = ClientFixture.newBuilder()
+   *   .property(...);
+   * try (ClientFixture client = builder.buildBoth()) {
+   *   // Do the test
+   * }
+   * </code></pre>
+   * @return a client with an implicit cluster associated with it
+   * @throws Exception if anything goes wrong
+   */
+  @SuppressWarnings("resource")
+  public ClientFixture buildBoth() throws Exception {
+    ClusterFixture cluster = build();
+    return cluster.clientBuilder().buildBasic();
+  }
 }

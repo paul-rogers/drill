@@ -1,4 +1,4 @@
-package org.apache.drill.exec.store.revised.proto;
+package org.apache.drill.exec.store.revised.origExample;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -25,10 +25,6 @@ import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
-import org.apache.drill.exec.store.mock.MockGroupScanPOP;
-import org.apache.drill.exec.store.mock.MockGroupScanPOP.MockScanEntry;
-import org.apache.drill.exec.store.revised.StorageExtension;
-import org.apache.drill.exec.store.revised.StoragePluginAdapter;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -37,16 +33,24 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 
-import jersey.repackaged.com.google.common.collect.Lists;
+public class ProtoPlugin extends AbstractStoragePlugin {
 
-public class ProtoPlugin extends StoragePluginAdapter<ProtoExtension, ProtoPluginConfig> {
-
+  private ProtoPluginConfig config;
+  private DrillbitContext context;
+  private String name;
   private ProtoSchema schema;
 
   public ProtoPlugin(ProtoPluginConfig configuration,
       DrillbitContext context, String name) {
-    super(configuration, context, name);
+    this.config = configuration;
+    this.context = context;
+    this.name = name;
     this.schema = new ProtoSchema();
+  }
+
+  @Override
+  public StoragePluginConfig getConfig() {
+    return config;
   }
 
   public class ProtoSchema extends AbstractSchema {
@@ -168,13 +172,6 @@ public class ProtoPlugin extends StoragePluginAdapter<ProtoExtension, ProtoPlugi
         });
 
     return new ProtoGroupScanPop(tableName, null);
-  }
-
-  @Override
-  protected ProtoExtension createSystem(String schemaName,
-      ProtoPluginConfig config, DrillbitContext context) {
-    // TODO Auto-generated method stub
-    return null;
   }
 
 }

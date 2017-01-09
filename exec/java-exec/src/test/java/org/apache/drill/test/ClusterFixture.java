@@ -33,6 +33,7 @@ import org.apache.drill.DrillTestWrapper.TestServices;
 import org.apache.drill.QueryTestUtil;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ZookeeperHelper;
 import org.apache.drill.exec.client.DrillClient;
@@ -188,11 +189,13 @@ public class ClusterFixture implements AutoCloseable {
     allocator = RootAllocatorFactory.newRoot(config);
 
     // Apply system options
+
     if ( builder.systemOptions != null ) {
       for ( FixtureBuilder.RuntimeOption option : builder.systemOptions ) {
         clientFixture( ).alterSystem( option.key, option.value );
       }
     }
+
     // Apply session options.
 
     boolean sawMaxWidth = false;
@@ -304,6 +307,22 @@ public class ClusterFixture implements AutoCloseable {
     pluginConfig.workspaces.put(schemaName, newTmpWSConfig);
 
     pluginRegistry.createOrUpdate(pluginName, pluginConfig, true);
+  }
+
+  public void definePluginConfig( String schemaName, StoragePluginConfig pluginConfig) throws ExecutionSetupException {
+    for (Drillbit bit : drillbits()) {
+      definePluginConfig(bit, schemaName, pluginConfig);
+    }
+  }
+
+  @SuppressWarnings("resource")
+  public static void definePluginConfig(Drillbit drillbit, String schemaName, StoragePluginConfig pluginConfig) {
+    final StoragePluginRegistry pluginRegistry = drillbit.getContext().getStorage();
+    try {
+      pluginRegistry.createOrUpdate(schemaName, pluginConfig, true);
+    } catch (ExecutionSetupException e) {
+      throw new IllegalArgumentException("Cannot define schema: " + schemaName, e);
+    }
   }
 
   public static final String EXPLAIN_PLAN_TEXT = "text";

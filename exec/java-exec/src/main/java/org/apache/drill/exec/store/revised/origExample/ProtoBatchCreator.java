@@ -1,4 +1,4 @@
-package org.apache.drill.exec.store.revised.proto;
+package org.apache.drill.exec.store.revised.origExample;
 
 import java.util.List;
 
@@ -9,11 +9,7 @@ import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.store.RecordReader;
-import org.apache.drill.exec.store.mock.ExtendedMockRecordReader;
-import org.apache.drill.exec.store.mock.MockRecordReader;
-import org.apache.drill.exec.store.mock.MockSubScanPOP;
-import org.apache.drill.exec.store.mock.MockGroupScanPOP.MockScanEntry;
-import org.apache.drill.exec.store.revised.proto.ProtoPlugin.ProtoSubScanPop;
+import org.apache.drill.exec.store.revised.origExample.ProtoPlugin.ProtoSubScanPop;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
