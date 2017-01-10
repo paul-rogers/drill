@@ -14,24 +14,33 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.StoragePluginConfig;
 import org.apache.drill.exec.physical.PhysicalOperatorSetupException;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
+import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
+import org.apache.drill.exec.physical.base.ScanStats;
 import org.apache.drill.exec.physical.base.SubScan;
 import org.apache.drill.exec.planner.logical.DynamicDrillTable;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.SchemaConfig;
-import org.apache.drill.exec.store.StoragePlugin;
-import org.apache.drill.exec.store.revised.Sketch.*;
-import org.apache.drill.exec.store.revised.proto.ProtoPlugin;
-import org.apache.drill.exec.store.revised.proto.ProtoPluginConfig;
-import org.apache.drill.exec.store.revised.proto.ProtoPlugin.ProtoGroupScanPop;
+import org.apache.drill.exec.store.revised.ExtensionBuilder.LogicalSchemaBuilder;
+import org.apache.drill.exec.store.revised.Sketch.FilterExpr;
+import org.apache.drill.exec.store.revised.Sketch.LogicalSchema;
+import org.apache.drill.exec.store.revised.Sketch.LogicalTable;
+import org.apache.drill.exec.store.revised.Sketch.QualifiedName;
+import org.apache.drill.exec.store.revised.Sketch.RowSchema;
+import org.apache.drill.exec.store.revised.Sketch.ScanBuilder;
+import org.apache.drill.exec.store.revised.Sketch.ScanSelector;
+import org.apache.drill.exec.store.revised.Sketch.SchemaResolver;
+import org.apache.drill.exec.store.revised.Sketch.TableInterator;
+import org.apache.drill.exec.store.revised.Sketch.TableResolver;
+import org.apache.drill.exec.store.revised.Sketch.TableScan;
+import org.apache.drill.exec.store.revised.Sketch.TableScanCreator;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
-import com.google.common.collect.ImmutableList;
 
 public class BaseImpl {
 
@@ -73,6 +82,9 @@ public class BaseImpl {
       return new GroupScanAdapter(scan);
     }
 
+    public boolean supportsProject() {
+      return false;
+    }
   }
 
   public static class GroupScanAdapter extends AbstractGroupScan {
@@ -87,20 +99,24 @@ public class BaseImpl {
     @Override
     public void applyAssignments(List<DrillbitEndpoint> endpoints)
         throws PhysicalOperatorSetupException {
-      // TODO Auto-generated method stub
+      tableScan.setAssignments(endpoints);
+      tableScan.buildPhysicalScans();
+    }
 
+    @Override
+    public ScanStats getScanStats() {
+      // TODO: Move this to table scan.
+      return ScanStats.TRIVIAL_TABLE;
     }
 
     @Override
     public SubScan getSpecificScan(int minorFragmentId)
         throws ExecutionSetupException {
-      // TODO Auto-generated method stub
-      return null;
+      return tableScan.getPhysicalScan(minorFragmentId);
     }
 
     @Override
     public int getMaxParallelizationWidth() {
-      // TODO Auto-generated method stub
       return tableScan.partitionCount();
     }
 
@@ -110,12 +126,37 @@ public class BaseImpl {
     }
 
     @Override
-    public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children)
-        throws ExecutionSetupException {
-      // TODO Auto-generated method stub
-      return null;
+    public boolean canPushdownProjects(List<SchemaPath> columns) {
+      if (tableScan.supportsProject()) {
+        tableScan.columns(columns);
+        return true;
+      }
+      return false;
     }
 
+    // Clone makes a copy of the node, but (strangely) also provides the
+    // list of columns if this scan supports project push-down.
+
+    @Override
+    public GroupScan clone(List<SchemaPath> columns) {
+      tableScan.columns(columns);
+      return new GroupScanAdapter(tableScan);
+    }
+
+    // Here we assume that the node will be copied, but that the
+    // planner will ever only with with the one plan.
+    // Said another way, the planner, as it proceeds, will produce
+    // many trees in which this group scan nodes is a leaf. However
+    // only one of those plans will be carried through to produce
+    // physical scans. This allows us to use a single TableScan
+    // shared across the many group scan nodes.
+
+    @Override
+    public PhysicalOperator getNewWithChildren(List<PhysicalOperator> children)
+        throws ExecutionSetupException {
+      assert children.isEmpty();
+      return new GroupScanAdapter(tableScan);
+    }
   }
 
   public static class SchemaAdapter extends AbstractSchema {
@@ -132,8 +173,8 @@ public class BaseImpl {
     @Override
     public Table getTable(String tableName) {
       LogicalTable logicalTable = logicalSchema.table(tableName);
-      if (logicalTable == null)
-        return null;
+      if (logicalTable == null) {
+        return null; }
       return new DynamicDrillTable(plugin, name, tableName);
     }
 
@@ -161,9 +202,10 @@ public class BaseImpl {
     private final C config;
     private final LogicalSchema rootSchema;
 
-    public BaseExtension(LogicalSchema rootSchema, C config) {
-      this.rootSchema = rootSchema;
-      this.config = config;
+    public BaseExtension(ExtensionBuilder<C> builder) {
+      rootSchema = builder.rootSchema;
+      config = builder.config;
+      rootSchema.bind(this);
     }
 
     @Override
@@ -178,39 +220,37 @@ public class BaseImpl {
 
   public static class AbstractLogicalSchema implements LogicalSchema {
 
+    private StorageExtension extension;
     private final LogicalSchema parent;
     private final QualifiedName name;
-    private TableInterator tableIterator;
-    private TableResolver tableResolver;
-    private SchemaResolver schemaResolver;
-    private TableScanCreator tableScanCreator;
+    private final TableInterator tableIterator;
+    private final TableResolver tableResolver;
+    private final SchemaResolver schemaResolver;
+    private final TableScanCreator tableScanCreator;
+    private final ScanSelector scanSelector;
 
-    public AbstractLogicalSchema(LogicalSchema parent, QualifiedName path) {
-      this.parent = parent;
-      this.name = path;
+    public AbstractLogicalSchema(LogicalSchemaBuilder builder) {
+      parent = builder.parent;
+      name = builder.schemaName;
+      tableIterator = builder.tableIterator;
+      tableResolver = builder.tableResolver;
+      schemaResolver = builder.schemaResolver;
+      tableScanCreator = builder.tableScanCreator;
+      scanSelector = builder.scanSelector;
     }
 
-    public void setTableIterator(TableInterator tableIterator) {
-      this.tableIterator = tableIterator;
+    @Override
+    public void bind(final StorageExtension extension) {
+      this.extension = extension;
     }
 
-    public void setTableResolver(TableResolver tableResolver) {
-      this.tableResolver = tableResolver;
-    }
-
-    public void setSchemaResolver(SchemaResolver schemaResolver) {
-      this.schemaResolver = schemaResolver;
-    }
-
-    public void setTableScanCreator(TableScanCreator tableScanCreator) {
-      this.tableScanCreator = tableScanCreator;
-    }
+    @Override
+    public StorageExtension extension() { return extension; }
 
     @Override
     public String schemaName() {
       return name.tail();
     }
-
 
     @Override
     public LogicalSchema resolveSchema(String name) {
@@ -250,7 +290,16 @@ public class BaseImpl {
       if (tableScanCreator == null) {
         throw new IllegalStateException( "No table scan creator defined for " + name.fullName() );
       }
-      return tableScanCreator.scan(table);
+      if (scanSelector == null) {
+        throw new IllegalStateException( "No table scan selector defined for " + name.fullName() );
+      }
+      TableScan tableScan = tableScanCreator.scan(table);
+      ScanBuilder scanBuilder = scanSelector.select(table);
+      if (scanBuilder == null) {
+        throw new IllegalStateException( "No table scan defined for " + name.fullName( ) + "." + table.name() );
+      }
+      tableScan.scanBuilder(scanBuilder);
+      return tableScan;
     }
   }
 
@@ -308,13 +357,15 @@ public class BaseImpl {
     }
   }
 
-
   public static class AbstractTableScan implements TableScan {
 
     private LogicalTable table;
     protected int partitionCount = -1;
     protected String userName;
     protected List<SchemaPath> columns;
+    private List<DrillbitEndpoint> endpoints;
+    private ScanBuilder scanBuilder;
+    private List<SubScan> physicalScans;
 
     public AbstractTableScan(LogicalTable table) {
       this.table = table;
@@ -345,6 +396,8 @@ public class BaseImpl {
       this.columns = columns;
     }
 
+    public List<SchemaPath> columns() { return columns; }
+
     @Override
     public String toString() {
       StringBuilder buf = new StringBuilder( )
@@ -366,11 +419,43 @@ public class BaseImpl {
 
     @Override
     public int partitionCount() {
-      if (partitionCount != -1)
+      if (partitionCount != -1) {
         return partitionCount;
+      }
       return table.partitionCount();
     }
 
+    @Override
+    public void setAssignments(List<DrillbitEndpoint> endpoints) {
+      this.endpoints = endpoints;
+    }
+
+    public List<DrillbitEndpoint> endpoints() { return endpoints; }
+
+    @Override
+    public boolean supportsProject() {
+      return scanBuilder.supportsProject();
+    }
+
+    @Override
+    public void buildPhysicalScans() {
+      physicalScans = scanBuilder.build(this);
+    }
+
+    @Override
+    public SubScan getPhysicalScan(int minorFragmentIndex) {
+      return physicalScans.get(minorFragmentIndex);
+    }
+
+    @Override
+    public void scanBuilder(ScanBuilder scanBuilder) {
+      this.scanBuilder = scanBuilder;
+    }
+
+    @Override
+    public LogicalTable table() {
+      return table;
+    }
   }
 
   public static class QualifiedNameImpl implements QualifiedName {

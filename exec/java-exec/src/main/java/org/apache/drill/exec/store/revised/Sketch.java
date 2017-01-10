@@ -9,7 +9,10 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.base.SubScan;
+import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.store.revised.Sketch.ScanBuilder;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.Iterators;
@@ -183,8 +186,9 @@ public class Sketch {
     LogicalSchema resolveSchema(String name);
     Iterable<LogicalTable> tables( );
     LogicalTable table(String name);
+    void bind(StorageExtension extension);
+    StorageExtension extension();
     TableScan scan(LogicalTable table);
-//    SchemaWriter writer();
   }
 
   public interface QualifiedName {
@@ -286,15 +290,27 @@ public class Sketch {
 //  }
 
   public interface TableScan {
-//    LogicalTable table();
+    LogicalTable table();
     List<String> select( List<String> cols );
     List<FilterExpr> where( List<FilterExpr> exprs );
-//    FormatService format();
-//    Collection<TablePartition> partitions(TableScan table);
     void userName(String userName);
     String userName();
     void columns(List<SchemaPath> columns);
     int partitionCount();
+    void setAssignments(List<DrillbitEndpoint> endpoints);
+    boolean supportsProject();
+    void buildPhysicalScans();
+    SubScan getPhysicalScan(int minorFragmentIndex);
+    void scanBuilder(ScanBuilder scanBuilder);
+  }
+
+  public interface ScanSelector {
+    ScanBuilder select(LogicalTable table);
+  }
+
+  public interface ScanBuilder {
+    boolean supportsProject();
+    List<SubScan> build(TableScan scan);
   }
 
   public interface TableWriter {

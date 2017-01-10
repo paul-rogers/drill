@@ -6,14 +6,30 @@ import org.apache.drill.exec.store.revised.BaseImpl.*;
 
 public class ExtensionBuilder<C extends StoragePluginConfig> {
 
+
+  public static class TrivialScanSelector implements ScanSelector {
+
+    private ScanBuilder scanBuilder;
+
+    public TrivialScanSelector(ScanBuilder scanBuilder) {
+      this.scanBuilder = scanBuilder;
+    }
+
+    @Override
+    public ScanBuilder select(LogicalTable table) {
+      return scanBuilder;
+    }
+  }
   public static class LogicalSchemaBuilder {
 
-    private QualifiedName schemaName;
-    private TableInterator tableIterator;
-    private TableResolver tableResolver;
-    private SchemaResolver schemaResolver;
-    private TableScanCreator tableScanCreator;
-    private LogicalSchema parent;
+    protected QualifiedName schemaName;
+    protected TableInterator tableIterator;
+    protected TableResolver tableResolver;
+    protected SchemaResolver schemaResolver;
+    protected TableScanCreator tableScanCreator;
+    protected LogicalSchema parent;
+    protected ScanSelector scanSelector;
+    protected ScanBuilder scanBuilder;
 
     public LogicalSchemaBuilder(String schemaName) {
       this.schemaName = new QualifiedNameImpl(schemaName);
@@ -63,25 +79,42 @@ public class ExtensionBuilder<C extends StoragePluginConfig> {
       return this;
     }
 
-    public LogicalSchema buildSchema(LogicalSchema parent, QualifiedName schemaName) {
-      if (tableResolver != null && tableScanCreator == null) {
-        throw new IllegalArgumentException("If a table resolver is provided, must also provide a scan creator.");
-      }
-      AbstractLogicalSchema schema = new AbstractLogicalSchema(parent, schemaName);
-      schema.setTableIterator(tableIterator);
-      schema.setTableResolver(tableResolver);
-      schema.setSchemaResolver(schemaResolver);
-      schema.setTableScanCreator(tableScanCreator);
-      return schema;
+    public LogicalSchemaBuilder scanBuilder(ScanBuilder scanBuilder) {
+      this.scanBuilder = scanBuilder;
+      return this;
+    }
+
+    public LogicalSchemaBuilder scanSelector(ScanSelector scanSelector) {
+      this.scanSelector = scanSelector;
+      return this;
     }
 
     public LogicalSchema build() {
-      return buildSchema(parent, schemaName);
+      if (scanSelector != null && scanBuilder != null) {
+        throw new IllegalArgumentException("Provide either a scan selector or builder, but not both.");
+      }
+      if (scanBuilder != null) {
+        scanSelector = new TrivialScanSelector(scanBuilder);
+      }
+      if (scanSelector != null && tableScanCreator == null) {
+        tableScanCreator = new TableScanCreator() {
+
+          @Override
+          public TableScan scan(LogicalTable table) {
+            return new AbstractTableScan(table);
+          }
+        };
+      }
+      if (tableResolver != null && tableScanCreator == null) {
+        throw new IllegalArgumentException("If a table resolver is provided, must also provide a scan creator.");
+      }
+
+      return new AbstractLogicalSchema(this);
     }
   }
 
-  private C config;
-  private LogicalSchema rootSchema;
+  protected C config;
+  protected LogicalSchema rootSchema;
 
   public ExtensionBuilder(LogicalSchema rootSchema, C config) {
     this.rootSchema = rootSchema;
@@ -89,7 +122,7 @@ public class ExtensionBuilder<C extends StoragePluginConfig> {
   }
 
   public StorageExtension build( ) {
-    return new BaseExtension<C>(rootSchema, config);
+    return new BaseExtension<C>(this);
   }
 
 }
