@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.work.foreman;
+package org.apache.drill.exec.work.foreman.rm;
 
 import java.util.concurrent.TimeUnit;
 
@@ -27,6 +27,7 @@ import org.apache.drill.exec.proto.UserBitShared.QueryId;
 import org.apache.drill.exec.proto.helper.QueryIdHelper;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.SystemOptionManager;
+import org.apache.drill.exec.work.foreman.ForemanSetupException;
 
 /**
  * Distributed query queue which uses a Zookeeper distributed semaphore to
@@ -171,5 +172,10 @@ public class DistributedQueryQueue implements QueryQueue {
         break;
       }
     }
+  }
+
+  @Override
+  public void close() {
+    // Nothing to do.
   }
 }

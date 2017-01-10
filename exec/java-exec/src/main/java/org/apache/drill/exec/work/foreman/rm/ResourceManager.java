@@ -15,35 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.work.foreman;
+package org.apache.drill.exec.work.foreman.rm;
 
-import org.apache.drill.exec.proto.UserBitShared.QueryId;
+import org.apache.drill.exec.work.foreman.Foreman;
 
 /**
- * Default null query queue used when no other queue is configured.
- * This is really no queue at all: it always reports itself as
- * disabled, and if called anyway, allows all queries to proceed.
- * <p>
- * The purpose of this class is simply to allow cleaner code in
- * the Foreman: no special casing is needed to handle the queued
- * vs. unqueued cases.
+ * Drillbit-wide resource manager shared by all queries.
  */
 
-public class NullQueryQueue implements QueryQueue {
+public interface ResourceManager {
 
-  @Override
-  public boolean enabled() {
-    return false;
-  }
-
-  @Override
-  public QueueLease queue(QueryId queryId, double cost)
-      throws QueueTimeoutException, QueryQueueException {
-    return null;
-  }
-
-  @Override
-  public void release(QueueLease lease) {
-  }
-
+  long memoryPerNode();
+  int cpusPerNode();
+  QueryResourceManager newQueryRM(final Foreman foreman);
+  void close();
 }

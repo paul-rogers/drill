@@ -44,10 +44,12 @@ import org.apache.drill.exec.server.options.SystemOptionManager;
 import org.apache.drill.exec.store.SchemaFactory;
 import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.sys.PersistentStoreProvider;
-import org.apache.drill.exec.work.foreman.DistributedQueryQueue;
-import org.apache.drill.exec.work.foreman.EmbeddedQueryQueue;
-import org.apache.drill.exec.work.foreman.NullQueryQueue;
-import org.apache.drill.exec.work.foreman.QueryQueue;
+import org.apache.drill.exec.work.foreman.rm.DistributedQueryQueue;
+import org.apache.drill.exec.work.foreman.rm.EmbeddedQueryQueue;
+import org.apache.drill.exec.work.foreman.rm.NullQueryQueue;
+import org.apache.drill.exec.work.foreman.rm.QueryQueue;
+import org.apache.drill.exec.work.foreman.rm.ResourceManager;
+import org.apache.drill.exec.work.foreman.rm.ResourceManagerBuilder;
 
 import com.codahale.metrics.MetricRegistry;
 
@@ -69,7 +71,7 @@ public class DrillbitContext implements AutoCloseable {
   private final CodeCompiler compiler;
   private final ScanResult classpathScan;
   private final LogicalPlanPersistence lpPersistence;
-  private final QueryQueue queryQueue;
+  private final ResourceManager resourceManager;
 
   public DrillbitContext(
       DrillbitEndpoint endpoint,
@@ -99,22 +101,11 @@ public class DrillbitContext implements AutoCloseable {
     functionRegistry = new FunctionImplementationRegistry(config, classpathScan, systemOptions);
     compiler = new CodeCompiler(config, systemOptions);
 
-    queryQueue = createQueryQueue(config);
+    resourceManager = createResourceManager( );
   }
 
-  private QueryQueue createQueryQueue(DrillConfig config) {
-    // Create the desired type of query queue, which may be the null queue.
-
-    if (coord instanceof LocalClusterCoordinator) {
-      if (getConfig().getBoolean(EmbeddedQueryQueue.ENABLED)) {
-        return new EmbeddedQueryQueue(this);
-      }
-    } else {
-      if (systemOptions.getOption(ExecConstants.ENABLE_QUEUE)) {
-        return new DistributedQueryQueue(this);
-      }
-    }
-    return new NullQueryQueue();
+  private ResourceManager createResourceManager( ) {
+    return new ResourceManagerBuilder(this).build();
   }
 
   public FunctionImplementationRegistry getFunctionImplementationRegistry() {
@@ -221,7 +212,7 @@ public class DrillbitContext implements AutoCloseable {
     getCompiler().close();
   }
 
-  public QueryQueue getQueryQueue() {
-    return queryQueue;
+  public ResourceManager getResourceManager() {
+    return resourceManager;
   }
 }
