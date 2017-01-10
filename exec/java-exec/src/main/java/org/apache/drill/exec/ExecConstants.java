@@ -85,7 +85,6 @@ public interface ExecConstants {
 
   BooleanValidator EXTERNAL_SORT_DISABLE_MANAGED_OPTION = new BooleanValidator("exec.sort.disable_managed", false);
 
-
   String REMOVER_ENABLE_GENERIC_COPIER = "drill.exec.sv_remover.enable_generic_copier";
   String TEXT_LINE_READER_BATCH_SIZE = "drill.exec.storage.file.text.batch.size";
   String TEXT_LINE_READER_BUFFER_SIZE = "drill.exec.storage.file.text.buffer.size";
@@ -323,6 +322,16 @@ public interface ExecConstants {
 
   String AVERAGE_FIELD_WIDTH_KEY = "planner.memory.average_field_width";
   OptionValidator AVERAGE_FIELD_WIDTH = new PositiveLongValidator(AVERAGE_FIELD_WIDTH_KEY, Long.MAX_VALUE, 8);
+
+  // Resource management boot-time options.
+
+  String MAX_MEMORY_PER_NODE = "drill.exec.rm.memory_per_node";
+  String MAX_CPUS_PER_NODE = "drill.exec.rm.cpus_per_node";
+
+  // Resource management system run-time options.
+
+  // Enables queues. When running embedded, enables an in-process queue. When
+  // running distributed, enables the Zookeeper-based distributed queue.
 
   BooleanValidator ENABLE_QUEUE = new BooleanValidator("exec.queue.enable", false);
   LongValidator LARGE_QUEUE_SIZE = new PositiveLongValidator("exec.queue.large", 1000, 10);

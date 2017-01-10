@@ -22,7 +22,7 @@ import static org.junit.Assert.*;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.exec.work.foreman.EmbeddedQueryQueue;
+import org.apache.drill.exec.work.foreman.rm.EmbeddedQueryQueue;
 import org.apache.drill.test.ClientFixture;
 import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.FixtureBuilder;
@@ -42,7 +42,8 @@ public class TestQueues {
     try(ClusterFixture cluster = builder.build();
         ClientFixture client = cluster.clientFixture()) {
       List<QuerySummaryFuture> futures = new ArrayList<>( );
-      for( int i = 0; i < 200; i++ ) {
+      int n = 1;
+      for( int i = 0; i < n; i++ ) {
         futures.add( client.queryBuilder().sql("SELECT `id_i` FROM `mock`.`implicit_10K` ORDER BY `id_i`").futureSummary() );
       }
       for( QuerySummaryFuture future : futures ) {

@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.work.foreman;
+package org.apache.drill.exec.work.foreman.rm;
 
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -24,6 +24,9 @@ import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.exec.proto.UserBitShared.QueryId;
 import org.apache.drill.exec.proto.helper.QueryIdHelper;
 import org.apache.drill.exec.server.DrillbitContext;
+import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueryQueueException;
+import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueLease;
+import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueTimeoutException;
 
 /**
  * Query queue to be used in an embedded Drillbit. This queue has scope of
@@ -93,8 +96,9 @@ public class EmbeddedQueryQueue implements QueryQueue {
   public QueueLease queue(QueryId queryId, double cost)
       throws QueueTimeoutException, QueryQueueException {
     try {
-      if (! semaphore.tryAcquire(queueTimeoutMs, TimeUnit.MILLISECONDS) )
+      if (! semaphore.tryAcquire(queueTimeoutMs, TimeUnit.MILLISECONDS) ) {
         throw new QueueTimeoutException(queryId, "embedded", queueTimeoutMs);
+      }
     } catch (InterruptedException e) {
       throw new QueryQueueException("Interrupted", e);
     }
@@ -106,5 +110,10 @@ public class EmbeddedQueryQueue implements QueryQueue {
     EmbeddedQueueLease theLease = (EmbeddedQueueLease) lease;
     assert ! theLease.released;
     semaphore.release();
+  }
+
+  @Override
+  public void close() {
+    assert semaphore.availablePermits() == queueSize;
   }
 }

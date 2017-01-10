@@ -73,9 +73,10 @@ import org.apache.drill.exec.work.EndpointListener;
 import org.apache.drill.exec.work.QueryWorkUnit;
 import org.apache.drill.exec.work.WorkManager.WorkerBee;
 import org.apache.drill.exec.work.batch.IncomingBuffers;
-import org.apache.drill.exec.work.foreman.QueryQueue.QueryQueueException;
-import org.apache.drill.exec.work.foreman.QueryQueue.QueueLease;
-import org.apache.drill.exec.work.foreman.QueryQueue.QueueTimeoutException;
+import org.apache.drill.exec.work.foreman.rm.QueryResourceManager;
+import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueryQueueException;
+import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueLease;
+import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueTimeoutException;
 import org.apache.drill.exec.work.fragment.FragmentExecutor;
 import org.apache.drill.exec.work.fragment.FragmentStatusReporter;
 import org.apache.drill.exec.work.fragment.RootFragmentManager;
@@ -133,7 +134,7 @@ public class Foreman implements Runnable {
   private volatile QueryState state;
   private boolean resume = false;
 
-  private volatile QueueLease lease; // used to limit the number of concurrent queries
+  private final QueryResourceManager queryRM;
 
   private final ResponseSendListener responseListener = new ResponseSendListener();
   private final StateSwitch stateSwitch = new StateSwitch();
@@ -170,6 +171,7 @@ public class Foreman implements Runnable {
 
     recordNewState(QueryState.ENQUEUED);
     enqueuedQueries.inc();
+    queryRM = drillbitContext.getResourceManager().newQueryRM(this);
   }
 
   private class ConnectionClosedListener implements GenericFutureListener<Future<Void>> {
@@ -328,11 +330,6 @@ public class Foreman implements Runnable {
      */
   }
 
-  private void releaseLease() {
-    if (lease != null)
-      drillbitContext.getQueryQueue().release(lease);
-  }
-
   private void parseAndRunLogicalPlan(final String json) throws ExecutionSetupException {
     LogicalPlan logicalPlan;
     try {
@@ -401,7 +398,7 @@ public class Foreman implements Runnable {
   private void runPhysicalPlan(final PhysicalPlan plan, boolean replanMemory) throws ExecutionSetupException {
     validatePlan(plan);
     if (replanMemory) {
-      MemoryAllocationUtilities.setupSortMemoryAllocations(plan, queryContext);
+      queryRM.applyMemoryAllocation(plan);
     }
     enqueue(plan);
     moveToState(QueryState.STARTING, null);
@@ -426,7 +423,7 @@ public class Foreman implements Runnable {
   }
 
   private void enqueue(PhysicalPlan plan) throws ForemanSetupException {
-    if (!drillbitContext.getQueryQueue().enabled()) {
+    if (!queryRM.hasQueue()) {
       return;
     }
     enqueue(planCost(plan));
@@ -492,7 +489,7 @@ public class Foreman implements Runnable {
 
   private void enqueue(double cost) throws ForemanSetupException {
     try {
-      lease = drillbitContext.getQueryQueue().queue(queryId, cost);
+      queryRM.admit(cost);
     } catch (QueueTimeoutException e) {
       throw UserException
           .resourceError()
@@ -820,7 +817,7 @@ public class Foreman implements Runnable {
       runningQueries.dec();
       completedQueries.inc();
       try {
-        releaseLease();
+        queryRM.exit();
       } finally {
         isClosed = true;
       }

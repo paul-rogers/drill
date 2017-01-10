@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.work.foreman;
+package org.apache.drill.exec.work.foreman.rm;
 
 import org.apache.drill.exec.proto.UserBitShared.QueryId;
 
@@ -104,4 +104,6 @@ public interface QueryQueue {
    */
 
   void release(QueueLease lease);
+
+  void close();
 }

@@ -84,10 +84,6 @@ public class ClusterFixture implements AutoCloseable {
 
       put(ExecConstants.ENABLE_VERBOSE_ERRORS_KEY, true);
 
-      // Verbose errors.
-
-      put(ExecConstants.ENABLE_VERBOSE_ERRORS_KEY, true);
-
       // See Drillbit.close. The Drillbit normally waits a specified amount
       // of time for ZK registration to drop. But, embedded Drillbits normally
       // don't use ZK, so no need to wait.
