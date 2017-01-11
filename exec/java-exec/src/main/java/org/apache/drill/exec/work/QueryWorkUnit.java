@@ -19,6 +19,7 @@ package org.apache.drill.exec.work;
 
 import java.util.List;
 
+import org.apache.drill.exec.physical.PhysicalPlan;
 import org.apache.drill.exec.physical.base.FragmentRoot;
 import org.apache.drill.exec.proto.BitControl.PlanFragment;
 
@@ -51,5 +52,10 @@ public class QueryWorkUnit {
 
   public FragmentRoot getRootOperator() {
     return rootOperator;
+  }
+
+  public PhysicalPlan getPlan() {
+    // TODO Auto-generated method stub
+    return null;
   }
 }

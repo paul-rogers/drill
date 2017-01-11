@@ -36,7 +36,9 @@ public interface QueryQueue {
    * for execution.
    */
 
-  public interface QueueLease { };
+  public interface QueueLease {
+    long queryMemoryPerNode();
+  };
 
   /**
    * Exception thrown if a query exceeds the configured wait time
@@ -75,6 +77,8 @@ public interface QueryQueue {
       super(msg, e);
     }
   }
+
+  void setMemoryPerNode(long memoryPerNode);
 
   /**
    * Determine if the queue is enabled.

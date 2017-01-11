@@ -60,9 +60,11 @@ public class EmbeddedQueryQueue implements QueryQueue {
 
     private final QueryId queryId;
     private boolean released;
+    private long queryMemory;
 
-    public EmbeddedQueueLease(QueryId queryId) {
+    public EmbeddedQueueLease(QueryId queryId, long queryMemory) {
       this.queryId = queryId;
+      this.queryMemory = queryMemory;
     }
 
     @Override
@@ -74,11 +76,17 @@ public class EmbeddedQueryQueue implements QueryQueue {
       }
       return msg;
     }
+
+    @Override
+    public long queryMemoryPerNode() {
+      return queryMemory;
+    }
   }
 
   private final int queueTimeoutMs;
   private final int queueSize;
   private final Semaphore semaphore;
+  private long memoryPerQuery;
 
   public EmbeddedQueryQueue(DrillbitContext context) {
     DrillConfig config = context.getConfig();
@@ -93,6 +101,11 @@ public class EmbeddedQueryQueue implements QueryQueue {
   }
 
   @Override
+  public void setMemoryPerNode(long memoryPerNode) {
+    memoryPerQuery = memoryPerNode / queueSize;
+  }
+
+  @Override
   public QueueLease queue(QueryId queryId, double cost)
       throws QueueTimeoutException, QueryQueueException {
     try {
@@ -102,7 +115,7 @@ public class EmbeddedQueryQueue implements QueryQueue {
     } catch (InterruptedException e) {
       throw new QueryQueueException("Interrupted", e);
     }
-    return new EmbeddedQueueLease(queryId);
+    return new EmbeddedQueueLease(queryId, memoryPerQuery);
   }
 
   @Override

@@ -97,6 +97,11 @@ public class PlanSplitter {
       throw new IllegalStateException("Planning fragments supports only SQL or PHYSICAL QueryType");
     }
 
+    // The following is an approximate memory allocation. Under resource management,
+    // memory allocation depends on the memory manager and queue assignment. Since
+    // we don't actually execute this plan here, we are not in a possition to do
+    // detailed memory assignments.
+
     MemoryAllocationUtilities.setupSortMemoryAllocations(plan, queryContext);
 
     final PhysicalOperator rootOperator = plan.getSortedOperators(false).iterator().next();
