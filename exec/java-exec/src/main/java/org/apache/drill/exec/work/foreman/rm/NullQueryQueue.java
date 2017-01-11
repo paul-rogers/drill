@@ -29,6 +29,8 @@ import org.apache.drill.exec.proto.UserBitShared.QueryId;
  * vs. unqueued cases.
  */
 
+// TODO: Remove this, ended up not being used.
+
 public class NullQueryQueue implements QueryQueue {
 
   @Override
@@ -48,6 +50,12 @@ public class NullQueryQueue implements QueryQueue {
 
   @Override
   public void close() {
+    // TODO Auto-generated method stub
+
+  }
+
+  @Override
+  public void setMemoryPerNode(long memoryPerNode) {
     // TODO Auto-generated method stub
 
   }

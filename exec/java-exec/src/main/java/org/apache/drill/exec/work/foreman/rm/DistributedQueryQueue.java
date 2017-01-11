@@ -69,17 +69,24 @@ public class DistributedQueryQueue implements QueryQueue {
     private final QueryId queryId;
     private DistributedLease lease;
     private final String queueName;
+    private long queryMemory;
 
-    public DistributedQueueLease(QueryId queryId, String queueName, DistributedLease lease) {
+    public DistributedQueueLease(QueryId queryId, String queueName, DistributedLease lease, long queryMemory) {
       this.queryId = queryId;
       this.queueName = queueName;
       this.lease = lease;
+      this.queryMemory = queryMemory;
     }
 
     @Override
     public String toString() {
       return String.format("Lease for %s queue to query %s",
           queueName, QueryIdHelper.getQueryId(queryId));
+    }
+
+    @Override
+    public long queryMemoryPerNode() {
+      return queryMemory;
     }
   }
 
@@ -90,10 +97,28 @@ public class DistributedQueryQueue implements QueryQueue {
   private long queueThreshold;
   private long queueTimeout;
   private long refreshTime;
+  private long memoryPerSmallQuery;
+  private long memoryPerLargeQuery;
 
   public DistributedQueryQueue(DrillbitContext context) {
     optionManager = context.getOptionManager();
     clusterCoordinator = context.getClusterCoordinator();
+  }
+
+  @Override
+  public void setMemoryPerNode(long memoryPerNode) {
+
+    // Divide up memory between queues using admission rate
+    // to give more memory to larger queries and less to
+    // smaller queries. We assume that large queries are
+    // larger than small queries by a factor of
+    // largeToSmallRatio.
+
+    double largeToSmallRatio = 4.0; // TODO: add config param.
+    double totalUnits = largeToSmallRatio * largeQueueSize + smallQueueSize;
+    double memoryUnit = memoryPerNode / totalUnits;
+    memoryPerSmallQuery = Math.round( memoryUnit * largeToSmallRatio * largeQueueSize );
+    memoryPerLargeQuery = Math.round( memoryUnit * smallQueueSize );
   }
 
   /**
@@ -114,6 +139,7 @@ public class DistributedQueryQueue implements QueryQueue {
     refreshConfig();
     final String queueName;
     DistributedLease lease = null;
+    long queryMemory;
     try {
       final DistributedSemaphore distributedSemaphore;
 
@@ -121,9 +147,11 @@ public class DistributedQueryQueue implements QueryQueue {
       if (cost > queueThreshold) {
         distributedSemaphore = clusterCoordinator.getSemaphore("query.large", largeQueueSize);
         queueName = "large";
+        queryMemory = memoryPerLargeQuery;
       } else {
         distributedSemaphore = clusterCoordinator.getSemaphore("query.small", smallQueueSize);
         queueName = "small";
+        queryMemory = memoryPerSmallQuery;
       }
 
       lease = distributedSemaphore.acquire(queueTimeout, TimeUnit.MILLISECONDS);
@@ -137,7 +165,7 @@ public class DistributedQueryQueue implements QueryQueue {
       logger.warn(String.format("Queue timeout: %s after %d seconds.", queueName, timeoutSecs));
       throw new QueueTimeoutException(queryId, queueName, timeoutSecs);
     }
-    return new DistributedQueueLease(queryId, queueName, lease);
+    return new DistributedQueueLease(queryId, queueName, lease, queryMemory);
   }
 
   private void refreshConfig() {

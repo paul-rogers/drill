@@ -17,11 +17,22 @@
  */
 package org.apache.drill.exec.work.foreman.rm;
 
+import java.util.LinkedList;
+import java.util.List;
+
+import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.coord.local.LocalClusterCoordinator;
+import org.apache.drill.exec.memory.RootAllocatorFactory;
+import org.apache.drill.exec.ops.QueryContext;
 import org.apache.drill.exec.physical.PhysicalPlan;
+import org.apache.drill.exec.physical.base.PhysicalOperator;
+import org.apache.drill.exec.physical.config.ExternalSort;
+import org.apache.drill.exec.proto.BitControl.PlanFragment;
 import org.apache.drill.exec.server.DrillbitContext;
+import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.util.MemoryAllocationUtilities;
+import org.apache.drill.exec.work.QueryWorkUnit;
 import org.apache.drill.exec.work.foreman.Foreman;
 import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueryQueueException;
 import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueLease;
@@ -42,11 +53,16 @@ import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueTimeoutException;
 
 public class BasicACResourceManager extends AbstractResourceManager {
 
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BasicACResourceManager.class);
+
   public static class QueuedQueryResourceManager implements QueryResourceManager {
 
     private final BasicACResourceManager rm;
     private final Foreman foreman;
     private QueueLease lease;
+    private PhysicalPlan plan;
+    private QueryWorkUnit work;
+    private double queryCost;
 
     public QueuedQueryResourceManager(final BasicACResourceManager rm, final Foreman foreman) {
       this.rm = rm;
@@ -54,13 +70,71 @@ public class BasicACResourceManager extends AbstractResourceManager {
     }
 
     @Override
-    public void applyMemoryAllocation(PhysicalPlan plan) {
-      MemoryAllocationUtilities.setupSortMemoryAllocations(plan, foreman.getQueryContext());
+    public void setPlan(final PhysicalPlan plan, final QueryWorkUnit work) {
+      this.plan = plan;
+      this.work = work;
     }
 
     @Override
-    public void admit(double cost) throws QueueTimeoutException, QueryQueueException {
-      lease = rm.queue().queue(foreman.getQueryId(), cost);
+    public void setCost(double cost) {
+      this.queryCost = cost;
+    }
+
+    @Override
+    public void admit( ) throws QueueTimeoutException, QueryQueueException {
+      lease = rm.queue().queue(foreman.getQueryId(), queryCost());
+    }
+
+    /**
+     * We are normally given a plan from which we can compute cost and on
+     * which we can do memory allocations. Other times we are simply given
+     * a cost, with memory pre-planed elsewhere.
+     * @return
+     */
+
+    private double queryCost() {
+      if (plan != null)
+        return plan.totalCost();
+      return queryCost;
+    }
+
+    @Override
+    public void planMemory(boolean replanMemory) {
+      if (! replanMemory) {
+        return;
+      }
+      List<ExternalSort> sortList = findSorts();
+      if (sortList.isEmpty()) {
+        return;
+      }
+      // if there are any sorts, compute the maximum allocation, and set it on them
+      planSortMemory(sortList);
+    }
+
+    private List<ExternalSort> findSorts() {
+      // look for external sorts
+      final List<ExternalSort> sortList = new LinkedList<>();
+      for (final PhysicalOperator op : plan.getSortedOperators()) {
+        if (op instanceof ExternalSort) {
+          sortList.add((ExternalSort) op);
+        }
+      }
+      return sortList;
+    }
+
+    private void planSortMemory(List<ExternalSort> sortList) {
+      @SuppressWarnings("resource")
+      QueryContext queryContext = foreman.getQueryContext();
+      final OptionManager optionManager = queryContext.getOptions();
+      final long maxWidthPerNode = optionManager.getOption(ExecConstants.MAX_WIDTH_PER_NODE_KEY).num_val;
+      long maxAllocPerNode = lease.queryMemoryPerNode();
+      final long maxSortAlloc = maxAllocPerNode / (sortList.size() * maxWidthPerNode);
+      logger.debug("Max sort alloc: {}", maxSortAlloc);
+
+      for(final ExternalSort externalSort : sortList) {
+        long alloc = Math.max(maxSortAlloc, externalSort.getInitialAllocation());
+        externalSort.setMaxAllocation(alloc);
+      }
     }
 
     @Override
@@ -74,7 +148,6 @@ public class BasicACResourceManager extends AbstractResourceManager {
     public boolean hasQueue() {
       return true;
     }
-
   }
 
   private final QueryQueue queue;
@@ -82,6 +155,7 @@ public class BasicACResourceManager extends AbstractResourceManager {
   public BasicACResourceManager(final DrillbitContext drillbitContext, final QueryQueue queue) {
     super(drillbitContext);
     this.queue = queue;
+    queue.setMemoryPerNode(memoryPerNode());
   }
 
   protected QueryQueue queue() { return queue; }

@@ -17,10 +17,21 @@
  */
 package org.apache.drill.exec.work.foreman.rm;
 
+import java.util.LinkedList;
+import java.util.List;
+
 import org.apache.drill.common.config.DrillConfig;
+import org.apache.drill.exec.ExecConstants;
+import org.apache.drill.exec.memory.RootAllocatorFactory;
+import org.apache.drill.exec.ops.QueryContext;
 import org.apache.drill.exec.physical.PhysicalPlan;
+import org.apache.drill.exec.physical.base.PhysicalOperator;
+import org.apache.drill.exec.physical.config.ExternalSort;
+import org.apache.drill.exec.proto.BitControl.PlanFragment;
 import org.apache.drill.exec.server.BootStrapContext;
+import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.util.MemoryAllocationUtilities;
+import org.apache.drill.exec.work.QueryWorkUnit;
 import org.apache.drill.exec.work.foreman.Foreman;
 
 /**
@@ -32,10 +43,13 @@ import org.apache.drill.exec.work.foreman.Foreman;
 
 public class DefaultResourceManager implements ResourceManager {
 
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DefaultResourceManager.class);
+
   public static class DefaultQueryResourceManager implements QueryResourceManager {
 
     private final DefaultResourceManager rm;
     private final Foreman foreman;
+    private PhysicalPlan plan;
 
     public DefaultQueryResourceManager(final DefaultResourceManager rm, final Foreman foreman) {
       this.rm = rm;
@@ -43,12 +57,27 @@ public class DefaultResourceManager implements ResourceManager {
     }
 
     @Override
-    public void applyMemoryAllocation(PhysicalPlan plan) {
+    public void setPlan(PhysicalPlan plan, QueryWorkUnit work) {
+      this.plan = plan;
+    }
+
+    @Override
+    public void setCost(double cost) {
+      // Nothing to do. The EXECUTION option in Foreman calls this,
+      // but does not do the work to plan sort memory. Is EXECUTION
+      // even used?
+    }
+
+    @Override
+    public void planMemory(boolean replanMemory) {
+      if (! replanMemory || plan == null) {
+        return;
+      }
       MemoryAllocationUtilities.setupSortMemoryAllocations(plan, foreman.getQueryContext());
     }
 
     @Override
-    public void admit(double cost) {
+    public void admit() {
       // No queueing by default
     }
 
@@ -61,7 +90,6 @@ public class DefaultResourceManager implements ResourceManager {
     public boolean hasQueue() {
       return false;
     }
-
   }
 
   BootStrapContext bootStrapContext;

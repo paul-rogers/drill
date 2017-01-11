@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -86,5 +86,13 @@ public class PhysicalPlan {
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  public double totalCost() {
+    double totalCost = 0;
+    for (final PhysicalOperator ops : getSortedOperators()) {
+      totalCost += ops.getCost();
+    }
+    return totalCost;
   }
 }

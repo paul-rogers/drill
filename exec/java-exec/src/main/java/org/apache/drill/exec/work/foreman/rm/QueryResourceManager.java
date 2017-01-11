@@ -17,7 +17,11 @@
  */
 package org.apache.drill.exec.work.foreman.rm;
 
+import java.util.List;
+
 import org.apache.drill.exec.physical.PhysicalPlan;
+import org.apache.drill.exec.proto.BitControl.PlanFragment;
+import org.apache.drill.exec.work.QueryWorkUnit;
 import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueryQueueException;
 import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueTimeoutException;
 
@@ -36,16 +40,17 @@ import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueTimeoutException;
 public interface QueryResourceManager {
 
   /**
-   * Apply memory limits to the physical plan.
-   * @param plan
-   */
-  void applyMemoryAllocation(final PhysicalPlan plan);
-  /**
    * Hint that this resource manager queues. Allows the Foreman
    * to short-circuit expensive logic if no queuing will actually
    * be done. This is a static attribute per Drillbit run.
    */
   boolean hasQueue();
+  void setPlan(PhysicalPlan plan, QueryWorkUnit work);
+  void setCost(double cost);
+  /**
+   * Apply memory limits to the physical plan.
+   */
+  void planMemory(boolean replanMemory);
   /**
    * Admit the query into the cluster. Blocks until the query
    * can run. (Later revisions may use a more thread-friendly
@@ -55,7 +60,7 @@ public interface QueryResourceManager {
    * @throws QueueTimeoutException if the query timed out waiting to
    * be admitted.
    */
-  void admit(double cost) throws QueueTimeoutException, QueryQueueException;
+  void admit() throws QueueTimeoutException, QueryQueueException;
   /**
    * Mark the query as completing, giving up its slot in the
    * cluster.

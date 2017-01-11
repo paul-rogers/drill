@@ -397,13 +397,11 @@ public class Foreman implements Runnable {
 
   private void runPhysicalPlan(final PhysicalPlan plan, boolean replanMemory) throws ExecutionSetupException {
     validatePlan(plan);
-    if (replanMemory) {
-      queryRM.applyMemoryAllocation(plan);
-    }
-    enqueue(plan);
-    moveToState(QueryState.STARTING, null);
 
     final QueryWorkUnit work = getQueryWorkUnit(plan);
+    queryRM.setPlan(plan, work);
+    admit(replanMemory);
+
     final List<PlanFragment> planFragments = work.getFragments();
     final PlanFragment rootPlanFragment = work.getRootFragment();
     assert queryId == rootPlanFragment.getHandle().getQueryId();
@@ -422,19 +420,19 @@ public class Foreman implements Runnable {
     logger.debug("Fragments running.");
   }
 
-  private void enqueue(PhysicalPlan plan) throws ForemanSetupException {
-    if (!queryRM.hasQueue()) {
-      return;
+  private void admit(boolean replanMemory) throws ForemanSetupException {
+    try {
+      queryRM.admit();
+      queryRM.planMemory(replanMemory);
+    } catch (QueueTimeoutException e) {
+      throw UserException
+          .resourceError()
+          .message(e.getMessage())
+          .build(logger);
+    } catch (QueryQueueException e) {
+      throw new ForemanSetupException(e.getMessage(), e);
     }
-    enqueue(planCost(plan));
-  }
-
-  private double planCost(final PhysicalPlan plan) {
-    double totalCost = 0;
-    for (final PhysicalOperator ops : plan.getSortedOperators()) {
-      totalCost += ops.getCost();
-    }
-    return totalCost;
+    moveToState(QueryState.STARTING, null);
   }
 
   /**
@@ -471,8 +469,8 @@ public class Foreman implements Runnable {
     } catch (IOException e) {
       throw new ExecutionSetupException(String.format("Unable to parse FragmentRoot from fragment: %s", rootFragment.getFragmentJson()));
     }
-    enqueue(rootOperator.getCost());
-    moveToState(QueryState.STARTING, null);
+    queryRM.setCost(rootOperator.getCost());
+    admit(false);
     drillbitContext.getWorkBus().addFragmentStatusListener(queryId, queryManager.getFragmentStatusListener());
     drillbitContext.getClusterCoordinator().addDrillbitStatusListener(queryManager.getDrillbitStatusListener());
 
@@ -485,19 +483,6 @@ public class Foreman implements Runnable {
 
     moveToState(QueryState.RUNNING, null);
     logger.debug("Fragments running.");
-  }
-
-  private void enqueue(double cost) throws ForemanSetupException {
-    try {
-      queryRM.admit(cost);
-    } catch (QueueTimeoutException e) {
-      throw UserException
-          .resourceError()
-          .message(e.getMessage())
-          .build(logger);
-    } catch (QueryQueueException e) {
-      throw new ForemanSetupException(e.getMessage(), e);
-    }
   }
 
   /**
