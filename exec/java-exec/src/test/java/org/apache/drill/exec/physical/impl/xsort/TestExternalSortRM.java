@@ -19,39 +19,21 @@ package org.apache.drill.exec.physical.impl.xsort;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import java.io.IOException;
-import java.util.List;
 
-import org.apache.drill.common.expression.ExpressionPosition;
-import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.util.FileUtils;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.client.DrillClient;
 import org.apache.drill.exec.compile.ClassBuilder;
-import org.apache.drill.exec.exception.SchemaChangeException;
+import org.apache.drill.exec.compile.CodeCompiler;
 import org.apache.drill.exec.memory.BaseAllocator;
-import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.xsort.LogAnalyzer.EventAnalyzer;
 import org.apache.drill.exec.physical.impl.xsort.LogAnalyzer.SortStats;
-import org.apache.drill.exec.proto.UserBitShared.QueryType;
-import org.apache.drill.exec.record.RecordBatchLoader;
-import org.apache.drill.exec.rpc.user.QueryDataBatch;
-import org.apache.drill.exec.vector.BigIntVector;
-import org.apache.drill.exec.vector.IntVector;
-import org.apache.drill.test.BufferingQueryEventListener;
+import org.apache.drill.test.ClientFixture;
 import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.FixtureBuilder;
 import org.apache.drill.test.QueryBuilder.QuerySummary;
-import org.apache.drill.test.BufferingQueryEventListener.QueryEvent;
-import org.apache.drill.test.ClientFixture;
-import org.junit.Ignore;
 import org.junit.Test;
-
-import com.google.common.base.Charsets;
-import com.google.common.io.Files;
 
 //@Ignore
 public class TestExternalSortRM extends DrillTest {
@@ -140,6 +122,71 @@ public class TestExternalSortRM extends DrillTest {
   }
 
   @Test
+  public void exampleTest() throws Throwable {
+
+    // Configure the cluster. One Drillbit by default.
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        .configProperty(ExecConstants.REMOVER_ENABLE_GENERIC_COPIER, true)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
+        .maxParallelization(1)
+        ;
+
+    // Launch the cluster and client.
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+
+      // Run a query and print a summary.
+      String sql = "SELECT id_i FROM `mock`.employee_10M ORDER BY id_i";
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
+      assertEquals(10_000_000, summary.recordCount());
+      System.out.println(String.format("Sorted %,d records in %d batches.", summary.recordCount(), summary.batchCount()));
+      System.out.println(String.format("Query Id: %s, elapsed: %d ms", summary.queryIdString(), summary.runTimeMs()));
+      client.parseProfile(summary.queryIdString()).print();
+    }
+  }
+
+  @Test
+  public void filterTest() throws Throwable {
+
+    // Configure the cluster. One Drillbit by default.
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+//        .configProperty(ExecConstants.REMOVER_ENABLE_GENERIC_COPIER, true)
+//        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
+//        .configProperty(ClassBuilder.SAVE_CODE_OPTION, true)
+        .configProperty(CodeCompiler.PREFER_POJ_CONFIG, true)
+        .maxParallelization(1)
+        ;
+
+    // Launch the cluster and client.
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+
+      String sql = "SELECT id_i FROM `mock`.employee_50M WHERE id_i > 0";
+      long sum = 0;
+      int n = 5;
+      String queryId = null;
+      int sampleIndex = (n==1) ? 0 : (n==2) ? 1 : n-2;
+      for ( int i = 0; i < n; i++ ) {
+        QuerySummary summary = client.queryBuilder().sql(sql).run();
+        System.out.println(String.format("Read % d records in %d batches.", summary.recordCount(), summary.batchCount()));
+        System.out.println(String.format("Query Id: %s, elapsed: %d ms", summary.queryIdString(), summary.runTimeMs()));
+        if ( i > 0 ) {
+          sum += summary.runTimeMs();
+        }
+        if (i == sampleIndex) {
+          queryId = summary.queryIdString();
+        }
+      }
+      if (n > 1) {
+        System.out.println( "Avg run time: " + sum / (n-1) );
+      }
+      client.parseProfile(queryId).print();
+    }
+  }
+
+  @Test
   public void testLegacySpilled() throws Exception {
     LogAnalyzer analyzer = new LogAnalyzer(false);
     analyzer.setupLogging();
@@ -220,40 +267,6 @@ public class TestExternalSortRM extends DrillTest {
 
     analyzer.analyzeLog();
   }
-
-//  private int performSort(DrillClient client, String sql) throws IOException {
-//    BufferingQueryEventListener listener = new BufferingQueryEventListener();
-//    long start = System.currentTimeMillis();
-//    client.runQuery(QueryType.SQL, sql, listener);
-//    int recordCount = 0;
-//    int batchCount = 0;
-//    loop:
-//    for (; ;) {
-//      QueryEvent event = listener.get();
-//      switch (event.type)
-//      {
-//      case BATCH:
-//        batchCount++;
-//        recordCount += event.batch.getHeader().getRowCount();
-//        event.batch.release();
-//        break;
-//      case EOF:
-//        break loop;
-//      case ERROR:
-//        event.error.printStackTrace();
-//        fail();
-//        break loop;
-//      case QUERY_ID:
-//        break;
-//      default:
-//        break;
-//      }
-//    }
-//    long end = System.currentTimeMillis();
-//    long elapsed = end - start;
-//
-//    return recordCount;
-//  }
 
   private void performSort(ClientFixture client) throws IOException {
     QuerySummary summary = client.queryBuilder().sqlResource("/xsort/sort-big-all.sql").run();

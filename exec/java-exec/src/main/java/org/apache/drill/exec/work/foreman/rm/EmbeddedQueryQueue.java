@@ -51,8 +51,8 @@ import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueTimeoutException;
 
 public class EmbeddedQueryQueue implements QueryQueue {
 
-  public static String EMBEDDED_QUEUE = "drill.queue.embedded";
-  public static String ENABLED = EMBEDDED_QUEUE + ".enabled";
+  public static String EMBEDDED_QUEUE = "drill.exec.queue.embedded";
+  public static String ENABLED = EMBEDDED_QUEUE + ".enable";
   public static String QUEUE_SIZE = EMBEDDED_QUEUE + ".size";
   public static String TIMEOUT_MS = EMBEDDED_QUEUE + ".timeout_ms";
 

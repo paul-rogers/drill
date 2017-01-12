@@ -30,7 +30,7 @@ import org.apache.drill.exec.record.selection.SelectionVector2;
 public abstract class FilterTemplate2 implements Filterer{
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FilterTemplate2.class);
 
-  private SelectionVector2 outgoingSelectionVector;
+  protected SelectionVector2 outgoingSelectionVector;
   private SelectionVector2 incomingSelectionVector;
   private SelectionVectorMode svMode;
   private TransferPair[] transfers;
@@ -81,7 +81,7 @@ public abstract class FilterTemplate2 implements Filterer{
     doTransfers();
   }
 
-  private void filterBatchSV2(int recordCount) throws SchemaChangeException {
+  protected void filterBatchSV2(int recordCount) throws SchemaChangeException {
     int svIndex = 0;
     final int count = recordCount;
     for(int i = 0; i < count; i++){
@@ -94,7 +94,7 @@ public abstract class FilterTemplate2 implements Filterer{
     outgoingSelectionVector.setRecordCount(svIndex);
   }
 
-  private void filterBatchNoSV(int recordCount) throws SchemaChangeException {
+  protected void filterBatchNoSV(int recordCount) throws SchemaChangeException {
     int svIndex = 0;
     for(int i = 0; i < recordCount; i++){
       if(doEval(i, 0)){
