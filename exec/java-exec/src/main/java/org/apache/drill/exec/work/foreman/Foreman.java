@@ -400,7 +400,7 @@ public class Foreman implements Runnable {
 
     final QueryWorkUnit work = getQueryWorkUnit(plan);
     queryRM.setPlan(plan, work);
-    admit(replanMemory);
+    admit(replanMemory, work);
 
     final List<PlanFragment> planFragments = work.getFragments();
     final PlanFragment rootPlanFragment = work.getRootFragment();
@@ -420,10 +420,13 @@ public class Foreman implements Runnable {
     logger.debug("Fragments running.");
   }
 
-  private void admit(boolean replanMemory) throws ForemanSetupException {
+  private void admit(boolean replanMemory, QueryWorkUnit work) throws ForemanSetupException {
     try {
       queryRM.admit();
       queryRM.planMemory(replanMemory);
+      if (work != null) {
+        work.applyPlan(drillbitContext.getPlanReader());
+      }
     } catch (QueueTimeoutException e) {
       throw UserException
           .resourceError()
@@ -470,7 +473,7 @@ public class Foreman implements Runnable {
       throw new ExecutionSetupException(String.format("Unable to parse FragmentRoot from fragment: %s", rootFragment.getFragmentJson()));
     }
     queryRM.setCost(rootOperator.getCost());
-    admit(false);
+    admit(false, null);
     drillbitContext.getWorkBus().addFragmentStatusListener(queryId, queryManager.getFragmentStatusListener());
     drillbitContext.getClusterCoordinator().addDrillbitStatusListener(queryManager.getDrillbitStatusListener());
 
@@ -529,7 +532,7 @@ public class Foreman implements Runnable {
     final SimpleParallelizer parallelizer = new SimpleParallelizer(queryContext);
     final QueryWorkUnit queryWorkUnit = parallelizer.getFragments(
         queryContext.getOptions().getOptionList(), queryContext.getCurrentEndpoint(),
-        queryId, queryContext.getActiveEndpoints(), drillbitContext.getPlanReader(), rootFragment,
+        queryId, queryContext.getActiveEndpoints(), rootFragment,
         initiatingClient.getSession(), queryContext.getQueryContextInfo());
 
     if (logger.isTraceEnabled()) {
