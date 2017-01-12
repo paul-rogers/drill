@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.work.foreman.rm;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -26,17 +28,29 @@ import org.apache.drill.exec.coord.local.LocalClusterCoordinator;
 import org.apache.drill.exec.memory.RootAllocatorFactory;
 import org.apache.drill.exec.ops.QueryContext;
 import org.apache.drill.exec.physical.PhysicalPlan;
+import org.apache.drill.exec.physical.base.AbstractPhysicalVisitor;
+import org.apache.drill.exec.physical.base.FragmentRoot;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
+import org.apache.drill.exec.physical.base.Root;
 import org.apache.drill.exec.physical.config.ExternalSort;
+import org.apache.drill.exec.physical.config.Sort;
+import org.apache.drill.exec.proto.BitControl.Collector;
 import org.apache.drill.exec.proto.BitControl.PlanFragment;
+import org.apache.drill.exec.proto.helper.QueryIdHelper;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.util.MemoryAllocationUtilities;
 import org.apache.drill.exec.work.QueryWorkUnit;
+import org.apache.drill.exec.work.QueryWorkUnit.MinorFragmentDefn;
 import org.apache.drill.exec.work.foreman.Foreman;
 import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueryQueueException;
 import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueLease;
 import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueTimeoutException;
+
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multimaps;
 
 /**
  * Global resource manager that provides basic admission control (AC)
@@ -100,15 +114,109 @@ public class BasicACResourceManager extends AbstractResourceManager {
 
     @Override
     public void planMemory(boolean replanMemory) {
-      if (! replanMemory) {
+      if (! replanMemory && plan == null) {
         return;
       }
-      List<ExternalSort> sortList = findSorts();
-      if (sortList.isEmpty()) {
-        return;
+
+//      for (Root root : plan.graph().roots()) {
+//        planFragmentMemory(root);
+//      }
+
+//      List<ExternalSort> sortList = findSorts();
+//      if (sortList.isEmpty()) {
+//        return;
+//      }
+//      // if there are any sorts, compute the maximum allocation, and set it on them
+//      planSortMemory(sortList);
+
+      planMemory2();
+    }
+
+    private void planMemory2() {
+      Multimap<String,List<ExternalSort>> nodeMap = buildSortMap();
+      for ( String key : nodeMap.keys() ) {
+        planNodeMemory(key, nodeMap.get(key));
       }
-      // if there are any sorts, compute the maximum allocation, and set it on them
-      planSortMemory(sortList);
+    }
+
+    private void planNodeMemory(String nodeAddr, Collection<List<ExternalSort>> sorts) {
+      int count = 0;
+      for (List<ExternalSort> fragSorts : sorts) {
+        count += fragSorts.size();
+      }
+
+      // If no sorts, nothing to plan.
+
+      if (count == 0) {
+        return; }
+      
+      // Divide node memory evenly among the set of sorts, in any minor
+      // fragment, on the node. This does not deal with the subtlety of one
+      // sort on top of another: the case in which the two sorts share memory.
+      
+      long nodeMemory = lease.queryMemoryPerNode();
+      long sortMemory = nodeMemory / count;
+      logger.debug("Query: {}, Node: {}, allocating {} bytes per {} sort(s).",
+                   QueryIdHelper.getQueryId(foreman.getQueryId()),
+                   nodeAddr,
+                   sortMemory, count);
+      
+      for (List<ExternalSort> fragSorts : sorts) {
+        for (ExternalSort sort : fragSorts) {
+          long alloc = Math.max(sortMemory, sort.getInitialAllocation());
+          sort.setMaxAllocation(alloc);
+        }
+      }
+    }
+
+//    private void planFragmentMemory(Root root) {
+//      final List<ExternalSort> sortList = new LinkedList<>();
+//      for (final PhysicalOperator op : getOperators(root)) {
+//        if (op instanceof ExternalSort) {
+//          sortList.add((ExternalSort) op);
+//        }
+//      }
+//    }
+
+    private Multimap<String,List<ExternalSort>> buildSortMap() {
+      Multimap<String,List<ExternalSort>> map = ArrayListMultimap.create();
+      for (MinorFragmentDefn defn : work.getMinorFragmentDefns()) {
+        List<ExternalSort> sorts = getSorts(defn.root);
+        if (! sorts.isEmpty()) {
+          map.put(defn.fragment.getAssignment().getAddress(), sorts);
+        }
+      }
+      return map;
+    }
+
+    /**
+     * Searches a fragment operator tree to find sorts within that fragment.
+     */
+
+    protected static class SortFinder extends AbstractPhysicalVisitor<Void, List<ExternalSort>, RuntimeException> {
+      @Override
+      public Void visitSort(Sort sort, List<ExternalSort> value) throws RuntimeException {
+        if (sort.getClass() == Sort.class) {
+          throw new RuntimeException("Classic in-memory sort is deprecated: use ExternalSort");
+        }
+        if (sort instanceof ExternalSort) {
+          value.add((ExternalSort) sort);
+        }
+        return null;
+      }
+
+      @Override
+      public Void visitOp(PhysicalOperator op, List<ExternalSort> value) throws RuntimeException {
+        visitChildren(op, value);
+        return null;
+      }
+    }
+
+    private List<ExternalSort> getSorts(FragmentRoot root) {
+      List<ExternalSort> sorts = new ArrayList<>();
+      SortFinder finder = new SortFinder();
+      root.accept(finder, sorts);
+      return sorts;
     }
 
     private List<ExternalSort> findSorts() {
