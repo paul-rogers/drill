@@ -166,6 +166,10 @@ public class FilterRecordBatch extends AbstractSingleRecordBatch<Filter>{
 
     try {
       final TransferPair[] tx = transfers.toArray(new TransferPair[transfers.size()]);
+      CodeGenerator<Filterer> codeGen = cg.getCodeGenerator();
+      codeGen.plainJavaCapable(true);
+      // Uncomment out this line to debug the generated code.
+//    cg.preferPlainOldJava(true);
       final Filterer filter = context.getImplementationClass(cg);
       filter.setup(context, incoming, this, tx);
       return filter;
@@ -198,8 +202,9 @@ public class FilterRecordBatch extends AbstractSingleRecordBatch<Filter>{
       CodeGenerator<Filterer> codeGen = cg.getCodeGenerator();
       codeGen.plainJavaCapable(true);
       // Uncomment out this line to debug the generated code.
-//    cg.saveCodeForDebugging(true);
+//      codeGen.setPersistCode(true);
       final Filterer filter = context.getImplementationClass(codeGen);
+//      final Filterer filter = new FilterExp();
       filter.setup(context, incoming, this, tx);
       return filter;
     } catch (ClassTransformationException | IOException e) {

@@ -108,7 +108,7 @@ public class ExtendedMockRecordReader extends AbstractRecordReader {
     try {
       final int estimateRowSize = getEstimatedRecordSize(config.getTypes());
       valueVectors = new ValueVector[config.getTypes().length];
-      batchRecordCount = 250000 / estimateRowSize;
+      batchRecordCount = 32 * 1024 / estimateRowSize;
 
       for (int i = 0; i < fields.length; i++) {
         final ColumnDef col = fields[i];
