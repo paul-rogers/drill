@@ -28,6 +28,7 @@ import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.Root;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -94,5 +95,10 @@ public class PhysicalPlan {
       totalCost += ops.getCost();
     }
     return totalCost;
+  }
+
+  @JsonIgnore
+  public Graph<PhysicalOperator, Root, Leaf> graph() {
+    return graph;
   }
 }

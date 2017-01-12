@@ -224,7 +224,7 @@ public class SplittingParallelizer extends SimpleParallelizer {
               DrillStringUtils.unescapeJava(fragment.toString())));
          }
         // fragments should be always empty here
-        workUnits.add(new QueryWorkUnit(rootOperator, rootFragment, fragments));
+        workUnits.add(new QueryWorkUnit(rootOperator, rootFragment, fragments, null)); // TODO: Create defns!
       }
     }
     return workUnits;
