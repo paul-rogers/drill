@@ -127,10 +127,11 @@ public class PlanSplitter {
       }
     } else {
       final QueryWorkUnit queryWorkUnit = parallelizer.getFragments(queryContext.getOptions().getOptionList(), queryContext.getCurrentEndpoint(),
-          queryId, queryContext.getActiveEndpoints(), dContext.getPlanReader(), rootFragment,
+          queryId, queryContext.getActiveEndpoints(), rootFragment,
           queryContext.getSession(), queryContext.getQueryContextInfo());
       fragments.add(queryWorkUnit.getRootFragment());
       fragments.addAll(queryWorkUnit.getFragments());
+      queryWorkUnit.applyPlan(dContext.getPlanReader());
     }
     return fragments;
   }

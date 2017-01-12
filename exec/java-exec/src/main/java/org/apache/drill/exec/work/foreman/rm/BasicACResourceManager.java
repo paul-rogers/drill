@@ -149,18 +149,18 @@ public class BasicACResourceManager extends AbstractResourceManager {
 
       if (count == 0) {
         return; }
-      
+
       // Divide node memory evenly among the set of sorts, in any minor
       // fragment, on the node. This does not deal with the subtlety of one
       // sort on top of another: the case in which the two sorts share memory.
-      
+
       long nodeMemory = lease.queryMemoryPerNode();
       long sortMemory = nodeMemory / count;
       logger.debug("Query: {}, Node: {}, allocating {} bytes per {} sort(s).",
                    QueryIdHelper.getQueryId(foreman.getQueryId()),
                    nodeAddr,
                    sortMemory, count);
-      
+
       for (List<ExternalSort> fragSorts : sorts) {
         for (ExternalSort sort : fragSorts) {
           long alloc = Math.max(sortMemory, sort.getInitialAllocation());
@@ -181,9 +181,9 @@ public class BasicACResourceManager extends AbstractResourceManager {
     private Multimap<String,List<ExternalSort>> buildSortMap() {
       Multimap<String,List<ExternalSort>> map = ArrayListMultimap.create();
       for (MinorFragmentDefn defn : work.getMinorFragmentDefns()) {
-        List<ExternalSort> sorts = getSorts(defn.root);
+        List<ExternalSort> sorts = getSorts(defn.root());
         if (! sorts.isEmpty()) {
-          map.put(defn.fragment.getAssignment().getAddress(), sorts);
+          map.put(defn.fragment().getAssignment().getAddress(), sorts);
         }
       }
       return map;
