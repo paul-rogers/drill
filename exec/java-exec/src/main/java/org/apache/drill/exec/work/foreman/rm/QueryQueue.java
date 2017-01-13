@@ -38,6 +38,15 @@ public interface QueryQueue {
 
   public interface QueueLease {
     long queryMemoryPerNode();
+
+    /**
+     * Release a query lease obtained from {@link #queue(QueryId, double))}.
+     * Should be called by the per-query resource manager.
+     *
+     * @param lease the lease to be released.
+     */
+
+    void release();
   };
 
   /**
@@ -50,21 +59,20 @@ public interface QueryQueue {
 
     private QueryId queryId;
     private String queueName;
-    private int timeoutSecs;
+    private int timeoutMs;
 
-    public QueueTimeoutException(QueryId queryId, String queueName, int timeoutSecs) {
+    public QueueTimeoutException(QueryId queryId, String queueName, int timeoutMs) {
       super( String.format(
-          "Unable to acquire queue resources for query within timeout. " +
-          "Timeout for %s queue was set at %d seconds.",
-          queueName, timeoutSecs));
+          "Query timed out of the %s queue after %d ms.",
+          queueName, timeoutMs ));
       this.queryId = queryId;
       this.queueName = queueName;
-      this.timeoutSecs = timeoutSecs;
+      this.timeoutMs = timeoutMs;
     }
 
     public QueryId queryId() { return queryId; }
     public String queueName() { return queueName; }
-    public int timeoutSecs() { return timeoutSecs; }
+    public int timeoutMs() { return timeoutMs; }
   }
 
   /**
@@ -101,13 +109,6 @@ public interface QueryQueue {
    */
 
   QueueLease queue(QueryId queryId, double cost) throws QueueTimeoutException, QueryQueueException;
-
-  /**
-   * Release a query lease obtained from {@link #queue(QueryId, double))}.
-   * @param lease the lease to be released.
-   */
-
-  void release(QueueLease lease);
 
   void close();
 }

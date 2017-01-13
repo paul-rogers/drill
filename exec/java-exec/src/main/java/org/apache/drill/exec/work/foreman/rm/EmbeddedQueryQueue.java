@@ -24,28 +24,24 @@ import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.exec.proto.UserBitShared.QueryId;
 import org.apache.drill.exec.proto.helper.QueryIdHelper;
 import org.apache.drill.exec.server.DrillbitContext;
-import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueryQueueException;
-import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueLease;
-import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueTimeoutException;
 
 /**
- * Query queue to be used in an embedded Drillbit. This queue has scope of
- * only the one Drillbit (not even multiple Drillbits in the same process.)
- * Primarily intended for testing, but may possibly be useful for other
- * embedded applications.
+ * Query queue to be used in an embedded Drillbit. This queue has scope of only
+ * the one Drillbit (not even multiple Drillbits in the same process.) Primarily
+ * intended for testing, but may possibly be useful for other embedded
+ * applications.
  * <p>
- * Configuration is via config parameters (not via system options as
- * for the distributed queue.)
+ * Configuration is via config parameters (not via system options as for the
+ * distributed queue.)
  * <dl>
  * <dt><tt>drill.queue.embedded.enabled</tt></dt>
- * <dd>Set to true to enable the embedded queue. But, this setting
- * has effect only if the Drillbit is, in fact, embedded.</dd>
+ * <dd>Set to true to enable the embedded queue. But, this setting has effect
+ * only if the Drillbit is, in fact, embedded.</dd>
  * <dt><tt>drill.queue.embedded.size</tt></dt>
- * <dd>The number of active queries, all others queue. There is no
- * upper limit on the number of queued entries.</dt>
+ * <dd>The number of active queries, all others queue. There is no upper limit
+ * on the number of queued entries.</dt>
  * <dt><tt>drill.queue.embedded.timeout_ms</tt></dt>
- * <dd>The maximum time a query will wait in the queue before
- * failing.</dd>
+ * <dd>The maximum time a query will wait in the queue before failing.</dd>
  * </dl>
  */
 
@@ -80,6 +76,11 @@ public class EmbeddedQueryQueue implements QueryQueue {
     @Override
     public long queryMemoryPerNode() {
       return queryMemory;
+    }
+
+    @Override
+    public void release() {
+      EmbeddedQueryQueue.this.release(this);
     }
   }
 
@@ -118,8 +119,7 @@ public class EmbeddedQueryQueue implements QueryQueue {
     return new EmbeddedQueueLease(queryId, memoryPerQuery);
   }
 
-  @Override
-  public void release(QueueLease lease) {
+  private void release(QueueLease lease) {
     EmbeddedQueueLease theLease = (EmbeddedQueueLease) lease;
     assert ! theLease.released;
     semaphore.release();

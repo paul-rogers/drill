@@ -37,12 +37,12 @@ public class TestQueues {
     FixtureBuilder builder = ClusterFixture.builder()
         .configProperty(EmbeddedQueryQueue.ENABLED, true)
         .configProperty(EmbeddedQueryQueue.QUEUE_SIZE, 2)
-        .configProperty(EmbeddedQueryQueue.TIMEOUT_MS, 1000)
+        .configProperty(EmbeddedQueryQueue.TIMEOUT_MS, 5000)
         ;
     try(ClusterFixture cluster = builder.build();
         ClientFixture client = cluster.clientFixture()) {
       List<QuerySummaryFuture> futures = new ArrayList<>( );
-      int n = 1;
+      int n = 10;
       for( int i = 0; i < n; i++ ) {
         futures.add( client.queryBuilder().sql("SELECT `id_i` FROM `mock`.`implicit_10K` ORDER BY `id_i`").futureSummary() );
       }
