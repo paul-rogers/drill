@@ -18,7 +18,6 @@
 package org.apache.drill.exec.server;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import io.netty.channel.EventLoopGroup;
 
 import java.util.Collection;
 import java.util.concurrent.ExecutorService;
@@ -26,10 +25,8 @@ import java.util.concurrent.ExecutorService;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.config.LogicalPlanPersistence;
 import org.apache.drill.common.scanner.persistence.ScanResult;
-import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.compile.CodeCompiler;
 import org.apache.drill.exec.coord.ClusterCoordinator;
-import org.apache.drill.exec.coord.local.LocalClusterCoordinator;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.drill.exec.expr.fn.registry.RemoteFunctionRegistry;
 import org.apache.drill.exec.memory.BufferAllocator;
@@ -39,19 +36,16 @@ import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.rpc.control.Controller;
 import org.apache.drill.exec.rpc.control.WorkEventBus;
 import org.apache.drill.exec.rpc.data.DataConnectionCreator;
-import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.server.options.SystemOptionManager;
 import org.apache.drill.exec.store.SchemaFactory;
 import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.sys.PersistentStoreProvider;
-import org.apache.drill.exec.work.foreman.rm.DistributedQueryQueue;
-import org.apache.drill.exec.work.foreman.rm.EmbeddedQueryQueue;
-import org.apache.drill.exec.work.foreman.rm.NullQueryQueue;
-import org.apache.drill.exec.work.foreman.rm.QueryQueue;
 import org.apache.drill.exec.work.foreman.rm.ResourceManager;
 import org.apache.drill.exec.work.foreman.rm.ResourceManagerBuilder;
 
 import com.codahale.metrics.MetricRegistry;
+
+import io.netty.channel.EventLoopGroup;
 
 public class DrillbitContext implements AutoCloseable {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillbitContext.class);
