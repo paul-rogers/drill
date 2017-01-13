@@ -44,8 +44,7 @@ public class MockSubScanPOP extends AbstractBase implements SubScan {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MockGroupScanPOP.class);
 
   private final String url;
-  protected final List<MockGroupScanPOP.MockScanEntry> readEntries;
-  private LinkedList<MockGroupScanPOP.MockScanEntry>[] mappings;
+  protected final List<MockTableDef.MockScanEntry> readEntries;
   private final boolean extended;
 
   /**
@@ -69,7 +68,7 @@ public class MockSubScanPOP extends AbstractBase implements SubScan {
   @JsonCreator
   public MockSubScanPOP(@JsonProperty("url") String url,
                         @JsonProperty("extended") Boolean extended,
-                        @JsonProperty("entries") List<MockGroupScanPOP.MockScanEntry> readEntries) {
+                        @JsonProperty("entries") List<MockTableDef.MockScanEntry> readEntries) {
     this.readEntries = readEntries;
 //    OperatorCost cost = new OperatorCost(0,0,0,0);
 //    Size size = new Size(0,0);
@@ -87,7 +86,7 @@ public class MockSubScanPOP extends AbstractBase implements SubScan {
   public boolean isExtended() { return extended; }
 
   @JsonProperty("entries")
-  public List<MockGroupScanPOP.MockScanEntry> getReadEntries() {
+  public List<MockTableDef.MockScanEntry> getReadEntries() {
     return readEntries;
   }
 

@@ -19,7 +19,7 @@ package org.apache.drill.exec.store.mock;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.expr.TypeHelper;
-import org.apache.drill.exec.store.mock.MockGroupScanPOP.MockColumn;
+import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
 
 /**
  * Defines a column for the "enhanced" version of the mock data
@@ -29,12 +29,12 @@ import org.apache.drill.exec.store.mock.MockGroupScanPOP.MockColumn;
  */
 
 public class ColumnDef {
-  public MockColumn mockCol;
+  public MockTableDef.MockColumn mockCol;
   public String name;
   public int width;
   public FieldGen generator;
 
-  public ColumnDef(MockColumn mockCol) {
+  public ColumnDef(MockTableDef.MockColumn mockCol) {
     this.mockCol = mockCol;
     name = mockCol.getName();
     width = TypeHelper.getSize(mockCol.getMajorType());
@@ -168,7 +168,7 @@ public class ColumnDef {
     name += Integer.toString(rep);
   }
 
-  public MockColumn getConfig() {
+  public MockTableDef.MockColumn getConfig() {
     return mockCol;
   }
 
