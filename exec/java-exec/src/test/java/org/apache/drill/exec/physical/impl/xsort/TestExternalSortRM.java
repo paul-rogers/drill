@@ -147,6 +147,31 @@ public class TestExternalSortRM extends DrillTest {
   }
 
   @Test
+  public void exampleMockTableTest() throws Throwable {
+
+    // Configure the cluster. One Drillbit by default.
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        .configProperty(ExecConstants.REMOVER_ENABLE_GENERIC_COPIER, true)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
+        .maxParallelization(1)
+        ;
+
+    // Launch the cluster and client.
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+
+      // Run a query and print a summary.
+      String sql = "SELECT * FROM `mock`.`sort/example-mock.json`";
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
+      assertEquals(20, summary.recordCount());
+      System.out.println(String.format("Read %,d records in %d batches.", summary.recordCount(), summary.batchCount()));
+      System.out.println(String.format("Query Id: %s, elapsed: %d ms", summary.queryIdString(), summary.runTimeMs()));
+//      client.parseProfile(summary.queryIdString()).print();
+    }
+  }
+
+  @Test
   public void filterTest() throws Throwable {
 
     // Configure the cluster. One Drillbit by default.

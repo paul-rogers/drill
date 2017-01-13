@@ -41,7 +41,7 @@ public class BufferingQueryEventListener implements UserResultsListener
     public enum Type { QUERY_ID, BATCH, EOF, ERROR }
 
     public final Type type;
-    QueryId queryId;
+    public QueryId queryId;
     public QueryDataBatch batch;
     public UserException error;
     public QueryState state;
