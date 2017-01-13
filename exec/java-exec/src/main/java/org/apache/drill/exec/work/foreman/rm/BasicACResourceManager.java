@@ -19,27 +19,16 @@ package org.apache.drill.exec.work.foreman.rm;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedList;
 import java.util.List;
 
-import org.apache.drill.common.config.DrillConfig;
-import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.coord.local.LocalClusterCoordinator;
-import org.apache.drill.exec.memory.RootAllocatorFactory;
-import org.apache.drill.exec.ops.QueryContext;
 import org.apache.drill.exec.physical.PhysicalPlan;
 import org.apache.drill.exec.physical.base.AbstractPhysicalVisitor;
 import org.apache.drill.exec.physical.base.FragmentRoot;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
-import org.apache.drill.exec.physical.base.Root;
 import org.apache.drill.exec.physical.config.ExternalSort;
 import org.apache.drill.exec.physical.config.Sort;
-import org.apache.drill.exec.proto.BitControl.Collector;
-import org.apache.drill.exec.proto.BitControl.PlanFragment;
 import org.apache.drill.exec.proto.helper.QueryIdHelper;
 import org.apache.drill.exec.server.DrillbitContext;
-import org.apache.drill.exec.server.options.OptionManager;
-import org.apache.drill.exec.util.MemoryAllocationUtilities;
 import org.apache.drill.exec.work.QueryWorkUnit;
 import org.apache.drill.exec.work.QueryWorkUnit.MinorFragmentDefn;
 import org.apache.drill.exec.work.foreman.Foreman;
@@ -48,9 +37,7 @@ import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueLease;
 import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueTimeoutException;
 
 import com.google.common.collect.ArrayListMultimap;
-import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Multimaps;
 
 /**
  * Global resource manager that provides basic admission control (AC)
@@ -68,6 +55,14 @@ import com.google.common.collect.Multimaps;
 public class BasicACResourceManager extends AbstractResourceManager {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BasicACResourceManager.class);
+
+  /**
+   * Per-query resource manager. Handles resources and optional queue lease for
+   * a single query. As such, this is a non-shared resource: it is associated with
+   * a foreman: a single tread at plan time, and a single event (in some thread)
+   * at query completion time. Because of these semantics, no synchronization is
+   * needed within this class.
+   */
 
   public static class QueuedQueryResourceManager implements QueryResourceManager {
 
@@ -118,26 +113,24 @@ public class BasicACResourceManager extends AbstractResourceManager {
         return;
       }
 
-//      for (Root root : plan.graph().roots()) {
-//        planFragmentMemory(root);
-//      }
+      // Group fragments by node. Then, share memory evenly across the
+      // all sort operators on that node. This handles asymmetric distribution
+      // such as occurs if a sort appears in the root fragment (the one with screen),
+      // which is never parallelized.
 
-//      List<ExternalSort> sortList = findSorts();
-//      if (sortList.isEmpty()) {
-//        return;
-//      }
-//      // if there are any sorts, compute the maximum allocation, and set it on them
-//      planSortMemory(sortList);
-
-      planMemory2();
-    }
-
-    private void planMemory2() {
       Multimap<String,List<ExternalSort>> nodeMap = buildSortMap();
       for ( String key : nodeMap.keys() ) {
         planNodeMemory(key, nodeMap.get(key));
       }
     }
+
+    /**
+     * Given the set of sorts (from any number of fragments) on a single node,
+     * shared the per-query memory equally across all the sorts.
+     *
+     * @param nodeAddr
+     * @param sorts
+     */
 
     private void planNodeMemory(String nodeAddr, Collection<List<ExternalSort>> sorts) {
       int count = 0;
@@ -163,20 +156,27 @@ public class BasicACResourceManager extends AbstractResourceManager {
 
       for (List<ExternalSort> fragSorts : sorts) {
         for (ExternalSort sort : fragSorts) {
+
+          // Limit the memory to the maximum in the plan. Doing so is
+          // likely unnecessary, and perhaps harmful, because the pre-planned
+          // allocation is the default maximum hard-coded to 10 GB. This means
+          // that even if 20 GB is available to the sort, it won't use more
+          // than 10GB. This is probably more of a bug than a feature.
+
           long alloc = Math.max(sortMemory, sort.getInitialAllocation());
           sort.setMaxAllocation(alloc);
         }
       }
     }
 
-//    private void planFragmentMemory(Root root) {
-//      final List<ExternalSort> sortList = new LinkedList<>();
-//      for (final PhysicalOperator op : getOperators(root)) {
-//        if (op instanceof ExternalSort) {
-//          sortList.add((ExternalSort) op);
-//        }
-//      }
-//    }
+    /**
+     * Build a list of external sorts grouped by node. We start with a list
+     * of minor fragments, each with an endpoint (node). Multiple minor fragments
+     * may appear on each node, and each minor fragment may have 0, 1 or more
+     * sorts.
+     *
+     * @return
+     */
 
     private Multimap<String,List<ExternalSort>> buildSortMap() {
       Multimap<String,List<ExternalSort>> map = ArrayListMultimap.create();
@@ -212,6 +212,12 @@ public class BasicACResourceManager extends AbstractResourceManager {
       }
     }
 
+    /**
+     * Search an individual fragment tree to find any sort operators it may contain.
+     * @param root
+     * @return
+     */
+
     private List<ExternalSort> getSorts(FragmentRoot root) {
       List<ExternalSort> sorts = new ArrayList<>();
       SortFinder finder = new SortFinder();
@@ -219,36 +225,11 @@ public class BasicACResourceManager extends AbstractResourceManager {
       return sorts;
     }
 
-    private List<ExternalSort> findSorts() {
-      // look for external sorts
-      final List<ExternalSort> sortList = new LinkedList<>();
-      for (final PhysicalOperator op : plan.getSortedOperators()) {
-        if (op instanceof ExternalSort) {
-          sortList.add((ExternalSort) op);
-        }
-      }
-      return sortList;
-    }
-
-    private void planSortMemory(List<ExternalSort> sortList) {
-      @SuppressWarnings("resource")
-      QueryContext queryContext = foreman.getQueryContext();
-      final OptionManager optionManager = queryContext.getOptions();
-      final long maxWidthPerNode = optionManager.getOption(ExecConstants.MAX_WIDTH_PER_NODE_KEY).num_val;
-      long maxAllocPerNode = lease.queryMemoryPerNode();
-      final long maxSortAlloc = maxAllocPerNode / (sortList.size() * maxWidthPerNode);
-      logger.debug("Max sort alloc: {}", maxSortAlloc);
-
-      for(final ExternalSort externalSort : sortList) {
-        long alloc = Math.max(maxSortAlloc, externalSort.getInitialAllocation());
-        externalSort.setMaxAllocation(alloc);
-      }
-    }
-
     @Override
     public void exit() {
-      assert lease != null;
-      rm.queue().release(lease);
+      if (lease != null) {
+        lease.release();
+      }
       lease = null;
     }
 

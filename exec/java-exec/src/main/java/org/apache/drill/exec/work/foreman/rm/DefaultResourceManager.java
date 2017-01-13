@@ -17,36 +17,27 @@
  */
 package org.apache.drill.exec.work.foreman.rm;
 
-import java.util.LinkedList;
-import java.util.List;
-
 import org.apache.drill.common.config.DrillConfig;
-import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.memory.RootAllocatorFactory;
-import org.apache.drill.exec.ops.QueryContext;
 import org.apache.drill.exec.physical.PhysicalPlan;
-import org.apache.drill.exec.physical.base.PhysicalOperator;
-import org.apache.drill.exec.physical.config.ExternalSort;
-import org.apache.drill.exec.proto.BitControl.PlanFragment;
 import org.apache.drill.exec.server.BootStrapContext;
-import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.util.MemoryAllocationUtilities;
 import org.apache.drill.exec.work.QueryWorkUnit;
 import org.apache.drill.exec.work.foreman.Foreman;
 
 /**
- * Represents a default resource manager for clusters that do not
- * provide query queues. Without queues to provide a hard limit on the
- * query admission rate, the number of active queries must be estimated
- * and the resulting resource allocations will be rough estimates.
+ * Represents a default resource manager for clusters that do not provide query
+ * queues. Without queues to provide a hard limit on the query admission rate,
+ * the number of active queries must be estimated and the resulting resource
+ * allocations will be rough estimates.
  */
 
 public class DefaultResourceManager implements ResourceManager {
 
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DefaultResourceManager.class);
+//  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DefaultResourceManager.class);
 
   public static class DefaultQueryResourceManager implements QueryResourceManager {
 
+    @SuppressWarnings("unused")
     private final DefaultResourceManager rm;
     private final Foreman foreman;
     private PhysicalPlan plan;

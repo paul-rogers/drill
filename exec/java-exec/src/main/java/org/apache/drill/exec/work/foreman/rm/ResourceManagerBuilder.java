@@ -24,6 +24,35 @@ import org.apache.drill.exec.coord.local.LocalClusterCoordinator;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.SystemOptionManager;
 
+/**
+ * Builds the proper resource manager and queue implementation for the configured
+ * system options.
+ * <p>
+ * <ul>
+ * <li>If the Drillbit is embedded
+ * <ul>
+ * <li>If queues are enabled, then the admission-controlled resource manager
+ * with the local query queue.</li>
+ * <li>Otherwise, the default resource manager and no queues.</li>
+ * </ul></li>
+ * <li>If the Drillbit is in a cluster
+ * <ul>
+ * <li>If queues are anabled, then the admission-controlled resource manager
+ * with the distributed query queue.</li>
+ * <li>Otherwise, the default resource manager and no queues.</li>
+ * </ul></li>
+ * </ul>
+ * Configuration settings:
+ * <dl>
+ * <dt>Cluster coordinator instance</dt>
+ * <dd>If an instance of <tt>LocalClusterCoordinator</tt>, the Drillbit is
+ * embedded, else it is in a cluster.</dd>
+ * <dt><tt>drill.exec.queue.embedded.enable</tt> boot config<dt>
+ * <dd>If enabled, and if embedded, then use the local queue.</dd>
+ * <dt><tt>exec.queue.enable</tt> system option</dt>
+ * <dd>If enabled, and if in a cluster, then use the distributed queue.</dd>
+ * </dl>
+ */
 public class ResourceManagerBuilder {
 
   private DrillbitContext context ;
@@ -32,6 +61,7 @@ public class ResourceManagerBuilder {
     this.context = context;
   }
 
+  @SuppressWarnings("resource")
   public ResourceManager build() {
     ClusterCoordinator coord = context.getClusterCoordinator();
     DrillConfig config = context.getConfig();

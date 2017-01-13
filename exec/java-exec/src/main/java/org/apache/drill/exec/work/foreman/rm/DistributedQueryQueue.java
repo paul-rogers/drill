@@ -88,6 +88,11 @@ public class DistributedQueryQueue implements QueryQueue {
     public long queryMemoryPerNode() {
       return queryMemory;
     }
+
+    @Override
+    public void release() {
+      DistributedQueryQueue.this.release(this);
+    }
   }
 
   private int largeQueueSize;
@@ -185,8 +190,7 @@ public class DistributedQueryQueue implements QueryQueue {
     return true;
   }
 
-  @Override
-  public void release(QueueLease lease) {
+  private void release(QueueLease lease) {
     DistributedQueueLease theLease = (DistributedQueueLease) lease;
     for (;;) {
       try {

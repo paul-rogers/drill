@@ -19,8 +19,15 @@ package org.apache.drill.exec.work.foreman.rm;
 
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.server.BootStrapContext;
 import org.apache.drill.exec.server.DrillbitContext;
+
+/**
+ * Abstract base class for a resource manager. Handles tasks common to all
+ * resource managers: learning the resources available on this Drillbit.
+ * In the current version, Drillbits must be symmetrical, so that knowing
+ * the resources on one node is sufficient to know resources available on
+ * all nodes.
+ */
 
 public abstract class AbstractResourceManager implements ResourceManager {
 
