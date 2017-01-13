@@ -18,7 +18,6 @@
 package org.apache.drill.exec.store.mock;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -26,7 +25,6 @@ import java.util.regex.Pattern;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import org.apache.drill.exec.physical.base.GroupScan;
@@ -37,8 +35,6 @@ import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.google.common.base.Preconditions;
@@ -66,8 +62,8 @@ public class MockGroupScanPOP extends AbstractGroupScan {
   /**
    * The set of simulated files to scan.
    */
-  protected final List<MockScanEntry> readEntries;
-  private LinkedList<MockScanEntry>[] mappings;
+  protected final List<MockTableDef.MockScanEntry> readEntries;
+  private LinkedList<MockTableDef.MockScanEntry>[] mappings;
 
   /**
    * Whether this group scan uses a newer "extended" schema definition, or the
@@ -79,7 +75,7 @@ public class MockGroupScanPOP extends AbstractGroupScan {
   @JsonCreator
   public MockGroupScanPOP(@JsonProperty("url") String url,
                           @JsonProperty("extended") Boolean extended,
-                          @JsonProperty("entries") List<MockScanEntry> readEntries) {
+                          @JsonProperty("entries") List<MockTableDef.MockScanEntry> readEntries) {
     super((String)null);
     this.readEntries = readEntries;
     this.url = url;
@@ -96,10 +92,11 @@ public class MockGroupScanPOP extends AbstractGroupScan {
   }
 
   @JsonProperty("entries")
-  public List<MockScanEntry> getReadEntries() {
+  public List<MockTableDef.MockScanEntry> getReadEntries() {
     return readEntries;
   }
 
+<<<<<<< a4d8ad19dfb9e7636f659a1f29a369384f48abc4
   /**
    * Describes one simulated file (or block) within the logical file scan
    * described by this group scan. Each block can have a distinct schema to test
@@ -230,6 +227,8 @@ public class MockGroupScanPOP extends AbstractGroupScan {
     }
   }
 
+=======
+>>>>>>> Extended mock data source
   @SuppressWarnings("unchecked")
   @Override
   public void applyAssignments(List<DrillbitEndpoint> endpoints) {
@@ -237,14 +236,19 @@ public class MockGroupScanPOP extends AbstractGroupScan {
 
     mappings = new LinkedList[endpoints.size()];
 
+<<<<<<< a4d8ad19dfb9e7636f659a1f29a369384f48abc4
     int i = 0;
     for (MockScanEntry e : this.getReadEntries()) {
+=======
+    int i =0;
+    for (MockTableDef.MockScanEntry e : this.getReadEntries()) {
+>>>>>>> Extended mock data source
       if (i == endpoints.size()) {
         i -= endpoints.size();
       }
-      LinkedList<MockScanEntry> entries = mappings[i];
+      LinkedList<MockTableDef.MockScanEntry> entries = mappings[i];
       if (entries == null) {
-        entries = new LinkedList<MockScanEntry>();
+        entries = new LinkedList<MockTableDef.MockScanEntry>();
         mappings[i] = entries;
       }
       entries.add(e);
@@ -277,8 +281,13 @@ public class MockGroupScanPOP extends AbstractGroupScan {
     if (columns.isEmpty()) {
       throw new IllegalArgumentException("No columns for mock scan");
     }
+<<<<<<< a4d8ad19dfb9e7636f659a1f29a369384f48abc4
     List<MockColumn> mockCols = new ArrayList<>();
     Pattern p = Pattern.compile("(\\w+)_([isd])(\\d*)");
+=======
+    List<MockTableDef.MockColumn> mockCols = new ArrayList<>( );
+    Pattern p = Pattern.compile( "(\\w+)_([isd])(\\d*)" );
+>>>>>>> Extended mock data source
     for (SchemaPath path : columns) {
       String col = path.getLastSegment().getNameSegment().getPath();
       if (col.equals("*")) {
@@ -312,15 +321,24 @@ public class MockGroupScanPOP extends AbstractGroupScan {
         throw new IllegalArgumentException(
             "Unsupported field type " + type + " for mock column " + col);
       }
+<<<<<<< a4d8ad19dfb9e7636f659a1f29a369384f48abc4
       MockColumn mockCol = new MockColumn(col, minorType, DataMode.REQUIRED,
           width, 0, 0, null, 1);
+=======
+      MockTableDef.MockColumn mockCol = new MockTableDef.MockColumn(col, minorType, DataMode.REQUIRED, width, 0, 0, null, 1, null);
+>>>>>>> Extended mock data source
       mockCols.add(mockCol);
     }
-    MockScanEntry entry = readEntries.get(0);
-    MockColumn types[] = new MockColumn[mockCols.size()];
+    MockTableDef.MockScanEntry entry = readEntries.get(0);
+    MockTableDef.MockColumn types[] = new MockTableDef.MockColumn[mockCols.size()];
     mockCols.toArray(types);
+<<<<<<< a4d8ad19dfb9e7636f659a1f29a369384f48abc4
     MockScanEntry newEntry = new MockScanEntry(entry.records, types);
     List<MockScanEntry> newEntries = new ArrayList<>();
+=======
+    MockTableDef.MockScanEntry newEntry = new MockTableDef.MockScanEntry( entry.records, types );
+    List<MockTableDef.MockScanEntry> newEntries = new ArrayList<>( );
+>>>>>>> Extended mock data source
     newEntries.add(newEntry);
     return new MockGroupScanPOP(url, true, newEntries);
   }

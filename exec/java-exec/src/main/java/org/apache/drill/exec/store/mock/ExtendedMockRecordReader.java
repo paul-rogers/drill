@@ -33,8 +33,8 @@ import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.OutputMutator;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.store.AbstractRecordReader;
-import org.apache.drill.exec.store.mock.MockGroupScanPOP.MockColumn;
-import org.apache.drill.exec.store.mock.MockGroupScanPOP.MockScanEntry;
+import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
+import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
 
@@ -54,11 +54,11 @@ public class ExtendedMockRecordReader extends AbstractRecordReader {
   private int batchRecordCount;
   private int recordsRead;
 
-  private final MockScanEntry config;
+  private final MockTableDef.MockScanEntry config;
   private final FragmentContext context;
   private final ColumnDef fields[];
 
-  public ExtendedMockRecordReader(FragmentContext context, MockScanEntry config) {
+  public ExtendedMockRecordReader(FragmentContext context, MockTableDef.MockScanEntry config) {
     this.context = context;
     this.config = config;
 
@@ -76,7 +76,7 @@ public class ExtendedMockRecordReader extends AbstractRecordReader {
     Set<String> names = new HashSet<>();
     MockColumn cols[] = config.getTypes();
     for (int i = 0; i < cols.length; i++) {
-      MockColumn col = cols[i];
+      MockTableDef.MockColumn col = cols[i];
       if (names.contains(col.name)) {
         throw new IllegalArgumentException("Duplicate column name: " + col.name);
       }
@@ -95,7 +95,7 @@ public class ExtendedMockRecordReader extends AbstractRecordReader {
     return defArray;
   }
 
-  private int getEstimatedRecordSize(MockColumn[] types) {
+  private int getEstimatedRecordSize(MockTableDef.MockColumn[] types) {
     int size = 0;
     for (int i = 0; i < fields.length; i++) {
       size += TypeHelper.getSize(fields[i].getConfig().getMajorType());

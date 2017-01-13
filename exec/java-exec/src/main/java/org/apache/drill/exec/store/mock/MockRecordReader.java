@@ -29,15 +29,15 @@ import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.OutputMutator;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.store.AbstractRecordReader;
-import org.apache.drill.exec.store.mock.MockGroupScanPOP.MockColumn;
-import org.apache.drill.exec.store.mock.MockGroupScanPOP.MockScanEntry;
+import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
+import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
 
 public class MockRecordReader extends AbstractRecordReader {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MockRecordReader.class);
 
-  private final MockScanEntry config;
+  private final MockTableDef.MockScanEntry config;
   private final FragmentContext context;
   private ValueVector[] valueVectors;
   private int recordsRead;
@@ -45,12 +45,12 @@ public class MockRecordReader extends AbstractRecordReader {
   @SuppressWarnings("unused")
   private OperatorContext operatorContext;
 
-  public MockRecordReader(FragmentContext context, MockScanEntry config) {
+  public MockRecordReader(FragmentContext context, MockTableDef.MockScanEntry config) {
     this.context = context;
     this.config = config;
   }
 
-  private int getEstimatedRecordSize(MockColumn[] types) {
+  private int getEstimatedRecordSize(MockTableDef.MockColumn[] types) {
     int x = 0;
     for (int i = 0; i < types.length; i++) {
       x += TypeHelper.getSize(types[i].getMajorType());
