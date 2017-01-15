@@ -10,6 +10,7 @@ import java.util.Map;
 import org.apache.drill.common.util.DrillStringUtils;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.SchemaChangeException;
+import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.proto.UserBitShared.QueryData;
 import org.apache.drill.exec.proto.helper.QueryIdHelper;
 import org.apache.drill.exec.record.RecordBatchLoader;
@@ -21,14 +22,19 @@ import org.apache.drill.test.BufferingQueryEventListener;
 import org.apache.drill.test.BufferingQueryEventListener.QueryEvent;
 import org.apache.drill.test.ClientFixture;
 import org.apache.drill.test.ClusterFixture;
+import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.FixtureBuilder;
+import org.apache.drill.test.ProfileParser;
+import org.apache.drill.test.ProfileParser.OpInfo;
+import org.apache.drill.test.QueryBuilder.QuerySummary;
+import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
 import io.netty.buffer.DrillBuf;
 
-public class TestManagedExternalSort {
+public class TestManagedExternalSort extends DrillTest {
 
   private static ClusterFixture cluster;
   private static ClientFixture client;
@@ -146,11 +152,23 @@ public class TestManagedExternalSort {
     BufferingQueryEventListener results = client.queryBuilder()
       .sql(sql)
       .withEventListener();
-    new VerifierBuilder(client)
+    SortVerifier verifier = new VerifierBuilder(client)
       .stringKey("name_s10000", VerifierBuilder.SortDirection.ASC)
       .rows(1_000_000)
-      .build()
-      .verify(results);
+      .build();
+    verifier.verify(results);
+
+    // Use the profile to verify that spilling occurred.
+
+    ProfileParser profile = client.parseProfile(verifier.queryId());
+    List<OpInfo> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
+    assertEquals(1, ops.size());
+    OpInfo sort = ops.get(0);
+    long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
+    long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
+    System.out.println(String.format("Spills: %d, merge/spills: %d", spillCount, mergeCount));
+    assertTrue(spillCount > 0);
+    assertTrue(mergeCount > 0);
   }
 
   public static class VerifierBuilder {
@@ -379,6 +397,10 @@ public class TestManagedExternalSort {
       }
     }
 
+    public String queryId() {
+      return queryId;
+    }
+
     public void verify(BufferingQueryEventListener results) {
       keyVerifier.reset();
       outer:
@@ -476,9 +498,9 @@ public class TestManagedExternalSort {
 
   private static FixtureBuilder builder() {
     return ClusterFixture.builder()
-//        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
 //        .configProperty(ExecConstants.REMOVER_ENABLE_GENERIC_COPIER, true)
-        .configProperty(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 40)
+//        .configProperty(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 40)
         .configProperty(ExecConstants.EXTERNAL_SORT_MERGE_LIMIT, 40)
         .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
         .configProperty(ExecConstants.EXTERNAL_SORT_MAX_MEMORY, 20_000_000)

@@ -92,8 +92,9 @@ public abstract class MSortTemplate implements MSorter, IndexedSortable {
    * @return
    */
   public static long memoryNeeded(final int recordCount) {
-    // We need 4 bytes (SV4) for each record.
-    return recordCount * 4;
+    // We need 4 bytes (SV4) for each record. But, due to power-of-two
+    // allocations, the underlying buffer might be twice this size.
+    return recordCount * 2 * 4;
   }
 
   private int merge(final int leftStart, final int rightStart, final int rightEnd, final int outStart) {

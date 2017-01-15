@@ -121,14 +121,14 @@ public class ProfileParser {
   }
 
   public static class OpInfo {
-    int opId;
-    int type;
-    String name;
-    long processMs;
-    long waitMs;
-    long setupMs;
-    long peakMem;
-    Map<Integer,JsonValue> metrics = new HashMap<>();
+    public int opId;
+    public int type;
+    public String name;
+    public long processMs;
+    public long waitMs;
+    public long setupMs;
+    public long peakMem;
+    public Map<Integer,JsonNumber> metrics = new HashMap<>();
 
     public long getMetric(int id) {
       JsonValue value = metrics.get(id);
@@ -150,6 +150,17 @@ public class ProfileParser {
     return info;
   }
 
+  public List<OpInfo> getOpsOfType(int type) {
+    List<OpInfo> ops = new ArrayList<>();
+    Map<Integer,OpInfo> opMap = getOpInfo();
+    for (OpInfo op : opMap.values()) {
+      if (op.type == type) {
+        ops.add(op);
+      }
+    }
+    return ops;
+  }
+
   private void parseOpProfile(Map<Integer, String> ops,
       Map<Integer, OpInfo> info, JsonObject opProfile) {
     OpInfo opInfo = new OpInfo( );
@@ -164,7 +175,7 @@ public class ProfileParser {
     if (array != null) {
       for (int i = 0; i < array.size(); i++) {
         JsonObject metric = array.getJsonObject(i);
-        opInfo.metrics.put(metric.getJsonNumber("metricId").intValue(), metric.get("longValue"));
+        opInfo.metrics.put(metric.getJsonNumber("metricId").intValue(), metric.getJsonNumber("longValue"));
       }
     }
     info.put(opInfo.opId, opInfo);

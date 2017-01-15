@@ -346,6 +346,21 @@ import com.google.common.collect.Lists;
  * <li>The maximum limit configured in the mem_limit parameter above. (Primarily for
  * testing.</li>
  * </ul>
+ * <h4>Output</h4>
+ * It is helpful to note that the sort operator will produce one of two kinds of
+ * output batches.
+ * <ul>
+ * <li>A large output with sv4 if data is sorted in memory. The sv4 addresses
+ * the entire in-memory sort set. A selection vector remover will copy results
+ * into new batches of a size determined by that operator.</li>
+ * <li>A series of batches, without a selection vector, if the sort spills to
+ * disk. In this case, the downstream operator will still be a selection vector
+ * remover, but there is nothing for that operator to remove. Each batch is
+ * of the size set by {@link #MAX_MERGED_BATCH_SIZE}.</li>
+ * </ul>
+ * Note that, even in the in-memory sort case, this operator could do the copying
+ * to eliminate the extra selection vector remover. That is left as an exercise
+ * for another time.
  * <h4>Logging</h4>
  * Logging in this operator serves two purposes:
  * <li>
@@ -544,17 +559,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    */
 
   private long estimatedOutputBatchSize;
-
-  /**
-   * Amount of the memory given to this operator that can buffer
-   * batches from upstream in the in-memory generation, or the
-   * current batches of on-disk runs during the final merge
-   * phase.
-   */
-
-  private long inputMemoryPool;
   private long estimatedInputBatchSize;
-  private long mergeMemoryPool;
 
   /**
    * Maximum number of batches to hold in memory.
@@ -566,6 +571,15 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private int minSpillLimit;
   private int maxSpillLimit;
   private long spillFileSize;
+  private long minimumBufferSpace;
+
+  /**
+   * Minimum memory level before spilling occurs. That is, we can buffer input
+   * batches in memory until we are down to the level given by the spill point.
+   */
+
+  private long spillPoint;
+  private long mergeMemoryPool;
 
   public enum Metric implements MetricDef {
     SPILL_COUNT,            // number of times operator spilled to disk
@@ -1620,6 +1634,15 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     inputRecordCount += count;
     inputBatchCount++;
     totalInputBytes += sizer.actualSize();
+
+    // Update the minimum buffer space metric.
+
+    if (minimumBufferSpace == 0) {
+      minimumBufferSpace = endMem;
+    } else {
+      minimumBufferSpace = Math.min(minimumBufferSpace, endMem);
+    }
+    stats.setLongStat(Metric.MIN_BUFFER, minimumBufferSpace);
 
     // Update the minimum buffer space metric.
 
