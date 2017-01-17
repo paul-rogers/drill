@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -291,6 +291,20 @@ public class TestExternalSortRM extends DrillTest {
     }
 
     analyzer.analyzeLog();
+  }
+
+  @Test
+  public void testRahulsSort() throws Exception {
+    FixtureBuilder builder = ClusterFixture.builder()
+        .maxParallelization(1);
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      String sql = "select * from (select col_s4000 from `mock`.`rahul_10M` order by col_s4000) d where d.col_s4000 = 'bogus'";
+      String plan = client.queryBuilder().sql(sql).explainJson();
+      System.out.println(plan);
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
+      System.out.println(String.format("Results: %d records, %d batches, %d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+    }
   }
 
   private void performSort(ClientFixture client) throws IOException {
