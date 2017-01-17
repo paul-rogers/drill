@@ -102,8 +102,9 @@ public class BasicACResourceManager extends AbstractResourceManager {
      */
 
     private double queryCost() {
-      if (plan != null)
+      if (plan != null) {
         return plan.totalCost();
+      }
       return queryCost;
     }
 
