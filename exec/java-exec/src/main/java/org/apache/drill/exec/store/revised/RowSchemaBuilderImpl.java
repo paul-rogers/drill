@@ -11,36 +11,36 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.store.revised.Sketch.ColumnSchema;
 import org.apache.drill.exec.store.revised.Sketch.ColumnSchemaBuilder;
 import org.apache.drill.exec.store.revised.Sketch.RowSchema;
-import org.apache.drill.exec.store.revised.Sketch.SchemaBuilder;
+import org.apache.drill.exec.store.revised.Sketch.RowSchemaBuilder;
 
-public class SchemaBuilderImpl implements SchemaBuilder {
+public class RowSchemaBuilderImpl implements RowSchemaBuilder {
 
   public interface Listener {
     void onBuild( RowSchema schema );
   }
 
-  private final SchemaBuilderImpl parent;
+  private final RowSchemaBuilderImpl parent;
   private final boolean caseSensitive;
   private Listener listener;
   private List<ColumnSchemaBuilderImpl> columns = new ArrayList<>( );
   private Map<String, ColumnSchemaBuilderImpl> nameIndex = new HashMap<>( );
   private int globalIndex;
 
-  public SchemaBuilderImpl( ) {
+  public RowSchemaBuilderImpl( ) {
     this( false );
   }
 
-  public SchemaBuilderImpl( boolean caseSensitive ) {
+  public RowSchemaBuilderImpl( boolean caseSensitive ) {
     this.caseSensitive = caseSensitive;
     parent = null;
   }
 
-  public SchemaBuilderImpl( SchemaBuilderImpl parent ) {
+  public RowSchemaBuilderImpl( RowSchemaBuilderImpl parent ) {
     this.caseSensitive = parent.caseSensitive;
     this.parent = parent;
   }
 
-  public SchemaBuilderImpl(RowSchema schema) {
+  public RowSchemaBuilderImpl(RowSchema schema) {
     this.caseSensitive = schema.isCaseSensitive( );
     parent = null;
     assert false;
@@ -63,7 +63,7 @@ public class SchemaBuilderImpl implements SchemaBuilder {
   }
 
   @Override
-  public SchemaBuilder column( String name, MajorType type ) {
+  public RowSchemaBuilder column( String name, MajorType type ) {
     if ( type.getMinorType() == MinorType.MAP ) {
       throw new IllegalArgumentException( "Map types require a schema" );
     }
@@ -73,7 +73,7 @@ public class SchemaBuilderImpl implements SchemaBuilder {
   }
 
   @Override
-  public SchemaBuilder column( String name, MinorType type, DataMode cardinality ) {
+  public RowSchemaBuilder column( String name, MinorType type, DataMode cardinality ) {
     MajorType majorType = MajorType.newBuilder()
         .setMinorType( type )
         .setMode( cardinality )
@@ -112,7 +112,7 @@ public class SchemaBuilderImpl implements SchemaBuilder {
   }
 
   @Override
-  public SchemaBuilder remove(String name) {
+  public RowSchemaBuilder remove(String name) {
     ColumnSchemaBuilderImpl col = nameIndex.remove(RowSchemaImpl.key(caseSensitive, name));
     if (col != null) {
       columns.remove(col);

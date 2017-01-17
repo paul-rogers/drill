@@ -1,8 +1,8 @@
 package org.apache.drill.exec.store.revised.mock;
 
 import org.apache.drill.exec.store.revised.AbstractDeserializer;
-import org.apache.drill.exec.store.revised.Sketch.RowBatchReceiver;
-import org.apache.drill.exec.store.revised.Sketch.RowBuilder;
+import org.apache.drill.exec.store.revised.Sketch.RowBatchMaker;
+import org.apache.drill.exec.store.revised.Sketch.RowMaker;
 
 public class MockDeserializer extends AbstractDeserializer {
 
@@ -14,10 +14,10 @@ public class MockDeserializer extends AbstractDeserializer {
       receiver().close();
       return;
     }
-    RowBatchReceiver batch = receiver().rowSet( ).batch();
+    RowBatchMaker batch = receiver().rowSet( ).batch();
     int n = 10;
     for ( int i = 0; i < n; i++ ) {
-      RowBuilder row = batch.row();
+      RowMaker row = batch.row();
       row.accept();
     }
     batch.close();

@@ -2,9 +2,9 @@ package org.apache.drill.exec.store.revised;
 
 import java.math.BigDecimal;
 
-import org.apache.drill.exec.store.revised.Sketch.ColumnBuilder;
+import org.apache.drill.exec.store.revised.Sketch.ColumnMaker;
 
-public class AbstractColumnBuilder implements ColumnBuilder {
+public class AbstractColumnBuilder implements ColumnMaker {
 
   @Override
   public void setString(String value) {

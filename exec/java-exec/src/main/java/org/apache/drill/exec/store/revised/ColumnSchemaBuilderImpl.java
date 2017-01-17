@@ -6,17 +6,17 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.store.revised.Sketch.ColumnSchema;
 import org.apache.drill.exec.store.revised.Sketch.ColumnSchemaBuilder;
 import org.apache.drill.exec.store.revised.Sketch.RowSchema;
-import org.apache.drill.exec.store.revised.Sketch.SchemaBuilder;
+import org.apache.drill.exec.store.revised.Sketch.RowSchemaBuilder;
 
 public class ColumnSchemaBuilderImpl implements ColumnSchemaBuilder {
 
-  private final SchemaBuilderImpl parent;
+  private final RowSchemaBuilderImpl parent;
   private final String name;
   private MinorType type;
   private DataMode cardinality;
-  private SchemaBuilderImpl mapSchema;
+  private RowSchemaBuilderImpl mapSchema;
 
-  public ColumnSchemaBuilderImpl( SchemaBuilderImpl parent, String name ) {
+  public ColumnSchemaBuilderImpl( RowSchemaBuilderImpl parent, String name ) {
     this.parent = parent;
     this.name = name;
   }
@@ -56,15 +56,15 @@ public class ColumnSchemaBuilderImpl implements ColumnSchemaBuilder {
   }
 
   @Override
-  public SchemaBuilder map( ) {
+  public RowSchemaBuilder map( ) {
     type(MinorType.MAP);
     cardinality(DataMode.REQUIRED);
-    mapSchema = new SchemaBuilderImpl( parent );
+    mapSchema = new RowSchemaBuilderImpl( parent );
     return mapSchema;
   }
 
   @Override
-  public SchemaBuilder getMapSchema() {
+  public RowSchemaBuilder getMapSchema() {
     return mapSchema;
   }
 

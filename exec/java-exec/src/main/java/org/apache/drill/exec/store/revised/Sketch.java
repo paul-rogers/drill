@@ -11,7 +11,13 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.base.SubScan;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.TypedFieldId;
+import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.VectorWrapper;
+import org.apache.drill.exec.record.selection.SelectionVector2;
+import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.store.revised.Sketch.ScanBuilder;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -41,44 +47,65 @@ public class Sketch {
   // - Revise schema & get new batch
   // - New schema & get new batch
 
-  public interface ScanReceiver {
-    RowSetBuilder newSchema();
-    RowSetBuilder reviseSchema();
-    RowSetReceiver rowSet();
+  public interface ResultSetMaker {
+    RowSchemaBuilder newSchema();
+    RowSetMaker rowSet(RowSchema schema);
     void close();
-    int rowCount();
+    long batchCount();
+    long rowCount();
+    void abandon();
   }
 
-  interface RowSetBuilder {
-    SchemaBuilder schema();
-    RowSetReceiver build();
-  }
+//  interface RowSetBuilder {
+//    SchemaBuilder schema();
+//    RowSetReceiver build();
+//  }
 
-  public interface RowSetReceiver {
+  public interface RowSetMaker {
     RowSchema rootSchema();
     RowSchema rowSchema();
-    RowBatchReceiver batch();
-    int rowCount();
-    void close();
+    RowBatchMaker batch();
+    long rowCount();
   }
 
-  public interface RowBatchReceiver {
-    RowBuilder row( );
+  public interface RowBatchMaker {
+    RowMaker row( );
     int rowCount();
     boolean full( );
-    void close();
+    void abandon();
+    RowBatch build();
+  }
+
+  /**
+   * Represents a materialized, finalized row batch compatible with the
+   * Drill operator protocol.
+   */
+
+  public interface RowBatch {
+    RowSchema schema();
+    int rowCount();
+    BatchSchema batchSchema();
+    void addSv2();
+    void addSv4();
+    SelectionVector2 sv2();
+    SelectionVector4 sv4();
+    int findPath(SchemaPath path);
+    TypedFieldId vectorId(int n);
+    VectorWrapper<?> getVector(int n);
+    Iterator<VectorWrapper<?>> vectorIterator();
+    VectorContainer vectorContainer();
   }
 
   // Good - keep this, clear definition of a row
 
-  public interface RowBuilder {
-    ColumnBuilder column(int index);
-    ColumnBuilder column(String path);
+  public interface RowMaker {
+    ColumnMaker column(int index);
+    ColumnMaker column(String path);
     void accept( );
     void reject( );
   }
 
-  public interface ColumnBuilder {
+  public interface ColumnMaker {
     void setString(String value);
     void setInt(int value);
     void setLong(long value);
@@ -89,12 +116,12 @@ public class Sketch {
     // ...
   }
 
-  public interface SchemaBuilder {
+  public interface RowSchemaBuilder {
     ColumnSchemaBuilder column(String name);
-    SchemaBuilder column(String name, MajorType type);
-    SchemaBuilder column(String name, MinorType type, DataMode cardinality);
+    RowSchemaBuilder column(String name, MajorType type);
+    RowSchemaBuilder column(String name, MinorType type, DataMode cardinality);
     ColumnSchemaBuilder reviseColumn(String name);
-    SchemaBuilder remove(String name);
+    RowSchemaBuilder remove(String name);
     RowSchema build();
   }
 
@@ -105,8 +132,8 @@ public class Sketch {
     ColumnSchemaBuilder cardinality(DataMode mode);
     DataMode getCardinality();
     ColumnSchemaBuilder majorType( MajorType type );
-    SchemaBuilder map( );
-    SchemaBuilder getMapSchema( );
+    RowSchemaBuilder map( );
+    RowSchemaBuilder getMapSchema( );
   }
 
   /**
@@ -373,14 +400,14 @@ public class Sketch {
   }
 
   public interface ScanOperation<P> {
-    ScanReceiver receiver();
-    ExtendablePhysicalScanPop<P> definition();
+    ResultSetMaker resultSet();
+    P definition();
   }
 
   public interface Deserializer<P> {
     void bind(ScanOperation<P> service);
     void open() throws Exception;
-    void readBatch() throws Exception;
+    RowBatch readBatch() throws Exception;
     void close() throws Exception;
   }
 

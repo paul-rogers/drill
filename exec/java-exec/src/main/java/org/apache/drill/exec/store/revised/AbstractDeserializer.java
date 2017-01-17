@@ -1,7 +1,7 @@
 package org.apache.drill.exec.store.revised;
 
 import org.apache.drill.exec.store.revised.Sketch.Deserializer;
-import org.apache.drill.exec.store.revised.Sketch.ScanReceiver;
+import org.apache.drill.exec.store.revised.Sketch.ResultSetMaker;
 import org.apache.drill.exec.store.revised.Sketch.ScanOperation;
 
 public abstract class AbstractDeserializer implements Deserializer {
@@ -14,7 +14,7 @@ public abstract class AbstractDeserializer implements Deserializer {
   }
 
   public ScanOperation scanService() { return scanService; }
-  public ScanReceiver receiver() { return scanService.receiver(); }
+  public ResultSetMaker receiver() { return scanService.rowSet(); }
 
   @Override
   public void open() throws Exception {
