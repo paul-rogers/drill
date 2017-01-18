@@ -92,8 +92,12 @@ public class LogFixture implements AutoCloseable {
      * Drill log configuration files send the root to the console (or file), but
      * the Drill loggers to Lilith. In that case, Lilith "hides" the console
      * logger. Using this call adds a console logger to the Drill logger so that
+<<<<<<< 139c980d5ee0aa0b88bc42ea4ad822f7f7e7438c
      * output does, in fact, go to the console regardless of the configuration
      * in the Logback configuration file.
+=======
+     * output does, in fact, go to the console.
+>>>>>>> Add test logging fixture
      *
      * @return this builder
      */
