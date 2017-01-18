@@ -34,6 +34,7 @@
   <logger name="org.apache.drill" additivity="false">
     <level value="error" />
     <appender-ref ref="SOCKET" />
+    <appender-ref ref="STDOUT" />
   </logger>
 
   <logger name="query.logger" additivity="false">
