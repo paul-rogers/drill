@@ -95,7 +95,7 @@ public class ExtendedMockRecordReader extends AbstractRecordReader {
     return defArray;
   }
 
-  private int getEstimatedRecordSize(MockTableDef.MockColumn[] types) {
+  private int getEstimatedRecordSize() {
     int size = 0;
     for (int i = 0; i < fields.length; i++) {
       size += fields[i].width;
@@ -106,10 +106,13 @@ public class ExtendedMockRecordReader extends AbstractRecordReader {
   @Override
   public void setup(OperatorContext context, OutputMutator output) throws ExecutionSetupException {
     try {
-      final int estimateRowSize = getEstimatedRecordSize(config.getTypes());
-      valueVectors = new ValueVector[config.getTypes().length];
-      // TODO: Get the batch size from spec
-      batchRecordCount = 10 * 1024 * 1024 / estimateRowSize;
+      final int estimateRowSize = getEstimatedRecordSize();
+      valueVectors = new ValueVector[fields.length];
+      int batchSize = config.getBatchSize();
+      if (batchSize == 0) {
+        batchSize = 10 * 1024 * 1024;
+      }
+      batchRecordCount = Math.max(1, batchSize / estimateRowSize);
 
       for (int i = 0; i < fields.length; i++) {
         final ColumnDef col = fields[i];
