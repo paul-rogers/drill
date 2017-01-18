@@ -930,7 +930,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // Log the calculated values. Turn this on if things seem amiss.
     // Message will appear only when the values change.
 
-    logger.debug("updateMemoryEstimates: record size= {} bytes, input batch = {} bytes, {} records; " +
+    logger.debug("Memory Estimates: record size = {} bytes; input batch = {} bytes, {} records; " +
                   "output batch size = {} bytes, {} records; " +
                   "Available memory: {}, spill point = {}, min. merge memory = {}",
                 estimatedRecordSize, estimatedInputBatchSize, estimatedInputRecordCount,
@@ -939,7 +939,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   }
 
   /**
-   * Determine if spill is needed after receiving the new record batch.
+   * Determine if spill is needed before receiving the new record batch.
    * Spilling is driven purely by memory availability (and an optional
    * batch limit for testing.)
    *
