@@ -98,7 +98,7 @@ public class ExtendedMockRecordReader extends AbstractRecordReader {
   private int getEstimatedRecordSize(MockTableDef.MockColumn[] types) {
     int size = 0;
     for (int i = 0; i < fields.length; i++) {
-      size += TypeHelper.getSize(fields[i].getConfig().getMajorType());
+      size += fields[i].width;
     }
     return size;
   }
@@ -108,7 +108,8 @@ public class ExtendedMockRecordReader extends AbstractRecordReader {
     try {
       final int estimateRowSize = getEstimatedRecordSize(config.getTypes());
       valueVectors = new ValueVector[config.getTypes().length];
-      batchRecordCount = 32 * 1024 / estimateRowSize;
+      // TODO: Get the batch size from spec
+      batchRecordCount = 10 * 1024 * 1024 / estimateRowSize;
 
       for (int i = 0; i < fields.length; i++) {
         final ColumnDef col = fields[i];

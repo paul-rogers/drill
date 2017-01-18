@@ -37,7 +37,12 @@ public class ColumnDef {
   public ColumnDef(MockTableDef.MockColumn mockCol) {
     this.mockCol = mockCol;
     name = mockCol.getName();
-    width = TypeHelper.getSize(mockCol.getMajorType());
+    if (mockCol.getMinorType() == MinorType.VARCHAR &&
+        mockCol.getWidth() > 0) {
+      width = mockCol.getWidth();
+    } else {
+      width = TypeHelper.getSize(mockCol.getMajorType());
+    }
     makeGenerator();
   }
 
