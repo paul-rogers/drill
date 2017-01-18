@@ -166,7 +166,7 @@ public class ExpressionInterpreterTest  extends PopUnitTestBase {
       columns[i] = new MockTableDef.MockColumn(colNames[i], colTypes[i].getMinorType(), colTypes[i].getMode(), 0, 0, 0, null, null, null);
     }
 
-    final MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(10, columns);
+    final MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(10, false, 0, columns);
     final MockSubScanPOP scanPOP = new MockSubScanPOP("testTable", false, java.util.Collections.singletonList(entry));
 
     @SuppressWarnings("resource")

@@ -37,7 +37,6 @@ import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.store.AbstractSchema;
 import org.apache.drill.exec.store.AbstractStoragePlugin;
 import org.apache.drill.exec.store.SchemaConfig;
-import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
 
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
@@ -67,17 +66,8 @@ public class MockStorageEngine extends AbstractStoragePlugin {
         new TypeReference<ArrayList<MockTableDef.MockScanEntry>>() {
         });
 
-    // The classic (logical-plan based) and extended (SQL-based) paths
-    // come through here. If this is a SQL query, then no columns are
-    // defined in the plan.
-
     assert ! readEntries.isEmpty();
-    boolean extended = readEntries.size() == 1;
-    if (extended) {
-      MockTableDef.MockScanEntry entry = readEntries.get(0);
-      extended = entry.getTypes() == null;
-    }
-    return new MockGroupScanPOP(null, extended, readEntries);
+    return new MockGroupScanPOP(null, readEntries);
   }
 
   @Override
@@ -131,9 +121,6 @@ public class MockStorageEngine extends AbstractStoragePlugin {
 
     @Override
     public Table getTable(String name) {
-<<<<<<< a4d8ad19dfb9e7636f659a1f29a369384f48abc4
-      Pattern p = Pattern.compile("(\\w+)_(\\d+)(k|m)?", Pattern.CASE_INSENSITIVE);
-=======
       if (name.toLowerCase().endsWith(".json") ) {
         return getConfigFile(name);
       } else {
@@ -165,7 +152,6 @@ public class MockStorageEngine extends AbstractStoragePlugin {
 
     private Table getDirectTable(String name) {
       Pattern p = Pattern.compile( "(\\w+)_(\\d+)(k|m)?", Pattern.CASE_INSENSITIVE);
->>>>>>> Extended mock data source
       Matcher m = p.matcher(name);
       if (! m.matches()) {
         return null;
@@ -177,17 +163,10 @@ public class MockStorageEngine extends AbstractStoragePlugin {
       if (unit == null) { }
       else if (unit.equalsIgnoreCase("K")) { n *= 1000; }
       else if (unit.equalsIgnoreCase("M")) { n *= 1_000_000; }
-<<<<<<< a4d8ad19dfb9e7636f659a1f29a369384f48abc4
-      MockScanEntry entry = new MockScanEntry(n, null);
-      List<MockScanEntry> list = new ArrayList<>();
-      list.add(entry);
-      return new DynamicDrillTable(engine, this.name, list);
-=======
-      MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(n, null);
+      MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(n, true, 0, null);
       List<MockTableDef.MockScanEntry> list = new ArrayList<>();
       list.add( entry );
       return new DynamicDrillTable(engine, this.name, list );
->>>>>>> Extended mock data source
     }
 
     @Override

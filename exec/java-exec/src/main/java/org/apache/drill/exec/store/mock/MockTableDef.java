@@ -43,20 +43,33 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 
 @JsonTypeName("mock-table")
 public class MockTableDef {
+  /**
+   * Describes one simulated file (or block) within the logical file scan
+   * described by this group scan. Each block can have a distinct schema to test
+   * for schema changes.
+   */
+
   public static class MockScanEntry {
 
     final int records;
-    private final MockTableDef.MockColumn[] types;
+    final boolean extended;
+    final int batchSize;
+    private final MockColumn[] types;
 
     @JsonCreator
-    public MockScanEntry(@JsonProperty("records") int records, @JsonProperty("types") MockTableDef.MockColumn[] types) {
+    public MockScanEntry(@JsonProperty("records") int records,
+                         @JsonProperty("extended") Boolean extended,
+                         @JsonProperty("batchSize") Integer batchSize,
+                         @JsonProperty("types") MockTableDef.MockColumn[] types) {
       this.records = records;
       this.types = types;
+      this.extended = (extended == null) ? false : extended;
+      this.batchSize = (batchSize == null) ? 0 : batchSize;
     }
 
-    public int getRecords() {
-      return records;
-    }
+    public int getRecords() { return records; }
+    public boolean isExtended() { return extended; }
+    public int getBatchSize() { return batchSize; }
 
     public MockTableDef.MockColumn[] getTypes() {
       return types;
@@ -64,19 +77,51 @@ public class MockTableDef {
 
     @Override
     public String toString() {
-      return "MockScanEntry [records=" + records + ", columns=" + Arrays.toString(types) + "]";
+      return "MockScanEntry [records=" + records + ", columns="
+          + Arrays.toString(types) + "]";
     }
   }
 
+  /**
+   * Meta-data description of the columns we wish to create during a simulated
+   * scan.
+   */
+
   @JsonInclude(Include.NON_NULL)
   public static class MockColumn {
-    @JsonProperty("type") public MinorType minorType;
+
+    /**
+     * Column type given as a Drill minor type (that is, a type without the
+     * extra information such as cardinality, width, etc.
+     */
+
+    @JsonProperty("type")
+    public MinorType minorType;
     public String name;
     public DataMode mode;
     public Integer width;
     public Integer precision;
     public Integer scale;
+
+    /**
+     * The scan can request to use a specific data generator class. The name of
+     * that class appears here. The name can be a simple class name, if that
+     * class resides in this Java package. Or, it can be a fully qualified name
+     * of a class that resides elsewhere. If null, the default generator for the
+     * data type is used.
+     */
+
     public String generator;
+
+    /**
+     * Some tests want to create a very wide row with many columns. This field
+     * eases that task: specify a value other than 1 and the data source will
+     * generate that many copies of the column, each with separately generated
+     * random values. For example, to create 20 copies of field, "foo", set
+     * repeat to 20 and the actual generated batches will contain fields
+     * foo1, foo2, ... foo20.
+     */
+
     public Integer repeat;
     public Map<String,Object> properties;
 
@@ -133,7 +178,8 @@ public class MockTableDef {
 
     @Override
     public String toString() {
-      return "MockColumn [minorType=" + minorType + ", name=" + name + ", mode=" + mode + "]";
+      return "MockColumn [minorType=" + minorType + ", name=" + name + ", mode="
+          + mode + "]";
     }
   }
 
