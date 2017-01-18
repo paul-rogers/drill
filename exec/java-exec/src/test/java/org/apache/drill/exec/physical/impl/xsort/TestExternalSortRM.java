@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import java.util.List;
 
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.compile.ClassBuilder;
@@ -28,12 +29,26 @@ import org.apache.drill.exec.compile.CodeCompiler;
 import org.apache.drill.exec.memory.BaseAllocator;
 import org.apache.drill.exec.physical.impl.xsort.LogAnalyzer.EventAnalyzer;
 import org.apache.drill.exec.physical.impl.xsort.LogAnalyzer.SortStats;
+import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
+import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.test.ClientFixture;
 import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.FixtureBuilder;
+import org.apache.drill.test.LogFixture;
+import org.apache.drill.test.LogFixture.LogFixtureBuilder;
+import org.apache.drill.test.ProfileParser;
+import org.apache.drill.test.ProfileParser.OpInfo;
 import org.apache.drill.test.QueryBuilder.QuerySummary;
 import org.junit.Test;
+import org.slf4j.LoggerFactory;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.LoggerContext;
+import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.ConsoleAppender;
 
 //@Ignore
 public class TestExternalSortRM extends DrillTest {
@@ -304,6 +319,48 @@ public class TestExternalSortRM extends DrillTest {
       System.out.println(plan);
       QuerySummary summary = client.queryBuilder().sql(sql).run();
       System.out.println(String.format("Results: %d records, %d batches, %d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+    }
+  }
+
+  @Test
+  public void testMD1304a() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger(ExternalSortBatch.class, Level.DEBUG);
+//    LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
+//    PatternLayoutEncoder ple = new PatternLayoutEncoder();
+////  ple.setPattern("%level [%thread] [%file:%line] %msg%n");
+//    ple.setPattern("%r %level [%thread] [%logger] - %msg%n");
+//    ple.setContext(lc);
+//    ple.start();
+//    Logger esbLogger = (Logger)LoggerFactory.getLogger(ExternalSortBatch.class);
+//    esbLogger.setLevel(Level.DEBUG);
+//    ConsoleAppender<ILoggingEvent> appender = new ConsoleAppender<>( );
+//    appender.setContext(lc);
+//    appender.setName("Console");
+//    appender.setEncoder( ple );
+//    appender.start();
+//    esbLogger.addAppender(appender);
+
+    FixtureBuilder builder = ClusterFixture.builder()
+        .maxParallelization(1);
+    try (LogFixture logs = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      String sql = "SELECT col_s3500 FROM `mock`.`table_150K` ORDER BY col_s3500";
+      String plan = client.queryBuilder().sql(sql).explainJson();
+      System.out.println(plan);
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
+      System.out.println(String.format("Results: %d records, %d batches, %d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+
+      System.out.println("Query ID: " + summary.queryIdString());
+      ProfileParser profile = client.parseProfile(summary.queryIdString());
+      List<OpInfo> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
+      assertEquals(1, ops.size());
+      OpInfo sort = ops.get(0);
+      long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
+      long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
+      System.out.println(String.format("Spills: %d, merge/spills: %d", spillCount, mergeCount));
     }
   }
 
