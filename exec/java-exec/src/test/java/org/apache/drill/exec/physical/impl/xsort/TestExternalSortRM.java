@@ -327,21 +327,6 @@ public class TestExternalSortRM extends DrillTest {
     LogFixtureBuilder logBuilder = LogFixture.builder()
         .toConsole()
         .logger(ExternalSortBatch.class, Level.DEBUG);
-//    LoggerContext lc = (LoggerContext) LoggerFactory.getILoggerFactory();
-//    PatternLayoutEncoder ple = new PatternLayoutEncoder();
-////  ple.setPattern("%level [%thread] [%file:%line] %msg%n");
-//    ple.setPattern("%r %level [%thread] [%logger] - %msg%n");
-//    ple.setContext(lc);
-//    ple.start();
-//    Logger esbLogger = (Logger)LoggerFactory.getLogger(ExternalSortBatch.class);
-//    esbLogger.setLevel(Level.DEBUG);
-//    ConsoleAppender<ILoggingEvent> appender = new ConsoleAppender<>( );
-//    appender.setContext(lc);
-//    appender.setName("Console");
-//    appender.setEncoder( ple );
-//    appender.start();
-//    esbLogger.addAppender(appender);
-
     FixtureBuilder builder = ClusterFixture.builder()
         .maxParallelization(1);
     try (LogFixture logs = logBuilder.build();
