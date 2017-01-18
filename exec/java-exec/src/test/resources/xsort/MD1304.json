@@ -1,0 +1,11 @@
+{
+    descrip: "MD-1304",
+    entries:[
+        {records: 10000, extended: true, types: [
+          {name: "col", type: "VARCHAR", mode: "REQUIRED", width: 1000, repeat: 10}
+        ]},
+        {records: 10000, extended: true, types: [
+          {name: "col", type: "VARCHAR", mode: "REQUIRED", width: 1000, repeat: 10}
+        ]}
+    ]
+}
