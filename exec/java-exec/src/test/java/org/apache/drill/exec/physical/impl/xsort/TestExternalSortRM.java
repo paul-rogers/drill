@@ -166,9 +166,9 @@ public class TestExternalSortRM extends DrillTest {
 
     // Configure the cluster. One Drillbit by default.
     FixtureBuilder builder = ClusterFixture.builder()
-        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
-        .configProperty(ExecConstants.REMOVER_ENABLE_GENERIC_COPIER, true)
-        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
+//        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+//        .configProperty(ExecConstants.REMOVER_ENABLE_GENERIC_COPIER, true)
+//        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
         .maxParallelization(1)
         ;
 
@@ -177,7 +177,7 @@ public class TestExternalSortRM extends DrillTest {
          ClientFixture client = cluster.clientFixture()) {
 
       // Run a query and print a summary.
-      String sql = "SELECT * FROM `mock`.`sort/example-mock.json`";
+      String sql = "SELECT * FROM `mock`.`test/example-mock.json`";
       QuerySummary summary = client.queryBuilder().sql(sql).run();
       assertEquals(20, summary.recordCount());
       System.out.println(String.format("Read %,d records in %d batches.", summary.recordCount(), summary.batchCount()));
@@ -328,11 +328,14 @@ public class TestExternalSortRM extends DrillTest {
         .toConsole()
         .logger(ExternalSortBatch.class, Level.DEBUG);
     FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
         .maxParallelization(1);
     try (LogFixture logs = logBuilder.build();
          ClusterFixture cluster = builder.build();
          ClientFixture client = cluster.clientFixture()) {
-      String sql = "SELECT col_s3500 FROM `mock`.`table_150K` ORDER BY col_s3500";
+//      String sql = "SELECT col_s3500 FROM `mock`.`table_150K` ORDER BY col_s3500";
+//      String sql = "SELECT * FROM `mock`.`xsort/MD1304.json` ORDER BY col1";
+      String sql = "SELECT * FROM (SELECT * FROM `mock`.`xsort/MD1304.json` ORDER BY col1) d WHERE d.col1 = 'bogus'";
       String plan = client.queryBuilder().sql(sql).explainJson();
       System.out.println(plan);
       QuerySummary summary = client.queryBuilder().sql(sql).run();
