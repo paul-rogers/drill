@@ -93,7 +93,7 @@ public class TestDrillbitResilience extends DrillTest {
   @BeforeClass
   public static void startCluster() throws Exception {
     cluster = ClusterFixture.builder()
-          .withZk()
+          .withLocalZk()
           .withBits(new String[] {DRILLBIT_ALPHA, DRILLBIT_BETA, DRILLBIT_GAMMA})
           .configProperty(ExecConstants.PARQUET_PAGEREADER_ASYNC, false)
           .build( );

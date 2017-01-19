@@ -39,6 +39,7 @@ import org.apache.drill.exec.client.DrillClient;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.memory.RootAllocatorFactory;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
+import org.apache.drill.exec.rpc.RpcException;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.server.Drillbit;
 import org.apache.drill.exec.server.RemoteServiceSet;
@@ -49,6 +50,7 @@ import org.apache.drill.exec.store.dfs.FileSystemPlugin;
 import org.apache.drill.exec.store.dfs.WorkspaceConfig;
 import org.apache.drill.exec.store.mock.MockStorageEngine;
 import org.apache.drill.exec.store.mock.MockStorageEngineConfig;
+import org.apache.drill.exec.store.sys.store.provider.ZookeeperPersistentStoreProvider;
 import org.apache.drill.exec.util.TestUtilities;
 
 import com.google.common.base.Charsets;
@@ -100,6 +102,12 @@ public class ClusterFixture implements AutoCloseable {
       // behavior. Production default is DEFAULT_SCAN_THREADS
 
       put(ExecConstants.SCAN_THREADPOOL_SIZE, 4);
+
+      // Define a useful root location for the ZK persistent
+      // storage. Profiles will go here when running in distributed
+      // mode.
+
+      put(ZookeeperPersistentStoreProvider.DRILL_EXEC_SYS_STORE_PROVIDER_ZK_BLOBROOT, "/tmp/drill/log");
     }
   };
 
@@ -114,19 +122,47 @@ public class ClusterFixture implements AutoCloseable {
   private RemoteServiceSet serviceSet;
   private String dfsTestTmpSchemaLocation;
   protected List<ClientFixture> clients = new ArrayList<>();
+  private boolean usesZk;
 
   protected ClusterFixture(FixtureBuilder  builder) throws Exception {
 
+    String zkConnect = configureZk(builder);
+    createConfig(builder, zkConnect);
+    startDrillbits(builder);
+    applyOptions(builder);
+
+    // Some operations need an allocator.
+
+    allocator = RootAllocatorFactory.newRoot(config);
+  }
+
+  private String configureZk(FixtureBuilder builder) {
+
     // Start ZK if requested.
 
+    String zkConnect = null;
     if (builder.zkHelper != null) {
+      // Case where the test itself started ZK and we're only using it.
+
       zkHelper = builder.zkHelper;
       ownsZK = false;
-    } else if (builder.zkCount > 0) {
-      zkHelper = new ZookeeperHelper(true);
-      zkHelper.startZookeeper(builder.zkCount);
+    } else if (builder.localZkCount > 0) {
+      // Case where we need a local ZK just for this test cluster.
+
+      zkHelper = new ZookeeperHelper("dummy");
+      zkHelper.startZookeeper(builder.localZkCount);
       ownsZK = true;
     }
+    if (zkHelper != null) {
+      zkConnect = zkHelper.getConnectionString();
+      // Forced to disable this, because currently we leak memory which is a known issue for query cancellations.
+      // Setting this causes unittests to fail.
+      builder.configProperty(ExecConstants.RETURN_ERROR_FOR_FAILURE_IN_CANCELLED_FRAGMENTS, true);
+    }
+    return zkConnect;
+  }
+
+  private void createConfig(FixtureBuilder builder, String zkConnect) throws Exception {
 
     // Create a config
     // Because of the way DrillConfig works, we can set the ZK
@@ -135,21 +171,51 @@ public class ClusterFixture implements AutoCloseable {
     if (builder.configResource != null) {
       config = DrillConfig.create(builder.configResource);
     } else if (builder.configProps != null) {
+      if (zkConnect != null) {
+        builder.configProperty(ExecConstants.ZK_CONNECTION, zkConnect);
+      }
       config = DrillConfig.create(configProperties(builder.configProps));
     } else {
-      config = DrillConfig.create(configProperties(TEST_CONFIGURATIONS));
+      throw new IllegalStateException("Configuration was not provided.");
     }
 
     // Not quite sure what this is, but some tests seem to use it.
 
     if (builder.enableFullCache || (config.hasPath(ENABLE_FULL_CACHE)
         && config.getBoolean(ENABLE_FULL_CACHE))) {
-      serviceSet = RemoteServiceSet.getServiceSetWithFullCache(config,
-          allocator);
+      serviceSet = RemoteServiceSet.getServiceSetWithFullCache(config, allocator);
+    } else if (builder.usingZk) {
+      // Distribute drillbit using ZK (in-process or external)
+
+      serviceSet = null;
+      usesZk = true;
     } else {
+      // Embedded Drillbit.
+
       serviceSet = RemoteServiceSet.getLocalServiceSet();
     }
 
+//    // Ensure that Drill uses the log directory determined here rather than
+//    // it's hard-coded defaults.
+//
+//    String logDir = null;
+//    if (builder.tempDir != null) {
+//      logDir = builder.tempDir.getAbsolutePath();
+//    }
+//    if (logDir == null) {
+//      logDir = config.getString(ExecConstants.DRILL_TMP_DIR);
+//      if (logDir != null) {
+//        logDir += "/drill/log";
+//      }
+//    }
+//    if (logDir == null) {
+//      logDir = "/tmp/drill";
+//    }
+//    new File(logDir).mkdirs();
+//    System.setProperty("drill.log-dir", logDir);
+  }
+
+  private void startDrillbits(FixtureBuilder builder) throws Exception {
     dfsTestTmpSchemaLocation = TestUtilities.createTempDir();
 
     Preconditions.checkArgument(builder.bitCount > 0);
@@ -158,26 +224,6 @@ public class ClusterFixture implements AutoCloseable {
       @SuppressWarnings("resource")
       Drillbit bit = new Drillbit(config, serviceSet);
       bit.run();
-
-      // Create the dfs_test name space
-
-      @SuppressWarnings("resource")
-      final StoragePluginRegistry pluginRegistry = bit.getContext()
-          .getStorage();
-      TestUtilities.updateDfsTestTmpSchemaLocation(pluginRegistry,
-          dfsTestTmpSchemaLocation);
-      TestUtilities.makeDfsTmpSchemaImmutable(pluginRegistry);
-
-      // Create the mock data plugin
-      // (Disabled until DRILL-5152 is committed.)
-
-      MockStorageEngineConfig config = MockStorageEngineConfig.INSTANCE;
-      @SuppressWarnings("resource")
-      MockStorageEngine plugin = new MockStorageEngine(
-          MockStorageEngineConfig.INSTANCE, bit.getContext(),
-          MockStorageEngineConfig.NAME);
-      ((StoragePluginRegistryImpl) pluginRegistry)
-          .definePlugin(MockStorageEngineConfig.NAME, config, plugin);
 
       // Bit name and registration.
 
@@ -204,11 +250,29 @@ public class ClusterFixture implements AutoCloseable {
       if (i == 0) {
         defaultDrillbit = bit;
       }
+      configureStoragePlugins(bit);
     }
+  }
 
-    // Some operations need an allocator.
+  private void configureStoragePlugins(Drillbit bit) throws Exception {
+    // Create the dfs_test name space
 
-    allocator = RootAllocatorFactory.newRoot(config);
+    @SuppressWarnings("resource")
+    final StoragePluginRegistry pluginRegistry = bit.getContext().getStorage();
+    TestUtilities.updateDfsTestTmpSchemaLocation(pluginRegistry, dfsTestTmpSchemaLocation);
+    TestUtilities.makeDfsTmpSchemaImmutable(pluginRegistry);
+
+    // Create the mock data plugin
+
+    MockStorageEngineConfig config = MockStorageEngineConfig.INSTANCE;
+    @SuppressWarnings("resource")
+    MockStorageEngine plugin = new MockStorageEngine(
+        MockStorageEngineConfig.INSTANCE, bit.getContext(),
+        MockStorageEngineConfig.NAME);
+    ((StoragePluginRegistryImpl) pluginRegistry).definePlugin(MockStorageEngineConfig.NAME, config, plugin);
+  }
+
+  private void applyOptions(FixtureBuilder builder) throws Exception {
 
     // Apply system options
 
@@ -231,10 +295,6 @@ public class ClusterFixture implements AutoCloseable {
     Properties effectiveProps = new Properties();
     for (Entry<Object, Object> entry : configProps.entrySet()) {
       effectiveProps.put(entry.getKey(), entry.getValue().toString());
-    }
-    if (zkHelper != null) {
-      effectiveProps.put(ExecConstants.ZK_CONNECTION,
-          zkHelper.getConfig().getString(ExecConstants.ZK_CONNECTION));
     }
     return effectiveProps;
   }
@@ -438,5 +498,19 @@ public class ClusterFixture implements AutoCloseable {
     File tempDir = new File(dir, dirName);
     tempDir.mkdirs();
     return tempDir;
+  }
+
+  public boolean usesZK() {
+    return usesZk;
+  }
+
+  public File getProfileDir() {
+    File baseDir;
+    if (usesZk) {
+      baseDir = new File(config.getString(ZookeeperPersistentStoreProvider.DRILL_EXEC_SYS_STORE_PROVIDER_ZK_BLOBROOT));
+    } else {
+      baseDir = new File(config.getString(ExecConstants.SYS_STORE_PROVIDER_LOCAL_PATH));
+    }
+    return new File(baseDir, "profiles");
   }
 }
