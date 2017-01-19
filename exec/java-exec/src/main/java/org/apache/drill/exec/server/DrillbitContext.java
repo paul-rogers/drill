@@ -65,7 +65,7 @@ public class DrillbitContext implements AutoCloseable {
   private final CodeCompiler compiler;
   private final ScanResult classpathScan;
   private final LogicalPlanPersistence lpPersistence;
-  private final ResourceManager resourceManager;
+  private ResourceManager resourceManager;
 
   public DrillbitContext(
       DrillbitEndpoint endpoint,
@@ -94,12 +94,17 @@ public class DrillbitContext implements AutoCloseable {
     systemOptions = new SystemOptionManager(lpPersistence, provider);
     functionRegistry = new FunctionImplementationRegistry(config, classpathScan, systemOptions);
     compiler = new CodeCompiler(config, systemOptions);
-
-    resourceManager = createResourceManager( );
   }
 
-  private ResourceManager createResourceManager( ) {
-    return new ResourceManagerBuilder(this).build();
+  /**
+   * Starts the resource manager. Must be called separately from the
+   * constructor after the system property mechanism is initialized
+   * since the builder will consult system options to determine the
+   * proper RM to use.
+   */
+
+  public void startRM() {
+    resourceManager = new ResourceManagerBuilder(this).build();
   }
 
   public FunctionImplementationRegistry getFunctionImplementationRegistry() {
