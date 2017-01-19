@@ -26,12 +26,17 @@ import java.util.regex.Pattern;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.base.ScanStats;
+import org.apache.drill.exec.physical.base.ScanStats.GroupScanProperty;
 import org.apache.drill.exec.physical.base.SubScan;
+import org.apache.drill.exec.planner.cost.DrillCostBase;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
+import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
+import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -71,6 +76,7 @@ public class MockGroupScanPOP extends AbstractGroupScan {
    */
 
   private boolean extended;
+  private ScanStats scanStats = ScanStats.TRIVIAL_TABLE;
 
   @JsonCreator
   public MockGroupScanPOP(@JsonProperty("url") String url,
@@ -78,13 +84,36 @@ public class MockGroupScanPOP extends AbstractGroupScan {
     super((String)null);
     this.readEntries = readEntries;
     this.url = url;
+    
+    int rowCount = 0;
+    int rowWidth = 0;
+    for (MockScanEntry entry : readEntries) {
+      rowCount += entry.getRecords();
+      int width = 0;
+      for (MockColumn col : entry.getTypes()) {
+        int colWidth = 0;
+        if ( col.getWidth() == 0 ) {
+          colWidth = TypeHelper.getSize(col.getMajorType());
+        } else {
+          colWidth = col.getWidth();
+        }
+        colWidth *= col.getRepeatCount();
+        width += colWidth;
+      }
+      rowWidth = Math.max(rowWidth, width);
+    }
+    int dataSize = rowCount * rowWidth;
+    scanStats = new ScanStats( GroupScanProperty.EXACT_ROW_COUNT,
+                               rowCount,
+                               DrillCostBase.BASE_CPU_COST * dataSize,
+                               DrillCostBase.BYTE_DISK_READ_COST * dataSize);
   }
 
   @Override
   public ScanStats getScanStats() {
-    return ScanStats.TRIVIAL_TABLE;
+    return scanStats;
   }
-
+  
   public String getUrl() {
     return url;
   }
