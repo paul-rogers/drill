@@ -519,9 +519,9 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
      * If two fragments are both estimated to be parallelization one, remove the exchange
      * separating them
      */
-//    PrelVisualizerVisitor.print(phyRelNode); // Debug only
+    PrelVisualizerVisitor.print(phyRelNode); // Debug only
     phyRelNode = ExcessiveExchangeIdentifier.removeExcessiveEchanges(phyRelNode, targetSliceSize);
-//    PrelVisualizerVisitor.print(phyRelNode); // Debug only
+    PrelVisualizerVisitor.print(phyRelNode); // Debug only
 
     /* 4.)
      * Add ProducerConsumer after each scan if the option is set
