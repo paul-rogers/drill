@@ -17,6 +17,7 @@
  ******************************************************************************/
 package org.apache.drill.test;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -55,15 +56,17 @@ public class FixtureBuilder {
     return props;
   }
 
-  String configResource;
-  Properties configProps;
-  boolean enableFullCache;
-  List<RuntimeOption> sessionOptions;
-  List<RuntimeOption> systemOptions;
-  int bitCount = 1;
-  String bitNames[];
-  int zkCount;
-  ZookeeperHelper zkHelper;
+  protected String configResource;
+  protected Properties configProps;
+  protected boolean enableFullCache;
+  protected List<RuntimeOption> sessionOptions;
+  protected List<RuntimeOption> systemOptions;
+  protected int bitCount = 1;
+  protected String bitNames[];
+  protected int localZkCount;
+  protected ZookeeperHelper zkHelper;
+  protected boolean usingZk;
+  protected File tempDir;
 
   /**
    * Use the given configuration properties to start the embedded Drillbit.
@@ -201,17 +204,22 @@ public class FixtureBuilder {
    * Drillbits.
    * @return this builder
    */
-  public FixtureBuilder withZk() {
-    return withZk(1);
+  public FixtureBuilder withLocalZk() {
+    return withLocalZk(1);
   }
 
-  public FixtureBuilder withZk(int count) {
-    zkCount = count;
+  public FixtureBuilder withLocalZk(int count) {
+    localZkCount = count;
+    usingZk = true;
 
     // Using ZK. Turn refresh wait back on.
 
-    configProperty(ExecConstants.ZK_REFRESH, DEFAULT_ZK_REFRESH);
-    return this;
+    return configProperty(ExecConstants.ZK_REFRESH, DEFAULT_ZK_REFRESH);
+  }
+
+  public FixtureBuilder withRemoteZk(String connStr) {
+    usingZk = true;
+    return configProperty(ExecConstants.ZK_CONNECTION, connStr);
   }
 
   /**
@@ -224,10 +232,16 @@ public class FixtureBuilder {
    */
   public FixtureBuilder withZk(ZookeeperHelper zk) {
     zkHelper = zk;
+    usingZk = true;
 
     // Using ZK. Turn refresh wait back on.
 
     configProperty(ExecConstants.ZK_REFRESH, DEFAULT_ZK_REFRESH);
+    return this;
+  }
+
+  public FixtureBuilder tempDir(File path) {
+    this.tempDir = path;
     return this;
   }
 

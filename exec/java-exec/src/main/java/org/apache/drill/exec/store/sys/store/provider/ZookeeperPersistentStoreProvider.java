@@ -37,7 +37,7 @@ import org.slf4j.LoggerFactory;
 public class ZookeeperPersistentStoreProvider extends BasePersistentStoreProvider {
   private static final Logger logger = LoggerFactory.getLogger(ZookeeperPersistentStoreProvider.class);
 
-  private static final String DRILL_EXEC_SYS_STORE_PROVIDER_ZK_BLOBROOT = "drill.exec.sys.store.provider.zk.blobroot";
+  public static final String DRILL_EXEC_SYS_STORE_PROVIDER_ZK_BLOBROOT = "drill.exec.sys.store.provider.zk.blobroot";
 
   private final CuratorFramework curator;
   private final DrillFileSystem fs;
