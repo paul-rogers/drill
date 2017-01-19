@@ -37,7 +37,7 @@ import org.apache.drill.exec.server.options.SystemOptionManager;
  * </ul></li>
  * <li>If the Drillbit is in a cluster
  * <ul>
- * <li>If queues are anabled, then the admission-controlled resource manager
+ * <li>If queues are enabled, then the admission-controlled resource manager
  * with the distributed query queue.</li>
  * <li>Otherwise, the default resource manager and no queues.</li>
  * </ul></li>
