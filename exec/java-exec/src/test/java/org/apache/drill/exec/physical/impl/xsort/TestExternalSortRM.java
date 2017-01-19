@@ -329,7 +329,9 @@ public class TestExternalSortRM extends DrillTest {
         .logger(ExternalSortBatch.class, Level.DEBUG);
     FixtureBuilder builder = ClusterFixture.builder()
         .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
-        .maxParallelization(1);
+        .maxParallelization(1)
+        .withLocalZk()
+        ;
     try (LogFixture logs = logBuilder.build();
          ClusterFixture cluster = builder.build();
          ClientFixture client = cluster.clientFixture()) {
