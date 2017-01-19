@@ -15,25 +15,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.revised.proto;
+package org.apache.drill.exec.store.revised.exec;
 
-import org.apache.drill.common.logical.StoragePluginConfigBase;
+import org.apache.drill.exec.store.revised.Sketch.Deserializer;
+import org.apache.drill.exec.store.revised.Sketch.ResultSetMaker;
+import org.apache.drill.exec.store.revised.Sketch.RowSetMaker;
+import org.apache.drill.exec.store.revised.Sketch.ScanOperation;
 
-import com.fasterxml.jackson.annotation.JsonTypeName;
+public abstract class AbstractDeserializer<P> implements Deserializer<P> {
 
-@JsonTypeName(ProtoPluginConfig.NAME)
-public class ProtoPluginConfig extends StoragePluginConfigBase {
+  public ScanOperation service;
+  protected P defn;
+  protected RowSetMaker rowSet;
 
-  public static final String NAME = "proto";
-
-  @Override
-  public boolean equals(Object o) {
-    return o instanceof ProtoPluginConfig;
+  public AbstractDeserializer(P defn, ScanOperation service) {
+    this.defn = defn;
+    this.service = service;
   }
 
   @Override
-  public int hashCode() {
-    return 0;
+  public void close() throws Exception {
   }
 
+  public P definition() { return defn; }
+  public ResultSetMaker resultSet() { return service.resultSet(); }
+  public ScanOperation scanOp() { return service; }
 }

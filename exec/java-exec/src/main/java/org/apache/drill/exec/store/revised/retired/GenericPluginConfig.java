@@ -15,24 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.revised.proto;
+package org.apache.drill.exec.store.revised.retired;
 
 import org.apache.drill.common.logical.StoragePluginConfigBase;
 
-import com.fasterxml.jackson.annotation.JsonTypeName;
-
-@JsonTypeName(ProtoPluginConfig.NAME)
-public class ProtoPluginConfig extends StoragePluginConfigBase {
-
-  public static final String NAME = "proto";
+public class GenericPluginConfig extends StoragePluginConfigBase {
 
   @Override
   public boolean equals(Object o) {
-    return o instanceof ProtoPluginConfig;
+    // TODO Auto-generated method stub
+    return false;
   }
 
   @Override
   public int hashCode() {
+    // TODO Auto-generated method stub
     return 0;
   }
 

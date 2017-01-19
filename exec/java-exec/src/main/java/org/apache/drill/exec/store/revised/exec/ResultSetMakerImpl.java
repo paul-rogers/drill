@@ -1,18 +1,40 @@
-package org.apache.drill.exec.store.revised;
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.drill.exec.store.revised.exec;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.physical.impl.OutputMutator;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.store.revised.Sketch;
 import org.apache.drill.exec.store.revised.Sketch.ColumnMaker;
 import org.apache.drill.exec.store.revised.Sketch.ColumnSchema;
 import org.apache.drill.exec.store.revised.Sketch.RowBatchMaker;
 import org.apache.drill.exec.store.revised.Sketch.RowMaker;
 import org.apache.drill.exec.store.revised.Sketch.RowSchema;
 import org.apache.drill.exec.store.revised.Sketch.RowSetMaker;
+import org.apache.drill.exec.store.revised.exec.VectorBuilder.VectorBuilderFactory;
 import org.apache.drill.exec.store.revised.Sketch.ResultSetMaker;
 import org.apache.drill.exec.store.revised.Sketch.RowBatch;
 import org.apache.drill.exec.store.revised.Sketch.RowSchemaBuilder;
-import org.apache.drill.exec.store.revised.VectorBuilder.VectorBuilderFactory;
+import org.apache.drill.exec.store.revised.schema.RowSchemaBuilderImpl;
 
 public class ResultSetMakerImpl implements ResultSetMaker {
 
@@ -73,6 +95,135 @@ public class ResultSetMakerImpl implements ResultSetMaker {
 //
 //  }
 
+  public static class BufferedRowMakerImpl implements RowMaker {
+
+    private final Object rowBuffer[];
+
+    private BufferedRowMakerImpl(BufferedBatchMakerImpl batchMaker) {
+      int rowWidth = batchMaker.rowSchema().size();
+      rowBuffer = new Object[rowWidth];
+    }
+
+    @Override
+    public ColumnWriter column(int index) {
+      // TODO Auto-generated method stub
+      return null;
+    }
+
+    @Override
+    public ColumnWriter column(String path) {
+      // TODO Auto-generated method stub
+      return null;
+    }
+
+    @Override
+    public void accept() {
+      batchMaker.addRow( rowBuffer );
+    }
+
+    @Override
+    public void reject() {
+      // Nothing to do, just let Java garbage collect the buffer
+    }
+  }
+
+//public static class DirectRowBuilderImpl implements RowBuilder {
+//
+//  @Override
+//  public ColumnWriter column(int index) {
+//    // TODO Auto-generated method stub
+//    return null;
+//  }
+//
+//  @Override
+//  public ColumnWriter column(String path) {
+//    // TODO Auto-generated method stub
+//    return null;
+//  }
+//
+//  @Override
+//  public void accept() {
+//    // TODO Auto-generated method stub
+//
+//  }
+//
+//  @Override
+//  public void reject() {
+//    // TODO Auto-generated method stub
+//
+//  }
+//
+//}
+//
+//public static class RowSetBuilderImpl implements RowSetBuilder {
+//
+//  @Override
+//  public RowBuilder row() {
+//    // TODO Auto-generated method stub
+//    return null;
+//  }
+//
+//  @Override
+//  public boolean full() {
+//    // TODO Auto-generated method stub
+//    return false;
+//  }
+//
+//  @Override
+//  public void build() {
+//    // TODO Auto-generated method stub
+//
+//  }
+//
+//}
+//
+  public static class BufferedBatchMakerImpl implements RowBatchMaker {
+
+    private List<Object[]> rows = new ArrayList<>();
+    private RowSetMakerImpl rowSet;
+
+    public BufferedBatchMakerImpl(RowSetMakerImpl rowSet) {
+      this.rowSet = rowSet;
+    }
+
+    @Override
+    public RowMaker row() {
+      return new BufferedRowMakerImpl(this);
+    }
+
+    @Override
+    public int rowCount() {
+      return rows.size();
+    }
+
+    @Override
+    public boolean full() {
+      // TODO Auto-generated method stub
+      return false;
+    }
+
+    @Override
+    public void abandon() {
+      // TODO Auto-generated method stub
+
+    }
+
+    @Override
+    public RowBatch build() {
+      // TODO Auto-generated method stub
+      return null;
+    }
+
+    @Override
+    public RowSchema rowSchema() {
+      return rowSet.rowSchema();
+    }
+
+  }
+
+  public static class DirectRowBatchMakerImpl implements RowBatchMaker {
+
+  }
   public static class RowSetMakerImpl implements RowSetMaker {
 
     private final ResultSetMakerImpl scanReceiver;
@@ -202,8 +353,7 @@ public class ResultSetMakerImpl implements ResultSetMaker {
       if ( ! rowSet.isActiveBatch(this)) {
         throw new IllegalStateException( "Not the active batch" );
       }
-      // TODO Auto-generated method stub
-      return null;
+      return new RowMakerImpl(this);
     }
 
     @Override

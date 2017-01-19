@@ -15,25 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.revised.proto;
+package org.apache.drill.exec.store.revised.retired;
 
-import org.apache.drill.common.logical.StoragePluginConfigBase;
+import org.apache.drill.exec.store.revised.Sketch;
+import org.apache.drill.exec.store.revised.Sketch.LogicalSchema;
 
-import com.fasterxml.jackson.annotation.JsonTypeName;
+/**
+ * Defines a singleton, persistent representation of a table space which resides
+ * each Drillbit. Drill plugin instances provide a window to this singleton.
+ */
 
-@JsonTypeName(ProtoPluginConfig.NAME)
-public class ProtoPluginConfig extends StoragePluginConfigBase {
-
-  public static final String NAME = "proto";
-
-  @Override
-  public boolean equals(Object o) {
-    return o instanceof ProtoPluginConfig;
-  }
-
-  @Override
-  public int hashCode() {
-    return 0;
-  }
-
+public interface StorageExtension {
+  LogicalSchema rootSchema();
 }
