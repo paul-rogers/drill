@@ -84,7 +84,7 @@ public class MockGroupScanPOP extends AbstractGroupScan {
     super((String)null);
     this.readEntries = readEntries;
     this.url = url;
-    
+
     int rowCount = 0;
     int rowWidth = 0;
     for (MockScanEntry entry : readEntries) {
@@ -113,7 +113,7 @@ public class MockGroupScanPOP extends AbstractGroupScan {
   public ScanStats getScanStats() {
     return scanStats;
   }
-  
+
   public String getUrl() {
     return url;
   }

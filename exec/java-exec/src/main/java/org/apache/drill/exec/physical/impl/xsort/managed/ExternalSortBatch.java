@@ -269,6 +269,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private long spillPoint;
   private long mergeMemoryPool;
 
+  // WARNING: The enum here is used within this class. But, the members of
+  // this enum MUST match those in the (unmanaged) ExternalSortBatch since
+  // that is the enum used in the UI to display metrics for the query profile.
+
   public enum Metric implements MetricDef {
     SPILL_COUNT,            // number of times operator spilled to disk
     RETIRED1,               // Was: peak value for totalSizeInMemory
