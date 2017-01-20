@@ -239,7 +239,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
         if (mSorter != null) {
           mSorter.clear();
         }
-        for(Iterator iter = this.currSpillDirs.iterator(); iter.hasNext(); iter.remove()) {
+        for(Iterator<Path> iter = this.currSpillDirs.iterator(); iter.hasNext(); iter.remove()) {
             Path path = (Path)iter.next();
             try {
                 if (fs != null && path != null && fs.exists(path)) {
