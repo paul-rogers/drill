@@ -15,17 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store.revised.exec;
+package org.apache.drill.exec.store.revised.retired;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.physical.impl.OutputMutator;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.store.revised.exec.AbstractColumnMaker;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.NullableIntVector;
 
-public abstract class VectorBuilder extends AbstractColumnBuilder {
+public abstract class VectorBuilder extends AbstractColumnMaker {
 
   ScanState scanState;
 

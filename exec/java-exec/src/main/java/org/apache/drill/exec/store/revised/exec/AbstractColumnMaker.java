@@ -19,10 +19,22 @@ package org.apache.drill.exec.store.revised.exec;
 
 import java.math.BigDecimal;
 
-import org.apache.drill.exec.store.revised.Sketch;
 import org.apache.drill.exec.store.revised.Sketch.ColumnMaker;
+import org.apache.drill.exec.store.revised.exec.ResultSetMakerImpl.BatchMutator;
 
-public class AbstractColumnBuilder implements ColumnMaker {
+public abstract class AbstractColumnMaker implements ColumnMaker {
+
+  protected BatchMutator batchMutator;
+  protected int index;
+
+  protected void bind(BatchMutator mutator, int index) {
+    this.batchMutator = mutator;
+    this.index = index;
+  }
+
+  protected int rowIndex() {
+    return batchMutator.rowIndex();
+  }
 
   @Override
   public void setString(String value) {

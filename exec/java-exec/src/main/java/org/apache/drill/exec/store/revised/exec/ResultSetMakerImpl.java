@@ -20,9 +20,15 @@ package org.apache.drill.exec.store.revised.exec;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.exception.SchemaChangeException;
+import org.apache.drill.exec.expr.TypeHelper;
+import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.OutputMutator;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.store.revised.Sketch;
 import org.apache.drill.exec.store.revised.Sketch.ColumnMaker;
 import org.apache.drill.exec.store.revised.Sketch.ColumnSchema;
@@ -30,11 +36,18 @@ import org.apache.drill.exec.store.revised.Sketch.RowBatchMaker;
 import org.apache.drill.exec.store.revised.Sketch.RowMaker;
 import org.apache.drill.exec.store.revised.Sketch.RowSchema;
 import org.apache.drill.exec.store.revised.Sketch.RowSetMaker;
-import org.apache.drill.exec.store.revised.exec.VectorBuilder.VectorBuilderFactory;
+import org.apache.drill.exec.store.revised.retired.VectorBuilder;
+import org.apache.drill.exec.store.revised.retired.VectorBuilder.VectorBuilderFactory;
 import org.apache.drill.exec.store.revised.Sketch.ResultSetMaker;
 import org.apache.drill.exec.store.revised.Sketch.RowBatch;
 import org.apache.drill.exec.store.revised.Sketch.RowSchemaBuilder;
 import org.apache.drill.exec.store.revised.schema.RowSchemaBuilderImpl;
+import org.apache.drill.exec.vector.AllocationHelper;
+import org.apache.drill.exec.vector.BitVector;
+import org.apache.drill.exec.vector.IntVector;
+import org.apache.drill.exec.vector.NullableIntVector;
+import org.apache.drill.exec.vector.SchemaChangeCallBack;
+import org.apache.drill.exec.vector.ValueVector;
 
 public class ResultSetMakerImpl implements ResultSetMaker {
 
@@ -95,38 +108,80 @@ public class ResultSetMakerImpl implements ResultSetMaker {
 //
 //  }
 
-  public static class BufferedRowMakerImpl implements RowMaker {
+  /**
+   * Buffers a row of data prior to inserting it in a vector.
+   */
 
-    private final Object rowBuffer[];
+//  public static class BufferedRowMakerImpl implements RowMaker {
+//
+//    private final Object rowBuffer[];
+//
+//    private BufferedRowMakerImpl(BufferedBatchMakerImpl batchMaker) {
+//      int rowWidth = batchMaker.rowSchema().size();
+//      rowBuffer = new Object[rowWidth];
+//    }
+//
+//    @Override
+//    public ColumnMaker column(int index) {
+//      // TODO Auto-generated method stub
+//      return null;
+//    }
+//
+//    @Override
+//    public ColumnMaker column(String path) {
+//      // TODO Auto-generated method stub
+//      return null;
+//    }
+//
+//    @Override
+//    public void accept() {
+//      batchMaker.addRow( rowBuffer );
+//    }
+//
+//    @Override
+//    public void reject() {
+//      // Nothing to do, just let Java garbage collect the buffer
+//    }
+//  }
 
-    private BufferedRowMakerImpl(BufferedBatchMakerImpl batchMaker) {
-      int rowWidth = batchMaker.rowSchema().size();
-      rowBuffer = new Object[rowWidth];
+  public static class DirectRowMakerImpl implements RowMaker {
+
+    private ColumnMaker columnMakers[];
+
+    public DirectRowMakerImpl(DirectRowBatchMakerImpl batchMaker) {
+      BatchMutator mutator = batchMaker.mutator();
+      int colCount = mutator.vectorCount();
+      columnMakers = new ColumnMaker[colCount];
+      for (int i = 0; i < colCount; i++) {
+        columnMakers[i] = mutator.columnMaker(i);
+      }
     }
 
     @Override
-    public ColumnWriter column(int index) {
+    public ColumnMaker column(int index) {
       // TODO Auto-generated method stub
       return null;
     }
 
     @Override
-    public ColumnWriter column(String path) {
+    public ColumnMaker column(String path) {
       // TODO Auto-generated method stub
       return null;
     }
 
     @Override
     public void accept() {
-      batchMaker.addRow( rowBuffer );
+      // TODO Auto-generated method stub
+
     }
 
     @Override
     public void reject() {
-      // Nothing to do, just let Java garbage collect the buffer
-    }
-  }
+      // TODO Auto-generated method stub
 
+    }
+
+  }
 //public static class DirectRowBuilderImpl implements RowBuilder {
 //
 //  @Override
@@ -177,29 +232,235 @@ public class ResultSetMakerImpl implements ResultSetMaker {
 //
 //}
 //
-  public static class BufferedBatchMakerImpl implements RowBatchMaker {
+//  public static class BufferedBatchMakerImpl implements RowBatchMaker {
+//
+//    private List<Object[]> rows = new ArrayList<>();
+//    private RowSetMakerImpl rowSet;
+//
+//    public BufferedBatchMakerImpl(RowSetMakerImpl rowSet) {
+//      this.rowSet = rowSet;
+//    }
+//
+//    @Override
+//    public RowMaker row() {
+//      return new BufferedRowMakerImpl(this);
+//    }
+//
+//    @Override
+//    public int rowCount() {
+//      return rows.size();
+//    }
+//
+//    @Override
+//    public boolean full() {
+//      // TODO Auto-generated method stub
+//      return false;
+//    }
+//
+//    @Override
+//    public void abandon() {
+//      // TODO Auto-generated method stub
+//
+//    }
+//
+//    @Override
+//    public RowBatch build() {
+//      // TODO Auto-generated method stub
+//      return null;
+//    }
+//
+//    @Override
+//    public RowSchema rowSchema() {
+//      return rowSet.rowSchema();
+//    }
+//
+//  }
 
-    private List<Object[]> rows = new ArrayList<>();
+  public static class IntColumnMaker extends AbstractColumnMaker {
+
+    IntVector.Mutator mutator;
+
+    @Override
+    protected void bind(BatchMutator batchMutator, int index) {
+      super.bind(batchMutator, index);
+      @SuppressWarnings("resource")
+      IntVector vector = batchMutator.vector(index);
+      this.mutator = vector.getMutator();
+    }
+
+    @Override
+    public void setInt(int value) {
+      mutator.set(rowIndex(), value);
+    }
+  }
+
+  public static class NullableIntColumnMaker extends AbstractColumnMaker {
+
+    NullableIntVector.Mutator mutator;
+
+    @Override
+    protected void bind(BatchMutator batchMutator, int index) {
+      super.bind(batchMutator, index);
+      @SuppressWarnings("resource")
+      NullableIntVector vector = batchMutator.vector(index);
+      this.mutator = vector.getMutator();
+    }
+
+    @Override
+    public void setInt(int value) {
+      mutator.set(rowIndex(), value);
+    }
+
+    @Override
+    public void setNull() {
+      mutator.setNull(rowIndex());
+    }
+  }
+
+  public static class ColumnMakerFactory {
+
+    private static final ColumnMakerFactory instance = new ColumnMakerFactory();
+
+    private final Class<? extends AbstractColumnMaker> columnMakers[][];
+
+    @SuppressWarnings("unchecked")
+    private ColumnMakerFactory() {
+      columnMakers = new Class[MinorType.values().length][];
+      int modeCount = DataMode.values().length;
+      for (int i=0; i < columnMakers.length; i++) {
+        columnMakers[i] = new Class[modeCount];
+      }
+
+      registerSpecialMakers();
+    }
+
+    private void registerSpecialMakers() {
+      register(MinorType.INT, DataMode.REQUIRED, IntColumnMaker.class);
+      register(MinorType.INT, DataMode.OPTIONAL, NullableIntColumnMaker.class);
+    }
+
+    public void register(MinorType type, DataMode mode, Class<? extends AbstractColumnMaker> columnMaker) {
+      assert columnMakers[type.ordinal()][mode.ordinal()] == null;
+      columnMakers[type.ordinal()][mode.ordinal()] = columnMaker;
+    }
+
+    public static AbstractColumnMaker newColumnMaker(ColumnSchema colSchema) {
+      return newColumnMaker(colSchema.type(), colSchema.cardinality());
+    }
+
+    public static AbstractColumnMaker newColumnMaker(MinorType type, DataMode mode) {
+      Class<? extends AbstractColumnMaker> columnMakerClass = instance.columnMakers[type.ordinal()][mode.ordinal()];
+      if (columnMakerClass == null) {
+        throw new IllegalStateException(
+            String.format("Unsupported ColumnMaker: type = %s, mode = %s", type, mode));
+      }
+      try {
+        return columnMakerClass.newInstance();
+      } catch (InstantiationException | IllegalAccessException e) {
+        throw new IllegalStateException(
+            String.format("Unable to create ColumnMaker: type = %s, mode = %s", type, mode));
+      }
+    }
+  }
+
+  public static class BatchMutator {
+    private RowSchema schema;
+    BufferAllocator allocator;
+    int maxRows;
+    MaterializedField fields[];
+    ValueVector vectors[];
+    int fieldWidths[];
+    private SchemaChangeCallBack callBack = new SchemaChangeCallBack();
+    int rowCount;
+
+    public BatchMutator(RowSchema schema, BufferAllocator allocator, int maxRows) {
+      this.schema = schema;
+      this.allocator = allocator;
+      fields = new MaterializedField[schema.size()];
+      vectors = new ValueVector[schema.size()];
+      fieldWidths = new int[schema.size()];
+      for (int i = 0; i < schema.size(); i++ ) {
+        fields[i] = schema.column(i).materializedField();
+        vectors[i] = TypeHelper.getNewVector(fields[i], allocator, callBack);
+        fieldWidths[i] = schema.colWidth();
+      }
+    }
+
+    public int vectorCount() {
+      return vectors.length;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T extends ValueVector> T vector(int i) {
+      return (T) vectors[i];
+    }
+
+    public void allocate() {
+      for (int i = 0; i < vectors.length; i++) {
+        AllocationHelper.allocate(vectors[i], maxRows, fieldWidths[i], 10);
+      }
+    }
+
+    public ColumnMaker columnMaker(int colIndex) {
+      AbstractColumnMaker colMaker = ColumnMakerFactory.newColumnMaker(schema.column(colIndex));
+      colMaker.bind(this, colIndex);
+      return colMaker;
+    }
+
+    public boolean isFull() {
+      return rowCount >= maxRows;
+    }
+
+    public void bindToContainer(VectorContainer container) {
+      container.clear();
+      for (int i = 0; i < vectors.length; i++) {
+        container.add(vectors[i]);
+      }
+      container.buildSchema(SelectionVectorMode.NONE);
+    }
+
+    public int rowIndex() {
+      return rowCount;
+    }
+  }
+
+  public static class DirectRowBatchMakerImpl implements RowBatchMaker {
+
+    private static final int FIX_ME = 1000;
     private RowSetMakerImpl rowSet;
+    private BatchMutator mutator;
+    private DirectRowMakerImpl rowMaker;
+    private int rowCount;
+    private int targetCount;
 
-    public BufferedBatchMakerImpl(RowSetMakerImpl rowSet) {
+    public DirectRowBatchMakerImpl(RowSetMakerImpl rowSet) {
       this.rowSet = rowSet;
+      mutator = new BatchMutator(rowSchema(), rowSet.allocator(), FIX_ME);
+      rowMaker = new DirectRowMakerImpl(this);
+    }
+
+    protected BatchMutator mutator() {
+      return mutator;
+    }
+
+    @Override
+    public RowSchema rowSchema() {
+      return rowSet.rowSchema();
     }
 
     @Override
     public RowMaker row() {
-      return new BufferedRowMakerImpl(this);
+      return rowMaker;
     }
 
     @Override
     public int rowCount() {
-      return rows.size();
+      return rowCount;
     }
 
     @Override
     public boolean full() {
-      // TODO Auto-generated method stub
-      return false;
+      return rowCount >= targetCount;
     }
 
     @Override
@@ -213,15 +474,6 @@ public class ResultSetMakerImpl implements ResultSetMaker {
       // TODO Auto-generated method stub
       return null;
     }
-
-    @Override
-    public RowSchema rowSchema() {
-      return rowSet.rowSchema();
-    }
-
-  }
-
-  public static class DirectRowBatchMakerImpl implements RowBatchMaker {
 
   }
   public static class RowSetMakerImpl implements RowSetMaker {
