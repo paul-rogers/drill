@@ -341,7 +341,7 @@ public class TestExternalSortRM extends DrillTest {
       String plan = client.queryBuilder().sql(sql).explainJson();
       System.out.println(plan);
       QuerySummary summary = client.queryBuilder().sql(sql).run();
-      System.out.println(String.format("Results: %d records, %d batches, %d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
 
       System.out.println("Query ID: " + summary.queryIdString());
       ProfileParser profile = client.parseProfile(summary.queryIdString());

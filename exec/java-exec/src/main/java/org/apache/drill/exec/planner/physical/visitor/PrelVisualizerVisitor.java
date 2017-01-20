@@ -112,8 +112,9 @@ public class PrelVisualizerVisitor
 
   }
 
-  public static void print(Prel prel) {
-    System.out.println( visualize( prel ) );
+  public static void print(String label, Prel prel) {
+    System.out.println(label);
+    System.out.println(visualize(prel));
   }
 
   public static String visualize(Prel prel) {
