@@ -155,6 +155,8 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
       return IterOutcome.OUT_OF_MEMORY;
     }
 
+    logger.debug("Operator id: {}, incoming record count = {}, incoming schema: {} ", this.stats.getOperatorId(), incomingRecordCount, incoming.getSchema());
+
     // we call this in setupSchema, but we also need to call it here so we have a reference to the appropriate vector
     // inside of the the flattener for the current batch
     setFlattenVector();
@@ -181,13 +183,17 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
       container.buildSchema(SelectionVectorMode.NONE);
     }
 
+    logger.debug("Operator id: {}, output record count = {}, output schema: {} ", this.stats.getOperatorId(), outputRecords, container.getSchema());
+
     // Checks that all previous batches were empty and at the first not empty batch sets schemaChanged to true.
     if (outputRecords != 0) {
       if (wasEmpty) {
+        logger.debug("Operator id: {}, previous batches were empty; setting schemaChanged to true", this.stats.getOperatorId());
         callBack.doWork();
       }
       wasEmpty = false;
     }
+
     return IterOutcome.OK;
   }
 

@@ -293,4 +293,8 @@ public class OperatorStats {
     return processingNanos;
   }
 
+  public int getOperatorId() {
+    return operatorId;
+  }
+
 }
