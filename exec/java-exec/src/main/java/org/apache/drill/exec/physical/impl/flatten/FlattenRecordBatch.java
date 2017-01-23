@@ -68,6 +68,7 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
   private boolean hasRemainder = false;
   private int remainderIndex = 0;
   private int recordCount;
+  private boolean wasEmpty = true;
 
   private final Flattener.Monitor monitor = new Flattener.Monitor() {
     @Override
@@ -180,6 +181,13 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
       container.buildSchema(SelectionVectorMode.NONE);
     }
 
+    // Checks that all previous batches were empty and at the first not empty batch sets schemaChanged to true.
+    if (outputRecords != 0) {
+      if (wasEmpty) {
+        callBack.doWork();
+      }
+      wasEmpty = false;
+    }
     return IterOutcome.OK;
   }
 
