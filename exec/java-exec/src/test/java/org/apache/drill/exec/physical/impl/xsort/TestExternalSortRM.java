@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.xsort;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
@@ -30,6 +31,7 @@ import org.apache.drill.exec.memory.BaseAllocator;
 import org.apache.drill.exec.physical.impl.xsort.LogAnalyzer.EventAnalyzer;
 import org.apache.drill.exec.physical.impl.xsort.LogAnalyzer.SortStats;
 import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
+import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.test.ClientFixture;
 import org.apache.drill.test.ClusterFixture;
@@ -331,6 +333,7 @@ public class TestExternalSortRM extends DrillTest {
         .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
         .maxParallelization(1)
         .withLocalZk()
+        .sessionOption(ExecConstants.SLICE_TARGET, 1000);
         ;
     try (LogFixture logs = logBuilder.build();
          ClusterFixture cluster = builder.build();
@@ -352,6 +355,101 @@ public class TestExternalSortRM extends DrillTest {
       long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
       System.out.println(String.format("Spills: %d, merge/spills: %d", spillCount, mergeCount));
     }
+  }
+
+  public static void main(String args[]) {
+    try {
+      new TestExternalSortRM().dumpProfile();
+    } catch (Exception e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+  }
+
+  @Test
+  public void testMD1322() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger(ExternalSortBatch.class, Level.DEBUG)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        .configProperty(ExecConstants.EXTERNAL_SORT_MAX_MEMORY, "3G")
+        .maxParallelization(1)
+        .sessionOption(ExecConstants.SLICE_TARGET, 1000)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        ;
+    try (LogFixture logs = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      String sql = "SELECT * FROM (SELECT * FROM `mock`.`xsort/MD1322a.json` ORDER BY col) d WHERE d.col <> 'bogus'";
+      String plan = client.queryBuilder().sql(sql).explainJson();
+      System.out.println(plan);
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
+      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+
+      System.out.println("Query ID: " + summary.queryIdString());
+      ProfileParser profile = client.parseProfile(summary.queryIdString());
+      List<OpInfo> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
+      assertEquals(1, ops.size());
+      OpInfo sort = ops.get(0);
+      long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
+      long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
+      long inputBatches = sort.getMetric(ExternalSortBatch.Metric.INPUT_BATCHES.ordinal());
+      System.out.println(String.format("Input batches: %d, spills: %d, merge/spills: %d",
+          inputBatches, spillCount, mergeCount));
+      profile.print();
+    }
+  }
+
+  @Test
+  public void testMD1322b() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger(ExternalSortBatch.class, Level.TRACE)
+        .logger(org.apache.drill.exec.physical.impl.xsort.ExternalSortBatch.class, Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        .configProperty(ExecConstants.EXTERNAL_SORT_MAX_MEMORY, "3G")
+        .maxParallelization(1)
+//        .sessionOption(ExecConstants.SLICE_TARGET, 1000)
+//        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, true)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+//        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
+        .sessionOption(ExecConstants.MAX_WIDTH_PER_NODE_KEY, 1)
+        ;
+    try (LogFixture logs = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+//      String sql = "SELECT * FROM (SELECT * FROM `mock`.`xsort/MD1322a.json` ORDER BY col) d WHERE d.col <> 'bogus'";
+      String sql = "select * from (select * from `dfs.data`.`descending-col-length-8k.tbl` order by columns[0])d where d.columns[0] <> 'ljdfhwuehnoiueyf'";
+//      String plan = client.queryBuilder().sql(sql).explainJson();
+//      System.out.println(plan);
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
+      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+
+      System.out.println("Query ID: " + summary.queryIdString());
+      ProfileParser profile = client.parseProfile(summary.queryIdString());
+      List<OpInfo> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
+      assertEquals(1, ops.size());
+      OpInfo sort = ops.get(0);
+      long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
+      long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
+      long inputBatches = sort.getMetric(ExternalSortBatch.Metric.INPUT_BATCHES.ordinal());
+      System.out.println(String.format("Input batches: %d, spills: %d, merge/spills: %d",
+          inputBatches, spillCount, mergeCount));
+      profile.print();
+    }
+  }
+
+  public void dumpProfile() throws IOException {
+    String profileName = "2782bf6a-3269-9c23-9109-e43b863cce82.sys.drill.txt";
+    File dir = new File("/Users/paulrogers/Downloads/");
+    File file = new File( dir, profileName );
+    ProfileParser profile = new ProfileParser(file);
+    profile.print();
   }
 
   private void performSort(ClientFixture client) throws IOException {

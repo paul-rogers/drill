@@ -737,8 +737,19 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     spillFileSize = config.getBytes(ExecConstants.EXTERNAL_SORT_SPILL_FILE_SIZE);
 
-    logger.trace("Config: memory limit = {}, batch limit = {}, min, max spill limit: {}, {}, merge limit = {}",
-                  memoryLimit, bufferedBatchLimit, minSpillLimit, maxSpillLimit, mergeLimit);
+    // Set the target output batch size. Use the maximum size, but only if
+    // this represents less than 10% of available memory. Otherwise, use 10%
+    // of memory, but no smaller than the minimum size. In any event, an
+    // output batch can contain no fewer than a single record.
+
+    long maxAllowance = (long) (memoryLimit * MERGE_BATCH_ALLOWANCE);
+    preferredMergeBatchSize = Math.min(maxAllowance, MAX_MERGED_BATCH_SIZE);
+    preferredMergeBatchSize = Math.max(preferredMergeBatchSize, MIN_MERGED_BATCH_SIZE);
+
+    logger.debug("Config: memory limit = {}, batch limit = {}, " +
+                 "min, max spill limit: {}, {}, merge limit = {}, merge batch size = {}",
+                  memoryLimit, bufferedBatchLimit, minSpillLimit, maxSpillLimit, mergeLimit,
+                  preferredMergeBatchSize);
   }
 
   private int getConfigLimit(DrillConfig config, String paramName, int valueIfZero, int minValue) {
@@ -1058,11 +1069,11 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     // Anything to actually sort?
 
-    if (totalRecordCount == 0) {
+    if (inputRecordCount == 0) {
       sortState = SortState.DONE;
       return IterOutcome.NONE;
     }
-    logger.trace("Completed load phase: read {} batches", totalBatches);
+    logger.trace("Completed load phase: read {} batches", inputBatchCount);
 
     // Do the merge of the loaded batches. The merge can be done entirely in memory if
     // the results fit; else we have to do a disk-based merge of
@@ -2031,6 +2042,64 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
         return true;
       }
     }
+
+//    // Anything to merge?
+//
+//    if (spilledRunsCount <= maxMergeWidth) {
+//      return false;
+//    }
+
+//    // Anything in memory to spill?
+//
+//    if (inMemCount > 0) {
+//
+//      int mergeCount = Math.min(spilledRunsCount, mergeLimit);
+//
+//      // Spill if the total runs is more than we can merge in one go.
+//
+//      int excessRunCount = spilledRunsCount + inMemCount - mergeLimit;
+//
+//      // Spill if we need more memory.
+//
+//      long allocMem = allocator.getAllocatedMemory();
+//      long freeMemory = mergeMemoryPool - allocMem;
+//
+//      // Amount of memory needed to read the maximum spilled runs
+//      // (with a fudge factor of 1.)
+//
+//      long readMemory = (mergeCount + 1) * estimatedOutputBatchSize;
+//
+//      // Amount of memory needed beyond what we have.
+//
+//      long deficit = readMemory - freeMemory;
+//
+//      // Spill in-memory batches to make room? If we do, we'll have
+//      // one more run to read, so anticipate that need.
+//
+//      int memSpillCount = 0;
+//      if (deficit > 0) {
+//        deficit += estimatedOutputBatchSize;
+//        memSpillCount = (int) (deficit / estimatedInputBatchSize) + 2;
+//        excessRunCount -= memSpillCount + 1;
+//      }
+//
+//      // Spill the larger of the two needs.
+//
+//      memSpillCount = Math.max(memSpillCount, excessRunCount);
+//
+//      // Can't spill any more than we actually have.
+//
+//      memSpillCount = Math.min(inMemCount, memSpillCount);
+//
+//      // Do the spill if needed. This may further limit the spill
+//      // size to the maximum file size, causing us to loop back
+//      // through here to spill more.
+//
+//      if (memSpillCount > 0) {
+//        spillFromMemory();
+//        return true;
+//      }
+//    }
 
     // Merge on-disk batches if we have too many.
 

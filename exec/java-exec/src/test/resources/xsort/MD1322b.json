@@ -1,0 +1,9 @@
+{
+    descrip: "MD-1322 - adjusted to get a 18GB data set",
+    entries:[
+        {records: 4718592, extended: true, types: [
+          {name: "col", type: "VARCHAR", mode: "REQUIRED", width: 8000,
+           generator: "VaryingStringGen", properties: {span: 65536, delta: -113}}
+        ]}
+     ]
+}
