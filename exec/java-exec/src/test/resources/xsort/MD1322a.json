@@ -1,0 +1,9 @@
+{
+    descrip: "MD-1322 - as described in bug",
+    entries:[
+        {records: 1179648, extended: true, types: [
+          {name: "col", type: "VARCHAR", mode: "REQUIRED", width: 8000,
+           generator: "VaryingStringGen", properties: {span: 65536, delta: -450}}
+        ]}
+     ]
+}

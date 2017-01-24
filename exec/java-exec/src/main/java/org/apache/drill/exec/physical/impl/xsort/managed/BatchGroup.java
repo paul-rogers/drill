@@ -157,6 +157,7 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
 
     public void addBatch(VectorContainer newContainer) throws IOException {
       int recordCount = newContainer.getRecordCount();
+      @SuppressWarnings("resource")
       WritableBatch batch = WritableBatch.getBatchNoHVWrap(recordCount, newContainer, false);
       VectorAccessibleSerializable outputBatch = new VectorAccessibleSerializable(batch, allocator);
       Stopwatch watch = Stopwatch.createStarted();
@@ -182,9 +183,11 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
           currentContainer.zeroVectors();
           getBatch();
         } catch (IOException e) {
+          // Release any partially-loaded data.
+          currentContainer.clear();
           throw UserException.dataReadError(e)
-          .message("Failure while reading spilled data")
-          .build(logger);
+              .message("Failure while reading spilled data")
+              .build(logger);
         }
         pointer = 1;
         return 0;
@@ -196,9 +199,11 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
       if (inputStream == null) {
         inputStream = spillSet.openForInput(path);
       }
+      System.out.println( "getBatch() start: " + allocator.getAllocatedMemory()); // Debug only
       VectorAccessibleSerializable vas = new VectorAccessibleSerializable(allocator);
       Stopwatch watch = Stopwatch.createStarted();
       vas.readFromStream(inputStream);
+      System.out.println( "Batch group after read: " + allocator.getAllocatedMemory()); // Debug only
       VectorContainer c =  vas.get();
       if (schema != null) {
         c = SchemaUtil.coerceContainer(c, schema, context);

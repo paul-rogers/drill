@@ -110,6 +110,7 @@ public class CopierHolder {
     // allocator provided
 
     for (VectorWrapper<?> i : batch) {
+      @SuppressWarnings("resource")
       ValueVector v = TypeHelper.getNewVector(i.getField(), allocator);
       outputContainer.add(v);
     }
@@ -121,6 +122,8 @@ public class CopierHolder {
             .build(logger);
     }
   }
+
+  public BufferAllocator getAllocator() { return allocator; }
 
   public void close() {
     opCodeGen.closeCopier();
@@ -218,9 +221,9 @@ public class CopierHolder {
       copyCount += count;
       if (count > 0) {
         long t = w.elapsed(TimeUnit.MICROSECONDS);
-        logger.debug("Took {} us to merge {} records", t, count);
+        logger.trace("Took {} us to merge {} records", t, count);
       } else {
-        logger.debug("copier returned 0 records");
+        logger.trace("copier returned 0 records");
       }
       batchCount++;
 
@@ -261,6 +264,7 @@ public class CopierHolder {
         ValueVector[] vectors = new ValueVector[batchGroupList.size()];
         int i = 0;
         for (BatchGroup group : batchGroupList) {
+          System.out.println( "Batch group " + i + ": " + holder.getAllocator().getAllocatedMemory()); // Debug only
           vectors[i++] = group.getValueAccessorById(
               field.getValueClass(),
               group.getValueVectorId(SchemaPath.getSimplePath(field.getPath())).getFieldIds())

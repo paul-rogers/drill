@@ -519,9 +519,9 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
      * If two fragments are both estimated to be parallelization one, remove the exchange
      * separating them
      */
-    PrelVisualizerVisitor.print("Before EER", phyRelNode); // Debug only
+//    PrelVisualizerVisitor.print("Before EER", phyRelNode); // Debug only
     phyRelNode = ExcessiveExchangeIdentifier.removeExcessiveEchanges(phyRelNode, targetSliceSize);
-    PrelVisualizerVisitor.print("After EER", phyRelNode); // Debug only
+//    PrelVisualizerVisitor.print("After EER", phyRelNode); // Debug only
 
     /* 4.)
      * Add ProducerConsumer after each scan if the option is set
@@ -548,7 +548,7 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
      * Insert LocalExchange (mux and/or demux) nodes
      */
     phyRelNode = InsertLocalExchangeVisitor.insertLocalExchanges(phyRelNode, queryOptions);
-    PrelVisualizerVisitor.print("After Mux/Demux", phyRelNode); // Debug only
+//    PrelVisualizerVisitor.print("After Mux/Demux", phyRelNode); // Debug only
 
 
     /* 7.)
