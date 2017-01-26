@@ -90,15 +90,19 @@ public class MockGroupScanPOP extends AbstractGroupScan {
     for (MockScanEntry entry : readEntries) {
       rowCount += entry.getRecords();
       int width = 0;
-      for (MockColumn col : entry.getTypes()) {
-        int colWidth = 0;
-        if ( col.getWidth() == 0 ) {
-          colWidth = TypeHelper.getSize(col.getMajorType());
-        } else {
-          colWidth = col.getWidth();
+      if (entry.getTypes() == null ) {
+        width = 50;
+      } else {
+        for (MockColumn col : entry.getTypes()) {
+          int colWidth = 0;
+          if ( col.getWidth() == 0 ) {
+            colWidth = TypeHelper.getSize(col.getMajorType());
+          } else {
+            colWidth = col.getWidth();
+          }
+          colWidth *= col.getRepeatCount();
+          width += colWidth;
         }
-        colWidth *= col.getRepeatCount();
-        width += colWidth;
       }
       rowWidth = Math.max(rowWidth, width);
     }

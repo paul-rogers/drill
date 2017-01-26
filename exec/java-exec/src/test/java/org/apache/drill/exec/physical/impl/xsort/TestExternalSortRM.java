@@ -359,7 +359,7 @@ public class TestExternalSortRM extends DrillTest {
 
   public static void main(String args[]) {
     try {
-      new TestExternalSortRM().dumpProfile();
+      new TestExternalSortRM().testMD1322a();
     } catch (Exception e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
@@ -399,6 +399,42 @@ public class TestExternalSortRM extends DrillTest {
       System.out.println(String.format("Input batches: %d, spills: %d, merge/spills: %d",
           inputBatches, spillCount, mergeCount));
       profile.print();
+    }
+  }
+
+  @Test
+  public void testMD1322a() throws Exception {
+//    LogFixtureBuilder logBuilder = LogFixture.builder()
+//        .toConsole()
+//        .logger(ExternalSortBatch.class, Level.DEBUG)
+//        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        .configProperty(ExecConstants.EXTERNAL_SORT_MAX_MEMORY, "3G")
+        .maxParallelization(1)
+//        .sessionOption(ExecConstants.SLICE_TARGET, 1000)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        ;
+    try (/*LogFixture logs = logBuilder.build(); */
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      String sql = "SELECT key_s250 FROM `mock`.`table_43M` ORDER BY key_s250";
+      String plan = client.queryBuilder().sql(sql).explainJson();
+      System.out.println(plan);
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
+      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+
+//      System.out.println("Query ID: " + summary.queryIdString());
+//      ProfileParser profile = client.parseProfile(summary.queryIdString());
+//      List<OpInfo> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
+//      assertEquals(1, ops.size());
+//      OpInfo sort = ops.get(0);
+//      long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
+//      long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
+//      long inputBatches = sort.getMetric(ExternalSortBatch.Metric.INPUT_BATCHES.ordinal());
+//      System.out.println(String.format("Input batches: %d, spills: %d, merge/spills: %d",
+//          inputBatches, spillCount, mergeCount));
+//      profile.print();
     }
   }
 
