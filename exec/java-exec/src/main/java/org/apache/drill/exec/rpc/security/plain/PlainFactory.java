@@ -59,6 +59,7 @@ public class PlainFactory implements AuthenticatorFactory {
   @Override
   public UserGroupInformation createAndLoginUser(Map<String, ?> properties) throws IOException {
     final Configuration conf = new Configuration();
+    conf.set("hadoop.login", "simple");
     UserGroupInformation.setConfiguration(conf);
     try {
       return UserGroupInformation.getCurrentUser();

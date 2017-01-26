@@ -41,5 +41,6 @@
     <module>sqlline</module>
     <module>data</module>
     <module>gis</module>
+    <module>auth-mechanism-maprsasl</module>
   </modules>
 </project>
