@@ -40,7 +40,7 @@ import org.apache.drill.test.FixtureBuilder;
 import org.apache.drill.test.LogFixture;
 import org.apache.drill.test.LogFixture.LogFixtureBuilder;
 import org.apache.drill.test.ProfileParser;
-import org.apache.drill.test.ProfileParser.OpInfo;
+import org.apache.drill.test.ProfileParser.OperatorProfile;
 import org.apache.drill.test.QueryBuilder.QuerySummary;
 import org.junit.Test;
 import org.slf4j.LoggerFactory;
@@ -348,9 +348,9 @@ public class TestExternalSortRM extends DrillTest {
 
       System.out.println("Query ID: " + summary.queryIdString());
       ProfileParser profile = client.parseProfile(summary.queryIdString());
-      List<OpInfo> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
+      List<OperatorProfile> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
       assertEquals(1, ops.size());
-      OpInfo sort = ops.get(0);
+      OperatorProfile sort = ops.get(0);
       long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
       long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
       System.out.println(String.format("Spills: %d, merge/spills: %d", spillCount, mergeCount));
@@ -359,7 +359,7 @@ public class TestExternalSortRM extends DrillTest {
 
   public static void main(String args[]) {
     try {
-      new TestExternalSortRM().testMD1322a();
+      new TestExternalSortRM().dumpProfile2();
     } catch (Exception e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
@@ -390,9 +390,9 @@ public class TestExternalSortRM extends DrillTest {
 
       System.out.println("Query ID: " + summary.queryIdString());
       ProfileParser profile = client.parseProfile(summary.queryIdString());
-      List<OpInfo> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
+      List<OperatorProfile> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
       assertEquals(1, ops.size());
-      OpInfo sort = ops.get(0);
+      OperatorProfile sort = ops.get(0);
       long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
       long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
       long inputBatches = sort.getMetric(ExternalSortBatch.Metric.INPUT_BATCHES.ordinal());
@@ -468,9 +468,9 @@ public class TestExternalSortRM extends DrillTest {
 
       System.out.println("Query ID: " + summary.queryIdString());
       ProfileParser profile = client.parseProfile(summary.queryIdString());
-      List<OpInfo> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
+      List<OperatorProfile> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
       assertEquals(1, ops.size());
-      OpInfo sort = ops.get(0);
+      OperatorProfile sort = ops.get(0);
       long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
       long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
       long inputBatches = sort.getMetric(ExternalSortBatch.Metric.INPUT_BATCHES.ordinal());
@@ -486,6 +486,15 @@ public class TestExternalSortRM extends DrillTest {
     File file = new File( dir, profileName );
     ProfileParser profile = new ProfileParser(file);
     profile.print();
+  }
+
+  public void dumpProfile2() throws IOException {
+    String profileName = "2776bc68-888f-ce1c-0605-2d805df64626.sys.drill";
+    File dir = new File("/Users/paulrogers/Downloads/case_oom_jan_25/");
+    File file = new File( dir, profileName );
+    ProfileParser profile = new ProfileParser(file);
+    profile.printPlan();
+//    profile.print();
   }
 
   private void performSort(ClientFixture client) throws IOException {

@@ -42,7 +42,7 @@ import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.FixtureBuilder;
 import org.apache.drill.test.ProfileParser;
-import org.apache.drill.test.ProfileParser.OpInfo;
+import org.apache.drill.test.ProfileParser.OperatorProfile;
 import org.apache.drill.test.QueryBuilder.QuerySummary;
 import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
 import org.junit.AfterClass;
@@ -178,9 +178,9 @@ public class TestManagedExternalSort extends DrillTest {
     // Use the profile to verify that spilling occurred.
 
     ProfileParser profile = client.parseProfile(verifier.queryId());
-    List<OpInfo> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
+    List<OperatorProfile> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
     assertEquals(1, ops.size());
-    OpInfo sort = ops.get(0);
+    OperatorProfile sort = ops.get(0);
     long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
     long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
     System.out.println(String.format("Spills: %d, merge/spills: %d", spillCount, mergeCount));
