@@ -22,6 +22,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -49,7 +50,9 @@ public class ProfileParser {
   JsonObject profile;
   String query;
   List<String> plans;
+  List<OpDefInfo> operations;
   Map<Integer,FragInfo> fragments = new HashMap<>();
+  private List<OpDefInfo> topoOrder;
 
   public ProfileParser( File file ) throws IOException {
     try (FileReader fileReader = new FileReader(file);
@@ -63,11 +66,12 @@ public class ProfileParser {
   private void parse() {
     parseQuery();
     parsePlans();
+    buildFrags();
     parseFragProfiles();
     mapOpProfiles();
     aggregateOpers();
-    determineLocalLevels();
-    determineBranches();
+//    determineLocalLevels();
+    buildTree();
   }
 
   private void parseQuery() {
@@ -75,40 +79,116 @@ public class ProfileParser {
     query = query.replace("//n", "\n");
   }
 
-  private void parsePlans() {
-    String plan = getPlan( );
-    plans = new ArrayList<>( );
-    String parts[] = plan.split("\n");
-    for (String part : parts) {
-      plans.add(part);
-      parsePlanOp(part);
+  private static class PlanParser {
+
+    List<String> plans = new ArrayList<>();
+    List<OpDefInfo> operations = new ArrayList<>();
+    List<OpDefInfo> sorted = new ArrayList<>();
+
+    public void parsePlans(String plan) {
+      plans = new ArrayList<>( );
+      String parts[] = plan.split("\n");
+      for (String part : parts) {
+        plans.add(part);
+        OpDefInfo opDef = new OpDefInfo( part );
+        operations.add(opDef);
+      }
+//      System.out.println( "Original" );
+//      for ( OpDefInfo op : operations ) {
+//        System.out.println( op );
+//      }
+      sortList();
+//      System.out.println( "Sorted" );
+//      for ( OpDefInfo op : sorted ) {
+//        System.out.println( op );
+//      }
+    }
+
+    public void sortList() {
+      List<OpDefInfo> raw = new ArrayList<>( );
+      raw.addAll( operations );
+      Collections.sort( raw, new Comparator<OpDefInfo>() {
+        @Override
+        public int compare(OpDefInfo o1, OpDefInfo o2) {
+          int result = Integer.compare(o1.majorId, o2.majorId);
+          if ( result == 0 )
+            result = Integer.compare(o1.stepId, o2.stepId);
+          return result;
+        }
+      });
+      int currentFrag = 0;
+      int currentStep = 0;
+      for ( OpDefInfo opDef : raw ) {
+        if ( currentFrag < opDef.majorId ) {
+          currentFrag++;
+          OpDefInfo sender = new OpDefInfo( currentFrag, 0 );
+          sender.isInferred = true;
+          sender.name = "Sender";
+          sorted.add(sender);
+  //        System.out.println( sender );
+          currentStep = 1;
+          opDef.inferredParent = sender;
+          sender.children.add( opDef );
+        }
+        if ( opDef.stepId > currentStep ) {
+          OpDefInfo unknown = new OpDefInfo( currentFrag, currentStep );
+          unknown.isInferred = true;
+          unknown.name = "Unknown";
+          sorted.add(unknown);
+  //        System.out.println( unknown );
+          opDef.inferredParent = unknown;
+          unknown.children.add( opDef );
+        }
+        sorted.add( opDef );
+        currentStep = opDef.stepId + 1;
+      }
     }
   }
 
-  private void parsePlanOp(String plan) {
-    OpDefInfo opDef = new OpDefInfo( plan );
-    FragInfo major = fragments.get(opDef.majorId);
-    if (major == null) {
-      major = new FragInfo(opDef.majorId);
-      fragments.put(opDef.majorId, major);
-      if (opDef.majorId > 0) {
-        assert opDef.stepId == 1;
-        OpDefInfo sender = new OpDefInfo( major.id, 0 );
-        sender.isInferred = true;
-        sender.name = "Sender";
-        major.ops.add(sender);
-//        System.out.println( "Parse Plan: " + sender );
+  private void parsePlans() {
+    PlanParser parser = new PlanParser();
+    String plan = getPlan( );
+    parser.parsePlans(plan);
+    plans = parser.plans;
+    topoOrder = parser.operations;
+    operations = parser.sorted;
+  }
+
+//  private void parsePlanOp(String plan) {
+//    OpDefInfo opDef = new OpDefInfo( plan );
+//    FragInfo major = fragments.get(opDef.majorId);
+//    if (major == null) {
+//      major = new FragInfo(opDef.majorId);
+//      fragments.put(opDef.majorId, major);
+//      if (opDef.majorId > 0) {
+//        assert opDef.stepId == 1;
+//        OpDefInfo sender = new OpDefInfo( major.id, 0 );
+//        sender.isInferred = true;
+//        sender.name = "Sender";
+//        major.ops.add(sender);
+////        System.out.println( "Parse Plan: " + sender );
+//      }
+//    }
+//    if ( opDef.stepId > major.ops.size() ) {
+//      OpDefInfo unknown = new OpDefInfo( major.id, major.ops.size() );
+//      unknown.isInferred = true;
+//      unknown.name = "Unknown";
+//      major.ops.add(unknown);
+//    }
+//    assert opDef.stepId == major.ops.size();
+//    major.ops.add(opDef);
+////    System.out.println( "Parse Plan: " + opDef );
+//  }
+
+  private void buildFrags() {
+    for (OpDefInfo opDef : operations) {
+      FragInfo major = fragments.get(opDef.majorId);
+      if (major == null) {
+        major = new FragInfo(opDef.majorId);
+        fragments.put(opDef.majorId, major);
       }
+      major.ops.add(opDef);
     }
-    if ( opDef.stepId > major.ops.size() ) {
-      OpDefInfo unknown = new OpDefInfo( major.id, major.ops.size() );
-      unknown.isInferred = true;
-      unknown.name = "Unknown";
-      major.ops.add(unknown);
-    }
-    assert opDef.stepId == major.ops.size();
-    major.ops.add(opDef);
-//    System.out.println( "Parse Plan: " + opDef );
   }
 
   private static List<FieldDef> parseCols(String cols) {
@@ -133,22 +213,7 @@ public class ProfileParser {
   private void mapOpProfiles() {
     for (FragInfo major : fragments.values()) {
       for (MinorFragInfo minor : major.minors) {
-        for (OperatorProfile op : minor.ops) {
-          OpDefInfo opDef = major.ops.get(op.opId);
-          if ( opDef == null ) {
-            System.out.println( "Can't find operator def: " + major.id + "-" + op.opId);
-            continue;
-          }
-          op.opName = CoreOperatorType.valueOf(op.type).name();
-          op.opName = op.opName.replace("_", " ");
-          op.name = opDef.name;
-          if (op.name.equalsIgnoreCase(op.opName)) {
-            op.opName = null;
-          }
-          op.defn = opDef;
-          opDef.opName = op.opName;
-          opDef.opExecs.add(op);
-        }
+        minor.mapOpProfiles(major);
       }
     }
   }
@@ -159,7 +224,7 @@ public class ProfileParser {
         for ( OperatorProfile op : opDef.opExecs) {
           Preconditions.checkState( major.id == op.majorFragId );
           Preconditions.checkState( opDef.stepId == op.opId );
-          System.out.println( major.id + "-" + opDef.stepId + "-" + op.minorFragId + " = " + op.records );
+//          System.out.println( major.id + "-" + opDef.stepId + "-" + op.minorFragId + " = " + op.records );
           opDef.actualRows += op.records;
           opDef.actualBatches += op.batches;
           opDef.actualMemory += op.peakMem * 1024 * 1024;
@@ -168,56 +233,66 @@ public class ProfileParser {
     }
   }
 
-  private void determineLocalLevels() {
-    for (FragInfo major : fragments.values()) {
-      OpDefInfo base = major.ops.get(0);
-      int bias = 0;
-      if (base.isInferred) {
-        base = major.ops.get(1);
-        bias = 1;
-      }
-      major.baseLevel = base.globalLevel;
-      for (OpDefInfo opDef : major.ops) {
-        if (opDef.isInferred) {
-          opDef.localLevel = 0;
-        } else {
-          opDef.localLevel = opDef.globalLevel - major.baseLevel + bias;
+  public void buildTree() {
+//    int branchId = 0;
+    int currentLevel = 0;
+    OpDefInfo opStack[] = new OpDefInfo[topoOrder.size()];
+    for (OpDefInfo opDef : topoOrder) {
+//      if (opDef.globalLevel < currentLevel) {
+//        OpDefInfo sibling = opStack[opDef.globalLevel];
+//        if (! sibling.isBranchRoot) {
+//          sibling.isBranchRoot = true;
+//          sibling.branchId = ++branchId;
+//        }
+//        opDef.isBranchRoot = true;
+//        opDef.branchId = ++branchId;
+//      } else {
+//        opDef.branchId = branchId;
+//      }
+      currentLevel = opDef.globalLevel;
+      opStack[currentLevel] = opDef;
+      if ( opDef.inferredParent == null ) {
+        if (currentLevel > 0) {
+          opStack[currentLevel-1].children.add(opDef);
         }
-//        System.out.println( opDef + " " + opDef.localLevel + ", " + opDef.globalLevel );
+      } else {
+        opStack[currentLevel-1].children.add(opDef.inferredParent);
       }
     }
+//    topoOrder.get(0).printTree("");
   }
 
-  private void determineBranches() {
-    for (FragInfo major : fragments.values()) {
-      int branchId = 0;
-      int currentLevel = 0;
-      OpDefInfo opStack[] = new OpDefInfo[major.ops.size()];
-      for (OpDefInfo opDef : major.ops) {
-        if (opDef.isInferred && currentLevel > 0 ) {
-          opStack[currentLevel - 1].children.add(opDef);
-          continue;
-        }
-        if (opDef.localLevel < currentLevel) {
-          OpDefInfo sibling = opStack[opDef.localLevel];
-          if (! sibling.isBranchRoot) {
-            sibling.isBranchRoot = true;
-            sibling.branchId = ++branchId;
-          }
-          opDef.isBranchRoot = true;
-          opDef.branchId = ++branchId;
-        } else {
-          opDef.branchId = branchId;
-        }
-        currentLevel = opDef.localLevel;
-        opStack[currentLevel] = opDef;
-        if (currentLevel > 0) {
-          opStack[currentLevel - 1].children.add(opDef);
-        }
-      }
-//      major.ops.get(0).printTree( "" );
-    }
-  }
+
+//  private void determineBranches() {
+//    for (FragInfo major : fragments.values()) {
+//      int branchId = 0;
+//      int currentLevel = 0;
+//      OpDefInfo opStack[] = new OpDefInfo[major.ops.size()];
+//      for (OpDefInfo opDef : major.ops) {
+//        if (opDef.isInferred && currentLevel > 0 ) {
+//          opStack[currentLevel - 1].children.add(opDef);
+//          continue;
+//        }
+//        if (opDef.localLevel < currentLevel) {
+//          OpDefInfo sibling = opStack[opDef.localLevel];
+//          if (! sibling.isBranchRoot) {
+//            sibling.isBranchRoot = true;
+//            sibling.branchId = ++branchId;
+//          }
+//          opDef.isBranchRoot = true;
+//          opDef.branchId = ++branchId;
+//        } else {
+//          opDef.branchId = branchId;
+//        }
+//        currentLevel = opDef.localLevel;
+//        opStack[currentLevel] = opDef;
+//        if (currentLevel > 0) {
+//          opStack[currentLevel - 1].children.add(opDef);
+//        }
+//      }
+////      major.ops.get(0).printTree( "" );
+//    }
+//  }
 
   public String getQuery( ) {
     return profile.getString("query");
@@ -289,6 +364,10 @@ public class ProfileParser {
       this.id = majorId;
     }
 
+    public OpDefInfo getRootOperator() {
+      return ops.get(0);
+    }
+
     public void parse(JsonObject fragProfile) {
       JsonArray minorList = fragProfile.getJsonArray("minorFragmentProfile");
       for ( JsonObject minorProfile : minorList.getValuesAs(JsonObject.class) ) {
@@ -308,6 +387,26 @@ public class ProfileParser {
       JsonArray opList = minorProfile.getJsonArray("operatorProfile");
       for ( JsonObject opProfile : opList.getValuesAs(JsonObject.class)) {
         ops.add( new OperatorProfile( majorId, id, opProfile) );
+      }
+    }
+
+    public void mapOpProfiles(FragInfo major) {
+      for (OperatorProfile op : ops) {
+        OpDefInfo opDef = major.ops.get(op.opId);
+        if ( opDef == null ) {
+          System.out.println( "Can't find operator def: " + major.id + "-" + op.opId);
+          continue;
+        }
+        op.opName = CoreOperatorType.valueOf(op.type).name();
+//        System.out.println( major.id + "-" + id + "-" + opDef.stepId + " - Def: " + opDef.name + " / Prof: " + op.opName );
+        op.opName = op.opName.replace("_", " ");
+        op.name = opDef.name;
+        if (op.name.equalsIgnoreCase(op.opName)) {
+          op.opName = null;
+        }
+        op.defn = opDef;
+        opDef.opName = op.opName;
+        opDef.opExecs.add(op);
       }
     }
 
@@ -390,6 +489,7 @@ public class ProfileParser {
     public long actualMemory;
     public int actualBatches;
     public long actualRows;
+    public OpDefInfo inferredParent;
     public List<OperatorProfile> opExecs = new ArrayList<>( );
     public List<OpDefInfo> children = new ArrayList<>( );
 
@@ -436,15 +536,21 @@ public class ProfileParser {
     }
 
     public void printTree(String indent) {
-      System.out.print( indent );
-      System.out.println( toString() );
-      String childIndent = indent;
-      if (children.size() > 1) {
-        childIndent = childIndent + "  ";
-      }
-      for (OpDefInfo child : children) {
-        child.printTree(childIndent);
-      }
+      new TreePrinter().visit(this);
+//      System.out.print( indent );
+//      System.out.println( toString() );
+//      if (children.isEmpty()) {
+//        return;
+//      }
+//      if ( children.size() == 1) {
+//        children.get(0).printTree(indent);
+//        return;
+//      }
+//      String childIndent = indent + "  ";
+//      for (OpDefInfo child : children) {
+//        System.out.println(childIndent + "Subtree");
+//        child.printTree(childIndent + "  ");
+//      }
     }
 
     public OpDefInfo(int major, int id) {
@@ -454,43 +560,109 @@ public class ProfileParser {
 
     @Override
     public String toString() {
-      return "[OpDefInfo " + majorId + "-" + stepId + ": " + name + "]";
+      String head = "[OpDefInfo " + majorId + "-" + stepId + ": " + name;
+      if ( isInferred ) {
+        head += " (" + opName + ")";
+      }
+      return head + "]";
+    }
+  }
+
+  public static class TreeVisitor
+  {
+    public void visit(OpDefInfo root) {
+      visit(root, 0);
+    }
+    public void visit(OpDefInfo node, int indent) {
+      visitOp( node, indent );
+      if (node.children.isEmpty()) {
+        return;
+      }
+      if ( node.children.size() == 1) {
+        visit(node.children.get(0), indent);
+        return;
+      }
+      indent++;
+      int i = 0;
+      for (OpDefInfo child : node.children) {
+        visitSubtree(node, i++, indent);
+        visit(child, indent+1);
+      }
     }
 
-    public void printPlan(String indent, String label) {
-      System.out.print( indent + "Operator " + stepId);
-      if (label != null) {
-        System.out.print( " - " + label);
+    protected void visitOp(OpDefInfo node, int indent) {
+    }
+
+    protected void visitSubtree(OpDefInfo node, int i, int indent) {
+    }
+
+    public String indentString(int indent, String pad) {
+      StringBuilder buf = new StringBuilder();
+      for (int i = 0; i < indent; i++) {
+        buf.append( pad );
       }
-      System.out.print( ": " + name );
-      if (opName != null) {
-        System.out.print( " (" + opName + ")" );
+      return buf.toString();
+    }
+
+    public String indentString(int indent) {
+      return indentString(indent, "  ");
+    }
+
+    public String subtreeLabel(OpDefInfo node, int branch) {
+      if (node.name.equals("HashJoin")) {
+        return (branch == 0) ? "Probe" : "Builder";
+      } else {
+        return "Input " + (branch + 1);
+      }
+    }
+  }
+
+  public static class TreePrinter extends TreeVisitor
+  {
+    @Override
+    protected void visitOp(OpDefInfo node, int indent) {
+      System.out.print( indentString(indent) );
+      System.out.println( node.toString() );
+    }
+
+    @Override
+    protected void visitSubtree(OpDefInfo node, int i, int indent) {
+      System.out.print( indentString(indent) );
+      System.out.println(subtreeLabel(node, i));
+    }
+  }
+
+  public static class CostPrinter extends TreeVisitor
+  {
+    @Override
+    protected void visitOp(OpDefInfo node, int indentLevel) {
+      System.out.print(String.format("%02d-%02d ", node.majorId, node.stepId));
+      String indent = indentString(indentLevel, ". ");
+      System.out.print( indent + node.name );
+      if (node.opName != null) {
+        System.out.print( " (" + node.opName + ")" );
       }
       System.out.println( );
-      System.out.println( indent + "  Estimates" );
-      System.out.println( String.format(indent + "    Rows: %,.0f", estRows ));
-      System.out.println( String.format(indent + "    Memory: %,.0f", estMemoryCost ));
-      System.out.println( indent + "  Actual" );
-      System.out.println( String.format(indent + "    Batches: %,d", actualBatches ));
-      System.out.println( String.format(indent + "    Rows: %,d", actualRows ));
-      System.out.println( String.format(indent + "    Memory: %,d", actualMemory ));
-      if (children.isEmpty())
-        return;
-      if (children.size() == 1) {
-        children.get(0).printPlan(indent, null);
-        return;
-      }
-      String childIndent = indent + "  ";
-      if (name.equals("HashJoin") ) {
-        System.out.println(childIndent + "Probe");
-        children.get(0).printPlan(childIndent + "  ", null);
-        System.out.println(childIndent + "Builder");
-        children.get(1).printPlan(childIndent + "  ", null);
-        return;
-      }
-      for (OpDefInfo child : children) {
-        child.printPlan(childIndent, null);
-      }
+      indent = indentString(15);
+      System.out.print( indent );
+      System.out.println(String.format("  Estimate: %,15.0f rows, %,7.0f MB",
+                         node.estRows, node.estMemoryCost / 1024 / 1024) );
+//      System.out.println( String.format(indent + "    Rows: %,.0f", node.estRows ));
+//      System.out.println( String.format(indent + "    Memory: %,.0f", node.estMemoryCost ));
+      System.out.print( indent );
+      System.out.println(String.format("  Actual:   %,15d rows, %,7d MB",
+                         node.actualRows, node.actualMemory / 1024 / 1024));
+//      System.out.println(String.format("  Actual:   %,15d rows, %,6d MB, %,6d batches",
+//          node.actualRows, node.actualMemory / 1024 / 1024, node.actualBatches));
+//      System.out.println( String.format(indent + "    Batches: %,d", node.actualBatches ));
+//      System.out.println( String.format(indent + "    Rows: %,d", node.actualRows ));
+//      System.out.println( String.format(indent + "    Memory: %,d", node.actualMemory ));
+    }
+
+    @Override
+    protected void visitSubtree(OpDefInfo node, int i, int indent) {
+      System.out.print( indentString(indent) + "      " );
+      System.out.println(subtreeLabel(node, i));
     }
   }
 
@@ -525,15 +697,17 @@ public class ProfileParser {
   }
 
   public void printPlan() {
-    List<Integer> mKeys = new ArrayList<>();
-    mKeys.addAll(fragments.keySet());
-    Collections.sort(mKeys);
-    for (Integer mKey : mKeys) {
-      System.out.println("Fragment: " + mKey);
-      FragInfo frag = fragments.get(mKey);
-      frag.ops.get(0).printPlan( "  ", null );
-    }
+    new CostPrinter().visit( topoOrder.get(0) );
+//    List<Integer> mKeys = new ArrayList<>();
+//    mKeys.addAll(fragments.keySet());
+//    Collections.sort(mKeys);
+//    for (Integer mKey : mKeys) {
+//      System.out.println("Fragment: " + mKey);
+//      FragInfo frag = fragments.get(mKey);
+//      frag.ops.get(0).printPlan( "  ", null );
+//    }
   }
+
   public void print() {
     Map<Integer, OperatorProfile> opInfo = getOpInfo();
     int n = opInfo.size();
