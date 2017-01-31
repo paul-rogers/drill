@@ -284,6 +284,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private long spillPoint;
   private long mergeMemoryPool;
   private long preferredMergeBatchSize;
+  private long bufferMemoryPool;
 
   // WARNING: The enum here is used within this class. But, the members of
   // this enum MUST match those in the (unmanaged) ExternalSortBatch since
@@ -922,9 +923,27 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // before accepting a batch, so we must spill if we don't have room for a
     // (worst case) input batch. To spill, we need room for the output batch created
     // by merging the batches already in memory. Double this to allow for power-of-two
-    // memory allocations, then add one more as a margin of safety.
+    // memory allocations.
 
-    spillPoint = estimatedInputBatchSize + 3 * estimatedOutputBatchSize;
+    spillPoint = estimatedInputBatchSize + 2 * estimatedOutputBatchSize;
+
+    // The merge memory pool assumes we can spill all input batches. To make
+    // progress, we must have at least two merge batches (same size as an output
+    // batch) and one output batch. Again, double to allow for power-of-two
+    // allocation and add one for a margin of error.
+
+    int minMergeBatches = 2 * 3 + 1;
+    long minMergeMemory = minMergeBatches * estimatedOutputBatchSize;
+
+    // If we are in a low-memory condition, then we might not have room for the
+    // default output batch size. In that case, pick a smaller size.
+
+    long minMemory = Math.max(spillPoint, minMergeMemory);
+    if (minMemory > memoryLimit) {
+      estimatedOutputBatchSize = Math.max(estimatedRecordSize, memoryLimit / minMergeBatches);
+      spillPoint = estimatedInputBatchSize + 2 * estimatedOutputBatchSize;
+      minMergeMemory = minMergeBatches * estimatedOutputBatchSize;
+    }
 
     // Determine the minimum total memory we would need to receive two input
     // batches (the minimum needed to make progress) and the allowance for the
@@ -932,16 +951,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     long minLoadMemory = spillPoint + estimatedInputSize;
 
-    // The merge memory pool assumes we can spill all input batches. To make
-    // progress, we must have at least two merge batches (same size as an output
-    // batch) and one output batch. Again, double to allow for power-of-two
-    // allocation and add one for a margin of error.
-
-    long minMergeMemory = (2*3 + 1) * estimatedOutputBatchSize;
-
     // Determine how much memory can be used to hold in-memory batches of spilled
     // runs when reading from disk.
 
+    bufferMemoryPool = memoryLimit - spillPoint;
     mergeMemoryPool = Math.max(minMergeMemory,
                                (long) ((memoryLimit - 3 * estimatedOutputBatchSize) * 0.95));
 
@@ -986,15 +999,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // Must spill if we are below the spill point (the amount of memory
     // needed to do the minimal spill.)
 
-    long freeMemory = memoryLimit - allocator.getAllocatedMemory();
-
-    // Sanity check. If the memory goes negative, the calcs are off.
-
-    if (freeMemory < 0) {
-      logger.error("ERROR: Free memory is negative: {}. Spill point = {}",
-                   freeMemory, spillPoint);
-    }
-    if (freeMemory <= spillPoint) {
+    if (allocator.getAllocatedMemory() >= bufferMemoryPool) {
       return true; }
 
     // Number of incoming batches (BatchGroups) exceed the limit and number of incoming
