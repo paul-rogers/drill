@@ -277,7 +277,7 @@ public class CopierHolder {
         ValueVector[] vectors = new ValueVector[batchGroupList.size()];
         int i = 0;
         for (BatchGroup group : batchGroupList) {
-          System.out.println( "Batch group " + i + ": " + holder.getAllocator().getAllocatedMemory()); // Debug only
+//          System.out.println( "Batch group " + i + ": " + holder.getAllocator().getAllocatedMemory()); // Debug only
           vectors[i++] = group.getValueAccessorById(
               field.getValueClass(),
               group.getValueVectorId(SchemaPath.getSimplePath(field.getPath())).getFieldIds())
