@@ -610,7 +610,7 @@ public class ProfileParser {
 
     public String subtreeLabel(OpDefInfo node, int branch) {
       if (node.name.equals("HashJoin")) {
-        return (branch == 0) ? "Probe" : "Builder";
+        return (branch == 0) ? "Probe" : "Build";
       } else {
         return "Input " + (branch + 1);
       }
