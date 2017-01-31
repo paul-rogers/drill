@@ -72,6 +72,7 @@ public class BasicACResourceManager extends AbstractResourceManager {
     private PhysicalPlan plan;
     private QueryWorkUnit work;
     private double queryCost;
+    private boolean replanMemory;
 
     public QueuedQueryResourceManager(final BasicACResourceManager rm, final Foreman foreman) {
       this.rm = rm;
@@ -79,8 +80,13 @@ public class BasicACResourceManager extends AbstractResourceManager {
     }
 
     @Override
-    public void setPlan(final PhysicalPlan plan, final QueryWorkUnit work) {
+    public void visitAbstractPlan(boolean replanMemory, PhysicalPlan plan) {
+      this.replanMemory = replanMemory;
       this.plan = plan;
+    }
+
+    @Override
+    public void setPhysicalPlan(final QueryWorkUnit work) {
       this.work = work;
     }
 
@@ -92,6 +98,7 @@ public class BasicACResourceManager extends AbstractResourceManager {
     @Override
     public void admit( ) throws QueueTimeoutException, QueryQueueException {
       lease = rm.queue().queue(foreman.getQueryId(), queryCost());
+      planMemory();
     }
 
     /**
@@ -108,8 +115,7 @@ public class BasicACResourceManager extends AbstractResourceManager {
       return queryCost;
     }
 
-    @Override
-    public void planMemory(boolean replanMemory) {
+    private void planMemory() {
       if (! replanMemory && plan == null) {
         return;
       }

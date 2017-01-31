@@ -40,7 +40,6 @@ public class DefaultResourceManager implements ResourceManager {
     @SuppressWarnings("unused")
     private final DefaultResourceManager rm;
     private final Foreman foreman;
-    private PhysicalPlan plan;
 
     public DefaultQueryResourceManager(final DefaultResourceManager rm, final Foreman foreman) {
       this.rm = rm;
@@ -48,8 +47,15 @@ public class DefaultResourceManager implements ResourceManager {
     }
 
     @Override
-    public void setPlan(PhysicalPlan plan, QueryWorkUnit work) {
-      this.plan = plan;
+    public void visitAbstractPlan(boolean replanMemory, PhysicalPlan plan) {
+      if (! replanMemory || plan == null) {
+        return;
+      }
+      MemoryAllocationUtilities.setupSortMemoryAllocations(plan, foreman.getQueryContext());
+    }
+
+    @Override
+    public void setPhysicalPlan(QueryWorkUnit work) {
     }
 
     @Override
@@ -57,14 +63,6 @@ public class DefaultResourceManager implements ResourceManager {
       // Nothing to do. The EXECUTION option in Foreman calls this,
       // but does not do the work to plan sort memory. Is EXECUTION
       // even used?
-    }
-
-    @Override
-    public void planMemory(boolean replanMemory) {
-      if (! replanMemory || plan == null) {
-        return;
-      }
-      MemoryAllocationUtilities.setupSortMemoryAllocations(plan, foreman.getQueryContext());
     }
 
     @Override

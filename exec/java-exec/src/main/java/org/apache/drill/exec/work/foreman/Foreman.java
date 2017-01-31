@@ -398,9 +398,10 @@ public class Foreman implements Runnable {
   private void runPhysicalPlan(final PhysicalPlan plan, boolean replanMemory) throws ExecutionSetupException {
     validatePlan(plan);
 
+    queryRM.visitAbstractPlan(replanMemory, plan);
     final QueryWorkUnit work = getQueryWorkUnit(plan);
-    queryRM.setPlan(plan, work);
-    admit(replanMemory, work);
+    queryRM.setPhysicalPlan(work);
+    admit(work);
 
     final List<PlanFragment> planFragments = work.getFragments();
     final PlanFragment rootPlanFragment = work.getRootFragment();
@@ -420,10 +421,9 @@ public class Foreman implements Runnable {
     logger.debug("Fragments running.");
   }
 
-  private void admit(boolean replanMemory, QueryWorkUnit work) throws ForemanSetupException {
+  private void admit(QueryWorkUnit work) throws ForemanSetupException {
     try {
       queryRM.admit();
-      queryRM.planMemory(replanMemory);
       if (work != null) {
         work.applyPlan(drillbitContext.getPlanReader());
       }
@@ -473,7 +473,7 @@ public class Foreman implements Runnable {
       throw new ExecutionSetupException(String.format("Unable to parse FragmentRoot from fragment: %s", rootFragment.getFragmentJson()));
     }
     queryRM.setCost(rootOperator.getCost());
-    admit(false, null);
+    admit(null);
     drillbitContext.getWorkBus().addFragmentStatusListener(queryId, queryManager.getFragmentStatusListener());
     drillbitContext.getClusterCoordinator().addDrillbitStatusListener(queryManager.getDrillbitStatusListener());
 

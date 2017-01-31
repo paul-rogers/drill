@@ -45,6 +45,13 @@ public interface QueryResourceManager {
   boolean hasQueue();
 
   /**
+   * Make any needed adjustments to the local plan before parallelization.
+   *
+   * @param plan
+   */
+  void visitAbstractPlan(boolean replanMemory, PhysicalPlan plan);
+
+  /**
    * Provide the manager with the physical plan and node assignments
    * for the query to be run. This object will plan memory for the plan.
    *
@@ -52,7 +59,7 @@ public interface QueryResourceManager {
    * @param work
    */
 
-  void setPlan(PhysicalPlan plan, QueryWorkUnit work);
+  void setPhysicalPlan(QueryWorkUnit work);
 
   /**
    * For some cases the foreman does not have a full plan, just a cost. In
@@ -62,12 +69,6 @@ public interface QueryResourceManager {
    */
 
   void setCost(double cost);
-
-  /**
-   * Apply memory limits to the physical plan.
-   */
-
-  void planMemory(boolean replanMemory);
 
   /**
    * Admit the query into the cluster. Blocks until the query
