@@ -1618,6 +1618,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // Sanity check. We should now be above the spill point.
 
     long startMem = allocator.getAllocatedMemory();
+//    System.out.println("Start: " + startMem);
     if (memoryLimit - startMem < spillPoint) {
       logger.error( "ERROR: Failed to spill below the spill point. Spill point = {}, free memory = {}",
                     spillPoint, memoryLimit - startMem);
@@ -1634,8 +1635,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     if (convertedBatch == null) {
       return;
     }
+//    System.out.println("After convert: " + allocator.getAllocatedMemory() + ", delta = " + (allocator.getAllocatedMemory() - startMem));
 
     SelectionVector2 sv2 = makeSelectionVector();
+//    System.out.println("After SV2: " + allocator.getAllocatedMemory() + ", delta = " + (allocator.getAllocatedMemory() - startMem));
 
     // Compute batch size, including allocation of an sv2.
 
@@ -1704,6 +1707,18 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       rbd.clear();
       throw t;
     }
+  }
+
+  private RecordBatchSizer analyzeIncomingBatch() {
+    RecordBatchSizer sizer = new RecordBatchSizer(incoming);
+    sizer.applySv2();
+    if (! hasOversizeCols) {
+      hasOversizeCols = sizer.checkOversizeCols();
+    }
+    if (inputBatchCount == 0) {
+      logger.debug("{}", sizer.toString());
+    }
+    return sizer;
   }
 
   /**
@@ -2042,64 +2057,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
         return true;
       }
     }
-
-//    // Anything to merge?
-//
-//    if (spilledRunsCount <= maxMergeWidth) {
-//      return false;
-//    }
-
-//    // Anything in memory to spill?
-//
-//    if (inMemCount > 0) {
-//
-//      int mergeCount = Math.min(spilledRunsCount, mergeLimit);
-//
-//      // Spill if the total runs is more than we can merge in one go.
-//
-//      int excessRunCount = spilledRunsCount + inMemCount - mergeLimit;
-//
-//      // Spill if we need more memory.
-//
-//      long allocMem = allocator.getAllocatedMemory();
-//      long freeMemory = mergeMemoryPool - allocMem;
-//
-//      // Amount of memory needed to read the maximum spilled runs
-//      // (with a fudge factor of 1.)
-//
-//      long readMemory = (mergeCount + 1) * estimatedOutputBatchSize;
-//
-//      // Amount of memory needed beyond what we have.
-//
-//      long deficit = readMemory - freeMemory;
-//
-//      // Spill in-memory batches to make room? If we do, we'll have
-//      // one more run to read, so anticipate that need.
-//
-//      int memSpillCount = 0;
-//      if (deficit > 0) {
-//        deficit += estimatedOutputBatchSize;
-//        memSpillCount = (int) (deficit / estimatedInputBatchSize) + 2;
-//        excessRunCount -= memSpillCount + 1;
-//      }
-//
-//      // Spill the larger of the two needs.
-//
-//      memSpillCount = Math.max(memSpillCount, excessRunCount);
-//
-//      // Can't spill any more than we actually have.
-//
-//      memSpillCount = Math.min(inMemCount, memSpillCount);
-//
-//      // Do the spill if needed. This may further limit the spill
-//      // size to the maximum file size, causing us to loop back
-//      // through here to spill more.
-//
-//      if (memSpillCount > 0) {
-//        spillFromMemory();
-//        return true;
-//      }
-//    }
 
     // Merge on-disk batches if we have too many.
 

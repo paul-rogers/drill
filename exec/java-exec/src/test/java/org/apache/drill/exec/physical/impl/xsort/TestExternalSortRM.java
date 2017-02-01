@@ -341,19 +341,7 @@ public class TestExternalSortRM extends DrillTest {
 //      String sql = "SELECT col_s3500 FROM `mock`.`table_150K` ORDER BY col_s3500";
 //      String sql = "SELECT * FROM `mock`.`xsort/MD1304.json` ORDER BY col1";
       String sql = "SELECT * FROM (SELECT * FROM `mock`.`xsort/MD1304.json` ORDER BY col1) d WHERE d.col1 = 'bogus'";
-      String plan = client.queryBuilder().sql(sql).explainJson();
-      System.out.println(plan);
-      QuerySummary summary = client.queryBuilder().sql(sql).run();
-      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
-
-      System.out.println("Query ID: " + summary.queryIdString());
-      ProfileParser profile = client.parseProfile(summary.queryIdString());
-      List<OperatorProfile> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
-      assertEquals(1, ops.size());
-      OperatorProfile sort = ops.get(0);
-      long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
-      long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
-      System.out.println(String.format("Spills: %d, merge/spills: %d", spillCount, mergeCount));
+      sortAndDump(client, sql);
     }
   }
 
@@ -383,22 +371,7 @@ public class TestExternalSortRM extends DrillTest {
          ClusterFixture cluster = builder.build();
          ClientFixture client = cluster.clientFixture()) {
       String sql = "SELECT * FROM (SELECT * FROM `mock`.`xsort/MD1322a.json` ORDER BY col) d WHERE d.col <> 'bogus'";
-      String plan = client.queryBuilder().sql(sql).explainJson();
-      System.out.println(plan);
-      QuerySummary summary = client.queryBuilder().sql(sql).run();
-      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
-
-      System.out.println("Query ID: " + summary.queryIdString());
-      ProfileParser profile = client.parseProfile(summary.queryIdString());
-      List<OperatorProfile> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
-      assertEquals(1, ops.size());
-      OperatorProfile sort = ops.get(0);
-      long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
-      long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
-      long inputBatches = sort.getMetric(ExternalSortBatch.Metric.INPUT_BATCHES.ordinal());
-      System.out.println(String.format("Input batches: %d, spills: %d, merge/spills: %d",
-          inputBatches, spillCount, mergeCount));
-      profile.print();
+      sortAndDump(client, sql);
     }
   }
 
@@ -419,22 +392,7 @@ public class TestExternalSortRM extends DrillTest {
          ClusterFixture cluster = builder.build();
          ClientFixture client = cluster.clientFixture()) {
       String sql = "SELECT key_s250 FROM `mock`.`table_43M` ORDER BY key_s250";
-      String plan = client.queryBuilder().sql(sql).explainJson();
-      System.out.println(plan);
-      QuerySummary summary = client.queryBuilder().sql(sql).run();
-      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
-
-//      System.out.println("Query ID: " + summary.queryIdString());
-//      ProfileParser profile = client.parseProfile(summary.queryIdString());
-//      List<OpInfo> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
-//      assertEquals(1, ops.size());
-//      OpInfo sort = ops.get(0);
-//      long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
-//      long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
-//      long inputBatches = sort.getMetric(ExternalSortBatch.Metric.INPUT_BATCHES.ordinal());
-//      System.out.println(String.format("Input batches: %d, spills: %d, merge/spills: %d",
-//          inputBatches, spillCount, mergeCount));
-//      profile.print();
+      sortAndDump(client, sql);
     }
   }
 
@@ -461,22 +419,7 @@ public class TestExternalSortRM extends DrillTest {
       cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
 //      String sql = "SELECT * FROM (SELECT * FROM `mock`.`xsort/MD1322a.json` ORDER BY col) d WHERE d.col <> 'bogus'";
       String sql = "select * from (select * from `dfs.data`.`descending-col-length-8k.tbl` order by columns[0])d where d.columns[0] <> 'ljdfhwuehnoiueyf'";
-//      String plan = client.queryBuilder().sql(sql).explainJson();
-//      System.out.println(plan);
-      QuerySummary summary = client.queryBuilder().sql(sql).run();
-      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
-
-      System.out.println("Query ID: " + summary.queryIdString());
-      ProfileParser profile = client.parseProfile(summary.queryIdString());
-      List<OperatorProfile> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
-      assertEquals(1, ops.size());
-      OperatorProfile sort = ops.get(0);
-      long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
-      long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
-      long inputBatches = sort.getMetric(ExternalSortBatch.Metric.INPUT_BATCHES.ordinal());
-      System.out.println(String.format("Input batches: %d, spills: %d, merge/spills: %d",
-          inputBatches, spillCount, mergeCount));
-      profile.print();
+      sortAndDump(client, sql);
     }
   }
 
@@ -495,7 +438,8 @@ public class TestExternalSortRM extends DrillTest {
 //        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, true)
         .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
         .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
-        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 1073741824L)
+//        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 1073741824L)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 2L * 1024 * 1024 * 1024)
         .sessionOption(ExecConstants.MAX_WIDTH_PER_NODE_KEY, 1)
         ;
     try (LogFixture logs = logBuilder.build();
@@ -503,22 +447,7 @@ public class TestExternalSortRM extends DrillTest {
          ClientFixture client = cluster.clientFixture()) {
       cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
       String sql = "select d2.col1 from (select d.col1 from (select distinct columns[0] col1 from `dfs.data`.`250wide.tbl`) d order by concat(d.col1, 'ASDF'))d2 where d2.col1 = 'askjdhfjhfds'";
-      String plan = client.queryBuilder().sql(sql).explainJson();
-      System.out.println(plan);
-      QuerySummary summary = client.queryBuilder().sql(sql).run();
-      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
-
-      System.out.println("Query ID: " + summary.queryIdString());
-      ProfileParser profile = client.parseProfile(summary.queryIdString());
-      List<OperatorProfile> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
-      assertEquals(1, ops.size());
-      OperatorProfile sort = ops.get(0);
-      long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
-      long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
-      long inputBatches = sort.getMetric(ExternalSortBatch.Metric.INPUT_BATCHES.ordinal());
-      System.out.println(String.format("Input batches: %d, spills: %d, merge/spills: %d",
-          inputBatches, spillCount, mergeCount));
-      profile.print();
+      sortAndDump(client, sql);
     }
   }
 
@@ -537,7 +466,7 @@ public class TestExternalSortRM extends DrillTest {
 //        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, true)
         .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
         .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
-        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 1073741824L)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 2L * 1024 * 1024 * 1024)
         .sessionOption(ExecConstants.MAX_WIDTH_PER_NODE_KEY, 1)
         ;
     try (LogFixture logs = logBuilder.build();
@@ -546,23 +475,28 @@ public class TestExternalSortRM extends DrillTest {
       cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
 //      String sql = "select d2.col1 from (select d.col1 from (select distinct columns[0] col1 from `dfs.data`.`250wide.tbl`) d order by concat(d.col1, 'ASDF'))d2 where d2.col1 = 'askjdhfjhfds'";
       String sql = "SELECT columns[0] col1 FROM `dfs.data`.`250wide.tbl` ORDER BY col1";
-      String plan = client.queryBuilder().sql(sql).explainJson();
-      System.out.println(plan);
-      QuerySummary summary = client.queryBuilder().sql(sql).run();
-      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
-
-      System.out.println("Query ID: " + summary.queryIdString());
-      ProfileParser profile = client.parseProfile(summary.queryIdString());
-      List<OperatorProfile> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
-      assertEquals(1, ops.size());
-      OperatorProfile sort = ops.get(0);
-      long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
-      long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
-      long inputBatches = sort.getMetric(ExternalSortBatch.Metric.INPUT_BATCHES.ordinal());
-      System.out.println(String.format("Input batches: %d, spills: %d, merge/spills: %d",
-          inputBatches, spillCount, mergeCount));
-      profile.print();
+      sortAndDump(client, sql);
     }
+  }
+
+  private void sortAndDump(ClientFixture client, String sql) throws Exception {
+    String plan = client.queryBuilder().sql(sql).explainJson();
+    System.out.println(plan);
+    QuerySummary summary = client.queryBuilder().sql(sql).run();
+    System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+
+    System.out.println("Query ID: " + summary.queryIdString());
+    ProfileParser profile = client.parseProfile(summary.queryIdString());
+    List<OperatorProfile> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
+    assertEquals(1, ops.size());
+    OperatorProfile sort = ops.get(0);
+    long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
+    long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
+//    long inputBatches = sort.getMetric(ExternalSortBatch.Metric.INPUT_BATCHES.ordinal());
+    int inputBatches = 0;
+    System.out.println(String.format("Input batches: %d, spills: %d, merge/spills: %d",
+        inputBatches, spillCount, mergeCount));
+    profile.print();
   }
 
   public void dumpProfile() throws IOException {
