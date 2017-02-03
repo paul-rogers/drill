@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -206,11 +206,9 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
       if (inputStream == null) {
         inputStream = spillSet.openForInput(path);
       }
-//      System.out.println( "getBatch() start: " + allocator.getAllocatedMemory()); // Debug only
       VectorAccessibleSerializable vas = new VectorAccessibleSerializable(allocator);
       Stopwatch watch = Stopwatch.createStarted();
       vas.readFromStream(inputStream);
-//      System.out.println( "Batch group after read: " + allocator.getAllocatedMemory()); // Debug only
       VectorContainer c =  vas.get();
       if (schema != null) {
         c = SchemaUtil.coerceContainer(c, schema, context);

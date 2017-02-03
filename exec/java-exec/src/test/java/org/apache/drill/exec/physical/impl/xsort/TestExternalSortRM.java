@@ -435,7 +435,6 @@ public class TestExternalSortRM extends DrillTest {
         .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
 //        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 1073741824L)
         .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 2L * 1024 * 1024 * 1024)
-        .sessionOption(ExecConstants.MAX_WIDTH_PER_NODE_KEY, 1)
         ;
     try (LogFixture logs = logBuilder.build();
          ClusterFixture cluster = builder.build();

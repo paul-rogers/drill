@@ -457,56 +457,58 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   @Override
   public void close() {
-    logger.debug("End of sort. Total write bytes: {}, Total read bytes: {}",
-                 spillSet.getWriteBytes(), spillSet.getWriteBytes());
+    if (spillSet.getWriteBytes() > 0) {
+      logger.debug("End of sort. Total write bytes: {}, Total read bytes: {}",
+                   spillSet.getWriteBytes(), spillSet.getWriteBytes());
+    }
     stats.setLongStat(Metric.SPILL_MB,
         (int) Math.round( spillSet.getWriteBytes() / 1024.0D / 1024.0 ) );
-    RuntimeException th = null;
+    RuntimeException ex = null;
     try {
       if (bufferedBatches != null) {
         closeBatchGroups(bufferedBatches);
         bufferedBatches = null;
       }
-    } catch (RuntimeException t) {
-      th = t;
+    } catch (RuntimeException e) {
+      ex = e;
     }
     try {
       if (spilledRuns != null) {
         closeBatchGroups(spilledRuns);
         spilledRuns = null;
       }
-    } catch (RuntimeException t) {
-      th = (th == null) ? t : th;
+    } catch (RuntimeException e) {
+      ex = (ex == null) ? e : ex;
     }
     try {
       if (sv4 != null) {
         sv4.clear();
       }
-    } catch (RuntimeException t) {
-      th = (th == null) ? t : th;
+    } catch (RuntimeException e) {
+      ex = (ex == null) ? e : ex;
     }
     try {
       if (resultsIterator != null) {
         resultsIterator.close();
         resultsIterator = null;
       }
-    } catch (RuntimeException t) {
-      th = (th == null) ? t : th;
+    } catch (RuntimeException e) {
+      ex = (ex == null) ? e : ex;
     }
     try {
       copierHolder.close();
-    } catch (RuntimeException t) {
-      th = (th == null) ? t : th;
+    } catch (RuntimeException e) {
+      ex = (ex == null) ? e : ex;
     }
     try {
       spillSet.close();
-    } catch (RuntimeException t) {
-      th = (th == null) ? t : th;
+    } catch (RuntimeException e) {
+      ex = (ex == null) ? e : ex;
     }
     try {
       opCodeGen.close();
-    } catch (RuntimeException t) {
-      th = (th == null) ? t : th;
+    } catch (RuntimeException e) {
+      ex = (ex == null) ? e : ex;
     }
 
     // The call to super.close() clears out the output container.
@@ -515,16 +517,16 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     try {
       super.close();
-    } catch (RuntimeException t) {
-      th = (th == null) ? t : th;
+    } catch (RuntimeException e) {
+      ex = (ex == null) ? e : ex;
     }
     try {
       allocator.close();
-    } catch (RuntimeException t) {
-      th = (th == null) ? t : th;
+    } catch (RuntimeException e) {
+      ex = (ex == null) ? e : ex;
     }
-    if (th != null) {
-      throw th;
+    if (ex != null) {
+      throw ex;
     }
   }
 
@@ -802,7 +804,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       }
       return null;
     }
-//    System.out.println( "After convert batch: " + oContext.getAllocator().getAllocatedMemory());
     return convertedBatch;
   }
 

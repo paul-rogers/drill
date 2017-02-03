@@ -194,25 +194,6 @@ public class ClusterFixture implements AutoCloseable {
 
       serviceSet = RemoteServiceSet.getLocalServiceSet();
     }
-
-//    // Ensure that Drill uses the log directory determined here rather than
-//    // it's hard-coded defaults.
-//
-//    String logDir = null;
-//    if (builder.tempDir != null) {
-//      logDir = builder.tempDir.getAbsolutePath();
-//    }
-//    if (logDir == null) {
-//      logDir = config.getString(ExecConstants.DRILL_TMP_DIR);
-//      if (logDir != null) {
-//        logDir += "/drill/log";
-//      }
-//    }
-//    if (logDir == null) {
-//      logDir = "/tmp/drill";
-//    }
-//    new File(logDir).mkdirs();
-//    System.setProperty("drill.log-dir", logDir);
   }
 
   private void startDrillbits(FixtureBuilder builder) throws Exception {

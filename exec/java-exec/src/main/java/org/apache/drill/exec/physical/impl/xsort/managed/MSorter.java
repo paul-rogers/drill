@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -26,7 +26,7 @@ import org.apache.drill.exec.record.selection.SelectionVector4;
 
 /**
  * In-memory sorter. Takes a list of batches as input, produces a selection
- * vector 4, with sorted resuts, as output.
+ * vector 4, with sorted results, as output.
  */
 
 public interface MSorter {

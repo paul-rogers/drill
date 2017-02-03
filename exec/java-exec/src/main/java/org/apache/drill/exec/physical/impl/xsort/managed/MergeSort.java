@@ -62,6 +62,8 @@ import org.apache.drill.exec.record.selection.SelectionVector4;
 public class MergeSort implements SortResults {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MergeSort.class);
 
+  private SortRecordBatchBuilder builder;
+  private MSorter mSorter;
   private final FragmentContext context;
   private final BufferAllocator oAllocator;
   private SelectionVector4 sv4;
@@ -91,50 +93,42 @@ public class MergeSort implements SortResults {
     // The builder takes ownership of the batches and will release them if
     // an error occurs.
 
-    try (SortRecordBatchBuilder builder = new SortRecordBatchBuilder(oAllocator)) {
-      for (BatchGroup.InputBatch group : batchGroups) {
-        RecordBatchData rbd = new RecordBatchData(group.getContainer(), oAllocator);
-        rbd.setSv2(group.getSv2());
-        builder.add(rbd);
-      }
-      batchGroups.clear();
-
-      // Generate the msorter.
-
-      MSorter mSorter;
-      try {
-        builder.build(context, destContainer);
-        sv4 = builder.getSv4();
-        mSorter = opCg.createNewMSorter(batch);
-        mSorter.setup(context, oAllocator, sv4, destContainer, sv4.getCount());
-      } catch (SchemaChangeException e) {
-        builder.clear();
-        throw UserException.unsupportedError(e)
-              .message("Unexpected schema change - likely code error.")
-              .build(logger);
-      }
-
-      try {
-        // For testing memory-leaks, inject exception after mSorter finishes setup
-        ExternalSortBatch.injector.injectUnchecked(context.getExecutionControls(), ExternalSortBatch.INTERRUPTION_AFTER_SETUP);
-        mSorter.sort(destContainer);
-
-        // sort may have prematurely exited due to should continue returning false.
-        if (!context.shouldContinue()) {
-          return null;
-        }
-
-        // For testing memory-leak purpose, inject exception after mSorter finishes sorting
-        ExternalSortBatch.injector.injectUnchecked(context.getExecutionControls(), ExternalSortBatch.INTERRUPTION_AFTER_SORT);
-        sv4 = mSorter.getSV4();
-      } catch (RuntimeException e) {
-        mSorter.clear();
-        throw e;
-      }
-
-      destContainer.buildSchema(SelectionVectorMode.FOUR_BYTE);
-      return sv4;
+    builder = new SortRecordBatchBuilder(oAllocator);
+    for (BatchGroup.InputBatch group : batchGroups) {
+      RecordBatchData rbd = new RecordBatchData(group.getContainer(), oAllocator);
+      rbd.setSv2(group.getSv2());
+      builder.add(rbd);
     }
+    batchGroups.clear();
+
+    // Generate the msorter.
+
+    try {
+      builder.build(context, destContainer);
+      sv4 = builder.getSv4();
+      mSorter = opCg.createNewMSorter(batch);
+      mSorter.setup(context, oAllocator, sv4, destContainer, sv4.getCount());
+    } catch (SchemaChangeException e) {
+      throw UserException.unsupportedError(e)
+            .message("Unexpected schema change - likely code error.")
+            .build(logger);
+    }
+
+    // For testing memory-leaks, inject exception after mSorter finishes setup
+    ExternalSortBatch.injector.injectUnchecked(context.getExecutionControls(), ExternalSortBatch.INTERRUPTION_AFTER_SETUP);
+    mSorter.sort(destContainer);
+
+    // sort may have prematurely exited due to should continue returning false.
+    if (!context.shouldContinue()) {
+      return null;
+    }
+
+    // For testing memory-leak purpose, inject exception after mSorter finishes sorting
+    ExternalSortBatch.injector.injectUnchecked(context.getExecutionControls(), ExternalSortBatch.INTERRUPTION_AFTER_SORT);
+    sv4 = mSorter.getSV4();
+
+    destContainer.buildSchema(SelectionVectorMode.FOUR_BYTE);
+    return sv4;
   }
 
   /**
@@ -152,6 +146,13 @@ public class MergeSort implements SortResults {
 
   @Override
   public void close() {
+    if (builder != null) {
+      builder.clear();
+      builder.close();
+    }
+    if (mSorter != null) {
+      mSorter.clear();
+    }
   }
 
   @Override

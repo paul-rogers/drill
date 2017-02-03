@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -184,6 +184,7 @@ public abstract class MSortTemplate implements MSorter, IndexedSortable {
       if (outIndex < totalCount) {
         copyRun(outIndex, totalCount);
       }
+      @SuppressWarnings("resource")
       final SelectionVector4 tmp = aux.createNewWrapperCurrent(desiredRecordBatchCount);
       aux.clear();
       aux = vector4.createNewWrapperCurrent(desiredRecordBatchCount);
