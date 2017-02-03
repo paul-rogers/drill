@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,8 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.xsort.managed;
+package org.apache.drill.exec.physical.impl.spill;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -34,6 +36,8 @@ import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.proto.ExecProtos.FragmentHandle;
 import org.apache.drill.exec.proto.helper.QueryIdHelper;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
@@ -65,6 +69,24 @@ public class SpillSet {
     void deleteFile(String fileName) throws IOException;
 
     void deleteDir(String fragmentSpillDir) throws IOException;
+
+    /**
+     * Given a manager-specific output stream, return the current write position.
+     * Used to report total write bytes.
+     *
+     * @param outputStream output stream created by the file manager
+     * @return
+     */
+    long getWriteBytes(OutputStream outputStream);
+
+    /**
+     * Given a manager-specific input stream, return the current read position.
+     * Used to report total read bytes.
+     *
+     * @param outputStream input stream created by the file manager
+     * @return
+     */
+    long getReadBytes(InputStream inputStream);
   }
 
   /**
@@ -125,6 +147,115 @@ public class SpillSet {
         }
       }
     }
+
+    @Override
+    public long getWriteBytes(OutputStream outputStream) {
+      try {
+        return ((FSDataOutputStream) outputStream).getPos();
+      } catch (IOException e) {
+        // Just used for logging, not worth dealing with the exception.
+        return 0;
+      }
+    }
+
+    @Override
+    public long getReadBytes(InputStream inputStream) {
+      try {
+        return ((FSDataInputStream) inputStream).getPos();
+      } catch (IOException e) {
+        // Just used for logging, not worth dealing with the exception.
+        return 0;
+      }
+    }
+  }
+
+  public static class CountingInputStream extends InputStream
+  {
+    private InputStream in;
+    private long count;
+
+    public CountingInputStream(InputStream in) {
+      this.in = in;
+    }
+
+    @Override
+    public int read() throws IOException {
+      int b = in.read();
+      if (b != -1) {
+        count++;
+      }
+      return b;
+    }
+
+    @Override
+    public int read(byte b[]) throws IOException {
+      int n = in.read(b);
+      if (n != -1) {
+        count += n;
+      }
+      return n;
+    }
+
+    @Override
+    public int read(byte b[], int off, int len) throws IOException {
+      int n = in.read(b, off, len);
+      if (n != -1) {
+        count += n;
+      }
+      return n;
+    }
+
+    @Override
+    public long skip(long n) throws IOException {
+      return in.skip(n);
+    }
+
+    @Override
+    public void close() throws IOException {
+      in.close();
+    }
+
+    public long getCount() { return count; }
+  }
+
+  public static class CountingOutputStream extends OutputStream {
+
+    private OutputStream out;
+    private long count;
+
+    public CountingOutputStream(OutputStream out) {
+      this.out = out;
+    }
+
+    @Override
+    public void write(int b) throws IOException {
+      count++;
+      out.write(b);
+    }
+
+    @Override
+    public void write(byte[] b) throws IOException {
+      count += b.length;
+      out.write(b);
+    }
+
+    @Override
+    public void write(byte[] b, int off, int len) throws IOException {
+      count += len;
+      out.write(b, off, len);
+    }
+
+    @Override
+    public void flush() throws IOException {
+      out.flush();
+    }
+
+    @Override
+    public void close() throws IOException {
+      out.close();
+    }
+
+    public long getCount() { return count; }
   }
 
   /**
@@ -147,14 +278,20 @@ public class SpillSet {
       dir.deleteOnExit();
     }
 
+    @SuppressWarnings("resource")
     @Override
     public OutputStream createForWrite(String fileName) throws IOException {
-      return new FileOutputStream(new File(baseDir, fileName));
+      return new CountingOutputStream(
+                new BufferedOutputStream(
+                    new FileOutputStream(new File(baseDir, fileName))));
     }
 
+    @SuppressWarnings("resource")
     @Override
     public InputStream openForInput(String fileName) throws IOException {
-      return new FileInputStream(new File(baseDir, fileName));
+      return new CountingInputStream(
+                new BufferedInputStream(
+                    new FileInputStream(new File(baseDir, fileName))));
     }
 
     @Override
@@ -165,6 +302,16 @@ public class SpillSet {
     @Override
     public void deleteDir(String fragmentSpillDir) throws IOException {
       new File(baseDir, fragmentSpillDir).delete();
+    }
+
+    @Override
+    public long getWriteBytes(OutputStream outputStream) {
+      return ((CountingOutputStream) outputStream).getCount();
+    }
+
+    @Override
+    public long getReadBytes(InputStream inputStream) {
+      return ((CountingInputStream) inputStream).getCount();
     }
   }
 
@@ -190,6 +337,10 @@ public class SpillSet {
   private int fileCount = 0;
 
   private FileManager fileManager;
+
+  private long readBytes;
+
+  private long writeBytes;
 
   public SpillSet(FragmentContext context, PhysicalOperator popConfig) {
     DrillConfig config = context.getConfig();
@@ -248,6 +399,9 @@ public class SpillSet {
     fileManager.deleteFile(fileName);
   }
 
+  public long getWriteBytes() { return writeBytes; }
+  public long getReadBytes() { return readBytes; }
+
   public void close() {
     for (String path : currSpillDirs) {
       try {
@@ -257,5 +411,21 @@ public class SpillSet {
           logger.warn("Unable to delete spill directory " + path,  e);
       }
     }
+  }
+
+  public long getPosition(InputStream inputStream) {
+    return fileManager.getReadBytes(inputStream);
+  }
+
+  public long getPosition(OutputStream outputStream) {
+    return fileManager.getWriteBytes(outputStream);
+  }
+
+  public void tallyReadBytes(long readLength) {
+    readBytes += readLength;
+  }
+
+  public void tallyWriteBytes(long writeLength) {
+    writeBytes += writeLength;
   }
 }

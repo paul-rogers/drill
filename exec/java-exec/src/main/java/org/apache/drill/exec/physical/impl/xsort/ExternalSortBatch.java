@@ -147,7 +147,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
                             // But operator already provides this value
     PEAK_BATCHES_IN_MEMORY, // maximum number of batches kept in memory
     MERGE_COUNT,            // Used only by the managed version.
-    MIN_BUFFER;             // Used only by the managed version.
+    MIN_BUFFER,             // Used only by the managed version.
+    SPILL_MB;               // Used only by the managed version.
 
     @Override
     public int metricId() {

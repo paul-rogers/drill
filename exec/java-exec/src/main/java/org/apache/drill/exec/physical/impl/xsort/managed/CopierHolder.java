@@ -87,15 +87,14 @@ public class CopierHolder {
 
   /**
    * Prepare a copier which will write a collection of vectors to disk. The copier
-   * uses generated code to to the actual writes. If the copier has not yet been
-   * created, generated code and create it. If it has been created, close it and
+   * uses generated code to do the actual writes. If the copier has not yet been
+   * created, generate code and create it. If it has been created, close it and
    * prepare it for a new collection of batches.
    *
    * @param batch the (hyper) batch of vectors to be copied
    * @param batchGroupList same batches as above, but represented as a list
    * of individual batches
    * @param outputContainer the container into which to copy the batches
-   * @param allocator allocator to use to allocate memory in the operation
    */
 
   @SuppressWarnings("unchecked")
@@ -106,8 +105,7 @@ public class CopierHolder {
       copier = opCodeGen.getCopier(batch);
     }
 
-    // Initialize the value vectors for the output container using the
-    // allocator provided
+    // Initialize the value vectors for the output container
 
     for (VectorWrapper<?> i : batch) {
       @SuppressWarnings("resource")
@@ -139,18 +137,28 @@ public class CopierHolder {
    * vectors that combine a collection of input batches up to the
    * given threshold.
    * <p>
-   * Input (selection vector, data vector):<pre>
+   * Input. Here the top line is a selection vector of indexes.
+   * The second line is a set of batch groups (separated by underscores)
+   * with letters indicating individual records:<pre>
    * [3 7 4 8 0 6 1] [5 3 6 8 2 0]
    * [eh_ad_ibf]     [r_qm_kn_p]</pre>
    * <p>
-   * Output (assuming blocks of 5 records, data vectors only):<pre>
+   * Output, assuming blocks of 5 records. The brackets represent
+   * batches, the line represents the set of batches copied to the
+   * spill file.<pre>
    * [abcde] [fhikm] [npqr]</pre>
    * <p>
    * The copying operation does a merge as well: copying
-   * values from the sources in ordered fashion.
+   * values from the sources in ordered fashion. Consider a different example,
+   * we want to merge two input batches to produce a single output batch:
    * <pre>
    * Input:  [aceg] [bdfh]
    * Output: [abcdefgh]</pre>
+   * <p>
+   * In the above, the input consists of two sorted batches. (In reality,
+   * the input batches have an associated selection vector, but that is omitted
+   * here and just the sorted values shown.) The output is a single batch
+   * with the merged records (indicated by letters) from the two input batches.
    * <p>
    * Here we bind the copier to the batchGroupList of sorted, buffered batches
    * to be merged. We bind the copier output to outputContainer: the copier will write its
@@ -172,23 +180,27 @@ public class CopierHolder {
     /**
      * Creates a merger with an temporary output container.
      *
-     * @param holder
-     * @param batchGroupList
-     * @param targetRecordCount
+     * @param holder the copier that does the work
+     * @param schema schema for the input and output batches
+     * @param batchGroupList the input batches
+     * @param targetRecordCount number of records for each output batch
      */
-    private BatchMerger(CopierHolder holder, BatchSchema schema, List<? extends BatchGroup> batchGroupList, int targetRecordCount) {
+    private BatchMerger(CopierHolder holder, BatchSchema schema, List<? extends BatchGroup> batchGroupList,
+                        int targetRecordCount) {
       this(holder, schema, batchGroupList, new VectorContainer(), targetRecordCount);
     }
 
     /**
      * Creates a merger with the specified output container
      *
-     * @param holder
-     * @param batchGroupList
-     * @param outputContainer
-     * @param targetRecordCount
+     * @param holder the copier that does the work
+     * @param schema schema for the input and output batches
+     * @param batchGroupList the input batches
+     * @param outputContainer merges output batch into the given output container
+     * @param targetRecordCount number of records for each output batch
      */
-    private BatchMerger(CopierHolder holder, BatchSchema schema, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer, int targetRecordCount) {
+    private BatchMerger(CopierHolder holder, BatchSchema schema, List<? extends BatchGroup> batchGroupList,
+                        VectorContainer outputContainer, int targetRecordCount) {
       this.holder = holder;
       hyperBatch = constructHyperBatch(schema, batchGroupList);
       copyCount = 0;
@@ -200,7 +212,7 @@ public class CopierHolder {
     /**
      * Return the output container.
      *
-     * @return
+     * @return the output container
      */
     public VectorContainer getOutput() {
       return outputContainer;
@@ -253,6 +265,7 @@ public class CopierHolder {
      * Finally, we build a new schema for the combined container. That new schema must,
      * because of the way the container was created, match the current schema.
      *
+     * @param schema schema for the hyper batch
      * @param batchGroupList list of batches to combine
      * @return a container where each column is represented as an array of vectors
      * (hence the "hyper" in the method name)

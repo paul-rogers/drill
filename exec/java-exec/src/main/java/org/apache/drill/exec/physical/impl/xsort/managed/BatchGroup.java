@@ -28,6 +28,7 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.cache.VectorAccessibleSerializable;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.OperatorContext;
+import org.apache.drill.exec.physical.impl.spill.SpillSet;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.SchemaUtil;
 import org.apache.drill.exec.record.TransferPair;
@@ -189,6 +190,12 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
               .message("Failure while reading spilled data")
               .build(logger);
         }
+
+        // The pointer indicates the NEXT index, not the one we
+        // return here. At this point, we just started reading a
+        // new batch and have returned index 0. So, the next index
+        // is 1.
+
         pointer = 1;
         return 0;
       }
@@ -221,35 +228,61 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
       return c;
     }
 
+    /**
+     * Close resources owned by this batch group. Each can fail; report
+     * only the first error. This is cluttered because this class tries
+     * to do multiple tasks. TODO: Split into multiple classes.
+     */
+
     @Override
     public void close() throws IOException {
+      IOException ex = null;
       try {
         super.close();
+      } catch (IOException e) {
+        ex = e;
       }
-      finally {
-        try {
-          closeOutputStream();
-        } finally {
-          try {
-            if (inputStream != null) {
-              inputStream.close();
-              inputStream = null;
-              logger.trace("Summary: Read {} bytes from {}", dataSize, path);
-            }
-          }
-          finally {
-            spillSet.delete(path);
-          }
-        }
+      try {
+        closeOutputStream();
+      } catch (IOException e) {
+        ex = ex == null ? e : ex;
+      }
+      try {
+        closeInputStream();
+      } catch (IOException e) {
+        ex = ex == null ? e : ex;
+      }
+      try {
+        spillSet.delete(path);
+      } catch (IOException e) {
+        ex = ex == null ? e : ex;
+      }
+      if (ex != null) {
+        throw ex;
       }
     }
 
-    public void closeOutputStream() throws IOException {
-      if (outputStream != null) {
-        outputStream.close();
-        outputStream = null;
-        logger.trace("Summary: Wrote {} bytes to {}", dataSize, path);
+    private void closeInputStream() throws IOException {
+      if (inputStream == null) {
+        return;
       }
+      long readLength = spillSet.getPosition(inputStream);
+      spillSet.tallyReadBytes(readLength);
+      inputStream.close();
+      inputStream = null;
+      logger.trace("Summary: Read {} bytes from {}", readLength, path);
+    }
+
+    public long closeOutputStream() throws IOException {
+      if (outputStream == null) {
+        return 0;
+      }
+      long posn = spillSet.getPosition(outputStream);
+      spillSet.tallyWriteBytes(posn);
+      outputStream.close();
+      outputStream = null;
+      logger.trace("Summary: Wrote {} bytes to {}", posn, path);
+      return posn;
     }
   }
 

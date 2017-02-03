@@ -93,15 +93,7 @@ public class ProfileParser {
         OpDefInfo opDef = new OpDefInfo( part );
         operations.add(opDef);
       }
-//      System.out.println( "Original" );
-//      for ( OpDefInfo op : operations ) {
-//        System.out.println( op );
-//      }
       sortList();
-//      System.out.println( "Sorted" );
-//      for ( OpDefInfo op : sorted ) {
-//        System.out.println( op );
-//      }
     }
 
     public void sortList() {
@@ -111,8 +103,9 @@ public class ProfileParser {
         @Override
         public int compare(OpDefInfo o1, OpDefInfo o2) {
           int result = Integer.compare(o1.majorId, o2.majorId);
-          if ( result == 0 )
+          if ( result == 0 ) {
             result = Integer.compare(o1.stepId, o2.stepId);
+          }
           return result;
         }
       });
@@ -125,7 +118,6 @@ public class ProfileParser {
           sender.isInferred = true;
           sender.name = "Sender";
           sorted.add(sender);
-  //        System.out.println( sender );
           currentStep = 1;
           opDef.inferredParent = sender;
           sender.children.add( opDef );
@@ -135,7 +127,6 @@ public class ProfileParser {
           unknown.isInferred = true;
           unknown.name = "Unknown";
           sorted.add(unknown);
-  //        System.out.println( unknown );
           opDef.inferredParent = unknown;
           unknown.children.add( opDef );
         }
@@ -224,7 +215,6 @@ public class ProfileParser {
         for ( OperatorProfile op : opDef.opExecs) {
           Preconditions.checkState( major.id == op.majorFragId );
           Preconditions.checkState( opDef.stepId == op.opId );
-//          System.out.println( major.id + "-" + opDef.stepId + "-" + op.minorFragId + " = " + op.records );
           opDef.actualRows += op.records;
           opDef.actualBatches += op.batches;
           opDef.actualMemory += op.peakMem * 1024 * 1024;
@@ -234,21 +224,9 @@ public class ProfileParser {
   }
 
   public void buildTree() {
-//    int branchId = 0;
     int currentLevel = 0;
     OpDefInfo opStack[] = new OpDefInfo[topoOrder.size()];
     for (OpDefInfo opDef : topoOrder) {
-//      if (opDef.globalLevel < currentLevel) {
-//        OpDefInfo sibling = opStack[opDef.globalLevel];
-//        if (! sibling.isBranchRoot) {
-//          sibling.isBranchRoot = true;
-//          sibling.branchId = ++branchId;
-//        }
-//        opDef.isBranchRoot = true;
-//        opDef.branchId = ++branchId;
-//      } else {
-//        opDef.branchId = branchId;
-//      }
       currentLevel = opDef.globalLevel;
       opStack[currentLevel] = opDef;
       if ( opDef.inferredParent == null ) {
@@ -259,40 +237,8 @@ public class ProfileParser {
         opStack[currentLevel-1].children.add(opDef.inferredParent);
       }
     }
-//    topoOrder.get(0).printTree("");
   }
 
-
-//  private void determineBranches() {
-//    for (FragInfo major : fragments.values()) {
-//      int branchId = 0;
-//      int currentLevel = 0;
-//      OpDefInfo opStack[] = new OpDefInfo[major.ops.size()];
-//      for (OpDefInfo opDef : major.ops) {
-//        if (opDef.isInferred && currentLevel > 0 ) {
-//          opStack[currentLevel - 1].children.add(opDef);
-//          continue;
-//        }
-//        if (opDef.localLevel < currentLevel) {
-//          OpDefInfo sibling = opStack[opDef.localLevel];
-//          if (! sibling.isBranchRoot) {
-//            sibling.isBranchRoot = true;
-//            sibling.branchId = ++branchId;
-//          }
-//          opDef.isBranchRoot = true;
-//          opDef.branchId = ++branchId;
-//        } else {
-//          opDef.branchId = branchId;
-//        }
-//        currentLevel = opDef.localLevel;
-//        opStack[currentLevel] = opDef;
-//        if (currentLevel > 0) {
-//          opStack[currentLevel - 1].children.add(opDef);
-//        }
-//      }
-////      major.ops.get(0).printTree( "" );
-//    }
-//  }
 
   public String getQuery( ) {
     return profile.getString("query");
@@ -425,8 +371,6 @@ public class ProfileParser {
     public long setupMs;
     public long peakMem;
     public Map<Integer,JsonNumber> metrics = new HashMap<>();
-//    public Object plannerRows;
-//    public Object actualRows;
     public long records;
     public int batches;
     public int schemas;
@@ -435,7 +379,6 @@ public class ProfileParser {
       majorFragId = majorId;
       minorFragId = minorId;
       opId = opProfile.getInt("operatorId");
-//      System.out.println( "OP: " + majorId + "-" + opId );
       type = opProfile.getInt("operatorType");
       processMs = opProfile.getJsonNumber("processNanos").longValue() / 1_000_000;
       waitMs = opProfile.getJsonNumber("waitNanos").longValue() / 1_000_000;
@@ -512,7 +455,6 @@ public class ProfileParser {
       String tail = m.group(6);
       String indent = m.group(3);
       globalLevel = (indent.length() - 4) / 2;
-//      System.out.println( majorId + "-" + stepId + ": " + name + ", level = " + globalLevel );
 
       p = Pattern.compile("rowType = RecordType\\((.*)\\): (rowcount .*)");
       m = p.matcher(tail);
@@ -537,20 +479,6 @@ public class ProfileParser {
 
     public void printTree(String indent) {
       new TreePrinter().visit(this);
-//      System.out.print( indent );
-//      System.out.println( toString() );
-//      if (children.isEmpty()) {
-//        return;
-//      }
-//      if ( children.size() == 1) {
-//        children.get(0).printTree(indent);
-//        return;
-//      }
-//      String childIndent = indent + "  ";
-//      for (OpDefInfo child : children) {
-//        System.out.println(childIndent + "Subtree");
-//        child.printTree(childIndent + "  ");
-//      }
     }
 
     public OpDefInfo(int major, int id) {
@@ -647,16 +575,9 @@ public class ProfileParser {
       System.out.print( indent );
       System.out.println(String.format("  Estimate: %,15.0f rows, %,7.0f MB",
                          node.estRows, node.estMemoryCost / 1024 / 1024) );
-//      System.out.println( String.format(indent + "    Rows: %,.0f", node.estRows ));
-//      System.out.println( String.format(indent + "    Memory: %,.0f", node.estMemoryCost ));
       System.out.print( indent );
       System.out.println(String.format("  Actual:   %,15d rows, %,7d MB",
                          node.actualRows, node.actualMemory / 1024 / 1024));
-//      System.out.println(String.format("  Actual:   %,15d rows, %,6d MB, %,6d batches",
-//          node.actualRows, node.actualMemory / 1024 / 1024, node.actualBatches));
-//      System.out.println( String.format(indent + "    Batches: %,d", node.actualBatches ));
-//      System.out.println( String.format(indent + "    Rows: %,d", node.actualRows ));
-//      System.out.println( String.format(indent + "    Memory: %,d", node.actualMemory ));
     }
 
     @Override
@@ -698,14 +619,6 @@ public class ProfileParser {
 
   public void printPlan() {
     new CostPrinter().visit( topoOrder.get(0) );
-//    List<Integer> mKeys = new ArrayList<>();
-//    mKeys.addAll(fragments.keySet());
-//    Collections.sort(mKeys);
-//    for (Integer mKey : mKeys) {
-//      System.out.println("Fragment: " + mKey);
-//      FragInfo frag = fragments.get(mKey);
-//      frag.ops.get(0).printPlan( "  ", null );
-//    }
   }
 
   public void print() {
@@ -753,5 +666,4 @@ public class ProfileParser {
       return 0; }
     return Math.round(value * 100 / total );
   }
-
 }

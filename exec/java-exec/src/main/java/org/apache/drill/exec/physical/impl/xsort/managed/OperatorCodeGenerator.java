@@ -76,7 +76,6 @@ public class OperatorCodeGenerator {
 
   private PriorityQueueCopier copier;
   private final Sort popConfig;
-  private MSorter mSorter;
 
   /**
    * Generated sort operation used to sort each incoming batch according to
@@ -98,15 +97,7 @@ public class OperatorCodeGenerator {
 
   public void close() {
     closeCopier();
-    closeMSorter();
     sorter = null;
-  }
-
-  private void closeMSorter() {
-    if (mSorter == null) {
-      return; }
-    mSorter.clear();
-    mSorter = null;
   }
 
   public void closeCopier() {
@@ -148,10 +139,7 @@ public class OperatorCodeGenerator {
   }
 
   public MSorter createNewMSorter(VectorAccessible batch) {
-    if (mSorter == null) {
-      mSorter = createNewMSorter(popConfig.getOrderings(), batch, MAIN_MAPPING, LEFT_MAPPING, RIGHT_MAPPING);
-    }
-    return mSorter;
+    return createNewMSorter(popConfig.getOrderings(), batch, MAIN_MAPPING, LEFT_MAPPING, RIGHT_MAPPING);
   }
 
   private MSorter createNewMSorter(List<Ordering> orderings, VectorAccessible batch, MappingSet mainMapping, MappingSet leftMapping, MappingSet rightMapping) {

@@ -25,12 +25,12 @@ import java.io.IOException;
 import java.util.List;
 
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.compile.ClassBuilder;
 import org.apache.drill.exec.compile.CodeCompiler;
 import org.apache.drill.exec.memory.BaseAllocator;
 import org.apache.drill.exec.physical.impl.xsort.LogAnalyzer.EventAnalyzer;
 import org.apache.drill.exec.physical.impl.xsort.LogAnalyzer.SortStats;
 import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
+import org.apache.drill.exec.physical.impl.xsort.managed.BatchGroup;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.test.ClientFixture;
@@ -43,14 +43,8 @@ import org.apache.drill.test.ProfileParser;
 import org.apache.drill.test.ProfileParser.OperatorProfile;
 import org.apache.drill.test.QueryBuilder.QuerySummary;
 import org.junit.Test;
-import org.slf4j.LoggerFactory;
 
 import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.LoggerContext;
-import ch.qos.logback.classic.encoder.PatternLayoutEncoder;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.ConsoleAppender;
 
 //@Ignore
 public class TestExternalSortRM extends DrillTest {
@@ -427,7 +421,8 @@ public class TestExternalSortRM extends DrillTest {
   public void testMD1346() throws Exception {
     LogFixtureBuilder logBuilder = LogFixture.builder()
         .toConsole()
-        .logger(ExternalSortBatch.class, Level.TRACE)
+        .logger(ExternalSortBatch.class, Level.DEBUG)
+//        .logger(BatchGroup.class, Level.TRACE)
 //        .logger(org.apache.drill.exec.physical.impl.xsort.ExternalSortBatch.class, Level.TRACE)
         ;
     FixtureBuilder builder = ClusterFixture.builder()
