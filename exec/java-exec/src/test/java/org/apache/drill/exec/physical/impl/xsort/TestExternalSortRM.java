@@ -335,13 +335,13 @@ public class TestExternalSortRM extends DrillTest {
 //      String sql = "SELECT col_s3500 FROM `mock`.`table_150K` ORDER BY col_s3500";
 //      String sql = "SELECT * FROM `mock`.`xsort/MD1304.json` ORDER BY col1";
       String sql = "SELECT * FROM (SELECT * FROM `mock`.`xsort/MD1304.json` ORDER BY col1) d WHERE d.col1 = 'bogus'";
-      sortAndDump(client, sql);
+      runAndDump(client, sql);
     }
   }
 
   public static void main(String args[]) {
     try {
-      new TestExternalSortRM().testMD1346();
+      new TestExternalSortRM().testMD1346c();
     } catch (Exception e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
@@ -365,7 +365,7 @@ public class TestExternalSortRM extends DrillTest {
          ClusterFixture cluster = builder.build();
          ClientFixture client = cluster.clientFixture()) {
       String sql = "SELECT * FROM (SELECT * FROM `mock`.`xsort/MD1322a.json` ORDER BY col) d WHERE d.col <> 'bogus'";
-      sortAndDump(client, sql);
+      runAndDump(client, sql);
     }
   }
 
@@ -386,7 +386,7 @@ public class TestExternalSortRM extends DrillTest {
          ClusterFixture cluster = builder.build();
          ClientFixture client = cluster.clientFixture()) {
       String sql = "SELECT key_s250 FROM `mock`.`table_43M` ORDER BY key_s250";
-      sortAndDump(client, sql);
+      runAndDump(client, sql);
     }
   }
 
@@ -404,7 +404,7 @@ public class TestExternalSortRM extends DrillTest {
 //        .sessionOption(ExecConstants.SLICE_TARGET, 1000)
 //        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, true)
         .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
-//        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
         .sessionOption(ExecConstants.MAX_WIDTH_PER_NODE_KEY, 1)
         ;
     try (LogFixture logs = logBuilder.build();
@@ -413,7 +413,24 @@ public class TestExternalSortRM extends DrillTest {
       cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
 //      String sql = "SELECT * FROM (SELECT * FROM `mock`.`xsort/MD1322a.json` ORDER BY col) d WHERE d.col <> 'bogus'";
       String sql = "select * from (select * from `dfs.data`.`descending-col-length-8k.tbl` order by columns[0])d where d.columns[0] <> 'ljdfhwuehnoiueyf'";
-      sortAndDump(client, sql);
+      runAndDump(client, sql);
+    }
+  }
+
+  @Test
+  public void testMD1346b() throws Exception {
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        .maxParallelization(1)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+//        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
+        ;
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      String sql = "SELECT * FROM `dfs.data`.`250wide.tbl` WHERE columns[0] = 'askjdhfjhfds'";
+      runAndDump(client, sql);
     }
   }
 
@@ -441,7 +458,34 @@ public class TestExternalSortRM extends DrillTest {
          ClientFixture client = cluster.clientFixture()) {
       cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
       String sql = "select d2.col1 from (select d.col1 from (select distinct columns[0] col1 from `dfs.data`.`250wide.tbl`) d order by concat(d.col1, 'ASDF'))d2 where d2.col1 = 'askjdhfjhfds'";
-      sortAndDump(client, sql);
+      runAndDump(client, sql);
+    }
+  }
+
+  @Test
+  public void testMD1346c() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger(ExternalSortBatch.class, Level.DEBUG)
+//        .logger(BatchGroup.class, Level.TRACE)
+//        .logger(org.apache.drill.exec.physical.impl.xsort.ExternalSortBatch.class, Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+//        .configProperty(ExecConstants.EXTERNAL_SORT_MAX_MEMORY, "3G")
+        .maxParallelization(1)
+//        .sessionOption(ExecConstants.SLICE_TARGET, 1000)
+//        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, true)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
+        ;
+    try (LogFixture logs = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      String sql = "select columns[0] col1 from `dfs.data`.`250wide.tbl` order by col1";
+      runAndDump(client, sql);
     }
   }
 
@@ -469,11 +513,11 @@ public class TestExternalSortRM extends DrillTest {
       cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
 //      String sql = "select d2.col1 from (select d.col1 from (select distinct columns[0] col1 from `dfs.data`.`250wide.tbl`) d order by concat(d.col1, 'ASDF'))d2 where d2.col1 = 'askjdhfjhfds'";
       String sql = "SELECT columns[0] col1 FROM `dfs.data`.`250wide.tbl` ORDER BY col1";
-      sortAndDump(client, sql);
+      runAndDump(client, sql);
     }
   }
 
-  private void sortAndDump(ClientFixture client, String sql) throws Exception {
+  private void runAndDump(ClientFixture client, String sql) throws Exception {
     String plan = client.queryBuilder().sql(sql).explainJson();
     System.out.println(plan);
     QuerySummary summary = client.queryBuilder().sql(sql).run();
@@ -481,7 +525,11 @@ public class TestExternalSortRM extends DrillTest {
 
     System.out.println("Query ID: " + summary.queryIdString());
     ProfileParser profile = client.parseProfile(summary.queryIdString());
+    profile.print();
     List<OperatorProfile> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
+    if (ops.isEmpty()) {
+      return;
+    }
     assertEquals(1, ops.size());
     OperatorProfile sort = ops.get(0);
     long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
@@ -490,7 +538,6 @@ public class TestExternalSortRM extends DrillTest {
     int inputBatches = 0;
     System.out.println(String.format("Input batches: %d, spills: %d, merge/spills: %d",
         inputBatches, spillCount, mergeCount));
-    profile.print();
   }
 
   public void dumpProfile() throws IOException {
