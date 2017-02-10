@@ -301,6 +301,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private boolean hasOversizeCols;
   private long totalInputBytes;
   private Long spillBatchSize;
+  private int maxDensity;
 
   /**
    * Estimated number of rows that fit into a single spill batch.
@@ -901,11 +902,14 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // occur only at the end of a file or at the end of a DFS block. In such a
     // case, we will continue to rely on estimates created on previous, high-
     // density batches.
+    // We actually track the max density seen, and compare to 75% of that since
+    // Parquet produces very low density record batches.
 
-    if (sizer.getAvgDensity() < 75 && actualRecordCount > 0) {
+    if (sizer.getAvgDensity() < maxDensity * 0.75) {
       logger.debug("Saw low density batch. Density: {}", sizer.getAvgDensity());
       return;
     }
+    maxDensity = Math.max(maxDensity, sizer.getAvgDensity());
 
     // We know the batch size and number of records. Use that to estimate
     // the average record size. Since a typical batch has many records,
@@ -915,7 +919,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // have to do size adjustments for input batches as we will do below
     // when estimating the size of other objects.
 
-    int batchRowWidth = sizer.grossRowWidth();
+    int batchRowWidth = sizer.netRowWidth();
 
     // Record sizes may vary across batches. To be conservative, use
     // the largest size observed from incoming batches.
@@ -935,14 +939,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     if (estimatedRowWidth == origRowEstimate && estimatedInputBatchSize == origInputBatchSize) {
       return; }
 
-    // Estimate the input record count. Add one due to rounding.
-
-    long estimatedInputRowCount = estimatedInputBatchSize / estimatedRowWidth + 1;
-
     // Estimate the total size of each incoming batch plus sv2. Note that, due
     // to power-of-two rounding, the allocated size might be twice the data size.
 
-    long estimatedInputSize = estimatedInputBatchSize + 4 * estimatedInputRowCount;
+    long estimatedInputSize = estimatedInputBatchSize + 4 * actualRecordCount;
 
     // Determine the number of records to spill per spill batch. The goal is to
     // spill batches of either 64K records, or as many records as fit into the
@@ -1025,7 +1025,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
                   "merge batch size = {} bytes, {} records; " +
                   "output batch size = {} bytes, {} records; " +
                   "Available memory: {}, spill point = {}, min. merge memory = {}",
-                estimatedRowWidth, estimatedInputBatchSize, estimatedInputRowCount,
+                estimatedRowWidth, estimatedInputBatchSize, actualRecordCount,
                 spillBatchSize, spillBatchRowCount,
                 targetMergeBatchSize, mergeBatchRowCount,
                 memoryLimit, spillPoint, minMergeMemory);

@@ -128,7 +128,7 @@ public class OperatorCodeGenerator {
     cg.plainOldJavaCapable(true);
 
     // Uncomment out this line to debug the generated code.
-//    cg.preferPlainOldJava(true);
+    cg.setPersistCode(true);
 
     generateComparisons(g, batch);
 

@@ -517,6 +517,34 @@ public class TestExternalSortRM extends DrillTest {
     }
   }
 
+  @Test
+  public void testMD1364() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger(ExternalSortBatch.class, Level.TRACE)
+//        .logger(org.apache.drill.exec.physical.impl.xsort.ExternalSortBatch.class, Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+//        .configProperty(ExecConstants.EXTERNAL_SORT_MAX_MEMORY, "3G")
+        .maxParallelization(1)
+//        .sessionOption(ExecConstants.SLICE_TARGET, 1000)
+//        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, true)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 2L * 1024 * 1024 * 1024)
+        .sessionOption(ExecConstants.MAX_WIDTH_PER_NODE_KEY, 1)
+        ;
+    try (LogFixture logs = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+//      String sql = "select d2.col1 from (select d.col1 from (select distinct columns[0] col1 from `dfs.data`.`250wide.tbl`) d order by concat(d.col1, 'ASDF'))d2 where d2.col1 = 'askjdhfjhfds'";
+      String sql = "select * from `dfs.data`.`1_0_0.parquet` order by c_email_address";
+      runAndDump(client, sql);
+    }
+  }
+
   private void runAndDump(ClientFixture client, String sql) throws Exception {
     String plan = client.queryBuilder().sql(sql).explainJson();
     System.out.println(plan);
