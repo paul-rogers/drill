@@ -113,6 +113,7 @@ public class ExtendedMockRecordReader extends AbstractRecordReader {
         batchSize = 10 * 1024 * 1024;
       }
       batchRecordCount = Math.max(1, batchSize / estimateRowSize);
+      batchRecordCount = Math.min(batchRecordCount, Character.MAX_VALUE);
 
       for (int i = 0; i < fields.length; i++) {
         final ColumnDef col = fields[i];

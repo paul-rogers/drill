@@ -666,4 +666,14 @@ public class ProfileParser {
       return 0; }
     return Math.round(value * 100 / total );
   }
+
+  public List<OpDefInfo> getOpDefn(String target) {
+    List<OpDefInfo> ops = new ArrayList<>( );
+    for ( OpDefInfo opDef : operations ) {
+      if ( opDef.name.startsWith( target ) ) {
+        ops.add( opDef );
+      }
+    }
+    return ops;
+  }
 }

@@ -175,7 +175,7 @@ public class MockGroupScanPOP extends AbstractGroupScan {
       throw new IllegalArgumentException("No columns for mock scan");
     }
     List<MockTableDef.MockColumn> mockCols = new ArrayList<>( );
-    Pattern p = Pattern.compile("(\\w+)_([isd])(\\d*)");
+    Pattern p = Pattern.compile("(\\w+)_([isdb])(\\d*)");
     for (SchemaPath path : columns) {
       String col = path.getLastSegment().getNameSegment().getPath();
       if (col.equals("*")) {
@@ -204,6 +204,9 @@ public class MockGroupScanPOP extends AbstractGroupScan {
         break;
       case "d":
         minorType = MinorType.FLOAT8;
+        break;
+      case "b":
+        minorType = MinorType.BIT;
         break;
       default:
         throw new IllegalArgumentException(

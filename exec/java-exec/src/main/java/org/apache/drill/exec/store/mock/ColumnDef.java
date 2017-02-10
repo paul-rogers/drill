@@ -19,7 +19,6 @@ package org.apache.drill.exec.store.mock;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.expr.TypeHelper;
-import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
 
 /**
  * Defines a column for the "enhanced" version of the mock data
@@ -83,6 +82,7 @@ public class ColumnDef {
     case BIGINT:
       break;
     case BIT:
+      generator = new BooleanGen( );
       break;
     case DATE:
       break;
