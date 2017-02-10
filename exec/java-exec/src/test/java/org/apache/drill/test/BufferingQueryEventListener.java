@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -32,6 +32,9 @@ import com.google.common.collect.Queues;
  * Drill query event listener that buffers rows into a producer-consumer
  * queue. Allows rows to be received asynchronously, but processed by
  * a synchronous reader.
+ * <p>
+ * Query messages are transformed into events: query ID, batch,
+ * EOF or error.
  */
 
 public class BufferingQueryEventListener implements UserResultsListener
@@ -43,7 +46,7 @@ public class BufferingQueryEventListener implements UserResultsListener
     public final Type type;
     public QueryId queryId;
     public QueryDataBatch batch;
-    public UserException error;
+    public Exception error;
     public QueryState state;
 
     public QueryEvent(QueryId queryId) {
@@ -51,7 +54,7 @@ public class BufferingQueryEventListener implements UserResultsListener
       this.type = Type.QUERY_ID;
     }
 
-    public QueryEvent(UserException ex) {
+    public QueryEvent(Exception ex) {
       error = ex;
       type = Type.ERROR;
     }
@@ -102,9 +105,8 @@ public class BufferingQueryEventListener implements UserResultsListener
     try {
       return queue.take();
     } catch (InterruptedException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-      return null;
+      // Should not occur, but if it does, just pass along the error.
+      return new QueryEvent(e);
     }
   }
 }

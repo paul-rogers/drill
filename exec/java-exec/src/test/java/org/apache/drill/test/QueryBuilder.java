@@ -335,9 +335,6 @@ public class QueryBuilder {
   public long print() throws Exception {
     DrillConfig config = client.cluster().config( );
 
-    // Note: verbose check disabled until that change is
-    // committed.
-
 
     boolean verbose = ! config.getBoolean(QueryTestUtil.TEST_QUERY_PRINTING_SILENT) ||
                       DrillTest.verbose();

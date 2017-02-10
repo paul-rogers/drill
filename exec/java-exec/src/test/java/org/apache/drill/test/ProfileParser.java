@@ -255,11 +255,8 @@ public class ProfileParser {
   public List<String> getScans( ) {
     List<String> scans = new ArrayList<>();
     int n = getPlans( ).size();
-//    Pattern p = Pattern.compile( "\\d+-\\d+\\s+(\\w+)\\(" );
     for ( int i = n-1; i >= 0;  i-- ) {
       String plan = plans.get( i );
-//      Matcher m = p.matcher( plan );
-//      if ( ! m.find() ) { continue; }
       if ( plan.contains( " Scan(" ) ) {
         scans.add( plan );
       }

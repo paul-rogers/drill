@@ -291,6 +291,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     }
   }
 
+  @SuppressWarnings("resource")
   @Override
   public IterOutcome innerNext() {
     if (schema != null) {

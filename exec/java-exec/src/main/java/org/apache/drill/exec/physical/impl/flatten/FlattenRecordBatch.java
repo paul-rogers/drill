@@ -365,10 +365,10 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
         cg.addExpr(expr);
       } else {
         // need to do evaluation.
-<<<<<<< d482be9c9e2c10a4b53e9eea0f434b86b34ef6d5
         final MaterializedField outputField;
         if (expr instanceof ValueVectorReadExpression) {
           final TypedFieldId id = ValueVectorReadExpression.class.cast(expr).getFieldId();
+          @SuppressWarnings("resource")
           final ValueVector incomingVector = incoming.getValueAccessorById(id.getIntermediateClass(), id.getFieldIds()).getValueVector();
           // outputField is taken from the incoming schema to avoid the loss of nested fields
           // when the first batch will be empty.
@@ -380,11 +380,8 @@ public class FlattenRecordBatch extends AbstractSingleRecordBatch<FlattenPOP> {
         } else {
           outputField = MaterializedField.create(outputName, expr.getMajorType());
         }
-        final ValueVector vector = TypeHelper.getNewVector(outputField, oContext.getAllocator());
-=======
         @SuppressWarnings("resource")
-        ValueVector vector = TypeHelper.getNewVector(outputField, oContext.getAllocator());
->>>>>>> DRILL-5116: Add plain-old Java support to all operators
+        final ValueVector vector = TypeHelper.getNewVector(outputField, oContext.getAllocator());
         allocationVectors.add(vector);
         TypedFieldId fid = container.add(vector);
         ValueVectorWriteExpression write = new ValueVectorWriteExpression(fid, expr, true);

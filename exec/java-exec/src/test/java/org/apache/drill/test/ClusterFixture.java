@@ -114,7 +114,7 @@ public class ClusterFixture implements AutoCloseable {
   public static final String DEFAULT_BIT_NAME = "drillbit";
 
   private DrillConfig config;
-  private Map<String,Drillbit> bits = new HashMap<>();
+  private Map<String, Drillbit> bits = new HashMap<>();
   private Drillbit defaultDrillbit;
   private BufferAllocator allocator;
   private boolean ownsZK;
@@ -124,7 +124,7 @@ public class ClusterFixture implements AutoCloseable {
   protected List<ClientFixture> clients = new ArrayList<>();
   private boolean usesZk;
 
-  protected ClusterFixture(FixtureBuilder  builder) throws Exception {
+  ClusterFixture(FixtureBuilder builder) throws Exception {
 
     String zkConnect = configureZk(builder);
     createConfig(builder, zkConnect);
