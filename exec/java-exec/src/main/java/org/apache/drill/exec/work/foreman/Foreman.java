@@ -28,6 +28,7 @@ import java.util.concurrent.CountDownLatch;
 import org.apache.drill.common.CatastrophicFailure;
 import org.apache.drill.common.EventProcessor;
 import org.apache.drill.common.concurrent.ExtendedLatch;
+import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.logical.LogicalPlan;
@@ -116,6 +117,8 @@ public class Foreman implements Runnable {
   private static final org.slf4j.Logger queryLogger = org.slf4j.LoggerFactory.getLogger("query.logger");
   private static final ControlsInjector injector = ControlsInjectorFactory.getInjector(Foreman.class);
 
+  public enum ProfileOption { SYNC, ASYNC, NONE };
+
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final long RPC_WAIT_IN_MSECS_PER_FRAGMENT = 5000;
 
@@ -133,6 +136,7 @@ public class Foreman implements Runnable {
   private final UserClientConnection initiatingClient; // used to send responses
   private volatile QueryState state;
   private boolean resume = false;
+  private final ProfileOption profileOption;
 
   private final QueryResourceManager queryRM;
 
@@ -172,6 +176,19 @@ public class Foreman implements Runnable {
     recordNewState(QueryState.ENQUEUED);
     enqueuedQueries.inc();
     queryRM = drillbitContext.getResourceManager().newQueryRM(this);
+
+    profileOption = setProfileOption(drillbitContext.getConfig());
+  }
+
+  private ProfileOption setProfileOption(DrillConfig config) {
+    String optValue = config.getString(ExecConstants.QUERY_PROFILE_OPTION);
+    optValue = optValue.toLowerCase();
+    if (optValue.startsWith("s")) {
+      return ProfileOption.SYNC;
+    } else if (optValue.startsWith("n")) {
+      return ProfileOption.NONE;
+    }
+    return ProfileOption.ASYNC;
   }
 
   private class ConnectionClosedListener implements GenericFutureListener<Future<Void>> {
@@ -766,6 +783,13 @@ public class Foreman implements Runnable {
         uex = null;
       }
 
+      // Debug option: write query profile before sending final results so that
+      // the client can be certain the profile exists.
+
+      if (profileOption == ProfileOption.SYNC) {
+        writeProfile(uex);
+      }
+
       /*
        * If sending the result fails, we don't really have any way to modify the result we tried to send;
        * it is possible it got sent but the result came from a later part of the code path. It is also
@@ -780,9 +804,8 @@ public class Foreman implements Runnable {
         logger.warn("Exception sending result to client", resultException);
       }
 
-      // Store the final result here so we can capture any error/errorId in the
-      // profile for later debugging.
-      // Write the query profile AFTER sending results to the user. The observed
+      // Normal behavior is to write the query profile AFTER sending results to the user.
+      // The observed
       // user behavior is a possible time-lag between query return and appearance
       // of the query profile in persistent storage. Also, the query might
       // succeed, but the profile never appear if the profile write fails. This
@@ -791,7 +814,9 @@ public class Foreman implements Runnable {
       // storage write; query completion occurs in parallel with profile
       // persistence.
 
-      queryManager.writeFinalProfile(uex);
+      if (profileOption == ProfileOption.ASYNC) {
+        writeProfile(uex);
+      }
 
       // Remove the Foreman from the running query list.
       bee.retireForeman(Foreman.this);
@@ -810,6 +835,13 @@ public class Foreman implements Runnable {
         isClosed = true;
       }
     }
+  }
+
+  // Store the final result here so we can capture any error/errorId in the
+  // profile for later debugging.
+
+  private void writeProfile(UserException uex) {
+    queryManager.writeFinalProfile(uex);
   }
 
   private static class StateEvent {

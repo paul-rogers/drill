@@ -423,4 +423,5 @@ public interface ExecConstants {
 
   String DYNAMIC_UDF_SUPPORT_ENABLED = "exec.udf.enable_dynamic_support";
   BooleanValidator DYNAMIC_UDF_SUPPORT_ENABLED_VALIDATOR = new BooleanValidator(DYNAMIC_UDF_SUPPORT_ENABLED, true, true);
+  String QUERY_PROFILE_OPTION = "drill.exec.foreman.profile";
 }
