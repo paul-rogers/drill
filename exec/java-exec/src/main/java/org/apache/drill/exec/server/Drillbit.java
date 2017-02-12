@@ -31,6 +31,8 @@ import org.apache.drill.exec.coord.ClusterCoordinator;
 import org.apache.drill.exec.coord.ClusterCoordinator.RegistrationHandle;
 import org.apache.drill.exec.coord.zk.ZKClusterCoordinator;
 import org.apache.drill.exec.exception.DrillbitStartupException;
+import org.apache.drill.exec.planner.cost.DrillRelDefaultMdSelectivity;
+import org.apache.drill.exec.planner.cost.DrillRelDefaultMdSelectivity.ReductionCalculator;
 import org.apache.drill.exec.planner.sql.SchemaUtilites;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.server.options.OptionManager;
@@ -113,6 +115,7 @@ public class Drillbit implements AutoCloseable {
     engine = new ServiceEngine(manager.getControlMessageHandler(), manager.getUserWorker(), context,
         manager.getWorkBus(), manager.getBee(), allowPortHunting, isDistributedMode);
 
+    configurePlanner(config);
     logger.info("Construction completed ({} ms).", w.elapsed(TimeUnit.MILLISECONDS));
   }
 
@@ -140,6 +143,26 @@ public class Drillbit implements AutoCloseable {
 
     Runtime.getRuntime().addShutdownHook(new ShutdownThread(this, new StackTrace()));
     logger.info("Startup completed ({} ms).", w.elapsed(TimeUnit.MILLISECONDS));
+  }
+
+  /**
+   * Enable and optionally customize Drill's default reduction factor
+   * (AKA selectivity) rules. Customization is a boot-time option, and is provided
+   * so that the new rules can be selectively enabled until they are proven.
+   * It does not make sense (at least now) to allow user run-time control over
+   * these options.
+   *
+   * @param config the boot-time configuration
+   */
+
+  private void configurePlanner(DrillConfig config) {
+    DrillRelDefaultMdSelectivity.useEnhancedRules(config.getBoolean(ExecConstants.OPTIMIZER_ENHANCED_DEFAULTS_ENABLE));
+    ReductionCalculator calc = new ReductionCalculator(
+        config.getDouble(ExecConstants.OPTIMIZER_ENHANCED_DEFAULTS_PROB_EQ),
+        config.getDouble(ExecConstants.OPTIMIZER_ENHANCED_DEFAULTS_PROB_NULL),
+        config.getDouble(ExecConstants.OPTIMIZER_ENHANCED_DEFAULTS_PROB_LIKE)
+        );
+    DrillRelDefaultMdSelectivity.setDefaultRules(calc);
   }
 
   @Override

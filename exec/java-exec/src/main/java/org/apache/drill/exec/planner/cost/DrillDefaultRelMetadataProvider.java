@@ -29,6 +29,6 @@ public class DrillDefaultRelMetadataProvider {
   public static final RelMetadataProvider INSTANCE = ChainedRelMetadataProvider.of(ImmutableList
       .of(DrillRelMdRowCount.SOURCE,
           DrillRelMdDistinctRowCount.SOURCE,
-          DrillRelMdSelectivity.SOURCE,
+          DrillRelDefaultMdSelectivity.SOURCE,
           new DefaultRelMetadataProvider()));
 }
