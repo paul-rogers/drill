@@ -83,7 +83,7 @@ public class TestMergeJoinWithSchemaChanges extends ClusterTest {
     testNumericLeftJoin(left_dir, right_dir);
   }
 
-  public void enableManagedSort(boolean enable) throws RpcException {
+  public void enableManagedSort(boolean enable) throws Exception {
     client.alterSession(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName(), enable);
   }
 

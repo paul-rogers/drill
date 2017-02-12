@@ -56,7 +56,7 @@ public class ClientFixture implements AutoCloseable {
       return this;
     }
 
-    ClientFixture build( ) {
+    public ClientFixture build( ) {
       try {
         return new ClientFixture(this);
       } catch (RpcException e) {

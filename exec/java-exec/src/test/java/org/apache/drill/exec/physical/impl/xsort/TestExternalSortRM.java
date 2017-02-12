@@ -585,7 +585,7 @@ public class TestExternalSortRM extends DrillTest {
 //    profile.print();
   }
 
-  private void performSort(ClientFixture client) throws IOException {
+  private void performSort(ClientFixture client) throws Exception {
     QuerySummary summary = client.queryBuilder().sqlResource("/xsort/sort-big-all.sql").run();
     System.out.println(String.format("Sorted %,d records in %d batches; %d ms.", summary.recordCount(), summary.batchCount(), summary.runTimeMs()));
     assertEquals(2880404, summary.recordCount());

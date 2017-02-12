@@ -168,7 +168,7 @@ public class ColumnDef {
     generator.setup(this);
   }
 
-  public ColumnDef(MockColumn mockCol, int rep) {
+  public ColumnDef(MockTableDef.MockColumn mockCol, int rep) {
     this(mockCol);
     name += Integer.toString(rep);
   }

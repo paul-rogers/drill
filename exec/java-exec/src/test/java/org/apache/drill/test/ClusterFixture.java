@@ -29,6 +29,7 @@ import java.util.Map.Entry;
 import java.util.Properties;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.drill.BaseTestQuery;
 import org.apache.drill.DrillTestWrapper.TestServices;
 import org.apache.drill.QueryTestUtil;
 import org.apache.drill.common.config.DrillConfig;
@@ -78,6 +79,14 @@ public class ClusterFixture implements AutoCloseable {
       // configuration. They allow tests to run successfully in Eclipse.
 
       put(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, false);
+
+      // The CTTAS function requires that the default temporary workspace be
+      // writable. By default, the default temporary workspace points to
+      // dfs.tmp. But, the test setup marks dfs.tmp as read-only. To work
+      // around this, tests are supposed to use dfs_test. So, we need to
+      // set the default temporary workspace to dfs_test.tmp.
+
+      put(ExecConstants.DEFAULT_TEMPORARY_WORKSPACE, BaseTestQuery.TEMP_SCHEMA);
       put(ExecConstants.HTTP_ENABLE, false);
       put(QueryTestUtil.TEST_QUERY_PRINTING_SILENT, true);
       put("drill.catastrophic_to_standard_out", true);
@@ -202,7 +211,6 @@ public class ClusterFixture implements AutoCloseable {
     Preconditions.checkArgument(builder.bitCount > 0);
     int bitCount = builder.bitCount;
     for (int i = 0; i < bitCount; i++) {
-      @SuppressWarnings("resource")
       Drillbit bit = new Drillbit(config, serviceSet);
       bit.run();
 
@@ -365,14 +373,11 @@ public class ClusterFixture implements AutoCloseable {
       String schemaName, String path, String defaultFormat)
       throws ExecutionSetupException {
     @SuppressWarnings("resource")
-    final StoragePluginRegistry pluginRegistry = drillbit.getContext()
-        .getStorage();
+    final StoragePluginRegistry pluginRegistry = drillbit.getContext().getStorage();
     @SuppressWarnings("resource")
-    final FileSystemPlugin plugin = (FileSystemPlugin) pluginRegistry
-        .getPlugin(pluginName);
+    final FileSystemPlugin plugin = (FileSystemPlugin) pluginRegistry.getPlugin(pluginName);
     final FileSystemConfig pluginConfig = (FileSystemConfig) plugin.getConfig();
-    final WorkspaceConfig newTmpWSConfig = new WorkspaceConfig(path, true,
-        defaultFormat);
+    final WorkspaceConfig newTmpWSConfig = new WorkspaceConfig(path, true, defaultFormat);
 
     pluginConfig.workspaces.remove(schemaName);
     pluginConfig.workspaces.put(schemaName, newTmpWSConfig);
@@ -481,6 +486,10 @@ public class ClusterFixture implements AutoCloseable {
     return tempDir;
   }
 
+  public File getDrillTempDir() {
+    return new File(config.getString(ExecConstants.SYS_STORE_PROVIDER_LOCAL_PATH));
+  }
+
   public boolean usesZK() {
     return usesZk;
   }
@@ -490,7 +499,7 @@ public class ClusterFixture implements AutoCloseable {
     if (usesZk) {
       baseDir = new File(config.getString(ZookeeperPersistentStoreProvider.DRILL_EXEC_SYS_STORE_PROVIDER_ZK_BLOBROOT));
     } else {
-      baseDir = new File(config.getString(ExecConstants.SYS_STORE_PROVIDER_LOCAL_PATH));
+      baseDir = getDrillTempDir();
     }
     return new File(baseDir, "profiles");
   }
