@@ -94,11 +94,15 @@ public class DrillRelDefaultMdSelectivity extends RelMdSelectivity {
       probLike = plike;
     }
 
-    public double computeRedictionFactor(RexNode pred) {
+    public double computeReductionFactor(RexNode pred) {
       switch ( pred.getKind() ) {
       case BETWEEN:
         // Never called in Calcite. Drill seems to rewrite
-        // a BETWEEN b AND c to a >= b AND a <= c.
+        // a BETWEEN b AND c
+        // to
+        // a >= b AND a <= c
+        //
+        // Computed as:
         // Half the range from (-infinity, lower) or
         // half the range from (upper, infinity)
         // Bounds are inclusive
@@ -136,14 +140,14 @@ public class DrillRelDefaultMdSelectivity extends RelMdSelectivity {
       case LIKE:
         return probLike;
       case NOT:
-        return 1.0 - computeRedictionFactor(((RexCall) pred).getOperands().get(0));
+        return 1.0 - computeReductionFactor(((RexCall) pred).getOperands().get(0));
       case OR: {
           // p(A v B) = p(A) + p(B) - P(A ^ B)
           RexCall rexCall = (RexCall) pred;
           double sel = 0;
           double andSel = 1;
           for (RexNode op : rexCall.getOperands()) {
-            double opSel = computeRedictionFactor(op);
+            double opSel = computeReductionFactor(op);
             sel += opSel;
             andSel *= opSel;
           }
@@ -157,7 +161,7 @@ public class DrillRelDefaultMdSelectivity extends RelMdSelectivity {
           RexCall rexCall = (RexCall) pred;
           double sel = 1.0;
           for (RexNode op : rexCall.getOperands()) {
-            sel *= computeRedictionFactor(op);
+            sel *= computeReductionFactor(op);
           }
           return sel;
         }
@@ -212,7 +216,7 @@ public class DrillRelDefaultMdSelectivity extends RelMdSelectivity {
     }
 
     for (RexNode pred : RelOptUtil.conjunctions(predicate)) {
-      sel *= defaultReduction.computeRedictionFactor(pred);
+      sel *= defaultReduction.computeReductionFactor(pred);
     }
 
     return sel;
