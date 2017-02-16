@@ -29,6 +29,7 @@ import java.util.Map.Entry;
 import java.util.Properties;
 
 import org.apache.commons.io.FileUtils;
+import org.apache.drill.BaseTestQuery;
 import org.apache.drill.DrillTestWrapper.TestServices;
 import org.apache.drill.QueryTestUtil;
 import org.apache.drill.common.config.DrillConfig;
@@ -78,6 +79,14 @@ public class ClusterFixture implements AutoCloseable {
       // configuration. They allow tests to run successfully in Eclipse.
 
       put(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, false);
+
+      // The CTTAS function requires that the default temporary workspace be
+      // writable. By default, the default temporary workspace points to
+      // dfs.tmp. But, the test setup marks dfs.tmp as read-only. To work
+      // around this, tests are supposed to use dfs_test. So, we need to
+      // set the default temporary workspace to dfs_test.tmp.
+
+      put(ExecConstants.DEFAULT_TEMPORARY_WORKSPACE, BaseTestQuery.TEMP_SCHEMA);
       put(ExecConstants.HTTP_ENABLE, false);
       put(QueryTestUtil.TEST_QUERY_PRINTING_SILENT, true);
       put("drill.catastrophic_to_standard_out", true);
@@ -114,7 +123,7 @@ public class ClusterFixture implements AutoCloseable {
   public static final String DEFAULT_BIT_NAME = "drillbit";
 
   private DrillConfig config;
-  private Map<String,Drillbit> bits = new HashMap<>();
+  private Map<String, Drillbit> bits = new HashMap<>();
   private Drillbit defaultDrillbit;
   private BufferAllocator allocator;
   private boolean ownsZK;
@@ -122,10 +131,11 @@ public class ClusterFixture implements AutoCloseable {
   private RemoteServiceSet serviceSet;
   private String dfsTestTmpSchemaLocation;
   protected List<ClientFixture> clients = new ArrayList<>();
+  private boolean preserveLocalFiles;
+  private boolean isLocal;
   private boolean usesZk;
 
-  protected ClusterFixture(FixtureBuilder  builder) throws Exception {
-
+  ClusterFixture(FixtureBuilder builder) throws Exception {
     String zkConnect = configureZk(builder);
     createConfig(builder, zkConnect);
     startDrillbits(builder);
@@ -184,16 +194,20 @@ public class ClusterFixture implements AutoCloseable {
     if (builder.enableFullCache || (config.hasPath(ENABLE_FULL_CACHE)
         && config.getBoolean(ENABLE_FULL_CACHE))) {
       serviceSet = RemoteServiceSet.getServiceSetWithFullCache(config, allocator);
+      isLocal = false;
     } else if (builder.usingZk) {
       // Distribute drillbit using ZK (in-process or external)
 
       serviceSet = null;
       usesZk = true;
+      isLocal = false;
     } else {
       // Embedded Drillbit.
 
       serviceSet = RemoteServiceSet.getLocalServiceSet();
+      isLocal = true;
     }
+  }
 
 //    // Ensure that Drill uses the log directory determined here rather than
 //    // it's hard-coded defaults.
@@ -213,15 +227,21 @@ public class ClusterFixture implements AutoCloseable {
 //    }
 //    new File(logDir).mkdirs();
 //    System.setProperty("drill.log-dir", logDir);
-  }
 
   private void startDrillbits(FixtureBuilder builder) throws Exception {
     dfsTestTmpSchemaLocation = TestUtilities.createTempDir();
 
+    // Clean up any files that may have been left from the
+    // last run.
+
+    preserveLocalFiles = builder.preserveLocalFiles;
+    removeLocalFiles();
+
+    // Start the Drillbits.
+
     Preconditions.checkArgument(builder.bitCount > 0);
     int bitCount = builder.bitCount;
     for (int i = 0; i < bitCount; i++) {
-      @SuppressWarnings("resource")
       Drillbit bit = new Drillbit(config, serviceSet);
       bit.run();
 
@@ -334,6 +354,21 @@ public class ClusterFixture implements AutoCloseable {
   public void close() throws Exception {
     Exception ex = null;
 
+    // Delete any local files, if we wrote to the local
+    // persistent store. But, leave the files if the user wants
+    // to review them, for debugging, say. Note that, even if the
+    // files are preserved here, they will be removed when the
+    // next cluster fixture starts, else the CTTAS initialization
+    // will fail.
+
+    if (! preserveLocalFiles) {
+        try {
+          removeLocalFiles();
+        } catch (Exception e) {
+          ex = e;
+        }
+    }
+
     // Close clients. Clients remove themselves from the client
     // list.
 
@@ -362,6 +397,48 @@ public class ClusterFixture implements AutoCloseable {
     }
   }
 
+  /**
+   * Removes files stored locally in the "local store provider."
+   * Required because CTTAS setup fails if these files are left from one
+   * run to the next.
+   *
+   * @throws IOException if a directory cannot be deleted
+   */
+
+  private void removeLocalFiles() throws IOException {
+
+    // Don't delete if this is not a local Drillbit.
+
+    if (! isLocal) {
+      return;
+    }
+
+    // Don't delete if we did not write.
+
+    if (! config.getBoolean(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE)) {
+      return;
+    }
+
+    // Remove the local files if they exist.
+
+    String localStoreLocation = config.getString(ExecConstants.SYS_STORE_PROVIDER_LOCAL_PATH);
+    File storeDir = new File(localStoreLocation);
+    if (! storeDir.exists()) {
+      return;
+    }
+    FileUtils.deleteDirectory(storeDir);
+  }
+
+  /**
+   * Close a resource, suppressing the exception, and keeping
+   * only the first exception that may occur. We assume that only
+   * the first is useful, any others are probably down-stream effects
+   * of that first one.
+   *
+   * @param item
+   * @param ex
+   * @return
+   */
   private Exception safeClose(AutoCloseable item, Exception ex) {
     try {
       if (item != null) {
@@ -372,6 +449,17 @@ public class ClusterFixture implements AutoCloseable {
     }
     return ex;
   }
+
+  /**
+   * Define a workspace within an existing storage plugin. Useful for
+   * pointing to local file system files outside the Drill source tree.
+   *
+   * @param pluginName name of the plugin like "dfs" or "dfs_test".
+   * @param schemaName name of the new schema
+   * @param path directory location (usually local)
+   * @param defaultFormat default format for files in the schema
+   * @throws ExecutionSetupException if something goes wrong
+   */
 
   public void defineWorkspace(String pluginName, String schemaName, String path,
       String defaultFormat) throws ExecutionSetupException {
@@ -384,14 +472,11 @@ public class ClusterFixture implements AutoCloseable {
       String schemaName, String path, String defaultFormat)
       throws ExecutionSetupException {
     @SuppressWarnings("resource")
-    final StoragePluginRegistry pluginRegistry = drillbit.getContext()
-        .getStorage();
+    final StoragePluginRegistry pluginRegistry = drillbit.getContext().getStorage();
     @SuppressWarnings("resource")
-    final FileSystemPlugin plugin = (FileSystemPlugin) pluginRegistry
-        .getPlugin(pluginName);
+    final FileSystemPlugin plugin = (FileSystemPlugin) pluginRegistry.getPlugin(pluginName);
     final FileSystemConfig pluginConfig = (FileSystemConfig) plugin.getConfig();
-    final WorkspaceConfig newTmpWSConfig = new WorkspaceConfig(path, true,
-        defaultFormat);
+    final WorkspaceConfig newTmpWSConfig = new WorkspaceConfig(path, true, defaultFormat);
 
     pluginConfig.workspaces.remove(schemaName);
     pluginConfig.workspaces.put(schemaName, newTmpWSConfig);
@@ -409,6 +494,16 @@ public class ClusterFixture implements AutoCloseable {
          ;
   }
 
+  /**
+   * Return a cluster builder without any of the usual defaults. Use
+   * this only for special cases. Your code is responsible for all the
+   * odd bits that must be set to get the setup right. See
+   * {@link ClusterFixture#TEST_CONFIGURATIONS} for details. Note that
+   * you are often better off using the defaults, then replacing selected
+   * properties with the values you prefer.
+   *
+   * @return a fixture builder with no default properties set
+   */
   public static FixtureBuilder bareBuilder() {
     return new FixtureBuilder();
   }
@@ -500,6 +595,10 @@ public class ClusterFixture implements AutoCloseable {
     return tempDir;
   }
 
+  public File getDrillTempDir() {
+    return new File(config.getString(ExecConstants.SYS_STORE_PROVIDER_LOCAL_PATH));
+  }
+
   public boolean usesZK() {
     return usesZk;
   }
@@ -509,7 +608,7 @@ public class ClusterFixture implements AutoCloseable {
     if (usesZk) {
       baseDir = new File(config.getString(ZookeeperPersistentStoreProvider.DRILL_EXEC_SYS_STORE_PROVIDER_ZK_BLOBROOT));
     } else {
-      baseDir = new File(config.getString(ExecConstants.SYS_STORE_PROVIDER_LOCAL_PATH));
+      baseDir = getDrillTempDir();
     }
     return new File(baseDir, "profiles");
   }

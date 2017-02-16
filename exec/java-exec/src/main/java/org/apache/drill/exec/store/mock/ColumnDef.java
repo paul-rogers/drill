@@ -29,12 +29,12 @@ import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
  */
 
 public class ColumnDef {
-  public MockTableDef.MockColumn mockCol;
+  public MockColumn mockCol;
   public String name;
   public int width;
   public FieldGen generator;
 
-  public ColumnDef(MockTableDef.MockColumn mockCol) {
+  public ColumnDef(MockColumn mockCol) {
     this.mockCol = mockCol;
     name = mockCol.getName();
     if (mockCol.getMinorType() == MinorType.VARCHAR &&
@@ -83,6 +83,7 @@ public class ColumnDef {
     case BIGINT:
       break;
     case BIT:
+      generator = new BooleanGen();
       break;
     case DATE:
       break;

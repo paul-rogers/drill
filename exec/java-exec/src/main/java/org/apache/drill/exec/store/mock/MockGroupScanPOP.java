@@ -80,8 +80,8 @@ public class MockGroupScanPOP extends AbstractGroupScan {
 
   @JsonCreator
   public MockGroupScanPOP(@JsonProperty("url") String url,
-                          @JsonProperty("entries") List<MockTableDef.MockScanEntry> readEntries) {
-    super((String)null);
+                          @JsonProperty("entries") List<MockScanEntry> readEntries) {
+    super((String) null);
     this.readEntries = readEntries;
     this.url = url;
 
@@ -90,12 +90,12 @@ public class MockGroupScanPOP extends AbstractGroupScan {
     for (MockScanEntry entry : readEntries) {
       rowCount += entry.getRecords();
       int width = 0;
-      if (entry.getTypes() == null ) {
+      if (entry.getTypes() == null) {
         width = 50;
       } else {
         for (MockColumn col : entry.getTypes()) {
           int colWidth = 0;
-          if ( col.getWidth() == 0 ) {
+          if (col.getWidth() == 0) {
             colWidth = TypeHelper.getSize(col.getMajorType());
           } else {
             colWidth = col.getWidth();
@@ -107,7 +107,7 @@ public class MockGroupScanPOP extends AbstractGroupScan {
       rowWidth = Math.max(rowWidth, width);
     }
     int dataSize = rowCount * rowWidth;
-    scanStats = new ScanStats( GroupScanProperty.EXACT_ROW_COUNT,
+    scanStats = new ScanStats(GroupScanProperty.EXACT_ROW_COUNT,
                                rowCount,
                                DrillCostBase.BASE_CPU_COST * dataSize,
                                DrillCostBase.BYTE_DISK_READ_COST * dataSize);
@@ -123,7 +123,7 @@ public class MockGroupScanPOP extends AbstractGroupScan {
   }
 
   @JsonProperty("entries")
-  public List<MockTableDef.MockScanEntry> getReadEntries() {
+  public List<MockScanEntry> getReadEntries() {
     return readEntries;
   }
 
@@ -135,13 +135,13 @@ public class MockGroupScanPOP extends AbstractGroupScan {
     mappings = new LinkedList[endpoints.size()];
 
     int i = 0;
-    for (MockTableDef.MockScanEntry e : this.getReadEntries()) {
+    for (MockScanEntry e : this.getReadEntries()) {
       if (i == endpoints.size()) {
         i -= endpoints.size();
       }
-      LinkedList<MockTableDef.MockScanEntry> entries = mappings[i];
+      LinkedList<MockScanEntry> entries = mappings[i];
       if (entries == null) {
-        entries = new LinkedList<MockTableDef.MockScanEntry>();
+        entries = new LinkedList<MockScanEntry>();
         mappings[i] = entries;
       }
       entries.add(e);
@@ -174,8 +174,8 @@ public class MockGroupScanPOP extends AbstractGroupScan {
     if (columns.isEmpty()) {
       throw new IllegalArgumentException("No columns for mock scan");
     }
-    List<MockTableDef.MockColumn> mockCols = new ArrayList<>( );
-    Pattern p = Pattern.compile("(\\w+)_([isd])(\\d*)");
+    List<MockColumn> mockCols = new ArrayList<>();
+    Pattern p = Pattern.compile("(\\w+)_([isdb])(\\d*)");
     for (SchemaPath path : columns) {
       String col = path.getLastSegment().getNameSegment().getPath();
       if (col.equals("*")) {
@@ -205,21 +205,24 @@ public class MockGroupScanPOP extends AbstractGroupScan {
       case "d":
         minorType = MinorType.FLOAT8;
         break;
+      case "b":
+        minorType = MinorType.BIT;
+        break;
       default:
         throw new IllegalArgumentException(
             "Unsupported field type " + type + " for mock column " + col);
       }
-      MockTableDef.MockColumn mockCol = new MockTableDef.MockColumn(
+      MockTableDef.MockColumn mockCol = new MockColumn(
           col, minorType, DataMode.REQUIRED, width, 0, 0, null, 1, null);
       mockCols.add(mockCol);
     }
-    MockTableDef.MockScanEntry entry = readEntries.get(0);
-    MockTableDef.MockColumn types[] = new MockTableDef.MockColumn[mockCols.size()];
+    MockScanEntry entry = readEntries.get(0);
+    MockColumn types[] = new MockColumn[mockCols.size()];
     mockCols.toArray(types);
-    MockTableDef.MockScanEntry newEntry = new MockTableDef.MockScanEntry( entry.records, true, 0, types );
-    List<MockTableDef.MockScanEntry> newEntries = new ArrayList<>( );
+    MockScanEntry newEntry = new MockScanEntry(entry.records, true, 0, types);
+    List<MockScanEntry> newEntries = new ArrayList<>();
     newEntries.add(newEntry);
-    return new MockGroupScanPOP( url, newEntries );
+    return new MockGroupScanPOP(url, newEntries);
   }
 
   @Override

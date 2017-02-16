@@ -581,7 +581,7 @@ public class TestDrillbitResilience extends DrillTest {
     }
   }
 
-  private static void interruptingBlockedFragmentsWaitingForData(final ClientFixture client, final String control) throws RpcException {
+  private static void interruptingBlockedFragmentsWaitingForData(final ClientFixture client, final String control) throws Exception {
     client.alterSession(ExecConstants.SLICE_TARGET, 1);
     client.alterSession(PlannerSettings.HASHAGG.getOptionName(), false);
     try {
@@ -671,7 +671,7 @@ public class TestDrillbitResilience extends DrillTest {
     doFailsAfterMSorterSorting(client, false);
   }
 
-  private void doFailsAfterMSorterSorting(ClientFixture client, boolean managedVersion) throws RpcException {
+  private void doFailsAfterMSorterSorting(ClientFixture client, boolean managedVersion) throws Exception {
     client.alterSession(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName(), ! managedVersion);
     try {
       // TODO: DRILL-5157: Using Parquet causes a failure in the Parquet async reader
@@ -706,7 +706,7 @@ public class TestDrillbitResilience extends DrillTest {
     doFailsAfterMSorterSetup(client, false);
   }
 
-  private void doFailsAfterMSorterSetup(ClientFixture client, boolean managedVersion) throws RpcException {
+  private void doFailsAfterMSorterSetup(ClientFixture client, boolean managedVersion) throws Exception {
     client.alterSession(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION.getOptionName(), ! managedVersion);
     try {
       // TODO: DRILL-5157: Using Parquet causes a failure in the Parquet async reader
