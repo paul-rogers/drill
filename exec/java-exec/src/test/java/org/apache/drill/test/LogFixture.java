@@ -48,7 +48,7 @@ import ch.qos.logback.core.ConsoleAppender;
  *   }
  * }</code></pre>
  *  <p>
- * You can &ndash; and should &ndash; combine the log fixtue with the
+ * You can &ndash; and should &ndash; combine the log fixture with the
  * cluster and client fixtures to have complete control over your test-time
  * Drill environment.
  */

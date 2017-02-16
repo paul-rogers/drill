@@ -22,17 +22,16 @@ import java.io.IOException;
 import java.util.List;
 
 import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
-import org.apache.calcite.rel.core.Join;
+import org.apache.calcite.plan.RelOptRule;
+import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.rules.ProjectRemoveRule;
+import org.apache.calcite.rex.RexNode;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.exec.planner.physical.PrelUtil;
 import org.apache.drill.exec.planner.physical.PrelUtil.ProjectPushInfo;
-import org.apache.calcite.plan.RelOptRule;
-import org.apache.calcite.plan.RelOptRuleCall;
-import org.apache.calcite.rex.RexNode;
 
 import com.google.common.collect.Lists;
 
@@ -44,7 +43,6 @@ public class DrillPushProjIntoScan extends RelOptRule {
   private DrillPushProjIntoScan(Class<? extends Project> projectClass, Class<? extends TableScan> scanClass) {
     super(RelOptHelper.some(projectClass, RelOptHelper.any(scanClass)), "DrillPushProjIntoScan");
   }
-
 
   @Override
   public void onMatch(RelOptRuleCall call) {
@@ -95,5 +93,4 @@ public class DrillPushProjIntoScan extends RelOptRule {
       throw new DrillRuntimeException(e);
     }
   }
-
 }

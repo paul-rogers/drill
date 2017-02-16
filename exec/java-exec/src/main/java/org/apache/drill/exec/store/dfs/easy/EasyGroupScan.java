@@ -54,7 +54,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 
 @JsonTypeName("fs-scan")
-public class EasyGroupScan extends AbstractFileGroupScan{
+public class EasyGroupScan extends AbstractFileGroupScan {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(EasyGroupScan.class);
 
   private FileSelection selection;

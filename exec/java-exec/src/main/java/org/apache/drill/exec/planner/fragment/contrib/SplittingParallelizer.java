@@ -140,7 +140,7 @@ public class SplittingParallelizer extends SimpleParallelizer {
     }
     if ( plansCount == 0 ) {
       // no exchange, return list of single QueryWorkUnit
-      workUnits.add(generateWorkUnit(options, foremanNode, queryId, reader, rootNode, planningSet, session, queryContextInfo));
+      workUnits.add(generateWorkUnit(options, foremanNode, queryId, rootNode, planningSet, session, queryContextInfo));
       return workUnits;
     }
 
@@ -224,7 +224,7 @@ public class SplittingParallelizer extends SimpleParallelizer {
               DrillStringUtils.unescapeJava(fragment.toString())));
          }
         // fragments should be always empty here
-        workUnits.add(new QueryWorkUnit(rootOperator, rootFragment, fragments));
+        workUnits.add(new QueryWorkUnit(rootOperator, rootFragment, fragments, null)); // TODO: Create defns!
       }
     }
     return workUnits;

@@ -85,6 +85,7 @@ public interface ExecConstants {
 
   BooleanValidator EXTERNAL_SORT_DISABLE_MANAGED_OPTION = new BooleanValidator("exec.sort.disable_managed", false);
 
+  String REMOVER_ENABLE_GENERIC_COPIER = "drill.exec.sv_remover.enable_generic_copier";
 
   String TEXT_LINE_READER_BATCH_SIZE = "drill.exec.storage.file.text.batch.size";
   String TEXT_LINE_READER_BUFFER_SIZE = "drill.exec.storage.file.text.buffer.size";
@@ -323,6 +324,16 @@ public interface ExecConstants {
   String AVERAGE_FIELD_WIDTH_KEY = "planner.memory.average_field_width";
   OptionValidator AVERAGE_FIELD_WIDTH = new PositiveLongValidator(AVERAGE_FIELD_WIDTH_KEY, Long.MAX_VALUE, 8);
 
+  // Resource management boot-time options.
+
+  String MAX_MEMORY_PER_NODE = "drill.exec.rm.memory_per_node";
+  String MAX_CPUS_PER_NODE = "drill.exec.rm.cpus_per_node";
+
+  // Resource management system run-time options.
+
+  // Enables queues. When running embedded, enables an in-process queue. When
+  // running distributed, enables the Zookeeper-based distributed queue.
+
   BooleanValidator ENABLE_QUEUE = new BooleanValidator("exec.queue.enable", false);
   LongValidator LARGE_QUEUE_SIZE = new PositiveLongValidator("exec.queue.large", 1000, 10);
   LongValidator SMALL_QUEUE_SIZE = new PositiveLongValidator("exec.queue.small", 100000, 100);
@@ -413,4 +424,14 @@ public interface ExecConstants {
 
   String DYNAMIC_UDF_SUPPORT_ENABLED = "exec.udf.enable_dynamic_support";
   BooleanValidator DYNAMIC_UDF_SUPPORT_ENABLED_VALIDATOR = new BooleanValidator(DYNAMIC_UDF_SUPPORT_ENABLED, true, true);
+  String QUERY_PROFILE_OPTION = "drill.exec.foreman.profile";
+
+  // Experimental enhanced default selectivity reduction factor
+  // calculations.
+
+  String OPTIMIZER_ENHANCED_DEFAULTS = "drill.exec.optimizer.enhanced_defaults";
+  String OPTIMIZER_ENHANCED_DEFAULTS_ENABLE = OPTIMIZER_ENHANCED_DEFAULTS + ".enable";
+  String OPTIMIZER_ENHANCED_DEFAULTS_PROB_EQ = OPTIMIZER_ENHANCED_DEFAULTS + ".prob_eq";
+  String OPTIMIZER_ENHANCED_DEFAULTS_PROB_NULL = OPTIMIZER_ENHANCED_DEFAULTS + ".prob_null";
+  String OPTIMIZER_ENHANCED_DEFAULTS_PROB_LIKE = OPTIMIZER_ENHANCED_DEFAULTS + ".prob_like";
 }

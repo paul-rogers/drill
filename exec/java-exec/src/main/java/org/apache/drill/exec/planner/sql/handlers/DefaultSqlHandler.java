@@ -84,6 +84,7 @@ import org.apache.drill.exec.planner.physical.visitor.FinalColumnReorderer;
 import org.apache.drill.exec.planner.physical.visitor.InsertLocalExchangeVisitor;
 import org.apache.drill.exec.planner.physical.visitor.JoinPrelRenameVisitor;
 import org.apache.drill.exec.planner.physical.visitor.MemoryEstimationVisitor;
+import org.apache.drill.exec.planner.physical.visitor.PrelVisualizerVisitor;
 import org.apache.drill.exec.planner.physical.visitor.RelUniqifier;
 import org.apache.drill.exec.planner.physical.visitor.RewriteProjectToFlatten;
 import org.apache.drill.exec.planner.physical.visitor.SelectionVectorPrelVisitor;
@@ -518,8 +519,9 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
      * If two fragments are both estimated to be parallelization one, remove the exchange
      * separating them
      */
+//    PrelVisualizerVisitor.print("Before EER", phyRelNode); // Debug only
     phyRelNode = ExcessiveExchangeIdentifier.removeExcessiveEchanges(phyRelNode, targetSliceSize);
-
+//    PrelVisualizerVisitor.print("After EER", phyRelNode); // Debug only
 
     /* 4.)
      * Add ProducerConsumer after each scan if the option is set
@@ -531,7 +533,6 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
       phyRelNode = ProducerConsumerPrelVisitor.addProducerConsumerToScans(phyRelNode, (int) queueSize);
     }
     */
-
 
     /* 5.)
      * if the client does not support complex types (Map, Repeated)
@@ -547,6 +548,7 @@ public class DefaultSqlHandler extends AbstractSqlHandler {
      * Insert LocalExchange (mux and/or demux) nodes
      */
     phyRelNode = InsertLocalExchangeVisitor.insertLocalExchanges(phyRelNode, queryOptions);
+//    PrelVisualizerVisitor.print("After Mux/Demux", phyRelNode); // Debug only
 
 
     /* 7.)

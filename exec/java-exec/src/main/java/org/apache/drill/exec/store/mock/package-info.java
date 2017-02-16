@@ -67,7 +67,7 @@
  * is randomly generated over a wide range of values and can be
  * controlled by custom generator classes. When
  * in a physical plan, the <tt>records</tt> section has additional
- * attributes as described in {@link MockGroupScanPOP.MockColumn}:
+ * attributes as described in {@link MockTableDef.MockColumn}:
  * <ul>
  * <li>The <tt>generator</tt> lets you specify a class to generate the
  * sample data. Rules for the class name is that it can either contain

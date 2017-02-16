@@ -18,7 +18,6 @@
 package org.apache.drill.exec.server;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import io.netty.channel.EventLoopGroup;
 
 import java.util.Collection;
 import java.util.concurrent.ExecutorService;
@@ -41,8 +40,12 @@ import org.apache.drill.exec.server.options.SystemOptionManager;
 import org.apache.drill.exec.store.SchemaFactory;
 import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.store.sys.PersistentStoreProvider;
+import org.apache.drill.exec.work.foreman.rm.ResourceManager;
+import org.apache.drill.exec.work.foreman.rm.ResourceManagerBuilder;
 
 import com.codahale.metrics.MetricRegistry;
+
+import io.netty.channel.EventLoopGroup;
 
 public class DrillbitContext implements AutoCloseable {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillbitContext.class);
@@ -62,7 +65,7 @@ public class DrillbitContext implements AutoCloseable {
   private final CodeCompiler compiler;
   private final ScanResult classpathScan;
   private final LogicalPlanPersistence lpPersistence;
-
+  private ResourceManager resourceManager;
 
   public DrillbitContext(
       DrillbitEndpoint endpoint,
@@ -72,7 +75,7 @@ public class DrillbitContext implements AutoCloseable {
       DataConnectionCreator connectionsPool,
       WorkEventBus workBus,
       PersistentStoreProvider provider) {
-    this.classpathScan = context.getClasspathScan();
+    classpathScan = context.getClasspathScan();
     this.workBus = workBus;
     this.controller = checkNotNull(controller);
     this.context = checkNotNull(context);
@@ -80,17 +83,28 @@ public class DrillbitContext implements AutoCloseable {
     this.connectionsPool = checkNotNull(connectionsPool);
     this.endpoint = checkNotNull(endpoint);
     this.provider = provider;
-    this.lpPersistence = new LogicalPlanPersistence(context.getConfig(), classpathScan);
+    DrillConfig config = context.getConfig();
+    lpPersistence = new LogicalPlanPersistence(config, classpathScan);
 
-    // TODO remove escaping "this".
-    this.storagePlugins = context.getConfig()
+    storagePlugins = config
         .getInstance(StoragePluginRegistry.STORAGE_PLUGIN_REGISTRY_IMPL, StoragePluginRegistry.class, this);
 
-    this.reader = new PhysicalPlanReader(context.getConfig(), classpathScan, lpPersistence, endpoint, storagePlugins);
-    this.operatorCreatorRegistry = new OperatorCreatorRegistry(classpathScan);
-    this.systemOptions = new SystemOptionManager(lpPersistence, provider);
-    this.functionRegistry = new FunctionImplementationRegistry(context.getConfig(), classpathScan, systemOptions);
-    this.compiler = new CodeCompiler(context.getConfig(), systemOptions);
+    reader = new PhysicalPlanReader(config, classpathScan, lpPersistence, endpoint, storagePlugins);
+    operatorCreatorRegistry = new OperatorCreatorRegistry(classpathScan);
+    systemOptions = new SystemOptionManager(lpPersistence, provider);
+    functionRegistry = new FunctionImplementationRegistry(config, classpathScan, systemOptions);
+    compiler = new CodeCompiler(config, systemOptions);
+  }
+
+  /**
+   * Starts the resource manager. Must be called separately from the
+   * constructor after the system property mechanism is initialized
+   * since the builder will consult system options to determine the
+   * proper RM to use.
+   */
+
+  public void startRM() {
+    resourceManager = new ResourceManagerBuilder(this).build();
   }
 
   public FunctionImplementationRegistry getFunctionImplementationRegistry() {
@@ -195,5 +209,9 @@ public class DrillbitContext implements AutoCloseable {
     getFunctionImplementationRegistry().close();
     getRemoteFunctionRegistry().close();
     getCompiler().close();
+  }
+
+  public ResourceManager getResourceManager() {
+    return resourceManager;
   }
 }

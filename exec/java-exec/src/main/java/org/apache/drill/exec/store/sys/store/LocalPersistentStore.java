@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -79,6 +79,9 @@ public class LocalPersistentStore<V> extends BasePersistentStore<V> {
 
   public static Path getLogDir(){
     String drillLogDir = System.getenv("DRILL_LOG_DIR");
+    if (drillLogDir == null) {
+      drillLogDir = System.getProperty("drill.log.dir");
+    }
     if (drillLogDir == null) {
       drillLogDir = "/var/log/drill";
     }

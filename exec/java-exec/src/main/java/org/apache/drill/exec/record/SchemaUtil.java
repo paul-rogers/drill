@@ -154,7 +154,7 @@ public class SchemaUtil {
     int recordCount = in.getRecordCount();
     boolean isHyper = false;
     Map<String, Object> vectorMap = Maps.newHashMap();
-    for (VectorWrapper w : in) {
+    for (VectorWrapper<?> w : in) {
       if (w.isHyper()) {
         isHyper = true;
         final ValueVector[] vvs = w.getValueVectors();

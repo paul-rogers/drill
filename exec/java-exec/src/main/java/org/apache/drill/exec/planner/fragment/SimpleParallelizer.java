@@ -46,6 +46,7 @@ import org.apache.drill.exec.rpc.user.UserSession;
 import org.apache.drill.exec.server.options.OptionList;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.work.QueryWorkUnit;
+import org.apache.drill.exec.work.QueryWorkUnit.MinorFragmentDefn;
 import org.apache.drill.exec.work.foreman.ForemanSetupException;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -120,12 +121,12 @@ public class SimpleParallelizer implements ParallelizationParameters {
    * @throws ExecutionSetupException
    */
   public QueryWorkUnit getFragments(OptionList options, DrillbitEndpoint foremanNode, QueryId queryId,
-      Collection<DrillbitEndpoint> activeEndpoints, PhysicalPlanReader reader, Fragment rootFragment,
+      Collection<DrillbitEndpoint> activeEndpoints, Fragment rootFragment,
       UserSession session, QueryContextInformation queryContextInfo) throws ExecutionSetupException {
 
     final PlanningSet planningSet = getFragmentsHelper(activeEndpoints, rootFragment);
     return generateWorkUnit(
-        options, foremanNode, queryId, reader, rootFragment, planningSet, session, queryContextInfo);
+        options, foremanNode, queryId, rootFragment, planningSet, session, queryContextInfo);
   }
 
   /**
@@ -254,9 +255,10 @@ public class SimpleParallelizer implements ParallelizationParameters {
   }
 
   protected QueryWorkUnit generateWorkUnit(OptionList options, DrillbitEndpoint foremanNode, QueryId queryId,
-      PhysicalPlanReader reader, Fragment rootNode, PlanningSet planningSet,
+      Fragment rootNode, PlanningSet planningSet,
       UserSession session, QueryContextInformation queryContextInfo) throws ExecutionSetupException {
     List<PlanFragment> fragments = Lists.newArrayList();
+    List<MinorFragmentDefn> fragmentDefns = new ArrayList<>( );
 
     PlanFragment rootFragment = null;
     FragmentRoot rootOperator = null;
@@ -284,15 +286,16 @@ public class SimpleParallelizer implements ParallelizationParameters {
         Preconditions.checkArgument(op instanceof FragmentRoot);
         FragmentRoot root = (FragmentRoot) op;
 
-        // get plan as JSON
-        String plan;
-        String optionsData;
-        try {
-          plan = reader.writeJson(root);
-          optionsData = reader.writeJson(options);
-        } catch (JsonProcessingException e) {
-          throw new ForemanSetupException("Failure while trying to convert fragment into json.", e);
-        }
+
+        // get options as JSON
+//        String plan;
+//        String optionsData;
+//        try {
+//          plan = reader.writeJson(root);
+//          optionsData = reader.writeJson(options);
+//        } catch (JsonProcessingException e) {
+//          throw new ForemanSetupException("Failure while trying to convert fragment into json.", e);
+//        }
 
         FragmentHandle handle = FragmentHandle //
             .newBuilder() //
@@ -303,17 +306,19 @@ public class SimpleParallelizer implements ParallelizationParameters {
 
         PlanFragment fragment = PlanFragment.newBuilder() //
             .setForeman(foremanNode) //
-            .setFragmentJson(plan) //
+//            .setFragmentJson(plan) //
             .setHandle(handle) //
             .setAssignment(wrapper.getAssignedEndpoint(minorFragmentId)) //
             .setLeafFragment(isLeafFragment) //
             .setContext(queryContextInfo)
             .setMemInitial(wrapper.getInitialAllocation())//
             .setMemMax(wrapper.getMaxAllocation())
-            .setOptionsJson(optionsData)
+//            .setOptionsJson(optionsData)
             .setCredentials(session.getCredentials())
             .addAllCollector(CountRequiredFragments.getCollectors(root))
             .build();
+
+        fragmentDefns.add(new MinorFragmentDefn(root, fragment, options));
 
         if (isRootNode) {
           if (logger.isDebugEnabled()) {
@@ -330,7 +335,7 @@ public class SimpleParallelizer implements ParallelizationParameters {
       }
     }
 
-    return new QueryWorkUnit(rootOperator, rootFragment, fragments);
+    return new QueryWorkUnit(rootOperator, rootFragment, fragments, fragmentDefns);
   }
 
 
