@@ -78,7 +78,9 @@ public class VarLenBinaryReader {
 
     int totalFixedFieldWidth = parentReader.getBitWidthAllFixedFields() / 8;
     long batchSize = parentReader.getBatchSize();
-    recordsToReadInThisPass = Math.min(recordsToReadInThisPass, batchSize / totalFixedFieldWidth);
+    if (totalFixedFieldWidth > 0) {
+      recordsToReadInThisPass = Math.min(recordsToReadInThisPass, batchSize / totalFixedFieldWidth);
+    }
 
     int recordsReadInCurrentPass = 0;
     top: do {
