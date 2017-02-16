@@ -132,6 +132,8 @@ public class ClusterFixture implements AutoCloseable {
   private String dfsTestTmpSchemaLocation;
   protected List<ClientFixture> clients = new ArrayList<>();
   private boolean usesZk;
+  private boolean preserveLocalFiles;
+  private boolean isLocal;
 
   ClusterFixture(FixtureBuilder builder) throws Exception {
 
@@ -198,15 +200,44 @@ public class ClusterFixture implements AutoCloseable {
 
       serviceSet = null;
       usesZk = true;
+      isLocal = false;
     } else {
       // Embedded Drillbit.
 
       serviceSet = RemoteServiceSet.getLocalServiceSet();
+      isLocal = true;
     }
   }
 
   private void startDrillbits(FixtureBuilder builder) throws Exception {
-    dfsTestTmpSchemaLocation = TestUtilities.createTempDir();
+//    // Ensure that Drill uses the log directory determined here rather than
+//    // it's hard-coded defaults.
+//
+//    String logDir = null;
+//    if (builder.tempDir != null) {
+//      logDir = builder.tempDir.getAbsolutePath();
+//    }
+//    if (logDir == null) {
+//      logDir = config.getString(ExecConstants.DRILL_TMP_DIR);
+//      if (logDir != null) {
+//        logDir += "/drill/log";
+//      }
+//    }
+//    if (logDir == null) {
+//      logDir = "/tmp/drill";
+//    }
+//    new File(logDir).mkdirs();
+//    System.setProperty("drill.log-dir", logDir);
+
+     dfsTestTmpSchemaLocation = TestUtilities.createTempDir();
+
+    // Clean up any files that may have been left from the
+    // last run.
+
+    preserveLocalFiles = builder.preserveLocalFiles;
+    removeLocalFiles();
+
+    // Start the Drillbits.
 
     Preconditions.checkArgument(builder.bitCount > 0);
     int bitCount = builder.bitCount;
@@ -323,6 +354,21 @@ public class ClusterFixture implements AutoCloseable {
   public void close() throws Exception {
     Exception ex = null;
 
+    // Delete any local files, if we wrote to the local
+    // persistent store. But, leave the files if the user wants
+    // to review them, for debugging, say. Note that, even if the
+    // files are preserved here, they will be removed when the
+    // next cluster fixture starts, else the CTTAS initialization
+    // will fail.
+
+    if (! preserveLocalFiles) {
+        try {
+          removeLocalFiles();
+        } catch (Exception e) {
+          ex = e;
+        }
+    }
+
     // Close clients. Clients remove themselves from the client
     // list.
 
@@ -351,6 +397,48 @@ public class ClusterFixture implements AutoCloseable {
     }
   }
 
+  /**
+   * Removes files stored locally in the "local store provider."
+   * Required because CTTAS setup fails if these files are left from one
+   * run to the next.
+   *
+   * @throws IOException if a directory cannot be deleted
+   */
+
+  private void removeLocalFiles() throws IOException {
+
+    // Don't delete if this is not a local Drillbit.
+
+    if (! isLocal) {
+      return;
+    }
+
+    // Don't delete if we did not write.
+
+    if (! config.getBoolean(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE)) {
+      return;
+    }
+
+    // Remove the local files if they exist.
+
+    String localStoreLocation = config.getString(ExecConstants.SYS_STORE_PROVIDER_LOCAL_PATH);
+    File storeDir = new File(localStoreLocation);
+    if (! storeDir.exists()) {
+      return;
+    }
+    FileUtils.deleteDirectory(storeDir);
+  }
+
+  /**
+   * Close a resource, suppressing the exception, and keeping
+   * only the first exception that may occur. We assume that only
+   * the first is useful, any others are probably down-stream effects
+   * of that first one.
+   *
+   * @param item
+   * @param ex
+   * @return
+   */
   private Exception safeClose(AutoCloseable item, Exception ex) {
     try {
       if (item != null) {
@@ -361,6 +449,17 @@ public class ClusterFixture implements AutoCloseable {
     }
     return ex;
   }
+
+  /**
+   * Define a workspace within an existing storage plugin. Useful for
+   * pointing to local file system files outside the Drill source tree.
+   *
+   * @param pluginName name of the plugin like "dfs" or "dfs_test".
+   * @param schemaName name of the new schema
+   * @param path directory location (usually local)
+   * @param defaultFormat default format for files in the schema
+   * @throws ExecutionSetupException if something goes wrong
+   */
 
   public void defineWorkspace(String pluginName, String schemaName, String path,
       String defaultFormat) throws ExecutionSetupException {
@@ -395,6 +494,16 @@ public class ClusterFixture implements AutoCloseable {
          ;
   }
 
+  /**
+   * Return a cluster builder without any of the usual defaults. Use
+   * this only for special cases. Your code is responsible for all the
+   * odd bits that must be set to get the setup right. See
+   * {@link ClusterFixture#TEST_CONFIGURATIONS} for details. Note that
+   * you are often better off using the defaults, then replacing selected
+   * properties with the values you prefer.
+   *
+   * @return a fixture builder with no default properties set
+   */
   public static FixtureBuilder bareBuilder() {
     return new FixtureBuilder();
   }

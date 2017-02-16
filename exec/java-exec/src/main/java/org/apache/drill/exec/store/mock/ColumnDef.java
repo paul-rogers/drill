@@ -19,6 +19,7 @@ package org.apache.drill.exec.store.mock;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.expr.TypeHelper;
+import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
 
 /**
  * Defines a column for the "enhanced" version of the mock data
@@ -28,12 +29,12 @@ import org.apache.drill.exec.expr.TypeHelper;
  */
 
 public class ColumnDef {
-  public MockTableDef.MockColumn mockCol;
+  public MockColumn mockCol;
   public String name;
   public int width;
   public FieldGen generator;
 
-  public ColumnDef(MockTableDef.MockColumn mockCol) {
+  public ColumnDef(MockColumn mockCol) {
     this.mockCol = mockCol;
     name = mockCol.getName();
     if (mockCol.getMinorType() == MinorType.VARCHAR &&
@@ -82,7 +83,7 @@ public class ColumnDef {
     case BIGINT:
       break;
     case BIT:
-      generator = new BooleanGen( );
+      generator = new BooleanGen();
       break;
     case DATE:
       break;
@@ -168,7 +169,7 @@ public class ColumnDef {
     generator.setup(this);
   }
 
-  public ColumnDef(MockTableDef.MockColumn mockCol, int rep) {
+  public ColumnDef(MockColumn mockCol, int rep) {
     this(mockCol);
     name += Integer.toString(rep);
   }

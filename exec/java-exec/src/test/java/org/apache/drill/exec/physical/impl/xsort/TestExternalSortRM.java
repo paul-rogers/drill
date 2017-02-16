@@ -545,6 +545,35 @@ public class TestExternalSortRM extends DrillTest {
     }
   }
 
+  @Test
+  public void testParquet() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger("org.apache.drill.exec.physical.impl.xsort", Level.DEBUG)
+        .logger(ExternalSortBatch.class, Level.TRACE)
+//        .logger(org.apache.drill.exec.physical.impl.xsort.ExternalSortBatch.class, Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .saveProfiles()
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+//        .configProperty(ExecConstants.EXTERNAL_SORT_MAX_MEMORY, "3G")
+        .maxParallelization(1)
+//        .sessionOption(ExecConstants.SLICE_TARGET, 1000)
+//        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, true)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 2L * 1024 * 1024 * 1024)
+        .sessionOption(ExecConstants.MAX_WIDTH_PER_NODE_KEY, 1)
+        ;
+    try (LogFixture logs = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      String sql = "SELECT * FROM `dfs.data`.`1_0_0.parquet` order by c_email_address";
+//      client.queryBuilder().sql(sql).printCsv();
+      sortAndDump(client, sql);
+    }
+  }
   private void runAndDump(ClientFixture client, String sql) throws Exception {
     String plan = client.queryBuilder().sql(sql).explainJson();
     System.out.println(plan);
