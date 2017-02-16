@@ -571,7 +571,7 @@ public class TestExternalSortRM extends DrillTest {
       cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
       String sql = "SELECT * FROM `dfs.data`.`1_0_0.parquet` order by c_email_address";
 //      client.queryBuilder().sql(sql).printCsv();
-      sortAndDump(client, sql);
+      runAndDump(client, sql);
     }
   }
   private void runAndDump(ClientFixture client, String sql) throws Exception {
