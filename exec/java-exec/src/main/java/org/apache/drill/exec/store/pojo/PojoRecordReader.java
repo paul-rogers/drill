@@ -150,7 +150,7 @@ public class PojoRecordReader<T> extends AbstractRecordReader implements Iterabl
     boolean allocated = false;
     injector.injectPause(operatorContext.getExecutionControls(), "read-next", logger);
     try {
-      int i =0;
+      int i = 0;
       while (doCurrent || currentIterator.hasNext()) {
         if (doCurrent) {
           doCurrent = false;
