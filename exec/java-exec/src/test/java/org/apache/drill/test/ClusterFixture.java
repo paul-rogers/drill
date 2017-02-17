@@ -354,21 +354,6 @@ public class ClusterFixture implements AutoCloseable {
   public void close() throws Exception {
     Exception ex = null;
 
-    // Delete any local files, if we wrote to the local
-    // persistent store. But, leave the files if the user wants
-    // to review them, for debugging, say. Note that, even if the
-    // files are preserved here, they will be removed when the
-    // next cluster fixture starts, else the CTTAS initialization
-    // will fail.
-
-    if (! preserveLocalFiles) {
-        try {
-          removeLocalFiles();
-        } catch (Exception e) {
-          ex = e;
-        }
-    }
-
     // Close clients. Clients remove themselves from the client
     // list.
 
@@ -395,6 +380,22 @@ public class ClusterFixture implements AutoCloseable {
     if (ex != null) {
       throw ex;
     }
+
+    // Delete any local files, if we wrote to the local
+    // persistent store. But, leave the files if the user wants
+    // to review them, for debugging, say. Note that, even if the
+    // files are preserved here, they will be removed when the
+    // next cluster fixture starts, else the CTTAS initialization
+    // will fail.
+
+    if (! preserveLocalFiles) {
+        try {
+          removeLocalFiles();
+        } catch (Exception e) {
+          ex = ex == null ? e : ex;
+        }
+    }
+
   }
 
   /**
@@ -426,7 +427,9 @@ public class ClusterFixture implements AutoCloseable {
     if (! storeDir.exists()) {
       return;
     }
-    FileUtils.deleteDirectory(storeDir);
+    if (storeDir.exists()) {
+      FileUtils.deleteDirectory(storeDir);
+    }
   }
 
   /**
