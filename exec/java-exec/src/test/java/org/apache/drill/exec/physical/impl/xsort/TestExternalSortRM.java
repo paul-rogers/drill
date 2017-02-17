@@ -578,7 +578,7 @@ public class TestExternalSortRM extends DrillTest {
   @Test
   public void testMd1365a() throws Exception {
     LogFixtureBuilder logBuilder = LogFixture.builder()
-        .toConsole()
+//        .toConsole()
 //        .logger("org.apache.drill.exec.physical.impl.xsort", Level.DEBUG)
 //        .logger(ExternalSortBatch.class, Level.TRACE)
 ////        .logger(org.apache.drill.exec.physical.impl.xsort.ExternalSortBatch.class, Level.TRACE)
@@ -602,12 +602,13 @@ public class TestExternalSortRM extends DrillTest {
          ClientFixture client = cluster.clientFixture()) {
       cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
 //      String sql = "SELECT * FROM `dfs.data`.`5000files/text` order by columns[1]";
-      String sql = "SELECT * FROM `dfs.data`.`5000files/text`";
+//      String sql = "SELECT * FROM `dfs.data`.`5000files/text` order by columns[0]";
+      String sql = "SELECT * FROM `dfs.data`.`5000files/parquet` order by idx";
+//      String sql = "SELECT * FROM `dfs.data`.`5000files/text`";
 //      String sql = "SELECT * FROM `dfs.data`.`5000files/text/file1000.tbl`";
 //      client.queryBuilder().sql(sql).printCsv();
 //      runAndDump(client, sql);
-      QuerySummary summary = client.queryBuilder().sql(sql).run();
-      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+      runAndDump(client, sql);
     }
   }
 
