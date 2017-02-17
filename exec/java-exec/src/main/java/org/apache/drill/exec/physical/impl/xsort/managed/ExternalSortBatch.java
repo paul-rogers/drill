@@ -933,10 +933,11 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     long origInputBatchSize = estimatedInputBatchSize;
     estimatedInputBatchSize = Math.max(estimatedInputBatchSize, actualBatchSize);
 
-    // Should not happen, but we've seen it in a test case.
+    // The row width may end up as zero if all fields are nulls or some
+    // other unusual situation. In this case, assume a width of 10 just
+    // to avoid lots of special case code.
 
     if (estimatedRowWidth == 0) {
-      logger.error("Saw a record batch with average record width of 0, but with {} records", actualRecordCount);
       estimatedRowWidth = 10;
     }
 
@@ -1454,11 +1455,12 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     } catch (RuntimeException e) {
       ex = (ex == null) ? e : ex;
     }
-    try {
-      allocator.close();
-    } catch (RuntimeException e) {
-      ex = (ex == null) ? e : ex;
-    }
+    // Note: allocator is closed by the FragmentManager
+//    try {
+//      allocator.close();
+//    } catch (RuntimeException e) {
+//      ex = (ex == null) ? e : ex;
+//    }
     if (ex != null) {
       throw ex;
     }
