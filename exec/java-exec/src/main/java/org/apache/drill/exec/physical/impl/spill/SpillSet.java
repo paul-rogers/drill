@@ -169,6 +169,12 @@ public class SpillSet {
     }
   }
 
+  /**
+   * Wrapper around an input stream to collect the total bytes
+   * read through the stream for use in reporting performance
+   * metrics.
+   */
+
   public static class CountingInputStream extends InputStream
   {
     private InputStream in;
@@ -217,6 +223,12 @@ public class SpillSet {
 
     public long getCount() { return count; }
   }
+
+  /**
+   * Wrapper around an output stream to collect the total bytes
+   * written through the stream for use in reporting performance
+   * metrics.
+   */
 
   public static class CountingOutputStream extends OutputStream {
 
@@ -333,6 +345,7 @@ public class SpillSet {
    */
 
   private final String spillDirName;
+  private final String spillFileName;
 
   private int fileCount = 0;
 
@@ -343,7 +356,13 @@ public class SpillSet {
   private long writeBytes;
 
   public SpillSet(FragmentContext context, PhysicalOperator popConfig) {
+    this(context, popConfig, null, "spill");
+  }
+
+  public SpillSet(FragmentContext context, PhysicalOperator popConfig,
+                  String opName, String fileName) {
     DrillConfig config = context.getConfig();
+    spillFileName = fileName;
     dirs = Iterators.cycle(config.getStringList(ExecConstants.EXTERNAL_SORT_SPILL_DIRS));
 
     // Use the high-performance local file system if the local file
@@ -358,8 +377,13 @@ public class SpillSet {
       fileManager = new HadoopFileManager(spillFs);
     }
     FragmentHandle handle = context.getHandle();
-    spillDirName = String.format("%s_major%s_minor%s_op%s", QueryIdHelper.getQueryId(handle.getQueryId()),
-        handle.getMajorFragmentId(), handle.getMinorFragmentId(), popConfig.getOperatorId());
+    spillDirName = String.format(
+        "%s_major%d_minor%d_op%d%s",
+        QueryIdHelper.getQueryId(handle.getQueryId()),
+        handle.getMajorFragmentId(),
+        handle.getMinorFragmentId(),
+        popConfig.getOperatorId(),
+        (opName == null) ? "" : "_" + opName);
   }
 
   public String getNextSpillFile() {
@@ -371,7 +395,7 @@ public class SpillSet {
     String spillDir = dirs.next();
     String currSpillPath = Joiner.on("/").join(spillDir, spillDirName);
     currSpillDirs.add(currSpillPath);
-    String outputFile = Joiner.on("/").join(currSpillPath, "spill" + ++fileCount);
+    String outputFile = Joiner.on("/").join(currSpillPath, spillFileName + ++fileCount);
     try {
         fileManager.deleteOnExit(currSpillPath);
     } catch (IOException e) {

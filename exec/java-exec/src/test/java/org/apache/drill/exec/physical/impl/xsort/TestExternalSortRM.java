@@ -341,7 +341,7 @@ public class TestExternalSortRM extends DrillTest {
 
   public static void main(String args[]) {
     try {
-      new TestExternalSortRM().testMD1346c();
+      new TestExternalSortRM().testDrill5235();
     } catch (Exception e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
@@ -424,12 +424,13 @@ public class TestExternalSortRM extends DrillTest {
         .maxParallelization(1)
         .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
         .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
-//        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
         ;
     try (ClusterFixture cluster = builder.build();
          ClientFixture client = cluster.clientFixture()) {
       cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
-      String sql = "SELECT * FROM `dfs.data`.`250wide.tbl` WHERE columns[0] = 'askjdhfjhfds'";
+//      String sql = "SELECT * FROM `dfs.data`.`250wide.tbl` WHERE columns[0] = 'askjdhfjhfds'";
+      String sql = "SELECT * FROM `dfs.data`.`250wide.tbl` ORDER BY columns[0]";
       runAndDump(client, sql);
     }
   }
@@ -458,6 +459,32 @@ public class TestExternalSortRM extends DrillTest {
          ClientFixture client = cluster.clientFixture()) {
       cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
       String sql = "select d2.col1 from (select d.col1 from (select distinct columns[0] col1 from `dfs.data`.`250wide.tbl`) d order by concat(d.col1, 'ASDF'))d2 where d2.col1 = 'askjdhfjhfds'";
+      runAndDump(client, sql);
+    }
+  }
+
+  @Test
+  public void testMD1350() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger(ExternalSortBatch.class, Level.DEBUG)
+//        .logger(BatchGroup.class, Level.DEBUG)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+//        .configProperty(ExecConstants.EXTERNAL_SORT_MAX_MEMORY, "3G")
+        .maxParallelization(1)
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 2L * 1024 * 1024 * 1024)
+        ;
+    try (LogFixture logs = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+//      String sql = "select * from (select * from `dfs.data`.`250wide.tbl` order by columns[0])d where d.columns[0] = 'ljdfhwuehnoiueyf'";
+      String sql = "select * from (select * from `dfs.data`.`250wide.tbl` order by columns[0]) where columns[0] = 'ljdfhwuehnoiueyf'";
       runAndDump(client, sql);
     }
   }
@@ -493,18 +520,17 @@ public class TestExternalSortRM extends DrillTest {
   public void testDrill5235() throws Exception {
     LogFixtureBuilder logBuilder = LogFixture.builder()
         .toConsole()
-        .logger(ExternalSortBatch.class, Level.TRACE)
-//        .logger(org.apache.drill.exec.physical.impl.xsort.ExternalSortBatch.class, Level.TRACE)
+        .logger(ExternalSortBatch.class, Level.DEBUG)
         ;
     FixtureBuilder builder = ClusterFixture.builder()
         .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
 //        .configProperty(ExecConstants.EXTERNAL_SORT_MAX_MEMORY, "3G")
         .maxParallelization(1)
 //        .sessionOption(ExecConstants.SLICE_TARGET, 1000)
-//        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, true)
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
         .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
         .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
-        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 2L * 1024 * 1024 * 1024)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
         .sessionOption(ExecConstants.MAX_WIDTH_PER_NODE_KEY, 1)
         ;
     try (LogFixture logs = logBuilder.build();
