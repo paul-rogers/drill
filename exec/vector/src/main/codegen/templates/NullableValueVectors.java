@@ -45,7 +45,7 @@ package org.apache.drill.exec.vector;
  * NB: this class is automatically generated from ${.template_name} and ValueVectorTypes.tdd using FreeMarker.
  */
 @SuppressWarnings("unused")
-public final class ${className} extends BaseDataValueVector implements <#if type.major == "VarLen">VariableWidth<#else>FixedWidth</#if>Vector, NullableVector{
+public final class ${className} extends BaseDataValueVector implements <#if type.major == "VarLen">VariableWidth<#else>FixedWidth</#if>Vector, NullableVector {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${className}.class);
 
   private final FieldReader reader = new Nullable${minor.class}ReaderImpl(Nullable${minor.class}Vector.this);
@@ -108,8 +108,8 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       return 0;
     }
 
-    return values.getBufferSizeFor(valueCount)
-        + bits.getBufferSizeFor(valueCount);
+    return values.getBufferSizeFor(valueCount) +
+           bits.getBufferSizeFor(valueCount);
   }
 
   @Override
@@ -161,6 +161,18 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     mutator.reset();
     accessor.reset();
     return success;
+  }
+
+  @Override
+  public int getAllocatedByteCount() {
+    return bits.getAllocatedByteCount() + values.getAllocatedByteCount();
+  }
+
+  @Override
+  public int getPayloadByteCount() {
+    // For nullable, we include all values, null or not, in computing
+    // the value length.
+    return bits.getPayloadByteCount() + values.getPayloadByteCount();
   }
 
   <#if type.major == "VarLen">
