@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.impl.xsort;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,7 +29,6 @@ import org.apache.drill.exec.memory.BaseAllocator;
 //import org.apache.drill.exec.physical.impl.xsort.LogAnalyzer.EventAnalyzer;
 //import org.apache.drill.exec.physical.impl.xsort.LogAnalyzer.SortStats;
 import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
-import org.apache.drill.exec.physical.impl.xsort.managed.BatchGroup;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.test.ClientFixture;
@@ -45,7 +43,6 @@ import org.apache.drill.test.QueryBuilder.QuerySummary;
 import org.junit.Test;
 
 import ch.qos.logback.classic.Level;
-import jersey.repackaged.com.google.common.collect.Lists;
 
 //@Ignore
 public class TestExternalSortRM extends DrillTest {
@@ -138,9 +135,11 @@ public class TestExternalSortRM extends DrillTest {
 
     // Configure the cluster. One Drillbit by default.
     FixtureBuilder builder = ClusterFixture.builder()
-        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+//        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
         .configProperty(ExecConstants.REMOVER_ENABLE_GENERIC_COPIER, true)
         .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
+//        .sessionOption(ExecConstants.QUERY_PROFILE_OPTION, "none")
+        .saveProfiles()
         .maxParallelization(1)
         ;
 

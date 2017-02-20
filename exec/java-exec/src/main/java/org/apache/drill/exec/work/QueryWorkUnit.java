@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.work;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.exec.physical.PhysicalPlan;
@@ -39,13 +40,13 @@ public class QueryWorkUnit {
    */
 
   public static class MinorFragmentDefn {
-    private final FragmentRoot root;
     private PlanFragment fragment;
+    private final FragmentRoot root;
     private final OptionList options;
 
-    public MinorFragmentDefn(final FragmentRoot root, final PlanFragment fragment, OptionList options) {
-      this.root = root;
+    public MinorFragmentDefn(final PlanFragment fragment, final FragmentRoot root, OptionList options) {
       this.fragment = fragment;
+      this.root = root;
       this.options = options;
     }
 
@@ -53,7 +54,7 @@ public class QueryWorkUnit {
     public PlanFragment fragment() { return fragment; }
     public OptionList options() { return options; }
 
-    public void applyPlan(PhysicalPlanReader reader) throws ForemanSetupException {
+    public PlanFragment applyPlan(PhysicalPlanReader reader) throws ForemanSetupException {
       // get plan as JSON
       String plan;
       String optionsData;
@@ -64,28 +65,26 @@ public class QueryWorkUnit {
         throw new ForemanSetupException("Failure while trying to convert fragment into json.", e);
       }
 
-      fragment = PlanFragment.newBuilder(fragment)
+      return PlanFragment.newBuilder(fragment)
           .setFragmentJson(plan)
           .setOptionsJson(optionsData)
           .build();
     }
   }
 
-  private final PlanFragment rootFragment; // for local
+  private PlanFragment rootFragment; // for local
+  private final MinorFragmentDefn rootFragmentDefn;
   private final FragmentRoot rootOperator; // for local
-  private final List<PlanFragment> fragments;
+  private List<PlanFragment> fragments = new ArrayList<>();
   private final List<MinorFragmentDefn> minorFragmentDefns;
 
-  public QueryWorkUnit(final FragmentRoot rootOperator, final PlanFragment rootFragment,
-      final List<PlanFragment> fragments,
+  public QueryWorkUnit(final FragmentRoot rootOperator, final MinorFragmentDefn rootFragmentDefn,
       final List<MinorFragmentDefn> minorFragmentDefns) {
-    Preconditions.checkNotNull(rootFragment);
-    Preconditions.checkNotNull(fragments);
     Preconditions.checkNotNull(rootOperator);
+    Preconditions.checkNotNull(rootFragmentDefn);
     Preconditions.checkNotNull(minorFragmentDefns);
 
-    this.rootFragment = rootFragment;
-    this.fragments = fragments;
+    this.rootFragmentDefn = rootFragmentDefn;
     this.rootOperator = rootOperator;
     this.minorFragmentDefns = minorFragmentDefns;
   }
@@ -107,8 +106,11 @@ public class QueryWorkUnit {
   }
 
   public void applyPlan(PhysicalPlanReader reader) throws ForemanSetupException {
+    assert rootFragment == null;
+    rootFragment = rootFragmentDefn.applyPlan(reader);
+    assert fragments.isEmpty();
     for (MinorFragmentDefn defn : minorFragmentDefns) {
-      defn.applyPlan(reader);
+      fragments.add(defn.applyPlan(reader));
     }
   }
 }

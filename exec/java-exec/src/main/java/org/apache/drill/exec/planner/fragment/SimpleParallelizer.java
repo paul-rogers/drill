@@ -257,10 +257,9 @@ public class SimpleParallelizer implements ParallelizationParameters {
   protected QueryWorkUnit generateWorkUnit(OptionList options, DrillbitEndpoint foremanNode, QueryId queryId,
       Fragment rootNode, PlanningSet planningSet,
       UserSession session, QueryContextInformation queryContextInfo) throws ExecutionSetupException {
-    List<PlanFragment> fragments = Lists.newArrayList();
     List<MinorFragmentDefn> fragmentDefns = new ArrayList<>( );
 
-    PlanFragment rootFragment = null;
+    MinorFragmentDefn rootFragmentDefn = null;
     FragmentRoot rootOperator = null;
 
     // now we generate all the individual plan fragments and associated assignments. Note, we need all endpoints
@@ -318,24 +317,24 @@ public class SimpleParallelizer implements ParallelizationParameters {
             .addAllCollector(CountRequiredFragments.getCollectors(root))
             .build();
 
-        fragmentDefns.add(new MinorFragmentDefn(root, fragment, options));
+        MinorFragmentDefn fragmentDefn = new MinorFragmentDefn(fragment, root, options);
 
         if (isRootNode) {
           if (logger.isDebugEnabled()) {
             logger.debug("Root fragment:\n {}", DrillStringUtils.unescapeJava(fragment.toString()));
           }
-          rootFragment = fragment;
+          rootFragmentDefn = fragmentDefn;
           rootOperator = root;
         } else {
           if (logger.isDebugEnabled()) {
             logger.debug("Remote fragment:\n {}", DrillStringUtils.unescapeJava(fragment.toString()));
           }
-          fragments.add(fragment);
+          fragmentDefns.add(fragmentDefn);
         }
       }
     }
 
-    return new QueryWorkUnit(rootOperator, rootFragment, fragments, fragmentDefns);
+    return new QueryWorkUnit(rootOperator, rootFragmentDefn, fragmentDefns);
   }
 
 
