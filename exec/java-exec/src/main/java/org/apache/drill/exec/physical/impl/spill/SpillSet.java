@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 
 import org.apache.drill.common.config.DrillConfig;
@@ -361,9 +362,25 @@ public class SpillSet {
 
   public SpillSet(FragmentContext context, PhysicalOperator popConfig,
                   String opName, String fileName) {
+    FragmentHandle handle = context.getHandle();
     DrillConfig config = context.getConfig();
     spillFileName = fileName;
-    dirs = Iterators.cycle(config.getStringList(ExecConstants.EXTERNAL_SORT_SPILL_DIRS));
+    List<String> dirList = config.getStringList(ExecConstants.EXTERNAL_SORT_SPILL_DIRS);
+    dirs = Iterators.cycle(dirList);
+    
+    // If more than one directory, semi-randomly choose an offset into
+    // the list to avoid overloading the first directory in the list.
+    
+    if (dirList.size() > 1) {
+      int hash = handle.getQueryId().hashCode() +
+                 handle.getMajorFragmentId() +
+                 handle.getMinorFragmentId() +
+                 popConfig.getOperatorId();
+      int offset = hash % dirList.size();
+      for (int i = 0; i < offset; i++) {
+        dirs.next();
+      }
+    }
 
     // Use the high-performance local file system if the local file
     // system is selected and impersonation is off. (We use that
@@ -376,7 +393,6 @@ public class SpillSet {
     } else {
       fileManager = new HadoopFileManager(spillFs);
     }
-    FragmentHandle handle = context.getHandle();
     spillDirName = String.format(
         "%s_major%d_minor%d_op%d%s",
         QueryIdHelper.getQueryId(handle.getQueryId()),

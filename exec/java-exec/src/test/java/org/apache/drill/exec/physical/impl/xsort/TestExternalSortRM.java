@@ -45,6 +45,7 @@ import org.apache.drill.test.QueryBuilder.QuerySummary;
 import org.junit.Test;
 
 import ch.qos.logback.classic.Level;
+import jersey.repackaged.com.google.common.collect.Lists;
 
 //@Ignore
 public class TestExternalSortRM extends DrillTest {
@@ -532,6 +533,13 @@ public class TestExternalSortRM extends DrillTest {
         .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
         .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
         .sessionOption(ExecConstants.MAX_WIDTH_PER_NODE_KEY, 1)
+//        .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_DIRS, new String[] {
+//            "/tmp/drill", "/tmp/drill1", "/tmp/drill2" } )
+//        .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_DIRS + ".0", "/tmp/drill" )
+//        .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_DIRS + ".1", "/tmp/drill1" )
+//        .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_DIRS + ".2", "/tmp/drill2" )
+//        .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_DIRS,
+//            Lists.newArrayList("/tmp/drill", "/tmp/drill1", "/tmp/drill2") )
         ;
     try (LogFixture logs = logBuilder.build();
          ClusterFixture cluster = builder.build();
