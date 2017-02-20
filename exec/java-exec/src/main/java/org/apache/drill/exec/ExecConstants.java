@@ -79,7 +79,7 @@ public interface ExecConstants {
   String EXTERNAL_SORT_SPILL_BATCH_SIZE = "drill.exec.sort.external.spill.spill_batch_size";
   String EXTERNAL_SORT_MERGE_BATCH_SIZE = "drill.exec.sort.external.spill.merge_batch_size";
   String EXTERNAL_SORT_MAX_MEMORY = "drill.exec.sort.external.mem_limit";
-  
+
   // Used only by the "unmanaged" sort.
   String EXTERNAL_SORT_BATCH_LIMIT = "drill.exec.sort.external.batch_limit";
 
@@ -426,7 +426,21 @@ public interface ExecConstants {
 
   String DYNAMIC_UDF_SUPPORT_ENABLED = "exec.udf.enable_dynamic_support";
   BooleanValidator DYNAMIC_UDF_SUPPORT_ENABLED_VALIDATOR = new BooleanValidator(DYNAMIC_UDF_SUPPORT_ENABLED, true, true);
-  String QUERY_PROFILE_OPTION = "drill.exec.foreman.profile";
+
+  /**
+   * Option to save query profiles.
+   * <ul>
+   * <li>async (default): Write query profile after last response
+   * to the client.</li>
+   * <li>sync: Write the query profile before the last response to
+   * the client. Very useful for testing to avoid race conditions.</li>
+   * <li>none: Don't write the query profile at all. Useful when running
+   * many production jobs that do not need to be reviewed.</li>
+   * </ul>
+   */
+  String QUERY_PROFILE_OPTION = "exec.profile";
+  StringValidator QUERY_PROFILE_VALIDATOR = new EnumeratedStringValidator(
+                      QUERY_PROFILE_OPTION, "async", "async", "sync", "none");
 
   // Experimental enhanced default selectivity reduction factor
   // calculations.

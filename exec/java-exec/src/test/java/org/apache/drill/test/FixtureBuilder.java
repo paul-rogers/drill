@@ -259,7 +259,7 @@ public class FixtureBuilder {
 
   public FixtureBuilder saveProfiles() {
     configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true);
-//  configProperty(ExecConstants.QUERY_PROFILE_OPTION, "sync") // Temporary until DRILL-5257 is available
+    systemOption(ExecConstants.QUERY_PROFILE_OPTION, "sync");
     return this;
   }
 

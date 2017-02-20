@@ -66,6 +66,7 @@ import org.apache.drill.exec.rpc.control.ControlTunnel;
 import org.apache.drill.exec.rpc.control.Controller;
 import org.apache.drill.exec.rpc.user.UserServer.UserClientConnection;
 import org.apache.drill.exec.server.DrillbitContext;
+import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.testing.ControlsInjector;
 import org.apache.drill.exec.testing.ControlsInjectorFactory;
 import org.apache.drill.exec.util.MemoryAllocationUtilities;
@@ -177,12 +178,11 @@ public class Foreman implements Runnable {
     enqueuedQueries.inc();
     queryRM = drillbitContext.getResourceManager().newQueryRM(this);
 
-    profileOption = setProfileOption(drillbitContext.getConfig());
+    profileOption = setProfileOption(queryContext.getOptions());
   }
 
-  private ProfileOption setProfileOption(DrillConfig config) {
-    String optValue = config.getString(ExecConstants.QUERY_PROFILE_OPTION);
-    optValue = optValue.toLowerCase();
+  private ProfileOption setProfileOption(OptionManager options) {
+    String optValue = options.getOption(ExecConstants.QUERY_PROFILE_VALIDATOR);
     if (optValue.startsWith("s")) {
       return ProfileOption.SYNC;
     } else if (optValue.startsWith("n")) {
