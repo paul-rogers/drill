@@ -367,10 +367,10 @@ public class SpillSet {
     spillFileName = fileName;
     List<String> dirList = config.getStringList(ExecConstants.EXTERNAL_SORT_SPILL_DIRS);
     dirs = Iterators.cycle(dirList);
-    
+
     // If more than one directory, semi-randomly choose an offset into
     // the list to avoid overloading the first directory in the list.
-    
+
     if (dirList.size() > 1) {
       int hash = handle.getQueryId().hashCode() +
                  handle.getMajorFragmentId() +
