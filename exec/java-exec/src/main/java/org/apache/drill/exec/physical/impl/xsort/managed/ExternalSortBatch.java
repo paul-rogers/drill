@@ -958,6 +958,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     if (sizer.avgDensity() < maxDensity * 3 / 4) {
       logger.debug("Saw low density batch. Density: {}", sizer.avgDensity());
+      logger.debug("{}", sizer.toString());
       return;
     }
     maxDensity = Math.max(maxDensity, sizer.avgDensity());

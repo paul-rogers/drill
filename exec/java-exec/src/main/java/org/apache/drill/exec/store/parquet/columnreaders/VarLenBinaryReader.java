@@ -116,7 +116,7 @@ public class VarLenBinaryReader {
       futures.add(f);
     }
     Exception exception = null;
-    for(Future f: futures){
+    for(Future<Integer> f: futures){
       if(exception != null) {
         f.cancel(true);
       } else {
@@ -137,5 +137,4 @@ public class VarLenBinaryReader {
     String message = "Error in parquet record reader.\nMessage: " + s;
     throw new DrillRuntimeException(message, e);
   }
-
 }

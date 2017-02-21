@@ -377,7 +377,7 @@ final class TextReader {
           context.stop();
         }
         return true;
-      }else{
+      } else {
         return false;
       }
 
