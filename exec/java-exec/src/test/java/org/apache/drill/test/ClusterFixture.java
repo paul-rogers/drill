@@ -443,8 +443,9 @@ public class ClusterFixture implements AutoCloseable {
         ex = ex == null ? e : ex;
       }
     }
-    if (ex != null)
+    if (ex != null) {
       throw ex;
+    }
   }
 
   public void removeDir(File dir) throws IOException {
