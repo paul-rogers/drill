@@ -53,14 +53,14 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   private final MaterializedField bitsField = MaterializedField.create("$bits$", Types.required(MinorType.UINT1));
 
   /**
-   * Null flags. Meaning:
+   * Set value flag. Meaning:
    * <ul>
    * <li>0: value is not set (value is null).</li>
    * <li>1: value is set (value is not null).</li>
    * </ul>
    * That is, a 1 means that the values vector has a value. 0
-   * means that the vector is null. Thus, all values start null
-   * and must be explicitly set to non null.
+   * means that the vector is null. Thus, all values start as
+   * not set (null) and must be explicitly set (made not null).
    */
 
   private final UInt1Vector bits = new UInt1Vector(bitsField, allocator);
