@@ -19,7 +19,9 @@ package org.apache.drill.exec.physical.impl.xsort;
 
 import static org.junit.Assert.assertEquals;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
 
@@ -31,6 +33,7 @@ import org.apache.drill.exec.memory.BaseAllocator;
 import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
+import org.apache.drill.exec.store.easy.json.JSONRecordReader;
 import org.apache.drill.test.ClientFixture;
 import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.DrillTest;
@@ -642,6 +645,64 @@ public class TestExternalSortRM extends DrillTest {
 //      client.queryBuilder().sql(sql).printCsv();
 //      runAndDump(client, sql);
       runAndDump(client, sql);
+    }
+  }
+
+  @Test
+  public void testDrill4842() throws Exception {
+    FixtureBuilder builder = ClusterFixture.builder()
+        .saveProfiles()
+        .maxParallelization(1)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        .sessionOption("store.json.all_text_mode", true);
+        ;
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+
+      File dataDir = cluster.makeDataDir("json", "json");
+      try (BufferedWriter writer = new BufferedWriter(new FileWriter(new File(dataDir, "trailNull.json")))) {
+        for (int i = 0; i < 5; i++) {
+          writer.write("{ \"c1\" : \"Hello World\" }\n");
+        }
+        for (int i = 0; i < 5; i++) {
+          writer.write("{ \"c1\" : null }\n");
+        }
+      }
+      try (BufferedWriter writer = new BufferedWriter(new FileWriter(new File(dataDir, "leadNull.json")))) {
+        writer.write("{ \"c1\" : null }\n");
+        writer.write("{ \"c1\" : \"Hello World\" }\n");
+      }
+      try (BufferedWriter writer = new BufferedWriter(new FileWriter(new File(dataDir, "someNulls.json")))) {
+        for (int i = 0; i < JSONRecordReader.DEFAULT_ROWS_PER_BATCH / 4; i++) {
+          writer.write("{ \"c1\" : null }\n");
+        }
+        writer.write("{ \"c1\" : \"Hello World\" }\n");
+      }
+      try (BufferedWriter writer = new BufferedWriter(new FileWriter(new File(dataDir, "tooManyNulls.json")))) {
+        for (int i = 0; i < JSONRecordReader.DEFAULT_ROWS_PER_BATCH; i++) {
+          writer.write("{ \"c1\" : null }\n");
+        }
+        writer.write("{ \"c1\" : \"Hello World\" }\n");
+      }
+
+      String sql = "SELECT * FROM `dfs.json`.`trailNull.json`";
+//      client.queryBuilder().sql(sql).printCsv();
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
+      assertEquals(10, summary.recordCount());
+
+      sql = "SELECT * FROM `dfs.json`.`leadNull.json`";
+      summary = client.queryBuilder().sql(sql).run();
+      assertEquals(2, summary.recordCount());
+
+      sql = "SELECT * FROM `dfs.json`.`someNulls.json`";
+      summary = client.queryBuilder().sql(sql).run();
+      assertEquals(JSONRecordReader.DEFAULT_ROWS_PER_BATCH / 4 + 1, summary.recordCount());
+
+      sql = "SELECT * FROM `dfs.json`.`tooManyNulls.json`";
+      summary = client.queryBuilder().sql(sql).run();
+      assertEquals(JSONRecordReader.DEFAULT_ROWS_PER_BATCH + 1, summary.recordCount());
+      client.queryBuilder().sql(sql).printCsv();
     }
   }
 

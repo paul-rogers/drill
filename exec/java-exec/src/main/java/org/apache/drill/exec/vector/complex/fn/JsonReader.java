@@ -101,6 +101,7 @@ public class JsonReader extends BaseJsonProcessor {
     this.readNumbersAsDouble = readNumbersAsDouble;
   }
 
+  @SuppressWarnings("resource")
   @Override
   public void ensureAtLeastOneField(ComplexWriter writer) {
     List<BaseWriter.MapWriter> writerList = Lists.newArrayList();
@@ -192,6 +193,7 @@ public class JsonReader extends BaseJsonProcessor {
     setSource(data.getBytes(Charsets.UTF_8));
   }
 
+  @SuppressWarnings("resource")
   public void setSource(byte[] bytes) throws IOException {
     setSource(new SeekableBAIS(bytes));
   }
@@ -482,7 +484,8 @@ public class JsonReader extends BaseJsonProcessor {
         handleString(parser, map, fieldName);
         break;
       case VALUE_NULL:
-        // do nothing as we don't have a type.
+        // Here we do have a type. This is a null VarChar.
+        handleNullString(map, fieldName);
         break;
 
       default:
@@ -536,6 +539,23 @@ public class JsonReader extends BaseJsonProcessor {
     writer.varChar(fieldName).writeVarChar(0,
         workingBuffer.prepareVarCharHolder(parser.getText()),
         workingBuffer.getBuf());
+  }
+
+  /**
+   * Create a VarChar column. No need to explicitly set a
+   * null value; nulls are the default.
+   * <p>
+   * Note: This only works for all-text mode because we can
+   * predict that, if we ever see an actual value, it will be
+   * treated as a VarChar. This trick <b>will not</b> work for the
+   * general case because we cannot predict the actual column
+   * type.
+   * @param writer
+   * @param fieldName
+   */
+
+  private void handleNullString(MapWriter writer, String fieldName) {
+    writer.varChar(fieldName);
   }
 
   private void handleString(JsonParser parser, ListWriter writer)
