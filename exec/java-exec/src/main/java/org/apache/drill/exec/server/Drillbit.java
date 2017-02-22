@@ -89,6 +89,7 @@ public class Drillbit implements AutoCloseable {
     this(config, serviceSet, ClassPathScanner.fromPrescan(config));
   }
 
+  @SuppressWarnings({ "resource", "unchecked" })
   public Drillbit(
       final DrillConfig config,
       final RemoteServiceSet serviceSet,
