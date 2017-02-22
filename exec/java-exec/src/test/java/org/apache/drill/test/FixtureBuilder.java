@@ -259,7 +259,7 @@ public class FixtureBuilder {
 
   public FixtureBuilder saveProfiles() {
     configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true);
-    systemOption(ExecConstants.QUERY_PROFILE_OPTION, "sync");
+    systemOption(ExecConstants.QUERY_PROFILE_DEBUG_OPTION, true);
     return this;
   }
 

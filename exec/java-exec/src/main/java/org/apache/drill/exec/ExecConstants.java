@@ -430,7 +430,7 @@ public interface ExecConstants {
    * Option to save query profiles. If false, no query profile will be saved
    * for any query.
    */
-  String ENABLE_QUERY_PROFILE_OPTION = "exec.query_profile.enable";
+  String ENABLE_QUERY_PROFILE_OPTION = "exec.query_profile.save";
   BooleanValidator ENABLE_QUERY_PROFILE_VALIDATOR = new BooleanValidator(
       ENABLE_QUERY_PROFILE_OPTION, true, false);
   String QUERY_PROFILE_DEBUG_OPTION = "exec.query_profile.debug_mode";
