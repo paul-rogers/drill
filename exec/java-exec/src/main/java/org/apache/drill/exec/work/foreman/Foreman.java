@@ -182,13 +182,14 @@ public class Foreman implements Runnable {
   }
 
   private ProfileOption setProfileOption(OptionManager options) {
-    String optValue = options.getOption(ExecConstants.QUERY_PROFILE_VALIDATOR);
-    if (optValue.startsWith("s")) {
-      return ProfileOption.SYNC;
-    } else if (optValue.startsWith("n")) {
+    if (! options.getOption(ExecConstants.ENABLE_QUERY_PROFILE_VALIDATOR)) {
       return ProfileOption.NONE;
     }
-    return ProfileOption.ASYNC;
+    if (options.getOption(ExecConstants.QUERY_PROFILE_DEBUG_VALIDATOR)) {
+      return ProfileOption.SYNC;
+    } else {
+      return ProfileOption.ASYNC;
+    }
   }
 
   private class ConnectionClosedListener implements GenericFutureListener<Future<Void>> {
@@ -787,7 +788,7 @@ public class Foreman implements Runnable {
       // the client can be certain the profile exists.
 
       if (profileOption == ProfileOption.SYNC) {
-        writeProfile(uex);
+        queryManager.writeFinalProfile(uex);
       }
 
       /*
@@ -804,6 +805,8 @@ public class Foreman implements Runnable {
         logger.warn("Exception sending result to client", resultException);
       }
 
+      // Store the final result here so we can capture any error/errorId in the
+      // profile for later debugging.
       // Normal behavior is to write the query profile AFTER sending results to the user.
       // The observed
       // user behavior is a possible time-lag between query return and appearance
@@ -815,7 +818,7 @@ public class Foreman implements Runnable {
       // persistence.
 
       if (profileOption == ProfileOption.ASYNC) {
-        writeProfile(uex);
+        queryManager.writeFinalProfile(uex);
       }
 
       // Remove the Foreman from the running query list.
@@ -835,13 +838,6 @@ public class Foreman implements Runnable {
         isClosed = true;
       }
     }
-  }
-
-  // Store the final result here so we can capture any error/errorId in the
-  // profile for later debugging.
-
-  private void writeProfile(UserException uex) {
-    queryManager.writeFinalProfile(uex);
   }
 
   private static class StateEvent {

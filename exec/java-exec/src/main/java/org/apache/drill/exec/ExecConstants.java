@@ -427,19 +427,15 @@ public interface ExecConstants {
   BooleanValidator DYNAMIC_UDF_SUPPORT_ENABLED_VALIDATOR = new BooleanValidator(DYNAMIC_UDF_SUPPORT_ENABLED, true, true);
 
   /**
-   * Option to save query profiles.
-   * <ul>
-   * <li>async (default): Write query profile after last response
-   * to the client.</li>
-   * <li>sync: Write the query profile before the last response to
-   * the client. Very useful for testing to avoid race conditions.</li>
-   * <li>none: Don't write the query profile at all. Useful when running
-   * many production jobs that do not need to be reviewed.</li>
-   * </ul>
+   * Option to save query profiles. If false, no query profile will be saved
+   * for any query.
    */
-  String QUERY_PROFILE_OPTION = "exec.profile";
-  StringValidator QUERY_PROFILE_VALIDATOR = new EnumeratedStringValidator(
-                      QUERY_PROFILE_OPTION, "async", "async", "sync", "none");
+  String ENABLE_QUERY_PROFILE_OPTION = "exec.query_profile.enable";
+  BooleanValidator ENABLE_QUERY_PROFILE_VALIDATOR = new BooleanValidator(
+      ENABLE_QUERY_PROFILE_OPTION, true, false);
+  String QUERY_PROFILE_DEBUG_OPTION = "exec.query_profile.debug_mode";
+  BooleanValidator QUERY_PROFILE_DEBUG_VALIDATOR = new BooleanValidator(
+      QUERY_PROFILE_DEBUG_OPTION, false, false);
 
   // Experimental enhanced default selectivity reduction factor
   // calculations.
