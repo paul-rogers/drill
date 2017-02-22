@@ -106,7 +106,7 @@ public class SpillSet {
 
     protected HadoopFileManager(String fsName) {
       Configuration conf = new Configuration();
-      conf.set("fs.default.name", fsName);
+      conf.set(FileSystem.FS_DEFAULT_NAME_KEY, fsName);
       try {
         fs = FileSystem.get(conf);
       } catch (IOException e) {
