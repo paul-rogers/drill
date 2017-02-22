@@ -299,7 +299,6 @@ public class ParquetRecordReader extends AbstractRecordReader {
       schema = new ParquetSchema(getColumns());
       nullFilledVectors = new ArrayList<>();
     }
-//    totalRecords = footer.getBlocks().get(rowGroupIndex).getRowCount();
     mockRecordsRead = 0;
 
 //    ParquetMetadataConverter metaConverter = new ParquetMetadataConverter();
@@ -309,11 +308,10 @@ public class ParquetRecordReader extends AbstractRecordReader {
         hadoopPath.toUri().getPath());
     totalRecordsRead = 0;
 
-
     try {
       schema.buildSchema(footer, output);
     } catch (Exception e) {
-      handleAndRaise("Failure in setting up reader", e);
+      throw handleException("Failure in setting up reader", e);
     }
   }
 
@@ -432,6 +430,7 @@ public class ParquetRecordReader extends AbstractRecordReader {
     private int bitWidthAllFixedFields;
     private boolean allFieldsFixedLength = true;
     private List<ColumnReader<?>> columnStatuses = new ArrayList<>();
+    private long groupRecordCount;
 
     public ParquetSchema() {
       selectedCols = null;
@@ -445,6 +444,7 @@ public class ParquetRecordReader extends AbstractRecordReader {
     public void buildSchema(ParquetMetadata footer, OutputMutator output) throws Exception {
       this.footer = footer;
       columns = footer.getFileMetaData().getSchema().getColumns();
+      groupRecordCount = footer.getBlocks().get(rowGroupIndex).getRowCount();
       loadParquetSchema();
       computeFixedPart();
 //    rowGroupOffset = footer.getBlocks().get(rowGroupIndex).getColumns().get(0).getFirstDataPageOffset();
@@ -519,18 +519,17 @@ public class ParquetRecordReader extends AbstractRecordReader {
       Map<String, Integer> columnChunkMetadataPositionsInList = buildChunkMap(rowGroupMetadata);
       for (ParquetColumnMetadata colMd : columnMd) {
         ColumnDescriptor column = colMd.column;
-        colMd.columnChunkMetaData = rowGroupMetadata.getColumns().get(columnChunkMetadataPositionsInList.get(Arrays.toString(column.getPath())));
+        colMd.columnChunkMetaData = rowGroupMetadata.getColumns().get(
+                        columnChunkMetadataPositionsInList.get(Arrays.toString(column.getPath())));
         colMd.buildVector(output);
-        if (colMd.isFixedLength( )) {
-          if (colMd.isRepeated()) {
-             varLengthColumns.add(colMd.makeRepeatedFixedWidthReader(reader, recordsPerBatch));
-          }
-          else {
-            columnStatuses.add(colMd.makeFixedWidthReader(reader, recordsPerBatch));
-          }
-        } else {
+        if (! colMd.isFixedLength( )) {
           // create a reader and add it to the appropriate list
           varLengthColumns.add(colMd.makeVariableWidthReader(reader));
+        } else if (colMd.isRepeated()) {
+          varLengthColumns.add(colMd.makeRepeatedFixedWidthReader(reader, recordsPerBatch));
+        }
+        else {
+          columnStatuses.add(colMd.makeFixedWidthReader(reader, recordsPerBatch));
         }
       }
       varLengthReader = new VarLenBinaryReader(reader, varLengthColumns);
@@ -598,12 +597,23 @@ public class ParquetRecordReader extends AbstractRecordReader {
         columnStatuses = null;
       }
     }
+
+    public ColumnReader<?> getFirstColumnStatus() {
+      if (columnStatuses.size() > 0) {
+        return columnStatuses.get(0);
+      }
+      else if (varLengthReader.columns.size() > 0) {
+        return varLengthReader.columns.get(0);
+      } else {
+        return null;
+      }
+    }
   }
 
-  protected void handleAndRaise(String s, Exception e) {
+  protected DrillRuntimeException handleException(String s, Exception e) {
     String message = "Error in parquet record reader.\nMessage: " + s +
       "\nParquet Metadata: " + footer;
-    throw new DrillRuntimeException(message, e);
+    return new DrillRuntimeException(message, e);
   }
 
   @Override
@@ -662,7 +672,7 @@ public class ParquetRecordReader extends AbstractRecordReader {
       }
     }
     if (exception != null) {
-      handleAndRaise(null, exception);
+      throw handleException(null, exception);
     }
   }
 
@@ -670,82 +680,81 @@ public class ParquetRecordReader extends AbstractRecordReader {
   public int next() {
     resetBatch();
     long recordsToRead = 0;
-    Stopwatch timer = Stopwatch.createStarted();
     try {
-      ColumnReader<?> firstColumnStatus;
-      if (schema.columnStatuses.size() > 0) {
-        firstColumnStatus = schema.columnStatuses.iterator().next();
-      }
-      else{
-        if (varLengthReader.columns.size() > 0) {
-          firstColumnStatus = varLengthReader.columns.iterator().next();
-        }
-        else{
-          firstColumnStatus = null;
-        }
-      }
-      // No columns found in the file were selected, simply return a full batch of null records for each column requested
+      Stopwatch timer = Stopwatch.createStarted();
+      int readCount;
+      ColumnReader<?> firstColumnStatus = schema.getFirstColumnStatus();
       if (firstColumnStatus == null) {
-        if (mockRecordsRead == footer.getBlocks().get(rowGroupIndex).getRowCount()) {
-          parquetReaderStats.timeProcess.addAndGet(timer.elapsed(TimeUnit.NANOSECONDS));
-          return 0;
-        }
-        recordsToRead = Math.min(DEFAULT_RECORDS_TO_READ_IF_NOT_FIXED_WIDTH, footer.getBlocks().get(rowGroupIndex).getRowCount() - mockRecordsRead);
-
-        // Pick the minimum of recordsToRead calculated above and numRecordsToRead (based on rowCount and limit).
-        recordsToRead = Math.min(recordsToRead, numRecordsToRead);
-
-        for (final ValueVector vv : nullFilledVectors ) {
-          vv.getMutator().setValueCount( (int) recordsToRead);
-        }
-        mockRecordsRead += recordsToRead;
-        totalRecordsRead += recordsToRead;
-        numRecordsToRead -= recordsToRead;
-        parquetReaderStats.timeProcess.addAndGet(timer.elapsed(TimeUnit.NANOSECONDS));
-        return (int) recordsToRead;
-      }
-
-      if (schema.allFieldsFixedLength) {
-        recordsToRead = Math.min(recordsPerBatch, firstColumnStatus.columnChunkMetaData.getValueCount() - firstColumnStatus.totalValuesRead);
+        readCount = readMockRecords();
       } else {
-        recordsToRead = DEFAULT_RECORDS_TO_READ_IF_NOT_FIXED_WIDTH;
+        recordsToRead = computeReadTarget(firstColumnStatus);
+        readCount = readBatch(firstColumnStatus, recordsToRead);
       }
-
-      // Pick the minimum of recordsToRead calculated above and numRecordsToRead (based on rowCount and limit)
-      recordsToRead = Math.min(recordsToRead, numRecordsToRead);
-
-      if (schema.allFieldsFixedLength) {
-        readAllFixedFields(recordsToRead);
-      } else { // variable length columns
-        long fixedRecordsToRead = varLengthReader.readFields(recordsToRead, firstColumnStatus);
-        readAllFixedFields(fixedRecordsToRead);
-      }
-
-      // if we have requested columns that were not found in the file fill their vectors with null
-      // (by simply setting the value counts inside of them, as they start null filled)
-      if (nullFilledVectors != null) {
-        for (final ValueVector vv : nullFilledVectors ) {
-          vv.getMutator().setValueCount(firstColumnStatus.getRecordsReadInCurrentPass());
-        }
-      }
-
-//      logger.debug("So far read {} records out of row group({}) in file '{}'", totalRecordsRead, rowGroupIndex, hadoopPath.toUri().getPath());
-      totalRecordsRead += firstColumnStatus.getRecordsReadInCurrentPass();
-      numRecordsToRead -= firstColumnStatus.getRecordsReadInCurrentPass();
       parquetReaderStats.timeProcess.addAndGet(timer.elapsed(TimeUnit.NANOSECONDS));
-
-      return firstColumnStatus.getRecordsReadInCurrentPass();
+      return readCount;
     } catch (Exception e) {
-      handleAndRaise("\nHadoop path: " + hadoopPath.toUri().getPath() +
+      throw handleException("\nHadoop path: " + hadoopPath.toUri().getPath() +
         "\nTotal records read: " + totalRecordsRead +
         "\nMock records read: " + mockRecordsRead +
         "\nRecords to read: " + recordsToRead +
         "\nRow group index: " + rowGroupIndex +
         "\nRecords in row group: " + footer.getBlocks().get(rowGroupIndex).getRowCount(), e);
     }
+  }
 
-    // this is never reached
-    return 0;
+  private int readMockRecords() {
+    if (mockRecordsRead == schema.groupRecordCount) {
+      return 0;
+    }
+    long recordsToRead = Math.min(DEFAULT_RECORDS_TO_READ_IF_NOT_FIXED_WIDTH, schema.groupRecordCount - mockRecordsRead);
+
+    // Pick the minimum of recordsToRead calculated above and numRecordsToRead (based on rowCount and limit).
+    recordsToRead = Math.min(recordsToRead, numRecordsToRead);
+
+    for (final ValueVector vv : nullFilledVectors ) {
+      vv.getMutator().setValueCount( (int) recordsToRead);
+    }
+    mockRecordsRead += recordsToRead;
+    totalRecordsRead += recordsToRead;
+    numRecordsToRead -= recordsToRead;
+    return (int) recordsToRead;
+  }
+
+  private long computeReadTarget(ColumnReader<?> firstColumnStatus) {
+    long recordsToRead;
+    if (schema.allFieldsFixedLength) {
+      recordsToRead = Math.min(recordsPerBatch, firstColumnStatus.columnChunkMetaData.getValueCount() - firstColumnStatus.totalValuesRead);
+    } else {
+      recordsToRead = DEFAULT_RECORDS_TO_READ_IF_NOT_FIXED_WIDTH;
+    }
+
+    // Pick the minimum of recordsToRead calculated above and numRecordsToRead (based on rowCount and limit)
+    recordsToRead = Math.min(recordsToRead, numRecordsToRead);
+    return recordsToRead;
+  }
+
+  private int readBatch(ColumnReader<?> firstColumnStatus, long recordsToRead) throws IOException {
+    if (schema.allFieldsFixedLength) {
+      readAllFixedFields(recordsToRead);
+    } else { // variable length columns
+      long fixedRecordsToRead = varLengthReader.readFields(recordsToRead, firstColumnStatus);
+      readAllFixedFields(fixedRecordsToRead);
+    }
+
+    int readCount = firstColumnStatus.getRecordsReadInCurrentPass();
+
+    // if we have requested columns that were not found in the file fill their vectors with null
+    // (by simply setting the value counts inside of them, as they start null filled)
+    if (nullFilledVectors != null) {
+      for (final ValueVector vv : nullFilledVectors ) {
+        vv.getMutator().setValueCount(readCount);
+      }
+    }
+
+//    logger.debug("So far read {} records out of row group({}) in file '{}'", totalRecordsRead, rowGroupIndex, hadoopPath.toUri().getPath());
+    totalRecordsRead += readCount;
+    numRecordsToRead -= readCount;
+    return readCount;
   }
 
   @Override
