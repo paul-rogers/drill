@@ -200,6 +200,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   public static final String INTERRUPTION_AFTER_SORT = "after-sort";
   public static final String INTERRUPTION_AFTER_SETUP = "after-setup";
   public static final String INTERRUPTION_WHILE_SPILLING = "spilling";
+  public static final String INTERRUPTION_WHILE_MERGING = "merging";
   public static final long DEFAULT_SPILL_BATCH_SIZE = 8L * 1024 * 1024;
   public static final long MIN_SPILL_BATCH_SIZE = 256 * 1024;
 
@@ -355,6 +356,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
    */
 
   private int maxDensity;
+  private int lastDensity = -1;
 
   /**
    * Estimated number of rows that fit into a single spill batch.
@@ -560,6 +562,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   private IterOutcome nextOutputBatch() {
     if (resultsIterator.next()) {
+      injector.injectUnchecked(context.getExecutionControls(), INTERRUPTION_WHILE_MERGING);
       return IterOutcome.OK;
     } else {
       logger.trace("Deliver phase complete: Returned {} batches, {} records",
@@ -956,8 +959,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // We actually track the max density seen, and compare to 75% of that since
     // Parquet produces very low density record batches.
 
-    if (sizer.avgDensity() < maxDensity * 3 / 4) {
-      logger.debug("Saw low density batch. Density: {}", sizer.avgDensity());
+    if (sizer.avgDensity() < maxDensity * 3 / 4 && sizer.avgDensity() != lastDensity) {
+      logger.trace("Saw low density batch. Density: {}", sizer.avgDensity());
+      lastDensity = sizer.avgDensity();
       return;
     }
     maxDensity = Math.max(maxDensity, sizer.avgDensity());
@@ -1334,7 +1338,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     try (AutoCloseable ignored = AutoCloseables.all(batchesToSpill);
          CopierHolder.BatchMerger merger = copierHolder.startMerge(schema, batchesToSpill, spillBatchRowCount)) {
       logger.trace("Spilling {} of {} batches, {} rows, memory = {}, write to {}",
-                   batchesToSpill.size(), bufferedBatches.size(),
+                   batchesToSpill.size(), bufferedBatches.size() + batchesToSpill.size(),
                    spillBatchRowCount,
                    allocator.getAllocatedMemory(), outputFile);
       newGroup = new BatchGroup.SpilledRun(spillSet, outputFile, oContext);

@@ -34,6 +34,8 @@ import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.store.easy.json.JSONRecordReader;
+import org.apache.drill.exec.testing.Controls;
+import org.apache.drill.exec.testing.ControlsInjectionUtil;
 import org.apache.drill.test.ClientFixture;
 import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.DrillTest;
@@ -554,11 +556,62 @@ public class TestExternalSortRM extends DrillTest {
   }
 
   @Test
+  public void testDrill5262() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger(ExternalSortBatch.class, Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+//        .configProperty(ExecConstants.EXTERNAL_SORT_MAX_MEMORY, "3G")
+        .maxParallelization(1)
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+//        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 2L * 1024 * 1024 * 1024)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 30 * 1024 * 1024)
+        .sessionOption(ExecConstants.MAX_WIDTH_PER_NODE_KEY, 1)
+        ;
+    try (LogFixture logs = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      String sql = "select count(*) from (select * from `dfs.data`.small_large_parquet order by col1 desc) d";
+      runAndDump(client, sql);
+    }
+  }
+
+  @Test
+  public void testDrill4301() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger(ExternalSortBatch.class, Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+//        .configProperty(ExecConstants.EXTERNAL_SORT_MAX_MEMORY, "3G")
+        .maxParallelization(1)
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 2L * 1024 * 1024 * 1024)
+//        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 30 * 1024 * 1024)
+        .sessionOption(ExecConstants.MAX_WIDTH_PER_NODE_KEY, 1)
+        ;
+    try (LogFixture logs = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      String sql = "select * from `dfs.data`.`fewtypes_boolpartition` where bool_col = true";
+      runAndDump(client, sql);
+    }
+  }
+
+  @Test
   public void testMD1364() throws Exception {
     LogFixtureBuilder logBuilder = LogFixture.builder()
         .toConsole()
         .logger(ExternalSortBatch.class, Level.TRACE)
-//        .logger(org.apache.drill.exec.physical.impl.xsort.ExternalSortBatch.class, Level.TRACE)
         ;
     FixtureBuilder builder = ClusterFixture.builder()
         .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
@@ -578,6 +631,42 @@ public class TestExternalSortRM extends DrillTest {
 //      String sql = "select d2.col1 from (select d.col1 from (select distinct columns[0] col1 from `dfs.data`.`250wide.tbl`) d order by concat(d.col1, 'ASDF'))d2 where d2.col1 = 'askjdhfjhfds'";
       String sql = "select * from `dfs.data`.`1_0_0.parquet` order by c_email_address";
       runAndDump(client, sql);
+    }
+  }
+
+  @Test
+  public void testDrill5210() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger(ExternalSortBatch.class, Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+//        .configProperty(ExecConstants.EXTERNAL_SORT_MAX_MEMORY, "3G")
+        .maxParallelization(1)
+//        .sessionOption(ExecConstants.SLICE_TARGET, 1000)
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 100 * 1024 * 1024)
+        .sessionOption(ExecConstants.MAX_WIDTH_PER_NODE_KEY, 1)
+        ;
+    try (LogFixture logs = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      final String controls = Controls.newBuilder()
+          .addExceptionOnBit(
+              ExternalSortBatch.class,
+              ExternalSortBatch.INTERRUPTION_WHILE_MERGING,
+              IllegalStateException.class,
+              cluster.drillbit().getContext().getEndpoint(),
+              3, 1)
+          .build();
+      client.setControls(controls);
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      String sql = "select * from `dfs.data`.`1_0_0.parquet` order by c_email_address";
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
+      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
     }
   }
 
