@@ -74,8 +74,8 @@ public class ParquetRecordReader extends AbstractRecordReader {
   private static final int NUMBER_OF_VECTORS = 1;
   private static final long DEFAULT_BATCH_LENGTH = 256 * 1024 * NUMBER_OF_VECTORS; // 256kb
   private static final long DEFAULT_BATCH_LENGTH_IN_BITS = DEFAULT_BATCH_LENGTH * 8; // 256kb
-  private static final char DEFAULT_RECORDS_TO_READ_IF_NOT_FIXED_WIDTH = 32*1024;
-  private static final int DEFAULT_RECORDS_TO_READ_IF_VARIABLE_WIDTH = 65535;
+  private static final char DEFAULT_RECORDS_TO_READ_IF_VARIABLE_WIDTH = 32*1024; // 32K
+  private static final int DEFAULT_RECORDS_TO_READ_IF_FIXED_WIDTH = 64*1024 - 1; // 64K - 1, max SV2 can address
   private static final int NUM_RECORDS_TO_READ_NOT_SPECIFIED = -1;
 
   // When no column is required by the downstream operator, ask SCAN to return a DEFAULT column. If such column does not exist,
@@ -96,7 +96,7 @@ public class ParquetRecordReader extends AbstractRecordReader {
 //  private long rowGroupOffset;
 
   private FileSystem fileSystem;
-  private long batchSize;
+  private final long batchSize;
   private long numRecordsToRead; // number of records to read
 
   Path hadoopPath;
@@ -131,6 +131,7 @@ public class ParquetRecordReader extends AbstractRecordReader {
   private String name;
 
   public ParquetReaderStats parquetReaderStats = new ParquetReaderStats();
+  private BatchReader batchReader;
 
   public enum Metric implements MetricDef {
     NUM_DICT_PAGE_LOADS,         // Number of dictionary pages read
@@ -313,6 +314,15 @@ public class ParquetRecordReader extends AbstractRecordReader {
     } catch (Exception e) {
       throw handleException("Failure in setting up reader", e);
     }
+
+    ColumnReader<?> firstColumnStatus = schema.getFirstColumnStatus();
+    if (firstColumnStatus == null) {
+      batchReader = new MockBatchReader();
+    } else if (schema.allFieldsFixedLength) {
+      batchReader = new FixedWidthReader();
+    } else {
+      batchReader = new VariableWidthReader();
+    }
   }
 
   /**
@@ -454,7 +464,7 @@ public class ParquetRecordReader extends AbstractRecordReader {
             footer.getBlocks().get(0).getColumns().get(0).getValueCount()), DEFAULT_RECORDS_TO_READ_IF_VARIABLE_WIDTH);
       }
       else {
-        recordsPerBatch = DEFAULT_RECORDS_TO_READ_IF_NOT_FIXED_WIDTH;
+        recordsPerBatch = DEFAULT_RECORDS_TO_READ_IF_VARIABLE_WIDTH;
       }
       buildVectors(ParquetRecordReader.this, output);
       if (! isStarQuery()) {
@@ -636,125 +646,147 @@ public class ParquetRecordReader extends AbstractRecordReader {
     }
   }
 
- public void readAllFixedFields(long recordsToRead) throws IOException {
-   Stopwatch timer = Stopwatch.createStarted();
-   if(useAsyncColReader){
-     readAllFixedFieldsParallel(recordsToRead) ;
-   } else {
-     readAllFixedFieldsSerial(recordsToRead);
-   }
-   parquetReaderStats.timeFixedColumnRead.addAndGet(timer.elapsed(TimeUnit.NANOSECONDS));
- }
+  /**
+   * Base strategy for reading a batch of Parquet records.
+   */
+  public abstract class BatchReader {
 
-  public void readAllFixedFieldsSerial(long recordsToRead) throws IOException {
-    for (ColumnReader<?> crs : schema.columnStatuses) {
-      crs.processPages(recordsToRead);
+    public int readBatch() throws IOException {
+      ColumnReader<?> firstColumnStatus = schema.getFirstColumnStatus();
+      long recordsToRead = Math.min(getReadCount(firstColumnStatus), numRecordsToRead);
+      int readCount = readRecords(firstColumnStatus, recordsToRead);
+
+      // if we have requested columns that were not found in the file fill their vectors with null
+      // (by simply setting the value counts inside of them, as they start null filled)
+
+      if (nullFilledVectors != null) {
+        for (final ValueVector vv : nullFilledVectors ) {
+          vv.getMutator().setValueCount(readCount);
+        }
+      }
+      totalRecordsRead += readCount;
+      numRecordsToRead -= readCount;
+      return readCount;
+    }
+
+    protected abstract long getReadCount(ColumnReader<?> firstColumnStatus);
+
+    protected abstract int readRecords(ColumnReader<?> firstColumnStatus, long recordsToRead) throws IOException;
+
+    protected void readAllFixedFields(long recordsToRead) throws IOException {
+      Stopwatch timer = Stopwatch.createStarted();
+      if(useAsyncColReader){
+        readAllFixedFieldsParallel(recordsToRead) ;
+      } else {
+        readAllFixedFieldsSerial(recordsToRead);
+      }
+      parquetReaderStats.timeFixedColumnRead.addAndGet(timer.elapsed(TimeUnit.NANOSECONDS));
+    }
+
+    protected void readAllFixedFieldsSerial(long recordsToRead) throws IOException {
+      for (ColumnReader<?> crs : schema.columnStatuses) {
+        crs.processPages(recordsToRead);
+      }
+    }
+
+    protected void readAllFixedFieldsParallel(long recordsToRead) throws IOException {
+      ArrayList<Future<Long>> futures = Lists.newArrayList();
+      for (ColumnReader<?> crs : schema.columnStatuses) {
+        Future<Long> f = crs.processPagesAsync(recordsToRead);
+        futures.add(f);
+      }
+      Exception exception = null;
+      for(Future<Long> f: futures){
+        if (exception != null) {
+          f.cancel(true);
+        } else {
+          try {
+            f.get();
+          } catch (Exception e) {
+            f.cancel(true);
+            exception = e;
+          }
+        }
+      }
+      if (exception != null) {
+        throw handleException(null, exception);
+      }
     }
   }
 
-  public void readAllFixedFieldsParallel(long recordsToRead) throws IOException {
-    ArrayList<Future<Long>> futures = Lists.newArrayList();
-    for (ColumnReader<?> crs : schema.columnStatuses) {
-      Future<Long> f = crs.processPagesAsync(recordsToRead);
-      futures.add(f);
-    }
-    Exception exception = null;
-    for(Future<Long> f: futures){
-      if (exception != null) {
-        f.cancel(true);
-      } else {
-        try {
-          f.get();
-        } catch (Exception e) {
-          f.cancel(true);
-          exception = e;
-        }
+  /**
+   * Strategy for reading mock records. (What are these?)
+   */
+  public class MockBatchReader extends BatchReader {
+
+    @Override
+    protected long getReadCount(ColumnReader<?> firstColumnStatus) {
+      if (mockRecordsRead == schema.groupRecordCount) {
+        return 0;
       }
+      return Math.min(DEFAULT_RECORDS_TO_READ_IF_VARIABLE_WIDTH, schema.groupRecordCount - mockRecordsRead);
     }
-    if (exception != null) {
-      throw handleException(null, exception);
+
+    @Override
+    protected int readRecords(ColumnReader<?> firstColumnStatus, long recordsToRead) {
+
+      mockRecordsRead += recordsToRead;
+      return (int) recordsToRead;
+    }
+  }
+
+  /**
+   * Strategy for reading a record batch when all columns are
+   * fixed-width.
+   */
+  public class FixedWidthReader extends BatchReader {
+
+    @Override
+    protected long getReadCount(ColumnReader<?> firstColumnStatus) {
+      return Math.min(recordsPerBatch, firstColumnStatus.columnChunkMetaData.getValueCount() - firstColumnStatus.totalValuesRead);
+    }
+
+    @Override
+    protected int readRecords(ColumnReader<?> firstColumnStatus, long recordsToRead) throws IOException {
+      readAllFixedFields(recordsToRead);
+      return firstColumnStatus.getRecordsReadInCurrentPass();
+    }
+  }
+
+  /**
+   * Strategy for reading a record batch when at last one column is
+   * variable width.
+   */
+  public class VariableWidthReader extends BatchReader {
+
+    @Override
+    protected long getReadCount(ColumnReader<?> firstColumnStatus) {
+      return DEFAULT_RECORDS_TO_READ_IF_VARIABLE_WIDTH;
+    }
+
+    @Override
+    protected int readRecords(ColumnReader<?> firstColumnStatus, long recordsToRead) throws IOException {
+      long fixedRecordsToRead = varLengthReader.readFields(recordsToRead, firstColumnStatus);
+      readAllFixedFields(fixedRecordsToRead);
+      return firstColumnStatus.getRecordsReadInCurrentPass();
     }
   }
 
   @Override
   public int next() {
     resetBatch();
-    long recordsToRead = 0;
+    Stopwatch timer = Stopwatch.createStarted();
     try {
-      Stopwatch timer = Stopwatch.createStarted();
-      int readCount;
-      ColumnReader<?> firstColumnStatus = schema.getFirstColumnStatus();
-      if (firstColumnStatus == null) {
-        readCount = readMockRecords();
-      } else {
-        recordsToRead = computeReadTarget(firstColumnStatus);
-        readCount = readBatch(firstColumnStatus, recordsToRead);
-      }
-      parquetReaderStats.timeProcess.addAndGet(timer.elapsed(TimeUnit.NANOSECONDS));
-      return readCount;
+      return batchReader.readBatch();
     } catch (Exception e) {
       throw handleException("\nHadoop path: " + hadoopPath.toUri().getPath() +
         "\nTotal records read: " + totalRecordsRead +
         "\nMock records read: " + mockRecordsRead +
-        "\nRecords to read: " + recordsToRead +
         "\nRow group index: " + rowGroupIndex +
         "\nRecords in row group: " + footer.getBlocks().get(rowGroupIndex).getRowCount(), e);
+    } finally {
+      parquetReaderStats.timeProcess.addAndGet(timer.elapsed(TimeUnit.NANOSECONDS));
     }
-  }
-
-  private int readMockRecords() {
-    if (mockRecordsRead == schema.groupRecordCount) {
-      return 0;
-    }
-    long recordsToRead = Math.min(DEFAULT_RECORDS_TO_READ_IF_NOT_FIXED_WIDTH, schema.groupRecordCount - mockRecordsRead);
-
-    // Pick the minimum of recordsToRead calculated above and numRecordsToRead (based on rowCount and limit).
-    recordsToRead = Math.min(recordsToRead, numRecordsToRead);
-
-    for (final ValueVector vv : nullFilledVectors ) {
-      vv.getMutator().setValueCount( (int) recordsToRead);
-    }
-    mockRecordsRead += recordsToRead;
-    totalRecordsRead += recordsToRead;
-    numRecordsToRead -= recordsToRead;
-    return (int) recordsToRead;
-  }
-
-  private long computeReadTarget(ColumnReader<?> firstColumnStatus) {
-    long recordsToRead;
-    if (schema.allFieldsFixedLength) {
-      recordsToRead = Math.min(recordsPerBatch, firstColumnStatus.columnChunkMetaData.getValueCount() - firstColumnStatus.totalValuesRead);
-    } else {
-      recordsToRead = DEFAULT_RECORDS_TO_READ_IF_NOT_FIXED_WIDTH;
-    }
-
-    // Pick the minimum of recordsToRead calculated above and numRecordsToRead (based on rowCount and limit)
-    recordsToRead = Math.min(recordsToRead, numRecordsToRead);
-    return recordsToRead;
-  }
-
-  private int readBatch(ColumnReader<?> firstColumnStatus, long recordsToRead) throws IOException {
-    if (schema.allFieldsFixedLength) {
-      readAllFixedFields(recordsToRead);
-    } else { // variable length columns
-      long fixedRecordsToRead = varLengthReader.readFields(recordsToRead, firstColumnStatus);
-      readAllFixedFields(fixedRecordsToRead);
-    }
-
-    int readCount = firstColumnStatus.getRecordsReadInCurrentPass();
-
-    // if we have requested columns that were not found in the file fill their vectors with null
-    // (by simply setting the value counts inside of them, as they start null filled)
-    if (nullFilledVectors != null) {
-      for (final ValueVector vv : nullFilledVectors ) {
-        vv.getMutator().setValueCount(readCount);
-      }
-    }
-
-//    logger.debug("So far read {} records out of row group({}) in file '{}'", totalRecordsRead, rowGroupIndex, hadoopPath.toUri().getPath());
-    totalRecordsRead += readCount;
-    numRecordsToRead -= readCount;
-    return readCount;
   }
 
   @Override
