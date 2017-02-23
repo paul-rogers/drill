@@ -20,7 +20,11 @@ package org.apache.drill.exec.planner;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -59,8 +63,8 @@ public class TestEnhancedSelectivity {
   public static final double PROB_A_BETWEEN_B_C = PROB_A_LE_B * PROB_A_GE_B;
   public static final double PROB_A_IS_TRUE = DrillRelDefaultMdSelectivity.PROB_A_IS_TRUE;
   public static final double PROB_A_IS_FALSE = 1 - PROB_A_IS_TRUE;
-  public static final double PROB_A_NOT_TRUE = PROB_A_IS_FALSE + PROB_A_IS_NULL;
-  public static final double PROB_A_NOT_FALSE = PROB_A_IS_TRUE + PROB_A_IS_NULL;
+  public static final double PROB_A_NOT_TRUE = (1 + PROB_A_IS_NULL) / 2;
+  public static final double PROB_A_NOT_FALSE = PROB_A_NOT_TRUE;
   public static final double DEFAULT_PROB = DrillRelDefaultMdSelectivity.DEFAULT_PROB;
 
   /**
@@ -85,7 +89,7 @@ public class TestEnhancedSelectivity {
       verifyReduction(client, "id_i <= 10", PROB_A_LE_B);
       verifyReduction(client, "id_i >= 10", PROB_A_GE_B);
       verifyReduction(client, "id_i IN (10)", PROB_A_IN_B);
-      verifyReduction(client, "id_i IN (10, 20)", 2 * PROB_A_IN_B - Math.pow(PROB_A_IN_B, 2));
+      verifyReduction(client, "id_i IN (10, 20)", 2 * PROB_A_IN_B);
       verifyReduction(client, "id_i IN (11, 12, 13, 14, 15, 16, 16, 18, 19, 20)", DrillRelDefaultMdSelectivity.MAX_OR_FACTOR);
       verifyReduction(client, "name_s20 LIKE 'foo'", PROB_A_LIKE_B);
       verifyReduction(client, "name_s20 NOT LIKE 'foo'", PROB_A_NOT_LIKE_B);
@@ -100,8 +104,96 @@ public class TestEnhancedSelectivity {
       verifyReduction(client, "id_i NOT BETWEEN 10 AND 20", 1 - PROB_A_BETWEEN_B_C);
       verifyReduction(client, "NOT ( id_i BETWEEN 10 AND 20 )", 1 - PROB_A_BETWEEN_B_C);
       verifyReduction(client, "NOT ( id_i = 10 )", 1.0 - PROB_A_EQ_B);
+      verifyReduction(client, "( id_i = 10 ) IS TRUE", PROB_A_EQ_B);
+      verifyReduction(client, "( id_i = 10 ) IS FALSE", 1.0 - PROB_A_EQ_B);
+      verifyReduction(client, "( id_i = 10 ) IS NOT TRUE", 1.0 - PROB_A_EQ_B);
+      verifyReduction(client, "( id_i = 10 ) IS NOT FALSE", PROB_A_EQ_B);
       testSample1Enhanced(client);
     }
+  }
+
+  @Test
+  public void testFrameworkCases() throws Exception {
+    File gitDir = new File("../../..");
+    File optimizerDir = new File(gitDir, "drill-test-framework/framework/resources/Functional/optimizer/");
+    if (! optimizerDir.isDirectory()) {
+      return;
+    }
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.OPTIMIZER_ENHANCED_DEFAULTS_ENABLE, true)
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+//        .configProperty(ExecConstants.QUERY_PROFILE_OPTION, "sync") // Temporary until DRILL-5257 is available
+        .maxParallelization(1);
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      boolean skip = false;
+      for (File file : optimizerDir.listFiles()) {
+        String fileName = file.getName();
+//        if (fileName.equals("or1_selectivity.q")) {
+//          skip = false;
+//        }
+        if (skip) { continue; }
+//        System.out.println("-- " + fileName);
+        if (file.getName().endsWith(".q")) {
+          File expected = new File(file.getParentFile(), fileName.replaceAll("\\.q$", ".e"));
+          testFrameworkCase(client, file, expected);
+        }
+      }
+    }
+  }
+
+  private void testFrameworkCase(ClientFixture client, File query, File expected) throws Exception {
+    String fileName = query.getName();
+    System.out.println(fileName + ", " + expected.getName());
+    if (fileName.equals("mixed2_selectivity.q") ||
+        fileName.equals("mixed3_selectivity.q")) {
+      // No match found for function signature nvl(<ANY>, <CHARACTER>)
+      return;
+    }
+    if (fileName.equals("inor_selectivity.q") ||
+        fileName.equals("mixed1_selectivity.q") ||
+        fileName.equals("notnull_selectivity.q") ||
+        fileName.equals("or1_selectivity.q") ||
+        fileName.equals("or_selectivity.q")) {
+      // Number format exception
+      return;
+    }
+    if (fileName.equals("mixed_selectivity.q")) {
+      // IllegalArgumentException: Invalid value for boolean
+      return;
+    }
+    if (fileName.equals("notbetween_selectivity.q")) {
+      // Cannot apply 'BETWEEN ASYMMETRIC' to arguments of type '<BOOLEAN> BETWEEN ASYMMETRIC <INTEGER> AND <INTEGER>'.
+      return;
+    }
+
+    double inputLines;
+    double filteredLines;
+    try (BufferedReader in = new BufferedReader(new FileReader(expected))) {
+      in.readLine(); // .*
+      in.readLine(); // parquet-scan.*
+      String line = in.readLine(); // 60175.0.*
+      inputLines = Double.parseDouble(line.trim().replace(".*", ""));
+      in.readLine(); // filter.*
+      line = in.readLine(); // 2205.789.*
+      filteredLines = Double.parseDouble(line.trim().replace(".*", ""));
+    }
+    double ratio = 0;
+    if (inputLines > 0) {
+      ratio = filteredLines / inputLines;
+    }
+
+    String sql = Files.toString(query, Charsets.UTF_8);
+//    System.out.print(sql);
+    System.out.println(inputLines + ", " + filteredLines + ", " + ratio);
+    sql = sql.replace("explain plan for ", "");
+    sql = sql.replace(";", "");
+    System.out.println(sql);
+    System.out.println(client.queryBuilder().sql(sql).explainJson());
+
+    verifyReductionQuery(client, sql, fileName, ratio,
+                         " Scan\\(groupscan=\\[ParquetGroupScan [^}]+: rowcount = (\\d+)",
+                         10);
   }
 
   /**
@@ -180,6 +272,13 @@ public class TestEnhancedSelectivity {
   }
 
   private void verifyReductionQuery(ClientFixture client, String sql, String label, double expected) throws Exception {
+    // Verify with a 2.5% margin of error.
+    verifyReductionQuery(client, sql, label, expected, "MockScanEntry \\[records=(\\d+),", 40);
+  }
+
+  private void verifyReductionQuery(ClientFixture client, String sql,
+                                    String label, double expected,
+                                    String pattern, int accuracy) throws Exception {
 //    System.out.println(client.queryBuilder().sql(sql).explainText());
 
     // Sad: must run the query to get the estimates. The above EXPLAIN PLAN
@@ -193,7 +292,7 @@ public class TestEnhancedSelectivity {
     Thread.sleep(500); // Wait for profile to be written. Temporary until DRILL-5257 is available
     File profileFile = client.getProfileFile(summary.queryIdString());
     String text = Files.toString(profileFile, Charsets.UTF_8);
-    Pattern p = Pattern.compile("MockScanEntry \\[records=(\\d+),");
+    Pattern p = Pattern.compile(pattern);
     Matcher m = p.matcher(text);
     assertTrue(m.find());
     long scanRows = Long.parseLong(m.group(1));
@@ -203,7 +302,7 @@ public class TestEnhancedSelectivity {
     double filterRows = Double.parseDouble(m.group(1));
     double reduction = filterRows / scanRows;
     if (filterRows == 1 && expected < reduction) {
-      System.out.println( label + ": Truncating expected result to " + reduction);
+      System.out.println(label + ": Truncating expected result to " + reduction);
       expected = reduction;
     }
 
@@ -218,10 +317,9 @@ public class TestEnhancedSelectivity {
 //    double reduction = filter.estRows / scan.estRows;
 
     // Enable the following to see the details for each test
-//    System.out.println(label + " - " + reduction + ", ex: " + expected);
+    System.out.println(label + " - " + filterRows + " / " + scanRows + " = " + reduction + ", ex: " + expected);
 
-    // Verify with a 2.5% margin of error.
-    assertEquals(label, expected, reduction, expected / 40);
+//    assertEquals(label, expected, reduction, expected / accuracy);
   }
 
   /**
@@ -300,7 +398,7 @@ public class TestEnhancedSelectivity {
     double expected = 0.25 * 0.50 *
         Math.pow(0.15, 2) *
         Math.pow(0.25, 4);
-//    System.out.println( "Calcite sample 1: " + expected );
+//    System.out.println("Calcite sample 1: " + expected);
     testSample1(client, expected);
   }
 
