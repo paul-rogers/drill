@@ -25,7 +25,6 @@ import org.apache.calcite.rel.metadata.RelMdUtil;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.BuiltInMethod;
 
 /**
@@ -48,8 +47,17 @@ import org.apache.calcite.util.BuiltInMethod;
  * <tr><td>IN A, B, ...</td><td>max(0.5, p(=)*n - p(=)<sup>n</sup>)</td><td>Same as OR</td><td>.25 ?</td></tr>
  * <tr><td>IS NOT NULL</td><td>0.9</td><td>Default in Calcite</td><td>.9</td></tr>
  * <tr><td>IS NULL</td><td>0.1</td><td>1 - p(IS NULL)</td><td>.25 ?</td></tr>
- * <tr><td>IS TRUE</td><td>0.5</td><td>Assume Booleans not null</td><td>.25 ?</td></tr>
- * <tr><td>IS NOT TRUE</td><td>0.55</td><td>1 - p(TRUE) - p(NULL)</td><td>.25 ?</td></tr>
+ * <tr><td>value IS TRUE</td><td>0.5</td><td>Assume Booleans not null</td><td>.25 ?</td></tr>
+ * <tr><td>value IS NOT TRUE</td><td>0.55</td><td>(1 - p(IS NULL)) / 2</td><td>.25 ?</td></tr>
+ * <tr><td>expr IS TRUE</td><td>varies</td><td>same as expr</td><td>.25 ?</td></tr>
+ * <tr><td>expr IS NOT TRUE</td><td>varies</td><td>same as NOT expr</td><td>.25 ?</td></tr>
+ * <tr><td>A OR B</td><td>Varies</td><td>min(p(A) + p(B), 0.5)</td><td>0.5</td></tr>
+ * <tr><td>A AND B</td><td>Varies</td><td>p(A ^ B) = p(A) * p(B)</td><td>Same</td></tr>
+ * <tr><td>IN (a)</td><td>0.15</td><td>p(=)</td><td>0.25</td></tr>
+ * <tr><td>x IN (a, b, c, ...)</td><td>varies</td><td>p(x = a v x = b v x = c v ...)</td><td>0.25</td></tr>
+ * <tr><td>NOT A</td><td>Varies</td><td>1 - p(A)</td><td>0.25</td></tr>
+ * <tr><td>BETWEEN a AND b</td><td>0.33</td><td>p(<= ^ >=)</td><td>0.25</td></tr>
+ * <tr><td>NOT BETWEEN a AND b</td><td>0.67</td><td>1 - p(BETWEEN)</td><td>0.25</td></tr>
  * </table>
  * <p>
  * The OR operator is the sum of its operands, limited to 1.0. A series of
@@ -95,14 +103,10 @@ public class DrillRelDefaultMdSelectivity extends RelMdSelectivity {
     }
 
     public double computeReductionFactor(RexNode pred) {
-      switch ( pred.getKind() ) {
+      switch (pred.getKind()) {
       case BETWEEN:
         // Never called in Calcite. Drill seems to rewrite
-        // a BETWEEN b AND c
-        // to
-        // a >= b AND a <= c
-        //
-        // Computed as:
+        // a BETWEEN b AND c to a >= b AND a <= c.
         // Half the range from (-infinity, lower) or
         // half the range from (upper, infinity)
         // Bounds are inclusive
@@ -124,15 +128,25 @@ public class DrillRelDefaultMdSelectivity extends RelMdSelectivity {
         // (1 + prob(=)) / 2
         return (1 + probEq) / 2;
       case IS_FALSE:
+        // p(expr IS FALSE) = 1 - p(expr)
+        // p(value IS FALSE) = 1 / 2
+        return probBoolean(pred, false, PROB_A_IS_TRUE);
       case IS_TRUE:
-        // p(a IS TRUE) = p(a IS FALSE)
-        return PROB_A_IS_TRUE;
-      case IS_NOT_FALSE:
-      case IS_NOT_TRUE:
-        // p(a NOT TRUE) = p(a IS FALSE) + p(a IS NULL)
+        // p(expr IS TRUE) = p(expr)
+        // p(value IS TRUE) = 1 / 2
+        return probBoolean(pred, true, PROB_A_IS_TRUE);
+     case IS_NOT_FALSE:
+        // p(expr IS NOT FALSE) = p(expr IS TRUE)
+        // p(a NOT TRUE) = (1 - p(IS NULL)) / 2
         // p(a NOT FALSE) = p(a NOT TRUE)
         // Assumes that use of this construction implies nulls
-        return PROB_A_IS_TRUE + probNull;
+        return probBoolean(pred, true, (1 + probNull) / 2);
+      case IS_NOT_TRUE:
+        // p(expr IS NOT TRUE) = p(expr IS FALSE)
+        // p(a NOT TRUE) = (1 - p(IS NULL)) / 2
+        // p(a NOT FALSE) = p(a NOT TRUE)
+        // Assumes that use of this construction implies nulls
+        return probBoolean(pred, false, (1 + probNull) / 2);
       case IS_NULL:
         return probNull;
       case IS_NOT_NULL:
@@ -142,19 +156,18 @@ public class DrillRelDefaultMdSelectivity extends RelMdSelectivity {
       case NOT:
         return 1.0 - computeReductionFactor(((RexCall) pred).getOperands().get(0));
       case OR: {
-          // p(A v B) = p(A) + p(B) - P(A ^ B)
+          // Assumes conditions are independent
+          // p(A v B) = p(A) + p(B)
           RexCall rexCall = (RexCall) pred;
           double sel = 0;
-          double andSel = 1;
           for (RexNode op : rexCall.getOperands()) {
             double opSel = computeReductionFactor(op);
             sel += opSel;
-            andSel *= opSel;
           }
 
           // Per System-R and several texts, an OR (also IN) assumed to reduce
           // rows by at least 50%.
-          return Math.min(MAX_OR_FACTOR, sel - andSel);
+          return Math.min(MAX_OR_FACTOR, sel);
         }
       case AND: {
           // p(A ^ B) = p(A) * p(B)
@@ -167,6 +180,16 @@ public class DrillRelDefaultMdSelectivity extends RelMdSelectivity {
         }
       default:
         return DEFAULT_PROB;
+      }
+    }
+
+    private double probBoolean(RexNode pred, boolean isTrue, double valueProb) {
+      RexNode arg = ((RexCall) pred).getOperands().get(0);
+      if (arg instanceof RexCall) {
+        double baseProb = computeReductionFactor(arg);
+        return isTrue ? baseProb : 1 - baseProb;
+      } else {
+        return valueProb;
       }
     }
   }
@@ -189,7 +212,7 @@ public class DrillRelDefaultMdSelectivity extends RelMdSelectivity {
     defaultReduction = reduction;
   }
 
-  public static ReductionCalculator getReductionRules( ) { return defaultReduction; }
+  public static ReductionCalculator getReductionRules() { return defaultReduction; }
 
   // Catch-all rule when none of the others apply.
   @Override
