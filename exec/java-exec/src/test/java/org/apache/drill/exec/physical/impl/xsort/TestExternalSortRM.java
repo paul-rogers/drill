@@ -738,6 +738,31 @@ public class TestExternalSortRM extends DrillTest {
   }
 
   @Test
+  public void testMd1306() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+//        .logger("org.apache.drill.exec.physical.impl.xsort", Level.DEBUG)
+        .logger(ExternalSortBatch.class, Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .saveProfiles()
+//        .maxParallelization(1)
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 20 * 1024 * 1024)
+//        .sessionOption(ExecConstants.MAX_WIDTH_PER_NODE_KEY, 1)
+        ;
+    try (LogFixture logs = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      String sql = "select * from (select * from `dfs.data`.`data1.tsv` order by columns[0]) d where d.columns[0] = 'Q4OUV/SLOWDRILL/Q4OUV!5LJ2JUFLJE4'";
+      runAndDump(client, sql);
+    }
+  }
+
+  @Test
   public void testDrill4842() throws Exception {
     FixtureBuilder builder = ClusterFixture.builder()
         .saveProfiles()

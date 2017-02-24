@@ -143,10 +143,10 @@ public class ClusterFixture implements AutoCloseable {
 
   ClusterFixture(FixtureBuilder builder) {
 
-    allocator = RootAllocatorFactory.newRoot(config);
     configureZk(builder);
     try {
       createConfig(builder);
+      allocator = RootAllocatorFactory.newRoot(config);
       startDrillbits(builder);
       applyOptions(builder);
     } catch (Exception e) {
