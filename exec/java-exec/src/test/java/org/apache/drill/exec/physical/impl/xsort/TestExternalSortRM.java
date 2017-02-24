@@ -346,7 +346,7 @@ public class TestExternalSortRM extends DrillTest {
 
   public static void main(String args[]) {
     try {
-      new TestExternalSortRM().testDrill5235();
+      new TestExternalSortRM().testMd1306();
     } catch (Exception e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
@@ -742,7 +742,7 @@ public class TestExternalSortRM extends DrillTest {
     LogFixtureBuilder logBuilder = LogFixture.builder()
         .toConsole()
 //        .logger("org.apache.drill.exec.physical.impl.xsort", Level.DEBUG)
-        .logger(ExternalSortBatch.class, Level.TRACE)
+        .logger(ExternalSortBatch.class, Level.DEBUG)
         ;
     FixtureBuilder builder = ClusterFixture.builder()
         .saveProfiles()
@@ -758,6 +758,97 @@ public class TestExternalSortRM extends DrillTest {
          ClientFixture client = cluster.clientFixture()) {
       cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
       String sql = "select * from (select * from `dfs.data`.`data1.tsv` order by columns[0]) d where d.columns[0] = 'Q4OUV/SLOWDRILL/Q4OUV!5LJ2JUFLJE4'";
+      runAndDump(client, sql);
+    }
+  }
+
+  @Test
+  public void Drill5294a() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger(ExternalSortBatch.class, Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .saveProfiles()
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        ;
+    try (LogFixture logs = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      String sql = "select * from (select columns[433] col433, columns[0], columns[1],columns[2],columns[3],columns[4]," +
+                                         "columns[5],columns[6],columns[7],columns[8],columns[9],columns[10],columns[11] " +
+                                         "from `dfs.data`.`3500cols.tbl` " +
+                                         "order by columns[450],columns[330],columns[230],columns[220],columns[110],columns[90]," +
+                                         "columns[80],columns[70],columns[40],columns[10],columns[20],columns[30],columns[40]," +
+                                         "columns[50]) d where d.col433 = 'sjka skjf'";
+      runAndDump(client, sql);
+    }
+  }
+
+  @Test
+  public void Drill5294b() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger(ExternalSortBatch.class, Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .saveProfiles()
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 62914560)
+        ;
+    try (LogFixture logs = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      String sql = "select * from (select * from `dfs.data`.`250wide-small.tbl` order by columns[0])d where d.columns[0] = 'ljdfhwuehnoiueyf'";
+      runAndDump(client, sql);
+    }
+  }
+
+  @Test
+  public void Drill5294c() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger(ExternalSortBatch.class, Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .saveProfiles()
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 30127360)
+        ;
+    try (LogFixture logs = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      String sql = "select * from (select * from `dfs.data`.`250wide_files` d where cast(d.columns[1] as int) > 0 order by columns[0]) d1 where d1.columns[0] = 'kjhf'";
+      runAndDump(client, sql);
+    }
+  }
+
+  @Test
+  public void Drill5294d() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger(ExternalSortBatch.class, Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .saveProfiles()
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        ;
+    try (LogFixture logs = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      String sql = "select * from (select * from `dfs.data`.`250wide.tbl` d where cast(d.columns[1] as int) > 0 order by columns[0]) d1 where d1.columns[0] = 'kjhf'";
       runAndDump(client, sql);
     }
   }

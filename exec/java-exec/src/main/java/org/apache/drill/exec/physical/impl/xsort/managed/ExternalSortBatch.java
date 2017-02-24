@@ -1027,7 +1027,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // spill batches of either 64K records, or as many records as fit into the
     // amount of memory dedicated to each spill batch, whichever is less.
 
-    spillBatchRowCount = (int) Math.max(1, preferredSpillBatchSize / estimatedRowWidth);
+    spillBatchRowCount = (int) Math.max(1, preferredSpillBatchSize / estimatedRowWidth / 2);
     spillBatchRowCount = Math.min(spillBatchRowCount, Character.MAX_VALUE);
 
     // Compute the actual spill batch size which may be larger or smaller
@@ -1040,7 +1040,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // merge batches of either 64K records, or as many records as fit into the
     // amount of memory dedicated to each merge batch, whichever is less.
 
-    mergeBatchRowCount = (int) Math.max(1, preferredMergeBatchSize / estimatedRowWidth);
+    mergeBatchRowCount = (int) Math.max(1, preferredMergeBatchSize / estimatedRowWidth / 2);
     mergeBatchRowCount = Math.min(mergeBatchRowCount, Character.MAX_VALUE);
     targetMergeBatchSize = mergeBatchRowCount * estimatedRowWidth * 2;
 
@@ -1228,6 +1228,10 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     int maxMergeWidth = (int) (mergeMemoryPool / targetSpillBatchSize);
     maxMergeWidth = Math.min(mergeLimit, maxMergeWidth);
+
+    // But, must merge at least two batches.
+
+    maxMergeWidth = Math.max(maxMergeWidth, 2);
 
     // If we can't fit all batches in memory, must spill any in-memory
     // batches to make room for multiple spill-merge-spill cycles.
