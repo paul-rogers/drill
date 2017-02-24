@@ -27,8 +27,6 @@ import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableList;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
@@ -56,15 +54,16 @@ import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.format.FileMetaData;
 import org.apache.parquet.format.SchemaElement;
-import org.apache.parquet.format.converter.ParquetMetadataConverter;
 import org.apache.parquet.hadoop.CodecFactory;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.schema.PrimitiveType;
+import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 
+import com.google.common.base.Stopwatch;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 public class ParquetRecordReader extends AbstractRecordReader {
@@ -265,25 +264,7 @@ public class ParquetRecordReader extends AbstractRecordReader {
     return batchSize;
   }
 
-  /**
-   * @param type a fixed length type from the parquet library enum
-   * @return the length in pageDataByteArray of the type
-   */
-  public static int getTypeLengthInBits(PrimitiveType.PrimitiveTypeName type) {
-    switch (type) {
-      case INT64:   return 64;
-      case INT32:   return 32;
-      case BOOLEAN: return 1;
-      case FLOAT:   return 32;
-      case DOUBLE:  return 64;
-      case INT96:   return 96;
-      // binary and fixed length byte array
-      default:
-        throw new IllegalStateException("Length cannot be determined for type " + type);
-    }
-  }
-
-    public OperatorContext getOperatorContext() {
+  public OperatorContext getOperatorContext() {
     return operatorContext;
   }
 
@@ -333,11 +314,11 @@ public class ParquetRecordReader extends AbstractRecordReader {
 
     private ColumnDescriptor column;
     private SchemaElement se;
-    MaterializedField field;
+    private MaterializedField field;
     private int length;
     private MajorType type;
-    ColumnChunkMetaData columnChunkMetaData;
-    ValueVector vector;
+    private ColumnChunkMetaData columnChunkMetaData;
+    private ValueVector vector;
 
     public ParquetColumnMetadata(ColumnDescriptor column) {
       this.column = column;
@@ -356,12 +337,31 @@ public class ParquetRecordReader extends AbstractRecordReader {
     }
 
     private TypeProtos.DataMode getDataMode(ColumnDescriptor column) {
-      if (column.getMaxRepetitionLevel() > 0 ) {
+      if (isRepeated()) {
         return DataMode.REPEATED;
       } else if (column.getMaxDefinitionLevel() == 0) {
         return TypeProtos.DataMode.REQUIRED;
       } else {
         return TypeProtos.DataMode.OPTIONAL;
+      }
+    }
+
+    /**
+     * @param type
+     * @param type a fixed length type from the parquet library enum
+     * @return the length in pageDataByteArray of the type
+     */
+    public static int getTypeLengthInBits(PrimitiveTypeName type) {
+      switch (type) {
+        case INT64:   return 64;
+        case INT32:   return 32;
+        case BOOLEAN: return 1;
+        case FLOAT:   return 32;
+        case DOUBLE:  return 64;
+        case INT96:   return 96;
+        // binary and fixed length byte array
+        default:
+          throw new IllegalStateException("Length cannot be determined for type " + type);
       }
     }
 
@@ -374,17 +374,14 @@ public class ParquetRecordReader extends AbstractRecordReader {
      * @return the length if fixed width, else -1
      */
     private int getDataTypeLength() {
-      if (isFixedLength()) {
-        if (column.getMaxRepetitionLevel() > 0) {
-          return -1;
-        }
-        if (column.getType() == PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY) {
-          return se.getType_length() * 8;
-        } else {
-          return getTypeLengthInBits(column.getType());
-        }
-      } else {
+      if (! isFixedLength()) {
         return -1;
+      } else if (isRepeated()) {
+        return -1;
+      } else if (column.getType() == PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY) {
+        return se.getType_length() * 8;
+      } else {
+        return getTypeLengthInBits(column.getType());
       }
     }
 
@@ -766,7 +763,7 @@ public class ParquetRecordReader extends AbstractRecordReader {
 
     @Override
     protected int readRecords(ColumnReader<?> firstColumnStatus, long recordsToRead) throws IOException {
-      long fixedRecordsToRead = varLengthReader.readFields(recordsToRead, firstColumnStatus);
+      long fixedRecordsToRead = varLengthReader.readFields(recordsToRead);
       readAllFixedFields(fixedRecordsToRead);
       return firstColumnStatus.getRecordsReadInCurrentPass();
     }
