@@ -133,21 +133,31 @@ public class ClusterFixture implements AutoCloseable {
   private boolean usesZk;
   private boolean preserveLocalFiles;
   private boolean isLocal;
+
+  /**
+   * Temporary directories created for this test cluster.
+   * Each is removed when closing the cluster.
+   */
+
   private List<File> tempDirs = new ArrayList<>();
 
-  ClusterFixture(FixtureBuilder builder) throws Exception {
-
-    String zkConnect = configureZk(builder);
-    createConfig(builder, zkConnect);
-    startDrillbits(builder);
-    applyOptions(builder);
-
-    // Some operations need an allocator.
+  ClusterFixture(FixtureBuilder builder) {
 
     allocator = RootAllocatorFactory.newRoot(config);
+    configureZk(builder);
+    try {
+      createConfig(builder);
+      startDrillbits(builder);
+      applyOptions(builder);
+    } catch (Exception e) {
+      // Translate exceptions to unchecked to avoid cluttering
+      // tests. Failures will simply fail the test itself.
+
+      throw new IllegalStateException( "Cluster fixture setup failed", e );
+    }
   }
 
-  private String configureZk(FixtureBuilder builder) {
+  private void configureZk(FixtureBuilder builder) {
 
     // Start ZK if requested.
 
@@ -166,14 +176,25 @@ public class ClusterFixture implements AutoCloseable {
     }
     if (zkHelper != null) {
       zkConnect = zkHelper.getConnectionString();
+
+      // When using ZK, we need to pass in the connection property as
+      // a config property. But, we can only do that if we are passing
+      // in config properties defined at run time. Drill does not allow
+      // combining locally-set properties and a config file: it is one
+      // or the other.
+
+      if (builder.configProps == null) {
+        throw new IllegalArgumentException("Cannot specify a local ZK while using an external config file.");
+      }
+      builder.configProperty(ExecConstants.ZK_CONNECTION, zkConnect);
+
       // Forced to disable this, because currently we leak memory which is a known issue for query cancellations.
-      // Setting this causes unittests to fail.
+      // Setting this causes unit tests to fail.
       builder.configProperty(ExecConstants.RETURN_ERROR_FOR_FAILURE_IN_CANCELLED_FRAGMENTS, true);
     }
-    return zkConnect;
   }
 
-  private void createConfig(FixtureBuilder builder, String zkConnect) throws Exception {
+  private void createConfig(FixtureBuilder builder) throws Exception {
 
     // Create a config
     // Because of the way DrillConfig works, we can set the ZK
@@ -182,20 +203,12 @@ public class ClusterFixture implements AutoCloseable {
     if (builder.configResource != null) {
       config = DrillConfig.create(builder.configResource);
     } else if (builder.configProps != null) {
-      if (zkConnect != null) {
-        builder.configProperty(ExecConstants.ZK_CONNECTION, zkConnect);
-      }
       config = DrillConfig.create(configProperties(builder.configProps));
     } else {
       throw new IllegalStateException("Configuration was not provided.");
     }
 
-    // Not quite sure what this is, but some tests seem to use it.
-
-    if (builder.enableFullCache || (config.hasPath(ENABLE_FULL_CACHE)
-        && config.getBoolean(ENABLE_FULL_CACHE))) {
-      serviceSet = RemoteServiceSet.getServiceSetWithFullCache(config, allocator);
-    } else if (builder.usingZk) {
+    if (builder.usingZk) {
       // Distribute drillbit using ZK (in-process or external)
 
       serviceSet = null;
@@ -211,7 +224,8 @@ public class ClusterFixture implements AutoCloseable {
 
   private void startDrillbits(FixtureBuilder builder) throws Exception {
 //    // Ensure that Drill uses the log directory determined here rather than
-//    // it's hard-coded defaults.
+//    // it's hard-coded defaults. WIP: seems to be needed some times but
+//    // not others.
 //
 //    String logDir = null;
 //    if (builder.tempDir != null) {
@@ -343,7 +357,7 @@ public class ClusterFixture implements AutoCloseable {
   }
 
   /**
-   * Close the clients, drillbits, allocator and
+   * Close the clients, Drillbits, allocator and
    * Zookeeper. Checks for exceptions. If an exception occurs,
    * continues closing, suppresses subsequent exceptions, and
    * throws the first exception at completion of close. This allows
@@ -378,9 +392,6 @@ public class ClusterFixture implements AutoCloseable {
       }
     }
     zkHelper = null;
-    if (ex != null) {
-      throw ex;
-    }
 
     // Delete any local files, if we wrote to the local
     // persistent store. But, leave the files if the user wants
@@ -404,6 +415,9 @@ public class ClusterFixture implements AutoCloseable {
     } catch (Exception e) {
       ex = ex == null ? e : ex;
     }
+    if (ex != null) {
+      throw ex;
+    }
   }
 
   /**
@@ -419,12 +433,6 @@ public class ClusterFixture implements AutoCloseable {
     // Don't delete if this is not a local Drillbit.
 
     if (! isLocal) {
-      return;
-    }
-
-    // Don't delete if we did not write.
-
-    if (! config.getBoolean(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE)) {
       return;
     }
 
@@ -449,10 +457,9 @@ public class ClusterFixture implements AutoCloseable {
   }
 
   public void removeDir(File dir) throws IOException {
-    if (! dir.exists()) {
-      return;
+    if (dir.exists()) {
+      FileUtils.deleteDirectory(dir);
     }
-    FileUtils.deleteDirectory(dir);
   }
 
   /**
@@ -461,9 +468,9 @@ public class ClusterFixture implements AutoCloseable {
    * the first is useful, any others are probably down-stream effects
    * of that first one.
    *
-   * @param item
-   * @param ex
-   * @return
+   * @param item Item to be closed
+   * @param ex exception to be returned if none thrown here
+   * @return the first exception found
    */
   private Exception safeClose(AutoCloseable item, Exception ex) {
     try {
@@ -484,7 +491,6 @@ public class ClusterFixture implements AutoCloseable {
    * @param schemaName name of the new schema
    * @param path directory location (usually local)
    * @param defaultFormat default format for files in the schema
-   * @throws ExecutionSetupException if something goes wrong
    */
 
   public void defineWorkspace(String pluginName, String schemaName, String path,
@@ -537,9 +543,15 @@ public class ClusterFixture implements AutoCloseable {
    *
    * @return a fixture builder with no default properties set
    */
+
   public static FixtureBuilder bareBuilder() {
     return new FixtureBuilder();
   }
+
+  /**
+   * Shim class to allow the {@link TestBuilder} class to work with the
+   * cluster fixture.
+   */
 
   public static class FixtureTestServices implements TestServices {
 
@@ -566,11 +578,27 @@ public class ClusterFixture implements AutoCloseable {
     }
   }
 
-  public static ClusterFixture standardCluster() throws Exception {
+  /**
+   * Return a cluster fixture built with standard options. This is a short-cut
+   * for simple tests that don't need special setup.
+   *
+   * @return a cluster fixture with standard options
+   * @throws Exception if something goes wrong
+   */
+  public static ClusterFixture standardCluster() {
     return builder().build();
   }
 
-  static String stringify(Object value) {
+  /**
+   * Convert a Java object (typically a boxed scalar) to a string
+   * for use in SQL. Quotes strings but just converts others to
+   * string format.
+   *
+   * @param value the value to encode
+   * @return the SQL-acceptable string equivalent
+   */
+
+  public static String stringify(Object value) {
     if (value instanceof String) {
       return "'" + (String) value + "'";
     } else {
@@ -589,6 +617,16 @@ public class ClusterFixture implements AutoCloseable {
     return Resources.toString(url, Charsets.UTF_8);
   }
 
+  /**
+   * Load a resource file, returning the resource as a string.
+   * "Hides" the checked exception as unchecked, which is fine
+   * in a test as the unchecked exception will fail the test
+   * without unnecessary error fiddling.
+   *
+   * @param resource path to the resource
+   * @return the resource contents as a string
+   */
+
   public static String loadResource(String resource) {
     try {
       return getResource(resource);
@@ -597,7 +635,15 @@ public class ClusterFixture implements AutoCloseable {
     }
   }
 
-  static String trimSlash(String path) {
+  /**
+   * Guava likes paths to resources without an initial slash, the JDK
+   * needs a slash. Normalize the path when needed.
+   *
+   * @param path resource path with optional leading slash
+   * @return same path without the leading slash
+   */
+
+  public static String trimSlash(String path) {
     if (path == null) {
       return path;
     } else if (path.startsWith("/")) {
@@ -611,10 +657,10 @@ public class ClusterFixture implements AutoCloseable {
    * Create a temp directory to store the given <i>dirName</i>. Directory will
    * be deleted on exit. Directory is created if it does not exist.
    *
-   * @param dirName
-   *          directory name
+   * @param dirName directory name
    * @return Full path including temp parent directory and given directory name.
    */
+
   public static File getTempDir(final String dirName) {
     final File dir = Files.createTempDir();
     Runtime.getRuntime().addShutdownHook(new Thread() {
@@ -628,11 +674,31 @@ public class ClusterFixture implements AutoCloseable {
     return tempDir;
   }
 
+  /**
+   * Create a temporary directory which will be removed when the
+   * cluster closes.
+   *
+   * @param dirName the name of the leaf directory
+   * @return the path to the temporary directory which is usually
+   * under the temporary directory structure for this machine
+   */
+
   public File makeTempDir(final String dirName) {
     File dir = getTempDir(dirName);
     tempDirs.add(dir);
     return dir;
   }
+
+  /**
+   * Create a temporary data directory which will be removed when the
+   * cluster closes, and register it as a "dfs" name space.
+   *
+   * @param key the name to use for the directory and the name space.
+   * Access the directory as "dfs.<key>".
+   * @param defaultFormat default storage format for the workspace
+   * @return location of the directory which can be used to create
+   * temporary input files
+   */
 
   public File makeDataDir(String key, String defaultFormat) {
     File dir = makeTempDir(key);
@@ -647,6 +713,14 @@ public class ClusterFixture implements AutoCloseable {
   public boolean usesZK() {
     return usesZk;
   }
+
+  /**
+   * Returns the directory that holds query profiles. Valid only for an
+   * embedded Drillbit with local cluster coordinator &ndash; the normal
+   * case for unit tests.
+   *
+   * @return query profile directory
+   */
 
   public File getProfileDir() {
     File baseDir;

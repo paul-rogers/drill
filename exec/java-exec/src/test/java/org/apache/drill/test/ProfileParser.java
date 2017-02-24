@@ -50,8 +50,18 @@ public class ProfileParser {
   JsonObject profile;
   String query;
   List<String> plans;
+
+  /**
+   * Operations sorted by operator ID. The Operator ID serves as
+   * an index into the list to get the information for that operator.
+   */
   List<OpDefInfo> operations;
   Map<Integer,FragInfo> fragments = new HashMap<>();
+
+  /**
+   * Operations in the original topological order as shown in the text
+   * version of the query plan in the query profile.
+   */
   private List<OpDefInfo> topoOrder;
 
   public ProfileParser( File file ) throws IOException {
@@ -70,7 +80,6 @@ public class ProfileParser {
     parseFragProfiles();
     mapOpProfiles();
     aggregateOpers();
-//    determineLocalLevels();
     buildTree();
   }
 
@@ -78,6 +87,11 @@ public class ProfileParser {
     query = profile.getString("query");
     query = query.replace("//n", "\n");
   }
+
+  /**
+   * Parse a text version of the plan as it appears in the JSON
+   * query profile.
+   */
 
   private static class PlanParser {
 
@@ -96,7 +110,7 @@ public class ProfileParser {
       sortList();
     }
 
-    public void sortList() {
+    private void sortList() {
       List<OpDefInfo> raw = new ArrayList<>( );
       raw.addAll( operations );
       Collections.sort( raw, new Comparator<OpDefInfo>() {
@@ -136,6 +150,10 @@ public class ProfileParser {
     }
   }
 
+  /**
+   * Parse the plan portion of the query profile.
+   */
+
   private void parsePlans() {
     PlanParser parser = new PlanParser();
     String plan = getPlan( );
@@ -144,32 +162,6 @@ public class ProfileParser {
     topoOrder = parser.operations;
     operations = parser.sorted;
   }
-
-//  private void parsePlanOp(String plan) {
-//    OpDefInfo opDef = new OpDefInfo( plan );
-//    FragInfo major = fragments.get(opDef.majorId);
-//    if (major == null) {
-//      major = new FragInfo(opDef.majorId);
-//      fragments.put(opDef.majorId, major);
-//      if (opDef.majorId > 0) {
-//        assert opDef.stepId == 1;
-//        OpDefInfo sender = new OpDefInfo( major.id, 0 );
-//        sender.isInferred = true;
-//        sender.name = "Sender";
-//        major.ops.add(sender);
-////        System.out.println( "Parse Plan: " + sender );
-//      }
-//    }
-//    if ( opDef.stepId > major.ops.size() ) {
-//      OpDefInfo unknown = new OpDefInfo( major.id, major.ops.size() );
-//      unknown.isInferred = true;
-//      unknown.name = "Unknown";
-//      major.ops.add(unknown);
-//    }
-//    assert opDef.stepId == major.ops.size();
-//    major.ops.add(opDef);
-////    System.out.println( "Parse Plan: " + opDef );
-//  }
 
   private void buildFrags() {
     for (OpDefInfo opDef : operations) {
@@ -209,19 +201,31 @@ public class ProfileParser {
     }
   }
 
+  /**
+   * A typical plan has many operator details across multiple
+   * minor fragments. Aggregate these totals to the "master"
+   * definition of each operator.
+   */
+
   private void aggregateOpers() {
     for (FragInfo major : fragments.values()) {
       for (OpDefInfo opDef : major.ops) {
+        int sumPeak = 0;
         for ( OperatorProfile op : opDef.opExecs) {
           Preconditions.checkState( major.id == op.majorFragId );
           Preconditions.checkState( opDef.stepId == op.opId );
           opDef.actualRows += op.records;
           opDef.actualBatches += op.batches;
-          opDef.actualMemory += op.peakMem * 1024 * 1024;
+          sumPeak += op.peakMem;
         }
+        opDef.actualMemory = sumPeak * 1024 * 1024;
       }
     }
   }
+
+  /**
+   * Reconstruct the operator tree from parsed information.
+   */
 
   public void buildTree() {
     int currentLevel = 0;
@@ -297,11 +301,16 @@ public class ProfileParser {
     return profile.getJsonArray("fragmentProfile");
   }
 
+  /**
+   * Information for a fragment, including the operators
+   * in that fragment and the set of minor fragments.
+   */
+
   public static class FragInfo {
     public int baseLevel;
-    int id;
-    List<OpDefInfo> ops = new ArrayList<>( );
-    List<MinorFragInfo> minors = new ArrayList<>( );
+    public int id;
+    public List<OpDefInfo> ops = new ArrayList<>( );
+    public List<MinorFragInfo> minors = new ArrayList<>( );
 
     public FragInfo(int majorId) {
       this.id = majorId;
@@ -319,10 +328,14 @@ public class ProfileParser {
     }
   }
 
+  /**
+   * Information about a minor fragment as parsed from the profile.
+   */
+
   public static class MinorFragInfo {
-    int majorId;
-    int id;
-    List<OperatorProfile> ops = new ArrayList<>( );
+    public final int majorId;
+    public final int id;
+    public final List<OperatorProfile> ops = new ArrayList<>( );
 
     public MinorFragInfo(int majorId, JsonObject minorProfile) {
       this.majorId = majorId;
@@ -354,6 +367,12 @@ public class ProfileParser {
     }
 
   }
+
+  /**
+   * Detailed information about each operator within a minor fragment
+   * for a major fragment. Gathers the detailed information from
+   * the profile.
+   */
 
   public static class OperatorProfile {
     public OpDefInfo defn;
@@ -406,6 +425,14 @@ public class ProfileParser {
       return ((JsonNumber) value).longValue();
     }
   }
+
+  /**
+   * Information about an operator definition: the plan-time information
+   * that appears in the plan portion of the profile. Also holds the
+   * "actuals" from the minor fragment portion of the profile.
+   * Allows integrating the "planned" vs. "actual" performance of the
+   * query.
+   */
 
   public static class OpDefInfo {
     public String opName;
@@ -493,6 +520,11 @@ public class ProfileParser {
     }
   }
 
+  /**
+   * Visit a tree of operator definitions to support printing,
+   * analysis and other tasks.
+   */
+
   public static class TreeVisitor
   {
     public void visit(OpDefInfo root) {
@@ -542,6 +574,10 @@ public class ProfileParser {
     }
   }
 
+  /**
+   * Print the operator tree for analysis.
+   */
+
   public static class TreePrinter extends TreeVisitor
   {
     @Override
@@ -556,6 +592,20 @@ public class ProfileParser {
       System.out.println(subtreeLabel(node, i));
     }
   }
+
+  /**
+   * Print out the tree showing a comparison of estimated vs.
+   * actual costs. Example:
+   * <p><pre>
+   * 03-05 HashJoin (HASH JOIN)
+   *                                 Estimate:       2,521,812 rows,      1 MB
+   *                                 Actual:           116,480 rows,     52 MB
+   *         Probe
+   * 03-07 . . Project
+   *                                 Estimate:       2,521,812 rows,      1 MB
+   *                                 Actual:                 0 rows,      0 MB
+   * </pre>
+   */
 
   public static class CostPrinter extends TreeVisitor
   {
@@ -584,6 +634,15 @@ public class ProfileParser {
     }
   }
 
+  /**
+   * We often run test queries single threaded to make analysis of the profile
+   * easier. For a single-threaded (single slice) query, get a map from
+   * operator ID to operator information as preparation for additional
+   * analysis.
+   *
+   * @return
+   */
+
   public Map<Integer,OperatorProfile> getOpInfo( ) {
     Map<Integer,String> ops = getOperators( );
     Map<Integer,OperatorProfile> info = new HashMap<>( );
@@ -595,6 +654,14 @@ public class ProfileParser {
     }
     return info;
   }
+
+  /**
+   * For a single-slice query, get all operators of a given numeric operator
+   * type.
+   * @param type the operator type as specified in
+   * {@link org.apache.drill.exec.proto.UserBitShared.CoreOperatorType}
+   * @return a list of operators of the given type
+   */
 
   public List<OperatorProfile> getOpsOfType(int type) {
     List<OperatorProfile> ops = new ArrayList<>();
@@ -617,6 +684,12 @@ public class ProfileParser {
   public void printPlan() {
     new CostPrinter().visit( topoOrder.get(0) );
   }
+
+  /**
+   * For a single-slice query, print a summary of the operator stack
+   * and costs. At present, works for a linear query with on single-input
+   * operators.
+   */
 
   public void print() {
     Map<Integer, OperatorProfile> opInfo = getOpInfo();
