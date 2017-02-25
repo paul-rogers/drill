@@ -73,6 +73,7 @@ public class PrintingResultsListener implements UserResultsListener {
   @Override
   public void dataArrived(QueryDataBatch result, ConnectionThrottle throttle) {
     final QueryData header = result.getHeader();
+    @SuppressWarnings("resource")
     final DrillBuf data = result.getData();
 
     if (data != null) {

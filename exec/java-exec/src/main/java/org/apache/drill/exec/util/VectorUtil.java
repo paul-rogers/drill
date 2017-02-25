@@ -52,19 +52,21 @@ public class VectorUtil {
       for (VectorWrapper<?> vw : va) {
         boolean lastColumn = columnCounter == width - 1;
         Object o ;
-        try{
+        try {
           o = vw.getValueVector().getAccessor().getObject(row);
-        }catch(Exception e){
+        } catch(Exception e) {
           throw new RuntimeException("failure while trying to read column " + vw.getField().getPath());
         }
         if (o == null) {
           //null value
           String value = "null";
           System.out.printf("%s%s", value, lastColumn ? "\n" : delimiter);
-        }
-        else if (o instanceof byte[]) {
+        } else if (o instanceof byte[]) {
           String value = new String((byte[]) o);
-          System.out.printf("%s%s", value, lastColumn ? "\n" : delimiter);
+          System.out.printf("\"%s\"%s", value, lastColumn ? "\n" : delimiter);
+        } else if (o instanceof Text) {
+            String value = ((Text) o).toString();
+            System.out.printf("\"%s\"%s", value, lastColumn ? "\n" : delimiter);
         } else {
           String value = o.toString();
           System.out.printf("%s%s", value, lastColumn ? "\n" : delimiter);

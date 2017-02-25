@@ -486,7 +486,7 @@ public class TestBuilder {
 
     @Override
     String getValidationQuery() throws Exception {
-      if (baselineColumns.length == 0) {
+      if (baselineColumns == null || baselineColumns.length == 0) {
         throw new Exception("Baseline CSV files require passing column names, please call the baselineColumns() method on the test builder.");
       }
 

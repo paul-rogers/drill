@@ -48,7 +48,7 @@ import org.junit.AfterClass;
  * The simplest possible setup:
  * <pre><code>
  *   {@literal @}BeforeClass
- *   public static setup( ) throws Exception {
+ *   public static void setup( ) throws Exception {
  *     startCluster(ClusterFixture.builder( ));
  *   }
  * </code></pre>
@@ -58,7 +58,7 @@ import org.junit.AfterClass;
  * <pre><code>
  * public class YourTest extends DrillTest {
  *   {@literal @}Test
- *   public someTest() throws Exception {
+ *   public void someTest() throws Exception {
  *     FixtureBuilder builder = ClusterFixture.builder()
  *       // Set options, etc.
  *       ;
