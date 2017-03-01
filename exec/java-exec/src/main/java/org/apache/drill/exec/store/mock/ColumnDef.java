@@ -174,11 +174,6 @@ public class ColumnDef {
     name += Integer.toString(rep);
   }
 
-  public MockColumn getConfig() {
-    return mockCol;
-  }
-
-  public String getName() {
-    return name;
-  }
+  public MockColumn getConfig() { return mockCol; }
+  public String getName() { return name; }
 }

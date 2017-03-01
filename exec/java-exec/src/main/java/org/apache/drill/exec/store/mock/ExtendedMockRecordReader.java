@@ -31,6 +31,7 @@ import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.OutputMutator;
+import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.store.AbstractRecordReader;
 import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
@@ -55,11 +56,9 @@ public class ExtendedMockRecordReader extends AbstractRecordReader {
   private int recordsRead;
 
   private final MockScanEntry config;
-  private final FragmentContext context;
   private final ColumnDef fields[];
 
   public ExtendedMockRecordReader(FragmentContext context, MockScanEntry config) {
-    this.context = context;
     this.config = config;
 
     fields = buildColumnDefs();

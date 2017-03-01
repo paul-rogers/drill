@@ -33,7 +33,6 @@ import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.vector.BigIntVector;
 import org.apache.drill.test.ClientFixture;
 import org.apache.drill.test.ClusterFixture;
-import org.apache.drill.test.ClusterTest;
 import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.FixtureBuilder;
 import org.junit.Rule;
@@ -67,7 +66,10 @@ public class TestSimpleExternalSort extends DrillTest {
    */
 
   private void mergeSortWithSv2(boolean testLegacy) throws Exception {
-    try (ClusterFixture cluster = ClusterFixture.standardCluster();
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+         ;
+    try (ClusterFixture cluster = builder.build();
          ClientFixture client = cluster.clientFixture()) {
       chooseImpl(client, testLegacy);
       List<QueryDataBatch> results = client.queryBuilder().physicalResource("xsort/one_key_sort_descending_sv2.json").results();
@@ -91,7 +93,10 @@ public class TestSimpleExternalSort extends DrillTest {
   }
 
   private void sortOneKeyDescendingMergeSort(boolean testLegacy) throws Throwable {
-    try (ClusterFixture cluster = ClusterFixture.standardCluster();
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+         ;
+    try (ClusterFixture cluster = builder.build();
          ClientFixture client = cluster.clientFixture()) {
       chooseImpl(client, testLegacy);
       List<QueryDataBatch> results = client.queryBuilder().physicalResource("xsort/one_key_sort_descending.json").results();
@@ -142,7 +147,9 @@ public class TestSimpleExternalSort extends DrillTest {
     FixtureBuilder builder = ClusterFixture.builder()
         .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_THRESHOLD, 4)
         .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_GROUP_SIZE, 4)
-        .configProperty(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 4);
+        .configProperty(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 4)
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        ;
     try (ClusterFixture cluster = builder.build();
          ClientFixture client = cluster.clientFixture()) {
       chooseImpl(client,testLegacy);
@@ -168,7 +175,9 @@ public class TestSimpleExternalSort extends DrillTest {
         .configProperty("drill.memory.fragment.max", 50_000_000)
         .configProperty("drill.memory.fragment.initial", 2_000_000)
         .configProperty("drill.memory.operator.max", 30_000_000)
-        .configProperty("drill.memory.operator.initial", 2_000_000);
+        .configProperty("drill.memory.operator.initial", 2_000_000)
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        ;
     try (ClusterFixture cluster = builder.build();
          ClientFixture client = cluster.clientFixture()) {
       chooseImpl(client,testLegacy);

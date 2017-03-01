@@ -45,11 +45,12 @@ import org.apache.drill.test.LogFixture.LogFixtureBuilder;
 import org.apache.drill.test.ProfileParser;
 import org.apache.drill.test.ProfileParser.OperatorProfile;
 import org.apache.drill.test.QueryBuilder.QuerySummary;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import ch.qos.logback.classic.Level;
 
-//@Ignore
+@Ignore
 public class TestExternalSortRM extends DrillTest {
 
 //  @Test
@@ -908,6 +909,28 @@ public class TestExternalSortRM extends DrillTest {
       summary = client.queryBuilder().sql(sql).run();
       assertEquals(JSONRecordReader.DEFAULT_ROWS_PER_BATCH + 1, summary.recordCount());
       client.queryBuilder().sql(sql).printCsv();
+    }
+  }
+
+  @Test
+  public void testAdHoc1() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger(ExternalSortBatch.class, Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .saveProfiles()
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 60 * 1024 * 1024)
+        .maxParallelization(1)
+        ;
+    try (LogFixture logs = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      String sql = "SELECT id_i, name_s250 FROM `mock`.`employee_100K` ORDER BY id_i";
+      runAndDump(client, sql);
     }
   }
 

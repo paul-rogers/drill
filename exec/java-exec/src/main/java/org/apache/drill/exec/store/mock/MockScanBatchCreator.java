@@ -25,6 +25,7 @@ import org.apache.drill.exec.physical.impl.BatchCreator;
 import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.store.RecordReader;
+
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
 
 import com.google.common.base.Preconditions;
@@ -37,7 +38,7 @@ public class MockScanBatchCreator implements BatchCreator<MockSubScanPOP> {
   public ScanBatch getBatch(FragmentContext context, MockSubScanPOP config, List<RecordBatch> children)
       throws ExecutionSetupException {
     Preconditions.checkArgument(children.isEmpty());
-    final List<MockTableDef.MockScanEntry> entries = config.getReadEntries();
+    final List<MockScanEntry> entries = config.getReadEntries();
     final List<RecordReader> readers = Lists.newArrayList();
     for(final MockTableDef.MockScanEntry e : entries) {
       if ( e.isExtended( ) ) {

@@ -51,7 +51,9 @@ public class TestSortSpillWithException extends ClusterTest {
     FixtureBuilder builder = ClusterFixture.builder()
         .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_THRESHOLD, 1) // Unmanaged
         .configProperty(ExecConstants.EXTERNAL_SORT_SPILL_GROUP_SIZE, 1) // Unmanaged
-        .configProperty(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 1) // Managed
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 60 * 1024 * 1024) // Spill early
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .maxParallelization(1)
         ;
     startCluster(builder);
   }
@@ -93,7 +95,7 @@ public class TestSortSpillWithException extends ClusterTest {
     ControlsInjectionUtil.setControls(cluster.client(), controls);
     // run a simple order by query
     try {
-      test("SELECT id_i, name_s5000 FROM `mock`.`employee_10K` ORDER BY id_i");
+      test("SELECT id_i, name_s250 FROM `mock`.`employee_500K` ORDER BY id_i");
 //      test("select employee_id from dfs_test.`%s/xsort/2batches` order by employee_id", TEST_RES_PATH);
       fail("Query should have failed!");
     } catch (UserRemoteException e) {

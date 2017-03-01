@@ -23,10 +23,7 @@ import java.util.Map;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.common.types.TypeProtos.MajorType.Builder;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
-import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -54,22 +51,26 @@ public class MockTableDef {
     final int records;
     final boolean extended;
     final int batchSize;
+    final int repeat;
     private final MockColumn[] types;
 
     @JsonCreator
     public MockScanEntry(@JsonProperty("records") int records,
                          @JsonProperty("extended") Boolean extended,
                          @JsonProperty("batchSize") Integer batchSize,
+                         @JsonProperty("repeat") Integer repeat,
                          @JsonProperty("types") MockTableDef.MockColumn[] types) {
       this.records = records;
       this.types = types;
       this.extended = (extended == null) ? false : extended;
       this.batchSize = (batchSize == null) ? 0 : batchSize;
+      this.repeat = (repeat == null) ? 1 : repeat;
     }
 
     public int getRecords() { return records; }
     public boolean isExtended() { return extended; }
     public int getBatchSize() { return batchSize; }
+    public int getRepeat() { return repeat; }
 
     public MockTableDef.MockColumn[] getTypes() {
       return types;
@@ -153,10 +154,12 @@ public class MockTableDef {
     public Integer getWidth() { return width; }
     public Integer getPrecision() { return precision; }
     public Integer getScale() { return scale; }
-    public String getGenerator( ) { return generator; }
+    public String getGenerator() { return generator; }
     public Integer getRepeat() { return repeat; }
     @JsonIgnore
     public int getRepeatCount() { return repeat == null ? 1 : repeat; }
+    @JsonIgnore
+    public int getWidthValue() { return width == null ? 0 : width; }
     public Map<String,Object> getProperties() { return properties; }
 
     @JsonIgnore
@@ -197,7 +200,7 @@ public class MockTableDef {
    * for the convenience of the author.
    */
 
-  public String getDescrip( ) { return descrip; }
+  public String getDescrip() { return descrip; }
 
   /**
    * The set of entries that define the groups within the file. Each

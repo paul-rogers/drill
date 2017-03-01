@@ -96,6 +96,7 @@ public class SchemaUtil {
     return s;
   }
 
+  @SuppressWarnings("resource")
   private static  ValueVector coerceVector(ValueVector v, VectorContainer c, MaterializedField field,
                                            int recordCount, OperatorContext context) {
     if (v != null) {
@@ -161,6 +162,7 @@ public class SchemaUtil {
         vectorMap.put(vvs[0].getField().getPath(), vvs);
       } else {
         assert !isHyper;
+        @SuppressWarnings("resource")
         final ValueVector v = w.getValueVector();
         vectorMap.put(v.getField().getPath(), v);
       }
@@ -183,6 +185,7 @@ public class SchemaUtil {
         }
         c.add(vvsOut);
       } else {
+        @SuppressWarnings("resource")
         final ValueVector v = (ValueVector) vectorMap.remove(field.getPath());
         c.add(coerceVector(v, c, field, recordCount, context));
       }
