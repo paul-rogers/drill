@@ -92,7 +92,7 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
     getResultsHelper(planFragments);
   }
 
-  @Test(timeout=30000)
+  @Test(/*timeout=30000*/)
   public void testMultiMinorFragmentSimpleQuery() throws Exception {
     final String query = String.format("SELECT o_orderkey FROM dfs_test.`%s/multilevel/json`", TEST_RES_PATH);
 
@@ -109,7 +109,7 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
     getResultsHelper(planFragments);
   }
 
-  @Test(timeout=30000)
+  @Test(/*timeout=30000*/)
   public void testMultiMinorFragmentComplexQuery() throws Exception {
     final String query = String.format("SELECT dir0, sum(o_totalprice) FROM dfs_test.`%s/multilevel/json` group by dir0 order by dir0", TEST_RES_PATH);
 
@@ -186,6 +186,7 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
     //AwaitableUserResultsListener listener =
     //    new AwaitableUserResultsListener(new SilentListener());
     client.runQuery(QueryType.SQL, query, listener);
+    @SuppressWarnings("unused")
     int rows = listener.await();
   }
 
@@ -211,6 +212,7 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
   private void getResultsHelper(final QueryPlanFragments planFragments) throws Exception {
     for (PlanFragment fragment : planFragments.getFragmentsList()) {
       DrillbitEndpoint assignedNode = fragment.getAssignment();
+      @SuppressWarnings("resource")
       DrillClient fragmentClient = new DrillClient(true);
       Properties props = new Properties();
       props.setProperty("drillbit", assignedNode.getAddress() + ":" + assignedNode.getUserPort());
@@ -250,6 +252,7 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
       AwaitableUserResultsListener listener =
           new AwaitableUserResultsListener(new SilentListener());
       fragmentClient.runQuery(QueryType.EXECUTION, fragmentList, listener);
+      @SuppressWarnings("unused")
       int rows = listener.await();
       fragmentClient.close();
     }
@@ -257,6 +260,7 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
 
   private void getCombinedResultsHelper(final QueryPlanFragments planFragments) throws Exception {
       ShowResultsUserResultsListener myListener = new ShowResultsUserResultsListener(getAllocator());
+      @SuppressWarnings("unused")
       AwaitableUserResultsListener listenerBits =
           new AwaitableUserResultsListener(myListener);
 
@@ -265,6 +269,7 @@ public class DrillSeparatePlanningTest extends BaseTestQuery {
       AwaitableUserResultsListener listener =
           new AwaitableUserResultsListener(new SilentListener());
       client.runQuery(QueryType.EXECUTION, planFragments.getFragmentsList(), listener);
+      @SuppressWarnings("unused")
       int rows = listener.await();
   }
 

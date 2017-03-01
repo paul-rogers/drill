@@ -320,15 +320,11 @@ public class SimpleParallelizer implements ParallelizationParameters {
         MinorFragmentDefn fragmentDefn = new MinorFragmentDefn(fragment, root, options);
 
         if (isRootNode) {
-          if (logger.isDebugEnabled()) {
-            logger.debug("Root fragment:\n {}", DrillStringUtils.unescapeJava(fragment.toString()));
-          }
+          logger.debug("Root fragment:\n {}", DrillStringUtils.unescapeJava(fragment.toString()));
           rootFragmentDefn = fragmentDefn;
           rootOperator = root;
         } else {
-          if (logger.isDebugEnabled()) {
-            logger.debug("Remote fragment:\n {}", DrillStringUtils.unescapeJava(fragment.toString()));
-          }
+          logger.debug("Remote fragment:\n {}", DrillStringUtils.unescapeJava(fragment.toString()));
           fragmentDefns.add(fragmentDefn);
         }
       }
@@ -336,7 +332,6 @@ public class SimpleParallelizer implements ParallelizationParameters {
 
     return new QueryWorkUnit(rootOperator, rootFragmentDefn, fragmentDefns);
   }
-
 
   /**
    * Designed to setup initial values for arriving fragment accounting.

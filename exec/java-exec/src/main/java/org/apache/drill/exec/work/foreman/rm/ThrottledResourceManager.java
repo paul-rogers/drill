@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import org.apache.drill.exec.ops.QueryContext;
 import org.apache.drill.exec.physical.PhysicalPlan;
 import org.apache.drill.exec.physical.base.AbstractPhysicalVisitor;
 import org.apache.drill.exec.physical.base.FragmentRoot;
@@ -52,65 +53,32 @@ import com.google.common.collect.Multimap;
  * in this version we just want to get the basics working.
  */
 
-public class BasicACResourceManager extends AbstractResourceManager {
+public class ThrottledResourceManager extends AbstractResourceManager {
 
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BasicACResourceManager.class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ThrottledResourceManager.class);
 
-  /**
-   * Per-query resource manager. Handles resources and optional queue lease for
-   * a single query. As such, this is a non-shared resource: it is associated with
-   * a foreman: a single tread at plan time, and a single event (in some thread)
-   * at query completion time. Because of these semantics, no synchronization is
-   * needed within this class.
-   */
+  public static class QueuedQueryPlanner implements QueryPlanner {
 
-  public static class QueuedQueryResourceManager implements QueryResourceManager {
+    protected final ThrottledResourceManager rm;
+    protected QueryContext queryContext;
+    protected PhysicalPlan plan;
+    protected QueryWorkUnit work;
+    protected double queryCost;
 
-    private final BasicACResourceManager rm;
-    private final Foreman foreman;
-    private QueueLease lease;
-    private PhysicalPlan plan;
-    private QueryWorkUnit work;
-    private double queryCost;
-
-    public QueuedQueryResourceManager(final BasicACResourceManager rm, final Foreman foreman) {
+    protected QueuedQueryPlanner(final ThrottledResourceManager rm, QueryContext queryContext) {
       this.rm = rm;
-      this.foreman = foreman;
+      this.queryContext = queryContext;
     }
-
     @Override
     public void visitAbstractPlan(PhysicalPlan plan) {
       this.plan = plan;
+      queryCost = plan.totalCost();
     }
 
     @Override
-    public void setPhysicalPlan(final QueryWorkUnit work) {
+    public void visitPhysicalPlan(final QueryWorkUnit work) {
       this.work = work;
-    }
-
-    @Override
-    public void setCost(double cost) {
-      this.queryCost = cost;
-    }
-
-    @Override
-    public void admit( ) throws QueueTimeoutException, QueryQueueException {
-      lease = rm.queue().queue(foreman.getQueryId(), queryCost());
       planMemory();
-    }
-
-    /**
-     * We are normally given a plan from which we can compute cost and on
-     * which we can do memory allocations. Other times we are simply given
-     * a cost, with memory pre-planed elsewhere.
-     * @return
-     */
-
-    private double queryCost() {
-      if (plan != null) {
-        return plan.totalCost();
-      }
-      return queryCost;
     }
 
     private void planMemory() {
@@ -152,10 +120,10 @@ public class BasicACResourceManager extends AbstractResourceManager {
       // fragment, on the node. This does not deal with the subtlety of one
       // sort on top of another: the case in which the two sorts share memory.
 
-      long nodeMemory = lease.queryMemoryPerNode();
+      long nodeMemory = queryMemoryPerNode();
       long sortMemory = nodeMemory / count;
       logger.debug("Query: {}, Node: {}, allocating {} bytes per {} sort(s).",
-                   QueryIdHelper.getQueryId(foreman.getQueryId()),
+                   QueryIdHelper.getQueryId(queryContext.getQueryId()),
                    nodeAddr,
                    sortMemory, count);
 
@@ -172,6 +140,10 @@ public class BasicACResourceManager extends AbstractResourceManager {
           sort.setMaxAllocation(alloc);
         }
       }
+    }
+
+    protected long queryMemoryPerNode() {
+      return rm.getDefaultMemoryPerNode(plan.totalCost());
     }
 
     /**
@@ -230,6 +202,41 @@ public class BasicACResourceManager extends AbstractResourceManager {
       return sorts;
     }
 
+  }
+
+  /**
+   * Per-query resource manager. Handles resources and optional queue lease for
+   * a single query. As such, this is a non-shared resource: it is associated with
+   * a foreman: a single tread at plan time, and a single event (in some thread)
+   * at query completion time. Because of these semantics, no synchronization is
+   * needed within this class.
+   */
+
+  public static class QueuedQueryResourceManager extends QueuedQueryPlanner implements QueryResourceManager {
+
+    private final Foreman foreman;
+    private QueueLease lease;
+
+    public QueuedQueryResourceManager(final ThrottledResourceManager rm, final Foreman foreman) {
+      super(rm, foreman.getQueryContext());
+      this.foreman = foreman;
+    }
+
+    @Override
+    public void setCost(double cost) {
+      this.queryCost = cost;
+    }
+
+    @Override
+    public void admit( ) throws QueueTimeoutException, QueryQueueException {
+      lease = rm.queue().queue(foreman.getQueryId(), queryCost);
+    }
+
+    @Override
+    protected long queryMemoryPerNode() {
+      return lease.queryMemoryPerNode();
+    }
+
     @Override
     public void exit() {
       if (lease != null) {
@@ -246,16 +253,25 @@ public class BasicACResourceManager extends AbstractResourceManager {
 
   private final QueryQueue queue;
 
-  public BasicACResourceManager(final DrillbitContext drillbitContext, final QueryQueue queue) {
+  public ThrottledResourceManager(final DrillbitContext drillbitContext, final QueryQueue queue) {
     super(drillbitContext);
     this.queue = queue;
     queue.setMemoryPerNode(memoryPerNode());
   }
 
+  public long getDefaultMemoryPerNode(double cost) {
+    return queue.getDefaultMemoryPerNode(cost);
+  }
+
   protected QueryQueue queue() { return queue; }
 
   @Override
-  public QueryResourceManager newQueryRM(Foreman foreman) {
+  public QueryPlanner newQueryPlanner(QueryContext queryContext) {
+    return new QueuedQueryPlanner(this, queryContext);
+  }
+
+  @Override
+  public QueryResourceManager newExecRM(Foreman foreman) {
     return new QueuedQueryResourceManager(this, foreman);
   }
 
@@ -263,5 +279,4 @@ public class BasicACResourceManager extends AbstractResourceManager {
   public void close() {
     queue.close();
   }
-
 }

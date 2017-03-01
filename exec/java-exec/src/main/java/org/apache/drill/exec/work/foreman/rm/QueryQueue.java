@@ -89,6 +89,19 @@ public interface QueryQueue {
   void setMemoryPerNode(long memoryPerNode);
 
   /**
+   * Return the amount of memory per node when creating a EXPLAIN
+   * query plan. Plans to be executed should get the query memory from
+   * the lease, as the lease may adjust the default amount on a per-query
+   * basis. This means that the memory used to execute the query may
+   * differ from the amount shown in an EXPLAIN plan.
+   *
+   * @return assumed memory per node, in bytes, to use when creating
+   * an EXPLAIN plan
+   */
+
+  long getDefaultMemoryPerNode(double cost);
+
+  /**
    * Determine if the queue is enabled.
    * @return true if the query is enabled, false otherwise.
    */

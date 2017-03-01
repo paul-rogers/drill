@@ -126,6 +126,11 @@ public class DistributedQueryQueue implements QueryQueue {
     memoryPerLargeQuery = Math.round( memoryUnit * smallQueueSize );
   }
 
+  @Override
+  public long getDefaultMemoryPerNode(double cost) {
+    return (cost < queueThreshold) ? memoryPerSmallQuery : memoryPerLargeQuery;
+  }
+
   /**
    * This limits the number of "small" and "large" queries that a Drill cluster will run
    * simultaneously, if queueing is enabled. If the query is unable to run, this will block
@@ -149,7 +154,7 @@ public class DistributedQueryQueue implements QueryQueue {
       final DistributedSemaphore distributedSemaphore;
 
       // get the appropriate semaphore
-      if (cost > queueThreshold) {
+      if (cost >= queueThreshold) {
         distributedSemaphore = clusterCoordinator.getSemaphore("query.large", largeQueueSize);
         queueName = "large";
         queryMemory = memoryPerLargeQuery;

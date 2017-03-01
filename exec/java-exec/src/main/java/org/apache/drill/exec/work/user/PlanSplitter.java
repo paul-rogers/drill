@@ -38,6 +38,7 @@ import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.util.MemoryAllocationUtilities;
 import org.apache.drill.exec.util.Pointer;
 import org.apache.drill.exec.work.QueryWorkUnit;
+import org.apache.drill.exec.work.foreman.rm.QueryPlanner;
 
 import com.google.common.collect.Lists;
 
@@ -60,6 +61,7 @@ public class PlanSplitter {
    * @param connection
    * @return
    */
+  @SuppressWarnings("resource")
   public QueryPlanFragments planFragments(DrillbitContext dContext, QueryId queryId,
       GetQueryPlanFragments req, UserClientConnection connection) {
     QueryPlanFragments.Builder responseBuilder = QueryPlanFragments.newBuilder();
@@ -97,12 +99,8 @@ public class PlanSplitter {
       throw new IllegalStateException("Planning fragments supports only SQL or PHYSICAL QueryType");
     }
 
-    // The following is an approximate memory allocation. Under resource management,
-    // memory allocation depends on the memory manager and queue assignment. Since
-    // we don't actually execute this plan here, we are not in a possition to do
-    // detailed memory assignments.
-
-    MemoryAllocationUtilities.setupSortMemoryAllocations(plan, queryContext);
+    QueryPlanner planner = dContext.getResourceManager().newQueryPlanner(queryContext);
+    planner.visitAbstractPlan(plan);
 
     final PhysicalOperator rootOperator = plan.getSortedOperators(false).iterator().next();
 
@@ -118,6 +116,8 @@ public class PlanSplitter {
           queryContext.getSession(), queryContext.getQueryContextInfo());
 
       for (QueryWorkUnit queryWorkUnit : queryWorkUnits) {
+        planner.visitPhysicalPlan(queryWorkUnit);
+        queryWorkUnit.applyPlan(dContext.getPlanReader());
         fragments.add(queryWorkUnit.getRootFragment());
 
         List<PlanFragment> childFragments = queryWorkUnit.getFragments();
@@ -129,9 +129,10 @@ public class PlanSplitter {
       final QueryWorkUnit queryWorkUnit = parallelizer.getFragments(queryContext.getOptions().getOptionList(), queryContext.getCurrentEndpoint(),
           queryId, queryContext.getActiveEndpoints(), rootFragment,
           queryContext.getSession(), queryContext.getQueryContextInfo());
+      planner.visitPhysicalPlan(queryWorkUnit);
+      queryWorkUnit.applyPlan(dContext.getPlanReader());
       fragments.add(queryWorkUnit.getRootFragment());
       fragments.addAll(queryWorkUnit.getFragments());
-      queryWorkUnit.applyPlan(dContext.getPlanReader());
     }
     return fragments;
   }

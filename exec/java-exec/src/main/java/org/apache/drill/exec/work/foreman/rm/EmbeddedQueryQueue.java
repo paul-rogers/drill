@@ -107,6 +107,11 @@ public class EmbeddedQueryQueue implements QueryQueue {
   }
 
   @Override
+  public long getDefaultMemoryPerNode(double cost) {
+    return memoryPerQuery;
+  }
+
+  @Override
   public QueueLease queue(QueryId queryId, double cost)
       throws QueueTimeoutException, QueryQueueException {
     try {

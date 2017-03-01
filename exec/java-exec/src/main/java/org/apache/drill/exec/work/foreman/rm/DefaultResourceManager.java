@@ -18,6 +18,7 @@
 package org.apache.drill.exec.work.foreman.rm;
 
 import org.apache.drill.common.config.DrillConfig;
+import org.apache.drill.exec.ops.QueryContext;
 import org.apache.drill.exec.physical.PhysicalPlan;
 import org.apache.drill.exec.server.BootStrapContext;
 import org.apache.drill.exec.util.MemoryAllocationUtilities;
@@ -35,15 +36,12 @@ public class DefaultResourceManager implements ResourceManager {
 
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DefaultResourceManager.class);
 
-  public static class DefaultQueryResourceManager implements QueryResourceManager {
+  public static class DefaultQueryPlanner implements QueryPlanner {
 
-    @SuppressWarnings("unused")
-    private final DefaultResourceManager rm;
-    private final Foreman foreman;
+    private QueryContext queryContext;
 
-    public DefaultQueryResourceManager(final DefaultResourceManager rm, final Foreman foreman) {
-      this.rm = rm;
-      this.foreman = foreman;
+    protected DefaultQueryPlanner(QueryContext queryContext) {
+      this.queryContext = queryContext;
     }
 
     @Override
@@ -52,11 +50,23 @@ public class DefaultResourceManager implements ResourceManager {
       if (! replanMemory || plan == null) {
         return;
       }
-      MemoryAllocationUtilities.setupSortMemoryAllocations(plan, foreman.getQueryContext());
+      MemoryAllocationUtilities.setupSortMemoryAllocations(plan, queryContext);
     }
 
     @Override
-    public void setPhysicalPlan(QueryWorkUnit work) {
+    public void visitPhysicalPlan(QueryWorkUnit work) {
+    }
+
+  }
+
+  public static class DefaultQueryResourceManager extends DefaultQueryPlanner implements QueryResourceManager {
+
+    @SuppressWarnings("unused")
+    private final DefaultResourceManager rm;
+
+    public DefaultQueryResourceManager(final DefaultResourceManager rm, final Foreman foreman) {
+      super(foreman.getQueryContext());
+      this.rm = rm;
     }
 
     @Override
@@ -102,7 +112,12 @@ public class DefaultResourceManager implements ResourceManager {
   }
 
   @Override
-  public QueryResourceManager newQueryRM(final Foreman foreman) {
+  public QueryPlanner newQueryPlanner(QueryContext queryContext) {
+    return new DefaultQueryPlanner(queryContext);
+  }
+
+  @Override
+  public QueryResourceManager newExecRM(final Foreman foreman) {
     return new DefaultQueryResourceManager(this, foreman);
   }
 

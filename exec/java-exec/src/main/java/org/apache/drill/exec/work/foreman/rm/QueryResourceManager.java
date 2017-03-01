@@ -17,24 +17,14 @@
  */
 package org.apache.drill.exec.work.foreman.rm;
 
-import org.apache.drill.exec.physical.PhysicalPlan;
-import org.apache.drill.exec.work.QueryWorkUnit;
 import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueryQueueException;
 import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueTimeoutException;
 
 /**
- * Manages resources for an individual query in conjunction with the
- * global {@link ResourceManager}. Handles memory and CPU allocation along
- * with queueing.
- * <p>
- * This interface allows a variety of resource management strategies to
- * exist for different purposes.
- * <p>
- * The methods here assume external synchronization: a single query calls
- * the methods at known times; there are no concurrent calls.
+ * Extends a {@link QueryPlanner} to provide queueing support.
  */
 
-public interface QueryResourceManager {
+public interface QueryResourceManager extends QueryPlanner {
 
   /**
    * Hint that this resource manager queues. Allows the Foreman
@@ -43,23 +33,6 @@ public interface QueryResourceManager {
    */
 
   boolean hasQueue();
-
-  /**
-   * Make any needed adjustments to the local plan before parallelization.
-   *
-   * @param plan
-   */
-  void visitAbstractPlan(PhysicalPlan plan);
-
-  /**
-   * Provide the manager with the physical plan and node assignments
-   * for the query to be run. This object will plan memory for the plan.
-   *
-   * @param plan
-   * @param work
-   */
-
-  void setPhysicalPlan(QueryWorkUnit work);
 
   /**
    * For some cases the foreman does not have a full plan, just a cost. In

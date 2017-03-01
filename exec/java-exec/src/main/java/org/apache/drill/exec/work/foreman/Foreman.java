@@ -28,7 +28,6 @@ import java.util.concurrent.CountDownLatch;
 import org.apache.drill.common.CatastrophicFailure;
 import org.apache.drill.common.EventProcessor;
 import org.apache.drill.common.concurrent.ExtendedLatch;
-import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.logical.LogicalPlan;
@@ -69,16 +68,14 @@ import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.testing.ControlsInjector;
 import org.apache.drill.exec.testing.ControlsInjectorFactory;
-import org.apache.drill.exec.util.MemoryAllocationUtilities;
 import org.apache.drill.exec.util.Pointer;
 import org.apache.drill.exec.work.EndpointListener;
 import org.apache.drill.exec.work.QueryWorkUnit;
 import org.apache.drill.exec.work.WorkManager.WorkerBee;
 import org.apache.drill.exec.work.batch.IncomingBuffers;
-import org.apache.drill.exec.work.foreman.rm.QueryResourceManager;
 import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueryQueueException;
-import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueLease;
 import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueTimeoutException;
+import org.apache.drill.exec.work.foreman.rm.QueryResourceManager;
 import org.apache.drill.exec.work.fragment.FragmentExecutor;
 import org.apache.drill.exec.work.fragment.FragmentStatusReporter;
 import org.apache.drill.exec.work.fragment.RootFragmentManager;
@@ -176,7 +173,7 @@ public class Foreman implements Runnable {
 
     recordNewState(QueryState.ENQUEUED);
     enqueuedQueries.inc();
-    queryRM = drillbitContext.getResourceManager().newQueryRM(this);
+    queryRM = drillbitContext.getResourceManager().newExecRM(this);
 
     profileOption = setProfileOption(queryContext.getOptions());
   }
@@ -418,7 +415,9 @@ public class Foreman implements Runnable {
 
     queryRM.visitAbstractPlan(plan);
     final QueryWorkUnit work = getQueryWorkUnit(plan);
-    queryRM.setPhysicalPlan(work);
+    queryRM.visitPhysicalPlan(work);
+    work.applyPlan(drillbitContext.getPlanReader());
+    logWorkUnit(work);
     admit(work);
 
     final List<PlanFragment> planFragments = work.getFragments();
@@ -442,9 +441,6 @@ public class Foreman implements Runnable {
   private void admit(QueryWorkUnit work) throws ForemanSetupException {
     try {
       queryRM.admit();
-      if (work != null) {
-        work.applyPlan(drillbitContext.getPlanReader());
-      }
     } catch (QueueTimeoutException e) {
       throw UserException
           .resourceError()
@@ -548,54 +544,55 @@ public class Foreman implements Runnable {
     final PhysicalOperator rootOperator = plan.getSortedOperators(false).iterator().next();
     final Fragment rootFragment = rootOperator.accept(MakeFragmentsVisitor.INSTANCE, null);
     final SimpleParallelizer parallelizer = new SimpleParallelizer(queryContext);
-    final QueryWorkUnit queryWorkUnit = parallelizer.getFragments(
+    return parallelizer.getFragments(
         queryContext.getOptions().getOptionList(), queryContext.getCurrentEndpoint(),
         queryId, queryContext.getActiveEndpoints(), rootFragment,
         initiatingClient.getSession(), queryContext.getQueryContextInfo());
+  }
 
-    if (logger.isTraceEnabled()) {
-      final StringBuilder sb = new StringBuilder();
-      sb.append("PlanFragments for query ");
-      sb.append(queryId);
+  private void logWorkUnit(QueryWorkUnit queryWorkUnit) {
+    if (! logger.isTraceEnabled()) {
+      return;
+    }
+    final StringBuilder sb = new StringBuilder();
+    sb.append("PlanFragments for query ");
+    sb.append(queryId);
+    sb.append('\n');
+
+    final List<PlanFragment> planFragments = queryWorkUnit.getFragments();
+    final int fragmentCount = planFragments.size();
+    int fragmentIndex = 0;
+    for(final PlanFragment planFragment : planFragments) {
+      final FragmentHandle fragmentHandle = planFragment.getHandle();
+      sb.append("PlanFragment(");
+      sb.append(++fragmentIndex);
+      sb.append('/');
+      sb.append(fragmentCount);
+      sb.append(") major_fragment_id ");
+      sb.append(fragmentHandle.getMajorFragmentId());
+      sb.append(" minor_fragment_id ");
+      sb.append(fragmentHandle.getMinorFragmentId());
       sb.append('\n');
 
-      final List<PlanFragment> planFragments = queryWorkUnit.getFragments();
-      final int fragmentCount = planFragments.size();
-      int fragmentIndex = 0;
-      for(final PlanFragment planFragment : planFragments) {
-        final FragmentHandle fragmentHandle = planFragment.getHandle();
-        sb.append("PlanFragment(");
-        sb.append(++fragmentIndex);
-        sb.append('/');
-        sb.append(fragmentCount);
-        sb.append(") major_fragment_id ");
-        sb.append(fragmentHandle.getMajorFragmentId());
-        sb.append(" minor_fragment_id ");
-        sb.append(fragmentHandle.getMinorFragmentId());
-        sb.append('\n');
+      final DrillbitEndpoint endpointAssignment = planFragment.getAssignment();
+      sb.append("  DrillbitEndpoint address ");
+      sb.append(endpointAssignment.getAddress());
+      sb.append('\n');
 
-        final DrillbitEndpoint endpointAssignment = planFragment.getAssignment();
-        sb.append("  DrillbitEndpoint address ");
-        sb.append(endpointAssignment.getAddress());
-        sb.append('\n');
-
-        String jsonString = "<<malformed JSON>>";
-        sb.append("  fragment_json: ");
-        final ObjectMapper objectMapper = new ObjectMapper();
-        try
-        {
-          final Object json = objectMapper.readValue(planFragment.getFragmentJson(), Object.class);
-          jsonString = objectMapper.defaultPrettyPrintingWriter().writeValueAsString(json);
-        } catch(final Exception e) {
-          // we've already set jsonString to a fallback value
-        }
-        sb.append(jsonString);
-
-        logger.trace(sb.toString());
+      String jsonString = "<<malformed JSON>>";
+      sb.append("  fragment_json: ");
+      final ObjectMapper objectMapper = new ObjectMapper();
+      try
+      {
+        final Object json = objectMapper.readValue(planFragment.getFragmentJson(), Object.class);
+        jsonString = objectMapper.defaultPrettyPrintingWriter().writeValueAsString(json);
+      } catch(final Exception e) {
+        // we've already set jsonString to a fallback value
       }
-    }
+      sb.append(jsonString);
 
-    return queryWorkUnit;
+      logger.trace(sb.toString());
+    }
   }
 
   /**

@@ -68,11 +68,11 @@ public class ResourceManagerBuilder {
     SystemOptionManager systemOptions = context.getOptionManager();
     if (coord instanceof LocalClusterCoordinator) {
       if (config.getBoolean(EmbeddedQueryQueue.ENABLED)) {
-        return new BasicACResourceManager(context, new EmbeddedQueryQueue(context));
+        return new ThrottledResourceManager(context, new EmbeddedQueryQueue(context));
       }
     } else {
       if (systemOptions.getOption(ExecConstants.ENABLE_QUEUE)) {
-        return new BasicACResourceManager(context, new DistributedQueryQueue(context));
+        return new ThrottledResourceManager(context, new DistributedQueryQueue(context));
       }
     }
     return new DefaultResourceManager();
