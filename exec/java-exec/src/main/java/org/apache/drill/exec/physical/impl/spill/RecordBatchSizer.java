@@ -171,8 +171,8 @@ public class RecordBatchSizer {
     if (hasSv2) {
       @SuppressWarnings("resource")
       SelectionVector2 sv2 = va.getSelectionVector2();
-      sv2Size = sv2.getBuffer().capacity();
-      grossRowWidth += sv2Size;
+      sv2Size = sv2.getBuffer(false).capacity();
+      grossRowWidth += sv2Size / rowCount;
       netRowWidth += 2;
     }
 
