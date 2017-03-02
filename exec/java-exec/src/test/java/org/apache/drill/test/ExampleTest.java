@@ -22,6 +22,7 @@ import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.test.LogFixture.LogFixtureBuilder;
 import org.apache.drill.test.QueryBuilder.QuerySummary;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import ch.qos.logback.classic.Level;
@@ -43,6 +44,7 @@ import ch.qos.logback.classic.Level;
  * method, and shut it down in <tt>{@literal @}After</tt> method.
  */
 
+@Ignore
 public class ExampleTest {
 
   /**
