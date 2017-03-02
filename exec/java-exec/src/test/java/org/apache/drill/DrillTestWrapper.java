@@ -312,6 +312,7 @@ public class DrillTestWrapper {
    * @throws SchemaChangeException
    * @throws UnsupportedEncodingException
    */
+  @SuppressWarnings("resource")
   public static Map<String, List<Object>> addToCombinedVectorResults(Iterable<VectorAccessible> batches)
        throws SchemaChangeException, UnsupportedEncodingException {
     // TODO - this does not handle schema changes
