@@ -50,7 +50,7 @@ import org.junit.Test;
 
 import ch.qos.logback.classic.Level;
 
-@Ignore
+//@Ignore
 public class TestExternalSortRM extends DrillTest {
 
 //  @Test
@@ -850,6 +850,29 @@ public class TestExternalSortRM extends DrillTest {
          ClientFixture client = cluster.clientFixture()) {
       cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
       String sql = "select * from (select * from `dfs.data`.`250wide.tbl` d where cast(d.columns[1] as int) > 0 order by columns[0]) d1 where d1.columns[0] = 'kjhf'";
+      runAndDump(client, sql);
+    }
+  }
+
+  @Test
+  public void Drill5226a() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toFile( new File("/tmp/5266a.log") )
+        .toConsole()
+        .logger(ExternalSortBatch.class, Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .saveProfiles()
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 2 * 104857600)
+        ;
+    try (LogFixture logs = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      String sql = "select col11 from (select * from `dfs.data`.`identical1` order by col1, col2, col3, col4, col5, col6, col7, col8, col9, col10, col11 desc) d where d.col11 < 10";
       runAndDump(client, sql);
     }
   }
