@@ -21,11 +21,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
-import org.apache.calcite.avatica.util.Casing;
-import org.apache.calcite.avatica.util.Quoting;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.jdbc.CalciteSchemaImpl;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
@@ -48,22 +44,17 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlOperatorTable;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
-import org.apache.calcite.sql.parser.SqlParserImplFactory;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.ChainedSqlOperatorTable;
 import org.apache.calcite.sql.validate.SqlConformance;
 import org.apache.calcite.sql.validate.SqlValidatorCatalogReader;
-import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.calcite.sql.validate.SqlValidatorImpl;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql2rel.RelDecorrelator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.exception.FunctionNotFoundException;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.drill.exec.ops.QueryContext;
@@ -72,10 +63,11 @@ import org.apache.drill.exec.planner.cost.DrillCostBase;
 import org.apache.drill.exec.planner.logical.DrillConstExecutor;
 import org.apache.drill.exec.planner.physical.DrillDistributionTraitDef;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
-import org.apache.drill.exec.planner.sql.parser.impl.DrillParserWithCompoundIdConverter;
+import org.apache.drill.exec.rpc.user.UserSession;
 
 import com.google.common.base.Joiner;
-import org.apache.drill.exec.rpc.user.UserSession;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 
 /**
  * Class responsible for managing parsing, validation and toRel conversion for sql statements.
@@ -109,9 +101,9 @@ public class SqlConverter {
 
   public SqlConverter(QueryContext context) {
     this.settings = context.getPlannerSettings();
-    this.util = (UdfUtilities) context;
+    this.util = context;
     this.functions = context.getFunctionRegistry();
-    this.parserConfig = new ParserConfig();
+    this.parserConfig = new DrillParserConfig(settings);
     this.sqlToRelConverterConfig = new SqlToRelConverterConfig();
     this.isInnerQuery = false;
     this.typeFactory = new JavaTypeFactoryImpl(DRILL_TYPE_SYSTEM);
@@ -177,11 +169,6 @@ public class SqlConverter {
       SqlNode validatedNode = validator.validate(parsedNode);
       return validatedNode;
     } catch (RuntimeException e) {
-      final Throwable rootCause = ExceptionUtils.getRootCause(e);
-      if (rootCause instanceof SqlValidatorException
-          && StringUtils.contains(rootCause.getMessage(), "No match found for function signature")) {
-        throw new FunctionNotFoundException(rootCause.getMessage(), e);
-      }
       UserException.Builder builder = UserException
           .validationError(e)
           .addContext("SQL Query", sql);
@@ -290,6 +277,7 @@ public class SqlConverter {
     public Expander() {
     }
 
+    @Override
     public RelNode expandView(RelDataType rowType, String queryString, List<String> schemaPath) {
       final DrillCalciteCatalogReader catalogReader = new DrillCalciteCatalogReader(
           CalciteSchemaImpl.from(rootSchema),
@@ -337,42 +325,6 @@ public class SqlConverter {
       final SqlNode parsedNode = converter.parse(queryString);
       final SqlNode validatedNode = converter.validate(parsedNode);
       return converter.toRel(validatedNode);
-    }
-
-  }
-
-  private class ParserConfig implements SqlParser.Config {
-
-    final long identifierMaxLength = settings.getIdentifierMaxLength();
-
-    @Override
-    public int identifierMaxLength() {
-      return (int) identifierMaxLength;
-    }
-
-    @Override
-    public Casing quotedCasing() {
-      return Casing.UNCHANGED;
-    }
-
-    @Override
-    public Casing unquotedCasing() {
-      return Casing.UNCHANGED;
-    }
-
-    @Override
-    public Quoting quoting() {
-      return Quoting.BACK_TICK;
-    }
-
-    @Override
-    public boolean caseSensitive() {
-      return false;
-    }
-
-    @Override
-    public SqlParserImplFactory parserFactory() {
-      return DrillParserWithCompoundIdConverter.FACTORY;
     }
 
   }

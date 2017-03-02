@@ -17,10 +17,6 @@
  */
 package org.apache.drill.exec.ops;
 
-import com.google.common.base.Function;
-import com.google.common.collect.Maps;
-import io.netty.buffer.DrillBuf;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +51,11 @@ import org.apache.drill.exec.store.StoragePluginRegistry;
 import org.apache.drill.exec.testing.ExecutionControls;
 import org.apache.drill.exec.util.Utilities;
 
+import com.google.common.base.Function;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+
+import io.netty.buffer.DrillBuf;
 
 // TODO - consider re-name to PlanningContext, as the query execution context actually appears
 // in fragment contexts
@@ -66,7 +66,6 @@ public class QueryContext implements AutoCloseable, OptimizerRulesContext, Schem
   private final UserSession session;
   private final OptionManager queryOptions;
   private final PlannerSettings plannerSettings;
-  private final DrillOperatorTable table;
   private final ExecutionControls executionControls;
 
   private final BufferAllocator allocator;
@@ -83,6 +82,7 @@ public class QueryContext implements AutoCloseable, OptimizerRulesContext, Schem
    * time this is set to true and the close method becomes a no-op.
    */
   private boolean closed = false;
+  private DrillOperatorTable table;
 
   public QueryContext(final UserSession session, final DrillbitContext drillbitContext, QueryId queryId) {
     this.drillbitContext = drillbitContext;
@@ -91,7 +91,14 @@ public class QueryContext implements AutoCloseable, OptimizerRulesContext, Schem
     executionControls = new ExecutionControls(queryOptions, drillbitContext.getEndpoint());
     plannerSettings = new PlannerSettings(queryOptions, getFunctionRegistry());
     plannerSettings.setNumEndPoints(drillbitContext.getBits().size());
-    table = new DrillOperatorTable(getFunctionRegistry(), drillbitContext.getOptionManager());
+
+    // If we do not need to support dynamic UDFs for this query, just use static operator table
+    // built at the startup. Else, build new operator table from latest version of function registry.
+    if (queryOptions.getOption(ExecConstants.USE_DYNAMIC_UDFS)) {
+      this.table = new DrillOperatorTable(drillbitContext.getFunctionImplementationRegistry(), drillbitContext.getOptionManager());
+    } else {
+      this.table = drillbitContext.getOperatorTable();
+    }
 
     queryContextInfo = Utilities.createQueryContextInfo(session.getDefaultSchemaPath(), session.getSessionId());
     contextInformation = new ContextInformation(session.getCredentials(), queryContextInfo);
@@ -151,6 +158,7 @@ public class QueryContext implements AutoCloseable, OptimizerRulesContext, Schem
    * @param userName User who owns the schema tree.
    * @return Root of the schema tree.
    */
+  @Override
   public SchemaPlus getRootSchema(final String userName) {
     return schemaTreeProvider.createRootSchema(userName, this);
   }
@@ -168,6 +176,7 @@ public class QueryContext implements AutoCloseable, OptimizerRulesContext, Schem
    * Get the user name of the user who issued the query that is managed by this QueryContext.
    * @return
    */
+  @Override
   public String getQueryUserName() {
     return session.getCredentials().getUserName();
   }
@@ -225,6 +234,15 @@ public class QueryContext implements AutoCloseable, OptimizerRulesContext, Schem
 
   public DrillOperatorTable getDrillOperatorTable() {
     return table;
+  }
+
+  /**
+   * Re-creates drill operator table to refresh functions list from local function registry.
+   */
+  public void reloadDrillOperatorTable() {
+    table = new DrillOperatorTable(
+        drillbitContext.getFunctionImplementationRegistry(),
+        drillbitContext.getOptionManager());
   }
 
   public QueryContextInformation getQueryContextInfo() {
