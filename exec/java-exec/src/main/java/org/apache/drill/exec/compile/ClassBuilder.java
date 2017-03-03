@@ -94,7 +94,7 @@ public class ClassBuilder {
     options = optionManager;
 
     // Code can be saved per-class to enable debugging.
-    // Just mark the code generator as to be persisted,
+    // Just request the code generator to persist code,
     // point your debugger to the directory set below, and you
     // can step into the code for debugging. Code is not saved
     // be default because doing so is expensive and unnecessary.

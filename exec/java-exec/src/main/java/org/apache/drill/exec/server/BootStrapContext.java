@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -47,7 +47,12 @@ import org.apache.hadoop.security.UserGroupInformation;
 
 public class BootStrapContext implements AutoCloseable {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BootStrapContext.class);
-  private static final int MIN_SCAN_THREADPOOL_SIZE = 8; // Magic num
+  // Tests and embedded servers need a small footprint, so the minimum
+  // scan count is small. The actual value is set by the
+  // ExecConstants.SCAN_THREADPOOL_SIZE. If the number below
+  // is large, then tests cannot shrink the number using the
+  // config property.
+  private static final int MIN_SCAN_THREADPOOL_SIZE = 4; // Magic num
 
   // DRILL_HOST_NAME sets custom host name. See drill-env.sh for details.
   private static final String customHostName = System.getenv("DRILL_HOST_NAME");
@@ -211,6 +216,16 @@ public class BootStrapContext implements AutoCloseable {
 
   @Override
   public void close() {
+    try {
+      loop2.shutdownGracefully(0, 0, TimeUnit.SECONDS);
+    } catch ( Exception e ) {
+      logger.warn("Failure During Bit-Client shutdown.", e);
+    }
+    try {
+      loop.shutdownGracefully(0, 0, TimeUnit.SECONDS);
+    } catch ( Exception e ) {
+      logger.warn("Failure During Bit-Server shutdown.", e);
+    }
     try {
       DrillMetrics.resetMetrics();
     } catch (Error | Exception e) {

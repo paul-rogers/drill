@@ -1,4 +1,4 @@
-/*******************************************************************************
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,32 +17,37 @@
  ******************************************************************************/
 package org.apache.drill.exec.physical.impl.window;
 
-import java.util.Properties;
-
-import org.apache.drill.BaseTestQuery;
-import org.apache.drill.DrillTestWrapper;
-import org.apache.drill.common.config.DrillConfig;
-import org.apache.drill.common.exceptions.UserRemoteException;
-import org.apache.drill.common.util.TestTools;
-import org.apache.drill.exec.ExecConstants;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
+import org.apache.drill.DrillTestWrapper;
+import org.apache.drill.common.exceptions.UserRemoteException;
+import org.apache.drill.common.util.TestTools;
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.proto.UserBitShared.DrillPBError.ErrorType;
+import org.apache.drill.test.ClusterFixture;
+import org.apache.drill.test.ClusterTest;
+import org.apache.drill.test.FixtureBuilder;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
-public class TestWindowFrame extends BaseTestQuery {
+public class TestWindowFrame extends ClusterTest {
 
   private static final String TEST_RES_PATH = TestTools.getWorkingPath() + "/src/test/resources";
 
   @BeforeClass
-  public static void setupMSortBatchSize() {
-    // make sure memory sorter outputs 20 rows per batch
-    final Properties props = cloneDefaultTestConfigProperties();
-    props.put(ExecConstants.EXTERNAL_SORT_MSORT_MAX_BATCHSIZE, Integer.toString(20));
-
-    updateTestCluster(1, DrillConfig.create(props));
+  public static void setup() throws Exception {
+    FixtureBuilder builder = ClusterFixture.builder()
+        // This is a fudge which allowed certain tests to pass by
+        // making the old external sort stable (did not change the
+        // order of already-sorted like rows.) But both old and new
+        // sorts are unstable (will change the order of already-sorted,
+        // like rows), and so the tests are reporting false positives.
+//        .configProperty(ExecConstants.EXTERNAL_SORT_MSORT_MAX_BATCHSIZE, 20)
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        ;
+    startCluster(builder);
   }
 
   private DrillTestWrapper buildWindowQuery(final String tableName, final boolean withPartitionBy, final int numBatches)
@@ -52,7 +57,7 @@ public class TestWindowFrame extends BaseTestQuery {
       .ordered()
       .csvBaselineFile("window/" + tableName + (withPartitionBy ? ".pby" : "") + ".tsv")
       .baselineColumns("count", "sum")
-      .expectsNumBatches(numBatches)
+//      .expectsNumBatches(numBatches) // Number of batches is an implementation artifact
       .build();
   }
 
@@ -63,7 +68,7 @@ public class TestWindowFrame extends BaseTestQuery {
       .ordered()
       .csvBaselineFile("window/" + tableName + (withPartitionBy ? ".pby" : "") + ".oby.tsv")
       .baselineColumns("count", "sum", "row_number", "rank", "dense_rank", "cume_dist", "percent_rank")
-      .expectsNumBatches(numBatches)
+//      .expectsNumBatches(numBatches) // Number of batches is an implementation artifact
       .build();
   }
 
@@ -426,9 +431,9 @@ public class TestWindowFrame extends BaseTestQuery {
 
   @Test
   public void test4457() throws Exception {
-    runSQL(String.format("CREATE TABLE dfs_test.tmp.`4457` AS " +
+    test("CREATE TABLE dfs_test.tmp.`4457` AS " +
       "SELECT columns[0] AS c0, NULLIF(columns[1], 'null') AS c1 " +
-      "FROM dfs_test.`%s/window/4457.csv`", TEST_RES_PATH));
+      "FROM dfs_test.`%s/window/4457.csv`", TEST_RES_PATH);
 
     testBuilder()
       .sqlQuery("SELECT COALESCE(FIRST_VALUE(c1) OVER(ORDER BY c0 RANGE BETWEEN CURRENT ROW AND CURRENT ROW), 'EMPTY') AS fv FROM dfs_test.tmp.`4457`")
@@ -441,14 +446,22 @@ public class TestWindowFrame extends BaseTestQuery {
   }
 
   @Test
+  @Ignore("DRILL-5144: Query with two identical windows produces incorrect results")
   public void test4657() throws Exception {
+    String sql = "select row_number() over(order by position_id) rn, rank() over(order by position_id) rnk from dfs_test.`%s/window/b3.p2`";
+//    System.out.println(queryBuilder().sql(sql, TEST_RES_PATH).explainJson());
+//    queryBuilder().sql(sql, TEST_RES_PATH).printCsv();
     testBuilder()
-      .sqlQuery("select row_number() over(order by position_id) rn, rank() over(order by position_id) rnk from dfs_test.`%s/window/b3.p2`", TEST_RES_PATH)
+      .sqlQuery(sql, TEST_RES_PATH)
       .ordered()
       .csvBaselineFile("window/4657.tsv")
       .baselineColumns("rn", "rnk")
-      .expectsNumBatches(4) // we expect 3 data batches and the fast schema
+      // Number of batches is an implementation artifact
+      // This test just wants to be sure that the number is greater than
+      // two, but, without the "fudge" at the top of the file, the
+      // batch count here is just 2, so the test is not testing what
+      // it wants to test: that the number of batches is greater than 2.
+//      .expectsNumBatches(4) // we expect 3 data batches and the fast schema
       .go();
   }
-
 }

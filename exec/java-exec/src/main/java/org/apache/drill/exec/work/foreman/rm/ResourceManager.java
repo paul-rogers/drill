@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,11 +15,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.base;
+package org.apache.drill.exec.work.foreman.rm;
 
+import org.apache.drill.exec.ops.QueryContext;
+import org.apache.drill.exec.work.foreman.Foreman;
 
 /**
- * Describes the root operation within a particular Fragment. This includes things Sender nodes.
+ * Drillbit-wide resource manager shared by all queries.
  */
-public interface FragmentRoot extends FragmentLeaf {
+
+public interface ResourceManager {
+
+  long memoryPerNode();
+  int cpusPerNode();
+
+  /**
+   * Create a resource manager to prepare or describe a query.
+   * In this form, no queuing is done, but the plan is created
+   * as if queuing had been done.
+   * @return a resource manager for the query
+   */
+
+  QueryPlanner newQueryPlanner(QueryContext queryContext);
+
+  /**
+   * Create a resource manager to execute a query.
+   * @param foreman Foreman which manages the execution
+   * @return a resource manager for the query
+   */
+
+  QueryResourceManager newExecRM(final Foreman foreman);
+  void close();
 }

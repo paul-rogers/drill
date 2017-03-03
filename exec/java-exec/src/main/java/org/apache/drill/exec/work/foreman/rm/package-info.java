@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -15,11 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.base;
-
-
 /**
- * Describes the root operation within a particular Fragment. This includes things Sender nodes.
+ * Provides resource management and queuing support for the Drill foreman.
+ * The resource manager tracks total resources available to Drill. Several
+ * implementations are available: a default implementation for systems without
+ * queueing and an access-controlled (AC) version for systems with queues.
+ * <p>
+ * Each resource manager provides a per-query manager that is responsible
+ * for queuing the query (if needed) and memory allocation to the query based
+ * on query characteristics and memory assigned to the query.
+ * <p>
+ * Provides two different queue implementations. A distributed ZooKeeper queue
+ * and a local queue useful for embedded Drillbits (and for testing.)
  */
-public interface FragmentRoot extends FragmentLeaf {
-}
+package org.apache.drill.exec.work.foreman.rm;

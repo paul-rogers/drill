@@ -26,6 +26,7 @@ import io.netty.buffer.DrillBuf;
 import io.netty.buffer.DrillBuf.TransferResult;
 
 import org.apache.drill.exec.exception.OutOfMemoryException;
+import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -56,6 +57,10 @@ public class TestBaseAllocator {
   // ---------------------------------------- DEBUG ------------------------------------
 */
 
+  @BeforeClass
+  public static void setup() {
+    System.setProperty(BaseAllocator.DEBUG_ALLOCATOR, "true");
+  }
 
   @Test
   public void test_privateMax() throws Exception {
