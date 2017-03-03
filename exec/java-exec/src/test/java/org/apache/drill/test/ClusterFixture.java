@@ -183,7 +183,7 @@ public class ClusterFixture implements AutoCloseable {
       // combining locally-set properties and a config file: it is one
       // or the other.
 
-      if (builder.configProps == null) {
+      if (builder.configBuilder().hasResource()) {
         throw new IllegalArgumentException("Cannot specify a local ZK while using an external config file.");
       }
       builder.configProperty(ExecConstants.ZK_CONNECTION, zkConnect);
@@ -200,13 +200,7 @@ public class ClusterFixture implements AutoCloseable {
     // Because of the way DrillConfig works, we can set the ZK
     // connection string only if a property set is provided.
 
-    if (builder.configResource != null) {
-      config = DrillConfig.create(builder.configResource);
-    } else if (builder.configProps != null) {
-      config = DrillConfig.create(configProperties(builder.configProps));
-    } else {
-      throw new IllegalStateException("Configuration was not provided.");
-    }
+    config = builder.configBuilder.build();
 
     if (builder.usingZk) {
       // Distribute drillbit using ZK (in-process or external)
@@ -323,14 +317,6 @@ public class ClusterFixture implements AutoCloseable {
         clientFixture().alterSession(option.key, option.value);
       }
     }
-  }
-
-  private Properties configProperties(Properties configProps) {
-    Properties effectiveProps = new Properties();
-    for (Entry<Object, Object> entry : configProps.entrySet()) {
-      effectiveProps.put(entry.getKey(), entry.getValue().toString());
-    }
-    return effectiveProps;
   }
 
   public Drillbit drillbit() { return defaultDrillbit; }
@@ -527,10 +513,13 @@ public class ClusterFixture implements AutoCloseable {
   public static final String EXPLAIN_PLAN_JSON = "json";
 
   public static FixtureBuilder builder() {
-     return new FixtureBuilder()
-         .configProps(FixtureBuilder.defaultProps())
+    FixtureBuilder builder = new FixtureBuilder()
          .sessionOption(ExecConstants.MAX_WIDTH_PER_NODE_KEY, MAX_WIDTH_PER_NODE)
          ;
+    Properties props = new Properties();
+    props.putAll(ClusterFixture.TEST_CONFIGURATIONS);
+    builder.configBuilder.configProps(props);
+    return builder;
   }
 
   /**

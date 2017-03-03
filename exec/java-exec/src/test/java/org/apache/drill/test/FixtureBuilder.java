@@ -50,14 +50,7 @@ public class FixtureBuilder {
   public static final int DEFAULT_SERVER_RPC_THREADS = 10;
   public static final int DEFAULT_SCAN_THREADS = 8;
 
-  public static Properties defaultProps() {
-    Properties props = new Properties();
-    props.putAll(ClusterFixture.TEST_CONFIGURATIONS);
-    return props;
-  }
-
-  protected String configResource;
-  protected Properties configProps;
+  protected ConfigBuilder configBuilder;
   protected List<RuntimeOption> sessionOptions;
   protected List<RuntimeOption> systemOptions;
   protected int bitCount = 1;
@@ -69,16 +62,12 @@ public class FixtureBuilder {
   protected boolean preserveLocalFiles;
 
   /**
-   * Use the given configuration properties to start the embedded Drillbit.
-   * @param configProps a collection of config properties
-   * @return this builder
-   * @see {@link #configProperty(String, Object)}
+   * The configuration builder which this fixture builder uses.
+   * @return the configuration builder for use in setting "advanced"
+   * configuration options.
    */
 
-  public FixtureBuilder configProps(Properties configProps) {
-    this.configProps = configProps;
-    return this;
-  }
+  public ConfigBuilder configBuilder() { return configBuilder; }
 
   /**
    * Use the given configuration file, stored as a resource, to start the
@@ -102,7 +91,7 @@ public class FixtureBuilder {
     // require it. Silently discard the leading slash if given to
     // preserve the test writer's sanity.
 
-    this.configResource = ClusterFixture.trimSlash(configResource);
+    configBuilder.resource(ClusterFixture.trimSlash(configResource));
     return this;
   }
 
@@ -114,10 +103,7 @@ public class FixtureBuilder {
    */
 
   public FixtureBuilder configProperty(String key, Object value) {
-    if (configProps == null) {
-      configProps = defaultProps();
-    }
-    configProps.put(key, value.toString());
+    configBuilder.put(key, value.toString());
     return this;
   }
 
