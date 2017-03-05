@@ -254,8 +254,15 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     config = new SortConfig(context.getConfig());
     spillSet = new SpillSet(context, popConfig, "sort", "run");
     copierHolder = new CopierHolder(context, allocator, opCodeGen);
-    memManager = new SortMemoryManager(allocator, config);
+    memManager = new SortMemoryManager(config, allocator.getLimit());
     metrics = new SortMetrics(stats);
+
+    // Reset the allocator to allow a 10% safety margin. This is done because
+    // the memory manager will enforce the original limit. Changing the hard
+    // limit will reduce the probability that random chance causes the allocator
+    // to kill the query because of a small, spurious over-allocation.
+
+    allocator.setLimit((long)(allocator.getLimit() * 1.10));
   }
 
   @Override
@@ -490,7 +497,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     // Do we have enough memory for MSorter (the in-memory sorter)?
 
-    if (! memManager.hasMemoryMergeCapacity(MSortTemplate.memoryNeeded(metrics.getInputRowCount()))) {
+    if (! memManager.hasMemoryMergeCapacity(allocator.getAllocatedMemory(), MSortTemplate.memoryNeeded(metrics.getInputRowCount()))) {
       return false;
     }
 
@@ -654,13 +661,21 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // the effective count as given by the selection vector
     // (which may exclude some records due to filtering.)
 
-    memManager.updateMemoryEstimates(batchSize, sizer);
+    validateBatchSize(sizer.actualSize(), batchSize);
+    memManager.updateEstimates((int) batchSize, sizer.netRowWidth(), sizer.rowCount());
 
     // Sort the incoming batch using either the original selection vector,
     // or a new one created here.
 
     sortIncomingBatch(convertedBatch, sv2);
     bufferBatch(convertedBatch, sv2, sizer.netSize());
+  }
+
+  private void validateBatchSize(long actualBatchSize, long memoryDelta) {
+    if (actualBatchSize != memoryDelta) {
+      ExternalSortBatch.logger.debug("Memory delta: {}, actual batch size: {}, Diff: {}",
+                   memoryDelta, actualBatchSize, memoryDelta - actualBatchSize);
+    }
   }
 
   private void sortIncomingBatch(VectorContainer convertedBatch, SelectionVector2 sv2) {
@@ -731,7 +746,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     if (bufferedBatches.size() < 2) {
       return false; }
 
-    return memManager.isSpillNeeded(incomingSize);
+    return memManager.isSpillNeeded(allocator.getAllocatedMemory(), incomingSize);
   }
 
   /**
@@ -854,7 +869,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       // If the on-disk batches and in-memory batches need more memory than
       // is available, spill some in-memory batches.
 
-       if (! memManager.hasMergeCapacity(spilledRunsCount)) {
+       if (! memManager.hasMergeCapacity(allocator.getAllocatedMemory(), spilledRunsCount)) {
         spillFromMemory();
         return true;
       }
@@ -946,9 +961,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     int mergeCount = 0;
     long mergeSize = 0;
-    long mergeMemoryPool = memManager.getMergeMemoryPool();
-    for (SpilledRun batch : spilledRuns) {
-      long batchSize = batch.getBatchSize();
+    long mergeMemoryPool = memManager.getMergeMemoryLimit();
+    for (SpilledRun run : spilledRuns) {
+      long batchSize = run.getBatchSize();
       if (mergeSize + batchSize > mergeMemoryPool) {
         break;
       }
@@ -1019,7 +1034,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       logger.trace("Spilled {} batches, {} records; memory = {} to {}",
                    merger.getBatchCount(), merger.getRecordCount(),
                    allocator.getAllocatedMemory(), outputFile);
-      newGroup.setBatchSize(merger.getBatchSize());
+      newGroup.setBatchSize(merger.getEstBatchSize());
       return newGroup;
     } catch (Throwable e) {
       // we only need to clean up newGroup if spill failed

@@ -37,9 +37,9 @@ public class SortConfig {
 
   public static final long MIN_SPILL_FILE_SIZE = 1 * 1024 * 1024;
 
-  public static final long DEFAULT_SPILL_BATCH_SIZE = 8L * 1024 * 1024;
-  public static final long MIN_SPILL_BATCH_SIZE = 256 * 1024;
-  public static final long MIN_MERGE_BATCH_SIZE = 256 * 1024;
+  public static final int DEFAULT_SPILL_BATCH_SIZE = 8 * 1024 * 1024;
+  public static final int MIN_SPILL_BATCH_SIZE = 256 * 1024;
+  public static final int MIN_MERGE_BATCH_SIZE = 256 * 1024;
 
   public static final int MIN_MERGE_LIMIT = 2;
 
@@ -56,9 +56,9 @@ public class SortConfig {
    */
   private final long spillFileSize;
 
-  private final long spillBatchSize;
+  private final int spillBatchSize;
 
-  private final long mergeBatchSize;
+  private final int mergeBatchSize;
 
   public SortConfig(DrillConfig config) {
 
@@ -81,19 +81,28 @@ public class SortConfig {
     // Ensure the size is reasonable.
 
     spillFileSize = Math.max(config.getBytes(ExecConstants.EXTERNAL_SORT_SPILL_FILE_SIZE), MIN_SPILL_FILE_SIZE);
-    spillBatchSize = Math.max(config.getBytes(ExecConstants.EXTERNAL_SORT_SPILL_BATCH_SIZE), MIN_SPILL_BATCH_SIZE);
+    spillBatchSize = (int) Math.max(config.getBytes(ExecConstants.EXTERNAL_SORT_SPILL_BATCH_SIZE), MIN_SPILL_BATCH_SIZE);
 
     // Set the target output batch size. Use the maximum size, but only if
     // this represents less than 10% of available memory. Otherwise, use 10%
     // of memory, but no smaller than the minimum size. In any event, an
     // output batch can contain no fewer than a single record.
 
-    mergeBatchSize = Math.max(config.getBytes(ExecConstants.EXTERNAL_SORT_MERGE_BATCH_SIZE), MIN_MERGE_BATCH_SIZE);
+    mergeBatchSize = (int) Math.max(config.getBytes(ExecConstants.EXTERNAL_SORT_MERGE_BATCH_SIZE), MIN_MERGE_BATCH_SIZE);
+    logConfig();
+  }
+
+  private void logConfig() {
+    ExternalSortBatch.logger.debug("Config: " +
+                 "spill file size = {}, spill batch size = {}, " +
+                 "merge limit = {}, merge batch size = {}",
+                  spillFileSize(), spillFileSize(),
+                  mergeLimit(), mergeBatchSize());
   }
 
   public long maxMemory() { return maxMemory; }
   public int mergeLimit() { return mergeLimit; }
   public long spillFileSize() { return spillFileSize; }
-  public long spillBatchSize() { return spillBatchSize; }
-  public long mergeBatchSize() { return mergeBatchSize; }
+  public int spillBatchSize() { return spillBatchSize; }
+  public int mergeBatchSize() { return mergeBatchSize; }
 }

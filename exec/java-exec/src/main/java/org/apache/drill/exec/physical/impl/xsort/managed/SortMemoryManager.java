@@ -17,9 +17,6 @@
  */
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
-import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
-
 public class SortMemoryManager {
 
   /**
@@ -28,7 +25,7 @@ public class SortMemoryManager {
    * parameter for unit testing.
    */
 
-  private long memoryLimit;
+  private final long memoryLimit;
 
   /**
    * Estimated size of the records for this query, updated on each
@@ -43,7 +40,7 @@ public class SortMemoryManager {
    * value.
    */
 
-  private long targetMergeBatchSize;
+  private int expectedMergeBatchSize;
 
   /**
    * Estimate of the input batch size based on the largest batch seen
@@ -56,27 +53,25 @@ public class SortMemoryManager {
    * batches in memory until we reach the level given by the buffer memory pool.
    */
 
-  private long bufferMemoryPool;
+  private long bufferMemoryLimit;
 
   /**
    * Maximum memory that can hold batches during the merge
    * phase.
    */
 
-  private long mergeMemoryPool;
+  private long mergeMemoryLimit;
 
   /**
    * The target size for merge batches sent downstream.
    */
 
-  private long preferredMergeBatchSize;
-
-  private BufferAllocator allocator;
+  private int preferredMergeBatchSize;
 
   /**
    * The configured size for each spill batch.
    */
-  private Long preferredSpillBatchSize;
+  private int preferredSpillBatchSize;
 
   /**
    * Estimated number of rows that fit into a single spill batch.
@@ -89,7 +84,7 @@ public class SortMemoryManager {
    * details of the data rows for any particular query.
    */
 
-  private int targetSpillBatchSize;
+  private int expectedSpillBatchSize;
 
   /**
    * The number of records to add to each output batch sent to the
@@ -100,72 +95,28 @@ public class SortMemoryManager {
 
   private SortConfig config;
 
-  private long spillPoint;
+//  private long spillPoint;
 
-  private long minMergeMemory;
+//  private long minMergeMemory;
 
   private int estimatedInputSize;
 
-  public SortMemoryManager(BufferAllocator allocator, SortConfig config) {
-    this.allocator = allocator;
+  private boolean potentialOverflow;
+
+  public SortMemoryManager(SortConfig config, long memoryLimit) {
     this.config = config;
-
-    setMemoryLimit();
-    setSpillBatchSize();
-    setMergeBatchSize();
-    logConfig();
-  }
-
-  private void setMemoryLimit() {
 
     // The maximum memory this operator can use as set by the
     // operator definition (propagated to the allocator.)
 
-    memoryLimit = allocator.getLimit();
-
     if (config.maxMemory() > 0) {
-      memoryLimit = Math.min(memoryLimit, config.maxMemory());
+      this.memoryLimit = Math.min(memoryLimit, config.maxMemory());
+    } else {
+      this.memoryLimit = memoryLimit;
     }
-  }
 
-  private void setSpillBatchSize() {
-
-    // The spill batch size. This is a critical setting for performance.
-    // Set too large and the ratio between memory and input data sizes becomes
-    // small. Set too small and disk seek times dominate performance.
-
-    preferredSpillBatchSize = config.spillFileSize();
-
-    // In low memory, use no more than 1/4 of memory for each spill batch. Ensures we
-    // can merge.
-
-    preferredSpillBatchSize = Math.min(preferredSpillBatchSize, memoryLimit / 4);
-
-    // But, the spill batch should be above some minimum size to prevent complete
-    // thrashing.
-
-    preferredSpillBatchSize = Math.max(preferredSpillBatchSize, SortConfig.MIN_SPILL_BATCH_SIZE);
-  }
-
-  private void setMergeBatchSize() {
-
-    // Set the target output batch size. Use the maximum size, but only if
-    // this represents less than 10% of available memory. Otherwise, use 10%
-    // of memory, but no smaller than the minimum size. In any event, an
-    // output batch can contain no fewer than a single record.
-
+    preferredSpillBatchSize = config.spillBatchSize();;
     preferredMergeBatchSize = config.mergeBatchSize();
-    long maxAllowance = (long) (memoryLimit - 2 * preferredSpillBatchSize);
-    preferredMergeBatchSize = Math.min(maxAllowance, preferredMergeBatchSize);
-    preferredMergeBatchSize = Math.max(preferredMergeBatchSize, SortConfig.MIN_MERGED_BATCH_SIZE);
-  }
-
-  private void logConfig() {
-
-    ExternalSortBatch.logger.debug("Config: memory limit = {}, " +
-                 "spill file size = {}, spill batch size = {}, merge limit = {}, merge batch size = {}",
-                  memoryLimit, config.spillFileSize(), preferredSpillBatchSize,
-                  config.mergeLimit(), preferredMergeBatchSize);
   }
 
   /**
@@ -178,43 +129,51 @@ public class SortMemoryManager {
    * <li>The amount of memory set aside to hold the incoming
    * batches before spilling starts.</li>
    * </ul>
+   * <p>
+   * Under normal circumstances, the amount of memory available is much
+   * larger than the input, spill or merge batch sizes. The primary question
+   * is to determine how many input batches we can buffer during the load
+   * phase, and how many spill batches we can merge during the merge
+   * phase.
    *
-   * @param actualBatchSize the overall size of the current batch received from
+   * @param batchSize the overall size of the current batch received from
    * upstream
-   * @param actualRecordCount the number of actual (not filtered) records in
+   * @param batchRowWidth the width in bytes (including overhead) of each
+   * row in the current input batch
+   * @param batchRowCount the number of actual (not filtered) records in
    * that upstream batch
    */
 
-  void updateMemoryEstimates(long memoryDelta, RecordBatchSizer sizer) {
+  public void updateEstimates(int batchSize, int batchRowWidth, int batchRowCount) {
 
     // The record count should never be zero, but better safe than sorry...
 
-    if (sizer.rowCount() == 0) {
+    if (batchRowCount == 0) {
       return; }
 
-    validateBatchSize(sizer.actualSize(), memoryDelta);
 
     // Update input batch estimates.
     // Go no further if nothing changed.
 
-    if (! updateInputEstimates(sizer)) {
+    if (! updateInputEstimates(batchSize, batchRowWidth, batchRowCount)) {
       return;
     }
 
     updateSpillSettings();
     updateMergeSettings();
     adjustForLowMemory();
-    logSettings(sizer.rowCount());
+    logSettings(batchRowCount);
   }
 
-  private void validateBatchSize(long actualBatchSize, long memoryDelta) {
-    if (actualBatchSize != memoryDelta) {
-      ExternalSortBatch.logger.debug("Memory delta: {}, actual batch size: {}, Diff: {}",
-                   memoryDelta, actualBatchSize, memoryDelta - actualBatchSize);
+  private boolean updateInputEstimates(int batchSize, int batchRowWidth, int batchRowCount) {
+
+    // The row width may end up as zero if all fields are nulls or some
+    // other unusual situation. In this case, assume a width of 10 just
+    // to avoid lots of special case code.
+
+    if (batchRowWidth == 0) {
+      batchRowWidth = 10;
     }
-  }
-
-  private boolean updateInputEstimates(RecordBatchSizer sizer) {
 
     // We know the batch size and number of records. Use that to estimate
     // the average record size. Since a typical batch has many records,
@@ -223,8 +182,6 @@ public class SortMemoryManager {
     // resulting from power-of-two allocation. This means that we don't
     // have to do size adjustments for input batches as we will do below
     // when estimating the size of other objects.
-
-    int batchRowWidth = sizer.netRowWidth();
 
     // Record sizes may vary across batches. To be conservative, use
     // the largest size observed from incoming batches.
@@ -238,161 +195,259 @@ public class SortMemoryManager {
     // the size already includes overhead due to power-of-two rounding.
 
     long origInputBatchSize = estimatedInputBatchSize;
-    estimatedInputBatchSize = Math.max(estimatedInputBatchSize, sizer.actualSize());
-
-    // The row width may end up as zero if all fields are nulls or some
-    // other unusual situation. In this case, assume a width of 10 just
-    // to avoid lots of special case code.
-
-    if (estimatedRowWidth == 0) {
-      estimatedRowWidth = 10;
-    }
+    estimatedInputBatchSize = Math.max(estimatedInputBatchSize, batchSize);
 
     // Estimate the total size of each incoming batch plus sv2. Note that, due
     // to power-of-two rounding, the allocated sv2 size might be twice the data size.
 
-    estimatedInputSize = estimatedInputBatchSize + 4 * sizer.rowCount();
+    estimatedInputSize = estimatedInputBatchSize + 4 * batchRowCount;
 
     // Return whether anything changed.
 
     return estimatedRowWidth != origRowEstimate || estimatedInputBatchSize != origInputBatchSize;
   }
 
+  /**
+   * Determine the number of records to spill per spill batch. The goal is to
+   * spill batches of either 64K records, or as many records as fit into the
+   * amount of memory dedicated to each spill batch, whichever is less.
+   */
+
   private void updateSpillSettings() {
 
-    // Determine the number of records to spill per spill batch. The goal is to
-    // spill batches of either 64K records, or as many records as fit into the
-    // amount of memory dedicated to each spill batch, whichever is less.
-
-    spillBatchRowCount = (int) Math.max(1, preferredSpillBatchSize / estimatedRowWidth / 2);
-    spillBatchRowCount = Math.min(spillBatchRowCount, Character.MAX_VALUE);
+    spillBatchRowCount = rowsPerBatch(preferredSpillBatchSize);
 
     // Compute the actual spill batch size which may be larger or smaller
     // than the preferred size depending on the row width. Double the estimated
     // memory needs to allow for power-of-two rounding.
 
-    targetSpillBatchSize = spillBatchRowCount * estimatedRowWidth * 2;
+    expectedSpillBatchSize = batchForRows(spillBatchRowCount);
 
     // Determine the minimum memory needed for spilling. Spilling is done just
-    // before accepting a batch, so we must spill if we don't have room for a
-    // (worst case) input batch. To spill, we need room for the output batch created
-    // by merging the batches already in memory. Double this to allow for power-of-two
-    // memory allocations.
+    // before accepting a spill batch, so we must spill if we don't have room for a
+    // (worst case) input batch. To spill, we need room for the spill batch created
+    // by merging the batches already in memory.
 
-    spillPoint = estimatedInputBatchSize + 2 * targetSpillBatchSize;
-
-    // Determine how much memory can be used to hold in-memory batches.
-
-    bufferMemoryPool = memoryLimit - spillPoint;
+    bufferMemoryLimit = memoryLimit - expectedSpillBatchSize;
   }
+
+  /**
+   * Determine the number of records per batch per merge step. The goal is to
+   * merge batches of either 64K records, or as many records as fit into the
+   * amount of memory dedicated to each merge batch, whichever is less.
+   */
 
   private void updateMergeSettings() {
 
-    // Determine the number of records per batch per merge step. The goal is to
-    // merge batches of either 64K records, or as many records as fit into the
-    // amount of memory dedicated to each merge batch, whichever is less.
+    mergeBatchRowCount = rowsPerBatch(preferredMergeBatchSize);
+    expectedMergeBatchSize = batchForRows(mergeBatchRowCount);
 
-    mergeBatchRowCount = (int) Math.max(1, preferredMergeBatchSize / estimatedRowWidth / 2);
-    mergeBatchRowCount = Math.min(mergeBatchRowCount, Character.MAX_VALUE);
-    mergeBatchRowCount = Math.max(1,  mergeBatchRowCount);
-    targetMergeBatchSize = mergeBatchRowCount * estimatedRowWidth * 2;
+    // The merge memory pool assumes we can spill all input batches. The memory
+    // available to hold spill batches for merging is total memory minus the
+    // expected output batch size.
 
-    // The merge memory pool assumes we can spill all input batches. To make
-    // progress, we must have at least two merge batches (same size as an output
-    // batch) and one output batch. Again, double to allow for power-of-two
-    // allocation and add one for a margin of error.
-
-    minMergeMemory = 2 * targetSpillBatchSize + targetMergeBatchSize;
-
-    // Determine how much memory can be used to hold spilled
-    // runs when reading from disk.
-
-    mergeMemoryPool = Math.max(memoryLimit - minMergeMemory,
-                               (long) ((memoryLimit - 3 * targetMergeBatchSize) * 0.95));
+    mergeMemoryLimit = memoryLimit - expectedMergeBatchSize;
   }
 
+  /**
+   * In a low-memory situation we have to approach the memory assignment
+   * problem from a different angle. Memory is low enough that we can't
+   * fit the incoming batches (of a size decided by the upstream operator)
+   * and our usual spill or merge batch sizes. Instead, we have to
+   * determine the largest spill and merge batch sizes possible given
+   * the available memory, input batch size and row width. We shrink the
+   * sizes of the batches we control to try to make things fit into limited
+   * memory. At some point, however, if we cannot fit even two input
+   * batches and even the smallest merge match, then we will run into an
+   * out-of-memory condition and we log a warning.
+   * <p>
+   * Note that these calculations are a bit crazy: it is Drill that
+   * decided to allocate the small memory, it is Drill that created the
+   * large incoming batches, and so it is Drill that created the low
+   * memory situation. Over time, a better fix for this condition is to
+   * control memory usage at the query level so that the sort is guaranteed
+   * to have sufficient memory. But, since we don't yet have the luxury
+   * of making such changes, we just live with the situation as we find
+   * it.
+   */
+
   private void adjustForLowMemory() {
-    // If we are in a low-memory condition, then we might not have room for the
-    // default output batch size. In that case, pick a smaller size.
 
-    if (minMergeMemory > memoryLimit) {
-
-      // Figure out the minimum output batch size based on memory,
-      // must hold at least one complete row.
-
-      long mergeAllowance = memoryLimit - 2 * targetSpillBatchSize;
-      targetMergeBatchSize = Math.max(estimatedRowWidth, mergeAllowance / 2);
-      mergeBatchRowCount = (int) (targetMergeBatchSize / estimatedRowWidth / 2);
-      minMergeMemory = 2 * targetSpillBatchSize + targetMergeBatchSize;
+    long loadHeadroom = bufferMemoryLimit - 2 * estimatedInputSize;
+    long mergeHeadroom = mergeMemoryLimit - 2 * expectedSpillBatchSize;
+    if (loadHeadroom >= 0  &&  mergeHeadroom >= 0) {
+      return;
     }
 
-    // Determine the minimum total memory we would need to receive two input
-    // batches (the minimum needed to make progress) and the allowance for the
-    // output batch.
-
-    long minLoadMemory = spillPoint + estimatedInputSize;
+    lowMemorySpillBatchSize();
+    lowMemoryMergeBatchSize();
 
     // Sanity check: if we've been given too little memory to make progress,
     // issue a warning but proceed anyway. Should only occur if something is
     // configured terribly wrong.
 
-    long minMemoryNeeds = Math.max(minLoadMemory, minMergeMemory);
-    if (minMemoryNeeds > memoryLimit) {
-      ExternalSortBatch.logger.warn("Potential memory overflow! " +
-                   "Minumum needed = {} bytes, actual available = {} bytes",
-                   minMemoryNeeds, memoryLimit);
+    long minNeeds = 2 * estimatedInputSize + expectedSpillBatchSize;
+    if (minNeeds > memoryLimit) {
+      ExternalSortBatch.logger.warn("Potential memory overflow during load phase! " +
+          "Minumum needed = {} bytes, actual available = {} bytes",
+          minNeeds, memoryLimit);
+      bufferMemoryLimit = 0;
+      potentialOverflow = true;
+    }
+
+    // Sanity check
+
+    minNeeds = 2 * expectedSpillBatchSize + expectedMergeBatchSize;
+    if (minNeeds > memoryLimit) {
+      ExternalSortBatch.logger.warn("Potential memory overflow during merge phase! " +
+          "Minumum needed = {} bytes, actual available = {} bytes",
+          minNeeds, memoryLimit);
+      mergeMemoryLimit = 0;
+      potentialOverflow = true;
     }
   }
 
-  private void logSettings(int actualRecordCount) {
+  /**
+   * If we are in a low-memory condition, then we might not have room for the
+   * default spill batch size. In that case, pick a smaller size based on
+   * the observation that we need two input batches and
+   * one spill batch to make progress.
+   */
+  
+  private void lowMemorySpillBatchSize() {
 
-    // Log the calculated values. Turn this on if things seem amiss.
-    // Message will appear only when the values change.
+    // The "expected" size is with power-of-two rounding in some vectors.
+    // We later work backwards to the row count assuming average internal
+    // fragmentation.
+
+    // Must hold two input batches. Use (most of) the rest for the spill batch.
+
+    expectedSpillBatchSize = (int) (memoryLimit - 2 * estimatedInputSize);
+
+    // But, in the merge phase, we need two spill batches and one output batch.
+    // (Assume that the spill and merge are equal sizes.)
+    // Use 3/4 of memory for each batch (to allow power-of-two rounding:
+
+    expectedSpillBatchSize = (int) Math.min(expectedSpillBatchSize, memoryLimit/3);
+
+    // Never going to happen, but let's ensure we don't somehow create large batches.
+
+    expectedSpillBatchSize = Math.max(expectedSpillBatchSize, SortConfig.MIN_SPILL_BATCH_SIZE);
+
+    // Must hold at least one row to spill. That is, we can make progress if we
+    // create spill files that consist of single-record batches.
+
+    expectedSpillBatchSize = Math.max(expectedSpillBatchSize, estimatedRowWidth);
+
+    // Work out the spill batch count needed by the spill code. Allow room for
+    // power-of-two rounding.
+
+    spillBatchRowCount = rowsPerBatch(expectedSpillBatchSize);
+
+    // Finally, figure out when we must spill.
+
+    bufferMemoryLimit = memoryLimit - expectedSpillBatchSize;
+  }
+
+  /**
+   * For merge batch, we must hold at least two spill batches and
+   * one output batch.
+   */
+
+  private void lowMemoryMergeBatchSize() {
+    expectedMergeBatchSize = (int) (memoryLimit - 2 * expectedSpillBatchSize);
+    expectedMergeBatchSize = Math.max(expectedMergeBatchSize, SortConfig.MIN_MERGE_BATCH_SIZE);
+    expectedMergeBatchSize = Math.max(expectedMergeBatchSize, estimatedRowWidth);
+    mergeBatchRowCount = rowsPerBatch(expectedMergeBatchSize);
+    mergeMemoryLimit = memoryLimit - expectedMergeBatchSize;
+  }
+  
+  /**
+   * Log the calculated values. Turn this on if things seem amiss.
+   * Message will appear only when the values change.
+   */
+
+  private void logSettings(int actualRecordCount) {
 
     ExternalSortBatch.logger.debug("Input Batch Estimates: record size = {} bytes; input batch = {} bytes, {} records",
                  estimatedRowWidth, estimatedInputBatchSize, actualRecordCount);
     ExternalSortBatch.logger.debug("Merge batch size = {} bytes, {} records; spill file size: {} bytes",
-                 targetSpillBatchSize, spillBatchRowCount, config.spillFileSize());
+                 expectedSpillBatchSize, spillBatchRowCount, config.spillFileSize());
     ExternalSortBatch.logger.debug("Output batch size = {} bytes, {} records",
-                 targetMergeBatchSize, mergeBatchRowCount);
+                 expectedMergeBatchSize, mergeBatchRowCount);
     ExternalSortBatch.logger.debug("Available memory: {}, buffer memory = {}, merge memory = {}",
-                 memoryLimit, bufferMemoryPool, mergeMemoryPool);
+                 memoryLimit, bufferMemoryLimit, mergeMemoryLimit);
+  }
+
+  /**
+   * Compute the number of rows per batch assuming that the batch is
+   * subject to average internal fragmentation due to power-of-two
+   * rounding on vectors.
+   * <p>
+   * <pre>[____|__$__]</pre>
+   * In the above, the brackets represent the whole vector. The
+   * first half is always full. When the first half filled, the second
+   * half was allocated. On average, the second half will be half full.
+   *
+   * @param batchSize expected batch size, including internal fragmentation
+   * @return number of rows that fit into the batch
+   */
+
+  private int rowsPerBatch(int batchSize) {
+    int rowCount = batchSize * 3 / 4 / estimatedRowWidth;
+    return Math.max(1, Math.min(rowCount, Character.MAX_VALUE));
+  }
+  
+  /**
+   * Compute the expected number of rows that fit into a given size
+   * batch, accounting for internal fragmentation due to power-of-two
+   * rounding on vector allocations.
+   * 
+   * @param rowCount the desired number of rows in the batch
+   * @return the size of resulting batch, including power-of-two
+   * rounding.
+   */
+  
+  private int batchForRows(int rowCount) {
+    return estimatedRowWidth * rowCount * 4 / 3;
   }
 
   // Must spill if we are below the spill point (the amount of memory
   // needed to do the minimal spill.)
 
-  public boolean isSpillNeeded(int incomingSize) {
-    return allocator.getAllocatedMemory() + incomingSize >= bufferMemoryPool;
+  public boolean isSpillNeeded(long allocatedBytes, int incomingSize) {
+    return allocatedBytes + incomingSize >= bufferMemoryLimit;
   }
 
-  public boolean hasMemoryMergeCapacity(long neededForInMemorySort) {
-    long allocMem = allocator.getAllocatedMemory();
-    long availableMem = memoryLimit - allocMem;
+  public boolean hasMemoryMergeCapacity(long allocatedBytes, long neededForInMemorySort) {
+    long availableMem = memoryLimit - allocatedBytes;
     return (availableMem >= neededForInMemorySort);
   }
 
   public int getMaxMergeWidth() {
-    int maxMergeWidth = (int) (mergeMemoryPool / targetSpillBatchSize);
+    int maxMergeWidth = (int) (mergeMemoryLimit / expectedSpillBatchSize);
     return Math.min(config.mergeLimit(), maxMergeWidth);
   }
 
-  public boolean hasMergeCapacity(long mergeRunsCount) {
-    long allocated = allocator.getAllocatedMemory();
-    long mergeSize = mergeRunsCount * targetSpillBatchSize;
-    long totalNeeds = mergeSize + allocated;
-    return (totalNeeds < mergeMemoryPool);
+  public boolean hasMergeCapacity(long allocatedBytes, long mergeRunsCount) {
+    long mergeSize = mergeRunsCount * expectedSpillBatchSize;
+    long totalNeeds = mergeSize + allocatedBytes;
+    return (totalNeeds < mergeMemoryLimit);
   }
 
-  public long getMergeMemoryPool( ) {
-    return mergeMemoryPool;
-  }
+  public long getMergeMemoryLimit() { return mergeMemoryLimit; }
+  public int getSpillBatchRowCount() { return spillBatchRowCount; }
+  public int getMergeBatchRowCount() { return mergeBatchRowCount; }
 
-  public int getSpillBatchRowCount( ) {
-    return spillBatchRowCount;
-  }
+  // Primarily for testing
 
-  public int getMergeBatchRowCount() {
-    return mergeBatchRowCount;
-  }
+  public long getMemoryLimit() { return memoryLimit; }
+  public int getRowWidth() { return estimatedRowWidth; }
+  public int getInputBatchSize() { return estimatedInputBatchSize; }
+  public int getPreferredSpillBatchSize() { return preferredSpillBatchSize; }
+  public int getPreferredMergeBatchSize() { return preferredMergeBatchSize; }
+  public int getSpillBatchSize() { return expectedSpillBatchSize; }
+  public int getMergeBatchSize() { return expectedMergeBatchSize; }
+  public long getBufferMemoryLimit() { return bufferMemoryLimit; }
+  public boolean mayOverflow() { return potentialOverflow; }
 }
