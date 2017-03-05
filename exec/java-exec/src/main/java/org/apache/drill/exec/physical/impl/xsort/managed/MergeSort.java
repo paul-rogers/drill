@@ -25,7 +25,7 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.impl.sort.RecordBatchData;
 import org.apache.drill.exec.physical.impl.sort.SortRecordBatchBuilder;
-import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch.SortResults;
+import org.apache.drill.exec.physical.impl.xsort.managed.SortImpl.SortResults;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
@@ -86,7 +86,7 @@ public class MergeSort implements SortResults {
    * @return the sv4 for this operator
    */
 
-  public SelectionVector4 merge(LinkedList<BatchGroup.InputBatch> batchGroups, VectorAccessible batch,
+  public void merge(LinkedList<BatchGroup.InputBatch> batchGroups, VectorAccessible batch,
                                 VectorContainer destContainer) {
 
     // Add the buffered batches to a collection that MSorter can use.
@@ -118,17 +118,11 @@ public class MergeSort implements SortResults {
     ExternalSortBatch.injector.injectUnchecked(context.getExecutionControls(), ExternalSortBatch.INTERRUPTION_AFTER_SETUP);
     mSorter.sort(destContainer);
 
-    // sort may have prematurely exited due to should continue returning false.
-    if (!context.shouldContinue()) {
-      return null;
-    }
-
     // For testing memory-leak purpose, inject exception after mSorter finishes sorting
     ExternalSortBatch.injector.injectUnchecked(context.getExecutionControls(), ExternalSortBatch.INTERRUPTION_AFTER_SORT);
     sv4 = mSorter.getSV4();
 
     destContainer.buildSchema(SelectionVectorMode.FOUR_BYTE);
-    return sv4;
   }
 
   /**
@@ -146,12 +140,33 @@ public class MergeSort implements SortResults {
 
   @Override
   public void close() {
-    if (builder != null) {
-      builder.clear();
-      builder.close();
+    RuntimeException ex = null;
+    try {
+      if (builder != null) {
+        builder.clear();
+        builder.close();
+        builder = null;
+      }
+    } catch (RuntimeException e) {
+      ex = (ex == null) ? e : ex;
     }
-    if (mSorter != null) {
-      mSorter.clear();
+    try {
+      if (mSorter != null) {
+        mSorter.clear();
+        mSorter = null;
+      }
+    } catch (RuntimeException e) {
+      ex = (ex == null) ? e : ex;
+    }
+    try {
+      if (sv4 != null) {
+        sv4.clear();
+      }
+    } catch (RuntimeException e) {
+      ex = (ex == null) ? e : ex;
+    }
+    if (ex != null) {
+      throw ex;
     }
   }
 
@@ -163,5 +178,10 @@ public class MergeSort implements SortResults {
   @Override
   public int getRecordCount() {
     return sv4.getTotalCount();
+  }
+
+  @Override
+  public SelectionVector4 getSv4() {
+    return sv4;
   }
 }

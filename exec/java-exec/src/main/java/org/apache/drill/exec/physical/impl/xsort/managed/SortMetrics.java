@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
 import org.apache.drill.exec.ops.OperatorStatReceiver;
-import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
 
 public class SortMetrics {
 

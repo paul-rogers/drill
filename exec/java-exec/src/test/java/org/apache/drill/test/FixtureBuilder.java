@@ -20,7 +20,6 @@ package org.apache.drill.test;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ZookeeperHelper;
@@ -50,7 +49,7 @@ public class FixtureBuilder {
   public static final int DEFAULT_SERVER_RPC_THREADS = 10;
   public static final int DEFAULT_SCAN_THREADS = 8;
 
-  protected ConfigBuilder configBuilder;
+  protected ConfigBuilder configBuilder = new ConfigBuilder();
   protected List<RuntimeOption> sessionOptions;
   protected List<RuntimeOption> systemOptions;
   protected int bitCount = 1;

@@ -383,7 +383,8 @@ public class TestExternalSortRM extends DrillTest {
 //        ;
     FixtureBuilder builder = ClusterFixture.builder()
         .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
-        .configProperty(ExecConstants.EXTERNAL_SORT_MAX_MEMORY, "3G")
+//        .configProperty(ExecConstants.EXTERNAL_SORT_MAX_MEMORY, "3G")
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
         .maxParallelization(1)
 //        .sessionOption(ExecConstants.SLICE_TARGET, 1000)
         .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)

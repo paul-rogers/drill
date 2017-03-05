@@ -60,7 +60,7 @@ public class OperatorStats implements OperatorStatReceiver {
   private long setupMark;
   private long waitMark;
 
-  private long schemas;
+//  private long schemas;
   private int inputCount;
 
   public OperatorStats(OpProfileDef def, BufferAllocator allocator){
