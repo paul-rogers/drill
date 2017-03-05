@@ -45,7 +45,6 @@ import org.apache.drill.test.ProfileParser;
 import org.apache.drill.test.ProfileParser.OperatorProfile;
 import org.apache.drill.test.QueryBuilder.QuerySummary;
 import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
-import org.apache.drill.exec.physical.impl.xsort.managed.SortMetrics;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -182,8 +181,8 @@ public class TestManagedExternalSort extends DrillTest {
     List<OperatorProfile> ops = profile.getOpsOfType(CoreOperatorType.EXTERNAL_SORT_VALUE);
     assertEquals(1, ops.size());
     OperatorProfile sort = ops.get(0);
-    long spillCount = sort.getMetric(SortMetrics.Metric.SPILL_COUNT.ordinal());
-    long mergeCount = sort.getMetric(SortMetrics.Metric.MERGE_COUNT.ordinal());
+    long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
+    long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
     System.out.println(String.format("Spills: %d, merge/spills: %d", spillCount, mergeCount));
     assertTrue(spillCount > 0);
     assertTrue(mergeCount > 0);

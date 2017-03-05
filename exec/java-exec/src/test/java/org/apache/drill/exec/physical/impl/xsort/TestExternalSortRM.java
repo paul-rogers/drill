@@ -31,7 +31,6 @@ import org.apache.drill.exec.memory.BaseAllocator;
 //import org.apache.drill.exec.physical.impl.xsort.LogAnalyzer.EventAnalyzer;
 //import org.apache.drill.exec.physical.impl.xsort.LogAnalyzer.SortStats;
 import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
-import org.apache.drill.exec.physical.impl.xsort.managed.SortMetrics;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.store.easy.json.JSONRecordReader;
@@ -973,8 +972,8 @@ public class TestExternalSortRM extends DrillTest {
     }
     assertEquals(1, ops.size());
     OperatorProfile sort = ops.get(0);
-    long spillCount = sort.getMetric(SortMetrics.Metric.SPILL_COUNT.ordinal());
-    long mergeCount = sort.getMetric(SortMetrics.Metric.MERGE_COUNT.ordinal());
+    long spillCount = sort.getMetric(ExternalSortBatch.Metric.SPILL_COUNT.ordinal());
+    long mergeCount = sort.getMetric(ExternalSortBatch.Metric.MERGE_COUNT.ordinal());
 //    long inputBatches = sort.getMetric(ExternalSortBatch.Metric.INPUT_BATCHES.ordinal());
     int inputBatches = 0;
     System.out.println(String.format("Input batches: %d, spills: %d, merge/spills: %d",

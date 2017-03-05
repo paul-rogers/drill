@@ -28,6 +28,7 @@ import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
+import org.apache.drill.exec.ops.MetricDef;
 import org.apache.drill.exec.physical.config.ExternalSort;
 import org.apache.drill.exec.physical.impl.sort.RecordBatchData;
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
@@ -226,6 +227,12 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private SortState sortState = SortState.START;
   private final OperatorCodeGenerator opCodeGen;
 
+  private SortConfig config;
+
+  private SortMetrics metrics;
+
+  private SortMemoryManager memManager;
+
   /**
    * Iterates over the final sorted results. Implemented differently
    * depending on whether the results are in-memory or spilled to
@@ -239,11 +246,26 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     int getRecordCount();
   }
 
-  private SortConfig config;
+  // WARNING: The enum here is used within this class. But, the members of
+  // this enum MUST match those in the (unmanaged) ExternalSortBatch since
+  // that is the enum used in the UI to display metrics for the query profile.
 
-  private SortMetrics metrics;
+  public enum Metric implements MetricDef {
+    SPILL_COUNT,            // number of times operator spilled to disk
+    RETIRED1,               // Was: peak value for totalSizeInMemory
+                            // But operator already provides this value
+    PEAK_BATCHES_IN_MEMORY, // maximum number of batches kept in memory
+    MERGE_COUNT,            // Number of second+ generation merges
+    MIN_BUFFER,             // Minimum memory level observed in operation.
+    SPILL_MB;               // Number of MB of data spilled to disk. This
+                            // amount is first written, then later re-read.
+                            // So, disk I/O is twice this amount.
 
-  SortMemoryManager memManager;
+    @Override
+    public int metricId() {
+      return ordinal();
+    }
+  }
 
   public ExternalSortBatch(ExternalSort popConfig, FragmentContext context, RecordBatch incoming) {
     super(popConfig, context, true);
@@ -655,7 +677,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     // Update the minimum buffer space metric.
 
-    metrics.updateInputMetrics(endMem, sizer);
+    metrics.updateInputMetrics(sizer.rowCount(), sizer.actualSize());
+    metrics.updateMemory(memManager.freeMemory(endMem));
 
     // Update the size based on the actual record count, not
     // the effective count as given by the selection vector
@@ -1005,7 +1028,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     // with the just-written batch.
 
     String outputFile = spillSet.getNextSpillFile();
-    metrics.updateSpillCount(spillSet.getFileCount());
+    metrics.incrSpillCount();
     BatchGroup.SpilledRun newGroup = null;
     int spillBatchRowCount = memManager.getSpillBatchRowCount();
     try (AutoCloseable ignored = AutoCloseables.all(batchesToSpill);

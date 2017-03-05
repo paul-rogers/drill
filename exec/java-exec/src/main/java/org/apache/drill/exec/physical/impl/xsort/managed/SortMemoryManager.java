@@ -313,7 +313,7 @@ public class SortMemoryManager {
    * the observation that we need two input batches and
    * one spill batch to make progress.
    */
-  
+
   private void lowMemorySpillBatchSize() {
 
     // The "expected" size is with power-of-two rounding in some vectors.
@@ -361,7 +361,7 @@ public class SortMemoryManager {
     mergeBatchRowCount = rowsPerBatch(expectedMergeBatchSize);
     mergeMemoryLimit = memoryLimit - expectedMergeBatchSize;
   }
-  
+
   /**
    * Log the calculated values. Turn this on if things seem amiss.
    * Message will appear only when the values change.
@@ -397,17 +397,17 @@ public class SortMemoryManager {
     int rowCount = batchSize * 3 / 4 / estimatedRowWidth;
     return Math.max(1, Math.min(rowCount, Character.MAX_VALUE));
   }
-  
+
   /**
    * Compute the expected number of rows that fit into a given size
    * batch, accounting for internal fragmentation due to power-of-two
    * rounding on vector allocations.
-   * 
+   *
    * @param rowCount the desired number of rows in the batch
    * @return the size of resulting batch, including power-of-two
    * rounding.
    */
-  
+
   private int batchForRows(int rowCount) {
     return estimatedRowWidth * rowCount * 4 / 3;
   }
@@ -420,8 +420,11 @@ public class SortMemoryManager {
   }
 
   public boolean hasMemoryMergeCapacity(long allocatedBytes, long neededForInMemorySort) {
-    long availableMem = memoryLimit - allocatedBytes;
-    return (availableMem >= neededForInMemorySort);
+    return (freeMemory(allocatedBytes) >= neededForInMemorySort);
+  }
+
+  public long freeMemory(long allocatedBytes) {
+    return memoryLimit - allocatedBytes;
   }
 
   public int getMaxMergeWidth() {

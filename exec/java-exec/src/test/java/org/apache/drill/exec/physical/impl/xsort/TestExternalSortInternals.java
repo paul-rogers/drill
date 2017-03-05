@@ -19,10 +19,17 @@ package org.apache.drill.exec.physical.impl.xsort;
 
 import static org.junit.Assert.*;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.exec.ExecConstants;
+import org.apache.drill.exec.ops.MetricDef;
+import org.apache.drill.exec.ops.OperatorStatReceiver;
+import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortConfig;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortMemoryManager;
+import org.apache.drill.exec.physical.impl.xsort.managed.SortMetrics;
 import org.apache.drill.test.ConfigBuilder;
 import org.apache.drill.test.DrillTest;
 import org.junit.Test;
@@ -410,5 +417,118 @@ public class TestExternalSortInternals extends DrillTest {
     assertTrue(memManager.hasMemoryMergeCapacity(memoryLimit - ONE_MEG, ONE_MEG - 1));
     assertTrue(memManager.hasMemoryMergeCapacity(memoryLimit - ONE_MEG, ONE_MEG));
     assertFalse(memManager.hasMemoryMergeCapacity(memoryLimit - ONE_MEG, ONE_MEG + 1));
+  }
+
+  public static class DummyStats implements OperatorStatReceiver {
+
+    public Map<Integer,Double> stats = new HashMap<>();
+
+    @Override
+    public void addLongStat(MetricDef metric, long value) {
+      setStat(metric, getStat(metric) + value);
+    }
+
+    @Override
+    public void addDoubleStat(MetricDef metric, double value) {
+      setStat(metric, getStat(metric) + value);
+    }
+
+    @Override
+    public void setLongStat(MetricDef metric, long value) {
+      setStat(metric, value);
+    }
+
+    @Override
+    public void setDoubleStat(MetricDef metric, double value) {
+      setStat(metric, value);
+    }
+
+    public double getStat(MetricDef metric) {
+      return getStat(metric.metricId());
+    }
+
+    private double getStat(int metricId) {
+      Double value = stats.get(metricId);
+      return value == null ? 0 : value;
+    }
+
+    private void setStat(MetricDef metric, double value) {
+      setStat(metric.metricId(), value);
+    }
+
+    private void setStat(int metricId, double value) {
+      stats.put(metricId, value);
+    }
+  }
+
+  @Test
+  public void testMetrics() {
+    DummyStats stats = new DummyStats();
+    SortMetrics metrics = new SortMetrics(stats);
+
+    // Input stats
+
+    metrics.updateInputMetrics(100, 10_000);
+    assertEquals(1, metrics.getInputBatchCount());
+    assertEquals(100, metrics.getInputRowCount());
+    assertEquals(10_000, metrics.getInputBytes());
+
+    metrics.updateInputMetrics(200, 20_000);
+    assertEquals(2, metrics.getInputBatchCount());
+    assertEquals(300, metrics.getInputRowCount());
+    assertEquals(30_000, metrics.getInputBytes());
+
+    // Buffer memory
+
+    assertEquals(0D, stats.getStat(ExternalSortBatch.Metric.MIN_BUFFER), 0.01);
+
+    metrics.updateMemory(1_000_000);
+    assertEquals(1_000_000D, stats.getStat(ExternalSortBatch.Metric.MIN_BUFFER), 0.01);
+
+    metrics.updateMemory(2_000_000);
+    assertEquals(1_000_000D, stats.getStat(ExternalSortBatch.Metric.MIN_BUFFER), 0.01);
+
+    metrics.updateMemory(100_000);
+    assertEquals(100_000D, stats.getStat(ExternalSortBatch.Metric.MIN_BUFFER), 0.01);
+
+    // Peak batches
+
+    assertEquals(0D, stats.getStat(ExternalSortBatch.Metric.PEAK_BATCHES_IN_MEMORY), 0.01);
+
+    metrics.updatePeakBatches(10);
+    assertEquals(10D, stats.getStat(ExternalSortBatch.Metric.PEAK_BATCHES_IN_MEMORY), 0.01);
+
+    metrics.updatePeakBatches(1);
+    assertEquals(10D, stats.getStat(ExternalSortBatch.Metric.PEAK_BATCHES_IN_MEMORY), 0.01);
+
+    metrics.updatePeakBatches(20);
+    assertEquals(20D, stats.getStat(ExternalSortBatch.Metric.PEAK_BATCHES_IN_MEMORY), 0.01);
+
+    // Merge count
+
+    assertEquals(0D, stats.getStat(ExternalSortBatch.Metric.MERGE_COUNT), 0.01);
+
+    metrics.incrMergeCount();
+    assertEquals(1D, stats.getStat(ExternalSortBatch.Metric.MERGE_COUNT), 0.01);
+
+    metrics.incrMergeCount();
+    assertEquals(2D, stats.getStat(ExternalSortBatch.Metric.MERGE_COUNT), 0.01);
+
+    // Spill count
+
+    assertEquals(0D, stats.getStat(ExternalSortBatch.Metric.SPILL_COUNT), 0.01);
+
+    metrics.incrSpillCount();
+    assertEquals(1D, stats.getStat(ExternalSortBatch.Metric.SPILL_COUNT), 0.01);
+
+    metrics.incrSpillCount();
+    assertEquals(2D, stats.getStat(ExternalSortBatch.Metric.SPILL_COUNT), 0.01);
+
+    // Write bytes
+
+    assertEquals(0D, stats.getStat(ExternalSortBatch.Metric.SPILL_MB), 0.01);
+
+    metrics.updateWriteBytes(17 * ONE_MEG + ONE_MEG * 3 / 4);
+    assertEquals(17.75D, stats.getStat(ExternalSortBatch.Metric.SPILL_MB), 0.001);
   }
 }
