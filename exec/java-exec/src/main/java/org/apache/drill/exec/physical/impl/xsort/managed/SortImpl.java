@@ -38,6 +38,8 @@ import org.apache.drill.exec.physical.impl.xsort.MSortTemplate;
 import org.apache.drill.exec.physical.impl.xsort.SingleBatchSorter;
 import org.apache.drill.exec.physical.impl.xsort.managed.BatchGroup.InputBatch;
 import org.apache.drill.exec.physical.impl.xsort.managed.BatchGroup.SpilledRun;
+import org.apache.drill.exec.physical.impl.xsort.managed.SortMemoryManager.MergeAction;
+import org.apache.drill.exec.physical.impl.xsort.managed.SortMemoryManager.MergeTask;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.SchemaUtil;
@@ -620,80 +622,22 @@ public class SortImpl {
 
   private boolean consolidateBatches() {
 
-    // Determine additional memory needed to hold one batch from each
-    // spilled run.
-
-    int inMemCount = bufferedBatches.size();
-    int spilledRunsCount = spilledRuns.size();
-
-    // Can't merge more than will fit into memory at one time.
-
-    int maxMergeWidth = memManager.getMaxMergeWidth();
-
-    // But, must merge at least two batches.
-
-    maxMergeWidth = Math.max(maxMergeWidth, 2);
-
-    // If we can't fit all batches in memory, must spill any in-memory
-    // batches to make room for multiple spill-merge-spill cycles.
-
-    if (inMemCount > 0) {
-      if (spilledRunsCount > maxMergeWidth) {
-        spillFromMemory();
-        return true;
-      }
-
-      // If we just plain have too many batches to merge, spill some
-      // in-memory batches to reduce the burden.
-
-      if (inMemCount + spilledRunsCount > config.mergeLimit()) {
-        spillFromMemory();
-        return true;
-      }
-
-      // If the on-disk batches and in-memory batches need more memory than
-      // is available, spill some in-memory batches.
-
-       if (! memManager.hasMergeCapacity(allocator.getAllocatedMemory(), spilledRunsCount)) {
-        spillFromMemory();
-        return true;
-      }
-    }
-
-    // Merge on-disk batches if we have too many.
-
-    int mergeCount = spilledRunsCount - maxMergeWidth;
-    if (mergeCount <= 0) {
-      return false;
-    }
-
-    // Must merge at least 2 batches to make progress.
-
-    mergeCount = Math.max(2, mergeCount);
-
-    // We will merge. This will create yet another spilled
-    // run. Account for that.
-
-    mergeCount += 1;
-
-    mergeCount = Math.min(mergeCount, maxMergeWidth);
-
-    // If we are going to merge, and we have batches in memory,
-    // spill them and try again. We need to do this to ensure we
-    // have adequate memory to hold the merge batches. We are into
-    // a second-generation sort/merge so there is no point in holding
-    // onto batches in memory.
-
-    if (inMemCount > 0) {
+    MergeTask task = memManager.consolidateBatches(
+                      allocator.getAllocatedMemory(),
+                      bufferedBatches.size(),
+                      spilledRuns.size());
+    switch (task.action) {
+    case SPILL:
       spillFromMemory();
       return true;
+    case MERGE:
+      mergeRuns(task.count);
+      return true;
+    case NONE:
+      return false;
+    default:
+      throw new IllegalStateException("Unexpected action: " + task.action);
     }
-
-    // Do the merge, then loop to try again in case not
-    // all the target batches spilled in one go.
-
-    mergeRuns(mergeCount);
-    return true;
   }
 
   private void mergeRuns(int targetCount) {

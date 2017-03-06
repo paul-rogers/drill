@@ -29,6 +29,8 @@ import org.apache.drill.exec.ops.OperatorStatReceiver;
 import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortConfig;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortMemoryManager;
+import org.apache.drill.exec.physical.impl.xsort.managed.SortMemoryManager.MergeAction;
+import org.apache.drill.exec.physical.impl.xsort.managed.SortMemoryManager.MergeTask;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortMetrics;
 import org.apache.drill.test.ConfigBuilder;
 import org.apache.drill.test.DrillTest;
@@ -417,6 +419,144 @@ public class TestExternalSortInternals extends DrillTest {
     assertTrue(memManager.hasMemoryMergeCapacity(memoryLimit - ONE_MEG, ONE_MEG - 1));
     assertTrue(memManager.hasMemoryMergeCapacity(memoryLimit - ONE_MEG, ONE_MEG));
     assertFalse(memManager.hasMemoryMergeCapacity(memoryLimit - ONE_MEG, ONE_MEG + 1));
+  }
+
+  @Test
+  public void testMergeCalcs() {
+
+    // No artificial merge limit
+
+    int mergeLimitConstraint = 100;
+    DrillConfig drillConfig = new ConfigBuilder()
+        .put(ExecConstants.EXTERNAL_SORT_MERGE_LIMIT, mergeLimitConstraint)
+        .build();
+    SortConfig sortConfig = new SortConfig(drillConfig);
+    // Allow four spill batches, 8 MB each, plus one output of 16
+    long memoryLimit = 50 * ONE_MEG;
+    SortMemoryManager memManager = new SortMemoryManager(sortConfig, memoryLimit);
+
+    // Prime the estimates
+
+    int rowWidth = 300;
+    int rowCount = 10000;
+    int batchSize = rowWidth * rowCount * 2;
+
+    memManager.updateEstimates(batchSize, rowWidth, rowCount);
+    int spillBatchSize = memManager.getSpillBatchSize();
+    int mergeBatchSize = memManager.getMergeBatchSize();
+
+    // One in-mem batch, no merging.
+
+    long allocMemory = memoryLimit - mergeBatchSize;
+    MergeTask task = memManager.consolidateBatches(allocMemory, 1, 0);
+    assertEquals(MergeAction.NONE, task.action);
+
+    // Many in-mem batches, just enough to merge
+
+    allocMemory = memoryLimit - mergeBatchSize;
+    int memBatches = (int) (allocMemory / batchSize);
+    allocMemory = memBatches * batchSize;
+    task = memManager.consolidateBatches(allocMemory, memBatches, 0);
+    assertEquals(MergeAction.NONE, task.action);
+
+    // Spills if no room for spill and in-memory batches
+
+    task = memManager.consolidateBatches(allocMemory, memBatches, 1);
+    assertEquals(MergeAction.SPILL, task.action);
+
+    // One more in-mem batch: now needs to spill
+
+    memBatches++;
+    allocMemory = memBatches * batchSize;
+    task = memManager.consolidateBatches(allocMemory, memBatches, 0);
+    assertEquals(MergeAction.SPILL, task.action);
+
+    // No spill for various in-mem/spill run combinations
+
+    allocMemory = memoryLimit - spillBatchSize - mergeBatchSize;
+    memBatches = (int) (allocMemory / batchSize);
+    allocMemory = memBatches * batchSize;
+    task = memManager.consolidateBatches(allocMemory, memBatches, 1);
+    assertEquals(MergeAction.NONE, task.action);
+
+    allocMemory = memoryLimit - 2 * spillBatchSize - mergeBatchSize;
+    memBatches = (int) (allocMemory / batchSize);
+    allocMemory = memBatches * batchSize;
+    task = memManager.consolidateBatches(allocMemory, memBatches, 2);
+    assertEquals(MergeAction.NONE, task.action);
+
+    // No spill if no in-memory, only spill, and spill fits
+
+    long freeMem = memoryLimit - mergeBatchSize;
+    int spillBatches = (int) (freeMem / spillBatchSize);
+    task = memManager.consolidateBatches(0, 0, spillBatches);
+    assertEquals(MergeAction.NONE, task.action);
+
+    // One more and must merge
+
+    task = memManager.consolidateBatches(0, 0, spillBatches + 1);
+    assertEquals(MergeAction.MERGE, task.action);
+    assertEquals(2, task.count);
+
+    // Two more and will merge more
+
+    task = memManager.consolidateBatches(0, 0, spillBatches + 2);
+    assertEquals(MergeAction.MERGE, task.action);
+    assertEquals(3, task.count);
+  }
+
+  @Test
+  public void testMergeLimit() {
+    // Constrain merge width
+    int mergeLimitConstraint = 5;
+    DrillConfig drillConfig = new ConfigBuilder()
+        .put(ExecConstants.EXTERNAL_SORT_MERGE_LIMIT, mergeLimitConstraint)
+        .build();
+    SortConfig sortConfig = new SortConfig(drillConfig);
+    // Plenty of memory, memory will not be a limit
+    long memoryLimit = 400 * ONE_MEG;
+    SortMemoryManager memManager = new SortMemoryManager(sortConfig, memoryLimit);
+
+    // Prime the estimates
+
+    int rowWidth = 300;
+    int rowCount = 10000;
+    int batchSize = rowWidth * rowCount * 2;
+
+    memManager.updateEstimates(batchSize, rowWidth, rowCount);
+
+    // Pretend merge limit runs, additional in-memory batches
+
+    int memBatchCount = 10;
+    int spillRunCount = mergeLimitConstraint;
+    long allocMemory = batchSize * memBatchCount;
+    MergeTask task = memManager.consolidateBatches(allocMemory, memBatchCount, spillRunCount);
+    assertEquals(MergeAction.NONE, task.action);
+
+    // One more run than can merge in one go. But, we have plenty of
+    // memory to merge and hold the in-memory batches. So, just merge.
+
+    task = memManager.consolidateBatches(allocMemory, memBatchCount, spillRunCount + 1);
+    assertEquals(MergeAction.MERGE, task.action);
+    assertEquals(2, task.count);
+
+    // One more runs than can merge in one go, intermediate merge
+
+    task = memManager.consolidateBatches(0, 0, spillRunCount + 1);
+    assertEquals(MergeAction.MERGE, task.action);
+    assertEquals(2, task.count);
+
+    // Two more spill runs, merge three
+
+    task = memManager.consolidateBatches(0, 0, spillRunCount + 2);
+    assertEquals(MergeAction.MERGE, task.action);
+    assertEquals(3, task.count);
+
+    // Way more than can merge, limit to the constraint
+
+    task = memManager.consolidateBatches(0, 0, spillRunCount * 3);
+    assertEquals(MergeAction.MERGE, task.action);
+    assertEquals(mergeLimitConstraint, task.count);
   }
 
   public static class DummyStats implements OperatorStatReceiver {

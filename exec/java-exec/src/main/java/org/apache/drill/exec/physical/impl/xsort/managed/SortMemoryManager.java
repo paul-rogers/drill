@@ -379,6 +379,67 @@ public class SortMemoryManager {
                  memoryLimit, bufferMemoryLimit, mergeMemoryLimit);
   }
 
+  public enum MergeAction { SPILL, MERGE, NONE }
+
+  public static class MergeTask {
+    public MergeAction action;
+    public int count;
+
+    public MergeTask(MergeAction action, int count) {
+      this.action = action;
+      this.count = count;
+    }
+  }
+
+  public MergeTask consolidateBatches(long allocMemory, int inMemCount, int spilledRunsCount) {
+
+    // Determine additional memory needed to hold one batch from each
+    // spilled run.
+
+    // If the on-disk batches and in-memory batches need more memory than
+    // is available, spill some in-memory batches.
+
+    if (inMemCount > 0) {
+      long mergeSize = spilledRunsCount * expectedSpillBatchSize;
+      if (allocMemory + mergeSize > mergeMemoryLimit) {
+        return new MergeTask(MergeAction.SPILL, 0);
+      }
+    }
+
+    // Maximum batches that fit into available memory.
+
+    int mergeLimit = (int) ((mergeMemoryLimit - allocMemory) / expectedSpillBatchSize);
+
+    // Can't merge more than the merge limit.
+
+    mergeLimit = Math.min(mergeLimit, config.mergeLimit());
+
+    // How many batches to merge?
+
+    int mergeCount = spilledRunsCount - mergeLimit;
+    if (mergeCount <= 0) {
+      return new MergeTask(MergeAction.NONE, 0);
+    }
+
+    // We will merge. This will create yet another spilled
+    // run. Account for that.
+
+    mergeCount += 1;
+
+    // Must merge at least 2 batches to make progress.
+    // This is the the (at least one) excess plus the allowance
+    // above for the new one.
+
+    // Can't merge more than the limit.
+
+    mergeCount = Math.min(mergeCount, config.mergeLimit());
+
+    // Do the merge, then loop to try again in case not
+    // all the target batches spilled in one go.
+
+    return new MergeTask(MergeAction.MERGE, mergeCount);
+  }
+
   /**
    * Compute the number of rows per batch assuming that the batch is
    * subject to average internal fragmentation due to power-of-two
@@ -425,17 +486,6 @@ public class SortMemoryManager {
 
   public long freeMemory(long allocatedBytes) {
     return memoryLimit - allocatedBytes;
-  }
-
-  public int getMaxMergeWidth() {
-    int maxMergeWidth = (int) (mergeMemoryLimit / expectedSpillBatchSize);
-    return Math.min(config.mergeLimit(), maxMergeWidth);
-  }
-
-  public boolean hasMergeCapacity(long allocatedBytes, long mergeRunsCount) {
-    long mergeSize = mergeRunsCount * expectedSpillBatchSize;
-    long totalNeeds = mergeSize + allocatedBytes;
-    return (totalNeeds < mergeMemoryLimit);
   }
 
   public long getMergeMemoryLimit() { return mergeMemoryLimit; }
