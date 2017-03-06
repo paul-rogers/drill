@@ -58,7 +58,6 @@ public class SchemaPath extends LogicalExpressionBase {
     return new SchemaPath(s);
   }
 
-  @SuppressWarnings("unused")
   public PathSegment getLastSegment() {
     PathSegment s= rootSegment;
     while (s.getChild() != null) {
@@ -157,7 +156,6 @@ public class SchemaPath extends LogicalExpressionBase {
     return new SchemaPath(newRoot);
   }
 
-  @SuppressWarnings("unused")
   public SchemaPath getUnindexedArrayChild() {
     NameSegment newRoot = rootSegment.cloneWithNewChild(new ArraySegment(null));
     return new SchemaPath(newRoot);
