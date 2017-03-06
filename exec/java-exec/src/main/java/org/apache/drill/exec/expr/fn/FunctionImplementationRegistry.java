@@ -59,7 +59,7 @@ import org.apache.drill.exec.planner.sql.DrillOperatorTable;
 import org.apache.drill.exec.proto.UserBitShared.Jar;
 import org.apache.drill.exec.resolver.FunctionResolver;
 import org.apache.drill.exec.resolver.FunctionResolverFactory;
-import org.apache.drill.exec.server.options.OptionManager;
+import org.apache.drill.exec.server.options.OptionSet;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
@@ -83,7 +83,7 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
   private boolean deleteTmpDir = false;
   private File tmpDir;
   private List<PluggableFunctionRegistry> pluggableFuncRegistries = Lists.newArrayList();
-  private OptionManager optionManager = null;
+  private OptionSet optionManager = null;
 
   @Deprecated @VisibleForTesting
   public FunctionImplementationRegistry(DrillConfig config){
@@ -123,7 +123,7 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
     this.localUdfDir = getLocalUdfDir(config);
   }
 
-  public FunctionImplementationRegistry(DrillConfig config, ScanResult classpathScan, OptionManager optionManager) {
+  public FunctionImplementationRegistry(DrillConfig config, ScanResult classpathScan, OptionSet optionManager) {
     this(config, classpathScan);
     this.optionManager = optionManager;
   }
@@ -315,6 +315,7 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
    * @param version remote function registry local function registry was based on
    * @return true if remote and local function registries were synchronized after given version
    */
+  @SuppressWarnings("resource")
   public boolean syncWithRemoteRegistry(long version) {
     if (isRegistrySyncNeeded(remoteFunctionRegistry.getRegistryVersion(), localFunctionRegistry.getVersion())) {
       synchronized (this) {
@@ -495,6 +496,7 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
    * @return local path to jar that was copied
    * @throws IOException in case of problems during jar coping process
    */
+  @SuppressWarnings("resource")
   private Path copyJarToLocal(String jarName, RemoteFunctionRegistry remoteFunctionRegistry) throws IOException {
     Path registryArea = remoteFunctionRegistry.getRegistryArea();
     FileSystem fs = remoteFunctionRegistry.getFs();
@@ -549,7 +551,7 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
   private class UnregistrationListener implements TransientStoreListener {
 
     @Override
-    public void onChange(TransientStoreEvent event) {
+    public void onChange(TransientStoreEvent<?> event) {
       String jarName = (String) event.getValue();
       localFunctionRegistry.unregister(jarName);
       String localDir = localUdfDir.toUri().getPath();

@@ -34,7 +34,7 @@ import org.apache.drill.exec.expr.ClassGenerator.HoldingContainer;
 import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
 import org.apache.drill.exec.expr.fn.FunctionGenerationHelper;
-import org.apache.drill.exec.ops.FragmentContext;
+import org.apache.drill.exec.ops.CodeGenContext;
 import org.apache.drill.exec.physical.config.ExternalSort;
 import org.apache.drill.exec.physical.config.Sort;
 import org.apache.drill.exec.physical.impl.xsort.SingleBatchSorter;
@@ -64,7 +64,7 @@ public class OperatorCodeGenerator {
   private static final GeneratorMapping COPIER_MAPPING = new GeneratorMapping("doSetup", "doCopy", null, null);
   private static final MappingSet COPIER_MAPPING_SET = new MappingSet(COPIER_MAPPING, COPIER_MAPPING);
 
-  private final FragmentContext context;
+  private final CodeGenContext context;
   @SuppressWarnings("unused")
   private BatchSchema schema;
 
@@ -85,7 +85,7 @@ public class OperatorCodeGenerator {
 
   private SingleBatchSorter sorter;
 
-  public OperatorCodeGenerator(FragmentContext context, Sort popConfig) {
+  public OperatorCodeGenerator(CodeGenContext context, Sort popConfig) {
     this.context = context;
     this.popConfig = popConfig;
   }
@@ -123,7 +123,7 @@ public class OperatorCodeGenerator {
   private PriorityQueueCopier generateCopier(VectorAccessible batch) {
     // Generate the copier code and obtain the resulting class
 
-    CodeGenerator<PriorityQueueCopier> cg = CodeGenerator.get(PriorityQueueCopier.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
+    CodeGenerator<PriorityQueueCopier> cg = CodeGenerator.get(PriorityQueueCopier.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptionSet());
     ClassGenerator<PriorityQueueCopier> g = cg.getRoot();
     cg.plainJavaCapable(true);
     // Uncomment out this line to debug the generated code.
@@ -142,7 +142,7 @@ public class OperatorCodeGenerator {
   }
 
   private MSorter createNewMSorter(List<Ordering> orderings, VectorAccessible batch, MappingSet mainMapping, MappingSet leftMapping, MappingSet rightMapping) {
-    CodeGenerator<MSorter> cg = CodeGenerator.get(MSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptions());
+    CodeGenerator<MSorter> cg = CodeGenerator.get(MSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptionSet());
     cg.plainJavaCapable(true);
 
     // Uncomment out this line to debug the generated code.
@@ -196,7 +196,7 @@ public class OperatorCodeGenerator {
   private SingleBatchSorter createNewSorter(VectorAccessible batch) {
     CodeGenerator<SingleBatchSorter> cg = CodeGenerator.get(
         SingleBatchSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(),
-        context.getOptions());
+        context.getOptionSet());
     ClassGenerator<SingleBatchSorter> g = cg.getRoot();
     cg.plainJavaCapable(true);
     // Uncomment out this line to debug the generated code.

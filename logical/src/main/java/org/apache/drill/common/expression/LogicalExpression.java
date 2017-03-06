@@ -55,6 +55,7 @@ public interface LogicalExpression extends Iterable<LogicalExpression>{
   public int getSelfCost();
   public int getCumulativeCost();
 
+  @SuppressWarnings("serial")
   public static class De extends StdDeserializer<LogicalExpression> {
     DrillConfig config;
 
@@ -90,6 +91,7 @@ public interface LogicalExpression extends Iterable<LogicalExpression>{
 
   }
 
+  @SuppressWarnings("serial")
   public static class Se extends StdSerializer<LogicalExpression> {
 
     protected Se() {

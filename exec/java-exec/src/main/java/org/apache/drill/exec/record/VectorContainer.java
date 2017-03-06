@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -52,7 +52,7 @@ public class VectorContainer implements Iterable<VectorWrapper<?>>, VectorAccess
     this.oContext = null;
   }
 
-  public VectorContainer( OperatorContext oContext) {
+  public VectorContainer(OperatorContext oContext) {
     this.oContext = oContext;
   }
 

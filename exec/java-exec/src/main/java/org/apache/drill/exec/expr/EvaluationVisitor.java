@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -86,11 +86,11 @@ public class EvaluationVisitor {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(EvaluationVisitor.class);
 
 
-  private final FunctionImplementationRegistry registry;
+//  private final FunctionImplementationRegistry registry;
 
   public EvaluationVisitor(FunctionImplementationRegistry registry) {
     super();
-    this.registry = registry;
+//    this.registry = registry;
   }
 
   public HoldingContainer addExpr(LogicalExpression e, ClassGenerator<?> generator) {

@@ -27,11 +27,8 @@ import org.apache.drill.common.util.DrillStringUtils;
 import org.apache.drill.exec.compile.ClassTransformer.ClassNames;
 import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.expr.CodeGenerator;
-import org.apache.drill.exec.server.options.OptionManager;
+import org.apache.drill.exec.server.options.OptionSet;
 import org.codehaus.commons.compiler.CompileException;
-import org.objectweb.asm.tree.ClassNode;
-
-import com.google.common.collect.Maps;
 
 /**
  * Implements the "plain Java" method of code generation and
@@ -86,10 +83,10 @@ public class ClassBuilder {
   public static final String CODE_DIR_OPTION = CodeCompiler.COMPILE_BASE + ".code_dir";
 
   private final DrillConfig config;
-  private final OptionManager options;
+  private final OptionSet options;
   private final File codeDir;
 
-  public ClassBuilder(DrillConfig config, OptionManager optionManager) {
+  public ClassBuilder(DrillConfig config, OptionSet optionManager) {
     this.config = config;
     options = optionManager;
 
