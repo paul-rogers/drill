@@ -17,12 +17,6 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
-public interface ColumnWriter {
-  ValueType getType();
-  void setNull();
-  void setInt(int value);
-  void setLong(long value);
-  void setDouble(double value);
-  void setString(String value);
-  void setBytes(byte[] value);
+public enum ValueType {
+  INTEGER, LONG, DOUBLE, STRING, BYTES
 }

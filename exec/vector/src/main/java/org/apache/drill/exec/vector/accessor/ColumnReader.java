@@ -18,6 +18,7 @@
 package org.apache.drill.exec.vector.accessor;
 
 public interface ColumnReader {
+  ValueType getType();
   boolean isNull();
   int getInt();
   long getLong();

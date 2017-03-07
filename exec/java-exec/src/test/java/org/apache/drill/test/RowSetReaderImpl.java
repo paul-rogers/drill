@@ -20,6 +20,7 @@ package org.apache.drill.test;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.AbstractColumnReader;
+import org.apache.drill.exec.vector.accessor.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnAccessor.RowIndex;
 import org.apache.drill.test.TestRowSet.RowSetReader;
@@ -27,7 +28,7 @@ import org.apache.drill.test.TestRowSet.RowSetReader;
 public class RowSetReaderImpl implements RowSetReader {
 
   public static abstract class AbstractRowIndex implements RowIndex {
-    protected int rowIndex;
+    protected int rowIndex = -1;
 
     public void advance() { rowIndex++; }
     public int getIndex() { return rowIndex; }
@@ -76,11 +77,12 @@ public class RowSetReaderImpl implements RowSetReader {
 
   @Override
   public boolean valid() {
-    return rowIndex.getIndex() < recordSet.rowCount();
+    int index = rowIndex.getIndex();
+    return index >= 0  && index < recordSet.rowCount();
   }
 
   @Override
-  public boolean advance() {
+  public boolean next() {
     if (rowIndex.getIndex() >= recordSet.rowCount())
       return false;
     rowIndex.advance();

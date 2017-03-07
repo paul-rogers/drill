@@ -15,19 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.test;
+package org.apache.drill.exec.vector.accessor;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.vector.accessor.AbstractColumnReader;
-import org.apache.drill.exec.vector.accessor.AbstractColumnWriter;
-import org.apache.drill.exec.vector.accessor.AbstractColumnReader.IntColumnReader;
-import org.apache.drill.exec.vector.accessor.AbstractColumnReader.VarCharColumnReader;
-import org.apache.drill.exec.vector.accessor.AbstractColumnWriter.IntColumnWriter;
-import org.apache.drill.exec.vector.accessor.AbstractColumnWriter.VarCharColumnWriter;
-
-// TODO: Generate this based on the myriad types and modes.
 
 public class ColumnAccessorFactory {
 
@@ -43,8 +35,7 @@ public class ColumnAccessorFactory {
       writers[i] = new Class[modeCount];
     }
 
-    writers[MinorType.INT.ordinal()][DataMode.REQUIRED.ordinal()] = IntColumnWriter.class;
-    writers[MinorType.VARCHAR.ordinal()][DataMode.REQUIRED.ordinal()] = VarCharColumnWriter.class;
+    ColumnAccessors.defineWriters(writers);
     return writers;
   }
 
@@ -57,8 +48,7 @@ public class ColumnAccessorFactory {
       readers[i] = new Class[modeCount];
     }
 
-    readers[MinorType.INT.ordinal()][DataMode.REQUIRED.ordinal()] = IntColumnReader.class;
-    readers[MinorType.VARCHAR.ordinal()][DataMode.REQUIRED.ordinal()] = VarCharColumnReader.class;
+    ColumnAccessors.defineReaders(readers);
     return readers;
   }
 

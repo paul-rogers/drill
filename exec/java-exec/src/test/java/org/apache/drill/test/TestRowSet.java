@@ -80,7 +80,7 @@ public class TestRowSet {
 
   public interface RowSetReader {
     boolean valid();
-    boolean advance();
+    boolean next();
     int rowIndex();
     int rowCount();
     ColumnReader column(int colIndex);
@@ -169,5 +169,9 @@ public class TestRowSet {
 
   public ValueVector[] vectors() {
     return valueVectors;
+  }
+
+  public TestSchema schema() {
+    return schema;
   }
 }

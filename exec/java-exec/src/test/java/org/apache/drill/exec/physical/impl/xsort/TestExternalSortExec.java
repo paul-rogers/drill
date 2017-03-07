@@ -36,17 +36,13 @@ import org.apache.drill.exec.physical.config.Sort;
 import org.apache.drill.exec.physical.impl.xsort.managed.OperatorCodeGenerator;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
-import org.apache.drill.exec.vector.IntVector;
-import org.apache.drill.exec.vector.VarCharVector;
 import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.OperatorFixture;
+import org.apache.drill.test.RowSetBuilder;
+import org.apache.drill.test.RowSetComparison;
 import org.apache.drill.test.TestRowSet;
-import org.apache.drill.test.TestRowSet.RowSetReader;
-import org.apache.drill.test.TestRowSet.RowSetWriter;
 import org.apache.drill.test.TestSchema;
 import org.junit.Test;
-
-import com.google.common.base.Charsets;
 
 import jersey.repackaged.com.google.common.collect.Lists;
 
@@ -226,58 +222,45 @@ public class TestExternalSortExec extends DrillTest {
       sorter.setup(null, recSet.getSv2(), recSet.getVectorAccessible());
       sorter.sort(recSet.getSv2());
       assertEquals(0, recSet.rowCount());
+      recSet.clear();
 
       // Sort with one row
 
-      recSet.clear();
-      RowSetWriter writer = recSet.writer(10);
-      writer.column(0).setInt(0);
-      writer.column(1).setString("0");
-      writer.advance();
-      writer.done();
+      recSet = new RowSetBuilder(fixture.allocator(), schema)
+          .add(0, "0")
+          .withSv2()
+          .build();
 
       assertEquals(1, recSet.rowCount());
 
-      recSet.makeSv2();
       sorter.setup(null, recSet.getSv2(), recSet.getVectorAccessible());
       sorter.sort(recSet.getSv2());
 
-      RowSetReader reader = recSet.reader();
-      assertTrue(reader.valid());
-      assertEquals(0, reader.column(0).getInt());
-      assertEquals("0", reader.column(1).getString());
-      assertFalse(reader.advance());
-      assertFalse(reader.valid());
-      recSet.clear();
+      TestRowSet expected = new RowSetBuilder(fixture.allocator(), schema)
+          .add(0, "0")
+          .build();
+      new RowSetComparison(expected)
+          .verifyAndClear(recSet);
 
       // Paranoia: sort with two rows.
 
-      recSet.clear();
-      writer = recSet.writer(10);
-      writer.column(0).setInt(1);
-      writer.column(1).setString("1");
-      writer.advance();
-      writer.column(0).setInt(0);
-      writer.column(1).setString("0");
-      writer.advance();
-      writer.done();
+      recSet = new RowSetBuilder(fixture.allocator(), schema)
+          .add(1, "1")
+          .add(0, "0")
+          .withSv2()
+          .build();
 
       assertEquals(2, recSet.rowCount());
 
-      recSet.makeSv2();
       sorter.setup(null, recSet.getSv2(), recSet.getVectorAccessible());
       sorter.sort(recSet.getSv2());
 
-      reader = recSet.reader();
-      assertTrue(reader.valid());
-      assertEquals(0, reader.column(0).getInt());
-      assertEquals("0", reader.column(1).getString());
-      assertTrue(reader.advance());
-      assertEquals(1, reader.column(0).getInt());
-      assertEquals("1", reader.column(1).getString());
-      assertFalse(reader.advance());
-      assertFalse(reader.valid());
-      recSet.clear();
+      expected = new RowSetBuilder(fixture.allocator(), schema)
+          .add(0, "0")
+          .add(1, "1")
+          .build();
+      new RowSetComparison(expected)
+          .verifyAndClear(recSet);
     }
   }
 

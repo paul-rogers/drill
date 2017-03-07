@@ -22,9 +22,58 @@
 
 <#include "/@includes/license.ftl" />
 
+<#macro getType type>
+    @Override
+    public ValueType getType() {
+      <#if type == "byte[]">
+      return ValueType.BYTES;
+      <#elseif type == "int">
+      return ValueType.INTEGER;
+      <#else>
+      return ValueType.${type?upper_case};
+      </#if>
+    }
+</#macro>
+
+<#macro bindReader prefix drillType>
+    private ${prefix}${drillType}Vector.Accessor accessor;
+
+    @Override
+    public void bind(RowIndex rowIndex, ValueVector vector) {
+      bind(rowIndex);
+      this.accessor = ((${prefix}${drillType}Vector) vector).getAccessor();
+    }
+</#macro>
+
+<#macro get drillType accessorType label>
+    @Override
+    public ${accessorType} get${label}() {
+      <#if drillType == "VarChar">
+      return new String(accessor.get(rowIndex()), Charsets.UTF_8);
+      <#elseif drillType == "Var16Char">
+      return new String(accessor.get(rowIndex()), Charsets.UTF_16);
+      <#elseif drillType == "VarBinary">
+      return accessor.get(rowIndex());
+      <#else>
+      return accessor.get(rowIndex());
+      </#if>
+    }
+</#macro>
+
+<#macro bindWriter prefix drillType>
+    private ${prefix}${drillType}Vector.Mutator mutator;
+
+    @Override
+    public void bind(RowIndex rowIndex, ValueVector vector) {
+      bind(rowIndex);
+      this.mutator = ((${prefix}${drillType}Vector) vector).getMutator();
+    }
+</#macro>
+
 package org.apache.drill.exec.vector.accessor;
 
-import org.apache.drill.exec.vector.accessor.ColumnAccessor.RowIndex;
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.vector.*;
 
 import com.google.common.base.Charsets;
@@ -59,66 +108,32 @@ public class ColumnAccessors {
 
   public static class ${drillType}ColumnReader extends AbstractColumnReader {
 
-    private ${drillType}Vector.Accessor accessor;
+    <@bindReader "" drillType />
 
-    @Override
-    public void bind(RowIndex rowIndex, ValueVector vector) {
-      bind(rowIndex);
-      this.accessor = ((${drillType}Vector) vector).getAccessor();
-    }
+    <@getType accessorType />
 
-    @Override
-    public ${accessorType} get${label}() {
-      <#if drillType == "VarChar">
-      return new String(accessor.get(rowIndex()), Charsets.UTF_8);
-      <#elseif drillType == "Var16Char">
-      return new String(accessor.get(rowIndex()), Charsets.UTF_16);
-      <#elseif drillType == "VarBinary">
-      return accessor.get(rowIndex());
-      <#else>
-      return accessor.get(rowIndex());
-      </#if>
-    }
+    <@get drillType accessorType label />
   }
 
   public static class Nullable${drillType}ColumnReader extends AbstractColumnReader {
 
-    private Nullable${drillType}Vector.Accessor accessor;
+    <@bindReader "Nullable" drillType />
 
-    @Override
-    public void bind(RowIndex rowIndex, ValueVector vector) {
-      bind(rowIndex);
-      this.accessor = ((Nullable${drillType}Vector) vector).getAccessor();
-    }
+    <@getType accessorType />
 
     @Override
     public boolean isNull() {
       return accessor.isNull(rowIndex());
     }
 
-    @Override
-    public ${accessorType} get${label}() {
-      <#if drillType == "VarChar">
-      return new String(accessor.get(rowIndex()), Charsets.UTF_8);
-      <#elseif drillType == "Var16Char">
-      return new String(accessor.get(rowIndex()), Charsets.UTF_16);
-      <#elseif drillType == "VarBinary">
-      return accessor.get(rowIndex());
-      <#else>
-      return accessor.get(rowIndex());
-      </#if>
-    }
+    <@get drillType accessorType label />
   }
 
   public static class ${drillType}ColumnWriter extends AbstractColumnWriter {
 
-    private ${drillType}Vector.Mutator mutator;
+    <@bindWriter "" drillType />
 
-    @Override
-    public void bind(RowIndex rowIndex, ValueVector vector) {
-      bind(rowIndex);
-      this.mutator = ((${drillType}Vector) vector).getMutator();
-    }
+    <@getType accessorType />
 
     @Override
     public void set${label}(${accessorType} value) {
@@ -136,13 +151,9 @@ public class ColumnAccessors {
 
   public static class Nullable${drillType}ColumnWriter extends AbstractColumnWriter {
 
-    private Nullable${drillType}Vector.Mutator mutator;
+    <@bindWriter "Nullable" drillType />
 
-    @Override
-    public void bind(RowIndex rowIndex, ValueVector vector) {
-      bind(rowIndex);
-      this.mutator = ((Nullable${drillType}Vector) vector).getMutator();
-    }
+    <@getType accessorType />
 
     @Override
     public void setNull() {
@@ -169,4 +180,33 @@ public class ColumnAccessors {
   </#list>
 </#list>
 
+  public static void defineReaders(
+      Class<? extends AbstractColumnReader> readers[][]) {
+<#list vv.types as type>
+  <#list type.minor as minor>
+    <#assign drillType=minor.class>
+    <#assign notyet=minor.accessorDisabled!type.accessorDisabled!false>
+    <#if ! notyet>
+    <#assign typeEnum=drillType?upper_case>
+    readers[MinorType.${typeEnum}.ordinal()][DataMode.REQUIRED.ordinal()] = ${drillType}ColumnReader.class;
+    readers[MinorType.${typeEnum}.ordinal()][DataMode.OPTIONAL.ordinal()] = Nullable${drillType}ColumnReader.class;
+    </#if>
+  </#list>
+</#list>
+  }
+
+  public static void defineWriters(
+      Class<? extends AbstractColumnWriter> writers[][]) {
+<#list vv.types as type>
+<#list type.minor as minor>
+  <#assign drillType=minor.class>
+  <#assign notyet=minor.accessorDisabled!type.accessorDisabled!false>
+  <#if ! notyet>
+    <#assign typeEnum=drillType?upper_case>
+    writers[MinorType.${typeEnum}.ordinal()][DataMode.REQUIRED.ordinal()] = ${drillType}ColumnWriter.class;
+    writers[MinorType.${typeEnum}.ordinal()][DataMode.OPTIONAL.ordinal()] = Nullable${drillType}ColumnWriter.class;
+  </#if>
+</#list>
+</#list>
+  }
 }
