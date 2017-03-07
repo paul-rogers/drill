@@ -19,11 +19,12 @@ package org.apache.drill.test;
 
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.test.ColumnAccessor.RowIndex;
-import org.apache.drill.test.TestRowSet.ColumnReader;
-import org.apache.drill.test.TestRowSet.RecordSetReader;
+import org.apache.drill.exec.vector.accessor.AbstractColumnReader;
+import org.apache.drill.exec.vector.accessor.ColumnReader;
+import org.apache.drill.exec.vector.accessor.ColumnAccessor.RowIndex;
+import org.apache.drill.test.TestRowSet.RowSetReader;
 
-public class RecordSetReaderImpl implements RecordSetReader {
+public class RowSetReaderImpl implements RowSetReader {
 
   public static abstract class AbstractRowIndex implements RowIndex {
     protected int rowIndex;
@@ -58,14 +59,14 @@ public class RecordSetReaderImpl implements RecordSetReader {
   private AbstractColumnReader readers[];
   private AbstractRowIndex rowIndex;
 
-  public RecordSetReaderImpl(TestRowSet recordSet) {
+  public RowSetReaderImpl(TestRowSet recordSet) {
     if (recordSet.getSv2() == null) {
       rowIndex = new DirectRowIndex();
     } else {
       rowIndex = new Sv2RowIndex(recordSet.getSv2());
     }
     this.recordSet = recordSet;
-    ValueVector[] valueVectors = recordSet.valueVectors;
+    ValueVector[] valueVectors = recordSet.vectors();
     readers = new AbstractColumnReader[valueVectors.length];
     for (int i = 0; i < readers.length; i++) {
       readers[i] = ColumnAccessorFactory.newReader(valueVectors[i].getField().getType());

@@ -29,29 +29,56 @@ import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.SchemaChangeCallBack;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ColumnReader;
+import org.apache.drill.exec.vector.accessor.ColumnWriter;
+
+/**
+ * A row set is a collection of rows stored as value vectors. Elsewhere in
+ * Drill we call this a "record batch", but that term has been overloaded to
+ * mean the runtime implementation of an operator...
+ * <p>
+ * A row set encapsulates a set of vectors and provides access to Drill's
+ * various "views" of vectors: {@link VectorContainer},
+ * {@link VectorAccessible}, etc.
+ * <p>
+ * A row set is defined by a {@link TestSchema}. For testing purposes, a row
+ * set has a fixed schema; we don't allow changing the set of vectors
+ * dynamically.
+ * <p>
+ * The row set also provides a simple way to write and read records using the
+ * {@link RowSetWriter} and {@link RowSetReader} interfaces. As per Drill
+ * conventions, a row set can be written (once), read many times, and finally
+ * cleared.
+ * <p>
+ * Drill provides a large number of vector (data) types. Each requires a
+ * type-specific way to set data. The row set writer uses a {@link ColumnWriter}
+ * to set each value in a way unique to the specific data type. Similarly, the
+ * row set reader provides a {@link ColumnReader} interface. In both cases,
+ * columns can be accessed by index number (as defined in the schema) or
+ * by name.
+ * <p>
+ * Putting this all together, the typical life-cycle flow is:
+ * <ul>
+ * <li>Define the schema using {@link TestSchema#builder()}.</li>
+ * <li>Create the row set from the schema.</li>
+ * <li>Populate the row set using a writer from {@link #writer(int)}.</li>
+ * <li>Optionally add a selection vector: {@link #makeSv2()}.</li>
+ * <li>Process the vector container using the code under test.</li>
+ * <li>Retrieve the results using a reader from {@link #reader()}.</li>
+ * <li>Dispose of vector memory with {@link #clear()}.</li>
+ * </ul>
+ */
 
 public class TestRowSet {
 
-  public interface ColumnReader {
-    boolean isNull();
-    int getInt();
-    String getString();
-  }
-
-  public interface RecordSetWriter {
+  public interface RowSetWriter {
     void advance();
     void done();
     ColumnWriter column(int colIndex);
     ColumnWriter column(String colName);
   }
 
-  public interface ColumnWriter {
-    void setNull();
-    void setInt(int value);
-    void setString(String value);
-  }
-
-  public interface RecordSetReader {
+  public interface RowSetReader {
     boolean valid();
     boolean advance();
     int rowIndex();
@@ -60,21 +87,21 @@ public class TestRowSet {
     ColumnReader column(String colName);
   }
 
-  private BufferAllocator allocator;
+  private final BufferAllocator allocator;
   private SelectionVector2 sv2;
-  private TestSchema schema;
-  ValueVector[] valueVectors;
+  private final TestSchema schema;
+  private final ValueVector[] valueVectors;
   private final VectorContainer container = new VectorContainer();
   private SchemaChangeCallBack callBack = new SchemaChangeCallBack();
 
   public TestRowSet(BufferAllocator allocator, TestSchema schema) {
     this.allocator = allocator;
     this.schema = schema;
+    valueVectors = new ValueVector[schema.count()];
     create();
   }
 
   private void create() {
-    valueVectors = new ValueVector[schema.count()];
     for (int i = 0; i < schema.count(); i++) {
       final MaterializedField field = schema.get(i);
       @SuppressWarnings("resource")
@@ -122,12 +149,13 @@ public class TestRowSet {
 
   public int rowCount() { return container.getRecordCount(); }
 
-  public RecordSetWriter writer() {
-    return new RecordSetWriterImpl(this);
+  public RowSetWriter writer(int initialRowCount) {
+    allocate(initialRowCount);
+    return new RowSetWriterImpl(this);
   }
 
-  public RecordSetReader reader() {
-    return new RecordSetReaderImpl(this);
+  public RowSetReader reader() {
+    return new RowSetReaderImpl(this);
   }
 
   public void clear() {
@@ -137,5 +165,9 @@ public class TestRowSet {
     }
     container.setRecordCount(0);
     sv2 = null;
+  }
+
+  public ValueVector[] vectors() {
+    return valueVectors;
   }
 }

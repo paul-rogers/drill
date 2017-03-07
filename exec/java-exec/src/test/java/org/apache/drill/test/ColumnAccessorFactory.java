@@ -20,10 +20,12 @@ package org.apache.drill.test;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.test.AbstractColumnReader.IntColumnReader;
-import org.apache.drill.test.AbstractColumnReader.VarCharColumnReader;
-import org.apache.drill.test.AbstractColumnWriter.IntColumnWriter;
-import org.apache.drill.test.AbstractColumnWriter.VarCharColumnWriter;
+import org.apache.drill.exec.vector.accessor.AbstractColumnReader;
+import org.apache.drill.exec.vector.accessor.AbstractColumnWriter;
+import org.apache.drill.exec.vector.accessor.AbstractColumnReader.IntColumnReader;
+import org.apache.drill.exec.vector.accessor.AbstractColumnReader.VarCharColumnReader;
+import org.apache.drill.exec.vector.accessor.AbstractColumnWriter.IntColumnWriter;
+import org.apache.drill.exec.vector.accessor.AbstractColumnWriter.VarCharColumnWriter;
 
 // TODO: Generate this based on the myriad types and modes.
 

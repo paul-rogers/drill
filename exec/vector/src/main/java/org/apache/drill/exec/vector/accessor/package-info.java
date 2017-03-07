@@ -15,23 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.test;
+/**
+ * Provides a light-weight, simplified set of column readers and writers
+ * that can be plugged into a variety of row-level readers and writers.
+ */
 
-import org.apache.drill.exec.vector.ValueVector;
-
-public abstract class ColumnAccessor {
-
-  public interface RowIndex {
-    int getRow();
-  }
-
-  private RowIndex rowIndex;
-
-  protected void bind(RowIndex rowIndex) {
-    this.rowIndex = rowIndex;
-  }
-
-  protected abstract void bind(RowIndex rowIndex, ValueVector vector);
-
-  protected int rowIndex() { return rowIndex.getRow(); }
-}
+package org.apache.drill.exec.vector.accessor;

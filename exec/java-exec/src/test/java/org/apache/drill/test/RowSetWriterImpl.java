@@ -18,19 +18,20 @@
 package org.apache.drill.test;
 
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.test.ColumnAccessor.RowIndex;
-import org.apache.drill.test.TestRowSet.ColumnWriter;
-import org.apache.drill.test.TestRowSet.RecordSetWriter;
+import org.apache.drill.exec.vector.accessor.AbstractColumnWriter;
+import org.apache.drill.exec.vector.accessor.ColumnWriter;
+import org.apache.drill.exec.vector.accessor.ColumnAccessor.RowIndex;
+import org.apache.drill.test.TestRowSet.RowSetWriter;
 
-public class RecordSetWriterImpl implements RecordSetWriter, RowIndex {
+public class RowSetWriterImpl implements RowSetWriter, RowIndex {
 
   private TestRowSet recordSet;
   private AbstractColumnWriter writers[];
   private int rowIndex;
 
-  public RecordSetWriterImpl(TestRowSet recordSet) {
+  public RowSetWriterImpl(TestRowSet recordSet) {
     this.recordSet = recordSet;
-    ValueVector[] valueVectors = recordSet.valueVectors;
+    ValueVector[] valueVectors = recordSet.vectors();
     writers = new AbstractColumnWriter[valueVectors.length];
     for (int i = 0; i < writers.length; i++) {
       writers[i] = ColumnAccessorFactory.newWriter(valueVectors[i].getField().getType());

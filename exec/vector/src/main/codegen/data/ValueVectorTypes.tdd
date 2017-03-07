@@ -26,6 +26,8 @@
       width: 1,
       javaType: "byte",
       boxedType: "Byte",
+      accessorType: "int",
+      accessorCast: "set",
       fields: [{name: "value", type: "byte"}],
       minor: [
         { class: "TinyInt", valueHolder: "IntHolder" },
@@ -37,15 +39,19 @@
       width: 2,
       javaType: "char",
       boxedType: "Character",
+      accessorType: "int",
       fields: [{name: "value", type: "char"}],
       minor: [
-        { class: "UInt2", valueHolder: "UInt2Holder"}
+        { class: "UInt2", valueHolder: "UInt2Holder", accessorCast: "set"}
       ]
-    },    {
+    },
+    {
       major: "Fixed",
       width: 2,
       javaType: "short",
       boxedType: "Short",
+      accessorType: "int",
+      accessorCast: "set",
       fields: [{name: "value", type: "short"}],
       minor: [
         { class: "SmallInt", valueHolder: "Int2Holder"},
@@ -60,10 +66,13 @@
       minor: [
         { class: "Int", valueHolder: "IntHolder"},
         { class: "UInt4", valueHolder: "UInt4Holder" },
-        { class: "Float4", javaType: "float" , boxedType: "Float", fields: [{name: "value", type: "float"}]},
+        { class: "Float4", javaType: "float" , boxedType: "Float", accessorType: "double", accessorCast: "set",
+          fields: [{name: "value", type: "float"}]},
         { class: "Time", javaType: "int", friendlyType: "DateTime" },
         { class: "IntervalYear", javaType: "int", friendlyType: "Period" }
-        { class: "Decimal9", maxPrecisionDigits: 9, friendlyType: "BigDecimal", fields: [{name:"value", type:"int"}, {name: "scale", type: "int", include: false}, {name: "precision", type: "int", include: false}] },
+        { class: "Decimal9", maxPrecisionDigits: 9, friendlyType: "BigDecimal",
+          fields: [{name:"value", type:"int"}, {name: "scale", type: "int", include: false},
+                   {name: "precision", type: "int", include: false}] },
       ]
     },
     {
@@ -89,6 +98,7 @@
       width: 12,
       javaType: "DrillBuf",
       boxedType: "DrillBuf",
+      accessorDisabled: true,
       minor: [
         { class: "IntervalDay", millisecondsOffset: 4, friendlyType: "Period", fields: [ {name: "days", type:"int"}, {name: "milliseconds", type:"int"}] }
       ]
@@ -97,7 +107,8 @@
       major: "Fixed",
       width: 16,
       javaType: "DrillBuf"
-      boxedType: "DrillBuf",      
+      boxedType: "DrillBuf",
+      accessorDisabled: true,
       minor: [
         { class: "Interval", daysOffset: 4, millisecondsOffset: 8, friendlyType: "Period", fields: [ {name: "months", type: "int"}, {name: "days", type:"int"}, {name: "milliseconds", type:"int"}] }
       ]
@@ -107,6 +118,7 @@
       width: 12,
       javaType: "DrillBuf",
       boxedType: "DrillBuf",
+      accessorDisabled: true,
       minor: [
         <#--
         { class: "TimeTZ" },
@@ -120,7 +132,7 @@
       width: 16,
       javaType: "DrillBuf",
       boxedType: "DrillBuf",
-      
+      accessorDisabled: true,
       minor: [
         { class: "Decimal38Dense", maxPrecisionDigits: 38, nDecimalDigits: 4, friendlyType: "BigDecimal", fields: [{name: "start", type: "int"}, {name: "buffer", type: "DrillBuf"}, {name: "scale", type: "int", include: false}, {name: "precision", type: "int", include: false}] }
       ]
@@ -130,6 +142,7 @@
       width: 24,
       javaType: "DrillBuf",
       boxedType: "DrillBuf",
+      accessorDisabled: true,
       minor: [
         { class: "Decimal38Sparse", maxPrecisionDigits: 38, nDecimalDigits: 6, friendlyType: "BigDecimal", fields: [{name: "start", type: "int"}, {name: "buffer", type: "DrillBuf"}, {name: "scale", type: "int", include: false}, {name: "precision", type: "int", include: false}] }
       ]
@@ -139,6 +152,7 @@
       width: 20,
       javaType: "DrillBuf",
       boxedType: "DrillBuf",
+      accessorDisabled: true,
       minor: [
         { class: "Decimal28Sparse", maxPrecisionDigits: 28, nDecimalDigits: 5, friendlyType: "BigDecimal", fields: [{name: "start", type: "int"}, {name: "buffer", type: "DrillBuf"}, {name: "scale", type: "int", include: false}, {name: "precision", type: "int", include: false}] }
       ]
@@ -150,7 +164,7 @@
       boxedType: "DrillBuf",
       fields: [{name: "start", type: "int"}, {name: "end", type: "int"}, {name: "buffer", type: "DrillBuf"}],
       minor: [
-        { class: "VarBinary" , friendlyType: "byte[]" },
+        { class: "VarBinary" , friendlyType: "byte[]", accessorType: "byte[]", accessorLabel: "Bytes" },
         { class: "VarChar" , friendlyType: "Text" },
         { class: "Var16Char" , friendlyType: "String" }
       ]

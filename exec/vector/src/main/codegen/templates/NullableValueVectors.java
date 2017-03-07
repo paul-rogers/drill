@@ -252,7 +252,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   }
   </#if>
 
-
   @Override
   public void load(SerializedField metadata, DrillBuf buffer) {
     clear();
@@ -486,7 +485,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     }
 
     <#if type.major == "VarLen">
-
     private void fillEmpties(int index){
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
       for (int i = lastSet; i < index; i++) {
@@ -543,7 +541,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       values.getMutator().set(index, holder);
     }
 
-
     public void set(int index, Nullable${minor.class}Holder holder){
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
       <#if type.major == "VarLen">
@@ -596,9 +593,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       <#if type.major == "VarLen">lastSet = index;</#if>
     }
 
-
     public void setSafe(int index, Nullable${minor.class}Holder value) {
-
       <#if type.major == "VarLen">
       fillEmpties(index);
       </#if>
@@ -609,7 +604,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     }
 
     public void setSafe(int index, ${minor.class}Holder value) {
-
       <#if type.major == "VarLen">
       fillEmpties(index);
       </#if>
@@ -620,15 +614,14 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     }
 
     <#if !(type.major == "VarLen" || minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse" || minor.class == "Decimal28Dense" || minor.class == "Decimal38Dense" || minor.class == "Interval" || minor.class == "IntervalDay")>
-      public void setSafe(int index, ${minor.javaType!type.javaType} value) {
-        <#if type.major == "VarLen">
-        fillEmpties(index);
-        </#if>
-        bits.getMutator().setSafe(index, 1);
-        values.getMutator().setSafe(index, value);
-        setCount++;
-      }
-
+    public void setSafe(int index, ${minor.javaType!type.javaType} value) {
+      <#if type.major == "VarLen">
+      fillEmpties(index);
+      </#if>
+      bits.getMutator().setSafe(index, 1);
+      values.getMutator().setSafe(index, value);
+      setCount++;
+    }
     </#if>
 
     @Override

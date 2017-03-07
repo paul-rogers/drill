@@ -38,10 +38,11 @@ import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.VarCharVector;
+import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.TestRowSet;
-import org.apache.drill.test.TestRowSet.RecordSetReader;
-import org.apache.drill.test.TestRowSet.RecordSetWriter;
+import org.apache.drill.test.TestRowSet.RowSetReader;
+import org.apache.drill.test.TestRowSet.RowSetWriter;
 import org.apache.drill.test.TestSchema;
 import org.junit.Test;
 
@@ -49,7 +50,7 @@ import com.google.common.base.Charsets;
 
 import jersey.repackaged.com.google.common.collect.Lists;
 
-public class TestSortExp {
+public class TestExternalSortExec extends DrillTest {
 
   @Test
   public void testFieldReference() {
@@ -200,7 +201,7 @@ public class TestSortExp {
   public static final long ONE_MEG = 1024 * 1024;
 
   @Test
-  public void testSorter() throws Exception {
+  public void testSorterBasics() throws Exception {
     try (OperatorFixture fixture = OperatorFixture.builder().build()) {
 
       FieldReference expr = FieldReference.getWithQuotedRef("key");
@@ -229,8 +230,7 @@ public class TestSortExp {
       // Sort with one row
 
       recSet.clear();
-      recSet.allocate(10);
-      RecordSetWriter writer = recSet.writer();
+      RowSetWriter writer = recSet.writer(10);
       writer.column(0).setInt(0);
       writer.column(1).setString("0");
       writer.advance();
@@ -242,10 +242,39 @@ public class TestSortExp {
       sorter.setup(null, recSet.getSv2(), recSet.getVectorAccessible());
       sorter.sort(recSet.getSv2());
 
-      RecordSetReader reader = recSet.reader();
+      RowSetReader reader = recSet.reader();
       assertTrue(reader.valid());
       assertEquals(0, reader.column(0).getInt());
       assertEquals("0", reader.column(1).getString());
+      assertFalse(reader.advance());
+      assertFalse(reader.valid());
+      recSet.clear();
+
+      // Paranoia: sort with two rows.
+
+      recSet.clear();
+      writer = recSet.writer(10);
+      writer.column(0).setInt(1);
+      writer.column(1).setString("1");
+      writer.advance();
+      writer.column(0).setInt(0);
+      writer.column(1).setString("0");
+      writer.advance();
+      writer.done();
+
+      assertEquals(2, recSet.rowCount());
+
+      recSet.makeSv2();
+      sorter.setup(null, recSet.getSv2(), recSet.getVectorAccessible());
+      sorter.sort(recSet.getSv2());
+
+      reader = recSet.reader();
+      assertTrue(reader.valid());
+      assertEquals(0, reader.column(0).getInt());
+      assertEquals("0", reader.column(1).getString());
+      assertTrue(reader.advance());
+      assertEquals(1, reader.column(0).getInt());
+      assertEquals("1", reader.column(1).getString());
       assertFalse(reader.advance());
       assertFalse(reader.valid());
       recSet.clear();
