@@ -44,7 +44,8 @@
       </dependency>
       <dependency>
         <groupId>org.apache.hadoop</groupId>
-        <artifactId>hadoop-auth</artifactId>
+	<artifactId>hadoop-auth</artifactId>
+	<version>${hadoop.version}</version>
         <exclusions>
           <exclusion>
             <groupId>log4j</groupId>
