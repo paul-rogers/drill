@@ -19,8 +19,40 @@ package org.apache.drill.exec.vector.accessor;
 
 import java.math.BigDecimal;
 
+/**
+ * Defines a reader to obtain values from value vectors using
+ * a simple, uniform interface. Vector values are mapped to
+ * their "natural" representations: the representation closest
+ * to the actual vector value. For date and time values, this
+ * generally means a numeric value. Applications can then map
+ * this value to Java objects as desired. Decimal types all
+ * map to BigDecimal as that is the only way in Java to
+ * represent large decimal values.
+ * <p>
+ * In general, a column maps to just one value. However, derived
+ * classes may choose to provide type conversions if convenient.
+ * An exception is thrown if a call is made to a method that
+ * is not supported by the column type.
+ */
+
 public interface ColumnReader {
+
+  /**
+   * Describe the type of the value. This is a compression of the
+   * value vector type: it describes which method will return the
+   * vector value.
+   * @return the value type which indicates which get method
+   * is valid for the column
+   */
+
   ValueType getType();
+
+  /**
+   * Report if the column is null. Non-nullable columns always
+   * return <tt>false</tt>.
+   * @return true if the column value is null, false if the
+   * value is set
+   */
   boolean isNull();
   int getInt();
   long getLong();

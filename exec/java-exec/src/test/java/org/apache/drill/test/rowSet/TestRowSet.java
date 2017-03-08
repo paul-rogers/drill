@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.test;
+package org.apache.drill.test.rowSet;
 
 import java.io.PrintStream;
 
@@ -33,7 +33,7 @@ import org.apache.drill.exec.vector.SchemaChangeCallBack;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
-import org.apache.drill.test.TestRowSet.RowSetReader;
+import org.apache.drill.test.rowSet.TestRowSet.RowSetReader;
 
 /**
  * A row set is a collection of rows stored as value vectors. Elsewhere in

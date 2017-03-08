@@ -15,10 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.test;
+package org.apache.drill.test.rowSet;
 
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.test.TestRowSet.RowSetWriter;
+import org.apache.drill.test.rowSet.TestRowSet.RowSetWriter;
 
 /**
  * Fluent builder to quickly build up an row set (record batch)

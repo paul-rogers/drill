@@ -15,13 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.test;
+package org.apache.drill.test.rowSet;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import org.apache.drill.exec.vector.accessor.ColumnReader;
-import org.apache.drill.test.TestRowSet.RowSetReader;
+import org.apache.drill.test.rowSet.TestRowSet.RowSetReader;
 import org.bouncycastle.util.Arrays;
 
 /**
@@ -35,6 +35,8 @@ public class RowSetComparison {
   private TestRowSet expected;
   private boolean mask[];
   private double delta = 0.001;
+  private int offset;
+  private int span = -1;
 
   public RowSetComparison(TestRowSet expected) {
     this.expected = expected;
@@ -44,11 +46,25 @@ public class RowSetComparison {
     }
   }
 
+  /**
+   * Mark a specific column as excluded from comparisons.
+   * @param colNo the index of the column to exclude
+   * @return this builder
+   */
+
   public RowSetComparison exclude(int colNo) {
     mask[colNo] = false;
     return this;
   }
 
+  /**
+   * Specifies a "selection" mask that determines which columns
+   * to compare. Columns marked as "false" are omitted from the
+   * comparison.
+   *
+   * @param flags variable-length list of column flags
+   * @return this builder
+   */
   public RowSetComparison withMask(Boolean...flags) {
     for (int i = 0; i < flags.length; i++) {
       mask[i] = flags[i];
@@ -56,20 +72,74 @@ public class RowSetComparison {
     return this;
   }
 
+  /**
+   * Specify the delta value to use when comparing float or
+   * double values.
+   *
+   * @param delta the delta to use in float and double comparisons
+   * @return this builder
+   */
   public RowSetComparison withDelta(double delta) {
     this.delta = delta;
     return this;
   }
 
+  /**
+   * Specify an offset into the row sets to start the comparison.
+   * Usually combined with {@link #span()}.
+   *
+   * @param offset offset into the row set to start the comparison
+   * @return this builder
+   */
+  public RowSetComparison offset(int offset) {
+    this.offset = offset;
+    return this;
+  }
+
+  /**
+   * Specify a subset of rows to compare. Usually combined
+   * with {@link #offset()}.
+   *
+   * @param span the number of rows to compare
+   * @return this builder
+   */
+
+  public RowSetComparison span(int span) {
+    this.span = span;
+    return this;
+  }
+
+  /**
+   * Verify the actual rows using the rules defined in this builder
+   * @param actual the actual results to verify
+   */
+
   public void verify(TestRowSet actual) {
-    assertEquals("Row counts", expected.rowCount(), actual.rowCount());
+    int testLength = expected.rowCount() - offset;
+    if (span > -1) {
+      testLength = span;
+    }
+    int dataLength = offset + testLength;
+    assertTrue("Missing expected rows", expected.rowCount() >= dataLength);
+    assertTrue("Missing actual rows", actual.rowCount() >= dataLength);
     RowSetReader er = expected.reader();
     RowSetReader ar = actual.reader();
-    while (er.next()) {
+    for (int i = 0; i < offset; i++) {
+      er.next();
+      ar.next();
+    }
+    for (int i = 0; i < testLength; i++) {
+      er.next();
       ar.next();
       verifyRow(er, ar);
     }
   }
+
+  /**
+   * Convenience method to verify the actual results, then free memory
+   * for both the expected and actual result sets.
+   * @param actual the actual results to verify
+   */
 
   public void verifyAndClear(TestRowSet actual) {
     try {

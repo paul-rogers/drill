@@ -19,6 +19,13 @@ package org.apache.drill.exec.vector.accessor;
 
 import java.math.BigDecimal;
 
+/**
+ * Column writer implementation that acts as the basis for the
+ * generated, vector-specific implementations. All set methods
+ * throw an exception; subclasses simply override the supported
+ * method(s).
+ */
+
 public abstract class AbstractColumnWriter extends ColumnAccessor implements ColumnWriter {
 
   @Override
