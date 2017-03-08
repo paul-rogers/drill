@@ -20,6 +20,11 @@ package org.apache.drill.test;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.test.TestRowSet.RowSetWriter;
 
+/**
+ * Fluent builder to quickly build up an row set (record batch)
+ * programmatically.
+ */
+
 public final class RowSetBuilder {
 
   private TestRowSet rowSet;
@@ -37,21 +42,7 @@ public final class RowSetBuilder {
 
   public RowSetBuilder add(Object...values) {
     for (int i = 0; i < values.length;  i++) {
-      Object value = values[i];
-      if (value == null) {
-        writer.column(i).setNull();
-      } else if (value instanceof Integer) {
-        writer.column(i).setInt((Integer) value);
-      } else if (value instanceof Long) {
-        writer.column(i).setLong((Long) value);
-      } else if (value instanceof String) {
-        writer.column(i).setString((String) value);
-      } else if (value instanceof byte[]) {
-        writer.column(i).setBytes((byte[]) value);
-      } else {
-        throw new IllegalArgumentException("Unsupported type " +
-                  value.getClass().getSimpleName() + " for column " + i);
-      }
+      writer.set(i, values[i]);
     }
     writer.advance();
     return this;

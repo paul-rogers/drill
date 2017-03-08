@@ -17,6 +17,8 @@
  */
 package org.apache.drill.test;
 
+import java.io.PrintStream;
+
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
@@ -31,6 +33,7 @@ import org.apache.drill.exec.vector.SchemaChangeCallBack;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
+import org.apache.drill.test.TestRowSet.RowSetReader;
 
 /**
  * A row set is a collection of rows stored as value vectors. Elsewhere in
@@ -76,15 +79,96 @@ public class TestRowSet {
     void done();
     ColumnWriter column(int colIndex);
     ColumnWriter column(String colName);
+    void set(int colIndex, Object value);
+    void setRow(Object...values);
   }
 
   public interface RowSetReader {
     boolean valid();
     boolean next();
-    int rowIndex();
-    int rowCount();
+
+    /**
+     * Return the index of the row within the effective result set.
+     * (If an SV2 is in use, uses that to obtain data at the current
+     * index.)
+     * @return the current reader index
+     */
+    int index();
+    /**
+     * Total number of rows in the row set.
+     * @return total number of rows
+     */
+    int size();
+    /**
+     * Number of columns in the row set.
+     * @return number of columns
+     */
+    int width();
+    /**
+     * Actual row offset. If no Sv2 is in use, then same as the index.
+     * If an SV2 is in use, then the offset of the row to which the
+     * SV2 points.
+     * @return offset in the vectors of the data for this row
+     */
+    int offset();
     ColumnReader column(int colIndex);
     ColumnReader column(String colName);
+    Object get(int colIndex);
+    String getAsString(int colIndex);
+  }
+
+  public static class RowSetPrinter {
+    private TestRowSet rowSet;
+
+    public RowSetPrinter(TestRowSet rowSet) {
+      this.rowSet = rowSet;
+    }
+
+    public void print() {
+      print(System.out);
+    }
+
+    public void print(PrintStream out) {
+      boolean hasSv2 = rowSet.hasSv2();
+      RowSetReader reader = rowSet.reader();
+      int colCount = reader.width();
+      printSchema(out, hasSv2);
+      while (reader.next()) {
+        printHeader(out, reader, hasSv2);
+        for (int i = 0; i < colCount; i++) {
+          if (i > 0) {
+            out.print(", ");
+          }
+          out.print(reader.getAsString(i));
+        }
+        out.println();
+      }
+    }
+
+    private void printSchema(PrintStream out, boolean hasSv2) {
+      out.print("#, ");
+      if (hasSv2) {
+        out.print("row #, ");
+      }
+      TestSchema schema = rowSet.schema;
+      for (int i = 0; i < schema.count(); i++) {
+        if (i > 0) {
+          out.print(", ");
+        }
+        out.print(schema.get(i).getLastName());
+      }
+      out.println();
+    }
+
+    private void printHeader(PrintStream out, RowSetReader reader, boolean hasSv2) {
+      out.print(reader.index());
+      if (hasSv2) {
+        out.print("(");
+        out.print(reader.offset());
+        out.print(")");
+      }
+      out.print(": ");
+    }
   }
 
   private final BufferAllocator allocator;
@@ -173,5 +257,17 @@ public class TestRowSet {
 
   public TestSchema schema() {
     return schema;
+  }
+
+  public BufferAllocator getAllocator() {
+    return allocator;
+  }
+
+  public boolean hasSv2() {
+    return sv2 != null;
+  }
+
+  public void print() {
+    new RowSetPrinter(this).print();
   }
 }

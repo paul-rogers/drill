@@ -161,9 +161,12 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
     DrillFuncHolder holder = exactResolver.getBestMatch(functions, functionCall);
 
     if (holder == null) {
-      syncWithRemoteRegistry(version.get());
-      List<DrillFuncHolder> updatedFunctions = localFunctionRegistry.getMethods(newFunctionName, version);
-      holder = functionResolver.getBestMatch(updatedFunctions, functionCall);
+      boolean useDynamicUdfs = optionManager != null && optionManager.getOption(ExecConstants.USE_DYNAMIC_UDFS);
+      if (useDynamicUdfs) {
+        syncWithRemoteRegistry(version.get());
+        List<DrillFuncHolder> updatedFunctions = localFunctionRegistry.getMethods(newFunctionName, version);
+        holder = functionResolver.getBestMatch(updatedFunctions, functionCall);
+      }
     }
 
     return holder;
@@ -182,7 +185,7 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
           DataMode dataMode = majorType.getMode();
           MinorType minorType = majorType.getMinorType();
           if (optionManager != null
-              && optionManager.getOption(ExecConstants.CAST_TO_NULLABLE_NUMERIC).bool_val
+              && optionManager.getOption(ExecConstants.CAST_TO_NULLABLE_NUMERIC_OPTION)
               && CastFunctions.isReplacementNeeded(funcName, minorType)) {
               funcName = CastFunctions.getReplacingCastFunction(funcName, dataMode, minorType);
           }

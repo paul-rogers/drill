@@ -193,7 +193,7 @@ public class OperatorCodeGenerator {
     return sorter;
   }
 
-  private SingleBatchSorter createNewSorter(VectorAccessible batch) {
+  public SingleBatchSorter createNewSorter(VectorAccessible batch) {
     CodeGenerator<SingleBatchSorter> cg = CodeGenerator.get(
         SingleBatchSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(),
         context.getOptionSet());

@@ -65,4 +65,30 @@ public class RowSetWriterImpl implements RowSetWriter, RowIndex {
     recordSet.setRowCount(rowIndex);
   }
 
+  @Override
+  public void set(int colIndex, Object value) {
+    ColumnWriter colWriter = column(colIndex);
+    if (value == null) {
+      colWriter.setNull();
+    } else if (value instanceof Integer) {
+      colWriter.setInt((Integer) value);
+    } else if (value instanceof Long) {
+      colWriter.setLong((Long) value);
+    } else if (value instanceof String) {
+      colWriter.setString((String) value);
+    } else if (value instanceof byte[]) {
+      colWriter.setBytes((byte[]) value);
+    } else {
+      throw new IllegalArgumentException("Unsupported type " +
+                value.getClass().getSimpleName() + " for column " + colIndex);
+    }
+  }
+
+  @Override
+  public void setRow(Object...values) {
+    for (int i = 0; i < values.length;  i++) {
+      set(i, values[i]);
+    }
+    advance();
+  }
 }

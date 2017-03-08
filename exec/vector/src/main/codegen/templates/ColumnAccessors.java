@@ -18,63 +18,104 @@
 
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/drill/exec/vector/accessor/ColumnAccessors.java" />
-
-
 <#include "/@includes/license.ftl" />
-
-<#macro getType type>
+<#macro getType label>
     @Override
     public ValueType getType() {
-      <#if type == "byte[]">
-      return ValueType.BYTES;
-      <#elseif type == "int">
+  <#if label == "Int">
       return ValueType.INTEGER;
-      <#else>
-      return ValueType.${type?upper_case};
-      </#if>
+  <#else>
+      return ValueType.${label?upper_case};
+  </#if>
     }
 </#macro>
-
 <#macro bindReader prefix drillType>
+  <#if drillType = "Decimal9" || drillType == "Decimal18">
+    private MaterializedField field;
+  </#if>
     private ${prefix}${drillType}Vector.Accessor accessor;
 
     @Override
     public void bind(RowIndex rowIndex, ValueVector vector) {
       bind(rowIndex);
+  <#if drillType = "Decimal9" || drillType == "Decimal18">
+      field = vector.getField();
+  </#if>
       this.accessor = ((${prefix}${drillType}Vector) vector).getAccessor();
     }
 </#macro>
-
 <#macro get drillType accessorType label>
     @Override
     public ${accessorType} get${label}() {
-      <#if drillType == "VarChar">
+  <#if drillType == "VarChar">
       return new String(accessor.get(rowIndex()), Charsets.UTF_8);
-      <#elseif drillType == "Var16Char">
+  <#elseif drillType == "Var16Char">
       return new String(accessor.get(rowIndex()), Charsets.UTF_16);
-      <#elseif drillType == "VarBinary">
+  <#elseif drillType == "VarBinary">
       return accessor.get(rowIndex());
-      <#else>
+  <#elseif drillType == "Decimal9" || drillType == "Decimal18">
+      return DecimalUtility.getBigDecimalFromPrimitiveTypes(
+                accessor.get(rowIndex()),
+                field.getScale(),
+                field.getPrecision());
+  <#elseif accessorType == "Decimal18">
+      return DecimalUtilities.getBigDecimalFromPrimitiveTypes(accessor.getObject(rowIndex());
+  <#elseif accessorType == "BigDecimal">
+      return accessor.getObject(rowIndex());
+  <#else>
       return accessor.get(rowIndex());
-      </#if>
+  </#if>
     }
 </#macro>
-
 <#macro bindWriter prefix drillType>
+  <#if drillType = "Decimal9" || drillType == "Decimal18">
+    private MaterializedField field;
+  </#if>
     private ${prefix}${drillType}Vector.Mutator mutator;
 
     @Override
     public void bind(RowIndex rowIndex, ValueVector vector) {
       bind(rowIndex);
+  <#if drillType = "Decimal9" || drillType == "Decimal18">
+      field = vector.getField();
+  </#if>
       this.mutator = ((${prefix}${drillType}Vector) vector).getMutator();
+    }
+</#macro>
+<#macro set drillType accessorType label nullable>
+    @Override
+    public void set${label}(${accessorType} value) {
+  <#if drillType == "VarChar">
+      byte bytes[] = value.getBytes(Charsets.UTF_8);
+      mutator.setSafe(rowIndex(), bytes, 0, bytes.length);
+  <#elseif drillType == "Var16Char">
+      byte bytes[] = value.getBytes(Charsets.UTF_16);
+      mutator.setSafe(rowIndex(), bytes, 0, bytes.length);
+  <#elseif drillType == "VarBinary">
+      mutator.setSafe(rowIndex(), value, 0, value.length);
+  <#elseif drillType == "Decimal9">
+      mutator.setSafe(rowIndex(),
+          DecimalUtility.getDecimal9FromBigDecimal(value,
+              field.getScale(), field.getPrecision()));
+  <#elseif drillType == "Decimal18">
+      mutator.setSafe(rowIndex(),
+          DecimalUtility.getDecimal18FromBigDecimal(value,
+              field.getScale(), field.getPrecision()));
+  <#else>
+      mutator.setSafe(rowIndex(), <#if cast=="set">(${javaType}) </#if>value);
+  </#if>
     }
 </#macro>
 
 package org.apache.drill.exec.vector.accessor;
 
+import java.math.BigDecimal;
+
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.vector.*;
+import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.util.DecimalUtility;
 
 import com.google.common.base.Charsets;
 
@@ -93,13 +134,13 @@ public class ColumnAccessors {
   <#list type.minor as minor>
     <#assign drillType=minor.class>
     <#assign javaType=minor.javaType!type.javaType>
-    <#assign accessorType=minor.accessorType!type.accessorType!javaType>
+    <#assign accessorType=minor.accessorType!type.accessorType!minor.friendlyType!javaType>
     <#assign label=minor.accessorLabel!type.accessorLabel!accessorType?capitalize>
     <#assign notyet=minor.accessorDisabled!type.accessorDisabled!false>
     <#assign cast=minor.accessorCast!minor.accessorCast!type.accessorCast!"none">
-    <#if drillType == "VarChar" || drillType == "Var16Char">
-      <#assign accessorType="String">
-      <#assign label=accessorType>
+    <#assign friendlyType=minor.friendlyType!"">
+    <#if accessorType=="BigDecimal">
+      <#assign label="Decimal">
     </#if>
     <#if ! notyet>
 
@@ -110,7 +151,7 @@ public class ColumnAccessors {
 
     <@bindReader "" drillType />
 
-    <@getType accessorType />
+    <@getType label />
 
     <@get drillType accessorType label />
   }
@@ -119,7 +160,7 @@ public class ColumnAccessors {
 
     <@bindReader "Nullable" drillType />
 
-    <@getType accessorType />
+    <@getType label />
 
     @Override
     public boolean isNull() {
@@ -133,47 +174,23 @@ public class ColumnAccessors {
 
     <@bindWriter "" drillType />
 
-    <@getType accessorType />
+    <@getType label />
 
-    @Override
-    public void set${label}(${accessorType} value) {
-      <#if drillType == "VarChar">
-      byte bytes[] = value.getBytes(Charsets.UTF_8);
-      mutator.setSafe(rowIndex(), bytes, 0, bytes.length);
-      <#elseif drillType == "Var16Char">
-      byte bytes[] = value.getBytes(Charsets.UTF_16);
-      mutator.setSafe(rowIndex(), bytes, 0, bytes.length);
-      <#else>
-      mutator.setSafe(rowIndex(), <#if cast=="set">(${javaType}) </#if>value);
-      </#if>
-    }
+    <@set drillType accessorType label false />
   }
 
   public static class Nullable${drillType}ColumnWriter extends AbstractColumnWriter {
 
     <@bindWriter "Nullable" drillType />
 
-    <@getType accessorType />
+    <@getType label />
 
     @Override
     public void setNull() {
       mutator.setNull(rowIndex());
     }
 
-    @Override
-    public void set${label}(${accessorType} value) {
-      <#if drillType == "VarChar">
-      byte bytes[] = value.getBytes(Charsets.UTF_8);
-      mutator.setSafe(rowIndex(), bytes, 0, bytes.length);
-      <#elseif drillType == "Var16Char">
-      byte bytes[] = value.getBytes(Charsets.UTF_16);
-      mutator.setSafe(rowIndex(), bytes, 0, bytes.length);
-      <#elseif drillType == "VarBinary">
-      mutator.setSafe(rowIndex(), value, 0, value.length);
-      <#else>
-      mutator.setSafe(rowIndex(), <#if cast=="set">(${javaType}) </#if>value);
-      </#if>
-    }
+    <@set drillType accessorType label true />
   }
 
     </#if>

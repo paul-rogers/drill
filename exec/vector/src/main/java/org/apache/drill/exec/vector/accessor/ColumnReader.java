@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
+import java.math.BigDecimal;
+
 public interface ColumnReader {
   ValueType getType();
   boolean isNull();
@@ -25,4 +27,5 @@ public interface ColumnReader {
   double getDouble();
   String getString();
   byte[] getBytes();
+  BigDecimal getDecimal();
 }

@@ -22,6 +22,7 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.AbstractColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
+import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.apache.drill.exec.vector.accessor.ColumnAccessor.RowIndex;
 import org.apache.drill.test.TestRowSet.RowSetReader;
 
@@ -56,7 +57,7 @@ public class RowSetReaderImpl implements RowSetReader {
     }
   }
 
-  private TestRowSet recordSet;
+  private TestRowSet rowSet;
   private AbstractColumnReader readers[];
   private AbstractRowIndex rowIndex;
 
@@ -66,7 +67,7 @@ public class RowSetReaderImpl implements RowSetReader {
     } else {
       rowIndex = new Sv2RowIndex(recordSet.getSv2());
     }
-    this.recordSet = recordSet;
+    this.rowSet = recordSet;
     ValueVector[] valueVectors = recordSet.vectors();
     readers = new AbstractColumnReader[valueVectors.length];
     for (int i = 0; i < readers.length; i++) {
@@ -78,12 +79,12 @@ public class RowSetReaderImpl implements RowSetReader {
   @Override
   public boolean valid() {
     int index = rowIndex.getIndex();
-    return index >= 0  && index < recordSet.rowCount();
+    return index >= 0  && index < rowSet.rowCount();
   }
 
   @Override
   public boolean next() {
-    if (rowIndex.getIndex() >= recordSet.rowCount())
+    if (rowIndex.getIndex() >= rowSet.rowCount())
       return false;
     rowIndex.advance();
     return valid();
@@ -100,12 +101,82 @@ public class RowSetReaderImpl implements RowSetReader {
   }
 
   @Override
-  public int rowIndex() {
+  public int index() {
     return rowIndex.getIndex();
   }
 
   @Override
-  public int rowCount() {
-    return recordSet.rowCount();
+  public int size() {
+    return rowSet.rowCount();
+  }
+
+  @Override
+  public Object get(int colIndex) {
+    ColumnReader colReader = column(colIndex);
+    if (colReader.isNull()) {
+      return null;
+    }
+    switch (colReader.getType()) {
+    case BYTES:
+      return colReader.getBytes();
+    case DOUBLE:
+      return colReader.getDouble();
+    case INTEGER:
+      return colReader.getInt();
+    case LONG:
+      return colReader.getLong();
+    case STRING:
+      return colReader.getString();
+    default:
+      throw new IllegalArgumentException("Unsupported type " + colReader.getType());
+    }
+  }
+
+  @Override
+  public String getAsString(int colIndex) {
+    ColumnReader colReader = column(colIndex);
+    if (colReader.isNull()) {
+      return "null";
+    }
+    switch (colReader.getType()) {
+    case BYTES:
+      StringBuilder buf = new StringBuilder()
+          .append("[");
+      byte value[] = colReader.getBytes();
+      int len = Math.min(value.length, 20);
+      for (int i = 0; i < len;  i++) {
+        if (i > 0) {
+          buf.append(", ");
+        }
+        buf.append((int) value[i]);
+      }
+      if (value.length > len) {
+        buf.append("...");
+      }
+      buf.append("]");
+      return buf.toString();
+    case DOUBLE:
+      return Double.toString(colReader.getDouble());
+    case INTEGER:
+      return Integer.toString(colReader.getInt());
+    case LONG:
+      return Long.toString(colReader.getLong());
+    case STRING:
+      return "\"" + colReader.getString() + "\"";
+    case DECIMAL:
+      return colReader.getDecimal().toPlainString();
+    default:
+      throw new IllegalArgumentException("Unsupported type " + colReader.getType());
+    }
+  }
+
+  @Override
+  public int width() {
+    return rowSet.schema().count();
+  }
+
+  @Override
+  public int offset() {
+    return rowIndex.getRow();
   }
 }

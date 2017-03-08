@@ -66,6 +66,8 @@ public class OperatorFixture implements AutoCloseable {
     public TestOptionSet() {
       // Crashes in FunctionImplementationRegistry if not set
       set(ExecConstants.CAST_TO_NULLABLE_NUMERIC, false);
+      // Crashes in the Dynamic UDF code if not disabled
+      set(ExecConstants.USE_DYNAMIC_UDFS_KEY, false);
 //      set(ExecConstants.CODE_GEN_EXP_IN_METHOD_SIZE_VALIDATOR, false);
     }
 

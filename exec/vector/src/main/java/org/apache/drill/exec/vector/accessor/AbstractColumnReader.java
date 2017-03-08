@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
+import java.math.BigDecimal;
+
 public abstract class AbstractColumnReader extends ColumnAccessor implements ColumnReader {
 
   @Override
@@ -48,36 +50,9 @@ public abstract class AbstractColumnReader extends ColumnAccessor implements Col
   public byte[] getBytes() {
     throw new UnsupportedOperationException();
   }
-//  public static class IntColumnReader extends AbstractColumnReader {
-//
-//    private IntVector.Accessor accessor;
-//
-//    @Override
-//    public void bind(RowIndex rowIndex, ValueVector vector) {
-//      bind(rowIndex);
-//      this.accessor = ((IntVector) vector).getAccessor();
-//    }
-//
-//    @Override
-//    public int getInt() {
-//      return accessor.get(rowIndex());
-//    }
-//  }
-//
-//  public static class VarCharColumnReader extends AbstractColumnReader {
-//
-//    private VarCharVector.Accessor accessor;
-//
-//    @Override
-//    public void bind(RowIndex rowIndex, ValueVector vector) {
-//      bind(rowIndex);
-//      this.accessor = ((VarCharVector) vector).getAccessor();
-//    }
-//
-//    @Override
-//    public String getString() {
-//      return new String(accessor.get(rowIndex()), Charsets.UTF_8);
-//    }
-//  }
 
+  @Override
+  public BigDecimal getDecimal() {
+    throw new UnsupportedOperationException();
+  }
 }

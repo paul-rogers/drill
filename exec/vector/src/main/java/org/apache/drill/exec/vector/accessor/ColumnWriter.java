@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
+import java.math.BigDecimal;
+
 public interface ColumnWriter {
   ValueType getType();
   void setNull();
@@ -25,4 +27,5 @@ public interface ColumnWriter {
   void setDouble(double value);
   void setString(String value);
   void setBytes(byte[] value);
+  void setDecimal(BigDecimal value);
 }

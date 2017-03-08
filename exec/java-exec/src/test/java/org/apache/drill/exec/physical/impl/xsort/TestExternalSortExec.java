@@ -23,25 +23,37 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.PrintStream;
+import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.Comparator;
+
 import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.calcite.rel.RelFieldCollation.NullDirection;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.expression.FieldReference;
 import org.apache.drill.common.logical.data.Order.Ordering;
+import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
+import org.apache.drill.exec.exception.SchemaChangeException;
+import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.base.AbstractBase;
 import org.apache.drill.exec.physical.config.ExternalSort;
 import org.apache.drill.exec.physical.config.Sort;
 import org.apache.drill.exec.physical.impl.xsort.managed.OperatorCodeGenerator;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.RowSetBuilder;
 import org.apache.drill.test.RowSetComparison;
 import org.apache.drill.test.TestRowSet;
+import org.apache.drill.test.TestRowSet.RowSetReader;
+import org.apache.drill.test.TestRowSet.RowSetWriter;
 import org.apache.drill.test.TestSchema;
+import org.apache.hadoop.io.SequenceFile.Reader;
 import org.junit.Test;
 
 import jersey.repackaged.com.google.common.collect.Lists;
@@ -264,4 +276,210 @@ public class TestExternalSortExec extends DrillTest {
     }
   }
 
+  public static void setFromInt(ColumnWriter writer, int value) {
+    switch (writer.getType()) {
+    case BYTES:
+      writer.setBytes(Integer.toHexString(value).getBytes());
+      break;
+    case DOUBLE:
+      writer.setDouble(value);
+      break;
+    case INTEGER:
+      writer.setInt(value);
+      break;
+    case LONG:
+      writer.setLong(value);
+      break;
+    case STRING:
+      writer.setString(Integer.toString(value));
+      break;
+    case DECIMAL:
+      writer.setDecimal(BigDecimal.valueOf(value));
+      break;
+    default:
+      throw new IllegalStateException("Unknown writer type: " + writer.getType());
+    }
+  }
+
+  private abstract static class SortTester {
+
+    private OperatorFixture fixture;
+    private OperatorCodeGenerator opCodeGen;
+
+    public SortTester(OperatorFixture fixture,
+        OperatorCodeGenerator opCodeGen) {
+      this.fixture = fixture;
+      this.opCodeGen = opCodeGen;
+    }
+
+    public void test(MinorType type) throws SchemaChangeException {
+      DataItem data[] = makeDataArray(20);
+      TestSchema schema = makeSchema(type, false);
+      TestRowSet input = makeDataSet(fixture.allocator(), schema, data);
+      input.makeSv2();
+      SingleBatchSorter sorter = opCodeGen.createNewSorter(input.getVectorAccessible());
+      sorter.setup(null, input.getSv2(), input.getVectorAccessible());
+      sorter.sort(input.getSv2());
+      verify(data, input);
+    }
+
+     public TestSchema makeSchema(MinorType type, boolean nullable) {
+      return TestSchema.builder()
+          .add("key", type, nullable ? DataMode.OPTIONAL : DataMode.REQUIRED)
+          .add("value", MinorType.VARCHAR)
+          .build();
+    }
+
+    public static class DataItem {
+      public final int key;
+      public final int value;
+      public final boolean isNull;
+
+      public DataItem(int key, int value, boolean isNull) {
+        this.key = key;
+        this.value = value;
+        this.isNull = isNull;
+      }
+
+      @Override
+      public String toString() {
+        return "(" + key + ", \"" + value + "\", " +
+               (isNull ? "null" : "set") + ")";
+      }
+    }
+
+    public DataItem[] makeDataArray(int size) {
+      DataItem values[] = new DataItem[size];
+      int key = 11;
+      int delta = 3;
+      for (int i = 0; i < size; i++) {
+        values[i] = new DataItem(key, i, key % 5 == 0);
+        key = (key + delta) % size;
+      }
+      return values;
+    }
+
+    public TestRowSet makeDataSet(BufferAllocator allocator, TestSchema schema, DataItem values[]) {
+      boolean nullable = schema.get(0).getDataMode() == DataMode.OPTIONAL;
+      TestRowSet rowSet = new TestRowSet(allocator, schema);
+      RowSetWriter writer = rowSet.writer(values.length);
+      for (int i = 0; i < values.length; i++) {
+        DataItem item = values[i];
+        if (nullable && item.isNull) {
+          writer.column(0).setNull();
+        } else {
+          setFromInt(writer.column(0), item.key);
+        }
+        writer.column(1).setString(Integer.toString(item.value));
+        writer.advance();
+      }
+      writer.done();
+      return rowSet;
+    }
+
+    private void verify(DataItem[] data, TestRowSet actual) {
+      DataItem expected[] = Arrays.copyOf(data, data.length);
+      doSort(expected);
+      TestRowSet expectedRows = makeDataSet(actual.getAllocator(), actual.schema(), expected);
+      System.out.println("Expected:");
+      expectedRows.print();
+      System.out.println("Actual:");
+      actual.print();
+      new RowSetComparison(expectedRows)
+          .verifyAndClear(actual);
+    }
+
+    protected abstract void doSort(DataItem[] expected);
+  }
+
+  private static class TestSorterNumericAscHigh extends SortTester {
+
+    public TestSorterNumericAscHigh(OperatorFixture fixture,
+        OperatorCodeGenerator opCodeGen) {
+      super(fixture, opCodeGen);
+    }
+
+    @Override
+    protected void doSort(DataItem[] expected) {
+      Arrays.sort(expected, new Comparator<DataItem>(){
+        @Override
+        public int compare(DataItem o1, DataItem o2) {
+          return Integer.compare(o1.key, o2.key);
+        }
+      });
+    }
+  }
+
+  private static class TestSorterStringAscHigh extends SortTester {
+
+    public TestSorterStringAscHigh(OperatorFixture fixture,
+        OperatorCodeGenerator opCodeGen) {
+      super(fixture, opCodeGen);
+    }
+
+    @Override
+    protected void doSort(DataItem[] expected) {
+      Arrays.sort(expected, new Comparator<DataItem>(){
+        @Override
+        public int compare(DataItem o1, DataItem o2) {
+          return Integer.toString(o1.key).compareTo(Integer.toString(o2.key));
+        }
+      });
+    }
+  }
+
+  private static class TestSorterBinaryAscHigh extends SortTester {
+
+    public TestSorterBinaryAscHigh(OperatorFixture fixture,
+        OperatorCodeGenerator opCodeGen) {
+      super(fixture, opCodeGen);
+    }
+
+    @Override
+    protected void doSort(DataItem[] expected) {
+      Arrays.sort(expected, new Comparator<DataItem>(){
+        @Override
+        public int compare(DataItem o1, DataItem o2) {
+          return Integer.toHexString(o1.key).compareTo(Integer.toHexString(o2.key));
+        }
+      });
+    }
+  }
+
+  @Test
+  public void testSorterTypes() throws Exception {
+    try (OperatorFixture fixture = OperatorFixture.builder().build()) {
+
+      FieldReference expr = FieldReference.getWithQuotedRef("key");
+      Ordering ordering = new Ordering(Ordering.ORDER_ASC, expr, Ordering.NULLS_LAST);
+      Sort popConfig = new Sort(null, Lists.newArrayList(ordering), false);
+
+      OperatorCodeGenerator opCodeGen = new OperatorCodeGenerator(fixture.codeGenContext(), popConfig);
+
+      TestSorterNumericAscHigh tester1 = new TestSorterNumericAscHigh(fixture, opCodeGen);
+//      tester1.test(MinorType.TINYINT); DRILL-5329
+//      tester1.test(MinorType.UINT1); DRILL-5329
+//      tester1.test(MinorType.SMALLINT); DRILL-5329
+//      tester1.test(MinorType.UINT2); DRILL-5329
+      tester1.test(MinorType.INT);
+//      tester1.test(MinorType.UINT4); DRILL-5329
+      tester1.test(MinorType.BIGINT);
+//      tester1.test(MinorType.UINT8); DRILL-5329
+      tester1.test(MinorType.FLOAT4);
+      tester1.test(MinorType.FLOAT8);
+      tester1.test(MinorType.DECIMAL9);
+      tester1.test(MinorType.DECIMAL18);
+//      tester1.test(MinorType.DECIMAL28SPARSE); DRILL-5329
+//      tester1.test(MinorType.DECIMAL38SPARSE); DRILL-5329
+//    tester1.test(MinorType.DECIMAL28DENSE); No writer
+//    tester1.test(MinorType.DECIMAL38DENSE); No writer
+
+      TestSorterStringAscHigh tester2 = new TestSorterStringAscHigh(fixture, opCodeGen);
+      tester2.test(MinorType.VARCHAR);
+//      tester2.test(MinorType.VAR16CHAR); DRILL-5329
+
+      TestSorterBinaryAscHigh tester3 = new TestSorterBinaryAscHigh(fixture, opCodeGen);
+      tester3.test(MinorType.VARBINARY);
+    }
+  }
 }

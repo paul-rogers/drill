@@ -15,6 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import org.apache.drill.exec.util.DecimalUtility;
 import org.apache.drill.exec.vector.BaseDataValueVector;
 import org.apache.drill.exec.vector.NullableVectorDefinitionSetter;
 
@@ -618,6 +619,20 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       <#if type.major == "VarLen">
       fillEmpties(index);
       </#if>
+      bits.getMutator().setSafe(index, 1);
+      values.getMutator().setSafe(index, value);
+      setCount++;
+    }
+
+    </#if>
+    <#if minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse">
+    public void set(int index, BigDecimal value) {
+      bits.getMutator().set(index, 1);
+      values.getMutator().set(index, value);
+      setCount++;
+    }
+
+    public void setSafe(int index, BigDecimal value) {
       bits.getMutator().setSafe(index, 1);
       values.getMutator().setSafe(index, value);
       setCount++;

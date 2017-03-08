@@ -17,16 +17,18 @@
  */
 package org.apache.drill.exec.physical.impl.xsort;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.drill.common.util.DrillStringUtils;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.SchemaChangeException;
+import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.proto.UserBitShared.QueryData;
 import org.apache.drill.exec.proto.helper.QueryIdHelper;
@@ -43,8 +45,6 @@ import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.FixtureBuilder;
 import org.apache.drill.test.ProfileParser;
 import org.apache.drill.test.ProfileParser.OperatorProfile;
-import org.apache.drill.test.QueryBuilder.QuerySummary;
-import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;

@@ -17,9 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
-import org.apache.drill.exec.vector.IntVector;
-import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.VarCharVector;
+import java.math.BigDecimal;
 
 public abstract class AbstractColumnWriter extends ColumnAccessor implements ColumnWriter {
 
@@ -52,48 +50,9 @@ public abstract class AbstractColumnWriter extends ColumnAccessor implements Col
   public void setBytes(byte[] value) {
     throw new UnsupportedOperationException();
   }
-//  public static class IntColumnWriter extends AbstractColumnWriter {
-//
-//    private IntVector.Mutator mutator;
-//
-//    @Override
-//    public void bind(RowIndex rowIndex, ValueVector vector) {
-//      bind(rowIndex);
-//      this.mutator = ((IntVector) vector).getMutator();
-//    }
-//
-//    @Override
-//    public void setInt(int value) {
-//      mutator.setSafe(rowIndex(), value);
-//    }
-//  }
-//
-//  public static class VarCharColumnWriter extends AbstractColumnWriter {
-//
-//    private VarCharVector.Mutator mutator;
-//
-//    @Override
-//    public void bind(RowIndex rowIndex, ValueVector vector) {
-//      bind(rowIndex);
-//      this.mutator = ((VarCharVector) vector).getMutator();
-//    }
-//
-//    @Override
-//    public void setString(String value) {
-//      mutator.setSafe(rowIndex(), value.getBytes());
-//    }
-//
-//    @Override
-//    public void setLong(long value) {
-//      // TODO Auto-generated method stub
-//
-//    }
-//
-//    @Override
-//    public void setDouble(double value) {
-//      // TODO Auto-generated method stub
-//
-//    }
-//  }
 
+  @Override
+  public void setDecimal(BigDecimal value) {
+    throw new UnsupportedOperationException();
+  }
 }

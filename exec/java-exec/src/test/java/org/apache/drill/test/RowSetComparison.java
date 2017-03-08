@@ -24,6 +24,12 @@ import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.test.TestRowSet.RowSetReader;
 import org.bouncycastle.util.Arrays;
 
+/**
+ * For testing, compare the contents of two row sets (record batches)
+ * to verify that they are identical. Supports masks to exclude certain
+ * columns from comparison.
+ */
+
 public class RowSetComparison {
 
   private TestRowSet expected;
@@ -81,7 +87,7 @@ public class RowSetComparison {
       }
       ColumnReader ec = er.column(i);
       ColumnReader ac = ar.column(i);
-      String label = er.rowIndex() + ":" + i;
+      String label = er.index() + ":" + i;
       if (ec.isNull()) {
         assertTrue(label + " - column not null", ac.isNull());
         continue;
@@ -108,6 +114,9 @@ public class RowSetComparison {
         break;
       case STRING:
         assertEquals(label, ec.getString(), ac.getString());
+        break;
+      case DECIMAL:
+        assertEquals(label, ec.getDecimal(), ac.getDecimal());
         break;
       default:
         throw new IllegalStateException( "Unexpected type: " + ec.getType());
