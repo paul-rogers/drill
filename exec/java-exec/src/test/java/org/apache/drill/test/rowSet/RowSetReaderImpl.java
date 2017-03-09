@@ -24,7 +24,7 @@ import org.apache.drill.exec.vector.accessor.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.apache.drill.exec.vector.accessor.ColumnAccessor.RowIndex;
-import org.apache.drill.test.rowSet.TestRowSet.RowSetReader;
+import org.apache.drill.test.rowSet.RowSet.RowSetReader;
 
 public class RowSetReaderImpl implements RowSetReader {
 
@@ -57,11 +57,11 @@ public class RowSetReaderImpl implements RowSetReader {
     }
   }
 
-  private TestRowSet rowSet;
+  private RowSet rowSet;
   private AbstractColumnReader readers[];
   private AbstractRowIndex rowIndex;
 
-  public RowSetReaderImpl(TestRowSet recordSet) {
+  public RowSetReaderImpl(RowSet recordSet) {
     if (recordSet.getSv2() == null) {
       rowIndex = new DirectRowIndex();
     } else {

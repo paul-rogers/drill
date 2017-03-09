@@ -8,6 +8,7 @@ import org.apache.drill.exec.expr.ClassGenerator;
 import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.drill.exec.server.options.OptionSet;
+import org.apache.drill.exec.testing.ExecutionControls;
 
 public interface CodeGenContext {
   FunctionImplementationRegistry getFunctionRegistry();
@@ -24,4 +25,6 @@ public interface CodeGenContext {
 
   <T> List<T> getImplementationClass(final CodeGenerator<T> cg, final int instanceCount)
       throws ClassTransformationException, IOException;
+  boolean shouldContinue();
+  ExecutionControls getExecutionControls();
 }

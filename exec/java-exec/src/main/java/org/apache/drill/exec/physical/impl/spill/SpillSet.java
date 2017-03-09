@@ -362,8 +362,11 @@ public class SpillSet {
 
   public SpillSet(FragmentContext context, PhysicalOperator popConfig,
                   String opName, String fileName) {
-    FragmentHandle handle = context.getHandle();
-    DrillConfig config = context.getConfig();
+    this(context.getConfig(), context.getHandle(), popConfig, opName, fileName);
+  }
+
+  public SpillSet(DrillConfig config, FragmentHandle handle, PhysicalOperator popConfig,
+        String opName, String fileName) {
     spillFileName = fileName;
     List<String> dirList = config.getStringList(ExecConstants.EXTERNAL_SORT_SPILL_DIRS);
     dirs = Iterators.cycle(dirList);

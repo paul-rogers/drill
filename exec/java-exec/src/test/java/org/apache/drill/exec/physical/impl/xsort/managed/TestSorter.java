@@ -1,24 +1,39 @@
-package org.apache.drill.exec.physical.impl.xsort;
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.drill.exec.physical.impl.xsort.managed;
 
 import java.util.Arrays;
 import java.util.Comparator;
 
 import org.apache.drill.common.expression.FieldReference;
 import org.apache.drill.common.logical.data.Order.Ordering;
-import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.config.Sort;
-import org.apache.drill.exec.physical.impl.xsort.managed.OperatorCodeGenerator;
 import org.apache.drill.exec.vector.accessor.AccessorUtilities;
 import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.OperatorFixture;
+import org.apache.drill.test.rowSet.RowSet;
+import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
-import org.apache.drill.test.rowSet.TestRowSet;
-import org.apache.drill.test.rowSet.TestSchema;
-import org.apache.drill.test.rowSet.TestRowSet.RowSetWriter;
+import org.apache.drill.test.rowSet.RowSetSchema;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -39,86 +54,70 @@ public class TestSorter extends DrillTest {
     fixture.close();
   }
 
-  public void runSimpleTest(TestRowSet rowSet, TestRowSet expected) throws Exception {
+  public void runSorterTest(RowSet rowSet, RowSet expected) throws Exception {
     FieldReference expr = FieldReference.getWithQuotedRef("key");
     Ordering ordering = new Ordering(Ordering.ORDER_ASC, expr, Ordering.NULLS_LAST);
     Sort popConfig = new Sort(null, Lists.newArrayList(ordering), false);
-    OperatorCodeGenerator opCodeGen = new OperatorCodeGenerator(fixture.codeGenContext(), popConfig);
+    SorterWrapper sorter = new SorterWrapper(popConfig, fixture.codeGenContext(), fixture.allocator());
 
-    SingleBatchSorter sorter = opCodeGen.getSorter(rowSet.getVectorAccessible());
-    sorter.setup(null, rowSet.getSv2(), rowSet.getVectorAccessible());
-    sorter.sort(rowSet.getSv2());
+    sorter.sortBatch(rowSet.getContainer(), rowSet.getSv2());
 
     new RowSetComparison(expected)
         .verifyAndClear(rowSet);
-  }
-
-  public static TestSchema makeSchema(MinorType type, boolean nullable) {
-    return TestSchema.builder()
-        .add("key", type, nullable ? DataMode.OPTIONAL : DataMode.REQUIRED)
-        .add("value", MinorType.VARCHAR)
-        .build();
-  }
-
-  public static TestSchema nonNullSchema() {
-    return makeSchema(MinorType.INT, false);
-  }
-
-  public static TestSchema nullSchema() {
-    return makeSchema(MinorType.INT, true);
+    sorter.close();
   }
 
   // Test degenerate case: no rows
 
   @Test
   public void testEmptyRowSet() throws Exception {
-    TestSchema schema = nonNullSchema();
-    TestRowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
+    RowSetSchema schema = SortTestUtilities.nonNullSchema();
+    RowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
         .withSv2()
         .build();
-    TestRowSet expected = new RowSetBuilder(fixture.allocator(), schema)
+    RowSet expected = new RowSetBuilder(fixture.allocator(), schema)
         .build();
-    runSimpleTest(rowSet, expected);
+    runSorterTest(rowSet, expected);
   }
 
   // Sanity test: single row
 
   @Test
   public void testSingleRow() throws Exception {
-    TestSchema schema = nonNullSchema();
-    TestRowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
+    RowSetSchema schema = SortTestUtilities.nonNullSchema();
+    RowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
           .add(0, "0")
           .withSv2()
           .build();
 
-    TestRowSet expected = new RowSetBuilder(fixture.allocator(), schema)
+    RowSet expected = new RowSetBuilder(fixture.allocator(), schema)
         .add(0, "0")
         .build();
-    runSimpleTest(rowSet, expected);
+    runSorterTest(rowSet, expected);
   }
 
   // Paranoia: sort with two rows.
 
   @Test
   public void testTwoRows() throws Exception {
-    TestSchema schema = nonNullSchema();
-    TestRowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
+    RowSetSchema schema = SortTestUtilities.nonNullSchema();
+    RowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
           .add(1, "1")
           .add(0, "0")
           .withSv2()
           .build();
 
-    TestRowSet expected = new RowSetBuilder(fixture.allocator(), schema)
+    RowSet expected = new RowSetBuilder(fixture.allocator(), schema)
         .add(0, "0")
         .add(1, "1")
         .build();
-    runSimpleTest(rowSet, expected);
+    runSorterTest(rowSet, expected);
   }
 
   private abstract static class SortTester {
 
     private OperatorFixture fixture;
-    private OperatorCodeGenerator opCodeGen;
+    private SorterWrapper sorter;
     protected boolean nullable;
     protected Ordering ordering;
     protected DataItem data[];
@@ -129,17 +128,16 @@ public class TestSorter extends DrillTest {
       ordering = new Ordering(sortOrder, expr, nullOrder);
       Sort popConfig = new Sort(null, Lists.newArrayList(ordering), false);
 
-      opCodeGen = new OperatorCodeGenerator(fixture.codeGenContext(), popConfig);
+      sorter = new SorterWrapper(popConfig, fixture.codeGenContext(), fixture.allocator());
     }
 
     public void test(MinorType type) throws SchemaChangeException {
       data = makeDataArray(20);
-      TestSchema schema = makeSchema(type, nullable);
-      TestRowSet input = makeDataSet(fixture.allocator(), schema, data);
+      RowSetSchema schema = SortTestUtilities.makeSchema(type, nullable);
+      RowSet input = makeDataSet(fixture.allocator(), schema, data);
       input.makeSv2();
-      SingleBatchSorter sorter = opCodeGen.createNewSorter(input.getVectorAccessible());
-      sorter.setup(null, input.getSv2(), input.getVectorAccessible());
-      sorter.sort(input.getSv2());
+      sorter.sortBatch(input.getContainer(), input.getSv2());
+      sorter.close();
       verify(input);
     }
 
@@ -172,8 +170,8 @@ public class TestSorter extends DrillTest {
       return values;
     }
 
-    public TestRowSet makeDataSet(BufferAllocator allocator, TestSchema schema, DataItem[] items) {
-      TestRowSet rowSet = new TestRowSet(allocator, schema);
+    public RowSet makeDataSet(BufferAllocator allocator, RowSetSchema schema, DataItem[] items) {
+      RowSet rowSet = new RowSet(allocator, schema);
       RowSetWriter writer = rowSet.writer(items.length);
       for (int i = 0; i < items.length; i++) {
         DataItem item = items[i];
@@ -189,18 +187,18 @@ public class TestSorter extends DrillTest {
       return rowSet;
     }
 
-    private void verify(TestRowSet actual) {
+    private void verify(RowSet actual) {
       DataItem expected[] = Arrays.copyOf(data, data.length);
       doSort(expected);
-      TestRowSet expectedRows = makeDataSet(actual.getAllocator(), actual.schema(), expected);
-      System.out.println("Expected:");
-      expectedRows.print();
-      System.out.println("Actual:");
-      actual.print();
+      RowSet expectedRows = makeDataSet(actual.getAllocator(), actual.schema(), expected);
+//      System.out.println("Expected:");
+//      expectedRows.print();
+//      System.out.println("Actual:");
+//      actual.print();
       doVerify(expected, expectedRows, actual);
     }
 
-    protected void doVerify(DataItem[] expected, TestRowSet expectedRows, TestRowSet actual) {
+    protected void doVerify(DataItem[] expected, RowSet expectedRows, RowSet actual) {
       new RowSetComparison(expectedRows)
             .verifyAndClear(actual);
     }
@@ -258,7 +256,7 @@ public class TestSorter extends DrillTest {
     }
 
     @Override
-    protected void doVerify(DataItem[] expected, TestRowSet expectedRows, TestRowSet actual) {
+    protected void doVerify(DataItem[] expected, RowSet expectedRows, RowSet actual) {
       int nullCount = 0;
       for (DataItem item : expected) {
         if (item.isNull) { nullCount++; }

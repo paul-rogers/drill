@@ -18,24 +18,36 @@
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
 import java.io.IOException;
-import java.util.List;
 
-import org.apache.drill.exec.compile.TemplateClassDefinition;
-import org.apache.drill.exec.exception.SchemaChangeException;
-import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.exec.exception.ClassTransformationException;
+import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.ops.CodeGenContext;
-import org.apache.drill.exec.ops.FragmentContext;
-import org.apache.drill.exec.record.VectorAccessible;
 
-public interface PriorityQueueCopier extends AutoCloseable {
-  public void setup(CodeGenContext context, BufferAllocator allocator, VectorAccessible hyperBatch,
-      List<BatchGroup> batchGroups, VectorAccessible outgoing) throws SchemaChangeException;
+/**
+ * Base class for code-generation-based tasks.
+ */
 
-  public int next(int targetRecordCount);
+public abstract class BaseWrapper {
 
-  public final static TemplateClassDefinition<PriorityQueueCopier> TEMPLATE_DEFINITION =
-      new TemplateClassDefinition<>(PriorityQueueCopier.class, PriorityQueueCopierTemplate.class);
+  protected CodeGenContext context;
 
-  @Override
-  abstract public void close() throws IOException; // specify this to leave out the Exception
+  public BaseWrapper(CodeGenContext context) {
+    this.context = context;
+  }
+
+  protected <T> T getInstance(CodeGenerator<T> cg, org.slf4j.Logger logger) {
+    try {
+      return context.getImplementationClass(cg);
+    } catch (ClassTransformationException e) {
+      throw UserException.unsupportedError(e)
+            .message("Code generation error - likely code error.")
+            .build(logger);
+    } catch (IOException e) {
+      throw UserException.resourceError(e)
+            .message("IO Error during code generation.")
+            .build(logger);
+    }
+  }
+
 }

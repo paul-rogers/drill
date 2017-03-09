@@ -28,6 +28,7 @@ import java.util.Set;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.expr.TypeHelper;
+import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.selection.SelectionVector2;
@@ -45,15 +46,18 @@ public class VectorContainer implements Iterable<VectorWrapper<?>>, VectorAccess
   protected final List<VectorWrapper<?>> wrappers = Lists.newArrayList();
   private BatchSchema schema;
   private int recordCount = -1;
-  private OperatorContext oContext;
+  private BufferAllocator allocator;
   private boolean schemaChanged = true; // Schema has changed since last built. Must rebuild schema
 
   public VectorContainer() {
-    this.oContext = null;
   }
 
   public VectorContainer(OperatorContext oContext) {
-    this.oContext = oContext;
+    this(oContext.getAllocator());
+  }
+
+  public VectorContainer(BufferAllocator allocator) {
+    this.allocator = allocator;
   }
 
   @Override
@@ -66,14 +70,7 @@ public class VectorContainer implements Iterable<VectorWrapper<?>>, VectorAccess
         + ", ...]";
   }
 
-  /**
-   * Get the OperatorContext.
-   *
-   * @return the OperatorContext; may be null
-   */
-  public OperatorContext getOperatorContext() {
-    return oContext;
-  }
+  public BufferAllocator getAllocator() { return allocator; }
 
   public boolean isSchemaChanged() {
     return schemaChanged;
@@ -95,7 +92,7 @@ public class VectorContainer implements Iterable<VectorWrapper<?>>, VectorAccess
   /**
    * Transfer vectors from containerIn to this.
    */
-  void transferIn(VectorContainer containerIn) {
+  public void transferIn(VectorContainer containerIn) {
     Preconditions.checkArgument(this.wrappers.size() == containerIn.wrappers.size());
     for (int i = 0; i < this.wrappers.size(); ++i) {
       containerIn.wrappers.get(i).transfer(this.wrappers.get(i));
@@ -105,7 +102,7 @@ public class VectorContainer implements Iterable<VectorWrapper<?>>, VectorAccess
   /**
    * Transfer vectors from this to containerOut
    */
-  void transferOut(VectorContainer containerOut) {
+  public void transferOut(VectorContainer containerOut) {
     Preconditions.checkArgument(this.wrappers.size() == containerOut.wrappers.size());
     for (int i = 0; i < this.wrappers.size(); ++i) {
       this.wrappers.get(i).transfer(containerOut.wrappers.get(i));
@@ -124,13 +121,13 @@ public class VectorContainer implements Iterable<VectorWrapper<?>>, VectorAccess
     if (id != null) {
       vector = getValueAccessorById(id.getFieldIds()).getValueVector();
       if (id.getFieldIds().length == 1 && clazz != null && !clazz.isAssignableFrom(vector.getClass())) {
-        final ValueVector newVector = TypeHelper.getNewVector(field, this.oContext.getAllocator(), callBack);
+        final ValueVector newVector = TypeHelper.getNewVector(field, this.getAllocator(), callBack);
         replace(vector, newVector);
         return (T) newVector;
       }
     } else {
 
-      vector = TypeHelper.getNewVector(field, this.oContext.getAllocator(), callBack);
+      vector = TypeHelper.getNewVector(field, this.getAllocator(), callBack);
       add(vector);
     }
     return (T) vector;
@@ -197,12 +194,12 @@ public class VectorContainer implements Iterable<VectorWrapper<?>>, VectorAccess
         vc.add(w.getValueVector());
       }
     }
-    vc.oContext = original.oContext;
+    vc.allocator = original.allocator;
     return vc;
   }
 
   private void cloneAndTransfer(VectorWrapper<?> wrapper) {
-    wrappers.add(wrapper.cloneAndTransfer(oContext.getAllocator()));
+    wrappers.add(wrapper.cloneAndTransfer(getAllocator()));
   }
 
   public void addCollection(Iterable<ValueVector> vectors) {

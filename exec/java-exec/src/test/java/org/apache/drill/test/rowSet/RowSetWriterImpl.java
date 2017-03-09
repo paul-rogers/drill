@@ -22,15 +22,15 @@ import org.apache.drill.exec.vector.accessor.AbstractColumnWriter;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.apache.drill.exec.vector.accessor.ColumnAccessor.RowIndex;
-import org.apache.drill.test.rowSet.TestRowSet.RowSetWriter;
+import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 
 public class RowSetWriterImpl implements RowSetWriter, RowIndex {
 
-  private TestRowSet recordSet;
+  private RowSet recordSet;
   private AbstractColumnWriter writers[];
   private int rowIndex;
 
-  public RowSetWriterImpl(TestRowSet recordSet) {
+  public RowSetWriterImpl(RowSet recordSet) {
     this.recordSet = recordSet;
     ValueVector[] valueVectors = recordSet.vectors();
     writers = new AbstractColumnWriter[valueVectors.length];

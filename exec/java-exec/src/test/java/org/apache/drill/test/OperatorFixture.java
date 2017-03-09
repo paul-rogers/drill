@@ -38,6 +38,7 @@ import org.apache.drill.exec.server.options.BaseOptionManager;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.server.options.OptionValue.OptionType;
+import org.apache.drill.exec.testing.ExecutionControls;
 
 public class OperatorFixture implements AutoCloseable {
 
@@ -102,12 +103,17 @@ public class OperatorFixture implements AutoCloseable {
     private final OptionSet options;
     private final CodeCompiler compiler;
     private final FunctionImplementationRegistry functionRegistry;
+    private ExecutionControls controls;
 
     public TestCodeGenContext(DrillConfig config, OptionSet options) {
       this.options = options;
       ScanResult classpathScan = ClassPathScanner.fromPrescan(config);
       functionRegistry = new FunctionImplementationRegistry(config, classpathScan, options);
       compiler = new CodeCompiler(config, options);
+    }
+
+    public void setExecutionControls(ExecutionControls controls) {
+      this.controls = controls;
     }
 
     @Override
@@ -140,6 +146,16 @@ public class OperatorFixture implements AutoCloseable {
     @Override
     public <T> List<T> getImplementationClass(final CodeGenerator<T> cg, final int instanceCount) throws ClassTransformationException, IOException {
       return compiler.createInstances(cg, instanceCount);
+    }
+
+    @Override
+    public boolean shouldContinue() {
+      return true;
+    }
+
+    @Override
+    public ExecutionControls getExecutionControls() {
+      return controls;
     }
   }
 

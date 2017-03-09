@@ -23,22 +23,19 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.drill.common.AutoCloseables;
+import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.exception.OutOfMemoryException;
-import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.ops.FragmentContext;
-import org.apache.drill.exec.ops.OperatorContext;
+import org.apache.drill.exec.ops.CodeGenContext;
 import org.apache.drill.exec.ops.OperatorStats;
 import org.apache.drill.exec.physical.config.ExternalSort;
 import org.apache.drill.exec.physical.impl.sort.RecordBatchData;
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
 import org.apache.drill.exec.physical.impl.spill.SpillSet;
 import org.apache.drill.exec.physical.impl.xsort.MSortTemplate;
-import org.apache.drill.exec.physical.impl.xsort.SingleBatchSorter;
 import org.apache.drill.exec.physical.impl.xsort.managed.BatchGroup.InputBatch;
 import org.apache.drill.exec.physical.impl.xsort.managed.BatchGroup.SpilledRun;
-import org.apache.drill.exec.physical.impl.xsort.managed.SortMemoryManager.MergeAction;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortMemoryManager.MergeTask;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.RecordBatch;
@@ -100,31 +97,32 @@ public class SortImpl {
    * a new set of batches.
    */
 
-  private final CopierHolder copierHolder;
+  private final PriorityQueueCopierWrapper copierHolder;
 
-  private final OperatorCodeGenerator opCodeGen;
+  private final SorterWrapper sorterWrapper;
 
   private final BufferAllocator allocator;
 
-  private SortConfig config;
+  private final SortConfig config;
 
-  private SortMetrics metrics;
-
-  private SortMemoryManager memManager;
+  private final SortMetrics metrics;
+  private final ExternalSort popConfig;
+  private final SortMemoryManager memManager;
   private BatchSchema schema;
-  private OperatorContext oContext;
-  private FragmentContext context;
+  private final CodeGenContext context;
   private VectorAccessible outputBatch;
 
-  public SortImpl(ExternalSort popConfig, FragmentContext context, OperatorContext oContext, BufferAllocator allocator, OperatorStats stats, VectorAccessible batch) {
+  public SortImpl(DrillConfig drillConfig, ExternalSort popConfig, CodeGenContext context,
+                  BufferAllocator allocator, OperatorStats stats, VectorAccessible batch,
+                  SpillSet spillSet) {
     this.allocator = allocator;
-    this.oContext = oContext;
     this.context = context;
+    this.popConfig = popConfig;
     outputBatch = batch;
-    opCodeGen = new OperatorCodeGenerator(context, popConfig);
-    spillSet = new SpillSet(context, popConfig, "sort", "run");
-    copierHolder = new CopierHolder(context, allocator, opCodeGen);
-    config = new SortConfig(context.getConfig());
+    sorterWrapper = new SorterWrapper(popConfig, context, allocator);
+    this.spillSet = spillSet;
+    copierHolder = new PriorityQueueCopierWrapper(popConfig, context, allocator);
+    config = new SortConfig(drillConfig);
     memManager = new SortMemoryManager(config, allocator.getLimit());
     metrics = new SortMetrics(stats);
 
@@ -141,7 +139,7 @@ public class SortImpl {
 
     // New schema: must generate a new sorter and copier.
 
-    opCodeGen.setSchema(schema);
+    sorterWrapper.close();
 
     // Coerce all existing batches to the new schema.
 
@@ -237,13 +235,12 @@ public class SortImpl {
     // Sort the incoming batch using either the original selection vector,
     // or a new one created here.
 
-    sortIncomingBatch(convertedBatch, sv2);
+    sorterWrapper.sortBatch(convertedBatch, sv2);
     bufferBatch(convertedBatch, sv2, sizer.netSize());
   }
 
   /**
-   * Scan the vectors in the incoming batch to determine batch size and if
-   * any oversize columns exist. (Oversize columns cause memory fragmentation.)
+   * Scan the vectors in the incoming batch to determine batch size.
    *
    * @return an analysis of the incoming batch
    */
@@ -271,7 +268,7 @@ public class SortImpl {
     // the vectors to release memory since we won't do any
     // further processing with the empty batch.
 
-    VectorContainer convertedBatch = SchemaUtil.coerceContainer(incoming, schema, oContext);
+    VectorContainer convertedBatch = SchemaUtil.coerceContainer(incoming, schema, allocator);
     if (incoming.getRecordCount() == 0) {
       for (VectorWrapper<?> w : convertedBatch) {
         w.clear();
@@ -321,34 +318,12 @@ public class SortImpl {
     }
   }
 
-  private void sortIncomingBatch(VectorContainer convertedBatch, SelectionVector2 sv2) {
-
-    SingleBatchSorter sorter;
-    sorter = opCodeGen.getSorter(convertedBatch);
-    try {
-      sorter.setup(context, sv2, convertedBatch);
-    } catch (SchemaChangeException e) {
-      convertedBatch.clear();
-      throw UserException.unsupportedError(e)
-            .message("Unexpected schema change.")
-            .build(logger);
-    }
-    try {
-      sorter.sort(sv2);
-    } catch (SchemaChangeException e) {
-      convertedBatch.clear();
-      throw UserException.unsupportedError(e)
-                .message("Unexpected schema change.")
-                .build(logger);
-    }
-  }
-
   @SuppressWarnings("resource")
   private void bufferBatch(VectorContainer convertedBatch, SelectionVector2 sv2, int netSize) {
     RecordBatchData rbd = new RecordBatchData(convertedBatch, allocator);
     try {
       rbd.setSv2(sv2);
-      bufferedBatches.add(new BatchGroup.InputBatch(rbd.getContainer(), rbd.getSv2(), oContext, netSize));
+      bufferedBatches.add(new BatchGroup.InputBatch(rbd.getContainer(), rbd.getSv2(), allocator, netSize));
       metrics.updatePeakBatches(bufferedBatches.size());
 
     } catch (Throwable t) {
@@ -438,12 +413,12 @@ public class SortImpl {
     BatchGroup.SpilledRun newGroup = null;
     int spillBatchRowCount = memManager.getSpillBatchRowCount();
     try (AutoCloseable ignored = AutoCloseables.all(batchesToSpill);
-         CopierHolder.BatchMerger merger = copierHolder.startMerge(schema, batchesToSpill, spillBatchRowCount)) {
+         PriorityQueueCopierWrapper.BatchMerger merger = copierHolder.startMerge(schema, batchesToSpill, spillBatchRowCount)) {
       logger.trace("Spilling {} of {} batches, spill batch size = {} rows, memory = {}, write to {}",
                    batchesToSpill.size(), bufferedBatches.size() + batchesToSpill.size(),
                    spillBatchRowCount,
                    allocator.getAllocatedMemory(), outputFile);
-      newGroup = new BatchGroup.SpilledRun(spillSet, outputFile, oContext);
+      newGroup = new BatchGroup.SpilledRun(spillSet, outputFile, allocator);
 
       // The copier will merge records from the buffered batches into
       // the outputContainer up to targetRecordCount number of rows.
@@ -565,7 +540,7 @@ public class SortImpl {
     // If the sort fails or is empty, clean up here. Otherwise, cleanup is done
     // by closing the resultsIterator after all results are returned downstream.
 
-    MergeSort memoryMerge = new MergeSort(context, allocator, opCodeGen);
+    MergeSortWrapper memoryMerge = new MergeSortWrapper(popConfig, context, allocator);
     try {
       memoryMerge.merge(bufferedBatches, outputBatch, container);
     } catch (Throwable t) {
@@ -615,7 +590,7 @@ public class SortImpl {
 
     // Do the final merge as a results iterator.
 
-    CopierHolder.BatchMerger merger = copierHolder.startFinalMerge(schema, allBatches, container, memManager.getMergeBatchRowCount());
+    PriorityQueueCopierWrapper.BatchMerger merger = copierHolder.startFinalMerge(schema, allBatches, container, memManager.getMergeBatchRowCount());
     merger.next();
     return merger;
   }
@@ -711,7 +686,7 @@ public class SortImpl {
       ex = (ex == null) ? e : ex;
     }
     try {
-      opCodeGen.close();
+      sorterWrapper.close();
     } catch (RuntimeException e) {
       ex = (ex == null) ? e : ex;
     }

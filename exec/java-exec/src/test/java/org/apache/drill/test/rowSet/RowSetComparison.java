@@ -21,7 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import org.apache.drill.exec.vector.accessor.ColumnReader;
-import org.apache.drill.test.rowSet.TestRowSet.RowSetReader;
+import org.apache.drill.test.rowSet.RowSet.RowSetReader;
 import org.bouncycastle.util.Arrays;
 
 /**
@@ -32,13 +32,13 @@ import org.bouncycastle.util.Arrays;
 
 public class RowSetComparison {
 
-  private TestRowSet expected;
+  private RowSet expected;
   private boolean mask[];
   private double delta = 0.001;
   private int offset;
   private int span = -1;
 
-  public RowSetComparison(TestRowSet expected) {
+  public RowSetComparison(RowSet expected) {
     this.expected = expected;
     mask = new boolean[expected.schema().count()];
     for (int i = 0; i < mask.length; i++) {
@@ -114,7 +114,7 @@ public class RowSetComparison {
    * @param actual the actual results to verify
    */
 
-  public void verify(TestRowSet actual) {
+  public void verify(RowSet actual) {
     int testLength = expected.rowCount() - offset;
     if (span > -1) {
       testLength = span;
@@ -141,7 +141,7 @@ public class RowSetComparison {
    * @param actual the actual results to verify
    */
 
-  public void verifyAndClear(TestRowSet actual) {
+  public void verifyAndClear(RowSet actual) {
     try {
       verify(actual);
     } finally {

@@ -18,7 +18,7 @@
 package org.apache.drill.test.rowSet;
 
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.test.rowSet.TestRowSet.RowSetWriter;
+import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 
 /**
  * Fluent builder to quickly build up an row set (record batch)
@@ -27,16 +27,16 @@ import org.apache.drill.test.rowSet.TestRowSet.RowSetWriter;
 
 public final class RowSetBuilder {
 
-  private TestRowSet rowSet;
+  private RowSet rowSet;
   private RowSetWriter writer;
   private boolean withSv2;
 
-  public RowSetBuilder(BufferAllocator allocator, TestSchema schema) {
+  public RowSetBuilder(BufferAllocator allocator, RowSetSchema schema) {
     this(allocator, schema, 10);
   }
 
-  public RowSetBuilder(BufferAllocator allocator, TestSchema schema, int capacity) {
-    rowSet = new TestRowSet(allocator, schema);
+  public RowSetBuilder(BufferAllocator allocator, RowSetSchema schema, int capacity) {
+    rowSet = new RowSet(allocator, schema);
     writer = rowSet.writer(capacity);
   }
 
@@ -53,7 +53,7 @@ public final class RowSetBuilder {
     return this;
   }
 
-  public TestRowSet build() {
+  public RowSet build() {
     writer.done();
     if (withSv2) {
       rowSet.makeSv2();

@@ -22,6 +22,7 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.MetricDef;
 import org.apache.drill.exec.physical.config.ExternalSort;
+import org.apache.drill.exec.physical.impl.spill.SpillSet;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortImpl.SortResults;
 import org.apache.drill.exec.record.AbstractRecordBatch;
 import org.apache.drill.exec.record.BatchSchema;
@@ -215,7 +216,9 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     this.incoming = incoming;
     allocator = oContext.getAllocator();
 
-    sortImpl = new SortImpl(popConfig, context, oContext, allocator, stats, this);
+    SpillSet spillSet = new SpillSet(context.getConfig(), context.getHandle(),
+                                     popConfig, "sort", "run");
+    sortImpl = new SortImpl(context.getConfig(), popConfig, context, allocator, stats, this, spillSet);
   }
 
   @Override

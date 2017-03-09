@@ -25,26 +25,32 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
 
-public class TestSchema {
+/**
+ * Schema for a row set expressed as a list of materialized columns.
+ * Allows easy creation of multiple row sets from the same schema.
+ * Each schema is immutable, which is fine for tests in which we
+ * want known inputs and outputs.
+ */
 
-  public static class TestSchemaBuilder {
+public class RowSetSchema {
+
+  public static class SchemaBuilder {
     private List<MaterializedField> columns = new ArrayList<>( );
 
-    public TestSchemaBuilder() {
-
+    public SchemaBuilder() {
     }
 
-    public TestSchemaBuilder(TestSchema base) {
+    public SchemaBuilder(RowSetSchema base) {
       columns.addAll(base.columns);
     }
 
-    public TestSchemaBuilder add(String pathName, MajorType type) {
+    public SchemaBuilder add(String pathName, MajorType type) {
       MaterializedField col = MaterializedField.create(pathName, type);
       columns.add(col);
       return this;
     }
 
-    public TestSchemaBuilder add(String pathName, MinorType type, DataMode mode) {
+    public SchemaBuilder add(String pathName, MinorType type, DataMode mode) {
       return add(pathName, MajorType.newBuilder()
           .setMinorType(type)
           .setMode(mode)
@@ -52,35 +58,34 @@ public class TestSchema {
           );
     }
 
-    public TestSchemaBuilder add(String pathName, MinorType type) {
+    public SchemaBuilder add(String pathName, MinorType type) {
       return add(pathName, type, DataMode.REQUIRED);
     }
 
-    public TestSchemaBuilder addNullable(String pathName, MinorType type) {
+    public SchemaBuilder addNullable(String pathName, MinorType type) {
       return add(pathName, type, DataMode.OPTIONAL);
     }
 
-    public TestSchema build() {
-      return new TestSchema(columns);
+    public RowSetSchema build() {
+      return new RowSetSchema(columns);
     }
-
   }
 
   private List<MaterializedField> columns = new ArrayList<>( );
 
-  public TestSchema(List<MaterializedField> columns) {
+  public RowSetSchema(List<MaterializedField> columns) {
     this.columns.addAll( columns );
   }
 
   public int count( ) { return columns.size(); }
   public MaterializedField get(int i) { return columns.get(i); }
 
-  public static TestSchemaBuilder builder( ) {
-    return new TestSchemaBuilder();
+  public static SchemaBuilder builder( ) {
+    return new SchemaBuilder();
   }
 
-  public TestSchemaBuilder revise() {
-    return new TestSchemaBuilder(this);
+  public SchemaBuilder revise() {
+    return new SchemaBuilder(this);
   }
 
 }

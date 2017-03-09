@@ -98,6 +98,7 @@ public class SortRecordBatchBuilder implements AutoCloseable {
     return true;
   }
 
+  @SuppressWarnings("resource")
   public void add(RecordBatchData rbd) {
     long batchBytes = getSize(rbd.getContainer());
     if (batchBytes == 0 && batches.size() > 0) {
@@ -140,7 +141,12 @@ public class SortRecordBatchBuilder implements AutoCloseable {
     return batches.isEmpty();
   }
 
-  public void build(FragmentContext context, VectorContainer outputContainer) throws SchemaChangeException{
+  public void build(FragmentContext context, VectorContainer outputContainer) throws SchemaChangeException {
+    build(outputContainer);
+  }
+
+  @SuppressWarnings("resource")
+  public void build(VectorContainer outputContainer) throws SchemaChangeException {
     outputContainer.clear();
     if (batches.keySet().size() > 1) {
       throw new SchemaChangeException("Sort currently only supports a single schema.");

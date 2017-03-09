@@ -78,8 +78,8 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
     private final SelectionVector2 sv2;
     private final int dataSize;
 
-    public InputBatch(VectorContainer container, SelectionVector2 sv2, OperatorContext context, int dataSize) {
-      super(container, context);
+    public InputBatch(VectorContainer container, SelectionVector2 sv2, BufferAllocator allocator, int dataSize) {
+      super(container, allocator);
       this.sv2 = sv2;
       this.dataSize = dataSize;
     }
@@ -153,11 +153,11 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
     private int spilledBatches;
     private long batchSize;
 
-    public SpilledRun(SpillSet spillSet, String path, OperatorContext context) throws IOException {
-      super(null, context);
+    public SpilledRun(SpillSet spillSet, String path, BufferAllocator allocator) throws IOException {
+      super(null, allocator);
       this.spillSet = spillSet;
       this.path = path;
-      this.allocator = context.getAllocator();
+      this.allocator = allocator;
       outputStream = spillSet.openForOutput(path);
     }
 
@@ -222,13 +222,13 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
       vas.readFromStream(inputStream);
       VectorContainer c =  vas.get();
       if (schema != null) {
-        c = SchemaUtil.coerceContainer(c, schema, context);
+        c = SchemaUtil.coerceContainer(c, schema, allocator);
       }
       logger.trace("Read {} records in {} us", c.getRecordCount(), watch.elapsed(TimeUnit.MICROSECONDS));
       spilledBatches--;
       currentContainer.zeroVectors();
       Iterator<VectorWrapper<?>> wrapperIterator = c.iterator();
-      for (@SuppressWarnings("rawtypes") VectorWrapper w : currentContainer) {
+      for (VectorWrapper<?> w : currentContainer) {
         TransferPair pair = wrapperIterator.next().getValueVector().makeTransferPair(w.getValueVector());
         pair.transfer();
       }
@@ -297,12 +297,12 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
 
   protected VectorContainer currentContainer;
   protected int pointer = 0;
-  protected final OperatorContext context;
+  protected final BufferAllocator allocator;
   protected BatchSchema schema;
 
-  public BatchGroup(VectorContainer container, OperatorContext context) {
+  public BatchGroup(VectorContainer container, BufferAllocator allocator) {
     this.currentContainer = container;
-    this.context = context;
+    this.allocator = allocator;
   }
 
   /**
@@ -311,7 +311,7 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
    * @param schema
    */
   public void setSchema(BatchSchema schema) {
-    currentContainer = SchemaUtil.coerceContainer(currentContainer, schema, context);
+    currentContainer = SchemaUtil.coerceContainer(currentContainer, schema, allocator);
     this.schema = schema;
   }
 

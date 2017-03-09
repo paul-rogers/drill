@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.xsort;
+package org.apache.drill.exec.physical.impl.xsort.managed;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -41,7 +41,7 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.base.AbstractBase;
 import org.apache.drill.exec.physical.config.ExternalSort;
 import org.apache.drill.exec.physical.config.Sort;
-import org.apache.drill.exec.physical.impl.xsort.managed.OperatorCodeGenerator;
+import org.apache.drill.exec.physical.impl.xsort.managed.SorterWrapper;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
@@ -49,10 +49,10 @@ import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
-import org.apache.drill.test.rowSet.TestRowSet;
-import org.apache.drill.test.rowSet.TestSchema;
-import org.apache.drill.test.rowSet.TestRowSet.RowSetReader;
-import org.apache.drill.test.rowSet.TestRowSet.RowSetWriter;
+import org.apache.drill.test.rowSet.RowSet;
+import org.apache.drill.test.rowSet.RowSetSchema;
+import org.apache.drill.test.rowSet.RowSet.RowSetReader;
+import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.hadoop.io.SequenceFile.Reader;
 import org.junit.Test;
 

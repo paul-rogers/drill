@@ -15,16 +15,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/**
- * Provides a set of tools to work with row sets when creating operator
- * and "sub-operator" unit tests. A row set is a batch of Drill vectors,
- * often called a "record batch." However, a record batch, in Drill, means
- * not just the data, but also an operator on that data. The classes
- * here work with the data itself, and can be used to test implementations
- * of things such as code generated classes and so on.
- * <p>
- * The classes include tools for reading and writing row sets, comparing
- * actual and expected results, and so on.
- */
+package org.apache.drill.exec.physical.impl.xsort.managed;
 
-package org.apache.drill.test.rowSet;
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.test.rowSet.RowSetSchema;
+
+public class SortTestUtilities {
+
+  private SortTestUtilities() { }
+
+  public static RowSetSchema makeSchema(MinorType type, boolean nullable) {
+    return RowSetSchema.builder()
+        .add("key", type, nullable ? DataMode.OPTIONAL : DataMode.REQUIRED)
+        .add("value", MinorType.VARCHAR)
+        .build();
+  }
+
+  public static RowSetSchema nonNullSchema() {
+    return makeSchema(MinorType.INT, false);
+  }
+
+  public static RowSetSchema nullSchema() {
+    return makeSchema(MinorType.INT, true);
+  }
+
+}
