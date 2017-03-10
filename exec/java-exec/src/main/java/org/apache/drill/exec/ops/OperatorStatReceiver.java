@@ -20,7 +20,7 @@ package org.apache.drill.exec.ops;
 /**
  * Interface for updating a statistic. Provides just the methods
  * to add to or update a statistic, hiding implementation. Allows
- * a test-time implementation that differes from the run-time
+ * a test-time implementation that differs from the run-time
  * version.
  */
 

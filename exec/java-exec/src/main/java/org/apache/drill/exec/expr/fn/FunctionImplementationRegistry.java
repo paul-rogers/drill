@@ -83,7 +83,8 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
   private boolean deleteTmpDir = false;
   private File tmpDir;
   private List<PluggableFunctionRegistry> pluggableFuncRegistries = Lists.newArrayList();
-  private OptionSet optionManager = null;
+  private boolean useDynamicUdfs = true;
+  private boolean castToNullableNumeric;
 
   @Deprecated @VisibleForTesting
   public FunctionImplementationRegistry(DrillConfig config){
@@ -125,7 +126,10 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
 
   public FunctionImplementationRegistry(DrillConfig config, ScanResult classpathScan, OptionSet optionManager) {
     this(config, classpathScan);
-    this.optionManager = optionManager;
+    if (optionManager != null) {
+      useDynamicUdfs = optionManager.getOption(ExecConstants.USE_DYNAMIC_UDFS);
+      castToNullableNumeric = optionManager.getOption(ExecConstants.CAST_TO_NULLABLE_NUMERIC_OPTION);
+    }
   }
 
   /**
@@ -160,13 +164,10 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
     FunctionResolver exactResolver = FunctionResolverFactory.getExactResolver(functionCall);
     DrillFuncHolder holder = exactResolver.getBestMatch(functions, functionCall);
 
-    if (holder == null) {
-      boolean useDynamicUdfs = optionManager != null && optionManager.getOption(ExecConstants.USE_DYNAMIC_UDFS);
-      if (useDynamicUdfs) {
+    if (holder == null && useDynamicUdfs) {
         syncWithRemoteRegistry(version.get());
         List<DrillFuncHolder> updatedFunctions = localFunctionRegistry.getMethods(newFunctionName, version);
         holder = functionResolver.getBestMatch(updatedFunctions, functionCall);
-      }
     }
 
     return holder;
@@ -184,8 +185,7 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
           MajorType majorType =  functionCall.args.get(0).getMajorType();
           DataMode dataMode = majorType.getMode();
           MinorType minorType = majorType.getMinorType();
-          if (optionManager != null
-              && optionManager.getOption(ExecConstants.CAST_TO_NULLABLE_NUMERIC_OPTION)
+          if (castToNullableNumeric
               && CastFunctions.isReplacementNeeded(funcName, minorType)) {
               funcName = CastFunctions.getReplacingCastFunction(funcName, dataMode, minorType);
           }
