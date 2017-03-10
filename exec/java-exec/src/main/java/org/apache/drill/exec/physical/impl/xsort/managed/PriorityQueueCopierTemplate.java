@@ -17,8 +17,6 @@
  */
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
-import io.netty.buffer.DrillBuf;
-
 import java.io.IOException;
 import java.util.List;
 
@@ -26,12 +24,10 @@ import javax.inject.Named;
 
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.ops.CodeGenContext;
-import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.record.VectorAccessible;
-import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector4;
-import org.apache.drill.exec.vector.AllocationHelper;
+
+import io.netty.buffer.DrillBuf;
 
 public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier {
 //  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(PriorityQueueCopierTemplate.class);
@@ -44,7 +40,7 @@ public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier
   private int queueSize = 0;
 
   @Override
-  public void setup(CodeGenContext context, BufferAllocator allocator, VectorAccessible hyperBatch, List<BatchGroup> batchGroups,
+  public void setup(BufferAllocator allocator, VectorAccessible hyperBatch, List<BatchGroup> batchGroups,
                     VectorAccessible outgoing) throws SchemaChangeException {
     this.hyperBatch = hyperBatch;
     this.batchGroups = batchGroups;
@@ -54,19 +50,22 @@ public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier
     @SuppressWarnings("resource")
     final DrillBuf drillBuf = allocator.buffer(4 * size);
     vector4 = new SelectionVector4(drillBuf, size, Character.MAX_VALUE);
-    doSetup(context, hyperBatch, outgoing);
+    doSetup(hyperBatch, outgoing);
 
     queueSize = 0;
     for (int i = 0; i < size; i++) {
-      vector4.set(i, i, batchGroups.get(i).getNextIndex());
-      siftUp();
-      queueSize++;
+      int index = batchGroups.get(i).getNextIndex();
+      vector4.set(i, i, index);
+      if (index > -1) {
+        siftUp();
+        queueSize++;
+      }
     }
   }
 
   @Override
   public int next(int targetRecordCount) {
-    allocateVectors(targetRecordCount);
+    VectorAccessible.allocateVectors(outgoing, targetRecordCount);
     for (int outgoingIndex = 0; outgoingIndex < targetRecordCount; outgoingIndex++) {
       if (queueSize == 0) {
         return 0;
@@ -82,34 +81,21 @@ public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier
         vector4.set(0, batch, nextIndex);
       }
       if (queueSize == 0) {
-        setValueCount(++outgoingIndex);
+        VectorAccessible.setValueCount(outgoing, ++outgoingIndex);
         return outgoingIndex;
       }
       siftDown();
     }
-    setValueCount(targetRecordCount);
+    VectorAccessible.setValueCount(outgoing, targetRecordCount);
     return targetRecordCount;
-  }
-
-  private void setValueCount(int count) {
-    for (VectorWrapper<?> w: outgoing) {
-      w.getValueVector().getMutator().setValueCount(count);
-    }
   }
 
   @Override
   public void close() throws IOException {
     vector4.clear();
-    for (final VectorWrapper<?> w: outgoing) {
-      w.getValueVector().clear();
-    }
-    for (final VectorWrapper<?> w : hyperBatch) {
-      w.clear();
-    }
-
-    for (BatchGroup batchGroup : batchGroups) {
-      batchGroup.close();
-    }
+    VectorAccessible.clear(outgoing);
+    VectorAccessible.clear(hyperBatch);
+    BatchGroup.closeAll(batchGroups);
   }
 
   private void siftUp() {
@@ -121,12 +107,6 @@ public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier
       } else {
         break;
       }
-    }
-  }
-
-  private void allocateVectors(int targetRecordCount) {
-    for (VectorWrapper<?> w: outgoing) {
-      AllocationHelper.allocateNew(w.getValueVector(), targetRecordCount);
     }
   }
 
@@ -164,8 +144,7 @@ public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier
     return doEval(sv1, sv2);
   }
 
-  public abstract void doSetup(@Named("context") CodeGenContext context,
-                               @Named("incoming") VectorAccessible incoming,
+  public abstract void doSetup(@Named("incoming") VectorAccessible incoming,
                                @Named("outgoing") VectorAccessible outgoing);
   public abstract int doEval(@Named("leftIndex") int leftIndex,
                              @Named("rightIndex") int rightIndex);

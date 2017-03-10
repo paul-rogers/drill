@@ -24,6 +24,11 @@ import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.apache.drill.exec.vector.accessor.ColumnAccessor.RowIndex;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 
+/**
+ * Implements a row set writer on top of a {@link RowSet}
+ * container.
+ */
+
 public class RowSetWriterImpl implements RowSetWriter, RowIndex {
 
   private RowSet recordSet;

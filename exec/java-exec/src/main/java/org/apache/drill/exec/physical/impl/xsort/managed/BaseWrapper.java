@@ -22,7 +22,7 @@ import java.io.IOException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.expr.CodeGenerator;
-import org.apache.drill.exec.ops.CodeGenContext;
+import org.apache.drill.exec.ops.OperExecContext;
 
 /**
  * Base class for code-generation-based tasks.
@@ -30,9 +30,9 @@ import org.apache.drill.exec.ops.CodeGenContext;
 
 public abstract class BaseWrapper {
 
-  protected CodeGenContext context;
+  protected OperExecContext context;
 
-  public BaseWrapper(CodeGenContext context) {
+  public BaseWrapper(OperExecContext context) {
     this.context = context;
   }
 

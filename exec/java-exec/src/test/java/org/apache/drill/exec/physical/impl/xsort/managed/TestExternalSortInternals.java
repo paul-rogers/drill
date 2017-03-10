@@ -17,23 +17,17 @@
  */
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
-import static org.junit.Assert.*;
-
-import java.util.HashMap;
-import java.util.Map;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.ops.MetricDef;
-import org.apache.drill.exec.ops.OperatorStatReceiver;
-import org.apache.drill.exec.physical.impl.xsort.managed.ExternalSortBatch;
-import org.apache.drill.exec.physical.impl.xsort.managed.SortConfig;
-import org.apache.drill.exec.physical.impl.xsort.managed.SortMemoryManager;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortMemoryManager.MergeAction;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortMemoryManager.MergeTask;
-import org.apache.drill.exec.physical.impl.xsort.managed.SortMetrics;
 import org.apache.drill.test.ConfigBuilder;
 import org.apache.drill.test.DrillTest;
+import org.apache.drill.test.OperatorFixture;
 import org.junit.Test;
 
 public class TestExternalSortInternals extends DrillTest {
@@ -559,51 +553,9 @@ public class TestExternalSortInternals extends DrillTest {
     assertEquals(mergeLimitConstraint, task.count);
   }
 
-  public static class DummyStats implements OperatorStatReceiver {
-
-    public Map<Integer,Double> stats = new HashMap<>();
-
-    @Override
-    public void addLongStat(MetricDef metric, long value) {
-      setStat(metric, getStat(metric) + value);
-    }
-
-    @Override
-    public void addDoubleStat(MetricDef metric, double value) {
-      setStat(metric, getStat(metric) + value);
-    }
-
-    @Override
-    public void setLongStat(MetricDef metric, long value) {
-      setStat(metric, value);
-    }
-
-    @Override
-    public void setDoubleStat(MetricDef metric, double value) {
-      setStat(metric, value);
-    }
-
-    public double getStat(MetricDef metric) {
-      return getStat(metric.metricId());
-    }
-
-    private double getStat(int metricId) {
-      Double value = stats.get(metricId);
-      return value == null ? 0 : value;
-    }
-
-    private void setStat(MetricDef metric, double value) {
-      setStat(metric.metricId(), value);
-    }
-
-    private void setStat(int metricId, double value) {
-      stats.put(metricId, value);
-    }
-  }
-
   @Test
   public void testMetrics() {
-    DummyStats stats = new DummyStats();
+    OperatorFixture.MockStats stats = new OperatorFixture.MockStats();
     SortMetrics metrics = new SortMetrics(stats);
 
     // Input stats

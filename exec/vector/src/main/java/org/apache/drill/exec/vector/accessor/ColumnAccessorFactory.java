@@ -21,6 +21,13 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 
+/**
+ * Gather generated accessor classes into a set of class
+ * tables to allow rapid run-time creation of accessors.
+ * The caller is responsible for binding the accessor to
+ * a vector and a row index.
+ */
+
 public class ColumnAccessorFactory {
 
   private static Class<? extends AbstractColumnWriter> writers[][] = buildWriters();

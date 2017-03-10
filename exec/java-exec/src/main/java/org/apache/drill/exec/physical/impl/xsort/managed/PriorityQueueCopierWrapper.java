@@ -30,8 +30,7 @@ import org.apache.drill.exec.expr.ClassGenerator;
 import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.ops.CodeGenContext;
-import org.apache.drill.exec.physical.config.Sort;
+import org.apache.drill.exec.ops.OperExecContext;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortImpl.SortResults;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
@@ -64,8 +63,8 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
 
   private PriorityQueueCopier copier;
 
-  public PriorityQueueCopierWrapper(Sort popConfig, CodeGenContext context, BufferAllocator allocator) {
-    super(popConfig, context, allocator);
+  public PriorityQueueCopierWrapper(OperExecContext opContext) {
+    super(opContext);
   }
 
   public PriorityQueueCopier getCopier(VectorAccessible batch) {
@@ -82,7 +81,7 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
     ClassGenerator<PriorityQueueCopier> g = cg.getRoot();
     cg.plainJavaCapable(true);
     // Uncomment out this line to debug the generated code.
-//  cg.saveCodeForDebugging(true);
+  cg.saveCodeForDebugging(true);
 
     generateComparisons(g, batch, logger);
 
@@ -90,20 +89,6 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
     CopyUtil.generateCopies(g, batch, true);
     g.setMappingSet(MAIN_MAPPING);
     return getInstance(cg, logger);
-  }
-
-  /**
-   * Start a merge operation using a temporary vector container. Used for
-   * intermediate merges.
-   *
-   * @param schema
-   * @param batchGroupList
-   * @param targetRecordCount
-   * @return
-   */
-
-  public BatchMerger startMerge(BatchSchema schema, List<? extends BatchGroup> batchGroupList, int targetRecordCount) {
-    return new BatchMerger(this, schema, batchGroupList, targetRecordCount);
   }
 
   /**
@@ -116,7 +101,7 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
    * @param targetRecordCount
    * @return
    */
-  public BatchMerger startFinalMerge(BatchSchema schema, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer, int targetRecordCount) {
+  public BatchMerger startMerge(BatchSchema schema, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer, int targetRecordCount) {
     return new BatchMerger(this, schema, batchGroupList, outputContainer, targetRecordCount);
   }
 
@@ -134,21 +119,17 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
 
   @SuppressWarnings("unchecked")
   private void createCopier(VectorAccessible batch, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer) {
-    if (copier != null) {
-      close();
-    } else {
-      copier = getCopier(batch);
-    }
+    copier = getCopier(batch);
 
     // Initialize the value vectors for the output container
 
     for (VectorWrapper<?> i : batch) {
       @SuppressWarnings("resource")
-      ValueVector v = TypeHelper.getNewVector(i.getField(), allocator);
+      ValueVector v = TypeHelper.getNewVector(i.getField(), context.getAllocator());
       outputContainer.add(v);
     }
     try {
-      copier.setup(context, allocator, batch, (List<BatchGroup>) batchGroupList, outputContainer);
+      copier.setup(context.getAllocator(), batch, (List<BatchGroup>) batchGroupList, outputContainer);
     } catch (SchemaChangeException e) {
       throw UserException.unsupportedError(e)
             .message("Unexpected schema change - likely code error.")
@@ -156,7 +137,7 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
     }
   }
 
-  public BufferAllocator getAllocator() { return allocator; }
+  public BufferAllocator getAllocator() { return context.getAllocator(); }
 
   public void close() {
     if (copier == null) {
@@ -273,14 +254,14 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
     @Override
     public boolean next() {
       Stopwatch w = Stopwatch.createStarted();
-      long start = holder.allocator.getAllocatedMemory();
+      long start = holder.getAllocator().getAllocatedMemory();
       int count = holder.copier.next(targetRecordCount);
       copyCount += count;
       if (count > 0) {
         long t = w.elapsed(TimeUnit.MICROSECONDS);
         batchCount++;
         logger.trace("Took {} us to merge {} records", t, count);
-        long size = holder.allocator.getAllocatedMemory() - start;
+        long size = holder.getAllocator().getAllocatedMemory() - start;
         estBatchSize = Math.max(estBatchSize, size);
       } else {
         logger.trace("copier returned 0 records");

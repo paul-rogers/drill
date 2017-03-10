@@ -22,7 +22,8 @@ import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.expr.ClassGenerator;
 import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.ops.CodeGenContext;
+import org.apache.drill.exec.ops.FragmentExecContext;
+import org.apache.drill.exec.ops.OperExecContext;
 import org.apache.drill.exec.physical.config.ExternalSort;
 import org.apache.drill.exec.physical.config.Sort;
 import org.apache.drill.exec.physical.impl.xsort.SingleBatchSorter;
@@ -49,8 +50,8 @@ public class SorterWrapper extends BaseSortWrapper {
 
   private SingleBatchSorter sorter;
 
-  public SorterWrapper(Sort popConfig, CodeGenContext context, BufferAllocator allocator) {
-    super(popConfig, context, allocator);
+  public SorterWrapper(OperExecContext opContext) {
+    super(opContext);
   }
 
   public void sortBatch(VectorContainer convertedBatch, SelectionVector2 sv2) {

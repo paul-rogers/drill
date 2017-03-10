@@ -33,9 +33,8 @@ import org.apache.drill.exec.expr.ClassGenerator.HoldingContainer;
 import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
 import org.apache.drill.exec.expr.fn.FunctionGenerationHelper;
-import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.ops.CodeGenContext;
-import org.apache.drill.exec.physical.config.ExternalSort;
+import org.apache.drill.exec.ops.OperExecContext;
+import org.apache.drill.exec.physical.config.Sort;
 import org.apache.drill.exec.physical.impl.sort.RecordBatchData;
 import org.apache.drill.exec.physical.impl.sort.SortRecordBatchBuilder;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortImpl.SortResults;
@@ -83,8 +82,8 @@ public class MergeSortWrapper extends BaseSortWrapper implements SortResults {
   private SelectionVector4 sv4;
   private int batchCount;
 
-  public MergeSortWrapper(ExternalSort popConfig, CodeGenContext context, BufferAllocator allocator) {
-    super(popConfig, context, allocator);
+  public MergeSortWrapper(OperExecContext opContext) {
+    super(opContext);
   }
 
   /**
@@ -97,16 +96,16 @@ public class MergeSortWrapper extends BaseSortWrapper implements SortResults {
    * @return the sv4 for this operator
    */
 
-  public void merge(LinkedList<BatchGroup.InputBatch> batchGroups, VectorAccessible batch,
+  public void merge(List<BatchGroup.InputBatch> batchGroups, VectorAccessible batch,
                                 VectorContainer destContainer) {
 
     // Add the buffered batches to a collection that MSorter can use.
     // The builder takes ownership of the batches and will release them if
     // an error occurs.
 
-    builder = new SortRecordBatchBuilder(allocator);
+    builder = new SortRecordBatchBuilder(context.getAllocator());
     for (BatchGroup.InputBatch group : batchGroups) {
-      RecordBatchData rbd = new RecordBatchData(group.getContainer(), allocator);
+      RecordBatchData rbd = new RecordBatchData(group.getContainer(), context.getAllocator());
       rbd.setSv2(group.getSv2());
       builder.add(rbd);
     }
@@ -118,7 +117,7 @@ public class MergeSortWrapper extends BaseSortWrapper implements SortResults {
       builder.build(destContainer);
       sv4 = builder.getSv4();
       mSorter = createNewMSorter(batch);
-      mSorter.setup(context, allocator, sv4, destContainer, sv4.getCount());
+      mSorter.setup(context, context.getAllocator(), sv4, destContainer, sv4.getCount());
     } catch (SchemaChangeException e) {
       throw UserException.unsupportedError(e)
             .message("Unexpected schema change - likely code error.")
@@ -137,6 +136,7 @@ public class MergeSortWrapper extends BaseSortWrapper implements SortResults {
   }
 
   public MSorter createNewMSorter(VectorAccessible batch) {
+    Sort popConfig = context.getOperatorDefn();
     return createNewMSorter(popConfig.getOrderings(), batch, MAIN_MAPPING, LEFT_MAPPING, RIGHT_MAPPING);
   }
 

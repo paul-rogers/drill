@@ -21,6 +21,8 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.MetricDef;
+import org.apache.drill.exec.ops.OperExecContext;
+import org.apache.drill.exec.ops.OperExecContextImpl;
 import org.apache.drill.exec.physical.config.ExternalSort;
 import org.apache.drill.exec.physical.impl.spill.SpillSet;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortImpl.SortResults;
@@ -165,14 +167,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   private final RecordBatch incoming;
 
   /**
-   * Memory allocator for this operator itself. Incoming batches are
-   * transferred into this allocator. Intermediate batches used during
-   * merge also reside here.
-   */
-
-  private final BufferAllocator allocator;
-
-  /**
    * Schema of batches that this operator produces.
    */
 
@@ -214,11 +208,12 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   public ExternalSortBatch(ExternalSort popConfig, FragmentContext context, RecordBatch incoming) {
     super(popConfig, context, true);
     this.incoming = incoming;
-    allocator = oContext.getAllocator();
 
     SpillSet spillSet = new SpillSet(context.getConfig(), context.getHandle(),
                                      popConfig, "sort", "run");
-    sortImpl = new SortImpl(context.getConfig(), popConfig, context, allocator, stats, this, spillSet);
+    OperExecContext opContext = new OperExecContextImpl(context, oContext, popConfig, injector);
+    SpilledRuns spilledRuns = new SpilledRuns(opContext, spillSet);
+    sortImpl = new SortImpl(opContext, spilledRuns, this);
   }
 
   @Override

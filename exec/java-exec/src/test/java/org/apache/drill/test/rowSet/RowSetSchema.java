@@ -24,6 +24,8 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 
 /**
  * Schema for a row set expressed as a list of materialized columns.
@@ -74,7 +76,13 @@ public class RowSetSchema {
   private List<MaterializedField> columns = new ArrayList<>( );
 
   public RowSetSchema(List<MaterializedField> columns) {
-    this.columns.addAll( columns );
+    this.columns.addAll(columns);
+  }
+
+  public RowSetSchema(BatchSchema schema) {
+    for (MaterializedField field : schema) {
+      columns.add(field);
+    }
   }
 
   public int count( ) { return columns.size(); }
@@ -86,6 +94,12 @@ public class RowSetSchema {
 
   public SchemaBuilder revise() {
     return new SchemaBuilder(this);
+  }
+
+  public BatchSchema toBatchSchema(SelectionVectorMode selectionVector) {
+    List<MaterializedField> fields = new ArrayList<>();
+    fields.addAll(columns);
+    return new BatchSchema(selectionVector, fields);
   }
 
 }

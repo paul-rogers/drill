@@ -33,12 +33,22 @@ import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.memory.RootAllocatorFactory;
-import org.apache.drill.exec.ops.CodeGenContext;
+import org.apache.drill.exec.ops.FragmentExecContext;
+import org.apache.drill.exec.ops.MetricDef;
+import org.apache.drill.exec.ops.OperExecContext;
+import org.apache.drill.exec.ops.OperExecContextImpl;
+import org.apache.drill.exec.ops.OperatorStatReceiver;
+import org.apache.drill.exec.ops.OperatorStats;
+import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.server.options.BaseOptionManager;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.server.options.OptionValue.OptionType;
+import org.apache.drill.exec.testing.ControlsInjector;
 import org.apache.drill.exec.testing.ExecutionControls;
+import org.apache.drill.test.rowSet.RowSet;
+import org.apache.drill.test.rowSet.RowSetBuilder;
+import org.apache.drill.test.rowSet.RowSetSchema;
 
 public class OperatorFixture implements AutoCloseable {
 
@@ -98,14 +108,16 @@ public class OperatorFixture implements AutoCloseable {
     }
   }
 
-  public static class TestCodeGenContext implements CodeGenContext {
+  public static class TestCodeGenContext implements FragmentExecContext {
 
+    private final DrillConfig config;
     private final OptionSet options;
     private final CodeCompiler compiler;
     private final FunctionImplementationRegistry functionRegistry;
     private ExecutionControls controls;
 
     public TestCodeGenContext(DrillConfig config, OptionSet options) {
+      this.config = config;
       this.options = options;
       ScanResult classpathScan = ClassPathScanner.fromPrescan(config);
       functionRegistry = new FunctionImplementationRegistry(config, classpathScan, options);
@@ -157,18 +169,67 @@ public class OperatorFixture implements AutoCloseable {
     public ExecutionControls getExecutionControls() {
       return controls;
     }
+
+    @Override
+    public DrillConfig getConfig() {
+      return config;
+    }
   }
 
-  private DrillConfig config;
-  private BufferAllocator allocator;
-  private TestOptionSet options;
-  private TestCodeGenContext context;
+  public static class MockStats implements OperatorStatReceiver {
+
+    public Map<Integer,Double> stats = new HashMap<>();
+
+    @Override
+    public void addLongStat(MetricDef metric, long value) {
+      setStat(metric, getStat(metric) + value);
+    }
+
+    @Override
+    public void addDoubleStat(MetricDef metric, double value) {
+      setStat(metric, getStat(metric) + value);
+    }
+
+    @Override
+    public void setLongStat(MetricDef metric, long value) {
+      setStat(metric, value);
+    }
+
+    @Override
+    public void setDoubleStat(MetricDef metric, double value) {
+      setStat(metric, value);
+    }
+
+    public double getStat(MetricDef metric) {
+      return getStat(metric.metricId());
+    }
+
+    private double getStat(int metricId) {
+      Double value = stats.get(metricId);
+      return value == null ? 0 : value;
+    }
+
+    private void setStat(MetricDef metric, double value) {
+      setStat(metric.metricId(), value);
+    }
+
+    private void setStat(int metricId, double value) {
+      stats.put(metricId, value);
+    }
+  }
+
+  private final DrillConfig config;
+  private final BufferAllocator allocator;
+  private final TestOptionSet options;
+  private final TestCodeGenContext context;
+  private final OperatorStatReceiver stats;
 
   protected OperatorFixture(OperatorFixtureBuilder builder) {
     config = builder.configBuilder().build();
     allocator = RootAllocatorFactory.newRoot(config);
     options = builder.options();
     context = new TestCodeGenContext(config, options);
+    stats = new MockStats();
    }
 
   public BufferAllocator allocator() { return allocator; }
@@ -176,7 +237,7 @@ public class OperatorFixture implements AutoCloseable {
   public TestOptionSet options() { return options; }
 
 
-  public CodeGenContext codeGenContext() { return context; }
+  public FragmentExecContext codeGenContext() { return context; }
 
   @Override
   public void close() throws Exception {
@@ -185,6 +246,18 @@ public class OperatorFixture implements AutoCloseable {
 
   public static OperatorFixtureBuilder builder() {
     return new OperatorFixtureBuilder();
+  }
+
+  public OperExecContext newOperExecContext(PhysicalOperator opDefn) {
+    return new OperExecContextImpl(context, allocator, stats, opDefn, null);
+  }
+
+  public RowSetBuilder rowSetBuilder(RowSetSchema schema) {
+    return new RowSetBuilder(allocator, schema);
+  }
+
+  public RowSet rowSet(RowSetSchema schema) {
+    return new RowSet(allocator, schema);
   }
 
 }

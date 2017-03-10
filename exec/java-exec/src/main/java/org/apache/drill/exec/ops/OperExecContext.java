@@ -15,25 +15,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.xsort.managed;
+package org.apache.drill.exec.ops;
 
-import java.io.IOException;
-import java.util.List;
-
-import org.apache.drill.exec.compile.TemplateClassDefinition;
-import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.record.VectorAccessible;
+import org.apache.drill.exec.physical.base.PhysicalOperator;
+import org.apache.drill.exec.testing.ControlsInjector;
+import org.apache.drill.exec.testing.ExecutionControls;
 
-public interface PriorityQueueCopier extends AutoCloseable {
-  public void setup(BufferAllocator allocator, VectorAccessible hyperBatch,
-      List<BatchGroup> batchGroups, VectorAccessible outgoing) throws SchemaChangeException;
+/**
+ * Defines the set of services used by low-level operator implementations.
+ * Avoids having to mock higher-level services not used by low-level
+ * items.
+ */
 
-  public int next(int targetRecordCount);
+public interface OperExecContext extends FragmentExecContext {
 
-  public final static TemplateClassDefinition<PriorityQueueCopier> TEMPLATE_DEFINITION =
-      new TemplateClassDefinition<>(PriorityQueueCopier.class, PriorityQueueCopierTemplate.class);
+  <T extends PhysicalOperator> T getOperatorDefn();
 
-  @Override
-  abstract public void close() throws IOException; // specify this to leave out the Exception
+  BufferAllocator getAllocator();
+
+  OperatorStatReceiver getStats();
+
+  ControlsInjector getInjector();
+  void injectUnchecked(ExecutionControls executionControls, String desc);
+  <T extends Throwable> void injectChecked(ExecutionControls executionControls, String desc, Class<T> exceptionClass)
+      throws T;
 }

@@ -68,7 +68,7 @@ import com.google.common.collect.Maps;
 /**
  * Contextual objects required for execution of a particular fragment.
  */
-public class FragmentContext implements AutoCloseable, UdfUtilities, CodeGenContext {
+public class FragmentContext implements AutoCloseable, UdfUtilities, FragmentExecContext {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FragmentContext.class);
 
   private final Map<DrillbitEndpoint, AccountingDataTunnel> tunnels = Maps.newHashMap();
@@ -221,6 +221,7 @@ public class FragmentContext implements AutoCloseable, UdfUtilities, CodeGenCont
    *
    * @return false if the action should terminate immediately, true if everything is okay.
    */
+  @Override
   public boolean shouldContinue() {
     return executorState.shouldContinue();
   }
@@ -387,6 +388,7 @@ public class FragmentContext implements AutoCloseable, UdfUtilities, CodeGenCont
     return funcRegistry;
   }
 
+  @Override
   public DrillConfig getConfig() {
     return context.getConfig();
   }
@@ -395,6 +397,7 @@ public class FragmentContext implements AutoCloseable, UdfUtilities, CodeGenCont
     allocator.setLimit(limit);
   }
 
+  @Override
   public ExecutionControls getExecutionControls() {
     return executionControls;
   }

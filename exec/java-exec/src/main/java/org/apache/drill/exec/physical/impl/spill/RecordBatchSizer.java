@@ -24,7 +24,9 @@ import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BaseAllocator;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.VectorAccessible;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.vector.ValueVector;
@@ -76,6 +78,7 @@ public class RecordBatchSizer {
       ValueVector v = vw.getValueVector();
       int rowCount = v.getAccessor().getValueCount();
       if (rowCount == 0) {
+        estSize = stdSize;
         return;
       }
 
@@ -159,7 +162,11 @@ public class RecordBatchSizer {
 
   private int netBatchSize;
 
-  public RecordBatchSizer(VectorAccessible va) {
+  public RecordBatchSizer(RecordBatch batch) {
+    this(batch, batch.getSelectionVector2());
+  }
+
+  public RecordBatchSizer(VectorAccessible va, SelectionVector2 sv2) {
     rowCount = va.getRecordCount();
     for (VectorWrapper<?> vw : va) {
       measureColumn(vw);
@@ -171,10 +178,8 @@ public class RecordBatchSizer {
 
     hasSv2 = va.getSchema().getSelectionVectorMode() == BatchSchema.SelectionVectorMode.TWO_BYTE;
     if (hasSv2) {
-      @SuppressWarnings("resource")
-      SelectionVector2 sv2 = va.getSelectionVector2();
       sv2Size = sv2.getBuffer(false).capacity();
-      grossRowWidth += sv2Size / rowCount;
+      grossRowWidth += roundUp(sv2Size, rowCount);
       netRowWidth += 2;
     }
 

@@ -20,6 +20,7 @@ package org.apache.drill.exec.record;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
+import org.apache.drill.exec.vector.AllocationHelper;
 
 // TODO javadoc
 public interface VectorAccessible extends Iterable<VectorWrapper<?>> {
@@ -57,5 +58,22 @@ public interface VectorAccessible extends Iterable<VectorWrapper<?>> {
 
   public abstract SelectionVector4 getSelectionVector4();
 
+  public static void clear(VectorAccessible va) {
+    for (final VectorWrapper<?> w : va) {
+      w.clear();
+    }
+  }
+
+  public static void setValueCount(VectorAccessible va, int count) {
+    for (VectorWrapper<?> w: va) {
+      w.getValueVector().getMutator().setValueCount(count);
+    }
+  }
+
+  public static void allocateVectors(VectorAccessible va, int targetRecordCount) {
+    for (VectorWrapper<?> w: va) {
+      AllocationHelper.allocateNew(w.getValueVector(), targetRecordCount);
+    }
+  }
 
 }

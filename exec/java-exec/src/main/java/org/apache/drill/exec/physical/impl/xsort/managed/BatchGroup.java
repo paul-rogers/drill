@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.xsort.managed;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.concurrent.TimeUnit;
 
@@ -110,14 +111,10 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
 
     @Override
     public void close() throws IOException {
-      try {
-        super.close();
+      if (sv2 != null) {
+        sv2.clear();
       }
-      finally {
-        if (sv2 != null) {
-          sv2.clear();
-        }
-      }
+      super.close();
     }
   }
 
@@ -184,6 +181,7 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
     }
 
     public long getBatchSize() { return batchSize; }
+    public String getPath() { return path; }
 
     @Override
     public int getNextIndex() {
@@ -371,4 +369,21 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
   public SelectionVector4 getSelectionVector4() {
     throw new UnsupportedOperationException();
   }
+
+  public static void closeAll(Collection<? extends BatchGroup> groups) {
+    Exception ex = null;
+    for (BatchGroup group: groups) {
+      try {
+        group.close();
+      } catch (Exception e) {
+        ex = (ex == null) ? e : ex;
+      }
+    }
+    if (ex != null) {
+      throw UserException.dataWriteError(ex)
+          .message("Failure while flushing spilled data")
+          .build(logger);
+    }
+  }
+
 }

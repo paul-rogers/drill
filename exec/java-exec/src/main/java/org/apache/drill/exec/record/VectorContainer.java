@@ -40,7 +40,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
-public class VectorContainer implements Iterable<VectorWrapper<?>>, VectorAccessible {
+public class VectorContainer implements VectorAccessible {
   //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(VectorContainer.class);
 
   protected final List<VectorWrapper<?>> wrappers = Lists.newArrayList();

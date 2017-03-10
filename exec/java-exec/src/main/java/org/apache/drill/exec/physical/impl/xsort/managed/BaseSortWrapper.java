@@ -28,8 +28,7 @@ import org.apache.drill.exec.expr.ClassGenerator;
 import org.apache.drill.exec.expr.ClassGenerator.HoldingContainer;
 import org.apache.drill.exec.expr.ExpressionTreeMaterializer;
 import org.apache.drill.exec.expr.fn.FunctionGenerationHelper;
-import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.ops.CodeGenContext;
+import org.apache.drill.exec.ops.OperExecContext;
 import org.apache.drill.exec.physical.config.Sort;
 import org.apache.drill.exec.record.VectorAccessible;
 
@@ -46,18 +45,14 @@ public abstract class BaseSortWrapper extends BaseWrapper {
   protected static final MappingSet LEFT_MAPPING = new MappingSet("leftIndex", null, ClassGenerator.DEFAULT_SCALAR_MAP, ClassGenerator.DEFAULT_SCALAR_MAP);
   protected static final MappingSet RIGHT_MAPPING = new MappingSet("rightIndex", null, ClassGenerator.DEFAULT_SCALAR_MAP, ClassGenerator.DEFAULT_SCALAR_MAP);
 
-  protected final Sort popConfig;
-  protected final BufferAllocator allocator;
-
-  public BaseSortWrapper(Sort popConfig, CodeGenContext context, BufferAllocator allocator) {
-    super(context);
-    this.popConfig = popConfig;
-    this.allocator = allocator;
+  public BaseSortWrapper(OperExecContext opContext) {
+    super(opContext);
   }
 
   protected void generateComparisons(ClassGenerator<?> g, VectorAccessible batch, org.slf4j.Logger logger)  {
     g.setMappingSet(MAIN_MAPPING);
 
+    Sort popConfig = context.getOperatorDefn();
     for (Ordering od : popConfig.getOrderings()) {
       // first, we rewrite the evaluation stack for each side of the comparison.
       ErrorCollector collector = new ErrorCollectorImpl();

@@ -28,6 +28,7 @@ import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.vector.AllocationHelper;
@@ -177,14 +178,26 @@ public class RowSet {
   private SelectionVector2 sv2;
   private final RowSetSchema schema;
   private final ValueVector[] valueVectors;
-  private final VectorContainer container = new VectorContainer();
+  private final VectorContainer container;
   private SchemaChangeCallBack callBack = new SchemaChangeCallBack();
 
   public RowSet(BufferAllocator allocator, RowSetSchema schema) {
     this.allocator = allocator;
     this.schema = schema;
     valueVectors = new ValueVector[schema.count()];
+    container = new VectorContainer();
     create();
+  }
+
+  public RowSet(BufferAllocator allocator, VectorContainer container) {
+    this.allocator = allocator;
+    schema = new RowSetSchema(container.getSchema());
+    this.container = container;
+    valueVectors = new ValueVector[container.getNumberOfColumns()];
+    int i = 0;
+    for (VectorWrapper<?> w : container) {
+      valueVectors[i++] = w.getValueVector();
+    }
   }
 
   private void create() {
@@ -214,6 +227,7 @@ public class RowSet {
       sv2.setIndex(i, (char) i);
     }
     sv2.setRecordCount(rowCount());
+    container.buildSchema(SelectionVectorMode.TWO_BYTE);
   }
 
   public SelectionVector2 getSv2() { return sv2; }
@@ -264,7 +278,11 @@ public class RowSet {
   }
 
   public int getSize() {
-    RecordBatchSizer sizer = new RecordBatchSizer(container);
+    RecordBatchSizer sizer = new RecordBatchSizer(container, sv2);
     return sizer.actualSize();
+  }
+
+  public BatchSchema getBatchSchema() {
+    return container.getSchema();
   }
 }

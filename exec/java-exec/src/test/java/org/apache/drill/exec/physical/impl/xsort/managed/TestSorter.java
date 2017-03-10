@@ -25,6 +25,7 @@ import org.apache.drill.common.logical.data.Order.Ordering;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.ops.OperExecContext;
 import org.apache.drill.exec.physical.config.Sort;
 import org.apache.drill.exec.vector.accessor.AccessorUtilities;
 import org.apache.drill.test.DrillTest;
@@ -58,7 +59,8 @@ public class TestSorter extends DrillTest {
     FieldReference expr = FieldReference.getWithQuotedRef("key");
     Ordering ordering = new Ordering(Ordering.ORDER_ASC, expr, Ordering.NULLS_LAST);
     Sort popConfig = new Sort(null, Lists.newArrayList(ordering), false);
-    SorterWrapper sorter = new SorterWrapper(popConfig, fixture.codeGenContext(), fixture.allocator());
+    OperExecContext opContext = fixture.newOperExecContext(popConfig);
+    SorterWrapper sorter = new SorterWrapper(opContext);
 
     sorter.sortBatch(rowSet.getContainer(), rowSet.getSv2());
 
@@ -128,7 +130,8 @@ public class TestSorter extends DrillTest {
       ordering = new Ordering(sortOrder, expr, nullOrder);
       Sort popConfig = new Sort(null, Lists.newArrayList(ordering), false);
 
-      sorter = new SorterWrapper(popConfig, fixture.codeGenContext(), fixture.allocator());
+      OperExecContext opContext = fixture.newOperExecContext(popConfig);
+      sorter = new SorterWrapper(opContext);
     }
 
     public void test(MinorType type) throws SchemaChangeException {

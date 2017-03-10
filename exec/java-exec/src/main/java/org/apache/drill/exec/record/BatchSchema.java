@@ -31,7 +31,7 @@ public class BatchSchema implements Iterable<MaterializedField> {
   final SelectionVectorMode selectionVectorMode;
   private final List<MaterializedField> fields;
 
-  BatchSchema(SelectionVectorMode selectionVector, List<MaterializedField> fields) {
+  public BatchSchema(SelectionVectorMode selectionVector, List<MaterializedField> fields) {
     this.fields = fields;
     this.selectionVectorMode = selectionVector;
   }

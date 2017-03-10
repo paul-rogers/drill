@@ -15,29 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.xsort.managed;
+package org.apache.drill.test.rowSet;
 
-import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.test.rowSet.RowSetSchema;
+import org.apache.drill.exec.record.selection.SelectionVector2;
 
-public class SortTestUtilities {
+public class RowSetUtilities {
 
-  private SortTestUtilities() { }
+  private RowSetUtilities() { }
 
-  public static RowSetSchema makeSchema(MinorType type, boolean nullable) {
-    return RowSetSchema.builder()
-        .add("key", type, nullable ? DataMode.OPTIONAL : DataMode.REQUIRED)
-        .add("value", MinorType.VARCHAR)
-        .build();
+  public static void reverse(SelectionVector2 sv2) {
+    int count = sv2.getCount();
+    for (int i = 0; i < count / 2; i++) {
+      char temp = sv2.getIndex(i);
+      int dest = count - 1 - i;
+      sv2.setIndex(i, sv2.getIndex(dest));
+      sv2.setIndex(dest, temp);
+    }
   }
-
-  public static RowSetSchema nonNullSchema() {
-    return makeSchema(MinorType.INT, false);
-  }
-
-  public static RowSetSchema nullableSchema() {
-    return makeSchema(MinorType.INT, true);
-  }
-
 }
