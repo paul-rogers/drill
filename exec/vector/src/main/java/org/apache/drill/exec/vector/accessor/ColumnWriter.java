@@ -35,17 +35,7 @@ import java.math.BigDecimal;
  * is not supported by the column type.
  */
 
-public interface ColumnWriter {
-
-  /**
-   * Describe the type of the value. This is a compression of the
-   * value vector type: it describes which method will return the
-   * vector value.
-   * @return the value type which indicates which get method
-   * is valid for the column
-   */
-
-  ValueType getType();
+public interface ColumnWriter extends ColumnAccessor {
   void setNull();
   void setInt(int value);
   void setLong(long value);
