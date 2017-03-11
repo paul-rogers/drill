@@ -21,7 +21,7 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.AbstractColumnWriter;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
-import org.apache.drill.exec.vector.accessor.ColumnAccessor.RowIndex;
+import org.apache.drill.exec.vector.accessor.AbstractColumnAccessor.RowIndex;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 
 /**

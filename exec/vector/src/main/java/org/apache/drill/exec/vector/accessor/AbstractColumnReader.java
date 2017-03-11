@@ -26,7 +26,7 @@ import java.math.BigDecimal;
  * method(s).
  */
 
-public abstract class AbstractColumnReader extends ColumnAccessor implements ColumnReader {
+public abstract class AbstractColumnReader extends AbstractColumnAccessor implements ColumnReader {
 
   @Override
   public boolean isNull() {

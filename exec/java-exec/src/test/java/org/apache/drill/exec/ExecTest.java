@@ -52,7 +52,7 @@ public class ExecTest extends DrillTest {
     GuavaPatcher.patch();
   }
 
-  private static final DrillConfig c = DrillConfig.create();
+  protected static final DrillConfig c = DrillConfig.create();
 
   @After
   public void clear(){
@@ -63,6 +63,7 @@ public class ExecTest extends DrillTest {
 
   @BeforeClass
   public static void setupOptionManager() throws Exception{
+    @SuppressWarnings("resource")
     final LocalPersistentStoreProvider provider = new LocalPersistentStoreProvider(c);
     provider.start();
     optionManager = new SystemOptionManager(PhysicalPlanReaderTestFactory.defaultLogicalPlanPersistence(c), provider);

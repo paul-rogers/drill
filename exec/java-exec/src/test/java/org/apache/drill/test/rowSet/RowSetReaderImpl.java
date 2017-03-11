@@ -20,7 +20,7 @@ package org.apache.drill.test.rowSet;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.AbstractColumnReader;
-import org.apache.drill.exec.vector.accessor.ColumnAccessor.RowIndex;
+import org.apache.drill.exec.vector.accessor.AbstractColumnAccessor.RowIndex;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;

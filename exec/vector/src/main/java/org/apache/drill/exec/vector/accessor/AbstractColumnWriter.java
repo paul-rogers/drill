@@ -26,7 +26,7 @@ import java.math.BigDecimal;
  * method(s).
  */
 
-public abstract class AbstractColumnWriter extends ColumnAccessor implements ColumnWriter {
+public abstract class AbstractColumnWriter extends AbstractColumnAccessor implements ColumnWriter {
 
   @Override
   public void setNull() {

@@ -31,10 +31,6 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Sets;
-import com.google.common.io.Files;
-import com.typesafe.config.ConfigFactory;
 import org.apache.commons.io.FileUtils;
 import org.apache.drill.common.config.CommonConstants;
 import org.apache.drill.common.config.DrillConfig;
@@ -52,22 +48,26 @@ import org.apache.drill.exec.coord.store.TransientStoreEvent;
 import org.apache.drill.exec.coord.store.TransientStoreListener;
 import org.apache.drill.exec.exception.FunctionValidationException;
 import org.apache.drill.exec.exception.JarValidationException;
-import org.apache.drill.exec.expr.fn.registry.LocalFunctionRegistry;
 import org.apache.drill.exec.expr.fn.registry.JarScan;
+import org.apache.drill.exec.expr.fn.registry.LocalFunctionRegistry;
 import org.apache.drill.exec.expr.fn.registry.RemoteFunctionRegistry;
 import org.apache.drill.exec.planner.sql.DrillOperatorTable;
 import org.apache.drill.exec.proto.UserBitShared.Jar;
 import org.apache.drill.exec.resolver.FunctionResolver;
 import org.apache.drill.exec.resolver.FunctionResolverFactory;
 import org.apache.drill.exec.server.options.OptionSet;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Stopwatch;
-import com.google.common.collect.Lists;
 import org.apache.drill.exec.store.sys.store.DataChangeVersion;
 import org.apache.drill.exec.util.JarUtil;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
+import com.google.common.base.Stopwatch;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
+import com.google.common.io.Files;
+import com.typesafe.config.ConfigFactory;
 
 /**
  * This class offers the registry for functions. Notably, in addition to Drill its functions
@@ -83,18 +83,30 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
   private boolean deleteTmpDir = false;
   private File tmpDir;
   private List<PluggableFunctionRegistry> pluggableFuncRegistries = Lists.newArrayList();
-  private boolean useDynamicUdfs = true;
-  private boolean castToNullableNumeric;
+  private final OptionSet optionManager;
+  private final boolean useDynamicUdfs;
 
-  @Deprecated @VisibleForTesting
-  public FunctionImplementationRegistry(DrillConfig config){
-    this(config, ClassPathScanner.fromPrescan(config));
+  @VisibleForTesting
+  public FunctionImplementationRegistry(DrillConfig config) {
+    this(config, ClassPathScanner.fromPrescan(config), null);
   }
 
-  public FunctionImplementationRegistry(DrillConfig config, ScanResult classpathScan){
+  public FunctionImplementationRegistry(DrillConfig config, ScanResult classpathScan) {
+    this(config, classpathScan, null);
+  }
+
+  public FunctionImplementationRegistry(DrillConfig config, ScanResult classpathScan, OptionSet optionManager) {
     Stopwatch w = Stopwatch.createStarted();
 
     logger.debug("Generating function registry.");
+    this.optionManager = optionManager;
+
+    // Unit tests fail if dynamic UDFs are turned on AND the test happens
+    // to access an undefined function. Since we want a reasonable failure
+    // rather than a crash, we provide a boot-time option, set only by
+    // tests, to disable DUDF lookup.
+
+    useDynamicUdfs = ! config.getBoolean(ExecConstants.UDF_DISABLE_DYNAMIC);
     localFunctionRegistry = new LocalFunctionRegistry(classpathScan);
 
     Set<Class<? extends PluggableFunctionRegistry>> registryClasses =
@@ -122,14 +134,6 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
     logger.info("Function registry loaded.  {} functions loaded in {} ms.", localFunctionRegistry.size(), w.elapsed(TimeUnit.MILLISECONDS));
     this.remoteFunctionRegistry = new RemoteFunctionRegistry(new UnregistrationListener());
     this.localUdfDir = getLocalUdfDir(config);
-  }
-
-  public FunctionImplementationRegistry(DrillConfig config, ScanResult classpathScan, OptionSet optionManager) {
-    this(config, classpathScan);
-    if (optionManager != null) {
-      useDynamicUdfs = optionManager.getOption(ExecConstants.USE_DYNAMIC_UDFS);
-      castToNullableNumeric = optionManager.getOption(ExecConstants.CAST_TO_NULLABLE_NUMERIC_OPTION);
-    }
   }
 
   /**
@@ -165,9 +169,9 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
     DrillFuncHolder holder = exactResolver.getBestMatch(functions, functionCall);
 
     if (holder == null && useDynamicUdfs) {
-        syncWithRemoteRegistry(version.get());
-        List<DrillFuncHolder> updatedFunctions = localFunctionRegistry.getMethods(newFunctionName, version);
-        holder = functionResolver.getBestMatch(updatedFunctions, functionCall);
+      syncWithRemoteRegistry(version.get());
+      List<DrillFuncHolder> updatedFunctions = localFunctionRegistry.getMethods(newFunctionName, version);
+      holder = functionResolver.getBestMatch(updatedFunctions, functionCall);
     }
 
     return holder;
@@ -185,6 +189,8 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
           MajorType majorType =  functionCall.args.get(0).getMajorType();
           DataMode dataMode = majorType.getMode();
           MinorType minorType = majorType.getMinorType();
+          boolean castToNullableNumeric = optionManager != null &&
+                        optionManager.getOption(ExecConstants.CAST_TO_NULLABLE_NUMERIC_OPTION);
           if (castToNullableNumeric
               && CastFunctions.isReplacementNeeded(funcName, minorType)) {
               funcName = CastFunctions.getReplacingCastFunction(funcName, dataMode, minorType);
