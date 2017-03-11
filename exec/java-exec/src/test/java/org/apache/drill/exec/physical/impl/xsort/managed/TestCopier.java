@@ -38,6 +38,7 @@ import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSetComparison;
+import org.apache.drill.test.rowSet.RowSetImpl;
 import org.apache.drill.test.rowSet.RowSetSchema;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.AfterClass;
@@ -118,7 +119,7 @@ public class TestCopier extends DrillTest {
 
     for (RowSet expectedSet : expected) {
       assertTrue(merger.next());
-      RowSet rowSet = new RowSet(fixture.allocator(), dest);
+      RowSet rowSet = new RowSetImpl(fixture.allocator(), dest);
       new RowSetComparison(expectedSet)
             .verifyAndClear(rowSet);
     }

@@ -17,26 +17,14 @@
  */
 package org.apache.drill.test.rowSet;
 
-import java.io.PrintStream;
-
-import org.apache.drill.exec.exception.OutOfMemoryException;
-import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
-import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.TransferPair;
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.record.VectorWrapper;
-import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.selection.SelectionVector2;
-import org.apache.drill.exec.vector.AllocationHelper;
-import org.apache.drill.exec.vector.SchemaChangeCallBack;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
-import org.apache.drill.test.rowSet.RowSet.RowSetReader;
 
 /**
  * A row set is a collection of rows stored as value vectors. Elsewhere in
@@ -75,7 +63,7 @@ import org.apache.drill.test.rowSet.RowSet.RowSetReader;
  * </ul>
  */
 
-public class RowSet {
+public interface RowSet {
 
   public interface RowSetWriter {
     void advance();
@@ -120,169 +108,37 @@ public class RowSet {
     String getAsString(int colIndex);
   }
 
-  public static class RowSetPrinter {
-    private RowSet rowSet;
+  VectorAccessible getVectorAccessible();
 
-    public RowSetPrinter(RowSet rowSet) {
-      this.rowSet = rowSet;
-    }
+  VectorContainer getContainer();
 
-    public void print() {
-      print(System.out);
-    }
+  void makeSv2();
 
-    public void print(PrintStream out) {
-      boolean hasSv2 = rowSet.hasSv2();
-      RowSetReader reader = rowSet.reader();
-      int colCount = reader.width();
-      printSchema(out, hasSv2);
-      while (reader.next()) {
-        printHeader(out, reader, hasSv2);
-        for (int i = 0; i < colCount; i++) {
-          if (i > 0) {
-            out.print(", ");
-          }
-          out.print(reader.getAsString(i));
-        }
-        out.println();
-      }
-    }
+  SelectionVector2 getSv2();
 
-    private void printSchema(PrintStream out, boolean hasSv2) {
-      out.print("#, ");
-      if (hasSv2) {
-        out.print("row #, ");
-      }
-      RowSetSchema schema = rowSet.schema;
-      for (int i = 0; i < schema.count(); i++) {
-        if (i > 0) {
-          out.print(", ");
-        }
-        out.print(schema.get(i).getLastName());
-      }
-      out.println();
-    }
+  void allocate(int recordCount);
 
-    private void printHeader(PrintStream out, RowSetReader reader, boolean hasSv2) {
-      out.print(reader.index());
-      if (hasSv2) {
-        out.print("(");
-        out.print(reader.offset());
-        out.print(")");
-      }
-      out.print(": ");
-    }
-  }
+  void setRowCount(int rowCount);
 
-  private final BufferAllocator allocator;
-  private SelectionVector2 sv2;
-  private final RowSetSchema schema;
-  private final ValueVector[] valueVectors;
-  private final VectorContainer container;
-  private SchemaChangeCallBack callBack = new SchemaChangeCallBack();
+  int rowCount();
 
-  public RowSet(BufferAllocator allocator, RowSetSchema schema) {
-    this.allocator = allocator;
-    this.schema = schema;
-    valueVectors = new ValueVector[schema.count()];
-    container = new VectorContainer();
-    create();
-  }
+  RowSetWriter writer(int initialRowCount);
 
-  public RowSet(BufferAllocator allocator, VectorContainer container) {
-    this.allocator = allocator;
-    schema = new RowSetSchema(container.getSchema());
-    this.container = container;
-    valueVectors = new ValueVector[container.getNumberOfColumns()];
-    int i = 0;
-    for (VectorWrapper<?> w : container) {
-      valueVectors[i++] = w.getValueVector();
-    }
-  }
+  RowSetReader reader();
 
-  private void create() {
-    for (int i = 0; i < schema.count(); i++) {
-      final MaterializedField field = schema.get(i);
-      @SuppressWarnings("resource")
-      ValueVector v = TypeHelper.getNewVector(field, allocator, callBack);
-      valueVectors[i] = v;
-      container.add(v);
-    }
-    container.buildSchema(SelectionVectorMode.NONE);
-  }
+  void clear();
 
-  public VectorAccessible getVectorAccessible() { return container; }
+  ValueVector[] vectors();
 
-  public VectorContainer getContainer() { return container; }
+  RowSetSchema schema();
 
-  public void makeSv2() {
-    if (sv2 != null) {
-      return;
-    }
-    sv2 = new SelectionVector2(allocator);
-    if (!sv2.allocateNewSafe(rowCount())) {
-      throw new OutOfMemoryException("Unable to allocate sv2 buffer");
-    }
-    for (int i = 0; i < rowCount(); i++) {
-      sv2.setIndex(i, (char) i);
-    }
-    sv2.setRecordCount(rowCount());
-    container.buildSchema(SelectionVectorMode.TWO_BYTE);
-  }
+  BufferAllocator getAllocator();
 
-  public SelectionVector2 getSv2() { return sv2; }
+  boolean hasSv2();
 
-  public void allocate(int recordCount) {
-    for (final ValueVector v : valueVectors) {
-      AllocationHelper.allocate(v, recordCount, 50, 10);
-    }
-  }
+  void print();
 
-  public void setRowCount(int rowCount) {
-    container.setRecordCount(rowCount);
-    for (VectorWrapper<?> w : container) {
-      w.getValueVector().getMutator().setValueCount(rowCount);
-    }
-  }
+  int getSize();
 
-  public int rowCount() { return container.getRecordCount(); }
-
-  public RowSetWriter writer(int initialRowCount) {
-    allocate(initialRowCount);
-    return new RowSetWriterImpl(this);
-  }
-
-  public RowSetReader reader() {
-    return new RowSetReaderImpl(this);
-  }
-
-  public void clear() {
-    container.zeroVectors();
-    if (sv2 != null) {
-      sv2.clear();
-    }
-    container.setRecordCount(0);
-    sv2 = null;
-  }
-
-  public ValueVector[] vectors() { return valueVectors; }
-
-  public RowSetSchema schema() { return schema; }
-
-  public BufferAllocator getAllocator() { return allocator; }
-
-  public boolean hasSv2() { return sv2 != null; }
-
-  public void print() {
-    new RowSetPrinter(this).print();
-  }
-
-  public int getSize() {
-    RecordBatchSizer sizer = new RecordBatchSizer(container, sv2);
-    return sizer.actualSize();
-  }
-
-  public BatchSchema getBatchSchema() {
-    return container.getSchema();
-  }
+  BatchSchema getBatchSchema();
 }

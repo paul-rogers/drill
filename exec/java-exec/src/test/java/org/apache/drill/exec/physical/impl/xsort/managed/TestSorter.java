@@ -174,7 +174,7 @@ public class TestSorter extends DrillTest {
     }
 
     public RowSet makeDataSet(BufferAllocator allocator, RowSetSchema schema, DataItem[] items) {
-      RowSet rowSet = new RowSet(allocator, schema);
+      RowSet rowSet = fixture.rowSet(schema);
       RowSetWriter writer = rowSet.writer(items.length);
       for (int i = 0; i < items.length; i++) {
         DataItem item = items[i];

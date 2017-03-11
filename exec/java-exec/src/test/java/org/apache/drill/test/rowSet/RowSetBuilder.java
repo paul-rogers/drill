@@ -36,7 +36,7 @@ public final class RowSetBuilder {
   }
 
   public RowSetBuilder(BufferAllocator allocator, RowSetSchema schema, int capacity) {
-    rowSet = new RowSet(allocator, schema);
+    rowSet = new RowSetImpl(allocator, schema);
     writer = rowSet.writer(capacity);
   }
 
