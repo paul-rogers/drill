@@ -71,10 +71,13 @@ public class RowSetImpl implements RowSet {
     container.buildSchema(SelectionVectorMode.NONE);
   }
 
+  @Override
   public VectorAccessible getVectorAccessible() { return container; }
 
+  @Override
   public VectorContainer getContainer() { return container; }
 
+  @Override
   public void makeSv2() {
     if (sv2 != null) {
       return;
@@ -90,14 +93,17 @@ public class RowSetImpl implements RowSet {
     container.buildSchema(SelectionVectorMode.TWO_BYTE);
   }
 
+  @Override
   public SelectionVector2 getSv2() { return sv2; }
 
+  @Override
   public void allocate(int recordCount) {
     for (final ValueVector v : valueVectors) {
       AllocationHelper.allocate(v, recordCount, 50, 10);
     }
   }
 
+  @Override
   public void setRowCount(int rowCount) {
     container.setRecordCount(rowCount);
     for (VectorWrapper<?> w : container) {
@@ -105,17 +111,21 @@ public class RowSetImpl implements RowSet {
     }
   }
 
+  @Override
   public int rowCount() { return container.getRecordCount(); }
 
+  @Override
   public RowSetWriter writer(int initialRowCount) {
     allocate(initialRowCount);
     return new RowSetWriterImpl(this);
   }
 
+  @Override
   public RowSetReader reader() {
     return new RowSetReaderImpl(this);
   }
 
+  @Override
   public void clear() {
     container.zeroVectors();
     if (sv2 != null) {
@@ -125,23 +135,30 @@ public class RowSetImpl implements RowSet {
     sv2 = null;
   }
 
+  @Override
   public ValueVector[] vectors() { return valueVectors; }
 
+  @Override
   public RowSetSchema schema() { return schema; }
 
+  @Override
   public BufferAllocator getAllocator() { return allocator; }
 
+  @Override
   public boolean hasSv2() { return sv2 != null; }
 
+  @Override
   public void print() {
     new RowSetPrinter(this).print();
   }
 
+  @Override
   public int getSize() {
     RecordBatchSizer sizer = new RecordBatchSizer(container, sv2);
     return sizer.actualSize();
   }
 
+  @Override
   public BatchSchema getBatchSchema() {
     return container.getSchema();
   }
