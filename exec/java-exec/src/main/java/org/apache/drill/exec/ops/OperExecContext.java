@@ -37,7 +37,7 @@ public interface OperExecContext extends FragmentExecContext {
   OperatorStatReceiver getStats();
 
   ControlsInjector getInjector();
-  void injectUnchecked(ExecutionControls executionControls, String desc);
-  <T extends Throwable> void injectChecked(ExecutionControls executionControls, String desc, Class<T> exceptionClass)
+  void injectUnchecked(String desc);
+  <T extends Throwable> void injectChecked(String desc, Class<T> exceptionClass)
       throws T;
 }

@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
-import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.calcite.rel.RelFieldCollation.Direction;
@@ -43,6 +42,7 @@ import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.sun.codemodel.JConditional;
 import com.sun.codemodel.JExpr;
 
@@ -72,18 +72,26 @@ import com.sun.codemodel.JExpr;
  * A sort can only do a single merge. So, we do not attempt to share the
  * generated class; we just generate it internally and discard it at
  * completion of the merge.
+ * <p>
+ * The merge sorter only makes sense when we have at least one row. The
+ * caller must handle the special case of no rows.
  */
 
 public class MergeSortWrapper extends BaseSortWrapper implements SortResults {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MergeSortWrapper.class);
 
+  public enum State { FIRST, BODY, EOF }
+
   private SortRecordBatchBuilder builder;
   private MSorter mSorter;
   private SelectionVector4 sv4;
   private int batchCount;
+  private State state = State.FIRST;
+  private final VectorContainer destContainer;
 
-  public MergeSortWrapper(OperExecContext opContext) {
+  public MergeSortWrapper(OperExecContext opContext, VectorContainer destContainer) {
     super(opContext);
+    this.destContainer = destContainer;
   }
 
   /**
@@ -96,8 +104,7 @@ public class MergeSortWrapper extends BaseSortWrapper implements SortResults {
    * @return the sv4 for this operator
    */
 
-  public void merge(List<BatchGroup.InputBatch> batchGroups, VectorAccessible batch,
-                                VectorContainer destContainer) {
+  public void merge(List<BatchGroup.InputBatch> batchGroups) {
 
     // Add the buffered batches to a collection that MSorter can use.
     // The builder takes ownership of the batches and will release them if
@@ -116,7 +123,8 @@ public class MergeSortWrapper extends BaseSortWrapper implements SortResults {
     try {
       builder.build(destContainer);
       sv4 = builder.getSv4();
-      mSorter = createNewMSorter(batch);
+      Sort popConfig = context.getOperatorDefn();
+      mSorter = createNewMSorter(popConfig.getOrderings(), MAIN_MAPPING, LEFT_MAPPING, RIGHT_MAPPING);
       mSorter.setup(context, context.getAllocator(), sv4, destContainer, sv4.getCount());
     } catch (SchemaChangeException e) {
       throw UserException.unsupportedError(e)
@@ -125,22 +133,17 @@ public class MergeSortWrapper extends BaseSortWrapper implements SortResults {
     }
 
     // For testing memory-leaks, inject exception after mSorter finishes setup
-    ExternalSortBatch.injector.injectUnchecked(context.getExecutionControls(), ExternalSortBatch.INTERRUPTION_AFTER_SETUP);
-    mSorter.sort(destContainer);
+    context.injectUnchecked(ExternalSortBatch.INTERRUPTION_AFTER_SETUP);
+    mSorter.sort();
 
     // For testing memory-leak purpose, inject exception after mSorter finishes sorting
-    ExternalSortBatch.injector.injectUnchecked(context.getExecutionControls(), ExternalSortBatch.INTERRUPTION_AFTER_SORT);
+    context.injectUnchecked(ExternalSortBatch.INTERRUPTION_AFTER_SORT);
     sv4 = mSorter.getSV4();
 
     destContainer.buildSchema(SelectionVectorMode.FOUR_BYTE);
   }
 
-  public MSorter createNewMSorter(VectorAccessible batch) {
-    Sort popConfig = context.getOperatorDefn();
-    return createNewMSorter(popConfig.getOrderings(), batch, MAIN_MAPPING, LEFT_MAPPING, RIGHT_MAPPING);
-  }
-
-  private MSorter createNewMSorter(List<Ordering> orderings, VectorAccessible batch, MappingSet mainMapping, MappingSet leftMapping, MappingSet rightMapping) {
+  private MSorter createNewMSorter(List<Ordering> orderings, MappingSet mainMapping, MappingSet leftMapping, MappingSet rightMapping) {
     CodeGenerator<MSorter> cg = CodeGenerator.get(MSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptionSet());
     cg.plainJavaCapable(true);
 
@@ -152,7 +155,7 @@ public class MergeSortWrapper extends BaseSortWrapper implements SortResults {
     for (Ordering od : orderings) {
       // first, we rewrite the evaluation stack for each side of the comparison.
       ErrorCollector collector = new ErrorCollectorImpl();
-      final LogicalExpression expr = ExpressionTreeMaterializer.materialize(od.getExpr(), batch, collector, context.getFunctionRegistry());
+      final LogicalExpression expr = ExpressionTreeMaterializer.materialize(od.getExpr(), destContainer, collector, context.getFunctionRegistry());
       if (collector.hasErrors()) {
         throw UserException.unsupportedError()
               .message("Failure while materializing expression. " + collector.toErrorString())
@@ -193,9 +196,21 @@ public class MergeSortWrapper extends BaseSortWrapper implements SortResults {
 
   @Override
   public boolean next() {
-    boolean more = sv4.next();
-    if (more) { batchCount++; }
-    return more;
+    switch (state) {
+    case BODY:
+      if (! sv4.next()) {
+        state = State.EOF;
+        return false;
+      }
+      return true;
+    case EOF:
+      return false;
+    case FIRST:
+      state = State.BODY;
+      return true;
+    default:
+      throw new IllegalStateException( "Unexpected case: " + state );
+    }
   }
 
   @Override

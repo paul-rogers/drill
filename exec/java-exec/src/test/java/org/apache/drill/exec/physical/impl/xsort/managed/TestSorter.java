@@ -31,7 +31,9 @@ import org.apache.drill.exec.vector.accessor.AccessorUtilities;
 import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.rowSet.RowSet;
+import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
+import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetSchema;
@@ -46,16 +48,16 @@ public class TestSorter extends DrillTest {
   public static OperatorFixture fixture;
 
   @BeforeClass
-  public static void setup() {
+  public static void setUpBeforeClass() throws Exception {
     fixture = OperatorFixture.builder().build();
   }
 
   @AfterClass
-  public static void tearDown() throws Exception {
+  public static void tearDownAfterClass() throws Exception {
     fixture.close();
   }
 
-  public void runSorterTest(RowSet rowSet, RowSet expected) throws Exception {
+  public void runSorterTest(SingleRowSet rowSet, SingleRowSet expected) throws Exception {
     FieldReference expr = FieldReference.getWithQuotedRef("key");
     Ordering ordering = new Ordering(Ordering.ORDER_ASC, expr, Ordering.NULLS_LAST);
     Sort popConfig = new Sort(null, Lists.newArrayList(ordering), false);
@@ -74,10 +76,10 @@ public class TestSorter extends DrillTest {
   @Test
   public void testEmptyRowSet() throws Exception {
     RowSetSchema schema = SortTestUtilities.nonNullSchema();
-    RowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
+    SingleRowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
         .withSv2()
         .build();
-    RowSet expected = new RowSetBuilder(fixture.allocator(), schema)
+    SingleRowSet expected = new RowSetBuilder(fixture.allocator(), schema)
         .build();
     runSorterTest(rowSet, expected);
   }
@@ -87,12 +89,12 @@ public class TestSorter extends DrillTest {
   @Test
   public void testSingleRow() throws Exception {
     RowSetSchema schema = SortTestUtilities.nonNullSchema();
-    RowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
+    SingleRowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
           .add(0, "0")
           .withSv2()
           .build();
 
-    RowSet expected = new RowSetBuilder(fixture.allocator(), schema)
+    SingleRowSet expected = new RowSetBuilder(fixture.allocator(), schema)
         .add(0, "0")
         .build();
     runSorterTest(rowSet, expected);
@@ -103,13 +105,13 @@ public class TestSorter extends DrillTest {
   @Test
   public void testTwoRows() throws Exception {
     RowSetSchema schema = SortTestUtilities.nonNullSchema();
-    RowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
+    SingleRowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
           .add(1, "1")
           .add(0, "0")
           .withSv2()
           .build();
 
-    RowSet expected = new RowSetBuilder(fixture.allocator(), schema)
+    SingleRowSet expected = new RowSetBuilder(fixture.allocator(), schema)
         .add(0, "0")
         .add(1, "1")
         .build();
@@ -137,8 +139,8 @@ public class TestSorter extends DrillTest {
     public void test(MinorType type) throws SchemaChangeException {
       data = makeDataArray(20);
       RowSetSchema schema = SortTestUtilities.makeSchema(type, nullable);
-      RowSet input = makeDataSet(fixture.allocator(), schema, data);
-      input.makeSv2();
+      SingleRowSet input = makeDataSet(fixture.allocator(), schema, data);
+      input = input.toIndirect();
       sorter.sortBatch(input.getContainer(), input.getSv2());
       sorter.close();
       verify(input);
@@ -173,10 +175,11 @@ public class TestSorter extends DrillTest {
       return values;
     }
 
-    public RowSet makeDataSet(BufferAllocator allocator, RowSetSchema schema, DataItem[] items) {
-      RowSet rowSet = fixture.rowSet(schema);
+    public SingleRowSet makeDataSet(BufferAllocator allocator, RowSetSchema schema, DataItem[] items) {
+      ExtendableRowSet rowSet = fixture.rowSet(schema);
       RowSetWriter writer = rowSet.writer(items.length);
       for (int i = 0; i < items.length; i++) {
+        writer.next();
         DataItem item = items[i];
         if (nullable && item.isNull) {
           writer.column(0).setNull();
@@ -184,7 +187,6 @@ public class TestSorter extends DrillTest {
           AccessorUtilities.setFromInt(writer.column(0), item.key);
         }
         writer.column(1).setString(Integer.toString(item.value));
-        writer.advance();
       }
       writer.done();
       return rowSet;

@@ -201,7 +201,6 @@ public class SpilledRuns {
     logger.debug("Starting merge phase. Runs = {}, Alloc. memory = {}",
         allBatches.size(), context.getAllocator().getAllocatedMemory());
     PriorityQueueCopierWrapper.BatchMerger merger = copierHolder.startMerge(schema, allBatches, container, mergeRowCount);
-    merger.next();
     return merger;
   }
 

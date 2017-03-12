@@ -127,18 +127,18 @@ public class OperExecContextImpl implements OperExecContext {
   }
 
   @Override
-  public void injectUnchecked(ExecutionControls executionControls,
-      String desc) {
-    if (injector != null) {
+  public void injectUnchecked(String desc) {
+    ExecutionControls executionControls = fragmentContext.getExecutionControls();
+    if (injector != null  &&  executionControls != null) {
       injector.injectUnchecked(executionControls, desc);
     }
   }
 
   @Override
-  public <T extends Throwable> void injectChecked(
-      ExecutionControls executionControls, String desc, Class<T> exceptionClass)
+  public <T extends Throwable> void injectChecked(String desc, Class<T> exceptionClass)
       throws T {
-    if (injector != null) {
+    ExecutionControls executionControls = fragmentContext.getExecutionControls();
+    if (injector != null  &&  executionControls != null) {
       injector.injectChecked(executionControls, desc, exceptionClass);
     }
   }

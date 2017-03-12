@@ -28,6 +28,7 @@ import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 
 /**
@@ -58,10 +59,9 @@ public class SortImpl {
   }
 
   private final SortConfig config;
-
   private final SortMetrics metrics;
   private final SortMemoryManager memManager;
-  private VectorAccessible outputBatch;
+  private VectorContainer outputBatch;
   private OperExecContext context;
 
   /**
@@ -76,7 +76,7 @@ public class SortImpl {
 
   private BufferedBatches bufferedBatches;
 
-  public SortImpl(OperExecContext opContext, SpilledRuns spilledRuns, VectorAccessible batch) {
+  public SortImpl(OperExecContext opContext, SpilledRuns spilledRuns, VectorContainer batch) {
     this.context = opContext;
     outputBatch = batch;
     this.spilledRuns = spilledRuns;
@@ -113,7 +113,7 @@ public class SortImpl {
    * @param incoming
    */
 
-  public void processBatch(RecordBatch incoming) {
+  public void addBatch(VectorAccessible incoming) {
 
     // Skip empty batches (such as the first one.)
 
@@ -168,7 +168,7 @@ public class SortImpl {
    * @return an analysis of the incoming batch
    */
 
-  private RecordBatchSizer analyzeIncomingBatch(RecordBatch incoming) {
+  private RecordBatchSizer analyzeIncomingBatch(VectorAccessible incoming) {
     RecordBatchSizer sizer = new RecordBatchSizer(incoming);
     sizer.applySv2();
     if (metrics.getInputBatchCount() == 0) {
@@ -230,9 +230,36 @@ public class SortImpl {
 
   public SortMetrics getMetrics() { return metrics; }
 
-  public SortResults startMerge(VectorContainer container) {
-    if (metrics.getInputRowCount() == 0) {
+  public static class EmptyResults implements SortResults {
+
+    @Override
+    public boolean next() {
+      return false;
+    }
+
+    @Override
+    public void close() {
+    }
+
+    @Override
+    public int getBatchCount() {
+      return 0;
+    }
+
+    @Override
+    public int getRecordCount() {
+      return 0;
+    }
+
+    @Override
+    public SelectionVector4 getSv4() {
       return null;
+    }
+
+  }
+  public SortResults startMerge() {
+    if (metrics.getInputRowCount() == 0) {
+      return new EmptyResults();
     }
 
     logger.debug("Completed load phase: read {} batches, spilled {} times, total input bytes: {}",
@@ -244,9 +271,9 @@ public class SortImpl {
     // pre-sorted spilled batches.
 
     if (canUseMemoryMerge()) {
-      return mergeInMemory(container);
+      return mergeInMemory();
     } else {
-      return mergeSpilledRuns(container);
+      return mergeSpilledRuns();
     }
   }
 
@@ -285,7 +312,7 @@ public class SortImpl {
    * @return DONE if no rows, OK_NEW_SCHEMA if at least one row
    */
 
-  private SortResults mergeInMemory(VectorContainer container) {
+  private SortResults mergeInMemory() {
     logger.debug("Starting in-memory sort. Batches = {}, Records = {}, Memory = {}",
                  bufferedBatches.size(), metrics.getInputRowCount(),
                  allocator.getAllocatedMemory());
@@ -300,16 +327,12 @@ public class SortImpl {
     // If the sort fails or is empty, clean up here. Otherwise, cleanup is done
     // by closing the resultsIterator after all results are returned downstream.
 
-    MergeSortWrapper memoryMerge = new MergeSortWrapper(context);
+    MergeSortWrapper memoryMerge = new MergeSortWrapper(context, outputBatch);
     try {
-      memoryMerge.merge(bufferedBatches.removeAll(), outputBatch, container);
+      memoryMerge.merge(bufferedBatches.removeAll());
     } catch (Throwable t) {
       memoryMerge.close();
       throw t;
-    }
-    if (! context.shouldContinue()) {
-      memoryMerge.close();
-      return null;
     }
     logger.debug("Completed in-memory sort. Memory = {}",
                  allocator.getAllocatedMemory());
@@ -324,7 +347,7 @@ public class SortImpl {
    * @return an iterator over the merged batches
    */
 
-  private SortResults mergeSpilledRuns(VectorContainer container) {
+  private SortResults mergeSpilledRuns() {
     logger.debug("Starting consolidate phase. Batches = {}, Records = {}, Memory = {}, In-memory batches {}, spilled runs {}",
                  metrics.getInputBatchCount(), metrics.getInputRowCount(),
                  allocator.getAllocatedMemory(),
@@ -338,7 +361,7 @@ public class SortImpl {
     }
 
     int mergeRowCount = memManager.getMergeBatchRowCount();
-    return spilledRuns.finalMerge(bufferedBatches.removeAll(), container, mergeRowCount);
+    return spilledRuns.finalMerge(bufferedBatches.removeAll(), outputBatch, mergeRowCount);
   }
 
   private boolean consolidateBatches() {

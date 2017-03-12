@@ -81,6 +81,7 @@ public class HyperVectorWrapper<T extends ValueVector> implements VectorWrapper<
     }
   }
 
+  @SuppressWarnings("resource")
   @Override
   public VectorWrapper<?> getChildWrapper(int[] ids) {
     if (ids.length == 1) {
@@ -105,6 +106,7 @@ public class HyperVectorWrapper<T extends ValueVector> implements VectorWrapper<
     return new HyperVectorWrapper<ValueVector>(vectors[0].getField(), vectors);
   }
 
+  @SuppressWarnings("resource")
   @Override
   public TypedFieldId getFieldIdIfMatches(int id, SchemaPath expectedPath) {
     ValueVector v = vectors[0];
@@ -112,28 +114,22 @@ public class HyperVectorWrapper<T extends ValueVector> implements VectorWrapper<
   }
 
   @Override
-  @SuppressWarnings("unchecked")
   public VectorWrapper<T> cloneAndTransfer(BufferAllocator allocator) {
     return new HyperVectorWrapper<T>(f, vectors, false);
-//    T[] newVectors = (T[]) Array.newInstance(vectors.getClass().getComponentType(), vectors.length);
-//    for(int i =0; i < newVectors.length; i++) {
-//      TransferPair tp = vectors[i].getTransferPair();
-//      tp.transfer();
-//      newVectors[i] = (T) tp.getTo();
-//    }
-//    return new HyperVectorWrapper<T>(f, newVectors);
   }
 
   public static <T extends ValueVector> HyperVectorWrapper<T> create(MaterializedField f, T[] v, boolean releasable) {
     return new HyperVectorWrapper<T>(f, v, releasable);
   }
 
+  @SuppressWarnings("unchecked")
   public void addVector(ValueVector v) {
     Preconditions.checkArgument(v.getClass() == this.getVectorClass(), String.format("Cannot add vector type %s to hypervector type %s for field %s",
       v.getClass(), this.getVectorClass(), v.getField()));
     vectors = (T[]) ArrayUtils.add(vectors, v);// TODO optimize this so not copying every time
   }
 
+  @SuppressWarnings("unchecked")
   public void addVectors(ValueVector[] vv) {
     vectors = (T[]) ArrayUtils.add(vectors, vv);
   }

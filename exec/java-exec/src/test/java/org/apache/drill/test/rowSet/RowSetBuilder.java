@@ -19,6 +19,7 @@ package org.apache.drill.test.rowSet;
 
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
+import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 
 /**
  * Fluent builder to quickly build up an row set (record batch)
@@ -27,7 +28,7 @@ import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 
 public final class RowSetBuilder {
 
-  private RowSet rowSet;
+  private DirectRowSet rowSet;
   private RowSetWriter writer;
   private boolean withSv2;
 
@@ -36,15 +37,17 @@ public final class RowSetBuilder {
   }
 
   public RowSetBuilder(BufferAllocator allocator, RowSetSchema schema, int capacity) {
-    rowSet = new RowSetImpl(allocator, schema);
+    rowSet = new DirectRowSet(allocator, schema);
     writer = rowSet.writer(capacity);
   }
 
   public RowSetBuilder add(Object...values) {
+    if (! writer.next()) {
+      throw new IllegalStateException( "Write past end of row set" );
+    }
     for (int i = 0; i < values.length;  i++) {
       writer.set(i, values[i]);
     }
-    writer.advance();
     return this;
   }
 
@@ -53,10 +56,10 @@ public final class RowSetBuilder {
     return this;
   }
 
-  public RowSet build() {
+  public SingleRowSet build() {
     writer.done();
     if (withSv2) {
-      rowSet.makeSv2();
+      return rowSet.toIndirect();
     }
     return rowSet;
   }

@@ -19,6 +19,7 @@ package org.apache.drill.test.rowSet;
 
 import java.io.PrintStream;
 
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;
 
 public class RowSetPrinter {
@@ -33,12 +34,12 @@ public class RowSetPrinter {
   }
 
   public void print(PrintStream out) {
-    boolean hasSv2 = rowSet.hasSv2();
+    SelectionVectorMode selectionMode = rowSet.getIndirectionType();
     RowSetReader reader = rowSet.reader();
     int colCount = reader.width();
-    printSchema(out, hasSv2);
+    printSchema(out, selectionMode);
     while (reader.next()) {
-      printHeader(out, reader, hasSv2);
+      printHeader(out, reader, selectionMode);
       for (int i = 0; i < colCount; i++) {
         if (i > 0) {
           out.print(", ");
@@ -49,11 +50,19 @@ public class RowSetPrinter {
     }
   }
 
-  private void printSchema(PrintStream out, boolean hasSv2) {
-    out.print("#, ");
-    if (hasSv2) {
-      out.print("row #, ");
+  private void printSchema(PrintStream out, SelectionVectorMode selectionMode) {
+    out.print("#");
+    switch (selectionMode) {
+    case FOUR_BYTE:
+      out.print(" (batch #, row #)");
+      break;
+    case TWO_BYTE:
+      out.print(" (row #)");
+      break;
+    default:
+      break;
     }
+    out.print(": ");
     RowSetSchema schema = rowSet.schema();
     for (int i = 0; i < schema.count(); i++) {
       if (i > 0) {
@@ -64,12 +73,23 @@ public class RowSetPrinter {
     out.println();
   }
 
-  private void printHeader(PrintStream out, RowSetReader reader, boolean hasSv2) {
+  private void printHeader(PrintStream out, RowSetReader reader, SelectionVectorMode selectionMode) {
     out.print(reader.index());
-    if (hasSv2) {
-      out.print("(");
-      out.print(reader.offset());
+    switch (selectionMode) {
+    case FOUR_BYTE:
+      out.print(" (");
+      out.print(reader.batchIndex());
+      out.print(", ");
+      out.print(reader.rowIndex());
       out.print(")");
+      break;
+    case TWO_BYTE:
+      out.print(" (");
+      out.print(reader.rowIndex());
+      out.print(")");
+      break;
+    default:
+      break;
     }
     out.print(": ");
   }

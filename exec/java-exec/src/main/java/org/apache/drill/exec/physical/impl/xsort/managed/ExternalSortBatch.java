@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.MetricDef;
 import org.apache.drill.exec.ops.OperExecContext;
@@ -213,23 +212,17 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
                                      popConfig, "sort", "run");
     OperExecContext opContext = new OperExecContextImpl(context, oContext, popConfig, injector);
     SpilledRuns spilledRuns = new SpilledRuns(opContext, spillSet);
-    sortImpl = new SortImpl(opContext, spilledRuns, this);
+    sortImpl = new SortImpl(opContext, spilledRuns, container);
   }
 
   @Override
   public int getRecordCount() {
-    if (resultsIterator == null) {
-      return 0;
-    }
-    if (resultsIterator.getSv4() != null) {
-      return resultsIterator.getSv4().getCount();
-    }
-    return container.getRecordCount();
+    return resultsIterator.getRecordCount();
   }
 
   @Override
   public SelectionVector4 getSelectionVector4() {
-    return resultsIterator == null ? null : resultsIterator.getSv4();
+    return resultsIterator.getSv4();
   }
 
   /**
@@ -349,8 +342,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
     // Anything to actually sort?
 
-    resultsIterator = sortImpl.startMerge(container);
-    if (resultsIterator == null) {
+    resultsIterator = sortImpl.startMerge();
+    if (! resultsIterator.next()) {
       sortState = SortState.DONE;
       return IterOutcome.NONE;
     }
@@ -398,7 +391,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
       // Add the batch to the in-memory generation, spilling if
       // needed.
 
-      sortImpl.processBatch(incoming);
+      sortImpl.addBatch(incoming);
       break;
     case OUT_OF_MEMORY:
 

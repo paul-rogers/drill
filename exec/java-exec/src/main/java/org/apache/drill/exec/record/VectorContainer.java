@@ -276,6 +276,10 @@ public class VectorContainer implements VectorAccessible {
     return null;
   }
 
+  public VectorWrapper<?> getValueVector(int index) {
+    return wrappers.get(index);
+  }
+
   @Override
   public VectorWrapper<?> getValueAccessorById(Class<?> clazz, int... fieldIds) {
     Preconditions.checkArgument(fieldIds.length >= 1);
@@ -343,9 +347,11 @@ public class VectorContainer implements VectorAccessible {
 
   @Override
   public int getRecordCount() {
-    Preconditions.checkState(recordCount != -1, "Record count not set for this vector container");
+    Preconditions.checkState(hasRecordCount(), "Record count not set for this vector container");
     return recordCount;
   }
+
+  public boolean hasRecordCount() { return recordCount != -1; }
 
   @Override
   public SelectionVector2 getSelectionVector2() {

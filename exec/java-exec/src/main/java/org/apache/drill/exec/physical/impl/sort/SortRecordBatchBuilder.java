@@ -183,7 +183,7 @@ public class SortRecordBatchBuilder implements AutoCloseable {
       int index = 0;
       int recordBatchId = 0;
       for (RecordBatchData d : data) {
-        for (int i =0; i < d.getRecordCount(); i++, index++) {
+        for (int i = 0; i < d.getRecordCount(); i++, index++) {
           sv4.set(index, recordBatchId, (int) d.getSv2().getIndex(i));
         }
         // might as well drop the selection vector since we'll stop using it now.

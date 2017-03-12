@@ -19,6 +19,8 @@ package org.apache.drill.exec.vector.accessor;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.record.MaterializedField;
+
 /**
  * Column reader implementation that acts as the basis for the
  * generated, vector-specific implementations. All set methods
@@ -27,6 +29,13 @@ import java.math.BigDecimal;
  */
 
 public abstract class AbstractColumnReader extends AbstractColumnAccessor implements ColumnReader {
+
+  protected VectorAccessor vectorAccessor;
+
+  public void bind(RowIndex rowIndex, MaterializedField field, VectorAccessor va) {
+    bind(rowIndex);
+    vectorAccessor = va;
+  }
 
   @Override
   public boolean isNull() {

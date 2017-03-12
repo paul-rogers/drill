@@ -19,9 +19,12 @@ package org.apache.drill.test.rowSet;
 
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.HyperVectorWrapper;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
+import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
@@ -65,18 +68,9 @@ import org.apache.drill.exec.vector.accessor.ColumnWriter;
 
 public interface RowSet {
 
-  public interface RowSetWriter {
-    void advance();
-    void done();
-    ColumnWriter column(int colIndex);
-    ColumnWriter column(String colName);
-    void set(int colIndex, Object value);
-    void setRow(Object...values);
-  }
-
-  public interface RowSetReader {
-    boolean valid();
+  public interface RowSetAccessor {
     boolean next();
+    boolean valid();
 
     /**
      * Return the index of the row within the effective result set.
@@ -84,61 +78,96 @@ public interface RowSet {
      * index.)
      * @return the current reader index
      */
+
     int index();
+
+    /**
+     * The index of the underlying row which may be indexed by an
+     * Sv2 or Sv4.
+     *
+     * @return
+     */
+
+    int rowIndex();
+
     /**
      * Total number of rows in the row set.
      * @return total number of rows
      */
     int size();
+
     /**
      * Number of columns in the row set.
      * @return number of columns
      */
     int width();
+
     /**
-     * Actual row offset. If no Sv2 is in use, then same as the index.
-     * If an SV2 is in use, then the offset of the row to which the
-     * SV2 points.
-     * @return offset in the vectors of the data for this row
+     * Batch index: 0 for a single batch, batch for the current
+     * row is a hyper-batch.
+     * @return index of the batch for the current row
      */
-    int offset();
+    int batchIndex();
+  }
+
+  public interface RowSetWriter extends RowSetAccessor {
+    ColumnWriter column(int colIndex);
+    ColumnWriter column(String colName);
+    void set(int colIndex, Object value);
+    boolean setRow(Object...values);
+    void done();
+  }
+
+  public interface RowSetReader extends RowSetAccessor {
     ColumnReader column(int colIndex);
     ColumnReader column(String colName);
     Object get(int colIndex);
     String getAsString(int colIndex);
   }
 
+  boolean isExtendable();
+
+  boolean isWritable();
+
   VectorAccessible getVectorAccessible();
 
   VectorContainer getContainer();
 
-  void makeSv2();
-
-  SelectionVector2 getSv2();
-
-  void allocate(int recordCount);
-
-  void setRowCount(int rowCount);
-
   int rowCount();
 
-  RowSetWriter writer(int initialRowCount);
+  RowSetWriter writer();
 
   RowSetReader reader();
 
   void clear();
 
-  ValueVector[] vectors();
-
   RowSetSchema schema();
 
   BufferAllocator getAllocator();
 
-  boolean hasSv2();
+  SelectionVectorMode getIndirectionType();
 
   void print();
 
   int getSize();
 
   BatchSchema getBatchSchema();
+
+  public interface SingleRowSet extends RowSet {
+    ValueVector[] vectors();
+    SingleRowSet toIndirect();
+    SelectionVector2 getSv2();
+  }
+
+  public interface ExtendableRowSet extends SingleRowSet {
+    void allocate(int recordCount);
+    void setRowCount(int rowCount);
+    RowSetWriter writer(int initialRowCount);
+  }
+
+  public interface HyperRowSet extends RowSet {
+    SelectionVector4 getSv4();
+    HyperVectorWrapper<ValueVector> getHyperVector(int i);
+  }
+
 }

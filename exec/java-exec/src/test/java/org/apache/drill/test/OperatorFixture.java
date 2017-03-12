@@ -44,9 +44,9 @@ import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.server.options.OptionValue.OptionType;
 import org.apache.drill.exec.testing.ExecutionControls;
-import org.apache.drill.test.rowSet.RowSet;
+import org.apache.drill.test.rowSet.DirectRowSet;
+import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
-import org.apache.drill.test.rowSet.RowSetImpl;
 import org.apache.drill.test.rowSet.RowSetSchema;
 
 public class OperatorFixture implements AutoCloseable {
@@ -255,8 +255,8 @@ public class OperatorFixture implements AutoCloseable {
     return new RowSetBuilder(allocator, schema);
   }
 
-  public RowSet rowSet(RowSetSchema schema) {
-    return new RowSetImpl(allocator, schema);
+  public ExtendableRowSet rowSet(RowSetSchema schema) {
+    return new DirectRowSet(allocator, schema);
   }
 
 }

@@ -21,7 +21,6 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.AbstractColumnWriter;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
-import org.apache.drill.exec.vector.accessor.AbstractColumnAccessor.RowIndex;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 
 /**
@@ -29,30 +28,18 @@ import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
  * container.
  */
 
-public class RowSetWriterImpl implements RowSetWriter, RowIndex {
+public class RowSetWriterImpl extends AbstractRowSetAccessor implements RowSetWriter {
 
-  private RowSet recordSet;
   private AbstractColumnWriter writers[];
-  private int rowIndex;
 
-  public RowSetWriterImpl(RowSet recordSet) {
-    this.recordSet = recordSet;
+  public RowSetWriterImpl(AbstractSingleRowSet recordSet, AbstractRowIndex rowIndex) {
+    super(rowIndex);
     ValueVector[] valueVectors = recordSet.vectors();
     writers = new AbstractColumnWriter[valueVectors.length];
     for (int i = 0; i < writers.length; i++) {
       writers[i] = ColumnAccessorFactory.newWriter(valueVectors[i].getField().getType());
-      writers[i].bind(this, valueVectors[i]);
+      writers[i].bind(rowIndex, valueVectors[i]);
     }
-  }
-
-  @Override
-  public int getRow() {
-    return rowIndex;
-  }
-
-  @Override
-  public void advance() {
-    rowIndex++;
   }
 
   @Override
@@ -67,7 +54,7 @@ public class RowSetWriterImpl implements RowSetWriter, RowIndex {
 
   @Override
   public void done() {
-    recordSet.setRowCount(rowIndex);
+    index.setRowCount();
   }
 
   @Override
@@ -90,10 +77,18 @@ public class RowSetWriterImpl implements RowSetWriter, RowIndex {
   }
 
   @Override
-  public void setRow(Object...values) {
+  public boolean setRow(Object...values) {
+    if (! index.valid()) {
+      throw new IndexOutOfBoundsException("Write past end of row set");
+    }
     for (int i = 0; i < values.length;  i++) {
       set(i, values[i]);
     }
-    advance();
+    return next();
+  }
+
+  @Override
+  public int width() {
+    return writers.length;
   }
 }

@@ -30,6 +30,7 @@ import org.apache.drill.exec.physical.impl.xsort.managed.BatchGroup.InputBatch;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.SchemaUtil;
+import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
@@ -79,7 +80,7 @@ public class BufferedBatches {
   public int size() { return bufferedBatches.size(); }
 
   @SuppressWarnings("resource")
-  public void add(RecordBatch incoming, int batchSize) {
+  public void add(VectorAccessible incoming, int batchSize) {
     // Convert the incoming batch to the agreed-upon schema.
     // No converted batch means we got an empty input batch.
     // Converting the batch transfers memory ownership to our
@@ -114,7 +115,7 @@ public class BufferedBatches {
    */
 
   @SuppressWarnings("resource")
-  private VectorContainer convertBatch(RecordBatch incoming) {
+  private VectorContainer convertBatch(VectorAccessible incoming) {
 
     // Must accept the batch even if no records. Then clear
     // the vectors to release memory since we won't do any
@@ -134,7 +135,7 @@ public class BufferedBatches {
     return convertedBatch;
   }
 
-  private SelectionVector2 makeSelectionVector(RecordBatch incoming) {
+  private SelectionVector2 makeSelectionVector(VectorAccessible incoming) {
     if (incoming.getSchema().getSelectionVectorMode() == BatchSchema.SelectionVectorMode.TWO_BYTE) {
       return incoming.getSelectionVector2().clone();
     } else {
@@ -150,7 +151,7 @@ public class BufferedBatches {
    * @return a new, populated selection vector 2
    */
 
-  private SelectionVector2 newSV2(RecordBatch incoming) {
+  private SelectionVector2 newSV2(VectorAccessible incoming) {
     SelectionVector2 sv2 = new SelectionVector2(context.getAllocator());
     if (!sv2.allocateNewSafe(incoming.getRecordCount())) {
       throw UserException.resourceError(new OutOfMemoryException("Unable to allocate sv2 buffer"))

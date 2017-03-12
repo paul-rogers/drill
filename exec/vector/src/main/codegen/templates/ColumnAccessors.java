@@ -41,29 +41,45 @@
   <#if drillType = "Decimal9" || drillType == "Decimal18">
       field = vector.getField();
   </#if>
-      this.accessor = ((${prefix}${drillType}Vector) vector).getAccessor();
+      accessor = ((${prefix}${drillType}Vector) vector).getAccessor();
+    }
+
+  <#if drillType = "Decimal9" || drillType == "Decimal18">
+    @Override
+    public void bind(RowIndex rowIndex, MaterializedField field, VectorAccessor va) {
+      bind(rowIndex, field, va);
+      this.field = field;
+    }
+
+ </#if>
+   private ${prefix}${drillType}Vector.Accessor accessor() {
+      if (vectorAccessor == null) {
+        return accessor;
+      } else {
+        return ((${prefix}${drillType}Vector) vectorAccessor.vector()).getAccessor();
+      }
     }
 </#macro>
 <#macro get drillType accessorType label>
     @Override
     public ${accessorType} get${label}() {
   <#if drillType == "VarChar">
-      return new String(accessor.get(rowIndex()), Charsets.UTF_8);
+      return new String(accessor().get(rowIndex.index()), Charsets.UTF_8);
   <#elseif drillType == "Var16Char">
-      return new String(accessor.get(rowIndex()), Charsets.UTF_16);
+      return new String(accessor().get(rowIndex.index()), Charsets.UTF_16);
   <#elseif drillType == "VarBinary">
-      return accessor.get(rowIndex());
+      return accessor().get(rowIndex.index());
   <#elseif drillType == "Decimal9" || drillType == "Decimal18">
       return DecimalUtility.getBigDecimalFromPrimitiveTypes(
-                accessor.get(rowIndex()),
+                accessor().get(rowIndex.index()),
                 field.getScale(),
                 field.getPrecision());
   <#elseif accessorType == "Decimal18">
-      return DecimalUtilities.getBigDecimalFromPrimitiveTypes(accessor.getObject(rowIndex());
+      return DecimalUtilities.getBigDecimalFromPrimitiveTypes(accessor().getObject(rowIndex.index());
   <#elseif accessorType == "BigDecimal">
-      return accessor.getObject(rowIndex());
+      return accessor().getObject(rowIndex.index());
   <#else>
-      return accessor.get(rowIndex());
+      return accessor().get(rowIndex.index());
   </#if>
     }
 </#macro>
@@ -87,22 +103,22 @@
     public void set${label}(${accessorType} value) {
   <#if drillType == "VarChar">
       byte bytes[] = value.getBytes(Charsets.UTF_8);
-      mutator.setSafe(rowIndex(), bytes, 0, bytes.length);
+      mutator.setSafe(rowIndex.index(), bytes, 0, bytes.length);
   <#elseif drillType == "Var16Char">
       byte bytes[] = value.getBytes(Charsets.UTF_16);
-      mutator.setSafe(rowIndex(), bytes, 0, bytes.length);
+      mutator.setSafe(rowIndex.index(), bytes, 0, bytes.length);
   <#elseif drillType == "VarBinary">
-      mutator.setSafe(rowIndex(), value, 0, value.length);
+      mutator.setSafe(rowIndex.index(), value, 0, value.length);
   <#elseif drillType == "Decimal9">
-      mutator.setSafe(rowIndex(),
+      mutator.setSafe(rowIndex.index(),
           DecimalUtility.getDecimal9FromBigDecimal(value,
               field.getScale(), field.getPrecision()));
   <#elseif drillType == "Decimal18">
-      mutator.setSafe(rowIndex(),
+      mutator.setSafe(rowIndex.index(),
           DecimalUtility.getDecimal18FromBigDecimal(value,
               field.getScale(), field.getPrecision()));
   <#else>
-      mutator.setSafe(rowIndex(), <#if cast=="set">(${javaType}) </#if>value);
+      mutator.setSafe(rowIndex.index(), <#if cast=="set">(${javaType}) </#if>value);
   </#if>
     }
 </#macro>
@@ -124,6 +140,14 @@ import com.google.common.base.Charsets;
  * accessors: they do only the most rudimentary type conversions. For all,
  * there is only one way to get/set values; they don't convert from, say,
  * a double to an int or visa-versa.
+ * <p>
+ * Writers work only with single vectors. Readers work with either single
+ * vectors or a "hyper vector": a collection of vectors indexed together.
+ * The details are hidden behind the {@link RowIndex} interface. If the reader
+ * accesses a single vector, then the mutator is cached at bind time. However,
+ * if the reader works with a hyper vector, then the vector is null at bind
+ * time and must be retrieved for each row (since the vector differs row-by-
+ * row.)
  */
 
 // This class is generated using freemarker and the ${.template_name} template.
@@ -164,7 +188,7 @@ public class ColumnAccessors {
 
     @Override
     public boolean isNull() {
-      return accessor.isNull(rowIndex());
+      return accessor().isNull(rowIndex.index());
     }
 
     <@get drillType accessorType label />
@@ -187,7 +211,7 @@ public class ColumnAccessors {
 
     @Override
     public void setNull() {
-      mutator.setNull(rowIndex());
+      mutator.setNull(rowIndex.index());
     }
 
     <@set drillType accessorType label true />

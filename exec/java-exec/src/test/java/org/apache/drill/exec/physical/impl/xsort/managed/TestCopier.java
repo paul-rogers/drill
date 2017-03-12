@@ -36,9 +36,11 @@ import org.apache.drill.exec.vector.accessor.AccessorUtilities;
 import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.rowSet.RowSet;
+import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
+import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
-import org.apache.drill.test.rowSet.RowSetImpl;
+import org.apache.drill.test.rowSet.DirectRowSet;
 import org.apache.drill.test.rowSet.RowSetSchema;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.junit.AfterClass;
@@ -94,16 +96,16 @@ public class TestCopier extends DrillTest {
     return new PriorityQueueCopierWrapper(opContext);
   }
 
-  public void runCopierTest(List<RowSet> rowSets, List<RowSet> expected) throws Exception {
+  public void runCopierTest(List<SingleRowSet> rowSets, List<SingleRowSet> expected) throws Exception {
     runCopierTest(rowSets, expected, Ordering.ORDER_ASC, Ordering.NULLS_UNSPECIFIED);
   }
 
-  public void runCopierTest(List<RowSet> rowSets, List<RowSet> expected,
+  public void runCopierTest(List<SingleRowSet> rowSets, List<SingleRowSet> expected,
                             String sortOrder, String nullOrder) throws Exception {
     PriorityQueueCopierWrapper copier = makeCopier(sortOrder, nullOrder);
     List<BatchGroup> batches = new ArrayList<>();
     RowSetSchema schema = null;
-    for (RowSet rowSet : rowSets) {
+    for (SingleRowSet rowSet : rowSets) {
       batches.add(new BatchGroup.InputBatch(rowSet.getContainer(), rowSet.getSv2(),
                   fixture.allocator(), rowSet.getSize()));
       if (schema == null) {
@@ -119,7 +121,7 @@ public class TestCopier extends DrillTest {
 
     for (RowSet expectedSet : expected) {
       assertTrue(merger.next());
-      RowSet rowSet = new RowSetImpl(fixture.allocator(), dest);
+      RowSet rowSet = new DirectRowSet(fixture.allocator(), dest);
       new RowSetComparison(expectedSet)
             .verifyAndClear(rowSet);
     }
@@ -131,7 +133,7 @@ public class TestCopier extends DrillTest {
   @Test
   public void testEmptyBatch() throws Exception {
     RowSetSchema schema = SortTestUtilities.nonNullSchema();
-    RowSet input = fixture.rowSetBuilder(schema)
+    SingleRowSet input = fixture.rowSetBuilder(schema)
           .withSv2()
           .build();
 
@@ -141,12 +143,12 @@ public class TestCopier extends DrillTest {
   @Test
   public void testSingleRow() throws Exception {
     RowSetSchema schema = SortTestUtilities.nonNullSchema();
-    RowSet input = fixture.rowSetBuilder(schema)
+    SingleRowSet input = fixture.rowSetBuilder(schema)
           .add(10, "10")
           .withSv2()
           .build();
 
-    RowSet expected = fixture.rowSetBuilder(schema)
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
           .add(10, "10")
           .build();
     runCopierTest(Lists.newArrayList(input), Lists.newArrayList(expected));
@@ -155,30 +157,30 @@ public class TestCopier extends DrillTest {
   @Test
   public void testTwoBatchesSingleRow() throws Exception {
     RowSetSchema schema = SortTestUtilities.nonNullSchema();
-    RowSet input1 = fixture.rowSetBuilder(schema)
+    SingleRowSet input1 = fixture.rowSetBuilder(schema)
           .add(10, "10")
           .withSv2()
           .build();
-    RowSet input2 = fixture.rowSetBuilder(schema)
+    SingleRowSet input2 = fixture.rowSetBuilder(schema)
           .add(20, "20")
           .withSv2()
           .build();
 
-    RowSet expected = fixture.rowSetBuilder(schema)
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
           .add(10, "10")
           .add(20, "20")
           .build();
     runCopierTest(Lists.newArrayList(input1, input2), Lists.newArrayList(expected));
   }
 
-  public RowSet makeDataSet(RowSetSchema schema, int first, int step, int count) {
-    RowSet rowSet = fixture.rowSet(schema);
+  public SingleRowSet makeDataSet(RowSetSchema schema, int first, int step, int count) {
+    ExtendableRowSet rowSet = fixture.rowSet(schema);
     RowSetWriter writer = rowSet.writer(count);
     int value = first;
     for (int i = 0; i < count; i++, value += step) {
       AccessorUtilities.setFromInt(writer.column(0), value);
       writer.column(1).setString(Integer.toString(value));
-      writer.advance();
+      writer.next();
     }
     writer.done();
     return rowSet;
@@ -188,13 +190,11 @@ public class TestCopier extends DrillTest {
   public void testMultipleOutput() throws Exception {
     RowSetSchema schema = SortTestUtilities.nonNullSchema();
 
-    RowSet input1 = makeDataSet(schema, 0, 2, 10);
-    input1.makeSv2();
-    RowSet input2 = makeDataSet(schema, 1, 2, 10);
-    input2.makeSv2();
+    SingleRowSet input1 = makeDataSet(schema, 0, 2, 10).toIndirect();
+    SingleRowSet input2 = makeDataSet(schema, 1, 2, 10).toIndirect();
 
-    RowSet output1 = makeDataSet(schema, 0, 1, 10);
-    RowSet output2 = makeDataSet(schema, 10, 1, 10);
+    SingleRowSet output1 = makeDataSet(schema, 0, 1, 10);
+    SingleRowSet output2 = makeDataSet(schema, 10, 1, 10);
 
     runCopierTest(Lists.newArrayList(input1, input2), Lists.newArrayList(output1, output2));
   }
@@ -205,15 +205,13 @@ public class TestCopier extends DrillTest {
   public void testMultipleOutputDesc() throws Exception {
     RowSetSchema schema = SortTestUtilities.nonNullSchema();
 
-    RowSet input1 = makeDataSet(schema, 0, 2, 10);
-    input1.makeSv2();
+    SingleRowSet input1 = makeDataSet(schema, 0, 2, 10).toIndirect();
     RowSetUtilities.reverse(input1.getSv2());
-    RowSet input2 = makeDataSet(schema, 1, 2, 10);
-    input2.makeSv2();
+    SingleRowSet input2 = makeDataSet(schema, 1, 2, 10).toIndirect();
     RowSetUtilities.reverse(input2.getSv2());
 
-    RowSet output1 = makeDataSet(schema, 19, -1, 10);
-    RowSet output2 = makeDataSet(schema, 9, -1, 10);
+    SingleRowSet output1 = makeDataSet(schema, 19, -1, 10);
+    SingleRowSet output2 = makeDataSet(schema, 9, -1, 10);
 
     runCopierTest(Lists.newArrayList(input1, input2), Lists.newArrayList(output1, output2),
                                      Ordering.ORDER_DESC, Ordering.NULLS_UNSPECIFIED);
@@ -223,20 +221,20 @@ public class TestCopier extends DrillTest {
   public void testAscNullsLast() throws Exception {
     RowSetSchema schema = SortTestUtilities.nullableSchema();
 
-    RowSet input1 = fixture.rowSetBuilder(schema)
+    SingleRowSet input1 = fixture.rowSetBuilder(schema)
         .add(1, "1")
         .add(4, "4")
         .add(null, "null")
         .withSv2()
         .build();
-    RowSet input2 = fixture.rowSetBuilder(schema)
+    SingleRowSet input2 = fixture.rowSetBuilder(schema)
         .add(2, "2")
         .add(3, "3")
         .add(null, "null")
         .withSv2()
         .build();
 
-    RowSet output = fixture.rowSetBuilder(schema)
+    SingleRowSet output = fixture.rowSetBuilder(schema)
         .add(1, "1")
         .add(2, "2")
         .add(3, "3")
@@ -253,20 +251,20 @@ public class TestCopier extends DrillTest {
   public void testAscNullsFirst() throws Exception {
     RowSetSchema schema = SortTestUtilities.nullableSchema();
 
-    RowSet input1 = fixture.rowSetBuilder(schema)
+    SingleRowSet input1 = fixture.rowSetBuilder(schema)
         .add(null, "null")
         .add(1, "1")
         .add(4, "4")
         .withSv2()
         .build();
-    RowSet input2 = fixture.rowSetBuilder(schema)
+    SingleRowSet input2 = fixture.rowSetBuilder(schema)
         .add(null, "null")
         .add(2, "2")
         .add(3, "3")
         .withSv2()
         .build();
 
-    RowSet output = fixture.rowSetBuilder(schema)
+    SingleRowSet output = fixture.rowSetBuilder(schema)
         .add(null, "null")
         .add(null, "null")
         .add(1, "1")
@@ -283,20 +281,20 @@ public class TestCopier extends DrillTest {
   public void testDescNullsLast() throws Exception {
     RowSetSchema schema = SortTestUtilities.nullableSchema();
 
-    RowSet input1 = fixture.rowSetBuilder(schema)
+    SingleRowSet input1 = fixture.rowSetBuilder(schema)
         .add(4, "4")
         .add(1, "1")
         .add(null, "null")
         .withSv2()
         .build();
-    RowSet input2 = fixture.rowSetBuilder(schema)
+    SingleRowSet input2 = fixture.rowSetBuilder(schema)
         .add(3, "3")
         .add(2, "2")
         .add(null, "null")
         .withSv2()
         .build();
 
-    RowSet output = fixture.rowSetBuilder(schema)
+    SingleRowSet output = fixture.rowSetBuilder(schema)
         .add(4, "4")
         .add(3, "3")
         .add(2, "2")
@@ -313,20 +311,20 @@ public class TestCopier extends DrillTest {
   public void testDescNullsFirst() throws Exception {
     RowSetSchema schema = SortTestUtilities.nullableSchema();
 
-    RowSet input1 = fixture.rowSetBuilder(schema)
+    SingleRowSet input1 = fixture.rowSetBuilder(schema)
         .add(null, "null")
         .add(4, "4")
         .add(1, "1")
         .withSv2()
         .build();
-    RowSet input2 = fixture.rowSetBuilder(schema)
+    SingleRowSet input2 = fixture.rowSetBuilder(schema)
         .add(null, "null")
         .add(3, "3")
         .add(2, "2")
         .withSv2()
         .build();
 
-    RowSet output = fixture.rowSetBuilder(schema)
+    SingleRowSet output = fixture.rowSetBuilder(schema)
         .add(null, "null")
         .add(null, "null")
         .add(4, "4")
@@ -342,12 +340,10 @@ public class TestCopier extends DrillTest {
   public void runTypeTest(MinorType type) throws Exception {
     RowSetSchema schema = SortTestUtilities.makeSchema(type, false);
 
-    RowSet input1 = makeDataSet(schema, 0, 2, 5);
-    input1.makeSv2();
-    RowSet input2 = makeDataSet(schema, 1, 2, 5);
-    input2.makeSv2();
+    SingleRowSet input1 = makeDataSet(schema, 0, 2, 5).toIndirect();
+    SingleRowSet input2 = makeDataSet(schema, 1, 2, 5).toIndirect();
 
-    RowSet output1 = makeDataSet(schema, 0, 1, 10);
+    SingleRowSet output1 = makeDataSet(schema, 0, 1, 10);
 
     runCopierTest(Lists.newArrayList(input1, input2), Lists.newArrayList(output1));
   }

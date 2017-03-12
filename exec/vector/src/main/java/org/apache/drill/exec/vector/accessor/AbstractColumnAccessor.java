@@ -29,16 +29,19 @@ import org.apache.drill.exec.vector.ValueVector;
 public abstract class AbstractColumnAccessor {
 
   public interface RowIndex {
-    int getRow();
+    int batch();
+    int index();
   }
 
-  private RowIndex rowIndex;
+  public interface VectorAccessor {
+    ValueVector vector();
+  }
+
+  protected RowIndex rowIndex;
 
   protected void bind(RowIndex rowIndex) {
     this.rowIndex = rowIndex;
   }
 
   public abstract void bind(RowIndex rowIndex, ValueVector vector);
-
-  protected int rowIndex() { return rowIndex.getRow(); }
 }

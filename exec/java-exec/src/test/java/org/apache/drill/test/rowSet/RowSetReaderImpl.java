@@ -17,61 +17,46 @@
  */
 package org.apache.drill.test.rowSet;
 
-import org.apache.drill.exec.record.selection.SelectionVector2;
+import org.apache.drill.exec.record.HyperVectorWrapper;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.AbstractColumnAccessor.VectorAccessor;
 import org.apache.drill.exec.vector.accessor.AbstractColumnReader;
-import org.apache.drill.exec.vector.accessor.AbstractColumnAccessor.RowIndex;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
+import org.apache.drill.test.rowSet.HyperRowSetImpl.HyperRowIndex;
+import org.apache.drill.test.rowSet.RowSet.HyperRowSet;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;
+import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 
 /**
  * Implements a row set reader on top of a {@link RowSet}
  * container.
  */
 
-public class RowSetReaderImpl implements RowSetReader {
+public class RowSetReaderImpl extends AbstractRowSetAccessor implements RowSetReader {
 
-  public static abstract class AbstractRowIndex implements RowIndex {
-    protected int rowIndex = -1;
 
-    public void advance() { rowIndex++; }
-    public int getIndex() { return rowIndex; }
-  }
+  public static class HyperVectorAccessor implements VectorAccessor {
 
-  public static class DirectRowIndex extends AbstractRowIndex {
+    private final HyperRowIndex rowIndex;
+    private final ValueVector[] vectors;
 
-    @Override
-    public int getRow() {
-      return rowIndex;
-    }
-  }
-
-  public static class Sv2RowIndex extends AbstractRowIndex {
-
-    private SelectionVector2 sv2;
-
-    public Sv2RowIndex(SelectionVector2 sv2) {
-      this.sv2 = sv2;
+    public HyperVectorAccessor(HyperVectorWrapper<ValueVector> hvw, HyperRowIndex rowIndex) {
+      this.rowIndex = rowIndex;
+      vectors = hvw.getValueVectors();
     }
 
     @Override
-    public int getRow() {
-      return sv2.getIndex(rowIndex);
+    public ValueVector vector() {
+      return vectors[rowIndex.batch()];
     }
   }
 
-  private RowSet rowSet;
   private AbstractColumnReader readers[];
-  private AbstractRowIndex rowIndex;
 
-  public RowSetReaderImpl(RowSet recordSet) {
-    if (recordSet.getSv2() == null) {
-      rowIndex = new DirectRowIndex();
-    } else {
-      rowIndex = new Sv2RowIndex(recordSet.getSv2());
-    }
-    this.rowSet = recordSet;
+  public RowSetReaderImpl(SingleRowSet recordSet, AbstractRowIndex rowIndex) {
+    super(rowIndex);
     ValueVector[] valueVectors = recordSet.vectors();
     readers = new AbstractColumnReader[valueVectors.length];
     for (int i = 0; i < readers.length; i++) {
@@ -80,18 +65,16 @@ public class RowSetReaderImpl implements RowSetReader {
     }
   }
 
-  @Override
-  public boolean valid() {
-    int index = rowIndex.getIndex();
-    return index >= 0  && index < rowSet.rowCount();
-  }
-
-  @Override
-  public boolean next() {
-    if (rowIndex.getIndex() >= rowSet.rowCount())
-      return false;
-    rowIndex.advance();
-    return valid();
+  public RowSetReaderImpl(HyperRowSet recordSet, HyperRowIndex rowIndex) {
+    super(rowIndex);
+    RowSetSchema schema = recordSet.schema();
+    readers = new AbstractColumnReader[schema.count()];
+    for (int i = 0; i < readers.length; i++) {
+      MaterializedField field = schema.get(i);
+      readers[i] = ColumnAccessorFactory.newReader(field.getType());
+      HyperVectorWrapper<ValueVector> hvw = recordSet.getHyperVector(i);
+      readers[i].bind(rowIndex, field, new HyperVectorAccessor(hvw, rowIndex));
+    }
   }
 
   @Override
@@ -102,16 +85,6 @@ public class RowSetReaderImpl implements RowSetReader {
   @Override
   public ColumnReader column(String colName) {
     throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public int index() {
-    return rowIndex.getIndex();
-  }
-
-  @Override
-  public int size() {
-    return rowSet.rowCount();
   }
 
   @Override
@@ -176,11 +149,6 @@ public class RowSetReaderImpl implements RowSetReader {
 
   @Override
   public int width() {
-    return rowSet.schema().count();
-  }
-
-  @Override
-  public int offset() {
-    return rowIndex.getRow();
+    return readers.length;
   }
 }

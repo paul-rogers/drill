@@ -148,7 +148,7 @@ public abstract class MSortTemplate implements MSorter, IndexedSortable {
   }
 
   /**
-   * Sort (really, merge) a set of pre-sorted runs to produce a combined
+   * Merge a set of pre-sorted runs to produce a combined
    * result set. Merging is done in the selection vector, record data does
    * not move.
    * <p>
@@ -158,7 +158,7 @@ public abstract class MSortTemplate implements MSorter, IndexedSortable {
    */
 
   @Override
-  public void sort(final VectorContainer container) {
+  public void sort() {
     while (runStarts.size() > 1) {
       final int totalCount = this.vector4.getTotalCount();
 
