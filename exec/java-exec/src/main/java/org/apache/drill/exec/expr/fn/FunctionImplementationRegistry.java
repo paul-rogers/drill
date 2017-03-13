@@ -168,10 +168,8 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
     FunctionResolver exactResolver = FunctionResolverFactory.getExactResolver(functionCall);
     DrillFuncHolder holder = exactResolver.getBestMatch(functions, functionCall);
 
-    if (holder == null) {
-      if (useDynamicUdfs) {
-        syncWithRemoteRegistry(version.get());
-      }
+    if (holder == null && useDynamicUdfs) {
+      syncWithRemoteRegistry(version.get());
       List<DrillFuncHolder> updatedFunctions = localFunctionRegistry.getMethods(newFunctionName, version);
       holder = functionResolver.getBestMatch(updatedFunctions, functionCall);
     }
