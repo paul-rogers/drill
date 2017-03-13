@@ -19,6 +19,7 @@ package org.apache.drill.test.rowSet;
 
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
@@ -102,4 +103,10 @@ public class IndirectRowSet extends AbstractSingleRowSet {
 
   @Override
   public SingleRowSet toIndirect() { return this; }
+
+  @Override
+  public int getSize() {
+    RecordBatchSizer sizer = new RecordBatchSizer(container, sv2);
+    return sizer.actualSize();
+  }
 }

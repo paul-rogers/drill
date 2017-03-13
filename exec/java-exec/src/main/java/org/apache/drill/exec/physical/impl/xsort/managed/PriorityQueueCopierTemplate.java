@@ -73,7 +73,11 @@ public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier
       int compoundIndex = vector4.get(0);
       int batch = compoundIndex >>> 16;
       assert batch < batchGroups.size() : String.format("batch: %d batchGroups: %d", batch, batchGroups.size());
-      doCopy(compoundIndex, outgoingIndex);
+      try {
+        doCopy(compoundIndex, outgoingIndex);
+      } catch (SchemaChangeException e) {
+        throw new IllegalStateException(e);
+      }
       int nextIndex = batchGroups.get(batch).getNextIndex();
       if (nextIndex < 0) {
         vector4.set(0, vector4.get(--queueSize));
@@ -84,7 +88,11 @@ public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier
         VectorAccessible.setValueCount(outgoing, ++outgoingIndex);
         return outgoingIndex;
       }
-      siftDown();
+      try {
+        siftDown();
+      } catch (SchemaChangeException e) {
+        throw new IllegalStateException(e);
+      }
     }
     VectorAccessible.setValueCount(outgoing, targetRecordCount);
     return targetRecordCount;
@@ -98,7 +106,7 @@ public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier
     BatchGroup.closeAll(batchGroups);
   }
 
-  private void siftUp() {
+  private void siftUp() throws SchemaChangeException {
     int p = queueSize;
     while (p > 0) {
       if (compare(p, (p - 1) / 2) < 0) {
@@ -110,7 +118,7 @@ public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier
     }
   }
 
-  private void siftDown() {
+  private void siftDown() throws SchemaChangeException {
     int p = 0;
     int next;
     while (p * 2 + 1 < queueSize) { // While the current node has at least one child
@@ -138,16 +146,19 @@ public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier
     vector4.set(sv1, tmp);
   }
 
-  public int compare(int leftIndex, int rightIndex) {
+  public int compare(int leftIndex, int rightIndex) throws SchemaChangeException {
     int sv1 = vector4.get(leftIndex);
     int sv2 = vector4.get(rightIndex);
     return doEval(sv1, sv2);
   }
 
   public abstract void doSetup(@Named("incoming") VectorAccessible incoming,
-                               @Named("outgoing") VectorAccessible outgoing);
+                               @Named("outgoing") VectorAccessible outgoing)
+                       throws SchemaChangeException;
   public abstract int doEval(@Named("leftIndex") int leftIndex,
-                             @Named("rightIndex") int rightIndex);
+                             @Named("rightIndex") int rightIndex)
+                      throws SchemaChangeException;
   public abstract void doCopy(@Named("inIndex") int inIndex,
-                              @Named("outIndex") int outIndex);
+                              @Named("outIndex") int outIndex)
+                       throws SchemaChangeException;
 }

@@ -162,7 +162,17 @@ public class RecordBatchSizer {
 
   private int netBatchSize;
 
+  public RecordBatchSizer(RecordBatch batch) {
+    this(batch,
+         (batch.getSchema().getSelectionVectorMode() == BatchSchema.SelectionVectorMode.TWO_BYTE) ?
+         batch.getSelectionVector2() : null);
+  }
+
   public RecordBatchSizer(VectorAccessible va) {
+    this(va, null);
+  }
+
+  public RecordBatchSizer(VectorAccessible va, SelectionVector2 sv2) {
     rowCount = va.getRecordCount();
     for (VectorWrapper<?> vw : va) {
       measureColumn(vw);
@@ -172,10 +182,7 @@ public class RecordBatchSizer {
       grossRowWidth = roundUp(totalBatchSize, rowCount);
     }
 
-    hasSv2 = va.getSchema().getSelectionVectorMode() == BatchSchema.SelectionVectorMode.TWO_BYTE;
-    if (hasSv2) {
-      @SuppressWarnings("resource")
-      SelectionVector2 sv2 = va.getSelectionVector2();
+    if (sv2 != null) {
       sv2Size = sv2.getBuffer(false).capacity();
       grossRowWidth += roundUp(sv2Size, rowCount);
       netRowWidth += 2;

@@ -50,6 +50,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
 
 /**
@@ -91,7 +92,7 @@ public class TestCopier extends DrillTest {
     }
   }
 
-  public PriorityQueueCopierWrapper makeCopier(String sortOrder, String nullOrder) {
+  public static PriorityQueueCopierWrapper makeCopier(String sortOrder, String nullOrder) {
     FieldReference expr = FieldReference.getWithQuotedRef("key");
     Ordering ordering = new Ordering(sortOrder, expr, nullOrder);
     Sort popConfig = new Sort(null, Lists.newArrayList(ordering), false);
@@ -99,81 +100,101 @@ public class TestCopier extends DrillTest {
     return new PriorityQueueCopierWrapper(opContext);
   }
 
-  public void runCopierTest(List<SingleRowSet> rowSets, List<SingleRowSet> expected) throws Exception {
-    runCopierTest(rowSets, expected, Ordering.ORDER_ASC, Ordering.NULLS_UNSPECIFIED);
-  }
+  public static class CopierTester {
+    List<SingleRowSet> rowSets = new ArrayList<>();
+    List<SingleRowSet> expected = new ArrayList<>();
+    String sortOrder = Ordering.ORDER_ASC;
+    String nullOrder = Ordering.NULLS_UNSPECIFIED;
 
-  public void runCopierTest(List<SingleRowSet> rowSets, List<SingleRowSet> expected,
-                            String sortOrder, String nullOrder) throws Exception {
-    PriorityQueueCopierWrapper copier = makeCopier(sortOrder, nullOrder);
-    List<BatchGroup> batches = new ArrayList<>();
-    RowSetSchema schema = null;
-    for (SingleRowSet rowSet : rowSets) {
-      batches.add(new BatchGroup.InputBatch(rowSet.getContainer(), rowSet.getSv2(),
-                  fixture.allocator(), rowSet.getSize()));
-      if (schema == null) {
-        schema = rowSet.schema();
+    public void addInput(SingleRowSet input) {
+      rowSets.add(input);
+    }
+
+    public void addOutput(SingleRowSet output) {
+      expected.add(output);
+    }
+
+    public void run() throws Exception {
+      PriorityQueueCopierWrapper copier = makeCopier(sortOrder, nullOrder);
+      List<BatchGroup> batches = new ArrayList<>();
+      RowSetSchema schema = null;
+      for (SingleRowSet rowSet : rowSets) {
+        batches.add(new BatchGroup.InputBatch(rowSet.getContainer(), rowSet.getSv2(),
+                    fixture.allocator(), rowSet.getSize()));
+        if (schema == null) {
+          schema = rowSet.schema();
+        }
       }
-    }
-    int rowCount = expected.get(0).rowCount();
-    if (rowCount == 0) { rowCount = 10; }
-    VectorContainer dest = new VectorContainer();
-    @SuppressWarnings("resource")
-    BatchMerger merger = copier.startMerge(schema.toBatchSchema(SelectionVectorMode.NONE),
-                                           batches, dest, rowCount);
+      int rowCount = 0;
+      if (! expected.isEmpty()) {
+        rowCount = expected.get(0).rowCount();
+      }
+      if (rowCount == 0) { rowCount = 10; }
+      VectorContainer dest = new VectorContainer();
+      @SuppressWarnings("resource")
+      BatchMerger merger = copier.startMerge(schema.toBatchSchema(SelectionVectorMode.NONE),
+                                             batches, dest, rowCount);
 
-    for (RowSet expectedSet : expected) {
-      assertTrue(merger.next());
-      RowSet rowSet = new DirectRowSet(fixture.allocator(), dest);
-      new RowSetComparison(expectedSet)
-            .verifyAndClear(rowSet);
+      verifyResults(merger, dest);
+      dest.clear();
+      merger.close();
     }
-    assertFalse(merger.next());
-    dest.clear();
-    merger.close();
+
+    protected void verifyResults(BatchMerger merger, VectorContainer dest) {
+      for (RowSet expectedSet : expected) {
+        assertTrue(merger.next());
+        RowSet rowSet = new DirectRowSet(fixture.allocator(), dest);
+        new RowSetComparison(expectedSet)
+              .verifyAndClear(rowSet);
+      }
+      assertFalse(merger.next());
+    }
   }
 
   @Test
   public void testEmptyBatch() throws Exception {
     RowSetSchema schema = SortTestUtilities.nonNullSchema();
-    SingleRowSet input = fixture.rowSetBuilder(schema)
+    CopierTester tester = new CopierTester();
+    tester.addInput(fixture.rowSetBuilder(schema)
           .withSv2()
-          .build();
+          .build());
 
-    runCopierTest(Lists.newArrayList(input), Lists.newArrayList());
+    tester.run();
   }
 
   @Test
   public void testSingleRow() throws Exception {
     RowSetSchema schema = SortTestUtilities.nonNullSchema();
-    SingleRowSet input = fixture.rowSetBuilder(schema)
+    CopierTester tester = new CopierTester();
+    tester.addInput(fixture.rowSetBuilder(schema)
           .add(10, "10")
           .withSv2()
-          .build();
+          .build());
 
-    SingleRowSet expected = fixture.rowSetBuilder(schema)
+    tester.addOutput(fixture.rowSetBuilder(schema)
           .add(10, "10")
-          .build();
-    runCopierTest(Lists.newArrayList(input), Lists.newArrayList(expected));
+          .build());
+    tester.run();
   }
 
   @Test
   public void testTwoBatchesSingleRow() throws Exception {
     RowSetSchema schema = SortTestUtilities.nonNullSchema();
-    SingleRowSet input1 = fixture.rowSetBuilder(schema)
+    CopierTester tester = new CopierTester();
+    tester.addInput(fixture.rowSetBuilder(schema)
           .add(10, "10")
           .withSv2()
-          .build();
-    SingleRowSet input2 = fixture.rowSetBuilder(schema)
+          .build());
+    tester.addInput(fixture.rowSetBuilder(schema)
           .add(20, "20")
           .withSv2()
-          .build();
+          .build());
 
-    SingleRowSet expected = fixture.rowSetBuilder(schema)
+    tester.addOutput(fixture.rowSetBuilder(schema)
           .add(10, "10")
           .add(20, "20")
-          .build();
-    runCopierTest(Lists.newArrayList(input1, input2), Lists.newArrayList(expected));
+          .build());
+    tester.run();
   }
 
   public SingleRowSet makeDataSet(RowSetSchema schema, int first, int step, int count) {
@@ -193,13 +214,13 @@ public class TestCopier extends DrillTest {
   public void testMultipleOutput() throws Exception {
     RowSetSchema schema = SortTestUtilities.nonNullSchema();
 
-    SingleRowSet input1 = makeDataSet(schema, 0, 2, 10).toIndirect();
-    SingleRowSet input2 = makeDataSet(schema, 1, 2, 10).toIndirect();
+    CopierTester tester = new CopierTester();
+    tester.addInput(makeDataSet(schema, 0, 2, 10).toIndirect());
+    tester.addInput(makeDataSet(schema, 1, 2, 10).toIndirect());
 
-    SingleRowSet output1 = makeDataSet(schema, 0, 1, 10);
-    SingleRowSet output2 = makeDataSet(schema, 10, 1, 10);
-
-    runCopierTest(Lists.newArrayList(input1, input2), Lists.newArrayList(output1, output2));
+    tester.addOutput(makeDataSet(schema, 0, 1, 10));
+    tester.addOutput(makeDataSet(schema, 10, 1, 10));
+    tester.run();
   }
 
   // Also verifies that SV2s work
@@ -208,147 +229,161 @@ public class TestCopier extends DrillTest {
   public void testMultipleOutputDesc() throws Exception {
     RowSetSchema schema = SortTestUtilities.nonNullSchema();
 
-    SingleRowSet input1 = makeDataSet(schema, 0, 2, 10).toIndirect();
-    RowSetUtilities.reverse(input1.getSv2());
-    SingleRowSet input2 = makeDataSet(schema, 1, 2, 10).toIndirect();
-    RowSetUtilities.reverse(input2.getSv2());
+    CopierTester tester = new CopierTester();
+    tester.sortOrder = Ordering.ORDER_DESC;
+    tester.nullOrder = Ordering.NULLS_UNSPECIFIED;
+    SingleRowSet input = makeDataSet(schema, 0, 2, 10).toIndirect();
+    RowSetUtilities.reverse(input.getSv2());
+    tester.addInput(input);
 
-    SingleRowSet output1 = makeDataSet(schema, 19, -1, 10);
-    SingleRowSet output2 = makeDataSet(schema, 9, -1, 10);
+    input = makeDataSet(schema, 1, 2, 10).toIndirect();
+    RowSetUtilities.reverse(input.getSv2());
+    tester.addInput(input);
 
-    runCopierTest(Lists.newArrayList(input1, input2), Lists.newArrayList(output1, output2),
-                                     Ordering.ORDER_DESC, Ordering.NULLS_UNSPECIFIED);
+    tester.addOutput(makeDataSet(schema, 19, -1, 10));
+    tester.addOutput(makeDataSet(schema, 9, -1, 10));
+
+    tester.run();
   }
 
   @Test
   public void testAscNullsLast() throws Exception {
     RowSetSchema schema = SortTestUtilities.nullableSchema();
 
-    SingleRowSet input1 = fixture.rowSetBuilder(schema)
+    CopierTester tester = new CopierTester();
+    tester.sortOrder = Ordering.ORDER_ASC;
+    tester.nullOrder = Ordering.NULLS_LAST;
+    tester.addInput(fixture.rowSetBuilder(schema)
         .add(1, "1")
         .add(4, "4")
         .add(null, "null")
         .withSv2()
-        .build();
-    SingleRowSet input2 = fixture.rowSetBuilder(schema)
+        .build());
+    tester.addInput(fixture.rowSetBuilder(schema)
         .add(2, "2")
         .add(3, "3")
         .add(null, "null")
         .withSv2()
-        .build();
+        .build());
 
-    SingleRowSet output = fixture.rowSetBuilder(schema)
+    tester.addOutput(fixture.rowSetBuilder(schema)
         .add(1, "1")
         .add(2, "2")
         .add(3, "3")
         .add(4, "4")
         .add(null, "null")
         .add(null, "null")
-        .build();
+        .build());
 
-    runCopierTest(Lists.newArrayList(input1, input2), Lists.newArrayList(output),
-                                     Ordering.ORDER_ASC, Ordering.NULLS_LAST);
+    tester.run();
   }
 
   @Test
   public void testAscNullsFirst() throws Exception {
     RowSetSchema schema = SortTestUtilities.nullableSchema();
 
-    SingleRowSet input1 = fixture.rowSetBuilder(schema)
+    CopierTester tester = new CopierTester();
+    tester.sortOrder = Ordering.ORDER_ASC;
+    tester.nullOrder = Ordering.NULLS_FIRST;
+    tester.addInput(fixture.rowSetBuilder(schema)
         .add(null, "null")
         .add(1, "1")
         .add(4, "4")
         .withSv2()
-        .build();
-    SingleRowSet input2 = fixture.rowSetBuilder(schema)
+        .build());
+    tester.addInput(fixture.rowSetBuilder(schema)
         .add(null, "null")
         .add(2, "2")
         .add(3, "3")
         .withSv2()
-        .build();
+        .build());
 
-    SingleRowSet output = fixture.rowSetBuilder(schema)
+    tester.addOutput(fixture.rowSetBuilder(schema)
         .add(null, "null")
         .add(null, "null")
         .add(1, "1")
         .add(2, "2")
         .add(3, "3")
         .add(4, "4")
-        .build();
+        .build());
 
-    runCopierTest(Lists.newArrayList(input1, input2), Lists.newArrayList(output),
-                                     Ordering.ORDER_ASC, Ordering.NULLS_FIRST);
+    tester.run();
   }
 
   @Test
   public void testDescNullsLast() throws Exception {
     RowSetSchema schema = SortTestUtilities.nullableSchema();
 
-    SingleRowSet input1 = fixture.rowSetBuilder(schema)
+    CopierTester tester = new CopierTester();
+    tester.sortOrder = Ordering.ORDER_DESC;
+    tester.nullOrder = Ordering.NULLS_LAST;
+    tester.addInput(fixture.rowSetBuilder(schema)
         .add(4, "4")
         .add(1, "1")
         .add(null, "null")
         .withSv2()
-        .build();
-    SingleRowSet input2 = fixture.rowSetBuilder(schema)
+        .build());
+    tester.addInput(fixture.rowSetBuilder(schema)
         .add(3, "3")
         .add(2, "2")
         .add(null, "null")
         .withSv2()
-        .build();
+        .build());
 
-    SingleRowSet output = fixture.rowSetBuilder(schema)
+    tester.addOutput(fixture.rowSetBuilder(schema)
         .add(4, "4")
         .add(3, "3")
         .add(2, "2")
         .add(1, "1")
         .add(null, "null")
         .add(null, "null")
-        .build();
+        .build());
 
-    runCopierTest(Lists.newArrayList(input1, input2), Lists.newArrayList(output),
-                                     Ordering.ORDER_DESC, Ordering.NULLS_LAST);
+    tester.run();
   }
 
   @Test
   public void testDescNullsFirst() throws Exception {
     RowSetSchema schema = SortTestUtilities.nullableSchema();
 
-    SingleRowSet input1 = fixture.rowSetBuilder(schema)
+    CopierTester tester = new CopierTester();
+    tester.sortOrder = Ordering.ORDER_DESC;
+    tester.nullOrder = Ordering.NULLS_FIRST;
+    tester.addInput(fixture.rowSetBuilder(schema)
         .add(null, "null")
         .add(4, "4")
         .add(1, "1")
         .withSv2()
-        .build();
-    SingleRowSet input2 = fixture.rowSetBuilder(schema)
+        .build());
+    tester.addInput(fixture.rowSetBuilder(schema)
         .add(null, "null")
         .add(3, "3")
         .add(2, "2")
         .withSv2()
-        .build();
+        .build());
 
-    SingleRowSet output = fixture.rowSetBuilder(schema)
+    tester.addOutput(fixture.rowSetBuilder(schema)
         .add(null, "null")
         .add(null, "null")
         .add(4, "4")
         .add(3, "3")
         .add(2, "2")
         .add(1, "1")
-        .build();
+        .build());
 
-    runCopierTest(Lists.newArrayList(input1, input2), Lists.newArrayList(output),
-                                     Ordering.ORDER_DESC, Ordering.NULLS_FIRST);
+    tester.run();
   }
 
   public void runTypeTest(MinorType type) throws Exception {
     RowSetSchema schema = SortTestUtilities.makeSchema(type, false);
 
-    SingleRowSet input1 = makeDataSet(schema, 0, 2, 5).toIndirect();
-    SingleRowSet input2 = makeDataSet(schema, 1, 2, 5).toIndirect();
+    CopierTester tester = new CopierTester();
+    tester.addInput(makeDataSet(schema, 0, 2, 5).toIndirect());
+    tester.addInput(makeDataSet(schema, 1, 2, 5).toIndirect());
 
-    SingleRowSet output1 = makeDataSet(schema, 0, 1, 10);
+    tester.addOutput(makeDataSet(schema, 0, 1, 10));
 
-    runCopierTest(Lists.newArrayList(input1, input2), Lists.newArrayList(output1));
+    tester.run();
   }
 
   @Test
@@ -369,8 +404,8 @@ public class TestCopier extends DrillTest {
 
     // Others not tested. See DRILL-5329
   }
-  
-  public void runWideRowsTest(OperatorFixture fixture, int colCount, int rowCount) {
+
+  public SingleRowSet makeWideRowSet(int colCount, int rowCount) {
     SchemaBuilder builder = RowSetSchema.builder()
         .add("key", MinorType.INT);
     for (int i = 0; i < colCount; i++) {
@@ -387,24 +422,32 @@ public class TestCopier extends DrillTest {
       }
     }
     writer.done();
+    return rowSet;
+  }
 
-    VectorContainer dest = new VectorContainer();
-    SortImpl sort = makeSortImpl(fixture, Ordering.ORDER_ASC, Ordering.NULLS_UNSPECIFIED, dest);
+  Stopwatch timer = Stopwatch.createUnstarted();
+
+  public void runWideRowsTest(int colCount, int rowCount) throws Exception {
+
+    CopierTester tester = new CopierTester() {
+      @Override
+      protected void verifyResults(BatchMerger merger, VectorContainer dest) {
+        while (merger.next()) {
+          ;
+        }
+      }
+    };
+    tester.addInput(makeWideRowSet(colCount, rowCount).toIndirect());
     timer.reset();
     timer.start();
-    sort.setSchema(rowSet.getContainer().getSchema());
-    sort.addBatch(rowSet.getVectorAccessible());
-    SortResults results = sort.startMerge();
-    if (results.getContainer() != dest) {
-      dest.clear();
-      dest = results.getContainer();
-    }
-    assertTrue(results.next());
+    tester.run();
     timer.stop();
-    assertFalse(results.next());
-    results.close();
-    dest.clear();
-    sort.close();
     System.out.println(timer.elapsed(TimeUnit.MILLISECONDS));
+  }
+
+
+  @Test
+  public void testWideRows() throws Exception {
+    runWideRowsTest(1000, Character.MAX_VALUE);
   }
 }
