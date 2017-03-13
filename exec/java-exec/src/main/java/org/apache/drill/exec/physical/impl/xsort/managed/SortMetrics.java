@@ -21,7 +21,7 @@ import org.apache.drill.exec.ops.OperatorStatReceiver;
 
 public class SortMetrics {
 
-  private int peakNumBatches = -1;
+  private int peakBatchCount = -1;
   private int inputRecordCount = 0;
   private int inputBatchCount = 0; // total number of batches received so far
 
@@ -39,6 +39,9 @@ public class SortMetrics {
 
   private long minimumBufferSpace;
   private OperatorStatReceiver stats;
+  private int spillCount;
+  private int mergeCount;
+  private long writeBytes;
 
   public SortMetrics(OperatorStatReceiver stats) {
     this.stats = stats;
@@ -60,35 +63,35 @@ public class SortMetrics {
     stats.setLongStat(ExternalSortBatch.Metric.MIN_BUFFER, minimumBufferSpace);
   }
 
-  public int getInputRowCount() {
-    return inputRecordCount;
-  }
-
-  public long getInputBatchCount() {
-    return inputBatchCount;
-  }
-
-  public long getInputBytes() {
-    return totalInputBytes;
-  }
+  public int getInputRowCount() { return inputRecordCount; }
+  public long getInputBatchCount() { return inputBatchCount; }
+  public long getInputBytes() { return totalInputBytes; }
 
   public void updatePeakBatches(int bufferedBatchCount) {
-    if (peakNumBatches < bufferedBatchCount) {
-      peakNumBatches = bufferedBatchCount;
-      stats.setLongStat(ExternalSortBatch.Metric.PEAK_BATCHES_IN_MEMORY, peakNumBatches);
+    if (peakBatchCount < bufferedBatchCount) {
+      peakBatchCount = bufferedBatchCount;
+      stats.setLongStat(ExternalSortBatch.Metric.PEAK_BATCHES_IN_MEMORY, peakBatchCount);
     }
   }
 
   public void incrMergeCount() {
     stats.addLongStat(ExternalSortBatch.Metric.MERGE_COUNT, 1);
+    mergeCount++;
   }
 
   public void incrSpillCount() {
     stats.addLongStat(ExternalSortBatch.Metric.SPILL_COUNT, 1);
+    spillCount++;
   }
 
   public void updateWriteBytes(long writeBytes) {
     stats.setDoubleStat(ExternalSortBatch.Metric.SPILL_MB,
         writeBytes / 1024.0D / 1024.0);
+    this.writeBytes = writeBytes;
   }
+
+  public int getSpillCount() { return spillCount; }
+  public int getMergeCount() { return mergeCount; }
+  public long getWriteBytes() { return writeBytes; }
+  public int getPeakBatchCount() { return peakBatchCount; }
 }

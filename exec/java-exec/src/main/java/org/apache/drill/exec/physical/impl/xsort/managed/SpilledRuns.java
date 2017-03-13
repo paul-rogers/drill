@@ -172,8 +172,7 @@ public class SpilledRuns {
 
         newGroup.addBatch(dest);
       }
-      context.getInjector().injectChecked(context.getExecutionControls(),
-                    ExternalSortBatch.INTERRUPTION_WHILE_SPILLING, IOException.class);
+      context.injectChecked(ExternalSortBatch.INTERRUPTION_WHILE_SPILLING, IOException.class);
       newGroup.closeOutputStream();
       logger.trace("Spilled {} output batches, each of {} by bytes, {} records to {}",
                    merger.getBatchCount(), merger.getRecordCount(),
@@ -200,8 +199,7 @@ public class SpilledRuns {
     spilledRuns.clear();
     logger.debug("Starting merge phase. Runs = {}, Alloc. memory = {}",
         allBatches.size(), context.getAllocator().getAllocatedMemory());
-    PriorityQueueCopierWrapper.BatchMerger merger = copierHolder.startMerge(schema, allBatches, container, mergeRowCount);
-    return merger;
+    return copierHolder.startMerge(schema, allBatches, container, mergeRowCount);
   }
 
   public void close() {

@@ -60,6 +60,9 @@ public class SortConfig {
 
   private final int mergeBatchSize;
 
+  private final int bufferedBatchLimit;
+
+
   public SortConfig(DrillConfig config) {
 
     // Optional configured memory limit, typically used only for testing.
@@ -89,6 +92,15 @@ public class SortConfig {
     // output batch can contain no fewer than a single record.
 
     mergeBatchSize = (int) Math.max(config.getBytes(ExecConstants.EXTERNAL_SORT_MERGE_BATCH_SIZE), MIN_MERGE_BATCH_SIZE);
+
+    // Limit on in-memory batches, primarily for testing.
+
+    int value = config.getInt(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT);
+    if (value == 0) {
+      bufferedBatchLimit = Integer.MAX_VALUE;
+    } else {
+      bufferedBatchLimit = Math.max(value, 2);
+    }
     logConfig();
   }
 
@@ -105,4 +117,5 @@ public class SortConfig {
   public long spillFileSize() { return spillFileSize; }
   public int spillBatchSize() { return spillBatchSize; }
   public int mergeBatchSize() { return mergeBatchSize; }
+  public int getBufferedBatchLimit() { return bufferedBatchLimit; }
 }

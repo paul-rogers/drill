@@ -318,7 +318,7 @@ public class TestSorter extends DrillTest {
   @Test
   public void testNumericTypes() throws Exception {
     TestSorterNumeric tester1 = new TestSorterNumeric(fixture, true);
-//      tester1.test(MinorType.TINYINT); DRILL-5329
+//      tester1.test(MinorType.TINYINT); // DRILL-5329
 //      tester1.test(MinorType.UINT1); DRILL-5329
 //      tester1.test(MinorType. ); DRILL-5329
 //      tester1.test(MinorType.UINT2); DRILL-5329

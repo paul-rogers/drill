@@ -244,7 +244,16 @@ public class OperatorFixture implements AutoCloseable {
   }
 
   public static OperatorFixtureBuilder builder() {
-    return new OperatorFixtureBuilder();
+    OperatorFixtureBuilder builder = new OperatorFixtureBuilder();
+    builder.configBuilder()
+      // Required to avoid Dynamic UDF calls for missing or
+      // ambiguous functions.
+      .put(ExecConstants.UDF_DISABLE_DYNAMIC, true);
+    return builder;
+  }
+
+  public static OperatorFixture standardFixture() {
+    return builder().build();
   }
 
   public OperExecContext newOperExecContext(PhysicalOperator opDefn) {

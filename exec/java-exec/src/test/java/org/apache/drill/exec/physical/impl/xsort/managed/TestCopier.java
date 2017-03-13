@@ -23,6 +23,7 @@ import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.drill.common.expression.FieldReference;
 import org.apache.drill.common.logical.data.Order.Ordering;
@@ -30,6 +31,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ops.OperExecContext;
 import org.apache.drill.exec.physical.config.Sort;
 import org.apache.drill.exec.physical.impl.xsort.managed.PriorityQueueCopierWrapper.BatchMerger;
+import org.apache.drill.exec.physical.impl.xsort.managed.SortImpl.SortResults;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.accessor.AccessorUtilities;
@@ -39,6 +41,7 @@ import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.RowSetSchema.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.DirectRowSet;
 import org.apache.drill.test.rowSet.RowSetSchema;
@@ -365,5 +368,43 @@ public class TestCopier extends DrillTest {
     runTypeTest(MinorType.INTERVALYEAR);
 
     // Others not tested. See DRILL-5329
+  }
+  
+  public void runWideRowsTest(OperatorFixture fixture, int colCount, int rowCount) {
+    SchemaBuilder builder = RowSetSchema.builder()
+        .add("key", MinorType.INT);
+    for (int i = 0; i < colCount; i++) {
+      builder.add("col" + (i+1), MinorType.INT);
+    }
+    RowSetSchema schema = builder.build();
+    ExtendableRowSet rowSet = fixture.rowSet(schema);
+    RowSetWriter writer = rowSet.writer(rowCount);
+    for (int i = 0; i < rowCount; i++) {
+      writer.next();
+      writer.set(0, i);
+      for (int j = 0; j < colCount; j++) {
+        writer.set(j + 1, i * 100_000 + j);
+      }
+    }
+    writer.done();
+
+    VectorContainer dest = new VectorContainer();
+    SortImpl sort = makeSortImpl(fixture, Ordering.ORDER_ASC, Ordering.NULLS_UNSPECIFIED, dest);
+    timer.reset();
+    timer.start();
+    sort.setSchema(rowSet.getContainer().getSchema());
+    sort.addBatch(rowSet.getVectorAccessible());
+    SortResults results = sort.startMerge();
+    if (results.getContainer() != dest) {
+      dest.clear();
+      dest = results.getContainer();
+    }
+    assertTrue(results.next());
+    timer.stop();
+    assertFalse(results.next());
+    results.close();
+    dest.clear();
+    sort.close();
+    System.out.println(timer.elapsed(TimeUnit.MILLISECONDS));
   }
 }

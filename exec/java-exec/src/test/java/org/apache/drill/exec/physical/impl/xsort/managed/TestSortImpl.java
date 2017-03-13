@@ -17,13 +17,18 @@
  */
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.drill.common.expression.FieldReference;
 import org.apache.drill.common.logical.data.Order.Ordering;
+import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.OperExecContext;
 import org.apache.drill.exec.physical.config.Sort;
 import org.apache.drill.exec.physical.impl.spill.SpillSet;
@@ -33,16 +38,18 @@ import org.apache.drill.exec.proto.UserBitShared.QueryId;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.OperatorFixture;
+import org.apache.drill.test.OperatorFixture.OperatorFixtureBuilder;
 import org.apache.drill.test.rowSet.DirectRowSet;
 import org.apache.drill.test.rowSet.HyperRowSetImpl;
 import org.apache.drill.test.rowSet.IndirectRowSet;
 import org.apache.drill.test.rowSet.RowSet;
+import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;
+import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetSchema;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
+import org.apache.drill.test.rowSet.RowSetSchema.SchemaBuilder;
 import org.junit.Test;
 
 import com.google.common.base.Stopwatch;
@@ -50,19 +57,9 @@ import com.google.common.collect.Lists;
 
 public class TestSortImpl extends DrillTest {
 
-  public static OperatorFixture fixture;
-
-  @BeforeClass
-  public static void setUpBeforeClass() throws Exception {
-    fixture = OperatorFixture.builder().build();
-  }
-
-  @AfterClass
-  public static void tearDownAfterClass() throws Exception {
-    fixture.close();
-  }
-
-  public SortImpl makeSortImpl(String sortOrder, String nullOrder, VectorContainer outputBatch) {
+  public static SortImpl makeSortImpl(OperatorFixture fixture,
+                               String sortOrder, String nullOrder,
+                               VectorContainer outputBatch) {
     FieldReference expr = FieldReference.getWithQuotedRef("key");
     Ordering ordering = new Ordering(sortOrder, expr, nullOrder);
     Sort popConfig = new Sort(null, Lists.newArrayList(ordering), false);
@@ -82,52 +79,78 @@ public class TestSortImpl extends DrillTest {
     return new SortImpl(opContext, spilledRuns, outputBatch);
   }
 
-  public void runSortTest(List<RowSet> rowSets, List<RowSet> expected) {
-    runSortTest(rowSets, expected, Ordering.ORDER_ASC, Ordering.NULLS_UNSPECIFIED);
-  }
+  public static class SortTestFixture {
+    private final OperatorFixture fixture;
+    private final List<RowSet> inputSets = new ArrayList<>();
+    private final List<RowSet> expected = new ArrayList<>();
+    String sortOrder = Ordering.ORDER_ASC;
+    String nullOrder = Ordering.NULLS_UNSPECIFIED;
 
-  public void runSortTest(List<RowSet> inputSets, List<RowSet> expected,
-                            String sortOrder, String nullOrder) {
-    VectorContainer dest = new VectorContainer();
-    SortImpl sort = makeSortImpl(sortOrder, nullOrder, dest);
-
-    // Simulates a NEW_SCHEMA event
-
-    if (! inputSets.isEmpty()) {
-      sort.setSchema(inputSets.get(0).getContainer().getSchema());
+    public SortTestFixture(OperatorFixture fixture) {
+      this.fixture = fixture;
     }
 
-    // Simulates an OK event
-
-    for (RowSet input : inputSets) {
-      sort.addBatch(input.getVectorAccessible());
+    public SortTestFixture(OperatorFixture fixture, String sortOrder, String nullOrder) {
+      this.fixture = fixture;
+      this.sortOrder = sortOrder;
+      this.nullOrder = nullOrder;
     }
 
-    // Simulate returning results
+    public void addInput(RowSet input) {
+      inputSets.add(input);
+    }
 
-    SortResults results = sort.startMerge();
-    if (results.getContainer() != dest) {
+    public void addOutput(RowSet output) {
+      expected.add(output);
+    }
+
+    public void run() {
+      VectorContainer dest = new VectorContainer();
+      SortImpl sort = makeSortImpl(fixture, sortOrder, nullOrder, dest);
+
+      // Simulates a NEW_SCHEMA event
+
+      if (! inputSets.isEmpty()) {
+        sort.setSchema(inputSets.get(0).getContainer().getSchema());
+      }
+
+      // Simulates an OK event
+
+      for (RowSet input : inputSets) {
+        sort.addBatch(input.getVectorAccessible());
+      }
+
+      // Simulate returning results
+
+      SortResults results = sort.startMerge();
+      if (results.getContainer() != dest) {
+        dest.clear();
+        dest = results.getContainer();
+      }
+      for (RowSet expectedSet : expected) {
+        assertTrue(results.next());
+        RowSet rowSet = toRowSet(fixture, results, dest);
+        System.out.println("Expected:");
+        expectedSet.print();
+        System.out.println("Actual:");
+        rowSet.print();
+        new RowSetComparison(expectedSet)
+              .verify(rowSet);
+        expectedSet.clear();
+      }
+      assertFalse(results.next());
+      validateSort(sort);
+      results.close();
       dest.clear();
-      dest = results.getContainer();
+      sort.close();
+      validateFinalStats(sort);
     }
-    for (RowSet expectedSet : expected) {
-      assertTrue(results.next());
-      RowSet rowSet = toRowSet(results, dest);
-      System.out.println("Expected:");
-      expectedSet.print();
-      System.out.println("Actual:");
-      rowSet.print();
-      new RowSetComparison(expectedSet)
-            .verify(rowSet);
-      expectedSet.clear();
-    }
-    assertFalse(results.next());
-    results.close();
-    dest.clear();
-    sort.close();
+
+    protected void validateSort(SortImpl sort) { }
+    protected void validateFinalStats(SortImpl sort) { }
   }
 
-  private RowSet toRowSet(SortResults results, VectorContainer dest) {
+  private static RowSet toRowSet(OperatorFixture fixture, SortResults results, VectorContainer dest) {
     if (results.getSv4() != null) {
       return new HyperRowSetImpl(fixture.allocator(), dest, results.getSv4());
     } else if (results.getSv2() != null) {
@@ -144,75 +167,94 @@ public class TestSortImpl extends DrillTest {
    */
 
   @Test
-  public void testNullInput() {
-    runSortTest(Lists.newArrayList(), Lists.newArrayList());
+  public void testNullInput() throws Exception {
+    try (OperatorFixture fixture = OperatorFixture.standardFixture()) {
+      SortTestFixture sortTest = new SortTestFixture(fixture);
+      sortTest.run();
+    }
   }
 
   /**
    * Test for an input with a schema, but only an empty input batch.
+   * @throws Exception
    */
 
   @Test
-  public void testEmptyInput() {
-    RowSetSchema schema = SortTestUtilities.nonNullSchema();
-    RowSet input = fixture.rowSetBuilder(schema)
-        .build();
-    runSortTest(Lists.newArrayList(input), Lists.newArrayList());
+  public void testEmptyInput() throws Exception {
+    try (OperatorFixture fixture = OperatorFixture.standardFixture()) {
+      RowSetSchema schema = SortTestUtilities.nonNullSchema();
+      SortTestFixture sortTest = new SortTestFixture(fixture);
+      sortTest.addInput(fixture.rowSetBuilder(schema)
+          .build());
+      sortTest.run();
+    }
   }
 
   /**
    * Degenerate case: single row in single batch.
+   * @throws Exception
    */
 
   @Test
-  public void testSingleRow() {
-    RowSetSchema schema = SortTestUtilities.nonNullSchema();
-    RowSet input = fixture.rowSetBuilder(schema)
-        .add(1, "first")
-        .build();
-    RowSet expected = fixture.rowSetBuilder(schema)
-        .add(1, "first")
-        .build();
-    runSortTest(Lists.newArrayList(input), Lists.newArrayList(expected));
+  public void testSingleRow() throws Exception {
+    try (OperatorFixture fixture = OperatorFixture.standardFixture()) {
+      RowSetSchema schema = SortTestUtilities.nonNullSchema();
+      SortTestFixture sortTest = new SortTestFixture(fixture);
+      sortTest.addInput(fixture.rowSetBuilder(schema)
+          .add(1, "first")
+          .build());
+      sortTest.addInput(fixture.rowSetBuilder(schema)
+          .add(1, "first")
+          .build());
+      sortTest.run();
+    }
   }
 
   /**
    * Degenerate case: two (unsorted) rows in single batch
+   * @throws Exception
    */
 
   @Test
-  public void testSingleBatch() {
-    RowSetSchema schema = SortTestUtilities.nonNullSchema();
-    RowSet input1 = fixture.rowSetBuilder(schema)
-        .add(2, "second")
-        .add(1, "first")
-        .build();
-    RowSet expected = fixture.rowSetBuilder(schema)
-        .add(1, "first")
-        .add(2, "second")
-        .build();
-    runSortTest(Lists.newArrayList(input1), Lists.newArrayList(expected));
+  public void testSingleBatch() throws Exception {
+    try (OperatorFixture fixture = OperatorFixture.standardFixture()) {
+      RowSetSchema schema = SortTestUtilities.nonNullSchema();
+      SortTestFixture sortTest = new SortTestFixture(fixture);
+      sortTest.addInput(fixture.rowSetBuilder(schema)
+          .add(2, "second")
+          .add(1, "first")
+          .build());
+      sortTest.addInput(fixture.rowSetBuilder(schema)
+          .add(1, "first")
+          .add(2, "second")
+          .build());
+      sortTest.run();
+    }
   }
 
   /**
    * Degenerate case, one row in each of two
    * (unsorted) batches.
+   * @throws Exception
    */
 
   @Test
-  public void testTwoBatches() {
-    RowSetSchema schema = SortTestUtilities.nonNullSchema();
-    RowSet input1 = fixture.rowSetBuilder(schema)
-        .add(2, "second")
-        .build();
-    RowSet input2 = fixture.rowSetBuilder(schema)
-        .add(1, "first")
-        .build();
-    RowSet expected = fixture.rowSetBuilder(schema)
-        .add(1, "first")
-        .add(2, "second")
-        .build();
-    runSortTest(Lists.newArrayList(input1, input2), Lists.newArrayList(expected));
+  public void testTwoBatches() throws Exception {
+    try (OperatorFixture fixture = OperatorFixture.standardFixture()) {
+      RowSetSchema schema = SortTestUtilities.nonNullSchema();
+      SortTestFixture sortTest = new SortTestFixture(fixture);
+      sortTest.addInput(fixture.rowSetBuilder(schema)
+          .add(2, "second")
+          .build());
+      sortTest.addInput(fixture.rowSetBuilder(schema)
+          .add(1, "first")
+          .build());
+      sortTest.addInput(fixture.rowSetBuilder(schema)
+          .add(1, "first")
+          .add(2, "second")
+          .build());
+      sortTest.run();
+    }
   }
 
   public static class DataGenerator {
@@ -296,9 +338,10 @@ public class TestSortImpl extends DrillTest {
 
   Stopwatch timer = Stopwatch.createUnstarted();
 
-  public void runLargeSortTest(DataGenerator dataGen, DataValidator validator) {
+  public void runLargeSortTest(OperatorFixture fixture, DataGenerator dataGen,
+                               DataValidator validator) {
     VectorContainer dest = new VectorContainer();
-    SortImpl sort = makeSortImpl(Ordering.ORDER_ASC, Ordering.NULLS_UNSPECIFIED, dest);
+    SortImpl sort = makeSortImpl(fixture, Ordering.ORDER_ASC, Ordering.NULLS_UNSPECIFIED, dest);
 
     int batchCount = 0;
     RowSet input;
@@ -329,7 +372,7 @@ public class TestSortImpl extends DrillTest {
     }
     while (results.next()) {
       timer.stop();
-      RowSet output = toRowSet(results, dest);
+      RowSet output = toRowSet(fixture, results, dest);
       validator.validate(output);
       timer.start();
     }
@@ -340,35 +383,107 @@ public class TestSortImpl extends DrillTest {
     sort.close();
   }
 
-  @Test
-  public void testModerateBatch() {
+  public void runJumboBatchTest(OperatorFixture fixture, int rowCount) {
     timer.reset();
-    DataGenerator dataGen = new DataGenerator(fixture, 1000, Character.MAX_VALUE);
-    DataValidator validator = new DataValidator(1000, Character.MAX_VALUE);
-    runLargeSortTest(dataGen, validator);
+    DataGenerator dataGen = new DataGenerator(fixture, rowCount, Character.MAX_VALUE);
+    DataValidator validator = new DataValidator(rowCount, Character.MAX_VALUE);
+    runLargeSortTest(fixture, dataGen, validator);
     System.out.println(timer.elapsed(TimeUnit.MILLISECONDS));
   }
 
   @Test
-  public void testLargeBatch() {
+  public void testModerateBatch() throws Exception {
+    try (OperatorFixture fixture = OperatorFixture.standardFixture()) {
+      runJumboBatchTest(fixture, 1000);
+    }
+  }
+
+  @Test
+  public void testLargeBatch() throws Exception {
+    try (OperatorFixture fixture = OperatorFixture.standardFixture()) {
+      runJumboBatchTest(fixture, Character.MAX_VALUE);
+    }
+  }
+
+  public void runWideRowsTest(OperatorFixture fixture, int colCount, int rowCount) {
+    SchemaBuilder builder = RowSetSchema.builder()
+        .add("key", MinorType.INT);
+    for (int i = 0; i < colCount; i++) {
+      builder.add("col" + (i+1), MinorType.INT);
+    }
+    RowSetSchema schema = builder.build();
+    ExtendableRowSet rowSet = fixture.rowSet(schema);
+    RowSetWriter writer = rowSet.writer(rowCount);
+    for (int i = 0; i < rowCount; i++) {
+      writer.next();
+      writer.set(0, i);
+      for (int j = 0; j < colCount; j++) {
+        writer.set(j + 1, i * 100_000 + j);
+      }
+    }
+    writer.done();
+
+    VectorContainer dest = new VectorContainer();
+    SortImpl sort = makeSortImpl(fixture, Ordering.ORDER_ASC, Ordering.NULLS_UNSPECIFIED, dest);
     timer.reset();
-    DataGenerator dataGen = new DataGenerator(fixture, Character.MAX_VALUE, Character.MAX_VALUE);
-    DataValidator validator = new DataValidator(Character.MAX_VALUE, Character.MAX_VALUE);
-    runLargeSortTest(dataGen, validator);
+    timer.start();
+    sort.setSchema(rowSet.getContainer().getSchema());
+    sort.addBatch(rowSet.getVectorAccessible());
+    SortResults results = sort.startMerge();
+    if (results.getContainer() != dest) {
+      dest.clear();
+      dest = results.getContainer();
+    }
+    assertTrue(results.next());
+    timer.stop();
+    assertFalse(results.next());
+    results.close();
+    dest.clear();
+    sort.close();
     System.out.println(timer.elapsed(TimeUnit.MILLISECONDS));
   }
 
   @Test
-  public void timeLargeBatch() {
-    for (int i = 0; i < 5; i++) {
-      testLargeBatch();
+  public void testWideRows() throws Exception {
+    try (OperatorFixture fixture = OperatorFixture.standardFixture()) {
+      runWideRowsTest(fixture, 1000, Character.MAX_VALUE);
     }
-    long total = 0;
-    for (int i = 0; i < 5; i++) {
-      testLargeBatch();
-      total += timer.elapsed(TimeUnit.MILLISECONDS);
+  }
+
+  @Test
+  public void testSpill() throws Exception {
+    OperatorFixtureBuilder builder = OperatorFixture.builder();
+    builder.configBuilder()
+      .put(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 2);
+    try (OperatorFixture fixture = builder.build()) {
+      RowSetSchema schema = SortTestUtilities.nonNullSchema();
+      SortTestFixture sortTest = new SortTestFixture(fixture) {
+        @Override
+        protected void validateSort(SortImpl sort) {
+          assertEquals(1, sort.getMetrics().getSpillCount());
+          assertEquals(0, sort.getMetrics().getMergeCount());
+          assertEquals(2, sort.getMetrics().getPeakBatchCount());
+        }
+        @Override
+        protected void validateFinalStats(SortImpl sort) {
+          assertTrue(sort.getMetrics().getWriteBytes() > 0);
+        }
+      };
+      sortTest.addInput(fixture.rowSetBuilder(schema)
+          .add(2, "second")
+          .build());
+      sortTest.addInput(fixture.rowSetBuilder(schema)
+          .add(3, "third")
+          .build());
+      sortTest.addInput(fixture.rowSetBuilder(schema)
+          .add(1, "first")
+          .build());
+      sortTest.addOutput(fixture.rowSetBuilder(schema)
+          .add(1, "first")
+          .add(2, "second")
+          .add(3, "third")
+          .build());
+      sortTest.run();
     }
-    System.out.print("Average: ");
-    System.out.println(total / 5);
   }
 }

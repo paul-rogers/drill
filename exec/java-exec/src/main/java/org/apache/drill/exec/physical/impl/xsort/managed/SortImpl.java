@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.xsort.managed;
 import java.io.IOException;
 import java.util.List;
 
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.OperExecContext;
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
@@ -29,7 +30,6 @@ import org.apache.drill.exec.physical.impl.xsort.managed.SortMemoryManager.Merge
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 
@@ -84,9 +84,9 @@ public class SortImpl {
 
   private final BufferAllocator allocator;
 
-  SpilledRuns spilledRuns;
+  private final SpilledRuns spilledRuns;
 
-  private BufferedBatches bufferedBatches;
+  private final BufferedBatches bufferedBatches;
 
   public SortImpl(OperExecContext opContext, SpilledRuns spilledRuns, VectorContainer batch) {
     this.context = opContext;
@@ -205,6 +205,8 @@ public class SortImpl {
     if (bufferedBatches.size() < 2) {
       return false; }
 
+    if (bufferedBatches.size() >= config.getBufferedBatchLimit()) {
+      return true; }
     return memManager.isSpillNeeded(allocator.getAllocatedMemory(), incomingSize);
   }
 

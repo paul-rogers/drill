@@ -51,6 +51,8 @@ public class TestExternalSortInternals extends DrillTest {
     assertEquals(8 * ONE_MEG, sortConfig.spillBatchSize());
     // Default size: 16 MiB
     assertEquals(16 * ONE_MEG, sortConfig.mergeBatchSize());
+    // Default: unlimited
+    assertEquals(Integer.MAX_VALUE, sortConfig.getBufferedBatchLimit());
   }
 
   /**
@@ -66,6 +68,7 @@ public class TestExternalSortInternals extends DrillTest {
         .put(ExecConstants.EXTERNAL_SORT_SPILL_FILE_SIZE, "10M")
         .put(ExecConstants.EXTERNAL_SORT_SPILL_BATCH_SIZE, 500_000)
         .put(ExecConstants.EXTERNAL_SORT_MERGE_BATCH_SIZE, 600_000)
+        .put(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 50)
         .build();
     SortConfig sortConfig = new SortConfig(drillConfig);
     assertEquals(2000 * 1024, sortConfig.maxMemory());
@@ -73,6 +76,7 @@ public class TestExternalSortInternals extends DrillTest {
     assertEquals(10 * ONE_MEG, sortConfig.spillFileSize());
     assertEquals(500_000, sortConfig.spillBatchSize());
     assertEquals(600_000, sortConfig.mergeBatchSize());
+    assertEquals(50, sortConfig.getBufferedBatchLimit());
   }
 
   /**
@@ -85,12 +89,14 @@ public class TestExternalSortInternals extends DrillTest {
         .put(ExecConstants.EXTERNAL_SORT_SPILL_FILE_SIZE, SortConfig.MIN_SPILL_FILE_SIZE - 1)
         .put(ExecConstants.EXTERNAL_SORT_SPILL_BATCH_SIZE, SortConfig.MIN_SPILL_BATCH_SIZE - 1)
         .put(ExecConstants.EXTERNAL_SORT_MERGE_BATCH_SIZE, SortConfig.MIN_MERGE_BATCH_SIZE - 1)
+        .put(ExecConstants.EXTERNAL_SORT_BATCH_LIMIT, 1)
         .build();
     SortConfig sortConfig = new SortConfig(drillConfig);
     assertEquals(SortConfig.MIN_MERGE_LIMIT, sortConfig.mergeLimit());
     assertEquals(SortConfig.MIN_SPILL_FILE_SIZE, sortConfig.spillFileSize());
     assertEquals(SortConfig.MIN_SPILL_BATCH_SIZE, sortConfig.spillBatchSize());
     assertEquals(SortConfig.MIN_MERGE_BATCH_SIZE, sortConfig.mergeBatchSize());
+    assertEquals(2, sortConfig.getBufferedBatchLimit());
   }
 
   @Test
