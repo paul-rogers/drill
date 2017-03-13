@@ -85,9 +85,7 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
       this.dataSize = dataSize;
     }
 
-    public SelectionVector2 getSv2() {
-      return sv2;
-    }
+    public SelectionVector2 getSv2() { return sv2; }
 
     public int getDataSize() { return dataSize; }
 

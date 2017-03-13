@@ -38,11 +38,10 @@ import org.apache.drill.exec.physical.impl.sort.RecordBatchData;
 import org.apache.drill.exec.physical.impl.sort.SortRecordBatchBuilder;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortImpl.SortResults;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
-import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.sun.codemodel.JConditional;
 import com.sun.codemodel.JExpr;
 
@@ -246,17 +245,17 @@ public class MergeSortWrapper extends BaseSortWrapper implements SortResults {
   }
 
   @Override
-  public int getBatchCount() {
-    return batchCount;
-  }
+  public int getBatchCount() { return batchCount; }
 
   @Override
-  public int getRecordCount() {
-    return sv4.getTotalCount();
-  }
+  public int getRecordCount() { return sv4.getTotalCount(); }
 
   @Override
-  public SelectionVector4 getSv4() {
-    return sv4;
-  }
+  public SelectionVector4 getSv4() { return sv4; }
+
+  @Override
+  public SelectionVector2 getSv2() { return null; }
+
+  @Override
+  public VectorContainer getContainer() { return destContainer; }
 }

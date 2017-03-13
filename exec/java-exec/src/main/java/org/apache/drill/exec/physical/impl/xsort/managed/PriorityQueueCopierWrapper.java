@@ -37,6 +37,7 @@ import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
+import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.CopyUtil;
 import org.apache.drill.exec.vector.ValueVector;
@@ -235,15 +236,6 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
     }
 
     /**
-     * Return the output container.
-     *
-     * @return the output container
-     */
-    public VectorContainer getOutput() {
-      return outputContainer;
-    }
-
-    /**
      * Read the next merged batch. The batch holds the specified row count, but
      * may be less if this is the last batch.
      *
@@ -323,14 +315,10 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
     }
 
     @Override
-    public int getRecordCount() {
-      return copyCount;
-    }
+    public int getRecordCount() { return copyCount; }
 
     @Override
-    public int getBatchCount() {
-      return batchCount;
-    }
+    public int getBatchCount() { return batchCount; }
 
     /**
      * Gets the estimated batch size, in bytes. Use for estimating the memory
@@ -339,13 +327,15 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
      * in bytes
      */
 
-    public long getEstBatchSize() {
-      return estBatchSize;
-    }
+    public long getEstBatchSize() { return estBatchSize; }
 
     @Override
-    public SelectionVector4 getSv4() {
-      return null;
-    }
+    public SelectionVector4 getSv4() { return null; }
+
+    @Override
+    public SelectionVector2 getSv2() { return null; }
+
+    @Override
+    public VectorContainer getContainer() { return outputContainer; }
   }
 }

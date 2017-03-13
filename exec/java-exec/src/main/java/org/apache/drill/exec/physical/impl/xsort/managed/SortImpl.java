@@ -17,17 +17,19 @@
  */
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
+import java.io.IOException;
 import java.util.List;
 
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.OperExecContext;
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
 import org.apache.drill.exec.physical.impl.xsort.MSortTemplate;
+import org.apache.drill.exec.physical.impl.xsort.managed.BatchGroup.InputBatch;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortMemoryManager.MergeTask;
 import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 
@@ -51,10 +53,20 @@ public class SortImpl {
    */
 
   public interface SortResults {
+    /**
+     * Container into which results are delivered. May the
+     * the original operator container, or may be a different
+     * one. This is the container that should be sent
+     * downstream. This is a fixed value for all returned
+     * results.
+     * @return
+     */
+    VectorContainer getContainer();
     boolean next();
     void close();
     int getBatchCount();
     int getRecordCount();
+    SelectionVector2 getSv2();
     SelectionVector4 getSv4();
   }
 
@@ -232,34 +244,37 @@ public class SortImpl {
 
   public static class EmptyResults implements SortResults {
 
-    @Override
-    public boolean next() {
-      return false;
+    private final VectorContainer dest;
+
+    public EmptyResults(VectorContainer dest) {
+      this.dest = dest;
     }
 
     @Override
-    public void close() {
-    }
+    public boolean next() { return false; }
 
     @Override
-    public int getBatchCount() {
-      return 0;
-    }
+    public void close() { }
 
     @Override
-    public int getRecordCount() {
-      return 0;
-    }
+    public int getBatchCount() { return 0; }
 
     @Override
-    public SelectionVector4 getSv4() {
-      return null;
-    }
+    public int getRecordCount() { return 0; }
 
+    @Override
+    public SelectionVector4 getSv4() { return null; }
+
+    @Override
+    public SelectionVector2 getSv2() { return null; }
+
+    @Override
+    public VectorContainer getContainer() { return dest; }
   }
+
   public SortResults startMerge() {
     if (metrics.getInputRowCount() == 0) {
-      return new EmptyResults();
+      return new EmptyResults(outputBatch);
     }
 
     logger.debug("Completed load phase: read {} batches, spilled {} times, total input bytes: {}",
@@ -270,11 +285,77 @@ public class SortImpl {
     // the results fit; else we have to do a disk-based merge of
     // pre-sorted spilled batches.
 
-    if (canUseMemoryMerge()) {
+    boolean optimizeOn = true; // Debug only
+    if (optimizeOn && metrics.getInputBatchCount() == 1) {
+      return singleBatchResult();
+    } else if (canUseMemoryMerge()) {
       return mergeInMemory();
     } else {
       return mergeSpilledRuns();
     }
+  }
+
+  /**
+   * Return results for a single input batch. No merge is needed;
+   * the original (sorted) input batch is simply passed as the result.
+   * Note that this version requires replacing the operator output
+   * container with the batch container. (Vector ownership transfer
+   * was already done when accepting the input batch.)
+   */
+
+  public static class SingleBatchResults implements SortResults {
+
+    private boolean done;
+    private final BatchGroup.InputBatch batch;
+
+    public SingleBatchResults(BatchGroup.InputBatch batch) {
+      this.batch = batch;
+    }
+
+    @Override
+    public boolean next() {
+      if (done) {
+        return false;
+      }
+      done = true;
+      return true;
+    }
+
+    @Override
+    public void close() {
+      try {
+        batch.close();
+      } catch (IOException e) {
+        // Should never occur for an input batch
+        throw new IllegalStateException(e);
+      }
+    }
+
+    @Override
+    public int getBatchCount() { return 1; }
+
+    @Override
+    public int getRecordCount() { return batch.getRecordCount(); }
+
+    @Override
+    public SelectionVector4 getSv4() { return null; }
+
+    @Override
+    public SelectionVector2 getSv2() { return batch.getSv2(); }
+
+    @Override
+    public VectorContainer getContainer() {return batch.getContainer(); }
+  }
+
+  /**
+   * Input consists of a single batch. Just return that batch as
+   * the output.
+   * @return results iterator over the single input batch
+   */
+
+  private SortResults singleBatchResult() {
+    List<InputBatch> batches = bufferedBatches.removeAll();
+    return new SingleBatchResults(batches.get(0));
   }
 
   /**
