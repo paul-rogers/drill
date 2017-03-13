@@ -150,7 +150,7 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
   }
 
   /**
-   * First attempts to finds the Drill function implementation that matches the name, arg types and return type.
+   * First attempts to find the Drill function implementation that matches the name, arg types and return type.
    * If exact function implementation was not found,
    * syncs local function registry with remote function registry if needed
    * and tries to find function implementation one more time
@@ -164,17 +164,25 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
   public DrillFuncHolder findDrillFunction(FunctionResolver functionResolver, FunctionCall functionCall) {
     AtomicLong version = new AtomicLong();
     String newFunctionName = functionReplacement(functionCall);
-    List<DrillFuncHolder> functions = localFunctionRegistry.getMethods(newFunctionName, version);
-    FunctionResolver exactResolver = FunctionResolverFactory.getExactResolver(functionCall);
-    DrillFuncHolder holder = exactResolver.getBestMatch(functions, functionCall);
 
-    if (holder == null && useDynamicUdfs) {
+    // Dynamic UDFS: First try with exact match. If not found, we may need to
+    // update the registry, so sync with remote.
+
+    if (useDynamicUdfs) {
+      List<DrillFuncHolder> functions = localFunctionRegistry.getMethods(newFunctionName, version);
+      FunctionResolver exactResolver = FunctionResolverFactory.getExactResolver(functionCall);
+      DrillFuncHolder holder = exactResolver.getBestMatch(functions, functionCall);
+      if (holder != null) {
+        return holder;
+      }
       syncWithRemoteRegistry(version.get());
-      List<DrillFuncHolder> updatedFunctions = localFunctionRegistry.getMethods(newFunctionName, version);
-      holder = functionResolver.getBestMatch(updatedFunctions, functionCall);
     }
 
-    return holder;
+    // Whether Dynamic UDFs or not: look in the registry for
+    // an inexact match.
+
+    List<DrillFuncHolder> functions = localFunctionRegistry.getMethods(newFunctionName, version);
+    return functionResolver.getBestMatch(functions, functionCall);
   }
 
   /**
@@ -185,17 +193,20 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
    */
   private String functionReplacement(FunctionCall functionCall) {
     String funcName = functionCall.getName();
-      if (functionCall.args.size() > 0) {
-          MajorType majorType =  functionCall.args.get(0).getMajorType();
-          DataMode dataMode = majorType.getMode();
-          MinorType minorType = majorType.getMinorType();
-          boolean castToNullableNumeric = optionManager != null &&
-                        optionManager.getOption(ExecConstants.CAST_TO_NULLABLE_NUMERIC_OPTION);
-          if (castToNullableNumeric
-              && CastFunctions.isReplacementNeeded(funcName, minorType)) {
-              funcName = CastFunctions.getReplacingCastFunction(funcName, dataMode, minorType);
-          }
-      }
+    if (functionCall.args.size() == 0) {
+      return funcName;
+    }
+    boolean castToNullableNumeric = optionManager != null &&
+                  optionManager.getOption(ExecConstants.CAST_TO_NULLABLE_NUMERIC_OPTION);
+    if (! castToNullableNumeric) {
+      return funcName;
+    }
+    MajorType majorType =  functionCall.args.get(0).getMajorType();
+    DataMode dataMode = majorType.getMode();
+    MinorType minorType = majorType.getMinorType();
+    if (CastFunctions.isReplacementNeeded(funcName, minorType)) {
+        funcName = CastFunctions.getReplacingCastFunction(funcName, dataMode, minorType);
+    }
 
     return funcName;
   }
@@ -209,7 +220,7 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
    * @return exactly matching function holder
    */
   public DrillFuncHolder findExactMatchingDrillFunction(String name, List<MajorType> argTypes, MajorType returnType) {
-    return findExactMatchingDrillFunction(name, argTypes, returnType, true);
+    return findExactMatchingDrillFunction(name, argTypes, returnType, useDynamicUdfs);
   }
 
   /**
@@ -568,5 +579,4 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
       FileUtils.deleteQuietly(new File(localDir, JarUtil.getSourceName(jarName)));
     }
   }
-
 }
