@@ -21,8 +21,10 @@ import static org.junit.Assert.assertEquals;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Writer;
 import java.util.List;
 
 import org.apache.drill.exec.ExecConstants;
@@ -347,7 +349,7 @@ public class TestExternalSortRM extends DrillTest {
 
   public static void main(String args[]) {
     try {
-      new TestExternalSortRM().testMd1306();
+      new TestExternalSortRM().dumpProfile4();
     } catch (Exception e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
@@ -998,9 +1000,28 @@ public class TestExternalSortRM extends DrillTest {
 //    profile.print();
   }
 
+  public void dumpProfile3() throws IOException {
+    String profileName = "plan_profile_1500k";
+    File dir = new File("/Users/paulrogers/Downloads/");
+    File file = new File( dir, profileName );
+    ProfileParser profile = new ProfileParser(file);
+    profile.printTime();
+//    profile.print();
+  }
+
+  public void dumpProfile4() throws IOException {
+    String profileName = "2776bc68-888f-ce1c-0605-2d805df64626.sys.drill";
+    File dir = new File("/Users/paulrogers/Downloads/case_oom_jan_25/");
+    File file = new File( dir, profileName );
+    ProfileParser profile = new ProfileParser(file);
+//    profile.printPlan();
+    profile.printTime();
+  }
+
   private void performSort(ClientFixture client) throws Exception {
     QuerySummary summary = client.queryBuilder().sqlResource("/xsort/sort-big-all.sql").run();
     System.out.println(String.format("Sorted %,d records in %d batches; %d ms.", summary.recordCount(), summary.batchCount(), summary.runTimeMs()));
     assertEquals(2880404, summary.recordCount());
   }
 }
+//
