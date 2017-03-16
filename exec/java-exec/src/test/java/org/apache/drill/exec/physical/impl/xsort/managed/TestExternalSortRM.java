@@ -46,6 +46,7 @@ import org.apache.drill.test.LogFixture;
 import org.apache.drill.test.LogFixture.LogFixtureBuilder;
 import org.apache.drill.test.ProfileParser;
 import org.apache.drill.test.ProfileParser.OperatorProfile;
+import org.apache.drill.test.ProfileParser.OperatorSummary;
 import org.apache.drill.test.QueryBuilder.QuerySummary;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -1010,12 +1011,14 @@ public class TestExternalSortRM extends DrillTest {
   }
 
   public void dumpProfile4() throws IOException {
-    String profileName = "2776bc68-888f-ce1c-0605-2d805df64626.sys.drill";
-    File dir = new File("/Users/paulrogers/Downloads/case_oom_jan_25/");
+    String profileName = "27379c45-08e1-d50f-5876-8776fb99b04e.sys.drill";
+    File dir = new File("/Users/paulrogers/Downloads");
     File file = new File( dir, profileName );
     ProfileParser profile = new ProfileParser(file);
 //    profile.printPlan();
-    profile.printTime();
+    profile.print();
+    List<OperatorProfile> ops = profile.getOpsOfType(CoreOperatorType.HASH_AGGREGATE_VALUE);
+    System.out.println(ops);
   }
 
   private void performSort(ClientFixture client) throws Exception {

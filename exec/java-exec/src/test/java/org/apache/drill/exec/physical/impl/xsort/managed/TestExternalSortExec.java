@@ -36,7 +36,7 @@ import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.test.DrillTest;
 import org.junit.Test;
 
-import jersey.repackaged.com.google.common.collect.Lists;
+import com.google.common.collect.Lists;
 
 public class TestExternalSortExec extends DrillTest {
 
