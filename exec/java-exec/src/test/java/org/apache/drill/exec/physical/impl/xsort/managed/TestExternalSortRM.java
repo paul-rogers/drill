@@ -1028,7 +1028,9 @@ public class TestExternalSortRM extends DrillTest {
 //    profile.printPlan();
     profile.print();
     List<OperatorProfile> ops = profile.getOpsOfType(CoreOperatorType.HASH_AGGREGATE_VALUE);
-    System.out.println(ops);
+    for (OperatorProfile op : ops) {
+      System.out.println(String.format("%d-%d-%d", op.majorFragId, op.opId, op.minorFragId));
+    }
   }
 
   private void performSort(ClientFixture client) throws Exception {

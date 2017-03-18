@@ -45,7 +45,7 @@ public class TestWindowFrame extends ClusterTest {
         // sorts are unstable (will change the order of already-sorted,
         // like rows), and so the tests are reporting false positives.
 //        .configProperty(ExecConstants.EXTERNAL_SORT_MSORT_MAX_BATCHSIZE, 20)
-        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, true )
         ;
     startCluster(builder);
   }

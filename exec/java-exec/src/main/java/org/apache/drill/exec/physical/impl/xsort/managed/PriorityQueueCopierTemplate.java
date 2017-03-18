@@ -25,6 +25,7 @@ import javax.inject.Named;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.VectorAccessible;
+import org.apache.drill.exec.record.VectorAccessibleUtilities;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 
 import io.netty.buffer.DrillBuf;
@@ -65,7 +66,7 @@ public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier
 
   @Override
   public int next(int targetRecordCount) {
-    VectorAccessible.allocateVectors(outgoing, targetRecordCount);
+    VectorAccessibleUtilities.allocateVectors(outgoing, targetRecordCount);
     for (int outgoingIndex = 0; outgoingIndex < targetRecordCount; outgoingIndex++) {
       if (queueSize == 0) {
         return 0;
@@ -85,7 +86,7 @@ public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier
         vector4.set(0, batch, nextIndex);
       }
       if (queueSize == 0) {
-        VectorAccessible.setValueCount(outgoing, ++outgoingIndex);
+        VectorAccessibleUtilities.setValueCount(outgoing, ++outgoingIndex);
         return outgoingIndex;
       }
       try {
@@ -94,15 +95,15 @@ public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier
         throw new IllegalStateException(e);
       }
     }
-    VectorAccessible.setValueCount(outgoing, targetRecordCount);
+    VectorAccessibleUtilities.setValueCount(outgoing, targetRecordCount);
     return targetRecordCount;
   }
 
   @Override
   public void close() throws IOException {
     vector4.clear();
-    VectorAccessible.clear(outgoing);
-    VectorAccessible.clear(hyperBatch);
+    VectorAccessibleUtilities.clear(outgoing);
+    VectorAccessibleUtilities.clear(hyperBatch);
     BatchGroup.closeAll(batchGroups);
   }
 

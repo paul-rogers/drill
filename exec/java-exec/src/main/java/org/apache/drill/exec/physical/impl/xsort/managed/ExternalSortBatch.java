@@ -213,6 +213,12 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     OperExecContext opContext = new OperExecContextImpl(context, oContext, popConfig, injector);
     SpilledRuns spilledRuns = new SpilledRuns(opContext, spillSet);
     sortImpl = new SortImpl(opContext, spilledRuns, container);
+
+    // The upstream operator checks on record count before we have
+    // results. Create an empty result set temporarily to handle
+    // these calls.
+
+    resultsIterator = new SortImpl.EmptyResults(container);
   }
 
   @Override

@@ -248,7 +248,7 @@ public class MergeSortWrapper extends BaseSortWrapper implements SortResults {
   public int getBatchCount() { return batchCount; }
 
   @Override
-  public int getRecordCount() { return sv4.getTotalCount(); }
+  public int getRecordCount() { return sv4.getCount(); }
 
   @Override
   public SelectionVector4 getSv4() { return sv4; }
