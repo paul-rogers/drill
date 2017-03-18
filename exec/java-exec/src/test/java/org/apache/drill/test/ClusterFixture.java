@@ -20,6 +20,9 @@ package org.apache.drill.test;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -39,6 +42,7 @@ import org.apache.drill.exec.ZookeeperHelper;
 import org.apache.drill.exec.client.DrillClient;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.memory.RootAllocatorFactory;
+import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.server.Drillbit;
@@ -340,6 +344,39 @@ public class ClusterFixture implements AutoCloseable {
 
   public DrillClient client() {
     return clientFixture().client();
+  }
+
+  /**
+   * Return a JDBC connection to the default (first) Drillbit.
+   * Note that this code requires special setup of the test code.
+   * Tests in the "exec" package do not normally have visibility
+   * to the Drill JDBC driver. So, the test must put that code
+   * on the class path manually in order for this code to load the
+   * JDBC classes. The caller is responsible for closing the JDBC
+   * connection before closing the cluster. (An enhancement is to
+   * do the close automatically as is done for clients.)
+   *
+   * @return a JDBC connection to the default Drillbit
+   */
+
+  public Connection jdbcConnection() {
+    try {
+      Class.forName("org.apache.drill.jdbc.Driver");
+    } catch (ClassNotFoundException e) {
+      throw new IllegalStateException(e);
+    }
+    String connStr = "jdbc:drill:";
+    if (usesZK()) {
+      connStr += "zk=" + zkHelper.getConnectionString();
+    } else {
+      DrillbitEndpoint ep = drillbit().getContext().getEndpoint();
+      connStr += "drillbit=" + ep.getAddress() + ":" + ep.getUserPort();
+    }
+    try {
+      return DriverManager.getConnection(connStr);
+    } catch (SQLException e) {
+      throw new IllegalStateException(e);
+    }
   }
 
   /**

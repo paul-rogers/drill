@@ -19,6 +19,7 @@ package org.apache.drill.test.rowSet;
 
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
@@ -85,6 +86,17 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
 
   public DirectRowSet(BufferAllocator allocator, VectorContainer container) {
     super(allocator, container);
+  }
+
+  public DirectRowSet(BufferAllocator allocator, VectorAccessible va) {
+    super(allocator, toContainer(va, allocator));
+  }
+
+  private static VectorContainer toContainer(VectorAccessible va, BufferAllocator allocator) {
+    VectorContainer container = VectorContainer.getTransferClone(va, allocator);
+    container.buildSchema(SelectionVectorMode.NONE);
+    container.setRecordCount(va.getRecordCount());
+    return container;
   }
 
   @Override

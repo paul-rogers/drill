@@ -156,6 +156,14 @@ public class VectorContainer implements VectorAccessible {
     return vc;
   }
 
+  public static VectorContainer getTransferClone(VectorAccessible incoming, BufferAllocator allocator) {
+    VectorContainer vc = new VectorContainer(allocator);
+    for (VectorWrapper<?> w : incoming) {
+      vc.cloneAndTransfer(w);
+    }
+    return vc;
+  }
+
   public static VectorContainer getTransferClone(VectorAccessible incoming, VectorWrapper<?>[] ignoreWrappers, OperatorContext oContext) {
     Iterable<VectorWrapper<?>> wrappers = incoming;
     if (ignoreWrappers != null) {
