@@ -79,6 +79,7 @@ public interface ExecConstants {
   String EXTERNAL_SORT_MERGE_BATCH_SIZE = "drill.exec.sort.external.spill.merge_batch_size";
   String EXTERNAL_SORT_MAX_MEMORY = "drill.exec.sort.external.mem_limit";
   String EXTERNAL_SORT_BATCH_LIMIT = "drill.exec.sort.external.batch_limit";
+  String EXTERNAL_SORT_GENERIC_COPIER = "drill.exec.sort.external.enable_generic_copier";
 
   // External Sort Runtime options
 

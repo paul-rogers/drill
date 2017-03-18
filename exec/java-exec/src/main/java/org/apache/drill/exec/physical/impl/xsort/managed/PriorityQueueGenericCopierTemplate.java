@@ -24,12 +24,36 @@ import javax.inject.Named;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.VectorAccessible;
+import org.apache.drill.exec.record.VectorWrapper;
+import org.apache.drill.exec.vector.ValueVector;
 
-public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier {
+/**
+ * Implementation of a priority queue internals that uses generated
+ * code for comparisons, but generic code for copying columns.
+ */
+
+public abstract class PriorityQueueGenericCopierTemplate implements PriorityQueueCopier {
+
+  private ValueVector[] vvOut;
+  private ValueVector[][] vvIn;
 
   @Override
   public void setup(BufferAllocator allocator, VectorAccessible hyperBatch, List<BatchGroup> batchGroups,
                     VectorAccessible outgoing) throws SchemaChangeException {
+    // Seems to be no way to get the vector count without iterating...
+
+    int count = 0;
+    for(@SuppressWarnings("unused") VectorWrapper<?> vv : hyperBatch) {
+      count++;
+    }
+    vvIn = new ValueVector[count][];
+    vvOut = new ValueVector[count];
+    int i = 0;
+    for(@SuppressWarnings("unused") VectorWrapper<?> vv : hyperBatch) {
+      vvIn[i] = hyperBatch.getValueAccessorById(ValueVector.class, i).getValueVectors();
+      vvOut[i] = outgoing.getValueAccessorById(ValueVector.class, i).getValueVector();
+      i++;
+    }
   }
 
   @Override
@@ -41,7 +65,12 @@ public abstract class PriorityQueueCopierTemplate implements PriorityQueueCopier
                              @Named("rightIndex") int rightIndex)
                       throws SchemaChangeException;
   @Override
-  public abstract void doCopy(@Named("inIndex") int inIndex,
-                              @Named("outIndex") int outIndex)
-                       throws SchemaChangeException;
+  public void doCopy(int inIndex, int outIndex)
+                       throws SchemaChangeException {
+    int inOffset = inIndex & 0xFFFF;
+    int inVector = inIndex >>> 16;
+    for ( int i = 0;  i < vvIn.length;  i++ ) {
+      vvOut[i].copyEntry(outIndex, vvIn[i][inVector], inOffset);
+    }
+  }
 }

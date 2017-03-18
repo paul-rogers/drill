@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
-import java.io.IOException;
 import java.util.List;
 
 import org.apache.drill.exec.compile.TemplateClassDefinition;
@@ -25,15 +24,22 @@ import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.VectorAccessible;
 
-public interface PriorityQueueCopier extends AutoCloseable {
+public interface PriorityQueueCopier {
   public void setup(BufferAllocator allocator, VectorAccessible hyperBatch,
       List<BatchGroup> batchGroups, VectorAccessible outgoing) throws SchemaChangeException;
 
-  public int next(int targetRecordCount);
-
   public final static TemplateClassDefinition<PriorityQueueCopier> TEMPLATE_DEFINITION =
       new TemplateClassDefinition<>(PriorityQueueCopier.class, PriorityQueueCopierTemplate.class);
+  public final static TemplateClassDefinition<PriorityQueueCopier> GENERIC_TEMPLATE_DEFINITION =
+      new TemplateClassDefinition<>(PriorityQueueCopier.class, PriorityQueueGenericCopierTemplate.class);
 
-  @Override
-  abstract public void close() throws IOException; // specify this to leave out the Exception
+  public abstract void doSetup(VectorAccessible incoming,
+                               VectorAccessible outgoing)
+                       throws SchemaChangeException;
+  public abstract int doEval(int leftIndex,
+                             int rightIndex)
+                      throws SchemaChangeException;
+  public abstract void doCopy(int inIndex,
+                              int outIndex)
+                       throws SchemaChangeException;
 }

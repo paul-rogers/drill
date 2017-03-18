@@ -57,10 +57,11 @@ public class SpilledRuns {
 
   private final OperExecContext context;
 
-  public SpilledRuns(OperExecContext opContext, SpillSet spillSet) {
+  public SpilledRuns(OperExecContext opContext, SpillSet spillSet, PriorityQueueCopierWrapper copier) {
     this.context = opContext;
     this.spillSet = spillSet;
-    copierHolder = new PriorityQueueCopierWrapper(opContext);
+//    copierHolder = new PriorityQueueCopierWrapper(opContext);
+    copierHolder = copier;
   }
 
   public void setSchema(BatchSchema schema) {

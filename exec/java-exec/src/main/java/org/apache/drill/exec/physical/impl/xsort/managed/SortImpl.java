@@ -20,7 +20,6 @@ package org.apache.drill.exec.physical.impl.xsort.managed;
 import java.io.IOException;
 import java.util.List;
 
-import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.OperExecContext;
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
@@ -88,12 +87,12 @@ public class SortImpl {
 
   private final BufferedBatches bufferedBatches;
 
-  public SortImpl(OperExecContext opContext, SpilledRuns spilledRuns, VectorContainer batch) {
+  public SortImpl(OperExecContext opContext, SortConfig sortConfig, SpilledRuns spilledRuns, VectorContainer batch) {
     this.context = opContext;
     outputBatch = batch;
     this.spilledRuns = spilledRuns;
     allocator = opContext.getAllocator();
-    config = new SortConfig(opContext.getConfig());
+    config = sortConfig;
     memManager = new SortMemoryManager(config, allocator.getLimit());
     metrics = new SortMetrics(opContext.getStats());
     bufferedBatches = new BufferedBatches(opContext);

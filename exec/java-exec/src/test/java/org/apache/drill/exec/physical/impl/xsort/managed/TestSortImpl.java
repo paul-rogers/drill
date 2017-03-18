@@ -73,10 +73,12 @@ public class TestSortImpl extends DrillTest {
           .setMinorFragmentId(3)
           .setQueryId(queryId)
           .build();
+    SortConfig sortConfig = new SortConfig(opContext.getConfig());
     SpillSet spillSet = new SpillSet(opContext.getConfig(), handle,
                                      popConfig, "sort", "run");
-    SpilledRuns spilledRuns = new SpilledRuns(opContext, spillSet);
-    return new SortImpl(opContext, spilledRuns, outputBatch);
+    PriorityQueueCopierWrapper copierHolder = new PriorityQueueCopierWrapper(opContext, sortConfig.useGenericCopier());
+    SpilledRuns spilledRuns = new SpilledRuns(opContext, spillSet, copierHolder);
+    return new SortImpl(opContext, sortConfig, spilledRuns, outputBatch);
   }
 
   public static class SortTestFixture {

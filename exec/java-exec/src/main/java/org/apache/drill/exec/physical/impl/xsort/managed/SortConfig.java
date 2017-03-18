@@ -62,8 +62,14 @@ public class SortConfig {
 
   private final int bufferedBatchLimit;
 
+  private final boolean useGenericCopier;
+
 
   public SortConfig(DrillConfig config) {
+
+    // Generic copier?
+
+    useGenericCopier = config.getBoolean(ExecConstants.EXTERNAL_SORT_GENERIC_COPIER);
 
     // Optional configured memory limit, typically used only for testing.
 
@@ -118,4 +124,5 @@ public class SortConfig {
   public int spillBatchSize() { return spillBatchSize; }
   public int mergeBatchSize() { return mergeBatchSize; }
   public int getBufferedBatchLimit() { return bufferedBatchLimit; }
+  public boolean useGenericCopier() { return useGenericCopier; }
 }
