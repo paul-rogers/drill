@@ -28,6 +28,7 @@ import org.apache.drill.exec.physical.impl.xsort.managed.BatchGroup.InputBatch;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortMemoryManager.MergeTask;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.VectorAccessible;
+import org.apache.drill.exec.record.VectorAccessibleUtilities;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
@@ -129,6 +130,7 @@ public class SortImpl {
     // Skip empty batches (such as the first one.)
 
     if (incoming.getRecordCount() == 0) {
+      VectorAccessibleUtilities.clear(incoming);
       return;
     }
 

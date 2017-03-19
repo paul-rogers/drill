@@ -130,7 +130,7 @@ public class TestCopier extends DrillTest {
     tester.run();
   }
 
-  public SingleRowSet makeDataSet(RowSetSchema schema, int first, int step, int count) {
+  public static SingleRowSet makeDataSet(RowSetSchema schema, int first, int step, int count) {
     ExtendableRowSet rowSet = fixture.rowSet(schema);
     RowSetWriter writer = rowSet.writer(count);
     int value = first;
@@ -307,7 +307,7 @@ public class TestCopier extends DrillTest {
     tester.run();
   }
 
-  public void runTypeTest(MinorType type) throws Exception {
+  public static void runTypeTest(OperatorFixture fixture, MinorType type) throws Exception {
     RowSetSchema schema = SortTestUtilities.makeSchema(type, false);
 
     CopierTester tester = new CopierTester(fixture);
@@ -321,20 +321,33 @@ public class TestCopier extends DrillTest {
 
   @Test
   public void testTypes() throws Exception {
+    testAllTypes(fixture);
+  }
 
-    runTypeTest(MinorType.INT);
-    runTypeTest(MinorType.BIGINT);
-    runTypeTest(MinorType.FLOAT4);
-    runTypeTest(MinorType.FLOAT8);
-    runTypeTest(MinorType.DECIMAL9);
-    runTypeTest(MinorType.DECIMAL18);
-    runTypeTest(MinorType.VARCHAR);
-    runTypeTest(MinorType.VARBINARY);
-    runTypeTest(MinorType.DATE);
-    runTypeTest(MinorType.TIME);
-    runTypeTest(MinorType.TIMESTAMP);
-    runTypeTest(MinorType.INTERVALYEAR);
+  public static void testAllTypes(OperatorFixture fixture) throws Exception {
+    runTypeTest(fixture, MinorType.INT);
+    runTypeTest(fixture, MinorType.BIGINT);
+    runTypeTest(fixture, MinorType.FLOAT4);
+    runTypeTest(fixture, MinorType.FLOAT8);
+    runTypeTest(fixture, MinorType.DECIMAL9);
+    runTypeTest(fixture, MinorType.DECIMAL18);
+    runTypeTest(fixture, MinorType.VARCHAR);
+    runTypeTest(fixture, MinorType.VARBINARY);
+    runTypeTest(fixture, MinorType.DATE);
+    runTypeTest(fixture, MinorType.TIME);
+    runTypeTest(fixture, MinorType.TIMESTAMP);
+    runTypeTest(fixture, MinorType.INTERVALYEAR);
 
     // Others not tested. See DRILL-5329
+  }
+
+  @Test
+  public void testGenericCopier() throws Exception {
+    OperatorFixtureBuilder builder = OperatorFixture.builder();
+    builder.configBuilder()
+      .put(ExecConstants.EXTERNAL_SORT_GENERIC_COPIER, true);
+    try (OperatorFixture fixture = builder.build()) {
+      testAllTypes(fixture);
+    }
   }
 }

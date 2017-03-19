@@ -205,7 +205,7 @@ public class TestSortImpl extends DrillTest {
       sortTest.addInput(fixture.rowSetBuilder(schema)
           .add(1, "first")
           .build());
-      sortTest.addInput(fixture.rowSetBuilder(schema)
+      sortTest.addOutput(fixture.rowSetBuilder(schema)
           .add(1, "first")
           .build());
       sortTest.run();
@@ -226,7 +226,7 @@ public class TestSortImpl extends DrillTest {
           .add(2, "second")
           .add(1, "first")
           .build());
-      sortTest.addInput(fixture.rowSetBuilder(schema)
+      sortTest.addOutput(fixture.rowSetBuilder(schema)
           .add(1, "first")
           .add(2, "second")
           .build());
@@ -251,7 +251,7 @@ public class TestSortImpl extends DrillTest {
       sortTest.addInput(fixture.rowSetBuilder(schema)
           .add(1, "first")
           .build());
-      sortTest.addInput(fixture.rowSetBuilder(schema)
+      sortTest.addOutput(fixture.rowSetBuilder(schema)
           .add(1, "first")
           .add(2, "second")
           .build());
