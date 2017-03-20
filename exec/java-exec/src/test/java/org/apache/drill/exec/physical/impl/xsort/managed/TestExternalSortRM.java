@@ -28,6 +28,7 @@ import java.io.Writer;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.TimeZone;
 
@@ -968,6 +969,142 @@ public class TestExternalSortRM extends DrillTest {
          ClientFixture client = cluster.clientFixture()) {
       String sql = "SELECT id_i, name_s250 FROM `mock`.`employee_100K` ORDER BY id_i";
       runAndDump(client, sql);
+    }
+  }
+
+  public static final int COLUMN_COUNT = 200;
+  public static final int NAME_WIDTH = 500;
+
+  public static class SelectBuilder {
+
+    int generation = 0;
+    List<String> columns = new ArrayList<>();
+    String sql;
+
+    public SelectBuilder() {
+      this(null);
+    }
+
+    public SelectBuilder(SelectBuilder base) {
+      if (base == null) {
+        generation = 0;
+        buildBaseColumns();
+        sql = buildBaseSelect();
+      } else {
+        generation = base.generation + 1;
+        buildOuterCols();
+        sql = buildOuterSelect(base);
+      }
+    }
+
+    private void buildBaseColumns() {
+      for ( int i = 0; i < COLUMN_COUNT; i++ ) {
+        StringBuilder buf = new StringBuilder();
+        buf.append( "col_" );
+        buf.append( i );
+        buf.append( "_" );
+        for (int j = 0; j < NAME_WIDTH; j++ ) {
+          buf.append( "x" );
+        }
+        buf.append( "_i" );
+        columns.add(buf.toString());
+      }
+    }
+
+    private String buildBaseSelect() {
+      StringBuilder buf = new StringBuilder();
+      buf.append( "SELECT " );
+      boolean first = true;
+      for (String col : columns) {
+        if (! first) {
+          buf.append( ", " );
+        }
+        first = false;
+        buf.append(col);
+      }
+      buf.append( " FROM mock.myTable_10" );
+      return buf.toString();
+    }
+
+    private void buildOuterCols() {
+      for ( int i = 0; i < COLUMN_COUNT; i++ ) {
+        StringBuilder buf = new StringBuilder();
+        buf.append( "outer" );
+        buf.append(generation);
+        buf.append("_");
+        buf.append( i );
+        buf.append( "_" );
+        for (int j = 0; j < NAME_WIDTH; j++ ) {
+          buf.append( (char) ('a' + generation) );
+        }
+        columns.add(buf.toString());
+      }
+    }
+
+    private String buildOuterSelect(SelectBuilder sb) {
+      StringBuilder buf = new StringBuilder();
+      buf.append( "SELECT " );
+      for (int i = 0;  i < columns.size(); i++) {
+        if (i > 0) {
+          buf.append( ", " );
+        }
+        buf.append(sb.columns.get(i));
+        buf.append(" AS ");
+        buf.append(columns.get(i));
+      }
+      buf.append( " FROM (" );
+      buf.append(sb.sql);
+      buf.append(")");
+      return buf.toString();
+    }
+  }
+
+  @Test
+  public void testAdHoc2() throws Exception {
+    try (ClusterFixture cluster = ClusterFixture.standardCluster();
+         ClientFixture client = cluster.clientFixture()) {
+//      String sql = "SELECT a_i AS b FROM (SELECT a_i FROM mock.table_2)";
+//      QuerySummary summary = client.queryBuilder().sql(sql).run();
+//      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+      SelectBuilder sb = null;
+      for ( ; ; ) {
+        sb = new SelectBuilder(sb);
+        int len = sb.sql.length();
+        System.out.println( "Length: " + len);
+        QuerySummary summary = client.queryBuilder().sql(sb.sql).run();
+        System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+        if (len > 5_000_000) {
+          break;
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testAdHoc3() throws Exception {
+    try (ClusterFixture cluster = ClusterFixture.standardCluster();
+         ClientFixture client = cluster.clientFixture()) {
+      try (Connection conn = cluster.jdbcConnection()) {
+        SelectBuilder sb = null;
+        for ( ; ; ) {
+          sb = new SelectBuilder(sb);
+          int len = sb.sql.length();
+          System.out.println( "Length: " + len);
+          long start = System.currentTimeMillis();
+          try (Statement st = conn.createStatement();
+               ResultSet rs = st.executeQuery(sb.sql);) {
+            int count = 0;
+            while (rs.next()) {
+              count++;
+            }
+            long end = System.currentTimeMillis();
+            System.out.println(String.format("Results: %,d records, %,d ms", count, end - start ) );
+          }
+          if (len > 5_000_000) {
+            break;
+          }
+        }
+      }
     }
   }
 
