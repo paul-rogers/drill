@@ -17,11 +17,14 @@
  */
 package org.apache.drill.test.rowSet;
 
+import java.math.BigDecimal;
+
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.AbstractColumnWriter;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
+import org.joda.time.Period;
 
 /**
  * Implements a row set writer on top of a {@link RowSet}
@@ -68,6 +71,10 @@ public class RowSetWriterImpl extends AbstractRowSetAccessor implements RowSetWr
       colWriter.setLong((Long) value);
     } else if (value instanceof String) {
       colWriter.setString((String) value);
+    } else if (value instanceof BigDecimal) {
+      colWriter.setDecimal((BigDecimal) value);
+    } else if (value instanceof Period) {
+      colWriter.setPeriod((Period) value);
     } else if (value instanceof byte[]) {
       colWriter.setBytes((byte[]) value);
     } else {

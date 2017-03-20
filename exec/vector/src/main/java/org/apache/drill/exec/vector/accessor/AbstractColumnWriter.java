@@ -19,6 +19,8 @@ package org.apache.drill.exec.vector.accessor;
 
 import java.math.BigDecimal;
 
+import org.joda.time.Period;
+
 /**
  * Column writer implementation that acts as the basis for the
  * generated, vector-specific implementations. All set methods
@@ -60,6 +62,11 @@ public abstract class AbstractColumnWriter extends AbstractColumnAccessor implem
 
   @Override
   public void setDecimal(BigDecimal value) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void setPeriod(Period value) {
     throw new UnsupportedOperationException();
   }
 }

@@ -19,7 +19,7 @@ package org.apache.drill.exec.vector.accessor;
 
 public interface ColumnAccessor {
   public enum ValueType {
-    INTEGER, LONG, DOUBLE, STRING, BYTES, DECIMAL
+    INTEGER, LONG, DOUBLE, STRING, BYTES, DECIMAL, PERIOD
   }
 
   /**
@@ -31,6 +31,4 @@ public interface ColumnAccessor {
    */
 
   ValueType getType();
-
-
 }

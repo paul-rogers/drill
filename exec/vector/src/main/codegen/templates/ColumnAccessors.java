@@ -76,7 +76,7 @@
                 field.getPrecision());
   <#elseif accessorType == "Decimal18">
       return DecimalUtilities.getBigDecimalFromPrimitiveTypes(accessor().getObject(rowIndex.index());
-  <#elseif accessorType == "BigDecimal">
+  <#elseif accessorType == "BigDecimal" || accessorType == "Period">
       return accessor().getObject(rowIndex.index());
   <#else>
       return accessor().get(rowIndex.index());
@@ -117,6 +117,19 @@
       mutator.setSafe(rowIndex.index(),
           DecimalUtility.getDecimal18FromBigDecimal(value,
               field.getScale(), field.getPrecision()));
+  <#elseif drillType == "IntervalYear">
+      mutator.setSafe(rowIndex.index(), value.getYears() * 12 + value.getMonths());
+  <#elseif drillType == "IntervalDay">
+      mutator.setSafe(rowIndex.index(),<#if nullable> 1,</#if>
+                      value.getDays(),
+                      ((value.getHours() * 60 + value.getMinutes()) * 60 +
+                       value.getSeconds()) * 1000 + value.getMillis());
+  <#elseif drillType == "Interval">
+      mutator.setSafe(rowIndex.index(),<#if nullable> 1,</#if>
+                      value.getYears() * 12 + value.getMonths(),
+                      value.getDays(),
+                      ((value.getHours() * 60 + value.getMinutes()) * 60 +
+                       value.getSeconds()) * 1000 + value.getMillis());
   <#else>
       mutator.setSafe(rowIndex.index(), <#if cast=="set">(${javaType}) </#if>value);
   </#if>
@@ -134,6 +147,7 @@ import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.util.DecimalUtility;
 
 import com.google.common.base.Charsets;
+import org.joda.time.Period;
 
 /**
  * Basic accessors for most Drill vector types and modes. These are bare-bones
@@ -167,7 +181,6 @@ public class ColumnAccessors {
       <#assign label="Decimal">
     </#if>
     <#if ! notyet>
-
   //------------------------------------------------------------------------
   // ${drillType} readers and writers
 
@@ -220,7 +233,6 @@ public class ColumnAccessors {
     </#if>
   </#list>
 </#list>
-
   public static void defineReaders(
       Class<? extends AbstractColumnReader> readers[][]) {
 <#list vv.types as type>

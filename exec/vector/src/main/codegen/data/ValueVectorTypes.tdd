@@ -69,7 +69,7 @@
         { class: "Float4", javaType: "float" , boxedType: "Float", accessorType: "double", accessorCast: "set",
           fields: [{name: "value", type: "float"}]},
         { class: "Time", javaType: "int", friendlyType: "DateTime", accessorType: "int" },
-        { class: "IntervalYear", javaType: "int", friendlyType: "Period", accessorType: "int" }
+        { class: "IntervalYear", javaType: "int", friendlyType: "Period" }
         { class: "Decimal9", maxPrecisionDigits: 9, friendlyType: "BigDecimal",
           fields: [{name:"value", type:"int"}, {name: "scale", type: "int", include: false},
                    {name: "precision", type: "int", include: false}] },
@@ -100,7 +100,6 @@
       width: 12,
       javaType: "DrillBuf",
       boxedType: "DrillBuf",
-      accessorDisabled: true,
       minor: [
         { class: "IntervalDay", millisecondsOffset: 4, friendlyType: "Period",
           fields: [ {name: "days", type:"int"}, {name: "milliseconds", type:"int"}] }
@@ -111,7 +110,6 @@
       width: 16,
       javaType: "DrillBuf"
       boxedType: "DrillBuf",
-      accessorDisabled: true,
       minor: [
         { class: "Interval", daysOffset: 4, millisecondsOffset: 8, friendlyType: "Period",
           fields: [ {name: "months", type: "int"}, {name: "days", type:"int"}, {name: "milliseconds", type:"int"}] }

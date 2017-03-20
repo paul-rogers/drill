@@ -19,6 +19,8 @@ package org.apache.drill.exec.vector.accessor;
 
 import java.math.BigDecimal;
 
+import org.joda.time.Period;
+
 /**
  * Defines a reader to obtain values from value vectors using
  * a simple, uniform interface. Vector values are mapped to
@@ -50,4 +52,5 @@ public interface ColumnReader extends ColumnAccessor {
   String getString();
   byte[] getBytes();
   BigDecimal getDecimal();
+  Period getPeriod();
 }

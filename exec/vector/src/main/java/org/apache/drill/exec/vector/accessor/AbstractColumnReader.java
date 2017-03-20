@@ -20,6 +20,7 @@ package org.apache.drill.exec.vector.accessor;
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.record.MaterializedField;
+import org.joda.time.Period;
 
 /**
  * Column reader implementation that acts as the basis for the
@@ -69,6 +70,11 @@ public abstract class AbstractColumnReader extends AbstractColumnAccessor implem
 
   @Override
   public BigDecimal getDecimal() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public Period getPeriod() {
     throw new UnsupportedOperationException();
   }
 }
