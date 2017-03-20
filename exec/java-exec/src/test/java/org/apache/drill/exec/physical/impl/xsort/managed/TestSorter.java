@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.impl.xsort.managed;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.Random;
 
 import org.apache.drill.common.expression.FieldReference;
 import org.apache.drill.common.logical.data.Order.Ordering;
@@ -32,16 +33,24 @@ import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
+import org.apache.drill.test.rowSet.RowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetSchema;
+import org.apache.drill.test.rowSet.RowSetSchema.SchemaBuilder;
+import org.joda.time.Period;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import static org.junit.Assert.*;
 
 import com.google.common.collect.Lists;
+
+/**
+ * Tests the generated per-batch sort code via its wrapper layer.
+ */
 
 public class TestSorter extends DrillTest {
 
@@ -118,22 +127,31 @@ public class TestSorter extends DrillTest {
     runSorterTest(rowSet, expected);
   }
 
-  private abstract static class SortTester {
+  private abstract static class BaseSortTester {
+    protected final OperatorFixture fixture;
+    protected final SorterWrapper sorter;
+    protected final boolean nullable;
+    protected final Ordering ordering;
 
-    private OperatorFixture fixture;
-    private SorterWrapper sorter;
-    protected boolean nullable;
-    protected Ordering ordering;
-    protected DataItem data[];
-
-    public SortTester(OperatorFixture fixture, String sortOrder, String nullOrder) {
+    public BaseSortTester(OperatorFixture fixture, String sortOrder, String nullOrder, boolean nullable) {
       this.fixture = fixture;
       FieldReference expr = FieldReference.getWithQuotedRef("key");
       ordering = new Ordering(sortOrder, expr, nullOrder);
       Sort popConfig = new Sort(null, Lists.newArrayList(ordering), false);
+      this.nullable = nullable;
 
       OperExecContext opContext = fixture.newOperExecContext(popConfig);
       sorter = new SorterWrapper(opContext);
+    }
+
+  }
+
+  private abstract static class SortTester extends BaseSortTester {
+
+    protected DataItem data[];
+
+    public SortTester(OperatorFixture fixture, String sortOrder, String nullOrder, boolean nullable) {
+      super(fixture, sortOrder, nullOrder, nullable);
     }
 
     public void test(MinorType type) throws SchemaChangeException {
@@ -218,7 +236,7 @@ public class TestSorter extends DrillTest {
     public TestSorterNumeric(OperatorFixture fixture, boolean asc) {
       super(fixture,
             asc ? Ordering.ORDER_ASC : Ordering.ORDER_DESC,
-            Ordering.NULLS_UNSPECIFIED);
+            Ordering.NULLS_UNSPECIFIED, false);
       sign = asc ? 1 : -1;
     }
 
@@ -241,10 +259,10 @@ public class TestSorter extends DrillTest {
     public TestSorterNullableNumeric(OperatorFixture fixture, boolean asc, boolean nullsLast) {
       super(fixture,
           asc ? Ordering.ORDER_ASC : Ordering.ORDER_DESC,
-          nullsLast ? Ordering.NULLS_LAST : Ordering.NULLS_FIRST);
+          nullsLast ? Ordering.NULLS_LAST : Ordering.NULLS_FIRST,
+          true);
       sign = asc ? 1 : -1;
       nullSign = nullsLast ? 1 : -1;
-      nullable = true;
     }
 
     @Override
@@ -284,7 +302,7 @@ public class TestSorter extends DrillTest {
   private static class TestSorterStringAsc extends SortTester {
 
     public TestSorterStringAsc(OperatorFixture fixture) {
-      super(fixture, Ordering.ORDER_ASC, Ordering.NULLS_UNSPECIFIED);
+      super(fixture, Ordering.ORDER_ASC, Ordering.NULLS_UNSPECIFIED, false);
     }
 
     @Override
@@ -301,7 +319,7 @@ public class TestSorter extends DrillTest {
   private static class TestSorterBinaryAsc extends SortTester {
 
     public TestSorterBinaryAsc(OperatorFixture fixture) {
-      super(fixture, Ordering.ORDER_ASC, Ordering.NULLS_UNSPECIFIED);
+      super(fixture, Ordering.ORDER_ASC, Ordering.NULLS_UNSPECIFIED, false);
     }
 
     @Override
@@ -312,6 +330,142 @@ public class TestSorter extends DrillTest {
           return Integer.toHexString(o1.key).compareTo(Integer.toHexString(o2.key));
         }
       });
+    }
+  }
+
+  private abstract static class BaseTestSorterIntervalAsc extends BaseSortTester {
+
+    public BaseTestSorterIntervalAsc(OperatorFixture fixture) {
+      super(fixture, Ordering.ORDER_ASC, Ordering.NULLS_UNSPECIFIED, false);
+    }
+
+    public void test(MinorType type) throws SchemaChangeException {
+      RowSetSchema schema = new SchemaBuilder()
+          .add("key", type)
+          .build();
+      SingleRowSet input = makeInputData(fixture.allocator(), schema);
+      input = input.toIndirect();
+      sorter.sortBatch(input.getContainer(), input.getSv2());
+      sorter.close();
+      verify(input);
+      input.clear();
+    }
+
+    protected SingleRowSet makeInputData(BufferAllocator allocator,
+        RowSetSchema schema) {
+      RowSetBuilder builder = fixture.rowSetBuilder(schema);
+      int rowCount = 100;
+      Random rand = new Random();
+      for (int i = 0; i < rowCount; i++) {
+        int ms = rand.nextInt(1000);
+        int sec = rand.nextInt(60);
+        int min = rand.nextInt(60);
+        int hr = rand.nextInt(24);
+        int day = rand.nextInt(28);
+        int mo = rand.nextInt(12);
+        int yr = rand.nextInt(10);
+        Period period = makePeriod(yr, mo, day, hr, min, sec, ms);
+         builder.add(period);
+      }
+      return builder.build();
+    }
+
+    protected abstract Period makePeriod(int yr, int mo, int day, int hr, int min, int sec,
+        int ms);
+
+    private void verify(SingleRowSet output) {
+      RowSetReader reader = output.reader();
+      int prevYears = 0;
+      int prevMonths = 0;
+      long prevMs = 0;
+      while (reader.next()) {
+        Period period = reader.column(0).getPeriod().normalizedStandard();
+//        System.out.println(period);
+        int years = period.getYears();
+        assertTrue(prevYears <= years);
+        if (prevYears != years) {
+          prevMonths = 0;
+          prevMs = 0;
+        }
+        prevYears = years;
+
+        int months = period.getMonths();
+        assertTrue(prevMonths <= months);
+        if (prevMonths != months) {
+           prevMs = 0;
+        }
+        prevMonths = months;
+
+        Period remainder = period
+            .withYears(0)
+            .withMonths(0);
+
+        long ms = remainder.toStandardDuration().getMillis();
+        assertTrue(prevMs <= ms);
+        prevMs = ms;
+      }
+    }
+  }
+
+  private static class TestSorterIntervalAsc extends BaseTestSorterIntervalAsc {
+
+    public TestSorterIntervalAsc(OperatorFixture fixture) {
+      super(fixture);
+    }
+
+    public void test() throws SchemaChangeException {
+      test(MinorType.INTERVAL);
+    }
+
+    @Override
+    protected Period makePeriod(int yr, int mo, int day, int hr, int min,
+        int sec, int ms) {
+      return Period.years(yr)
+          .withMonths(mo)
+          .withDays(day)
+          .withHours(hr)
+          .withMinutes(min)
+          .withSeconds(sec)
+          .withMillis(ms);
+    }
+  }
+
+  private static class TestSorterIntervalYearAsc extends BaseTestSorterIntervalAsc {
+
+    public TestSorterIntervalYearAsc(OperatorFixture fixture) {
+      super(fixture);
+    }
+
+    public void test() throws SchemaChangeException {
+      test(MinorType.INTERVALYEAR);
+    }
+
+    @Override
+    protected Period makePeriod(int yr, int mo, int day, int hr, int min,
+        int sec, int ms) {
+      return Period.years(yr)
+          .withMonths(mo);
+    }
+  }
+
+  private static class TestSorterIntervalDayAsc extends BaseTestSorterIntervalAsc {
+
+    public TestSorterIntervalDayAsc(OperatorFixture fixture) {
+      super(fixture);
+    }
+
+    public void test() throws SchemaChangeException {
+      test(MinorType.INTERVALDAY);
+    }
+
+    @Override
+    protected Period makePeriod(int yr, int mo, int day, int hr, int min,
+        int sec, int ms) {
+      return Period.days(day)
+          .withHours(hr)
+          .withMinutes(min)
+          .withSeconds(sec)
+          .withMillis(ms);
     }
   }
 
@@ -349,10 +503,52 @@ public class TestSorter extends DrillTest {
 //      tester.test(MinorType.VAR16CHAR); DRILL-5329
   }
 
+  /**
+   * Test the VARBINARY data type as a sort key.
+   *
+   * @throws Exception for internal errors
+   */
+
   @Test
   public void testVarBinary() throws Exception {
     TestSorterBinaryAsc tester = new TestSorterBinaryAsc(fixture);
     tester.test(MinorType.VARBINARY);
+  }
+
+  /**
+   * Test the INTERVAL data type as a sort key.
+   *
+   * @throws Exception for internal errors
+   */
+
+  @Test
+  public void testInterval() throws Exception {
+    TestSorterIntervalAsc tester = new TestSorterIntervalAsc(fixture);
+    tester.test();
+  }
+
+  /**
+   * Test the INTERVALYEAR data type as a sort key.
+   *
+   * @throws Exception for internal errors
+   */
+
+  @Test
+  public void testIntervalYear() throws Exception {
+    TestSorterIntervalYearAsc tester = new TestSorterIntervalYearAsc(fixture);
+    tester.test();
+  }
+
+  /**
+   * Test the INTERVALDAY data type as a sort key.
+   *
+   * @throws Exception for internal errors
+   */
+
+  @Test
+  public void testIntervalDay() throws Exception {
+    TestSorterIntervalDayAsc tester = new TestSorterIntervalDayAsc(fixture);
+    tester.test();
   }
 
   @Test
