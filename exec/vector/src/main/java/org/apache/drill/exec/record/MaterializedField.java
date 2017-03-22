@@ -29,6 +29,15 @@ import org.apache.drill.exec.expr.BasicTypeHelper;
 import org.apache.drill.exec.proto.UserBitShared.NamePart;
 import org.apache.drill.exec.proto.UserBitShared.SerializedField;
 
+/**
+ * Meta-data description of a column characterized by a name and a type
+ * (including both data type and cardinality AKA mode). For map types,
+ * the description includes the nested columns.)
+ * <p>
+ * TODO: What is the structure of the name: simple or compound?
+ * <p>
+ * TODO: What guarantees for column order?
+ */
 
 public class MaterializedField {
   private final String name;
@@ -44,7 +53,7 @@ public class MaterializedField {
 
   public static MaterializedField create(SerializedField serField){
     LinkedHashSet<MaterializedField> children = new LinkedHashSet<>();
-    for (SerializedField sf:serField.getChildList()) {
+    for (SerializedField sf : serField.getChildList()) {
       children.add(MaterializedField.create(sf));
     }
     return new MaterializedField(serField.getNamePart().getName(), serField.getMajorType(), children);
@@ -60,7 +69,6 @@ public class MaterializedField {
     }
     return serializedFieldBuilder.build();
   }
-
 
   public SerializedField.Builder getAsBuilder(){
     return SerializedField.newBuilder()
@@ -110,7 +118,6 @@ public class MaterializedField {
 //    return seg.getNameSegment().getPath();
 //  }
 
-
   // TODO: rewrite without as direct match rather than conversion then match.
   public boolean matches(SerializedField field){
     MaterializedField f = create(field);
@@ -142,39 +149,15 @@ public class MaterializedField {
 //    return sb.toString();
 //  }
 
-  public String getPath() {
-    return getName();
-  }
-
-  public String getLastName() {
-    return getName();
-  }
-
-  public String getName() {
-    return name;
-  }
-
-  public int getWidth() {
-    return type.getWidth();
-  }
-
-  public MajorType getType() {
-    return type;
-  }
-
-  public int getScale() {
-      return type.getScale();
-  }
-  public int getPrecision() {
-      return type.getPrecision();
-  }
-  public boolean isNullable() {
-    return type.getMode() == DataMode.OPTIONAL;
-  }
-
-  public DataMode getDataMode() {
-    return type.getMode();
-  }
+  public String getPath() { return getName(); }
+  public String getLastName() { return getName(); }
+  public String getName() { return name; }
+  public int getWidth() { return type.getWidth(); }
+  public MajorType getType() { return type; }
+  public int getScale() { return type.getScale(); }
+  public int getPrecision() { return type.getPrecision(); }
+  public boolean isNullable() { return type.getMode() == DataMode.OPTIONAL; }
+  public DataMode getDataMode() { return type.getMode(); }
 
   public MaterializedField getOtherNullableVersion(){
     MajorType mt = type;
@@ -220,14 +203,12 @@ public class MaterializedField {
             Objects.equals(this.type, other.type);
   }
 
-
   @Override
   public String toString() {
     final int maxLen = 10;
     String childStr = children != null && !children.isEmpty() ? toString(children, maxLen) : "";
     return name + "(" + type.getMinorType().name() + ":" + type.getMode().name() + ")" + childStr;
   }
-
 
   private String toString(Collection<?> collection, int maxLen) {
     StringBuilder builder = new StringBuilder();

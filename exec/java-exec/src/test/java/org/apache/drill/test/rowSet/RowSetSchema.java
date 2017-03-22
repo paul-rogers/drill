@@ -23,9 +23,9 @@ import java.util.List;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.MaterializedField;
 
 /**
  * Schema for a row set expressed as a list of materialized columns.
@@ -37,7 +37,7 @@ import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 public class RowSetSchema {
 
   public static class SchemaBuilder {
-    private List<MaterializedField> columns = new ArrayList<>( );
+    private List<ColumnSchema> columns = new ArrayList<>( );
 
     public SchemaBuilder() {
     }
@@ -48,7 +48,7 @@ public class RowSetSchema {
 
     public SchemaBuilder add(String pathName, MajorType type) {
       MaterializedField col = MaterializedField.create(pathName, type);
-      columns.add(col);
+      columns.add(new ColumnSchema(col));
       return this;
     }
 
@@ -56,8 +56,7 @@ public class RowSetSchema {
       return add(pathName, MajorType.newBuilder()
           .setMinorType(type)
           .setMode(mode)
-          .build()
-          );
+          .build());
     }
 
     public SchemaBuilder add(String pathName, MinorType type) {
@@ -68,27 +67,100 @@ public class RowSetSchema {
       return add(pathName, type, DataMode.OPTIONAL);
     }
 
+    /**
+     * Add a map column. The returned schema builder is for the nested
+     * map. Building that map, using {@link MapBuilder#buildMap()},
+     * will return the original schema builder.
+     *
+     * @param pathName the name of the map column
+     * @return a builder for the map
+     */
+
+    public MapBuilder addMap(String pathName) {
+      return new MapBuilder(this, pathName);
+    }
+
     public RowSetSchema build() {
       return new RowSetSchema(columns);
     }
-  }
 
-  private List<MaterializedField> columns = new ArrayList<>( );
+    private void finishMap(String memberName, RowSetSchema mapSchema) {
+      MaterializedField col = MaterializedField.create(memberName,
+          MajorType.newBuilder()
+            .setMinorType(MinorType.MAP)
+            .setMode(DataMode.REQUIRED)
+            .build());
+      for (ColumnSchema childCol : mapSchema.columns) {
+        col.addChild(childCol.getField());
+      }
+      columns.add(new ColumnSchema(col, mapSchema));
+    }
 
-  public RowSetSchema(List<MaterializedField> columns) {
-    this.columns.addAll(columns);
-  }
-
-  public RowSetSchema(BatchSchema schema) {
-    for (MaterializedField field : schema) {
-      columns.add(field);
+    public SchemaBuilder buildMap() {
+      throw new IllegalStateException("Cannot build map for a top-level schema");
     }
   }
 
-  public int count( ) { return columns.size(); }
-  public MaterializedField get(int i) { return columns.get(i); }
+  public static class MapBuilder extends SchemaBuilder {
+    private final SchemaBuilder parent;
+    private final String memberName;
 
-  public static SchemaBuilder builder( ) {
+    public MapBuilder(SchemaBuilder parent, String memberName) {
+      this.parent = parent;
+      this.memberName = memberName;
+    }
+
+    @Override
+    public RowSetSchema build() {
+      throw new IllegalStateException("Cannot build for a nested schema");
+    }
+
+    @Override
+    public SchemaBuilder buildMap() {
+      RowSetSchema mapSchema = super.build();
+      parent.finishMap(memberName, mapSchema);
+      return parent;
+    }
+  }
+
+  public static class ColumnSchema {
+    MaterializedField field;
+    RowSetSchema members;
+
+    public ColumnSchema(MaterializedField field) {
+      this.field = field;
+      if (field.getType().getMinorType() == MinorType.MAP) {
+        members = new RowSetSchema(field.getChildren());
+      }
+    }
+
+    public ColumnSchema(MaterializedField field, RowSetSchema mapSchema) {
+      this.field = field;
+      members = mapSchema;
+    }
+
+    public MaterializedField getField() { return field; }
+    public RowSetSchema getMembers() { return members; }
+  }
+
+  private final List<ColumnSchema> columns;
+
+  public RowSetSchema(Iterable<MaterializedField> columns) {
+    this.columns = new ArrayList<>( );
+    for (MaterializedField field : columns) {
+      this.columns.add(new ColumnSchema(field));
+    }
+  }
+
+  public RowSetSchema(List<ColumnSchema> columns) {
+    this.columns = columns;
+  }
+
+  public int count() { return columns.size(); }
+  public MaterializedField get(int i) { return columns.get(i).getField(); }
+  public ColumnSchema getColumn(int i) { return columns.get(i); }
+
+  public static SchemaBuilder builder() {
     return new SchemaBuilder();
   }
 
@@ -98,8 +170,9 @@ public class RowSetSchema {
 
   public BatchSchema toBatchSchema(SelectionVectorMode selectionVector) {
     List<MaterializedField> fields = new ArrayList<>();
-    fields.addAll(columns);
+    for (ColumnSchema col : columns) {
+      fields.add(col.field);
+    }
     return new BatchSchema(selectionVector, fields);
   }
-
 }

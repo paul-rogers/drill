@@ -77,6 +77,14 @@ public class RowSetWriterImpl extends AbstractRowSetAccessor implements RowSetWr
       colWriter.setPeriod((Period) value);
     } else if (value instanceof byte[]) {
       colWriter.setBytes((byte[]) value);
+    } else if (value instanceof Byte) {
+      colWriter.setInt((Byte) value);
+    } else if (value instanceof Short) {
+      colWriter.setInt((Short) value);
+    } else if (value instanceof Double) {
+      colWriter.setDouble((Double) value);
+    } else if (value instanceof Float) {
+      colWriter.setDouble((Float) value);
     } else {
       throw new IllegalArgumentException("Unsupported type " +
                 value.getClass().getSimpleName() + " for column " + colIndex);
