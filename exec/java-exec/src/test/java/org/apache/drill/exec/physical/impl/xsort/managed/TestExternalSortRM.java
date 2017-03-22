@@ -361,7 +361,7 @@ public class TestExternalSortRM extends DrillTest {
 
   public static void main(String args[]) {
     try {
-      new TestExternalSortRM().dumpProfile4();
+      new TestExternalSortRM().testAdHoc2();
     } catch (Exception e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
@@ -1073,7 +1073,7 @@ public class TestExternalSortRM extends DrillTest {
         System.out.println( "Length: " + len);
         QuerySummary summary = client.queryBuilder().sql(sb.sql).run();
         System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
-        if (len > 5_000_000) {
+        if (len > 10_000_000) {
           break;
         }
       }
@@ -1100,7 +1100,7 @@ public class TestExternalSortRM extends DrillTest {
             long end = System.currentTimeMillis();
             System.out.println(String.format("Results: %,d records, %,d ms", count, end - start ) );
           }
-          if (len > 5_000_000) {
+          if (len > 10_000_000) {
             break;
           }
         }

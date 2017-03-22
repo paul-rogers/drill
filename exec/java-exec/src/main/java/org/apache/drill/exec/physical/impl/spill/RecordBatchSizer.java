@@ -131,7 +131,7 @@ public class RecordBatchSizer {
     }
   }
 
-  List<ColumnSize> columnSizes = new ArrayList<>();
+  private List<ColumnSize> columnSizes = new ArrayList<>();
 
   /**
    * Number of records (rows) in the batch.
