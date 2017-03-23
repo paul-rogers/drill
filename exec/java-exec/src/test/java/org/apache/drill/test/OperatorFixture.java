@@ -39,6 +39,7 @@ import org.apache.drill.exec.ops.OperExecContext;
 import org.apache.drill.exec.ops.OperExecContextImpl;
 import org.apache.drill.exec.ops.OperatorStatReceiver;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.server.options.BaseOptionManager;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.server.options.OptionValue;
@@ -260,11 +261,11 @@ public class OperatorFixture implements AutoCloseable {
     return new OperExecContextImpl(context, allocator, stats, opDefn, null);
   }
 
-  public RowSetBuilder rowSetBuilder(RowSetSchema schema) {
+  public RowSetBuilder rowSetBuilder(BatchSchema schema) {
     return new RowSetBuilder(allocator, schema);
   }
 
-  public ExtendableRowSet rowSet(RowSetSchema schema) {
+  public ExtendableRowSet rowSet(BatchSchema schema) {
     return new DirectRowSet(allocator, schema);
   }
 

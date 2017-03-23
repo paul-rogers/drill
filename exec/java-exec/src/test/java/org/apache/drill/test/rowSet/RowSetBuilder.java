@@ -18,6 +18,7 @@
 package org.apache.drill.test.rowSet;
 
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 
@@ -32,11 +33,11 @@ public final class RowSetBuilder {
   private RowSetWriter writer;
   private boolean withSv2;
 
-  public RowSetBuilder(BufferAllocator allocator, RowSetSchema schema) {
+  public RowSetBuilder(BufferAllocator allocator, BatchSchema schema) {
     this(allocator, schema, 10);
   }
 
-  public RowSetBuilder(BufferAllocator allocator, RowSetSchema schema, int capacity) {
+  public RowSetBuilder(BufferAllocator allocator, BatchSchema schema, int capacity) {
     rowSet = new DirectRowSet(allocator, schema);
     writer = rowSet.writer(capacity);
   }

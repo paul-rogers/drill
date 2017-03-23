@@ -28,6 +28,7 @@ import org.apache.drill.test.rowSet.HyperRowSetImpl.HyperRowIndex;
 import org.apache.drill.test.rowSet.RowSet.HyperRowSet;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.TupleSchema.RowSetSchema;
 
 /**
  * Implements a row set reader on top of a {@link RowSet}
@@ -53,10 +54,12 @@ public class RowSetReaderImpl extends AbstractRowSetAccessor implements RowSetRe
     }
   }
 
+  private RowSetSchema schema;
   private AbstractColumnReader readers[];
 
   public RowSetReaderImpl(SingleRowSet recordSet, AbstractRowIndex rowIndex) {
     super(rowIndex);
+    schema = recordSet.schema();
     ValueVector[] valueVectors = recordSet.vectors();
     readers = new AbstractColumnReader[valueVectors.length];
     for (int i = 0; i < readers.length; i++) {
@@ -67,7 +70,7 @@ public class RowSetReaderImpl extends AbstractRowSetAccessor implements RowSetRe
 
   public RowSetReaderImpl(HyperRowSet recordSet, HyperRowIndex rowIndex) {
     super(rowIndex);
-    RowSetSchema schema = recordSet.schema();
+    schema = recordSet.schema();
     readers = new AbstractColumnReader[schema.count()];
     for (int i = 0; i < readers.length; i++) {
       MaterializedField field = schema.get(i);
@@ -84,7 +87,10 @@ public class RowSetReaderImpl extends AbstractRowSetAccessor implements RowSetRe
 
   @Override
   public ColumnReader column(String colName) {
-    throw new UnsupportedOperationException();
+    int index = schema.getIndex(colName);
+    if (index == -1)
+      return null;
+    return readers[index];
   }
 
   @Override

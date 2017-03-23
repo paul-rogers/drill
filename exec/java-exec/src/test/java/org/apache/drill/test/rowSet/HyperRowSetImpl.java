@@ -54,7 +54,7 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
 
   @SuppressWarnings("unchecked")
   public HyperRowSetImpl(BufferAllocator allocator, VectorContainer container, SelectionVector4 sv4) {
-    super(allocator, new RowSetSchema(container.getSchema()), container);
+    super(allocator, container.getSchema(), container);
     this.sv4 = sv4;
     hvw = new HyperVectorWrapper[schema.count()];
 

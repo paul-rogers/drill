@@ -49,7 +49,7 @@ import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetSchema;
-import org.apache.drill.test.rowSet.RowSetSchema.SchemaBuilder;
+import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
 import com.google.common.base.Stopwatch;

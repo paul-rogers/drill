@@ -28,6 +28,7 @@ import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
+import org.apache.drill.test.rowSet.TupleSchema.RowSetSchema;
 
 /**
  * A row set is a collection of rows stored as value vectors. Elsewhere in

@@ -18,6 +18,7 @@
 package org.apache.drill.test.rowSet;
 
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
@@ -80,7 +81,7 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
     public int batch() { return 0; }
   }
 
-  public DirectRowSet(BufferAllocator allocator, RowSetSchema schema) {
+  public DirectRowSet(BufferAllocator allocator, BatchSchema schema) {
     super(allocator, schema);
   }
 

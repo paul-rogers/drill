@@ -21,6 +21,7 @@ import java.io.PrintStream;
 
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;
+import org.apache.drill.test.rowSet.TupleSchema.RowSetSchema;
 
 public class RowSetPrinter {
   private RowSet rowSet;

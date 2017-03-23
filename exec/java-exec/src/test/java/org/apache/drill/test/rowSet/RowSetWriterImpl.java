@@ -19,11 +19,13 @@ package org.apache.drill.test.rowSet;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.AbstractColumnWriter;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
+import org.apache.drill.test.rowSet.TupleSchema.RowSetSchema;
 import org.joda.time.Period;
 
 /**
@@ -33,15 +35,24 @@ import org.joda.time.Period;
 
 public class RowSetWriterImpl extends AbstractRowSetAccessor implements RowSetWriter {
 
+  private RowSetSchema schema;
   private AbstractColumnWriter writers[];
 
   public RowSetWriterImpl(AbstractSingleRowSet recordSet, AbstractRowIndex rowIndex) {
     super(rowIndex);
+    schema = recordSet.schema();
     ValueVector[] valueVectors = recordSet.vectors();
     writers = new AbstractColumnWriter[valueVectors.length];
+    int posn = 0;
     for (int i = 0; i < writers.length; i++) {
-      writers[i] = ColumnAccessorFactory.newWriter(valueVectors[i].getField().getType());
-      writers[i].bind(rowIndex, valueVectors[i]);
+      if ( valueVectors[i].getField().getType().getMinorType() == MinorType.MAP) {
+
+        // Skip maps when populating columns.
+        continue;
+      }
+      writers[posn] = ColumnAccessorFactory.newWriter(valueVectors[i].getField().getType());
+      writers[posn].bind(rowIndex, valueVectors[i]);
+      posn++;
     }
   }
 
@@ -52,7 +63,10 @@ public class RowSetWriterImpl extends AbstractRowSetAccessor implements RowSetWr
 
   @Override
   public ColumnWriter column(String colName) {
-    throw new UnsupportedOperationException();
+    int index = schema.getIndex(colName);
+    if (index == -1)
+      return null;
+    return writers[index];
   }
 
   @Override

@@ -22,6 +22,7 @@ import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.SchemaChangeCallBack;
+import org.apache.drill.test.rowSet.TupleSchema.RowSetSchema;
 
 /**
  * Basic implementation of a row set for both the single and multiple
@@ -35,9 +36,9 @@ public abstract class AbstractRowSet implements RowSet {
   protected final VectorContainer container;
   protected SchemaChangeCallBack callBack = new SchemaChangeCallBack();
 
-  public AbstractRowSet(BufferAllocator allocator, RowSetSchema schema, VectorContainer container) {
+  public AbstractRowSet(BufferAllocator allocator, BatchSchema schema, VectorContainer container) {
     this.allocator = allocator;
-    this.schema = schema;
+    this.schema = new RowSetSchema(schema);
     this.container = container;
   }
 
