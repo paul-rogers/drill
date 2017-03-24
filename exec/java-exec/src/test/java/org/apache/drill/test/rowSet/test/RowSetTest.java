@@ -89,9 +89,9 @@ public class RowSetTest {
 
     PhysicalSchema physical = schema.physical();
     assertEquals(3, physical.count());
-    assertEquals("c", physical.column(0).field.getName());
-    assertEquals("a", physical.column(1).field.getName());
-    assertEquals("b", physical.column(2).field.getName());
+    assertEquals("c", physical.column(0).field().getName());
+    assertEquals("a", physical.column(1).field().getName());
+    assertEquals("b", physical.column(2).field().getName());
   }
 
   public void crossCheck(AccessSchema schema, int index, String fullName, MinorType type) {
@@ -140,6 +140,38 @@ public class RowSetTest {
     assertEquals("e", access.map(1).getName());
     assertEquals(0, access.mapIndex("a"));
     assertEquals(1, access.mapIndex("a.e"));
+
+    // Verify physical schema: should mirror the schema created above.
+
+    PhysicalSchema physical = schema.physical();
+    assertEquals(3, physical.count());
+    assertEquals("c", physical.column(0).field().getName());
+    assertEquals("c", physical.column(0).fullName());
+    assertFalse(physical.column(0).isMap());
+    assertNull(physical.column(0).mapSchema());
+
+    assertEquals("a", physical.column(1).field().getName());
+    assertEquals("a", physical.column(1).fullName());
+    assertTrue(physical.column(1).isMap());
+    assertNotNull(physical.column(1).mapSchema());
+
+    assertEquals("h", physical.column(2).field().getName());
+    assertEquals("h", physical.column(2).fullName());
+    assertFalse(physical.column(2).isMap());
+    assertNull(physical.column(2).mapSchema());
+
+    PhysicalSchema aSchema = physical.column(1).mapSchema();
+    assertEquals(4, aSchema.count());
+    assertEquals("b", aSchema.column(0).field().getName());
+    assertEquals("a.b", aSchema.column(0).fullName());
+    assertEquals("d", aSchema.column(1).field().getName());
+    assertEquals("e", aSchema.column(2).field().getName());
+    assertEquals("g", aSchema.column(3).field().getName());
+
+    PhysicalSchema eSchema = aSchema.column(2).mapSchema();
+    assertEquals(1, eSchema.count());
+    assertEquals("f", eSchema.column(0).field().getName());
+    assertEquals("a.e.f", eSchema.column(0).fullName());
   }
 
   @Test

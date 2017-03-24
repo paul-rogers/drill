@@ -54,18 +54,29 @@ public class RowSetSchema {
    */
 
   public static class LogicalColumn {
-    public final MaterializedField field;
+    protected final String fullName;
+    protected final int accessIndex;
+    protected final MaterializedField field;
 
     /**
      * Schema of the map. Includes only those fields directly within
      * the map; does not include fields from nested tuples.
      */
 
-    public PhysicalSchema mapSchema;
+    protected final PhysicalSchema mapSchema;
 
-    public LogicalColumn(MaterializedField field) {
-       this.field = field;
+    public LogicalColumn(String fullName, int accessIndex, MaterializedField field, PhysicalSchema mapSchema) {
+      this.fullName = fullName;
+      this.accessIndex = accessIndex;
+      this.field = field;
+      this.mapSchema = mapSchema;
     }
+
+    public int accessIndex() { return accessIndex; }
+    public boolean isMap() { return mapSchema != null; }
+    public PhysicalSchema mapSchema() { return mapSchema; }
+    public MaterializedField field() { return field; }
+    public String fullName() { return fullName; }
   }
 
   /**
@@ -119,24 +130,8 @@ public class RowSetSchema {
    */
 
   public static class AccessSchema {
-    private final NameSpace<MaterializedField> scalars = new NameSpace<>();
-    private final NameSpace<MaterializedField> maps = new NameSpace<>();
-
-    public AccessSchema(BatchSchema schema) {
-      expand("", schema);
-    }
-
-    private void expand(String prefix, Iterable<MaterializedField> fields) {
-      for (MaterializedField field : fields) {
-        String name = prefix + field.getName();
-        if (field.getType().getMinorType() == MinorType.MAP) {
-          maps.add(name, field);
-          expand(name + ".", field.getChildren());
-        } else {
-          scalars.add(name, field);
-        }
-      }
-    }
+    protected final NameSpace<MaterializedField> scalars = new NameSpace<>();
+    protected final NameSpace<MaterializedField> maps = new NameSpace<>();
 
     /**
      * Return a column schema given an indexed into the flattened row structure.
@@ -170,17 +165,7 @@ public class RowSetSchema {
    */
 
   public static class PhysicalSchema {
-    private final NameSpace<LogicalColumn> schema = new NameSpace<>();
-
-    public PhysicalSchema(Iterable<MaterializedField> members) {
-      for (MaterializedField field : members) {
-        LogicalColumn colSchema = new LogicalColumn(field);
-        schema.add(field.getName(), colSchema);
-        if (field.getType().getMinorType() == MinorType.MAP) {
-          colSchema.mapSchema = new PhysicalSchema(field.getChildren());
-        }
-      }
-    }
+    protected final NameSpace<LogicalColumn> schema = new NameSpace<>();
 
     public LogicalColumn column(int index) {
       return schema.get(index);
@@ -199,8 +184,26 @@ public class RowSetSchema {
 
   public RowSetSchema(BatchSchema schema) {
     batchSchema = schema;
-    accessSchema = new AccessSchema(schema);
-    physicalSchema = new PhysicalSchema(schema);
+    accessSchema = new AccessSchema();
+    physicalSchema = expand("", schema);
+  }
+
+  private PhysicalSchema expand(String prefix, Iterable<MaterializedField> fields) {
+    PhysicalSchema physical = new PhysicalSchema();
+    for (MaterializedField field : fields) {
+      String name = prefix + field.getName();
+      int index;
+      PhysicalSchema children = null;
+      if (field.getType().getMinorType() == MinorType.MAP) {
+        index = accessSchema.maps.add(name, field);
+        children = expand(name + ".", field.getChildren());
+      } else {
+        index = accessSchema.scalars.add(name, field);
+      }
+      LogicalColumn colSchema = new LogicalColumn(name, index, field, children);
+      physical.schema.add(field.getName(), colSchema);
+    }
+    return physical;
   }
 
   public AccessSchema access() { return accessSchema; }

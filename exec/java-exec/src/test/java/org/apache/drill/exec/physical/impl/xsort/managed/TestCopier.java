@@ -391,5 +391,4 @@ public class TestCopier extends DrillTest {
       testMapType(fixture);
     }
   }
-
 }

@@ -64,6 +64,7 @@ public abstract class PriorityQueueGenericCopierTemplate implements PriorityQueu
   public abstract int doEval(@Named("leftIndex") int leftIndex,
                              @Named("rightIndex") int rightIndex)
                       throws SchemaChangeException;
+
   @Override
   public void doCopy(int inIndex, int outIndex)
                        throws SchemaChangeException {
