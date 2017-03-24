@@ -40,7 +40,7 @@ public class RowSetComparison {
 
   public RowSetComparison(RowSet expected) {
     this.expected = expected;
-    mask = new boolean[expected.schema().count()];
+    mask = new boolean[expected.schema().access().count()];
     for (int i = 0; i < mask.length; i++) {
       mask[i] = true;
     }
@@ -165,7 +165,7 @@ public class RowSetComparison {
       if (! ec.isNull()) {
         assertTrue(label + " - column is null", ! ac.isNull());
       }
-      switch (ec.getType()) {
+      switch (ec.valueType()) {
       case BYTES: {
         byte expected[] = ac.getBytes();
         byte actual[] = ac.getBytes();
@@ -188,8 +188,11 @@ public class RowSetComparison {
       case DECIMAL:
         assertEquals(label, ec.getDecimal(), ac.getDecimal());
         break;
+      case PERIOD:
+        assertEquals(label, ec.getPeriod(), ac.getPeriod());
+        break;
       default:
-        throw new IllegalStateException( "Unexpected type: " + ec.getType());
+        throw new IllegalStateException( "Unexpected type: " + ec.valueType());
       }
     }
   }

@@ -17,7 +17,14 @@
  */
 package org.apache.drill.test.rowSet;
 
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.selection.SelectionVector2;
+import org.apache.drill.exec.vector.accessor.AccessorUtilities;
+import org.apache.drill.exec.vector.accessor.ColumnAccessor.ValueType;
+import org.apache.drill.exec.vector.accessor.ColumnWriter;
+import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
+import org.joda.time.Duration;
+import org.joda.time.Period;
 
 public class RowSetUtilities {
 
@@ -30,6 +37,47 @@ public class RowSetUtilities {
       int dest = count - 1 - i;
       sv2.setIndex(i, sv2.getIndex(dest));
       sv2.setIndex(dest, temp);
+    }
+  }
+
+  /**
+   * Set a test data value from an int. Uses the type information of the
+   * column to handle interval types. Else, uses the value type of the
+   * accessor. The value set here is purely for testing; the mapping
+   * from ints to intervals has no real meaning.
+   *
+   * @param rowWriter
+   * @param index
+   * @param value
+   */
+
+  public static void setFromInt(RowSetWriter rowWriter, int index, int value) {
+    ColumnWriter writer = rowWriter.column(index);
+    if (writer.valueType() == ValueType.PERIOD) {
+      setPeriodFromInt(writer, rowWriter.schema().column(index).getType().getMinorType(), value);
+    } else {
+      AccessorUtilities.setFromInt(writer, value);
+    }
+  }
+
+  public static void setPeriodFromInt(ColumnWriter writer, MinorType minorType,
+      int value) {
+    switch (minorType) {
+    case INTERVAL:
+      writer.setPeriod(Duration.millis(value).toPeriod());
+      break;
+    case INTERVALYEAR:
+      writer.setPeriod(Period.years(value / 12).withMonths(value % 12));
+      break;
+    case INTERVALDAY:
+      int sec = value % 60;
+      value = value / 60;
+      int min = value % 60;
+      value = value / 60;
+      writer.setPeriod(Period.days(value).withMinutes(min).withSeconds(sec));
+      break;
+    default:
+      throw new IllegalArgumentException("Writer is not an interval: " + minorType);
     }
   }
 }

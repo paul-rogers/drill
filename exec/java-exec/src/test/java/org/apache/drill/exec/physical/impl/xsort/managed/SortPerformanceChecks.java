@@ -23,13 +23,13 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.physical.impl.xsort.managed.PriorityQueueCopierWrapper.BatchMerger;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortTestUtilities.CopierTester;
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.OperatorFixture.OperatorFixtureBuilder;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
-import org.apache.drill.test.rowSet.RowSetSchema;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 
 import com.google.common.base.Stopwatch;
@@ -73,12 +73,12 @@ public class SortPerformanceChecks {
   }
 
   public SingleRowSet makeWideRowSet(OperatorFixture fixture, int colCount, int rowCount) {
-    SchemaBuilder builder = RowSetSchema.builder()
+    SchemaBuilder builder = new SchemaBuilder()
         .add("key", MinorType.INT);
     for (int i = 0; i < colCount; i++) {
       builder.add("col" + (i+1), MinorType.INT);
     }
-    RowSetSchema schema = builder.build();
+    BatchSchema schema = builder.build();
     ExtendableRowSet rowSet = fixture.rowSet(schema);
     RowSetWriter writer = rowSet.writer(rowCount);
     for (int i = 0; i < rowCount; i++) {

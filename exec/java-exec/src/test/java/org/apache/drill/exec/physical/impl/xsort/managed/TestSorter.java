@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
+import static org.junit.Assert.assertTrue;
+
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Random;
@@ -28,6 +30,7 @@ import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.OperExecContext;
 import org.apache.drill.exec.physical.config.Sort;
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.vector.accessor.AccessorUtilities;
 import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.OperatorFixture;
@@ -38,13 +41,12 @@ import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
-import org.apache.drill.test.rowSet.RowSetSchema;
+import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.joda.time.Period;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import static org.junit.Assert.*;
 
 import com.google.common.collect.Lists;
 
@@ -84,7 +86,7 @@ public class TestSorter extends DrillTest {
 
   @Test
   public void testEmptyRowSet() throws Exception {
-    RowSetSchema schema = SortTestUtilities.nonNullSchema();
+    BatchSchema schema = SortTestUtilities.nonNullSchema();
     SingleRowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
         .withSv2()
         .build();
@@ -97,7 +99,7 @@ public class TestSorter extends DrillTest {
 
   @Test
   public void testSingleRow() throws Exception {
-    RowSetSchema schema = SortTestUtilities.nonNullSchema();
+    BatchSchema schema = SortTestUtilities.nonNullSchema();
     SingleRowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
           .add(0, "0")
           .withSv2()
@@ -113,7 +115,7 @@ public class TestSorter extends DrillTest {
 
   @Test
   public void testTwoRows() throws Exception {
-    RowSetSchema schema = SortTestUtilities.nonNullSchema();
+    BatchSchema schema = SortTestUtilities.nonNullSchema();
     SingleRowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
           .add(1, "1")
           .add(0, "0")
@@ -156,7 +158,7 @@ public class TestSorter extends DrillTest {
 
     public void test(MinorType type) throws SchemaChangeException {
       data = makeDataArray(20);
-      RowSetSchema schema = SortTestUtilities.makeSchema(type, nullable);
+      BatchSchema schema = SortTestUtilities.makeSchema(type, nullable);
       SingleRowSet input = makeDataSet(fixture.allocator(), schema, data);
       input = input.toIndirect();
       sorter.sortBatch(input.getContainer(), input.getSv2());
@@ -193,7 +195,7 @@ public class TestSorter extends DrillTest {
       return values;
     }
 
-    public SingleRowSet makeDataSet(BufferAllocator allocator, RowSetSchema schema, DataItem[] items) {
+    public SingleRowSet makeDataSet(BufferAllocator allocator, BatchSchema schema, DataItem[] items) {
       ExtendableRowSet rowSet = fixture.rowSet(schema);
       RowSetWriter writer = rowSet.writer(items.length);
       for (int i = 0; i < items.length; i++) {
@@ -202,7 +204,7 @@ public class TestSorter extends DrillTest {
         if (nullable && item.isNull) {
           writer.column(0).setNull();
         } else {
-          AccessorUtilities.setFromInt(writer.column(0), item.key);
+          RowSetUtilities.setFromInt(writer, 0, item.key);
         }
         writer.column(1).setString(Integer.toString(item.value));
       }
@@ -213,7 +215,7 @@ public class TestSorter extends DrillTest {
     private void verify(RowSet actual) {
       DataItem expected[] = Arrays.copyOf(data, data.length);
       doSort(expected);
-      RowSet expectedRows = makeDataSet(actual.getAllocator(), actual.schema(), expected);
+      RowSet expectedRows = makeDataSet(actual.getAllocator(), actual.schema().batch(), expected);
 //      System.out.println("Expected:");
 //      expectedRows.print();
 //      System.out.println("Actual:");
@@ -340,7 +342,7 @@ public class TestSorter extends DrillTest {
     }
 
     public void test(MinorType type) throws SchemaChangeException {
-      RowSetSchema schema = new SchemaBuilder()
+      BatchSchema schema = new SchemaBuilder()
           .add("key", type)
           .build();
       SingleRowSet input = makeInputData(fixture.allocator(), schema);
@@ -352,7 +354,7 @@ public class TestSorter extends DrillTest {
     }
 
     protected SingleRowSet makeInputData(BufferAllocator allocator,
-        RowSetSchema schema) {
+        BatchSchema schema) {
       RowSetBuilder builder = fixture.rowSetBuilder(schema);
       int rowCount = 100;
       Random rand = new Random();
@@ -491,9 +493,6 @@ public class TestSorter extends DrillTest {
     tester1.test(MinorType.DATE);
     tester1.test(MinorType.TIME);
     tester1.test(MinorType.TIMESTAMP);
-//      tester1.test(MinorType.INTERVAL); No writer
-    tester1.test(MinorType.INTERVALYEAR);
-//      tester1.test(MinorType.INTERVALDAY); No writer
   }
 
   @Test

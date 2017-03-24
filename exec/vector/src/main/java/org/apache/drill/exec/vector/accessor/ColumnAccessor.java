@@ -30,5 +30,5 @@ public interface ColumnAccessor {
    * is valid for the column
    */
 
-  ValueType getType();
+  ValueType valueType();
 }

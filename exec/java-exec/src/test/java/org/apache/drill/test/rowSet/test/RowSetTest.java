@@ -25,10 +25,15 @@ import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
-import org.apache.drill.test.rowSet.TupleSchema.RowSetSchema;
+import org.apache.drill.test.rowSet.RowSetSchema;
+import org.apache.drill.test.rowSet.RowSetSchema.AccessSchema;
+import org.apache.drill.test.rowSet.RowSetSchema.PhysicalSchema;
+import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+
+import com.google.common.base.Splitter;
 
 public class RowSetTest {
 
@@ -44,9 +49,13 @@ public class RowSetTest {
     fixture.close();
   }
 
+  /**
+   * Test a simple physical schema with no maps.
+   */
+
   @Test
   public void testSchema() {
-    BatchSchema batchSchema = RowSetSchema.builder()
+    BatchSchema batchSchema = new SchemaBuilder()
         .add("c", MinorType.INT)
         .add("a", MinorType.INT, DataMode.REPEATED)
         .addNullable("b", MinorType.VARCHAR)
@@ -57,35 +66,48 @@ public class RowSetTest {
     assertEquals("b", batchSchema.getColumn(2).getName());
 
     RowSetSchema schema = new RowSetSchema(batchSchema);
-    assertEquals(3, schema.count());
+    AccessSchema access = schema.access();
+    assertEquals(3, access.count());
 
-    crossCheck(schema, 0, "c", MinorType.INT);
-    assertEquals(DataMode.REQUIRED, schema.get(0).getDataMode());
-    assertEquals(DataMode.REQUIRED, schema.get(0).getType().getMode());
-    assertTrue(! schema.get(0).isNullable());
+    crossCheck(access, 0, "c", MinorType.INT);
+    assertEquals(DataMode.REQUIRED, access.column(0).getDataMode());
+    assertEquals(DataMode.REQUIRED, access.column(0).getType().getMode());
+    assertTrue(! access.column(0).isNullable());
 
-    crossCheck(schema, 1, "a", MinorType.INT);
-    assertEquals(DataMode.REPEATED, schema.get(1).getDataMode());
-    assertEquals(DataMode.REPEATED, schema.get(1).getType().getMode());
-    assertTrue(! schema.get(1).isNullable());
+    crossCheck(access, 1, "a", MinorType.INT);
+    assertEquals(DataMode.REPEATED, access.column(1).getDataMode());
+    assertEquals(DataMode.REPEATED, access.column(1).getType().getMode());
+    assertTrue(! access.column(1).isNullable());
 
-    crossCheck(schema, 2, "b", MinorType.INT);
-    assertEquals(MinorType.VARCHAR, schema.get(2).getType().getMinorType());
-    assertEquals(DataMode.OPTIONAL, schema.get(2).getDataMode());
-    assertEquals(DataMode.OPTIONAL, schema.get(2).getType().getMode());
-    assertTrue(schema.get(2).isNullable());
+    crossCheck(access, 2, "b", MinorType.VARCHAR);
+    assertEquals(MinorType.VARCHAR, access.column(2).getType().getMinorType());
+    assertEquals(DataMode.OPTIONAL, access.column(2).getDataMode());
+    assertEquals(DataMode.OPTIONAL, access.column(2).getType().getMode());
+    assertTrue(access.column(2).isNullable());
+
+    // No maps: physical schema is the same as access schema.
+
+    PhysicalSchema physical = schema.physical();
+    assertEquals(3, physical.count());
+    assertEquals("c", physical.column(0).field.getName());
+    assertEquals("a", physical.column(1).field.getName());
+    assertEquals("b", physical.column(2).field.getName());
   }
 
-  public void crossCheck(RowSetSchema schema, int index, String name, MinorType type) {
-    assertEquals(name, schema.getColumn(index).fullName);
-    assertEquals(index, schema.getIndex(name));
-    assertEquals(schema.get(index), schema.get(name));
-    assertEquals(type, schema.get(index).getType().getMinorType());
+  public void crossCheck(AccessSchema schema, int index, String fullName, MinorType type) {
+    String name = null;
+    for (String part : Splitter.on(".").split(fullName)) {
+      name = part;
+    }
+    assertEquals(name, schema.column(index).getName());
+    assertEquals(index, schema.columnIndex(fullName));
+    assertSame(schema.column(index), schema.column(fullName));
+    assertEquals(type, schema.column(index).getType().getMinorType());
   }
 
   @Test
   public void testMapSchema() {
-    BatchSchema batchSchema = RowSetSchema.builder()
+    BatchSchema batchSchema = new SchemaBuilder()
         .add("c", MinorType.INT)
         .addMap("a")
           .addNullable("b", MinorType.VARCHAR)
@@ -99,19 +121,25 @@ public class RowSetTest {
         .build();
 
     RowSetSchema schema = new RowSetSchema(batchSchema);
-    assertEquals(8, schema.count());
-    crossCheck(schema, 0, "c", MinorType.INT);
-    crossCheck(schema, 1, "a", MinorType.MAP);
-    assertNotNull(schema.getColumn(1).mapSchema);
-    assertEquals(4, schema.getColumn(1).mapSchema.count());
-    crossCheck(schema, 2, "a.b", MinorType.VARCHAR);
-    crossCheck(schema, 3, "a.d", MinorType.INT);
-    crossCheck(schema, 4, "a.e", MinorType.MAP);
-    assertNotNull(schema.getColumn(1).mapSchema.getColumn(2).mapSchema);
-    assertEquals(1, schema.getColumn(1).mapSchema.getColumn(2).mapSchema.count());
-    crossCheck(schema, 5, "a.e.f", MinorType.VARCHAR);
-    crossCheck(schema, 6, "a.g", MinorType.INT);
-    crossCheck(schema, 7, "h", MinorType.BIGINT);
+
+    // Access schema: flattened with maps removed
+
+    AccessSchema access = schema.access();
+    assertEquals(6, access.count());
+    crossCheck(access, 0, "c", MinorType.INT);
+    crossCheck(access, 1, "a.b", MinorType.VARCHAR);
+    crossCheck(access, 2, "a.d", MinorType.INT);
+    crossCheck(access, 3, "a.e.f", MinorType.VARCHAR);
+    crossCheck(access, 4, "a.g", MinorType.INT);
+    crossCheck(access, 5, "h", MinorType.BIGINT);
+
+    // Should have two maps.
+
+    assertEquals(2, access.mapCount());
+    assertEquals("a", access.map(0).getName());
+    assertEquals("e", access.map(1).getName());
+    assertEquals(0, access.mapIndex("a"));
+    assertEquals(1, access.mapIndex("a.e"));
   }
 
   @Test
@@ -125,10 +153,10 @@ public class RowSetTest {
   }
 
   private void testTinyIntRW() {
-    BatchSchema schema = RowSetSchema.builder()
+    BatchSchema batchSchema = new SchemaBuilder()
         .add("col", MinorType.TINYINT)
         .build();
-    SingleRowSet rs = fixture.rowSetBuilder(schema)
+    SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
         .add(0)
         .add(Byte.MAX_VALUE)
         .add(Byte.MIN_VALUE)
@@ -144,10 +172,10 @@ public class RowSetTest {
   }
 
   private void testSmallIntRW() {
-    BatchSchema schema = RowSetSchema.builder()
+    BatchSchema batchSchema = new SchemaBuilder()
         .add("col", MinorType.SMALLINT)
         .build();
-    SingleRowSet rs = fixture.rowSetBuilder(schema)
+    SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
         .add(0)
         .add(Short.MAX_VALUE)
         .add(Short.MIN_VALUE)
@@ -163,10 +191,10 @@ public class RowSetTest {
   }
 
   private void testIntRW() {
-    BatchSchema schema = RowSetSchema.builder()
+    BatchSchema batchSchema = new SchemaBuilder()
         .add("col", MinorType.INT)
         .build();
-    SingleRowSet rs = fixture.rowSetBuilder(schema)
+    SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
         .add(0)
         .add(Integer.MAX_VALUE)
         .add(Integer.MIN_VALUE)
@@ -182,10 +210,10 @@ public class RowSetTest {
   }
 
   private void testLongRW() {
-    BatchSchema schema = RowSetSchema.builder()
+    BatchSchema batchSchema = new SchemaBuilder()
         .add("col", MinorType.BIGINT)
         .build();
-    SingleRowSet rs = fixture.rowSetBuilder(schema)
+    SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
         .add(0L)
         .add(Long.MAX_VALUE)
         .add(Long.MIN_VALUE)
@@ -201,10 +229,10 @@ public class RowSetTest {
   }
 
   private void testFloatRW() {
-    BatchSchema schema = RowSetSchema.builder()
+    BatchSchema batchSchema = new SchemaBuilder()
         .add("col", MinorType.FLOAT4)
         .build();
-    SingleRowSet rs = fixture.rowSetBuilder(schema)
+    SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
         .add(0F)
         .add(Float.MAX_VALUE)
         .add(Float.MIN_VALUE)
@@ -220,10 +248,10 @@ public class RowSetTest {
   }
 
   private void testDoubleRW() {
-    BatchSchema schema = RowSetSchema.builder()
+    BatchSchema batchSchema = new SchemaBuilder()
         .add("col", MinorType.FLOAT8)
         .build();
-    SingleRowSet rs = fixture.rowSetBuilder(schema)
+    SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
         .add(0D)
         .add(Double.MAX_VALUE)
         .add(Double.MIN_VALUE)
@@ -240,28 +268,28 @@ public class RowSetTest {
 
   @Test
   public void testMap() {
-    BatchSchema schema = RowSetSchema.builder()
+    BatchSchema batchSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("b")
           .add("c", MinorType.INT)
           .add("d", MinorType.INT)
           .buildMap()
         .build();
-    SingleRowSet rs = fixture.rowSetBuilder(schema)
+    SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
         .add(10, 20, 30)
         .add(40, 50, 60)
         .build();
     RowSetReader reader = rs.reader();
     assertTrue(reader.next());
     assertEquals(10, reader.column(0).getInt());
-    assertEquals(20, reader.column(2).getInt());
-    assertEquals(30, reader.column(3).getInt());
+    assertEquals(20, reader.column(1).getInt());
+    assertEquals(30, reader.column(2).getInt());
     assertEquals(10, reader.column("a").getInt());
-    assertEquals(30, reader.column("a.d").getInt());
+    assertEquals(30, reader.column("b.d").getInt());
     assertTrue(reader.next());
-    assertEquals(50, reader.column(0).getInt());
+    assertEquals(40, reader.column(0).getInt());
+    assertEquals(50, reader.column(1).getInt());
     assertEquals(60, reader.column(2).getInt());
-    assertEquals(60, reader.column(3).getInt());
     rs.clear();
   }
 

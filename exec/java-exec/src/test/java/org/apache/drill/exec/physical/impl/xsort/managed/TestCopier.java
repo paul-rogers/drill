@@ -27,7 +27,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.physical.impl.xsort.managed.PriorityQueueCopierWrapper.BatchMerger;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortTestUtilities.CopierTester;
-import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.accessor.AccessorUtilities;
 import org.apache.drill.test.DrillTest;
@@ -36,8 +36,8 @@ import org.apache.drill.test.OperatorFixture.OperatorFixtureBuilder;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
-import org.apache.drill.test.rowSet.RowSetSchema;
 import org.apache.drill.test.rowSet.RowSetUtilities;
+import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -70,14 +70,13 @@ public class TestCopier extends DrillTest {
 
   @Test
   public void testEmptyInput() throws Exception {
-    RowSetSchema schema = SortTestUtilities.nonNullSchema();
+    BatchSchema schema = SortTestUtilities.nonNullSchema();
     List<BatchGroup> batches = new ArrayList<>();
     PriorityQueueCopierWrapper copier = SortTestUtilities.makeCopier(fixture, Ordering.ORDER_ASC, Ordering.NULLS_UNSPECIFIED);
     VectorContainer dest = new VectorContainer();
     try {
       @SuppressWarnings({ "resource", "unused" })
-      BatchMerger merger = copier.startMerge(schema.toBatchSchema(SelectionVectorMode.NONE),
-                                             batches, dest, 10);
+      BatchMerger merger = copier.startMerge(schema, batches, dest, 10);
       fail();
     } catch (AssertionError e) {
       // Expected
@@ -86,7 +85,7 @@ public class TestCopier extends DrillTest {
 
   @Test
   public void testEmptyBatch() throws Exception {
-    RowSetSchema schema = SortTestUtilities.nonNullSchema();
+    BatchSchema schema = SortTestUtilities.nonNullSchema();
     CopierTester tester = new CopierTester(fixture);
     tester.addInput(fixture.rowSetBuilder(schema)
           .withSv2()
@@ -97,7 +96,7 @@ public class TestCopier extends DrillTest {
 
   @Test
   public void testSingleRow() throws Exception {
-    RowSetSchema schema = SortTestUtilities.nonNullSchema();
+    BatchSchema schema = SortTestUtilities.nonNullSchema();
     CopierTester tester = new CopierTester(fixture);
     tester.addInput(fixture.rowSetBuilder(schema)
           .add(10, "10")
@@ -112,7 +111,7 @@ public class TestCopier extends DrillTest {
 
   @Test
   public void testTwoBatchesSingleRow() throws Exception {
-    RowSetSchema schema = SortTestUtilities.nonNullSchema();
+    BatchSchema schema = SortTestUtilities.nonNullSchema();
     CopierTester tester = new CopierTester(fixture);
     tester.addInput(fixture.rowSetBuilder(schema)
           .add(10, "10")
@@ -130,13 +129,13 @@ public class TestCopier extends DrillTest {
     tester.run();
   }
 
-  public static SingleRowSet makeDataSet(RowSetSchema schema, int first, int step, int count) {
+  public static SingleRowSet makeDataSet(BatchSchema schema, int first, int step, int count) {
     ExtendableRowSet rowSet = fixture.rowSet(schema);
     RowSetWriter writer = rowSet.writer(count);
     int value = first;
     for (int i = 0; i < count; i++, value += step) {
       writer.next();
-      AccessorUtilities.setFromInt(writer.column(0), value);
+      RowSetUtilities.setFromInt(writer, 0, value);
       writer.column(1).setString(Integer.toString(value));
     }
     writer.done();
@@ -145,7 +144,7 @@ public class TestCopier extends DrillTest {
 
   @Test
   public void testMultipleOutput() throws Exception {
-    RowSetSchema schema = SortTestUtilities.nonNullSchema();
+    BatchSchema schema = SortTestUtilities.nonNullSchema();
 
     CopierTester tester = new CopierTester(fixture);
     tester.addInput(makeDataSet(schema, 0, 2, 10).toIndirect());
@@ -160,7 +159,7 @@ public class TestCopier extends DrillTest {
 
   @Test
   public void testMultipleOutputDesc() throws Exception {
-    RowSetSchema schema = SortTestUtilities.nonNullSchema();
+    BatchSchema schema = SortTestUtilities.nonNullSchema();
 
     CopierTester tester = new CopierTester(fixture);
     tester.sortOrder = Ordering.ORDER_DESC;
@@ -181,7 +180,7 @@ public class TestCopier extends DrillTest {
 
   @Test
   public void testAscNullsLast() throws Exception {
-    RowSetSchema schema = SortTestUtilities.nullableSchema();
+    BatchSchema schema = SortTestUtilities.nullableSchema();
 
     CopierTester tester = new CopierTester(fixture);
     tester.sortOrder = Ordering.ORDER_ASC;
@@ -213,7 +212,7 @@ public class TestCopier extends DrillTest {
 
   @Test
   public void testAscNullsFirst() throws Exception {
-    RowSetSchema schema = SortTestUtilities.nullableSchema();
+    BatchSchema schema = SortTestUtilities.nullableSchema();
 
     CopierTester tester = new CopierTester(fixture);
     tester.sortOrder = Ordering.ORDER_ASC;
@@ -245,7 +244,7 @@ public class TestCopier extends DrillTest {
 
   @Test
   public void testDescNullsLast() throws Exception {
-    RowSetSchema schema = SortTestUtilities.nullableSchema();
+    BatchSchema schema = SortTestUtilities.nullableSchema();
 
     CopierTester tester = new CopierTester(fixture);
     tester.sortOrder = Ordering.ORDER_DESC;
@@ -277,7 +276,7 @@ public class TestCopier extends DrillTest {
 
   @Test
   public void testDescNullsFirst() throws Exception {
-    RowSetSchema schema = SortTestUtilities.nullableSchema();
+    BatchSchema schema = SortTestUtilities.nullableSchema();
 
     CopierTester tester = new CopierTester(fixture);
     tester.sortOrder = Ordering.ORDER_DESC;
@@ -308,7 +307,7 @@ public class TestCopier extends DrillTest {
   }
 
   public static void runTypeTest(OperatorFixture fixture, MinorType type) throws Exception {
-    RowSetSchema schema = SortTestUtilities.makeSchema(type, false);
+    BatchSchema schema = SortTestUtilities.makeSchema(type, false);
 
     CopierTester tester = new CopierTester(fixture);
     tester.addInput(makeDataSet(schema, 0, 2, 5).toIndirect());
@@ -336,9 +335,50 @@ public class TestCopier extends DrillTest {
     runTypeTest(fixture, MinorType.DATE);
     runTypeTest(fixture, MinorType.TIME);
     runTypeTest(fixture, MinorType.TIMESTAMP);
+    runTypeTest(fixture, MinorType.INTERVAL);
+    runTypeTest(fixture, MinorType.INTERVALDAY);
     runTypeTest(fixture, MinorType.INTERVALYEAR);
 
     // Others not tested. See DRILL-5329
+  }
+
+  @Test
+  public void testMapType() throws Exception {
+    testMapType(fixture);
+  }
+
+  public void testMapType(OperatorFixture fixture) throws Exception {
+    BatchSchema schema = new SchemaBuilder()
+        .add("key", MinorType.INT)
+        .addMap("m1")
+          .add("b", MinorType.INT)
+          .addMap("m2")
+            .add("c", MinorType.INT)
+            .buildMap()
+          .buildMap()
+        .build();
+
+    CopierTester tester = new CopierTester(fixture);
+    tester.addInput(fixture.rowSetBuilder(schema)
+        .add(1, 10, 100)
+        .add(5, 50, 500)
+        .withSv2()
+        .build());
+
+    tester.addInput(fixture.rowSetBuilder(schema)
+        .add(2, 20, 200)
+        .add(6, 60, 600)
+        .withSv2()
+        .build());
+
+    tester.addOutput(fixture.rowSetBuilder(schema)
+        .add(1, 10, 100)
+        .add(2, 20, 200)
+        .add(5, 50, 500)
+        .add(6, 60, 600)
+        .build());
+
+    tester.run();
   }
 
   @Test
@@ -348,6 +388,8 @@ public class TestCopier extends DrillTest {
       .put(ExecConstants.EXTERNAL_SORT_GENERIC_COPIER, true);
     try (OperatorFixture fixture = builder.build()) {
       testAllTypes(fixture);
+      testMapType(fixture);
     }
   }
+
 }

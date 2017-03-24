@@ -29,49 +29,102 @@ import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.MapVector;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
-import org.apache.drill.test.rowSet.TupleSchema.ColumnSchema;
-import org.apache.drill.test.rowSet.TupleSchema.MapSchema;
-import org.apache.drill.test.rowSet.TupleSchema.RowSetSchema;
+import org.apache.drill.test.rowSet.RowSetSchema.LogicalColumn;
+import org.apache.drill.test.rowSet.RowSetSchema.PhysicalSchema;
 
 public abstract class AbstractSingleRowSet extends AbstractRowSet implements SingleRowSet {
 
-  public static class VectorBuilder {
-    RowSetSchema schema;
+  public abstract static class StructureBuilder {
+    protected final PhysicalSchema schema;
     protected final BufferAllocator allocator;
     protected final ValueVector[] valueVectors;
+    protected final MapVector[] mapVectors;
     protected int vectorIndex;
+    protected int mapIndex;
+
+    public StructureBuilder(BufferAllocator allocator, RowSetSchema schema) {
+      this.allocator = allocator;
+      this.schema = schema.physical();
+      valueVectors = new ValueVector[schema.access().count()];
+      if (schema.access().mapCount() == 0) {
+        mapVectors = null;
+      } else {
+        mapVectors = new MapVector[schema.access().mapCount()];
+      }
+    }
+  }
+
+  public static class VectorBuilder extends StructureBuilder {
 
     public VectorBuilder(BufferAllocator allocator, RowSetSchema schema) {
-      this.allocator = allocator;
-      this.schema = schema;
-      valueVectors = new ValueVector[schema.count()];
+      super(allocator, schema);
     }
 
     public ValueVector[] buildContainer(VectorContainer container) {
-      while (vectorIndex < schema.count()) {
-        ColumnSchema colSchema = schema.getColumn(vectorIndex);
+      for (int i = 0; i < schema.count(); i++) {
+        LogicalColumn colSchema = schema.column(i);
         @SuppressWarnings("resource")
         ValueVector v = TypeHelper.getNewVector(colSchema.field, allocator, null);
-        valueVectors[vectorIndex++] = v;
         container.add(v);
         if (colSchema.field.getType().getMinorType() == MinorType.MAP) {
-          buildMap((MapVector) v, colSchema.mapSchema);
+          MapVector mv = (MapVector) v;
+          mapVectors[mapIndex++] = mv;
+          buildMap(mv, colSchema.mapSchema);
+        } else {
+          valueVectors[vectorIndex++] = v;
         }
       }
       container.buildSchema(SelectionVectorMode.NONE);
       return valueVectors;
     }
 
-    private void buildMap(MapVector mapVector, MapSchema mapSchema) {
+    private void buildMap(MapVector mapVector, PhysicalSchema mapSchema) {
       for (int i = 0; i < mapSchema.count(); i++) {
-        ColumnSchema colSchema = mapSchema.getColumn(i);
+        LogicalColumn colSchema = mapSchema.column(i);
         MajorType type = colSchema.field.getType();
         Class<? extends ValueVector> vectorClass = TypeHelper.getValueVectorClass(type.getMinorType(), type.getMode());
         @SuppressWarnings("resource")
         ValueVector v = mapVector.addOrGet(colSchema.field.getName(), type, vectorClass);
-        valueVectors[vectorIndex++] = v;
         if (type.getMinorType() == MinorType.MAP) {
-          buildMap((MapVector) v, colSchema.mapSchema);
+          MapVector mv = (MapVector) v;
+          mapVectors[mapIndex++] = mv;
+          buildMap(mv, colSchema.mapSchema);
+        } else {
+          valueVectors[vectorIndex++] = v;
+        }
+      }
+    }
+  }
+
+  public static class VectorMapper extends StructureBuilder {
+
+    public VectorMapper(BufferAllocator allocator, RowSetSchema schema) {
+      super(allocator, schema);
+    }
+
+    public ValueVector[] mapContainer(VectorContainer container) {
+      for (VectorWrapper<?> w : container) {
+        @SuppressWarnings("resource")
+        ValueVector v = w.getValueVector();
+        if (v.getField().getType().getMinorType() == MinorType.MAP) {
+          MapVector mv = (MapVector) v;
+          mapVectors[mapIndex++] = mv;
+          buildMap(mv);
+        } else {
+          valueVectors[vectorIndex++] = v;
+        }
+      }
+      return valueVectors;
+    }
+
+    private void buildMap(MapVector mapVector) {
+      for (ValueVector v : mapVector) {
+        if (v.getField().getType().getMinorType() == MinorType.MAP) {
+          MapVector mv = (MapVector) v;
+          mapVectors[mapIndex++] = mv;
+          buildMap(mv);
+        } else {
+          valueVectors[vectorIndex++] = v;
         }
       }
     }
@@ -86,15 +139,11 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
 
   public AbstractSingleRowSet(BufferAllocator allocator, VectorContainer container) {
     super(allocator, container.getSchema(), container);
-    valueVectors = new ValueVector[container.getNumberOfColumns()];
-    int i = 0;
-    for (VectorWrapper<?> w : container) {
-      valueVectors[i++] = w.getValueVector();
-    }
+    valueVectors = new VectorMapper(allocator, super.schema).mapContainer(container);
   }
 
   public AbstractSingleRowSet(AbstractSingleRowSet rowSet) {
-    super(rowSet.allocator, rowSet.schema.getSchema(), rowSet.container);
+    super(rowSet.allocator, rowSet.schema.batch(), rowSet.container);
     valueVectors = rowSet.valueVectors;
   }
 

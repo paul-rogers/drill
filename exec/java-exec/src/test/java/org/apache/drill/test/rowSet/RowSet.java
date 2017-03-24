@@ -28,7 +28,7 @@ import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
-import org.apache.drill.test.rowSet.TupleSchema.RowSetSchema;
+import org.apache.drill.test.rowSet.RowSetSchema.AccessSchema;
 
 /**
  * A row set is a collection of rows stored as value vectors. Elsewhere in
@@ -109,6 +109,8 @@ public interface RowSet {
      * @return index of the batch for the current row
      */
     int batchIndex();
+
+    AccessSchema schema();
   }
 
   public interface RowSetWriter extends RowSetAccessor {

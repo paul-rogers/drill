@@ -28,7 +28,7 @@ import org.apache.drill.test.rowSet.HyperRowSetImpl.HyperRowIndex;
 import org.apache.drill.test.rowSet.RowSet.HyperRowSet;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
-import org.apache.drill.test.rowSet.TupleSchema.RowSetSchema;
+import org.apache.drill.test.rowSet.RowSetSchema.AccessSchema;
 
 /**
  * Implements a row set reader on top of a {@link RowSet}
@@ -54,12 +54,10 @@ public class RowSetReaderImpl extends AbstractRowSetAccessor implements RowSetRe
     }
   }
 
-  private RowSetSchema schema;
   private AbstractColumnReader readers[];
 
   public RowSetReaderImpl(SingleRowSet recordSet, AbstractRowIndex rowIndex) {
-    super(rowIndex);
-    schema = recordSet.schema();
+    super(rowIndex, recordSet.schema().access());
     ValueVector[] valueVectors = recordSet.vectors();
     readers = new AbstractColumnReader[valueVectors.length];
     for (int i = 0; i < readers.length; i++) {
@@ -69,11 +67,10 @@ public class RowSetReaderImpl extends AbstractRowSetAccessor implements RowSetRe
   }
 
   public RowSetReaderImpl(HyperRowSet recordSet, HyperRowIndex rowIndex) {
-    super(rowIndex);
-    schema = recordSet.schema();
+    super(rowIndex, recordSet.schema().access());
     readers = new AbstractColumnReader[schema.count()];
     for (int i = 0; i < readers.length; i++) {
-      MaterializedField field = schema.get(i);
+      MaterializedField field = schema.column(i);
       readers[i] = ColumnAccessorFactory.newReader(field.getType());
       HyperVectorWrapper<ValueVector> hvw = recordSet.getHyperVector(i);
       readers[i].bind(rowIndex, field, new HyperVectorAccessor(hvw, rowIndex));
@@ -87,7 +84,7 @@ public class RowSetReaderImpl extends AbstractRowSetAccessor implements RowSetRe
 
   @Override
   public ColumnReader column(String colName) {
-    int index = schema.getIndex(colName);
+    int index = schema.columnIndex(colName);
     if (index == -1)
       return null;
     return readers[index];
@@ -99,7 +96,7 @@ public class RowSetReaderImpl extends AbstractRowSetAccessor implements RowSetRe
     if (colReader.isNull()) {
       return null;
     }
-    switch (colReader.getType()) {
+    switch (colReader.valueType()) {
     case BYTES:
       return colReader.getBytes();
     case DOUBLE:
@@ -111,7 +108,7 @@ public class RowSetReaderImpl extends AbstractRowSetAccessor implements RowSetRe
     case STRING:
       return colReader.getString();
     default:
-      throw new IllegalArgumentException("Unsupported type " + colReader.getType());
+      throw new IllegalArgumentException("Unsupported type " + colReader.valueType());
     }
   }
 
@@ -121,7 +118,7 @@ public class RowSetReaderImpl extends AbstractRowSetAccessor implements RowSetRe
     if (colReader.isNull()) {
       return "null";
     }
-    switch (colReader.getType()) {
+    switch (colReader.valueType()) {
     case BYTES:
       StringBuilder buf = new StringBuilder()
           .append("[");
@@ -149,7 +146,7 @@ public class RowSetReaderImpl extends AbstractRowSetAccessor implements RowSetRe
     case DECIMAL:
       return colReader.getDecimal().toPlainString();
     default:
-      throw new IllegalArgumentException("Unsupported type " + colReader.getType());
+      throw new IllegalArgumentException("Unsupported type " + colReader.valueType());
     }
   }
 

@@ -17,15 +17,24 @@
  */
 package org.apache.drill.test.rowSet;
 
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.HyperVectorWrapper;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.AccessorUtilities;
+import org.apache.drill.exec.vector.complex.AbstractMapVector;
+import org.apache.drill.exec.vector.complex.MapVector;
 import org.apache.drill.test.rowSet.AbstractRowSetAccessor.BoundedRowIndex;
+import org.apache.drill.test.rowSet.AbstractSingleRowSet.StructureBuilder;
 import org.apache.drill.test.rowSet.RowSet.HyperRowSet;
+import org.apache.drill.test.rowSet.RowSetSchema.LogicalColumn;
+import org.apache.drill.test.rowSet.RowSetSchema.PhysicalSchema;
 
 public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
 
@@ -46,6 +55,50 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
     @Override
     public int batch( ) {
       return AccessorUtilities.sv4Batch(sv4.get(rowIndex));
+    }
+  }
+
+  public static class HyperVectorBuilder {
+
+    protected final HyperVectorWrapper<?>[] valueVectors;
+    protected final HyperVectorWrapper<AbstractMapVector>[] mapVectors;
+    protected int vectorIndex;
+    protected int mapIndex;
+
+    @SuppressWarnings("unchecked")
+    public HyperVectorBuilder(RowSetSchema schema) {
+      valueVectors = new HyperVectorWrapper<?>[schema.access().count()];
+      if (schema.access().mapCount() == 0) {
+        mapVectors = null;
+      } else {
+        mapVectors = (HyperVectorWrapper<AbstractMapVector>[])
+            new HyperVectorWrapper<?>[schema.access().mapCount()];
+      }
+    }
+
+    public HyperVectorWrapper<?> mapContainer(VectorContainer container) {
+      for (VectorWrapper<?> w : container) {
+         if (w.getField().getType().getMinorType() == MinorType.MAP) {
+           HyperVectorWrapper<AbstractMapVector> mw = (HyperVectorWrapper<AbstractMapVector>) w;
+          mapVectors[mapIndex++] = mw;
+          buildMap(mw);
+        } else {
+          valueVectors[vectorIndex++] = w;
+        }
+      }
+      return valueVectors;
+    }
+
+    private void buildMap(HyperVectorWrapper<AbstractMapVector> mapWrapper) {
+      for (VectorWrapper<?> w : mapWrapper.) {
+        if (v.getField().getType().getMinorType() == MinorType.MAP) {
+          MapVector mv = (MapVector) v;
+          mapVectors[mapIndex++] = mv;
+          buildMap(mv);
+        } else {
+          valueVectors[vectorIndex++] = v;
+        }
+      }
     }
   }
 

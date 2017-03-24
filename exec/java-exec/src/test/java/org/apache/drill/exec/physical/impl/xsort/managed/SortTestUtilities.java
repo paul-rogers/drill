@@ -31,12 +31,14 @@ import org.apache.drill.exec.ops.OperExecContext;
 import org.apache.drill.exec.physical.config.Sort;
 import org.apache.drill.exec.physical.impl.xsort.managed.PriorityQueueCopierWrapper.BatchMerger;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.rowSet.DirectRowSet;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetSchema;
+import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 
 import com.google.common.collect.Lists;
@@ -45,18 +47,18 @@ public class SortTestUtilities {
 
   private SortTestUtilities() { }
 
-  public static RowSetSchema makeSchema(MinorType type, boolean nullable) {
-    return RowSetSchema.builder()
+  public static BatchSchema makeSchema(MinorType type, boolean nullable) {
+    return new SchemaBuilder()
         .add("key", type, nullable ? DataMode.OPTIONAL : DataMode.REQUIRED)
         .add("value", MinorType.VARCHAR)
         .build();
   }
 
-  public static RowSetSchema nonNullSchema() {
+  public static BatchSchema nonNullSchema() {
     return makeSchema(MinorType.INT, false);
   }
 
-  public static RowSetSchema nullableSchema() {
+  public static BatchSchema nullableSchema() {
     return makeSchema(MinorType.INT, true);
   }
 

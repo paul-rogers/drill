@@ -22,7 +22,6 @@ import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.SchemaChangeCallBack;
-import org.apache.drill.test.rowSet.TupleSchema.RowSetSchema;
 
 /**
  * Basic implementation of a row set for both the single and multiple

@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.spill;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BaseAllocator;
 import org.apache.drill.exec.record.BatchSchema;
@@ -30,6 +31,8 @@ import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.complex.AbstractMapVector;
+import org.apache.drill.exec.vector.complex.MapVector;
 
 /**
  * Given a record batch or vector container, determines the actual memory
@@ -69,13 +72,12 @@ public class RecordBatchSizer {
     public int dataSize;
 
     @SuppressWarnings("resource")
-    public ColumnSize(VectorWrapper<?> vw) {
-      metadata = vw.getField();
+    public ColumnSize(ValueVector v) {
+      metadata = v.getField();
       stdSize = TypeHelper.getSize(metadata.getType());
 
       // Can't get size estimates if this is an empty batch.
 
-      ValueVector v = vw.getValueVector();
       int rowCount = v.getAccessor().getValueCount();
       if (rowCount == 0) {
         estSize = stdSize;
@@ -210,13 +212,31 @@ public class RecordBatchSizer {
   }
 
   private void measureColumn(VectorWrapper<?> vw) {
-    ColumnSize colSize = new ColumnSize(vw);
+    measureColumn(vw.getValueVector());
+  }
+
+  private void measureColumn(ValueVector v) {
+
+    // Maps consume no size themselves. However, their contained
+    // vectors do consume space, so visit columns recursively.
+
+    if (v.getField().getType().getMinorType() == MinorType.MAP) {
+      expandMap((AbstractMapVector) v);
+      return;
+    }
+    ColumnSize colSize = new ColumnSize(v);
     columnSizes.add(colSize);
 
     stdRowWidth += colSize.stdSize;
     totalBatchSize += colSize.totalSize;
     netBatchSize += colSize.dataSize;
     netRowWidth += colSize.estSize;
+  }
+
+  private void expandMap(AbstractMapVector mapVector) {
+    for (ValueVector vector : mapVector) {
+      measureColumn(vector);
+    }
   }
 
   public static int roundUp(int num, int denom) {

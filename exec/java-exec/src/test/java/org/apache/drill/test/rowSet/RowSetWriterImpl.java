@@ -25,7 +25,7 @@ import org.apache.drill.exec.vector.accessor.AbstractColumnWriter;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
-import org.apache.drill.test.rowSet.TupleSchema.RowSetSchema;
+import org.apache.drill.test.rowSet.RowSetSchema.AccessSchema;
 import org.joda.time.Period;
 
 /**
@@ -35,21 +35,14 @@ import org.joda.time.Period;
 
 public class RowSetWriterImpl extends AbstractRowSetAccessor implements RowSetWriter {
 
-  private RowSetSchema schema;
   private AbstractColumnWriter writers[];
 
   public RowSetWriterImpl(AbstractSingleRowSet recordSet, AbstractRowIndex rowIndex) {
-    super(rowIndex);
-    schema = recordSet.schema();
+    super(rowIndex, recordSet.schema().access());
     ValueVector[] valueVectors = recordSet.vectors();
     writers = new AbstractColumnWriter[valueVectors.length];
     int posn = 0;
     for (int i = 0; i < writers.length; i++) {
-      if ( valueVectors[i].getField().getType().getMinorType() == MinorType.MAP) {
-
-        // Skip maps when populating columns.
-        continue;
-      }
       writers[posn] = ColumnAccessorFactory.newWriter(valueVectors[i].getField().getType());
       writers[posn].bind(rowIndex, valueVectors[i]);
       posn++;
@@ -63,7 +56,7 @@ public class RowSetWriterImpl extends AbstractRowSetAccessor implements RowSetWr
 
   @Override
   public ColumnWriter column(String colName) {
-    int index = schema.getIndex(colName);
+    int index = schema.columnIndex(colName);
     if (index == -1)
       return null;
     return writers[index];

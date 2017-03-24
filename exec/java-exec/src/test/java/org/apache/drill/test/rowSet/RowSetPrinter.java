@@ -21,7 +21,7 @@ import java.io.PrintStream;
 
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;
-import org.apache.drill.test.rowSet.TupleSchema.RowSetSchema;
+import org.apache.drill.test.rowSet.RowSetSchema.AccessSchema;
 
 public class RowSetPrinter {
   private RowSet rowSet;
@@ -64,12 +64,12 @@ public class RowSetPrinter {
       break;
     }
     out.print(": ");
-    RowSetSchema schema = rowSet.schema();
+    AccessSchema schema = rowSet.schema().access();
     for (int i = 0; i < schema.count(); i++) {
       if (i > 0) {
         out.print(", ");
       }
-      out.print(schema.get(i).getLastName());
+      out.print(schema.column(i).getLastName());
     }
     out.println();
   }
