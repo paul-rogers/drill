@@ -19,13 +19,11 @@ package org.apache.drill.test.rowSet;
 
 import java.math.BigDecimal;
 
-import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.AbstractColumnWriter;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
-import org.apache.drill.test.rowSet.RowSetSchema.AccessSchema;
 import org.joda.time.Period;
 
 /**

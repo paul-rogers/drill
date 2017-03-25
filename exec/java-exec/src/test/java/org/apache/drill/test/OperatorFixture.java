@@ -31,7 +31,6 @@ import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.expr.ClassGenerator;
 import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
-import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.memory.RootAllocatorFactory;
 import org.apache.drill.exec.ops.FragmentExecContext;
 import org.apache.drill.exec.ops.MetricDef;
@@ -40,17 +39,21 @@ import org.apache.drill.exec.ops.OperExecContextImpl;
 import org.apache.drill.exec.ops.OperatorStatReceiver;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.server.options.BaseOptionManager;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.server.options.OptionValue.OptionType;
 import org.apache.drill.exec.testing.ExecutionControls;
 import org.apache.drill.test.rowSet.DirectRowSet;
+import org.apache.drill.test.rowSet.HyperRowSetImpl;
+import org.apache.drill.test.rowSet.IndirectRowSet;
+import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
+import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
-import org.apache.drill.test.rowSet.RowSetSchema;
 
-public class OperatorFixture implements AutoCloseable {
+public class OperatorFixture extends BaseFixture implements AutoCloseable {
 
   public static class OperatorFixtureBuilder
   {
@@ -218,8 +221,6 @@ public class OperatorFixture implements AutoCloseable {
     }
   }
 
-  private final DrillConfig config;
-  private final BufferAllocator allocator;
   private final TestOptionSet options;
   private final TestCodeGenContext context;
   private final OperatorStatReceiver stats;
@@ -231,8 +232,6 @@ public class OperatorFixture implements AutoCloseable {
     context = new TestCodeGenContext(config, options);
     stats = new MockStats();
    }
-
-  public BufferAllocator allocator() { return allocator; }
 
   public TestOptionSet options() { return options; }
 
@@ -267,6 +266,19 @@ public class OperatorFixture implements AutoCloseable {
 
   public ExtendableRowSet rowSet(BatchSchema schema) {
     return new DirectRowSet(allocator, schema);
+  }
+
+  public RowSet wrap(VectorContainer container) {
+    switch (container.getSchema().getSelectionVectorMode()) {
+    case FOUR_BYTE:
+      return new HyperRowSetImpl(allocator(), container, container.getSelectionVector4());
+    case NONE:
+      return new DirectRowSet(allocator(), container);
+    case TWO_BYTE:
+      return new IndirectRowSet(allocator(), container);
+    default:
+      throw new IllegalStateException( "Unexpected selection mode" );
+    }
   }
 
 }

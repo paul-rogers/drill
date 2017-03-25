@@ -35,7 +35,6 @@ import org.apache.drill.BaseTestQuery;
 import org.apache.drill.DrillTestWrapper.TestServices;
 import org.apache.drill.QueryTestUtil;
 import org.apache.drill.TestBuilder;
-import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ZookeeperHelper;
@@ -59,7 +58,6 @@ import org.apache.drill.exec.util.TestUtilities;
 
 import com.google.common.base.Charsets;
 import com.google.common.base.Preconditions;
-import com.google.common.io.Files;
 import com.google.common.io.Resources;
 
 /**
@@ -69,7 +67,7 @@ import com.google.common.io.Resources;
  * creates the requested Drillbit and client.
  */
 
-public class ClusterFixture implements AutoCloseable {
+public class ClusterFixture extends BaseFixture implements AutoCloseable {
   // private static final org.slf4j.Logger logger =
   // org.slf4j.LoggerFactory.getLogger(ClientFixture.class);
   public static final String ENABLE_FULL_CACHE = "drill.exec.test.use-full-cache";
@@ -125,10 +123,8 @@ public class ClusterFixture implements AutoCloseable {
 
   public static final String DEFAULT_BIT_NAME = "drillbit";
 
-  private DrillConfig config;
   private Map<String, Drillbit> bits = new HashMap<>();
   private Drillbit defaultDrillbit;
-  private BufferAllocator allocator;
   private boolean ownsZK;
   private ZookeeperHelper zkHelper;
   private RemoteServiceSet serviceSet;
@@ -327,8 +323,6 @@ public class ClusterFixture implements AutoCloseable {
   public Drillbit drillbit(String name) { return bits.get(name); }
   public Collection<Drillbit> drillbits() { return bits.values(); }
   public RemoteServiceSet serviceSet() { return serviceSet; }
-  public BufferAllocator allocator() { return allocator; }
-  public DrillConfig config() { return config; }
   public File getDfsTestTmpDir() { return dfsTestTempDir; }
 
   public ClientFixture.ClientBuilder clientBuilder() {
@@ -677,27 +671,6 @@ public class ClusterFixture implements AutoCloseable {
     } else {
       return path;
     }
-  }
-
-  /**
-   * Create a temp directory to store the given <i>dirName</i>. Directory will
-   * be deleted on exit. Directory is created if it does not exist.
-   *
-   * @param dirName directory name
-   * @return Full path including temp parent directory and given directory name.
-   */
-
-  public static File getTempDir(final String dirName) {
-    final File dir = Files.createTempDir();
-    Runtime.getRuntime().addShutdownHook(new Thread() {
-      @Override
-      public void run() {
-        FileUtils.deleteQuietly(dir);
-      }
-    });
-    File tempDir = new File(dir, dirName);
-    tempDir.mkdirs();
-    return tempDir;
   }
 
   /**

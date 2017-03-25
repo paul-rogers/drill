@@ -107,7 +107,6 @@ public class TestWriteToDisk extends ExecTest {
           final Path path = new Path(tempDir.getAbsolutePath(), "drillSerializable");
           try (final FSDataOutputStream out = fs.create(path)) {
             wrap.writeToStream(out);
-            out.close();
           }
 
           try (final FSDataInputStream in = fs.open(path)) {

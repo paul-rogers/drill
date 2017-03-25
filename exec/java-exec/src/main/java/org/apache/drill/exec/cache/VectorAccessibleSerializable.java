@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -56,6 +56,7 @@ public class VectorAccessibleSerializable extends AbstractStreamSerializable {
   private int recordCount = -1;
   private BatchSchema.SelectionVectorMode svMode = BatchSchema.SelectionVectorMode.NONE;
   private SelectionVector2 sv2;
+  private long timeNs;
 
   private boolean retain = false;
 
@@ -175,7 +176,7 @@ public class VectorAccessibleSerializable extends AbstractStreamSerializable {
 
       output.flush();
 
-      timerContext.stop();
+      timeNs += timerContext.stop();
     } catch (IOException e) {
       throw new RuntimeException(e);
     } finally {
@@ -192,11 +193,9 @@ public class VectorAccessibleSerializable extends AbstractStreamSerializable {
     }
   }
 
-  public VectorContainer get() {
-    return va;
-  }
+  public VectorContainer get() { return va; }
 
-  public SelectionVector2 getSv2() {
-    return sv2;
-  }
+  public SelectionVector2 getSv2() { return sv2; }
+
+  public long getTimeNs() { return timeNs; }
 }

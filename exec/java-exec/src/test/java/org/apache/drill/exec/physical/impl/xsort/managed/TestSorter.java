@@ -30,7 +30,6 @@ import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.OperExecContext;
 import org.apache.drill.exec.physical.config.Sort;
-import org.apache.drill.exec.physical.impl.xsort.managed.SortTestUtilities.CopierTester;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.OperatorFixture;
@@ -480,7 +479,7 @@ public class TestSorter extends DrillTest {
     TestSorterNumeric tester1 = new TestSorterNumeric(fixture, true);
 //      tester1.test(MinorType.TINYINT); // DRILL-5329
 //      tester1.test(MinorType.UINT1); DRILL-5329
-//      tester1.test(MinorType. ); DRILL-5329
+//      tester1.test(MinorType.SMALLINT); DRILL-5329
 //      tester1.test(MinorType.UINT2); DRILL-5329
     tester1.test(MinorType.INT);
 //      tester1.test(MinorType.UINT4); DRILL-5329
