@@ -30,8 +30,8 @@ import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.OperExecContext;
 import org.apache.drill.exec.physical.config.Sort;
+import org.apache.drill.exec.physical.impl.xsort.managed.SortTestUtilities.CopierTester;
 import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.vector.accessor.AccessorUtilities;
 import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.rowSet.RowSet;
@@ -46,6 +46,7 @@ import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.joda.time.Period;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import com.google.common.collect.Lists;
@@ -68,10 +69,17 @@ public class TestSorter extends DrillTest {
     fixture.close();
   }
 
+  public static Sort makeSortConfig(String key, String sortOrder, String nullOrder) {
+    FieldReference expr = FieldReference.getWithQuotedRef(key);
+    Ordering ordering = new Ordering(sortOrder, expr, nullOrder);
+    return new Sort(null, Lists.newArrayList(ordering), false);
+  }
+
   public void runSorterTest(SingleRowSet rowSet, SingleRowSet expected) throws Exception {
-    FieldReference expr = FieldReference.getWithQuotedRef("key");
-    Ordering ordering = new Ordering(Ordering.ORDER_ASC, expr, Ordering.NULLS_LAST);
-    Sort popConfig = new Sort(null, Lists.newArrayList(ordering), false);
+    runSorterTest(makeSortConfig("key", Ordering.ORDER_ASC, Ordering.NULLS_LAST), rowSet, expected);
+  }
+
+  public void runSorterTest(Sort popConfig, SingleRowSet rowSet, SingleRowSet expected) throws Exception {
     OperExecContext opContext = fixture.newOperExecContext(popConfig);
     SorterWrapper sorter = new SorterWrapper(opContext);
 
@@ -133,19 +141,15 @@ public class TestSorter extends DrillTest {
     protected final OperatorFixture fixture;
     protected final SorterWrapper sorter;
     protected final boolean nullable;
-    protected final Ordering ordering;
 
     public BaseSortTester(OperatorFixture fixture, String sortOrder, String nullOrder, boolean nullable) {
       this.fixture = fixture;
-      FieldReference expr = FieldReference.getWithQuotedRef("key");
-      ordering = new Ordering(sortOrder, expr, nullOrder);
-      Sort popConfig = new Sort(null, Lists.newArrayList(ordering), false);
+      Sort popConfig = makeSortConfig("key", sortOrder, nullOrder);
       this.nullable = nullable;
 
       OperExecContext opContext = fixture.newOperExecContext(popConfig);
       sorter = new SorterWrapper(opContext);
     }
-
   }
 
   private abstract static class SortTester extends BaseSortTester {
@@ -572,5 +576,31 @@ public class TestSorter extends DrillTest {
     tester.test(MinorType.INT);
     tester = new TestSorterNullableNumeric(fixture, false, false);
     tester.test(MinorType.INT);
+  }
+
+  @Test
+  @Ignore("DRILL-5384")
+  public void testMapKey() throws Exception {
+    BatchSchema schema = new SchemaBuilder()
+        .addMap("map")
+          .add("key", MinorType.INT)
+          .add("value", MinorType.VARCHAR)
+          .buildMap()
+        .build();
+
+    SingleRowSet input = fixture.rowSetBuilder(schema)
+        .add(3, "third")
+        .add(1, "first")
+        .add(2, "second")
+        .withSv2()
+        .build();
+
+    SingleRowSet output = fixture.rowSetBuilder(schema)
+        .add(1, "first")
+        .add(2, "second")
+        .add(3, "third")
+        .build();
+    Sort popConfig = makeSortConfig("map.key", Ordering.ORDER_ASC, Ordering.NULLS_LAST);
+    runSorterTest(popConfig, input, output);
   }
 }

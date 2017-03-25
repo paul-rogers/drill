@@ -27,12 +27,10 @@ import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.VectorAccessible;
-import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
-import org.apache.drill.exec.vector.complex.MapVector;
 
 /**
  * Given a record batch or vector container, determines the actual memory
@@ -71,7 +69,6 @@ public class RecordBatchSizer {
     public int density;
     public int dataSize;
 
-    @SuppressWarnings("resource")
     public ColumnSize(ValueVector v) {
       metadata = v.getField();
       stdSize = TypeHelper.getSize(metadata.getType());
