@@ -66,18 +66,60 @@ public class TestBatchSerialization extends DrillTest {
     return rowSet;
   }
 
+  public SingleRowSet makeNullableRowSet(BatchSchema schema, int rowCount) {
+    ExtendableRowSet rowSet = fixture.rowSet(schema);
+    RowSetWriter writer = rowSet.writer(rowCount);
+    for (int i = 0; i < rowCount; i++) {
+      writer.next();
+      if (i % 2 == 0) {
+        RowSetUtilities.setFromInt(writer, 0, i);
+      } else {
+        writer.column(0).setNull();
+      }
+    }
+    writer.done();
+    return rowSet;
+  }
+
   public void testType(MinorType type) throws IOException {
+    testNonNullType(type);
+    testNullableType(type);
+  }
+
+  public void testNonNullType(MinorType type) throws IOException {
     BatchSchema schema = new SchemaBuilder( )
         .add("col", type)
         .build();
     int rowCount = 20;
-    SingleRowSet rowSet = makeRowSet(schema, rowCount);
+    verifySerialize(makeRowSet(schema, rowCount),
+                    makeRowSet(schema, rowCount));
+  }
 
+  public void testNullableType(MinorType type) throws IOException {
+    BatchSchema schema = new SchemaBuilder( )
+        .addNullable("col", type)
+        .build();
+    int rowCount = 20;
+    verifySerialize(makeNullableRowSet(schema, rowCount),
+                    makeNullableRowSet(schema, rowCount));
+  }
+
+  /**
+   * Verify serialize and deserialize. Need to pass both the
+   * input and expected (even though the expected should be the same
+   * data as the input) because the act of serializing clears the
+   * input for obscure historical reasons.
+   *
+   * @param rowSet
+   * @param expected
+   * @throws IOException
+   */
+  private void verifySerialize(SingleRowSet rowSet, SingleRowSet expected) throws IOException {
     File dir = OperatorFixture.getTempDir("serial");
-    File outFile = new File(dir, type.toString() + ".dat");
+    File outFile = new File(dir, "serialze.dat");
     try (OutputStream out = new BufferedOutputStream(new FileOutputStream(outFile))) {
       VectorSerializer.writer(fixture.allocator(), out)
-        .write(rowSet.getContainer());
+        .write(rowSet.getContainer(), rowSet.getSv2());
     }
 
     RowSet result;
@@ -87,7 +129,7 @@ public class TestBatchSerialization extends DrillTest {
           .read());
     }
 
-    new RowSetComparison(makeRowSet(schema, rowCount))
+    new RowSetComparison(expected)
       .verifyAndClear(result);
     outFile.delete();
   }
@@ -116,5 +158,33 @@ public class TestBatchSerialization extends DrillTest {
     testType(MinorType.INTERVAL);
     testType(MinorType.INTERVALYEAR);
     testType(MinorType.INTERVALDAY);
+  }
+
+  private SingleRowSet buildMapSet(BatchSchema schema) {
+    return fixture.rowSetBuilder(schema)
+        .add(1, 100, "first")
+        .add(2, 200, "second")
+        .add(3, 300, "third")
+        .build();
+  }
+
+  /**
+   * Tests a map type and an SV2.
+   *
+   * @throws IOException
+   */
+
+  @Test
+  public void testMap() throws IOException {
+    BatchSchema schema = new SchemaBuilder()
+        .add("top", MinorType.INT)
+        .addMap("map")
+          .add("key", MinorType.INT)
+          .add("value", MinorType.VARCHAR)
+          .buildMap()
+        .build();
+
+    verifySerialize(buildMapSet(schema).toIndirect(),
+                    buildMapSet(schema));
   }
 }
