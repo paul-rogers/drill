@@ -21,7 +21,7 @@
 <#include "/@includes/license.ftl" />
 <#macro getType label>
     @Override
-    public ValueType getType() {
+    public ValueType valueType() {
   <#if label == "Int">
       return ValueType.INTEGER;
   <#else>

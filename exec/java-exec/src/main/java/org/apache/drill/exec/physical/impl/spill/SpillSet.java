@@ -281,7 +281,7 @@ public class SpillSet {
     private File baseDir;
 
     public LocalFileManager(String fsName) {
-      baseDir = new File(fsName.replace("file://", ""));
+      baseDir = new File(fsName.replace(FileSystem.DEFAULT_FS, ""));
     }
 
     @Override
@@ -391,7 +391,7 @@ public class SpillSet {
 
     String spillFs = config.getString(ExecConstants.EXTERNAL_SORT_SPILL_FILESYSTEM);
     boolean impersonationEnabled = config.getBoolean(ExecConstants.IMPERSONATION_ENABLED);
-    if (spillFs.startsWith("file:///") && ! impersonationEnabled) {
+    if (spillFs.startsWith(FileSystem.DEFAULT_FS) && ! impersonationEnabled) {
       fileManager = new LocalFileManager(spillFs);
     } else {
       fileManager = new HadoopFileManager(spillFs);

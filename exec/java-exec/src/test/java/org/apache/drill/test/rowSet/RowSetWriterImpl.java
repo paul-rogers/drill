@@ -33,7 +33,7 @@ import org.joda.time.Period;
 
 public class RowSetWriterImpl extends AbstractRowSetAccessor implements RowSetWriter {
 
-  private AbstractColumnWriter writers[];
+  private final AbstractColumnWriter writers[];
 
   public RowSetWriterImpl(AbstractSingleRowSet recordSet, AbstractRowIndex rowIndex) {
     super(rowIndex, recordSet.schema().access());
@@ -55,15 +55,13 @@ public class RowSetWriterImpl extends AbstractRowSetAccessor implements RowSetWr
   @Override
   public ColumnWriter column(String colName) {
     int index = schema.columnIndex(colName);
-    if (index == -1)
-      return null;
+    if (index == -1) {
+      return null; }
     return writers[index];
   }
 
   @Override
-  public void done() {
-    index.setRowCount();
-  }
+  public void done() { index.setRowCount(); }
 
   @Override
   public void set(int colIndex, Object value) {
@@ -108,7 +106,5 @@ public class RowSetWriterImpl extends AbstractRowSetAccessor implements RowSetWr
   }
 
   @Override
-  public int width() {
-    return writers.length;
-  }
+  public int width() { return writers.length; }
 }

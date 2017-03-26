@@ -28,7 +28,6 @@ import org.apache.drill.test.rowSet.HyperRowSetImpl.HyperRowIndex;
 import org.apache.drill.test.rowSet.RowSet.HyperRowSet;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
-import org.apache.drill.test.rowSet.RowSetSchema.AccessSchema;
 
 /**
  * Implements a row set reader on top of a {@link RowSet}
@@ -54,7 +53,7 @@ public class RowSetReaderImpl extends AbstractRowSetAccessor implements RowSetRe
     }
   }
 
-  private AbstractColumnReader readers[];
+  private final AbstractColumnReader readers[];
 
   public RowSetReaderImpl(SingleRowSet recordSet, AbstractRowIndex rowIndex) {
     super(rowIndex, recordSet.schema().access());
@@ -85,8 +84,8 @@ public class RowSetReaderImpl extends AbstractRowSetAccessor implements RowSetRe
   @Override
   public ColumnReader column(String colName) {
     int index = schema.columnIndex(colName);
-    if (index == -1)
-      return null;
+    if (index == -1) {
+      return null; }
     return readers[index];
   }
 
@@ -94,8 +93,7 @@ public class RowSetReaderImpl extends AbstractRowSetAccessor implements RowSetRe
   public Object get(int colIndex) {
     ColumnReader colReader = column(colIndex);
     if (colReader.isNull()) {
-      return null;
-    }
+      return null; }
     switch (colReader.valueType()) {
     case BYTES:
       return colReader.getBytes();
