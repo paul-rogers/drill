@@ -69,6 +69,7 @@ public class ThrottledResourceManager extends AbstractResourceManager {
       this.rm = rm;
       this.queryContext = queryContext;
     }
+
     @Override
     public void visitAbstractPlan(PhysicalPlan plan) {
       this.plan = plan;
@@ -86,15 +87,33 @@ public class ThrottledResourceManager extends AbstractResourceManager {
         return;
       }
 
-      // Group fragments by node. Then, share memory evenly across the
+      // Group fragments by node.
+
+      Multimap<String,List<ExternalSort>> nodeMap = buildSortMap();
+
+      // Memory must be symmetric to avoid bottlenecks in which one node has
+      // sorts (say) with less memory than another, causing skew in data arrival
+      // rates for downstream opeators.
+
+      int width = countBufferingOperators(nodeMap);
+
+      // Then, share memory evenly across the
       // all sort operators on that node. This handles asymmetric distribution
       // such as occurs if a sort appears in the root fragment (the one with screen),
       // which is never parallelized.
 
-      Multimap<String,List<ExternalSort>> nodeMap = buildSortMap();
       for ( String key : nodeMap.keys() ) {
-        planNodeMemory(key, nodeMap.get(key));
+        planNodeMemory(key, nodeMap.get(key), width);
       }
+    }
+
+    private int countBufferingOperators(
+        Multimap<String, List<ExternalSort>> nodeMap) {
+      int width = 0;
+      for (List<ExternalSort> fragSorts : nodeMap.values()) {
+        width = Math.max(width, fragSorts.size());
+      }
+      return width;
     }
 
     /**
@@ -103,9 +122,10 @@ public class ThrottledResourceManager extends AbstractResourceManager {
      *
      * @param nodeAddr
      * @param sorts
+     * @param width
      */
 
-    private void planNodeMemory(String nodeAddr, Collection<List<ExternalSort>> sorts) {
+    private void planNodeMemory(String nodeAddr, Collection<List<ExternalSort>> sorts, int width) {
       int count = 0;
       for (List<ExternalSort> fragSorts : sorts) {
         count += fragSorts.size();
@@ -121,11 +141,11 @@ public class ThrottledResourceManager extends AbstractResourceManager {
       // sort on top of another: the case in which the two sorts share memory.
 
       long nodeMemory = queryMemoryPerNode();
-      long sortMemory = nodeMemory / count;
+      long sortMemory = nodeMemory / width;
       logger.debug("Query: {}, Node: {}, allocating {} bytes per {} sort(s).",
                    QueryIdHelper.getQueryId(queryContext.getQueryId()),
                    nodeAddr,
-                   sortMemory, count);
+                   sortMemory, width);
 
       for (List<ExternalSort> fragSorts : sorts) {
         for (ExternalSort sort : fragSorts) {
