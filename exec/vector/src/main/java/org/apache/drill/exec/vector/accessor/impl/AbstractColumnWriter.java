@@ -15,10 +15,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor;
+package org.apache.drill.exec.vector.accessor.impl;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.accessor.ColumnWriter;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.joda.time.Period;
 
 /**
@@ -67,6 +70,16 @@ public abstract class AbstractColumnWriter extends AbstractColumnAccessor implem
 
   @Override
   public void setPeriod(Period value) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public TupleWriter map() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ArrayWriter array() {
     throw new UnsupportedOperationException();
   }
 }

@@ -17,11 +17,11 @@
  */
 package org.apache.drill.test.rowSet;
 
-import org.apache.drill.exec.vector.accessor.AbstractColumnAccessor.RowIndex;
+import org.apache.drill.exec.vector.accessor.impl.AbstractTupleAccessor;
+import org.apache.drill.exec.vector.accessor.impl.AbstractColumnAccessor.RowIndex;
 import org.apache.drill.test.rowSet.RowSet.RowSetAccessor;
-import org.apache.drill.test.rowSet.RowSetSchema.AccessSchema;
 
-public abstract class AbstractRowSetAccessor implements RowSetAccessor {
+public abstract class AbstractRowSetAccessor extends AbstractTupleAccessor implements RowSetAccessor {
 
   public static abstract class AbstractRowIndex implements RowIndex {
     protected int rowIndex = -1;
@@ -58,12 +58,11 @@ public abstract class AbstractRowSetAccessor implements RowSetAccessor {
     public boolean valid() { return rowIndex < rowCount; }
   }
 
-  protected final AccessSchema schema;
   protected final AbstractRowIndex index;
 
   protected AbstractRowSetAccessor(AbstractRowIndex index, AccessSchema schema) {
+    super(schema);
     this.index = index;
-    this.schema = schema;
   }
 
   @Override
@@ -83,7 +82,4 @@ public abstract class AbstractRowSetAccessor implements RowSetAccessor {
 
   @Override
   public int batchIndex() { return index.batch(); }
-
-  @Override
-  public AccessSchema schema() { return schema; }
 }

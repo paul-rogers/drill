@@ -20,9 +20,11 @@ package org.apache.drill.test.rowSet;
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.AbstractColumnWriter;
-import org.apache.drill.exec.vector.accessor.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
+import org.apache.drill.exec.vector.accessor.api.Exp.ColumnWriterIterator;
+import org.apache.drill.exec.vector.accessor.api.Exp.TupleWriterIterator;
+import org.apache.drill.exec.vector.accessor.impl.AbstractColumnWriter;
+import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.joda.time.Period;
 
@@ -107,4 +109,28 @@ public class RowSetWriterImpl extends AbstractRowSetAccessor implements RowSetWr
 
   @Override
   public int width() { return writers.length; }
+
+  @Override
+  public ColumnWriterIterator array(int colIndex) {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public ColumnWriterIterator array(String colName) {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public TupleWriterIterator mapList(int mapIndex) {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public TupleWriterIterator mapList(String mapName) {
+    // TODO Auto-generated method stub
+    return null;
+  }
 }

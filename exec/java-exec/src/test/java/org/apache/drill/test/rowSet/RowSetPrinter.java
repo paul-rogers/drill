@@ -20,8 +20,8 @@ package org.apache.drill.test.rowSet;
 import java.io.PrintStream;
 
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.vector.accessor.TupleAccessor.AccessSchema;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;
-import org.apache.drill.test.rowSet.RowSetSchema.AccessSchema;
 
 public class RowSetPrinter {
   private RowSet rowSet;

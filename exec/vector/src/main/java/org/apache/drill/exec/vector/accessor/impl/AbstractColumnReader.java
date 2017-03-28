@@ -15,11 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor;
+package org.apache.drill.exec.vector.accessor.impl;
 
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.vector.accessor.ArrayReader;
+import org.apache.drill.exec.vector.accessor.ColumnReader;
+import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.joda.time.Period;
 
 /**
@@ -75,6 +78,16 @@ public abstract class AbstractColumnReader extends AbstractColumnAccessor implem
 
   @Override
   public Period getPeriod() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public TupleReader map() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ArrayReader array() {
     throw new UnsupportedOperationException();
   }
 }

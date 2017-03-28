@@ -20,9 +20,11 @@ package org.apache.drill.test.rowSet;
 import org.apache.drill.exec.record.HyperVectorWrapper;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.AbstractColumnAccessor.VectorAccessor;
-import org.apache.drill.exec.vector.accessor.AbstractColumnReader;
-import org.apache.drill.exec.vector.accessor.ColumnAccessorFactory;
+import org.apache.drill.exec.vector.accessor.api.Exp.ColumnReaderIterator;
+import org.apache.drill.exec.vector.accessor.api.Exp.TupleReaderIterator;
+import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader;
+import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
+import org.apache.drill.exec.vector.accessor.impl.AbstractColumnAccessor.VectorAccessor;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.test.rowSet.HyperRowSetImpl.HyperRowIndex;
 import org.apache.drill.test.rowSet.RowSet.HyperRowSet;
@@ -151,5 +153,29 @@ public class RowSetReaderImpl extends AbstractRowSetAccessor implements RowSetRe
   @Override
   public int width() {
     return readers.length;
+  }
+
+  @Override
+  public ColumnReaderIterator array(int colIndex) {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public ColumnReaderIterator array(String colName) {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public TupleReaderIterator mapList(int mapIndex) {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public TupleReaderIterator mapList(String mapName) {
+    // TODO Auto-generated method stub
+    return null;
   }
 }

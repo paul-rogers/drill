@@ -280,5 +280,4 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
       throw new IllegalStateException( "Unexpected selection mode" );
     }
   }
-
 }

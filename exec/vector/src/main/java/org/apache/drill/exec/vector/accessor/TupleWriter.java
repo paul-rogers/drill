@@ -17,31 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
-import org.apache.drill.exec.vector.ValueVector;
-
-/**
- * Abstract base class for column readers and writers that
- * implements the mechanism for binding accessors to a row
- * index. The row index is implicit: index a row, then
- * column accessors pull out columns from that row.
- */
-
-public abstract class AbstractColumnAccessor {
-
-  public interface RowIndex {
-    int batch();
-    int index();
-  }
-
-  public interface VectorAccessor {
-    ValueVector vector();
-  }
-
-  protected RowIndex rowIndex;
-
-  protected void bind(RowIndex rowIndex) {
-    this.rowIndex = rowIndex;
-  }
-
-  public abstract void bind(RowIndex rowIndex, ValueVector vector);
+public interface TupleWriter extends TupleAccessor {
+  ColumnWriter column(int colIndex);
+  ColumnWriter column(String colName);
 }

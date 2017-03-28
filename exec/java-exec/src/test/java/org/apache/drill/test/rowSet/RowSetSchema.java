@@ -25,6 +25,7 @@ import java.util.Map;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.vector.accessor.TupleAccessor.AccessSchema;
 import org.apache.drill.exec.record.MaterializedField;
 
 /**
@@ -120,40 +121,32 @@ public class RowSetSchema {
     public int count() { return columns.size(); }
   }
 
-  /**
-   * Flattened view of the schema as needed for row-based access of scalar
-   * members. The scalar view presents scalar fields: those that can be set
-   * or retrieved. A separate map view presents map vectors. The scalar
-   * view is the one used by row set readers and writers. Column indexes
-   * are into the flattened view, with maps removed and map members flattened
-   * into the top-level name space with compound names.
-   */
-
-  public static class AccessSchema {
+  public static class AccessSchemaImpl implements AccessSchema {
     protected final NameSpace<MaterializedField> scalars = new NameSpace<>();
     protected final NameSpace<MaterializedField> maps = new NameSpace<>();
 
-    /**
-     * Return a column schema given an indexed into the flattened row structure.
-     *
-     * @param index index of the row in the flattened structure
-     * @return schema of the column
-     */
-
+    @Override
     public MaterializedField column(int index) { return scalars.get(index); }
 
+    @Override
     public MaterializedField column(String name) { return scalars.get(name); }
 
+    @Override
     public int columnIndex(String name) { return scalars.getIndex(name); }
 
+    @Override
     public int count() { return scalars.count(); }
 
+    @Override
     public MaterializedField map(int index) { return maps.get(index); }
 
+    @Override
     public MaterializedField map(String name) { return maps.get(name); }
 
+    @Override
     public int mapIndex(String name) { return maps.getIndex(name); }
 
+    @Override
     public int mapCount() { return maps.count(); }
   }
 
@@ -179,12 +172,12 @@ public class RowSetSchema {
   }
 
   private final BatchSchema batchSchema;
-  private final AccessSchema accessSchema;
+  private final AccessSchemaImpl accessSchema;
   private final PhysicalSchema physicalSchema;
 
   public RowSetSchema(BatchSchema schema) {
     batchSchema = schema;
-    accessSchema = new AccessSchema();
+    accessSchema = new AccessSchemaImpl();
     physicalSchema = expand("", schema);
   }
 

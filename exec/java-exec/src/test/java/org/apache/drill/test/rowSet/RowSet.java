@@ -28,7 +28,9 @@ import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
-import org.apache.drill.test.rowSet.RowSetSchema.AccessSchema;
+import org.apache.drill.exec.vector.accessor.TupleAccessor;
+import org.apache.drill.exec.vector.accessor.TupleReader;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
 
 /**
  * A row set is a collection of rows stored as value vectors. Elsewhere in
@@ -69,7 +71,7 @@ import org.apache.drill.test.rowSet.RowSetSchema.AccessSchema;
 
 public interface RowSet {
 
-  public interface RowSetAccessor {
+  public interface RowSetAccessor extends TupleAccessor {
     boolean next();
     boolean valid();
 
@@ -109,21 +111,15 @@ public interface RowSet {
      * @return index of the batch for the current row
      */
     int batchIndex();
-
-    AccessSchema schema();
   }
 
-  public interface RowSetWriter extends RowSetAccessor {
-    ColumnWriter column(int colIndex);
-    ColumnWriter column(String colName);
+  public interface RowSetWriter extends TupleWriter, RowSetAccessor {
     void set(int colIndex, Object value);
     boolean setRow(Object...values);
     void done();
   }
 
-  public interface RowSetReader extends RowSetAccessor {
-    ColumnReader column(int colIndex);
-    ColumnReader column(String colName);
+  public interface RowSetReader extends TupleReader, RowSetAccessor {
     Object get(int colIndex);
     String getAsString(int colIndex);
   }

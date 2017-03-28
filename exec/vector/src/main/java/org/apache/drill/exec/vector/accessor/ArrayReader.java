@@ -17,18 +17,20 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
-public interface ColumnAccessor {
-  public enum ValueType {
-    INTEGER, LONG, DOUBLE, STRING, BYTES, DECIMAL, PERIOD
-  }
+import java.math.BigDecimal;
 
-  /**
-   * Describe the type of the value. This is a compression of the
-   * value vector type: it describes which method will return the
-   * vector value.
-   * @return the value type which indicates which get method
-   * is valid for the column
-   */
+import org.joda.time.Period;
 
-  ValueType valueType();
+public interface ArrayReader {
+  int size();
+  boolean isNull(int index);
+  int getInt(int index);
+  long getLong(int index);
+  double getDouble(int index);
+  String getString(int index);
+  byte[] getBytes(int index);
+  BigDecimal getDecimal(int index);
+  Period getPeriod(int index);
+  TupleReader map(int index);
+  ArrayReader array(int index);
 }
