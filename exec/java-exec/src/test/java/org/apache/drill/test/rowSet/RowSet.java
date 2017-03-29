@@ -29,6 +29,7 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.apache.drill.exec.vector.accessor.TupleAccessor;
+import org.apache.drill.exec.vector.accessor.TupleAccessor.AccessSchema;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 
@@ -71,18 +72,77 @@ import org.apache.drill.exec.vector.accessor.TupleWriter;
 
 public interface RowSet {
 
-  public interface RowSetAccessor extends TupleAccessor {
-    boolean next();
+//  public interface RowSetAccessor extends TupleAccessor {
+//    boolean next();
+//    boolean valid();
+//
+//    /**
+//     * Return the index of the row within the effective result set.
+//     * (If an SV2 is in use, uses that to obtain data at the current
+//     * index.)
+//     * @return the current reader index
+//     */
+//
+//    int index();
+//
+//    /**
+//     * The index of the underlying row which may be indexed by an
+//     * Sv2 or Sv4.
+//     *
+//     * @return
+//     */
+//
+//    int rowIndex();
+//
+//    /**
+//     * Total number of rows in the row set.
+//     * @return total number of rows
+//     */
+//    int size();
+//
+//    /**
+//     * Number of columns in the row set.
+//     * @return number of columns
+//     */
+//    int width();
+//
+//    /**
+//     * Batch index: 0 for a single batch, batch for the current
+//     * row is a hyper-batch.
+//     * @return index of the batch for the current row
+//     */
+//    int batchIndex();
+//  }
+
+  public interface RowSetWriter {
+    AccessSchema schema();
+    TupleWriter row();
+    void setRow(Object...values);
     boolean valid();
+    int index();
+    void save();
+    void done();
+  }
+
+  public interface RowSetReader {
+    AccessSchema schema();
 
     /**
-     * Return the index of the row within the effective result set.
-     * (If an SV2 is in use, uses that to obtain data at the current
-     * index.)
-     * @return the current reader index
+     * Total number of rows in the row set.
+     * @return total number of rows
      */
+    int size();
 
+    boolean next();
     int index();
+    void set(int index);
+
+    /**
+     * Batch index: 0 for a single batch, batch for the current
+     * row is a hyper-batch.
+     * @return index of the batch for the current row
+     */
+    int batchIndex();
 
     /**
      * The index of the underlying row which may be indexed by an
@@ -92,36 +152,8 @@ public interface RowSet {
      */
 
     int rowIndex();
-
-    /**
-     * Total number of rows in the row set.
-     * @return total number of rows
-     */
-    int size();
-
-    /**
-     * Number of columns in the row set.
-     * @return number of columns
-     */
-    int width();
-
-    /**
-     * Batch index: 0 for a single batch, batch for the current
-     * row is a hyper-batch.
-     * @return index of the batch for the current row
-     */
-    int batchIndex();
-  }
-
-  public interface RowSetWriter extends TupleWriter, RowSetAccessor {
-    void set(int colIndex, Object value);
-    boolean setRow(Object...values);
-    void done();
-  }
-
-  public interface RowSetReader extends TupleReader, RowSetAccessor {
-    Object get(int colIndex);
-    String getAsString(int colIndex);
+    boolean valid();
+    TupleReader row();
   }
 
   boolean isExtendable();

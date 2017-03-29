@@ -52,7 +52,7 @@ public class RowSetUtilities {
    */
 
   public static void setFromInt(RowSetWriter rowWriter, int index, int value) {
-    ColumnWriter writer = rowWriter.column(index);
+    ColumnWriter writer = rowWriter.row().column(index);
     if (writer.valueType() == ValueType.PERIOD) {
       setPeriodFromInt(writer, rowWriter.schema().column(index).getType().getMinorType(), value);
     } else {

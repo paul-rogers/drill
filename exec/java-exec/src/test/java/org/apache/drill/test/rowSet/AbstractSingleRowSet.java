@@ -27,7 +27,15 @@ import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.TupleReader;
+import org.apache.drill.exec.vector.accessor.TupleAccessor.AccessSchema;
+import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader;
+import org.apache.drill.exec.vector.accessor.impl.AbstractColumnWriter;
+import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
+import org.apache.drill.exec.vector.accessor.impl.TupleReaderImpl;
+import org.apache.drill.exec.vector.accessor.impl.TupleWriterImpl;
 import org.apache.drill.exec.vector.complex.MapVector;
+import org.apache.drill.test.rowSet.RowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetSchema.LogicalColumn;
 import org.apache.drill.test.rowSet.RowSetSchema.PhysicalSchema;
@@ -154,5 +162,36 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
   public int getSize() {
     RecordBatchSizer sizer = new RecordBatchSizer(container);
     return sizer.actualSize();
+  }
+
+  protected RowSetReader buildReader(RowSetIndex rowIndex) {
+    AccessSchema accessSchema = schema().access();
+    ValueVector[] valueVectors = vectors();
+    AbstractColumnReader[] readers = new AbstractColumnReader[valueVectors.length];
+    for (int i = 0; i < readers.length; i++) {
+      MinorType type = accessSchema.column(i).getType().getMinorType();
+      if (type == MinorType.MAP) {
+        readers[i] = null; // buildMapAccessor(i);
+      } else if (type == MinorType.LIST) {
+        readers[i] = null; // buildListAccessor(i);
+      } else {
+        readers[i] = ColumnAccessorFactory.newReader(valueVectors[i].getField().getType());
+        readers[i].bind(rowIndex, valueVectors[i]);
+      }
+    }
+    return new RowSetReaderImpl(accessSchema, rowIndex, new TupleReaderImpl(accessSchema, readers));
+  }
+
+  protected RowSetWriter buildWriter(RowSetIndex rowIndex) {
+    ValueVector[] valueVectors = vectors();
+    AbstractColumnWriter[] writers = new AbstractColumnWriter[valueVectors.length];
+    int posn = 0;
+    for (int i = 0; i < writers.length; i++) {
+      writers[posn] = ColumnAccessorFactory.newWriter(valueVectors[i].getField().getType());
+      writers[posn].bind(rowIndex, valueVectors[i]);
+      posn++;
+    }
+    AccessSchema accessSchema = schema().access();
+    return new RowSetWriterImpl(accessSchema, rowIndex, new TupleWriterImpl(accessSchema, writers));
   }
 }

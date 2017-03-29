@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import org.apache.drill.exec.vector.accessor.ColumnReader;
+import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;
 import org.bouncycastle.util.Arrays;
 
@@ -151,12 +152,14 @@ public class RowSetComparison {
   }
 
   private void verifyRow(RowSetReader er, RowSetReader ar) {
+    TupleReader eRow = er.row();
+    TupleReader aRow = ar.row();
     for (int i = 0; i < mask.length; i++) {
       if (! mask[i]) {
         continue;
       }
-      ColumnReader ec = er.column(i);
-      ColumnReader ac = ar.column(i);
+      ColumnReader ec = eRow.column(i);
+      ColumnReader ac = aRow.column(i);
       String label = er.index() + ":" + i;
       if (ec.isNull()) {
         assertTrue(label + " - column not null", ac.isNull());

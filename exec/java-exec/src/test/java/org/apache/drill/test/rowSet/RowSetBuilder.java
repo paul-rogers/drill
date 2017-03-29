@@ -19,6 +19,7 @@ package org.apache.drill.test.rowSet;
 
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 
@@ -43,11 +44,12 @@ public final class RowSetBuilder {
   }
 
   public RowSetBuilder add(Object...values) {
-    if (! writer.next()) {
+    if (! writer.valid()) {
       throw new IllegalStateException( "Write past end of row set" );
     }
+    TupleWriter row = writer.row();
     for (int i = 0; i < values.length;  i++) {
-      writer.set(i, values[i]);
+      row.set(i, values[i]);
     }
     return this;
   }

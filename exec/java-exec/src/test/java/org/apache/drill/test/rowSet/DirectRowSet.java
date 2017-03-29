@@ -26,8 +26,6 @@ import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.test.rowSet.AbstractRowSetAccessor.AbstractRowIndex;
-import org.apache.drill.test.rowSet.AbstractRowSetAccessor.BoundedRowIndex;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 
 public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowSet {
@@ -45,7 +43,7 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
     public int batch() { return 0; }
   }
 
-  private static class ExtendableRowIndex extends AbstractRowIndex {
+  private static class ExtendableRowIndex extends RowSetIndex {
 
     private final DirectRowSet rowSet;
     private final int maxSize;
@@ -117,7 +115,7 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
 
   @Override
   public RowSetWriter writer() {
-    return new RowSetWriterImpl(this, new DirectRowIndex(rowCount()));
+    return buildWriter(new DirectRowIndex(rowCount()));
   }
 
   @Override
@@ -126,12 +124,12 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
       throw new IllegalStateException("Row set already contains data");
     }
     allocate(initialRowCount);
-    return new RowSetWriterImpl(this, new ExtendableRowIndex(this, Character.MAX_VALUE));
+    return buildWriter(new ExtendableRowIndex(this, Character.MAX_VALUE));
   }
 
   @Override
   public RowSetReader reader() {
-    return new RowSetReaderImpl(this, new DirectRowIndex(rowCount()));
+    return buildReader(new DirectRowIndex(rowCount()));
   }
 
   @Override

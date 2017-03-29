@@ -21,6 +21,7 @@ import java.io.PrintStream;
 
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.vector.accessor.TupleAccessor.AccessSchema;
+import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;
 
 public class RowSetPrinter {
@@ -37,15 +38,16 @@ public class RowSetPrinter {
   public void print(PrintStream out) {
     SelectionVectorMode selectionMode = rowSet.getIndirectionType();
     RowSetReader reader = rowSet.reader();
-    int colCount = reader.width();
+    int colCount = reader.schema().count();
     printSchema(out, selectionMode);
+    TupleReader row = reader.row();
     while (reader.next()) {
       printHeader(out, reader, selectionMode);
       for (int i = 0; i < colCount; i++) {
         if (i > 0) {
           out.print(", ");
         }
-        out.print(reader.getAsString(i));
+        out.print(row.getAsString(i));
       }
       out.println();
     }

@@ -20,4 +20,5 @@ package org.apache.drill.exec.vector.accessor;
 public interface TupleWriter extends TupleAccessor {
   ColumnWriter column(int colIndex);
   ColumnWriter column(String colName);
+  void set(int colIndex, Object value);
 }

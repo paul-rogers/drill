@@ -30,8 +30,8 @@ import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.AccessorUtilities;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
-import org.apache.drill.test.rowSet.AbstractRowSetAccessor.BoundedRowIndex;
 import org.apache.drill.test.rowSet.RowSet.HyperRowSet;
+import org.apache.drill.test.rowSet.RowSetIndex.BoundedRowIndex;
 import org.apache.drill.test.rowSet.RowSetSchema.LogicalColumn;
 import org.apache.drill.test.rowSet.RowSetSchema.PhysicalSchema;
 
@@ -204,7 +204,7 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
 
   @Override
   public RowSetReader reader() {
-    return new RowSetReaderImpl(this, new HyperRowIndex(sv4));
+    return buildReader(new HyperRowIndex(sv4));
   }
 
   @Override

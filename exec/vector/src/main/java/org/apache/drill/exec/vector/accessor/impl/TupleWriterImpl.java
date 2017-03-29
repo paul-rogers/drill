@@ -15,38 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.test.rowSet;
+package org.apache.drill.exec.vector.accessor.impl;
 
 import java.math.BigDecimal;
 
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
-import org.apache.drill.exec.vector.accessor.api.Exp.ColumnWriterIterator;
-import org.apache.drill.exec.vector.accessor.api.Exp.TupleWriterIterator;
-import org.apache.drill.exec.vector.accessor.impl.AbstractColumnWriter;
-import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
-import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.joda.time.Period;
 
-/**
- * Implements a row set writer on top of a {@link RowSet}
- * container.
- */
-
-public class RowSetWriterImpl extends AbstractRowSetAccessor implements RowSetWriter {
+public class TupleWriterImpl extends AbstractTupleAccessor implements TupleWriter {
 
   private final AbstractColumnWriter writers[];
 
-  public RowSetWriterImpl(AbstractSingleRowSet recordSet, AbstractRowIndex rowIndex) {
-    super(rowIndex, recordSet.schema().access());
-    ValueVector[] valueVectors = recordSet.vectors();
-    writers = new AbstractColumnWriter[valueVectors.length];
-    int posn = 0;
-    for (int i = 0; i < writers.length; i++) {
-      writers[posn] = ColumnAccessorFactory.newWriter(valueVectors[i].getField().getType());
-      writers[posn].bind(rowIndex, valueVectors[i]);
-      posn++;
-    }
+  public TupleWriterImpl(AccessSchema schema, AbstractColumnWriter writers[]) {
+    super(schema);
+    this.writers = writers;
   }
 
   @Override
@@ -61,9 +44,6 @@ public class RowSetWriterImpl extends AbstractRowSetAccessor implements RowSetWr
       return null; }
     return writers[index];
   }
-
-  @Override
-  public void done() { index.setRowCount(); }
 
   @Override
   public void set(int colIndex, Object value) {
@@ -94,43 +74,5 @@ public class RowSetWriterImpl extends AbstractRowSetAccessor implements RowSetWr
       throw new IllegalArgumentException("Unsupported type " +
                 value.getClass().getSimpleName() + " for column " + colIndex);
     }
-  }
-
-  @Override
-  public boolean setRow(Object...values) {
-    if (! index.valid()) {
-      throw new IndexOutOfBoundsException("Write past end of row set");
-    }
-    for (int i = 0; i < values.length;  i++) {
-      set(i, values[i]);
-    }
-    return next();
-  }
-
-  @Override
-  public int width() { return writers.length; }
-
-  @Override
-  public ColumnWriterIterator array(int colIndex) {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
-  @Override
-  public ColumnWriterIterator array(String colName) {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
-  @Override
-  public TupleWriterIterator mapList(int mapIndex) {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
-  @Override
-  public TupleWriterIterator mapList(String mapName) {
-    // TODO Auto-generated method stub
-    return null;
   }
 }

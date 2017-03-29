@@ -20,4 +20,6 @@ package org.apache.drill.exec.vector.accessor;
 public interface TupleReader extends TupleAccessor {
   ColumnReader column(int colIndex);
   ColumnReader column(String colName);
+  Object get(int colIndex);
+  String getAsString(int colIndex);
 }
