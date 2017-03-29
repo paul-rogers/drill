@@ -28,7 +28,7 @@ import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.TupleReader;
-import org.apache.drill.exec.vector.accessor.TupleAccessor.AccessSchema;
+import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnWriter;
 import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
@@ -165,7 +165,7 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
   }
 
   protected RowSetReader buildReader(RowSetIndex rowIndex) {
-    AccessSchema accessSchema = schema().access();
+    TupleSchema accessSchema = schema().access();
     ValueVector[] valueVectors = vectors();
     AbstractColumnReader[] readers = new AbstractColumnReader[valueVectors.length];
     for (int i = 0; i < readers.length; i++) {
@@ -191,7 +191,7 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
       writers[posn].bind(rowIndex, valueVectors[i]);
       posn++;
     }
-    AccessSchema accessSchema = schema().access();
+    TupleSchema accessSchema = schema().access();
     return new RowSetWriterImpl(accessSchema, rowIndex, new TupleWriterImpl(accessSchema, writers));
   }
 }

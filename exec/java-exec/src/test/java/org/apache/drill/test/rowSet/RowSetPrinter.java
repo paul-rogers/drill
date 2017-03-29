@@ -20,7 +20,7 @@ package org.apache.drill.test.rowSet;
 import java.io.PrintStream;
 
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
-import org.apache.drill.exec.vector.accessor.TupleAccessor.AccessSchema;
+import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;
 
@@ -66,7 +66,7 @@ public class RowSetPrinter {
       break;
     }
     out.print(": ");
-    AccessSchema schema = rowSet.schema().access();
+    TupleSchema schema = rowSet.schema().access();
     for (int i = 0; i < schema.count(); i++) {
       if (i > 0) {
         out.print(", ");

@@ -21,14 +21,14 @@ import org.apache.drill.exec.vector.accessor.TupleAccessor;
 
 public abstract class AbstractTupleAccessor implements TupleAccessor {
 
-  protected final AccessSchema schema;
+  protected final TupleSchema schema;
 
-  public AbstractTupleAccessor(AccessSchema schema) {
+  public AbstractTupleAccessor(TupleSchema schema) {
     this.schema = schema;
   }
 
   @Override
-  public AccessSchema schema() {
+  public TupleSchema schema() {
     return schema;
   }
 }

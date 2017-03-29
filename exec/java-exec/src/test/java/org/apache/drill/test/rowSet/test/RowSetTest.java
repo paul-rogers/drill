@@ -22,12 +22,13 @@ import static org.junit.Assert.*;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.vector.accessor.TupleAccessor.AccessSchema;
+import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetSchema;
+import org.apache.drill.test.rowSet.RowSetSchema.FlatTupleSchemaImpl;
 import org.apache.drill.test.rowSet.RowSetSchema.PhysicalSchema;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.AfterClass;
@@ -67,7 +68,7 @@ public class RowSetTest {
     assertEquals("b", batchSchema.getColumn(2).getName());
 
     RowSetSchema schema = new RowSetSchema(batchSchema);
-    AccessSchema access = schema.access();
+    TupleSchema access = schema.access();
     assertEquals(3, access.count());
 
     crossCheck(access, 0, "c", MinorType.INT);
@@ -95,7 +96,7 @@ public class RowSetTest {
     assertEquals("b", physical.column(2).field().getName());
   }
 
-  public void crossCheck(AccessSchema schema, int index, String fullName, MinorType type) {
+  public void crossCheck(TupleSchema schema, int index, String fullName, MinorType type) {
     String name = null;
     for (String part : Splitter.on(".").split(fullName)) {
       name = part;
@@ -125,7 +126,7 @@ public class RowSetTest {
 
     // Access schema: flattened with maps removed
 
-    AccessSchema access = schema.access();
+    FlatTupleSchemaImpl access = (FlatTupleSchemaImpl) schema.flatSchema();
     assertEquals(6, access.count());
     crossCheck(access, 0, "c", MinorType.INT);
     crossCheck(access, 1, "a.b", MinorType.VARCHAR);

@@ -26,7 +26,7 @@ import org.apache.drill.exec.vector.SchemaChangeCallBack;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
-import org.apache.drill.exec.vector.accessor.TupleAccessor.AccessSchema;
+import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
 import org.apache.drill.exec.vector.accessor.impl.AbstractTupleAccessor;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnAccessor.RowIndex;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnAccessor.VectorAccessor;
@@ -97,7 +97,7 @@ public abstract class AbstractRowSet implements RowSet {
 
     protected final RowSetIndex index;
 
-    protected AbstractRowSetAccessor(AccessSchema schema, RowSetIndex index) {
+    protected AbstractRowSetAccessor(TupleSchema schema, RowSetIndex index) {
       super(schema);
       this.index = index;
     }
@@ -107,7 +107,7 @@ public abstract class AbstractRowSet implements RowSet {
 
     protected final TupleReader row;
 
-    public RowSetReaderImpl(AccessSchema schema, RowSetIndex index, TupleReader row) {
+    public RowSetReaderImpl(TupleSchema schema, RowSetIndex index, TupleReader row) {
       super(schema, index);
       this.row = row;
     }
@@ -141,7 +141,7 @@ public abstract class AbstractRowSet implements RowSet {
 
     protected final TupleWriter row;
 
-    protected RowSetWriterImpl(AccessSchema schema, RowSetIndex index, TupleWriter row) {
+    protected RowSetWriterImpl(TupleSchema schema, RowSetIndex index, TupleWriter row) {
       super(schema, index);
       this.row = row;
     }

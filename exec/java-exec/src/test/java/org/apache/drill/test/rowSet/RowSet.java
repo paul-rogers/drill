@@ -29,7 +29,7 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.apache.drill.exec.vector.accessor.TupleAccessor;
-import org.apache.drill.exec.vector.accessor.TupleAccessor.AccessSchema;
+import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 
@@ -115,7 +115,7 @@ public interface RowSet {
 //  }
 
   public interface RowSetWriter {
-    AccessSchema schema();
+    TupleSchema schema();
     TupleWriter row();
     void setRow(Object...values);
     boolean valid();
@@ -125,7 +125,7 @@ public interface RowSet {
   }
 
   public interface RowSetReader {
-    AccessSchema schema();
+    TupleSchema schema();
 
     /**
      * Total number of rows in the row set.

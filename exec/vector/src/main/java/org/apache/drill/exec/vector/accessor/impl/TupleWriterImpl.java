@@ -27,7 +27,7 @@ public class TupleWriterImpl extends AbstractTupleAccessor implements TupleWrite
 
   private final AbstractColumnWriter writers[];
 
-  public TupleWriterImpl(AccessSchema schema, AbstractColumnWriter writers[]) {
+  public TupleWriterImpl(TupleSchema schema, AbstractColumnWriter writers[]) {
     super(schema);
     this.writers = writers;
   }

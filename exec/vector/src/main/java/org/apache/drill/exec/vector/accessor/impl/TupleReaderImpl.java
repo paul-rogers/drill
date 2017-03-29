@@ -24,7 +24,7 @@ public class TupleReaderImpl extends AbstractTupleAccessor implements TupleReade
 
   private final AbstractColumnReader readers[];
 
-  public TupleReaderImpl(AccessSchema schema, AbstractColumnReader readers[]) {
+  public TupleReaderImpl(TupleSchema schema, AbstractColumnReader readers[]) {
     super(schema);
     this.readers = readers;
   }

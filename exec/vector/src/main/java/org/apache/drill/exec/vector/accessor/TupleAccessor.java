@@ -30,7 +30,7 @@ public interface TupleAccessor {
    * into the top-level name space with compound names.
    */
 
-  public interface AccessSchema {
+  public interface TupleSchema {
     /**
      * Return a column schema given an indexed into the flattened row structure.
      *
@@ -47,5 +47,5 @@ public interface TupleAccessor {
     int count();
   }
 
-  AccessSchema schema();
+  TupleSchema schema();
 }
