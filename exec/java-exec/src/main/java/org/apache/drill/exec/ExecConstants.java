@@ -278,7 +278,7 @@ public interface ExecConstants {
    * Limits the maximum level of parallelization to this factor time the number of Drillbits
    */
   String MAX_WIDTH_PER_NODE_KEY = "planner.width.max_per_node";
-  OptionValidator MAX_WIDTH_PER_NODE = new PositiveLongValidator(MAX_WIDTH_PER_NODE_KEY, Integer.MAX_VALUE, (long) Math.ceil(Runtime.getRuntime().availableProcessors() * 0.70));
+  PositiveLongValidator MAX_WIDTH_PER_NODE = new PositiveLongValidator(MAX_WIDTH_PER_NODE_KEY, Integer.MAX_VALUE, (long) Math.ceil(Runtime.getRuntime().availableProcessors() * 0.70));
 
   /**
    * The maximum level or parallelization any stage of the query can do. Note that while this
@@ -286,13 +286,13 @@ public interface ExecConstants {
    * number of we want to do things like speed results return.
    */
   String MAX_WIDTH_GLOBAL_KEY = "planner.width.max_per_query";
-  OptionValidator MAX_WIDTH_GLOBAL = new PositiveLongValidator(MAX_WIDTH_GLOBAL_KEY, Integer.MAX_VALUE, 1000);
+  PositiveLongValidator MAX_WIDTH_GLOBAL = new PositiveLongValidator(MAX_WIDTH_GLOBAL_KEY, Integer.MAX_VALUE, 1000);
 
   /**
    * Factor by which a node with endpoint affinity will be favored while creating assignment
    */
   String AFFINITY_FACTOR_KEY = "planner.affinity_factor";
-  OptionValidator AFFINITY_FACTOR = new DoubleValidator(AFFINITY_FACTOR_KEY, 1.2d);
+  DoubleValidator AFFINITY_FACTOR = new DoubleValidator(AFFINITY_FACTOR_KEY, 1.2d);
 
   String EARLY_LIMIT0_OPT_KEY = "planner.enable_limit0_optimization";
   BooleanValidator EARLY_LIMIT0_OPT = new BooleanValidator(EARLY_LIMIT0_OPT_KEY, false);

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -20,13 +20,12 @@ package org.apache.drill.exec.planner.fragment;
 import java.util.Iterator;
 import java.util.Map;
 
-import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
-
 import com.google.common.collect.Maps;
 
 public class PlanningSet implements Iterable<Wrapper> {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(PlanningSet.class);
 
+  // Should be Maps.newIdentityMap()?
   private final Map<Fragment, Wrapper> fragmentMap = Maps.newHashMap();
   private int majorFragmentIdIndex = 0;
 
@@ -56,12 +55,11 @@ public class PlanningSet implements Iterable<Wrapper> {
 
   @Override
   public Iterator<Wrapper> iterator() {
-    return this.fragmentMap.values().iterator();
+    return fragmentMap.values().iterator();
   }
 
   @Override
   public String toString() {
     return "FragmentPlanningSet:\n" + fragmentMap.values() + "]";
   }
-
 }

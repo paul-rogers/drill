@@ -53,7 +53,6 @@ public class SoftAffinityFragmentParallelizer implements FragmentParallelizer {
   @Override
   public void parallelizeFragment(final Wrapper fragmentWrapper, final ParallelizationParameters parameters,
       final Collection<DrillbitEndpoint> activeEndpoints) throws PhysicalOperatorSetupException {
-    final Fragment fragment = fragmentWrapper.getNode();
 
     // Find the parallelization width of fragment
     final Stats stats = fragmentWrapper.getStats();
@@ -104,7 +103,7 @@ public class SoftAffinityFragmentParallelizer implements FragmentParallelizer {
         if (ep.isAssignmentRequired()) {
           numRequiredNodes++;
         } else {
-          // As the list is sorted in descending order of affinities, we don't need to go beyond the first occurrance
+          // As the list is sorted in descending order of affinities, we don't need to go beyond the first occurrence
           // of non-mandatory node
           break;
         }
