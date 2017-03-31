@@ -23,10 +23,17 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
+import org.apache.drill.exec.vector.accessor.ArrayReader;
+import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.TupleReader;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.test.OperatorFixture;
+import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;
+import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.RowSetBuilder;
+import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetSchema;
 import org.apache.drill.test.rowSet.RowSetSchema.FlatTupleSchemaImpl;
 import org.apache.drill.test.rowSet.RowSetSchema.PhysicalSchema;
@@ -339,6 +346,41 @@ public class RowSetTest {
     assertEquals(60, row.column(2).getInt());
     assertFalse(reader.next());
     rs.clear();
+  }
+
+  @Test
+  public void TestTopScalarArray() {
+    BatchSchema batchSchema = new SchemaBuilder()
+        .add("c", MinorType.INT)
+        .addArray("a", MinorType.INT)
+        .build();
+
+    ExtendableRowSet rs1 = fixture.rowSet(batchSchema);
+    RowSetWriter writer = rs1.writer();
+    TupleWriter row = writer.row();
+    row.column(0).setInt(10);
+    ArrayWriter array = row.column(1).array();
+    array.setInt(100);
+    array.setInt(110);
+    writer.save();
+    writer.done();
+
+    RowSetReader reader = rs1.reader();
+    assertTrue(reader.next());
+    TupleReader readRow = reader.row();
+    assertEquals(10, readRow.column(0).getInt());
+    ArrayReader arrayReader = readRow.column(1).array();
+    assertEquals(2, arrayReader.size());
+    assertEquals(100, arrayReader.getInt(0));
+    assertEquals(200, arrayReader.getInt(1));
+    assertFalse(reader.next());
+
+    SingleRowSet rs2 = fixture.rowSetBuilder(batchSchema)
+      .add(20, new int[] {200, 210})
+      .build();
+
+    new RowSetComparison(rs1)
+      .verifyAndClear(rs2);
   }
 
 }

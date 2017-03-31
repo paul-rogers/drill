@@ -17,18 +17,16 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
-public interface ArrayWriter extends ColumnAccessor, ScalarWriter {
+import java.math.BigDecimal;
 
-  int size();
+import org.joda.time.Period;
 
-  /**
-   * Determine if the next position is valid for writing. Will be invalid
-   * if the writer hits a size or other limit.
-   *
-   * @return true if another item is available and the reader is positioned
-   * at that item, false if no more items are available and the reader
-   * is no longer valid
-   */
-
-  boolean valid();
+public interface ScalarWriter {
+  void setInt(int value);
+  void setLong(long value);
+  void setDouble(double value);
+  void setString(String value);
+  void setBytes(byte[] value);
+  void setDecimal(BigDecimal value);
+  void setPeriod(Period value);
 }

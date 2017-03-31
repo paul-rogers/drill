@@ -111,6 +111,10 @@ public class SchemaBuilder {
     return add(pathName, type, DataMode.OPTIONAL);
   }
 
+  public SchemaBuilder addArray(String pathName, MinorType type) {
+    return add(pathName, type, DataMode.REPEATED);
+  }
+
   /**
    * Add a map column. The returned schema builder is for the nested
    * map. Building that map, using {@link MapBuilder#buildMap()},

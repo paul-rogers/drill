@@ -26,13 +26,10 @@ import org.apache.drill.exec.vector.SchemaChangeCallBack;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
-import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
-import org.apache.drill.exec.vector.accessor.impl.AbstractTupleAccessor;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnAccessor.RowIndex;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnAccessor.VectorAccessor;
+import org.apache.drill.exec.vector.accessor.impl.AbstractTupleAccessor;
 import org.apache.drill.test.rowSet.HyperRowSetImpl.HyperRowIndex;
-import org.apache.drill.test.rowSet.RowSet.RowSetReader;
-import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 
 /**
  * Basic implementation of a row set for both the single and multiple

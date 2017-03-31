@@ -15,20 +15,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor;
+package org.apache.drill.exec.vector.accessor.impl;
 
-public interface ArrayWriter extends ColumnAccessor, ScalarWriter {
+import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader.VectorAccessor;
 
-  int size();
+public abstract class AbstractArrayAccessor {
 
-  /**
-   * Determine if the next position is valid for writing. Will be invalid
-   * if the writer hits a size or other limit.
-   *
-   * @return true if another item is available and the reader is positioned
-   * at that item, false if no more items are available and the reader
-   * is no longer valid
-   */
+  public interface ArrayIndex {
+    int size();
+    int index(int index);
+  }
 
-  boolean valid();
+  protected ArrayIndex vectorIndex;
+
+  public abstract void bind(ArrayIndex arrayIndex, ValueVector vector);
+
+  protected void bind(ArrayIndex arrayIndex) {
+    this.vectorIndex = arrayIndex;
+  }
 }

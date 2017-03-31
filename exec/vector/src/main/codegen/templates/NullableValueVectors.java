@@ -650,8 +650,8 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       values.getMutator().setSafe(index, value);
       setCount++;
     }
-    </#if>
 
+    </#if>
     @Override
     public void setValueCount(int valueCount) {
       assert valueCount >= 0;

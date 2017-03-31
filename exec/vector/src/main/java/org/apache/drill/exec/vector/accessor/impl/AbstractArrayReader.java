@@ -22,21 +22,34 @@ import java.math.BigDecimal;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
-import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.TupleReader;
+import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader.VectorAccessor;
 import org.joda.time.Period;
 
-/**
- * Column reader implementation that acts as the basis for the
- * generated, vector-specific implementations. All set methods
- * throw an exception; subclasses simply override the supported
- * method(s).
- */
+public abstract class AbstractArrayReader extends AbstractColumnAccessor implements ArrayReader {
 
-public abstract class AbstractColumnReader extends AbstractColumnAccessor implements ColumnReader {
+  public static class ArrayColumnReader extends AbstractColumnReader {
 
-  public interface VectorAccessor {
-    ValueVector vector();
+    private final AbstractArrayReader arrayReader;
+
+    public ArrayColumnReader(AbstractArrayReader arrayReader) {
+      this.arrayReader = arrayReader;
+    }
+
+    @Override
+    public ValueType valueType() {
+       return ValueType.ARRAY;
+    }
+
+    @Override
+    public void bind(RowIndex rowIndex, ValueVector vector) {
+      arrayReader.bind(rowIndex, vector);
+    }
+
+    @Override
+    public ArrayReader array() {
+      return arrayReader;
+    }
   }
 
   protected VectorAccessor vectorAccessor;
@@ -47,52 +60,53 @@ public abstract class AbstractColumnReader extends AbstractColumnAccessor implem
   }
 
   @Override
-  public boolean isNull() {
+  public boolean isNull(int index) {
     return false;
   }
 
   @Override
-  public int getInt() {
+  public int getInt(int index) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public long getLong() {
+  public long getLong(int index) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public double getDouble() {
+  public double getDouble(int index) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public String getString() {
+  public String getString(int index) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public byte[] getBytes() {
+  public byte[] getBytes(int index) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public BigDecimal getDecimal() {
+  public BigDecimal getDecimal(int index) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public Period getPeriod() {
+  public Period getPeriod(int index) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public TupleReader map() {
+  public TupleReader map(int index) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public ArrayReader array() {
+  public ArrayReader array(int index) {
     throw new UnsupportedOperationException();
   }
+
 }

@@ -21,7 +21,7 @@ import java.math.BigDecimal;
 
 import org.joda.time.Period;
 
-public interface ArrayReader {
+public interface ArrayReader extends ColumnAccessor {
   int size();
   boolean isNull(int index);
   int getInt(int index);

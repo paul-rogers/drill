@@ -19,80 +19,86 @@ package org.apache.drill.exec.vector.accessor.impl;
 
 import java.math.BigDecimal;
 
-import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.ArrayReader;
-import org.apache.drill.exec.vector.accessor.ColumnReader;
-import org.apache.drill.exec.vector.accessor.TupleReader;
+import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
 import org.joda.time.Period;
 
-/**
- * Column reader implementation that acts as the basis for the
- * generated, vector-specific implementations. All set methods
- * throw an exception; subclasses simply override the supported
- * method(s).
- */
+public abstract class AbstractArrayWriter extends AbstractColumnAccessor implements ArrayWriter {
 
-public abstract class AbstractColumnReader extends AbstractColumnAccessor implements ColumnReader {
+  public static class ArrayColumnWriter extends AbstractColumnWriter {
 
-  public interface VectorAccessor {
-    ValueVector vector();
+    private final AbstractArrayWriter arrayWriter;
+
+    public ArrayColumnWriter(AbstractArrayWriter arrayWriter) {
+      this.arrayWriter = arrayWriter;
+    }
+
+    @Override
+    public ValueType valueType() {
+      return ValueType.ARRAY;
+    }
+
+    @Override
+    public void bind(RowIndex rowIndex, ValueVector vector) {
+      arrayWriter.bind(rowIndex, vector);
+    }
+
+    @Override
+    public ArrayWriter array() {
+      return arrayWriter;
+    }
   }
 
-  protected VectorAccessor vectorAccessor;
+  protected abstract BaseRepeatedValueVector.BaseRepeatedMutator mutator();
 
-  public void bind(RowIndex rowIndex, MaterializedField field, VectorAccessor va) {
-    bind(rowIndex);
-    vectorAccessor = va;
+  @Override
+  public int size() {
+    return mutator().getInnerValueCountAt(vectorIndex.index());
+  }
+
+  public void start() {
+    mutator().setValueCount(vectorIndex.index());
   }
 
   @Override
-  public boolean isNull() {
-    return false;
+  public boolean valid() {
+    // Not implemented yet
+    return true;
   }
 
   @Override
-  public int getInt() {
+  public void setInt(int value) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public long getLong() {
+  public void setLong(long value) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public double getDouble() {
+  public void setDouble(double value) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public String getString() {
+  public void setString(String value) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public byte[] getBytes() {
+  public void setBytes(byte[] value) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public BigDecimal getDecimal() {
+  public void setDecimal(BigDecimal value) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public Period getPeriod() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public TupleReader map() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public ArrayReader array() {
+  public void setPeriod(Period value) {
     throw new UnsupportedOperationException();
   }
 }

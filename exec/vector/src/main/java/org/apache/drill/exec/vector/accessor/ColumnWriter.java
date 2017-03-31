@@ -17,10 +17,6 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
-import java.math.BigDecimal;
-
-import org.joda.time.Period;
-
 /**
  * Defines a writer to set values for value vectors using
  * a simple, uniform interface. Vector values are mapped to
@@ -42,15 +38,8 @@ import org.joda.time.Period;
  * in the structure.
  */
 
-public interface ColumnWriter extends ColumnAccessor {
+public interface ColumnWriter extends ColumnAccessor, ScalarWriter {
   void setNull();
-  void setInt(int value);
-  void setLong(long value);
-  void setDouble(double value);
-  void setString(String value);
-  void setBytes(byte[] value);
-  void setDecimal(BigDecimal value);
-  void setPeriod(Period value);
   TupleWriter map();
   ArrayWriter array();
 }

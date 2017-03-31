@@ -21,6 +21,8 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors;
+import org.apache.drill.exec.vector.accessor.impl.AbstractArrayReader.ArrayColumnReader;
+import org.apache.drill.exec.vector.accessor.impl.AbstractArrayWriter.ArrayColumnWriter;
 
 /**
  * Gather generated accessor classes into a set of class
@@ -31,11 +33,13 @@ import org.apache.drill.exec.vector.accessor.ColumnAccessors;
 
 public class ColumnAccessorFactory {
 
-  private static Class<? extends AbstractColumnWriter> writers[][] = buildWriters();
-  private static Class<? extends AbstractColumnReader> readers[][] = buildReaders();
+  private static Class<? extends AbstractColumnWriter> columnWriters[][] = buildColumnWriters();
+  private static Class<? extends AbstractColumnReader> columnReaders[][] = buildColumnReaders();
+  private static Class<? extends AbstractArrayWriter> arrayWriters[] = buildArrayWriters();
+  private static Class<? extends AbstractArrayReader> arrayReaders[] = buildArrayReaders();
 
   @SuppressWarnings("unchecked")
-  private static Class<? extends AbstractColumnWriter>[][] buildWriters() {
+  private static Class<? extends AbstractColumnWriter>[][] buildColumnWriters() {
     int typeCount = MinorType.values().length;
     int modeCount = DataMode.values().length;
     Class<? extends AbstractColumnWriter> writers[][] = new Class[typeCount][];
@@ -48,7 +52,7 @@ public class ColumnAccessorFactory {
   }
 
   @SuppressWarnings("unchecked")
-  private static Class<? extends AbstractColumnReader>[][] buildReaders() {
+  private static Class<? extends AbstractColumnReader>[][] buildColumnReaders() {
     int typeCount = MinorType.values().length;
     int modeCount = DataMode.values().length;
     Class<? extends AbstractColumnReader> readers[][] = new Class[typeCount][];
@@ -60,25 +64,57 @@ public class ColumnAccessorFactory {
     return readers;
   }
 
+  @SuppressWarnings("unchecked")
+  private static Class<? extends AbstractArrayWriter>[] buildArrayWriters() {
+    int typeCount = MinorType.values().length;
+    Class<? extends AbstractArrayWriter> writers[] = new Class[typeCount];
+    ColumnAccessors.defineArrayWriters(writers);
+    return writers;
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Class<? extends AbstractArrayReader>[] buildArrayReaders() {
+    int typeCount = MinorType.values().length;
+    Class<? extends AbstractArrayReader> readers[] = new Class[typeCount];
+    ColumnAccessors.defineArrayReaders(readers);
+    return readers;
+  }
+
   public static AbstractColumnWriter newWriter(MajorType type) {
-    Class<? extends AbstractColumnWriter> writerClass = writers[type.getMinorType().ordinal()][type.getMode().ordinal()];
-    if (writerClass == null) {
-      throw new UnsupportedOperationException();
-    }
     try {
-      return writerClass.newInstance();
+      if (type.getMode() == DataMode.REPEATED) {
+        Class<? extends AbstractArrayWriter> writerClass = arrayWriters[type.getMinorType().ordinal()];
+        if (writerClass == null) {
+          throw new UnsupportedOperationException();
+        }
+        return new ArrayColumnWriter(writerClass.newInstance());
+      } else {
+        Class<? extends AbstractColumnWriter> writerClass = columnWriters[type.getMinorType().ordinal()][type.getMode().ordinal()];
+        if (writerClass == null) {
+          throw new UnsupportedOperationException();
+        }
+        return writerClass.newInstance();
+      }
     } catch (InstantiationException | IllegalAccessException e) {
       throw new IllegalStateException(e);
     }
   }
 
   public static AbstractColumnReader newReader(MajorType type) {
-    Class<? extends AbstractColumnReader> writerClass = readers[type.getMinorType().ordinal()][type.getMode().ordinal()];
-    if (writerClass == null) {
-      throw new UnsupportedOperationException();
-    }
     try {
-      return writerClass.newInstance();
+      if (type.getMode() == DataMode.REPEATED) {
+        Class<? extends AbstractArrayReader> readerClass = arrayReaders[type.getMinorType().ordinal()];
+        if (readerClass == null) {
+          throw new UnsupportedOperationException();
+        }
+        return new ArrayColumnReader(readerClass.newInstance());
+      } else {
+        Class<? extends AbstractColumnReader> readerClass = columnReaders[type.getMinorType().ordinal()][type.getMode().ordinal()];
+        if (readerClass == null) {
+          throw new UnsupportedOperationException();
+        }
+        return readerClass.newInstance();
+      }
     } catch (InstantiationException | IllegalAccessException e) {
       throw new IllegalStateException(e);
     }

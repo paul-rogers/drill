@@ -15,20 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor;
+package org.apache.drill.exec.vector.accessor.impl;
 
-public interface ArrayWriter extends ColumnAccessor, ScalarWriter {
+public class Exp2 {
 
-  int size();
-
-  /**
-   * Determine if the next position is valid for writing. Will be invalid
-   * if the writer hits a size or other limit.
-   *
-   * @return true if another item is available and the reader is positioned
-   * at that item, false if no more items are available and the reader
-   * is no longer valid
-   */
-
-  boolean valid();
 }

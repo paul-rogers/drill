@@ -49,7 +49,6 @@ import org.apache.drill.exec.work.QueryWorkUnit;
 import org.apache.drill.exec.work.QueryWorkUnit.MinorFragmentDefn;
 import org.apache.drill.exec.work.foreman.ForemanSetupException;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
@@ -71,11 +70,11 @@ public class SimpleParallelizer implements ParallelizationParameters {
 
   public SimpleParallelizer(QueryContext context) {
     OptionManager optionManager = context.getOptions();
-    long sliceTarget = optionManager.getOption(ExecConstants.SLICE_TARGET).num_val;
+    long sliceTarget = optionManager.getOption(ExecConstants.SLICE_TARGET_OPTION);
     this.parallelizationThreshold = sliceTarget > 0 ? sliceTarget : 1;
-    this.maxWidthPerNode = optionManager.getOption(ExecConstants.MAX_WIDTH_PER_NODE_KEY).num_val.intValue();
-    this.maxGlobalWidth = optionManager.getOption(ExecConstants.MAX_WIDTH_GLOBAL_KEY).num_val.intValue();
-    this.affinityFactor = optionManager.getOption(ExecConstants.AFFINITY_FACTOR_KEY).float_val.intValue();
+    this.maxWidthPerNode = (int) optionManager.getOption(ExecConstants.MAX_WIDTH_PER_NODE);
+    this.maxGlobalWidth = (int) optionManager.getOption(ExecConstants.MAX_WIDTH_GLOBAL);
+    this.affinityFactor = optionManager.getOption(ExecConstants.AFFINITY_FACTOR);
   }
 
   public SimpleParallelizer(long parallelizationThreshold, int maxWidthPerNode, int maxGlobalWidth, double affinityFactor) {
@@ -148,6 +147,7 @@ public class SimpleParallelizer implements ParallelizationParameters {
     // no op
     throw new UnsupportedOperationException("Use children classes");
   }
+
   /**
    * Helper method to reuse the code for QueryWorkUnit(s) generation
    * @param activeEndpoints

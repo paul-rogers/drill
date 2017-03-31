@@ -33,14 +33,10 @@ public abstract class AbstractColumnAccessor {
     int index();
   }
 
-  public interface VectorAccessor {
-    ValueVector vector();
-  }
-
-  protected RowIndex rowIndex;
+  protected RowIndex vectorIndex;
 
   protected void bind(RowIndex rowIndex) {
-    this.rowIndex = rowIndex;
+    this.vectorIndex = rowIndex;
   }
 
   public abstract void bind(RowIndex rowIndex, ValueVector vector);
