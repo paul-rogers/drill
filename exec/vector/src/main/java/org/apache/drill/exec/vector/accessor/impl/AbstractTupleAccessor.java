@@ -19,6 +19,10 @@ package org.apache.drill.exec.vector.accessor.impl;
 
 import org.apache.drill.exec.vector.accessor.TupleAccessor;
 
+/**
+ * Common base class for tuple readers and writers.
+ */
+
 public abstract class AbstractTupleAccessor implements TupleAccessor {
 
   protected final TupleSchema schema;

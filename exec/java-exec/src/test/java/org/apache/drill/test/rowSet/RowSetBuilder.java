@@ -19,13 +19,18 @@ package org.apache.drill.test.rowSet;
 
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 
 /**
  * Fluent builder to quickly build up an row set (record batch)
- * programmatically.
+ * programmatically. Starting with an {@link OperatorFixture}:
+ * <pre></code>
+ * OperatorFixture fixture = ...
+ * RowSet rowSet = fixture.rowSetBuilder(batchSchema)
+ *   .addRow(10, "string", new int[] {10.3, 10.4})
+ *   ...
+ *   .build();</code></pre>
  */
 
 public final class RowSetBuilder {
@@ -47,10 +52,10 @@ public final class RowSetBuilder {
     if (! writer.valid()) {
       throw new IllegalStateException( "Write past end of row set" );
     }
-    TupleWriter row = writer.row();
     for (int i = 0; i < values.length;  i++) {
-      row.set(i, values[i]);
+      writer.set(i, values[i]);
     }
+    writer.save();
     return this;
   }
 

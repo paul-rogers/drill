@@ -24,7 +24,21 @@ import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 
+/**
+ * Single row set coupled with an indirection (selection) vector,
+ * specifically an SV2.
+ */
+
 public class IndirectRowSet extends AbstractSingleRowSet {
+
+  /**
+   * Reader index that points to each row indirectly through the
+   * selection vector. The {@link #index()} method points to the
+   * actual data row, while the {@link #position()} method gives
+   * the position relative to the indirection vector. That is,
+   * the position increases monotonically, but the index jumps
+   * around as specified by the indirection vector.
+   */
 
   private static class IndirectRowIndex extends BoundedRowIndex {
 
@@ -83,7 +97,7 @@ public class IndirectRowSet extends AbstractSingleRowSet {
 
   @Override
   public RowSetWriter writer() {
-    return buildWriter(new IndirectRowIndex(getSv2()));
+    throw new UnsupportedOperationException("Cannot write to an existing row set");
   }
 
   @Override

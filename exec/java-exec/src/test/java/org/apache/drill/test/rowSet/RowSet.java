@@ -28,8 +28,6 @@ import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
-import org.apache.drill.exec.vector.accessor.TupleAccessor;
-import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 
@@ -58,6 +56,14 @@ import org.apache.drill.exec.vector.accessor.TupleWriter;
  * columns can be accessed by index number (as defined in the schema) or
  * by name.
  * <p>
+ * A row set follows a schema. The schema starts as a
+ * {@link BatchSchema}, but is parsed and restructured into a variety of
+ * forms. In the original form, maps contain their value vectors. In the
+ * flattened form, all vectors for all maps (and the top-level tuple) are
+ * collected into a single structure. Since this structure is for testing,
+ * this somewhat-static structure works just file; we don't need the added
+ * complexity that comes from building the schema and data dynamically.
+ * <p>
  * Putting this all together, the typical life-cycle flow is:
  * <ul>
  * <li>Define the schema using {@link RowSetSchema#builder()}.</li>
@@ -72,51 +78,15 @@ import org.apache.drill.exec.vector.accessor.TupleWriter;
 
 public interface RowSet {
 
-//  public interface RowSetAccessor extends TupleAccessor {
-//    boolean next();
-//    boolean valid();
-//
-//    /**
-//     * Return the index of the row within the effective result set.
-//     * (If an SV2 is in use, uses that to obtain data at the current
-//     * index.)
-//     * @return the current reader index
-//     */
-//
-//    int index();
-//
-//    /**
-//     * The index of the underlying row which may be indexed by an
-//     * Sv2 or Sv4.
-//     *
-//     * @return
-//     */
-//
-//    int rowIndex();
-//
-//    /**
-//     * Total number of rows in the row set.
-//     * @return total number of rows
-//     */
-//    int size();
-//
-//    /**
-//     * Number of columns in the row set.
-//     * @return number of columns
-//     */
-//    int width();
-//
-//    /**
-//     * Batch index: 0 for a single batch, batch for the current
-//     * row is a hyper-batch.
-//     * @return index of the batch for the current row
-//     */
-//    int batchIndex();
-//  }
+  /**
+   * Interface for writing values to a row set. Only available
+   * for newly-created, single, direct row sets. Eventually, if
+   * we want to allow updating a row set, we have to create a
+   * new row set with the updated columns, then merge the new
+   * and old row sets to create a new immutable row set.
+   */
 
-  public interface RowSetWriter {
-    TupleSchema schema();
-    TupleWriter row();
+  public interface RowSetWriter extends TupleWriter {
     void setRow(Object...values);
     boolean valid();
     int index();
@@ -124,8 +94,11 @@ public interface RowSet {
     void done();
   }
 
-  public interface RowSetReader {
-    TupleSchema schema();
+  /**
+   * Reader for all types of row sets.
+   */
+
+  public interface RowSetReader extends TupleReader {
 
     /**
      * Total number of rows in the row set.
@@ -153,7 +126,6 @@ public interface RowSet {
 
     int rowIndex();
     boolean valid();
-    TupleReader row();
   }
 
   boolean isExtendable();
@@ -184,11 +156,21 @@ public interface RowSet {
 
   BatchSchema getBatchSchema();
 
+  /**
+   * Row set that manages a single batch of rows.
+   */
+
   public interface SingleRowSet extends RowSet {
     ValueVector[] vectors();
     SingleRowSet toIndirect();
     SelectionVector2 getSv2();
   }
+
+  /**
+   * Single row set which is empty and allows writing.
+   * Once writing is complete, the row set becomes an
+   * immutable direct row set.
+   */
 
   public interface ExtendableRowSet extends SingleRowSet {
     void allocate(int recordCount);
@@ -196,9 +178,13 @@ public interface RowSet {
     RowSetWriter writer(int initialRowCount);
   }
 
+  /**
+   * Row set comprised of multiple single row sets, along with
+   * an indirection vector (SV4).
+   */
+
   public interface HyperRowSet extends RowSet {
     SelectionVector4 getSv4();
     HyperVectorWrapper<ValueVector> getHyperVector(int i);
   }
-
 }

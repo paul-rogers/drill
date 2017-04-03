@@ -24,7 +24,24 @@ import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
 import org.joda.time.Period;
 
+/**
+ * Writer for an array-valued column. This writer appends values: once a value
+ * is written, it cannot be changed. As a result, writer methods have no item index;
+ * each set advances the array to the next position. This is an abstract base class;
+ * subclasses are generated for each repeated value vector type.
+ */
+
 public abstract class AbstractArrayWriter extends AbstractColumnAccessor implements ArrayWriter {
+
+  /**
+   * Column writer that provides access to an array column by returning a
+   * separate writer specifically for that array. That is, writing an array
+   * is a two-part process:<pre><code>
+   * tupleWriter.column("arrayCol").array().setInt(2);</code></pre>
+   * This pattern is used to avoid overloading the column reader with
+   * both scalar and array access. Also, this pattern mimics the way
+   * that nested tuples (Drill maps) are handled.
+   */
 
   public static class ArrayColumnWriter extends AbstractColumnWriter {
 
@@ -42,11 +59,21 @@ public abstract class AbstractArrayWriter extends AbstractColumnAccessor impleme
     @Override
     public void bind(RowIndex rowIndex, ValueVector vector) {
       arrayWriter.bind(rowIndex, vector);
+      vectorIndex = rowIndex;
     }
 
     @Override
     public ArrayWriter array() {
       return arrayWriter;
+    }
+
+    /**
+     * Arrays require a start step for each row, regardless of
+     * whether any values are written for that row.
+     */
+
+    public void start() {
+      arrayWriter.mutator().startNewValue(vectorIndex.index());
     }
   }
 
@@ -55,10 +82,6 @@ public abstract class AbstractArrayWriter extends AbstractColumnAccessor impleme
   @Override
   public int size() {
     return mutator().getInnerValueCountAt(vectorIndex.index());
-  }
-
-  public void start() {
-    mutator().setValueCount(vectorIndex.index());
   }
 
   @Override

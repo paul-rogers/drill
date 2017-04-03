@@ -17,25 +17,27 @@
  */
 package org.apache.drill.test.rowSet.test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
-import org.apache.drill.exec.vector.accessor.TupleReader;
-import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
 import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
-import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetSchema;
-import org.apache.drill.test.rowSet.RowSetSchema.FlatTupleSchemaImpl;
+import org.apache.drill.test.rowSet.RowSetSchema.FlattenedSchema;
 import org.apache.drill.test.rowSet.RowSetSchema.PhysicalSchema;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.AfterClass;
@@ -75,7 +77,7 @@ public class RowSetTest {
     assertEquals("b", batchSchema.getColumn(2).getName());
 
     RowSetSchema schema = new RowSetSchema(batchSchema);
-    TupleSchema access = schema.access();
+    TupleSchema access = schema.hierarchicalAccess();
     assertEquals(3, access.count());
 
     crossCheck(access, 0, "c", MinorType.INT);
@@ -133,7 +135,7 @@ public class RowSetTest {
 
     // Access schema: flattened with maps removed
 
-    FlatTupleSchemaImpl access = (FlatTupleSchemaImpl) schema.flatSchema();
+    FlattenedSchema access = schema.flatAccess();
     assertEquals(6, access.count());
     crossCheck(access, 0, "c", MinorType.INT);
     crossCheck(access, 1, "a.b", MinorType.VARCHAR);
@@ -204,12 +206,11 @@ public class RowSetTest {
         .build();
     RowSetReader reader = rs.reader();
     assertTrue(reader.next());
-    TupleReader row = reader.row();
-    assertEquals(0, row.column(0).getInt());
+    assertEquals(0, reader.column(0).getInt());
     assertTrue(reader.next());
-    assertEquals(Byte.MAX_VALUE, row.column(0).getInt());
+    assertEquals(Byte.MAX_VALUE, reader.column(0).getInt());
     assertTrue(reader.next());
-    assertEquals(Byte.MIN_VALUE, row.column(0).getInt());
+    assertEquals(Byte.MIN_VALUE, reader.column(0).getInt());
     assertFalse(reader.next());
     rs.clear();
   }
@@ -225,12 +226,11 @@ public class RowSetTest {
         .build();
     RowSetReader reader = rs.reader();
     assertTrue(reader.next());
-    TupleReader row = reader.row();
-    assertEquals(0, row.column(0).getInt());
+    assertEquals(0, reader.column(0).getInt());
     assertTrue(reader.next());
-    assertEquals(Short.MAX_VALUE, row.column(0).getInt());
+    assertEquals(Short.MAX_VALUE, reader.column(0).getInt());
     assertTrue(reader.next());
-    assertEquals(Short.MIN_VALUE, row.column(0).getInt());
+    assertEquals(Short.MIN_VALUE, reader.column(0).getInt());
     assertFalse(reader.next());
     rs.clear();
   }
@@ -246,12 +246,11 @@ public class RowSetTest {
         .build();
     RowSetReader reader = rs.reader();
     assertTrue(reader.next());
-    TupleReader row = reader.row();
-    assertEquals(0, row.column(0).getInt());
+    assertEquals(0, reader.column(0).getInt());
     assertTrue(reader.next());
-    assertEquals(Integer.MAX_VALUE, row.column(0).getInt());
+    assertEquals(Integer.MAX_VALUE, reader.column(0).getInt());
     assertTrue(reader.next());
-    assertEquals(Integer.MIN_VALUE, row.column(0).getInt());
+    assertEquals(Integer.MIN_VALUE, reader.column(0).getInt());
     assertFalse(reader.next());
     rs.clear();
   }
@@ -267,12 +266,11 @@ public class RowSetTest {
         .build();
     RowSetReader reader = rs.reader();
     assertTrue(reader.next());
-    TupleReader row = reader.row();
-    assertEquals(0, row.column(0).getLong());
+    assertEquals(0, reader.column(0).getLong());
     assertTrue(reader.next());
-    assertEquals(Long.MAX_VALUE, row.column(0).getLong());
+    assertEquals(Long.MAX_VALUE, reader.column(0).getLong());
     assertTrue(reader.next());
-    assertEquals(Long.MIN_VALUE, row.column(0).getLong());
+    assertEquals(Long.MIN_VALUE, reader.column(0).getLong());
     assertFalse(reader.next());
     rs.clear();
   }
@@ -288,12 +286,11 @@ public class RowSetTest {
         .build();
     RowSetReader reader = rs.reader();
     assertTrue(reader.next());
-    TupleReader row = reader.row();
-    assertEquals(0, row.column(0).getDouble(), 0.000001);
+    assertEquals(0, reader.column(0).getDouble(), 0.000001);
     assertTrue(reader.next());
-    assertEquals(Float.MAX_VALUE, row.column(0).getDouble(), 0.000001);
+    assertEquals(Float.MAX_VALUE, reader.column(0).getDouble(), 0.000001);
     assertTrue(reader.next());
-    assertEquals(Float.MIN_VALUE, row.column(0).getDouble(), 0.000001);
+    assertEquals(Float.MIN_VALUE, reader.column(0).getDouble(), 0.000001);
     assertFalse(reader.next());
     rs.clear();
   }
@@ -309,12 +306,11 @@ public class RowSetTest {
         .build();
     RowSetReader reader = rs.reader();
     assertTrue(reader.next());
-    TupleReader row = reader.row();
-    assertEquals(0, row.column(0).getDouble(), 0.000001);
+    assertEquals(0, reader.column(0).getDouble(), 0.000001);
     assertTrue(reader.next());
-    assertEquals(Double.MAX_VALUE, row.column(0).getDouble(), 0.000001);
+    assertEquals(Double.MAX_VALUE, reader.column(0).getDouble(), 0.000001);
     assertTrue(reader.next());
-    assertEquals(Double.MIN_VALUE, row.column(0).getDouble(), 0.000001);
+    assertEquals(Double.MIN_VALUE, reader.column(0).getDouble(), 0.000001);
     assertFalse(reader.next());
     rs.clear();
   }
@@ -334,16 +330,15 @@ public class RowSetTest {
         .build();
     RowSetReader reader = rs.reader();
     assertTrue(reader.next());
-    TupleReader row = reader.row();
-    assertEquals(10, row.column(0).getInt());
-    assertEquals(20, row.column(1).getInt());
-    assertEquals(30, row.column(2).getInt());
-    assertEquals(10, row.column("a").getInt());
-    assertEquals(30, row.column("b.d").getInt());
+    assertEquals(10, reader.column(0).getInt());
+    assertEquals(20, reader.column(1).getInt());
+    assertEquals(30, reader.column(2).getInt());
+    assertEquals(10, reader.column("a").getInt());
+    assertEquals(30, reader.column("b.d").getInt());
     assertTrue(reader.next());
-    assertEquals(40, row.column(0).getInt());
-    assertEquals(50, row.column(1).getInt());
-    assertEquals(60, row.column(2).getInt());
+    assertEquals(40, reader.column(0).getInt());
+    assertEquals(50, reader.column(1).getInt());
+    assertEquals(60, reader.column(2).getInt());
     assertFalse(reader.next());
     rs.clear();
   }
@@ -357,26 +352,45 @@ public class RowSetTest {
 
     ExtendableRowSet rs1 = fixture.rowSet(batchSchema);
     RowSetWriter writer = rs1.writer();
-    TupleWriter row = writer.row();
-    row.column(0).setInt(10);
-    ArrayWriter array = row.column(1).array();
+    writer.column(0).setInt(10);
+    ArrayWriter array = writer.column(1).array();
     array.setInt(100);
     array.setInt(110);
+    writer.save();
+    writer.column(0).setInt(20);
+    array = writer.column(1).array();
+    array.setInt(200);
+    array.setInt(120);
+    array.setInt(220);
+    writer.save();
+    writer.column(0).setInt(30);
     writer.save();
     writer.done();
 
     RowSetReader reader = rs1.reader();
     assertTrue(reader.next());
-    TupleReader readRow = reader.row();
-    assertEquals(10, readRow.column(0).getInt());
-    ArrayReader arrayReader = readRow.column(1).array();
+    assertEquals(10, reader.column(0).getInt());
+    ArrayReader arrayReader = reader.column(1).array();
     assertEquals(2, arrayReader.size());
     assertEquals(100, arrayReader.getInt(0));
-    assertEquals(200, arrayReader.getInt(1));
+    assertEquals(110, arrayReader.getInt(1));
+    assertTrue(reader.next());
+    assertEquals(20, reader.column(0).getInt());
+    arrayReader = reader.column(1).array();
+    assertEquals(3, arrayReader.size());
+    assertEquals(200, arrayReader.getInt(0));
+    assertEquals(120, arrayReader.getInt(1));
+    assertEquals(220, arrayReader.getInt(2));
+    assertTrue(reader.next());
+    assertEquals(30, reader.column(0).getInt());
+    arrayReader = reader.column(1).array();
+    assertEquals(0, arrayReader.size());
     assertFalse(reader.next());
 
     SingleRowSet rs2 = fixture.rowSetBuilder(batchSchema)
-      .add(20, new int[] {200, 210})
+      .add(10, new int[] {100, 110})
+      .add(20, new int[] {200, 120, 220})
+      .add(30, null)
       .build();
 
     new RowSetComparison(rs1)

@@ -45,7 +45,7 @@ import org.apache.drill.exec.record.MaterializedField;
  *            .buildMap()
  *          .add("g", MinorType.INT)
  *          .buildMap()
- *        .add("h", MinorType.BIGINT)
+ *        .addArray("h", MinorType.BIGINT)
  *        .build();
  * </code</pre>
  */

@@ -29,9 +29,17 @@ import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.AccessorUtilities;
+import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader;
+import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
+import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader.VectorAccessor;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
+import org.apache.drill.test.rowSet.AbstractRowSet.RowSetIndex;
+import org.apache.drill.test.rowSet.AbstractRowSet.RowSetReaderImpl;
+import org.apache.drill.test.rowSet.HyperRowSetImpl.HyperRowIndex;
 import org.apache.drill.test.rowSet.RowSet.HyperRowSet;
+import org.apache.drill.test.rowSet.RowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSetIndex.BoundedRowIndex;
+import org.apache.drill.test.rowSet.RowSetSchema.FlattenedSchema;
 import org.apache.drill.test.rowSet.RowSetSchema.LogicalColumn;
 import org.apache.drill.test.rowSet.RowSetSchema.PhysicalSchema;
 
@@ -54,6 +62,22 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
     @Override
     public int batch( ) {
       return AccessorUtilities.sv4Batch(sv4.get(rowIndex));
+    }
+  }
+
+  public static class HyperVectorAccessor implements VectorAccessor {
+
+    private final HyperRowIndex rowIndex;
+    private final ValueVector[] vectors;
+
+    public HyperVectorAccessor(HyperVectorWrapper<ValueVector> hvw, HyperRowIndex rowIndex) {
+      this.rowIndex = rowIndex;
+      vectors = hvw.getValueVectors();
+    }
+
+    @Override
+    public ValueVector vector() {
+      return vectors[rowIndex.batch()];
     }
   }
 
@@ -109,14 +133,14 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
     @SuppressWarnings("unchecked")
     public HyperVectorBuilder(RowSetSchema schema) {
       physicalSchema = schema.physical();
-      valueVectors = new HyperVectorWrapper<?>[schema.access().count()];
-      if (schema.access().mapCount() == 0) {
+      valueVectors = new HyperVectorWrapper<?>[schema.hierarchicalAccess().count()];
+      if (schema.hierarchicalAccess().mapCount() == 0) {
         mapVectors = null;
         nestedScalars = null;
       } else {
         mapVectors = (HyperVectorWrapper<AbstractMapVector>[])
-            new HyperVectorWrapper<?>[schema.access().mapCount()];
-        nestedScalars = new ArrayList[schema.access().count()];
+            new HyperVectorWrapper<?>[schema.hierarchicalAccess().mapCount()];
+        nestedScalars = new ArrayList[schema.hierarchicalAccess().count()];
       }
     }
 
@@ -205,6 +229,32 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
   @Override
   public RowSetReader reader() {
     return buildReader(new HyperRowIndex(sv4));
+  }
+
+  /**
+   * Internal method to build the set of column readers needed for
+   * this row set. Used when building a row set reader.
+   * @param rowIndex object that points to the current row
+   * @return an array of column readers: in the same order as the
+   * (non-map) vectors.
+   */
+
+  protected RowSetReader buildReader(RowSetIndex rowIndex) {
+    FlattenedSchema accessSchema = schema().flatAccess();
+    ValueVector[] valueVectors = vectors();
+    AbstractColumnReader[] readers = new AbstractColumnReader[valueVectors.length];
+    for (int i = 0; i < readers.length; i++) {
+      MinorType type = accessSchema.column(i).getType().getMinorType();
+      if (type == MinorType.MAP) {
+        readers[i] = null; // buildMapAccessor(i);
+      } else if (type == MinorType.LIST) {
+        readers[i] = null; // buildListAccessor(i);
+      } else {
+        readers[i] = ColumnAccessorFactory.newReader(valueVectors[i].getField().getType());
+        readers[i].bind(rowIndex, valueVectors[i]);
+      }
+    }
+    return new RowSetReaderImpl(accessSchema, rowIndex, readers);
   }
 
   @Override

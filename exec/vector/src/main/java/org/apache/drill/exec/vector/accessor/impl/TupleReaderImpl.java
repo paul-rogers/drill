@@ -20,6 +20,11 @@ package org.apache.drill.exec.vector.accessor.impl;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 
+/**
+ * Reader for a tuple (a row or a map.) Provides access to each
+ * column using either a name or a numeric index.
+ */
+
 public class TupleReaderImpl extends AbstractTupleAccessor implements TupleReader {
 
   private final AbstractColumnReader readers[];

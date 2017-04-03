@@ -157,10 +157,10 @@ public class RowSetSchema {
     public int count() { return columns.count(); }
   }
 
-  public static class FlatTupleSchemaImpl extends TupleSchemaImpl {
+  public static class FlattenedSchema extends TupleSchemaImpl {
     protected final TupleSchemaImpl maps;
 
-    public FlatTupleSchemaImpl(NameSpace<LogicalColumn> cols, NameSpace<LogicalColumn> maps) {
+    public FlattenedSchema(NameSpace<LogicalColumn> cols, NameSpace<LogicalColumn> maps) {
       super(cols);
       this.maps = new TupleSchemaImpl(maps);
     }
@@ -226,7 +226,7 @@ public class RowSetSchema {
 
   private final BatchSchema batchSchema;
   private final TupleSchemaImpl accessSchema;
-  private final FlatTupleSchemaImpl flatSchema;
+  private final FlattenedSchema flatSchema;
   private final PhysicalSchema physicalSchema;
 
   public RowSetSchema(BatchSchema schema) {
@@ -234,11 +234,11 @@ public class RowSetSchema {
     SchemaExpander expander = new SchemaExpander(schema);
     physicalSchema = expander.physicalSchema;
     accessSchema = new TupleSchemaImpl(physicalSchema.nameSpace());
-    flatSchema = new FlatTupleSchemaImpl(expander.cols, expander.maps);
+    flatSchema = new FlattenedSchema(expander.cols, expander.maps);
   }
 
-  public TupleSchema access() { return accessSchema; }
-  public TupleSchema flatSchema() { return flatSchema; }
+  public TupleSchema hierarchicalAccess() { return accessSchema; }
+  public FlattenedSchema flatAccess() { return flatSchema; }
   public PhysicalSchema physical() { return physicalSchema; }
   public BatchSchema batch() { return batchSchema; }
 

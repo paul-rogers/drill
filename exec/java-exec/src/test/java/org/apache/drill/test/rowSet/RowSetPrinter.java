@@ -21,8 +21,11 @@ import java.io.PrintStream;
 
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
-import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;
+
+/**
+ * Print a row set in CSV-like format. Primarily for debugging.
+ */
 
 public class RowSetPrinter {
   private RowSet rowSet;
@@ -40,14 +43,13 @@ public class RowSetPrinter {
     RowSetReader reader = rowSet.reader();
     int colCount = reader.schema().count();
     printSchema(out, selectionMode);
-    TupleReader row = reader.row();
     while (reader.next()) {
       printHeader(out, reader, selectionMode);
       for (int i = 0; i < colCount; i++) {
         if (i > 0) {
           out.print(", ");
         }
-        out.print(row.getAsString(i));
+        out.print(reader.getAsString(i));
       }
       out.println();
     }
@@ -66,7 +68,7 @@ public class RowSetPrinter {
       break;
     }
     out.print(": ");
-    TupleSchema schema = rowSet.schema().access();
+    TupleSchema schema = rowSet.schema().hierarchicalAccess();
     for (int i = 0; i < schema.count(); i++) {
       if (i > 0) {
         out.print(", ");

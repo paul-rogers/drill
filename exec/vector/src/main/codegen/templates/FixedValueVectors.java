@@ -425,7 +425,6 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     }
 
     <#elseif (minor.class == "Decimal28Sparse") || (minor.class == "Decimal38Sparse") || (minor.class == "Decimal28Dense") || (minor.class == "Decimal38Dense")>
-
     public void get(int index, ${minor.class}Holder holder) {
       holder.start = index * ${type.width};
       holder.buffer = data;
@@ -470,7 +469,6 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
     </#if>
     <#else> <#-- type.width <= 8 -->
-
     public ${minor.javaType!type.javaType} get(int index) {
       return data.get${(minor.javaType!type.javaType)?cap_first}(index * ${type.width});
     }
@@ -481,7 +479,6 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     }
 
     </#if>
-
     <#if minor.class == "Date">
     @Override
     public ${friendlyType} getObject(int index) {
@@ -551,8 +548,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     public ${minor.javaType!type.javaType} getPrimitiveObject(int index) {
       return get(index);
     }
-    </#if>
 
+    </#if>
     public void get(int index, ${minor.class}Holder holder){
       <#if minor.class.startsWith("Decimal")>
       holder.scale = getField().getScale();
@@ -734,8 +731,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     public void set(int index, Nullable${minor.class}Holder holder){
       data.setBytes(index * ${type.width}, holder.buffer, holder.start, ${type.width});
     }
-   </#if>
 
+    </#if>
     @Override
     public void generateTestData(int count) {
       setValueCount(count);

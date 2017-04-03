@@ -33,6 +33,8 @@ import org.joda.time.Period;
 
 public abstract class AbstractColumnWriter extends AbstractColumnAccessor implements ColumnWriter {
 
+  public void start() { }
+
   @Override
   public void setNull() {
     throw new UnsupportedOperationException();

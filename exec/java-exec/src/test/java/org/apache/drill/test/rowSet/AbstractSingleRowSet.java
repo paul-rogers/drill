@@ -27,20 +27,27 @@ import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.TupleReader;
-import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader;
-import org.apache.drill.exec.vector.accessor.impl.AbstractColumnWriter;
 import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
-import org.apache.drill.exec.vector.accessor.impl.TupleReaderImpl;
-import org.apache.drill.exec.vector.accessor.impl.TupleWriterImpl;
 import org.apache.drill.exec.vector.complex.MapVector;
-import org.apache.drill.test.rowSet.RowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.RowSetSchema.FlattenedSchema;
 import org.apache.drill.test.rowSet.RowSetSchema.LogicalColumn;
 import org.apache.drill.test.rowSet.RowSetSchema.PhysicalSchema;
 
+/**
+ * Base class for row sets backed by a single record batch.
+ */
+
 public abstract class AbstractSingleRowSet extends AbstractRowSet implements SingleRowSet {
+
+  /**
+   * Internal helper class to organize a set of value vectors for use by the
+   * row set class. Subclasses either build vectors from a schema, or map an
+   * existing vector container into the row set structure. The row set
+   * structure is based on a flattened structure; all vectors appear in
+   * a single vector array. Maps are set aside in a separate map list.
+   */
 
   public abstract static class StructureBuilder {
     protected final PhysicalSchema schema;
@@ -53,14 +60,20 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
     public StructureBuilder(BufferAllocator allocator, RowSetSchema schema) {
       this.allocator = allocator;
       this.schema = schema.physical();
-      valueVectors = new ValueVector[schema.access().count()];
-      if (schema.access().mapCount() == 0) {
+      FlattenedSchema flatSchema = schema.flatAccess();
+      valueVectors = new ValueVector[flatSchema.count()];
+      if (flatSchema.mapCount() == 0) {
         mapVectors = null;
       } else {
-        mapVectors = new MapVector[schema.access().mapCount()];
+        mapVectors = new MapVector[flatSchema.mapCount()];
       }
     }
   }
+
+  /**
+   * Create a set of value vectors given a schema, then map them into both
+   * the value container and the row set structure.
+   */
 
   public static class VectorBuilder extends StructureBuilder {
 
@@ -103,6 +116,12 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
       }
     }
   }
+
+  /**
+   * Build a row set given an existing vector container. In this case,
+   * the vectors exist and we simply need to pull them out of the container
+   * and maps and put them into the row set arrays.
+   */
 
   public static class VectorMapper extends StructureBuilder {
 
@@ -164,8 +183,16 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
     return sizer.actualSize();
   }
 
+  /**
+   * Internal method to build the set of column readers needed for
+   * this row set. Used when building a row set reader.
+   * @param rowIndex object that points to the current row
+   * @return an array of column readers: in the same order as the
+   * (non-map) vectors.
+   */
+
   protected RowSetReader buildReader(RowSetIndex rowIndex) {
-    TupleSchema accessSchema = schema().access();
+    FlattenedSchema accessSchema = schema().flatAccess();
     ValueVector[] valueVectors = vectors();
     AbstractColumnReader[] readers = new AbstractColumnReader[valueVectors.length];
     for (int i = 0; i < readers.length; i++) {
@@ -179,19 +206,6 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
         readers[i].bind(rowIndex, valueVectors[i]);
       }
     }
-    return new RowSetReaderImpl(accessSchema, rowIndex, new TupleReaderImpl(accessSchema, readers));
-  }
-
-  protected RowSetWriter buildWriter(RowSetIndex rowIndex) {
-    ValueVector[] valueVectors = vectors();
-    AbstractColumnWriter[] writers = new AbstractColumnWriter[valueVectors.length];
-    int posn = 0;
-    for (int i = 0; i < writers.length; i++) {
-      writers[posn] = ColumnAccessorFactory.newWriter(valueVectors[i].getField().getType());
-      writers[posn].bind(rowIndex, valueVectors[i]);
-      posn++;
-    }
-    TupleSchema accessSchema = schema().access();
-    return new RowSetWriterImpl(accessSchema, rowIndex, new TupleWriterImpl(accessSchema, writers));
+    return new RowSetReaderImpl(accessSchema, rowIndex, readers);
   }
 }

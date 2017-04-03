@@ -20,8 +20,8 @@ package org.apache.drill.test.rowSet;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
-import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.test.rowSet.RowSet.RowSetReader;
 import org.bouncycastle.util.Arrays;
 
@@ -41,7 +41,7 @@ public class RowSetComparison {
 
   public RowSetComparison(RowSet expected) {
     this.expected = expected;
-    mask = new boolean[expected.schema().access().count()];
+    mask = new boolean[expected.schema().hierarchicalAccess().count()];
     for (int i = 0; i < mask.length; i++) {
       mask[i] = true;
     }
@@ -152,15 +152,14 @@ public class RowSetComparison {
   }
 
   private void verifyRow(RowSetReader er, RowSetReader ar) {
-    TupleReader eRow = er.row();
-    TupleReader aRow = ar.row();
     for (int i = 0; i < mask.length; i++) {
       if (! mask[i]) {
         continue;
       }
-      ColumnReader ec = eRow.column(i);
-      ColumnReader ac = aRow.column(i);
+      ColumnReader ec = er.column(i);
+      ColumnReader ac = ar.column(i);
       String label = er.index() + ":" + i;
+      assertEquals(label, ec.valueType(), ac.valueType());
       if (ec.isNull()) {
         assertTrue(label + " - column not null", ac.isNull());
         continue;
@@ -168,8 +167,8 @@ public class RowSetComparison {
       if (! ec.isNull()) {
         assertTrue(label + " - column is null", ! ac.isNull());
       }
-      switch (ec.valueType()) {
-      case BYTES: {
+    switch (ec.valueType()) {
+    case BYTES: {
         byte expected[] = ac.getBytes();
         byte actual[] = ac.getBytes();
         assertEquals(label + " - byte lengths differ", expected.length, actual.length);
@@ -179,23 +178,66 @@ public class RowSetComparison {
      case DOUBLE:
        assertEquals(label, ec.getDouble(), ac.getDouble(), delta);
        break;
+     case INTEGER:
+       assertEquals(label, ec.getInt(), ac.getInt());
+       break;
+     case LONG:
+       assertEquals(label, ec.getLong(), ac.getLong());
+       break;
+     case STRING:
+       assertEquals(label, ec.getString(), ac.getString());
+        break;
+     case DECIMAL:
+       assertEquals(label, ec.getDecimal(), ac.getDecimal());
+       break;
+     case PERIOD:
+       assertEquals(label, ec.getPeriod(), ac.getPeriod());
+       break;
+     case ARRAY:
+       verifyArray(label, ec.array(), ac.array());
+       break;
+     default:
+        throw new IllegalStateException( "Unexpected type: " + ec.valueType());
+      }
+    }
+  }
+
+  private void verifyArray(String colLabel, ArrayReader ea,
+      ArrayReader aa) {
+    assertEquals(colLabel, ea.valueType(), aa.valueType());
+    assertEquals(colLabel, ea.size(), aa.size());
+    for (int i = 0; i < ea.size(); i++) {
+      String label = colLabel + "[" + i + "]";
+      switch (ea.valueType()) {
+      case ARRAY:
+        throw new IllegalStateException("Arrays of arrays not supported yet");
+      case BYTES: {
+        byte expected[] = ea.getBytes(i);
+        byte actual[] = aa.getBytes(i);
+        assertEquals(label + " - byte lengths differ", expected.length, actual.length);
+        assertTrue(label, Arrays.areEqual(expected, actual));
+        break;
+      }
+      case DOUBLE:
+        assertEquals(label, ea.getDouble(i), aa.getDouble(i), delta);
+        break;
       case INTEGER:
-        assertEquals(label, ec.getInt(), ac.getInt());
+        assertEquals(label, ea.getInt(i), aa.getInt(i));
         break;
       case LONG:
-        assertEquals(label, ec.getLong(), ac.getLong());
+        assertEquals(label, ea.getLong(i), aa.getLong(i));
         break;
       case STRING:
-        assertEquals(label, ec.getString(), ac.getString());
+        assertEquals(label, ea.getString(i), aa.getString(i));
         break;
       case DECIMAL:
-        assertEquals(label, ec.getDecimal(), ac.getDecimal());
+        assertEquals(label, ea.getDecimal(i), aa.getDecimal(i));
         break;
       case PERIOD:
-        assertEquals(label, ec.getPeriod(), ac.getPeriod());
+        assertEquals(label, ea.getPeriod(i), aa.getPeriod(i));
         break;
       default:
-        throw new IllegalStateException( "Unexpected type: " + ec.valueType());
+        throw new IllegalStateException( "Unexpected type: " + ea.valueType());
       }
     }
   }

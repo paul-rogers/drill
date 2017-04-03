@@ -20,6 +20,7 @@ package org.apache.drill.exec.vector.accessor;
 import java.math.BigDecimal;
 
 import org.joda.time.Duration;
+import org.joda.time.Period;
 
 public class AccessorUtilities {
 
@@ -59,5 +60,66 @@ public class AccessorUtilities {
 
   public static int sv4Index(int sv4Index) {
     return sv4Index & 0xFFFF;
+  }
+
+  public static void setBooleanArray(ArrayWriter arrayWriter, boolean[] value) {
+    for (int i = 0; i < value.length; i++) {
+      arrayWriter.setInt(value[i] ? 1 : 0);
+    }
+  }
+
+  public static void setByteArray(ArrayWriter arrayWriter, byte[] value) {
+    for (int i = 0; i < value.length; i++) {
+      arrayWriter.setInt(value[i]);
+    }
+  }
+
+  public static void setShortArray(ArrayWriter arrayWriter, short[] value) {
+    for (int i = 0; i < value.length; i++) {
+      arrayWriter.setInt(value[i]);
+    }
+  }
+
+  public static void setIntArray(ArrayWriter arrayWriter, int[] value) {
+    for (int i = 0; i < value.length; i++) {
+      arrayWriter.setInt(value[i]);
+    }
+  }
+
+  public static void setLongArray(ArrayWriter arrayWriter, long[] value) {
+    for (int i = 0; i < value.length; i++) {
+      arrayWriter.setLong(value[i]);
+    }
+  }
+
+  public static void setFloatArray(ArrayWriter arrayWriter, float[] value) {
+    for (int i = 0; i < value.length; i++) {
+      arrayWriter.setDouble(value[i]);
+    }
+  }
+
+  public static void setDoubleArray(ArrayWriter arrayWriter, double[] value) {
+    for (int i = 0; i < value.length; i++) {
+      arrayWriter.setDouble(value[i]);
+    }
+  }
+
+  public static void setStringArray(ArrayWriter arrayWriter, String[] value) {
+    for (int i = 0; i < value.length; i++) {
+      arrayWriter.setString(value[i]);
+    }
+  }
+
+  public static void setPeriodArray(ArrayWriter arrayWriter, Period[] value) {
+    for (int i = 0; i < value.length; i++) {
+      arrayWriter.setPeriod(value[i]);
+    }
+  }
+
+  public static void setBigDecimalArray(ArrayWriter arrayWriter,
+      BigDecimal[] value) {
+    for (int i = 0; i < value.length; i++) {
+      arrayWriter.setDecimal(value[i]);
+    }
   }
 }

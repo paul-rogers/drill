@@ -26,7 +26,23 @@ import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader.VectorAccessor;
 import org.joda.time.Period;
 
+/**
+ * Reader for an array-valued column. This reader provides access to specific
+ * array members via an array index. This is an abstract base class;
+ * subclasses are generated for each repeated value vector type.
+ */
+
 public abstract class AbstractArrayReader extends AbstractColumnAccessor implements ArrayReader {
+
+  /**
+   * Column reader that provides access to an array column by returning a
+   * separate reader specifically for that array. That is, reading a column
+   * is a two-part process:<pre><code>
+   * tupleReader.column("arrayCol").array().getInt(2);</code></pre>
+   * This pattern is used to avoid overloading the column reader with
+   * both scalar and array access. Also, this pattern mimics the way
+   * that nested tuples (Drill maps) are handled.
+   */
 
   public static class ArrayColumnReader extends AbstractColumnReader {
 
@@ -44,6 +60,7 @@ public abstract class AbstractArrayReader extends AbstractColumnAccessor impleme
     @Override
     public void bind(RowIndex rowIndex, ValueVector vector) {
       arrayReader.bind(rowIndex, vector);
+      vectorIndex = rowIndex;
     }
 
     @Override
@@ -108,5 +125,4 @@ public abstract class AbstractArrayReader extends AbstractColumnAccessor impleme
   public ArrayReader array(int index) {
     throw new UnsupportedOperationException();
   }
-
 }
