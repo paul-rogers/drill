@@ -58,8 +58,8 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
   private static final MappingSet COPIER_MAPPING_SET = new MappingSet(COPIER_MAPPING, COPIER_MAPPING);
 
   /**
-   * A single PriorityQueueCopier instance is used for 2 purposes:
-   * 1. Merge sorted batches before spilling
+   * A single PriorityQueueCopier instance is used for 2 purposes: <br>
+   * 1. Merge sorted batches before spilling <br>
    * 2. Merge sorted batches when all incoming data fits in memory
    */
 

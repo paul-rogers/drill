@@ -202,7 +202,6 @@ public class TestSorter extends DrillTest {
       ExtendableRowSet rowSet = fixture.rowSet(schema);
       RowSetWriter writer = rowSet.writer(items.length);
       for (int i = 0; i < items.length; i++) {
-        writer.next();
         DataItem item = items[i];
         if (nullable && item.isNull) {
           writer.column(0).setNull();
@@ -210,6 +209,7 @@ public class TestSorter extends DrillTest {
           RowSetUtilities.setFromInt(writer, 0, item.key);
         }
         writer.column(1).setString(Integer.toString(item.value));
+        writer.save();
       }
       writer.done();
       return rowSet;

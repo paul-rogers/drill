@@ -133,9 +133,9 @@ public class TestCopier extends DrillTest {
     RowSetWriter writer = rowSet.writer(count);
     int value = first;
     for (int i = 0; i < count; i++, value += step) {
-      writer.next();
       RowSetUtilities.setFromInt(writer, 0, value);
       writer.column(1).setString(Integer.toString(value));
+      writer.save();
     }
     writer.done();
     return rowSet;

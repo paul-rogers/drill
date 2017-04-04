@@ -60,19 +60,20 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
   }
 
   /**
-   * Writer index that points to each row in the row set.
-   * The index starts at the 0th row and advances one row on
-   * each increment. This allows writers to start positioned
-   * at the first row.
+   * Writer index that points to each row in the row set. The index starts at
+   * the 0th row and advances one row on each increment. This allows writers to
+   * start positioned at the first row. Writes happen in the current row.
+   * Calling <tt>next()</tt> advances to the next position, effectively saving
+   * the current row. The most recent row can be abandoned easily simply by not
+   * calling <tt>next()</tt>. This means that the number of completed rows is
+   * the same as the row index.
    */
 
   private static class ExtendableRowIndex extends RowSetIndex {
 
-    private final DirectRowSet rowSet;
     private final int maxSize;
 
-    public ExtendableRowIndex(DirectRowSet rowSet, int maxSize) {
-      this.rowSet = rowSet;
+    public ExtendableRowIndex(int maxSize) {
       this.maxSize = maxSize;
       rowIndex = 0;
     }
@@ -82,7 +83,7 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
 
     @Override
     public boolean next() {
-      if (++rowIndex < maxSize ) {
+      if (++rowIndex <= maxSize ) {
         return true;
       } else {
         rowIndex--;
@@ -97,9 +98,6 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
     public boolean valid() { return rowIndex < maxSize; }
 
     @Override
-    public void setRowCount() { rowSet.setRowCount(size()); }
-
-    @Override
     public int batch() { return 0; }
   }
 
@@ -112,9 +110,11 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
   public class RowSetWriterImpl extends TupleWriterImpl implements RowSetWriter {
 
     private final ExtendableRowIndex index;
+    private final ExtendableRowSet rowSet;
 
-    protected RowSetWriterImpl(TupleSchema schema, ExtendableRowIndex index, AbstractColumnWriter[] writers) {
+    protected RowSetWriterImpl(ExtendableRowSet rowSet, TupleSchema schema, ExtendableRowIndex index, AbstractColumnWriter[] writers) {
       super(schema, writers);
+      this.rowSet = rowSet;
       this.index = index;
       start();
     }
@@ -143,7 +143,9 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
     }
 
     @Override
-    public void done() { index.setRowCount(); }
+    public void done() {
+      rowSet.setRowCount(index.size());
+    }
   }
 
   public DirectRowSet(BufferAllocator allocator, BatchSchema schema) {
@@ -191,7 +193,7 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
       throw new IllegalStateException("Row set already contains data");
     }
     allocate(initialRowCount);
-    return buildWriter(new ExtendableRowIndex(this, Character.MAX_VALUE));
+    return buildWriter(new ExtendableRowIndex(Character.MAX_VALUE));
   }
 
   /**
@@ -211,7 +213,7 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
       posn++;
     }
     TupleSchema accessSchema = schema().hierarchicalAccess();
-    return new RowSetWriterImpl(accessSchema, rowIndex, writers);
+    return new RowSetWriterImpl(this, accessSchema, rowIndex, writers);
   }
 
   @Override

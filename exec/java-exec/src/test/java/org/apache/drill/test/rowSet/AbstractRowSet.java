@@ -40,7 +40,6 @@ public abstract class AbstractRowSet implements RowSet {
     public abstract boolean next();
     public abstract int size();
     public abstract boolean valid();
-    public void setRowCount() { throw new UnsupportedOperationException(); }
     public void set(int index) { rowIndex = index; }
   }
 

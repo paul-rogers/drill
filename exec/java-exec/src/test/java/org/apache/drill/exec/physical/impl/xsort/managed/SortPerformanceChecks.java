@@ -58,18 +58,18 @@ public class SortPerformanceChecks {
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
-    try {
-      timeLargeBatch();
-    } catch (Exception e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }
-    try {
-      timeWideRows();
-    } catch (Exception e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    }
+//    try {
+//      timeLargeBatch();
+//    } catch (Exception e) {
+//      // TODO Auto-generated catch block
+//      e.printStackTrace();
+//    }
+//    try {
+//      timeWideRows();
+//    } catch (Exception e) {
+//      // TODO Auto-generated catch block
+//      e.printStackTrace();
+//    }
   }
 
   public SingleRowSet makeWideRowSet(OperatorFixture fixture, int colCount, int rowCount) {
@@ -82,11 +82,11 @@ public class SortPerformanceChecks {
     ExtendableRowSet rowSet = fixture.rowSet(schema);
     RowSetWriter writer = rowSet.writer(rowCount);
     for (int i = 0; i < rowCount; i++) {
-      writer.next();
       writer.set(0, i);
       for (int j = 0; j < colCount; j++) {
         writer.set(j + 1, i * 100_000 + j);
       }
+      writer.save();
     }
     writer.done();
     return rowSet;
@@ -103,6 +103,11 @@ public class SortPerformanceChecks {
           ;
         }
       }
+      
+      @Override
+      public int outputRowCount() {
+        return rowCount;
+      }
     };
     tester.addInput(makeWideRowSet(fixture, colCount, rowCount).toIndirect());
     timer.reset();
@@ -117,9 +122,11 @@ public class SortPerformanceChecks {
     builder.configBuilder()
       .put(ExecConstants.EXTERNAL_SORT_GENERIC_COPIER, false);
     try (OperatorFixture fixture = builder.build()) {
-      long timeMs = runWideRowsTest(fixture, 1000, Character.MAX_VALUE);
-      System.out.print("Generated copier, 1000 columns, time (ms): ");
-      System.out.println(timeMs);
+      for (int i = 0; i < 5; i++) {
+        long timeMs = runWideRowsTest(fixture, 1000, Character.MAX_VALUE);
+        System.out.print("Generated copier, 1000 columns, time (ms): ");
+        System.out.println(timeMs);
+      }
     }
   }
 
@@ -128,9 +135,11 @@ public class SortPerformanceChecks {
     builder.configBuilder()
       .put(ExecConstants.EXTERNAL_SORT_GENERIC_COPIER, true);
     try (OperatorFixture fixture = builder.build()) {
-      long timeMs = runWideRowsTest(fixture, 1000, Character.MAX_VALUE);
-      System.out.print("Generic copier, 1000 columns, time (ms): ");
-      System.out.println(timeMs);
+      for (int i = 0; i < 5; i++) {
+        long timeMs = runWideRowsTest(fixture, 1000, Character.MAX_VALUE);
+        System.out.print("Generic copier, 1000 columns, time (ms): ");
+        System.out.println(timeMs);
+      }
     }
   }
 

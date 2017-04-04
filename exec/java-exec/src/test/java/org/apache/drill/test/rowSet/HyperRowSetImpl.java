@@ -24,21 +24,17 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.HyperVectorWrapper;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.AccessorUtilities;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader;
-import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader.VectorAccessor;
+import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
-import org.apache.drill.test.rowSet.AbstractRowSet.RowSetIndex;
-import org.apache.drill.test.rowSet.AbstractRowSet.RowSetReaderImpl;
-import org.apache.drill.test.rowSet.HyperRowSetImpl.HyperRowIndex;
 import org.apache.drill.test.rowSet.RowSet.HyperRowSet;
-import org.apache.drill.test.rowSet.RowSet.RowSetReader;
-import org.apache.drill.test.rowSet.RowSetIndex.BoundedRowIndex;
 import org.apache.drill.test.rowSet.RowSetSchema.FlattenedSchema;
 import org.apache.drill.test.rowSet.RowSetSchema.LogicalColumn;
 import org.apache.drill.test.rowSet.RowSetSchema.PhysicalSchema;
@@ -133,14 +129,15 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
     @SuppressWarnings("unchecked")
     public HyperVectorBuilder(RowSetSchema schema) {
       physicalSchema = schema.physical();
+      FlattenedSchema flatSchema = schema.flatAccess();
       valueVectors = new HyperVectorWrapper<?>[schema.hierarchicalAccess().count()];
-      if (schema.hierarchicalAccess().mapCount() == 0) {
+      if (flatSchema.mapCount() == 0) {
         mapVectors = null;
         nestedScalars = null;
       } else {
         mapVectors = (HyperVectorWrapper<AbstractMapVector>[])
-            new HyperVectorWrapper<?>[schema.hierarchicalAccess().mapCount()];
-        nestedScalars = new ArrayList[schema.hierarchicalAccess().count()];
+            new HyperVectorWrapper<?>[flatSchema.mapCount()];
+        nestedScalars = new ArrayList[flatSchema.count()];
       }
     }
 
@@ -239,20 +236,14 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
    * (non-map) vectors.
    */
 
-  protected RowSetReader buildReader(RowSetIndex rowIndex) {
+  protected RowSetReader buildReader(HyperRowIndex rowIndex) {
     FlattenedSchema accessSchema = schema().flatAccess();
-    ValueVector[] valueVectors = vectors();
-    AbstractColumnReader[] readers = new AbstractColumnReader[valueVectors.length];
+    AbstractColumnReader readers[] = new AbstractColumnReader[accessSchema.count()];
     for (int i = 0; i < readers.length; i++) {
-      MinorType type = accessSchema.column(i).getType().getMinorType();
-      if (type == MinorType.MAP) {
-        readers[i] = null; // buildMapAccessor(i);
-      } else if (type == MinorType.LIST) {
-        readers[i] = null; // buildListAccessor(i);
-      } else {
-        readers[i] = ColumnAccessorFactory.newReader(valueVectors[i].getField().getType());
-        readers[i].bind(rowIndex, valueVectors[i]);
-      }
+      MaterializedField field = accessSchema.column(i);
+      readers[i] = ColumnAccessorFactory.newReader(field.getType());
+      HyperVectorWrapper<ValueVector> hvw = getHyperVector(i);
+      readers[i].bind(rowIndex, field, new HyperVectorAccessor(hvw, rowIndex));
     }
     return new RowSetReaderImpl(accessSchema, rowIndex, readers);
   }

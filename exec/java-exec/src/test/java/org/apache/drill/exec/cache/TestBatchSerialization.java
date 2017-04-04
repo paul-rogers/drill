@@ -59,8 +59,8 @@ public class TestBatchSerialization extends DrillTest {
     ExtendableRowSet rowSet = fixture.rowSet(schema);
     RowSetWriter writer = rowSet.writer(rowCount);
     for (int i = 0; i < rowCount; i++) {
-      writer.next();
       RowSetUtilities.setFromInt(writer, 0, i);
+      writer.save();
     }
     writer.done();
     return rowSet;
@@ -70,12 +70,12 @@ public class TestBatchSerialization extends DrillTest {
     ExtendableRowSet rowSet = fixture.rowSet(schema);
     RowSetWriter writer = rowSet.writer(rowCount);
     for (int i = 0; i < rowCount; i++) {
-      writer.next();
       if (i % 2 == 0) {
         RowSetUtilities.setFromInt(writer, 0, i);
       } else {
         writer.column(0).setNull();
       }
+      writer.save();
     }
     writer.done();
     return rowSet;

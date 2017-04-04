@@ -55,7 +55,23 @@ import org.junit.Test;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.Lists;
 
+/**
+ * Tests the external sort implementation: the "guts" of the sort stripped of the
+ * Volcano-protocol layer. Assumes the individual components are already tested.
+ */
+
 public class TestSortImpl extends DrillTest {
+
+  /**
+   * Create the sort implementation to be used by test.
+   *
+   * @param fixture operator fixture
+   * @param sortOrder sort order as specified by {@link Ordering}
+   * @param nullOrder null order as specified by {@link Ordering}
+   * @param outputBatch where the sort should write its output
+   * @return the sort initialized sort implementation, ready to
+   * do work
+   */
 
   public static SortImpl makeSortImpl(OperatorFixture fixture,
                                String sortOrder, String nullOrder,
@@ -80,6 +96,13 @@ public class TestSortImpl extends DrillTest {
     SpilledRuns spilledRuns = new SpilledRuns(opContext, spillSet, copierHolder);
     return new SortImpl(opContext, sortConfig, spilledRuns, outputBatch);
   }
+
+  /**
+   * Handy fixture to hold a sort, a set of input row sets (batches) and the
+   * output set of row sets (batches.) Pumps the input into the sort and
+   * harvests the output. Subclasses define the specifics of the sort,
+   * define the input data, and validate the output data.
+   */
 
   public static class SortTestFixture {
     private final OperatorFixture fixture;
@@ -132,10 +155,12 @@ public class TestSortImpl extends DrillTest {
       for (RowSet expectedSet : expected) {
         assertTrue(results.next());
         RowSet rowSet = toRowSet(fixture, results, dest);
-        System.out.println("Expected:");
-        expectedSet.print();
-        System.out.println("Actual:");
-        rowSet.print();
+        // Uncomment these for debugging. Leave them commented otherwise
+        // to avoid polluting the Maven build output unnecessarily.
+//        System.out.println("Expected:");
+//        expectedSet.print();
+//        System.out.println("Actual:");
+//        rowSet.print();
         new RowSetComparison(expectedSet)
               .verify(rowSet);
         expectedSet.clear();
@@ -151,6 +176,17 @@ public class TestSortImpl extends DrillTest {
     protected void validateSort(SortImpl sort) { }
     protected void validateFinalStats(SortImpl sort) { }
   }
+
+  /**
+   * Sort produces a variety of output types. Convert each type to the corresponding
+   * row set format. For historical reasons, the sort dumps its output into a vector
+   * container (normally attached to the external sort batch, here used stand-alone.)
+   *
+   * @param fixture operator test fixture
+   * @param results sort results iterator
+   * @param dest container that holds the sort results
+   * @return
+   */
 
   private static RowSet toRowSet(OperatorFixture fixture, SortResults results, VectorContainer dest) {
     if (results.getSv4() != null) {
@@ -259,6 +295,14 @@ public class TestSortImpl extends DrillTest {
     }
   }
 
+  /**
+   * Crude-but-effective data generator that produces pseudo-random data
+   * that can be easily verified. The pseudo-random data is generate by the
+   * simple means of incrementing a counter using a random value, and wrapping.
+   * This ensures we visit each value twice, and that the sorted output will
+   * be a continuous run of numbers in proper order.
+   */
+
   public static class DataGenerator {
     private final OperatorFixture fixture;
     private final BatchSchema schema;
@@ -280,6 +324,13 @@ public class TestSortImpl extends DrillTest {
       schema = SortTestUtilities.nonNullSchema();
       currentValue = seed;
     }
+
+    /**
+     * Pick a reasonable prime step based on data size.
+     *
+     * @param target number of rows to generate
+     * @return the prime step size
+     */
 
     private static int guessStep(int target) {
       if (target < 10) {
@@ -310,6 +361,11 @@ public class TestSortImpl extends DrillTest {
     }
   }
 
+  /**
+   * Validate a sort output batch based on the expectation that the key
+   * is an ordered sequence of integers, split across multiple batches.
+   */
+
   public static class DataValidator {
     private final int targetCount;
     private final int batchSize;
@@ -339,6 +395,20 @@ public class TestSortImpl extends DrillTest {
   }
 
   Stopwatch timer = Stopwatch.createUnstarted();
+
+  /**
+   * Run a full-blown sort test with multiple input batches. Because we want to
+   * generate multiple inputs, we don't create them statically. Instead, we generate
+   * them on the fly using a data generator. A matching data validator verifies the
+   * output. Here, we are focusing on overall test flow. Separate, detailed, unit
+   * tests have already probed the details of each sort component and data type,
+   * so we don't need to repeat that whole exercise here; using integer keys is
+   * sufficient.
+   *
+   * @param fixture the operator test fixture
+   * @param dataGen input batch generator
+   * @param validator validates output batches
+   */
 
   public void runLargeSortTest(OperatorFixture fixture, DataGenerator dataGen,
                                DataValidator validator) {
@@ -385,6 +455,12 @@ public class TestSortImpl extends DrillTest {
     sort.close();
   }
 
+  /**
+   * Set up and run a test for "jumbo" batches, and time the run.
+   * @param fixture operator test fixture
+   * @param rowCount number of rows to test
+   */
+
   public void runJumboBatchTest(OperatorFixture fixture, int rowCount) {
     timer.reset();
     DataGenerator dataGen = new DataGenerator(fixture, rowCount, Character.MAX_VALUE);
@@ -393,6 +469,12 @@ public class TestSortImpl extends DrillTest {
     System.out.println(timer.elapsed(TimeUnit.MILLISECONDS));
   }
 
+  /**
+   * Most tests have used small row counts because we want to probe specific bits
+   * of interest. Try 1000 rows just to ensure things work
+   *
+   * @throws Exception
+   */
   @Test
   public void testModerateBatch() throws Exception {
     try (OperatorFixture fixture = OperatorFixture.standardFixture()) {
@@ -400,12 +482,29 @@ public class TestSortImpl extends DrillTest {
     }
   }
 
+  /**
+   * Hit the sort with the largest possible batch size to ensure nothing is lost
+   * at the edges.
+   *
+   * @throws Exception
+   */
+
   @Test
   public void testLargeBatch() throws Exception {
     try (OperatorFixture fixture = OperatorFixture.standardFixture()) {
       runJumboBatchTest(fixture, Character.MAX_VALUE);
     }
   }
+
+  /**
+   * Run a test using wide rows. This stresses the "copier" portion of the sort
+   * and allows us to test the original generated copier and the revised "generic"
+   * copier.
+   *
+   * @param fixture operator test fixture
+   * @param colCount number of data (non-key) columns
+   * @param rowCount number of rows to generate
+   */
 
   public void runWideRowsTest(OperatorFixture fixture, int colCount, int rowCount) {
     SchemaBuilder builder = new SchemaBuilder()
@@ -417,11 +516,11 @@ public class TestSortImpl extends DrillTest {
     ExtendableRowSet rowSet = fixture.rowSet(schema);
     RowSetWriter writer = rowSet.writer(rowCount);
     for (int i = 0; i < rowCount; i++) {
-      writer.next();
       writer.set(0, i);
       for (int j = 0; j < colCount; j++) {
         writer.set(j + 1, i * 100_000 + j);
       }
+      writer.save();
     }
     writer.done();
 
@@ -445,12 +544,31 @@ public class TestSortImpl extends DrillTest {
     System.out.println(timer.elapsed(TimeUnit.MILLISECONDS));
   }
 
+  /**
+   * Test wide rows with the stock copier.
+   *
+   * @throws Exception
+   */
+
   @Test
   public void testWideRows() throws Exception {
     try (OperatorFixture fixture = OperatorFixture.standardFixture()) {
       runWideRowsTest(fixture, 1000, Character.MAX_VALUE);
     }
   }
+
+  /**
+   * Force the sorter to spill, and verify that the resulting data
+   * is correct. Uses a specific property of the sort to set the
+   * in-memory batch limit so that we don't have to fiddle with filling
+   * up memory. The point here is not to test the code that decides when
+   * to spill (that was already tested.) Nor to test the spilling
+   * mechanism itself (that has also already been tested.) Rather it is
+   * to ensure that, when those components are integrated into the
+   * sort implementation, that the whole assembly does the right thing.
+   *
+   * @throws Exception
+   */
 
   @Test
   public void testSpill() throws Exception {

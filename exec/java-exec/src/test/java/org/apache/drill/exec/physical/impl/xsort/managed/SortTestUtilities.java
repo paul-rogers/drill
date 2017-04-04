@@ -101,11 +101,7 @@ public class SortTestUtilities {
           schema = rowSet.schema();
         }
       }
-      int rowCount = 0;
-      if (! expected.isEmpty()) {
-        rowCount = expected.get(0).rowCount();
-      }
-      if (rowCount == 0) { rowCount = 10; }
+      int rowCount = outputRowCount();
       VectorContainer dest = new VectorContainer();
       @SuppressWarnings("resource")
       BatchMerger merger = copier.startMerge(schema.toBatchSchema(SelectionVectorMode.NONE),
@@ -114,6 +110,13 @@ public class SortTestUtilities {
       verifyResults(merger, dest);
       dest.clear();
       merger.close();
+    }
+    
+    public int outputRowCount() {
+      if (! expected.isEmpty()) {
+        return expected.get(0).rowCount();
+      }
+      return 10;
     }
 
     protected void verifyResults(BatchMerger merger, VectorContainer dest) {
