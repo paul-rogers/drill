@@ -124,10 +124,10 @@ public class TestSorter extends DrillTest {
   public void testTwoRows() throws Exception {
     BatchSchema schema = SortTestUtilities.nonNullSchema();
     SingleRowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
-          .add(1, "1")
-          .add(0, "0")
-          .withSv2()
-          .build();
+        .add(1, "1")
+        .add(0, "0")
+        .withSv2()
+        .build();
 
     SingleRowSet expected = new RowSetBuilder(fixture.allocator(), schema)
         .add(0, "0")

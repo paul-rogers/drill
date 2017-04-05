@@ -181,7 +181,7 @@ import org.joda.time.Period;
 
 public class ColumnAccessors {
 
-  <#list vv.types as type>
+<#list vv.types as type>
   <#list type.minor as minor>
     <#assign drillType=minor.class>
     <#assign javaType=minor.javaType!type.javaType>

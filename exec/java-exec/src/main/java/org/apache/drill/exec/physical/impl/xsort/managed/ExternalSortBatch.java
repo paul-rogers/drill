@@ -212,7 +212,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     SpillSet spillSet = new SpillSet(context.getConfig(), context.getHandle(),
                                      popConfig, "sort", "run");
     OperExecContext opContext = new OperExecContextImpl(context, oContext, popConfig, injector);
-    PriorityQueueCopierWrapper copierHolder = new PriorityQueueCopierWrapper(opContext, sortConfig.useGenericCopier());
+    PriorityQueueCopierWrapper copierHolder = new PriorityQueueCopierWrapper(opContext);
     SpilledRuns spilledRuns = new SpilledRuns(opContext, spillSet, copierHolder);
     sortImpl = new SortImpl(opContext, sortConfig, spilledRuns, container);
 

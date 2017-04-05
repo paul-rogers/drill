@@ -20,13 +20,11 @@ package org.apache.drill.exec.physical.impl.xsort.managed;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.physical.impl.xsort.managed.PriorityQueueCopierWrapper.BatchMerger;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortTestUtilities.CopierTester;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.test.OperatorFixture;
-import org.apache.drill.test.OperatorFixture.OperatorFixtureBuilder;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -47,29 +45,17 @@ public class SortPerformanceChecks {
 
   private void run() {
     try {
-      timeWideRowsGeneratedCopier();
+      timeWideRows();
     } catch (Exception e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
     try {
-      timeWideRowsGenericCopier();
+      timeLargeBatch();
     } catch (Exception e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
     }
-//    try {
-//      timeLargeBatch();
-//    } catch (Exception e) {
-//      // TODO Auto-generated catch block
-//      e.printStackTrace();
-//    }
-//    try {
-//      timeWideRows();
-//    } catch (Exception e) {
-//      // TODO Auto-generated catch block
-//      e.printStackTrace();
-//    }
   }
 
   public SingleRowSet makeWideRowSet(OperatorFixture fixture, int colCount, int rowCount) {
@@ -103,7 +89,7 @@ public class SortPerformanceChecks {
           ;
         }
       }
-      
+
       @Override
       public int outputRowCount() {
         return rowCount;
@@ -115,32 +101,6 @@ public class SortPerformanceChecks {
     tester.run();
     timer.stop();
     return timer.elapsed(TimeUnit.MILLISECONDS);
-  }
-
-  public void timeWideRowsGeneratedCopier() throws Exception {
-    OperatorFixtureBuilder builder = OperatorFixture.builder();
-    builder.configBuilder()
-      .put(ExecConstants.EXTERNAL_SORT_GENERIC_COPIER, false);
-    try (OperatorFixture fixture = builder.build()) {
-      for (int i = 0; i < 5; i++) {
-        long timeMs = runWideRowsTest(fixture, 1000, Character.MAX_VALUE);
-        System.out.print("Generated copier, 1000 columns, time (ms): ");
-        System.out.println(timeMs);
-      }
-    }
-  }
-
-  public void timeWideRowsGenericCopier() throws Exception {
-    OperatorFixtureBuilder builder = OperatorFixture.builder();
-    builder.configBuilder()
-      .put(ExecConstants.EXTERNAL_SORT_GENERIC_COPIER, true);
-    try (OperatorFixture fixture = builder.build()) {
-      for (int i = 0; i < 5; i++) {
-        long timeMs = runWideRowsTest(fixture, 1000, Character.MAX_VALUE);
-        System.out.print("Generic copier, 1000 columns, time (ms): ");
-        System.out.println(timeMs);
-      }
-    }
   }
 
   // Run this to time batches. Best when run stand-alone as part

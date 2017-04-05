@@ -23,7 +23,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.compile.TemplateClassDefinition;
 import org.apache.drill.exec.compile.sig.GeneratorMapping;
 import org.apache.drill.exec.compile.sig.MappingSet;
 import org.apache.drill.exec.exception.SchemaChangeException;
@@ -58,67 +57,39 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
   private static final MappingSet COPIER_MAPPING_SET = new MappingSet(COPIER_MAPPING, COPIER_MAPPING);
 
   /**
-   * A single PriorityQueueCopier instance is used for 2 purposes: <br>
-   * 1. Merge sorted batches before spilling <br>
+   * A single PriorityQueueCopier instance is used for 2 purposes:
+   * 1. Merge sorted batches before spilling
    * 2. Merge sorted batches when all incoming data fits in memory
    */
 
-  private PriorityQueueCopierDriver copier;
-  private final boolean useGenericCopier;
+  private PriorityQueueCopier copier;
 
-  public PriorityQueueCopierWrapper(OperExecContext opContext, boolean useGenericCopier) {
+  public PriorityQueueCopierWrapper(OperExecContext opContext) {
     super(opContext);
-    this.useGenericCopier = useGenericCopier;
   }
 
-  public PriorityQueueCopierDriver getCopier(VectorAccessible batch) {
+  public PriorityQueueCopier getCopier(VectorAccessible batch) {
     if (copier == null) {
       copier = newCopier(batch);
     }
     return copier;
   }
 
-  /**
-   * Generate the priority queue copier. Code is split into a "driver"
-   * that has the full algorithm, and the template, which holds only
-   * the generated code. (This structure avoids unnecessary copies of
-   * the constant algorithm code when using the byte code fixup method
-   * of code generation.)
-   * <p>
-   * Two implementations are available. The "traditional" one that
-   * generates code to copy each row, and a "generic copier" version
-   * that generates the compare method, but uses non-generated code
-   * to do the row copy. The non-generated ("generic") copier is
-   * faster for wide rows and appears no slower for narrow rows.
-   * <p>
-   * If we gain confidence in the generic version, then we can
-   * drop support for the generated version.
-   *
-   * @param batch batch that provides the schema and vectors
-   * @return the priority queue copier driver instance
-   */
-
-  private PriorityQueueCopierDriver newCopier(VectorAccessible batch) {
-
+  private PriorityQueueCopier newCopier(VectorAccessible batch) {
     // Generate the copier code and obtain the resulting class
-    TemplateClassDefinition<PriorityQueueCopier> template =
-        useGenericCopier
-            ? PriorityQueueCopier.GENERIC_TEMPLATE_DEFINITION
-            : PriorityQueueCopier.TEMPLATE_DEFINITION;
-    CodeGenerator<PriorityQueueCopier> cg = CodeGenerator.get(template, context.getFunctionRegistry(), context.getOptionSet());
+
+    CodeGenerator<PriorityQueueCopier> cg = CodeGenerator.get(PriorityQueueCopier.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptionSet());
     ClassGenerator<PriorityQueueCopier> g = cg.getRoot();
     cg.plainJavaCapable(true);
     // Uncomment out this line to debug the generated code.
-    cg.saveCodeForDebugging(true);
+//    cg.saveCodeForDebugging(true);
 
     generateComparisons(g, batch, logger);
 
-    if (! useGenericCopier) {
-      g.setMappingSet(COPIER_MAPPING_SET);
-      CopyUtil.generateCopies(g, batch, true);
-    }
+    g.setMappingSet(COPIER_MAPPING_SET);
+    CopyUtil.generateCopies(g, batch, true);
     g.setMappingSet(MAIN_MAPPING);
-    return new PriorityQueueCopierDriver( getInstance(cg, logger) );
+    return getInstance(cg, logger);
   }
 
   /**

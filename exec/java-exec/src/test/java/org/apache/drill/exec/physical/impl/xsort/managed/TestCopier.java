@@ -24,14 +24,12 @@ import java.util.List;
 
 import org.apache.drill.common.logical.data.Order.Ordering;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.physical.impl.xsort.managed.PriorityQueueCopierWrapper.BatchMerger;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortTestUtilities.CopierTester;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.OperatorFixture;
-import org.apache.drill.test.OperatorFixture.OperatorFixtureBuilder;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -56,10 +54,7 @@ public class TestCopier extends DrillTest {
 
   @BeforeClass
   public static void setup() {
-    OperatorFixtureBuilder builder = OperatorFixture.builder();
-    builder.configBuilder()
-      .put(ExecConstants.EXTERNAL_SORT_GENERIC_COPIER, false);
-    fixture = builder.build();
+    fixture = OperatorFixture.builder().build();
   }
 
   @AfterClass
@@ -378,16 +373,5 @@ public class TestCopier extends DrillTest {
         .build());
 
     tester.run();
-  }
-
-  @Test
-  public void testGenericCopier() throws Exception {
-    OperatorFixtureBuilder builder = OperatorFixture.builder();
-    builder.configBuilder()
-      .put(ExecConstants.EXTERNAL_SORT_GENERIC_COPIER, true);
-    try (OperatorFixture fixture = builder.build()) {
-      testAllTypes(fixture);
-      testMapType(fixture);
-    }
   }
 }

@@ -168,6 +168,14 @@ public class TestBatchSerialization extends DrillTest {
         .build();
   }
 
+  private SingleRowSet buildArraySet(BatchSchema schema) {
+    return fixture.rowSetBuilder(schema)
+        .add(1, new String[] { "first, second, third" } )
+        .add(2, null)
+        .add(3, new String[] { "third, fourth, fifth" } )
+        .build();
+  }
+
   /**
    * Tests a map type and an SV2.
    *
@@ -186,5 +194,16 @@ public class TestBatchSerialization extends DrillTest {
 
     verifySerialize(buildMapSet(schema).toIndirect(),
                     buildMapSet(schema));
+  }
+
+  @Test
+  public void testArray() throws IOException {
+    BatchSchema schema = new SchemaBuilder()
+        .add("top", MinorType.INT)
+        .addArray("arr", MinorType.VARCHAR)
+        .build();
+
+    verifySerialize(buildArraySet(schema).toIndirect(),
+                    buildArraySet(schema));
   }
 }

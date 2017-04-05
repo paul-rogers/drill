@@ -67,8 +67,7 @@ public class SortTestUtilities {
     Ordering ordering = new Ordering(sortOrder, expr, nullOrder);
     Sort popConfig = new Sort(null, Lists.newArrayList(ordering), false);
     OperExecContext opContext = fixture.newOperExecContext(popConfig);
-    SortConfig sortConfig = new SortConfig(opContext.getConfig());
-    return new PriorityQueueCopierWrapper(opContext, sortConfig.useGenericCopier());
+    return new PriorityQueueCopierWrapper(opContext);
   }
 
   public static class CopierTester {
@@ -111,7 +110,7 @@ public class SortTestUtilities {
       dest.clear();
       merger.close();
     }
-    
+
     public int outputRowCount() {
       if (! expected.isEmpty()) {
         return expected.get(0).rowCount();
