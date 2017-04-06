@@ -241,7 +241,6 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         releaseBytes(actualRequestSize);
       }
     }
-
   }
 
   /**
@@ -452,7 +451,6 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         historicalLog.recordEvent("releaseReservation(%d)", nBytes);
       }
     }
-
   }
 
   @Override
@@ -573,7 +571,6 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     }
   }
 
-
   /**
    * Verifies the accounting state of the allocator. Only works for DEBUG.
    *
@@ -599,12 +596,12 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    *           when any problems are found
    */
   private void verifyAllocator(final IdentityHashMap<UnsafeDirectLittleEndian, BaseAllocator> buffersSeen) {
-    synchronized (DEBUG_LOCK) {
+    // The remaining tests can only be performed if we're in debug mode.
+    if (!DEBUG) {
+      return;
+    }
 
-      // The remaining tests can only be performed if we're in debug mode.
-      if (!DEBUG) {
-        return;
-      }
+    synchronized (DEBUG_LOCK) {
 
       final long allocated = getAllocatedMemory();
 
@@ -757,9 +754,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
           reservation.historicalLog.buildHistory(sb, level + 3, true);
         }
       }
-
     }
-
   }
 
   private void dumpBuffers(final StringBuilder sb, final Set<BufferLedger> ledgerSet) {
@@ -775,7 +770,6 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       sb.append('\n');
     }
   }
-
 
   public static StringBuilder indent(StringBuilder sb, int indent) {
     final char[] indentation = new char[indent * 2];
