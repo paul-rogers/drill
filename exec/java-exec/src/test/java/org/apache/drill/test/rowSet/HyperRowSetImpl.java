@@ -249,7 +249,7 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
   }
 
   @Override
-  public SelectionVectorMode getIndirectionType() { return SelectionVectorMode.FOUR_BYTE; }
+  public SelectionVectorMode indirectionType() { return SelectionVectorMode.FOUR_BYTE; }
 
   @Override
   public SelectionVector4 getSv4() { return sv4; }

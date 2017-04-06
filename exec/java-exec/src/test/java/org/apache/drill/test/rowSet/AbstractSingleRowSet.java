@@ -178,7 +178,7 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
   public ValueVector[] vectors() { return valueVectors; }
 
   @Override
-  public int getSize() {
+  public int size() {
     RecordBatchSizer sizer = new RecordBatchSizer(container);
     return sizer.actualSize();
   }

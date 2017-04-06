@@ -228,7 +228,7 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
   public boolean isWritable() { return true; }
 
   @Override
-  public SelectionVectorMode getIndirectionType() { return SelectionVectorMode.NONE; }
+  public SelectionVectorMode indirectionType() { return SelectionVectorMode.NONE; }
 
   @Override
   public SingleRowSet toIndirect() {

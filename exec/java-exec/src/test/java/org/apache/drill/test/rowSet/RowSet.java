@@ -132,9 +132,9 @@ public interface RowSet {
 
   boolean isWritable();
 
-  VectorAccessible getVectorAccessible();
+  VectorAccessible vectorAccessible();
 
-  VectorContainer getContainer();
+  VectorContainer container();
 
   int rowCount();
 
@@ -146,15 +146,15 @@ public interface RowSet {
 
   RowSetSchema schema();
 
-  BufferAllocator getAllocator();
+  BufferAllocator allocator();
 
-  SelectionVectorMode getIndirectionType();
+  SelectionVectorMode indirectionType();
 
   void print();
 
-  int getSize();
+  int size();
 
-  BatchSchema getBatchSchema();
+  BatchSchema batchSchema();
 
   /**
    * Row set that manages a single batch of rows.

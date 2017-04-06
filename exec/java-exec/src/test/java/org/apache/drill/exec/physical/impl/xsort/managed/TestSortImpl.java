@@ -136,13 +136,13 @@ public class TestSortImpl extends DrillTest {
       // Simulates a NEW_SCHEMA event
 
       if (! inputSets.isEmpty()) {
-        sort.setSchema(inputSets.get(0).getContainer().getSchema());
+        sort.setSchema(inputSets.get(0).container().getSchema());
       }
 
       // Simulates an OK event
 
       for (RowSet input : inputSets) {
-        sort.addBatch(input.getVectorAccessible());
+        sort.addBatch(input.vectorAccessible());
       }
 
       // Simulate returning results
@@ -423,14 +423,14 @@ public class TestSortImpl extends DrillTest {
         // Simulates a NEW_SCHEMA event
 
         timer.start();
-        sort.setSchema(input.getContainer().getSchema());
+        sort.setSchema(input.container().getSchema());
         timer.stop();
       }
 
       // Simulates an OK event
 
       timer.start();
-      sort.addBatch(input.getVectorAccessible());
+      sort.addBatch(input.vectorAccessible());
       timer.stop();
     }
 
@@ -528,8 +528,8 @@ public class TestSortImpl extends DrillTest {
     SortImpl sort = makeSortImpl(fixture, Ordering.ORDER_ASC, Ordering.NULLS_UNSPECIFIED, dest);
     timer.reset();
     timer.start();
-    sort.setSchema(rowSet.getContainer().getSchema());
-    sort.addBatch(rowSet.getVectorAccessible());
+    sort.setSchema(rowSet.container().getSchema());
+    sort.addBatch(rowSet.vectorAccessible());
     SortResults results = sort.startMerge();
     if (results.getContainer() != dest) {
       dest.clear();

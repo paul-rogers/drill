@@ -39,7 +39,7 @@ public class RowSetPrinter {
   }
 
   public void print(PrintStream out) {
-    SelectionVectorMode selectionMode = rowSet.getIndirectionType();
+    SelectionVectorMode selectionMode = rowSet.indirectionType();
     RowSetReader reader = rowSet.reader();
     int colCount = reader.schema().count();
     printSchema(out, selectionMode);

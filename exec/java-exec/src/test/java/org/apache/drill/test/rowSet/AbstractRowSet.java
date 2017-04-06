@@ -111,10 +111,10 @@ public abstract class AbstractRowSet implements RowSet {
   }
 
   @Override
-  public VectorAccessible getVectorAccessible() { return container; }
+  public VectorAccessible vectorAccessible() { return container; }
 
   @Override
-  public VectorContainer getContainer() { return container; }
+  public VectorContainer container() { return container; }
 
   @Override
   public int rowCount() { return container.getRecordCount(); }
@@ -129,7 +129,7 @@ public abstract class AbstractRowSet implements RowSet {
   public RowSetSchema schema() { return schema; }
 
   @Override
-  public BufferAllocator getAllocator() { return allocator; }
+  public BufferAllocator allocator() { return allocator; }
 
   @Override
   public void print() {
@@ -137,12 +137,12 @@ public abstract class AbstractRowSet implements RowSet {
   }
 
   @Override
-  public int getSize() {
+  public int size() {
     throw new UnsupportedOperationException("getSize");
   }
 
   @Override
-  public BatchSchema getBatchSchema() {
+  public BatchSchema batchSchema() {
     return container.getSchema();
   }
 }

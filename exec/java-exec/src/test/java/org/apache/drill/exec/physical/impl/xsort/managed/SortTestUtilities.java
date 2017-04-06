@@ -94,8 +94,8 @@ public class SortTestUtilities {
       List<BatchGroup> batches = new ArrayList<>();
       RowSetSchema schema = null;
       for (SingleRowSet rowSet : rowSets) {
-        batches.add(new BatchGroup.InputBatch(rowSet.getContainer(), rowSet.getSv2(),
-                    fixture.allocator(), rowSet.getSize()));
+        batches.add(new BatchGroup.InputBatch(rowSet.container(), rowSet.getSv2(),
+                    fixture.allocator(), rowSet.size()));
         if (schema == null) {
           schema = rowSet.schema();
         }

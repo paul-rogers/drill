@@ -112,13 +112,13 @@ public class IndirectRowSet extends AbstractSingleRowSet {
   public boolean isWritable() { return true;}
 
   @Override
-  public SelectionVectorMode getIndirectionType() { return SelectionVectorMode.TWO_BYTE; }
+  public SelectionVectorMode indirectionType() { return SelectionVectorMode.TWO_BYTE; }
 
   @Override
   public SingleRowSet toIndirect() { return this; }
 
   @Override
-  public int getSize() {
+  public int size() {
     RecordBatchSizer sizer = new RecordBatchSizer(container, sv2);
     return sizer.actualSize();
   }

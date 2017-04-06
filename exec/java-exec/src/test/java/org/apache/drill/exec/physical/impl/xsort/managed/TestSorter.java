@@ -82,7 +82,7 @@ public class TestSorter extends DrillTest {
     OperExecContext opContext = fixture.newOperExecContext(popConfig);
     SorterWrapper sorter = new SorterWrapper(opContext);
 
-    sorter.sortBatch(rowSet.getContainer(), rowSet.getSv2());
+    sorter.sortBatch(rowSet.container(), rowSet.getSv2());
 
     new RowSetComparison(expected)
         .verifyAndClear(rowSet);
@@ -164,7 +164,7 @@ public class TestSorter extends DrillTest {
       BatchSchema schema = SortTestUtilities.makeSchema(type, nullable);
       SingleRowSet input = makeDataSet(fixture.allocator(), schema, data);
       input = input.toIndirect();
-      sorter.sortBatch(input.getContainer(), input.getSv2());
+      sorter.sortBatch(input.container(), input.getSv2());
       sorter.close();
       verify(input);
     }
@@ -218,7 +218,7 @@ public class TestSorter extends DrillTest {
     private void verify(RowSet actual) {
       DataItem expected[] = Arrays.copyOf(data, data.length);
       doSort(expected);
-      RowSet expectedRows = makeDataSet(actual.getAllocator(), actual.schema().batch(), expected);
+      RowSet expectedRows = makeDataSet(actual.allocator(), actual.schema().batch(), expected);
 //      System.out.println("Expected:");
 //      expectedRows.print();
 //      System.out.println("Actual:");
@@ -350,7 +350,7 @@ public class TestSorter extends DrillTest {
           .build();
       SingleRowSet input = makeInputData(fixture.allocator(), schema);
       input = input.toIndirect();
-      sorter.sortBatch(input.getContainer(), input.getSv2());
+      sorter.sortBatch(input.container(), input.getSv2());
       sorter.close();
       verify(input);
       input.clear();
