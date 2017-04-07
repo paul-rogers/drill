@@ -120,42 +120,42 @@ public class TestMemory {
   public void testAllocAlt2() {
     BufferAllocator allocator = fixture.allocator();
     long startMem = allocator.getAllocatedMemory();
-    
+
     // How much memory available in this run?
-    
+
     long maxMem = DrillConfig.getMaxDirectMemory();
     long availMem = maxMem - startMem;
-    
+
     // Our base "block" size is 16 MB: the size of the netty slab.
     // Large blocks are twice this size (forcing direct memory
     // allocations) while huge blocks are four-times this size.
     // This is the perfect recipe for fragmentation, if it can
     // occur.
-    
+
     int largeBlock = NETTY_SLAB * 2;
     int hugeBlock = NETTY_SLAB * 4;
     int maxBlocks = (int) (availMem / NETTY_SLAB);
-    
+
     // We will allocate one normal size block and one "large"
     // double-sized block per cycle. How many cycles can we do?
-    
+
     int cycles = maxBlocks / 3;
-    
+
     // Demonstrate that we can allocate huge blocks in general.
-    
+
     DrillBuf buf = allocator.buffer(hugeBlock);
     buf.release();
-    
+
     // Keep track of blocks as we allocate them so we can free
     // them later.
-    
+
     List<DrillBuf> smallBufs = new ArrayList<>();
     List<DrillBuf> largeBufs = new ArrayList<>();
-    
+
     // Fill memory in this pattern:
     // [_][__][_][__]...
     // Small blocks come from Netty, large from Unsafe
-    
+
     for (int i = 0; i < cycles; i++) {
       buf = allocator.buffer(NETTY_SLAB);
       assertEquals(NETTY_SLAB, buf.capacity());
@@ -172,21 +172,22 @@ public class TestMemory {
     long finalMem = allocator.getAllocatedMemory();
     long stillAlloc = cycles * (long) largeBlock;
     assertEquals(startMem + stillAlloc, finalMem);
-    
+
     // Now, set ourselves up for failure. Allocate a huge block.
     // We know we should be able to do so, we did about 75 (by default)
     // cycles, so we have 75 * NETTY_SLAB memory free.
-    
+
     assertTrue(maxMem - finalMem > cycles * (long) NETTY_SLAB);
-    
+
     // So, we should be able to allocate two blocks of 4 slabs each, right?
     // But, the next line fails because there is no single block available
     // of the desired size.
-    
+
     DrillBuf buf1 = allocator.buffer(4 * NETTY_SLAB);
-    DrillBuf buf2 = allocator.buffer(4 * NETTY_SLAB);
     buf1.release();
-    buf2.release();
+
+    // Clean up. But, we never get here.
+
     freeAll(largeBufs);
   }
 
@@ -294,4 +295,17 @@ public class TestMemory {
     }
     return count * maxBlocks;
   }
+
+  public static final int FAST_ZERO_STRIDE = 512;
+  private static final byte zeros[] = new byte[FAST_ZERO_STRIDE];
+
+  public static void fastSetZero(DrillBuf buf, int index, int length) {
+    while (length > FAST_ZERO_STRIDE) {
+      buf.setBytes(index, zeros);
+      index += FAST_ZERO_STRIDE;
+      length -= FAST_ZERO_STRIDE;
+    }
+    buf.setZero(index, length);
+  }
+
 }
