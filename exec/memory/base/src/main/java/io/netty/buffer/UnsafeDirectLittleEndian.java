@@ -40,19 +40,18 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
   private final long initCap;
 
   UnsafeDirectLittleEndian(DuplicatedByteBuf buf) {
-    this(buf, true, null, null);
+    this(buf, null, null);
   }
 
   UnsafeDirectLittleEndian(LargeBuffer buf) {
-    this(buf, true, null, null);
+    this(buf, null, null);
   }
 
   UnsafeDirectLittleEndian(PooledUnsafeDirectByteBuf buf, AtomicLong bufferCount, AtomicLong bufferSize) {
-    this(buf, true, bufferCount, bufferSize);
-
+    this((AbstractByteBuf) buf, bufferCount, bufferSize);
   }
 
-  private UnsafeDirectLittleEndian(AbstractByteBuf buf, boolean fake, AtomicLong bufferCount, AtomicLong bufferSize) {
+  private UnsafeDirectLittleEndian(AbstractByteBuf buf, AtomicLong bufferCount, AtomicLong bufferSize) {
     super(buf);
     if (!NATIVE_ORDER || buf.order() != ByteOrder.BIG_ENDIAN) {
       throw new IllegalStateException("Drill only runs on LittleEndian systems.");
@@ -67,21 +66,20 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
     this.wrapped = buf;
     this.memoryAddress = buf.memoryAddress();
   }
-    private long addr(int index) {
-        return memoryAddress + index;
-    }
 
-    @Override
-    public long getLong(int index) {
-//        wrapped.checkIndex(index, 8);
-        long v = PlatformDependent.getLong(addr(index));
-        return v;
-    }
+  private long addr(int index) {
+    return memoryAddress + index;
+  }
 
-    @Override
-    public float getFloat(int index) {
-        return Float.intBitsToFloat(getInt(index));
-    }
+  @Override
+  public long getLong(int index) {
+    return PlatformDependent.getLong(addr(index));
+  }
+
+  @Override
+  public float getFloat(int index) {
+    return Float.intBitsToFloat(getInt(index));
+  }
 
   @Override
   public ByteBuf slice() {
@@ -120,8 +118,7 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
 
   @Override
   public int getInt(int index) {
-    int v = PlatformDependent.getInt(addr(index));
-    return v;
+    return PlatformDependent.getInt(addr(index));
   }
 
   @Override
@@ -131,8 +128,7 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
 
   @Override
   public short getShort(int index) {
-    short v = PlatformDependent.getShort(addr(index));
-    return v;
+    return PlatformDependent.getShort(addr(index));
   }
 
   @Override
@@ -266,5 +262,4 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
     assert isAssertEnabled = true;
     ASSERT_ENABLED = isAssertEnabled;
   }
-
 }

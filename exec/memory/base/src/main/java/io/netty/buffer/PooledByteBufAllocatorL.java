@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -39,7 +39,6 @@ public class PooledByteBufAllocatorL {
 
   private static final int MEMORY_LOGGER_FREQUENCY_SECONDS = 60;
 
-
   public static final String METRIC_PREFIX = "drill.allocator.";
 
   private final MetricRegistry registry;
@@ -63,7 +62,6 @@ public class PooledByteBufAllocatorL {
     } catch (OutOfMemoryError e) {
       throw new OutOfMemoryException("Failure allocating buffer.", e);
     }
-
   }
 
   public int getChunkSize() {
@@ -72,25 +70,25 @@ public class PooledByteBufAllocatorL {
 
   private class InnerAllocator extends PooledByteBufAllocator {
 
-
     private final PoolArena<ByteBuffer>[] directArenas;
     private final MemoryStatusThread statusThread;
     private final Histogram largeBuffersHist;
     private final Histogram normalBuffersHist;
     private final int chunkSize;
 
+    @SuppressWarnings("unchecked")
     public InnerAllocator() {
       super(true);
 
       try {
         Field f = PooledByteBufAllocator.class.getDeclaredField("directArenas");
         f.setAccessible(true);
-        this.directArenas = (PoolArena<ByteBuffer>[]) f.get(this);
+        directArenas = (PoolArena<ByteBuffer>[]) f.get(this);
       } catch (Exception e) {
         throw new RuntimeException("Failure while initializing allocator.  Unable to retrieve direct arenas field.", e);
       }
 
-      this.chunkSize = directArenas[0].chunkSize;
+      chunkSize = directArenas[0].chunkSize;
 
       if (memoryLogger.isTraceEnabled()) {
         statusThread = new MemoryStatusThread();
@@ -130,9 +128,7 @@ public class PooledByteBufAllocatorL {
 
       largeBuffersHist = registry.histogram(METRIC_PREFIX + "huge.hist");
       normalBuffersHist = registry.histogram(METRIC_PREFIX + "normal.hist");
-
     }
-
 
     private synchronized void removeOldMetrics() {
       registry.removeMatching(new MetricFilter() {
@@ -140,7 +136,6 @@ public class PooledByteBufAllocatorL {
         public boolean matches(String name, Metric metric) {
           return name.startsWith("drill.allocator.");
         }
-
       });
     }
 
@@ -148,37 +143,36 @@ public class PooledByteBufAllocatorL {
       PoolThreadCache cache = threadCache.get();
       PoolArena<ByteBuffer> directArena = cache.directArena;
 
-      if (directArena != null) {
+      if (directArena == null) {
+        throw fail();
+      }
 
-        if (initialCapacity > directArena.chunkSize) {
-          // This is beyond chunk size so we'll allocate separately.
-          ByteBuf buf = UnpooledByteBufAllocator.DEFAULT.directBuffer(initialCapacity, maxCapacity);
+      assert chunkSize == directArena.chunkSize;
+      if (initialCapacity > directArena.chunkSize) {
+        // This is beyond chunk size so we'll allocate separately.
+        ByteBuf buf = UnpooledByteBufAllocator.DEFAULT.directBuffer(initialCapacity, maxCapacity);
 
-          hugeBufferCount.incrementAndGet();
-          hugeBufferSize.addAndGet(buf.capacity());
-          largeBuffersHist.update(buf.capacity());
-          // logger.debug("Allocating huge buffer of size {}", initialCapacity, new Exception());
-          return new UnsafeDirectLittleEndian(new LargeBuffer(buf, hugeBufferSize, hugeBufferCount));
-
-        } else {
-          // within chunk, use arena.
-          ByteBuf buf = directArena.allocate(cache, initialCapacity, maxCapacity);
-          if (!(buf instanceof PooledUnsafeDirectByteBuf)) {
-            fail();
-          }
-
-          normalBuffersHist.update(buf.capacity());
-          if (ASSERT_ENABLED) {
-            normalBufferSize.addAndGet(buf.capacity());
-            normalBufferCount.incrementAndGet();
-          }
-
-          return new UnsafeDirectLittleEndian((PooledUnsafeDirectByteBuf) buf, normalBufferCount,
-              normalBufferSize);
-        }
+        hugeBufferCount.incrementAndGet();
+        hugeBufferSize.addAndGet(buf.capacity());
+        largeBuffersHist.update(buf.capacity());
+        // logger.debug("Allocating huge buffer of size {}", initialCapacity, new Exception());
+        return new UnsafeDirectLittleEndian(new LargeBuffer(buf, hugeBufferSize, hugeBufferCount));
 
       } else {
-        throw fail();
+        // within chunk, use arena.
+        ByteBuf buf = directArena.allocate(cache, initialCapacity, maxCapacity);
+        if (!(buf instanceof PooledUnsafeDirectByteBuf)) {
+          throw fail();
+        }
+
+        normalBuffersHist.update(buf.capacity());
+        if (ASSERT_ENABLED) {
+          normalBufferSize.addAndGet(buf.capacity());
+          normalBufferCount.incrementAndGet();
+        }
+
+        return new UnsafeDirectLittleEndian((PooledUnsafeDirectByteBuf) buf, normalBufferCount,
+            normalBufferSize);
       }
     }
 
@@ -187,6 +181,7 @@ public class PooledByteBufAllocatorL {
           "Drill requries that the JVM used supports access sun.misc.Unsafe.  This platform didn't provide that functionality.");
     }
 
+    @Override
     public UnsafeDirectLittleEndian directBuffer(int initialCapacity, int maxCapacity) {
       if (initialCapacity == 0 && maxCapacity == 0) {
         newDirectBuffer(initialCapacity, maxCapacity);
@@ -199,7 +194,6 @@ public class PooledByteBufAllocatorL {
     public ByteBuf heapBuffer(int initialCapacity, int maxCapacity) {
       throw new UnsupportedOperationException("Drill doesn't support using heap buffers.");
     }
-
 
     private void validate(int initialCapacity, int maxCapacity) {
       if (initialCapacity < 0) {
@@ -229,12 +223,11 @@ public class PooledByteBufAllocatorL {
           } catch (InterruptedException e) {
             return;
           }
-
         }
       }
-
     }
 
+    @Override
     public String toString() {
       StringBuilder buf = new StringBuilder();
       buf.append(directArenas.length);
@@ -257,8 +250,6 @@ public class PooledByteBufAllocatorL {
       buf.append(" bytes.");
       return buf.toString();
     }
-
-
   }
 
   public static final boolean ASSERT_ENABLED;
@@ -268,5 +259,4 @@ public class PooledByteBufAllocatorL {
     assert isAssertEnabled = true;
     ASSERT_ENABLED = isAssertEnabled;
   }
-
 }
