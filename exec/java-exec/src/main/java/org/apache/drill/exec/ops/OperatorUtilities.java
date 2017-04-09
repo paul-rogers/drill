@@ -17,29 +17,26 @@
  */
 package org.apache.drill.exec.ops;
 
-import org.apache.drill.exec.memory.BufferAllocator;
+import java.util.Iterator;
+
 import org.apache.drill.exec.physical.base.PhysicalOperator;
-import org.apache.drill.exec.testing.ControlsInjector;
 
-/**
- * Defines the set of services used by low-level operator implementations.
- * Avoids having to mock higher-level services not used by low-level
- * items.
- * <p>
- * TODO: Rename or restructure this to merge with a narrowed
- * OperatorContext
- */
+public class OperatorUtilities {
 
-public interface OperExecContext extends FragmentExecContext {
+  private OperatorUtilities() { }
 
-  <T extends PhysicalOperator> T getOperatorDefn();
+  public static int getChildCount(PhysicalOperator popConfig) {
+    Iterator<PhysicalOperator> iter = popConfig.iterator();
+    int i = 0;
+    while (iter.hasNext()) {
+      iter.next();
+      i++;
+    }
 
-  BufferAllocator getAllocator();
+    if (i == 0) {
+      i = 1;
+    }
+    return i;
+  }
 
-  OperatorStatReceiver getStats();
-
-  ControlsInjector getInjector();
-  void injectUnchecked(String desc);
-  <T extends Throwable> void injectChecked(String desc, Class<T> exceptionClass)
-      throws T;
 }

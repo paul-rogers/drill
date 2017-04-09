@@ -205,7 +205,7 @@ public class RowSetComparison {
   private void verifyArray(String colLabel, ArrayReader ea,
       ArrayReader aa) {
     assertEquals(colLabel, ea.valueType(), aa.valueType());
-    assertEquals(colLabel, ea.size(), aa.size());
+    assertEquals(colLabel + " - list size", ea.size(), aa.size());
     for (int i = 0; i < ea.size(); i++) {
       String label = colLabel + "[" + i + "]";
       switch (ea.valueType()) {

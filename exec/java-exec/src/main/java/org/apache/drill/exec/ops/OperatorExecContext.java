@@ -18,28 +18,23 @@
 package org.apache.drill.exec.ops;
 
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.base.PhysicalOperator;
-import org.apache.drill.exec.testing.ControlsInjector;
+import org.apache.drill.exec.testing.ExecutionControls;
 
-/**
- * Defines the set of services used by low-level operator implementations.
- * Avoids having to mock higher-level services not used by low-level
- * items.
- * <p>
- * TODO: Rename or restructure this to merge with a narrowed
- * OperatorContext
- */
+import io.netty.buffer.DrillBuf;
 
-public interface OperExecContext extends FragmentExecContext {
+public interface OperatorExecContext {
 
-  <T extends PhysicalOperator> T getOperatorDefn();
+  DrillBuf replace(DrillBuf old, int newSize);
+
+  DrillBuf getManagedBuffer();
+
+  DrillBuf getManagedBuffer(int size);
 
   BufferAllocator getAllocator();
 
-  OperatorStatReceiver getStats();
+  ExecutionControls getExecutionControls();
 
-  ControlsInjector getInjector();
-  void injectUnchecked(String desc);
-  <T extends Throwable> void injectChecked(String desc, Class<T> exceptionClass)
-      throws T;
+  OperatorStatReceiver getStatsWriter();
+
+  void close();
 }
