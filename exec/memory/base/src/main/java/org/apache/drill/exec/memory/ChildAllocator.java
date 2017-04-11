@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -49,5 +49,8 @@ class ChildAllocator extends BaseAllocator {
     super(parentAllocator, name, initReservation, maxAllocation);
   }
 
-
+  @Override
+  public void visit(MemoryVisitor visitor) {
+    visitor.visitChildAllocator(this);
+  }
 }

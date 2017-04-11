@@ -25,6 +25,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.drill.common.config.DrillConfig;
+import org.apache.drill.exec.memory.BaseAllocator;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.base.AbstractBase;
 import org.apache.drill.test.OperatorFixture;
@@ -47,6 +48,7 @@ public class TestMemory {
 
   @BeforeClass
   public static void setup() {
+    System.setProperty(BaseAllocator.DEBUG_ALLOCATOR, "true");
     fixture = OperatorFixture.builder().build();
   }
 
@@ -208,20 +210,156 @@ public class TestMemory {
     freeAll(largeBufs);
   }
 
+  @SuppressWarnings("resource")
+  @Test
+  public void testAllocAlt3() {
+    BufferAllocator allocator = fixture.allocator();
+    long startMem = allocator.getAllocatedMemory();
+
+    // How much memory available in this run?
+
+    long maxMem = DrillConfig.getMaxDirectMemory();
+    long availMem = maxMem - startMem;
+
+    // Our base "block" size is 16 MB: the size of the netty slab.
+    // Large blocks are twice this size (forcing direct memory
+    // allocations) while huge blocks are four-times this size.
+    // This is the perfect recipe for fragmentation, if it can
+    // occur.
+
+    int largeBlock = NETTY_SLAB * 2;
+    int hugeBlock = NETTY_SLAB * 4;
+    int maxBlocks = (int) (availMem / NETTY_SLAB);
+
+    // We will allocate one normal size block and one "large"
+    // double-sized block per cycle. How many cycles can we do?
+
+    int cycles = maxBlocks / 3;
+
+    // Demonstrate that we can allocate huge blocks in general.
+
+    DrillBuf buf = allocator.buffer(hugeBlock);
+    buf.release();
+
+    // Keep track of blocks as we allocate them so we can free
+    // them later.
+
+    List<DrillBuf> smallBufs = new ArrayList<>();
+    List<DrillBuf> largeBufs = new ArrayList<>();
+
+    // Fill memory in this pattern:
+    // [_][__][_][__]...
+    // Small blocks come from Netty, large from Unsafe
+
+    for (int i = 0; i < cycles; i++) {
+      buf = allocator.buffer(NETTY_SLAB);
+      assertEquals(NETTY_SLAB, buf.capacity());
+      smallBufs.add(buf);
+      buf = allocator.buffer(largeBlock);
+      assertEquals(largeBlock, buf.capacity());
+      largeBufs.add(buf);
+    }
+//    new AllocatorReport().withLayout().report(allocator);
+
+    // Free the small blocks, resulting in:
+    //  _ [__] _ [__] _ [__] ...
+
+//    freeAll(smallBufs);
+    freeAll(largeBufs);
+    long finalMem = allocator.getAllocatedMemory();
+//    long stillAlloc = cycles * (long) largeBlock;
+//    assertEquals(startMem + stillAlloc, finalMem);
+    new AllocatorReport().withLayout().report(allocator);
+
+    // Now, set ourselves up for failure. Allocate a huge block.
+    // We know we should be able to do so, we did about 75 (by default)
+    // cycles, so we have 75 * NETTY_SLAB memory free.
+
+    assertTrue(maxMem - finalMem > cycles * (long) NETTY_SLAB);
+
+    // So, we should be able to allocate two blocks of 4 slabs each, right?
+    // But, the next line fails because there is no single block available
+    // of the desired size.
+
+    List<DrillBuf> hugeBufs = new ArrayList<>( );
+    for (int i = 0; i < 40; i++) {
+      try {
+        buf = allocator.buffer(hugeBlock);
+      } catch (RuntimeException e) {
+        System.out.println( "Block " + i + ": " + e.getMessage());
+        break;
+      }
+      hugeBufs.add(buf);
+    }
+    new AllocatorReport().withLayout().report(allocator);
+    buf = allocator.buffer(largeBlock);
+    buf.release();
+    freeAll(hugeBufs);
+
+    // Clean up. But, we never get here.
+
+//    freeAll(largeBufs);
+    freeAll(smallBufs);
+  }
+
+  @SuppressWarnings("resource")
+  @Test
+  public void testAllocAlt4() {
+    BufferAllocator allocator = fixture.allocator();
+    long startMem = allocator.getAllocatedMemory();
+    long maxMem = DrillConfig.getMaxDirectMemory();
+    long availMem = maxMem - startMem;
+    int smallBlock = NETTY_SLAB / 2;
+    int normalBlock = NETTY_SLAB;
+    int maxBlocks = (int) (availMem / smallBlock);
+
+    List<DrillBuf> evenBufs = new ArrayList<>();
+    List<DrillBuf> oddBufs = new ArrayList<>();
+    for (int i = 0; i < maxBlocks; i++) {
+      DrillBuf buf;
+      try {
+        buf = allocator.buffer(smallBlock);
+      } catch (RuntimeException e) {
+        System.out.println("Allocated " + i + " of " + maxBlocks + " blocks");
+        break;
+      }
+      if ((i % 2) == 0) {
+        evenBufs.add(buf);
+      } else {
+        oddBufs.add(buf);
+      }
+    }
+
+    new AllocatorReport().withLayout().report(allocator);
+    freeAll(evenBufs);
+
+    new AllocatorReport().withLayout().report(allocator);
+    DrillBuf buf = allocator.buffer(normalBlock);
+    buf.release();
+    freeAll(oddBufs);
+  }
+
   public static void main(String args[]) {
+    setup();
     TestMemory obj = new TestMemory();
     try {
-      obj.testHeapCacheAllocTime();
+      obj.timeNettyAndSystemAlloc();
     } catch (Exception e) {
       // TODO Auto-generated catch block
       e.printStackTrace();
+    } finally {
+      try {
+        tearDown();
+      } catch (Exception e) {
+        // TODO Auto-generated catch block
+        e.printStackTrace();
+      }
     }
   }
 
   @SuppressWarnings("resource")
   @Test
   public void testAllocTime() throws Exception {
-    OperatorFixture fixture = OperatorFixture.builder().build();
     BufferAllocator allocator = fixture.allocator();
     List<BufferAllocator> allocs = new ArrayList<>();
     for (int i = 0; i < 10; i++) {
@@ -323,6 +461,48 @@ public class TestMemory {
       length -= FAST_ZERO_STRIDE;
     }
     buf.setZero(index, length);
+  }
+
+  @SuppressWarnings("resource")
+  @Test
+  public void timeNettyAndSystemAlloc() {
+    BufferAllocator allocator = fixture.allocator();
+    int normalBlock = NETTY_SLAB;
+    int largeBlock = 2 * NETTY_SLAB;
+
+    timeAllocs(allocator, largeBlock, 1000);
+    timeAllocs(allocator, largeBlock, 1000);
+    timeAllocs(allocator, normalBlock, 1000);
+    timeAllocs(allocator, normalBlock, 1000);
+  }
+
+  private void timeAllocs(BufferAllocator allocator, int blockSize, int allocTarget) {
+    long startMem = allocator.getAllocatedMemory();
+    long maxMem = DrillConfig.getMaxDirectMemory();
+    long availMem = maxMem - startMem;
+    // Safety to avoid OOM
+    int maxBlocks = (int) (availMem / blockSize) - 2;
+    int allocCount = 0;
+
+    long startTime = System.currentTimeMillis();
+    while (allocCount < allocTarget) {
+
+      List<DrillBuf> bufs = new ArrayList<>();
+      for (int i = 0; i < maxBlocks; i++) {
+        @SuppressWarnings("resource")
+        DrillBuf buf = allocator.buffer(blockSize);
+        bufs.add(buf);
+        allocCount++;
+        if (allocCount == allocTarget) {
+          break;
+        }
+      }
+      freeAll(bufs);
+    }
+
+    long endTime = System.currentTimeMillis();
+    System.out.println( "Allocated " + allocCount + " blocks of " + blockSize +
+                        " bytes each in " + (endTime - startTime) + " ms.");
   }
 
 }

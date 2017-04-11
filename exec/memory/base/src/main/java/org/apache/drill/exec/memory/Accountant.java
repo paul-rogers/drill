@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -31,7 +31,6 @@ import com.google.common.base.Preconditions;
  */
 @ThreadSafe
 class Accountant implements AutoCloseable {
-  // private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Accountant.class);
 
   /**
    * The parent allocator
@@ -114,7 +113,6 @@ class Accountant implements AutoCloseable {
     }
   }
 
-
   /**
    * Increase the accounting. Returns whether the allocation fit within limits.
    *
@@ -181,7 +179,6 @@ class Accountant implements AutoCloseable {
       final long actualToReleaseToParent = Math.min(size, possibleAmountToReleaseToParent);
       parent.releaseBytes(actualToReleaseToParent);
     }
-
   }
 
   /**

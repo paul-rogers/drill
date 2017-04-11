@@ -253,7 +253,6 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         releaseBytes(actualRequestSize);
       }
     }
-
   }
 
   /**
@@ -296,6 +295,28 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     }
 
     return childAllocator;
+  }
+
+  public void visitChildAllocators(MemoryVisitor visitor) {
+    if (! DEBUG) {
+      throw new IllegalStateException("Enable debug mode to visit child allocators");
+    }
+    synchronized (DEBUG_LOCK) {
+      for (BaseAllocator child : childAllocators.keySet()) {
+        visitor.visitChildAllocator((ChildAllocator) child);
+      }
+    }
+  }
+
+  public void visitLedgers(MemoryVisitor visitor) {
+    if (! DEBUG) {
+      throw new IllegalStateException("Enable debug mode to visit child ledgers");
+    }
+    synchronized (DEBUG_LOCK) {
+      for (BufferLedger ledger : childLedgers.keySet()) {
+        visitor.visitLedger(ledger);
+      }
+    }
   }
 
   public class Reservation implements AllocationReservation {
@@ -464,7 +485,6 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         historicalLog.recordEvent("releaseReservation(%d)", nBytes);
       }
     }
-
   }
 
   @Override
@@ -584,7 +604,6 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       return highestBit << 1;
     }
   }
-
 
   /**
    * Verifies the accounting state of the allocator. Only works for DEBUG.
@@ -769,9 +788,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
           reservation.historicalLog.buildHistory(sb, level + 3, true);
         }
       }
-
     }
-
   }
 
   private void dumpBuffers(final StringBuilder sb, final Set<BufferLedger> ledgerSet) {
@@ -787,7 +804,6 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       sb.append('\n');
     }
   }
-
 
   public static StringBuilder indent(StringBuilder sb, int indent) {
     final char[] indentation = new char[indent * 2];

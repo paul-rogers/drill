@@ -157,6 +157,12 @@ public interface BufferAllocator extends AutoCloseable {
   public void assertOpen();
 
   /**
+   * Visit the allocator to perform analysis, etc.
+   */
+
+  public void visit(MemoryVisitor visitor);
+
+  /**
    * Write the contents of a DrillBuf to a stream. Use this method, rather
    * than calling the DrillBuf.getBytes() method, because this method
    * avoids repeated heap allocation for the intermediate heap buffer.

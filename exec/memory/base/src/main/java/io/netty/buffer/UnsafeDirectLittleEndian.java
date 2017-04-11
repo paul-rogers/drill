@@ -67,6 +67,8 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
     this.memoryAddress = buf.memoryAddress();
   }
 
+  public long getId() { return id; }
+
   private long addr(int index) {
     return memoryAddress + index;
   }

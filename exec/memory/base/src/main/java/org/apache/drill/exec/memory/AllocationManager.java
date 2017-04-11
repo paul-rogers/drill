@@ -34,6 +34,7 @@ import org.apache.drill.exec.memory.BaseAllocator.Verbosity;
 import org.apache.drill.exec.metrics.DrillMetrics;
 import org.apache.drill.exec.ops.BufferManager;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 
 /**
@@ -137,6 +138,18 @@ public class AllocationManager {
     }
   }
 
+  public long getId() { return allocatorManagerId; }
+  public int getSize() { return size; }
+  @VisibleForTesting
+  public UnsafeDirectLittleEndian getUnderlying() { return underlying; }
+
+  public void visitLedgers(MemoryVisitor visitor) {
+    try (AutoCloseableLock read = readLock.open()) {
+      for (BufferLedger ledger: map.values()) {
+        visitor.visitLedger(ledger);
+      }
+    }
+  }
 
   /**
    * The way that a particular BufferLedger communicates back to the AllocationManager that it now longer needs to hold
@@ -179,8 +192,6 @@ public class AllocationManager {
           throw new IllegalStateException("The final removal of a ledger should be connected to the owning ledger.");
         }
       }
-
-
     }
   }
 
@@ -246,7 +257,6 @@ public class AllocationManager {
         owningLedger = target;
         return overlimit;
       }
-
     }
 
     /**
@@ -294,7 +304,6 @@ public class AllocationManager {
           }
         }
       }
-
     }
 
     private void inc() {
@@ -387,7 +396,6 @@ public class AllocationManager {
       }
 
       return buf;
-
     }
 
     /**
@@ -418,6 +426,7 @@ public class AllocationManager {
     /**
      * Package visible for debugging/verification only.
      */
+    @VisibleForTesting
     UnsafeDirectLittleEndian getUnderlying() {
       return underlying;
     }
@@ -429,6 +438,10 @@ public class AllocationManager {
       return this == owningLedger;
     }
 
+    public long getId() { return ledgerId; }
+    @VisibleForTesting
+    public int getRefCount() { return bufRefCnt.get(); }
+    public AllocationManager getManager() { return AllocationManager.this; }
   }
 
 }
