@@ -153,14 +153,12 @@ public abstract class JoinPruleBase extends Prule {
     if (physicalJoinType == PhysicalJoinType.HASH_JOIN) {
       newJoin = new HashJoinPrel(join.getCluster(), traitsLeft,
                                  convertedLeft, convertedRight, join.getCondition(),
-                                 join.getJoinType(),
-                                 join.getDistinctRowCount());
+                                 join.getJoinType());
 
     } else if (physicalJoinType == PhysicalJoinType.MERGE_JOIN) {
       newJoin = new MergeJoinPrel(join.getCluster(), traitsLeft,
                                   convertedLeft, convertedRight, join.getCondition(),
-                                  join.getJoinType(),
-                                  join.getDistinctRowCount());
+                                  join.getJoinType());
     }
     call.transformTo(newJoin);
   }
@@ -203,7 +201,7 @@ public abstract class JoinPruleBase extends Prule {
 
             RelNode newLeft = convert(left, newTraitsLeft);
               return new MergeJoinPrel(join.getCluster(), newTraitsLeft, newLeft, convertedRight, joinCondition,
-                                          join.getJoinType(), join.getDistinctRowCount());
+                                          join.getJoinType());
           }
 
         }.go(join, convertedLeft);
@@ -218,7 +216,7 @@ public abstract class JoinPruleBase extends Prule {
             RelTraitSet newTraitsLeft = newTraitSet(Prel.DRILL_PHYSICAL, toDist);
             RelNode newLeft = convert(left, newTraitsLeft);
             return new HashJoinPrel(join.getCluster(), newTraitsLeft, newLeft, convertedRight, joinCondition,
-                                         join.getJoinType(), join.getDistinctRowCount());
+                                         join.getJoinType());
 
           }
 
@@ -232,7 +230,7 @@ public abstract class JoinPruleBase extends Prule {
             RelTraitSet newTraitsLeft = newTraitSet(Prel.DRILL_PHYSICAL, toDist);
             RelNode newLeft = convert(left, newTraitsLeft);
             return new NestedLoopJoinPrel(join.getCluster(), newTraitsLeft, newLeft, convertedRight, joinCondition,
-                                         join.getJoinType(), join.getDistinctRowCount());
+                                         join.getJoinType());
           }
 
         }.go(join, convertedLeft);
@@ -241,22 +239,22 @@ public abstract class JoinPruleBase extends Prule {
     } else {
       if (physicalJoinType == PhysicalJoinType.MERGE_JOIN) {
         call.transformTo(new MergeJoinPrel(join.getCluster(), convertedLeft.getTraitSet(), convertedLeft, convertedRight, joinCondition,
-            join.getJoinType(), join.getDistinctRowCount()));
+            join.getJoinType()));
 
       } else if (physicalJoinType == PhysicalJoinType.HASH_JOIN) {
         call.transformTo(new HashJoinPrel(join.getCluster(), convertedLeft.getTraitSet(), convertedLeft, convertedRight, joinCondition,
-            join.getJoinType(), join.getDistinctRowCount()));
+            join.getJoinType()));
       } else if (physicalJoinType == PhysicalJoinType.NESTEDLOOP_JOIN) {
         if (joinCondition.isAlwaysTrue()) {
           call.transformTo(new NestedLoopJoinPrel(join.getCluster(), convertedLeft.getTraitSet(), convertedLeft, convertedRight, joinCondition,
-            join.getJoinType(), join.getDistinctRowCount()));
+            join.getJoinType()));
         } else {
           RexBuilder builder = join.getCluster().getRexBuilder();
           RexLiteral condition = builder.makeLiteral(true); // TRUE condition for the NLJ
 
           FilterPrel newFilterRel = new FilterPrel(join.getCluster(), convertedLeft.getTraitSet(),
               new NestedLoopJoinPrel(join.getCluster(), convertedLeft.getTraitSet(), convertedLeft, convertedRight,
-                  condition, join.getJoinType(), join.getDistinctRowCount()),
+                  condition, join.getJoinType()),
               joinCondition);
           call.transformTo(newFilterRel);
         }

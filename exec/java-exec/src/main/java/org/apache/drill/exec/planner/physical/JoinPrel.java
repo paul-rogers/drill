@@ -52,15 +52,9 @@ public abstract class JoinPrel extends DrillJoinRelBase implements Prel{
 
   protected JoinUtils.JoinCategory joincategory;
 
-  /**
-   * Cache the distinct row count which will be used if there is a GROUP BY happening downstream from the join.
-   */
-  protected double distinctCount = -1.0;
-
   public JoinPrel(RelOptCluster cluster, RelTraitSet traits, RelNode left, RelNode right, RexNode condition,
-      JoinRelType joinType, double distinctCount) throws InvalidRelException{
+      JoinRelType joinType) throws InvalidRelException{
     super(cluster, traits, left, right, condition, joinType);
-    this.distinctCount = distinctCount;
   }
 
   @Override
@@ -148,13 +142,5 @@ public abstract class JoinPrel extends DrillJoinRelBase implements Prel{
           FieldReference.getWithQuotedRef(leftFields.get(pair.left)),
           FieldReference.getWithQuotedRef(rightFields.get(pair.right))));
     }
-  }
-
-  /**
-   * Get the distinct row count for this join
-   * @return distinct row count
-   */
-  public double getDistinctRowCount() {
-    return this.distinctCount;
   }
 }

@@ -44,13 +44,13 @@ public class HashJoinPrel  extends JoinPrel {
   private boolean swapped = false;
 
   public HashJoinPrel(RelOptCluster cluster, RelTraitSet traits, RelNode left, RelNode right, RexNode condition,
-                      JoinRelType joinType, double distinctCount) throws InvalidRelException {
-    this(cluster, traits, left, right, condition, joinType, false, distinctCount);
+                      JoinRelType joinType) throws InvalidRelException {
+    this(cluster, traits, left, right, condition, joinType, false);
   }
 
-  private HashJoinPrel(RelOptCluster cluster, RelTraitSet traits, RelNode left, RelNode right, RexNode condition,
-      JoinRelType joinType, boolean swapped, double distinctCount) throws InvalidRelException {
-    super(cluster, traits, left, right, condition, joinType, distinctCount);
+  public HashJoinPrel(RelOptCluster cluster, RelTraitSet traits, RelNode left, RelNode right, RexNode condition,
+      JoinRelType joinType, boolean swapped) throws InvalidRelException {
+    super(cluster, traits, left, right, condition, joinType);
     this.swapped = swapped;
     joincategory = JoinUtils.getJoinCategory(left, right, condition, leftKeys, rightKeys, filterNulls);
   }
@@ -58,7 +58,7 @@ public class HashJoinPrel  extends JoinPrel {
   @Override
   public Join copy(RelTraitSet traitSet, RexNode conditionExpr, RelNode left, RelNode right, JoinRelType joinType, boolean semiJoinDone) {
     try {
-      return new HashJoinPrel(this.getCluster(), traitSet, left, right, conditionExpr, joinType, this.swapped, this.distinctCount);
+      return new HashJoinPrel(this.getCluster(), traitSet, left, right, conditionExpr, joinType, this.swapped);
     }catch (InvalidRelException e) {
       throw new AssertionError(e);
     }
