@@ -252,6 +252,11 @@ public class PooledByteBufAllocatorL {
     }
   }
 
+  @Override
+  public String toString() {
+    return allocator.toString();
+  }
+
   public static final boolean ASSERT_ENABLED;
 
   static {

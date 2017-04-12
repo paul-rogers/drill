@@ -86,6 +86,9 @@ public class AllocationManager {
     this.size = underlying.capacity();
   }
 
+  @VisibleForTesting
+  public static PooledByteBufAllocatorL getAllocator() { return INNER_ALLOCATOR; }
+
   /**
    * Associate the existing underlying buffer with a new allocator. This will increase the reference count to the
    * provided ledger by 1.

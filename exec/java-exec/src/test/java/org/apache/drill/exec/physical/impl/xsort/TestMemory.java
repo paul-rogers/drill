@@ -25,6 +25,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.drill.common.config.DrillConfig;
+import org.apache.drill.exec.memory.AllocationManager;
 import org.apache.drill.exec.memory.BaseAllocator;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.base.AbstractBase;
@@ -337,6 +338,58 @@ public class TestMemory {
     DrillBuf buf = allocator.buffer(normalBlock);
     buf.release();
     freeAll(oddBufs);
+  }
+
+  @SuppressWarnings("resource")
+  @Test
+  public void testAllocAlt5() {
+    BufferAllocator allocator = fixture.allocator();
+    long startMem = allocator.getAllocatedMemory();
+    long maxMem = DrillConfig.getMaxDirectMemory();
+    long availMem = maxMem - startMem;
+    int smallBlock = NETTY_SLAB / 2;
+    int normalBlock = NETTY_SLAB;
+    int bigBlock = NETTY_SLAB * 2;
+    int maxBlocks = (int) (availMem / smallBlock);
+
+    List<DrillBuf> evenBufs = new ArrayList<>();
+    List<DrillBuf> oddBufs = new ArrayList<>();
+    for (int i = 0; i < maxBlocks; i++) {
+      DrillBuf buf;
+      try {
+        buf = allocator.buffer(smallBlock);
+      } catch (RuntimeException e) {
+        System.out.println("Allocated " + i + " of " + maxBlocks + " blocks");
+        break;
+      }
+      if ((i % 4) < 2) {
+        evenBufs.add(buf);
+      } else {
+        oddBufs.add(buf);
+      }
+    }
+
+//    new AllocatorReport().witfhLayout().report(allocator);
+    freeAll(evenBufs);
+    System.out.println( AllocationManager.getAllocator().toString() );
+//    Field unsafeField = Unsafe.class.getDeclaredField("theUnsafe");
+//    unsafeField.setAccessible(true);
+//    unsafe = (Unsafe) unsafeField.get(null);
+
+    new AllocatorReport().withLayout().report(allocator);
+    tryAlloc(allocator, bigBlock);
+    freeAll(oddBufs);
+  }
+
+  private void tryAlloc(BufferAllocator allocator, int blockSize) {
+    try {
+      @SuppressWarnings("resource")
+      DrillBuf buf = allocator.buffer(blockSize);
+      buf.release();
+      System.out.println( "Big alloc succeeded");
+    } catch (RuntimeException e) {
+      System.out.println( "Big alloc failed");
+    }
   }
 
   public static void main(String args[]) {
