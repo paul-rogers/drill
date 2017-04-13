@@ -39,7 +39,7 @@
       <version>3.20.0-GA</version>
       <scope>test</scope>
     </dependency>
-  
+
     <dependency>
       <groupId>org.apache.drill.exec</groupId>
       <artifactId>drill-java-exec</artifactId>
@@ -86,6 +86,35 @@
       <scope>provided</scope>
     </dependency>
   </dependencies>
+
+    <dependencyManagement>
+      <dependencies>
+        <dependency>
+          <groupId>org.apache.hbase</groupId>
+          <artifactId>hbase-server</artifactId>
+          <classifier>tests</classifier>
+          <exclusions>
+            <exclusion>
+              <groupId>io.netty</groupId>
+              <artifactId>netty-all</artifactId>
+            </exclusion>
+          </exclusions>
+          <scope>test</scope>
+        </dependency>
+	    <dependency>
+	      <groupId>org.apache.hadoop</groupId>
+	      <artifactId>hadoop-hdfs</artifactId>
+	      <classifier>tests</classifier>
+	      <scope>test</scope>
+	      <exclusions>
+	        <exclusion>
+	          <groupId>io.netty</groupId>
+	          <artifactId>netty-all</artifactId>
+	        </exclusion>
+	      </exclusions>
+	    </dependency>
+      </dependencies>
+    </dependencyManagement>
 
   <build>
     <plugins>
@@ -173,35 +202,6 @@
         </property>
       </activation>
       <dependencies>
-        <dependency>
-          <groupId>org.apache.hbase</groupId>
-          <artifactId>hbase-client</artifactId>
-        </dependency>
-
-        <!-- test dependencies -->
-        <dependency>
-          <groupId>org.apache.hbase</groupId>
-          <artifactId>hbase-testing-util</artifactId>
-          <classifier>tests</classifier>
-          <exclusions>
-            <exclusion>
-              <artifactId>log4j</artifactId>
-              <groupId>log4j</groupId>
-            </exclusion>
-          </exclusions>
-          <scope>test</scope>
-        </dependency>
-        <dependency>
-          <groupId>org.apache.hadoop</groupId>
-          <artifactId>hadoop-hdfs</artifactId>
-          <scope>test</scope>
-          <exclusions>
-            <exclusion>
-              <artifactId>log4j</artifactId>
-              <groupId>log4j</groupId>
-            </exclusion>
-          </exclusions>
-        </dependency>
       </dependencies>
     </profile>
 
@@ -212,21 +212,6 @@
         <rat.excludeSubprojects>true</rat.excludeSubprojects>
       </properties>
       <dependencies>
-        <dependency>
-          <groupId>org.apache.hbase</groupId>
-          <artifactId>hbase-client</artifactId>
-        </dependency>
-        <dependency>
-          <groupId>org.apache.hbase</groupId>
-          <artifactId>hbase-testing-util</artifactId>
-          <classifier>tests</classifier>
-          <exclusions>
-            <exclusion>
-              <artifactId>log4j</artifactId>
-              <groupId>log4j</groupId>
-            </exclusion>
-          </exclusions>
-        </dependency>
       </dependencies>
     </profile>
   </profiles>

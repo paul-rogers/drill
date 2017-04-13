@@ -456,6 +456,10 @@
     	  <groupId>org.xerial.snappy</groupId>
     	  <artifactId>snappy-java</artifactId>
     	</exclusion>
+        <exclusion>
+           <groupId>io.netty</groupId>
+           <artifactId>netty</artifactId>
+         </exclusion>
       </exclusions>
     </dependency>
     <dependency>
