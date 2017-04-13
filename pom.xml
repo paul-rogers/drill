@@ -998,7 +998,18 @@
 	        </exclusion>
 	      </exclusions>
 	    </dependency>
-    </dependencies>
+        <dependency>
+          <groupId>org.apache.calcite</groupId>
+          <artifactId>calcite-linq4j</artifactId>
+          <version>1.4.0-drill-r19</version>
+          <exclusions>
+            <exclusion>
+              <groupId>com.google.guava</groupId>
+              <artifactId>guava</artifactId>
+            </exclusion>
+          </exclusions>
+       </dependency>
+     </dependencies>
    </dependencyManagement>
 
   <profiles>
@@ -1594,7 +1605,11 @@
                  <groupId>com.fasterxml.jackson.core</groupId>
                  <artifactId>jackson-databind</artifactId>
               </exclusion>
-            </exclusions>
+	          <exclusion>
+	            <groupId>com.google.guava</groupId>
+	            <artifactId>guava</artifactId>
+	           </exclusion>
+	         </exclusions>
           </dependency>
 
           <dependency>
