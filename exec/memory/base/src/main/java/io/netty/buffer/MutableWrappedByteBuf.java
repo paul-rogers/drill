@@ -296,16 +296,6 @@ abstract class MutableWrappedByteBuf extends AbstractByteBuf {
   }
 
   @Override
-  public int forEachByte(int index, int length, ByteBufProcessor processor) {
-    return buffer.forEachByte(index, length, processor);
-  }
-
-  @Override
-  public int forEachByteDesc(int index, int length, ByteBufProcessor processor) {
-    return buffer.forEachByteDesc(index, length, processor);
-  }
-
-  @Override
   public final int refCnt() {
     return unwrap().refCnt();
   }

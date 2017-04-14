@@ -94,11 +94,6 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
   }
 
   @Override
-  public ByteOrder order() {
-    return ByteOrder.LITTLE_ENDIAN;
-  }
-
-  @Override
   public ByteBuf order(ByteOrder endianness) {
     return this;
   }

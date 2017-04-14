@@ -21,12 +21,14 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.ByteBufProcessor;
 import io.netty.buffer.DrillBuf;
+import io.netty.util.ByteProcessor;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 import java.nio.charset.Charset;
@@ -394,310 +396,256 @@ public class DeadBuf extends ByteBuf {
   @Override
   public ByteBuf setZero(int index, int length) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public boolean readBoolean() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public byte readByte() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public short readUnsignedByte() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public short readShort() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public int readUnsignedShort() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public int readMedium() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public int readUnsignedMedium() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public int readInt() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public long readUnsignedInt() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public long readLong() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public char readChar() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public float readFloat() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public double readDouble() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf readBytes(int length) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf readSlice(int length) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf readBytes(ByteBuf dst) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf readBytes(ByteBuf dst, int length) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf readBytes(ByteBuf dst, int dstIndex, int length) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf readBytes(byte[] dst) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf readBytes(byte[] dst, int dstIndex, int length) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf readBytes(ByteBuffer dst) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf readBytes(OutputStream out, int length) throws IOException {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public int readBytes(GatheringByteChannel out, int length) throws IOException {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf skipBytes(int length) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf writeBoolean(boolean value) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf writeByte(int value) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf writeShort(int value) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf writeMedium(int value) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf writeInt(int value) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf writeLong(long value) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf writeChar(int value) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf writeFloat(float value) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf writeDouble(double value) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf writeBytes(ByteBuf src) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf writeBytes(ByteBuf src, int length) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf writeBytes(ByteBuf src, int srcIndex, int length) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf writeBytes(byte[] src) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf writeBytes(byte[] src, int srcIndex, int length) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf writeBytes(ByteBuffer src) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public int writeBytes(InputStream in, int length) throws IOException {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public int writeBytes(ScatteringByteChannel in, int length) throws IOException {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf writeZero(int length) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public int indexOf(int fromIndex, int toIndex, byte value) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
-
 
   @Override
   public int bytesBefore(byte value) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
-    @Override
+  @Override
   public int bytesBefore(int length, byte value) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
-
 
   @Override
   public int bytesBefore(int index, int length, byte value) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
-
 
   @Override
   public ByteBuf copy() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf copy(int index, int length) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf slice() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuf slice(int index, int length) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
@@ -709,55 +657,46 @@ public class DeadBuf extends ByteBuf {
   @Override
   public int nioBufferCount() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuffer nioBuffer() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuffer nioBuffer(int index, int length) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuffer[] nioBuffers() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public ByteBuffer[] nioBuffers(int index, int length) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public boolean hasArray() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public byte[] array() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public int arrayOffset() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public boolean hasMemoryAddress() {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
@@ -769,13 +708,11 @@ public class DeadBuf extends ByteBuf {
   @Override
   public String toString(Charset charset) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
   public String toString(int index, int length, Charset charset) {
     throw new UnsupportedOperationException(ERROR_MESSAGE);
-
   }
 
   @Override
@@ -799,31 +736,6 @@ public class DeadBuf extends ByteBuf {
     return false;
   }
 
-
-  @Override
-  public int forEachByte(ByteBufProcessor arg0) {
-    return 0;
-  }
-
-
-  @Override
-  public int forEachByte(int arg0, int arg1, ByteBufProcessor arg2) {
-    return 0;
-  }
-
-
-  @Override
-  public int forEachByteDesc(ByteBufProcessor arg0) {
-    return 0;
-  }
-
-
-  @Override
-  public int forEachByteDesc(int arg0, int arg1, ByteBufProcessor arg2) {
-    return 0;
-  }
-
-
   @Override
   public int hashCode() {
     return 0;
@@ -835,11 +747,223 @@ public class DeadBuf extends ByteBuf {
     return null;
   }
 
-
   @Override
   public String toString() {
-    return null;
+    return "";
   }
 
+  @Override
+  public boolean isReadOnly() {
+    return true;
+  }
 
+  @Override
+  public ByteBuf asReadOnly() {
+    return this;
+  }
+
+  @Override
+  public short getShortLE(int index) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public int getUnsignedShortLE(int index) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public int getMediumLE(int index) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public int getUnsignedMediumLE(int index) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public int getIntLE(int index) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public long getUnsignedIntLE(int index) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public long getLongLE(int index) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public int getBytes(int index, FileChannel out, long position, int length)
+      throws IOException {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public CharSequence getCharSequence(int index, int length, Charset charset) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public ByteBuf setShortLE(int index, int value) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public ByteBuf setMediumLE(int index, int value) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public ByteBuf setIntLE(int index, int value) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public ByteBuf setLongLE(int index, long value) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public int setBytes(int index, FileChannel in, long position, int length)
+      throws IOException {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public int setCharSequence(int index, CharSequence sequence,
+      Charset charset) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public short readShortLE() {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public int readUnsignedShortLE() {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public int readMediumLE() {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public int readUnsignedMediumLE() {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public int readIntLE() {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public long readUnsignedIntLE() {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public long readLongLE() {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public ByteBuf readRetainedSlice(int length) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public CharSequence readCharSequence(int length, Charset charset) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public int readBytes(FileChannel out, long position, int length)
+      throws IOException {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public ByteBuf writeShortLE(int value) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public ByteBuf writeMediumLE(int value) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public ByteBuf writeIntLE(int value) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public ByteBuf writeLongLE(long value) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public int writeBytes(FileChannel in, long position, int length)
+      throws IOException {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public int writeCharSequence(CharSequence sequence, Charset charset) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public int forEachByte(ByteProcessor processor) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public int forEachByte(int index, int length, ByteProcessor processor) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public int forEachByteDesc(ByteProcessor processor) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public int forEachByteDesc(int index, int length, ByteProcessor processor) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public ByteBuf retainedSlice() {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public ByteBuf retainedSlice(int index, int length) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public ByteBuf retainedDuplicate() {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public ByteBuf touch() {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public ByteBuf touch(Object hint) {
+    throw new UnsupportedOperationException(ERROR_MESSAGE);
+  }
 }

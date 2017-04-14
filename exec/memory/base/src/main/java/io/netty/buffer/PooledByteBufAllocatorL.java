@@ -18,6 +18,7 @@
 package io.netty.buffer;
 
 import io.netty.util.internal.StringUtil;
+import sun.misc.Unsafe;
 
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
@@ -140,7 +141,16 @@ public class PooledByteBufAllocatorL {
     }
 
     private UnsafeDirectLittleEndian newDirectBufferL(int initialCapacity, int maxCapacity) {
-      PoolThreadCache cache = threadCache.get();
+      PoolThreadCache cache;
+      try {
+        Field threadCacheField = getClass().getDeclaredField("threadCache");
+        threadCacheField.setAccessible(true);
+        cache = (PoolThreadCache) threadCacheField.get(null);
+      } catch (NoSuchFieldException | SecurityException
+          | IllegalArgumentException | IllegalAccessException e) {
+        throw new IllegalStateException(e);
+      }
+//      PoolThreadCache cache = threadCache.get();
       PoolArena<ByteBuffer> directArena = cache.directArena;
 
       if (directArena == null) {

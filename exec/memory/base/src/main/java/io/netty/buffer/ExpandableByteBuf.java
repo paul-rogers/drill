@@ -17,6 +17,9 @@
  */
 package io.netty.buffer;
 
+import java.io.IOException;
+import java.nio.channels.FileChannel;
+
 import org.apache.drill.exec.memory.BufferAllocator;
 
 /**
@@ -52,4 +55,65 @@ public class ExpandableByteBuf extends MutableWrappedByteBuf {
     }
   }
 
+  @Override
+  protected short _getShortLE(int index) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  protected int _getUnsignedMediumLE(int index) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  protected int _getIntLE(int index) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  protected long _getLongLE(int index) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  protected void _setShortLE(int index, int value) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  protected void _setMediumLE(int index, int value) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  protected void _setIntLE(int index, int value) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  protected void _setLongLE(int index, long value) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public int getBytes(int index, FileChannel out, long position, int length)
+      throws IOException {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public int setBytes(int index, FileChannel in, long position, int length)
+      throws IOException {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ByteBuf touch() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ByteBuf touch(Object hint) {
+    throw new UnsupportedOperationException();
+  }
 }

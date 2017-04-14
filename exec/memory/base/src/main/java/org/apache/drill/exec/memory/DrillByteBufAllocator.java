@@ -138,4 +138,8 @@ public class DrillByteBufAllocator implements ByteBufAllocator {
     throw new UnsupportedOperationException("Allocator doesn't support heap-based memory.");
   }
 
+  @Override
+  public int calculateNewCapacity(int minNewCapacity, int maxCapacity) {
+    throw new UnsupportedOperationException();
+  }
 }

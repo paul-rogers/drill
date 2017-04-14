@@ -24,6 +24,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.channels.FileChannel;
 import java.nio.channels.GatheringByteChannel;
 import java.nio.channels.ScatteringByteChannel;
 import java.nio.charset.Charset;
@@ -447,7 +448,7 @@ public final class DrillBuf extends AbstractByteBuf implements AutoCloseable {
       return "";
     }
 
-    return ByteBufUtil.decodeString(nioBuffer(index, length), charset);
+    return ByteBufUtil.decodeString(this, index, length, charset);
   }
 
   @Override
@@ -853,5 +854,67 @@ public final class DrillBuf extends AbstractByteBuf implements AutoCloseable {
       sb.append("\n");
       historicalLog.buildHistory(sb, indent + 1, verbosity.includeStackTraces);
     }
+  }
+
+  @Override
+  protected short _getShortLE(int index) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  protected int _getUnsignedMediumLE(int index) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  protected int _getIntLE(int index) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  protected long _getLongLE(int index) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  protected void _setShortLE(int index, int value) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  protected void _setMediumLE(int index, int value) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  protected void _setIntLE(int index, int value) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  protected void _setLongLE(int index, long value) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public int getBytes(int index, FileChannel out, long position, int length)
+      throws IOException {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public int setBytes(int index, FileChannel in, long position, int length)
+      throws IOException {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ByteBuf touch() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ByteBuf touch(Object hint) {
+    throw new UnsupportedOperationException();
   }
 }
