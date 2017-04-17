@@ -43,12 +43,6 @@
       <groupId>org.apache.drill.contrib.storage-hive</groupId>
       <artifactId>drill-hive-exec-shaded</artifactId>
       <version>${project.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>org.apache.hive</groupId>
-          <artifactId>hive-exec</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.apache.hive</groupId>

@@ -31,11 +31,13 @@ import org.apache.drill.exec.memory.BaseAllocator;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.memory.MemoryVisitor;
 import org.apache.drill.exec.memory.RootAllocator;
+
+import com.google.common.collect.Sets;
+
 import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
 
 import io.netty.buffer.DrillBuf;
 import io.netty.buffer.UnsafeDirectLittleEndian;
-import jersey.repackaged.com.google.common.collect.Sets;
 
 public class AllocatorReport {
 
