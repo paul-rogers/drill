@@ -48,8 +48,20 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   private static final int CHUNK_SIZE = AllocationManager.INNER_ALLOCATOR.getChunkSize();
 
   public static final int DEBUG_LOG_LENGTH = 6;
+  /**
+   * Indicate if debug logging is enabled. This logging is quite expensive,
+   * adding 10x-20x to query cost. It is enabled only if two conditions are
+   * both true:
+   * <ul>
+   * <li>Assertions are enabled (-ea JVM option), and</li>
+   * <li>-Ddrill.memory.debug.allocator=true is also on the JVM
+   * command line.</li>
+   * </ul>
+   * Note: in earlier versions the condition was OR, resulting in
+   * very slow performance whenever assertions were enabled.
+   */
   public static final boolean DEBUG = AssertionUtil.isAssertionsEnabled()
-      || Boolean.parseBoolean(System.getProperty(DEBUG_ALLOCATOR, "false"));
+      && Boolean.parseBoolean(System.getProperty(DEBUG_ALLOCATOR, "false"));
   private final Object DEBUG_LOCK = DEBUG ? new Object() : null;
 
   private final BaseAllocator parentAllocator;
@@ -67,6 +79,17 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   private final IdentityHashMap<BufferLedger, Object> childLedgers;
   private final IdentityHashMap<Reservation, Object> reservations;
   private final HistoricalLog historicalLog;
+
+  /**
+   * Disk I/O buffer used for all reads and writes of DrillBufs.
+   * The buffer is allocated when first needed, then reused by all
+   * subsequent I/O operations for the same operator. Since very few
+   * operators do I/O, the number of allocated buffers should be
+   * low. Better would be to hold the buffer at the fragment level
+   * since all operators within a fragment run within a single thread.
+   */
+
+  private byte ioBuffer[];
 
   protected BaseAllocator(
       final BaseAllocator parentAllocator,
@@ -230,7 +253,6 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         releaseBytes(actualRequestSize);
       }
     }
-
   }
 
   /**
@@ -350,6 +372,9 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         return;
       }
 
+      if (ioBuffer != null) {
+        ioBuffer = null;
+      }
       if (DEBUG) {
         if (!isClosed()) {
           final Object object;
@@ -438,7 +463,6 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
         historicalLog.recordEvent("releaseReservation(%d)", nBytes);
       }
     }
-
   }
 
   @Override
@@ -513,12 +537,8 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
 
     if (DEBUG) {
       historicalLog.recordEvent("closed");
-      logger.debug(String.format(
-          "closed allocator[%s].",
-          name));
+      logger.debug(String.format("closed allocator[%s].", name));
     }
-
-
   }
 
   @Override
@@ -562,7 +582,6 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       return highestBit << 1;
     }
   }
-
 
   /**
    * Verifies the accounting state of the allocator. Only works for DEBUG.
@@ -747,9 +766,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
           reservation.historicalLog.buildHistory(sb, level + 3, true);
         }
       }
-
     }
-
   }
 
   private void dumpBuffers(final StringBuilder sb, final Set<BufferLedger> ledgerSet) {
@@ -765,7 +782,6 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       sb.append('\n');
     }
   }
-
 
   public static StringBuilder indent(StringBuilder sb, int indent) {
     final char[] indentation = new char[indent * 2];
@@ -793,20 +809,20 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     return DEBUG;
   }
 
-  /**
-   * Disk I/O buffer used for all reads and writes of DrillBufs.
-   */
-
-  private byte ioBuffer[];
-
   public byte[] getIOBuffer() {
     if (ioBuffer == null) {
+      // Length chosen to the smallest size that maximizes
+      // disk I/O performance. Smaller sizes slow I/O. Larger
+      // sizes provide no increase in performance.
+      // Revisit from time to time.
+
       ioBuffer = new byte[32*1024];
     }
     return ioBuffer;
   }
 
-  public void read(DrillBuf buf, InputStream in, int length) throws IOException {
+  @Override
+  public void read(DrillBuf buf, int length, InputStream in) throws IOException {
     buf.clear();
 
     byte[] buffer = getIOBuffer();
@@ -817,11 +833,27 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     }
   }
 
+  public DrillBuf read(int length, InputStream in) throws IOException {
+    DrillBuf buf = buffer(length);
+    try {
+      read(buf, length, in);
+      return buf;
+    } catch (IOException e) {
+      buf.release();
+      throw e;
+    }
+  }
+
+  @Override
   public void write(DrillBuf buf, OutputStream out) throws IOException {
+    write(buf, buf.readableBytes(), out);
+  }
+
+  @Override
+  public void write(DrillBuf buf, int length, OutputStream out) throws IOException {
     byte[] buffer = getIOBuffer();
-    int bufLength = buf.readableBytes();
-    for (int posn = 0; posn < bufLength; posn += buffer.length) {
-      int len = Math.min(buffer.length, bufLength - posn);
+    for (int posn = 0; posn < length; posn += buffer.length) {
+      int len = Math.min(buffer.length, length - posn);
       buf.getBytes(posn, buffer, 0, len);
       out.write(buffer, 0, len);
     }
