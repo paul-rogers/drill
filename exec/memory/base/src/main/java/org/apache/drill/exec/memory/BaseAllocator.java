@@ -608,12 +608,12 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
    *           when any problems are found
    */
   private void verifyAllocator(final IdentityHashMap<UnsafeDirectLittleEndian, BaseAllocator> buffersSeen) {
-    synchronized (DEBUG_LOCK) {
+    // The remaining tests can only be performed if we're in debug mode.
+    if (!DEBUG) {
+      return;
+    }
 
-      // The remaining tests can only be performed if we're in debug mode.
-      if (!DEBUG) {
-        return;
-      }
+    synchronized (DEBUG_LOCK) {
 
       final long allocated = getAllocatedMemory();
 

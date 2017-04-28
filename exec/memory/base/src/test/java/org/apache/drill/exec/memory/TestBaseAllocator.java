@@ -26,6 +26,7 @@ import io.netty.buffer.DrillBuf;
 import io.netty.buffer.DrillBuf.TransferResult;
 
 import org.apache.drill.exec.exception.OutOfMemoryException;
+import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -56,6 +57,10 @@ public class TestBaseAllocator {
   // ---------------------------------------- DEBUG ------------------------------------
 */
 
+  @BeforeClass
+  public static void setup() {
+    System.setProperty(BaseAllocator.DEBUG_ALLOCATOR, "true");
+  }
 
   @Test
   public void test_privateMax() throws Exception {
@@ -467,30 +472,28 @@ public class TestBaseAllocator {
   @Test
   public void testAllocator_shareSliced() throws Exception {
     try (final RootAllocator rootAllocator = new RootAllocator(MAX_ALLOCATION)) {
-      final BufferAllocator childAllocator1 = rootAllocator.newChildAllocator("transferSliced", 0, MAX_ALLOCATION);
-      final BufferAllocator childAllocator2 = rootAllocator.newChildAllocator("transferSliced", 0, MAX_ALLOCATION);
+      try (BufferAllocator childAllocator1 = rootAllocator.newChildAllocator("transferSliced", 0, MAX_ALLOCATION);
+           BufferAllocator childAllocator2 = rootAllocator.newChildAllocator("transferSliced", 0, MAX_ALLOCATION)) {
 
-      final DrillBuf drillBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 8);
-      final DrillBuf drillBuf2 = childAllocator2.buffer(MAX_ALLOCATION / 8);
+        final DrillBuf drillBuf1 = childAllocator1.buffer(MAX_ALLOCATION / 8);
+        final DrillBuf drillBuf2 = childAllocator2.buffer(MAX_ALLOCATION / 8);
 
-      final DrillBuf drillBuf1s = drillBuf1.slice(0, drillBuf1.capacity() / 2);
-      final DrillBuf drillBuf2s = drillBuf2.slice(0, drillBuf2.capacity() / 2);
+        final DrillBuf drillBuf1s = drillBuf1.slice(0, drillBuf1.capacity() / 2);
+        final DrillBuf drillBuf2s = drillBuf2.slice(0, drillBuf2.capacity() / 2);
 
-      rootAllocator.verify();
+        rootAllocator.verify();
 
-      final DrillBuf drillBuf2s1 = drillBuf2s.retain(childAllocator1);
-      final DrillBuf drillBuf1s2 = drillBuf1s.retain(childAllocator2);
-      rootAllocator.verify();
+        final DrillBuf drillBuf2s1 = drillBuf2s.retain(childAllocator1);
+        final DrillBuf drillBuf1s2 = drillBuf1s.retain(childAllocator2);
+        rootAllocator.verify();
 
-      drillBuf1s.release(); // releases drillBuf1
-      drillBuf2s.release(); // releases drillBuf2
-      rootAllocator.verify();
+        drillBuf1s.release(); // releases drillBuf1
+        drillBuf2s.release(); // releases drillBuf2
+        rootAllocator.verify();
 
-      drillBuf2s1.release(); // releases the shared drillBuf2 slice
-      drillBuf1s2.release(); // releases the shared drillBuf1 slice
-
-      childAllocator1.close();
-      childAllocator2.close();
+        drillBuf2s1.release(); // releases the shared drillBuf2 slice
+        drillBuf1s2.release(); // releases the shared drillBuf1 slice
+      }
     }
   }
 
