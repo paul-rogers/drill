@@ -401,6 +401,11 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       set(index, value);
     }
 
+    public boolean setBounded(int index, int value) {
+      setSafe(index, value);
+      return true;
+    }
+
     public void setSafe(int index, BitHolder holder) {
       while(index >= getValueCapacity()) {
         reAlloc();

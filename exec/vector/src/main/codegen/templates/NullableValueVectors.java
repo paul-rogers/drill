@@ -251,8 +251,8 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     bits.zeroVector();
     values.zeroVector();
   }
-  </#if>
 
+  </#if>
   @Override
   public void load(SerializedField metadata, DrillBuf buffer) {
     clear();
@@ -410,8 +410,8 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     public int getValueLength(int index) {
       return values.getAccessor().getValueLength(index);
     }
-    </#if>
 
+    </#if>
     public void get(int index, Nullable${minor.class}Holder holder){
       vAccessor.get(index, holder);
       holder.isSet = bAccessor.get(index);
@@ -439,22 +439,21 @@ public final class ${className} extends BaseDataValueVector implements <#if type
         return vAccessor.getAsStringBuilder(index);
       }
     }
-    </#if>
 
+    </#if>
     @Override
-    public int getValueCount(){
+    public int getValueCount() {
       return bits.getAccessor().getValueCount();
     }
 
-    public void reset(){}
+    public void reset() {}
   }
 
   public final class Mutator extends BaseDataValueVector.BaseMutator implements NullableVectorDefinitionSetter<#if type.major = "VarLen">, VariableWidthVector.VariableWidthMutator</#if> {
     private int setCount;
-    <#if type.major = "VarLen"> private int lastSet = -1;</#if>
+    <#if type.major = "VarLen">private int lastSet = -1;</#if>
 
-    private Mutator(){
-    }
+    private Mutator() { }
 
     public ${valuesName} getVectorWithValues(){
       return values;
@@ -466,11 +465,12 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     }
 
     /**
-     * Set the variable length element at the specified index to the supplied byte array.
+     * Set the variable length element at the specified index to the supplied value.
      *
      * @param index   position of the bit to set
-     * @param bytes   array of bytes to write
+     * @param value   value to write
      */
+
     public void set(int index, <#if type.major == "VarLen">byte[]<#elseif (type.width < 4)>int<#else>${minor.javaType!type.javaType}</#if> value) {
       setCount++;
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
@@ -486,7 +486,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     }
 
     <#if type.major == "VarLen">
-    private void fillEmpties(int index){
+    private void fillEmpties(int index) {
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
       for (int i = lastSet; i < index; i++) {
         valuesMutator.setSafe(i + 1, emptyByteArray);
@@ -502,27 +502,33 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       values.getMutator().setValueLengthSafe(index, length);
       lastSet = index;
     }
-    </#if>
 
     public void setSafe(int index, byte[] value, int start, int length) {
-      <#if type.major != "VarLen">
-      throw new UnsupportedOperationException();
-      <#else>
-      if (index > lastSet + 1) {
+       if (index > lastSet + 1) {
         fillEmpties(index);
       }
 
       bits.getMutator().setSafe(index, 1);
       values.getMutator().setSafe(index, value, start, length);
       setCount++;
-      <#if type.major == "VarLen">lastSet = index;</#if>
-      </#if>
+      lastSet = index;
+    }
+
+    public boolean setBounded(int index, byte[] value, int start, int length) {
+      if (index > lastSet + 1) {
+        fillEmpties(index);
+      }
+
+      if (! values.getMutator().setBounded(index, value, start, length) ) {
+        return false;
+      }
+      bits.getMutator().setSafe(index, 1);
+      setCount++;
+      lastSet = index;
+      return true;
     }
 
     public void setSafe(int index, ByteBuffer value, int start, int length) {
-      <#if type.major != "VarLen">
-      throw new UnsupportedOperationException();
-      <#else>
       if (index > lastSet + 1) {
         fillEmpties(index);
       }
@@ -530,23 +536,63 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       bits.getMutator().setSafe(index, 1);
       values.getMutator().setSafe(index, value, start, length);
       setCount++;
-      <#if type.major == "VarLen">lastSet = index;</#if>
-      </#if>
+      lastSet = index;
     }
 
-    public void setNull(int index){
+    public boolean setBounded(int index, DrillBuf value, int start, int length) {
+      if (index > lastSet + 1) {
+        fillEmpties(index);
+      }
+
+      if (! values.getMutator().setBounded(index, value, start, length)) {
+        return false;
+      }
+      bits.getMutator().setSafe(index, 1);
+      setCount++;
+      lastSet = index;
+      return true;
+    }
+
+      <#if minor.class == "VarChar">
+    public boolean setBounded(int index, String value) {
+      if (index > lastSet + 1) {
+        fillEmpties(index);
+      }
+
+      if (! values.getMutator().setBounded(index, value)) {
+        return false;
+      }
+      bits.getMutator().setSafe(index, 1);
+      setCount++;
+      lastSet = index;
+      return true;
+    }
+
+      </#if>
+    <#else>
+    public boolean setBounded(int index, <#if (type.width < 4)>int<#else>${minor.javaType!type.javaType}</#if> value) {
+      setCount++;
+      if (! values.getMutator().setBounded(index, value)) {
+        return false;
+      }
+      bits.getMutator().setSafe(index, 1);
+      return true;
+    }
+
+    </#if>
+    public void setNull(int index) {
       bits.getMutator().setSafe(index, 0);
     }
 
-    public void setSkipNull(int index, ${minor.class}Holder holder){
+    public void setSkipNull(int index, ${minor.class}Holder holder) {
       values.getMutator().set(index, holder);
     }
 
-    public void setSkipNull(int index, Nullable${minor.class}Holder holder){
+    public void setSkipNull(int index, Nullable${minor.class}Holder holder) {
       values.getMutator().set(index, holder);
     }
 
-    public void set(int index, Nullable${minor.class}Holder holder){
+    public void set(int index, Nullable${minor.class}Holder holder) {
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
       <#if type.major == "VarLen">
       for (int i = lastSet + 1; i < index; i++) {
@@ -558,7 +604,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       <#if type.major == "VarLen">lastSet = index;</#if>
     }
 
-    public void set(int index, ${minor.class}Holder holder){
+    public void set(int index, ${minor.class}Holder holder) {
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
       <#if type.major == "VarLen">
       for (int i = lastSet + 1; i < index; i++) {
@@ -575,7 +621,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     }
 
     <#assign fields = minor.fields!type.fields />
-    public void set(int index, int isSet<#list fields as field><#if field.include!true >, ${field.type} ${field.name}Field</#if></#list> ){
+    public void set(int index, int isSet<#list fields as field><#if field.include!true >, ${field.type} ${field.name}Field</#if></#list> ) {
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
       <#if type.major == "VarLen">
       for (int i = lastSet + 1; i < index; i++) {

@@ -24,6 +24,8 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.IntVector;
+import org.apache.drill.exec.vector.NullableIntVector;
+import org.apache.drill.exec.vector.NullableVarCharVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VarCharVector;
 import org.apache.drill.test.DrillTest;
@@ -34,6 +36,12 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import io.netty.buffer.DrillBuf;
+
+/**
+ * Test the setBounded() methods in the various generated vector
+ * classes. Rather than test all 100+ vectors, we sample a few and
+ * rely on the fact that code is generated from a common template.
+ */
 
 public class TestVectorLimits extends DrillTest {
 
@@ -64,7 +72,7 @@ public class TestVectorLimits extends DrillTest {
     // Create a non-nullable int vector: a typical fixed-size vector
 
     @SuppressWarnings("resource")
-    IntVector vector = new IntVector(makeField(MinorType.INT), fixture.allocator() );
+    IntVector vector = new IntVector(makeField(MinorType.INT, DataMode.REQUIRED), fixture.allocator() );
 
     // Sanity test of generated constants.
 
@@ -98,10 +106,28 @@ public class TestVectorLimits extends DrillTest {
     vector.close();
   }
 
-  private MaterializedField makeField(MinorType dataType) {
+  @Test
+  public void testNullableFixedVector() {
+
+    @SuppressWarnings("resource")
+    NullableIntVector vector = new NullableIntVector(makeField(MinorType.INT, DataMode.OPTIONAL), fixture.allocator() );
+    vector.allocateNew( );
+
+    NullableIntVector.Mutator mutator = vector.getMutator();
+    for (int i = 0; i < 2 * IntVector.MAX_VALUE_COUNT; i++) {
+      if (! mutator.setBounded(i, i)) {
+        assertEquals(IntVector.MAX_VALUE_COUNT, i);
+        break;
+      }
+    }
+
+    vector.close();
+  }
+
+  private MaterializedField makeField(MinorType dataType, DataMode mode) {
     MajorType type = MajorType.newBuilder()
         .setMinorType(dataType)
-        .setMode(DataMode.REQUIRED)
+        .setMode(mode)
         .build();
 
     return MaterializedField.create("foo", type);
@@ -120,7 +146,7 @@ public class TestVectorLimits extends DrillTest {
     // Create a non-nullable VarChar vector: a typical variable-size vector
 
     @SuppressWarnings("resource")
-    VarCharVector vector = new VarCharVector(makeField(MinorType.VARCHAR), fixture.allocator() );
+    VarCharVector vector = new VarCharVector(makeField(MinorType.VARCHAR, DataMode.REQUIRED), fixture.allocator() );
     vector.allocateNew( );
 
     // A 16 MB value can hold 64K values of up to 256 bytes each.
@@ -155,7 +181,7 @@ public class TestVectorLimits extends DrillTest {
   public void testWideVariableVector() {
 
     @SuppressWarnings("resource")
-    VarCharVector vector = new VarCharVector(makeField(MinorType.VARCHAR), fixture.allocator() );
+    VarCharVector vector = new VarCharVector(makeField(MinorType.VARCHAR, DataMode.REQUIRED), fixture.allocator() );
     vector.allocateNew( );
 
     // A 16 MB value can hold 64K values of up to 256 bytes each.
@@ -163,8 +189,7 @@ public class TestVectorLimits extends DrillTest {
     // Write to the vector until it complains. At that point,
     // we should have written up to the maximum buffer size.
 
-    byte dummyValue[] = new byte[512];
-    Arrays.fill(dummyValue, (byte) 'X');
+    byte dummyValue[] = makeVarCharValue(512);
     VarCharVector.Mutator mutator = vector.getMutator();
     int count = 0;
     for ( ; count < 2 * ValueVector.MAX_VALUE_COUNT; count++) {
@@ -183,6 +208,34 @@ public class TestVectorLimits extends DrillTest {
     vector.close();
   }
 
+  private byte[] makeVarCharValue(int n) {
+    byte dummyValue[] = new byte[n];
+    Arrays.fill(dummyValue, (byte) 'X');
+    return dummyValue;
+  }
+
+  @Test
+  public void testNullableWideVariableVector() {
+
+    @SuppressWarnings("resource")
+    NullableVarCharVector vector = new NullableVarCharVector(makeField(MinorType.VARCHAR, DataMode.OPTIONAL), fixture.allocator() );
+    vector.allocateNew( );
+
+    byte dummyValue[] = makeVarCharValue(512);
+    NullableVarCharVector.Mutator mutator = vector.getMutator();
+    int count = 0;
+    for ( ; count < 2 * ValueVector.MAX_VALUE_COUNT; count++) {
+      if (! mutator.setBounded(count, dummyValue, 0, dummyValue.length)) {
+        break;
+      }
+    }
+
+    mutator.setValueCount(count);
+    assertEquals(ValueVector.MAX_BUFFER_SIZE, vector.getValuesVector().getBuffer().getActualMemoryConsumed());
+    assertTrue(count < ValueVector.MAX_VALUE_COUNT);
+    vector.close();
+  }
+
   /**
    * Test a vector directly using the vector mutator to ensure
    * that the <tt>setBounded</tt> method works for the maximum
@@ -193,14 +246,13 @@ public class TestVectorLimits extends DrillTest {
   public void testNarrowVariableVector() {
 
     @SuppressWarnings("resource")
-    VarCharVector vector = new VarCharVector(makeField(MinorType.VARCHAR), fixture.allocator() );
+    VarCharVector vector = new VarCharVector(makeField(MinorType.VARCHAR, DataMode.REQUIRED), fixture.allocator() );
     vector.allocateNew( );
 
     // Write small values that fit into 16 MB. We should stop writing
     // when we reach the value count limit.
 
-    byte dummyValue[] = new byte[254];
-    Arrays.fill(dummyValue, (byte) 'X');
+    byte dummyValue[] = makeVarCharValue(254);
     VarCharVector.Mutator mutator = vector.getMutator();
     int count = 0;
     for (; count < 2 * ValueVector.MAX_VALUE_COUNT; count++) {
@@ -228,21 +280,18 @@ public class TestVectorLimits extends DrillTest {
   public void testDirectVariableVector() {
 
     @SuppressWarnings("resource")
-    VarCharVector vector = new VarCharVector(makeField(MinorType.VARCHAR), fixture.allocator() );
+    VarCharVector vector = new VarCharVector(makeField(MinorType.VARCHAR, DataMode.REQUIRED), fixture.allocator() );
     vector.allocateNew( );
 
     // Repeat the big-value test, but with data coming from a DrillBuf
     // (direct memory) rather than a heap array.
 
-    byte dummyValue[] = new byte[260];
-    Arrays.fill(dummyValue, (byte) 'X');
     @SuppressWarnings("resource")
-    DrillBuf drillBuf = fixture.allocator().buffer(dummyValue.length);
-    drillBuf.setBytes(0, dummyValue);
+    DrillBuf drillBuf = makeVarCharValueDirect(260);
     VarCharVector.Mutator mutator = vector.getMutator();
     int count = 0;
     for (; count < 2 * ValueVector.MAX_VALUE_COUNT; count++) {
-      if (! mutator.setBounded(count, drillBuf, 0, dummyValue.length)) {
+      if (! mutator.setBounded(count, drillBuf, 0, 260)) {
         break;
       }
     }
@@ -253,6 +302,37 @@ public class TestVectorLimits extends DrillTest {
 
     mutator.setValueCount(count);
     assertEquals(ValueVector.MAX_BUFFER_SIZE, vector.getBuffer().getActualMemoryConsumed());
+    assertTrue(count < ValueVector.MAX_VALUE_COUNT);
+    vector.close();
+  }
+
+  private DrillBuf makeVarCharValueDirect(int n) {
+    byte dummyValue[] = makeVarCharValue(n);
+    DrillBuf drillBuf = fixture.allocator().buffer(dummyValue.length);
+    drillBuf.setBytes(0, dummyValue);
+    return drillBuf;
+  }
+
+  @Test
+  public void testDirectNullableVariableVector() {
+
+    @SuppressWarnings("resource")
+    NullableVarCharVector vector = new NullableVarCharVector(makeField(MinorType.VARCHAR, DataMode.OPTIONAL), fixture.allocator() );
+    vector.allocateNew( );
+
+    @SuppressWarnings("resource")
+    DrillBuf drillBuf = makeVarCharValueDirect(260);
+    NullableVarCharVector.Mutator mutator = vector.getMutator();
+    int count = 0;
+    for (; count < 2 * ValueVector.MAX_VALUE_COUNT; count++) {
+      if (! mutator.setBounded(count, drillBuf, 0, 260)) {
+        break;
+      }
+    }
+    drillBuf.close();
+
+    mutator.setValueCount(count);
+    assertEquals(ValueVector.MAX_BUFFER_SIZE, vector.getValuesVector().getBuffer().getActualMemoryConsumed());
     assertTrue(count < ValueVector.MAX_VALUE_COUNT);
     vector.close();
   }
