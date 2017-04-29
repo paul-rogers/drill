@@ -48,11 +48,11 @@ package org.apache.drill.exec.vector;
  *
  * NB: this class is automatically generated from ${.template_name} and ValueVectorTypes.tdd using FreeMarker.
  */
-public final class ${minor.class}Vector extends BaseDataValueVector implements VariableWidthVector{
+public final class ${minor.class}Vector extends BaseDataValueVector implements VariableWidthVector {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}Vector.class);
 
   private static final int DEFAULT_RECORD_BYTE_COUNT = 8;
-  private static final int INITIAL_BYTE_COUNT = 4096 * DEFAULT_RECORD_BYTE_COUNT;
+  private static final int INITIAL_BYTE_COUNT = Math.min(INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT, MAX_BUFFER_SIZE);
   private static final int MIN_BYTE_COUNT = 4096;
 
   public final static String OFFSETS_VECTOR_NAME = "$offsets$";
@@ -518,6 +518,10 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       }
     }
 
+    public boolean setBounded(int index, byte[] bytes) {
+      return setBounded(index, bytes, 0, bytes.length);
+    }
+
     /**
      * Set the variable length element at the specified index to the supplied byte array.
      *
@@ -536,7 +540,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
     public void setSafe(int index, ByteBuffer bytes, int start, int length) {
       assert index >= 0;
 
-      int currentOffset = offsetVector.getAccessor().get(index);
+      final int currentOffset = offsetVector.getAccessor().get(index);
       offsetVector.getMutator().setSafe(index + 1, currentOffset + length);
       try {
         data.setBytes(currentOffset, bytes, start, length);
@@ -546,6 +550,24 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
         }
         data.setBytes(currentOffset, bytes, start, length);
       }
+    }
+
+    public boolean setBounded(int index, DrillBuf bytes, int start, int length) {
+      assert index >= 0;
+
+      if (index >= MAX_VALUE_COUNT) {
+        return false;
+      }
+      int currentOffset = offsetVector.getAccessor().get(index);
+      final int newSize = currentOffset + length;
+      if (newSize > MAX_BUFFER_SIZE) {
+        return false;
+      }
+      while (! data.setBytesBounded(currentOffset, bytes, start, length)) {
+        reAlloc();
+      }
+      offsetVector.getMutator().setSafe(index + 1, newSize);
+      return true;
     }
 
     public void setSafe(int index, byte[] bytes, int start, int length) {
@@ -564,6 +586,25 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       }
     }
 
+    public boolean setBounded(int index, byte[] bytes, int start, int length) {
+      assert index >= 0;
+
+      if (index >= MAX_VALUE_COUNT) {
+        return false;
+      }
+      final int currentOffset = offsetVector.getAccessor().get(index);
+      final int newSize = currentOffset + length;
+      if (newSize > MAX_BUFFER_SIZE) {
+        return false;
+      }
+
+      while (! data.setBytesBounded(currentOffset, bytes, start, length)) {
+        reAlloc();
+      }
+      offsetVector.getMutator().setSafe(index + 1, newSize);
+      return true;
+    }
+
     @Override
     public void setValueLengthSafe(int index, int length) {
       final int offset = offsetVector.getAccessor().get(index);
@@ -573,12 +614,11 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       offsetVector.getMutator().setSafe(index + 1, offsetVector.getAccessor().get(index) + length);
     }
 
-
-    public void setSafe(int index, int start, int end, DrillBuf buffer){
+    public void setSafe(int index, int start, int end, DrillBuf buffer) {
       final int len = end - start;
       final int outputStart = offsetVector.data.get${(minor.javaType!type.javaType)?cap_first}(index * ${type.width});
 
-      offsetVector.getMutator().setSafe( index+1,  outputStart + len);
+      offsetVector.getMutator().setSafe(index+1,  outputStart + len);
       try{
         buffer.getBytes(start, data, outputStart, len);
       } catch (IndexOutOfBoundsException e) {
@@ -587,17 +627,39 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
         }
         buffer.getBytes(start, data, outputStart, len);
       }
-
     }
 
-    public void setSafe(int index, Nullable${minor.class}Holder holder){
+    public boolean setBounded(int index, int start, int end, DrillBuf buffer) {
+      if (index >= MAX_VALUE_COUNT) {
+        return false;
+      }
+      final int len = end - start;
+      final int outputStart = offsetVector.data.get${(minor.javaType!type.javaType)?cap_first}(index * ${type.width});
+      final int newSize = outputStart + len;
+      if (newSize > MAX_BUFFER_SIZE) {
+        return false;
+      }
+
+      offsetVector.getMutator().setSafe(index+1, newSize);
+      try{
+        buffer.getBytes(start, data, outputStart, len);
+      } catch (IndexOutOfBoundsException e) {
+        while (data.capacity() < newSize) {
+          reAlloc();
+        }
+        buffer.getBytes(start, data, outputStart, len);
+      }
+      return true;
+    }
+
+    public void setSafe(int index, Nullable${minor.class}Holder holder) {
       assert holder.isSet == 1;
 
       final int start = holder.start;
       final int end =   holder.end;
       final int len = end - start;
 
-      int outputStart = offsetVector.data.get${(minor.javaType!type.javaType)?cap_first}(index * ${type.width});
+      final int outputStart = offsetVector.data.get${(minor.javaType!type.javaType)?cap_first}(index * ${type.width});
 
       try {
         holder.buffer.getBytes(start, data, outputStart, len);
@@ -607,15 +669,42 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
         }
         holder.buffer.getBytes(start, data, outputStart, len);
       }
-      offsetVector.getMutator().setSafe( index+1,  outputStart + len);
+      offsetVector.getMutator().setSafe(index+1,  outputStart + len);
     }
 
-    public void setSafe(int index, ${minor.class}Holder holder){
+    public boolean setBounded(int index, Nullable${minor.class}Holder holder) {
+      assert holder.isSet == 1;
+      if (index >= MAX_VALUE_COUNT) {
+        return false;
+      }
+
+      final int start = holder.start;
+      final int end =   holder.end;
+      final int len = end - start;
+
+      final int outputStart = offsetVector.data.get${(minor.javaType!type.javaType)?cap_first}(index * ${type.width});
+      final int newSize = outputStart + len;
+      if (newSize > MAX_BUFFER_SIZE) {
+        return false;
+      }
+
+      try {
+        holder.buffer.getBytes(start, data, outputStart, len);
+      } catch (IndexOutOfBoundsException e) {
+        while (data.capacity() < newSize) {
+          reAlloc();
+        }
+        holder.buffer.getBytes(start, data, outputStart, len);
+      }
+      offsetVector.getMutator().setSafe(index+1, newSize);
+      return true;
+    }
+
+    public void setSafe(int index, ${minor.class}Holder holder) {
       final int start = holder.start;
       final int end =   holder.end;
       final int len = end - start;
       final int outputStart = offsetVector.data.get${(minor.javaType!type.javaType)?cap_first}(index * ${type.width});
-
 
       try {
         holder.buffer.getBytes(start, data, outputStart, len);
@@ -626,6 +715,31 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
         holder.buffer.getBytes(start, data, outputStart, len);
       }
       offsetVector.getMutator().setSafe( index+1,  outputStart + len);
+    }
+
+    public boolean setBounded(int index, ${minor.class}Holder holder) {
+      if (index >= MAX_VALUE_COUNT) {
+        return false;
+      }
+      final int start = holder.start;
+      final int end =   holder.end;
+      final int len = end - start;
+      final int outputStart = offsetVector.data.get${(minor.javaType!type.javaType)?cap_first}(index * ${type.width});
+      final int newSize = outputStart + len;
+      if (newSize > MAX_BUFFER_SIZE) {
+        return false;
+      }
+
+      try {
+        holder.buffer.getBytes(start, data, outputStart, len);
+      } catch (IndexOutOfBoundsException e) {
+        while(data.capacity() < newSize) {
+          reAlloc();
+        }
+        holder.buffer.getBytes(start, data, outputStart, len);
+      }
+      offsetVector.getMutator().setSafe( index+1, newSize);
+      return true;
     }
 
     protected void set(int index, int start, int length, DrillBuf buffer){
@@ -650,6 +764,20 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       data.setBytes(currentOffset, holder.buffer, holder.start, length);
     }
 
+  <#if (minor.class == "VarChar")>
+    public boolean setBounded(int index, String value) {
+      if (index >= MAX_VALUE_COUNT) {
+        return false;
+      }
+      // Treat a null string as an empty string.
+      if (value == null) {
+        return true;
+      }
+      byte encoded[] = value.getBytes(Charsets.UTF_8);
+      return setBounded(index, encoded, 0, encoded.length);
+    }
+
+  </#if>
     @Override
     public void setValueCount(int valueCount) {
       final int currentByteCapacity = getByteCapacity();
@@ -684,7 +812,6 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
     }
   }
 }
-
 </#if> <#-- type.major -->
 </#list>
 </#list>

@@ -99,7 +99,7 @@ public class TestValueVector extends ExecTest {
     final MaterializedField field = MaterializedField.create(EMPTY_SCHEMA_PATH, UInt4Holder.TYPE);
     final UInt4Vector vector = new UInt4Vector(field, allocator);
     // edge case 1: buffer size = max value capacity
-    final int expectedValueCapacity = BaseValueVector.MAX_ALLOCATION_SIZE / 4;
+    final int expectedValueCapacity = BaseValueVector.MAX_BUFFER_SIZE / 4;
     try {
       vector.allocateNew(expectedValueCapacity);
       assertEquals(expectedValueCapacity, vector.getValueCapacity());
@@ -111,7 +111,7 @@ public class TestValueVector extends ExecTest {
 
     // common case: value count < max value capacity
     try {
-      vector.allocateNew(BaseValueVector.MAX_ALLOCATION_SIZE / 8);
+      vector.allocateNew(BaseValueVector.MAX_BUFFER_SIZE / 8);
       vector.reAlloc(); // value allocation reaches to MAX_VALUE_ALLOCATION
       vector.reAlloc(); // this should throw an IOOB
     } finally {
@@ -155,7 +155,7 @@ public class TestValueVector extends ExecTest {
     final MaterializedField field = MaterializedField.create(EMPTY_SCHEMA_PATH, UInt4Holder.TYPE);
     final VarCharVector vector = new VarCharVector(field, allocator);
     // edge case 1: value count = MAX_VALUE_ALLOCATION
-    final int expectedAllocationInBytes = BaseValueVector.MAX_ALLOCATION_SIZE;
+    final int expectedAllocationInBytes = BaseValueVector.MAX_BUFFER_SIZE;
     final int expectedOffsetSize = 10;
     try {
       vector.allocateNew(expectedAllocationInBytes, 10);
@@ -170,7 +170,7 @@ public class TestValueVector extends ExecTest {
 
     // common: value count < MAX_VALUE_ALLOCATION
     try {
-      vector.allocateNew(BaseValueVector.MAX_ALLOCATION_SIZE / 2, 0);
+      vector.allocateNew(BaseValueVector.MAX_BUFFER_SIZE / 2, 0);
       vector.reAlloc(); // value allocation reaches to MAX_VALUE_ALLOCATION
       vector.reAlloc(); // this tests if it overflows
     } finally {

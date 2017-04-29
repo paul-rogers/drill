@@ -32,6 +32,13 @@ import org.apache.drill.exec.record.TransferPair;
 public abstract class BaseValueVector implements ValueVector {
 //  private static final Logger logger = LoggerFactory.getLogger(BaseValueVector.class);
 
+  /**
+   * Physical maximum allocation. This is the value prior to Drill 1.11.
+   * This size causes memory fragmentation. Please use
+   * {@link ValueVector#MAX_BUFFER_SIZE} in new code.
+   */
+
+  @Deprecated
   public static final int MAX_ALLOCATION_SIZE = Integer.MAX_VALUE;
   public static final int INITIAL_VALUE_ALLOCATION = 4096;
 

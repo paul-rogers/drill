@@ -24,7 +24,7 @@ import org.apache.drill.exec.record.MaterializedField;
 
 public abstract class BaseDataValueVector extends BaseValueVector {
 
-  protected final static byte[] emptyByteArray = new byte[]{}; // Nullable vectors use this
+  protected final static byte[] emptyByteArray = new byte[0]; // Nullable vectors use this
 
   protected DrillBuf data;
 

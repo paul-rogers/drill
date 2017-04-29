@@ -132,7 +132,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
   }
 
   private void allocateBytes(final long size) {
-    if (size > MAX_ALLOCATION_SIZE) {
+    if (size > MAX_BUFFER_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed allocation size");
     }
 
@@ -148,7 +148,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
    */
   public void reAlloc() {
     final long newAllocationSize = allocationSizeInBytes * 2L;
-    if (newAllocationSize > MAX_ALLOCATION_SIZE) {
+    if (newAllocationSize > MAX_BUFFER_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed allocation size");
     }
 
