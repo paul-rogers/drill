@@ -336,4 +336,62 @@ public class TestVectorLimits extends DrillTest {
     assertTrue(count < ValueVector.MAX_VALUE_COUNT);
     vector.close();
   }
+
+  public static void main(String args[]) {
+    try {
+      setUpBeforeClass();
+      new TestVectorLimits().performanceTest();
+      tearDownAfterClass();
+    } catch (Exception e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
+    }
+  }
+
+  private void performanceTest() {
+    @SuppressWarnings("resource")
+    VarCharVector vector = new VarCharVector(makeField(MinorType.VARCHAR, DataMode.OPTIONAL), fixture.allocator() );
+    byte value[] = makeVarCharValue(1);
+    int warmCount = 100;
+    timeSetSafe(vector, value, warmCount);
+    runSetBounded(vector, value, warmCount);
+    int runCount = 1000;
+    timeSetSafe(vector, value, runCount);
+    runSetBounded(vector, value, runCount);
+    timeSetSafe(vector, value, runCount);
+    vector.close();
+  }
+
+  private void timeSetSafe(VarCharVector vector, byte[] value, int iterCount) {
+    long start = System.currentTimeMillis();
+    for (int i = 0; i < iterCount; i++) {
+      vector.clear();
+      vector.allocateNew( );
+
+      VarCharVector.Mutator mutator = vector.getMutator();
+      for (int j = 0; j < ValueVector.MAX_VALUE_COUNT; j++) {
+        mutator.setSafe(j, value, 0, value.length);
+      }
+    }
+    long elapsed = System.currentTimeMillis() - start;
+    System.out.println( iterCount + " runs of setSafe: " + elapsed + " ms." );
+  }
+
+  private void runSetBounded(VarCharVector vector, byte[] value, int iterCount) {
+    long start = System.currentTimeMillis();
+    for (int i = 0; i < iterCount; i++) {
+      vector.clear();
+      vector.allocateNew( );
+
+      VarCharVector.Mutator mutator = vector.getMutator();
+      int posn = 0;
+      for (;;) {
+        if (! mutator.setBounded(posn++, value, 0, value.length)) {
+          break;
+        }
+      }
+    }
+    long elapsed = System.currentTimeMillis() - start;
+    System.out.println( iterCount + " runs of setBounded: " + elapsed + " ms." );
+  }
 }
