@@ -105,38 +105,38 @@
 </#macro>
 <#macro set drillType accessorType label nullable verb>
     @Override
-    public void set${label}(${accessorType} value) {
+    public boolean set${label}(${accessorType} value) {
   <#if drillType == "VarChar">
       byte bytes[] = value.getBytes(Charsets.UTF_8);
-      mutator.${verb}Safe(vectorIndex.index(), bytes, 0, bytes.length);
+      return mutator.${verb}Bounded(vectorIndex.index(), bytes, 0, bytes.length);
   <#elseif drillType == "Var16Char">
       byte bytes[] = value.getBytes(Charsets.UTF_16);
-      mutator.${verb}Safe(vectorIndex.index(), bytes, 0, bytes.length);
+      return mutator.${verb}Bounded(vectorIndex.index(), bytes, 0, bytes.length);
   <#elseif drillType == "VarBinary">
-      mutator.${verb}Safe(vectorIndex.index(), value, 0, value.length);
+      return mutator.${verb}Bounded(vectorIndex.index(), value, 0, value.length);
   <#elseif drillType == "Decimal9">
-      mutator.${verb}Safe(vectorIndex.index(),
+      return mutator.${verb}Bounded(vectorIndex.index(),
           DecimalUtility.getDecimal9FromBigDecimal(value,
               field.getScale(), field.getPrecision()));
   <#elseif drillType == "Decimal18">
-      mutator.${verb}Safe(vectorIndex.index(),
+      return mutator.${verb}Bounded(vectorIndex.index(),
           DecimalUtility.getDecimal18FromBigDecimal(value,
               field.getScale(), field.getPrecision()));
   <#elseif drillType == "IntervalYear">
-      mutator.${verb}Safe(vectorIndex.index(), value.getYears() * 12 + value.getMonths());
+      return mutator.${verb}Bounded(vectorIndex.index(), value.getYears() * 12 + value.getMonths());
   <#elseif drillType == "IntervalDay">
-      mutator.${verb}Safe(vectorIndex.index(),<#if nullable> 1,</#if>
+      return mutator.${verb}Bounded(vectorIndex.index(),<#if nullable> 1,</#if>
                       value.getDays(),
                       ((value.getHours() * 60 + value.getMinutes()) * 60 +
                        value.getSeconds()) * 1000 + value.getMillis());
   <#elseif drillType == "Interval">
-      mutator.${verb}Safe(vectorIndex.index(),<#if nullable> 1,</#if>
+      return mutator.${verb}Bounded(vectorIndex.index(),<#if nullable> 1,</#if>
                       value.getYears() * 12 + value.getMonths(),
                       value.getDays(),
                       ((value.getHours() * 60 + value.getMinutes()) * 60 +
                        value.getSeconds()) * 1000 + value.getMillis());
   <#else>
-      mutator.${verb}Safe(vectorIndex.index(), <#if cast=="set">(${javaType}) </#if>value);
+      return mutator.${verb}Bounded(vectorIndex.index(), <#if cast=="set">(${javaType}) </#if>value);
   </#if>
     }
 </#macro>

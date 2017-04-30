@@ -91,37 +91,37 @@ public abstract class AbstractArrayWriter extends AbstractColumnAccessor impleme
   }
 
   @Override
-  public void setInt(int value) {
+  public boolean setInt(int value) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void setLong(long value) {
+  public boolean setLong(long value) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void setDouble(double value) {
+  public boolean setDouble(double value) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void setString(String value) {
+  public boolean setString(String value) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void setBytes(byte[] value) {
+  public boolean setBytes(byte[] value) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void setDecimal(BigDecimal value) {
+  public boolean setDecimal(BigDecimal value) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void setPeriod(Period value) {
+  public boolean setPeriod(Period value) {
     throw new UnsupportedOperationException();
   }
 }

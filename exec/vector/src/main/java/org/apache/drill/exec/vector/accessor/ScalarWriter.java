@@ -27,11 +27,11 @@ import org.joda.time.Period;
  */
 
 public interface ScalarWriter {
-  void setInt(int value);
-  void setLong(long value);
-  void setDouble(double value);
-  void setString(String value);
-  void setBytes(byte[] value);
-  void setDecimal(BigDecimal value);
-  void setPeriod(Period value);
+  boolean setInt(int value);
+  boolean setLong(long value);
+  boolean setDouble(double value);
+  boolean setString(String value);
+  boolean setBytes(byte[] value);
+  boolean setDecimal(BigDecimal value);
+  boolean setPeriod(Period value);
 }
