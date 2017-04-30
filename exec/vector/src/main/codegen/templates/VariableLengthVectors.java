@@ -587,11 +587,15 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
     }
 
     public boolean setBounded(int index, byte[] bytes, int start, int length) {
-      assert index >= 0;
-
       if (index >= MAX_VALUE_COUNT) {
         return false;
       }
+      return setSemiBounded(index, bytes, start, length);
+    }
+
+    public boolean setSemiBounded(int index, byte[] bytes, int start, int length) {
+      assert index >= 0;
+
       final int currentOffset = offsetVector.getAccessor().get(index);
       final int newSize = currentOffset + length;
       if (newSize > MAX_BUFFER_SIZE) {
@@ -633,6 +637,10 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       if (index >= MAX_VALUE_COUNT) {
         return false;
       }
+      return setSemiBounded(index, start, end, buffer);
+    }
+
+    public boolean setSemiBounded(int index, int start, int end, DrillBuf buffer) {
       final int len = end - start;
       final int outputStart = offsetVector.data.get${(minor.javaType!type.javaType)?cap_first}(index * ${type.width});
       final int newSize = outputStart + len;
@@ -673,10 +681,14 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
     }
 
     public boolean setBounded(int index, Nullable${minor.class}Holder holder) {
-      assert holder.isSet == 1;
       if (index >= MAX_VALUE_COUNT) {
         return false;
       }
+      return setSemiBounded(index, holder);
+    }
+
+    public boolean setSemiBounded(int index, Nullable${minor.class}Holder holder) {
+      assert holder.isSet == 1;
 
       final int start = holder.start;
       final int end =   holder.end;
@@ -721,6 +733,10 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       if (index >= MAX_VALUE_COUNT) {
         return false;
       }
+      return setSemiBounded(index, holder);
+   }
+
+    public boolean setSemiBounded(int index, ${minor.class}Holder holder) {
       final int start = holder.start;
       final int end =   holder.end;
       final int len = end - start;

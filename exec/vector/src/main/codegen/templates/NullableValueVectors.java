@@ -515,16 +515,25 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     }
 
     public boolean setBounded(int index, byte[] value, int start, int length) {
-      if (index > lastSet + 1) {
-        fillEmpties(index);
+      if (! fillEmptiesBounded(index)) {
+        return false;
       }
-
       if (! values.getMutator().setBounded(index, value, start, length) ) {
         return false;
       }
       bits.getMutator().setSafe(index, 1);
       setCount++;
       lastSet = index;
+      return true;
+    }
+
+    public boolean fillEmptiesBounded(int index) {
+      if (index >= MAX_VALUE_COUNT) {
+        return false;
+      }
+      if (index > lastSet + 1) {
+        fillEmpties(index);
+      }
       return true;
     }
 
@@ -540,10 +549,9 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     }
 
     public boolean setBounded(int index, DrillBuf value, int start, int length) {
-      if (index > lastSet + 1) {
-        fillEmpties(index);
+      if (! fillEmptiesBounded(index)) {
+        return false;
       }
-
       if (! values.getMutator().setBounded(index, value, start, length)) {
         return false;
       }
@@ -555,10 +563,9 @@ public final class ${className} extends BaseDataValueVector implements <#if type
 
       <#if minor.class == "VarChar">
     public boolean setBounded(int index, String value) {
-      if (index > lastSet + 1) {
-        fillEmpties(index);
+      if (! fillEmptiesBounded(index)) {
+        return false;
       }
-
       if (! values.getMutator().setBounded(index, value)) {
         return false;
       }
@@ -569,16 +576,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     }
 
       </#if>
-    <#else>
-    public boolean setBounded(int index, <#if (type.width < 4)>int<#else>${minor.javaType!type.javaType}</#if> value) {
-      setCount++;
-      if (! values.getMutator().setBounded(index, value)) {
-        return false;
-      }
-      bits.getMutator().setSafe(index, 1);
-      return true;
-    }
-
     </#if>
     public void setNull(int index) {
       bits.getMutator().setSafe(index, 0);
@@ -639,11 +636,25 @@ public final class ${className} extends BaseDataValueVector implements <#if type
         fillEmpties(index);
       }
       </#if>
-
       bits.getMutator().setSafe(index, isSet);
       values.getMutator().setSafe(index<#list fields as field><#if field.include!true >, ${field.name}Field</#if></#list>);
       setCount++;
       <#if type.major == "VarLen">lastSet = index;</#if>
+   }
+
+    public boolean setBounded(int index, int isSet<#list fields as field><#if field.include!true >, ${field.type} ${field.name}Field</#if></#list> ) {
+      <#if type.major == "VarLen">
+      if (! fillEmptiesBounded(index)) {
+        return false;
+      }
+      </#if>
+      if (! values.getMutator().setBounded(index<#list fields as field><#if field.include!true >, ${field.name}Field</#if></#list>)) {
+        return false;
+      }
+      bits.getMutator().setSafe(index, isSet);
+      setCount++;
+      <#if type.major == "VarLen">lastSet = index;</#if>
+      return true;
     }
 
     public void setSafe(int index, Nullable${minor.class}Holder value) {
@@ -658,6 +669,21 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       <#if type.major == "VarLen">lastSet = index;</#if>
     }
 
+    public boolean setBounded(int index, Nullable${minor.class}Holder value) {
+      <#if type.major == "VarLen">
+      if (! fillEmptiesBounded(index)) {
+        return false;
+      }
+      </#if>
+      if (! values.getMutator().setBounded(index, value)) {
+        return false;
+      }
+      bits.getMutator().setSafe(index, value.isSet);
+      setCount++;
+      <#if type.major == "VarLen">lastSet = index;</#if>
+      return true;
+    }
+
     public void setSafe(int index, ${minor.class}Holder value) {
       <#if type.major == "VarLen">
       if (index > lastSet + 1) {
@@ -668,6 +694,21 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       values.getMutator().setSafe(index, value);
       setCount++;
       <#if type.major == "VarLen">lastSet = index;</#if>
+    }
+
+    public boolean setBounded(int index, ${minor.class}Holder value) {
+      <#if type.major == "VarLen">
+      if (! fillEmptiesBounded(index)) {
+        return false;
+      }
+      </#if>
+      if (! values.getMutator().setBounded(index, value)) {
+        return false;
+      }
+      bits.getMutator().setSafe(index, 1);
+      setCount++;
+      <#if type.major == "VarLen">lastSet = index;</#if>
+      return true;
     }
 
     <#if !(type.major == "VarLen" || minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse" || minor.class == "Decimal28Dense" || minor.class == "Decimal38Dense" || minor.class == "Interval" || minor.class == "IntervalDay")>
@@ -682,6 +723,20 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       setCount++;
     }
 
+    public boolean setBounded(int index, ${minor.javaType!type.javaType} value) {
+      <#if type.major == "VarLen">
+      if (! fillEmptiesBounded(index)) {
+        return false;
+      }
+      </#if>
+      if (! values.getMutator().setBounded(index, value)) {
+        return false;
+      }
+      bits.getMutator().setSafe(index, 1);
+      setCount++;
+      return true;
+    }
+
     </#if>
     <#if minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse">
     public void set(int index, BigDecimal value) {
@@ -694,6 +749,15 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       bits.getMutator().setSafe(index, 1);
       values.getMutator().setSafe(index, value);
       setCount++;
+    }
+
+    public boolean setBounded(int index, BigDecimal value) {
+      if (! values.getMutator().setBounded(index, value)) {
+        return false;
+      }
+      bits.getMutator().setSafe(index, 1);
+      setCount++;
+      return true;
     }
 
     </#if>

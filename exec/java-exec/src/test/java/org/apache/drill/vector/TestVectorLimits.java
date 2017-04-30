@@ -26,6 +26,7 @@ import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.NullableIntVector;
 import org.apache.drill.exec.vector.NullableVarCharVector;
+import org.apache.drill.exec.vector.RepeatedIntVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VarCharVector;
 import org.apache.drill.test.DrillTest;
@@ -90,9 +91,9 @@ public class TestVectorLimits extends DrillTest {
     // (which is computed to stay below the capacity limit.)
 
     IntVector.Mutator mutator = vector.getMutator();
-    for (int i = 0; i < 2 * IntVector.MAX_VALUE_COUNT; i++) {
+    for (int i = 0; i < 2 * IntVector.MAX_COUNT; i++) {
       if (! mutator.setBounded(i, i)) {
-        assertEquals(IntVector.MAX_VALUE_COUNT, i);
+        assertEquals(IntVector.MAX_COUNT, i);
         break;
       }
     }
@@ -114,10 +115,73 @@ public class TestVectorLimits extends DrillTest {
     vector.allocateNew( );
 
     NullableIntVector.Mutator mutator = vector.getMutator();
-    for (int i = 0; i < 2 * IntVector.MAX_VALUE_COUNT; i++) {
+    for (int i = 0; i < 2 * IntVector.MAX_COUNT; i++) {
       if (! mutator.setBounded(i, i)) {
-        assertEquals(IntVector.MAX_VALUE_COUNT, i);
+        assertEquals(IntVector.MAX_COUNT, i);
         break;
+      }
+    }
+
+    vector.close();
+  }
+
+  /**
+   * Repeated fixed vector. Using an int vector, each column array can hold
+   * 256 / 4 = 64 values. We write only 10. The vector becomes full when we
+   * exceed 64K items.
+   */
+
+  @Test
+  public void testRepeatedFixedVectorCountLimit() {
+
+    @SuppressWarnings("resource")
+    RepeatedIntVector vector = new RepeatedIntVector(makeField(MinorType.INT, DataMode.REPEATED), fixture.allocator() );
+    vector.allocateNew( );
+
+    RepeatedIntVector.Mutator mutator = vector.getMutator();
+    top:
+    for (int i = 0; i < 2 * IntVector.MAX_COUNT; i++) {
+      if (! mutator.startNewValueBounded(i)) {
+        assertEquals(ValueVector.MAX_VALUE_COUNT, i);
+        // Continue, let's check the addBounded method also
+      }
+      for (int j = 0; j < 10; j++) {
+        if (! mutator.addBounded(i, i * 100 + j)) {
+          assertEquals(ValueVector.MAX_VALUE_COUNT, i);
+          mutator.setValueCount(i);
+          break top;
+        }
+      }
+    }
+
+    vector.close();
+  }
+
+  /**
+   * Repeated fixed vector. Using an int vector, each column array can hold
+   * 256 / 4 = 64 values. We write 100. The vector becomes full when we
+   * exceed the 16 MB size limit.
+   */
+
+  @Test
+  public void testRepeatedFixedVectorBufferLimit() {
+
+    @SuppressWarnings("resource")
+    RepeatedIntVector vector = new RepeatedIntVector(makeField(MinorType.INT, DataMode.REPEATED), fixture.allocator() );
+    vector.allocateNew( );
+
+    RepeatedIntVector.Mutator mutator = vector.getMutator();
+    top:
+    for (int i = 0; i < 2 * ValueVector.MAX_VALUE_COUNT; i++) {
+      // We'll never hit the value count limit
+      assertTrue(mutator.startNewValueBounded(i));
+      for (int j = 0; j < 100; j++) {
+        if (! mutator.addBounded(i, i * 100 + j)) {
+          // We should have hit the buffer limit before the value limit.
+          assertTrue(i < ValueVector.MAX_VALUE_COUNT);
+          mutator.setValueCount(i);
+          break top;
+        }
       }
     }
 

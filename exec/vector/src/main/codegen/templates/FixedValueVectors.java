@@ -52,11 +52,21 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
   /**
    * Maximum number of values that this fixed-width vector can hold
-   * and stay below the maximum vector size limit and/or stay below
-   * the maximum item count.
+   * and stay below the maximum vector size limit. This is the limit
+   * enforced when the vector is used to hold values in a repeated
+   * vector.
    */
 
-  public static final int MAX_COUNT = Math.min(MAX_VALUE_COUNT, MAX_BUFFER_SIZE / VALUE_WIDTH);
+  public static final int MAX_CAPACITY = MAX_BUFFER_SIZE / VALUE_WIDTH;
+
+  /**
+   * Maximum number of values that this fixed-width vector can hold
+   * and stay below the maximum vector size limit and/or stay below
+   * the maximum item count. This is the limit enforced when the
+   * vector is used to hold required or nullable values.
+   */
+
+  public static final int MAX_COUNT = Math.min(MAX_VALUE_COUNT, MAX_CAPACITY);
 
   /**
    * Actual maximum vector size, in bytes, given the number of fixed-width
@@ -340,7 +350,6 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
     <#if (minor.class == "Interval")>
     public void get(int index, ${minor.class}Holder holder){
-
       final int offsetIndex = index * VALUE_WIDTH;
       holder.months = data.getInt(offsetIndex);
       holder.days = data.getInt(offsetIndex + ${minor.daysOffset});
@@ -402,7 +411,6 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
     <#elseif (minor.class == "IntervalDay")>
     public void get(int index, ${minor.class}Holder holder){
-
       final int offsetIndex = index * VALUE_WIDTH;
       holder.days = data.getInt(offsetIndex);
       holder.milliseconds = data.getInt(offsetIndex + ${minor.millisecondsOffset});
@@ -449,8 +457,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
               append(millis));
     }
 
-    <#elseif (minor.class == "Decimal28Sparse") || (minor.class == "Decimal38Sparse") || (minor.class == "Decimal28Dense") || (minor.class == "Decimal38Dense")>
-
+    <#elseif minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse" || minor.class == "Decimal28Dense" || minor.class == "Decimal38Dense">
     public void get(int index, ${minor.class}Holder holder) {
       holder.start = index * VALUE_WIDTH;
       holder.buffer = data;
@@ -495,7 +502,6 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
     </#if>
     <#else> <#-- type.width <= 8 -->
-
     public ${minor.javaType!type.javaType} get(int index) {
       return data.get${(minor.javaType!type.javaType)?cap_first}(index * VALUE_WIDTH);
     }
@@ -506,7 +512,6 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     }
 
     </#if>
-
     <#if minor.class == "Date">
     @Override
     public ${friendlyType} getObject(int index) {
@@ -576,8 +581,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     public ${minor.javaType!type.javaType} getPrimitiveObject(int index) {
       return get(index);
     }
-    </#if>
 
+    </#if>
     public void get(int index, ${minor.class}Holder holder){
       <#if minor.class.startsWith("Decimal")>
       holder.scale = getField().getScale();
@@ -616,6 +621,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
      * @param index   position of the bit to set
      * @param value   value to set
      */
+
   <#if (type.width > 8)>
     public void set(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
       data.setBytes(index * VALUE_WIDTH, value, 0, VALUE_WIDTH);
@@ -628,6 +634,14 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       data.setBytes(index * VALUE_WIDTH, value, 0, VALUE_WIDTH);
     }
 
+    /**
+     * Set the value of a required or nullable vector. Enforces the value
+     * and size limits.
+     * @param index item to write
+     * @return true if the item was written, false if the index would
+     * overfill the vector
+     */
+
     public boolean setBounded(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
       if (index >= MAX_COUNT) {
         return false;
@@ -636,7 +650,22 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       return true;
     }
 
-  <#if (minor.class == "Interval")>
+    /**
+     * Set the value of a repeated vector. Enforces only the size limit.
+     * @param index item to write
+     * @return true if the item was written, false if the index would
+     * overfill the vector
+     */
+
+    public boolean setSemiBounded(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
+      if (index >= MAX_CAPACITY) {
+        return false;
+      }
+      setSafe(index, value);
+      return true;
+    }
+
+    <#if minor.class == "Interval">
     public void set(int index, int months, int days, int milliseconds) {
       final int offsetIndex = index * VALUE_WIDTH;
       data.setInt(offsetIndex, months);
@@ -659,16 +688,28 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       return true;
     }
 
+    public boolean setSemiBounded(int index, int months, int days, int milliseconds) {
+      if (index >= MAX_VALUE_COUNT) {
+        return false;
+      }
+      setSafe(index, months, days, milliseconds);
+      return true;
+    }
+
     protected void set(int index, ${minor.class}Holder holder) {
       set(index, holder.months, holder.days, holder.milliseconds);
     }
 
-   public void setSafe(int index, ${minor.class}Holder holder) {
+    public void setSafe(int index, ${minor.class}Holder holder) {
       setSafe(index, holder.months, holder.days, holder.milliseconds);
     }
 
     public boolean setBounded(int index, ${minor.class}Holder holder) {
       return setBounded(index, holder.months, holder.days, holder.milliseconds);
+    }
+
+    public boolean setSemiBounded(int index, ${minor.class}Holder holder) {
+      return setSemiBounded(index, holder.months, holder.days, holder.milliseconds);
     }
 
     protected void set(int index, Nullable${minor.class}Holder holder) {
@@ -683,7 +724,11 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       return setBounded(index, holder.months, holder.days, holder.milliseconds);
     }
 
-  <#elseif (minor.class == "IntervalDay")>
+    public boolean setSemiBounded(int index, Nullable${minor.class}Holder holder) {
+      return setSemiBounded(index, holder.months, holder.days, holder.milliseconds);
+    }
+
+    <#elseif minor.class == "IntervalDay">
     public void set(int index, int days, int milliseconds) {
       final int offsetIndex = index * VALUE_WIDTH;
       data.setInt(offsetIndex, days);
@@ -705,6 +750,14 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       return true;
     }
 
+    public boolean setSemiBounded(int index, int days, int milliseconds) {
+      if (index >= MAX_VALUE_COUNT) {
+        return false;
+      }
+      setSafe(index, days, milliseconds);
+      return true;
+    }
+
     protected void set(int index, ${minor.class}Holder holder) {
       set(index, holder.days, holder.milliseconds);
     }
@@ -715,6 +768,10 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
     public boolean setBounded(int index, ${minor.class}Holder holder){
       return setBounded(index, holder.days, holder.milliseconds);
+    }
+
+    public boolean setSemiBounded(int index, ${minor.class}Holder holder){
+      return setSemiBounded(index, holder.days, holder.milliseconds);
     }
 
     protected void set(int index, Nullable${minor.class}Holder holder) {
@@ -729,7 +786,11 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       return setBounded(index, holder.days, holder.milliseconds);
     }
 
-  <#elseif (minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse") || (minor.class == "Decimal28Dense") || (minor.class == "Decimal38Dense")>
+    public boolean setSemiBounded(int index, Nullable${minor.class}Holder holder) {
+      return setSemiBounded(index, holder.days, holder.milliseconds);
+    }
+
+    <#elseif minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse" || minor.class == "Decimal28Dense" || minor.class == "Decimal38Dense">
     public void setSafe(int index, int start, DrillBuf buffer) {
       while(index >= getValueCapacity()) {
         reAlloc();
@@ -739,6 +800,14 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
     public boolean setBounded(int index, int start, DrillBuf buffer) {
       if (index >= MAX_COUNT) {
+        return false;
+      }
+      setSafe(index, start, buffer);
+      return true;
+    }
+
+    public boolean setSemiBounded(int index, int start, DrillBuf buffer) {
+      if (index >= MAX_VALUE_COUNT) {
         return false;
       }
       setSafe(index, start, buffer);
@@ -757,6 +826,10 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       return setBounded(index, holder.start, holder.buffer);
     }
 
+    public boolean setSemiBounded(int index, ${minor.class}Holder holder) {
+      return setSemiBounded(index, holder.start, holder.buffer);
+    }
+
     void set(int index, Nullable${minor.class}Holder holder) {
       set(index, holder.start, holder.buffer);
     }
@@ -769,7 +842,11 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       return setBounded(index, holder.start, holder.buffer);
     }
 
-    <#if minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse">
+    public boolean setSemiBounded(int index, Nullable${minor.class}Holder holder) {
+      return setSemiBounded(index, holder.start, holder.buffer);
+    }
+
+      <#if minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse">
     public void set(int index, BigDecimal value) {
       DecimalUtility.getSparseFromBigDecimal(value, data, index * VALUE_WIDTH,
            field.getScale(), field.getPrecision(), ${minor.nDecimalDigits});
@@ -790,58 +867,20 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       return true;
     }
 
-    </#if>
+    public boolean setSemiBounded(int index, BigDecimal value) {
+      if (index >= MAX_VALUE_COUNT) {
+        return false;
+      }
+      setSafe(index, value);
+      return true;
+    }
+
+      </#if>
     public void set(int index, int start, DrillBuf buffer){
       data.setBytes(index * VALUE_WIDTH, buffer, start, VALUE_WIDTH);
     }
 
-  <#else>
-    <#-- Note: this code is never called. -->
-
-    public void set(int index, int start, DrillBuf buffer) {
-      data.setBytes(index * VALUE_WIDTH, buffer, start, VALUE_WIDTH);
-    }
-
-    protected void set(int index, ${minor.class}Holder holder) {
-      set(index, holder.start, holder.buffer);
-    }
-
-    public void set(int index, Nullable${minor.class}Holder holder) {
-      set(index, holder.start, holder.buffer);
-    }
-
-    public void setSafe(int index, int start, DrillBuf buffer) {
-      while(index >= getValueCapacity()) {
-        reAlloc();
-      }
-      set(index, start, buffer);
-    }
-
-    public boolean setBounded(int index, int start, DrillBuf buffer) {
-      if (index >= MAX_COUNT) {
-        return false;
-      }
-      setSafe(index, start, buffer);
-      return true;
-    }
-
-    public void setSafe(int index, ${minor.class}Holder holder) {
-      setSafe(index, holder.start, holder.buffer);
-    }
-
-    public boolean setBounded(int index, ${minor.class}Holder holder) {
-      return setBounded(index, holder.start, holder.buffer);
-    }
-
-    public void setSafe(int index, Nullable${minor.class}Holder holder) {
-      setSafe(index, holder.start, holder.buffer);
-    }
-
-    public boolean setBounded(int index, Nullable${minor.class}Holder holder) {
-      return setBounded(index, holder.start, holder.buffer);
-    }
-
-  </#if>
+    </#if>
     @Override
     public void generateTestData(int count) {
       setValueCount(count);
@@ -867,8 +906,31 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       set(index, value);
     }
 
+    /**
+     * Set the value of a required or nullable vector. Enforces the value
+     * and size limits.
+     * @param index item to write
+     * @return true if the item was written, false if the index would
+     * overfill the vector
+     */
+
     public boolean setBounded(int index, <#if (type.width >= 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
       if (index >= MAX_COUNT) {
+        return false;
+      }
+      setSafe(index, value);
+      return true;
+    }
+
+    /**
+     * Set the value of a repeated vector. Enforces only the size limit.
+     * @param index item to write
+     * @return true if the item was written, false if the index would
+     * overfill the vector
+     */
+
+    public boolean setSemiBounded(int index, <#if (type.width >= 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
+      if (index >= MAX_CAPACITY) {
         return false;
       }
       setSafe(index, value);
@@ -894,6 +956,14 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       return true;
     }
 
+    public boolean setSemiBounded(int index, ${minor.class}Holder holder) {
+      if (index >= MAX_CAPACITY) {
+        return false;
+      }
+      setSafe(index, holder);
+      return true;
+    }
+
     protected void set(int index, Nullable${minor.class}Holder holder) {
       data.set${(minor.javaType!type.javaType)?cap_first}(index * VALUE_WIDTH, holder.value);
     }
@@ -907,6 +977,14 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
     public boolean setBounded(int index, Nullable${minor.class}Holder holder) {
       if (index >= MAX_COUNT) {
+        return false;
+      }
+      setSafe(index, holder);
+      return true;
+    }
+
+    public boolean setSemiBounded(int index, Nullable${minor.class}Holder holder) {
+      if (index >= MAX_CAPACITY) {
         return false;
       }
       setSafe(index, holder);

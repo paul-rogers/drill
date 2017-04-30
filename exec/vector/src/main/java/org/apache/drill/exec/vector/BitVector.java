@@ -39,6 +39,38 @@ import org.apache.drill.exec.vector.complex.reader.FieldReader;
 public final class BitVector extends BaseDataValueVector implements FixedWidthVector {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BitVector.class);
 
+  /**
+   * Width of each fixed-width value.
+   */
+
+  public static final int VALUE_WIDTH = 1;
+
+  /**
+   * Maximum number of values that this fixed-width vector can hold
+   * and stay below the maximum vector size limit. This is the limit
+   * enforced when the vector is used to hold values in a repeated
+   * vector.
+   */
+
+  public static final int MAX_CAPACITY = MAX_BUFFER_SIZE / VALUE_WIDTH;
+
+  /**
+   * Maximum number of values that this fixed-width vector can hold
+   * and stay below the maximum vector size limit and/or stay below
+   * the maximum item count. This lis the limit enforced when the
+   * vector is used to hold required or nullable values.
+   */
+
+  public static final int MAX_COUNT = Math.min(MAX_VALUE_COUNT, MAX_CAPACITY);
+
+  /**
+   * Actual maximum vector size, in bytes, given the number of fixed-width
+   * values that either fit in the maximum overall vector size, or that
+   * is no larger than the maximum vector item count.
+   */
+
+  public static final int NET_MAX_SIZE = VALUE_WIDTH * MAX_COUNT;
+
   private final FieldReader reader = new BitReaderImpl(BitVector.this);
   private final Accessor accessor = new Accessor();
   private final Mutator mutator = new Mutator();
@@ -132,7 +164,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
   }
 
   private void allocateBytes(final long size) {
-    if (size > MAX_BUFFER_SIZE) {
+    if (size > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed allocation size");
     }
 
@@ -148,7 +180,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
    */
   public void reAlloc() {
     final long newAllocationSize = allocationSizeInBytes * 2L;
-    if (newAllocationSize > MAX_BUFFER_SIZE) {
+    if (newAllocationSize > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed allocation size");
     }
 
@@ -220,7 +252,6 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
   public TransferPair makeTransferPair(ValueVector to) {
     return new TransferImpl((BitVector) to);
   }
-
 
   public void transferTo(BitVector target) {
     target.clear();
@@ -402,7 +433,18 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
     }
 
     public boolean setBounded(int index, int value) {
-      setSafe(index, value);
+      if (index >= MAX_COUNT) {
+        return false;
+      }
+     setSafe(index, value);
+      return true;
+    }
+
+    public boolean setSemiBounded(int index, int value) {
+      if (index >= MAX_CAPACITY) {
+        return false;
+      }
+     setSafe(index, value);
       return true;
     }
 
@@ -413,11 +455,43 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       set(index, holder.value);
     }
 
+    public boolean setBounded(int index, BitHolder holder) {
+      if (index >= MAX_COUNT) {
+        return false;
+      }
+      setSafe(index, holder);
+      return true;
+    }
+
+    public boolean setSemiBounded(int index, BitHolder holder) {
+      if (index >= MAX_CAPACITY) {
+        return false;
+      }
+      setSafe(index, holder);
+      return true;
+    }
+
     public void setSafe(int index, NullableBitHolder holder) {
       while(index >= getValueCapacity()) {
         reAlloc();
       }
       set(index, holder.value);
+    }
+
+    public boolean setBounded(int index, NullableBitHolder holder) {
+      if (index >= MAX_COUNT) {
+        return false;
+      }
+      setSafe(index, holder);
+      return true;
+    }
+
+    public boolean setSemiBounded(int index, NullableBitHolder holder) {
+      if (index >= MAX_CAPACITY) {
+        return false;
+      }
+      setSafe(index, holder);
+      return true;
     }
 
     @Override
@@ -446,7 +520,6 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       }
       setValueCount(values);
     }
-
   }
 
   @Override

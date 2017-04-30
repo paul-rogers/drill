@@ -259,6 +259,13 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
       setValueCount(index+1);
     }
 
+    public boolean startNewValueBounded(int index) {
+      if (index >= MAX_VALUE_COUNT)
+        return false;
+      startNewValue(index);
+      return true;
+    }
+
     @Override
     public void setValueCount(int valueCount) {
       // TODO: populate offset end points
