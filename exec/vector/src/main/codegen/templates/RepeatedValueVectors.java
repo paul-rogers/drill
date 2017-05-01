@@ -339,8 +339,8 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       addSafe(index, bytes, 0, bytes.length);
     }
 
-    public boolean addBounded(int index, byte[] bytes) {
-      return addBounded(index, bytes, 0, bytes.length);
+    public boolean addEntry(int index, byte[] bytes) {
+      return addEntry(index, bytes, 0, bytes.length);
     }
 
     public void addSafe(int index, byte[] bytes, int start, int length) {
@@ -349,12 +349,12 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       offsets.getMutator().setSafe(index+1, nextOffset+1);
     }
 
-    public boolean addBounded(int index, byte[] bytes, int start, int length) {
-      if (index >= MAX_VALUE_COUNT) {
+    public boolean addEntry(int index, byte[] bytes, int start, int length) {
+      if (index >= MAX_ROW_COUNT) {
         return false;
       }
       final int nextOffset = offsets.getAccessor().get(index+1);
-      if (! values.getMutator().setSemiBounded(nextOffset, bytes, start, length)) {
+      if (! values.getMutator().setArrayItem(nextOffset, bytes, start, length)) {
         return false;
       }
       offsets.getMutator().setSafe(index+1, nextOffset+1);
@@ -368,12 +368,12 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       offsets.getMutator().setSafe(index+1, nextOffset+1);
     }
 
-    public boolean addBounded(int index, ${minor.javaType!type.javaType} srcValue) {
-      if (index >= MAX_VALUE_COUNT) {
+    public boolean addEntry(int index, ${minor.javaType!type.javaType} srcValue) {
+      if (index >= MAX_ROW_COUNT) {
         return false;
       }
       final int nextOffset = offsets.getAccessor().get(index+1);
-      if (! values.getMutator().setSemiBounded(nextOffset, srcValue)) {
+      if (! values.getMutator().setArrayItem(nextOffset, srcValue)) {
         return false;
       }
       offsets.getMutator().setSafe(index+1, nextOffset+1);
@@ -397,12 +397,12 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       offsets.getMutator().setSafe(index+1, nextOffset+1);
     }
 
-    public boolean addBounded(int index, ${minor.class}Holder holder) {
-      if (index >= MAX_VALUE_COUNT) {
+    public boolean addEntry(int index, ${minor.class}Holder holder) {
+      if (index >= MAX_ROW_COUNT) {
         return false;
       }
       int nextOffset = offsets.getAccessor().get(index+1);
-      if (! values.getMutator().setSemiBounded(nextOffset, holder)) {
+      if (! values.getMutator().setArrayItem(nextOffset, holder)) {
         return false;
       }
       offsets.getMutator().setSafe(index+1, nextOffset+1);
@@ -415,12 +415,12 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       offsets.getMutator().setSafe(index+1, nextOffset+1);
     }
 
-    public boolean addBounded(int index, Nullable${minor.class}Holder holder) {
-      if (index >= MAX_VALUE_COUNT) {
+    public boolean addEntry(int index, Nullable${minor.class}Holder holder) {
+      if (index >= MAX_ROW_COUNT) {
         return false;
       }
       final int nextOffset = offsets.getAccessor().get(index+1);
-      if (! values.getMutator().setSemiBounded(nextOffset, holder)) {
+      if (! values.getMutator().setArrayItem(nextOffset, holder)) {
         return false;
       }
       offsets.getMutator().setSafe(index+1, nextOffset+1);
@@ -434,12 +434,12 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       offsets.getMutator().setSafe(rowIndex+1, nextOffset+1);
     }
 
-    public boolean addBounded(int rowIndex, <#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
-      if (rowIndex >= MAX_VALUE_COUNT) {
+    public boolean addEntry(int rowIndex, <#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
+      if (rowIndex >= MAX_ROW_COUNT) {
         return false;
       }
       int nextOffset = offsets.getAccessor().get(rowIndex+1);
-      if (! values.getMutator().setSemiBounded(nextOffset, <#list fields as field>${field.name}<#if field_has_next>, </#if></#list>)) {
+      if (! values.getMutator().setArrayItem(nextOffset, <#list fields as field>${field.name}<#if field_has_next>, </#if></#list>)) {
         return false;
       }
       offsets.getMutator().setSafe(rowIndex+1, nextOffset+1);
@@ -454,12 +454,12 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       offsets.getMutator().setSafe(index+1, nextOffset+1);
     }
 
-    public boolean addBounded(int index, BigDecimal value) {
-      if (index >= MAX_VALUE_COUNT) {
+    public boolean addEntry(int index, BigDecimal value) {
+      if (index >= MAX_ROW_COUNT) {
         return false;
       }
       int nextOffset = offsets.getAccessor().get(index+1);
-      if (! values.getMutator().setSemiBounded(nextOffset, value)) {
+      if (! values.getMutator().setArrayItem(nextOffset, value)) {
         return false;
       }
       offsets.getMutator().setSafe(index+1, nextOffset+1);

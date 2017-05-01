@@ -39,7 +39,7 @@ import org.junit.Test;
 import io.netty.buffer.DrillBuf;
 
 /**
- * Test the setBounded() methods in the various generated vector
+ * Test the setScalar() methods in the various generated vector
  * classes. Rather than test all 100+ vectors, we sample a few and
  * rely on the fact that code is generated from a common template.
  */
@@ -60,7 +60,7 @@ public class TestVectorLimits extends DrillTest {
 
   /**
    * Test a vector directly using the vector mutator to ensure
-   * that the <tt>setBounded</tt> method works for the maximum
+   * that the <tt>setScalar</tt> method works for the maximum
    * row count.
    * <p>
    * This test is a proxy for all the other fixed types, since all
@@ -77,12 +77,12 @@ public class TestVectorLimits extends DrillTest {
 
     // Sanity test of generated constants.
 
-    assertTrue( IntVector.MAX_COUNT <= ValueVector.MAX_VALUE_COUNT );
+    assertTrue( IntVector.MAX_SCALAR_COUNT <= ValueVector.MAX_ROW_COUNT );
     assertEquals( 4, IntVector.VALUE_WIDTH );
-    assertTrue( IntVector.NET_MAX_SIZE <= ValueVector.MAX_BUFFER_SIZE );
+    assertTrue( IntVector.NET_MAX_SCALAR_SIZE <= ValueVector.MAX_BUFFER_SIZE );
 
     // Allocate a default size, small vector. Forces test of
-    // the auto-grow (setSafe()) aspect of setBounded().
+    // the auto-grow (setSafe()) aspect of setScalar().
 
     vector.allocateNew( );
 
@@ -91,9 +91,9 @@ public class TestVectorLimits extends DrillTest {
     // (which is computed to stay below the capacity limit.)
 
     IntVector.Mutator mutator = vector.getMutator();
-    for (int i = 0; i < 2 * IntVector.MAX_COUNT; i++) {
-      if (! mutator.setBounded(i, i)) {
-        assertEquals(IntVector.MAX_COUNT, i);
+    for (int i = 0; i < 2 * ValueVector.MAX_ROW_COUNT; i++) {
+      if (! mutator.setScalar(i, i)) {
+        assertEquals(IntVector.MAX_SCALAR_COUNT, i);
         break;
       }
     }
@@ -103,7 +103,7 @@ public class TestVectorLimits extends DrillTest {
     // the overall limit (if the limit stays at 16 MB.) But, it should
     // be at the type-specific limit since we filled up the vector.
 
-    assertEquals(IntVector.NET_MAX_SIZE, vector.getBuffer().getActualMemoryConsumed());
+    assertEquals(IntVector.NET_MAX_SCALAR_SIZE, vector.getBuffer().getActualMemoryConsumed());
     vector.close();
   }
 
@@ -115,9 +115,9 @@ public class TestVectorLimits extends DrillTest {
     vector.allocateNew( );
 
     NullableIntVector.Mutator mutator = vector.getMutator();
-    for (int i = 0; i < 2 * IntVector.MAX_COUNT; i++) {
-      if (! mutator.setBounded(i, i)) {
-        assertEquals(IntVector.MAX_COUNT, i);
+    for (int i = 0; i < 2 * ValueVector.MAX_ROW_COUNT; i++) {
+      if (! mutator.setScalar(i, i)) {
+        assertEquals(IntVector.MAX_SCALAR_COUNT, i);
         break;
       }
     }
@@ -140,14 +140,14 @@ public class TestVectorLimits extends DrillTest {
 
     RepeatedIntVector.Mutator mutator = vector.getMutator();
     top:
-    for (int i = 0; i < 2 * IntVector.MAX_COUNT; i++) {
+    for (int i = 0; i < 2 * ValueVector.MAX_ROW_COUNT; i++) {
       if (! mutator.startNewValueBounded(i)) {
-        assertEquals(ValueVector.MAX_VALUE_COUNT, i);
+        assertEquals(ValueVector.MAX_ROW_COUNT, i);
         // Continue, let's check the addBounded method also
       }
       for (int j = 0; j < 10; j++) {
-        if (! mutator.addBounded(i, i * 100 + j)) {
-          assertEquals(ValueVector.MAX_VALUE_COUNT, i);
+        if (! mutator.addEntry(i, i * 100 + j)) {
+          assertEquals(ValueVector.MAX_ROW_COUNT, i);
           mutator.setValueCount(i);
           break top;
         }
@@ -172,13 +172,13 @@ public class TestVectorLimits extends DrillTest {
 
     RepeatedIntVector.Mutator mutator = vector.getMutator();
     top:
-    for (int i = 0; i < 2 * ValueVector.MAX_VALUE_COUNT; i++) {
+    for (int i = 0; i < 2 * ValueVector.MAX_ROW_COUNT; i++) {
       // We'll never hit the value count limit
       assertTrue(mutator.startNewValueBounded(i));
       for (int j = 0; j < 100; j++) {
-        if (! mutator.addBounded(i, i * 100 + j)) {
+        if (! mutator.addEntry(i, i * 100 + j)) {
           // We should have hit the buffer limit before the value limit.
-          assertTrue(i < ValueVector.MAX_VALUE_COUNT);
+          assertTrue(i < ValueVector.MAX_ROW_COUNT);
           mutator.setValueCount(i);
           break top;
         }
@@ -201,7 +201,7 @@ public class TestVectorLimits extends DrillTest {
    * Baseline test for a variable-width vector using <tt>setSafe</tt> and
    * loading the vector up to the maximum size. Doing so will cause the vector
    * to have a buffer that exceeds the maximum size, demonstrating the
-   * need for <tt>setBounded()</tt>.
+   * need for <tt>setScalar()</tt>.
    */
 
   @Test
@@ -218,17 +218,17 @@ public class TestVectorLimits extends DrillTest {
     // Write the maximum number of values which will silently
     // allow the vector to grow beyond the critical size of 16 MB.
     // Doing this in production would lead to memory fragmentation.
-    // So, this is what the setBounded() method assures we don't do.
+    // So, this is what the setScalar() method assures we don't do.
 
     byte dummyValue[] = new byte[512];
     Arrays.fill(dummyValue, (byte) 'X');
     VarCharVector.Mutator mutator = vector.getMutator();
-    for (int i = 0; i < 2 * ValueVector.MAX_VALUE_COUNT; i++) {
+    for (int i = 0; i < 2 * ValueVector.MAX_ROW_COUNT; i++) {
       mutator.setSafe(i, dummyValue, 0, dummyValue.length);
     }
 
     // The vector should be above the allocation limit.
-    // This is why code must migrate to the setBounded() call
+    // This is why code must migrate to the setScalar() call
     // away from the setSafe() call.
 
     assertTrue(ValueVector.MAX_BUFFER_SIZE < vector.getBuffer().getActualMemoryConsumed());
@@ -237,7 +237,7 @@ public class TestVectorLimits extends DrillTest {
 
   /**
    * Test a vector directly using the vector mutator to ensure
-   * that the <tt>setBounded</tt> method works for the maximum
+   * that the <tt>setScalar</tt> method works for the maximum
    * vector size.
    */
 
@@ -256,8 +256,8 @@ public class TestVectorLimits extends DrillTest {
     byte dummyValue[] = makeVarCharValue(512);
     VarCharVector.Mutator mutator = vector.getMutator();
     int count = 0;
-    for ( ; count < 2 * ValueVector.MAX_VALUE_COUNT; count++) {
-      if (! mutator.setBounded(count, dummyValue, 0, dummyValue.length)) {
+    for ( ; count < 2 * ValueVector.MAX_ROW_COUNT; count++) {
+      if (! mutator.setScalar(count, dummyValue, 0, dummyValue.length)) {
         break;
       }
     }
@@ -268,7 +268,7 @@ public class TestVectorLimits extends DrillTest {
 
     mutator.setValueCount(count);
     assertEquals(ValueVector.MAX_BUFFER_SIZE, vector.getBuffer().getActualMemoryConsumed());
-    assertTrue(count < ValueVector.MAX_VALUE_COUNT);
+    assertTrue(count < ValueVector.MAX_ROW_COUNT);
     vector.close();
   }
 
@@ -288,21 +288,21 @@ public class TestVectorLimits extends DrillTest {
     byte dummyValue[] = makeVarCharValue(512);
     NullableVarCharVector.Mutator mutator = vector.getMutator();
     int count = 0;
-    for ( ; count < 2 * ValueVector.MAX_VALUE_COUNT; count++) {
-      if (! mutator.setBounded(count, dummyValue, 0, dummyValue.length)) {
+    for ( ; count < 2 * ValueVector.MAX_ROW_COUNT; count++) {
+      if (! mutator.setScalar(count, dummyValue, 0, dummyValue.length)) {
         break;
       }
     }
 
     mutator.setValueCount(count);
     assertEquals(ValueVector.MAX_BUFFER_SIZE, vector.getValuesVector().getBuffer().getActualMemoryConsumed());
-    assertTrue(count < ValueVector.MAX_VALUE_COUNT);
+    assertTrue(count < ValueVector.MAX_ROW_COUNT);
     vector.close();
   }
 
   /**
    * Test a vector directly using the vector mutator to ensure
-   * that the <tt>setBounded</tt> method works for the maximum
+   * that the <tt>setScalar</tt> method works for the maximum
    * value count.
    */
 
@@ -319,8 +319,8 @@ public class TestVectorLimits extends DrillTest {
     byte dummyValue[] = makeVarCharValue(254);
     VarCharVector.Mutator mutator = vector.getMutator();
     int count = 0;
-    for (; count < 2 * ValueVector.MAX_VALUE_COUNT; count++) {
-      if (! mutator.setBounded(count, dummyValue, 0, dummyValue.length)) {
+    for (; count < 2 * ValueVector.MAX_ROW_COUNT; count++) {
+      if (! mutator.setScalar(count, dummyValue, 0, dummyValue.length)) {
         break;
       }
     }
@@ -330,13 +330,13 @@ public class TestVectorLimits extends DrillTest {
 
     mutator.setValueCount(count);
     assertTrue(vector.getBuffer().getActualMemoryConsumed() <= ValueVector.MAX_BUFFER_SIZE);
-    assertEquals(ValueVector.MAX_VALUE_COUNT, count);
+    assertEquals(ValueVector.MAX_ROW_COUNT, count);
     vector.close();
   }
 
   /**
    * Test a vector directly using the vector mutator to ensure
-   * that the <tt>setBounded</tt> method works for the maximum
+   * that the <tt>setScalar</tt> method works for the maximum
    * value count. Uses a DrillBuf as input.
    */
 
@@ -354,8 +354,8 @@ public class TestVectorLimits extends DrillTest {
     DrillBuf drillBuf = makeVarCharValueDirect(260);
     VarCharVector.Mutator mutator = vector.getMutator();
     int count = 0;
-    for (; count < 2 * ValueVector.MAX_VALUE_COUNT; count++) {
-      if (! mutator.setBounded(count, drillBuf, 0, 260)) {
+    for (; count < 2 * ValueVector.MAX_ROW_COUNT; count++) {
+      if (! mutator.setScalar(count, drillBuf, 0, 260)) {
         break;
       }
     }
@@ -366,7 +366,7 @@ public class TestVectorLimits extends DrillTest {
 
     mutator.setValueCount(count);
     assertEquals(ValueVector.MAX_BUFFER_SIZE, vector.getBuffer().getActualMemoryConsumed());
-    assertTrue(count < ValueVector.MAX_VALUE_COUNT);
+    assertTrue(count < ValueVector.MAX_ROW_COUNT);
     vector.close();
   }
 
@@ -388,8 +388,8 @@ public class TestVectorLimits extends DrillTest {
     DrillBuf drillBuf = makeVarCharValueDirect(260);
     NullableVarCharVector.Mutator mutator = vector.getMutator();
     int count = 0;
-    for (; count < 2 * ValueVector.MAX_VALUE_COUNT; count++) {
-      if (! mutator.setBounded(count, drillBuf, 0, 260)) {
+    for (; count < 2 * ValueVector.MAX_ROW_COUNT; count++) {
+      if (! mutator.setScalar(count, drillBuf, 0, 260)) {
         break;
       }
     }
@@ -397,7 +397,7 @@ public class TestVectorLimits extends DrillTest {
 
     mutator.setValueCount(count);
     assertEquals(ValueVector.MAX_BUFFER_SIZE, vector.getValuesVector().getBuffer().getActualMemoryConsumed());
-    assertTrue(count < ValueVector.MAX_VALUE_COUNT);
+    assertTrue(count < ValueVector.MAX_ROW_COUNT);
     vector.close();
   }
 
@@ -433,7 +433,7 @@ public class TestVectorLimits extends DrillTest {
       vector.allocateNew( );
 
       VarCharVector.Mutator mutator = vector.getMutator();
-      for (int j = 0; j < ValueVector.MAX_VALUE_COUNT; j++) {
+      for (int j = 0; j < ValueVector.MAX_ROW_COUNT; j++) {
         mutator.setSafe(j, value, 0, value.length);
       }
     }
@@ -450,12 +450,12 @@ public class TestVectorLimits extends DrillTest {
       VarCharVector.Mutator mutator = vector.getMutator();
       int posn = 0;
       for (;;) {
-        if (! mutator.setBounded(posn++, value, 0, value.length)) {
+        if (! mutator.setScalar(posn++, value, 0, value.length)) {
           break;
         }
       }
     }
     long elapsed = System.currentTimeMillis() - start;
-    System.out.println( iterCount + " runs of setBounded: " + elapsed + " ms." );
+    System.out.println( iterCount + " runs of setScalar: " + elapsed + " ms." );
   }
 }

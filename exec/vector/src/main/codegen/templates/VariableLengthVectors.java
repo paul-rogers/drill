@@ -518,8 +518,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       }
     }
 
-    public boolean setBounded(int index, byte[] bytes) {
-      return setBounded(index, bytes, 0, bytes.length);
+    public boolean setScalar(int index, byte[] bytes) {
+      return setScalar(index, bytes, 0, bytes.length);
     }
 
     /**
@@ -552,10 +552,10 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       }
     }
 
-    public boolean setBounded(int index, DrillBuf bytes, int start, int length) {
+    public boolean setScalar(int index, DrillBuf bytes, int start, int length) {
       assert index >= 0;
 
-      if (index >= MAX_VALUE_COUNT) {
+      if (index >= MAX_ROW_COUNT) {
         return false;
       }
       int currentOffset = offsetVector.getAccessor().get(index);
@@ -586,14 +586,14 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       }
     }
 
-    public boolean setBounded(int index, byte[] bytes, int start, int length) {
-      if (index >= MAX_VALUE_COUNT) {
+    public boolean setScalar(int index, byte[] bytes, int start, int length) {
+      if (index >= MAX_ROW_COUNT) {
         return false;
       }
-      return setSemiBounded(index, bytes, start, length);
+      return setArrayItem(index, bytes, start, length);
     }
 
-    public boolean setSemiBounded(int index, byte[] bytes, int start, int length) {
+    public boolean setArrayItem(int index, byte[] bytes, int start, int length) {
       assert index >= 0;
 
       final int currentOffset = offsetVector.getAccessor().get(index);
@@ -633,14 +633,14 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       }
     }
 
-    public boolean setBounded(int index, int start, int end, DrillBuf buffer) {
-      if (index >= MAX_VALUE_COUNT) {
+    public boolean setScalar(int index, int start, int end, DrillBuf buffer) {
+      if (index >= MAX_ROW_COUNT) {
         return false;
       }
-      return setSemiBounded(index, start, end, buffer);
+      return setArrayItem(index, start, end, buffer);
     }
 
-    public boolean setSemiBounded(int index, int start, int end, DrillBuf buffer) {
+    public boolean setArrayItem(int index, int start, int end, DrillBuf buffer) {
       final int len = end - start;
       final int outputStart = offsetVector.data.get${(minor.javaType!type.javaType)?cap_first}(index * ${type.width});
       final int newSize = outputStart + len;
@@ -680,14 +680,14 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       offsetVector.getMutator().setSafe(index+1,  outputStart + len);
     }
 
-    public boolean setBounded(int index, Nullable${minor.class}Holder holder) {
-      if (index >= MAX_VALUE_COUNT) {
+    public boolean setScalar(int index, Nullable${minor.class}Holder holder) {
+      if (index >= MAX_ROW_COUNT) {
         return false;
       }
-      return setSemiBounded(index, holder);
+      return setArrayItem(index, holder);
     }
 
-    public boolean setSemiBounded(int index, Nullable${minor.class}Holder holder) {
+    public boolean setArrayItem(int index, Nullable${minor.class}Holder holder) {
       assert holder.isSet == 1;
 
       final int start = holder.start;
@@ -729,14 +729,14 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       offsetVector.getMutator().setSafe( index+1,  outputStart + len);
     }
 
-    public boolean setBounded(int index, ${minor.class}Holder holder) {
-      if (index >= MAX_VALUE_COUNT) {
+    public boolean setScalar(int index, ${minor.class}Holder holder) {
+      if (index >= MAX_ROW_COUNT) {
         return false;
       }
-      return setSemiBounded(index, holder);
+      return setArrayItem(index, holder);
    }
 
-    public boolean setSemiBounded(int index, ${minor.class}Holder holder) {
+    public boolean setArrayItem(int index, ${minor.class}Holder holder) {
       final int start = holder.start;
       final int end =   holder.end;
       final int len = end - start;
@@ -781,8 +781,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
     }
 
   <#if (minor.class == "VarChar")>
-    public boolean setBounded(int index, String value) {
-      if (index >= MAX_VALUE_COUNT) {
+    public boolean setScalar(int index, String value) {
+      if (index >= MAX_ROW_COUNT) {
         return false;
       }
       // Treat a null string as an empty string.
@@ -790,7 +790,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
         return true;
       }
       byte encoded[] = value.getBytes(Charsets.UTF_8);
-      return setBounded(index, encoded, 0, encoded.length);
+      return setScalar(index, encoded, 0, encoded.length);
     }
 
   </#if>

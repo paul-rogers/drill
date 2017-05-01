@@ -61,7 +61,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
    * vector is used to hold required or nullable values.
    */
 
-  public static final int MAX_COUNT = Math.min(MAX_VALUE_COUNT, MAX_CAPACITY);
+  public static final int MAX_COUNT = Math.min(MAX_ROW_COUNT, MAX_CAPACITY);
 
   /**
    * Actual maximum vector size, in bytes, given the number of fixed-width
@@ -432,7 +432,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       set(index, value);
     }
 
-    public boolean setBounded(int index, int value) {
+    public boolean setScalar(int index, int value) {
       if (index >= MAX_COUNT) {
         return false;
       }
@@ -440,7 +440,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       return true;
     }
 
-    public boolean setSemiBounded(int index, int value) {
+    public boolean setArrayItem(int index, int value) {
       if (index >= MAX_CAPACITY) {
         return false;
       }
@@ -455,7 +455,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       set(index, holder.value);
     }
 
-    public boolean setBounded(int index, BitHolder holder) {
+    public boolean setScalar(int index, BitHolder holder) {
       if (index >= MAX_COUNT) {
         return false;
       }
@@ -463,7 +463,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       return true;
     }
 
-    public boolean setSemiBounded(int index, BitHolder holder) {
+    public boolean setArrayItem(int index, BitHolder holder) {
       if (index >= MAX_CAPACITY) {
         return false;
       }
@@ -478,7 +478,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       set(index, holder.value);
     }
 
-    public boolean setBounded(int index, NullableBitHolder holder) {
+    public boolean setScalar(int index, NullableBitHolder holder) {
       if (index >= MAX_COUNT) {
         return false;
       }
@@ -486,7 +486,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       return true;
     }
 
-    public boolean setSemiBounded(int index, NullableBitHolder holder) {
+    public boolean setArrayItem(int index, NullableBitHolder holder) {
       if (index >= MAX_CAPACITY) {
         return false;
       }

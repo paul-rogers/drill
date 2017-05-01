@@ -260,7 +260,7 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     }
 
     public boolean startNewValueBounded(int index) {
-      if (index >= MAX_VALUE_COUNT)
+      if (index >= MAX_ROW_COUNT)
         return false;
       startNewValue(index);
       return true;

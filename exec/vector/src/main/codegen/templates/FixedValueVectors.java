@@ -57,16 +57,16 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
    * vector.
    */
 
-  public static final int MAX_CAPACITY = MAX_BUFFER_SIZE / VALUE_WIDTH;
+  public static final int MAX_VALUE_COUNT = MAX_BUFFER_SIZE / VALUE_WIDTH;
 
   /**
    * Maximum number of values that this fixed-width vector can hold
    * and stay below the maximum vector size limit and/or stay below
-   * the maximum item count. This is the limit enforced when the
-   * vector is used to hold required or nullable values.
+   * the maximum row count. This is the limit enforced when the
+   * vector is used to hold scalar (required or nullable) values.
    */
 
-  public static final int MAX_COUNT = Math.min(MAX_VALUE_COUNT, MAX_CAPACITY);
+  public static final int MAX_SCALAR_COUNT = Math.min(MAX_ROW_COUNT, MAX_VALUE_COUNT);
 
   /**
    * Actual maximum vector size, in bytes, given the number of fixed-width
@@ -74,7 +74,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
    * is no larger than the maximum vector item count.
    */
 
-  public static final int NET_MAX_SIZE = VALUE_WIDTH * MAX_COUNT;
+  public static final int NET_MAX_SCALAR_SIZE = VALUE_WIDTH * MAX_SCALAR_COUNT;
 
   private final FieldReader reader = new ${minor.class}ReaderImpl(${minor.class}Vector.this);
   private final Accessor accessor = new Accessor();
@@ -642,8 +642,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
      * overfill the vector
      */
 
-    public boolean setBounded(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
-      if (index >= MAX_COUNT) {
+    public boolean setScalar(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
+      if (index >= MAX_SCALAR_COUNT) {
         return false;
       }
       setSafe(index, value);
@@ -657,8 +657,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
      * overfill the vector
      */
 
-    public boolean setSemiBounded(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
-      if (index >= MAX_CAPACITY) {
+    public boolean setArrayItem(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
+      if (index >= MAX_VALUE_COUNT) {
         return false;
       }
       setSafe(index, value);
@@ -680,15 +680,15 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       set(index, months, days, milliseconds);
     }
 
-    public boolean setBounded(int index, int months, int days, int milliseconds) {
-      if (index >= MAX_COUNT) {
+    public boolean setScalar(int index, int months, int days, int milliseconds) {
+      if (index >= MAX_SCALAR_COUNT) {
         return false;
       }
       setSafe(index, months, days, milliseconds);
       return true;
     }
 
-    public boolean setSemiBounded(int index, int months, int days, int milliseconds) {
+    public boolean setArrayItem(int index, int months, int days, int milliseconds) {
       if (index >= MAX_VALUE_COUNT) {
         return false;
       }
@@ -704,12 +704,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       setSafe(index, holder.months, holder.days, holder.milliseconds);
     }
 
-    public boolean setBounded(int index, ${minor.class}Holder holder) {
-      return setBounded(index, holder.months, holder.days, holder.milliseconds);
+    public boolean setScalar(int index, ${minor.class}Holder holder) {
+      return setScalar(index, holder.months, holder.days, holder.milliseconds);
     }
 
-    public boolean setSemiBounded(int index, ${minor.class}Holder holder) {
-      return setSemiBounded(index, holder.months, holder.days, holder.milliseconds);
+    public boolean setArrayItem(int index, ${minor.class}Holder holder) {
+      return setArrayItem(index, holder.months, holder.days, holder.milliseconds);
     }
 
     protected void set(int index, Nullable${minor.class}Holder holder) {
@@ -720,12 +720,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       setSafe(index, holder.months, holder.days, holder.milliseconds);
     }
 
-    public boolean setBounded(int index, Nullable${minor.class}Holder holder) {
-      return setBounded(index, holder.months, holder.days, holder.milliseconds);
+    public boolean setScalar(int index, Nullable${minor.class}Holder holder) {
+      return setScalar(index, holder.months, holder.days, holder.milliseconds);
     }
 
-    public boolean setSemiBounded(int index, Nullable${minor.class}Holder holder) {
-      return setSemiBounded(index, holder.months, holder.days, holder.milliseconds);
+    public boolean setArrayItem(int index, Nullable${minor.class}Holder holder) {
+      return setArrayItem(index, holder.months, holder.days, holder.milliseconds);
     }
 
     <#elseif minor.class == "IntervalDay">
@@ -742,15 +742,15 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       set(index, days, milliseconds);
     }
 
-    public boolean setBounded(int index, int days, int milliseconds) {
-      if (index >= MAX_COUNT) {
+    public boolean setScalar(int index, int days, int milliseconds) {
+      if (index >= MAX_SCALAR_COUNT) {
         return false;
       }
       setSafe(index, days, milliseconds);
       return true;
     }
 
-    public boolean setSemiBounded(int index, int days, int milliseconds) {
+    public boolean setArrayItem(int index, int days, int milliseconds) {
       if (index >= MAX_VALUE_COUNT) {
         return false;
       }
@@ -766,12 +766,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       setSafe(index, holder.days, holder.milliseconds);
     }
 
-    public boolean setBounded(int index, ${minor.class}Holder holder){
-      return setBounded(index, holder.days, holder.milliseconds);
+    public boolean setScalar(int index, ${minor.class}Holder holder){
+      return setScalar(index, holder.days, holder.milliseconds);
     }
 
-    public boolean setSemiBounded(int index, ${minor.class}Holder holder){
-      return setSemiBounded(index, holder.days, holder.milliseconds);
+    public boolean setArrayItem(int index, ${minor.class}Holder holder){
+      return setArrayItem(index, holder.days, holder.milliseconds);
     }
 
     protected void set(int index, Nullable${minor.class}Holder holder) {
@@ -782,12 +782,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       setSafe(index, holder.days, holder.milliseconds);
     }
 
-    public boolean setBounded(int index, Nullable${minor.class}Holder holder) {
-      return setBounded(index, holder.days, holder.milliseconds);
+    public boolean setScalar(int index, Nullable${minor.class}Holder holder) {
+      return setScalar(index, holder.days, holder.milliseconds);
     }
 
-    public boolean setSemiBounded(int index, Nullable${minor.class}Holder holder) {
-      return setSemiBounded(index, holder.days, holder.milliseconds);
+    public boolean setArrayItem(int index, Nullable${minor.class}Holder holder) {
+      return setArrayItem(index, holder.days, holder.milliseconds);
     }
 
     <#elseif minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse" || minor.class == "Decimal28Dense" || minor.class == "Decimal38Dense">
@@ -798,15 +798,15 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       set(index, start, buffer);
     }
 
-    public boolean setBounded(int index, int start, DrillBuf buffer) {
-      if (index >= MAX_COUNT) {
+    public boolean setScalar(int index, int start, DrillBuf buffer) {
+      if (index >= MAX_SCALAR_COUNT) {
         return false;
       }
       setSafe(index, start, buffer);
       return true;
     }
 
-    public boolean setSemiBounded(int index, int start, DrillBuf buffer) {
+    public boolean setArrayItem(int index, int start, DrillBuf buffer) {
       if (index >= MAX_VALUE_COUNT) {
         return false;
       }
@@ -822,12 +822,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       setSafe(index, holder.start, holder.buffer);
     }
 
-    public boolean setBounded(int index, ${minor.class}Holder holder) {
-      return setBounded(index, holder.start, holder.buffer);
+    public boolean setScalar(int index, ${minor.class}Holder holder) {
+      return setScalar(index, holder.start, holder.buffer);
     }
 
-    public boolean setSemiBounded(int index, ${minor.class}Holder holder) {
-      return setSemiBounded(index, holder.start, holder.buffer);
+    public boolean setArrayItem(int index, ${minor.class}Holder holder) {
+      return setArrayItem(index, holder.start, holder.buffer);
     }
 
     void set(int index, Nullable${minor.class}Holder holder) {
@@ -838,12 +838,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       setSafe(index, holder.start, holder.buffer);
     }
 
-    public boolean setBounded(int index, Nullable${minor.class}Holder holder) {
-      return setBounded(index, holder.start, holder.buffer);
+    public boolean setScalar(int index, Nullable${minor.class}Holder holder) {
+      return setScalar(index, holder.start, holder.buffer);
     }
 
-    public boolean setSemiBounded(int index, Nullable${minor.class}Holder holder) {
-      return setSemiBounded(index, holder.start, holder.buffer);
+    public boolean setArrayItem(int index, Nullable${minor.class}Holder holder) {
+      return setArrayItem(index, holder.start, holder.buffer);
     }
 
       <#if minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse">
@@ -859,15 +859,15 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       set(index, value);
     }
 
-    public boolean setBounded(int index, BigDecimal value) {
-      if (index >= MAX_COUNT) {
+    public boolean setScalar(int index, BigDecimal value) {
+      if (index >= MAX_SCALAR_COUNT) {
         return false;
       }
       setSafe(index, value);
       return true;
     }
 
-    public boolean setSemiBounded(int index, BigDecimal value) {
+    public boolean setArrayItem(int index, BigDecimal value) {
       if (index >= MAX_VALUE_COUNT) {
         return false;
       }
@@ -914,8 +914,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
      * overfill the vector
      */
 
-    public boolean setBounded(int index, <#if (type.width >= 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
-      if (index >= MAX_COUNT) {
+    public boolean setScalar(int index, <#if (type.width >= 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
+      if (index >= MAX_SCALAR_COUNT) {
         return false;
       }
       setSafe(index, value);
@@ -929,8 +929,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
      * overfill the vector
      */
 
-    public boolean setSemiBounded(int index, <#if (type.width >= 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
-      if (index >= MAX_CAPACITY) {
+    public boolean setArrayItem(int index, <#if (type.width >= 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
+      if (index >= MAX_VALUE_COUNT) {
         return false;
       }
       setSafe(index, value);
@@ -948,16 +948,16 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       set(index, holder);
     }
 
-    public boolean setBounded(int index, ${minor.class}Holder holder) {
-      if (index >= MAX_COUNT) {
+    public boolean setScalar(int index, ${minor.class}Holder holder) {
+      if (index >= MAX_SCALAR_COUNT) {
         return false;
       }
       setSafe(index, holder);
       return true;
     }
 
-    public boolean setSemiBounded(int index, ${minor.class}Holder holder) {
-      if (index >= MAX_CAPACITY) {
+    public boolean setArrayItem(int index, ${minor.class}Holder holder) {
+      if (index >= MAX_VALUE_COUNT) {
         return false;
       }
       setSafe(index, holder);
@@ -975,16 +975,16 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       set(index, holder);
     }
 
-    public boolean setBounded(int index, Nullable${minor.class}Holder holder) {
-      if (index >= MAX_COUNT) {
+    public boolean setScalar(int index, Nullable${minor.class}Holder holder) {
+      if (index >= MAX_SCALAR_COUNT) {
         return false;
       }
       setSafe(index, holder);
       return true;
     }
 
-    public boolean setSemiBounded(int index, Nullable${minor.class}Holder holder) {
-      if (index >= MAX_CAPACITY) {
+    public boolean setArrayItem(int index, Nullable${minor.class}Holder holder) {
+      if (index >= MAX_VALUE_COUNT) {
         return false;
       }
       setSafe(index, holder);

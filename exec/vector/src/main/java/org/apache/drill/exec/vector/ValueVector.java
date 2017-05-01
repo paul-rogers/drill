@@ -66,18 +66,20 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   int MAX_BUFFER_SIZE = VectorUtils.maxSize();
 
   /**
-   * Maximum allowed item count in a vector.
-   */
-
-  int MAX_VALUE_COUNT = Character.MAX_VALUE + 1;
-
-  /**
    * Debug-time system option that artificially limits vector lengths
    * for testing. Must be set prior to the first reference to this
    * class. (Made deliberately difficult to prevent misuse...)
    */
 
-  String MAX_SIZE_KEY = "drill.max_vector";
+  String MAX_BUFFER_SIZE_KEY = "drill.max_vector";
+
+  /**
+   * Maximum allowed row count in a vector. Repeated vectors
+   * may have more items, but can have no more than this number
+   * or arrays.
+   */
+
+  int MAX_ROW_COUNT = Character.MAX_VALUE + 1;
 
   /**
    * Allocate new buffers. ValueVector implements logic to determine how much to allocate.

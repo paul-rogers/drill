@@ -39,7 +39,7 @@ public class VectorUtils {
    */
 
   static int maxSize() {
-    String prop = System.getProperty( ValueVector.MAX_SIZE_KEY );
+    String prop = System.getProperty( ValueVector.MAX_BUFFER_SIZE_KEY );
     int value = ABSOLUTE_MAX_SIZE;
     if (prop != null) {
       try {
