@@ -432,20 +432,18 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       set(index, value);
     }
 
-    public boolean setScalar(int index, int value) {
+    public void setScalar(int index, int value) throws VectorOverflowException {
       if (index >= MAX_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
-     setSafe(index, value);
-      return true;
+      setSafe(index, value);
     }
 
-    public boolean setArrayItem(int index, int value) {
+    public void setArrayItem(int index, int value) throws VectorOverflowException {
       if (index >= MAX_CAPACITY) {
-        return false;
+        throw new VectorOverflowException();
       }
-     setSafe(index, value);
-      return true;
+      setSafe(index, value);
     }
 
     public void setSafe(int index, BitHolder holder) {
@@ -455,20 +453,18 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       set(index, holder.value);
     }
 
-    public boolean setScalar(int index, BitHolder holder) {
+    public void setScalar(int index, BitHolder holder) throws VectorOverflowException {
       if (index >= MAX_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, holder);
-      return true;
     }
 
-    public boolean setArrayItem(int index, BitHolder holder) {
+    public void setArrayItem(int index, BitHolder holder) throws VectorOverflowException {
       if (index >= MAX_CAPACITY) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, holder);
-      return true;
     }
 
     public void setSafe(int index, NullableBitHolder holder) {
@@ -478,20 +474,18 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       set(index, holder.value);
     }
 
-    public boolean setScalar(int index, NullableBitHolder holder) {
+    public void setScalar(int index, NullableBitHolder holder) throws VectorOverflowException {
       if (index >= MAX_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, holder);
-      return true;
     }
 
-    public boolean setArrayItem(int index, NullableBitHolder holder) {
+    public void setArrayItem(int index, NullableBitHolder holder) throws VectorOverflowException {
       if (index >= MAX_CAPACITY) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, holder);
-      return true;
     }
 
     @Override

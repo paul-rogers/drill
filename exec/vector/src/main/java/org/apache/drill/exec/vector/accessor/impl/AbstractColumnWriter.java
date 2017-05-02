@@ -19,9 +19,12 @@ package org.apache.drill.exec.vector.accessor.impl;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.joda.time.Period;
 
 /**
@@ -31,47 +34,55 @@ import org.joda.time.Period;
  * method(s).
  */
 
-public abstract class AbstractColumnWriter extends AbstractColumnAccessor implements ColumnWriter {
+public abstract class AbstractColumnWriter implements ColumnWriter {
+
+  protected ColumnWriterIndex vectorIndex;
+
+  public abstract void bind(ColumnWriterIndex rowIndex, ValueVector vector);
+
+  protected void bind(ColumnWriterIndex rowIndex) {
+    this.vectorIndex = rowIndex;
+  }
 
   public void start() { }
 
   @Override
-  public void setNull() {
+  public void setNull() throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public boolean setInt(int value) {
+  public void setInt(int value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public boolean setLong(long value) {
+  public void setLong(long value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public boolean setDouble(double value) {
+  public void setDouble(double value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public boolean setString(String value) {
+  public void setString(String value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public boolean setBytes(byte[] value) {
+  public void setBytes(byte[] value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public boolean setDecimal(BigDecimal value) {
+  public void setDecimal(BigDecimal value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public boolean setPeriod(Period value) {
+  public void setPeriod(Period value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 

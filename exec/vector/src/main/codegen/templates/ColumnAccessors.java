@@ -36,7 +36,7 @@
     private ${prefix}${drillType}Vector.Accessor accessor;
 
     @Override
-    public void bind(RowIndex vectorIndex, ValueVector vector) {
+    public void bind(ColumnReaderIndex vectorIndex, ValueVector vector) {
       bind(vectorIndex);
   <#if drillType = "Decimal9" || drillType == "Decimal18">
       field = vector.getField();
@@ -46,7 +46,7 @@
 
   <#if drillType = "Decimal9" || drillType == "Decimal18">
     @Override
-    public void bind(RowIndex vectorIndex, MaterializedField field, VectorAccessor va) {
+    public void bind(ColumnReaderIndex vectorIndex, MaterializedField field, VectorAccessor va) {
       bind(vectorIndex, field, va);
       this.field = field;
     }
@@ -71,20 +71,20 @@
     <#assign getObject="getObject">
   </#if>
   <#if drillType == "VarChar">
-      return new String(accessor().get(vectorIndex.index()${index}), Charsets.UTF_8);
+      return new String(accessor().get(vectorIndex.vectorIndex()${index}), Charsets.UTF_8);
   <#elseif drillType == "Var16Char">
-      return new String(accessor().get(vectorIndex.index()${index}), Charsets.UTF_16);
+      return new String(accessor().get(vectorIndex.vectorIndex()${index}), Charsets.UTF_16);
   <#elseif drillType == "VarBinary">
-      return accessor().get(vectorIndex.index()${index});
+      return accessor().get(vectorIndex.vectorIndex()${index});
   <#elseif drillType == "Decimal9" || drillType == "Decimal18">
       return DecimalUtility.getBigDecimalFromPrimitiveTypes(
-                accessor().get(vectorIndex.index()${index}),
+                accessor().get(vectorIndex.vectorIndex()${index}),
                 field.getScale(),
                 field.getPrecision());
   <#elseif accessorType == "BigDecimal" || accessorType == "Period">
-      return accessor().${getObject}(vectorIndex.index()${index});
+      return accessor().${getObject}(vectorIndex.vectorIndex()${index});
   <#else>
-      return accessor().get(vectorIndex.index()${index});
+      return accessor().get(vectorIndex.vectorIndex()${index});
   </#if>
     }
 </#macro>
@@ -95,7 +95,7 @@
     private ${prefix}${drillType}Vector.Mutator mutator;
 
     @Override
-    public void bind(RowIndex vectorIndex, ValueVector vector) {
+    public void bind(ColumnWriterIndex vectorIndex, ValueVector vector) {
       bind(vectorIndex);
   <#if drillType = "Decimal9" || drillType == "Decimal18">
       field = vector.getField();
@@ -105,39 +105,44 @@
 </#macro>
 <#macro set drillType accessorType label nullable setFn>
     @Override
-    public boolean set${label}(${accessorType} value) {
+    public void set${label}(${accessorType} value) throws VectorOverflowException {
+      try {
   <#if drillType == "VarChar">
-      byte bytes[] = value.getBytes(Charsets.UTF_8);
-      return mutator.${setFn}(vectorIndex.index(), bytes, 0, bytes.length);
+        byte bytes[] = value.getBytes(Charsets.UTF_8);
+        mutator.${setFn}(vectorIndex.vectorIndex(), bytes, 0, bytes.length);
   <#elseif drillType == "Var16Char">
-      byte bytes[] = value.getBytes(Charsets.UTF_16);
-      return mutator.${setFn}(vectorIndex.index(), bytes, 0, bytes.length);
+        byte bytes[] = value.getBytes(Charsets.UTF_16);
+        mutator.${setFn}(vectorIndex.vectorIndex(), bytes, 0, bytes.length);
   <#elseif drillType == "VarBinary">
-      return mutator.${setFn}(vectorIndex.index(), value, 0, value.length);
+        mutator.${setFn}(vectorIndex.vectorIndex(), value, 0, value.length);
   <#elseif drillType == "Decimal9">
-      return mutator.${setFn}(vectorIndex.index(),
-          DecimalUtility.getDecimal9FromBigDecimal(value,
+        mutator.${setFn}(vectorIndex.vectorIndex(),
+            DecimalUtility.getDecimal9FromBigDecimal(value,
               field.getScale(), field.getPrecision()));
   <#elseif drillType == "Decimal18">
-      return mutator.${setFn}(vectorIndex.index(),
-          DecimalUtility.getDecimal18FromBigDecimal(value,
+        mutator.${setFn}(vectorIndex.vectorIndex(),
+            DecimalUtility.getDecimal18FromBigDecimal(value,
               field.getScale(), field.getPrecision()));
   <#elseif drillType == "IntervalYear">
-      return mutator.${setFn}(vectorIndex.index(), value.getYears() * 12 + value.getMonths());
+        mutator.${setFn}(vectorIndex.vectorIndex(), value.getYears() * 12 + value.getMonths());
   <#elseif drillType == "IntervalDay">
-      return mutator.${setFn}(vectorIndex.index(),<#if nullable> 1,</#if>
+        mutator.${setFn}(vectorIndex.vectorIndex(),<#if nullable> 1,</#if>
                       value.getDays(),
                       ((value.getHours() * 60 + value.getMinutes()) * 60 +
                        value.getSeconds()) * 1000 + value.getMillis());
   <#elseif drillType == "Interval">
-      return mutator.${setFn}(vectorIndex.index(),<#if nullable> 1,</#if>
+        mutator.${setFn}(vectorIndex.vectorIndex(),<#if nullable> 1,</#if>
                       value.getYears() * 12 + value.getMonths(),
                       value.getDays(),
                       ((value.getHours() * 60 + value.getMinutes()) * 60 +
                        value.getSeconds()) * 1000 + value.getMillis());
   <#else>
-      return mutator.${setFn}(vectorIndex.index(), <#if cast=="set">(${javaType}) </#if>value);
+        mutator.${setFn}(vectorIndex.vectorIndex(), <#if cast=="set">(${javaType}) </#if>value);
   </#if>
+      } catch (VectorOverflowException e) {
+        vectorIndex.overflowed();
+        throw e;
+      }
     }
 </#macro>
 
@@ -150,6 +155,8 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.vector.*;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.util.DecimalUtility;
+import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnWriter;
 import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
@@ -212,7 +219,7 @@ public class ColumnAccessors {
 
     @Override
     public boolean isNull() {
-      return accessor().isNull(vectorIndex.index());
+      return accessor().isNull(vectorIndex.vectorIndex());
     }
 
     <@get drillType accessorType label false/>
@@ -226,7 +233,7 @@ public class ColumnAccessors {
 
     @Override
     public int size() {
-      return accessor().getInnerValueCountAt(vectorIndex.index());
+      return accessor().getInnerValueCountAt(vectorIndex.vectorIndex());
     }
 
     <@get drillType accessorType label true/>
@@ -249,7 +256,7 @@ public class ColumnAccessors {
 
     @Override
     public void setNull() {
-      mutator.setNull(vectorIndex.index());
+      mutator.setNull(vectorIndex.vectorIndex());
     }
 
     <@set drillType accessorType label true "setScalar" />

@@ -15,22 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor;
-
-import org.apache.drill.exec.vector.VectorOverflowException;
+package org.apache.drill.exec.vector;
 
 /**
- * Interface for writing to rows via a column writer.
- * Column writers can be obtained by name or index. Column
- * indexes are defined by the tuple schema. Also provides
- * a convenience method to set the column value from a Java
- * object. The caller is responsible for providing the
- * correct object type for each column. (The object type
- * must match the column accessor type.)
+ * Indicates that an attempt to write to a vector overflowed the vector
+ * bounds: either the limit on values or the size of the buffer backing
+ * the vector. This is an expected exception: code must catch it and
+ * properly handle the partially-written, incomplete last row.
  */
 
-public interface TupleWriter extends TupleAccessor {
-  ColumnWriter column(int colIndex);
-  ColumnWriter column(String colName);
-  void set(int colIndex, Object value) throws VectorOverflowException;
+@SuppressWarnings("serial")
+public class VectorOverflowException extends Exception {
+
 }

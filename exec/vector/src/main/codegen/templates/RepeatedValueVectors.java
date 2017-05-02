@@ -339,8 +339,8 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       addSafe(index, bytes, 0, bytes.length);
     }
 
-    public boolean addEntry(int index, byte[] bytes) {
-      return addEntry(index, bytes, 0, bytes.length);
+    public void addEntry(int index, byte[] bytes) throws VectorOverflowException {
+      addEntry(index, bytes, 0, bytes.length);
     }
 
     public void addSafe(int index, byte[] bytes, int start, int length) {
@@ -349,16 +349,13 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       offsets.getMutator().setSafe(index+1, nextOffset+1);
     }
 
-    public boolean addEntry(int index, byte[] bytes, int start, int length) {
+    public void addEntry(int index, byte[] bytes, int start, int length) throws VectorOverflowException {
       if (index >= MAX_ROW_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       final int nextOffset = offsets.getAccessor().get(index+1);
-      if (! values.getMutator().setArrayItem(nextOffset, bytes, start, length)) {
-        return false;
-      }
+      values.getMutator().setArrayItem(nextOffset, bytes, start, length);
       offsets.getMutator().setSafe(index+1, nextOffset+1);
-      return true;
     }
 
     <#else>
@@ -368,16 +365,13 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       offsets.getMutator().setSafe(index+1, nextOffset+1);
     }
 
-    public boolean addEntry(int index, ${minor.javaType!type.javaType} srcValue) {
+    public void addEntry(int index, ${minor.javaType!type.javaType} srcValue) throws VectorOverflowException {
       if (index >= MAX_ROW_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       final int nextOffset = offsets.getAccessor().get(index+1);
-      if (! values.getMutator().setArrayItem(nextOffset, srcValue)) {
-        return false;
-      }
+      values.getMutator().setArrayItem(nextOffset, srcValue);
       offsets.getMutator().setSafe(index+1, nextOffset+1);
-      return true;
     }
 
     </#if>
@@ -392,21 +386,18 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
     }
 
     public void addSafe(int index, ${minor.class}Holder holder) {
-      int nextOffset = offsets.getAccessor().get(index+1);
+      final int nextOffset = offsets.getAccessor().get(index+1);
       values.getMutator().setSafe(nextOffset, holder);
       offsets.getMutator().setSafe(index+1, nextOffset+1);
     }
 
-    public boolean addEntry(int index, ${minor.class}Holder holder) {
+    public void addEntry(int index, ${minor.class}Holder holder) throws VectorOverflowException {
       if (index >= MAX_ROW_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
-      int nextOffset = offsets.getAccessor().get(index+1);
-      if (! values.getMutator().setArrayItem(nextOffset, holder)) {
-        return false;
-      }
+      final int nextOffset = offsets.getAccessor().get(index+1);
+      values.getMutator().setArrayItem(nextOffset, holder);
       offsets.getMutator().setSafe(index+1, nextOffset+1);
-      return true;
     }
 
     public void addSafe(int index, Nullable${minor.class}Holder holder) {
@@ -415,16 +406,13 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       offsets.getMutator().setSafe(index+1, nextOffset+1);
     }
 
-    public boolean addEntry(int index, Nullable${minor.class}Holder holder) {
+    public void addEntry(int index, Nullable${minor.class}Holder holder) throws VectorOverflowException {
       if (index >= MAX_ROW_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       final int nextOffset = offsets.getAccessor().get(index+1);
-      if (! values.getMutator().setArrayItem(nextOffset, holder)) {
-        return false;
-      }
+      values.getMutator().setArrayItem(nextOffset, holder);
       offsets.getMutator().setSafe(index+1, nextOffset+1);
-      return true;
     }
 
     <#if (fields?size > 1) && !(minor.class == "Decimal9" || minor.class == "Decimal18" || minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse" || minor.class == "Decimal28Dense" || minor.class == "Decimal38Dense")>
@@ -434,41 +422,35 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       offsets.getMutator().setSafe(rowIndex+1, nextOffset+1);
     }
 
-    public boolean addEntry(int rowIndex, <#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
+    public void addEntry(int rowIndex, <#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) throws VectorOverflowException {
       if (rowIndex >= MAX_ROW_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
-      int nextOffset = offsets.getAccessor().get(rowIndex+1);
-      if (! values.getMutator().setArrayItem(nextOffset, <#list fields as field>${field.name}<#if field_has_next>, </#if></#list>)) {
-        return false;
-      }
+      final int nextOffset = offsets.getAccessor().get(rowIndex+1);
+      values.getMutator().setArrayItem(nextOffset, <#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
       offsets.getMutator().setSafe(rowIndex+1, nextOffset+1);
-      return true;
     }
 
     </#if>
     <#if minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse">
     public void addSafe(int index, BigDecimal value) {
-      int nextOffset = offsets.getAccessor().get(index+1);
+      final int nextOffset = offsets.getAccessor().get(index+1);
       values.getMutator().setSafe(nextOffset, value);
       offsets.getMutator().setSafe(index+1, nextOffset+1);
     }
 
-    public boolean addEntry(int index, BigDecimal value) {
+    public void addEntry(int index, BigDecimal value) throws VectorOverflowException {
       if (index >= MAX_ROW_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
-      int nextOffset = offsets.getAccessor().get(index+1);
-      if (! values.getMutator().setArrayItem(nextOffset, value)) {
-        return false;
-      }
+      final int nextOffset = offsets.getAccessor().get(index+1);
+      values.getMutator().setArrayItem(nextOffset, value);
       offsets.getMutator().setSafe(index+1, nextOffset+1);
-      return true;
     }
 
     </#if>
     protected void add(int index, ${minor.class}Holder holder) {
-      int nextOffset = offsets.getAccessor().get(index+1);
+      final int nextOffset = offsets.getAccessor().get(index+1);
       values.getMutator().set(nextOffset, holder);
       offsets.getMutator().set(index+1, nextOffset+1);
     }

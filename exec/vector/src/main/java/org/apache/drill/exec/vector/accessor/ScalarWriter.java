@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.accessor;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.vector.VectorOverflowException;
 import org.joda.time.Period;
 
 /**
@@ -27,11 +28,11 @@ import org.joda.time.Period;
  */
 
 public interface ScalarWriter {
-  boolean setInt(int value);
-  boolean setLong(long value);
-  boolean setDouble(double value);
-  boolean setString(String value);
-  boolean setBytes(byte[] value);
-  boolean setDecimal(BigDecimal value);
-  boolean setPeriod(Period value);
+  void setInt(int value) throws VectorOverflowException;
+  void setLong(long value) throws VectorOverflowException;
+  void setDouble(double value) throws VectorOverflowException;
+  void setString(String value) throws VectorOverflowException;
+  void setBytes(byte[] value) throws VectorOverflowException;
+  void setDecimal(BigDecimal value) throws VectorOverflowException;
+  void setPeriod(Period value) throws VectorOverflowException;
 }

@@ -518,8 +518,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       }
     }
 
-    public boolean setScalar(int index, byte[] bytes) {
-      return setScalar(index, bytes, 0, bytes.length);
+    public void setScalar(int index, byte[] bytes) throws VectorOverflowException {
+      setScalar(index, bytes, 0, bytes.length);
     }
 
     /**
@@ -552,22 +552,21 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       }
     }
 
-    public boolean setScalar(int index, DrillBuf bytes, int start, int length) {
+    public void setScalar(int index, DrillBuf bytes, int start, int length) throws VectorOverflowException {
       assert index >= 0;
 
       if (index >= MAX_ROW_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       int currentOffset = offsetVector.getAccessor().get(index);
       final int newSize = currentOffset + length;
       if (newSize > MAX_BUFFER_SIZE) {
-        return false;
+        throw new VectorOverflowException();
       }
       while (! data.setBytesBounded(currentOffset, bytes, start, length)) {
         reAlloc();
       }
       offsetVector.getMutator().setSafe(index + 1, newSize);
-      return true;
     }
 
     public void setSafe(int index, byte[] bytes, int start, int length) {
@@ -586,27 +585,26 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       }
     }
 
-    public boolean setScalar(int index, byte[] bytes, int start, int length) {
+    public void setScalar(int index, byte[] bytes, int start, int length) throws VectorOverflowException {
       if (index >= MAX_ROW_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
-      return setArrayItem(index, bytes, start, length);
+      setArrayItem(index, bytes, start, length);
     }
 
-    public boolean setArrayItem(int index, byte[] bytes, int start, int length) {
+    public void setArrayItem(int index, byte[] bytes, int start, int length) throws VectorOverflowException {
       assert index >= 0;
 
       final int currentOffset = offsetVector.getAccessor().get(index);
       final int newSize = currentOffset + length;
       if (newSize > MAX_BUFFER_SIZE) {
-        return false;
+        throw new VectorOverflowException();
       }
 
       while (! data.setBytesBounded(currentOffset, bytes, start, length)) {
         reAlloc();
       }
       offsetVector.getMutator().setSafe(index + 1, newSize);
-      return true;
     }
 
     @Override
@@ -633,19 +631,19 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       }
     }
 
-    public boolean setScalar(int index, int start, int end, DrillBuf buffer) {
+    public void setScalar(int index, int start, int end, DrillBuf buffer) throws VectorOverflowException {
       if (index >= MAX_ROW_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
-      return setArrayItem(index, start, end, buffer);
+      setArrayItem(index, start, end, buffer);
     }
 
-    public boolean setArrayItem(int index, int start, int end, DrillBuf buffer) {
+    public void setArrayItem(int index, int start, int end, DrillBuf buffer) throws VectorOverflowException {
       final int len = end - start;
       final int outputStart = offsetVector.data.get${(minor.javaType!type.javaType)?cap_first}(index * ${type.width});
       final int newSize = outputStart + len;
       if (newSize > MAX_BUFFER_SIZE) {
-        return false;
+        throw new VectorOverflowException();
       }
 
       offsetVector.getMutator().setSafe(index+1, newSize);
@@ -657,7 +655,6 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
         }
         buffer.getBytes(start, data, outputStart, len);
       }
-      return true;
     }
 
     public void setSafe(int index, Nullable${minor.class}Holder holder) {
@@ -680,14 +677,14 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       offsetVector.getMutator().setSafe(index+1,  outputStart + len);
     }
 
-    public boolean setScalar(int index, Nullable${minor.class}Holder holder) {
+    public void setScalar(int index, Nullable${minor.class}Holder holder) throws VectorOverflowException {
       if (index >= MAX_ROW_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
-      return setArrayItem(index, holder);
+      setArrayItem(index, holder);
     }
 
-    public boolean setArrayItem(int index, Nullable${minor.class}Holder holder) {
+    public void setArrayItem(int index, Nullable${minor.class}Holder holder) throws VectorOverflowException {
       assert holder.isSet == 1;
 
       final int start = holder.start;
@@ -697,7 +694,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       final int outputStart = offsetVector.data.get${(minor.javaType!type.javaType)?cap_first}(index * ${type.width});
       final int newSize = outputStart + len;
       if (newSize > MAX_BUFFER_SIZE) {
-        return false;
+        throw new VectorOverflowException();
       }
 
       try {
@@ -709,7 +706,6 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
         holder.buffer.getBytes(start, data, outputStart, len);
       }
       offsetVector.getMutator().setSafe(index+1, newSize);
-      return true;
     }
 
     public void setSafe(int index, ${minor.class}Holder holder) {
@@ -729,21 +725,21 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       offsetVector.getMutator().setSafe( index+1,  outputStart + len);
     }
 
-    public boolean setScalar(int index, ${minor.class}Holder holder) {
+    public void setScalar(int index, ${minor.class}Holder holder) throws VectorOverflowException {
       if (index >= MAX_ROW_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
-      return setArrayItem(index, holder);
+      setArrayItem(index, holder);
    }
 
-    public boolean setArrayItem(int index, ${minor.class}Holder holder) {
+    public void setArrayItem(int index, ${minor.class}Holder holder) throws VectorOverflowException {
       final int start = holder.start;
       final int end =   holder.end;
       final int len = end - start;
       final int outputStart = offsetVector.data.get${(minor.javaType!type.javaType)?cap_first}(index * ${type.width});
       final int newSize = outputStart + len;
       if (newSize > MAX_BUFFER_SIZE) {
-        return false;
+        throw new VectorOverflowException();
       }
 
       try {
@@ -755,7 +751,6 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
         holder.buffer.getBytes(start, data, outputStart, len);
       }
       offsetVector.getMutator().setSafe( index+1, newSize);
-      return true;
     }
 
     protected void set(int index, int start, int length, DrillBuf buffer){
@@ -781,16 +776,15 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
     }
 
   <#if (minor.class == "VarChar")>
-    public boolean setScalar(int index, String value) {
+    public void setScalar(int index, String value) throws VectorOverflowException {
       if (index >= MAX_ROW_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       // Treat a null string as an empty string.
-      if (value == null) {
-        return true;
+      if (value != null) {
+        byte encoded[] = value.getBytes(Charsets.UTF_8);
+        setScalar(index, encoded, 0, encoded.length);
       }
-      byte encoded[] = value.getBytes(Charsets.UTF_8);
-      return setScalar(index, encoded, 0, encoded.length);
     }
 
   </#if>

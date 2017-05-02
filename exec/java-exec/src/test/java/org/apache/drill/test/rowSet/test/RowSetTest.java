@@ -17,29 +17,29 @@
  */
 package org.apache.drill.test.rowSet.test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
+
+import java.io.UnsupportedEncodingException;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
 import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
-import org.apache.drill.test.rowSet.RowSet.RowSetReader;
-import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
+import org.apache.drill.test.rowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSetSchema;
+import org.apache.drill.test.rowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSetSchema.FlattenedSchema;
 import org.apache.drill.test.rowSet.RowSetSchema.PhysicalSchema;
 import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.bouncycastle.util.Arrays;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -105,6 +105,17 @@ public class RowSetTest {
     assertEquals("b", physical.column(2).field().getName());
   }
 
+  /**
+   * Validate that the actual column metadata is as expected by
+   * cross-checking: validate that the column at the index and
+   * the column at the column name are both correct.
+   *
+   * @param schema the schema for the row set
+   * @param index column index
+   * @param fullName expected column name
+   * @param type expected type
+   */
+
   public void crossCheck(TupleSchema schema, int index, String fullName, MinorType type) {
     String name = null;
     for (String part : Splitter.on(".").split(fullName)) {
@@ -115,6 +126,10 @@ public class RowSetTest {
     assertSame(schema.column(index), schema.column(fullName));
     assertEquals(type, schema.column(index).getType().getMinorType());
   }
+
+  /**
+   * Verify that a nested map schema works as expected.
+   */
 
   @Test
   public void testMapSchema() {
@@ -185,17 +200,13 @@ public class RowSetTest {
     assertEquals("a.e.f", eSchema.column(0).fullName());
   }
 
-  @Test
-  public void testScalarReaderWriter() {
-    testTinyIntRW();
-    testSmallIntRW();
-    testIntRW();
-    testLongRW();
-    testFloatRW();
-    testDoubleRW();
-  }
+  /**
+   * Verify that simple scalar (non-repeated) column readers
+   * and writers work as expected. This is for tiny ints.
+   */
 
-  private void testTinyIntRW() {
+  @Test
+  public void testTinyIntRW() {
     BatchSchema batchSchema = new SchemaBuilder()
         .add("col", MinorType.TINYINT)
         .build();
@@ -204,6 +215,7 @@ public class RowSetTest {
         .add(Byte.MAX_VALUE)
         .add(Byte.MIN_VALUE)
         .build();
+    assertEquals(3, rs.rowCount());
     RowSetReader reader = rs.reader();
     assertTrue(reader.next());
     assertEquals(0, reader.column(0).getInt());
@@ -215,7 +227,8 @@ public class RowSetTest {
     rs.clear();
   }
 
-  private void testSmallIntRW() {
+  @Test
+  public void testSmallIntRW() {
     BatchSchema batchSchema = new SchemaBuilder()
         .add("col", MinorType.SMALLINT)
         .build();
@@ -235,7 +248,8 @@ public class RowSetTest {
     rs.clear();
   }
 
-  private void testIntRW() {
+  @Test
+  public void testIntRW() {
     BatchSchema batchSchema = new SchemaBuilder()
         .add("col", MinorType.INT)
         .build();
@@ -255,7 +269,8 @@ public class RowSetTest {
     rs.clear();
   }
 
-  private void testLongRW() {
+  @Test
+  public void testLongRW() {
     BatchSchema batchSchema = new SchemaBuilder()
         .add("col", MinorType.BIGINT)
         .build();
@@ -275,7 +290,8 @@ public class RowSetTest {
     rs.clear();
   }
 
-  private void testFloatRW() {
+  @Test
+  public void testFloatRW() {
     BatchSchema batchSchema = new SchemaBuilder()
         .add("col", MinorType.FLOAT4)
         .build();
@@ -295,7 +311,8 @@ public class RowSetTest {
     rs.clear();
   }
 
-  private void testDoubleRW() {
+  @Test
+  public void testDoubleRW() {
     BatchSchema batchSchema = new SchemaBuilder()
         .add("col", MinorType.FLOAT8)
         .build();
@@ -314,6 +331,11 @@ public class RowSetTest {
     assertFalse(reader.next());
     rs.clear();
   }
+
+  /**
+   * Test writing to and reading from a row set with nested maps.
+   * Map fields are flattened into a logical schema.
+   */
 
   @Test
   public void testMap() {
@@ -343,8 +365,13 @@ public class RowSetTest {
     rs.clear();
   }
 
+  /**
+   * Test an array of ints (as an example fixed-width type)
+   * at the top level of a schema.
+   */
+
   @Test
-  public void TestTopScalarArray() {
+  public void TestTopFixedWidthArray() {
     BatchSchema batchSchema = new SchemaBuilder()
         .add("c", MinorType.INT)
         .addArray("a", MinorType.INT)
@@ -352,19 +379,23 @@ public class RowSetTest {
 
     ExtendableRowSet rs1 = fixture.rowSet(batchSchema);
     RowSetWriter writer = rs1.writer();
-    writer.column(0).setInt(10);
-    ArrayWriter array = writer.column(1).array();
-    array.setInt(100);
-    array.setInt(110);
-    writer.save();
-    writer.column(0).setInt(20);
-    array = writer.column(1).array();
-    array.setInt(200);
-    array.setInt(120);
-    array.setInt(220);
-    writer.save();
-    writer.column(0).setInt(30);
-    writer.save();
+    try {
+      writer.column(0).setInt(10);
+      ArrayWriter array = writer.column(1).array();
+      array.setInt(100);
+      array.setInt(110);
+      writer.save();
+      writer.column(0).setInt(20);
+      array = writer.column(1).array();
+      array.setInt(200);
+      array.setInt(120);
+      array.setInt(220);
+      writer.save();
+      writer.column(0).setInt(30);
+      writer.save();
+    } catch (VectorOverflowException e) {
+      fail("Should not overflow vector");
+    }
     writer.done();
 
     RowSetReader reader = rs1.reader();
@@ -395,6 +426,94 @@ public class RowSetTest {
 
     new RowSetComparison(rs1)
       .verifyAndClear(rs2);
+  }
+
+  /**
+   * Test filling a row set up to the maximum number of rows.
+   * Values are small enough to prevent filling to the
+   * maximum buffer size.
+   */
+
+  @Test
+  public void testRowBounds() {
+    BatchSchema batchSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .build();
+
+    ExtendableRowSet rs = fixture.rowSet(batchSchema);
+    RowSetWriter writer = rs.writer();
+    int count = 0;
+    for (;;) {
+      if (! writer.valid()) {
+        break;
+      }
+      try {
+        writer.column(0).setInt(count++);
+      } catch (VectorOverflowException e) {
+        fail("Int vector should not overflow");
+      }
+      writer.save();
+    }
+    writer.done();
+
+    assertEquals(ValueVector.MAX_ROW_COUNT, count);
+    // The writer index points past the writable area.
+    // But, this is fine, the valid() method says we can't
+    // write at this location.
+    assertEquals(ValueVector.MAX_ROW_COUNT, writer.rowIndex());
+    assertEquals(ValueVector.MAX_ROW_COUNT, rs.rowCount());
+    rs.clear();
+  }
+
+  /**
+   * Test filling a row set up to the maximum vector size.
+   * Values in the first column are small enough to prevent filling to the
+   * maximum buffer size, but values in the second column
+   * will reach maximum buffer size before maximum row size.
+   * The result should be the number of rows that fit, with the
+   * partial last row not counting. (A complete application would
+   * reload the partial row into a new row set.)
+   */
+
+  @Test
+  public void testbufferBounds() {
+    BatchSchema batchSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .build();
+
+    String varCharValue;
+    try {
+      byte rawValue[] = new byte[512];
+      Arrays.fill(rawValue, (byte) 'X');
+      varCharValue = new String(rawValue, "UTF-8");
+    } catch (UnsupportedEncodingException e) {
+      throw new IllegalStateException(e);
+    }
+
+    ExtendableRowSet rs = fixture.rowSet(batchSchema);
+    RowSetWriter writer = rs.writer();
+    int count = 0;
+    for (;; count++) {
+      assertTrue(writer.valid());
+      try {
+        writer.column(0).setInt(count);
+      } catch (VectorOverflowException e) {
+        fail("Int vector should not overflow");
+      }
+      try {
+        writer.column(1).setString(varCharValue);
+      } catch (VectorOverflowException e) {
+        break;
+      }
+      writer.save();
+    }
+    writer.done();
+
+    assertTrue(count < ValueVector.MAX_ROW_COUNT);
+    assertEquals(count, writer.rowIndex());
+    assertEquals(count, rs.rowCount());
+    rs.clear();
   }
 
 }

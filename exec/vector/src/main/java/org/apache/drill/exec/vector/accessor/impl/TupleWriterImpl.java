@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.accessor.impl;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.AccessorUtilities;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnAccessor.ValueType;
@@ -60,7 +61,7 @@ public class TupleWriterImpl extends AbstractTupleAccessor implements TupleWrite
   }
 
   @Override
-  public void set(int colIndex, Object value) {
+  public void set(int colIndex, Object value) throws VectorOverflowException {
     ColumnWriter colWriter = column(colIndex);
     if (value == null) {
       // Arrays have no null concept, just an empty array.
@@ -95,7 +96,7 @@ public class TupleWriterImpl extends AbstractTupleAccessor implements TupleWrite
     }
   }
 
-  public void setArray(int colIndex, Object value) {
+  public void setArray(int colIndex, Object value) throws VectorOverflowException {
     if (value == null) {
       // Assume null means a 0-element array since Drill does
       // not support null for the whole array.

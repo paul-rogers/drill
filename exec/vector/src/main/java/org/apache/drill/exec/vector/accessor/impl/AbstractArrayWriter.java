@@ -20,7 +20,9 @@ package org.apache.drill.exec.vector.accessor.impl;
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
 import org.joda.time.Period;
 
@@ -31,7 +33,7 @@ import org.joda.time.Period;
  * subclasses are generated for each repeated value vector type.
  */
 
-public abstract class AbstractArrayWriter extends AbstractColumnAccessor implements ArrayWriter {
+public abstract class AbstractArrayWriter implements ArrayWriter {
 
   /**
    * Column writer that provides access to an array column by returning a
@@ -57,7 +59,7 @@ public abstract class AbstractArrayWriter extends AbstractColumnAccessor impleme
     }
 
     @Override
-    public void bind(RowIndex rowIndex, ValueVector vector) {
+    public void bind(ColumnWriterIndex rowIndex, ValueVector vector) {
       arrayWriter.bind(rowIndex, vector);
       vectorIndex = rowIndex;
     }
@@ -73,15 +75,23 @@ public abstract class AbstractArrayWriter extends AbstractColumnAccessor impleme
      */
 
     public void start() {
-      arrayWriter.mutator().startNewValue(vectorIndex.index());
+      arrayWriter.mutator().startNewValue(vectorIndex.vectorIndex());
     }
+  }
+
+  protected ColumnWriterIndex vectorIndex;
+
+  public abstract void bind(ColumnWriterIndex rowIndex, ValueVector vector);
+
+  protected void bind(ColumnWriterIndex rowIndex) {
+    this.vectorIndex = rowIndex;
   }
 
   protected abstract BaseRepeatedValueVector.BaseRepeatedMutator mutator();
 
   @Override
   public int size() {
-    return mutator().getInnerValueCountAt(vectorIndex.index());
+    return mutator().getInnerValueCountAt(vectorIndex.vectorIndex());
   }
 
   @Override
@@ -91,37 +101,37 @@ public abstract class AbstractArrayWriter extends AbstractColumnAccessor impleme
   }
 
   @Override
-  public boolean setInt(int value) {
+  public void setInt(int value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public boolean setLong(long value) {
+  public void setLong(long value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public boolean setDouble(double value) {
+  public void setDouble(double value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public boolean setString(String value) {
+  public void setString(String value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public boolean setBytes(byte[] value) {
+  public void setBytes(byte[] value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public boolean setDecimal(BigDecimal value) {
+  public void setDecimal(BigDecimal value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public boolean setPeriod(Period value) {
+  public void setPeriod(Period value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 }

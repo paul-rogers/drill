@@ -15,22 +15,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor;
+package org.apache.drill.test.rowSet;
 
-import org.apache.drill.exec.vector.VectorOverflowException;
+import org.apache.drill.exec.vector.accessor.TupleReader;
 
 /**
- * Interface for writing to rows via a column writer.
- * Column writers can be obtained by name or index. Column
- * indexes are defined by the tuple schema. Also provides
- * a convenience method to set the column value from a Java
- * object. The caller is responsible for providing the
- * correct object type for each column. (The object type
- * must match the column accessor type.)
+ * Reader for all types of row sets.
  */
 
-public interface TupleWriter extends TupleAccessor {
-  ColumnWriter column(int colIndex);
-  ColumnWriter column(String colName);
-  void set(int colIndex, Object value) throws VectorOverflowException;
+public interface RowSetReader extends TupleReader {
+
+  /**
+   * Total number of rows in the row set.
+   * @return total number of rows
+   */
+  int size();
+
+  boolean next();
+  int index();
+  void set(int index);
+
+  /**
+   * Batch index: 0 for a single batch, batch for the current
+   * row is a hyper-batch.
+   * @return index of the batch for the current row
+   */
+  int batchIndex();
+
+  /**
+   * The index of the underlying row which may be indexed by an
+   * Sv2 or Sv4.
+   *
+   * @return
+   */
+
+  int rowIndex();
+  boolean valid();
 }

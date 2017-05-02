@@ -59,6 +59,7 @@ import org.apache.drill.exec.vector.complex.reader.FieldReader;
  * </blockquote>
  */
 public interface ValueVector extends Closeable, Iterable<ValueVector> {
+
   /**
    * Maximum allowed size of the buffer backing a value vector.
    */

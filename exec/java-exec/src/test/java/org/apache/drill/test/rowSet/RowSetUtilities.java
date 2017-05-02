@@ -19,10 +19,10 @@ package org.apache.drill.test.rowSet;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.selection.SelectionVector2;
+import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.AccessorUtilities;
 import org.apache.drill.exec.vector.accessor.ColumnAccessor.ValueType;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
-import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.joda.time.Duration;
 import org.joda.time.Period;
 
@@ -59,9 +59,10 @@ public class RowSetUtilities {
    * @param rowWriter
    * @param index
    * @param value
+   * @throws VectorOverflowException
    */
 
-  public static void setFromInt(RowSetWriter rowWriter, int index, int value) {
+  public static void setFromInt(RowSetWriter rowWriter, int index, int value) throws VectorOverflowException {
     ColumnWriter writer = rowWriter.column(index);
     if (writer.valueType() == ValueType.PERIOD) {
       setPeriodFromInt(writer, rowWriter.schema().column(index).getType().getMinorType(), value);
@@ -81,10 +82,11 @@ public class RowSetUtilities {
    * @param writer column writer for a period column
    * @param minorType the Drill data type
    * @param value the integer value to apply
+   * @throws VectorOverflowException
    */
 
   public static void setPeriodFromInt(ColumnWriter writer, MinorType minorType,
-      int value) {
+      int value) throws VectorOverflowException {
     switch (minorType) {
     case INTERVAL:
       writer.setPeriod(Duration.millis(value).toPeriod());

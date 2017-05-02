@@ -29,6 +29,7 @@ import org.apache.drill.exec.vector.NullableVarCharVector;
 import org.apache.drill.exec.vector.RepeatedIntVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VarCharVector;
+import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.OperatorFixture;
 import org.bouncycastle.util.Arrays;
@@ -92,7 +93,9 @@ public class TestVectorLimits extends DrillTest {
 
     IntVector.Mutator mutator = vector.getMutator();
     for (int i = 0; i < 2 * ValueVector.MAX_ROW_COUNT; i++) {
-      if (! mutator.setScalar(i, i)) {
+      try {
+        mutator.setScalar(i, i);
+      } catch (VectorOverflowException e) {
         assertEquals(IntVector.MAX_SCALAR_COUNT, i);
         break;
       }
@@ -116,7 +119,9 @@ public class TestVectorLimits extends DrillTest {
 
     NullableIntVector.Mutator mutator = vector.getMutator();
     for (int i = 0; i < 2 * ValueVector.MAX_ROW_COUNT; i++) {
-      if (! mutator.setScalar(i, i)) {
+      try {
+        mutator.setScalar(i, i);
+      } catch (VectorOverflowException e) {
         assertEquals(IntVector.MAX_SCALAR_COUNT, i);
         break;
       }
@@ -146,7 +151,9 @@ public class TestVectorLimits extends DrillTest {
         // Continue, let's check the addBounded method also
       }
       for (int j = 0; j < 10; j++) {
-        if (! mutator.addEntry(i, i * 100 + j)) {
+        try {
+          mutator.addEntry(i, i * 100 + j);
+        } catch (VectorOverflowException e) {
           assertEquals(ValueVector.MAX_ROW_COUNT, i);
           mutator.setValueCount(i);
           break top;
@@ -176,7 +183,9 @@ public class TestVectorLimits extends DrillTest {
       // We'll never hit the value count limit
       assertTrue(mutator.startNewValueBounded(i));
       for (int j = 0; j < 100; j++) {
-        if (! mutator.addEntry(i, i * 100 + j)) {
+        try {
+          mutator.addEntry(i, i * 100 + j);
+        } catch (VectorOverflowException e) {
           // We should have hit the buffer limit before the value limit.
           assertTrue(i < ValueVector.MAX_ROW_COUNT);
           mutator.setValueCount(i);
@@ -257,7 +266,9 @@ public class TestVectorLimits extends DrillTest {
     VarCharVector.Mutator mutator = vector.getMutator();
     int count = 0;
     for ( ; count < 2 * ValueVector.MAX_ROW_COUNT; count++) {
-      if (! mutator.setScalar(count, dummyValue, 0, dummyValue.length)) {
+      try {
+        mutator.setScalar(count, dummyValue, 0, dummyValue.length);
+      } catch (VectorOverflowException e) {
         break;
       }
     }
@@ -289,7 +300,9 @@ public class TestVectorLimits extends DrillTest {
     NullableVarCharVector.Mutator mutator = vector.getMutator();
     int count = 0;
     for ( ; count < 2 * ValueVector.MAX_ROW_COUNT; count++) {
-      if (! mutator.setScalar(count, dummyValue, 0, dummyValue.length)) {
+      try {
+        mutator.setScalar(count, dummyValue, 0, dummyValue.length);
+      } catch (VectorOverflowException e) {
         break;
       }
     }
@@ -320,7 +333,9 @@ public class TestVectorLimits extends DrillTest {
     VarCharVector.Mutator mutator = vector.getMutator();
     int count = 0;
     for (; count < 2 * ValueVector.MAX_ROW_COUNT; count++) {
-      if (! mutator.setScalar(count, dummyValue, 0, dummyValue.length)) {
+      try {
+        mutator.setScalar(count, dummyValue, 0, dummyValue.length);
+      } catch (VectorOverflowException e) {
         break;
       }
     }
@@ -355,7 +370,9 @@ public class TestVectorLimits extends DrillTest {
     VarCharVector.Mutator mutator = vector.getMutator();
     int count = 0;
     for (; count < 2 * ValueVector.MAX_ROW_COUNT; count++) {
-      if (! mutator.setScalar(count, drillBuf, 0, 260)) {
+      try {
+        mutator.setScalar(count, drillBuf, 0, 260);
+      } catch (VectorOverflowException e) {
         break;
       }
     }
@@ -389,7 +406,9 @@ public class TestVectorLimits extends DrillTest {
     NullableVarCharVector.Mutator mutator = vector.getMutator();
     int count = 0;
     for (; count < 2 * ValueVector.MAX_ROW_COUNT; count++) {
-      if (! mutator.setScalar(count, drillBuf, 0, 260)) {
+      try {
+        mutator.setScalar(count, drillBuf, 0, 260);
+      } catch (VectorOverflowException e) {
         break;
       }
     }
@@ -450,7 +469,9 @@ public class TestVectorLimits extends DrillTest {
       VarCharVector.Mutator mutator = vector.getMutator();
       int posn = 0;
       for (;;) {
-        if (! mutator.setScalar(posn++, value, 0, value.length)) {
+        try {
+          mutator.setScalar(posn++, value, 0, value.length);
+        } catch (VectorOverflowException e) {
           break;
         }
       }

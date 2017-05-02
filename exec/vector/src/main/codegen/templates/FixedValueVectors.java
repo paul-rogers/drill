@@ -642,12 +642,11 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
      * overfill the vector
      */
 
-    public boolean setScalar(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
+    public void setScalar(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#else>int</#if> value) throws VectorOverflowException {
       if (index >= MAX_SCALAR_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, value);
-      return true;
     }
 
     /**
@@ -657,12 +656,11 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
      * overfill the vector
      */
 
-    public boolean setArrayItem(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
+    public void setArrayItem(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#else>int</#if> value) throws VectorOverflowException {
       if (index >= MAX_VALUE_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, value);
-      return true;
     }
 
     <#if minor.class == "Interval">
@@ -680,20 +678,18 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       set(index, months, days, milliseconds);
     }
 
-    public boolean setScalar(int index, int months, int days, int milliseconds) {
+    public void setScalar(int index, int months, int days, int milliseconds) throws VectorOverflowException {
       if (index >= MAX_SCALAR_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, months, days, milliseconds);
-      return true;
     }
 
-    public boolean setArrayItem(int index, int months, int days, int milliseconds) {
+    public void setArrayItem(int index, int months, int days, int milliseconds) throws VectorOverflowException {
       if (index >= MAX_VALUE_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, months, days, milliseconds);
-      return true;
     }
 
     protected void set(int index, ${minor.class}Holder holder) {
@@ -704,12 +700,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       setSafe(index, holder.months, holder.days, holder.milliseconds);
     }
 
-    public boolean setScalar(int index, ${minor.class}Holder holder) {
-      return setScalar(index, holder.months, holder.days, holder.milliseconds);
+    public void setScalar(int index, ${minor.class}Holder holder) throws VectorOverflowException {
+      setScalar(index, holder.months, holder.days, holder.milliseconds);
     }
 
-    public boolean setArrayItem(int index, ${minor.class}Holder holder) {
-      return setArrayItem(index, holder.months, holder.days, holder.milliseconds);
+    public void setArrayItem(int index, ${minor.class}Holder holder) throws VectorOverflowException {
+      setArrayItem(index, holder.months, holder.days, holder.milliseconds);
     }
 
     protected void set(int index, Nullable${minor.class}Holder holder) {
@@ -720,12 +716,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       setSafe(index, holder.months, holder.days, holder.milliseconds);
     }
 
-    public boolean setScalar(int index, Nullable${minor.class}Holder holder) {
-      return setScalar(index, holder.months, holder.days, holder.milliseconds);
+    public void setScalar(int index, Nullable${minor.class}Holder holder) throws VectorOverflowException {
+      setScalar(index, holder.months, holder.days, holder.milliseconds);
     }
 
-    public boolean setArrayItem(int index, Nullable${minor.class}Holder holder) {
-      return setArrayItem(index, holder.months, holder.days, holder.milliseconds);
+    public void setArrayItem(int index, Nullable${minor.class}Holder holder) throws VectorOverflowException {
+      setArrayItem(index, holder.months, holder.days, holder.milliseconds);
     }
 
     <#elseif minor.class == "IntervalDay">
@@ -742,36 +738,34 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       set(index, days, milliseconds);
     }
 
-    public boolean setScalar(int index, int days, int milliseconds) {
+    public void setScalar(int index, int days, int milliseconds) throws VectorOverflowException {
       if (index >= MAX_SCALAR_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, days, milliseconds);
-      return true;
     }
 
-    public boolean setArrayItem(int index, int days, int milliseconds) {
+    public void setArrayItem(int index, int days, int milliseconds) throws VectorOverflowException {
       if (index >= MAX_VALUE_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, days, milliseconds);
-      return true;
     }
 
     protected void set(int index, ${minor.class}Holder holder) {
       set(index, holder.days, holder.milliseconds);
     }
 
-    public void setSafe(int index, ${minor.class}Holder holder){
+    public void setSafe(int index, ${minor.class}Holder holder) {
       setSafe(index, holder.days, holder.milliseconds);
     }
 
-    public boolean setScalar(int index, ${minor.class}Holder holder){
-      return setScalar(index, holder.days, holder.milliseconds);
+    public void setScalar(int index, ${minor.class}Holder holder) throws VectorOverflowException {
+      setScalar(index, holder.days, holder.milliseconds);
     }
 
-    public boolean setArrayItem(int index, ${minor.class}Holder holder){
-      return setArrayItem(index, holder.days, holder.milliseconds);
+    public void setArrayItem(int index, ${minor.class}Holder holder) throws VectorOverflowException {
+      setArrayItem(index, holder.days, holder.milliseconds);
     }
 
     protected void set(int index, Nullable${minor.class}Holder holder) {
@@ -782,12 +776,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       setSafe(index, holder.days, holder.milliseconds);
     }
 
-    public boolean setScalar(int index, Nullable${minor.class}Holder holder) {
-      return setScalar(index, holder.days, holder.milliseconds);
+    public void setScalar(int index, Nullable${minor.class}Holder holder) throws VectorOverflowException {
+      setScalar(index, holder.days, holder.milliseconds);
     }
 
-    public boolean setArrayItem(int index, Nullable${minor.class}Holder holder) {
-      return setArrayItem(index, holder.days, holder.milliseconds);
+    public void setArrayItem(int index, Nullable${minor.class}Holder holder) throws VectorOverflowException {
+      setArrayItem(index, holder.days, holder.milliseconds);
     }
 
     <#elseif minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse" || minor.class == "Decimal28Dense" || minor.class == "Decimal38Dense">
@@ -798,20 +792,18 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       set(index, start, buffer);
     }
 
-    public boolean setScalar(int index, int start, DrillBuf buffer) {
+    public void setScalar(int index, int start, DrillBuf buffer) throws VectorOverflowException {
       if (index >= MAX_SCALAR_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, start, buffer);
-      return true;
     }
 
-    public boolean setArrayItem(int index, int start, DrillBuf buffer) {
+    public void setArrayItem(int index, int start, DrillBuf buffer) throws VectorOverflowException {
       if (index >= MAX_VALUE_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, start, buffer);
-      return true;
     }
 
     public void set(int index, ${minor.class}Holder holder) {
@@ -822,12 +814,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       setSafe(index, holder.start, holder.buffer);
     }
 
-    public boolean setScalar(int index, ${minor.class}Holder holder) {
-      return setScalar(index, holder.start, holder.buffer);
+    public void setScalar(int index, ${minor.class}Holder holder) throws VectorOverflowException {
+      setScalar(index, holder.start, holder.buffer);
     }
 
-    public boolean setArrayItem(int index, ${minor.class}Holder holder) {
-      return setArrayItem(index, holder.start, holder.buffer);
+    public void setArrayItem(int index, ${minor.class}Holder holder) throws VectorOverflowException {
+      setArrayItem(index, holder.start, holder.buffer);
     }
 
     void set(int index, Nullable${minor.class}Holder holder) {
@@ -838,12 +830,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       setSafe(index, holder.start, holder.buffer);
     }
 
-    public boolean setScalar(int index, Nullable${minor.class}Holder holder) {
-      return setScalar(index, holder.start, holder.buffer);
+    public void setScalar(int index, Nullable${minor.class}Holder holder) throws VectorOverflowException {
+      setScalar(index, holder.start, holder.buffer);
     }
 
-    public boolean setArrayItem(int index, Nullable${minor.class}Holder holder) {
-      return setArrayItem(index, holder.start, holder.buffer);
+    public void setArrayItem(int index, Nullable${minor.class}Holder holder) throws VectorOverflowException {
+      setArrayItem(index, holder.start, holder.buffer);
     }
 
       <#if minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse">
@@ -859,20 +851,18 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       set(index, value);
     }
 
-    public boolean setScalar(int index, BigDecimal value) {
+    public void setScalar(int index, BigDecimal value) throws VectorOverflowException {
       if (index >= MAX_SCALAR_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, value);
-      return true;
     }
 
-    public boolean setArrayItem(int index, BigDecimal value) {
+    public void setArrayItem(int index, BigDecimal value) throws VectorOverflowException {
       if (index >= MAX_VALUE_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, value);
-      return true;
     }
 
       </#if>
@@ -914,12 +904,11 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
      * overfill the vector
      */
 
-    public boolean setScalar(int index, <#if (type.width >= 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
+    public void setScalar(int index, <#if (type.width >= 4)>${minor.javaType!type.javaType}<#else>int</#if> value) throws VectorOverflowException {
       if (index >= MAX_SCALAR_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, value);
-      return true;
     }
 
     /**
@@ -929,12 +918,11 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
      * overfill the vector
      */
 
-    public boolean setArrayItem(int index, <#if (type.width >= 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
+    public void setArrayItem(int index, <#if (type.width >= 4)>${minor.javaType!type.javaType}<#else>int</#if> value) throws VectorOverflowException {
       if (index >= MAX_VALUE_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, value);
-      return true;
     }
 
     protected void set(int index, ${minor.class}Holder holder) {
@@ -948,20 +936,18 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       set(index, holder);
     }
 
-    public boolean setScalar(int index, ${minor.class}Holder holder) {
+    public void setScalar(int index, ${minor.class}Holder holder) throws VectorOverflowException {
       if (index >= MAX_SCALAR_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, holder);
-      return true;
     }
 
-    public boolean setArrayItem(int index, ${minor.class}Holder holder) {
+    public void setArrayItem(int index, ${minor.class}Holder holder) throws VectorOverflowException {
       if (index >= MAX_VALUE_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, holder);
-      return true;
     }
 
     protected void set(int index, Nullable${minor.class}Holder holder) {
@@ -975,20 +961,18 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       set(index, holder);
     }
 
-    public boolean setScalar(int index, Nullable${minor.class}Holder holder) {
+    public void setScalar(int index, Nullable${minor.class}Holder holder) throws VectorOverflowException {
       if (index >= MAX_SCALAR_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, holder);
-      return true;
     }
 
-    public boolean setArrayItem(int index, Nullable${minor.class}Holder holder) {
+    public void setArrayItem(int index, Nullable${minor.class}Holder holder) throws VectorOverflowException {
       if (index >= MAX_VALUE_COUNT) {
-        return false;
+        throw new VectorOverflowException();
       }
       setSafe(index, holder);
-      return true;
     }
 
     @Override
