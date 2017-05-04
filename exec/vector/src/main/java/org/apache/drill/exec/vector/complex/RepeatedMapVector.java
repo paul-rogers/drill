@@ -401,6 +401,11 @@ public class RepeatedMapVector extends AbstractMapVector
   }
 
   @Override
+  public void copyEntry(int toIndex, ValueVector from, int fromIndex) {
+    copyFromSafe(fromIndex, toIndex, (RepeatedMapVector) from);
+  }
+
+  @Override
   public int getValueCapacity() {
     return Math.max(offsets.getValueCapacity() - 1, 0);
   }
@@ -417,7 +422,6 @@ public class RepeatedMapVector extends AbstractMapVector
     //Preconditions.checkArgument(expectedBufferSize == actualBufferSize + offsets.getBufferSize());
     return ArrayUtils.addAll(offsets.getBuffers(clear), super.getBuffers(clear));
   }
-
 
   @Override
   public void load(SerializedField metadata, DrillBuf buffer) {

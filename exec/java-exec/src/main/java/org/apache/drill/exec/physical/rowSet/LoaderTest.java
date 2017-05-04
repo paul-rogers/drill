@@ -77,4 +77,9 @@ public class LoaderTest extends SubOperatorTest {
       .verifyAndClear(result);
   }
 
+  // Test case sensitive and case insensitive
+  // Test name collisions: case insensitive
+  // Test name collisions: case sensitive
+  // Test name aliases: "a" and "A".
+
 }

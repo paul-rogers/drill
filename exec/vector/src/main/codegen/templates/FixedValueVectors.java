@@ -321,6 +321,11 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     copyFrom(fromIndex, thisIndex, from);
   }
 
+  @Override
+  public void copyEntry(int toIndex, ValueVector from, int fromIndex) {
+    ((${minor.class}Vector) from).data.getBytes(fromIndex * ${type.width}, data, toIndex * ${type.width}, ${type.width});
+  }
+
   public void decrementAllocationMonitor() {
     if (allocationMonitor > 0) {
       allocationMonitor = 0;
@@ -515,25 +520,23 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     <#if minor.class == "Date">
     @Override
     public ${friendlyType} getObject(int index) {
-        org.joda.time.DateTime date = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
-        date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
-        return date;
+      org.joda.time.DateTime date = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
+      date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      return date;
     }
 
     <#elseif minor.class == "TimeStamp">
     @Override
     public ${friendlyType} getObject(int index) {
-        org.joda.time.DateTime date = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
-        date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
-        return date;
+      org.joda.time.DateTime date = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
+      date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      return date;
     }
 
     <#elseif minor.class == "IntervalYear">
     @Override
     public ${friendlyType} getObject(int index) {
-
       final int value = get(index);
-
       final int years  = (value / org.apache.drill.exec.expr.fn.impl.DateUtility.yearsToMonths);
       final int months = (value % org.apache.drill.exec.expr.fn.impl.DateUtility.yearsToMonths);
       final Period p = new Period();
@@ -558,18 +561,16 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     <#elseif minor.class == "Time">
     @Override
     public DateTime getObject(int index) {
-
-        org.joda.time.DateTime time = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
-        time = time.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
-        return time;
+      org.joda.time.DateTime time = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
+      time = time.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
+      return time;
     }
 
     <#elseif minor.class == "Decimal9" || minor.class == "Decimal18">
     @Override
     public ${friendlyType} getObject(int index) {
-
-        final BigInteger value = BigInteger.valueOf(((${type.boxedType})get(index)).${type.javaType}Value());
-        return new BigDecimal(value, getField().getScale());
+      final BigInteger value = BigInteger.valueOf(((${type.boxedType})get(index)).${type.javaType}Value());
+      return new BigDecimal(value, getField().getScale());
     }
 
     <#else>

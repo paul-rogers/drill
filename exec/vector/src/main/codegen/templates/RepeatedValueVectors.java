@@ -178,6 +178,11 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
     }
   }
 
+  @Override
+  public void copyEntry(int toIndex, ValueVector from, int fromIndex) {
+    copyFromSafe(fromIndex, toIndex, (Repeated${minor.class}Vector) from);
+  }
+
   public boolean allocateNewSafe() {
     /* boolean to keep track if all the memory allocation were successful
      * Used in the case of composite vectors when we need to allocate multiple
