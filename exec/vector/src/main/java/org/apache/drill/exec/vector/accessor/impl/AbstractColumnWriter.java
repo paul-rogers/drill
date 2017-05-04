@@ -44,6 +44,8 @@ public abstract class AbstractColumnWriter implements ColumnWriter {
     this.vectorIndex = rowIndex;
   }
 
+  public ColumnWriterIndex vectorIndex() { return vectorIndex; }
+
   public void start() { }
 
   @Override
