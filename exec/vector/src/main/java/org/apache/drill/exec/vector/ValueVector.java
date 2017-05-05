@@ -216,6 +216,13 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   int getPayloadByteCount();
 
   /**
+   * Exchange state with another value vector of the same type.
+   * Used to implement look-ahead writers.
+   */
+
+  void exchange(ValueVector other);
+
+  /**
    * An abstraction that is used to read from this vector instance.
    */
   interface Accessor {
@@ -259,5 +266,12 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
      */
     @Deprecated
     void generateTestData(int values);
+
+    /**
+     * Exchanges state with the mutator of another mutator. Used when exchanging
+     * state with another vector.
+     */
+
+    void exchange(Mutator other);
   }
 }

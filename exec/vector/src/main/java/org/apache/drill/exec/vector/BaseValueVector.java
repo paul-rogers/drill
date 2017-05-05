@@ -108,6 +108,10 @@ public abstract class BaseValueVector implements ValueVector {
     //TODO: consider making mutator stateless(if possible) on another issue.
     @Override
     public void reset() {}
+
+    // TODO: If mutator becomes stateless, remove this method.
+    @Override
+    public void exchange(ValueVector.Mutator other) { }
   }
 
   @Override

@@ -91,16 +91,24 @@ public class SchemaBuilder {
   public SchemaBuilder() { }
 
   public SchemaBuilder add(String pathName, MajorType type) {
-    MaterializedField col = MaterializedField.create(pathName, type);
+    return add(MaterializedField.create(pathName, type));
+  }
+
+  public SchemaBuilder add(MaterializedField col) {
     columns.add(col);
     return this;
   }
 
+  public static MaterializedField columnSchema(String pathName, MinorType type, DataMode mode) {
+    return MaterializedField.create(pathName,
+        MajorType.newBuilder()
+          .setMinorType(type)
+          .setMode(mode)
+          .build());
+  }
+
   public SchemaBuilder add(String pathName, MinorType type, DataMode mode) {
-    return add(pathName, MajorType.newBuilder()
-        .setMinorType(type)
-        .setMode(mode)
-        .build());
+    return add(columnSchema(pathName, type, mode));
   }
 
   public SchemaBuilder add(String pathName, MinorType type) {

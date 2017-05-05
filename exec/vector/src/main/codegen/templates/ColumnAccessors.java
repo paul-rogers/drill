@@ -107,38 +107,40 @@
     @Override
     public void set${label}(${accessorType} value) throws VectorOverflowException {
       try {
+        final int writeIndex = vectorIndex.vectorIndex();
   <#if drillType == "VarChar">
-        byte bytes[] = value.getBytes(Charsets.UTF_8);
-        mutator.${setFn}(vectorIndex.vectorIndex(), bytes, 0, bytes.length);
+        final byte bytes[] = value.getBytes(Charsets.UTF_8);
+        mutator.${setFn}(writeIndex, bytes, 0, bytes.length);
   <#elseif drillType == "Var16Char">
-        byte bytes[] = value.getBytes(Charsets.UTF_16);
-        mutator.${setFn}(vectorIndex.vectorIndex(), bytes, 0, bytes.length);
+        final byte bytes[] = value.getBytes(Charsets.UTF_16);
+        mutator.${setFn}(writeIndex, bytes, 0, bytes.length);
   <#elseif drillType == "VarBinary">
-        mutator.${setFn}(vectorIndex.vectorIndex(), value, 0, value.length);
+        mutator.${setFn}(writeIndex, value, 0, value.length);
   <#elseif drillType == "Decimal9">
-        mutator.${setFn}(vectorIndex.vectorIndex(),
+        mutator.${setFn}(writeIndex,
             DecimalUtility.getDecimal9FromBigDecimal(value,
               field.getScale(), field.getPrecision()));
   <#elseif drillType == "Decimal18">
-        mutator.${setFn}(vectorIndex.vectorIndex(),
+        mutator.${setFn}(writeIndex,
             DecimalUtility.getDecimal18FromBigDecimal(value,
               field.getScale(), field.getPrecision()));
   <#elseif drillType == "IntervalYear">
-        mutator.${setFn}(vectorIndex.vectorIndex(), value.getYears() * 12 + value.getMonths());
+        mutator.${setFn}(writeIndex, value.getYears() * 12 + value.getMonths());
   <#elseif drillType == "IntervalDay">
-        mutator.${setFn}(vectorIndex.vectorIndex(),<#if nullable> 1,</#if>
+        mutator.${setFn}(writeIndex,<#if nullable> 1,</#if>
                       value.getDays(),
                       ((value.getHours() * 60 + value.getMinutes()) * 60 +
                        value.getSeconds()) * 1000 + value.getMillis());
   <#elseif drillType == "Interval">
-        mutator.${setFn}(vectorIndex.vectorIndex(),<#if nullable> 1,</#if>
+        mutator.${setFn}(writeIndex,<#if nullable> 1,</#if>
                       value.getYears() * 12 + value.getMonths(),
                       value.getDays(),
                       ((value.getHours() * 60 + value.getMinutes()) * 60 +
                        value.getSeconds()) * 1000 + value.getMillis());
   <#else>
-        mutator.${setFn}(vectorIndex.vectorIndex(), <#if cast=="set">(${javaType}) </#if>value);
+        mutator.${setFn}(writeIndex, <#if cast=="set">(${javaType}) </#if>value);
   </#if>
+        lastWriteIndex = writeIndex;
       } catch (VectorOverflowException e) {
         vectorIndex.overflowed();
         throw e;
@@ -256,7 +258,14 @@ public class ColumnAccessors {
 
     @Override
     public void setNull() {
-      mutator.setNull(vectorIndex.vectorIndex());
+      try {
+        final int writeIndex = vectorIndex.vectorIndex();
+        mutator.setNull(writeIndex);
+        lastWriteIndex = vectorIndex.vectorIndex();
+      } catch (VectorOverflowException e) {
+        vectorIndex.overflowed();
+        throw e;
+      }
     }
 
     <@set drillType accessorType label true "setScalar" />

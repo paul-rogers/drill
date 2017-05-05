@@ -444,4 +444,11 @@ public class RepeatedListVector extends AbstractContainerVector
   public int getPayloadByteCount() {
     return delegate.getPayloadByteCount();
   }
+
+  @Override
+  public void exchange(ValueVector other) {
+    // TODO: Figure out how to test this scenario, then what to do...
+    throw new UnsupportedOperationException("Exchange() not yet supported for repeated lists");
+  }
+
 }

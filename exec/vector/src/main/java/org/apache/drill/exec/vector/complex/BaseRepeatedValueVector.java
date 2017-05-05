@@ -209,7 +209,6 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     vector = v;
   }
 
-
   @Override
   public int getAllocatedByteCount() {
     return offsets.getAllocatedByteCount() + vector.getAllocatedByteCount();
@@ -218,6 +217,12 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
   @Override
   public int getPayloadByteCount() {
     return offsets.getPayloadByteCount() + vector.getPayloadByteCount();
+  }
+
+  @Override
+  public void exchange(ValueVector other) {
+    vector.exchange(other);
+    offsets.exchange(other);
   }
 
   public abstract class BaseRepeatedAccessor extends BaseValueVector.BaseAccessor implements RepeatedAccessor {

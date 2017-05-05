@@ -390,7 +390,6 @@ public class RepeatedMapVector extends AbstractMapVector
     }
   }
 
-
   transient private RepeatedMapTransferPair ephPair;
 
   public void copyFromSafe(int fromIndex, int thisIndex, RepeatedMapVector from) {
@@ -413,6 +412,13 @@ public class RepeatedMapVector extends AbstractMapVector
   @Override
   public RepeatedMapAccessor getAccessor() {
     return accessor;
+  }
+
+  @Override
+  public void exchange(ValueVector other) {
+    // Exchange is used for look-ahead writers, but writers manage
+    // map member vectors directly.
+    throw new UnsupportedOperationException("Exchange() not supported for maps");
   }
 
   @Override
@@ -576,6 +582,9 @@ public class RepeatedMapVector extends AbstractMapVector
       offsets.getMutator().setSafe(index + 1, prevEnd + 1);
       return prevEnd;
     }
+
+    @Override
+    public void exchange(ValueVector.Mutator other) { }
   }
 
   @Override

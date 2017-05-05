@@ -307,6 +307,13 @@ public class MapVector extends AbstractMapVector {
     return mutator;
   }
 
+  @Override
+  public void exchange(ValueVector other) {
+    // Exchange is used for look-ahead writers, but writers manage
+    // map member vectors directly.
+    throw new UnsupportedOperationException("Exchange() not supported for maps");
+  }
+
   public class Accessor extends BaseValueVector.BaseAccessor {
 
     @Override

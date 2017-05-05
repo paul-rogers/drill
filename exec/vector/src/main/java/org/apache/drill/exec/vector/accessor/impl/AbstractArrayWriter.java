@@ -65,9 +65,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter {
     }
 
     @Override
-    public ArrayWriter array() {
-      return arrayWriter;
-    }
+    public ArrayWriter array() { return arrayWriter; }
 
     /**
      * Arrays require a start step for each row, regardless of
@@ -75,11 +73,13 @@ public abstract class AbstractArrayWriter implements ArrayWriter {
      */
 
     public void start() {
-      arrayWriter.mutator().startNewValue(vectorIndex.vectorIndex());
+      lastWriteIndex = vectorIndex.vectorIndex();
+      arrayWriter.mutator().startNewValue(lastWriteIndex);
     }
   }
 
   protected ColumnWriterIndex vectorIndex;
+  protected int lastWriteIndex;
 
   public abstract void bind(ColumnWriterIndex rowIndex, ValueVector vector);
 

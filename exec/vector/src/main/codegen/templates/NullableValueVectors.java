@@ -758,6 +758,14 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       setCount = 0;
       <#if type.major = "VarLen">lastSet = -1;</#if>
     }
+
+    @Override
+    public void exchange(ValueVector.Mutator other) {
+      final Mutator target = (Mutator) other;
+      int temp = setCount;
+      setCount = target.setCount;
+      target.setCount = temp;
+    }
   }
 }
 </#list>

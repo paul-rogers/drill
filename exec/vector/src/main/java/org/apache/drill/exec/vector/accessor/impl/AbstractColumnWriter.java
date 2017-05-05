@@ -37,6 +37,7 @@ import org.joda.time.Period;
 public abstract class AbstractColumnWriter implements ColumnWriter {
 
   protected ColumnWriterIndex vectorIndex;
+  protected int lastWriteIndex;
 
   public abstract void bind(ColumnWriterIndex rowIndex, ValueVector vector);
 
@@ -47,6 +48,9 @@ public abstract class AbstractColumnWriter implements ColumnWriter {
   public ColumnWriterIndex vectorIndex() { return vectorIndex; }
 
   public void start() { }
+  public void reset() { lastWriteIndex = -1; }
+  public void reset(int index) { lastWriteIndex = index - 1; }
+  public int lastWriteIndex() { return lastWriteIndex; }
 
   @Override
   public void setNull() throws VectorOverflowException {

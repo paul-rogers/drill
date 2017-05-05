@@ -88,9 +88,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
   }
 
   @Override
-  public FieldReader getReader(){
-    return reader;
-  }
+  public FieldReader getReader() { return reader; }
 
   @Override
   public int getBufferSizeFor(final int valueCount) {
@@ -106,14 +104,10 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
   }
 
   @Override
-  public Accessor getAccessor(){
-    return accessor;
-  }
+  public Accessor getAccessor() { return accessor; }
 
   @Override
-  public Mutator getMutator(){
-    return mutator;
-  }
+  public Mutator getMutator() { return mutator; }
 
   @Override
   public void setInitialCapacity(final int valueCount) {
@@ -123,12 +117,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     if (size > MAX_ALLOCATION_SIZE) {
       throw new OversizedAllocationException("Requested amount of memory is more than max allowed allocation size");
     }
-    allocationSizeInBytes = (int)size;
+    allocationSizeInBytes = (int) size;
   }
 
   @Override
   public void allocateNew() {
-    if(!allocateNewSafe()){
+    if (!allocateNewSafe()){
       throw new OutOfMemoryException("Failure while allocating buffer.");
     }
   }
