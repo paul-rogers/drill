@@ -280,7 +280,6 @@ public class LoaderTest extends SubOperatorTest {
   @Test
   public void testSizeLimit() {
     RowSetMutator rsMutator = new RowSetMutatorImpl(fixture.allocator());
-    rsMutator.start();
     TupleLoader rootWriter = rsMutator.writer();
     TupleSchema schema = rootWriter.schema();
     MaterializedField field = SchemaBuilder.columnSchema("s", MinorType.VARCHAR, DataMode.REQUIRED);

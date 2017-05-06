@@ -182,7 +182,7 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.Overflo
     containerBuilder.update(rowCount);
     VectorContainer container = containerBuilder.container();
     previousBatchCount++;
-    previousRowCount += container.getRecordCount();
+    previousRowCount += rowCount;
     state = state == State.OVERFLOW ? State.LOOK_AHEAD : State.HARVESTED;
     return container;
   }
