@@ -145,6 +145,7 @@ public class TupleSetImpl implements TupleSchema {
       }
       allocateVector(backupVector);
       vector.exchange(backupVector);
+      state = State.OVERFLOW;
 
       // Any overflow value(s) to copy?
 
@@ -164,7 +165,6 @@ public class TupleSetImpl implements TupleSchema {
       // distinct write indexes depending on whether data was copied or not.
 
       writer.resetTo(dest);
-      state = State.OVERFLOW;
     }
 
     /**
@@ -179,8 +179,9 @@ public class TupleSetImpl implements TupleSchema {
       if (state == State.OVERFLOW) {
         vector.exchange(backupVector);
         state = State.LOOK_AHEAD;
+      } else {
+        state = State.HARVESTED;
       }
-      state = State.HARVESTED;
     }
 
     /**

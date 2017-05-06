@@ -146,6 +146,20 @@
         throw e;
       }
     }
+  <#if drillType == "VarChar" || drillType == "Var16Char">
+
+    @Override
+    public void setBytes(byte value[]) throws VectorOverflowException {
+      try {
+        final int writeIndex = vectorIndex.vectorIndex();
+        mutator.${setFn}(writeIndex, value, 0, value.length);
+        lastWriteIndex = writeIndex;
+      } catch (VectorOverflowException e) {
+        vectorIndex.overflowed();
+        throw e;
+      }
+    }
+  </#if>
 </#macro>
 
 package org.apache.drill.exec.vector.accessor;
@@ -257,10 +271,10 @@ public class ColumnAccessors {
     <@getType label />
 
     @Override
-    public void setNull() {
+    public void setNull() throws VectorOverflowException {
       try {
         final int writeIndex = vectorIndex.vectorIndex();
-        mutator.setNull(writeIndex);
+        mutator.setNullBounded(writeIndex);
         lastWriteIndex = vectorIndex.vectorIndex();
       } catch (VectorOverflowException e) {
         vectorIndex.overflowed();

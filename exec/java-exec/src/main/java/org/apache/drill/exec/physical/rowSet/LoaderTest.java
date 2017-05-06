@@ -22,6 +22,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.fail;
 
+import java.util.Arrays;
+
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetMutatorImpl;
@@ -239,5 +241,82 @@ public class LoaderTest extends SubOperatorTest {
   // Test name aliases: "a" and "A".
   // Test adding a non-nullable field to batch with more than 0 rows
   // Test adding non-nullable field to first row of second batch
+
+  /**
+   * Verify that the writer stops when reaching the row limit.
+   * In this case there is no look-ahead row.
+   */
+
+  @Test
+  public void testRowLimit() {
+    RowSetMutator rsMutator = new RowSetMutatorImpl(fixture.allocator());
+    rsMutator.start();
+    TupleLoader rootWriter = rsMutator.writer();
+    TupleSchema schema = rootWriter.schema();
+    schema.addColumn(SchemaBuilder.columnSchema("s", MinorType.VARCHAR, DataMode.REQUIRED));
+
+    byte value[] = new byte[200];
+    Arrays.fill(value, (byte) 'X');
+    int count = 0;
+    for (; ! rsMutator.isFull(); count++) {
+      rootWriter.column(0).setBytes(value);
+      rsMutator.save();
+    }
+    assertEquals(ValueVector.MAX_ROW_COUNT, count);
+    assertEquals(count, rsMutator.rowCount());
+
+    rsMutator.harvest().clear();
+    rsMutator.start();
+    assertEquals(0, rsMutator.rowCount());
+
+    rsMutator.close();
+  }
+
+  /**
+   * Test that the writer detects a vector overflow. The offending column
+   * value should be moved to the next batch.
+   */
+
+  @Test
+  public void testSizeLimit() {
+    RowSetMutator rsMutator = new RowSetMutatorImpl(fixture.allocator());
+    rsMutator.start();
+    TupleLoader rootWriter = rsMutator.writer();
+    TupleSchema schema = rootWriter.schema();
+    MaterializedField field = SchemaBuilder.columnSchema("s", MinorType.VARCHAR, DataMode.REQUIRED);
+    schema.addColumn(field);
+
+    byte value[] = new byte[512];
+    Arrays.fill(value, (byte) 'X');
+    int count = 0;
+    for (; ! rsMutator.isFull(); count++) {
+      rootWriter.column(0).setBytes(value);
+      rsMutator.save();
+    }
+
+    // Row count should include the overflow row
+
+    int expectedCount = ValueVector.MAX_BUFFER_SIZE / value.length;
+    assertEquals(expectedCount + 1, count);
+    assertEquals(expectedCount + 1, rsMutator.rowCount());
+    assertEquals(expectedCount + 1, rsMutator.totalRowCount());
+
+    // Result should exclude the overflow row
+
+    RowSet result = fixture.wrap(rsMutator.harvest());
+    assertEquals(expectedCount, result.rowCount());
+    result.clear();
+
+    // Next batch should start with the overflow row
+
+    rsMutator.start();
+    assertEquals(1, rsMutator.rowCount());
+    assertEquals(expectedCount + 1, rsMutator.totalRowCount());
+    result = fixture.wrap(rsMutator.harvest());
+    assertEquals(1, result.rowCount());
+    result.clear();
+
+    rsMutator.close();
+  }
 
 }

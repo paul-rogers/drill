@@ -149,7 +149,6 @@ public class TestValueVector extends ExecTest {
     }
   }
 
-
   @Test(expected = OversizedAllocationException.class)
   public void testVariableVectorReallocation() {
     final MaterializedField field = MaterializedField.create(EMPTY_SCHEMA_PATH, UInt4Holder.TYPE);

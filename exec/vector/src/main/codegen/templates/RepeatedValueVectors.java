@@ -468,8 +468,8 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
     @Override
     public void generateTestData(final int valCount) {
       final int[] sizes = {1, 2, 0, 6};
-      final int size = 0;
-      final int runningOffset = 0;
+      int size = 0;
+      int runningOffset = 0;
       final UInt4Vector.Mutator offsetsMutator = offsets.getMutator();
       for(int i = 1; i < valCount + 1; i++, size++) {
         runningOffset += sizes[size % sizes.length];

@@ -50,13 +50,13 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.Overflo
       container = new VectorContainer(rowSetMutator.allocator);
     }
 
-    public void update() {
+    public void update(int rowCount) {
       if (lastUpdateVersion < rowSetMutator.schemaVersion()) {
         scanTuple(rowSetMutator.rootTuple);
         container.buildSchema(SelectionVectorMode.NONE);
         lastUpdateVersion = rowSetMutator.schemaVersion();
       }
-      container.setRecordCount(rowSetMutator.rowCount());
+      container.setRecordCount(rowCount);
     }
 
     private void scanTuple(TupleSetImpl tupleSet) {
@@ -130,18 +130,24 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.Overflo
 
   @Override
   public void save() {
-    if (state != State.ACTIVE) {
+    if (state != State.ACTIVE && state != State.OVERFLOW) {
       throw new IllegalStateException("Unexpected state: " + state);
     }
     writerIndex.next();
   }
 
   @Override
-  public boolean isFull() { return ! writerIndex.valid(); }
+  public boolean isFull() {
+    return state != State.ACTIVE || ! writerIndex.valid();
+  }
 
   @Override
   public int rowCount() {
-    return state == State.ACTIVE ? writerIndex.size() + pendingRowCount : 0;
+    if ( state == State.ACTIVE || state == State.OVERFLOW ) {
+      return writerIndex.size() + pendingRowCount;
+    } else {
+      return 0;
+    }
   }
 
   protected ColumnWriterIndex writerIndex() { return writerIndex; }
@@ -172,7 +178,8 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.Overflo
     if (containerBuilder == null) {
       containerBuilder = new VectorContainerBuilder(this);
     }
-    containerBuilder.update();
+    int rowCount = state == State.OVERFLOW ? pendingRowCount : writerIndex.size();
+    containerBuilder.update(rowCount);
     VectorContainer container = containerBuilder.container();
     previousBatchCount++;
     previousRowCount += container.getRecordCount();

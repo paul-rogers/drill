@@ -586,6 +586,10 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       values.getMutator().set(index, holder);
     }
 
+    public void setNullBounded(int index) throws VectorOverflowException {
+      bits.getMutator().setScalar(index, 0);
+    }
+
     public void set(int index, Nullable${minor.class}Holder holder) {
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
       <#if type.major == "VarLen">

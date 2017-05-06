@@ -42,20 +42,23 @@ package org.apache.drill.exec.vector;
  * ${minor.class}Vector implements a vector of variable width values.  Elements in the vector
  * are accessed by position from the logical start of the vector.  A fixed width offsetVector
  * is used to convert an element's position to it's offset from the start of the (0-based)
- * DrillBuf.  Size is inferred by adjacent elements.
- *   The width of each element is ${type.width} byte(s)
- *   The equivalent Java primitive is '${minor.javaType!type.javaType}'
- *
+ * DrillBuf. Size is inferred from adjacent elements.
+ * <ul>
+ * <li>The width of each element is ${type.width} byte(s). Note that the actual width is
+ * variable, this width is used as a guess for certain calculations.</li>
+ * <li>The equivalent Java primitive is '${minor.javaType!type.javaType}'<li>
+ * </ul>
  * NB: this class is automatically generated from ${.template_name} and ValueVectorTypes.tdd using FreeMarker.
  */
+
 public final class ${minor.class}Vector extends BaseDataValueVector implements VariableWidthVector {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(${minor.class}Vector.class);
 
   private static final int DEFAULT_RECORD_BYTE_COUNT = 8;
   private static final int INITIAL_BYTE_COUNT = Math.min(INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT, MAX_BUFFER_SIZE);
   private static final int MIN_BYTE_COUNT = 4096;
-
   public final static String OFFSETS_VECTOR_NAME = "$offsets$";
+
   private final MaterializedField offsetsField = MaterializedField.create(OFFSETS_VECTOR_NAME, Types.required(MinorType.UINT4));
   private final UInt${type.width}Vector offsetVector = new UInt${type.width}Vector(offsetsField, allocator);
   private final FieldReader reader = new ${minor.class}ReaderImpl(${minor.class}Vector.this);
@@ -408,6 +411,13 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
   @Override
   public Mutator getMutator() {
     return mutator;
+  }
+
+  @Override
+  public void exchange(ValueVector other) {
+    super.exchange(other);
+    ${minor.class}Vector target = (${minor.class}Vector) other;
+    offsetVector.exchange(target.offsetVector);
   }
 
   public final class Accessor extends BaseValueVector.BaseAccessor implements VariableWidthAccessor {

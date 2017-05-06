@@ -49,7 +49,6 @@ public class ColumnLoaderImpl implements ColumnLoader {
     try {
       writer.setInt(value);
     } catch (VectorOverflowException e) {
-      writer.vectorIndex().overflowed();
       try {
         writer.setInt(value);
       } catch (VectorOverflowException e1) {
@@ -61,37 +60,47 @@ public class ColumnLoaderImpl implements ColumnLoader {
   @Override
   public void setLong(long value) {
     // TODO Auto-generated method stub
-
   }
 
   @Override
   public void setDouble(double value) {
     // TODO Auto-generated method stub
-
   }
 
   @Override
   public void setString(String value) {
-    // TODO Auto-generated method stub
-
+    try {
+      writer.setString(value);
+    } catch (VectorOverflowException e) {
+      try {
+        writer.setString(value);
+      } catch (VectorOverflowException e1) {
+        throw new IllegalStateException(ROLLOVER_FAILED);
+      }
+    }
   }
 
   @Override
   public void setBytes(byte[] value) {
-    // TODO Auto-generated method stub
-
+    try {
+      writer.setBytes(value);
+    } catch (VectorOverflowException e) {
+      try {
+        writer.setBytes(value);
+      } catch (VectorOverflowException e1) {
+        throw new IllegalStateException(ROLLOVER_FAILED);
+      }
+    }
   }
 
   @Override
   public void setDecimal(BigDecimal value) {
     // TODO Auto-generated method stub
-
   }
 
   @Override
   public void setPeriod(Period value) {
     // TODO Auto-generated method stub
-
   }
 
   @Override

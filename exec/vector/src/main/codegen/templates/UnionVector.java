@@ -491,4 +491,9 @@ public class UnionVector implements ValueVector {
     @Override
     public void generateTestData(int values) { }
   }
+
+  @Override
+  public void exchange(ValueVector other) {
+    throw new UnsupportedOperationException("Union vector does not yet support exchange()");
+  }
 }
