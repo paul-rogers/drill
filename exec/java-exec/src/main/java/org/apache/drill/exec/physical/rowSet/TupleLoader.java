@@ -26,7 +26,40 @@ package org.apache.drill.exec.physical.rowSet;
  */
 
 public interface TupleLoader {
+
+  /**
+   * Unchecked exception thrown when attempting to access a column loader
+   * by name for an undefined columns. Readers that use a fixed schema
+   * can simply omit catch blocks for the exception since it is unchecked
+   * and won't be thrown if the schema can't evolve. Readers that can
+   * discover new columns should catch the exception and define the
+   * column.
+   */
+
+  @SuppressWarnings("serial")
+  public static class UndefinedColumnException extends RuntimeException {
+    public UndefinedColumnException(String msg) {
+      super(msg);
+    }
+  }
+
   TupleSchema schema();
   ColumnLoader column(int colIndex);
+
+  /**
+   * Return the column loader for the given column name. Throws
+   * the {@link UndefinedColumnException} exception if the column
+   * is undefined. For readers, such as JSON, that work by name,
+   * and discover columns as they appear on input,
+   * first attempt to get the column loader. Catch the exception
+   * if the column does not exist, define the column
+   * then the column is undefined, and the code should add the
+   * new column and again retrieve the loader.
+   *
+   * @param colName
+   * @return the column loader for the column
+   * @throws {@link UndefinedColumnException} if the column is
+   * undefined.
+   */
   ColumnLoader column(String colName);
 }

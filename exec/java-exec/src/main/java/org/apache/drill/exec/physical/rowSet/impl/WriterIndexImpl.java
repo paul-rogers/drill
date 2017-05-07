@@ -34,28 +34,34 @@ class WriterIndexImpl implements ColumnWriterIndex {
 
   public enum State { OK, VECTOR_OVERFLOW, END_OF_BATCH }
 
-  public interface OverflowListener {
+  public interface WriterIndexListener {
     void overflowed();
+    boolean writeable();
   }
 
-  private WriterIndexImpl.OverflowListener listener;
+  private final WriterIndexListener listener;
+  private final int rowCountLimit;
   private int rowIndex = 0;
   private WriterIndexImpl.State state = State.OK;
 
-  public WriterIndexImpl(WriterIndexImpl.OverflowListener listener) {
+  public WriterIndexImpl(WriterIndexListener listener) {
+    this(listener, ValueVector.MAX_ROW_COUNT);
+  }
+
+  public WriterIndexImpl(WriterIndexListener listener, int rowCountLimit) {
     this.listener = listener;
+    this.rowCountLimit = rowCountLimit;
   }
 
   @Override
   public int vectorIndex() { return rowIndex; }
 
   public boolean next() {
-    if (++rowIndex < ValueVector.MAX_ROW_COUNT) {
+    if (++rowIndex < rowCountLimit) {
       return true;
     } else {
       // Should not call next() again once batch is full.
-      assert rowIndex == ValueVector.MAX_ROW_COUNT;
-      rowIndex = ValueVector.MAX_ROW_COUNT;
+      rowIndex = rowCountLimit;
       state = state == State.OK ? State.END_OF_BATCH : state;
       return false;
     }
@@ -68,6 +74,17 @@ class WriterIndexImpl implements ColumnWriterIndex {
   }
 
   public boolean valid() { return state == State.OK; }
+
+  /**
+   * Indicate if it is legal to write to a column. Used for test-time
+   * assertions to validate that column writes occur only when a batch
+   * is active.
+   * @return true if it is legal to write to a column, false otherwise
+   */
+
+  public boolean legal() {
+    return valid()  &&  listener.writeable();
+  }
 
   public boolean hasOverflow() { return state == State.VECTOR_OVERFLOW; }
 

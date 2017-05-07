@@ -23,13 +23,24 @@ import org.apache.drill.exec.record.MaterializedField;
  * Defines the schema of a tuple: either the top-level row or a nested
  * "map" (really structure). A schema is a collection of columns (backed
  * by vectors in the loader itself.) Columns are accessible by name or
- * index. New columns may be added at any time; the take the next available
- * index.
+ * index. New columns may be added at any time; the new column takes the
+ * next available index.
  */
 
 public interface TupleSchema {
   int columnCount();
+  int columnIndex(String colName);
   MaterializedField column(int colIndex);
+
+  /**
+   * Return the schema for the given column name.
+   *
+   * @param colName column name within the tuple as a
+   * single-part name
+   * @return the schema if the column is defined, null
+   * otherwise
+   */
+
   MaterializedField column(String colName);
 
   /**

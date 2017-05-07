@@ -35,6 +35,12 @@ import org.apache.drill.exec.record.VectorContainer;
  * In both cases, access to columns is by index or by name. If new columns
  * are added while loading, their index is always at the end of the existing
  * columns.
+ * <p>
+ * Many of the methods in this interface are verify that the mutator is
+ * in the proper state. For example, an exception is thrown if the caller
+ * attempts to save a row before starting a batch. However, the per-column
+ * write methods are checked only through assertions that should enabled
+ * during testing, but will be disabled during production.
  *
  * @see {@link VectorContainerWriter}, the class which this class
  * replaces
@@ -96,7 +102,10 @@ public interface RowSetMutator {
    * Indicates that no more rows fit into the current row batch
    * and that the row batch should be harvested and sent downstream.
    * Any overflow row is automatically saved for the next cycle.
-   * @return whether the current row set has reached capacity
+   * The value is undefined when a batch is not active.
+   *
+   * @return true if the current row set has reached capacity,
+   * false if more rows can be written
    */
 
   boolean isFull();

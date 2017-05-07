@@ -21,12 +21,11 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.RowSetMutator;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.impl.TupleSetImpl.ColumnImpl;
-import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 
-public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.OverflowListener {
+public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.WriterIndexListener {
 
   public static class MutatorOptions {
     public final int vectorSizeLimit;
@@ -37,6 +36,43 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.Overflo
       vectorSizeLimit = ValueVector.MAX_BUFFER_SIZE;
       rowCountLimit = ValueVector.MAX_ROW_COUNT;
       caseSensitive = false;
+    }
+
+    public MutatorOptions(int vectorSizeLimit, int rowCountLimit,
+        boolean caseSensitive) {
+      this.vectorSizeLimit = vectorSizeLimit;
+      this.rowCountLimit = rowCountLimit;
+      this.caseSensitive = caseSensitive;
+    }
+  }
+
+  public static class OptionBuilder {
+    public int vectorSizeLimit;
+    public int rowCountLimit;
+    public boolean caseSensitive;
+
+    public OptionBuilder() {
+      MutatorOptions options = new MutatorOptions();
+      vectorSizeLimit = options.vectorSizeLimit;
+      rowCountLimit = options.rowCountLimit;
+      caseSensitive = options.caseSensitive;
+    }
+
+    public OptionBuilder setCaseSensitive(boolean flag) {
+      caseSensitive = flag;
+      return this;
+    }
+
+    public OptionBuilder setRowCountLimit(int limit) {
+      rowCountLimit = Math.min(limit, ValueVector.MAX_ROW_COUNT);
+      return this;
+    }
+
+    // TODO: No setter for vector length yet: is hard-coded
+    // at present in the value vector.
+
+    public MutatorOptions build() {
+      return new MutatorOptions(vectorSizeLimit, rowCountLimit, caseSensitive);
     }
   }
 
@@ -72,13 +108,45 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.Overflo
     public VectorContainer container() { return container; }
   }
 
-  private enum State { START, ACTIVE, OVERFLOW, HARVESTED, LOOK_AHEAD, CLOSED }
+  private enum State {
+    /**
+     * Before the first batch.
+     */
+    START,
+    /**
+     * Writing to a batch normally.
+     */
+    ACTIVE,
+    /**
+     * Batch overflowed a vector while writing. Can continue
+     * to write to a temporary "overflow" batch until the
+     * end of the current row.
+     */
+    OVERFLOW,
+    /**
+     * Batch is full due to reaching the row count limit
+     * when saving a row. Also, a vector overflowed and
+     * next was called after writing the overflow row.
+     * No more writes allowed until
+     * harvesting the current batch.
+     */
+    FULL_BATCH,
+    /**
+     * Current batch was harvested: data is gone. A lookahead
+     * row may exist for the next batch.
+     */
+    HARVESTED,
+    /**
+     * Mutator is closed: no more operations are allowed.
+     */
+    CLOSED
+  }
 
   private final MutatorOptions options;
   private RowSetMutatorImpl.State state = State.START;
-  final BufferAllocator allocator;
+  private final BufferAllocator allocator;
   private int schemaVersion = 0;
-  TupleSetImpl rootTuple;
+  private TupleSetImpl rootTuple;
   private final WriterIndexImpl writerIndex;
   private VectorContainerBuilder containerBuilder;
   private int previousBatchCount;
@@ -86,14 +154,14 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.Overflo
   private int pendingRowCount;
 
   public RowSetMutatorImpl(BufferAllocator allocator, MutatorOptions options) {
-    this(allocator);
+    this.allocator = allocator;
+    this.options = options;
+    writerIndex = new WriterIndexImpl(this, options.rowCountLimit);
+    rootTuple = new TupleSetImpl(this);
   }
 
   public RowSetMutatorImpl(BufferAllocator allocator) {
-    this.allocator = allocator;
-    options = new MutatorOptions();
-    writerIndex = new WriterIndexImpl(this);
-    rootTuple = new TupleSetImpl(this);
+    this(allocator, new MutatorOptions());
   }
 
   public String toKey(String colName) {
@@ -109,11 +177,11 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.Overflo
 
   @Override
   public void start() {
-    if (state != State.START && state != State.HARVESTED && state != State.LOOK_AHEAD) {
+    if (state != State.START && state != State.HARVESTED) {
       throw new IllegalStateException("Unexpected state: " + state);
     }
     rootTuple.start();
-    if (state != State.LOOK_AHEAD) {
+    if (pendingRowCount == 0) {
       writerIndex.reset();
     }
     pendingRowCount = 0;
@@ -122,7 +190,7 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.Overflo
 
   @Override
   public TupleLoader writer() {
-    if (state != State.ACTIVE) {
+    if (state == State.CLOSED) {
       throw new IllegalStateException("Unexpected state: " + state);
     }
     return rootTuple.loader();
@@ -130,27 +198,53 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.Overflo
 
   @Override
   public void save() {
-    if (state != State.ACTIVE && state != State.OVERFLOW) {
+    switch (state) {
+    case ACTIVE:
+      if (! writerIndex.next()) {
+        state = State.FULL_BATCH;
+      }
+      break;
+    case OVERFLOW:
+      writerIndex.next();
+      state = State.FULL_BATCH;
+      break;
+    default:
       throw new IllegalStateException("Unexpected state: " + state);
     }
-    writerIndex.next();
   }
 
   @Override
   public boolean isFull() {
-    return state != State.ACTIVE || ! writerIndex.valid();
+    switch (state) {
+    case ACTIVE:
+      return ! writerIndex.valid();
+    case OVERFLOW:
+    case FULL_BATCH:
+      return true;
+    default:
+      return false;
+    }
+  }
+
+  @Override
+  public boolean writeable() {
+    return state == State.ACTIVE || state == State.OVERFLOW;
+  }
+
+  private boolean isBatchActive() {
+    return state == State.ACTIVE || state == State.OVERFLOW || state == State.FULL_BATCH;
   }
 
   @Override
   public int rowCount() {
-    if ( state == State.ACTIVE || state == State.OVERFLOW ) {
+    if (isBatchActive()) {
       return writerIndex.size() + pendingRowCount;
     } else {
       return 0;
     }
   }
 
-  protected ColumnWriterIndex writerIndex() { return writerIndex; }
+  protected WriterIndexImpl writerIndex() { return writerIndex; }
 
   @Override
   public int targetRowCount() { return options.rowCountLimit; }
@@ -171,19 +265,33 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.Overflo
 
   @Override
   public VectorContainer harvest() {
-    if (state != State.ACTIVE && state != State.OVERFLOW) {
+    if (! isBatchActive()) {
       throw new IllegalStateException("Unexpected state: " + state);
     }
+
+    // Wrap up the vectors: final fill-in, set value count, etc.
+
     rootTuple.harvest();
+
+    // Row count is the number of items to be harvested. If overflow,
+    // it is the number of rows in the saved vectors. Otherwise,
+    // it is the number in the active vectors.
+
+    int rowCount = pendingRowCount > 0 ? pendingRowCount : writerIndex.size();
+
+    // Build the output container.
+
     if (containerBuilder == null) {
       containerBuilder = new VectorContainerBuilder(this);
     }
-    int rowCount = state == State.OVERFLOW ? pendingRowCount : writerIndex.size();
     containerBuilder.update(rowCount);
     VectorContainer container = containerBuilder.container();
+
+    // Finalize: update counts, set state.
+
     previousBatchCount++;
     previousRowCount += rowCount;
-    state = state == State.OVERFLOW ? State.LOOK_AHEAD : State.HARVESTED;
+    state = State.HARVESTED;
     return container;
   }
 
@@ -193,7 +301,6 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.Overflo
       return;
     }
     rootTuple.close();
-    // TODO Auto-generated method stub
     state = State.CLOSED;
   }
 

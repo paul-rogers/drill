@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.physical.rowSet.ColumnLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
@@ -78,7 +79,11 @@ public class TupleSetImpl implements TupleSchema {
 
     @Override
     public ColumnLoader column(String colName) {
-      return tupleSet.columnImpl(colName).writer;
+      ColumnImpl col = tupleSet.columnImpl(colName);
+      if (col == null) {
+        throw new UndefinedColumnException(colName);
+      }
+      return col.writer;
     }
   }
 
@@ -111,7 +116,6 @@ public class TupleSetImpl implements TupleSchema {
       this.addVersion = rowSetMutator.schemaVersion();
       vector = TypeHelper.getNewVector(schema, rowSetMutator.allocator(), null);
       writer = new ColumnLoaderImpl(rowSetMutator.writerIndex(), vector);
-      resetBatch();
     }
 
     /**
@@ -249,28 +253,57 @@ public class TupleSetImpl implements TupleSchema {
 
   @Override
   public int addColumn(MaterializedField columnSchema) {
+
+    // Verify name is not a (possibly case insensitive) duplicate.
+
     String lastName = columnSchema.getLastName();
     String key = rowSetMutator.toKey(lastName);
     if (column(key) != null) {
       // TODO: Include full path as context
       throw new IllegalArgumentException("Duplicate column: " + lastName);
     }
+
+    // Verify that the cardinality (mode) is acceptable. Can't add a
+    // non-nullable (required) field once one or more rows are saved;
+    // we don't know what value to write to the unsaved rows.
+    // TODO: If the first batch, we could fill the values with 0 (the
+    // default, for types for which that is a valid value.
+
+    if (columnSchema.getDataMode() == DataMode.REQUIRED &&
+        rowSetMutator.rowCount() > 0) {
+      throw new IllegalArgumentException("Cannot add a required field once data exists: " + lastName);
+    }
     // TODO: If necessary, verify path
+
+    // Add the column, increasing the schema version to indicate the change.
+
     rowSetMutator.bumpVersion();
     TupleSetImpl.ColumnImpl colImpl = new ColumnImpl(this, columnSchema, columnCount());
     columns.add(colImpl);
     nameIndex.put(key, colImpl);
+
+    // If a batch is active, prepare the column for writing.
+
+    if (rowSetMutator.writeable()) {
+      colImpl.resetBatch();
+    }
     return colImpl.index;
   }
 
   public RowSetMutatorImpl rowSetMutator() { return rowSetMutator; }
 
   @Override
+  public int columnIndex(String colName) {
+    ColumnImpl col = columnImpl(colName);
+    return col == null ? -1 : col.index;
+  }
+
+  @Override
   public MaterializedField column(int colIndex) {
     return columnImpl(colIndex).schema;
   }
 
-  protected TupleSetImpl.ColumnImpl columnImpl(String colName) {
+  protected ColumnImpl columnImpl(String colName) {
     return nameIndex.get(rowSetMutator.toKey(colName));
   }
 
@@ -283,7 +316,7 @@ public class TupleSetImpl implements TupleSchema {
   @Override
   public int columnCount() { return columns.size(); }
 
-  public TupleSetImpl.ColumnImpl columnImpl(int colIndex) {
+  public ColumnImpl columnImpl(int colIndex) {
     // Let the list catch out-of-bounds indexes
     return columns.get(colIndex);
   }

@@ -24,7 +24,6 @@ import org.apache.drill.exec.physical.rowSet.ColumnLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VectorOverflowException;
-import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnWriter;
 import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
 import org.joda.time.Period;
@@ -33,9 +32,11 @@ public class ColumnLoaderImpl implements ColumnLoader {
 
   private static final String ROLLOVER_FAILED = "Row batch rollover failed.";
 
+  private final WriterIndexImpl index;
   private final AbstractColumnWriter writer;
 
-  protected ColumnLoaderImpl(ColumnWriterIndex index, ValueVector vector) {
+  protected ColumnLoaderImpl(WriterIndexImpl index, ValueVector vector) {
+    this.index = index;
     writer = ColumnAccessorFactory.newWriter(vector.getField().getType());
     writer.bind(index, vector);
   }
@@ -46,6 +47,7 @@ public class ColumnLoaderImpl implements ColumnLoader {
 
   @Override
   public void setInt(int value) {
+    assert index.legal();
     try {
       writer.setInt(value);
     } catch (VectorOverflowException e) {
@@ -69,6 +71,7 @@ public class ColumnLoaderImpl implements ColumnLoader {
 
   @Override
   public void setString(String value) {
+    assert index.legal();
     try {
       writer.setString(value);
     } catch (VectorOverflowException e) {
@@ -82,6 +85,7 @@ public class ColumnLoaderImpl implements ColumnLoader {
 
   @Override
   public void setBytes(byte[] value) {
+    assert index.legal();
     try {
       writer.setBytes(value);
     } catch (VectorOverflowException e) {
