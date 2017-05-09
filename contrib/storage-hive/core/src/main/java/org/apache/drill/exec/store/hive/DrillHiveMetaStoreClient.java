@@ -502,7 +502,7 @@ public abstract class DrillHiveMetaStoreClient extends HiveMetaStoreClient {
         throw new UnsupportedOperationException();
       }
       synchronized (DrillHiveMetaStoreClient.this) {
-        return getDatabasesHelper(DrillHiveMetaStoreClient.this);
+         return getDatabasesHelper(DrillHiveMetaStoreClient.this);
       }
     }
   }
