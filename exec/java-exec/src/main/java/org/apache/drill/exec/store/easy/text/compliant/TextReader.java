@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -26,9 +26,9 @@ import org.apache.drill.common.exceptions.UserException;
 import com.univocity.parsers.common.TextParsingException;
 import com.univocity.parsers.csv.CsvParserSettings;
 
-/*******************************************************************************
+/*-*****************************************************************************
  * Portions Copyright 2014 uniVocity Software Pty Ltd
- ******************************************************************************/
+ *-****************************************************************************/
 
 /**
  * A byte-based Text parser implementation. Builds heavily upon the uniVocity parsers. Customized for UTF8 parsing and
@@ -135,10 +135,10 @@ final class TextReader {
     }
 
     int fieldsWritten = 0;
-    try{
+    try {
       boolean earlyTerm = false;
       while (ch != newLine) {
-        earlyTerm = !parseField();
+        earlyTerm = ! parseField();
         fieldsWritten++;
         if (ch != newLine) {
           ch = input.nextChar();
@@ -148,16 +148,16 @@ final class TextReader {
             break;
           }
         }
-        if(earlyTerm){
-          if(ch != newLine){
+        if (earlyTerm) {
+          if (ch != newLine) {
             input.skipLines(1);
           }
           break;
         }
       }
-    }catch(StreamFinishedPseudoException e){
+    } catch(StreamFinishedPseudoException e) {
       // if we've written part of a field or all of a field, we should send this row.
-      if(fieldsWritten == 0 && !output.rowHasData()){
+      if (fieldsWritten == 0 && !output.rowHasData()) {
         throw e;
       }
     }
@@ -324,7 +324,6 @@ final class TextReader {
 
       return output.endField();
     }
-
   }
 
   /**
@@ -372,12 +371,12 @@ final class TextReader {
         throw new TextParsingException(context, "Cannot use newline character within quoted string");
       }
 
-      if(success){
+      if (success) {
         if (recordsToRead > 0 && context.currentRecord() >= recordsToRead) {
           context.stop();
         }
         return true;
-      }else{
+      } else {
         return false;
       }
 

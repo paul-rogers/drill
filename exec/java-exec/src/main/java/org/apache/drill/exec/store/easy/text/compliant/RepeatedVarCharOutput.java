@@ -17,9 +17,6 @@
  */
 package org.apache.drill.exec.store.easy.text.compliant;
 
-import io.netty.buffer.DrillBuf;
-import io.netty.util.internal.PlatformDependent;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -27,7 +24,6 @@ import java.util.Collections;
 import java.util.List;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
-import org.apache.drill.common.expression.FieldReference;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.Types;
@@ -37,6 +33,9 @@ import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.RepeatedVarCharVector;
 
 import com.google.common.base.Preconditions;
+
+import io.netty.buffer.DrillBuf;
+import io.netty.util.internal.PlatformDependent;
 
 /**
  * Class is responsible for generating record batches for text file inputs. We generate
@@ -122,11 +121,15 @@ class RepeatedVarCharOutput extends TextOutput {
     super();
 
     MaterializedField field = MaterializedField.create(COL_NAME, Types.repeated(TypeProtos.MinorType.VARCHAR));
-    this.vector = outputMutator.addField(field, RepeatedVarCharVector.class);
+    vector = outputMutator.addField(field, RepeatedVarCharVector.class);
 
-    this.mutator = vector.getMutator();
+    mutator = vector.getMutator();
 
-
+    if (isStarQuery) {
+      setupStarQuery();
+    } else {
+      setupFields(columns);
+    }
     { // setup fields
       List<Integer> columnIds = new ArrayList<Integer>();
       if (!isStarQuery) {
@@ -145,17 +148,16 @@ class RepeatedVarCharOutput extends TextOutput {
           }
         }
         Collections.sort(columnIds);
-
       }
 
       boolean[] fields = new boolean[MAXIMUM_NUMBER_COLUMNS];
 
       int maxField = fields.length;
 
-      if(isStarQuery){
+      if (isStarQuery) {
         Arrays.fill(fields, true);
-      }else{
-        for(Integer i : columnIds){
+      } else {
+        for (Integer i : columnIds) {
           maxField = 0;
           maxField = Math.max(maxField, i);
           fields[i] = true;
@@ -164,7 +166,15 @@ class RepeatedVarCharOutput extends TextOutput {
       this.collectedFields = fields;
       this.maxField = maxField;
     }
+  }
 
+  private void setupStarQuery() {
+    // TODO Auto-generated method stub
+
+  }
+
+  private void setupFields(Collection<SchemaPath> columns2) {
+    // TODO Auto-generated method stub
 
   }
 
@@ -255,7 +265,7 @@ class RepeatedVarCharOutput extends TextOutput {
   public boolean endField() {
     fieldOpen = false;
 
-    if(charLengthOffset >= charLengthOffsetMax){
+    if (charLengthOffset >= charLengthOffsetMax) {
       expandVarCharOffsets();
     }
 
@@ -272,17 +282,16 @@ class RepeatedVarCharOutput extends TextOutput {
 
   @Override
   public void append(byte data) {
-    if(!collect){
+    if (!collect) {
       return;
     }
 
-    if(characterData >= characterDataMax){
+    if (characterData >= characterDataMax) {
       expandVarCharData();
     }
 
     PlatformDependent.putByte(characterData, data);
     characterData++;
-
   }
 
   @Override
@@ -292,18 +301,18 @@ class RepeatedVarCharOutput extends TextOutput {
 
   @Override
   public boolean rowHasData() {
-    return this.recordStart < characterData;
+    return recordStart < characterData;
   }
 
   @Override
   public void finishRecord() {
-    this.recordStart = characterData;
+    recordStart = characterData;
 
-    if(fieldOpen){
+    if (fieldOpen) {
       endField();
     }
 
-    if(repeatedOffset >= repeatedOffsetMax){
+    if (repeatedOffset >= repeatedOffsetMax) {
       expandRepeatedOffsets();
     }
 
@@ -312,12 +321,10 @@ class RepeatedVarCharOutput extends TextOutput {
     repeatedOffset += 4;
 
     // if there were no defined fields, skip.
-    if(fieldIndex > -1){
+    if (fieldIndex > -1) {
       batchIndex++;
       recordCount++;
     }
-
-
   }
 
   /**
@@ -339,7 +346,7 @@ class RepeatedVarCharOutput extends TextOutput {
     String [] out = new String [retSize];
 
     RepeatedVarCharVector.Accessor a = this.vector.getAccessor();
-    for (int i=0; i<retSize; i++){
+    for (int i = 0; i < retSize; i++) {
       out[i] = a.getSingleObject(0,i).toString();
     }
     return out;
