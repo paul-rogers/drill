@@ -143,6 +143,9 @@ public class HeaderBuilder extends TextOutput {
     char ch = header.charAt(0);
     if (Character.isAlphabetic(ch)) {
       buf.append(ch);
+    } else if (Character.isDigit(ch)) {
+        buf.append("col_");
+        buf.append(ch);
     } else {
       buf.append("col_");
     }
