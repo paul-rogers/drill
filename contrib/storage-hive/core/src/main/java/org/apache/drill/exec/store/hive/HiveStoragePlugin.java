@@ -29,6 +29,7 @@ import org.apache.calcite.schema.Schema.TableType;
 import org.apache.calcite.schema.SchemaPlus;
 
 import org.apache.drill.common.JSONOptions;
+import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.ExecConstants;
@@ -53,7 +54,7 @@ public class HiveStoragePlugin extends AbstractStoragePlugin {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(HiveStoragePlugin.class);
 
   private final HiveStoragePluginConfig config;
-  private final HiveSchemaFactory schemaFactory;
+  private HiveSchemaFactory schemaFactory;
   private final DrillbitContext context;
   private final String name;
   private final HiveConf hiveConf;
@@ -110,19 +111,33 @@ public class HiveStoragePlugin extends AbstractStoragePlugin {
     // easiest short-term solution until we refactor the code to do the
     // job properly.
 
-    } catch (MetaException e) {
+    } catch (Exception e) {
+      // Unwrap exception
+      Throwable ex = e;
+      if (e instanceof DrillRuntimeException) {
+        ex = e.getCause();
+      }
       // Case for failing on an invalid cached connection
-    } catch (TTransportException e) {
-      // Case for a timed-out impersonated connection, and
-      // an invalid non-secure connection used to get security
-      // tokens.
-    } // All other exceptions are not handled, just pass along up
-      // the stack.
+      if (! (ex instanceof MetaException) &&
+          // Case for a timed-out impersonated connection, and
+          // an invalid non-secure connection used to get security
+          // tokens.
+          ! (ex instanceof TTransportException) ) {
+
+        // All other exceptions are not handled, just pass along up
+        // the stack.
+        throw e;
+      }
+    }
 
     // Build a new factory which will cause an all new set of
     // Hive metastore connections to be created.
 
-    schemaFactory = new HiveSchemaFactory(this, name, hiveConf);
+    try {
+      schemaFactory = new HiveSchemaFactory(this, name, hiveConf);
+    } catch (ExecutionSetupException e) {
+      throw new DrillRuntimeException(e);
+    }
 
     // Try the schemas again. If this fails, just give up.
 
