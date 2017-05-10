@@ -34,6 +34,7 @@ import org.apache.drill.DrillTestWrapper.TestServices;
 import org.apache.drill.QueryTestUtil;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.common.logical.FormatPluginConfig;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ZookeeperHelper;
 import org.apache.drill.exec.client.DrillClient;
@@ -495,9 +496,14 @@ public class ClusterFixture implements AutoCloseable {
 
   public void defineWorkspace(String pluginName, String schemaName, String path,
       String defaultFormat) {
+    defineWorkspace(pluginName, schemaName, path, defaultFormat, null);
+  }
+
+  public void defineWorkspace(String pluginName, String schemaName, String path,
+      String defaultFormat, FormatPluginConfig format) {
     for (Drillbit bit : drillbits()) {
       try {
-        defineWorkspace(bit, pluginName, schemaName, path, defaultFormat);
+        defineWorkspace(bit, pluginName, schemaName, path, defaultFormat, format);
       } catch (ExecutionSetupException e) {
         // This functionality is supposed to work in tests. Change
         // exception to unchecked to make test code simpler.
@@ -508,7 +514,7 @@ public class ClusterFixture implements AutoCloseable {
   }
 
   public static void defineWorkspace(Drillbit drillbit, String pluginName,
-      String schemaName, String path, String defaultFormat)
+      String schemaName, String path, String defaultFormat, FormatPluginConfig format)
       throws ExecutionSetupException {
     @SuppressWarnings("resource")
     final StoragePluginRegistry pluginRegistry = drillbit.getContext().getStorage();
@@ -519,6 +525,9 @@ public class ClusterFixture implements AutoCloseable {
 
     pluginConfig.workspaces.remove(schemaName);
     pluginConfig.workspaces.put(schemaName, newTmpWSConfig);
+    if (format != null) {
+      pluginConfig.formats.put(defaultFormat, format);
+    }
 
     pluginRegistry.createOrUpdate(pluginName, pluginConfig, true);
   }
