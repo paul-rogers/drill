@@ -93,7 +93,7 @@ public abstract class DrillHiveMetaStoreClient extends HiveMetaStoreClient {
         ugiForRpc = ImpersonationUtil.createProxyUgi(userName);
         if (hiveConf.getBoolVar(ConfVars.METASTORE_USE_THRIFT_SASL)) {
           // When SASL is enabled for proxy user create a delegation token. Currently HiveMetaStoreClient can create
-          // client transport for proxy users only when the authentication mechanims is DIGEST (through use of
+          // client transport for proxy users only when the authentication mechanism is DIGEST (through use of
           // delegation tokens).
           String delegationToken = processUserMetaStoreClient.getDelegationToken(userName, userName);
           try {
@@ -502,7 +502,7 @@ public abstract class DrillHiveMetaStoreClient extends HiveMetaStoreClient {
         throw new UnsupportedOperationException();
       }
       synchronized (DrillHiveMetaStoreClient.this) {
-         return getDatabasesHelper(DrillHiveMetaStoreClient.this);
+        return getDatabasesHelper(DrillHiveMetaStoreClient.this);
       }
     }
   }

@@ -133,7 +133,7 @@ public class AdHocReaderTest extends DrillTest {
       cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "csv", csvFormat);
 //      String sql = "SELECT * FROM `dfs.data`.`csv/test11.csv`";
 //      String sql = "SELECT `EXPR$1` as A, 1 + 2, 3 + 4 FROM `dfs.data`.`csv/test11.csv`";
-      String sql = "SELECT `EXPR$1`, 1 + 2, 3 + 4 FROM `dfs.data`.`csv/test11.csv`";
+      String sql = "SELECT * FROM `dfs.data`.`csv/test12.csv`";
       client.queryBuilder().sql(sql).printCsv();
     }
   }
