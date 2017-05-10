@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -45,6 +45,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.conf.HiveConf.ConfVars;
+import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.thrift.transport.TTransportException;
 
 public class HiveStoragePlugin extends AbstractStoragePlugin {
 
@@ -97,6 +99,33 @@ public class HiveStoragePlugin extends AbstractStoragePlugin {
 
   @Override
   public void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent) throws IOException {
+    try {
+      schemaFactory.registerSchemas(schemaConfig, parent);
+      return;
+
+    // Hack. We may need to retry the connection. But, we can't because
+    // the retry logic is implemented in the very connection we need to
+    // discard and rebuild. To work around, we discard the entire schema
+    // factory, and all its invalid connections. Very crude, but the
+    // easiest short-term solution until we refactor the code to do the
+    // job properly.
+
+    } catch (MetaException e) {
+      // Case for failing on an invalid cached connection
+    } catch (TTransportException e) {
+      // Case for a timed-out impersonated connection, and
+      // an invalid non-secure connection used to get security
+      // tokens.
+    } // All other exceptions are not handled, just pass along up
+      // the stack.
+
+    // Build a new factory which will cause an all new set of
+    // Hive metastore connections to be created.
+
+    schemaFactory = new HiveSchemaFactory(this, name, hiveConf);
+
+    // Try the schemas again. If this fails, just give up.
+
     schemaFactory.registerSchemas(schemaConfig, parent);
   }
 

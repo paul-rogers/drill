@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -103,6 +103,20 @@ public class HiveSchemaFactory implements SchemaFactory {
    */
   private boolean needToImpersonateReadingData() {
     return isDrillImpersonationEnabled && isHS2DoAsSet;
+  }
+
+  /**
+   * Close this schema factory in preparation for retrying. Attempt to close
+   * connections, but just ignore any errors.
+   */
+
+  public void close() {
+    try {
+      processUserMetastoreClient.close();
+    } catch (Exception e) { }
+    try {
+      metaStoreClientLoadingCache.invalidateAll();
+    } catch (Exception e) { }
   }
 
   @Override
