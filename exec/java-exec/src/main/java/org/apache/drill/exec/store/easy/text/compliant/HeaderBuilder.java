@@ -143,11 +143,21 @@ public class HeaderBuilder extends TextOutput {
     char ch = header.charAt(0);
     if (Character.isAlphabetic(ch)) {
       buf.append(ch);
-    } else if (Character.isDigit(ch)) {
-        buf.append("col_");
-        buf.append(ch);
     } else {
-      buf.append("col_");
+      if (Character.isDigit(ch)) {
+          buf.append("col_");
+          buf.append(ch);
+      } else {
+
+        // For the strange case of only one character, format
+        // the same as an empty header.
+
+        if (header.length() == 1) {
+          return "column_" + (headers.size() + 1);
+        } else {
+          buf.append("col_");
+        }
+      }
     }
 
     // Convert all remaining invalid characters to underscores

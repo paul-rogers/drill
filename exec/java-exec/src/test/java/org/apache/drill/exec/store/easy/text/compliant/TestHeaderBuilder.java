@@ -116,7 +116,12 @@ public class TestHeaderBuilder extends DrillTest {
     hb = new HeaderBuilder();
     hb.startBatch();
     parse(hb,"+");
-    validateHeader(hb, new String[] {"col_"});
+    validateHeader(hb, new String[] {"column_1"});
+
+    hb = new HeaderBuilder();
+    hb.startBatch();
+    parse(hb,"+,-");
+    validateHeader(hb, new String[] {"column_1", "column_2"});
 
     hb = new HeaderBuilder();
     hb.startBatch();
