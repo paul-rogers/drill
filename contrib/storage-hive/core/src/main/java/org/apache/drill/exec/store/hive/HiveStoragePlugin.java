@@ -98,8 +98,13 @@ public class HiveStoragePlugin extends AbstractStoragePlugin {
     }
   }
 
+  // Forced to synchronize this method to allow error recovery
+  // in the multi-threaded case. Can remove synchronized only
+  // by restructuring connections and cache to allow better
+  // recovery from failed secure connections.
+
   @Override
-  public void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent) throws IOException {
+  public synchronized void registerSchemas(SchemaConfig schemaConfig, SchemaPlus parent) throws IOException {
     try {
       schemaFactory.registerSchemas(schemaConfig, parent);
       return;
