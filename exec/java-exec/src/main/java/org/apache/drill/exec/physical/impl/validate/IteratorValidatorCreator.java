@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.validate;
 import java.util.List;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.config.IteratorValidator;
 import org.apache.drill.exec.physical.impl.BatchCreator;
@@ -35,6 +36,8 @@ public class IteratorValidatorCreator implements BatchCreator<IteratorValidator>
       List<RecordBatch> children)
       throws ExecutionSetupException {
     Preconditions.checkArgument(children.size() == 1);
-    return new IteratorValidatorBatchIterator(children.iterator().next());
+    IteratorValidatorBatchIterator iter = new IteratorValidatorBatchIterator(children.iterator().next());
+    iter.enableBatchValidation(context.getOptionSet().getOption(ExecConstants.ENABLE_VECTOR_VALIDATOR));
+    return iter;
   }
 }
