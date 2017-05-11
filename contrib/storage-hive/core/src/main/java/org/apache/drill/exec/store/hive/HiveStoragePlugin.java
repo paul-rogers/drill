@@ -47,6 +47,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.conf.HiveConf.ConfVars;
 import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.thrift.TException;
 import org.apache.thrift.transport.TTransportException;
 
 public class HiveStoragePlugin extends AbstractStoragePlugin {
@@ -116,22 +117,26 @@ public class HiveStoragePlugin extends AbstractStoragePlugin {
     // easiest short-term solution until we refactor the code to do the
     // job properly.
 
-    } catch (Exception e) {
+    } catch (DrillRuntimeException e) {
       // Unwrap exception
       Throwable ex = e;
-      if (e instanceof DrillRuntimeException) {
-        ex = e.getCause();
-      }
-      // Case for failing on an invalid cached connection
-      if (! (ex instanceof MetaException) &&
-          // Case for a timed-out impersonated connection, and
-          // an invalid non-secure connection used to get security
-          // tokens.
-          ! (ex instanceof TTransportException) ) {
+      for (;;) {
+        // Case for failing on an invalid cached connection
+        if (ex instanceof MetaException ||
+            // Case for a timed-out impersonated connection, and
+            // an invalid non-secure connection used to get security
+            // tokens.
+            ex instanceof TTransportException) {
+          break;
+        }
 
         // All other exceptions are not handled, just pass along up
         // the stack.
-        throw e;
+
+        if (ex.getCause() == null  ||  ex.getCause() == ex) {
+          throw new DrillRuntimeException( "Unknown Hive error", e );
+        }
+        ex = ex.getCause();
       }
     }
 
