@@ -27,9 +27,13 @@ import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.physical.rowSet.ColumnLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
+import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.impl.AbstractColumnWriter;
+import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
 
 /**
  * Implementation of a column when creating a row batch.
@@ -97,6 +101,7 @@ public class TupleSetImpl implements TupleSchema {
     private ColumnImpl.State state = State.START;
     final ValueVector vector;
     final int addVersion;
+    final AbstractColumnWriter columnWriter;
     final ColumnLoaderImpl writer;
     private ValueVector backupVector;
 
@@ -115,7 +120,14 @@ public class TupleSetImpl implements TupleSchema {
       RowSetMutatorImpl rowSetMutator = tupleSet.rowSetMutator();
       this.addVersion = rowSetMutator.schemaVersion();
       vector = TypeHelper.getNewVector(schema, rowSetMutator.allocator(), null);
-      writer = new ColumnLoaderImpl(rowSetMutator.writerIndex(), vector);
+      columnWriter = ColumnAccessorFactory.newWriter(schema.getType());
+      WriterIndexImpl writerIndex = rowSetMutator.writerIndex();
+      columnWriter.bind(writerIndex, vector);
+      if (schema.getDataMode() == DataMode.REPEATED) {
+        writer = new ArrayColumnLoader(writerIndex, columnWriter);
+      } else {
+        writer = new ScalarColumnLoader(writerIndex, columnWriter);
+      }
     }
 
     /**
@@ -232,6 +244,7 @@ public class TupleSetImpl implements TupleSchema {
   private final TupleLoaderImpl loader;
   private final List<TupleSetImpl.ColumnImpl> columns = new ArrayList<>();
   private final Map<String,TupleSetImpl.ColumnImpl> nameIndex = new HashMap<>();
+  private final List<AbstractColumnWriter> startableWriters = new ArrayList<>();
 
   public TupleSetImpl(RowSetMutatorImpl rowSetMutator) {
     this.rowSetMutator = rowSetMutator;
@@ -282,6 +295,12 @@ public class TupleSetImpl implements TupleSchema {
     columns.add(colImpl);
     nameIndex.put(key, colImpl);
 
+    // Array writers must be told about the start of each row.
+
+    if (columnSchema.getDataMode() == DataMode.REPEATED) {
+      startableWriters.add(colImpl.columnWriter);
+    }
+
     // If a batch is active, prepare the column for writing.
 
     if (rowSetMutator.writeable()) {
@@ -321,6 +340,12 @@ public class TupleSetImpl implements TupleSchema {
     return columns.get(colIndex);
   }
 
+  public void startRow() {
+    for (AbstractColumnWriter writer : startableWriters) {
+      writer.start();
+    }
+  }
+
   protected void rollOver(int overflowIndex) {
     for (TupleSetImpl.ColumnImpl col : columns) {
       col.rollOver(overflowIndex);
@@ -339,5 +364,14 @@ public class TupleSetImpl implements TupleSchema {
     for (TupleSetImpl.ColumnImpl col : columns) {
       col.close();
     }
+  }
+
+  @Override
+  public BatchSchema schema() {
+    List<MaterializedField> fields = new ArrayList<>();
+    for (TupleSetImpl.ColumnImpl col : columns) {
+      fields.add(col.schema);
+    }
+    return new BatchSchema(SelectionVectorMode.NONE, fields);
   }
 }

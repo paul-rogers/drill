@@ -31,6 +31,7 @@ import org.joda.time.Period;
  *
  */
 public interface ScalarLoader {
+  void setNull();
   void setInt(int value);
   void setLong(long value);
   void setDouble(double value);

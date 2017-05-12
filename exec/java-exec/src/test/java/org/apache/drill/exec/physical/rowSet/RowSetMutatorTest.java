@@ -36,7 +36,7 @@ import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-public class LoaderTest extends SubOperatorTest {
+public class RowSetMutatorTest extends SubOperatorTest {
 
   public static boolean hasAssertions;
 
@@ -45,7 +45,7 @@ public class LoaderTest extends SubOperatorTest {
     hasAssertions = false;
     assert hasAssertions = true;
     if (! hasAssertions) {
-      System.err.println("This test requires assertions, but they are not enabbled - some tests skipped.");
+      System.err.println("This test requires assertions, but they are not enabled - some tests skipped.");
     }
   }
 
@@ -68,7 +68,7 @@ public class LoaderTest extends SubOperatorTest {
       // Expected
     }
     try {
-      rsMutator.save();
+      rsMutator.saveRow();
       fail();
     } catch (IllegalStateException e) {
       // Expected
@@ -90,6 +90,12 @@ public class LoaderTest extends SubOperatorTest {
 
     // Error to write to a column before the first batch.
 
+    try {
+      rsMutator.startRow();
+      fail();
+    } catch (IllegalStateException e) {
+      // Expected
+    }
     if (hasAssertions) {
       try {
         rootWriter.column(0).setInt(50);
@@ -99,9 +105,9 @@ public class LoaderTest extends SubOperatorTest {
       }
     }
 
-    rsMutator.start();
+    rsMutator.startBatch();
     try {
-      rsMutator.start();
+      rsMutator.startBatch();
       fail();
     } catch (IllegalStateException e) {
       // Expected
@@ -111,7 +117,7 @@ public class LoaderTest extends SubOperatorTest {
     rootWriter.column(0).setInt(100);
     assertEquals(0, rsMutator.rowCount());
     assertEquals(0, rsMutator.batchCount());
-    rsMutator.save();
+    rsMutator.saveRow();
     assertEquals(1, rsMutator.rowCount());
     assertEquals(1, rsMutator.batchCount());
     assertEquals(1, rsMutator.totalRowCount());
@@ -126,7 +132,7 @@ public class LoaderTest extends SubOperatorTest {
 
     rootWriter.column(0).setInt(200);
     rootWriter.column(1).setInt(210);
-    rsMutator.save();
+    rsMutator.saveRow();
     assertEquals(2, rsMutator.rowCount());
     assertEquals(1, rsMutator.batchCount());
     assertEquals(2, rsMutator.totalRowCount());
@@ -147,13 +153,19 @@ public class LoaderTest extends SubOperatorTest {
     // Between batches: batch-based operations fail
 
     try {
+      rsMutator.startRow();
+      fail();
+    } catch (IllegalStateException e) {
+      // Expected
+    }
+    try {
       rsMutator.harvest();
       fail();
     } catch (IllegalStateException e) {
       // Expected
     }
     try {
-      rsMutator.save();
+      rsMutator.saveRow();
       fail();
     } catch (IllegalStateException e) {
       // Expected
@@ -161,19 +173,19 @@ public class LoaderTest extends SubOperatorTest {
 
     // Create a second batch
 
-    rsMutator.start();
+    rsMutator.startBatch();
     assertEquals(0, rsMutator.rowCount());
     assertEquals(1, rsMutator.batchCount());
     assertEquals(2, rsMutator.totalRowCount());
     rootWriter.column(0).setInt(300);
     rootWriter.column(1).setInt(310);
-    rsMutator.save();
+    rsMutator.saveRow();
     assertEquals(1, rsMutator.rowCount());
     assertEquals(2, rsMutator.batchCount());
     assertEquals(3, rsMutator.totalRowCount());
     rootWriter.column(0).setInt(400);
     rootWriter.column(1).setInt(410);
-    rsMutator.save();
+    rsMutator.saveRow();
 
     // Harvest. Schema has not changed.
 
@@ -191,16 +203,16 @@ public class LoaderTest extends SubOperatorTest {
 
     // Next batch. Schema has changed.
 
-    rsMutator.start();
+    rsMutator.startBatch();
     rootWriter.column(0).setInt(500);
     rootWriter.column(1).setInt(510);
     rootWriter.schema().addColumn(SchemaBuilder.columnSchema("c", MinorType.INT, DataMode.OPTIONAL));
     rootWriter.column(2).setInt(520);
-    rsMutator.save();
+    rsMutator.saveRow();
     rootWriter.column(0).setInt(600);
     rootWriter.column(1).setInt(610);
     rootWriter.column(2).setInt(620);
-    rsMutator.save();
+    rsMutator.saveRow();
 
     result = fixture.wrap(rsMutator.harvest());
     assertEquals(3, rsMutator.schemaVersion());
@@ -216,13 +228,19 @@ public class LoaderTest extends SubOperatorTest {
     // Key operations fail after close.
 
     try {
+      rsMutator.startRow();
+      fail();
+    } catch (IllegalStateException e) {
+      // Expected
+    }
+    try {
       rsMutator.writer();
       fail();
     } catch (IllegalStateException e) {
       // Expected
     }
     try {
-      rsMutator.start();
+      rsMutator.startBatch();
       fail();
     } catch (IllegalStateException e) {
       // Expected
@@ -234,7 +252,7 @@ public class LoaderTest extends SubOperatorTest {
       // Expected
     }
     try {
-      rsMutator.save();
+      rsMutator.saveRow();
       fail();
     } catch (IllegalStateException e) {
       // Expected
@@ -318,7 +336,8 @@ public class LoaderTest extends SubOperatorTest {
 
     // Can still add required fields while writing the first row.
 
-    rsMutator.start();
+    rsMutator.startBatch();
+    rsMutator.startRow();
     rootWriter.column(0).setString("foo");
 
     MaterializedField col2 = SchemaBuilder.columnSchema("b", MinorType.VARCHAR, DataMode.REQUIRED);
@@ -333,7 +352,7 @@ public class LoaderTest extends SubOperatorTest {
 
     // After first row, a required type is not allowed, must be optional or repeated.
 
-    rsMutator.save();
+    rsMutator.saveRow();
     rootWriter.column(0).setString("bar");
     rootWriter.column(1).setString("");
 
@@ -401,7 +420,7 @@ public class LoaderTest extends SubOperatorTest {
     assertEquals(0, schema.columnIndex("a"));
     assertEquals(1, schema.columnIndex("A"));
 
-    rsMutator.start();
+    rsMutator.startBatch();
     rootWriter.column(0).setString("lower");
     rootWriter.column(1).setString("upper");
 
@@ -430,16 +449,17 @@ public class LoaderTest extends SubOperatorTest {
     byte value[] = new byte[200];
     Arrays.fill(value, (byte) 'X');
     int count = 0;
-    rsMutator.start();
+    rsMutator.startBatch();
     for (; ! rsMutator.isFull(); count++) {
+      rsMutator.startRow();
       rootWriter.column(0).setBytes(value);
-      rsMutator.save();
+      rsMutator.saveRow();
     }
     assertEquals(ValueVector.MAX_ROW_COUNT, count);
     assertEquals(count, rsMutator.rowCount());
 
     rsMutator.harvest().clear();
-    rsMutator.start();
+    rsMutator.startBatch();
     assertEquals(0, rsMutator.rowCount());
 
     rsMutator.close();
@@ -490,10 +510,11 @@ public class LoaderTest extends SubOperatorTest {
     byte value[] = new byte[200];
     Arrays.fill(value, (byte) 'X');
     int count = 0;
-    rsMutator.start();
+    rsMutator.startBatch();
     for (; ! rsMutator.isFull(); count++) {
+      rsMutator.startRow();
       rootWriter.column(0).setBytes(value);
-      rsMutator.save();
+      rsMutator.saveRow();
     }
     assertEquals(TEST_ROW_LIMIT, count);
     assertEquals(count, rsMutator.rowCount());
@@ -501,20 +522,20 @@ public class LoaderTest extends SubOperatorTest {
     // Should fail to write beyond the row limit
 
     try {
-      rootWriter.column(0).setBytes(value);
+      rsMutator.startRow();
       fail();
-    } catch (AssertionError e) {
+    } catch (IllegalStateException e) {
       // Expected
     }
     try {
-      rsMutator.save();
+      rsMutator.saveRow();
       fail();
     } catch (IllegalStateException e) {
       // Expected
     }
 
     rsMutator.harvest().clear();
-    rsMutator.start();
+    rsMutator.startBatch();
     assertEquals(0, rsMutator.rowCount());
 
     rsMutator.close();
@@ -533,13 +554,14 @@ public class LoaderTest extends SubOperatorTest {
     MaterializedField field = SchemaBuilder.columnSchema("s", MinorType.VARCHAR, DataMode.REQUIRED);
     schema.addColumn(field);
 
-    rsMutator.start();
+    rsMutator.startBatch();
     byte value[] = new byte[512];
     Arrays.fill(value, (byte) 'X');
     int count = 0;
     for (; ! rsMutator.isFull(); count++) {
+      rsMutator.startRow();
       rootWriter.column(0).setBytes(value);
-      rsMutator.save();
+      rsMutator.saveRow();
     }
 
     // Row count should include the overflow row
@@ -557,7 +579,7 @@ public class LoaderTest extends SubOperatorTest {
 
     // Next batch should start with the overflow row
 
-    rsMutator.start();
+    rsMutator.startBatch();
     assertEquals(1, rsMutator.rowCount());
     assertEquals(expectedCount + 1, rsMutator.totalRowCount());
     result = fixture.wrap(rsMutator.harvest());
@@ -566,5 +588,9 @@ public class LoaderTest extends SubOperatorTest {
 
     rsMutator.close();
   }
+
+  // TODO: Test vector limits with repeated types
+
+  // TODO: Test single array that exceeds vector limit
 
 }

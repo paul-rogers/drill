@@ -25,6 +25,10 @@ import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 
+/**
+ * Implementation of the mutator for a row set (AKA record batch or row batch).
+ */
+
 public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.WriterIndexListener {
 
   public static class MutatorOptions {
@@ -176,7 +180,7 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.WriterI
   public int schemaVersion() { return schemaVersion; }
 
   @Override
-  public void start() {
+  public void startBatch() {
     if (state != State.START && state != State.HARVESTED) {
       throw new IllegalStateException("Unexpected state: " + state);
     }
@@ -197,7 +201,18 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.WriterI
   }
 
   @Override
-  public void save() {
+  public void startRow() {
+    switch (state) {
+    case ACTIVE:
+      rootTuple.startRow();
+      break;
+    default:
+      throw new IllegalStateException("Unexpected state: " + state);
+    }
+  }
+
+  @Override
+  public void saveRow() {
     switch (state) {
     case ACTIVE:
       if (! writerIndex.next()) {

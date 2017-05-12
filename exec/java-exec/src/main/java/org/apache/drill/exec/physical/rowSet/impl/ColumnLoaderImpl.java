@@ -17,106 +17,15 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
-import java.math.BigDecimal;
-
-import org.apache.drill.exec.physical.rowSet.ArrayLoader;
 import org.apache.drill.exec.physical.rowSet.ColumnLoader;
-import org.apache.drill.exec.physical.rowSet.TupleLoader;
-import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.VectorOverflowException;
-import org.apache.drill.exec.vector.accessor.impl.AbstractColumnWriter;
-import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
-import org.joda.time.Period;
 
-public class ColumnLoaderImpl implements ColumnLoader {
+/**
+ * Implementation interface for a column loader. Adds to the public interface
+ * a number of methods needed to coordinate batch overflow.
+ */
 
-  private static final String ROLLOVER_FAILED = "Row batch rollover failed.";
-
-  private final WriterIndexImpl index;
-  private final AbstractColumnWriter writer;
-
-  protected ColumnLoaderImpl(WriterIndexImpl index, ValueVector vector) {
-    this.index = index;
-    writer = ColumnAccessorFactory.newWriter(vector.getField().getType());
-    writer.bind(index, vector);
-  }
-
-  public int writeIndex() { return writer.lastWriteIndex(); }
-  public void reset() { writer.reset(); }
-  public void resetTo(int dest) { writer.reset(dest); }
-
-  @Override
-  public void setInt(int value) {
-    assert index.legal();
-    try {
-      writer.setInt(value);
-    } catch (VectorOverflowException e) {
-      try {
-        writer.setInt(value);
-      } catch (VectorOverflowException e1) {
-        throw new IllegalStateException(ROLLOVER_FAILED);
-      }
-    }
-  }
-
-  @Override
-  public void setLong(long value) {
-    // TODO Auto-generated method stub
-  }
-
-  @Override
-  public void setDouble(double value) {
-    // TODO Auto-generated method stub
-  }
-
-  @Override
-  public void setString(String value) {
-    assert index.legal();
-    try {
-      writer.setString(value);
-    } catch (VectorOverflowException e) {
-      try {
-        writer.setString(value);
-      } catch (VectorOverflowException e1) {
-        throw new IllegalStateException(ROLLOVER_FAILED);
-      }
-    }
-  }
-
-  @Override
-  public void setBytes(byte[] value) {
-    assert index.legal();
-    try {
-      writer.setBytes(value);
-    } catch (VectorOverflowException e) {
-      try {
-        writer.setBytes(value);
-      } catch (VectorOverflowException e1) {
-        throw new IllegalStateException(ROLLOVER_FAILED);
-      }
-    }
-  }
-
-  @Override
-  public void setDecimal(BigDecimal value) {
-    // TODO Auto-generated method stub
-  }
-
-  @Override
-  public void setPeriod(Period value) {
-    // TODO Auto-generated method stub
-  }
-
-  @Override
-  public TupleLoader map() {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
-  @Override
-  public ArrayLoader array() {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
+public interface ColumnLoaderImpl extends ColumnLoader {
+  int writeIndex();
+  void reset();
+  void resetTo(int dest);
 }

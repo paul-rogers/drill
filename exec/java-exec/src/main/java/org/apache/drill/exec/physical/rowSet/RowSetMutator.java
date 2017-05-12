@@ -80,11 +80,11 @@ public interface RowSetMutator {
    * previous batch has been harvested.
    */
 
-  void start();
+  void startBatch();
 
   /**
    * Writer for the top-level tuple (the entire row). Valid only when
-   * the mutator is actively writing a batch (after <tt>start()</tt>
+   * the mutator is actively writing a batch (after <tt>startBatch()</tt>
    * but before </tt>harvest()</tt>.)
    *
    * @return writer for the top-level columns
@@ -93,10 +93,19 @@ public interface RowSetMutator {
   TupleLoader writer();
 
   /**
-   * Called after writing each row to move to the next row.
+   * Called before writing a new row.
    */
 
-  void save();
+  void startRow();
+
+  /**
+   * Called after writing each row to move to the next row. Failing to
+   * call this method effectively abandons the in-flight row; something
+   * that may be useful to recover from partially-written rows that turn
+   * out to contain errors.
+   */
+
+  void saveRow();
 
   /**
    * Indicates that no more rows fit into the current row batch

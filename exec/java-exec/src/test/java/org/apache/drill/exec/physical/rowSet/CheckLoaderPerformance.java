@@ -209,11 +209,13 @@ public class CheckLoaderPerformance {
 
     @Override
     protected void loadBatch() {
-      rsMutator.start();
+      rsMutator.startBatch();
       TupleLoader rootWriter = rsMutator.writer();
       rowCount = 0;
       for (int i = 0; i < rowTarget; i++) {
+        rsMutator.startRow();
         loadRow(rootWriter);
+        rsMutator.saveRow();
         rowCount++;
         totalRowCount++;
       }

@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.physical.rowSet;
 
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 
 /**
@@ -51,4 +52,13 @@ public interface TupleSchema {
    */
 
   int addColumn(MaterializedField columnSchema);
+
+  /**
+   * Return the column list as a batch schema. Primarily for testing.
+   * @return the current schema as a batch schema, with columns
+   * in the same order as they were added (that is, in row index
+   * order)
+   */
+
+  BatchSchema schema();
 }

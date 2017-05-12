@@ -70,6 +70,10 @@ public final class RowSetBuilder {
     return this;
   }
 
+  public RowSetBuilder addSingleCol(Object value) {
+    return add(new Object[] { value });
+  }
+
   /**
    * Build the row set with a selection vector 2. The SV2 is
    * initialized to have a 1:1 index to the rows: SV2 0 points
