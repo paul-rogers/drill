@@ -799,7 +799,23 @@
           </exclusion>
           <exclusion>
             <groupId>org.apache.hive</groupId>
+            <artifactId>hive-exec</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-shims</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.apache.hive</groupId>
             <artifactId>hive-serde</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-metastore</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-common</artifactId>
           </exclusion>
         </exclusions>
       </dependency>
@@ -815,6 +831,10 @@
           <exclusion>
             <groupId>org.apache.hive</groupId>
             <artifactId>hive-shims</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-exec</artifactId>
           </exclusion>
           <exclusion>
             <groupId>commons-logging</groupId>
@@ -1283,10 +1303,10 @@
                 <groupId>org.codehaus.jackson</groupId>
                 <artifactId>jackson-jaxrs</artifactId>
               </exclusion>
-
+             
               <!-- Exclude the following to prevent enforcer failures. YARN uses them,
                    but Drill forbids them. -->
-
+      
               <exclusion>
                 <groupId>log4j</groupId>
                 <artifactId>log4j</artifactId>
@@ -1878,10 +1898,10 @@
                 <groupId>org.codehaus.jackson</groupId>
                 <artifactId>jackson-jaxrs</artifactId>
               </exclusion>
-
+             
               <!-- Exclude the following to prevent enforcer failures. YARN uses them,
                    but Drill forbids them. -->
-
+      
               <exclusion>
                 <groupId>log4j</groupId>
                 <artifactId>log4j</artifactId>
@@ -2320,10 +2340,10 @@
                 <groupId>org.codehaus.jackson</groupId>
                 <artifactId>jackson-jaxrs</artifactId>
               </exclusion>
-
+              
               <!-- Exclude the following to prevent enforcer failures. YARN uses them,
                    but Drill forbids them. -->
-
+      
               <exclusion>
                 <groupId>log4j</groupId>
                 <artifactId>log4j</artifactId>
@@ -2434,10 +2454,10 @@
                 <groupId>org.codehaus.jackson</groupId>
                 <artifactId>jackson-jaxrs</artifactId>
               </exclusion>
-
+              
               <!-- Exclude the following to prevent enforcer failures. YARN uses them,
                    but Drill forbids them. -->
-
+      
               <exclusion>
                 <groupId>log4j</groupId>
                 <artifactId>log4j</artifactId>
