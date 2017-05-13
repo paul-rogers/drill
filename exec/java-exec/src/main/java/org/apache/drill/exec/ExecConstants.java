@@ -449,4 +449,19 @@ public interface ExecConstants {
   String PERSISTENT_TABLE_UMASK = "exec.persistent_table.umask";
   StringValidator PERSISTENT_TABLE_UMASK_VALIDATOR = new StringValidator(PERSISTENT_TABLE_UMASK, "002");
 
+  /**
+   * When iterator validation is enabled, additionally validates the vectors in
+   * each batch passed to each iterator.
+   */
+  String ENABLE_VECTOR_VALIDATION = "debug.validate_vectors";
+  BooleanValidator ENABLE_VECTOR_VALIDATOR = new BooleanValidator(ENABLE_VECTOR_VALIDATION, true);
+
+  /**
+   * Enables batch iterator (operator) validation. Validation is normally enabled
+   * only when assertions are enabled. This option enables iterator validation even
+   * if assertions are not enabled. That is, it allows iterator validation even on
+   * a "production" Drill instance.
+   */
+  String ENABLE_ITERATOR_VALIDATION = "debug.validate_iterators";
+  BooleanValidator ENABLE_ITERATOR_VALIDATOR = new BooleanValidator(ENABLE_ITERATOR_VALIDATION, true);
 }
