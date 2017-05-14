@@ -223,7 +223,7 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
   }
 
   /**
-   * Implements a write-only version of the stats collector for use by opeators,
+   * Implements a write-only version of the stats collector for use by operators,
    * then provides simplified test-time accessors to get the stats values when
    * validating code in tests.
    */
