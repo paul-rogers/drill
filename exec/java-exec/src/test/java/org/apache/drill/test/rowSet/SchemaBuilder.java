@@ -52,6 +52,37 @@ import org.apache.drill.exec.record.MaterializedField;
 
 public class SchemaBuilder {
 
+  public static class ColumnBuilder {
+    private String name;
+    private MajorType.Builder typeBuilder;
+
+    public ColumnBuilder(String name, MinorType type) {
+      this.name = name;
+      typeBuilder = MajorType.newBuilder()
+          .setMinorType(type);
+    }
+
+    public ColumnBuilder setMode(DataMode mode) {
+      typeBuilder.setMode(mode);
+      return this;
+    }
+
+    public ColumnBuilder setWidth(int width) {
+      typeBuilder.setPrecision(width);
+      return this;
+    }
+
+    public ColumnBuilder setScale(int scale, int precision) {
+      typeBuilder.setScale(scale);
+      typeBuilder.setPrecision(precision);
+      return this;
+    }
+
+    public MaterializedField build() {
+      return MaterializedField.create(name, typeBuilder.build());
+    }
+  }
+
   /**
    * Internal structure for building a map. A map is just a schema,
    * but one that is part of a parent column.

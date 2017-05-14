@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.store;
 
-import org.apache.drill.exec.ops.OperExecContext;
+import org.apache.drill.exec.ops.OperatorExecContext;
 import org.apache.drill.exec.physical.rowSet.RowSetMutator;
 
 /**
@@ -26,7 +26,7 @@ import org.apache.drill.exec.physical.rowSet.RowSetMutator;
  * original {@link RecordReader} interface.
  */
 
-public interface RecordReaderEx {
+public interface RowReader {
 
   /**
    * Setup the record reader.
@@ -34,7 +34,7 @@ public interface RecordReaderEx {
    * @param mutator row set mutator used to create batches
    */
 
-  void open(OperExecContext context, RowSetMutator mutator);
+  void open(OperatorExecContext context, RowSetMutator mutator);
 
   /**
    * Read the next batch. Reading continues until either EOF,

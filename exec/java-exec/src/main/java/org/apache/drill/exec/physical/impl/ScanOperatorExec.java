@@ -27,7 +27,7 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.ops.OperExecContext;
+import org.apache.drill.exec.ops.OperatorExecContext;
 import org.apache.drill.exec.physical.impl.OperatorRecordBatch.BatchAccessor;
 import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExec;
 import org.apache.drill.exec.physical.impl.OperatorRecordBatch.VectorContainerAccessor;
@@ -36,12 +36,30 @@ import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetMutatorImpl;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.store.RecordReaderEx;
+import org.apache.drill.exec.store.RowReader;
 
 /**
  * Implementation of the revised scan operator that uses a mutator aware of
  * batch sizes. This is the successor to {@link ScanBatch} and should be used
  * by all new scan implementations.
+ * <p>
+ * Acts as an adapter between the operator protocol and the row reader
+ * protocol. Provides the row set mutator used to construct record batches.
+ * <p>
+ * Provides the option to continue a schema from one batch to the next.
+ * This can reduce spurious schema changes in formats, such as JSON, with
+ * varying fields. It is not, however, a complete solution as the outcome
+ * still depends on the order of file scans and the division of files across
+ * readers.
+ * <p>
+ * Provides the option to infer the schema from the first batch. The "quick path"
+ * to obtain the schema will read one batch, then use that schema as the returned
+ * schema, returning the full batch in the next call to <tt>next()</tt>.
+ * <p>
+ * Error handling in this class is minimal: the enclosing record batch iterator
+ * is responsible for handling exceptions. Error handling relies on the fact
+ * that the iterator will call <tt>close()</tt> regardless of which exceptions
+ * are thrown.
  */
 
 public class ScanOperatorExec implements OperatorExec {
@@ -57,8 +75,8 @@ public class ScanOperatorExec implements OperatorExec {
   }
 
   public static class ScanOptions {
-    private List<ImplicitColumn> implicitColumns;
-    private boolean restartSchemaForEachFile;
+    public List<ImplicitColumn> implicitColumns;
+    public boolean restartSchemaForEachFile;
   }
 
   private enum State { START, SCHEMA, SCHEMA_EOF, READER, READER_EOF, END, FAILED, CLOSED }
@@ -66,23 +84,23 @@ public class ScanOperatorExec implements OperatorExec {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ScanOperatorExec.class);
 
   private State state = State.START;
-  private final OperExecContext context;
-  private final Iterator<RecordReaderEx> readers;
+  private final OperatorExecContext context;
+  private final Iterator<RowReader> readers;
   private final ScanOptions options;
   private final VectorContainerAccessor containerAccessor = new VectorContainerAccessor();
   private RowSetMutator rowSetMutator;
-  private RecordReaderEx reader;
+  private RowReader reader;
   private int readerCount;
 
-  public ScanOperatorExec(OperExecContext context,
-                          Iterator<RecordReaderEx> readers,
+  public ScanOperatorExec(OperatorExecContext context,
+                          Iterator<RowReader> readers,
                           List<Map<String, String>> implicitColumns) {
     this(context, readers,
         convertImplicitCols(implicitColumns));
   }
 
-  public ScanOperatorExec(OperExecContext context,
-            Iterator<RecordReaderEx> readers,
+  public ScanOperatorExec(OperatorExecContext context,
+            Iterator<RowReader> readers,
             ScanOptions options) {
     this.context = context;
     this.readers = readers;
@@ -201,7 +219,9 @@ public class ScanOperatorExec implements OperatorExec {
 
   private boolean readBatch() {
     try {
+      rowSetMutator.startBatch();
       if (!reader.next()) {
+        rowSetMutator.close();
         return false;
       }
     } catch (UserException e) {
