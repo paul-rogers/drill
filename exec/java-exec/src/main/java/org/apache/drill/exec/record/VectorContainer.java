@@ -304,7 +304,6 @@ public class VectorContainer implements VectorAccessible {
     }
 
     return va.getChildWrapper(fieldIds);
-
   }
 
   private VectorWrapper<?> getValueAccessorById(int... fieldIds) {
@@ -375,9 +374,7 @@ public class VectorContainer implements VectorAccessible {
    * Clears the contained vectors.  (See {@link ValueVector#clear}).
    */
   public void zeroVectors() {
-    for (VectorWrapper<?> w : wrappers) {
-      w.clear();
-    }
+    VectorAccessibleUtilities.clear(this);
   }
 
   public int getNumberOfColumns() {
@@ -397,5 +394,32 @@ public class VectorContainer implements VectorAccessible {
       }
     }
     return true;
+  }
+
+  /**
+   * Merge two batches to create a single, combined, batch. Vectors
+   * appear in the order defined by {@link BatchSchema#merge(BatchSchema)}.
+   * The two batches must have identical row counts. The pattern is that
+   * this container is the main part of the record batch, the other
+   * represents new columns to merge.
+   * <p>
+   * Reference counts on the underlying buffers are <b>unchanged</b>.
+   * The client code is assumed to abandon the two input containers in
+   * favor of the merged container.
+   *
+   * @param otherContainer the container to merge with this one
+   * @return a new, merged, container
+   */
+  public VectorContainer merge(VectorContainer otherContainer) {
+    if (recordCount != otherContainer.recordCount) {
+      throw new IllegalArgumentException();
+    }
+    VectorContainer merged = new VectorContainer(allocator);
+    merged.schema = schema.merge(otherContainer.schema);
+    merged.recordCount = recordCount;
+    merged.wrappers.addAll(wrappers);
+    merged.wrappers.addAll(otherContainer.wrappers);
+    merged.schemaChanged = false;
+    return merged;
   }
 }

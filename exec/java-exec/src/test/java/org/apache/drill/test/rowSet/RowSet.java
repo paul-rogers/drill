@@ -110,6 +110,8 @@ public interface RowSet {
 
   int size();
 
+  RowSet merge(RowSet other);
+
   BatchSchema batchSchema();
 
   /**

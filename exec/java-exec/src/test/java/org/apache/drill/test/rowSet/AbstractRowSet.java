@@ -158,7 +158,5 @@ public abstract class AbstractRowSet implements RowSet {
   }
 
   @Override
-  public BatchSchema batchSchema() {
-    return container.getSchema();
-  }
+  public BatchSchema batchSchema() { return container.getSchema(); }
 }
