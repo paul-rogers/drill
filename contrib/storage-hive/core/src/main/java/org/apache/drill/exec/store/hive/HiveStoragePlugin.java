@@ -117,7 +117,7 @@ public class HiveStoragePlugin extends AbstractStoragePlugin {
     // easiest short-term solution until we refactor the code to do the
     // job properly.
 
-    } catch (DrillRuntimeException e) {
+    } catch (Throwable e) {
       // Unwrap exception
       Throwable ex = e;
       for (;;) {
