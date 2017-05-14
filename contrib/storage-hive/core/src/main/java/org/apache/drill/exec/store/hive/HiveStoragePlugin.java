@@ -115,7 +115,7 @@ public class HiveStoragePlugin extends AbstractStoragePlugin {
     // discard and rebuild. To work around, we discard the entire schema
     // factory, and all its invalid connections. Very crude, but the
     // easiest short-term solution until we refactor the code to do the
-    // job properly.
+    // job properly. See DRILL-5510.
 
     } catch (Throwable e) {
       // Unwrap exception
