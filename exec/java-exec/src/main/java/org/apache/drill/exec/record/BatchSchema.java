@@ -18,6 +18,7 @@
 package org.apache.drill.exec.record;
 
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
@@ -157,4 +158,26 @@ public class BatchSchema implements Iterable<MaterializedField> {
     return true;
   }
 
+  /**
+   * Merge two schema to produce a new, merged schema. The caller is responsible
+   * for ensuring that column names are unique. The order of the fields in the
+   * new schema is the same as that of this schema, with the other schema's fields
+   * appended in the order defined in the other schema. The resulting selection
+   * vector mode is the same as this schema. (That is, this schema is assumed to
+   * be the main part of the batch, possibly with a selection vector, with the
+   * other schema representing additional, new columns.)
+   * @param otherSchema the schema to merge with this one
+   * @return the new, merged, schema
+   */
+
+  public BatchSchema merge(BatchSchema otherSchema) {
+    if (otherSchema.selectionVectorMode != SelectionVectorMode.NONE &&
+        selectionVectorMode != otherSchema.selectionVectorMode) {
+      throw new IllegalArgumentException("Left schema must carry the selection vector mode");
+    }
+    List<MaterializedField> mergedFields = new ArrayList<>();
+    mergedFields.addAll(this.fields);
+    mergedFields.addAll(otherSchema.fields);
+    return new BatchSchema(selectionVectorMode, mergedFields);
+  }
 }
