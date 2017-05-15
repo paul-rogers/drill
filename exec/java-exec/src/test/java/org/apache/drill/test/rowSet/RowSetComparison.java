@@ -137,11 +137,25 @@ public class RowSetComparison {
 
   /**
    * Convenience method to verify the actual results, then free memory
-   * for both the expected and actual result sets.
+   * for the actual result sets.
    * @param actual the actual results to verify
    */
 
   public void verifyAndClear(RowSet actual) {
+    try {
+      verify(actual);
+    } finally {
+      actual.clear();
+    }
+  }
+
+  /**
+   * Convenience method to verify the actual results, then free memory
+   * for both the expected and actual result sets.
+   * @param actual the actual results to verify
+   */
+
+  public void verifyAndClearAll(RowSet actual) {
     try {
       verify(actual);
     } finally {

@@ -90,7 +90,7 @@ public class TestVectorContainer extends SubOperatorTest {
     // Merge containers via row set facade
 
     RowSet mergedRs = left.merge(right);
-    comparison.verifyAndClear(mergedRs);
+    comparison.verifyAndClearAll(mergedRs);
 
     // Add a selection vector. Ensure the SV appears in the merged
     // result. Test as a row set since container's don't actually
@@ -99,7 +99,7 @@ public class TestVectorContainer extends SubOperatorTest {
     SingleRowSet leftIndirect = left.toIndirect();
     RowSet mergedIndirect = leftIndirect.merge(right);
     assertEquals(SelectionVectorMode.TWO_BYTE, mergedIndirect.indirectionType());
-    comparison.verifyAndClear(mergedIndirect);
+    comparison.verifyAndClearAll(mergedIndirect);
   }
 
 }

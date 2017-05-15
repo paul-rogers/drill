@@ -417,7 +417,7 @@ public class RowSetTest extends SubOperatorTest {
       .build();
 
     new RowSetComparison(rs1)
-      .verifyAndClear(rs2);
+      .verifyAndClearAll(rs2);
   }
 
   /**

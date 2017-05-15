@@ -159,7 +159,7 @@ public class TestRepeatedVarCharOutput extends SubOperatorTest {
     RowSet expected = makeExpected(schema, dataValues);
 
     new RowSetComparison(expected)
-      .verifyAndClear(actual);
+      .verifyAndClearAll(actual);
 
     rvco.close();
   }
@@ -182,7 +182,7 @@ public class TestRepeatedVarCharOutput extends SubOperatorTest {
     RowSet expected = makeExpected(schema, dataValues);
 
     new RowSetComparison(expected)
-      .verifyAndClear(actual);
+      .verifyAndClearAll(actual);
 
     rvco.close();
   }
@@ -205,7 +205,7 @@ public class TestRepeatedVarCharOutput extends SubOperatorTest {
     RowSet expected = makeExpected(schema, dataValues);
 
     new RowSetComparison(expected)
-      .verifyAndClear(actual);
+      .verifyAndClearAll(actual);
 
     rvco.close();
   }
@@ -234,7 +234,7 @@ public class TestRepeatedVarCharOutput extends SubOperatorTest {
     RowSet expected = makeExpected(schema, dataValues);
 
     new RowSetComparison(expected)
-      .verifyAndClear(actual);
+      .verifyAndClearAll(actual);
 
     rvco.close();
   }
@@ -267,7 +267,7 @@ public class TestRepeatedVarCharOutput extends SubOperatorTest {
     RowSet expected = makeExpected(schema, dataValues);
 
     new RowSetComparison(expected)
-      .verifyAndClear(actual);
+      .verifyAndClearAll(actual);
 
     rvco.close();
   }
@@ -296,7 +296,7 @@ public class TestRepeatedVarCharOutput extends SubOperatorTest {
     RowSet expected = makeExpected(schema, dataValues);
 
     new RowSetComparison(expected)
-      .verifyAndClear(actual);
+      .verifyAndClearAll(actual);
 
     rvco.close();
   }
@@ -325,7 +325,7 @@ public class TestRepeatedVarCharOutput extends SubOperatorTest {
     RowSet expected = makeExpected(schema, expectedValues);
 
     new RowSetComparison(expected)
-      .verifyAndClear(actual);
+      .verifyAndClearAll(actual);
 
     rvco.close();
   }

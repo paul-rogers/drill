@@ -104,7 +104,7 @@ public class TestCsv extends ClusterTest {
         .add("10", "foo", "bar")
         .build();
     new RowSetComparison(expected)
-      .verifyAndClear(actual);
+      .verifyAndClearAll(actual);
   }
 
   String invalidHeaders[] = {
@@ -132,7 +132,7 @@ public class TestCsv extends ClusterTest {
         .add("10", "foo", "bar", "fourth", "fifth", "sixth")
         .build();
     new RowSetComparison(expected)
-      .verifyAndClear(actual);
+      .verifyAndClearAll(actual);
   }
 
   private String makeStatement(String fileName) {

@@ -101,7 +101,7 @@ public class TestScanBatchWriters extends SubOperatorTest {
             .build();
 
         new RowSetComparison(expected)
-          .verifyAndClear(rowSet);
+          .verifyAndClearAll(rowSet);
       }
     }
 

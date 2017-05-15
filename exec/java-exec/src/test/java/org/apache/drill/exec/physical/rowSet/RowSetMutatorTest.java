@@ -148,7 +148,7 @@ public class RowSetMutatorTest extends SubOperatorTest {
         .add(200, 210)
         .build();
     new RowSetComparison(expected)
-        .verifyAndClear(result);
+        .verifyAndClearAll(result);
 
     // Between batches: batch-based operations fail
 
@@ -199,7 +199,7 @@ public class RowSetMutatorTest extends SubOperatorTest {
         .add(400, 410)
         .build();
     new RowSetComparison(expected)
-        .verifyAndClear(result);
+        .verifyAndClearAll(result);
 
     // Next batch. Schema has changed.
 
@@ -221,7 +221,7 @@ public class RowSetMutatorTest extends SubOperatorTest {
         .add(600, 610, 620)
         .build();
     new RowSetComparison(expected)
-        .verifyAndClear(result);
+        .verifyAndClearAll(result);
 
     rsMutator.close();
 

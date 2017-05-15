@@ -58,7 +58,7 @@ public class ColumnLoaderTest extends SubOperatorTest {
       SingleRowSet expected = rsBuilder.build();
       RowSet actual = fixture.wrap(rsMutator.harvest());
       new RowSetComparison(expected)
-        .verifyAndClear(actual);
+        .verifyAndClearAll(actual);
       rsMutator.close();
     }
   }
