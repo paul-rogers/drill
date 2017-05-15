@@ -230,7 +230,7 @@ public class TupleSetImpl implements TupleSchema {
       AllocationHelper.allocate(toAlloc, tupleSet.rowSetMutator().targetRowCount(), 50, 10);
     }
 
-    public void close() {
+    public void reset() {
       vector.clear();
       if (backupVector != null) {
         backupVector.clear();
@@ -360,10 +360,14 @@ public class TupleSetImpl implements TupleSchema {
 
   public TupleLoader loader() { return loader; }
 
-  public void close() {
+  public void reset() {
     for (TupleSetImpl.ColumnImpl col : columns) {
-      col.close();
+      col.reset();
     }
+  }
+
+  public void close() {
+    reset();
   }
 
   @Override

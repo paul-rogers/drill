@@ -77,6 +77,7 @@ public class AbstractOperatorExecContext implements OperatorExecContext {
     return allocator;
   }
 
+  @Override
   public void close() {
     try {
       manager.close();

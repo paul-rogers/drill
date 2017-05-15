@@ -76,10 +76,10 @@ public class ScanOperatorExec implements OperatorExec {
 
   public static class ScanOptions {
     public List<ImplicitColumn> implicitColumns;
-    public boolean restartSchemaForEachFile;
+    public boolean reuseSchemaAcrossReaders;
   }
 
-  private enum State { START, SCHEMA, SCHEMA_EOF, READER, READER_EOF, END, FAILED, CLOSED }
+  private enum State { START, NEXT_READER, LOOK_AHEAD, READER, READER_EOF, END, FAILED, CLOSED }
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ScanOperatorExec.class);
 
@@ -91,6 +91,8 @@ public class ScanOperatorExec implements OperatorExec {
   private RowSetMutator rowSetMutator;
   private RowReader reader;
   private int readerCount;
+
+  private VectorContainer lookahead;
 
   public ScanOperatorExec(OperatorExecContext context,
                           Iterator<RowReader> readers,
@@ -104,7 +106,7 @@ public class ScanOperatorExec implements OperatorExec {
             ScanOptions options) {
     this.context = context;
     this.readers = readers;
-    this.options = options;
+    this.options = options == null ? new ScanOptions() : options;
   }
 
   public static ScanOptions convertImplicitCols(List<Map<String, String>> implicitColumns) {
@@ -115,7 +117,6 @@ public class ScanOperatorExec implements OperatorExec {
       }
     }
     ScanOptions options = new ScanOptions();
-    options.restartSchemaForEachFile = true;
     options.implicitColumns = newForm;
     return options;
   }
@@ -132,15 +133,9 @@ public class ScanOperatorExec implements OperatorExec {
   @Override
   public boolean buildSchema() {
     assert state == State.START;
+    state = State.NEXT_READER;
     nextBatch();
-    switch (state) {
-    case READER:
-      state = State.SCHEMA;
-      return true;
-    case READER_EOF:
-      state = State.SCHEMA_EOF;
-      return true;
-    case END:
+    if (state == State.END) {
       if (readerCount == 0) {
         // return false; // When empty batches are supported
         throw UserException.executionError(
@@ -148,80 +143,165 @@ public class ScanOperatorExec implements OperatorExec {
           .build(logger);
       }
       return false;
-    default:
-      throw new IllegalStateException("Unexpected state: " + state);
     }
+
+    // If the reader returned an empty first batch (schema only),
+    // just pass that empty batch along.
+
+    if (containerAccessor.getRowCount() == 0) {
+      return true;
+    }
+
+    // The reader returned actual data. Just forward the schema
+    // in a dummy container, saving the data for next time.
+
+    lookahead = containerAccessor.getOutgoingContainer();
+    VectorContainer empty = new VectorContainer(context.getAllocator(), containerAccessor.getSchema());
+    empty.setRecordCount(0);
+    containerAccessor.setContainer(empty, containerAccessor.schemaVersion());
+    state = State.LOOK_AHEAD;
+    return true;
   }
 
   @Override
   public boolean next() {
     try {
       switch (state) {
-      case SCHEMA:
+
+      case LOOK_AHEAD:
         // Use batch previously read.
+        assert lookahead != null;
+        containerAccessor.setContainer(lookahead, containerAccessor.schemaVersion());
+        lookahead = null;
         state = State.READER;
         return true;
-      case SCHEMA_EOF:
-        state = State.READER_EOF;
-        return true;
+
       case READER:
       case READER_EOF:
-        break;
+        nextBatch();
+        return state != State.END;
+
       case END:
         return false;
+
       default:
         throw new IllegalStateException("Unexpected state: " + state);
       }
-
-      nextBatch();
-      return state != State.END;
-    } finally {
+    } catch(Throwable t) {
       state = State.FAILED;
+      throw t;
     }
   }
+
+  /**
+   * Read another batch from the list of row readers. Keeps opening,
+   * reading from, and closing readers as needed to locate a batch, or
+   * until all readers are exhausted. Terminates when a batch is read,
+   * or all readers are exhausted.
+   */
 
   private void nextBatch() {
     for (;;) {
+
+      // Done with the current reader?
+
       if (state == State.READER_EOF) {
         closeReader();
-        reader = readers.next();
-        if (reader == null) {
+        state = State.NEXT_READER;
+      }
+
+      // Need to open another reader?
+
+      if (state == State.NEXT_READER) {
+        if (! openReader()) {
           state = State.END;
           return;
         }
-        openReader();
         state = State.READER;
       }
+
+      // Read a batch.
+
       if (readBatch()) {
         return;
       }
+
+      // No more batches from the current reader.
+
       state = State.READER_EOF;
+
+      // The reader is done, but the mutator may have one final
+      // row representing an overflow from the previous batch.
+
+      if (rowSetMutator.rowCount() > 0) {
+        return;
+      }
     }
   }
 
-  private void openReader() {
+  /**
+   * Open the next available reader, if any, preparing both the
+   * reader and row set mutator.
+   * @return true if another reader is active, false if no more
+   * readers are available
+   */
+
+  private boolean openReader() {
+
+    // Get the next reader, if any.
+
+    if (! readers.hasNext()) {
+      return false;
+    }
+    reader = readers.next();
     readerCount++;
+
+    // Prepare the row set mutator to receive input rows
+
     if (rowSetMutator == null) {
       rowSetMutator = new RowSetMutatorImpl(context.getAllocator());
+    } else if (options.reuseSchemaAcrossReaders) {
+        rowSetMutator.reset();
+    } else {
+      // Discard or reset the current row set mutator.
+      rowSetMutator.close();
+      rowSetMutator = null;
     }
+
+    // Open the reader. This can fail. if it does, clean up.
+
     try {
       reader.open(context, rowSetMutator);
+      return true;
+
+    // When catching errors, leave the reader member set;
+    // we must close it on close() later.
+
     } catch (UserException e) {
-      reader = null;
       throw e;
     } catch (Throwable t) {
-      reader = null;
       throw UserException.executionError(t)
         .addContext("Open failed for reader", reader.getClass().getSimpleName())
         .build(logger);
     }
   }
 
+  /**
+   * Read a batch from the current reader.
+   * @return true if a batch was read, false if the reader hit EOF
+   */
+
   private boolean readBatch() {
+
+    // Prepare for the batch.
+
+    rowSetMutator.startBatch();
+
+    // Try to read a batch. This may fail. If so, clean up the
+    // mess.
+
     try {
-      rowSetMutator.startBatch();
       if (!reader.next()) {
-        rowSetMutator.close();
         return false;
       }
     } catch (UserException e) {
@@ -231,30 +311,51 @@ public class ScanOperatorExec implements OperatorExec {
         .addContext("Read failed for reader", reader.getClass().getSimpleName())
         .build(logger);
     }
-    buildOutputBatch();
-    return true;
-  }
 
-  private void buildOutputBatch() {
+    // Have a batch. Prepare it for return.
+
     VectorContainer container = rowSetMutator.harvest();
+
+    // Add implicit columns, if any.
+
     if (options.implicitColumns != null) {
       container = mergeImplicitColumns(container);
     }
+
+    // Identify the output container and its schema version.
+
     containerAccessor.setContainer(container, rowSetMutator.schemaVersion());
+    return true;
   }
 
+  /**
+   * Add implicit columns to the given vector. This is done by creating a
+   * second row set mutator, using that to define and write the implicit
+   * columns, then merging the reader's container with the implicit columns
+   * to produce the final batch.
+   *
+   * @param container container with the data from the reader
+   * @return new container with the original data merged with the implicit
+   * columns
+   */
+
   private VectorContainer mergeImplicitColumns(VectorContainer container) {
+
+    // Setup. Do nothing if the implicit columns list is empty.
+
     List<ImplicitColumn> implicitCols = options.implicitColumns;
     int colCount = implicitCols.size();
     if (colCount == 0) {
       return container;
     }
+
+    // Build the implicit column schema.
+
     RowSetMutator overlay = new RowSetMutatorImpl(context.getAllocator());
     overlay.startBatch();
     TupleLoader writer = overlay.writer();
     int rowCount = container.getRecordCount();
-    for (int i = 0; i < colCount; i++) {
-      ImplicitColumn col = implicitCols.get(i);
+    for (ImplicitColumn col : implicitCols) {
       MajorType type = MajorType.newBuilder()
           .setMinorType(MinorType.VARCHAR)
           .setMode(DataMode.REQUIRED)
@@ -263,6 +364,10 @@ public class ScanOperatorExec implements OperatorExec {
       MaterializedField colSchema = MaterializedField.create(col.colName, type);
       writer.schema().addColumn(colSchema);
     }
+
+    // Populate the columns. This is a bit of a waste; would be nice to
+    // use a single value with multiple pointers..
+
     for (int i = 0; i < rowCount; i++) {
       overlay.startRow();
       for (int j = 0; j < colCount; j++) {
@@ -270,28 +375,31 @@ public class ScanOperatorExec implements OperatorExec {
       }
       overlay.saveRow();
     }
+
+    // Merge the two containers.
+
     VectorContainer implicitContainer = overlay.harvest();
     return container.merge(implicitContainer);
   }
 
+  /**
+   * Close the current reader.
+   */
+
   private void closeReader() {
-    if (options.restartSchemaForEachFile) {
-      rowSetMutator.close();
-      rowSetMutator = null;
-    }
-    if (reader != null) {
-      try {
-        reader.close();
-        reader = null;
-      } catch (UserException e) {
-        reader = null;
-        throw e;
-      } catch (Throwable t) {
-        reader = null;
-        throw UserException.executionError(t)
-          .addContext("Close failed for reader", reader.getClass().getSimpleName())
-          .build(logger);
-      }
+
+    // Close the reader. This can fail.
+
+    try {
+      reader.close();
+    } catch (UserException e) {
+      throw e;
+    } catch (Throwable t) {
+      throw UserException.executionError(t)
+        .addContext("Close failed for reader", reader.getClass().getSimpleName())
+        .build(logger);
+    } finally {
+      reader = null;
     }
   }
 
@@ -303,6 +411,9 @@ public class ScanOperatorExec implements OperatorExec {
       break;
     default:
       state = State.FAILED;
+
+      // Close early.
+
       closeAll();
     }
   }
@@ -316,14 +427,28 @@ public class ScanOperatorExec implements OperatorExec {
     closeAll();
   }
 
+  /**
+   * Close reader and release row set mutator resources. May be called
+   * twice: once when canceling, once when closing. Designed to be
+   * safe on the second call.
+   */
+
   private void closeAll() {
-
-    // Will not throw exceptions
-
-    rowSetMutator.close();
 
     // May throw an unchecked exception
 
-    closeReader();
+    try {
+      if (reader != null) {
+        closeReader();
+      }
+    } finally {
+
+      // Will not throw exceptions
+
+      if (rowSetMutator != null) {
+        rowSetMutator.close();
+        rowSetMutator = null;
+      }
+    }
   }
 }

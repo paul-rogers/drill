@@ -311,6 +311,23 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.WriterI
   }
 
   @Override
+  public void reset() {
+    switch (state) {
+    case HARVESTED:
+    case START:
+      break;
+    case ACTIVE:
+    case OVERFLOW:
+    case FULL_BATCH:
+      rootTuple.reset();
+      state = State.HARVESTED;
+      break;
+    default:
+      throw new IllegalStateException("Unexpected state: " + state);
+    }
+  }
+
+  @Override
   public void close() {
     if (state == State.CLOSED) {
       return;

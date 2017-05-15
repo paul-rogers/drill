@@ -128,13 +128,21 @@ public interface RowSetMutator {
   int rowCount();
 
   /**
-   * Harvest the current row batch, and resetting the mutator
+   * Harvest the current row batch, and reset the mutator
    * to the start of the next row batch (which may already contain
    * an overflow row.
    * @return the row batch to send downstream
    */
 
   VectorContainer harvest(); // ?
+
+  /**
+   * Clear the current, empty, in-flight batch to prepare for a new
+   * batch. Typically called when the last batch from a reader is
+   * empty, but another reader will continue the read.
+   */
+
+  void reset();
 
   /**
    * Called after all rows are returned, whether because no more data is
