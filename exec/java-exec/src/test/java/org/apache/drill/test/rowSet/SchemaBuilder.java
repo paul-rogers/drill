@@ -146,8 +146,24 @@ public class SchemaBuilder {
     return add(pathName, type, DataMode.REQUIRED);
   }
 
+  public SchemaBuilder add(String pathName, MinorType type, int width) {
+    MaterializedField field = new SchemaBuilder.ColumnBuilder(pathName, type)
+        .setMode(DataMode.REQUIRED)
+        .setWidth(width)
+        .build();
+    return add(field);
+  }
+
   public SchemaBuilder addNullable(String pathName, MinorType type) {
     return add(pathName, type, DataMode.OPTIONAL);
+  }
+
+  public SchemaBuilder addNullable(String pathName, MinorType type, int width) {
+    MaterializedField field = new SchemaBuilder.ColumnBuilder(pathName, type)
+        .setMode(DataMode.OPTIONAL)
+        .setWidth(width)
+        .build();
+    return add(field);
   }
 
   public SchemaBuilder addArray(String pathName, MinorType type) {
