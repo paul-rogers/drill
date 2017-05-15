@@ -144,6 +144,11 @@ public class HiveStoragePlugin extends AbstractStoragePlugin {
     // Hive metastore connections to be created.
 
     try {
+      schemaFactory.close();
+    } catch (Throwable t) {
+      // Ignore, we're in a bad state.
+    }
+    try {
       schemaFactory = new HiveSchemaFactory(this, name, hiveConf);
     } catch (ExecutionSetupException e) {
       throw new DrillRuntimeException(e);
