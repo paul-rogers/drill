@@ -60,6 +60,15 @@ public class VectorContainer implements VectorAccessible {
     this.allocator = allocator;
   }
 
+  public VectorContainer(BufferAllocator allocator, BatchSchema schema) {
+    this.allocator = allocator;
+    for (MaterializedField field : schema) {
+      addOrGet(field, null);
+    }
+    this.schema = schema;
+    schemaChanged = false;
+  }
+
   @Override
   public String toString() {
     return super.toString()
