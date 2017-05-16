@@ -60,6 +60,20 @@ import org.apache.drill.exec.store.RowReader;
  * is responsible for handling exceptions. Error handling relies on the fact
  * that the iterator will call <tt>close()</tt> regardless of which exceptions
  * are thrown.
+ * <h4>Schema Versions</h4>
+ * Readers may change schemas from time to time. To track such changes,
+ * this implementation tracks a batch schema version, maintained by comparing
+ * one schema with the next.
+ * <p>
+ * Readers can discover columns as they read data, such as with any JSON-based
+ * format. In this case, the row set mutator also provides a schema version,
+ * but a fine-grained one that changes each time a column is added.
+ * <p>
+ * The two schema versions serve different purposes and are not interchangeable.
+ * For example, if a scan reads two files, both will build up their own schemas,
+ * each increasing its internal version number as work proceeds. But, at the
+ * end of each batch, the schemas may (and, in fact, should) be identical,
+ * which is the schema version downstream operators care about.
  */
 
 public class ScanOperatorExec implements OperatorExec {
@@ -106,7 +120,12 @@ public class ScanOperatorExec implements OperatorExec {
             ScanOptions options) {
     this.context = context;
     this.readers = readers;
-    this.options = options == null ? new ScanOptions() : options;
+    this.options = options;
+  }
+
+  public ScanOperatorExec(OperatorExecContext operatorContext,
+      Iterator<RowReader> iterator) {
+    this(operatorContext, iterator, new ScanOptions());
   }
 
   public static ScanOptions convertImplicitCols(List<Map<String, String>> implicitColumns) {
@@ -158,7 +177,7 @@ public class ScanOperatorExec implements OperatorExec {
     lookahead = containerAccessor.getOutgoingContainer();
     VectorContainer empty = new VectorContainer(context.getAllocator(), containerAccessor.getSchema());
     empty.setRecordCount(0);
-    containerAccessor.setContainer(empty, containerAccessor.schemaVersion());
+    containerAccessor.setContainer(empty);
     state = State.LOOK_AHEAD;
     return true;
   }
@@ -171,7 +190,7 @@ public class ScanOperatorExec implements OperatorExec {
       case LOOK_AHEAD:
         // Use batch previously read.
         assert lookahead != null;
-        containerAccessor.setContainer(lookahead, containerAccessor.schemaVersion());
+        containerAccessor.setContainer(lookahead);
         lookahead = null;
         state = State.READER;
         return true;
@@ -234,6 +253,7 @@ public class ScanOperatorExec implements OperatorExec {
       // row representing an overflow from the previous batch.
 
       if (rowSetMutator.rowCount() > 0) {
+        prepareBatch();
         return;
       }
     }
@@ -265,7 +285,7 @@ public class ScanOperatorExec implements OperatorExec {
     } else {
       // Discard or reset the current row set mutator.
       rowSetMutator.close();
-      rowSetMutator = null;
+      rowSetMutator = new RowSetMutatorImpl(context.getAllocator());
     }
 
     // Open the reader. This can fail. if it does, clean up.
@@ -314,6 +334,11 @@ public class ScanOperatorExec implements OperatorExec {
 
     // Have a batch. Prepare it for return.
 
+    prepareBatch();
+    return true;
+  }
+
+  private void prepareBatch() {
     VectorContainer container = rowSetMutator.harvest();
 
     // Add implicit columns, if any.
@@ -324,8 +349,7 @@ public class ScanOperatorExec implements OperatorExec {
 
     // Identify the output container and its schema version.
 
-    containerAccessor.setContainer(container, rowSetMutator.schemaVersion());
-    return true;
+    containerAccessor.setContainer(container);
   }
 
   /**

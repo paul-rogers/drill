@@ -42,11 +42,10 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.WriterI
       caseSensitive = false;
     }
 
-    public MutatorOptions(int vectorSizeLimit, int rowCountLimit,
-        boolean caseSensitive) {
-      this.vectorSizeLimit = vectorSizeLimit;
-      this.rowCountLimit = rowCountLimit;
-      this.caseSensitive = caseSensitive;
+    public MutatorOptions(OptionBuilder builder) {
+      this.vectorSizeLimit = builder.vectorSizeLimit;
+      this.rowCountLimit = builder.rowCountLimit;
+      this.caseSensitive = builder.caseSensitive;
     }
   }
 
@@ -76,7 +75,7 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.WriterI
     // at present in the value vector.
 
     public MutatorOptions build() {
-      return new MutatorOptions(vectorSizeLimit, rowCountLimit, caseSensitive);
+      return new MutatorOptions(this);
     }
   }
 

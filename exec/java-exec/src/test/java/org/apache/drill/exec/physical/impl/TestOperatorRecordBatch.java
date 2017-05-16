@@ -65,13 +65,15 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     private final VectorContainerAccessor batchAccessor;
 
     public MockOperatorExec() {
-      this(new VectorContainer());
+      this(new VectorContainer(fixture.allocator(), new SchemaBuilder()
+          .add("a", MinorType.INT)
+          .build()));
       batchAccessor.getOutgoingContainer().buildSchema(SelectionVectorMode.NONE);
     }
 
     public MockOperatorExec(VectorContainer container) {
       batchAccessor = new VectorContainerAccessor();
-      batchAccessor.setContainer(container, 0);
+      batchAccessor.setContainer(container);
     }
 
     public MockOperatorExec(VectorContainerAccessor accessor) {
@@ -99,7 +101,11 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
         return false;
       }
       if (nextCount == schemaChangeAt) {
-        batchAccessor.setContainer(batchAccessor.getOutgoingContainer(), 1);
+        BatchSchema newSchema = new SchemaBuilder(batchAccessor.getSchema())
+            .add("b", MinorType.VARCHAR)
+            .build();
+        VectorContainer newContainer = new VectorContainer(fixture.allocator(), newSchema);
+        batchAccessor.setContainer(newContainer);
       }
       return true;
     }
@@ -112,7 +118,6 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
       batchAccessor().getOutgoingContainer().clear();
       closeCalled = true;
     }
-
   }
 
   /**
@@ -409,7 +414,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
         .build();
 
     ContainerAndSv2Accessor accessor = new ContainerAndSv2Accessor();
-    accessor.setContainer(rs.container(), 0);
+    accessor.setContainer(rs.container());
     accessor.setSelectionVector(rs.getSv2());
 
     MockOperatorExec opExec = new MockOperatorExec(accessor);

@@ -57,21 +57,55 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
     public Iterator<VectorWrapper<?>> iterator();
   }
 
+  /**
+   * Tracks changes to schemas via "snapshots" over time. That is, given
+   * a schema, tracks if a new schema is the same as the current one. For
+   * example, each batch output from a series of readers might be compared,
+   * as they are returned, to detect schema changes from one batch to the
+   * next. This class does not track vector-by-vector changes as a schema
+   * is built.
+   */
+
+  public static class SchemaTracker {
+
+    private int schemaVersion;
+    private BatchSchema currentSchema;
+
+    public void trackSchema(BatchSchema newSchema) {
+      if (currentSchema == newSchema) {
+        // The new schema is the same as this one. Only need to
+        // check for new fields (existign ones cannot be changed or
+        // removed.)
+
+        if (currentSchema.getFieldCount() < newSchema.getFieldCount()) {
+          schemaVersion++;
+        }
+      } else if (currentSchema == null || ! currentSchema.equals(newSchema)) {
+        currentSchema = newSchema;
+        schemaVersion++;
+      }
+    }
+
+    public int schemaVersion() {
+      return schemaVersion;
+    }
+  }
+
   public static class VectorContainerAccessor implements BatchAccessor {
 
     private VectorContainer container;
-    private int schemaVersion = 0;
+    private SchemaTracker schemaTracker = new SchemaTracker();
 
-    public void setContainer(VectorContainer container, int version) {
+    public void setContainer(VectorContainer container) {
       this.container = container;
-      schemaVersion = version;
+      schemaTracker.trackSchema(container.getSchema());
     }
 
     @Override
     public BatchSchema getSchema() { return container.getSchema(); }
 
     @Override
-    public int schemaVersion() { return schemaVersion; }
+    public int schemaVersion() { return schemaTracker.schemaVersion(); }
 
     @Override
     public int getRowCount() { return container.getRecordCount(); }
