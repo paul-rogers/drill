@@ -189,14 +189,9 @@ public interface OperatorHandle {
     public boolean next() { return opExec.next(); }
 
     @Override
-    public void cancel(boolean sendUpstream) {
-      opExec.cancel();
-    }
+    public void cancel(boolean sendUpstream) { opExec.cancel(); }
 
     @Override
-    public void close() {
-      opExec.close();
-    }
-
+    public void close() { opExec.close(); }
   }
 }
