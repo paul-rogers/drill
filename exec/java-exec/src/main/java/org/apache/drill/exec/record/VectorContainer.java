@@ -60,6 +60,19 @@ public class VectorContainer implements VectorAccessible {
     this.allocator = allocator;
   }
 
+  /**
+   * Create a new vector container given a pre-defined schema. Creates the
+   * corresponding vectors, but does not allocate memory for them. Call
+   * {@link #allocateNew()} or {@link #allocateNewSafe()} to allocate
+   * memory.
+   * <p>
+   * Note that this method does the equivalent of {@link #buildSchema(SelectionVectorMode)}
+   * using the schema provided.
+   *
+   * @param allocator allocator to be used to allocate memory later
+   * @param schema the schema that defines the vectors to create
+   */
+
   public VectorContainer(BufferAllocator allocator, BatchSchema schema) {
     this.allocator = allocator;
     for (MaterializedField field : schema) {
