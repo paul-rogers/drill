@@ -121,6 +121,12 @@ public class SchemaBuilder {
 
   public SchemaBuilder() { }
 
+  public SchemaBuilder(BatchSchema baseSchema) {
+    for (MaterializedField field : baseSchema) {
+      columns.add(field);
+    }
+  }
+
   public SchemaBuilder add(String pathName, MajorType type) {
     return add(MaterializedField.create(pathName, type));
   }
