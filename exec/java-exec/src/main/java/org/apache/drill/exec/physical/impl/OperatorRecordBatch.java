@@ -170,9 +170,7 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
   }
 
   public interface OperatorExec {
-    void bind();
     BatchAccessor batchAccessor();
-    void start();
     boolean buildSchema();
     boolean next();
     void cancel();
@@ -264,8 +262,6 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
      */
 
     private IterOutcome start() {
-      operatorExec.bind();
-      operatorExec.start();
       state = State.SCHEMA;
       if (operatorExec.buildSchema()) {
         schemaVersion = batchAccessor.schemaVersion();

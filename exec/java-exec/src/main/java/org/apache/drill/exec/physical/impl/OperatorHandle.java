@@ -183,11 +183,7 @@ public interface OperatorHandle {
     public BatchAccessor batchAccessor() { return opExec.batchAccessor(); }
 
     @Override
-    public boolean buildSchema() {
-      opExec.bind();
-      opExec.start();
-      return opExec.buildSchema();
-    }
+    public boolean buildSchema() { return opExec.buildSchema(); }
 
     @Override
     public boolean next() { return opExec.next(); }

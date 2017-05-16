@@ -141,13 +141,7 @@ public class ScanOperatorExec implements OperatorExec {
   }
 
   @Override
-  public void bind() { }
-
-  @Override
   public BatchAccessor batchAccessor() { return containerAccessor; }
-
-  @Override
-  public void start() { }
 
   @Override
   public boolean buildSchema() {
