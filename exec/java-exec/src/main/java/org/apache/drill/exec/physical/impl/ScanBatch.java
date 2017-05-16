@@ -103,7 +103,6 @@ public class ScanBatch implements CloseableRecordBatch {
       oContext.getStats().startProcessing();
       currentReader.setup(oContext, mutator);
     } catch (ExecutionSetupException e) {
-      oContext.getStats().stopProcessing();
       try {
         currentReader.close();
       } catch(final Exception e2) {
@@ -112,7 +111,9 @@ public class ScanBatch implements CloseableRecordBatch {
       throw UserException.executionError(e)
             .addContext("Setup failed for", currentReader.getClass().getSimpleName())
             .build(logger);
-     }
+    } finally {
+      oContext.getStats().stopProcessing();
+    }
     this.implicitColumns = implicitColumns.iterator();
     this.implicitValues = this.implicitColumns.hasNext() ? this.implicitColumns.next() : null;
 
