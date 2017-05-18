@@ -175,10 +175,10 @@ public class ScanOperatorExec implements OperatorExec {
     // The reader returned actual data. Just forward the schema
     // in a dummy container, saving the data for next time.
 
-    lookahead = containerAccessor.getOutgoingContainer();
-    VectorContainer empty = new VectorContainer(context.allocator(), containerAccessor.getSchema());
-    empty.setRecordCount(0);
-    containerAccessor.setContainer(empty);
+    assert lookahead == null;
+    lookahead = new VectorContainer(context.allocator(), containerAccessor.getSchema());
+    lookahead.setRecordCount(0);
+    lookahead.exchange(containerAccessor.getOutgoingContainer());
     state = State.LOOK_AHEAD;
     return true;
   }
@@ -191,7 +191,8 @@ public class ScanOperatorExec implements OperatorExec {
       case LOOK_AHEAD:
         // Use batch previously read.
         assert lookahead != null;
-        containerAccessor.setContainer(lookahead);
+        lookahead.exchange(containerAccessor.getOutgoingContainer());
+        assert lookahead.getRecordCount() == 0;
         lookahead = null;
         state = State.READER;
         return true;
@@ -472,6 +473,11 @@ public class ScanOperatorExec implements OperatorExec {
         closeReader();
       }
     } finally {
+
+      if (lookahead != null) {
+        lookahead.clear();
+        lookahead = null;
+      }
 
       // Will not throw exceptions
 

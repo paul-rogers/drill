@@ -17,24 +17,15 @@
  */
 package org.apache.drill.exec.physical.impl;
 
-import java.io.IOException;
 import java.util.Iterator;
-import java.util.List;
 
-import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.exception.ClassTransformationException;
-import org.apache.drill.exec.expr.ClassGenerator;
-import org.apache.drill.exec.expr.CodeGenerator;
-import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.FragmentExecContext;
 import org.apache.drill.exec.ops.OperatorExecContext;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
-import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExec;
-import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExecServicesImpl;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.TypedFieldId;
@@ -43,10 +34,6 @@ import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.WritableBatch;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
-import org.apache.drill.exec.server.options.OptionSet;
-import org.apache.drill.exec.store.mock.MockSubScanPOP;
-
-import io.netty.buffer.DrillBuf;
 
 /**
  * Modular implementation of the standard Drill record batch iterator
@@ -56,6 +43,13 @@ import io.netty.buffer.DrillBuf;
  * situation. The operator internals are, themselves, abstracted to
  * yet another class with the steps represented as method calls rather
  * than as internal states as in the record batch iterator protocol.
+ * <p>
+ * Note that downstream operators make an assumption that the
+ * same vectors will appear from one batch to the next. That is,
+ * not only must the schema be the same, but if column "a" appears
+ * in two batches, the same value vector must back "a" in both
+ * batches. The <tt>TransferPair</tt> abstraction fails if different
+ * vectors appear across batches.
  */
 
 public class OperatorRecordBatch implements CloseableRecordBatch {

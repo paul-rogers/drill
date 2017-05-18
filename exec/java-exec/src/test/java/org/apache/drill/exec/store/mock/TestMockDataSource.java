@@ -36,12 +36,13 @@ public class TestMockDataSource extends ClusterTest {
          ClientFixture client = cluster.clientFixture()) {
       String sql = "SELECT id_i, name_s10 FROM `mock`.`employees_10K`";
 
+//      System.out.println(client.queryBuilder().sql(sql).explainJson());
       DirectRowSet results = client.queryBuilder().sql(sql).rowSet();
       assertEquals(10_000, results.rowCount());
 
       BatchSchema expected = new SchemaBuilder()
           .add("id_i", MinorType.INT)
-          .add("name_s10", MinorType.VARCHAR)
+          .add("name_s10", MinorType.VARCHAR, 10)
           .build();
       assertEquals(expected, results.batchSchema());
       results.clear();
