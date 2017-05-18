@@ -30,6 +30,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ops.OperatorExecContext;
 import org.apache.drill.exec.physical.impl.OperatorRecordBatch.BatchAccessor;
 import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExec;
+import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.impl.OperatorRecordBatch.VectorContainerAccessor;
 import org.apache.drill.exec.physical.rowSet.RowSetMutator;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
@@ -37,6 +38,8 @@ import org.apache.drill.exec.physical.rowSet.impl.RowSetMutatorImpl;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.store.RowReader;
+
+import com.google.common.annotations.VisibleForTesting;
 
 /**
  * Implementation of the revised scan operator that uses a mutator aware of
@@ -98,7 +101,7 @@ public class ScanOperatorExec implements OperatorExec {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ScanOperatorExec.class);
 
   private State state = State.START;
-  private final OperatorExecContext context;
+  private OperatorExecServices context;
   private final Iterator<RowReader> readers;
   private final ScanOptions options;
   private final VectorContainerAccessor containerAccessor = new VectorContainerAccessor();
@@ -108,24 +111,20 @@ public class ScanOperatorExec implements OperatorExec {
 
   private VectorContainer lookahead;
 
-  public ScanOperatorExec(OperatorExecContext context,
-                          Iterator<RowReader> readers,
+  public ScanOperatorExec(Iterator<RowReader> readers,
                           List<Map<String, String>> implicitColumns) {
-    this(context, readers,
+    this(readers,
         convertImplicitCols(implicitColumns));
   }
 
-  public ScanOperatorExec(OperatorExecContext context,
-            Iterator<RowReader> readers,
-            ScanOptions options) {
-    this.context = context;
+  public ScanOperatorExec(Iterator<RowReader> readers,
+                          ScanOptions options) {
     this.readers = readers;
     this.options = options;
   }
 
-  public ScanOperatorExec(OperatorExecContext operatorContext,
-      Iterator<RowReader> iterator) {
-    this(operatorContext, iterator, new ScanOptions());
+  public ScanOperatorExec(Iterator<RowReader> iterator) {
+    this(iterator, new ScanOptions());
   }
 
   public static ScanOptions convertImplicitCols(List<Map<String, String>> implicitColumns) {
@@ -141,7 +140,15 @@ public class ScanOperatorExec implements OperatorExec {
   }
 
   @Override
+  public void bind(OperatorExecServices context) {
+    this.context = context;
+  }
+
+  @Override
   public BatchAccessor batchAccessor() { return containerAccessor; }
+
+  @VisibleForTesting
+  public OperatorExecServices context() { return context; }
 
   @Override
   public boolean buildSchema() {
@@ -169,7 +176,7 @@ public class ScanOperatorExec implements OperatorExec {
     // in a dummy container, saving the data for next time.
 
     lookahead = containerAccessor.getOutgoingContainer();
-    VectorContainer empty = new VectorContainer(context.getAllocator(), containerAccessor.getSchema());
+    VectorContainer empty = new VectorContainer(context.allocator(), containerAccessor.getSchema());
     empty.setRecordCount(0);
     containerAccessor.setContainer(empty);
     state = State.LOOK_AHEAD;
@@ -265,6 +272,10 @@ public class ScanOperatorExec implements OperatorExec {
     // Get the next reader, if any.
 
     if (! readers.hasNext()) {
+      if (rowSetMutator != null) {
+        rowSetMutator.close();
+      }
+      containerAccessor.setContainer(null);
       return false;
     }
     reader = readers.next();
@@ -273,13 +284,13 @@ public class ScanOperatorExec implements OperatorExec {
     // Prepare the row set mutator to receive input rows
 
     if (rowSetMutator == null) {
-      rowSetMutator = new RowSetMutatorImpl(context.getAllocator());
+      rowSetMutator = new RowSetMutatorImpl(context.allocator());
     } else if (options.reuseSchemaAcrossReaders) {
         rowSetMutator.reset();
     } else {
       // Discard or reset the current row set mutator.
       rowSetMutator.close();
-      rowSetMutator = new RowSetMutatorImpl(context.getAllocator());
+      rowSetMutator = new RowSetMutatorImpl(context.allocator());
     }
 
     // Open the reader. This can fail. if it does, clean up.
@@ -369,7 +380,7 @@ public class ScanOperatorExec implements OperatorExec {
 
     // Build the implicit column schema.
 
-    RowSetMutator overlay = new RowSetMutatorImpl(context.getAllocator());
+    RowSetMutator overlay = new RowSetMutatorImpl(context.allocator());
     overlay.startBatch();
     TupleLoader writer = overlay.writer();
     int rowCount = container.getRecordCount();
@@ -377,7 +388,8 @@ public class ScanOperatorExec implements OperatorExec {
       MajorType type = MajorType.newBuilder()
           .setMinorType(MinorType.VARCHAR)
           .setMode(DataMode.REQUIRED)
-          .setPrecision(col.value.length())
+          // Note: can't set width because width varies across files
+          //.setPrecision(col.value.length())
           .build();
       MaterializedField colSchema = MaterializedField.create(col.colName, type);
       writer.schema().addColumn(colSchema);
@@ -469,4 +481,6 @@ public class ScanOperatorExec implements OperatorExec {
       }
     }
   }
+
+  public RowSetMutator getMutator() { return rowSetMutator; }
 }

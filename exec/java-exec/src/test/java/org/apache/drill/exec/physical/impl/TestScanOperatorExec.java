@@ -17,7 +17,11 @@
  */
 package org.apache.drill.exec.physical.impl;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -26,7 +30,8 @@ import java.util.List;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.ops.OperatorExecContext;
+import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExecServices;
+import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExecServicesImpl;
 import org.apache.drill.exec.physical.impl.ScanOperatorExec.ImplicitColumn;
 import org.apache.drill.exec.physical.impl.ScanOperatorExec.ScanOptions;
 import org.apache.drill.exec.physical.rowSet.RowSetMutator;
@@ -56,7 +61,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     public boolean returnDataOnFirst;
 
     @Override
-    public void open(OperatorExecContext context, RowSetMutator mutator) {
+    public void open(OperatorExecServices context, RowSetMutator mutator) {
       this.mutator = mutator;
       openCalled = true;
     }
@@ -145,6 +150,49 @@ public class TestScanOperatorExec extends SubOperatorTest {
     return expected;
   }
 
+//  private ScanOperatorExec makeScanExec(List<RowReader> readers) {
+//    OperatorExecServicesImpl services = new OperatorExecServicesImpl(fixture.codeGenContext(), null);
+//    ScanOperatorExec scanOp = new ScanOperatorExec(services, readers.iterator());
+//    services.setOpExec(scanOp);
+//    return scanOp;
+//  }
+//
+//  private ScanOperatorExec makeScanExec(List<RowReader> readers,
+//      ScanOptions options) {
+//    OperatorExecServicesImpl services = new OperatorExecServicesImpl(fixture.codeGenContext(), null);
+//    ScanOperatorExec scanOp = new ScanOperatorExec(services, readers.iterator(), options);
+//    services.setOpExec(scanOp);
+//    return scanOp;
+//  }
+
+  private class MockBatch {
+
+    private OperatorExecServicesImpl services;
+    public ScanOperatorExec scanOp;
+
+    public MockBatch(List<RowReader> readers) {
+      this(readers, null);
+    }
+
+    public MockBatch(List<RowReader> readers, ScanOptions options) {
+      if (options == null) {
+        scanOp = new ScanOperatorExec(readers.iterator());
+      } else {
+        scanOp = new ScanOperatorExec(readers.iterator(), options);
+      }
+      services = new OperatorExecServicesImpl(fixture.codeGenContext(), null, scanOp);
+      scanOp.bind(services);
+    }
+
+    public void close() {
+      try {
+        scanOp.close();
+      } finally {
+        services.close();
+      }
+    }
+  }
+
   @Test
   public void testNormalLifecycle() {
     SingleRowSet expected = makeExpected();
@@ -158,12 +206,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create options and the scan operator
 
-    ScanOperatorExec scan = new ScanOperatorExec(fixture.operatorContext(null), readers.iterator());
+    MockBatch mockBatch = new MockBatch(readers);
+    ScanOperatorExec scan = mockBatch.scanOp;
 
     // Standard startup
 
-    scan.bind();
-    scan.start();
     assertFalse(reader.openCalled);
 
     // First batch: build schema. The reader helps: it returns an
@@ -177,15 +224,15 @@ public class TestScanOperatorExec extends SubOperatorTest {
     // Next call, return with data.
 
     assertTrue(scan.next());
-    verifier.verifyAndClear(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+    verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
 
     // EOF
 
     assertFalse(scan.next());
     assertTrue(reader.closeCalled);
+    assertEquals(0, scan.batchAccessor().getRowCount());
 
-    scan.close();
-    expected.clear();
+    mockBatch.close();
   }
 
   public static final String MOCK_FILE_NAME = "foo.csv";
@@ -199,8 +246,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     BatchSchema expectedSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addNullable("b", MinorType.VARCHAR, 10)
-        .add("filename", MinorType.VARCHAR, MOCK_FILE_NAME.length())
-        .add("suffix", MinorType.VARCHAR, MOCK_SUFFIX.length())
+        .add("filename", MinorType.VARCHAR)
+        .add("suffix", MinorType.VARCHAR)
         .build();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
         .add(10, "fred", MOCK_FILE_NAME, MOCK_SUFFIX)
@@ -223,9 +270,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Initialize the scan operator
 
-    ScanOperatorExec scan = new ScanOperatorExec(fixture.operatorContext(null), readers.iterator(), options);
-    scan.bind();
-    scan.start();
+    MockBatch mockBatch = new MockBatch(readers, options);
+    ScanOperatorExec scan = mockBatch.scanOp;
 
     // Schema should include implicit columns.
 
@@ -241,8 +287,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     // EOF
 
     assertFalse(scan.next());
-    scan.close();
-    expected.clear();
+    assertEquals(0, scan.batchAccessor().getRowCount());
+    mockBatch.close();
   }
 
   /**
@@ -262,9 +308,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader.returnDataOnFirst = true;
     List<RowReader> readers = Lists.newArrayList(reader);
 
-    ScanOperatorExec scan = new ScanOperatorExec(fixture.operatorContext(null), readers.iterator());
-    scan.bind();
-    scan.start();
+    MockBatch mockBatch = new MockBatch(readers);
+    ScanOperatorExec scan = mockBatch.scanOp;
 
     // First batch. The reader returns a non-empty batch. The scan
     // operator strips off the schema and returns just that.
@@ -286,15 +331,15 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     assertTrue(scan.next());
     assertEquals(2, reader.batchCount);
-    verifier.verifyAndClear(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+    verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
 
     // EOF
 
     assertFalse(scan.next());
     assertTrue(reader.closeCalled);
+    assertEquals(0, scan.batchAccessor().getRowCount());
 
-    scan.close();
-    expected.clear();
+    mockBatch.close();
   }
 
   /**
@@ -307,16 +352,16 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockRowReader reader = new MockRowReader();
     reader.batchLimit = 0;
     List<RowReader> readers = Lists.newArrayList(reader);
-    ScanOperatorExec scan = new ScanOperatorExec(fixture.operatorContext(null), readers.iterator());
-    scan.bind();
-    scan.start();
+    MockBatch mockBatch = new MockBatch(readers);
+    ScanOperatorExec scan = mockBatch.scanOp;
 
     // EOF
 
     assertFalse(scan.buildSchema());
     assertTrue(reader.closeCalled);
+    assertEquals(0, scan.batchAccessor().getRowCount());
 
-    scan.close();
+    mockBatch.close();
   }
 
   /**
@@ -337,9 +382,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader2.returnDataOnFirst = true;
     List<RowReader> readers = Lists.newArrayList(reader1, reader2);
 
-    ScanOperatorExec scan = new ScanOperatorExec(fixture.operatorContext(null), readers.iterator());
-    scan.bind();
-    scan.start();
+    MockBatch mockBatch = new MockBatch(readers);
+    ScanOperatorExec scan = mockBatch.scanOp;
 
     // First batch. The reader returns a non-empty batch. The scan
     // operator strips off the schema and returns just that.
@@ -383,15 +427,15 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(scan.next());
     assertEquals(2, reader2.batchCount);
     assertEquals(1, scan.batchAccessor().schemaVersion());
-    verifier.verifyAndClear(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+    verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
 
     // EOF
 
     assertFalse(scan.next());
     assertTrue(reader2.closeCalled);
+    assertEquals(0, scan.batchAccessor().getRowCount());
 
-    scan.close();
-    expected.clear();
+    mockBatch.close();
   }
 
   /**
@@ -411,9 +455,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader2.returnDataOnFirst = true;
     List<RowReader> readers = Lists.newArrayList(reader1, reader2);
 
-    ScanOperatorExec scan = new ScanOperatorExec(fixture.operatorContext(null), readers.iterator());
-    scan.bind();
-    scan.start();
+    MockBatch mockBatch = new MockBatch(readers);
+    ScanOperatorExec scan = mockBatch.scanOp;
 
     // First batch. The reader returns a non-empty batch. The scan
     // operator strips off the schema and returns just that.
@@ -462,8 +505,9 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     assertFalse(scan.next());
     assertTrue(reader2.closeCalled);
+    assertEquals(0, scan.batchAccessor().getRowCount());
 
-    scan.close();
+    mockBatch.close();
   }
 
   /**
@@ -480,17 +524,17 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader2.returnDataOnFirst = true;
     List<RowReader> readers = Lists.newArrayList(reader1, reader2);
 
-    ScanOperatorExec scan = new ScanOperatorExec(fixture.operatorContext(null), readers.iterator());
-    scan.bind();
-    scan.start();
+    MockBatch mockBatch = new MockBatch(readers);
+    ScanOperatorExec scan = mockBatch.scanOp;
 
     // EOF
 
     assertFalse(scan.buildSchema());
     assertTrue(reader1.closeCalled);
     assertTrue(reader2.closeCalled);
+    assertEquals(0, scan.batchAccessor().getRowCount());
 
-    scan.close();
+    mockBatch.close();
   }
 
   public final String ERROR_MSG = "My Bad!";
@@ -499,7 +543,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
   public void testExceptionOnOpen() {
     MockRowReader reader = new MockRowReader() {
       @Override
-      public void open(OperatorExecContext context, RowSetMutator mutator) {
+      public void open(OperatorExecServices context, RowSetMutator mutator) {
         super.open(context, mutator);
         throw new IllegalStateException(ERROR_MSG);
       }
@@ -507,9 +551,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 0;
     List<RowReader> readers = Lists.newArrayList(reader);
-    ScanOperatorExec scan = new ScanOperatorExec(fixture.operatorContext(null), readers.iterator());
-    scan.bind();
-    scan.start();
+    MockBatch mockBatch = new MockBatch(readers);
+    ScanOperatorExec scan = mockBatch.scanOp;
 
     // EOF
 
@@ -522,7 +565,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     }
     assertTrue(reader.openCalled);
 
-    scan.close();
+    assertEquals(0, scan.batchAccessor().getRowCount());
+    mockBatch.close();
     assertTrue(reader.closeCalled);
   }
 
@@ -530,7 +574,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
   public void testUserExceptionOnOpen() {
     MockRowReader reader = new MockRowReader() {
       @Override
-      public void open(OperatorExecContext context, RowSetMutator mutator) {
+      public void open(OperatorExecServices context, RowSetMutator mutator) {
         super.open(context, mutator);
         throw UserException.dataReadError()
             .addContext(ERROR_MSG)
@@ -540,9 +584,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
     List<RowReader> readers = Lists.newArrayList(reader);
-    ScanOperatorExec scan = new ScanOperatorExec(fixture.operatorContext(null), readers.iterator());
-    scan.bind();
-    scan.start();
+    MockBatch mockBatch = new MockBatch(readers);
+    ScanOperatorExec scan = mockBatch.scanOp;
 
     // EOF
 
@@ -555,7 +598,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     }
     assertTrue(reader.openCalled);
 
-    scan.close();
+    assertEquals(0, scan.batchAccessor().getRowCount());
+    mockBatch.close();
     assertTrue(reader.closeCalled);
   }
 
@@ -571,9 +615,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader.batchLimit = 2;
     reader.returnDataOnFirst = true;
     List<RowReader> readers = Lists.newArrayList(reader);
-    ScanOperatorExec scan = new ScanOperatorExec(fixture.operatorContext(null), readers.iterator());
-    scan.bind();
-    scan.start();
+    MockBatch mockBatch = new MockBatch(readers);
+    ScanOperatorExec scan = mockBatch.scanOp;
 
     // EOF
 
@@ -586,7 +629,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     }
     assertTrue(reader.openCalled);
 
-    scan.close();
+    assertEquals(0, scan.batchAccessor().getRowCount());
+    mockBatch.close();
     assertTrue(reader.closeCalled);
   }
 
@@ -604,9 +648,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader.batchLimit = 2;
     reader.returnDataOnFirst = true;
     List<RowReader> readers = Lists.newArrayList(reader);
-    ScanOperatorExec scan = new ScanOperatorExec(fixture.operatorContext(null), readers.iterator());
-    scan.bind();
-    scan.start();
+    MockBatch mockBatch = new MockBatch(readers);
+    ScanOperatorExec scan = mockBatch.scanOp;
 
     // EOF
 
@@ -619,7 +662,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     }
     assertTrue(reader.openCalled);
 
-    scan.close();
+    assertEquals(0, scan.batchAccessor().getRowCount());
+    mockBatch.close();
     assertTrue(reader.closeCalled);
   }
 
@@ -645,9 +689,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader.batchLimit = 2;
     reader.returnDataOnFirst = true;
     List<RowReader> readers = Lists.newArrayList(reader);
-    ScanOperatorExec scan = new ScanOperatorExec(fixture.operatorContext(null), readers.iterator());
-    scan.bind();
-    scan.start();
+    MockBatch mockBatch = new MockBatch(readers);
+    ScanOperatorExec scan = mockBatch.scanOp;
 
     // Schema
 
@@ -668,7 +711,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
       assertTrue(e.getCause() instanceof IllegalStateException);
     }
 
-    scan.close();
+    mockBatch.close();
     assertTrue(reader.closeCalled);
   }
 
@@ -688,9 +731,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
     List<RowReader> readers = Lists.newArrayList(reader);
-    ScanOperatorExec scan = new ScanOperatorExec(fixture.operatorContext(null), readers.iterator());
-    scan.bind();
-    scan.start();
+    MockBatch mockBatch = new MockBatch(readers);
+    ScanOperatorExec scan = mockBatch.scanOp;
 
     // Schema
 
@@ -711,7 +753,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
       assertNull(e.getCause());
     }
 
-    scan.close();
+    mockBatch.close();
     assertTrue(reader.closeCalled);
   }
 
@@ -732,9 +774,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader2.returnDataOnFirst = true;
 
     List<RowReader> readers = Lists.newArrayList(reader1, reader2);
-    ScanOperatorExec scan = new ScanOperatorExec(fixture.operatorContext(null), readers.iterator());
-    scan.bind();
-    scan.start();
+    MockBatch mockBatch = new MockBatch(readers);
+    ScanOperatorExec scan = mockBatch.scanOp;
 
     // Schema
 
@@ -762,7 +803,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(reader1.closeCalled);
     assertFalse(reader2.openCalled);
 
-    scan.close();
+    mockBatch.close();
   }
 
   /**
@@ -827,9 +868,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader2.returnDataOnFirst = true;
     List<RowReader> readers = Lists.newArrayList(reader1, reader2);
 
-    ScanOperatorExec scan = new ScanOperatorExec(fixture.operatorContext(null), readers.iterator());
-    scan.bind();
-    scan.start();
+    MockBatch mockBatch = new MockBatch(readers);
+    ScanOperatorExec scan = mockBatch.scanOp;
 
     // First batch. The reader returns a non-empty batch. The scan
     // operator strips off the schema and returns just that.
@@ -889,6 +929,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     // EOF
 
     assertFalse(scan.next());
-    scan.close();
+    assertEquals(0, scan.batchAccessor().getRowCount());
+    mockBatch.close();
   }
 }

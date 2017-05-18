@@ -17,12 +17,24 @@
  */
 package org.apache.drill.exec.physical.impl;
 
+import java.io.IOException;
 import java.util.Iterator;
+import java.util.List;
 
+import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.exec.exception.ClassTransformationException;
+import org.apache.drill.exec.expr.ClassGenerator;
+import org.apache.drill.exec.expr.CodeGenerator;
+import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
+import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.FragmentExecContext;
+import org.apache.drill.exec.ops.OperatorExecContext;
+import org.apache.drill.exec.physical.base.PhysicalOperator;
+import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExec;
+import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExecServicesImpl;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.TypedFieldId;
@@ -31,6 +43,10 @@ import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.WritableBatch;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
+import org.apache.drill.exec.server.options.OptionSet;
+import org.apache.drill.exec.store.mock.MockSubScanPOP;
+
+import io.netty.buffer.DrillBuf;
 
 /**
  * Modular implementation of the standard Drill record batch iterator
@@ -45,16 +61,17 @@ import org.apache.drill.exec.record.selection.SelectionVector4;
 public class OperatorRecordBatch implements CloseableRecordBatch {
 
   public interface BatchAccessor {
-    public BatchSchema getSchema();
-    public int schemaVersion();
-    public int getRowCount();
-    public VectorContainer getOutgoingContainer();
-    public TypedFieldId getValueVectorId(SchemaPath path);
-    public VectorWrapper<?> getValueAccessorById(Class<?> clazz, int... ids);
-    public WritableBatch getWritableBatch();
-    public SelectionVector2 getSelectionVector2();
-    public SelectionVector4 getSelectionVector4();
-    public Iterator<VectorWrapper<?>> iterator();
+    BatchSchema getSchema();
+    int schemaVersion();
+    int getRowCount();
+    VectorContainer getOutgoingContainer();
+    TypedFieldId getValueVectorId(SchemaPath path);
+    VectorWrapper<?> getValueAccessorById(Class<?> clazz, int... ids);
+    WritableBatch getWritableBatch();
+    SelectionVector2 getSelectionVector2();
+    SelectionVector4 getSelectionVector4();
+    Iterator<VectorWrapper<?>> iterator();
+    void release();
   }
 
   /**
@@ -98,17 +115,23 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
 
     public void setContainer(VectorContainer container) {
       this.container = container;
-      schemaTracker.trackSchema(container.getSchema());
+      if (container != null) {
+        schemaTracker.trackSchema(container.getSchema());
+      }
     }
 
     @Override
-    public BatchSchema getSchema() { return container.getSchema(); }
+    public BatchSchema getSchema() {
+      return container == null ? null : container.getSchema();
+    }
 
     @Override
     public int schemaVersion() { return schemaTracker.schemaVersion(); }
 
     @Override
-    public int getRowCount() { return container.getRecordCount(); }
+    public int getRowCount() {
+      return container == null ? 0 : container.getRecordCount();
+    }
 
     @Override
     public VectorContainer getOutgoingContainer() { return container; }
@@ -143,6 +166,9 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
 
     @Override
     public Iterator<VectorWrapper<?>> iterator() { return container.iterator(); }
+
+    @Override
+    public void release() { container.zeroVectors(); }
   }
 
   public static class ContainerAndSv2Accessor extends VectorContainerAccessor {
@@ -169,12 +195,91 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
     }
   }
 
+  /**
+   * Skeleton implementation of an operator execution context. The concept is
+   * <ul>
+   * <li>One object that provides services to an operation execution.</li>
+   * <li>Wraps fragment-level services to avoid need to pass in a fragment context.</li>
+   * <li>Wraps common operator-level services to avoid redundant code.</li>
+   * <li>Provides access to the operator definition, to avoid need to pass that
+   * along everywhere needed.</li>
+   * <li>Defined as an interface to allow a test-time mock without the need
+   * for a full Drillbit.</li>
+   * </ul>
+   * The full collection of services will be large. To start, this is just a
+   * wrapper around the existing contexts. Over time, we can add methods here
+   * rather than referring to the other contexts. In the end, the other operator
+   * contexts can be deprecated.
+   */
+  public interface OperatorExecServices {
+
+    FragmentExecContext getFragmentContext();
+
+    /**
+     * Return the physical operator definition created by the planner and passed
+     * into the Drillbit executing the query.
+     * @return the physical operator definition
+     */
+
+    <T extends PhysicalOperator> T operatorDefn();
+
+    OperatorExecContext getOperatorContext();
+
+    <T extends OperatorExec> T operatorExec();
+
+    BufferAllocator allocator();
+  }
+
   public interface OperatorExec {
+    public void bind(OperatorExecServices context);
     BatchAccessor batchAccessor();
     boolean buildSchema();
     boolean next();
     void cancel();
     void close();
+  }
+
+  public static class OperatorExecServicesImpl implements OperatorExecServices {
+
+    private final FragmentExecContext fragmentContext;
+    private final PhysicalOperator operatorDefn;
+    private final OperatorExecContext opContext;
+    private final OperatorExec operatorExec;
+
+    public OperatorExecServicesImpl(FragmentExecContext fragContext, PhysicalOperator pop, OperatorExec opExec) {
+      fragmentContext = fragContext;
+      operatorDefn = pop;
+      opContext = fragContext.newOperatorExecContext(pop, null);
+      operatorExec = opExec;
+    }
+
+    @Override
+    public FragmentExecContext getFragmentContext() { return fragmentContext; }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T extends PhysicalOperator> T operatorDefn() {
+      return (T) operatorDefn;
+    }
+
+    @Override
+    public OperatorExecContext getOperatorContext() { return opContext; }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T extends OperatorExec> T operatorExec() {
+      return (T) operatorExec;
+    }
+
+    @Override
+    public BufferAllocator allocator() {
+      return opContext.getAllocator();
+    }
+
+    public void close() {
+      opContext.close();
+    }
+
   }
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(OperatorRecordBatch.class);
@@ -191,14 +296,16 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
 
 
     private State state = State.START;
-    private FragmentExecContext fragmentContext;
-    private OperatorExec operatorExec;
-    private BatchAccessor batchAccessor;
+    private final OperatorExecServices opServices;
+    private final FragmentExecContext fragmentContext;
+    private final OperatorExec operatorExec;
+    private final BatchAccessor batchAccessor;
     private int schemaVersion;
 
-    public OperatorDriver(FragmentExecContext fragmentContext, OperatorExec operatorExec) {
-      this.fragmentContext = fragmentContext;
-      this.operatorExec = operatorExec;
+    public OperatorDriver(OperatorExecServices opServicees, OperatorExec opExec) {
+      this.opServices = opServicees;
+      this.fragmentContext = opServicees.getFragmentContext();
+      this.operatorExec = opExec;
       batchAccessor = operatorExec.batchAccessor();
     }
 
@@ -325,17 +432,38 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
           .addContext("Exception thrown from", getOperatorLabel())
           .build(logger);
       } finally {
+        this.opServices.getOperatorContext().close();
         state = State.CLOSED;
       }
+    }
+
+    public BatchAccessor batchAccessor() {
+      return batchAccessor;
     }
   }
 
   private final OperatorDriver driver;
   private final BatchAccessor batchAccessor;
 
-  public OperatorRecordBatch(FragmentExecContext fragmentContext, OperatorExec operatorExec) {
-    driver = new OperatorDriver(fragmentContext, operatorExec);
-    batchAccessor = operatorExec.batchAccessor();
+  public OperatorRecordBatch(FragmentExecContext context, PhysicalOperator config, OperatorExec opExec) {
+    OperatorExecServicesImpl services = new OperatorExecServicesImpl(context, config, opExec);
+
+    // Chicken-and-egg binding: the two objects must know about each other. Pass the
+    // context to the operator exec via a bind method.
+
+    try {
+      opExec.bind(services);
+    } catch (UserException e) {
+      services.close();
+      throw e;
+    } catch (Throwable t) {
+      services.close();
+      throw UserException.executionError(t)
+        .addContext("Exception thrown from", opExec.getClass().getSimpleName() + ".bind()")
+        .build(logger);
+    }
+    driver = new OperatorDriver(services, opExec);
+    batchAccessor = opExec.batchAccessor();
   }
 
   @Override
@@ -412,7 +540,7 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
   }
 
   @Override
-  public void close() throws Exception {
+  public void close() {
     driver.close();
   }
 }

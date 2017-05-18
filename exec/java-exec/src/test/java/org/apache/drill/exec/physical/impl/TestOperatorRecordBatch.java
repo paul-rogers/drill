@@ -17,7 +17,13 @@
  */
 package org.apache.drill.exec.physical.impl;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.Iterator;
 
@@ -27,14 +33,16 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.OperatorRecordBatch.BatchAccessor;
 import org.apache.drill.exec.physical.impl.OperatorRecordBatch.ContainerAndSv2Accessor;
 import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExec;
+import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExecServices;
+import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExecServicesImpl;
 import org.apache.drill.exec.physical.impl.OperatorRecordBatch.VectorContainerAccessor;
 import org.apache.drill.exec.proto.UserBitShared.NamePart;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.RecordBatch.IterOutcome;
 import org.apache.drill.exec.record.TypedFieldId;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
-import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.VarCharVector;
 import org.apache.drill.test.SubOperatorTest;
@@ -54,7 +62,6 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
   private class MockOperatorExec implements OperatorExec {
 
     public boolean bindCalled;
-    public boolean startCalled;
     public boolean buildSchemaCalled;
     public int nextCalls = 1;
     public int nextCount;
@@ -81,15 +88,12 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     }
 
     @Override
-    public void bind() { bindCalled = true; }
+    public void bind(OperatorExecServices context) { bindCalled = true; }
 
     @Override
     public BatchAccessor batchAccessor() {
       return batchAccessor;
     }
-
-    @Override
-    public void start() { startCalled = true; }
 
     @Override
     public boolean buildSchema() { buildSchemaCalled = true; return ! schemaEOF; }
@@ -120,6 +124,10 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     }
   }
 
+  private OperatorRecordBatch makeOpBatch(MockOperatorExec opExec) {
+    return new OperatorRecordBatch(fixture.codeGenContext(), null, opExec);
+  }
+
   /**
    * Simulate a normal run: return some batches, encounter a schema change.
    */
@@ -129,9 +137,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     MockOperatorExec opExec = new MockOperatorExec();
     opExec.nextCalls = 2;
     opExec.schemaChangeAt = 2;
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
-      assertFalse(opExec.bindCalled);
-      assertFalse(opExec.startCalled);
+    try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
 
       assertSame(fixture.codeGenContext(), opBatch.getExecContext());
       assertNull(opBatch.getContext());
@@ -140,7 +146,6 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
 
       assertEquals(IterOutcome.OK_NEW_SCHEMA, opBatch.next());
       assertTrue(opExec.bindCalled);
-      assertTrue(opExec.startCalled);
       assertTrue(opExec.buildSchemaCalled);
       assertEquals(0, opExec.nextCount);
 
@@ -178,11 +183,11 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     MockOperatorExec opExec = new MockOperatorExec();
     opExec.schemaEOF = true;
 
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
+    try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
     } catch (Exception e) {
       fail();
     }
-    assertFalse(opExec.bindCalled);
+    assertTrue(opExec.bindCalled);
     assertTrue(opExec.closeCalled);
   }
 
@@ -195,9 +200,8 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     MockOperatorExec opExec = new MockOperatorExec();
     opExec.schemaEOF = true;
 
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
+    try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
       assertEquals(IterOutcome.NONE, opBatch.next());
-      assertTrue(opExec.startCalled);
       assertTrue(opExec.buildSchemaCalled);
     } catch (Exception e) {
       fail();
@@ -215,9 +219,8 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     MockOperatorExec opExec = new MockOperatorExec();
     opExec.nextCalls = 0;
 
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
+    try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
       assertEquals(IterOutcome.OK_NEW_SCHEMA, opBatch.next());
-      assertTrue(opExec.startCalled);
       assertTrue(opExec.buildSchemaCalled);
       assertEquals(IterOutcome.NONE, opBatch.next());
       assertEquals(1, opExec.nextCount);
@@ -236,9 +239,8 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     MockOperatorExec opExec = new MockOperatorExec();
     opExec.nextCalls = 2;
 
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
+    try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
       opBatch.kill(false);
-      assertFalse(opExec.startCalled);
       assertFalse(opExec.buildSchemaCalled);
       assertEquals(0, opExec.nextCount);
       assertFalse(opExec.cancelCalled);
@@ -257,7 +259,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     MockOperatorExec opExec = new MockOperatorExec();
     opExec.nextCalls = 2;
 
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
+    try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
       assertEquals(IterOutcome.OK_NEW_SCHEMA, opBatch.next());
       assertEquals(IterOutcome.OK, opBatch.next());
       opBatch.kill(false);
@@ -278,7 +280,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     MockOperatorExec opExec = new MockOperatorExec();
     opExec.nextCalls = 2;
 
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
+    try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
       assertEquals(IterOutcome.OK_NEW_SCHEMA, opBatch.next());
       assertEquals(IterOutcome.OK, opBatch.next());
       assertEquals(IterOutcome.OK, opBatch.next());
@@ -305,7 +307,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     opExec.nextCalls = 2;
 
     @SuppressWarnings("resource")
-    OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec);
+    OperatorRecordBatch opBatch = makeOpBatch(opExec);
     assertEquals(IterOutcome.OK_NEW_SCHEMA, opBatch.next());
     assertEquals(IterOutcome.OK, opBatch.next());
     assertEquals(IterOutcome.OK, opBatch.next());
@@ -340,7 +342,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     MockOperatorExec opExec = new MockOperatorExec(rs.container());
     opExec.nextCalls = 1;
 
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
+    try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
       assertEquals(IterOutcome.OK_NEW_SCHEMA, opBatch.next());
       assertEquals(schema, opBatch.getSchema());
       assertEquals(2, opBatch.getRecordCount());
@@ -420,7 +422,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     MockOperatorExec opExec = new MockOperatorExec(accessor);
     opExec.nextCalls = 1;
 
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
+    try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
       assertEquals(IterOutcome.OK_NEW_SCHEMA, opBatch.next());
       assertSame(rs.getSv2(), opBatch.getSelectionVector2());
 
@@ -452,12 +454,11 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
   public void testWrappedExceptionOnBind() {
     MockOperatorExec opExec = new MockOperatorExec() {
       @Override
-      public void bind() {
+      public void bind(OperatorExecServices context) {
          throw new IllegalStateException(ERROR_MSG);
       }
     };
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
-      opBatch.next();
+    try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
       fail();
     } catch (UserException e) {
       assertTrue(e.getMessage().contains(ERROR_MSG));
@@ -466,20 +467,20 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
       fail();
     }
     assertFalse(opExec.cancelCalled); // Cancel not called: too early in life
-    assertTrue(opExec.closeCalled);
+    assertFalse(opExec.closeCalled); // Same with close
   }
 
   @Test
   public void testUserExceptionOnBind() {
     MockOperatorExec opExec = new MockOperatorExec() {
       @Override
-      public void bind() {
+      public void bind(OperatorExecServices context) {
          throw UserException.connectionError()
            .message(ERROR_MSG)
            .build(logger);
       }
     };
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
+    try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
       opBatch.next();
       fail();
     } catch (UserException e) {
@@ -489,55 +490,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
       fail();
     }
     assertFalse(opExec.cancelCalled); // Cancel not called: too early in life
-    assertTrue(opExec.closeCalled);
-  }
-
-  /**
-   * Failure on the start method.
-   */
-
-  @Test
-  public void testWrappedExceptionOnStart() {
-    MockOperatorExec opExec = new MockOperatorExec() {
-      @Override
-      public void start() {
-         throw new IllegalStateException(ERROR_MSG);
-      }
-    };
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
-      opBatch.next();
-      fail();
-    } catch (UserException e) {
-      assertTrue(e.getMessage().contains(ERROR_MSG));
-      assertTrue(e.getCause() instanceof IllegalStateException);
-    } catch (Throwable t) {
-      fail();
-    }
-    assertFalse(opExec.cancelCalled); // Cancel not called: too early in life
-    assertTrue(opExec.closeCalled);
-  }
-
-  @Test
-  public void testUserExceptionOnStart() {
-    MockOperatorExec opExec = new MockOperatorExec() {
-      @Override
-      public void start() {
-        throw UserException.connectionError()
-            .message(ERROR_MSG)
-            .build(logger);
-      }
-    };
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
-      opBatch.next();
-      fail();
-    } catch (UserException e) {
-      assertTrue(e.getMessage().contains(ERROR_MSG));
-      assertNull(e.getCause());
-    } catch (Throwable t) {
-      fail();
-    }
-    assertFalse(opExec.cancelCalled); // Cancel not called: too early in life
-    assertTrue(opExec.closeCalled);
+    assertFalse(opExec.closeCalled); // Same with close
   }
 
   /**
@@ -551,7 +504,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
          throw new IllegalStateException(ERROR_MSG);
       }
     };
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
+    try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
       opBatch.next();
       fail();
     } catch (UserException e) {
@@ -574,7 +527,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
             .build(logger);
       }
     };
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
+    try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
       opBatch.next();
       fail();
     } catch (UserException e) {
@@ -600,7 +553,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
          throw new IllegalStateException(ERROR_MSG);
       }
     };
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
+    try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
       assertEquals(IterOutcome.OK_NEW_SCHEMA, opBatch.next());
       opBatch.next();
       fail();
@@ -624,7 +577,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
               .build(logger);
       }
     };
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
+    try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
       assertEquals(IterOutcome.OK_NEW_SCHEMA, opBatch.next());
       opBatch.next();
       fail();
@@ -654,7 +607,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
       }
     };
     opExec.nextCalls = 1;
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
+    try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
       assertEquals(IterOutcome.OK_NEW_SCHEMA, opBatch.next());
       assertEquals(IterOutcome.OK, opBatch.next());
       assertEquals(IterOutcome.NONE, opBatch.next());
@@ -681,7 +634,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
               .build(logger);
       }
     };
-    try (OperatorRecordBatch opBatch = new OperatorRecordBatch(fixture.codeGenContext(), opExec)) {
+    try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
       assertEquals(IterOutcome.OK_NEW_SCHEMA, opBatch.next());
       assertEquals(IterOutcome.OK, opBatch.next());
       assertEquals(IterOutcome.NONE, opBatch.next());
