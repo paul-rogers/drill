@@ -171,7 +171,8 @@ public class MockTableDef {
         b.setPrecision(precision);
       }
       if (width != null) {
-        b.setWidth(width);
+        //b.setWidth(width); // Legacy
+        b.setPrecision(width); // Since DRILL-5419
       }
       if (scale != null) {
         b.setScale(scale);

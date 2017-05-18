@@ -20,23 +20,19 @@ package org.apache.drill.exec.store.mock;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 
-import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.exec.exception.OutOfMemoryException;
-import org.apache.drill.exec.exception.SchemaChangeException;
-import org.apache.drill.exec.expr.TypeHelper;
-import org.apache.drill.exec.ops.FragmentContext;
-import org.apache.drill.exec.ops.OperatorContext;
-import org.apache.drill.exec.physical.impl.OutputMutator;
+import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.impl.ScanBatch;
+import org.apache.drill.exec.physical.rowSet.RowSetMutator;
+import org.apache.drill.exec.physical.rowSet.TupleLoader;
+import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.store.AbstractRecordReader;
+import org.apache.drill.exec.store.RowReader;
 import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
-import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
 
 /**
@@ -49,18 +45,15 @@ import org.apache.drill.exec.vector.ValueVector;
  * {@link ScanBatch} used to create this record reader.
  */
 
-public class ExtendedMockRecordReader extends AbstractRecordReader {
-
-  private ValueVector[] valueVectors;
-  private int batchRecordCount;
-  private int recordsRead;
+public class ExtendedMockRecordReader implements RowReader {
 
   private final MockScanEntry config;
   private final ColumnDef fields[];
+  private RowSetMutator mutator;
+  private TupleLoader writer;
 
-  public ExtendedMockRecordReader(FragmentContext context, MockScanEntry config) {
+  public ExtendedMockRecordReader(MockScanEntry config) {
     this.config = config;
-
     fields = buildColumnDefs();
   }
 
@@ -80,7 +73,7 @@ public class ExtendedMockRecordReader extends AbstractRecordReader {
         throw new IllegalArgumentException("Duplicate column name: " + col.name);
       }
       names.add(col.name);
-      int repeat = Math.min(1, col.getRepeatCount());
+      int repeat = Math.max(1, col.getRepeatCount());
       if (repeat == 1) {
         defs.add(new ColumnDef(col));
       } else {
@@ -94,66 +87,60 @@ public class ExtendedMockRecordReader extends AbstractRecordReader {
     return defArray;
   }
 
-  private int getEstimatedRecordSize() {
-    int size = 0;
+  @Override
+  public void open(OperatorExecServices context, RowSetMutator mutator) {
+    this.mutator = mutator;
+    writer = mutator.writer();
+    TupleSchema schema = writer.schema();
     for (int i = 0; i < fields.length; i++) {
-      size += fields[i].width;
-    }
-    return size;
-  }
-
-  @Override
-  public void setup(OperatorContext context, OutputMutator output) throws ExecutionSetupException {
-    try {
-      final int estimateRowSize = getEstimatedRecordSize();
-      valueVectors = new ValueVector[fields.length];
-      int batchSize = config.getBatchSize();
-      if (batchSize == 0) {
-        batchSize = 10 * 1024 * 1024;
-      }
-      batchRecordCount = Math.max(1, batchSize / estimateRowSize);
-      batchRecordCount = Math.min(batchRecordCount, Character.MAX_VALUE);
-
-      for (int i = 0; i < fields.length; i++) {
-        final ColumnDef col = fields[i];
-        final MajorType type = col.getConfig().getMajorType();
-        final MaterializedField field = MaterializedField.create(col.getName(), type);
-        final Class<? extends ValueVector> vvClass = TypeHelper.getValueVectorClass(field.getType().getMinorType(), field.getDataMode());
-        valueVectors[i] = output.addField(field, vvClass);
-      }
-    } catch (SchemaChangeException e) {
-      throw new ExecutionSetupException("Failure while setting up fields", e);
+      final ColumnDef col = fields[i];
+      final MaterializedField field = MaterializedField.create(col.getName(),
+                                          col.getConfig().getMajorType());
+      schema.addColumn(field);
+      fields[i].generator.setup(fields[i], writer.column(i));
     }
   }
 
   @Override
-  public int next() {
-    if (recordsRead >= this.config.getRecords()) {
-      return 0;
+  public boolean next() {
+    int rowCount = config.getRecords() - mutator.totalRowCount();
+    if (rowCount <= 0) {
+      return false;
     }
 
-    final int recordSetSize = Math.min(batchRecordCount, this.config.getRecords() - recordsRead);
-    recordsRead += recordSetSize;
-    for (int i = 0; i < recordSetSize; i++) {
-      int j = 0;
-      for (final ValueVector v : valueVectors) {
-        fields[j++].generator.setValue(v, i);
+    rowCount = Math.min(rowCount, ValueVector.MAX_ROW_COUNT);
+    if (config.getBatchSize() > 0) {
+      rowCount = Math.min(rowCount, config.getBatchSize());
+    }
+    Random rand = new Random();
+    for (int i = 0; i < rowCount; i++) {
+      if (mutator.isFull()) {
+        break;
       }
+      mutator.startRow();
+      for (int j = 0; j < fields.length; j++) {
+        if (fields[j].nullable && rand.nextInt(100) < fields[j].nullablePercent) {
+          writer.column(j).setNull();
+        } else {
+          fields[j].generator.setValue();
+        }
+      }
+      mutator.saveRow();
     }
 
-    return recordSetSize;
+    return true;
   }
 
-  @Override
-  public void allocate(Map<String, ValueVector> vectorMap) throws OutOfMemoryException {
-    try {
-      for (final ValueVector v : vectorMap.values()) {
-        AllocationHelper.allocate(v, Character.MAX_VALUE, 50, 10);
-      }
-    } catch (NullPointerException e) {
-      throw new OutOfMemoryException();
-    }
-  }
+//  @Override
+//  public void allocate(Map<String, ValueVector> vectorMap) throws OutOfMemoryException {
+//    try {
+//      for (final ValueVector v : vectorMap.values()) {
+//        AllocationHelper.allocate(v, Character.MAX_VALUE, 50, 10);
+//      }
+//    } catch (NullPointerException e) {
+//      throw new OutOfMemoryException();
+//    }
+//  }
 
   @Override
   public void close() { }
