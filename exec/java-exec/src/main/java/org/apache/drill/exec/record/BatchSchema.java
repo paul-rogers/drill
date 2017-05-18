@@ -110,13 +110,21 @@ public class BatchSchema implements Iterable<MaterializedField> {
       return false;
     }
     BatchSchema other = (BatchSchema) obj;
-    if (fields == null) {
-      if (other.fields != null) {
-        return false;
-      }
-    } else if (!fields.equals(other.fields)) {
+    if (selectionVectorMode != other.selectionVectorMode) {
       return false;
     }
+    if (fields == null) {
+      return other.fields == null;
+    }
+    
+    // Compare names.
+    
+    if (!fields.equals(other.fields)) {
+      return false;
+    }
+
+    // Compare types
+    
     for (int i = 0; i < fields.size(); i++) {
       MajorType t1 = fields.get(i).getType();
       MajorType t2 = other.fields.get(i).getType();
@@ -129,9 +137,6 @@ public class BatchSchema implements Iterable<MaterializedField> {
           return false;
         }
       }
-    }
-    if (selectionVectorMode != other.selectionVectorMode) {
-      return false;
     }
     return true;
   }
