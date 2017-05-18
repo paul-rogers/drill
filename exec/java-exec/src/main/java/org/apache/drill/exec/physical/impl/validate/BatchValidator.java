@@ -71,6 +71,9 @@ public class BatchValidator {
   }
 
   public void validate() {
+    if (batch.getRecordCount() == 0) {
+      return;
+    }
     for (VectorWrapper<? extends ValueVector> w : batch) {
       validateWrapper(w);
     }
@@ -93,7 +96,7 @@ public class BatchValidator {
     } else if (vector instanceof BaseRepeatedValueVector) {
       validateRepeatedVector(name, (BaseRepeatedValueVector) vector);
     } else {
-      logger.debug("Don't know how to validate vector: " + name + " of classs " + vector.getClass().getSimpleName());
+      logger.debug("Don't know how to validate vector: " + name + " of class " + vector.getClass().getSimpleName());
     }
   }
 
@@ -104,7 +107,7 @@ public class BatchValidator {
     if (vector instanceof VarCharVector) {
       validateVarCharVector(name, (VarCharVector) vector, entryCount);
     } else {
-      logger.debug("Don't know how to validate vector: " + name + " of classs " + vector.getClass().getSimpleName());
+      logger.debug("Don't know how to validate vector: " + name + " of class " + vector.getClass().getSimpleName());
     }
   }
 
