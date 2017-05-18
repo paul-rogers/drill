@@ -80,21 +80,25 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
   public static class SchemaTracker {
 
     private int schemaVersion;
+    private int currentFieldCount;
     private BatchSchema currentSchema;
 
     public void trackSchema(BatchSchema newSchema) {
       if (currentSchema == newSchema) {
+
         // The new schema is the same as this one. Only need to
-        // check for new fields (existign ones cannot be changed or
+        // check for new fields (existing ones cannot be changed or
         // removed.)
 
-        if (currentSchema.getFieldCount() < newSchema.getFieldCount()) {
-          schemaVersion++;
+        if (currentFieldCount == newSchema.getFieldCount()) {
+          return;
         }
-      } else if (currentSchema == null || ! currentSchema.equals(newSchema)) {
-        currentSchema = newSchema;
-        schemaVersion++;
+      } else if (currentSchema != null && currentSchema.isEquivalent(newSchema)) {
+        return;
       }
+      currentSchema = newSchema;
+      currentFieldCount = currentSchema.getFieldCount();
+      schemaVersion++;
     }
 
     public int schemaVersion() {

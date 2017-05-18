@@ -1,6 +1,6 @@
 package org.apache.drill.exec.store.mock;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.*;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema;
@@ -44,7 +44,10 @@ public class TestMockDataSource extends ClusterTest {
           .add("id_i", MinorType.INT)
           .add("name_s10", MinorType.VARCHAR, 10)
           .build();
-      assertEquals(expected, results.batchSchema());
+
+      // Note: assertEquals does not work here. See DRILL-5525
+
+      assertTrue(results.batchSchema().isEquivalent(expected));
       results.clear();
     }
   }
