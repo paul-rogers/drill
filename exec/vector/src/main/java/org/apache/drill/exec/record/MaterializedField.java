@@ -201,9 +201,29 @@ public class MaterializedField {
 
   @Override
   public String toString() {
+    StringBuilder buf = new StringBuilder()
+        .append(name)
+        .append("(")
+        .append(type.getMinorType().name())
+        .append(":")
+        .append(type.getMode().name());
+    if (type.getWidth() > 0) {
+      buf.append(", width=")
+         .append(type.getWidth());
+    }
+    if (type.getScale() > 0) {
+      buf.append(", scale=")
+         .append(type.getScale());
+    }
+    if (type.getPrecision() > 0) {
+      buf.append(", prec=")
+         .append(type.getPrecision());
+    }
     final int maxLen = 10;
     String childStr = children != null && !children.isEmpty() ? toString(children, maxLen) : "";
-    return name + "(" + type.getMinorType().name() + ":" + type.getMode().name() + ")" + childStr;
+    buf.append(")")
+       .append(childStr);
+    return buf.toString();
   }
 
   private String toString(Collection<?> collection, int maxLen) {

@@ -68,7 +68,8 @@ public class SchemaBuilder {
     }
 
     public ColumnBuilder setWidth(int width) {
-      typeBuilder.setPrecision(width);
+//      typeBuilder.setWidth(width); // Legacy
+      typeBuilder.setPrecision(width); // Since DRILL-5419
       return this;
     }
 

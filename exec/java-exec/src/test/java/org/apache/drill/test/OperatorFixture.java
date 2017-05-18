@@ -31,15 +31,18 @@ import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.expr.ClassGenerator;
 import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
+import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.memory.RootAllocatorFactory;
+import org.apache.drill.exec.ops.AbstractFragmentExecContext;
 import org.apache.drill.exec.ops.AbstractOperatorExecContext;
 import org.apache.drill.exec.ops.FragmentExecContext;
 import org.apache.drill.exec.ops.MetricDef;
-import org.apache.drill.exec.ops.OperExecContext;
-import org.apache.drill.exec.ops.OperExecContextImpl;
 import org.apache.drill.exec.ops.OperatorExecContext;
 import org.apache.drill.exec.ops.OperatorStatReceiver;
+import org.apache.drill.exec.ops.OperatorStats;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
+import org.apache.drill.exec.physical.impl.OperatorExecutionContextImpl;
+import org.apache.drill.exec.physical.impl.OperatorExecutionContext;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.server.options.BaseOptionManager;
@@ -154,19 +157,20 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
    * provide test-specific versions of various other services.
    */
 
-  public static class TestCodeGenContext implements FragmentExecContext {
+  public static class TestCodeGenContext extends AbstractFragmentExecContext {
 
+    private final BufferAllocator rootAllocator;
     private final DrillConfig config;
     private final OptionSet options;
     private final CodeCompiler compiler;
-    private final FunctionImplementationRegistry functionRegistry;
     private ExecutionControls controls;
 
-    public TestCodeGenContext(DrillConfig config, OptionSet options) {
+    @SuppressWarnings("resource")
+    public TestCodeGenContext(BufferAllocator rootAllocator, DrillConfig config, OptionSet options) {
+      super(new FunctionImplementationRegistry(config, ClassPathScanner.fromPrescan(config), options));
+      this.rootAllocator = rootAllocator;
       this.config = config;
       this.options = options;
-      ScanResult classpathScan = ClassPathScanner.fromPrescan(config);
-      functionRegistry = new FunctionImplementationRegistry(config, classpathScan, options);
       compiler = new CodeCompiler(config, options);
     }
 
@@ -175,35 +179,8 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     }
 
     @Override
-    public FunctionImplementationRegistry getFunctionRegistry() {
-      return functionRegistry;
-    }
-
-    @Override
     public OptionSet getOptionSet() {
       return options;
-    }
-
-    @Override
-    public <T> T getImplementationClass(final ClassGenerator<T> cg)
-        throws ClassTransformationException, IOException {
-      return getImplementationClass(cg.getCodeGenerator());
-    }
-
-    @Override
-    public <T> T getImplementationClass(final CodeGenerator<T> cg)
-        throws ClassTransformationException, IOException {
-      return compiler.createInstance(cg);
-    }
-
-    @Override
-    public <T> List<T> getImplementationClass(final ClassGenerator<T> cg, final int instanceCount) throws ClassTransformationException, IOException {
-      return getImplementationClass(cg.getCodeGenerator(), instanceCount);
-    }
-
-    @Override
-    public <T> List<T> getImplementationClass(final CodeGenerator<T> cg, final int instanceCount) throws ClassTransformationException, IOException {
-      return compiler.createInstances(cg, instanceCount);
     }
 
     @Override
@@ -220,6 +197,17 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     public DrillConfig getConfig() {
       return config;
     }
+
+    @SuppressWarnings("resource")
+    @Override
+    public OperatorExecContext newOperatorExecContext(
+        PhysicalOperator popConfig, OperatorStats stats) {
+      BufferAllocator child = rootAllocator.newChildAllocator("child", 10_000_000, 10_000_000_000L);
+      return new AbstractOperatorExecContext(child, popConfig, getExecutionControls(), stats);
+    }
+
+    @Override
+    protected CodeCompiler getCompiler() { return compiler; }
   }
 
   /**
@@ -278,7 +266,7 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     config = builder.configBuilder().build();
     allocator = RootAllocatorFactory.newRoot(config);
     options = builder.options();
-    context = new TestCodeGenContext(config, options);
+    context = new TestCodeGenContext(allocator, config, options);
     stats = new MockStats();
    }
 
@@ -305,8 +293,8 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     return builder().build();
   }
 
-  public OperExecContext newOperExecContext(PhysicalOperator opDefn) {
-    return new OperExecContextImpl(context, allocator, stats, opDefn, null);
+  public OperatorExecutionContext newOperExecContext(PhysicalOperator opDefn) {
+    return new OperatorExecutionContextImpl(context, allocator, stats, opDefn, null);
   }
 
   public RowSetBuilder rowSetBuilder(BatchSchema schema) {
@@ -331,6 +319,6 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
   }
 
   public OperatorExecContext operatorContext(PhysicalOperator config) {
-    return new AbstractOperatorExecContext(allocator(), config, context.getExecutionControls(), stats);
+    return context.newOperatorExecContext(config, null);
   }
 }

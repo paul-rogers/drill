@@ -25,6 +25,7 @@ import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.expr.ClassGenerator;
 import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
+import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.testing.ExecutionControls;
 
@@ -128,4 +129,6 @@ public interface FragmentExecContext {
    */
 
   DrillConfig getConfig();
+
+  OperatorExecContext newOperatorExecContext(PhysicalOperator popConfig, OperatorStats stats);
 }

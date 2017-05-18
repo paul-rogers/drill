@@ -36,6 +36,12 @@ public interface OperatorExecContext {
 
   DrillBuf getManagedBuffer(int size);
 
+  /**
+   * Return the memory allocator for this operator.
+   *
+   * @return the per-operator memory allocator
+   */
+
   BufferAllocator getAllocator();
 
   ExecutionControls getExecutionControls();
