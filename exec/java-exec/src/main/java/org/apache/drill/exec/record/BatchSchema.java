@@ -98,6 +98,9 @@ public class BatchSchema implements Iterable<MaterializedField> {
     return result;
   }
 
+  // DRILL-5525: the semantics of this method are badly broken.
+  // Caveat emptor.
+
   @Override
   public boolean equals(Object obj) {
     if (this == obj) {
@@ -116,15 +119,18 @@ public class BatchSchema implements Iterable<MaterializedField> {
     if (fields == null) {
       return other.fields == null;
     }
-    
+
     // Compare names.
-    
+    // (DRILL-5525: actually compares all fields.)
+
     if (!fields.equals(other.fields)) {
       return false;
     }
 
     // Compare types
-    
+    // (DRILL-5525: this code is redundant because any differences
+    // will fail above.)
+
     for (int i = 0; i < fields.size(); i++) {
       MajorType t1 = fields.get(i).getType();
       MajorType t2 = other.fields.get(i).getType();
@@ -136,6 +142,21 @@ public class BatchSchema implements Iterable<MaterializedField> {
         if (!majorTypeEqual(t1, t2)) {
           return false;
         }
+      }
+    }
+    return true;
+  }
+
+  public boolean isEquivalent(BatchSchema other) {
+    if (fields == null || other.fields == null) {
+      return fields == other.fields;
+    }
+    if (fields.size() != other.fields.size()) {
+      return false;
+    }
+    for (int i = 0; i < fields.size(); i++) {
+      if (! fields.get(i).isEquivalent(other.fields.get(i))) {
+        return false;
       }
     }
     return true;
