@@ -77,7 +77,7 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   /**
    * Maximum allowed row count in a vector. Repeated vectors
    * may have more items, but can have no more than this number
-   * or arrays.
+   * or arrays. Limited by 2-byte length in SV2: 65536 = 2<sup>16</sup>.
    */
 
   int MAX_ROW_COUNT = Character.MAX_VALUE + 1;
