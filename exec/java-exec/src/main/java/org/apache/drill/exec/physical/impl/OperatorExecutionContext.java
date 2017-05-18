@@ -15,22 +15,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.ops;
+package org.apache.drill.exec.physical.impl;
 
-import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.ops.FragmentExecContext;
+import org.apache.drill.exec.ops.OperatorExecContext;
+import org.apache.drill.exec.ops.OperatorStatReceiver;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.testing.ControlsInjector;
 
 /**
- * Defines the set of services used by operator implementations. This
- * is a subset of the full {@link OperatorContext} which removes global
- * services such as network endpoints. Code written to this interface
- * can be easily unit tested using the {@link OperatorFixture} class.
- * Code that needs global services must be tested in the Drill server
- * as a whole, or using mocks for global services.
+ * Defines the set of services used by operator implementations. Combines
+ * the fragment and operator execution contexts, removing global services
+ * that most operators should not use. Two concrete implementations exist:
+ * one for testing, another for full server integration.
  */
 
-public interface OperExecContext extends FragmentExecContext {
+public interface OperatorExecutionContext extends OperatorExecContext {
+
+  FragmentExecContext getFragmentContext();
 
   /**
    * Return the physical operator definition created by the planner and passed
@@ -39,14 +41,6 @@ public interface OperExecContext extends FragmentExecContext {
    */
 
   <T extends PhysicalOperator> T getOperatorDefn();
-
-  /**
-   * Return the memory allocator for this operator.
-   *
-   * @return the per-operator memory allocator
-   */
-
-  BufferAllocator getAllocator();
 
   /**
    * A write-only interface to the Drill statistics mechanism. Allows
@@ -81,7 +75,7 @@ public interface OperExecContext extends FragmentExecContext {
    *
    * @param desc the description of the fault used to match a fault
    * injection parameter to determine if the fault should be injected
-   * @param exceptionClass the class of exeception to be thrown
+   * @param exceptionClass the class of exception to be thrown
    * @throws T if the fault is enabled
    */
 

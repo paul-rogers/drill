@@ -15,19 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.ops;
+package org.apache.drill.exec.physical.impl;
 
-import java.io.IOException;
-import java.util.List;
-
-import org.apache.drill.common.config.DrillConfig;
-import org.apache.drill.exec.exception.ClassTransformationException;
-import org.apache.drill.exec.expr.ClassGenerator;
-import org.apache.drill.exec.expr.CodeGenerator;
-import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.ops.AbstractOperatorExecContext;
+import org.apache.drill.exec.ops.FragmentExecContext;
+import org.apache.drill.exec.ops.OperatorContext;
+import org.apache.drill.exec.ops.OperatorStatReceiver;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
-import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.testing.ControlsInjector;
 import org.apache.drill.exec.testing.ExecutionControls;
 
@@ -36,63 +31,19 @@ import org.apache.drill.exec.testing.ExecutionControls;
  * tasks.
  */
 
-public class OperExecContextImpl implements OperExecContext {
+public class OperatorExecutionContextImpl extends AbstractOperatorExecContext implements OperatorExecutionContext {
 
   private FragmentExecContext fragmentContext;
-  private PhysicalOperator operDefn;
   private ControlsInjector injector;
-  private BufferAllocator allocator;
-  private OperatorStatReceiver stats;
 
-  public OperExecContextImpl(FragmentExecContext fragContext, OperatorContext opContext, PhysicalOperator opDefn, ControlsInjector injector) {
+  public OperatorExecutionContextImpl(FragmentExecContext fragContext, OperatorContext opContext, PhysicalOperator opDefn, ControlsInjector injector) {
     this(fragContext, opContext.getAllocator(), opContext.getStats(), opDefn, injector);
   }
 
-  public OperExecContextImpl(FragmentExecContext fragContext, BufferAllocator allocator, OperatorStatReceiver stats, PhysicalOperator opDefn, ControlsInjector injector) {
+  public OperatorExecutionContextImpl(FragmentExecContext fragContext, BufferAllocator allocator, OperatorStatReceiver stats, PhysicalOperator opDefn, ControlsInjector injector) {
+    super(allocator, opDefn, fragContext.getExecutionControls(), stats);
     this.fragmentContext = fragContext;
-    this.operDefn = opDefn;
     this.injector = injector;
-    this.allocator = allocator;
-    this.stats = stats;
-  }
-
-  @Override
-  public FunctionImplementationRegistry getFunctionRegistry() {
-    return fragmentContext.getFunctionRegistry();
-  }
-
-  @Override
-  public OptionSet getOptionSet() {
-    return fragmentContext.getOptionSet();
-  }
-
-  @Override
-  public <T> T getImplementationClass(ClassGenerator<T> cg)
-      throws ClassTransformationException, IOException {
-    return fragmentContext.getImplementationClass(cg);
-  }
-
-  @Override
-  public <T> T getImplementationClass(CodeGenerator<T> cg)
-      throws ClassTransformationException, IOException {
-    return fragmentContext.getImplementationClass(cg);
-  }
-
-  @Override
-  public <T> List<T> getImplementationClass(ClassGenerator<T> cg,
-      int instanceCount) throws ClassTransformationException, IOException {
-    return fragmentContext.getImplementationClass(cg, instanceCount);
-  }
-
-  @Override
-  public <T> List<T> getImplementationClass(CodeGenerator<T> cg,
-      int instanceCount) throws ClassTransformationException, IOException {
-    return fragmentContext.getImplementationClass(cg, instanceCount);
-  }
-
-  @Override
-  public boolean shouldContinue() {
-    return fragmentContext.shouldContinue();
   }
 
   @Override
@@ -105,20 +56,10 @@ public class OperExecContextImpl implements OperExecContext {
     return allocator;
   }
 
-  @Override
-  public OperatorStatReceiver getStats() {
-    return stats;
-  }
-
   @SuppressWarnings("unchecked")
   @Override
   public <T extends PhysicalOperator> T getOperatorDefn() {
-    return (T) operDefn;
-  }
-
-  @Override
-  public DrillConfig getConfig() {
-    return fragmentContext.getConfig();
+    return (T) popConfig;
   }
 
   @Override
@@ -143,4 +84,13 @@ public class OperExecContextImpl implements OperExecContext {
     }
   }
 
+  @Override
+  public OperatorStatReceiver getStats() {
+    return statsWriter;
+  }
+
+  @Override
+  public FragmentExecContext getFragmentContext() {
+    return fragmentContext;
+  }
 }

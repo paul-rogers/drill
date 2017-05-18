@@ -27,7 +27,6 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.ops.OperatorExecContext;
 import org.apache.drill.exec.physical.impl.OperatorRecordBatch.BatchAccessor;
 import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExec;
 import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExecServices;
