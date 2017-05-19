@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -39,6 +39,7 @@ public class ResourceInputStream extends ByteArrayInputStream implements Seekabl
     }
   }
 
+  @Override
   public int read(long position, byte b[], int off, int len) {
     int start = (int) position;
     if (b == null) {
@@ -96,5 +97,4 @@ public class ResourceInputStream extends ByteArrayInputStream implements Seekabl
       throw new EOFException();
     }
   }
-
 }

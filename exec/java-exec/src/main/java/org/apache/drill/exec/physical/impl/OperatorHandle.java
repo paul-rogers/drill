@@ -86,6 +86,11 @@ public interface OperatorHandle {
 
     @Override
     public Iterator<VectorWrapper<?>> iterator() { return batch.iterator(); }
+
+    @Override
+    public void release() {
+      getOutgoingContainer().zeroVectors();
+    }
   }
 
   public static class RecordBatchOperatorHandle implements OperatorHandle {

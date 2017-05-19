@@ -1,4 +1,4 @@
-/*******************************************************************************
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -22,19 +22,19 @@ import java.util.List;
 /**
  * Exposes partition information to UDFs to allow queries to limit reading
  * partitions dynamically.
- *
+ * <p>
  * In a Drill query, a specific partition can be read by simply
  * using a filter on a directory column. For example, if data is partitioned
  * by year and month using directory names, a particular year/month can be
  * read with the following query.
  *
- * <pre>
+ * <code><pre>
  * select * from dfs.my_workspace.data_directory where dir0 = '2014_01';
- * </pre>
+ * </pre></code>
  *
  * This assumes that below data_directory there are sub-directories with
  * years and month numbers as folder names, and data stored below them.
- *
+ * <p>
  * This works in cases where the partition column is known, but the current
  * implementation does not allow the partition information itself to be queried.
  * An example of such behavior would be a query that should always return the
@@ -43,19 +43,19 @@ import java.util.List;
  * expensive, as this currently is materialized as a full table scan followed
  * by an aggregation on the partition dir0 column and finally a filter.
  *
- * <pre>
+ * <code><pre>
  * select * from dfs.my_workspace.data_directory where dir0 in
  *    (select MAX(dir0) from dfs.my_workspace.data_directory);
- * </pre>
+ * </pre></code>
  *
  * This interface allows the definition of a UDF to perform the sub-query
  * on the list of partitions. This UDF can be used at planning time to
  * prune out all of the unnecessary reads of the previous example.
  *
- * <pre>
+ * <code><pre>
  * select * from dfs.my_workspace.data_directory
  *    where dir0 = maxdir('dfs.my_workspace', 'data_directory');
- * </pre>
+ * </pre></code>
  *
  * Look at {@link org.apache.drill.exec.expr.fn.impl.DirectoryExplorers}
  * for examples of UDFs that use this interface to query against
@@ -68,20 +68,20 @@ public interface PartitionExplorer {
    * specified by partition columns and values. Individual storage
    * plugins will assign specific meaning to the parameters and return
    * values.
-   *
+   * <p>
    * A return value of an empty list should be given if the partition has
    * no sub-partitions.
-   *
+   * <p>
    * Note this does cause a collision between empty partitions and leaf partitions,
    * the interface should be modified if the distinction is meaningful.
-   *
+   * <p>
    * Example: for a filesystem plugin the partition information can be simply
    * be a path from the root of the given workspace to the desired directory. The
    * return value should be defined as a list of full paths (again from the root
    * of the workspace), which can be passed by into this interface to explore
    * partitions further down. An empty list would be returned if the partition
    * provided was a file, or an empty directory.
-   *
+   * <p>
    * Note to future devs, keep this doc in sync with
    * {@link SchemaPartitionExplorer}.
    *
