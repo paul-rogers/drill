@@ -28,6 +28,27 @@ import org.apache.drill.exec.physical.rowSet.RowSetMutator;
 
 public interface RowReader {
 
+  public static interface ScanSelection { }
+
+  public static class SelectAll implements ScanSelection {
+
+  }
+
+  public static class SelectNone implements ScanSelection {
+
+  }
+
+  public static class SelectSpecified implements ScanSelection {
+
+  }
+
+  public static class ScanSchema {
+
+    public ScanSchema() {
+
+    }
+  }
+
   /**
    * Setup the record reader.
    * @param context execution context
