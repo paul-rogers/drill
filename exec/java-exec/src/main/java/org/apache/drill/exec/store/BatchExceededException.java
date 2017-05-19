@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -20,7 +20,9 @@ package org.apache.drill.exec.store;
 import org.apache.drill.common.exceptions.DrillRuntimeException;
 
 public class BatchExceededException extends DrillRuntimeException {
-    public BatchExceededException(int capacity, int attempted) {
-        super("Batch exceeded in size. Capacity: " + capacity + ", Attempted: " + attempted);
-    }
+  private static final long serialVersionUID = 1L;
+
+  public BatchExceededException(int capacity, int attempted) {
+      super("Batch exceeded in size. Capacity: " + capacity + ", Attempted: " + attempted);
+  }
 }

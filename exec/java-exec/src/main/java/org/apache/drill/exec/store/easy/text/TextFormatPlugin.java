@@ -76,7 +76,6 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
         formatPluginConfig.getExtensions(), DEFAULT_NAME);
   }
 
-
   @Override
   public RecordReader getRecordReader(FragmentContext context, DrillFileSystem dfs, FileWork fileWork,
       List<SchemaPath> columns, String userName) throws ExecutionSetupException {
