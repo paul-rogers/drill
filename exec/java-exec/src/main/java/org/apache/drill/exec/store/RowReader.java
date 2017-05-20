@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.store;
 
-import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExecServices;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.rowSet.RowSetMutator;
 
 /**

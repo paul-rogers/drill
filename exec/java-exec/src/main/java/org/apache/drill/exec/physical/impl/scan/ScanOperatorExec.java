@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl;
+package org.apache.drill.exec.physical.impl.scan;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -27,10 +27,11 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.OperatorRecordBatch.BatchAccessor;
-import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExec;
-import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExecServices;
-import org.apache.drill.exec.physical.impl.OperatorRecordBatch.VectorContainerAccessor;
+import org.apache.drill.exec.physical.impl.ScanBatch;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.BatchAccessor;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExec;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.VectorContainerAccessor;
 import org.apache.drill.exec.physical.rowSet.RowSetMutator;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetMutatorImpl;

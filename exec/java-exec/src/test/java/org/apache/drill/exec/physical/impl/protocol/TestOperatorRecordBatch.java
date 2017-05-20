@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl;
+package org.apache.drill.exec.physical.impl.protocol;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -30,12 +30,13 @@ import java.util.Iterator;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.OperatorRecordBatch.BatchAccessor;
-import org.apache.drill.exec.physical.impl.OperatorRecordBatch.ContainerAndSv2Accessor;
-import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExec;
-import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExecServices;
-import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExecServicesImpl;
-import org.apache.drill.exec.physical.impl.OperatorRecordBatch.VectorContainerAccessor;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.BatchAccessor;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.ContainerAndSv2Accessor;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExec;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServicesImpl;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.VectorContainerAccessor;
 import org.apache.drill.exec.proto.UserBitShared.NamePart;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;

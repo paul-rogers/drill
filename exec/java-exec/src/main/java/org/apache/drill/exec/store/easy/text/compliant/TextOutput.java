@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,11 +17,13 @@
  */
 package org.apache.drill.exec.store.easy.text.compliant;
 
-/* Base class for producing output record batches while dealing with
- * Text files.
+/**
+ * Base class for producing output record batches while dealing with
+ * text files. Defines the interface called from text parsers to create
+ * the corresponding value vectors (record batch).
  */
+
 abstract class TextOutput {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TextOutput.class);
 
   /**
    * Start processing a new field within a record.
@@ -46,9 +48,9 @@ abstract class TextOutput {
    * @param data
    */
   public void appendIgnoringWhitespace(byte data){
-    if(TextReader.isWhite(data)){
+    if (TextReader.isWhite(data)){
       // noop
-    }else{
+    } else {
       append(data);
     }
   }
