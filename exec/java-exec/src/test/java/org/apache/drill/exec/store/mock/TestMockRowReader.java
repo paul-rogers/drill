@@ -27,9 +27,9 @@ import java.util.Map;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.OperatorRecordBatch.OperatorExecServicesImpl;
-import org.apache.drill.exec.physical.impl.ScanOperatorExec;
-import org.apache.drill.exec.physical.impl.ScanOperatorExec.ScanOptions;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServicesImpl;
+import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
+import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ScanOptions;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.store.RowReader;
 import org.apache.drill.exec.vector.ValueVector;

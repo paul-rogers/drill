@@ -103,11 +103,24 @@
       this.mutator = ((${prefix}${drillType}Vector) vector).getMutator();
     }
 </#macro>
-<#macro set drillType accessorType label nullable setFn>
+<#-- DRILL-5529 describes how required and repeated vectors don't implement
+     fillEmpties() to recover from skiped writes. Since the mutator does
+     not do the work, we must insert code here to do it. -->
+<#macro fillEmpties drillType mode>
+  <#if mode == "Repeated"  || (mode == "" && (
+       drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary"))>
+        // Work-around for DRILL-5529: lack of fillEmpties for some vectors.
+        if (lastWriteIndex + 1 < writeIndex) {
+          mutator.fillEmptiesBounded(lastWriteIndex, writeIndex);
+        }
+ </#if>
+</#macro>
+<#macro set drillType accessorType label mode setFn>
     @Override
     public void set${label}(${accessorType} value) throws VectorOverflowException {
       try {
         final int writeIndex = vectorIndex.vectorIndex();
+        <@fillEmpties drillType mode />
   <#if drillType == "VarChar">
         final byte bytes[] = value.getBytes(Charsets.UTF_8);
         mutator.${setFn}(writeIndex, bytes, 0, bytes.length);
@@ -127,12 +140,12 @@
   <#elseif drillType == "IntervalYear">
         mutator.${setFn}(writeIndex, value.getYears() * 12 + value.getMonths());
   <#elseif drillType == "IntervalDay">
-        mutator.${setFn}(writeIndex,<#if nullable> 1,</#if>
+        mutator.${setFn}(writeIndex,<#if mode == "Nullable"> 1,</#if>
                       value.getDays(),
                       ((value.getHours() * 60 + value.getMinutes()) * 60 +
                        value.getSeconds()) * 1000 + value.getMillis());
   <#elseif drillType == "Interval">
-        mutator.${setFn}(writeIndex,<#if nullable> 1,</#if>
+        mutator.${setFn}(writeIndex,<#if mode == "Nullable"> 1,</#if>
                       value.getYears() * 12 + value.getMonths(),
                       value.getDays(),
                       ((value.getHours() * 60 + value.getMinutes()) * 60 +
@@ -152,6 +165,7 @@
     public void setBytes(byte value[]) throws VectorOverflowException {
       try {
         final int writeIndex = vectorIndex.vectorIndex();
+        <@fillEmpties drillType mode />
         mutator.${setFn}(writeIndex, value, 0, value.length);
         lastWriteIndex = writeIndex;
       } catch (VectorOverflowException e) {
@@ -261,7 +275,7 @@ public class ColumnAccessors {
 
     <@getType label />
 
-    <@set drillType accessorType label false "setScalar" />
+    <@set drillType accessorType label "" "setScalar" />
   }
 
   public static class Nullable${drillType}ColumnWriter extends AbstractColumnWriter {
@@ -282,7 +296,7 @@ public class ColumnAccessors {
       }
     }
 
-    <@set drillType accessorType label true "setScalar" />
+    <@set drillType accessorType label "Nullable" "setScalar" />
   }
 
   public static class Repeated${drillType}ColumnWriter extends AbstractArrayWriter {
@@ -295,7 +309,7 @@ public class ColumnAccessors {
       return mutator;
     }
 
-    <@set drillType accessorType label false "addEntry" />
+    <@set drillType accessorType label "Repeated" "addEntry" />
   }
 
     </#if>

@@ -26,6 +26,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.TupleLoader.UndefinedColumnException;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetMutatorImpl;
 import org.apache.drill.exec.physical.rowSet.impl.RowSetMutatorImpl.MutatorOptions;
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.test.SubOperatorTest;
@@ -48,6 +49,8 @@ public class RowSetMutatorTest extends SubOperatorTest {
       System.err.println("This test requires assertions, but they are not enabled - some tests skipped.");
     }
   }
+
+  private ArrayLoader arrayWriter;
 
   @Test
   public void testBasics() {
@@ -589,8 +592,109 @@ public class RowSetMutatorTest extends SubOperatorTest {
     rsMutator.close();
   }
 
+  /**
+   * Test the case where the schema changes in the first batch.
+   * Schema changes before the first record are trivial and tested
+   * elsewhere. Here we write some records, then add new columns, as a
+   * JSON reader might do.
+   */
+
+  @Test
+  public void testCaseSchemaChangeFirstBatch() {
+    RowSetMutator rsMutator = new RowSetMutatorImpl(fixture.allocator());
+    TupleLoader rootWriter = rsMutator.writer();
+    TupleSchema schema = rootWriter.schema();
+    schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED));
+
+    // Create initial rows
+
+    rsMutator.startBatch();
+    int rowCount = 0;
+    for (int i = 0; i < 2;  i++) {
+      rsMutator.startRow();
+      rowCount++;
+      rootWriter.column(0).setString("a_" + rowCount);
+      rsMutator.saveRow();
+    }
+
+    // Add a second column. Must be nullable.
+
+    schema.addColumn(SchemaBuilder.columnSchema("b", MinorType.INT, DataMode.OPTIONAL));
+    for (int i = 0; i < 2;  i++) {
+      rsMutator.startRow();
+      rowCount++;
+      rootWriter.column(0).setString("a_" + rowCount);
+      rootWriter.column(1).setInt(rowCount);
+      rsMutator.saveRow();
+    }
+
+    // Add a third column. Must be nullable. Use variable-width so that offset
+    // vectors must be back-filled.
+
+    schema.addColumn(SchemaBuilder.columnSchema("c", MinorType.VARCHAR, DataMode.OPTIONAL));
+    for (int i = 0; i < 2;  i++) {
+      rsMutator.startRow();
+      rowCount++;
+      rootWriter.column(0).setString("a_" + rowCount);
+      rootWriter.column(1).setInt(rowCount);
+      rootWriter.column(2).setString("c_" + rowCount);
+      rsMutator.saveRow();
+    }
+
+    // Add an array. Now two offset vectors must be back-filled.
+
+    schema.addColumn(SchemaBuilder.columnSchema("d", MinorType.VARCHAR, DataMode.REPEATED));
+    for (int i = 0; i < 2;  i++) {
+      rsMutator.startRow();
+      rowCount++;
+      rootWriter.column(0).setString("a_" + rowCount);
+      rootWriter.column(1).setInt(rowCount);
+      rootWriter.column(2).setString("c_" + rowCount);
+      arrayWriter = rootWriter.column(3).array();
+      arrayWriter.setString("d_" + rowCount + "-1");
+      arrayWriter.setString("d_" + rowCount + "-2");
+      rsMutator.saveRow();
+    }
+
+    // Harvest the row and verify.
+
+    RowSet actual = fixture.wrap(rsMutator.harvest());
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .add("a", MinorType.VARCHAR)
+        .addNullable("b", MinorType.INT)
+        .addNullable("c", MinorType.VARCHAR)
+        .addArray("d", MinorType.VARCHAR)
+        .build();
+    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .add("a_1", null, null,  null)
+        .add("a_2", null, null,  null)
+        .add("a_3", 3,    null,  null)
+        .add("a_4", 4,    null,  null)
+        .add("a_5", 5,    "c_5", null)
+        .add("a_6", 6,    "c_6", null)
+        .add("a_7", 7,    "c_7", new String[] {"d_7-1", "d_7-2"})
+        .add("a_8", 8,    "c_8", new String[] {"d_8-1", "d_8-2"})
+        .build();
+
+    new RowSetComparison(expected)
+        .verifyAndClearAll(actual);
+    rsMutator.close();
+  }
+
   // TODO: Test vector limits with repeated types
 
   // TODO: Test single array that exceeds vector limit
+
+  // TODO: Test empty slots (unset values) at end of batch
+  // (should fill in nulls)
+
+  // TODO: Schema change during overflow row
+
+  // TODO: Schema change after overflow batch created
+
+  // TODO: Test initial vector allocation
+
+  // TODO: Test schema change flag across batches
 
 }

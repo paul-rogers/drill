@@ -414,6 +414,31 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
       offsets.getMutator().setSafe(index+1, nextOffset+1);
     }
 
+    /**
+     * Backfill missing offsets from the given last written position to the
+     * given current write position. Used by the "new" size-safe column
+     * writers to allow skipping values. The <tt>set()</tt> and <tt>setSafe()</tt>
+     * <b>do not</b> fill empties. See DRILL-5529.
+     * @param lastWrite the position of the last valid write: the offset
+     * to be copied forward
+     * @param index the current write position to be initialized
+     */
+
+    public void fillEmptiesBounded(int lastWrite, int index)
+            throws VectorOverflowException {
+      if (index >= UInt4Vector.MAX_ROW_COUNT) {
+        throw new VectorOverflowException();
+      }
+      // If last write was 2, offsets are [0, 3, 6]
+      // If next write is 4, offsets must be: [0, 3, 6, 6, 6]
+      // Remember the offsets are one more than row count.
+      final int fillOffset = offsets.getAccessor().get(lastWrite+1);
+      final UInt4Vector.Mutator offsetMutator = offsets.getMutator();
+      for (int i = lastWrite; i < index; i++) {
+        offsetMutator.setSafe(i + 1, fillOffset);
+      }
+    }
+
     <#if (fields?size > 1) && !(minor.class == "Decimal9" || minor.class == "Decimal18" || minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse" || minor.class == "Decimal28Dense" || minor.class == "Decimal38Dense")>
     public void addSafe(int rowIndex, <#list fields as field>${field.type} ${field.name}<#if field_has_next>, </#if></#list>) {
       final int nextOffset = offsets.getAccessor().get(rowIndex+1);
