@@ -42,7 +42,7 @@ public abstract class AbstractColumnWriter implements ColumnWriter {
   public abstract void bind(ColumnWriterIndex rowIndex, ValueVector vector);
 
   protected void bind(ColumnWriterIndex rowIndex) {
-    this.vectorIndex = rowIndex;
+    vectorIndex = rowIndex;
   }
 
   public ColumnWriterIndex vectorIndex() { return vectorIndex; }
@@ -51,6 +51,8 @@ public abstract class AbstractColumnWriter implements ColumnWriter {
   public void reset() { lastWriteIndex = -1; }
   public void reset(int index) { lastWriteIndex = index - 1; }
   public int lastWriteIndex() { return lastWriteIndex; }
+
+  public abstract void finishBatch() throws VectorOverflowException;
 
   @Override
   public void setNull() throws VectorOverflowException {

@@ -76,6 +76,11 @@ public abstract class AbstractArrayWriter implements ArrayWriter {
       lastWriteIndex = vectorIndex.vectorIndex();
       arrayWriter.mutator().startNewValue(lastWriteIndex);
     }
+
+    @Override
+    public void finishBatch() throws VectorOverflowException {
+      arrayWriter.finishBatch();
+    }
   }
 
   protected ColumnWriterIndex vectorIndex;
@@ -99,6 +104,8 @@ public abstract class AbstractArrayWriter implements ArrayWriter {
     // Not implemented yet
     return true;
   }
+
+  public abstract void finishBatch() throws VectorOverflowException;
 
   @Override
   public void setInt(int value) throws VectorOverflowException {

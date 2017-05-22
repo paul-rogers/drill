@@ -777,17 +777,24 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
      * <b>do not</b> fill empties. See DRILL-5529.
      * @param lastWrite the position of the last valid write: the offset
      * to be copied forward
-     * @param index the current write position to be initialized
+     * @param index the current write position filling occurs up to,
+     * but not including, this position
      */
 
     public void fillEmptiesBounded(int lastWrite, int index)
             throws VectorOverflowException {
-      if (index >= UInt4Vector.MAX_ROW_COUNT) {
+
+      // Index is the next write index, which might be "virtual",
+      // that is, past the last row at EOF. This check only protects
+      // the actual data written here, which is up to index-1.
+
+      if (index > UInt4Vector.MAX_ROW_COUNT) {
         throw new VectorOverflowException();
       }
       // If last write was 2, offsets are [0, 3, 6]
       // If next write is 4, offsets must be: [0, 3, 6, 6, 6]
       // Remember the offsets are one more than row count.
+
       final int fillOffset = offsetVector.getAccessor().get(lastWrite+1);
       final UInt4Vector.Mutator offsetMutator = offsetVector.getMutator();
       for (int i = lastWrite; i < index; i++) {

@@ -998,6 +998,28 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     }
 
   </#if> <#-- type.width -->
+    /**
+     * Backfill missing offsets from the given last written position to the
+     * given current write position. Used by the "new" size-safe column
+     * writers to allow skipping values. The <tt>set()</tt> and <tt>setSafe()</tt>
+     * <b>do not</b> fill empties. See DRILL-5529 and DRILL-xxxx.
+     * @param lastWrite the position of the last valid write: the offset
+     * to be copied forward
+     * @param index the current write position filling occurs up to,
+     * but not including, this position
+     */
+
+    public void fillEmptiesBounded(int lastWrite, int index)
+            throws VectorOverflowException {
+      for (int i = lastWrite; i < index; i++) {
+    <#if type.width <= 8>
+        setSafe(i + 1, <#if (type.width >= 4)>(${minor.javaType!type.javaType})</#if> 0);
+    <#else>
+        throw new UnsupportedOperationException("Cannot zero-fill ${minor.class} vectors.");
+    </#if>
+      }
+    }
+
     @Override
     public void setValueCount(int valueCount) {
       final int currentValueCapacity = getValueCapacity();

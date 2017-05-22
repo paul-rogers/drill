@@ -387,6 +387,14 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     values.copyFromSafe(fromIndex, toIndex, fromVector.values);
   }
 
+  @Override
+  public void exchange(ValueVector other) {
+    ${className} target = (${className}) other;
+    bits.exchange(target.bits);
+    values.exchange(target.values);
+    mutator.exchange(other.getMutator());
+  }
+
   public final class Accessor extends BaseDataValueVector.BaseAccessor <#if type.major = "VarLen">implements VariableWidthVector.VariableWidthAccessor</#if> {
     final UInt1Vector.Accessor bAccessor = bits.getAccessor();
     final ${valuesName}.Accessor vAccessor = values.getAccessor();

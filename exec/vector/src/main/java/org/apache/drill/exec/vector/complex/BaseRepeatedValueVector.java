@@ -221,8 +221,9 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
 
   @Override
   public void exchange(ValueVector other) {
-    vector.exchange(other);
-    offsets.exchange(other);
+    BaseRepeatedValueVector target = (BaseRepeatedValueVector) other;
+    vector.exchange(target.vector);
+    offsets.exchange(target.offsets);
   }
 
   public abstract class BaseRepeatedAccessor extends BaseValueVector.BaseAccessor implements RepeatedAccessor {

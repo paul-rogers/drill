@@ -104,7 +104,7 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
 
   @Override
   public int getValueCapacity() {
-    return (int)Math.min((long)Integer.MAX_VALUE, data.capacity() * 8L);
+    return (int) Math.min((long)Integer.MAX_VALUE, data.capacity() * 8L);
   }
 
   private int getByteIndex(int index) {

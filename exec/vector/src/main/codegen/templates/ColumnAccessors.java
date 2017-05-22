@@ -105,11 +105,15 @@
 </#macro>
 <#-- DRILL-5529 describes how required and repeated vectors don't implement
      fillEmpties() to recover from skiped writes. Since the mutator does
-     not do the work, we must insert code here to do it. -->
+     not do the work, we must insert code here to do it.
+     DRILL-5530 describes why required vectors may not be initialized
+     to zeros. -->
 <#macro fillEmpties drillType mode>
-  <#if mode == "Repeated"  || (mode == "" && (
-       drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary"))>
+  <#if mode == "Repeated"  || (mode == "" && drillType != "Bit")>
         // Work-around for DRILL-5529: lack of fillEmpties for some vectors.
+    <#if mode == "">
+        // See DRILL-5530 for why this is needed for required vectors.
+    </#if>
         if (lastWriteIndex + 1 < writeIndex) {
           mutator.fillEmptiesBounded(lastWriteIndex, writeIndex);
         }
@@ -174,6 +178,21 @@
       }
     }
   </#if>
+</#macro>
+<#macro finishBatch drillType mode>
+    @Override
+    public void finishBatch() throws VectorOverflowException {
+      final int rowCount = vectorIndex.vectorIndex();
+  <#-- See note above for the fillEmpties macro. -->
+  <#if mode == "Repeated"  || (mode == "" && drillType != "Bit")>
+      // Work-around for DRILL-5529: lack of fillEmpties for some vectors.
+    <#if mode == "">
+      // See DRILL-5530 for why this is needed for required vectors.
+    </#if>
+      mutator.fillEmptiesBounded(lastWriteIndex, rowCount);
+   </#if>
+      mutator.setValueCount(rowCount);
+    }
 </#macro>
 
 package org.apache.drill.exec.vector.accessor;
@@ -276,6 +295,8 @@ public class ColumnAccessors {
     <@getType label />
 
     <@set drillType accessorType label "" "setScalar" />
+
+    <@finishBatch drillType "" />
   }
 
   public static class Nullable${drillType}ColumnWriter extends AbstractColumnWriter {
@@ -297,6 +318,8 @@ public class ColumnAccessors {
     }
 
     <@set drillType accessorType label "Nullable" "setScalar" />
+
+    <@finishBatch drillType "Nullable" />
   }
 
   public static class Repeated${drillType}ColumnWriter extends AbstractArrayWriter {
@@ -310,6 +333,8 @@ public class ColumnAccessors {
     }
 
     <@set drillType accessorType label "Repeated" "addEntry" />
+
+    <@finishBatch drillType "Repeated" />
   }
 
     </#if>
