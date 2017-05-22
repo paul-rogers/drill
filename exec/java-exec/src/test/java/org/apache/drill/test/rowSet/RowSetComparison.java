@@ -171,7 +171,7 @@ public class RowSetComparison {
       }
       ColumnReader ec = er.column(i);
       ColumnReader ac = ar.column(i);
-      String label = er.index() + ":" + i;
+      String label = (er.index() + 1) + ":" + i;
       assertEquals(label, ec.valueType(), ac.valueType());
       if (ec.isNull()) {
         assertTrue(label + " - column not null", ac.isNull());
