@@ -21,7 +21,7 @@ import static org.junit.Assert.*;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.rowSet.impl.RowSetMutatorImpl;
+import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
@@ -38,13 +38,13 @@ public class ColumnLoaderTest extends SubOperatorTest {
 
   private static class ColumnLoaderFixture {
 
-    RowSetMutator rsMutator;
+    ResultSetLoader rsMutator;
     TupleLoader rootWriter;
     private ColumnLoader colWriter;
     RowSetBuilder rsBuilder;
 
     public ColumnLoaderFixture(MinorType type, DataMode mode) {
-      rsMutator = new RowSetMutatorImpl(fixture.allocator());
+      rsMutator = new ResultSetLoaderImpl(fixture.allocator());
       rootWriter = rsMutator.writer();
       TupleSchema schema = rootWriter.schema();
       MaterializedField field = SchemaBuilder.columnSchema("col", type, mode);

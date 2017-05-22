@@ -26,7 +26,7 @@ import java.util.Set;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
-import org.apache.drill.exec.physical.rowSet.RowSetMutator;
+import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.record.MaterializedField;
@@ -49,7 +49,7 @@ public class ExtendedMockRecordReader implements RowReader {
 
   private final MockScanEntry config;
   private final ColumnDef fields[];
-  private RowSetMutator mutator;
+  private ResultSetLoader mutator;
   private TupleLoader writer;
 
   public ExtendedMockRecordReader(MockScanEntry config) {
@@ -88,7 +88,7 @@ public class ExtendedMockRecordReader implements RowReader {
   }
 
   @Override
-  public void open(OperatorExecServices context, RowSetMutator mutator) {
+  public void open(OperatorExecServices context, ResultSetLoader mutator) {
     this.mutator = mutator;
     writer = mutator.writer();
     TupleSchema schema = writer.schema();

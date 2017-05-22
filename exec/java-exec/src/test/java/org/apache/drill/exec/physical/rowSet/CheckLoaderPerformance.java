@@ -22,7 +22,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ops.OperatorExecContext;
 import org.apache.drill.exec.physical.impl.OutputMutator;
 import org.apache.drill.exec.physical.impl.ScanBatch;
-import org.apache.drill.exec.physical.rowSet.impl.RowSetMutatorImpl;
+import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
@@ -189,11 +189,11 @@ public class CheckLoaderPerformance {
 
   public abstract static class RevisedWriterFixture extends BaseWriterFixture {
 
-    RowSetMutator rsMutator;
+    ResultSetLoader rsMutator;
 
     public RevisedWriterFixture(int batchCount, int rowCount) {
       super(batchCount, rowCount, "Revised writer");
-      rsMutator = new RowSetMutatorImpl(fixture.allocator());
+      rsMutator = new ResultSetLoaderImpl(fixture.allocator());
       TupleLoader rootWriter = rsMutator.writer();
       TupleSchema schema = rootWriter.schema();
       defineSchema(schema);

@@ -35,7 +35,7 @@ import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.Operator
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ImplicitColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ScanOptions;
-import org.apache.drill.exec.physical.rowSet.RowSetMutator;
+import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.record.BatchSchema;
@@ -56,13 +56,13 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     public boolean openCalled;
     public boolean closeCalled;
-    protected RowSetMutator mutator;
+    protected ResultSetLoader mutator;
     public int batchLimit;
     public int batchCount;
     public boolean returnDataOnFirst;
 
     @Override
-    public void open(OperatorExecServices context, RowSetMutator mutator) {
+    public void open(OperatorExecServices context, ResultSetLoader mutator) {
       this.mutator = mutator;
       openCalled = true;
     }
@@ -544,7 +544,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
   public void testExceptionOnOpen() {
     MockRowReader reader = new MockRowReader() {
       @Override
-      public void open(OperatorExecServices context, RowSetMutator mutator) {
+      public void open(OperatorExecServices context, ResultSetLoader mutator) {
         super.open(context, mutator);
         throw new IllegalStateException(ERROR_MSG);
       }
@@ -575,7 +575,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
   public void testUserExceptionOnOpen() {
     MockRowReader reader = new MockRowReader() {
       @Override
-      public void open(OperatorExecServices context, RowSetMutator mutator) {
+      public void open(OperatorExecServices context, ResultSetLoader mutator) {
         super.open(context, mutator);
         throw UserException.dataReadError()
             .addContext(ERROR_MSG)

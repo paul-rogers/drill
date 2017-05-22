@@ -27,11 +27,13 @@ import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.physical.rowSet.ColumnLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
+import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.VectorContainerBuilder;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnWriter;
 import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
 
@@ -93,14 +95,54 @@ public class TupleSetImpl implements TupleSchema {
 
   public static class ColumnImpl {
 
-    private enum State { START, ACTIVE, HARVESTED, OVERFLOW, LOOK_AHEAD }
+    private enum State {
+
+      /**
+       * Column is newly added. No data yet provided.
+       */
+      START,
+
+      /**
+       * Actively writing to the column. May have data.
+       */
+      ACTIVE,
+
+      /**
+       * After sending the current batch downstream, before starting
+       * the next one.
+       */
+      HARVESTED,
+
+      /**
+       * Like ACTIVE, but means that the data has overflowed and the
+       * column's data for the current row appears in the new,
+       * overflow batch. For a reader that omits some columns, written
+       * columns will be in OVERFLOW state, unwritten columns in
+       * ACTIVE state.
+       */
+      OVERFLOW,
+
+      /**
+       * Like HARVESTED, but indicates that the column has data saved
+       * in the overflow batch.
+       */
+      LOOK_AHEAD,
+
+      /**
+       * Like LOOK_AHEAD, but indicates the special case that the column
+       * was added after overflow, so there is no vector for the column
+       * in the harvested batch.
+       */
+      NEW_LOOK_AHEAD
+    }
 
     final TupleSetImpl tupleSet;
     final int index;
     final MaterializedField schema;
-    private ColumnImpl.State state = State.START;
-    final ValueVector vector;
+    private State state = State.START;
     final int addVersion;
+    private final int allocationWidth;
+    final ValueVector vector;
     final AbstractColumnWriter columnWriter;
     final ColumnLoaderImpl writer;
     private ValueVector backupVector;
@@ -113,12 +155,12 @@ public class TupleSetImpl implements TupleSchema {
      * @param index the index of the column within the tuple set
      */
 
-    public ColumnImpl(TupleSetImpl tupleSet, MaterializedField schema, int index) {
+    public ColumnImpl(TupleSetImpl tupleSet, MaterializedField schema, int index, int allocWidth) {
       this.tupleSet = tupleSet;
       this.schema = schema;
       this.index = index;
-      RowSetMutatorImpl rowSetMutator = tupleSet.rowSetMutator();
-      this.addVersion = rowSetMutator.schemaVersion();
+      ResultSetLoaderImpl rowSetMutator = tupleSet.rowSetMutator();
+      addVersion = rowSetMutator.bumpVersion();
       vector = TypeHelper.getNewVector(schema, rowSetMutator.allocator(), null);
       columnWriter = ColumnAccessorFactory.newWriter(schema.getType());
       WriterIndexImpl writerIndex = rowSetMutator.writerIndex();
@@ -128,6 +170,15 @@ public class TupleSetImpl implements TupleSchema {
       } else {
         writer = new ScalarColumnLoader(writerIndex, columnWriter);
       }
+      allocationWidth = allocWidth == 0
+          ? TypeHelper.getSize(schema.getType())
+          : allocWidth;
+      allocateVector(vector);
+    }
+
+
+    public ColumnImpl(TupleSetImpl tupleSet, MaterializedField schema, int index) {
+      this(tupleSet, schema, index, 0);
     }
 
     /**
@@ -149,8 +200,11 @@ public class TupleSetImpl implements TupleSchema {
       // final row count. Here we set the count to fill in missing values and
       // set offsets in preparation for carving off the overflow value, if any.
 
-      int writeIndex = writer.writeIndex();
-      vector.getMutator().setValueCount(writeIndex);
+      try {
+        columnWriter.finishBatch();
+      } catch (VectorOverflowException e) {
+        throw new IllegalStateException("Vector overflow should not happen on finishBatch()");
+      }
 
       // Switch buffers between the backup vector and the writer's output
       // vector. Done this way because writers are bound to vectors and
@@ -165,6 +219,7 @@ public class TupleSetImpl implements TupleSchema {
 
       // Any overflow value(s) to copy?
 
+      int writeIndex = writer.writeIndex();
       if (writeIndex < overflowIndex) {
         return;
       }
@@ -173,7 +228,7 @@ public class TupleSetImpl implements TupleSchema {
       // look-ahead vector.
 
       int dest = 0;
-      for (int src = overflowIndex; src < writeIndex; src++, dest++) {
+      for (int src = overflowIndex; src <= writeIndex; src++, dest++) {
         vector.copyEntry(dest, backupVector, src);
       }
 
@@ -191,12 +246,30 @@ public class TupleSetImpl implements TupleSchema {
      */
 
     public void harvest() {
-      assert state == State.ACTIVE || state == State.OVERFLOW;
-      if (state == State.OVERFLOW) {
+      switch (state) {
+      case OVERFLOW:
         vector.exchange(backupVector);
         state = State.LOOK_AHEAD;
-      } else {
+        break;
+
+      case ACTIVE:
+
+        // If added after overflow, no data to save from the complete
+        // batch: the vector does not appear in the completed batch.
+
+        if (addVersion > tupleSet.rowSetMutator().schemaVersion()) {
+          state = State.NEW_LOOK_AHEAD;
+          return;
+        }
+        try {
+          columnWriter.finishBatch();
+        } catch (VectorOverflowException e) {
+          throw new IllegalStateException("Vector overflow should not happen on finishBatch()");
+        }
         state = State.HARVESTED;
+        break;
+      default:
+        throw new IllegalStateException("Unexpected state: " + state);
       }
     }
 
@@ -208,26 +281,35 @@ public class TupleSetImpl implements TupleSchema {
      */
 
     public void resetBatch() {
-      assert state == State.START || state == State.HARVESTED || state == State.LOOK_AHEAD;
-      if (state == State.LOOK_AHEAD) {
+      switch (state) {
+      case NEW_LOOK_AHEAD:
+
+        // Column is new, was not exchanged with backup vector
+
+        break;
+      case LOOK_AHEAD:
         vector.exchange(backupVector);
         backupVector.clear();
+        break;
+      case HARVESTED:
 
         // Note: do not reset the writer: it is already positioned in the backup
         // vector from when we wrote the overflow row.
 
-      } else {
-        if (state != State.START) {
-          vector.clear();
-        }
+        vector.clear();
+        // Fall through
+      case START:
         allocateVector(vector);
         writer.reset();
+        break;
+      default:
+        throw new IllegalStateException("Unexpected state: " + state);
       }
       state = State.ACTIVE;
     }
 
     public void allocateVector(ValueVector toAlloc) {
-      AllocationHelper.allocate(toAlloc, tupleSet.rowSetMutator().targetRowCount(), 50, 10);
+      AllocationHelper.allocate(toAlloc, tupleSet.rowSetMutator().targetRowCount(), allocationWidth, 10);
     }
 
     public void reset() {
@@ -237,16 +319,27 @@ public class TupleSetImpl implements TupleSchema {
         backupVector = null;
       }
     }
+
+    public void buildContainer(VectorContainerBuilder containerBuilder) {
+
+      // Don't add the vector if it is new in an overflow row.
+      // Don't add it if it is already in the container.
+
+      if (state != State.NEW_LOOK_AHEAD &&
+          addVersion > containerBuilder.lastUpdateVersion()) {
+        containerBuilder.add(vector);
+      }
+    }
   }
 
-  private final RowSetMutatorImpl rowSetMutator;
+  private final ResultSetLoaderImpl rowSetMutator;
   private final TupleSetImpl parent;
   private final TupleLoaderImpl loader;
   private final List<TupleSetImpl.ColumnImpl> columns = new ArrayList<>();
   private final Map<String,TupleSetImpl.ColumnImpl> nameIndex = new HashMap<>();
   private final List<AbstractColumnWriter> startableWriters = new ArrayList<>();
 
-  public TupleSetImpl(RowSetMutatorImpl rowSetMutator) {
+  public TupleSetImpl(ResultSetLoaderImpl rowSetMutator) {
     this.rowSetMutator = rowSetMutator;
     parent = null;
     loader = new TupleLoaderImpl(this);
@@ -276,21 +369,25 @@ public class TupleSetImpl implements TupleSchema {
       throw new IllegalArgumentException("Duplicate column: " + lastName);
     }
 
-    // Verify that the cardinality (mode) is acceptable. Can't add a
-    // non-nullable (required) field once one or more rows are saved;
-    // we don't know what value to write to the unsaved rows.
-    // TODO: If the first batch, we could fill the values with 0 (the
-    // default, for types for which that is a valid value.
+    // Verify that the cardinality (mode) is acceptable.
+    // For some types, we can add a required column within the first
+    // batch and zero (or blank) fill the vector. Adding a required
+    // field after the first batch triggers a schema change of a form
+    // that is hard to handle since downstream operators won't know
+    // which value to put into the "missing" columns for this reason,
+    // we forbid adding required columns after the first batch. Here
+    // "first batch" excludes the possible overflow row, as that will
+    // be the first row of the second batch.
 
     if (columnSchema.getDataMode() == DataMode.REQUIRED &&
-        rowSetMutator.rowCount() > 0) {
-      throw new IllegalArgumentException("Cannot add a required field once data exists: " + lastName);
+        (rowSetMutator.batchCount() > 1  || rowSetMutator.isFull())) {
+      throw new IllegalArgumentException("Cannot add a required field after the first batch: " + lastName);
     }
+
     // TODO: If necessary, verify path
 
     // Add the column, increasing the schema version to indicate the change.
 
-    rowSetMutator.bumpVersion();
     TupleSetImpl.ColumnImpl colImpl = new ColumnImpl(this, columnSchema, columnCount());
     columns.add(colImpl);
     nameIndex.put(key, colImpl);
@@ -309,7 +406,7 @@ public class TupleSetImpl implements TupleSchema {
     return colImpl.index;
   }
 
-  public RowSetMutatorImpl rowSetMutator() { return rowSetMutator; }
+  public ResultSetLoaderImpl rowSetMutator() { return rowSetMutator; }
 
   @Override
   public int columnIndex(String colName) {
@@ -355,6 +452,12 @@ public class TupleSetImpl implements TupleSchema {
   protected void harvest() {
     for (TupleSetImpl.ColumnImpl col : columns) {
       col.harvest();
+    }
+  }
+
+  public void buildContainer(VectorContainerBuilder containerBuilder) {
+    for (TupleSetImpl.ColumnImpl col : columns) {
+      col.buildContainer(containerBuilder);
     }
   }
 

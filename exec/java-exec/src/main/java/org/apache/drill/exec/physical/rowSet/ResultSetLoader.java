@@ -20,23 +20,12 @@ package org.apache.drill.exec.physical.rowSet;
 import org.apache.drill.exec.record.VectorContainer;
 
 /**
- * Builds a row set (record batch) based on a defined schema which may
+ * Builds a result set (series of zero or more row sets) based on a defined
+ * schema which may
  * evolve (expand) over time. Automatically rolls "overflow" rows over
  * when a batch fills.
  * <p>
- * Presents columns using a physical schema. That is, map columns appear
- * as columns that provide a nested map schema. Presumes that column
- * access is primarily structural: first get a map, then process all
- * columns for the map.
- * <p>
- * If the input is a flat structure, then the physical schema has a
- * flattened schema as the degenerate case.
- * <p>
- * In both cases, access to columns is by index or by name. If new columns
- * are added while loading, their index is always at the end of the existing
- * columns.
- * <p>
- * Many of the methods in this interface are verify that the mutator is
+ * Many of the methods in this interface are verify that the loader is
  * in the proper state. For example, an exception is thrown if the caller
  * attempts to save a row before starting a batch. However, the per-column
  * write methods are checked only through assertions that should enabled
@@ -46,7 +35,7 @@ import org.apache.drill.exec.record.VectorContainer;
  * replaces
  */
 
-public interface RowSetMutator {
+public interface ResultSetLoader {
 
   /**
    * Current schema version. The version increments by one each time

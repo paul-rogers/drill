@@ -17,32 +17,33 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.rowSet.RowSetMutator;
+import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
-import org.apache.drill.exec.physical.rowSet.impl.TupleSetImpl.ColumnImpl;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 
 /**
- * Implementation of the mutator for a row set (AKA record batch or row batch).
+ * Implementation of the result set loader.
+ * @see {@link ResultSetLoader}
  */
 
-public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.WriterIndexListener {
+public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.WriterIndexListener {
 
-  public static class MutatorOptions {
+  public static class ResultSetOptions {
     public final int vectorSizeLimit;
     public final int rowCountLimit;
     public final boolean caseSensitive;
 
-    public MutatorOptions() {
+    public ResultSetOptions() {
       vectorSizeLimit = ValueVector.MAX_BUFFER_SIZE;
       rowCountLimit = ValueVector.MAX_ROW_COUNT;
       caseSensitive = false;
     }
 
-    public MutatorOptions(OptionBuilder builder) {
+    public ResultSetOptions(OptionBuilder builder) {
       this.vectorSizeLimit = builder.vectorSizeLimit;
       this.rowCountLimit = builder.rowCountLimit;
       this.caseSensitive = builder.caseSensitive;
@@ -55,7 +56,7 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.WriterI
     public boolean caseSensitive;
 
     public OptionBuilder() {
-      MutatorOptions options = new MutatorOptions();
+      ResultSetOptions options = new ResultSetOptions();
       vectorSizeLimit = options.vectorSizeLimit;
       rowCountLimit = options.rowCountLimit;
       caseSensitive = options.caseSensitive;
@@ -74,41 +75,37 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.WriterI
     // TODO: No setter for vector length yet: is hard-coded
     // at present in the value vector.
 
-    public MutatorOptions build() {
-      return new MutatorOptions(this);
+    public ResultSetOptions build() {
+      return new ResultSetOptions(this);
     }
   }
 
   public static class VectorContainerBuilder {
-    private final RowSetMutatorImpl rowSetMutator;
+    private final ResultSetLoaderImpl rowSetMutator;
     private int lastUpdateVersion = -1;
     private VectorContainer container;
 
-    public VectorContainerBuilder(RowSetMutatorImpl rowSetMutator) {
+    public VectorContainerBuilder(ResultSetLoaderImpl rowSetMutator) {
       this.rowSetMutator = rowSetMutator;
       container = new VectorContainer(rowSetMutator.allocator);
     }
 
     public void update(int rowCount) {
       if (lastUpdateVersion < rowSetMutator.schemaVersion()) {
-        scanTuple(rowSetMutator.rootTuple);
+        rowSetMutator.rootTuple.buildContainer(this);
         container.buildSchema(SelectionVectorMode.NONE);
         lastUpdateVersion = rowSetMutator.schemaVersion();
       }
       container.setRecordCount(rowCount);
     }
 
-    private void scanTuple(TupleSetImpl tupleSet) {
-      for (int i = 0; i < tupleSet.columnCount(); i++) {
-        ColumnImpl colImpl = tupleSet.columnImpl(i);
-        if (colImpl.addVersion <= lastUpdateVersion) {
-          continue;
-        }
-        container.add(colImpl.vector);
-      }
-    }
-
     public VectorContainer container() { return container; }
+
+    public int lastUpdateVersion() { return lastUpdateVersion; }
+
+    public void add(ValueVector vector) {
+      container.add(vector);
+    }
   }
 
   private enum State {
@@ -145,10 +142,13 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.WriterI
     CLOSED
   }
 
-  private final MutatorOptions options;
-  private RowSetMutatorImpl.State state = State.START;
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ResultSetLoaderImpl.class);
+
+  private final ResultSetOptions options;
+  private ResultSetLoaderImpl.State state = State.START;
   private final BufferAllocator allocator;
-  private int schemaVersion = 0;
+  private int activeSchemaVersion = 0;
+  private int harvestSchemaVersion = 0;
   private TupleSetImpl rootTuple;
   private final WriterIndexImpl writerIndex;
   private VectorContainerBuilder containerBuilder;
@@ -156,15 +156,15 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.WriterI
   private int previousRowCount;
   private int pendingRowCount;
 
-  public RowSetMutatorImpl(BufferAllocator allocator, MutatorOptions options) {
+  public ResultSetLoaderImpl(BufferAllocator allocator, ResultSetOptions options) {
     this.allocator = allocator;
     this.options = options;
     writerIndex = new WriterIndexImpl(this, options.rowCountLimit);
     rootTuple = new TupleSetImpl(this);
   }
 
-  public RowSetMutatorImpl(BufferAllocator allocator) {
-    this(allocator, new MutatorOptions());
+  public ResultSetLoaderImpl(BufferAllocator allocator) {
+    this(allocator, new ResultSetOptions());
   }
 
   public String toKey(String colName) {
@@ -173,10 +173,10 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.WriterI
 
   public BufferAllocator allocator() { return allocator; }
 
-  protected int bumpVersion() { return ++schemaVersion; }
+  protected int bumpVersion() { return ++activeSchemaVersion; }
 
   @Override
-  public int schemaVersion() { return schemaVersion; }
+  public int schemaVersion() { return harvestSchemaVersion; }
 
   @Override
   public void startBatch() {
@@ -271,9 +271,15 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.WriterI
     if (state != State.ACTIVE) {
       throw new IllegalStateException("Unexpected state: " + state);
     }
+    if (rowCount() == 0) {
+      throw UserException
+        .memoryError("A single column value is larger than the maximum allowed size of 16 MB")
+        .build(logger);
+    }
     pendingRowCount = rowCount();
     rootTuple.rollOver(writerIndex.vectorIndex());
     writerIndex.reset();
+    harvestSchemaVersion = activeSchemaVersion;
     state = State.OVERFLOW;
   }
 
@@ -281,6 +287,10 @@ public class RowSetMutatorImpl implements RowSetMutator, WriterIndexImpl.WriterI
   public VectorContainer harvest() {
     if (! isBatchActive()) {
       throw new IllegalStateException("Unexpected state: " + state);
+    }
+
+    if (state == State.ACTIVE) {
+      harvestSchemaVersion = activeSchemaVersion;
     }
 
     // Wrap up the vectors: final fill-in, set value count, etc.

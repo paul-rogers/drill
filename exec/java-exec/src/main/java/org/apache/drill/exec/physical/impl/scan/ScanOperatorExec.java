@@ -32,9 +32,9 @@ import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.BatchAcc
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExec;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.VectorContainerAccessor;
-import org.apache.drill.exec.physical.rowSet.RowSetMutator;
+import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
-import org.apache.drill.exec.physical.rowSet.impl.RowSetMutatorImpl;
+import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.store.RowReader;
@@ -105,7 +105,7 @@ public class ScanOperatorExec implements OperatorExec {
   private final Iterator<RowReader> readers;
   private final ScanOptions options;
   private final VectorContainerAccessor containerAccessor = new VectorContainerAccessor();
-  private RowSetMutator rowSetMutator;
+  private ResultSetLoader rowSetMutator;
   private RowReader reader;
   private int readerCount;
 
@@ -285,13 +285,13 @@ public class ScanOperatorExec implements OperatorExec {
     // Prepare the row set mutator to receive input rows
 
     if (rowSetMutator == null) {
-      rowSetMutator = new RowSetMutatorImpl(context.allocator());
+      rowSetMutator = new ResultSetLoaderImpl(context.allocator());
     } else if (options.reuseSchemaAcrossReaders) {
         rowSetMutator.reset();
     } else {
       // Discard or reset the current row set mutator.
       rowSetMutator.close();
-      rowSetMutator = new RowSetMutatorImpl(context.allocator());
+      rowSetMutator = new ResultSetLoaderImpl(context.allocator());
     }
 
     // Open the reader. This can fail. if it does, clean up.
@@ -381,7 +381,7 @@ public class ScanOperatorExec implements OperatorExec {
 
     // Build the implicit column schema.
 
-    RowSetMutator overlay = new RowSetMutatorImpl(context.allocator());
+    ResultSetLoader overlay = new ResultSetLoaderImpl(context.allocator());
     overlay.startBatch();
     TupleLoader writer = overlay.writer();
     int rowCount = container.getRecordCount();
@@ -488,5 +488,5 @@ public class ScanOperatorExec implements OperatorExec {
     }
   }
 
-  public RowSetMutator getMutator() { return rowSetMutator; }
+  public ResultSetLoader getMutator() { return rowSetMutator; }
 }
