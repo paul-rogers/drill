@@ -128,7 +128,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter {
   }
 
   @Override
-  public void setBytes(byte[] value) throws VectorOverflowException {
+  public void setBytes(byte[] value, int len) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 

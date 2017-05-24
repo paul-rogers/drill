@@ -79,7 +79,8 @@ public class TupleWriterImpl extends AbstractTupleAccessor implements TupleWrite
     } else if (value instanceof Period) {
       colWriter.setPeriod((Period) value);
     } else if (value instanceof byte[]) {
-      colWriter.setBytes((byte[]) value);
+      byte byteValue[] = (byte[]) value;
+      colWriter.setBytes(byteValue, byteValue.length);
     } else if (value instanceof Byte) {
       colWriter.setInt((Byte) value);
     } else if (value instanceof Short) {

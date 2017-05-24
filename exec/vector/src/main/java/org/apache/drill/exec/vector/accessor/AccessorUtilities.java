@@ -30,7 +30,8 @@ public class AccessorUtilities {
   public static void setFromInt(ColumnWriter writer, int value) throws VectorOverflowException {
     switch (writer.valueType()) {
     case BYTES:
-      writer.setBytes(Integer.toHexString(value).getBytes());
+      final byte byteVal[] = Integer.toHexString(value).getBytes();
+      writer.setBytes(byteVal, byteVal.length);
       break;
     case DOUBLE:
       writer.setDouble(value);

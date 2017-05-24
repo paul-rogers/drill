@@ -80,7 +80,7 @@ public abstract class AbstractColumnWriter implements ColumnWriter {
   }
 
   @Override
-  public void setBytes(byte[] value) throws VectorOverflowException {
+  public void setBytes(byte[] value, int len) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 

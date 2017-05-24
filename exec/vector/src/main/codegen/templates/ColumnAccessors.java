@@ -120,8 +120,13 @@
  </#if>
 </#macro>
 <#macro set drillType accessorType label mode setFn>
+  <#if accessorType == "byte[]">
+    <#assign args = ", int len">
+  <#else>
+    <#assign args = "">
+  </#if>
     @Override
-    public void set${label}(${accessorType} value) throws VectorOverflowException {
+    public void set${label}(${accessorType} value${args}) throws VectorOverflowException {
       try {
         final int writeIndex = vectorIndex.vectorIndex();
         <@fillEmpties drillType mode />
@@ -132,7 +137,7 @@
         final byte bytes[] = value.getBytes(Charsets.UTF_16);
         mutator.${setFn}(writeIndex, bytes, 0, bytes.length);
   <#elseif drillType == "VarBinary">
-        mutator.${setFn}(writeIndex, value, 0, value.length);
+        mutator.${setFn}(writeIndex, value, 0, len);
   <#elseif drillType == "Decimal9">
         mutator.${setFn}(writeIndex,
             DecimalUtility.getDecimal9FromBigDecimal(value,
@@ -166,11 +171,11 @@
   <#if drillType == "VarChar" || drillType == "Var16Char">
 
     @Override
-    public void setBytes(byte value[]) throws VectorOverflowException {
+    public void setBytes(byte value[], int len) throws VectorOverflowException {
       try {
         final int writeIndex = vectorIndex.vectorIndex();
         <@fillEmpties drillType mode />
-        mutator.${setFn}(writeIndex, value, 0, value.length);
+        mutator.${setFn}(writeIndex, value, 0, len);
         lastWriteIndex = writeIndex;
       } catch (VectorOverflowException e) {
         vectorIndex.overflowed();

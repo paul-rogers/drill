@@ -102,12 +102,17 @@ public abstract class AbstractScalarLoader implements ScalarLoader {
 
   @Override
   public void setBytes(byte[] value) {
+    setBytes(value, value.length);
+  }
+
+  @Override
+  public void setBytes(byte[] value, int len) {
     assert index.legal();
     try {
-      scalarWriter.setBytes(value);
+      scalarWriter.setBytes(value, len);
     } catch (VectorOverflowException e) {
       try {
-        scalarWriter.setBytes(value);
+        scalarWriter.setBytes(value, len);
       } catch (VectorOverflowException e1) {
         throw new IllegalStateException(ROLLOVER_FAILED);
       }

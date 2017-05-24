@@ -32,7 +32,7 @@ public interface ScalarWriter {
   void setLong(long value) throws VectorOverflowException;
   void setDouble(double value) throws VectorOverflowException;
   void setString(String value) throws VectorOverflowException;
-  void setBytes(byte[] value) throws VectorOverflowException;
+  void setBytes(byte[] value, int len) throws VectorOverflowException;
   void setDecimal(BigDecimal value) throws VectorOverflowException;
   void setPeriod(Period value) throws VectorOverflowException;
 }

@@ -56,6 +56,11 @@ public abstract class AbstractStructuredLoader implements ColumnLoaderImpl {
   }
 
   @Override
+  public void setBytes(byte[] value, int len) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public void setDecimal(BigDecimal value) {
     throw new UnsupportedOperationException();
   }

@@ -36,6 +36,7 @@ public interface ScalarLoader {
   void setLong(long value);
   void setDouble(double value);
   void setString(String value);
+  void setBytes(byte[] value, int len);
   void setBytes(byte[] value);
   void setDecimal(BigDecimal value);
   void setPeriod(Period value);
