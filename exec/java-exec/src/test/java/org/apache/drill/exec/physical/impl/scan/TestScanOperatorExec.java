@@ -33,7 +33,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServicesImpl;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
-import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ImplicitColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ImplicitColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ScanOptions;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
@@ -266,8 +266,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     ScanOptions options = new ScanOptions();
     options.implicitColumns = new ArrayList<>();
-    options.implicitColumns.add(new ImplicitColumn("filename", MOCK_FILE_NAME));
-    options.implicitColumns.add(new ImplicitColumn("suffix", MOCK_SUFFIX));
+    options.implicitColumns.add(new ImplicitColumnDefn("filename", MOCK_FILE_NAME));
+    options.implicitColumns.add(new ImplicitColumnDefn("suffix", MOCK_SUFFIX));
 
     // Initialize the scan operator
 

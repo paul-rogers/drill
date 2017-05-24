@@ -22,6 +22,7 @@ import io.netty.buffer.DrillBuf;
 import java.io.IOException;
 
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.exec.store.easy.text.compliant.ex.TextOutputEx;
 
 import com.univocity.parsers.common.TextParsingException;
 import com.univocity.parsers.csv.CsvParserSettings;
@@ -34,7 +35,7 @@ import com.univocity.parsers.csv.CsvParserSettings;
  * A byte-based Text parser implementation. Builds heavily upon the uniVocity parsers. Customized for UTF8 parsing and
  * DrillBuf support.
  */
-final class TextReader {
+public final class TextReader {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TextReader.class);
 
   private static final byte NULL_BYTE = (byte) '\0';
@@ -45,7 +46,7 @@ final class TextReader {
   private final TextParsingSettings settings;
 
   private final TextInput input;
-  private final TextOutput output;
+  private final TextOutputEx output;
   private final DrillBuf workBuf;
 
   private byte ch;
@@ -94,7 +95,7 @@ final class TextReader {
 
   }
 
-  public TextOutput getOutput(){
+  public TextOutputEx getOutput(){
     return output;
   }
 
@@ -108,7 +109,7 @@ final class TextReader {
 
   // Inform the output interface to indicate we are starting a new record batch
   public void resetForNextBatch(){
-    output.startBatch();
+//    output.startBatch();
   }
 
   public long getPos(){
@@ -174,16 +175,24 @@ final class TextReader {
   private void parseValueIgnore() throws IOException {
     final byte newLine = this.newLine;
     final byte delimiter = this.delimiter;
-    final TextOutput output = this.output;
+    final TextOutputEx output = this.output;
     final TextInput input = this.input;
 
     byte ch = this.ch;
     while (ch != delimiter && ch != newLine) {
-      output.appendIgnoringWhitespace(ch);
+      appendIgnoringWhitespace(ch);
 //      fieldSize++;
       ch = input.nextChar();
     }
     this.ch = ch;
+  }
+
+  public void appendIgnoringWhitespace(byte data){
+    if (isWhite(data)){
+      // noop
+    } else {
+      output.append(data);
+    }
   }
 
   /**
@@ -194,7 +203,7 @@ final class TextReader {
   private void parseValueAll() throws IOException {
     final byte newLine = this.newLine;
     final byte delimiter = this.delimiter;
-    final TextOutput output = this.output;
+    final TextOutputEx output = this.output;
     final TextInput input = this.input;
 
     byte ch = this.ch;
@@ -227,7 +236,7 @@ final class TextReader {
   private void parseQuotedValue(byte prev) throws IOException {
     final byte newLine = this.newLine;
     final byte delimiter = this.delimiter;
-    final TextOutput output = this.output;
+    final TextOutputEx output = this.output;
     final TextInput input = this.input;
     final byte quote = this.quote;
 
@@ -484,7 +493,7 @@ final class TextReader {
    * interface to wrap up the batch
    */
   public void finishBatch(){
-    output.finishBatch();
+//    output.finishBatch();
 //    System.out.println(String.format("line %d, cnt %d", input.getLineCount(), output.getRecordCount()));
   }
 
