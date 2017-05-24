@@ -47,8 +47,10 @@ import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.server.options.BaseOptionManager;
 import org.apache.drill.exec.server.options.OptionSet;
+import org.apache.drill.exec.server.options.OptionValidator;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.server.options.OptionValue.OptionType;
+import org.apache.drill.exec.server.options.SystemOptionManager;
 import org.apache.drill.exec.testing.ExecutionControls;
 import org.apache.drill.test.rowSet.DirectRowSet;
 import org.apache.drill.test.rowSet.HyperRowSetImpl;
@@ -115,14 +117,19 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
 
   public static class TestOptionSet extends BaseOptionManager {
 
+    private boolean withDefaults;
     private Map<String,OptionValue> values = new HashMap<>();
 
     public TestOptionSet() {
-      // Crashes in FunctionImplementationRegistry if not set
-      set(ExecConstants.CAST_TO_NULLABLE_NUMERIC, false);
-      // Crashes in the Dynamic UDF code if not disabled
-      set(ExecConstants.USE_DYNAMIC_UDFS_KEY, false);
-//      set(ExecConstants.CODE_GEN_EXP_IN_METHOD_SIZE_VALIDATOR, false);
+      this(true);
+    }
+    public TestOptionSet(boolean withDefaults) {
+      this.withDefaults = withDefaults;
+//      // Crashes in FunctionImplementationRegistry if not set
+//      set(ExecConstants.CAST_TO_NULLABLE_NUMERIC, false);
+//      // Crashes in the Dynamic UDF code if not disabled
+//      set(ExecConstants.USE_DYNAMIC_UDFS_KEY, false);
+////      set(ExecConstants.CODE_GEN_EXP_IN_METHOD_SIZE_VALIDATOR, false);
     }
 
     public void set(String key, int value) {
@@ -147,7 +154,14 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
 
     @Override
     public OptionValue getOption(String name) {
-      return values.get(name);
+      OptionValue value = values.get(name);
+      if (value == null && withDefaults) {
+        OptionValidator validator = SystemOptionManager.VALIDATORS.get(name);
+        if (validator != null) {
+          value = SystemOptionManager.VALIDATORS.get(name).getDefault();
+        }
+      }
+      return value;
     }
   }
 
