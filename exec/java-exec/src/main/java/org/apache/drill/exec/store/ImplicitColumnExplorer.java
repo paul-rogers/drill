@@ -209,6 +209,8 @@ public class ImplicitColumnExplorer {
       this.name = name;
     }
 
+    public String optionName() { return name; }
+
     /**
      * Using file path calculates value for each implicit file column
      */

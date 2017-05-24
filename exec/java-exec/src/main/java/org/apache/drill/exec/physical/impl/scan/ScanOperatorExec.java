@@ -81,18 +81,18 @@ import com.google.common.annotations.VisibleForTesting;
 
 public class ScanOperatorExec implements OperatorExec {
 
-  public static class ImplicitColumn {
+  public static class ImplicitColumnDefn {
     public final String colName;
     public final String value;
 
-    public ImplicitColumn(String colName, String value) {
+    public ImplicitColumnDefn(String colName, String value) {
       this.colName = colName;
       this.value = value;
     }
   }
 
   public static class ScanOptions {
-    public List<ImplicitColumn> implicitColumns;
+    public List<ImplicitColumnDefn> implicitColumns;
     public boolean reuseSchemaAcrossReaders;
   }
 
@@ -128,10 +128,10 @@ public class ScanOperatorExec implements OperatorExec {
   }
 
   public static ScanOptions convertImplicitCols(List<Map<String, String>> implicitColumns) {
-    List<ImplicitColumn> newForm = new ArrayList<>();
+    List<ImplicitColumnDefn> newForm = new ArrayList<>();
     for ( Map<String, String> map : implicitColumns ) {
       for (Map.Entry<String, String> entry : map.entrySet()) {
-        newForm.add(new ImplicitColumn(entry.getKey(), entry.getValue()));
+        newForm.add(new ImplicitColumnDefn(entry.getKey(), entry.getValue()));
       }
     }
     ScanOptions options = new ScanOptions();
@@ -373,7 +373,7 @@ public class ScanOperatorExec implements OperatorExec {
 
     // Setup. Do nothing if the implicit columns list is empty.
 
-    List<ImplicitColumn> implicitCols = options.implicitColumns;
+    List<ImplicitColumnDefn> implicitCols = options.implicitColumns;
     int colCount = implicitCols.size();
     if (colCount == 0) {
       return container;
@@ -385,7 +385,7 @@ public class ScanOperatorExec implements OperatorExec {
     overlay.startBatch();
     TupleLoader writer = overlay.writer();
     int rowCount = container.getRecordCount();
-    for (ImplicitColumn col : implicitCols) {
+    for (ImplicitColumnDefn col : implicitCols) {
       MajorType type = MajorType.newBuilder()
           .setMinorType(MinorType.VARCHAR)
           .setMode(DataMode.REQUIRED)
