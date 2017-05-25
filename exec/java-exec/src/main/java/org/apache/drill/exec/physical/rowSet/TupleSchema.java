@@ -54,6 +54,15 @@ public interface TupleSchema {
   int addColumn(MaterializedField columnSchema);
 
   /**
+   * Report if a column is selected.
+   * @param colIndex index of the column to check
+   * @return true if the column is selected (data is collected),
+   * false if the column is unselected (data is discarded)
+   */
+
+  boolean selected(int colIndex);
+
+  /**
    * Return the column list as a batch schema. Primarily for testing.
    * @return the current schema as a batch schema, with columns
    * in the same order as they were added (that is, in row index

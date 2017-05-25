@@ -53,9 +53,4 @@ abstract class TextOutput implements TextOutputEx {
    * Does any final cleanup that is required for closing a batch.  Example might include closing the last field.
    */
   public abstract void finishBatch();
-
-  /**
-   * Helper method to check if the current record has any non-empty fields
-   */
-  public abstract boolean rowHasData();
 }

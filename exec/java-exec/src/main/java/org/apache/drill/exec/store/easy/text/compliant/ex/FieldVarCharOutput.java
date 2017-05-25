@@ -17,11 +17,11 @@
  */
 package org.apache.drill.exec.store.easy.text.compliant.ex;
 
+import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner;
+import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.TableColumn;
 import org.apache.drill.exec.physical.rowSet.ColumnLoader;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
-import org.apache.drill.exec.physical.rowSet.impl.ProjectionPlanner;
-import org.apache.drill.exec.physical.rowSet.impl.ProjectionPlanner.DataSourceColumn;
 
 public class FieldVarCharOutput implements TextOutputEx {
 
@@ -58,7 +58,7 @@ public class FieldVarCharOutput implements TextOutputEx {
     // writer defined in output order.
 
     fields = new FieldDefn[projection.tableCols().size()];
-    for (DataSourceColumn col : projection.tableCols()) {
+    for (TableColumn col : projection.tableCols()) {
       fields[col.index()] = new FieldDefn(writer.column(col.projection().index()));
     }
 

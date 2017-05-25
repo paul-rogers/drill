@@ -20,11 +20,13 @@ package org.apache.drill.exec.physical.rowSet;
 import static org.junit.Assert.*;
 
 import java.util.Arrays;
+import java.util.List;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.TupleLoader.UndefinedColumnException;
+import org.apache.drill.exec.physical.rowSet.impl.LogicalTupleLoader;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.ResultSetOptions;
 import org.apache.drill.exec.record.BatchSchema;
@@ -41,6 +43,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
+import com.google.common.collect.Lists;
 
 public class TestResultSetLoader extends SubOperatorTest {
 
@@ -826,7 +829,7 @@ public class TestResultSetLoader extends SubOperatorTest {
         .addNullable("b", MinorType.INT)
         .addNullable("c", MinorType.VARCHAR)
         .add("d", MinorType.VARCHAR)
-        .add("d", MinorType.INT)
+        .add("e", MinorType.INT)
         .addArray("f", MinorType.VARCHAR)
         .build();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
@@ -1251,6 +1254,60 @@ public class TestResultSetLoader extends SubOperatorTest {
     assertEquals(0, result.rowCount());
     result.clear();
 
+    rsLoader.close();
+  }
+
+  /**
+   * Test imposing a selection mask between the client and the underlying
+   * vector container.
+   */
+
+  @Test
+  public void testSelection() {
+    List<String> selection = Lists.newArrayList("c", "b");
+    ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+        .setSelection(selection)
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    TupleLoader rootWriter = rsLoader.writer();
+    assertTrue(rootWriter instanceof LogicalTupleLoader);
+    TupleSchema schema = rootWriter.schema();
+    schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED));
+    schema.addColumn(SchemaBuilder.columnSchema("b", MinorType.INT, DataMode.REQUIRED));
+    schema.addColumn(SchemaBuilder.columnSchema("c", MinorType.INT, DataMode.REQUIRED));
+    schema.addColumn(SchemaBuilder.columnSchema("d", MinorType.INT, DataMode.REQUIRED));
+
+    assertEquals(4, schema.columnCount());
+    assertEquals("a", schema.column(0).getName());
+    assertEquals("b", schema.column(1).getName());
+    assertEquals("c", schema.column(2).getName());
+    assertEquals("d", schema.column(3).getName());
+    assertEquals(0, schema.columnIndex("A"));
+    assertEquals(3, schema.columnIndex("d"));
+    assertEquals(-1, schema.columnIndex("e"));
+
+    rsLoader.startBatch();
+    for (int i = 1; i < 3; i++) {
+      rsLoader.startRow();
+      assertNull(rootWriter.column(0));
+      rootWriter.column(1).setInt(i);
+      rootWriter.column(2).setInt(i * 10);
+      assertNull(rootWriter.column(3));
+      rsLoader.saveRow();
+    }
+
+    // Verify
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .add("b", MinorType.INT)
+        .add("c", MinorType.INT)
+        .build();
+    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .add(1, 10)
+        .add(2, 20)
+        .build();
+    new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(rsLoader.harvest()));
     rsLoader.close();
   }
 

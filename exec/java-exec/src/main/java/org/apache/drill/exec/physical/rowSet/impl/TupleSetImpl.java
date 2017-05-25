@@ -332,22 +332,21 @@ public class TupleSetImpl implements TupleSchema {
     }
   }
 
-  private final ResultSetLoaderImpl rowSetMutator;
+  private final ResultSetLoaderImpl resultSetLoader;
   private final TupleSetImpl parent;
   private final TupleLoaderImpl loader;
-  private final List<TupleSetImpl.ColumnImpl> columns = new ArrayList<>();
-  private final Map<String,TupleSetImpl.ColumnImpl> nameIndex = new HashMap<>();
+  private final TupleNameSpace<ColumnImpl> columns = new TupleNameSpace<>();
   private final List<AbstractColumnWriter> startableWriters = new ArrayList<>();
 
   public TupleSetImpl(ResultSetLoaderImpl rowSetMutator) {
-    this.rowSetMutator = rowSetMutator;
+    this.resultSetLoader = rowSetMutator;
     parent = null;
     loader = new TupleLoaderImpl(this);
   }
 
   public TupleSetImpl(TupleSetImpl parent) {
     this.parent = parent;
-    rowSetMutator = parent.rowSetMutator;
+    resultSetLoader = parent.resultSetLoader;
     loader = new TupleLoaderImpl(this);
   }
 
@@ -363,7 +362,7 @@ public class TupleSetImpl implements TupleSchema {
     // Verify name is not a (possibly case insensitive) duplicate.
 
     String lastName = columnSchema.getLastName();
-    String key = rowSetMutator.toKey(lastName);
+    String key = resultSetLoader.toKey(lastName);
     if (column(key) != null) {
       // TODO: Include full path as context
       throw new IllegalArgumentException("Duplicate column: " + lastName);
@@ -380,7 +379,7 @@ public class TupleSetImpl implements TupleSchema {
     // be the first row of the second batch.
 
     if (columnSchema.getDataMode() == DataMode.REQUIRED &&
-        (rowSetMutator.batchCount() > 1  || rowSetMutator.isFull())) {
+        (resultSetLoader.batchCount() > 1  || resultSetLoader.isFull())) {
       throw new IllegalArgumentException("Cannot add a required field after the first batch: " + lastName);
     }
 
@@ -389,8 +388,7 @@ public class TupleSetImpl implements TupleSchema {
     // Add the column, increasing the schema version to indicate the change.
 
     TupleSetImpl.ColumnImpl colImpl = new ColumnImpl(this, columnSchema, columnCount());
-    columns.add(colImpl);
-    nameIndex.put(key, colImpl);
+    columns.add(key, colImpl);
 
     // Array writers must be told about the start of each row.
 
@@ -400,13 +398,13 @@ public class TupleSetImpl implements TupleSchema {
 
     // If a batch is active, prepare the column for writing.
 
-    if (rowSetMutator.writeable()) {
+    if (resultSetLoader.writeable()) {
       colImpl.resetBatch();
     }
     return colImpl.index;
   }
 
-  public ResultSetLoaderImpl rowSetMutator() { return rowSetMutator; }
+  public ResultSetLoaderImpl rowSetMutator() { return resultSetLoader; }
 
   @Override
   public int columnIndex(String colName) {
@@ -419,8 +417,15 @@ public class TupleSetImpl implements TupleSchema {
     return columnImpl(colIndex).schema;
   }
 
+  @Override
+  public boolean selected(int colIndex) {
+    // Lookup will never return null. But, we do the lookup
+    // to trigger an exception if the index is invalid.
+    return column(colIndex) != null;
+  }
+
   protected ColumnImpl columnImpl(String colName) {
-    return nameIndex.get(rowSetMutator.toKey(colName));
+    return columns.get(resultSetLoader.toKey(colName));
   }
 
   @Override
@@ -430,7 +435,7 @@ public class TupleSetImpl implements TupleSchema {
   }
 
   @Override
-  public int columnCount() { return columns.size(); }
+  public int columnCount() { return columns.count(); }
 
   public ColumnImpl columnImpl(int colIndex) {
     // Let the list catch out-of-bounds indexes

@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
+import java.util.Collection;
+
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
@@ -36,24 +38,28 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     public final int vectorSizeLimit;
     public final int rowCountLimit;
     public final boolean caseSensitive;
+    private final Collection<String> selection;
 
     public ResultSetOptions() {
       vectorSizeLimit = ValueVector.MAX_BUFFER_SIZE;
       rowCountLimit = ValueVector.MAX_ROW_COUNT;
       caseSensitive = false;
+      selection = null;
     }
 
     public ResultSetOptions(OptionBuilder builder) {
       this.vectorSizeLimit = builder.vectorSizeLimit;
       this.rowCountLimit = builder.rowCountLimit;
       this.caseSensitive = builder.caseSensitive;
+      this.selection = builder.selection;
     }
   }
 
   public static class OptionBuilder {
-    public int vectorSizeLimit;
-    public int rowCountLimit;
-    public boolean caseSensitive;
+    private int vectorSizeLimit;
+    private int rowCountLimit;
+    private boolean caseSensitive;
+    private Collection<String> selection;
 
     public OptionBuilder() {
       ResultSetOptions options = new ResultSetOptions();
@@ -69,6 +75,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
 
     public OptionBuilder setRowCountLimit(int limit) {
       rowCountLimit = Math.min(limit, ValueVector.MAX_ROW_COUNT);
+      return this;
+    }
+
+    public OptionBuilder setSelection(Collection<String> selection) {
+      this.selection = selection;
       return this;
     }
 
@@ -145,12 +156,13 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ResultSetLoaderImpl.class);
 
   private final ResultSetOptions options;
-  private ResultSetLoaderImpl.State state = State.START;
   private final BufferAllocator allocator;
+  private final TupleSetImpl rootTuple;
+  private final TupleLoader rootWriter;
+  private final WriterIndexImpl writerIndex;
+  private ResultSetLoaderImpl.State state = State.START;
   private int activeSchemaVersion = 0;
   private int harvestSchemaVersion = 0;
-  private TupleSetImpl rootTuple;
-  private final WriterIndexImpl writerIndex;
   private VectorContainerBuilder containerBuilder;
   private int previousBatchCount;
   private int previousRowCount;
@@ -161,6 +173,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     this.options = options;
     writerIndex = new WriterIndexImpl(this, options.rowCountLimit);
     rootTuple = new TupleSetImpl(this);
+    if (options.selection == null) {
+      rootWriter = rootTuple.loader();
+    } else {
+      rootWriter = new LogicalTupleLoader(this, rootTuple.loader(), options.selection);
+    }
   }
 
   public ResultSetLoaderImpl(BufferAllocator allocator) {
@@ -196,7 +213,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     if (state == State.CLOSED) {
       throw new IllegalStateException("Unexpected state: " + state);
     }
-    return rootTuple.loader();
+    return rootWriter;
   }
 
   @Override

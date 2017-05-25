@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.rowSet.impl;
+package org.apache.drill.exec.physical.impl.scan;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -122,12 +122,12 @@ public class ProjectionPlanner {
    * to the available table columns.
    */
 
-  public static class DataSourceColumn {
+  public static class TableColumn {
     private final int index;
     private final MaterializedField schema;
     protected ProjectedColumn projection;
 
-    public DataSourceColumn(int index, MaterializedField schema) {
+    public TableColumn(int index, MaterializedField schema) {
       this.index = index;
       this.schema = schema;
     }
@@ -230,9 +230,9 @@ public class ProjectionPlanner {
    */
 
   public static class ProjectedColumn extends OutputColumn {
-    private final DataSourceColumn source;
+    private final TableColumn source;
 
-    public ProjectedColumn(SelectColumn inCol, int index, DataSourceColumn dsCol) {
+    public ProjectedColumn(SelectColumn inCol, int index, TableColumn dsCol) {
       super(inCol, index, dsCol.schema);
       source = dsCol;
     }
@@ -246,7 +246,7 @@ public class ProjectionPlanner {
      * @return the non-null data source column
      */
 
-    public DataSourceColumn source() { return source; }
+    public TableColumn source() { return source; }
 
     @Override
     protected void buildString(StringBuilder buf) {
@@ -257,13 +257,65 @@ public class ProjectionPlanner {
   }
 
   /**
+   * Represents Drill's special "columns" column which holds all actual columns
+   * as an array of Varchars. There can be only one such column in the SELECT
+   * list.
+   */
+
+  public static class ColumnsArrayColumn extends OutputColumn {
+    public ColumnsArrayColumn(SelectColumn inCol, int index) {
+      super(inCol, index, MaterializedField.create("columns",
+          MajorType.newBuilder()
+            .setMinorType(MinorType.VARCHAR)
+            .setMode(DataMode.REPEATED)
+            .build()));
+    }
+
+    @Override
+    public ColumnType columnType() { return ColumnType.COLUMNS; }
+
+    @Override
+    public String name() { return schema.getName(); }
+  }
+
+  /**
+   * Base class for the various static (implicit) columns. Holds the
+   * value of the column.
+   */
+
+  public abstract static class StaticColumn extends OutputColumn {
+
+    protected String value;
+
+    public StaticColumn(SelectColumn queryCol, int index,
+        MaterializedField schema) {
+      super(queryCol, index, schema);
+    }
+
+    public String value() { return value; }
+
+    @Override
+    protected void buildString(StringBuilder buf) {
+      super.buildString(buf);
+      buf.append(", value=");
+      if (value == null) {
+        buf.append("null");
+      } else {
+        buf.append("\"")
+           .append(value)
+           .append("\"");
+      }
+    }
+  }
+
+  /**
    * Represents a null column: one that appears in the SELECT, but does not
    * match a table column, implicit column or partition. The output value is
    * always a null Varchar. (Would be better to just be NULL with no type,
    * but Drill does not have that concept.)
    */
 
-  public static class NullColumn extends OutputColumn {
+  public static class NullColumn extends StaticColumn {
 
     public NullColumn(SelectColumn inCol, int index, MaterializedField schema) {
       super(inCol, index, schema);
@@ -279,9 +331,8 @@ public class ProjectionPlanner {
    * along with the column definition.
    */
 
-  public static class ImplicitColumn extends OutputColumn {
+  public static class ImplicitColumn extends StaticColumn {
     private final ImplicitColumnDefn defn;
-    private String value;
 
     public ImplicitColumn(SelectColumn inCol, int index, ImplicitColumnDefn defn) {
       super(inCol, index, MaterializedField.create(defn.colName,
@@ -299,20 +350,11 @@ public class ProjectionPlanner {
       value = defn.defn.getValue(path);
     }
 
-    public String value() { return value; }
-
     @Override
     protected void buildString(StringBuilder buf) {
+      super.buildString(buf);
       buf.append(", defn=")
-         .append(defn)
-         .append(", value=");
-      if (value == null) {
-        buf.append("null");
-      } else {
-        buf.append("\"")
-           .append(value)
-           .append("\"");
-      }
+         .append(defn);
     }
   }
 
@@ -328,9 +370,8 @@ public class ProjectionPlanner {
    * is stored in this column definition.
    */
 
-  public static class PartitionColumn extends OutputColumn {
+  public static class PartitionColumn extends StaticColumn {
     private final int partition;
-    private String value;
 
     public PartitionColumn(SelectColumn inCol, int index, int partition) {
       super(inCol, index, makeSchema(inCol.name));
@@ -357,38 +398,12 @@ public class ProjectionPlanner {
       this.value = value;
     }
 
-    public String value() { return value; }
-
     @Override
     protected void buildString(StringBuilder buf) {
+      super.buildString(buf);
       buf.append(", partition=")
-         .append(partition)
-         .append(", value=\"")
-         .append(value)
-         .append("\"");
+         .append(partition);
     }
-  }
-
-  /**
-   * Represents Drill's special "columns" column which holds all actual columns
-   * as an array of Varchars. There can be only one such column in the SELECT
-   * list.
-   */
-
-  public static class ColumnsArrayColumn extends OutputColumn {
-    public ColumnsArrayColumn(SelectColumn inCol, int index) {
-      super(inCol, index, MaterializedField.create("columns",
-          MajorType.newBuilder()
-            .setMinorType(MinorType.VARCHAR)
-            .setMode(DataMode.REPEATED)
-            .build()));
-    }
-
-    @Override
-    public ColumnType columnType() { return ColumnType.COLUMNS; }
-
-    @Override
-    public String name() { return schema.getName(); }
   }
 
   /**
@@ -454,8 +469,8 @@ public class ProjectionPlanner {
     private boolean selectAll = true;
     private List<SelectColumn> queryCols;
     private MajorType nullColType;
-    private List<DataSourceColumn> tableCols = new ArrayList<>();
-    private Map<String, DataSourceColumn> tableIndex = CaseInsensitiveMap.newHashMap();
+    private List<TableColumn> tableCols;
+    private Map<String, TableColumn> tableIndex = CaseInsensitiveMap.newHashMap();
     private Path filePath;
     private String[] dirPath;
 
@@ -466,6 +481,7 @@ public class ProjectionPlanner {
     private List<NullColumn> nullCols = new ArrayList<>();
     private List<ImplicitColumn> implicitCols = new ArrayList<>();
     private List<PartitionColumn> partitionCols = new ArrayList<>();
+    private List<StaticColumn> staticCols = new ArrayList<>();
     private List<OutputColumn> outputCols = new ArrayList<>();
 
     public ColumnProjectionBuilder(OptionSet optionManager) {
@@ -517,12 +533,12 @@ public class ProjectionPlanner {
      */
 
     public ColumnProjectionBuilder tableColumns(List<MaterializedField> cols) {
-      int i = 0;
+      tableCols = new ArrayList<>();
       for (MaterializedField col : cols) {
         if (tableIndex.containsKey(col.getName())) {
           throw new IllegalStateException("Duplicate selection column: " + col.getName());
         }
-        DataSourceColumn dsCol = new DataSourceColumn(i++, col);
+        TableColumn dsCol = new TableColumn(tableCols.size(), col);
         tableCols.add(dsCol);
         tableIndex.put(col.getName(), dsCol);
       }
@@ -585,7 +601,7 @@ public class ProjectionPlanner {
     }
 
     private void selectAllTableCols() {
-      for (DataSourceColumn col : tableCols) {
+      for (TableColumn col : tableCols) {
         col.projection = new ProjectedColumn(null, outputCols.size(), col);
         projectedCols.add(col.projection);
         outputCols.add(col.projection);
@@ -603,6 +619,7 @@ public class ProjectionPlanner {
         PartitionColumn partCol = new PartitionColumn(partitionDesignator, outputCols.size(), i);
         partCol.setValue(dirPath[i]);
         partitionCols.add(partCol);
+        staticCols.add(partCol);
         outputCols.add(partCol);
       }
     }
@@ -615,6 +632,7 @@ public class ProjectionPlanner {
         ImplicitColumn outCol = new ImplicitColumn(null, outputCols.size(), iCol);
         outCol.setValue(filePath);
         implicitCols.add(outCol);
+        staticCols.add(outCol);
         outputCols.add(outCol);
       }
     }
@@ -622,7 +640,7 @@ public class ProjectionPlanner {
     private void mapSelectedCols() {
       if (nullColType == null) {
         nullColType = MajorType.newBuilder()
-            .setMinorType(MinorType.VARCHAR)
+            .setMinorType(MinorType.INT)
             .setMode(DataMode.OPTIONAL)
             .build();
       }
@@ -656,12 +674,14 @@ public class ProjectionPlanner {
       if (m.matches()) {
         PartitionColumn outCol = new PartitionColumn(inCol, index, Integer.parseInt(m.group(1)));
         partitionCols.add(outCol);
+        staticCols.add(outCol);
         return outCol;
       }
       ImplicitColumnDefn iCol = implicitColIndex.get(inCol.name);
       if (iCol != null) {
         ImplicitColumn outCol = new ImplicitColumn(inCol, index, iCol);
         implicitCols.add(outCol);
+        staticCols.add(outCol);
         return outCol;
       }
 
@@ -685,7 +705,7 @@ public class ProjectionPlanner {
         return outCol;
       }
 
-      DataSourceColumn dsCol = tableIndex.get(inCol.name);
+      TableColumn dsCol = tableIndex.get(inCol.name);
       if (dsCol != null) {
         ProjectedColumn outCol = new ProjectedColumn(inCol, index, dsCol);
         dsCol.projection = outCol;
@@ -694,6 +714,7 @@ public class ProjectionPlanner {
       } else {
         NullColumn outCol = new NullColumn(inCol, index, MaterializedField.create(inCol.name, nullColType));
         nullCols.add(outCol);
+        staticCols.add(outCol);
         return outCol;
       }
     }
@@ -722,12 +743,13 @@ public class ProjectionPlanner {
 
   private final boolean selectAll;
   private final List<SelectColumn> queryCols;
-  private final List<DataSourceColumn> tableCols;
+  private final List<TableColumn> tableCols;
   private final ColumnsArrayColumn columnsCol;
   private final List<ProjectedColumn> projectedCols;
   private final List<NullColumn> nullCols;
   private final List<ImplicitColumn> implicitCols;
   private final List<PartitionColumn> partitionCols;
+  private final List<StaticColumn> staticCols;
   private final List<OutputColumn> outputCols;
 
   public static ColumnProjectionBuilder builder(OptionSet options) {
@@ -743,6 +765,7 @@ public class ProjectionPlanner {
     nullCols = builder.nullCols;
     implicitCols = builder.implicitCols;
     partitionCols = builder.partitionCols;
+    staticCols = builder.staticCols;
     outputCols = builder.outputCols;
   }
 
@@ -757,13 +780,14 @@ public class ProjectionPlanner {
    * or null if this is a SELECT * query
    */
   public List<SelectColumn> queryCols() { return queryCols; }
+  public boolean hasEarlySchema() { return tableCols != null; }
   /**
    * Return the columns available in the table, in the order defined
    * by the table
    * @return the set of table columns if this is an early-schema plan,
    * or null if the table schema is not known at projection plan time
    */
-  public List<DataSourceColumn> tableCols() { return tableCols; }
+  public List<TableColumn> tableCols() { return tableCols; }
   /**
    * Return the subset of output columns that are projected from
    * the input table
@@ -794,6 +818,12 @@ public class ProjectionPlanner {
    * selected in the query
    */
   public ColumnsArrayColumn columnsCol() { return columnsCol; }
+  /**
+   * Return the list of static columns: those for which the value is pre-defined
+   * at plan time.
+   * @return this list of static columns, in output order
+   */
+  public List<StaticColumn> staticCols() { return staticCols; }
   /**
    * The entire set of output columns, in output order. Output order is
    * that specified in the SELECT (for an explicit list of columns) or

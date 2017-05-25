@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.rowSet;
+package org.apache.drill.exec.physical.impl.scan;
 
 import static org.junit.Assert.*;
 
@@ -24,9 +24,9 @@ import java.util.List;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.rowSet.impl.ProjectionPlanner;
-import org.apache.drill.exec.physical.rowSet.impl.ProjectionPlanner.ColumnProjectionBuilder;
-import org.apache.drill.exec.physical.rowSet.impl.ProjectionPlanner.OutputColumn.ColumnType;
+import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner;
+import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.ColumnProjectionBuilder;
+import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.OutputColumn.ColumnType;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
@@ -58,9 +58,9 @@ public class TestProjectionPlanner extends SubOperatorTest {
     // Simulate a data source, with early schema, of (a, b, d)
 
     MaterializedField aCol = SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED);
-    MaterializedField bCol = SchemaBuilder.columnSchema("c", MinorType.INT, DataMode.OPTIONAL);
+    MaterializedField cCol = SchemaBuilder.columnSchema("c", MinorType.INT, DataMode.OPTIONAL);
     MaterializedField dCol = SchemaBuilder.columnSchema("d", MinorType.FLOAT8, DataMode.REPEATED);
-    List<MaterializedField> dataCols = Lists.newArrayList(aCol, bCol, dCol);
+    List<MaterializedField> dataCols = Lists.newArrayList(aCol, cCol, dCol);
     builder.tableColumns(dataCols);
 
     // Not required to set source as not needed here.
@@ -82,7 +82,7 @@ public class TestProjectionPlanner extends SubOperatorTest {
     assertEquals("c", planner.tableCols().get(1).name());
     assertEquals("d", planner.tableCols().get(2).name());
     assertSame(aCol, planner.tableCols().get(0).schema());
-    assertSame(bCol, planner.tableCols().get(1).schema());
+    assertSame(cCol, planner.tableCols().get(1).schema());
     assertSame(dCol, planner.tableCols().get(2).schema());
 
     assertEquals(2, planner.projectedCols().size());
@@ -117,8 +117,9 @@ public class TestProjectionPlanner extends SubOperatorTest {
     assertEquals(2, planner.outputCols().get(2).index());
 
     assertEquals(aCol, planner.outputCols().get(0).schema());
-    assertEquals(bCol, planner.outputCols().get(0).schema());
-    assertEquals(dCol, planner.outputCols().get(0).schema());
+    assertEquals(planner.outputCols().get(1).schema().getType().getMinorType(), MinorType.VARCHAR);
+    assertEquals(planner.outputCols().get(1).schema().getDataMode(), DataMode.OPTIONAL);
+    assertEquals(cCol, planner.outputCols().get(2).schema());
   }
 
   /**
