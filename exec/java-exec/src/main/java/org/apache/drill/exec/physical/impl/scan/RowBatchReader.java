@@ -15,42 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.store;
+package org.apache.drill.exec.physical.impl.scan;
 
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.store.RecordReader;
 
 /**
  * Extended version of a record reader which uses a size-aware
  * batch mutator. Use this for all new readers. Replaces the
  * original {@link RecordReader} interface.
+ * <p>
+ * Note that this interface reads a <b>batch</b> of rows, not
+ * a single row. (The original <tt>RecordReader</tt> could be
+ * confusing in this aspect.)
  */
 
-public interface RowReader {
-
-  public static interface ScanSelection { }
-
-  public static class SelectAll implements ScanSelection {
-
-  }
-
-  public static class SelectNone implements ScanSelection {
-
-  }
-
-  public static class SelectSpecified implements ScanSelection {
-
-  }
-
-  public static class ScanSchema {
-
-    public ScanSchema() {
-
-    }
-  }
+public interface RowBatchReader {
 
   /**
-   * Setup the record reader.
+   * Setup the record reader. Called just before the first call
+   * to <tt>next()</tt>. Allocate resources here, not in the constructor.
+   * Example: open files, allocate buffers, etc.
    * @param context execution context
    * @param mutator row set mutator used to create batches
    */
@@ -66,5 +52,10 @@ public interface RowReader {
 
   boolean next();
 
+  /**
+   * Release resources. Called just after a failure, when the scanner
+   * is cancelled, or after <tt>next()</tt> returns EOF. Release
+   * all resources and close files.
+   */
   void close();
 }

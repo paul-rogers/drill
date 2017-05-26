@@ -37,7 +37,6 @@ import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.store.RowReader;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -102,28 +101,28 @@ public class ScanOperatorExec implements OperatorExec {
 
   private State state = State.START;
   private OperatorExecServices context;
-  private final Iterator<RowReader> readers;
+  private final Iterator<RowBatchReader> readers;
   private final ScanOptions options;
   private final VectorContainerAccessor containerAccessor = new VectorContainerAccessor();
   private ResultSetLoader rowSetMutator;
-  private RowReader reader;
+  private RowBatchReader reader;
   private int readerCount;
 
   private VectorContainer lookahead;
 
-  public ScanOperatorExec(Iterator<RowReader> readers,
+  public ScanOperatorExec(Iterator<RowBatchReader> readers,
                           List<Map<String, String>> implicitColumns) {
     this(readers,
         convertImplicitCols(implicitColumns));
   }
 
-  public ScanOperatorExec(Iterator<RowReader> readers,
+  public ScanOperatorExec(Iterator<RowBatchReader> readers,
                           ScanOptions options) {
     this.readers = readers;
     this.options = options;
   }
 
-  public ScanOperatorExec(Iterator<RowReader> iterator) {
+  public ScanOperatorExec(Iterator<RowBatchReader> iterator) {
     this(iterator, new ScanOptions());
   }
 

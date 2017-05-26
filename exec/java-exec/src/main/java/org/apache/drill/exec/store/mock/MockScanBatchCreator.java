@@ -24,11 +24,11 @@ import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.impl.BatchCreator;
 import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
+import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
 import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.store.RecordReader;
-import org.apache.drill.exec.store.RowReader;
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
 
 import com.google.common.base.Preconditions;
@@ -42,7 +42,7 @@ public class MockScanBatchCreator implements BatchCreator<MockSubScanPOP> {
     Preconditions.checkArgument(children.isEmpty());
     final List<MockScanEntry> entries = config.getReadEntries();
     if ( entries.get(0).isExtended( ) ) {
-      final List<RowReader> readers = Lists.newArrayList();
+      final List<RowBatchReader> readers = Lists.newArrayList();
       for(final MockTableDef.MockScanEntry e : entries) {
         readers.add(new ExtendedMockRecordReader(e));
       }

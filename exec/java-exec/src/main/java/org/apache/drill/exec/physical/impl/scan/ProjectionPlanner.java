@@ -38,10 +38,56 @@ import org.apache.drill.exec.store.ImplicitColumnExplorer.ImplicitFileColumns;
 import org.apache.hadoop.fs.Path;
 
 /**
+ * Fluent builder for the projection mapping. Accepts the inputs needed
+ * to plan a projection, builds the mappings, and constructs the final
+ * mapping object.
  * Builds the per-scan projection plan given a set of selected columns,
  * data source columns and implicit columns. Determines the output schema,
  * which columns to project from the data source, which to fill with nulls,
  * which are implicit, and so on.
+ * <p>
+ * Mappings can be based on three primary use cases:
+ * <ul>
+ * <li>SELECT *: Select all data source columns, whatever they happen
+ * to be. Create columns using names from the data source. The data source
+ * also determines the order of columns within the row.</li>
+ * <li>SELECT columns: Similar to SELECT * in that it selects all columns
+ * from the data source, in data source order. But, rather than creating
+ * individual output columns for each data source column, creates a single
+ * column which is an array of Varchars which holds the (text form) of
+ * each column as an array element.</li>
+ * <li>SELECT a, b, c, ...: Select a specific set of columns, identified by
+ * case-insensitive name. The output row uses the names from the SELECT list,
+ * but types from the data source. Columns appear in the row in the order
+ * specifed by the SELECT.</li>
+ * </ul>
+ * Names in the SELECT list can reference any of four distinct types of output
+ * columns:
+ * <ul>
+ * <li>Data source columns: columns from the underlying table.</i>
+ * <li>Implicit columns: fqn, filename, filepath and suffix. These reference
+ * parts of the name of the file being scanned.</li>
+ * <li>Partition columns: dir0, dir1, ...: These reference parts of the path
+ * name of the file.</li>
+ * <li>Null column: a name in the SELECT list which maps to none of the above.
+ * Such a name is not an error; it simply becomes a column which is always
+ * NULL.</li>
+ * </ul>
+ * Data source (table) schema can be of two forms:
+ * <ul>
+ * <li>Early schema: the schema is known before reading data. A JDBC data
+ * source is an example, as is a CSV reader for a file with headers.</li>
+ * <li>Late schema: the schema is not known until data is read, and is
+ * discovered on the fly. Example: JSON, which declares values as maps
+ * without an up-front schema.</li>
+ * </ul>
+ * These two forms give rise to distinct ways of planning the projection.
+ * <p>
+ * The final result of the projection is a set of "output" columns: a set
+ * of columns that, taken together, defines the row (bundle of vectors) that
+ * the scan operator produces. Columns are ordered: the order specified here
+ * must match the order that columns appear in the result set loader and the
+ * vector container so that code can access columns by index as well as name.
  *
  * @see {@link ImplicitColumnExplorer}, the class from which this class
  * evolved
@@ -74,6 +120,15 @@ public class ProjectionPlanner {
     public OutputColumn projection() {
       return projection;
     }
+
+    /**
+     * Return if this column is the special "*" colum which means to select
+     * all table columns.
+     *
+     * @return true if the column is "*"
+     */
+
+    public boolean isStar( ) { return name.equals("*"); }
 
     @Override
     public String toString() {
@@ -406,429 +461,402 @@ public class ProjectionPlanner {
     }
   }
 
+  // Config
+
+  private final String partitionDesignator;
+  private final Pattern partitionPattern;
+  private List<ImplicitColumnDefn> implicitColDefns = new ArrayList<>();;
+  private Map<String, ImplicitColumnDefn> implicitColIndex = CaseInsensitiveMap.newHashMap();
+  private boolean useLegacyStarPlan = true;
+
+  // Input
+
+  private boolean selectAll = true;
+  private List<SelectColumn> queryCols;
+  private MajorType nullColType;
+  private List<TableColumn> tableCols;
+  private Map<String, TableColumn> tableIndex = CaseInsensitiveMap.newHashMap();
+  private Path filePath;
+  private String[] dirPath;
+
+  // Output
+
+  private ColumnsArrayColumn columnsArrayCol;
+  private List<ProjectedColumn> projectedCols = new ArrayList<>();
+  private List<NullColumn> nullCols = new ArrayList<>();
+  private List<ImplicitColumn> implicitCols = new ArrayList<>();
+  private List<PartitionColumn> partitionCols = new ArrayList<>();
+  private List<StaticColumn> staticCols = new ArrayList<>();
+  private List<OutputColumn> outputCols = new ArrayList<>();
+
+  public ProjectionPlanner(OptionSet optionManager) {
+    partitionDesignator = optionManager.getOption(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL_VALIDATOR);
+    partitionPattern = Pattern.compile(partitionDesignator + "(\\d+)", Pattern.CASE_INSENSITIVE);
+    for (ImplicitFileColumns e : ImplicitFileColumns.values()) {
+      OptionValue optionValue = optionManager.getOption(e.optionName());
+      if (optionValue != null) {
+        ImplicitColumnDefn defn = new ImplicitColumnDefn(optionValue.string_val, e);
+        implicitColDefns.add(defn);
+        implicitColIndex.put(defn.colName, defn);
+      }
+    }
+  }
+
   /**
-   * Fluent builder for the projection mapping. Accepts the inputs needed
-   * to plan a projection, builds the mappings, and constructs the final
-   * mapping object.
-   * <p>
-   * Mappings can be based on three primary use cases:
-   * <ul>
-   * <li>SELECT *: Select all data source columns, whatever they happen
-   * to be. Create columns using names from the data source. The data source
-   * also determines the order of columns within the row.</li>
-   * <li>SELECT columns: Similar to SELECT * in that it selects all columns
-   * from the data source, in data source order. But, rather than creating
-   * individual output columns for each data source column, creates a single
-   * column which is an array of Varchars which holds the (text form) of
-   * each column as an array element.</li>
-   * <li>SELECT a, b, c, ...: Select a specific set of columns, identified by
-   * case-insensitive name. The output row uses the names from the SELECT list,
-   * but types from the data source. Columns appear in the row in the order
-   * specifed by the SELECT.</li>
-   * </ul>
-   * Names in the SELECT list can reference any of four distinct types of output
-   * columns:
-   * <ul>
-   * <li>Data source columns: columns from the underlying table.</i>
-   * <li>Implicit columns: fqn, filename, filepath and suffix. These reference
-   * parts of the name of the file being scanned.</li>
-   * <li>Partition columns: dir0, dir1, ...: These reference parts of the path
-   * name of the file.</li>
-   * <li>Null column: a name in the SELECT list which maps to none of the above.
-   * Such a name is not an error; it simply becomes a column which is always
-   * NULL.</li>
-   * </ul>
-   * Data source (table) schema can be of two forms:
-   * <ul>
-   * <li>Early schema: the schema is known before reading data. A JDBC data
-   * source is an example, as is a CSV reader for a file with headers.</li>
-   * <li>Late schema: the schema is not known until data is read, and is
-   * discovered on the fly. Example: JSON, which declares values as maps
-   * without an up-front schema.</li>
-   * </ul>
-   * These two forms give rise to distinct ways of planning the projection.
-   * <p>
-   * The final result of the projection is a set of "output" columns: a set
-   * of columns that, taken together, defines the row (bundle of vectors) that
-   * the scan operator produces. Columns are ordered: the order specified here
-   * must match the order that columns appear in the result set loader and the
-   * vector container so that code can access columns by index as well as name.
+   * Indicate a SELECT * query.
+   *
+   * @return this builder
+   */
+  public ProjectionPlanner selectAll() {
+    selectAll = true;
+    return this;
+  }
+
+  /**
+   * Specifies whether to plan based on the legacy meaning of "*". See
+   * <a href="https://issues.apache.org/jira/browse/DRILL-5542">DRILL-5542</a>.
+   * If true, then the star column <i>includes</i> implicit and partition
+   * columns. If false, then star matches <i>only</i> table columns.
+   * @param flag true to use the legacy plan, false to use the revised
+   * semantics
+   * @return this builder
    */
 
-  public static class ColumnProjectionBuilder {
+  public ProjectionPlanner useLegacyStarPlan(boolean flag) {
+    useLegacyStarPlan = flag;
+    return this;
+  }
 
-    // Config
-
-    private final String partitionDesignator;
-    private final Pattern partitionPattern;
-    private List<ImplicitColumnDefn> implicitColDefns = new ArrayList<>();;
-    private Map<String, ImplicitColumnDefn> implicitColIndex = CaseInsensitiveMap.newHashMap();
-
-    // Input
-
-    private boolean selectAll = true;
-    private List<SelectColumn> queryCols;
-    private MajorType nullColType;
-    private List<TableColumn> tableCols;
-    private Map<String, TableColumn> tableIndex = CaseInsensitiveMap.newHashMap();
-    private Path filePath;
-    private String[] dirPath;
-
-    // Output
-
-    private ColumnsArrayColumn columnsArrayCol;
-    private List<ProjectedColumn> projectedCols = new ArrayList<>();
-    private List<NullColumn> nullCols = new ArrayList<>();
-    private List<ImplicitColumn> implicitCols = new ArrayList<>();
-    private List<PartitionColumn> partitionCols = new ArrayList<>();
-    private List<StaticColumn> staticCols = new ArrayList<>();
-    private List<OutputColumn> outputCols = new ArrayList<>();
-
-    public ColumnProjectionBuilder(OptionSet optionManager) {
-      partitionDesignator = optionManager.getOption(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL_VALIDATOR);
-      partitionPattern = Pattern.compile(partitionDesignator + "(\\d+)", Pattern.CASE_INSENSITIVE);
-      for (ImplicitFileColumns e : ImplicitFileColumns.values()) {
-        OptionValue optionValue = optionManager.getOption(e.optionName());
-        if (optionValue != null) {
-          ImplicitColumnDefn defn = new ImplicitColumnDefn(optionValue.string_val, e);
-          implicitColDefns.add(defn);
-          implicitColIndex.put(defn.colName, defn);
-        }
-      }
+  /**
+   * Specify the set of columns in the SELECT list. Since the column list
+   * comes from the query planner, assumes that the planner has checked
+   * the list for syntax and uniqueness.
+   *
+   * @param queryCols list of columns in the SELECT list in SELECT list order
+   * @return this builder
+   */
+  public ProjectionPlanner queryCols(List<SchemaPath> queryCols) {
+    selectAll = false;
+    this.queryCols = new ArrayList<>();
+    for (SchemaPath col : queryCols) {
+      SelectColumn sCol = new SelectColumn(col);
+      this.queryCols.add(sCol);
+      selectAll |= sCol.isStar();
     }
+    return this;
+  }
 
-    /**
-     * Indicate a SELECT * query.
-     *
-     * @return this builder
-     */
-    public ColumnProjectionBuilder selectAll() {
-      selectAll = true;
+  /**
+   * Specify the set of table columns when known "early": during the projection
+   * planning process.
+   *
+   * @param cols list of table columns in table schema order
+   * @return this builder
+   */
+
+  public ProjectionPlanner tableColumns(List<MaterializedField> cols) {
+    tableCols = new ArrayList<>();
+    for (MaterializedField col : cols) {
+      if (tableIndex.containsKey(col.getName())) {
+        throw new IllegalStateException("Duplicate selection column: " + col.getName());
+      }
+      TableColumn dsCol = new TableColumn(tableCols.size(), col);
+      tableCols.add(dsCol);
+      tableIndex.put(col.getName(), dsCol);
+    }
+    return this;
+  }
+
+  /**
+   * Specify the file name and optional selection root. If the selection root
+   * is provided, then partitions are defined as the portion of the file name
+   * that is not also part of the selection root. That is, if selection root is
+   * /a/b and the file path is /a/b/c/d.csv, then dir0 is c.
+   *
+   * @return map with columns names as keys and their values
+   */
+
+  public ProjectionPlanner setSource(Path filePath, String selectionRoot) {
+    this.filePath = filePath;
+    if (selectionRoot == null) {
       return this;
     }
 
-    /**
-     * Specify the set of columns in the SELECT list. Since the column list
-     * comes from the query planner, assumes that the planner has checked
-     * the list for syntax and uniqueness.
-     *
-     * @param queryCols list of columns in the SELECT list in SELECT list order
-     * @return this builder
-     */
-    public ColumnProjectionBuilder queryCols(List<SchemaPath> queryCols) {
-      selectAll = false;
-      this.queryCols = new ArrayList<>();
-      for (SchemaPath col : queryCols) {
-        this.queryCols.add(new SelectColumn(col));
-      }
-      return this;
+    // Result of splitting /x/y is ["", "x", "y"], so ignore first.
+
+    String[] r = Path.getPathWithoutSchemeAndAuthority(new Path(selectionRoot)).toString().split("/");
+
+    // Result of splitting "/x/y/z.csv" is ["", "x", "y", "z.csv"], so ignore first and last
+
+    String[] p = Path.getPathWithoutSchemeAndAuthority(filePath).toString().split("/");
+
+    if (p.length - 1 < r.length) {
+      throw new IllegalStateException("Selection root of \"" + selectionRoot +
+                                      "\" is shorter than file path of \"" + filePath.toString());
     }
-
-    /**
-     * Specify the set of table columns when known "early": during the projection
-     * planning process.
-     *
-     * @param cols list of table columns in table schema order
-     * @return this builder
-     */
-
-    public ColumnProjectionBuilder tableColumns(List<MaterializedField> cols) {
-      tableCols = new ArrayList<>();
-      for (MaterializedField col : cols) {
-        if (tableIndex.containsKey(col.getName())) {
-          throw new IllegalStateException("Duplicate selection column: " + col.getName());
-        }
-        TableColumn dsCol = new TableColumn(tableCols.size(), col);
-        tableCols.add(dsCol);
-        tableIndex.put(col.getName(), dsCol);
-      }
-      return this;
-    }
-
-    /**
-     * Specify the file name and optional selection root. If the selection root
-     * is provided, then partitions are defined as the portion of the file name
-     * that is not also part of the selection root. That is, if selection root is
-     * /a/b and the file path is /a/b/c/d.csv, then dir0 is c.
-     *
-     * @return map with columns names as keys and their values
-     */
-
-    public ColumnProjectionBuilder setSource(Path filePath, String selectionRoot) {
-      this.filePath = filePath;
-      if (selectionRoot == null) {
-        return this;
-      }
-
-      // Result of splitting /x/y is ["", "x", "y"], so ignore first.
-
-      String[] r = Path.getPathWithoutSchemeAndAuthority(new Path(selectionRoot)).toString().split("/");
-
-      // Result of splitting "/x/y/z.csv" is ["", "x", "y", "z.csv"], so ignore first and last
-
-      String[] p = Path.getPathWithoutSchemeAndAuthority(filePath).toString().split("/");
-
-      if (p.length - 1 < r.length) {
+    for (int i = 1; i < r.length; i++) {
+      if (! r[i].equals(p[i])) {
         throw new IllegalStateException("Selection root of \"" + selectionRoot +
-                                        "\" is shorter than file path of \"" + filePath.toString());
+            "\" is leading path of \"" + filePath.toString());
       }
-      for (int i = 1; i < r.length; i++) {
-        if (! r[i].equals(p[i])) {
-          throw new IllegalStateException("Selection root of \"" + selectionRoot +
-              "\" is leading path of \"" + filePath.toString());
-        }
+    }
+    dirPath = ArrayUtils.subarray(p, r.length, p.length - 1);
+    return this;
+ }
+
+  /**
+   * Perform projection planning and return the final projection plan.
+   * @return the finalized projection plan
+   */
+
+  public ProjectionPlan build() {
+    if (selectAll) {
+      selectAllTableCols();
+    } else {
+      mapSelectedCols();
+    }
+    if (selectAll && useLegacyStarPlan) {
+      selectAllPartitions();
+      selectAllImplicitCols();
+    } else {
+      mapImplicitCols();
+      mapPartitionCols();
+    }
+    return new ProjectionPlan(this);
+  }
+
+  private void selectAllTableCols() {
+    for (TableColumn col : tableCols) {
+      col.projection = new ProjectedColumn(null, outputCols.size(), col);
+      projectedCols.add(col.projection);
+      outputCols.add(col.projection);
+    }
+  }
+
+  private void selectAllPartitions() {
+    if (dirPath == null) {
+      return;
+    }
+
+    // If have a partition path, select the dir<n> columns as well.
+
+    for (int i = 0; i < dirPath.length; i++) {
+      PartitionColumn partCol = new PartitionColumn(partitionDesignator, outputCols.size(), i);
+      partCol.setValue(dirPath[i]);
+      partitionCols.add(partCol);
+      staticCols.add(partCol);
+      outputCols.add(partCol);
+    }
+  }
+
+  private void selectAllImplicitCols() {
+    if (filePath == null) {
+      return;
+    }
+    for (ImplicitColumnDefn iCol : implicitColDefns) {
+      ImplicitColumn outCol = new ImplicitColumn(null, outputCols.size(), iCol);
+      outCol.setValue(filePath);
+      implicitCols.add(outCol);
+      staticCols.add(outCol);
+      outputCols.add(outCol);
+    }
+  }
+
+  private void mapSelectedCols() {
+    if (nullColType == null) {
+      nullColType = MajorType.newBuilder()
+          .setMinorType(MinorType.INT)
+          .setMode(DataMode.OPTIONAL)
+          .build();
+    }
+    int index = 0;
+    for (SelectColumn inCol : queryCols) {
+      OutputColumn outCol = mapColumn(index++, inCol);
+      outputCols.add(outCol);
+      inCol.projection = outCol;
+    }
+  }
+
+  /**
+   * Map the column into one of five categories.
+   * <ol>
+   * <li>Partition file column (dir0, dir1, etc.)</li>
+   * <li>Implicit column (fqn, filepath, filename, suffix)</li>
+   * <li>Special <tt>columns</tt> column which holds all columns as
+   * an array.</li>
+   * <li>Table column (if no schema provided or if the column matches
+   * a column in the schema.</li>
+   * <li>Null column for which no match can be found.</li>
+   * </ol>
+   *
+   * @param index
+   * @param inCol
+   * @return
+   */
+
+  private OutputColumn mapColumn(int index, SelectColumn inCol) {
+    Matcher m = partitionPattern.matcher(inCol.name);
+    if (m.matches()) {
+      PartitionColumn outCol = new PartitionColumn(inCol, index, Integer.parseInt(m.group(1)));
+      partitionCols.add(outCol);
+      staticCols.add(outCol);
+      return outCol;
+    }
+    ImplicitColumnDefn iCol = implicitColIndex.get(inCol.name);
+    if (iCol != null) {
+      ImplicitColumn outCol = new ImplicitColumn(inCol, index, iCol);
+      implicitCols.add(outCol);
+      staticCols.add(outCol);
+      return outCol;
+    }
+
+    if (inCol.name.equalsIgnoreCase("columns")) {
+      if (! projectedCols.isEmpty() || ! nullCols.isEmpty()) {
+        throw new IllegalArgumentException("Cannot combine columns[] with other columns");
       }
-      dirPath = ArrayUtils.subarray(p, r.length, p.length - 1);
-      return this;
-   }
+      columnsArrayCol = new ColumnsArrayColumn(inCol, index);
+      return columnsArrayCol;
+    }
+
+    if (columnsArrayCol != null) {
+      throw new IllegalArgumentException("Cannot combine columns[] with other columns: " + inCol.name);
+    }
+
+    // If a schema is not known, assume all columns are projected.
+
+    if (tableCols.isEmpty()) {
+      ProjectedColumn outCol = new ProjectedColumn(inCol, index, null);
+      projectedCols.add(outCol);
+      return outCol;
+    }
+
+    TableColumn dsCol = tableIndex.get(inCol.name);
+    if (dsCol != null) {
+      ProjectedColumn outCol = new ProjectedColumn(inCol, index, dsCol);
+      dsCol.projection = outCol;
+      projectedCols.add(outCol);
+      return outCol;
+    } else {
+      NullColumn outCol = new NullColumn(inCol, index, MaterializedField.create(inCol.name, nullColType));
+      nullCols.add(outCol);
+      staticCols.add(outCol);
+      return outCol;
+    }
+  }
+
+  private void mapImplicitCols() {
+    if (filePath == null) {
+      return;
+    }
+
+    for (ImplicitColumn col : implicitCols) {
+      col.setValue(filePath);
+    }
+  }
+
+  private void mapPartitionCols() {
+    if (dirPath == null) {
+      return;
+    }
+    for (PartitionColumn col : partitionCols) {
+      if (col.partition < dirPath.length) {
+        col.setValue(dirPath[col.partition]);
+      }
+    }
+  }
+
+
+  public static class ProjectionPlan {
+
+    private final boolean selectAll;
+    private final List<SelectColumn> queryCols;
+    private final List<TableColumn> tableCols;
+    private final ColumnsArrayColumn columnsCol;
+    private final List<ProjectedColumn> projectedCols;
+    private final List<NullColumn> nullCols;
+    private final List<ImplicitColumn> implicitCols;
+    private final List<PartitionColumn> partitionCols;
+    private final List<StaticColumn> staticCols;
+    private final List<OutputColumn> outputCols;
+
+    public static ProjectionPlanner builder(OptionSet options) {
+      return new ProjectionPlanner(options);
+    }
+
+    public ProjectionPlan(ProjectionPlanner builder) {
+      selectAll = builder.selectAll;
+      queryCols = builder.queryCols;
+      tableCols = builder.tableCols;
+      columnsCol = builder.columnsArrayCol;
+      projectedCols = builder.projectedCols;
+      nullCols = builder.nullCols;
+      implicitCols = builder.implicitCols;
+      partitionCols = builder.partitionCols;
+      staticCols = builder.staticCols;
+      outputCols = builder.outputCols;
+    }
 
     /**
-     * Perform projection planning and return the final projection plan.
-     * @return the finalized projection plan
+     * Return whether this is a SELECT * query
+     * @return true if this is a SELECT * query
      */
-
-    public ProjectionPlanner build() {
-      if (selectAll) {
-        selectAllTableCols();
-        selectAllPartitions();
-        selectAllImplicitCols();
-      } else {
-        mapSelectedCols();
-        fillImplicitCols();
-        fillPartitionCols();
-      }
-      return new ProjectionPlanner(this);
-    }
-
-    private void selectAllTableCols() {
-      for (TableColumn col : tableCols) {
-        col.projection = new ProjectedColumn(null, outputCols.size(), col);
-        projectedCols.add(col.projection);
-        outputCols.add(col.projection);
-      }
-    }
-
-    private void selectAllPartitions() {
-      if (dirPath == null) {
-        return;
-      }
-
-      // If have a partition path, select the dir<n> columns as well.
-
-      for (int i = 0; i < dirPath.length; i++) {
-        PartitionColumn partCol = new PartitionColumn(partitionDesignator, outputCols.size(), i);
-        partCol.setValue(dirPath[i]);
-        partitionCols.add(partCol);
-        staticCols.add(partCol);
-        outputCols.add(partCol);
-      }
-    }
-
-    private void selectAllImplicitCols() {
-      if (filePath == null) {
-        return;
-      }
-      for (ImplicitColumnDefn iCol : implicitColDefns) {
-        ImplicitColumn outCol = new ImplicitColumn(null, outputCols.size(), iCol);
-        outCol.setValue(filePath);
-        implicitCols.add(outCol);
-        staticCols.add(outCol);
-        outputCols.add(outCol);
-      }
-    }
-
-    private void mapSelectedCols() {
-      if (nullColType == null) {
-        nullColType = MajorType.newBuilder()
-            .setMinorType(MinorType.INT)
-            .setMode(DataMode.OPTIONAL)
-            .build();
-      }
-      int index = 0;
-      for (SelectColumn inCol : queryCols) {
-        OutputColumn outCol = mapColumn(index++, inCol);
-        outputCols.add(outCol);
-        inCol.projection = outCol;
-      }
-    }
-
+    public boolean isSelectAll() { return selectAll; }
     /**
-     * Map the column into one of five categories.
-     * <ol>
-     * <li>Partition file column (dir0, dir1, etc.)</li>
-     * <li>Implicit column (fqn, filepath, filename, suffix)</li>
-     * <li>Special <tt>columns</tt> column which holds all columns as
-     * an array.</li>
-     * <li>Table column (if no schema provided or if the column matches
-     * a column in the schema.</li>
-     * <li>Null column for which no match can be found.</li>
-     * </ol>
-     *
-     * @param index
-     * @param inCol
-     * @return
+     * Return the set of columns from the SELECT list
+     * @return the SELECT list columns, in SELECT list order,
+     * or null if this is a SELECT * query
      */
-
-    private OutputColumn mapColumn(int index, SelectColumn inCol) {
-      Matcher m = partitionPattern.matcher(inCol.name);
-      if (m.matches()) {
-        PartitionColumn outCol = new PartitionColumn(inCol, index, Integer.parseInt(m.group(1)));
-        partitionCols.add(outCol);
-        staticCols.add(outCol);
-        return outCol;
-      }
-      ImplicitColumnDefn iCol = implicitColIndex.get(inCol.name);
-      if (iCol != null) {
-        ImplicitColumn outCol = new ImplicitColumn(inCol, index, iCol);
-        implicitCols.add(outCol);
-        staticCols.add(outCol);
-        return outCol;
-      }
-
-      if (inCol.name.equalsIgnoreCase("columns")) {
-        if (! projectedCols.isEmpty() || ! nullCols.isEmpty()) {
-          throw new IllegalArgumentException("Cannot combine columns[] with other columns");
-        }
-        columnsArrayCol = new ColumnsArrayColumn(inCol, index);
-        return columnsArrayCol;
-      }
-
-      if (columnsArrayCol != null) {
-        throw new IllegalArgumentException("Cannot combine columns[] with other columns: " + inCol.name);
-      }
-
-      // If a schema is not known, assume all columns are projected.
-
-      if (tableCols.isEmpty()) {
-        ProjectedColumn outCol = new ProjectedColumn(inCol, index, null);
-        projectedCols.add(outCol);
-        return outCol;
-      }
-
-      TableColumn dsCol = tableIndex.get(inCol.name);
-      if (dsCol != null) {
-        ProjectedColumn outCol = new ProjectedColumn(inCol, index, dsCol);
-        dsCol.projection = outCol;
-        projectedCols.add(outCol);
-        return outCol;
-      } else {
-        NullColumn outCol = new NullColumn(inCol, index, MaterializedField.create(inCol.name, nullColType));
-        nullCols.add(outCol);
-        staticCols.add(outCol);
-        return outCol;
-      }
-    }
-
-    private void fillImplicitCols() {
-      if (filePath == null) {
-        return;
-      }
-
-      for (ImplicitColumn col : implicitCols) {
-        col.setValue(filePath);
-      }
-    }
-
-    private void fillPartitionCols() {
-      if (dirPath == null) {
-        return;
-      }
-      for (PartitionColumn col : partitionCols) {
-        if (col.partition < dirPath.length) {
-          col.setValue(dirPath[col.partition]);
-        }
-      }
-    }
+    public List<SelectColumn> queryCols() { return queryCols; }
+    public boolean hasEarlySchema() { return tableCols != null; }
+    /**
+     * Return the columns available in the table, in the order defined
+     * by the table
+     * @return the set of table columns if this is an early-schema plan,
+     * or null if the table schema is not known at projection plan time
+     */
+    public List<TableColumn> tableCols() { return tableCols; }
+    /**
+     * Return the subset of output columns that are projected from
+     * the input table
+     * @return the set of projected table columns, in output order
+     */
+    public List<ProjectedColumn> projectedCols() { return projectedCols; }
+    /**
+     * Return the subset of output columns that were listed in the SELECT
+     * list, but which matched no table, implicit or partition columns
+     * @return the set of null columns, in output order
+     */
+    public List<NullColumn> nullCols() { return nullCols; }
+    /**
+     * Return the subset of output columns which are implicit
+     * @return the implicit columns, in output order
+     */
+    public List<ImplicitColumn> implicitCols() { return implicitCols; }
+    /**
+     * Return the subset of output columns which hold partition (directory)
+     * values
+     * @return the partition columns, in output order
+     */
+    public List<PartitionColumn> partitionCols() { return partitionCols; }
+    /**
+     * Return the one and only "columns" array column, if selected in
+     * this query
+     * @return the columns array column, or null if "columns" was not
+     * selected in the query
+     */
+    public ColumnsArrayColumn columnsCol() { return columnsCol; }
+    /**
+     * Return the list of static columns: those for which the value is pre-defined
+     * at plan time.
+     * @return this list of static columns, in output order
+     */
+    public List<StaticColumn> staticCols() { return staticCols; }
+    /**
+     * The entire set of output columns, in output order. Output order is
+     * that specified in the SELECT (for an explicit list of columns) or
+     * table order (for SELECT * queries).
+     * @return the set of output columns in output order
+     */
+    public List<OutputColumn> outputCols() { return outputCols; }
   }
-
-  private final boolean selectAll;
-  private final List<SelectColumn> queryCols;
-  private final List<TableColumn> tableCols;
-  private final ColumnsArrayColumn columnsCol;
-  private final List<ProjectedColumn> projectedCols;
-  private final List<NullColumn> nullCols;
-  private final List<ImplicitColumn> implicitCols;
-  private final List<PartitionColumn> partitionCols;
-  private final List<StaticColumn> staticCols;
-  private final List<OutputColumn> outputCols;
-
-  public static ColumnProjectionBuilder builder(OptionSet options) {
-    return new ColumnProjectionBuilder(options);
-  }
-
-  public ProjectionPlanner(ColumnProjectionBuilder builder) {
-    selectAll = builder.selectAll;
-    queryCols = builder.queryCols;
-    tableCols = builder.tableCols;
-    columnsCol = builder.columnsArrayCol;
-    projectedCols = builder.projectedCols;
-    nullCols = builder.nullCols;
-    implicitCols = builder.implicitCols;
-    partitionCols = builder.partitionCols;
-    staticCols = builder.staticCols;
-    outputCols = builder.outputCols;
-  }
-
-  /**
-   * Return whether this is a SELECT * query
-   * @return true if this is a SELECT * query
-   */
-  public boolean isSelectAll() { return selectAll; }
-  /**
-   * Return the set of columns from the SELECT list
-   * @return the SELECT list columns, in SELECT list order,
-   * or null if this is a SELECT * query
-   */
-  public List<SelectColumn> queryCols() { return queryCols; }
-  public boolean hasEarlySchema() { return tableCols != null; }
-  /**
-   * Return the columns available in the table, in the order defined
-   * by the table
-   * @return the set of table columns if this is an early-schema plan,
-   * or null if the table schema is not known at projection plan time
-   */
-  public List<TableColumn> tableCols() { return tableCols; }
-  /**
-   * Return the subset of output columns that are projected from
-   * the input table
-   * @return the set of projected table columns, in output order
-   */
-  public List<ProjectedColumn> projectedCols() { return projectedCols; }
-  /**
-   * Return the subset of output columns that were listed in the SELECT
-   * list, but which matched no table, implicit or partition columns
-   * @return the set of null columns, in output order
-   */
-  public List<NullColumn> nullCols() { return nullCols; }
-  /**
-   * Return the subset of output columns which are implicit
-   * @return the implicit columns, in output order
-   */
-  public List<ImplicitColumn> implicitCols() { return implicitCols; }
-  /**
-   * Return the subset of output columns which hold partition (directory)
-   * values
-   * @return the partition columns, in output order
-   */
-  public List<PartitionColumn> partitionCols() { return partitionCols; }
-  /**
-   * Return the one and only "columns" array column, if selected in
-   * this query
-   * @return the columns array column, or null if "columns" was not
-   * selected in the query
-   */
-  public ColumnsArrayColumn columnsCol() { return columnsCol; }
-  /**
-   * Return the list of static columns: those for which the value is pre-defined
-   * at plan time.
-   * @return this list of static columns, in output order
-   */
-  public List<StaticColumn> staticCols() { return staticCols; }
-  /**
-   * The entire set of output columns, in output order. Output order is
-   * that specified in the SELECT (for an explicit list of columns) or
-   * table order (for SELECT * queries).
-   * @return the set of output columns in output order
-   */
-  public List<OutputColumn> outputCols() { return outputCols; }
 }

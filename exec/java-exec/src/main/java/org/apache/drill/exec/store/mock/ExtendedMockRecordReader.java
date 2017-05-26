@@ -26,11 +26,11 @@ import java.util.Set;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
+import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.store.RowReader;
 import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
 import org.apache.drill.exec.vector.ValueVector;
@@ -45,7 +45,7 @@ import org.apache.drill.exec.vector.ValueVector;
  * {@link ScanBatch} used to create this record reader.
  */
 
-public class ExtendedMockRecordReader implements RowReader {
+public class ExtendedMockRecordReader implements RowBatchReader {
 
   private final MockScanEntry config;
   private final ColumnDef fields[];

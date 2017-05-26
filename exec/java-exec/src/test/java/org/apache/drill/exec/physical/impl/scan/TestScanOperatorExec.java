@@ -40,7 +40,6 @@ import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.store.RowReader;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
@@ -52,7 +51,7 @@ import com.google.common.collect.Lists;
 public class TestScanOperatorExec extends SubOperatorTest {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestScanOperatorExec.class);
 
-  private static class MockRowReader implements RowReader {
+  private static class MockRowReader implements RowBatchReader {
 
     public boolean openCalled;
     public boolean closeCalled;
@@ -171,11 +170,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
     private OperatorExecServicesImpl services;
     public ScanOperatorExec scanOp;
 
-    public MockBatch(List<RowReader> readers) {
+    public MockBatch(List<RowBatchReader> readers) {
       this(readers, null);
     }
 
-    public MockBatch(List<RowReader> readers, ScanOptions options) {
+    public MockBatch(List<RowBatchReader> readers, ScanOptions options) {
       if (options == null) {
         scanOp = new ScanOperatorExec(readers.iterator());
       } else {
@@ -203,7 +202,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     MockRowReader reader = new MockRowReader();
     reader.batchLimit = 2;
-    List<RowReader> readers = Lists.newArrayList(reader);
+    List<RowBatchReader> readers = Lists.newArrayList(reader);
 
     // Create options and the scan operator
 
@@ -260,7 +259,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     MockRowReader reader = new MockRowReader();
     reader.batchLimit = 2;
-    List<RowReader> readers = Lists.newArrayList(reader);
+    List<RowBatchReader> readers = Lists.newArrayList(reader);
 
     // Set up implicit columns.
 
@@ -307,7 +306,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockRowReader reader = new MockRowReader();
     reader.batchLimit = 2;
     reader.returnDataOnFirst = true;
-    List<RowReader> readers = Lists.newArrayList(reader);
+    List<RowBatchReader> readers = Lists.newArrayList(reader);
 
     MockBatch mockBatch = new MockBatch(readers);
     ScanOperatorExec scan = mockBatch.scanOp;
@@ -352,7 +351,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
   public void testEOFOnFirstBatch() {
     MockRowReader reader = new MockRowReader();
     reader.batchLimit = 0;
-    List<RowReader> readers = Lists.newArrayList(reader);
+    List<RowBatchReader> readers = Lists.newArrayList(reader);
     MockBatch mockBatch = new MockBatch(readers);
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -381,7 +380,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockRowReader reader2 = new MockRowReader();
     reader2.batchLimit = 2;
     reader2.returnDataOnFirst = true;
-    List<RowReader> readers = Lists.newArrayList(reader1, reader2);
+    List<RowBatchReader> readers = Lists.newArrayList(reader1, reader2);
 
     MockBatch mockBatch = new MockBatch(readers);
     ScanOperatorExec scan = mockBatch.scanOp;
@@ -454,7 +453,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockRowReader reader2 = new MockRowReader2();
     reader2.batchLimit = 2;
     reader2.returnDataOnFirst = true;
-    List<RowReader> readers = Lists.newArrayList(reader1, reader2);
+    List<RowBatchReader> readers = Lists.newArrayList(reader1, reader2);
 
     MockBatch mockBatch = new MockBatch(readers);
     ScanOperatorExec scan = mockBatch.scanOp;
@@ -523,7 +522,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockRowReader reader2 = new MockRowReader();
     reader2.batchLimit = 0;
     reader2.returnDataOnFirst = true;
-    List<RowReader> readers = Lists.newArrayList(reader1, reader2);
+    List<RowBatchReader> readers = Lists.newArrayList(reader1, reader2);
 
     MockBatch mockBatch = new MockBatch(readers);
     ScanOperatorExec scan = mockBatch.scanOp;
@@ -551,7 +550,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     };
     reader.batchLimit = 0;
-    List<RowReader> readers = Lists.newArrayList(reader);
+    List<RowBatchReader> readers = Lists.newArrayList(reader);
     MockBatch mockBatch = new MockBatch(readers);
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -584,7 +583,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     };
     reader.batchLimit = 2;
-    List<RowReader> readers = Lists.newArrayList(reader);
+    List<RowBatchReader> readers = Lists.newArrayList(reader);
     MockBatch mockBatch = new MockBatch(readers);
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -615,7 +614,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
     reader.returnDataOnFirst = true;
-    List<RowReader> readers = Lists.newArrayList(reader);
+    List<RowBatchReader> readers = Lists.newArrayList(reader);
     MockBatch mockBatch = new MockBatch(readers);
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -648,7 +647,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
     reader.returnDataOnFirst = true;
-    List<RowReader> readers = Lists.newArrayList(reader);
+    List<RowBatchReader> readers = Lists.newArrayList(reader);
     MockBatch mockBatch = new MockBatch(readers);
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -689,7 +688,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
     reader.returnDataOnFirst = true;
-    List<RowReader> readers = Lists.newArrayList(reader);
+    List<RowBatchReader> readers = Lists.newArrayList(reader);
     MockBatch mockBatch = new MockBatch(readers);
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -731,7 +730,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
       }
     };
     reader.batchLimit = 2;
-    List<RowReader> readers = Lists.newArrayList(reader);
+    List<RowBatchReader> readers = Lists.newArrayList(reader);
     MockBatch mockBatch = new MockBatch(readers);
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -774,7 +773,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader2.batchLimit = 2;
     reader2.returnDataOnFirst = true;
 
-    List<RowReader> readers = Lists.newArrayList(reader1, reader2);
+    List<RowBatchReader> readers = Lists.newArrayList(reader1, reader2);
     MockBatch mockBatch = new MockBatch(readers);
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -867,7 +866,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockRowReader reader2 = new MockRowReader();
     reader2.batchLimit = 2;
     reader2.returnDataOnFirst = true;
-    List<RowReader> readers = Lists.newArrayList(reader1, reader2);
+    List<RowBatchReader> readers = Lists.newArrayList(reader1, reader2);
 
     MockBatch mockBatch = new MockBatch(readers);
     ScanOperatorExec scan = mockBatch.scanOp;
