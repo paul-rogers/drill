@@ -23,6 +23,7 @@ import java.util.Comparator;
 import java.util.List;
 
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 
@@ -84,9 +85,10 @@ public class RowBatchMerger {
       ValueVector outputs[] = new ValueVector[count];
       for (int i = 0; i < count; i++) {
         Projection proj = projections.get(i);
-        inputs[i] = proj.batch.getValueVector(i).getValueVector();
+        inputs[i] = proj.batch.getValueVector(proj.fromIndex).getValueVector();
         outputs[i] = output.addOrGet(proj.batch.getSchema().getColumn(proj.fromIndex));
       }
+      output.buildSchema(SelectionVectorMode.NONE);
       return new RowBatchMerger(output, inputs, outputs);
     }
   }

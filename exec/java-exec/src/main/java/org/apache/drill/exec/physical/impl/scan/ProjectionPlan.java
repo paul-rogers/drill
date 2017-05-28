@@ -32,17 +32,14 @@ import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.vector.ValueVector;
 
 public abstract class ProjectionPlan {
 
   public static class StaticColumnLoader {
-    private final List<StaticColumn> defns;
     private final ResultSetLoader loader;
     private final String values[];
 
     public StaticColumnLoader(BufferAllocator allocator, List<StaticColumn> defns) {
-      this.defns = defns;
       loader = new ResultSetLoaderImpl(allocator);
       TupleSchema schema = loader.writer().schema();
        for (StaticColumn defn : defns) {
@@ -55,13 +52,6 @@ public abstract class ProjectionPlan {
     }
 
     public void load(int rowCount) {
-//      if (projection.nullCols().isEmpty() && projection.implicitCols().isEmpty() && projection.partitionCols().isEmpty()) {
-//        return;
-//      }
-//      if (staticColumnLoader == null) {
-//        return;
-//      }
-
       loader.startBatch();
       TupleLoader writer = loader.writer();
       for (int i = 0; i < rowCount; i++) {
