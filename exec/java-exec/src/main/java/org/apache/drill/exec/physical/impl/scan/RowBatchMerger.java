@@ -27,6 +27,27 @@ import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 
+/**
+ * Merge two or more batches to produce an output batch. For example, consider
+ * two input batches:<pre><code>
+ * (a, d, e)
+ * (c, b)</code></pre>
+ * We may wish to merge them by projecting columns into an output batch
+ * of the form:<pre><code>
+ * (a, b, c, d)</code></pre>
+ * It is not necessary to project all columns from the inputs, but all
+ * columns in the output must have a projection.
+ * <p>
+ * The merger is created once per schema, then can be reused for any
+ * number of batches. The only restriction is that the two batches must
+ * have the same row count so that the output makes sense.
+ * <p>
+ * Merging is done by discarding any data in the output, then exchanging
+ * the buffers from the input columns to the output, leaving projected
+ * columns empty. Note that unprojected columns must be cleared by the
+ * caller.
+ */
+
 public class RowBatchMerger {
 
   public static class Projection {
@@ -113,5 +134,4 @@ public class RowBatchMerger {
   }
 
   public VectorContainer getOutput() { return output; }
-
 }

@@ -101,13 +101,12 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
       container = new VectorContainer(rowSetMutator.allocator);
     }
 
-    public void update(int rowCount) {
+    public void update() {
       if (lastUpdateVersion < rowSetMutator.schemaVersion()) {
         rowSetMutator.rootTuple.buildContainer(this);
         container.buildSchema(SelectionVectorMode.NONE);
         lastUpdateVersion = rowSetMutator.schemaVersion();
       }
-      container.setRecordCount(rowCount);
     }
 
     public VectorContainer container() { return container; }
@@ -325,8 +324,9 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     if (containerBuilder == null) {
       containerBuilder = new VectorContainerBuilder(this);
     }
-    containerBuilder.update(rowCount);
+    containerBuilder.update();
     VectorContainer container = containerBuilder.container();
+    container.setRecordCount(rowCount);
 
     // Finalize: update counts, set state.
 
@@ -334,6 +334,15 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     previousRowCount += rowCount;
     state = State.HARVESTED;
     return container;
+  }
+
+  @Override
+  public VectorContainer outputContainer() {
+    if (containerBuilder == null) {
+      containerBuilder = new VectorContainerBuilder(this);
+    }
+    containerBuilder.update();
+    return containerBuilder.container();
   }
 
   @Override

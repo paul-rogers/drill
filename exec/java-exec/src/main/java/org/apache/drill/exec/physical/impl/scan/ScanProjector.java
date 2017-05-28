@@ -33,7 +33,38 @@ import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.record.VectorContainer;
 
-public abstract class ProjectionPlan {
+/**
+ * Scan projector that takes a projection plan and:
+ * <ul>
+ * <li>Builds a result set loader that matches the table schema
+ * (if any) provided.</li>
+ * <li>Adds a build-time projection to create vectors only for selected
+ * columns (an explicit selection list was provided.</li>
+ * <li>Builds an internal loader to populate implicit, null or
+ * partition columns, if needed.</li>
+ * <li>Builds a batch merger to combine the table columns with
+ * the static columns.</li>
+ * </ul>
+ * <p>
+ * Various subclasses handle specialized cases:
+ * <ul>
+ * <li>An early-schema table (one in which we know the schema and
+ * the schema remains constant for the whole table.</li>
+ * <li>A late schema table (one in which we discover the schema as
+ * we read the table, and where the schema can change as the read
+ * progresses.)<ul>
+ * <li>Late schema table with SELECT * (we want all columns, whatever
+ * they happen to be.)</li>
+ * <li>Late schema with explicit select list (we want only certain
+ * columns when they happen to appear in the input.)</li></ul></li>
+ * </ul>
+ */
+
+public abstract class ScanProjector {
+
+  /**
+   * Populate static columns (implicit, partition or null).
+   */
 
   public static class StaticColumnLoader {
     private final ResultSetLoader loader;
@@ -42,8 +73,8 @@ public abstract class ProjectionPlan {
     public StaticColumnLoader(BufferAllocator allocator, List<StaticColumn> defns) {
       loader = new ResultSetLoaderImpl(allocator);
       TupleSchema schema = loader.writer().schema();
-       for (StaticColumn defn : defns) {
-         schema.addColumn(defn.schema());
+      for (StaticColumn defn : defns) {
+        schema.addColumn(defn.schema());
       }
       values = new String[defns.size()];
       for (int i = 0; i < defns.size(); i++) {
@@ -57,7 +88,11 @@ public abstract class ProjectionPlan {
       for (int i = 0; i < rowCount; i++) {
         loader.startRow();
         for (int j = 0; j < values.length; j++) {
-          writer.column(j).setString(values[j]);
+          if (values[j] == null) {
+            writer.column(j).setNull();
+          } else {
+            writer.column(j).setString(values[j]);
+          }
         }
         loader.saveRow();
       }
@@ -69,17 +104,21 @@ public abstract class ProjectionPlan {
     }
   }
 
-  public static class ProjectionExecBuiler {
+  /**
+   * Build  scan projector given an projection plan.
+   */
+
+  public static class ScanProjectorBuilder {
     private BufferAllocator allocator;
     private ScanProjection projection;
     private ResultSetLoaderImpl.OptionBuilder options;
 
-    public ProjectionExecBuiler(BufferAllocator allocator, ScanProjection projection) {
+    public ScanProjectorBuilder(BufferAllocator allocator, ScanProjection projection) {
       this.allocator = allocator;
       this.projection = projection;
     }
 
-    public ProjectionPlan build() {
+    public ScanProjector build() {
       if (projection.tableSchemaType() == TableSchemaType.EARLY) {
         return buildEarlySchema();
       } else if (projection.isSelectAll()) {
@@ -89,7 +128,7 @@ public abstract class ProjectionPlan {
       }
     }
 
-    public ProjectionPlan buildEarlySchema() {
+    public ScanProjector buildEarlySchema() {
       ResultSetLoader tableLoader = makeStaticTableLoader();
       StaticColumnLoader staticLoader = null;
       RowBatchMerger batchMerger = null;
@@ -142,11 +181,11 @@ public abstract class ProjectionPlan {
       return builder.build(allocator);
     }
 
-    public ProjectionPlan buildLateSchemaSelectAll() {
+    public ScanProjector buildLateSchemaSelectAll() {
       return null;
     }
 
-    public ProjectionPlan buildLatesSchemaSelectList() {
+    public ScanProjector buildLatesSchemaSelectList() {
       return null;
     }
   }
@@ -157,7 +196,7 @@ public abstract class ProjectionPlan {
    * read.
    */
 
-  public static class EarlySchemaProjectPlan extends ProjectionPlan {
+  public static class EarlySchemaProjectPlan extends ScanProjector {
 
     public EarlySchemaProjectPlan(
         ResultSetLoader tableLoader, StaticColumnLoader staticLoader,
@@ -246,7 +285,7 @@ public abstract class ProjectionPlan {
   private RowBatchMerger batchMerger;
   private VectorContainer output;
 
-  public ProjectionPlan(ResultSetLoader tableLoader, StaticColumnLoader staticLoader, RowBatchMerger batchMerger, VectorContainer output) {
+  public ScanProjector(ResultSetLoader tableLoader, StaticColumnLoader staticLoader, RowBatchMerger batchMerger, VectorContainer output) {
     this.tableLoader = tableLoader;
     staticColumnLoader = staticLoader;
     this.batchMerger = batchMerger;
