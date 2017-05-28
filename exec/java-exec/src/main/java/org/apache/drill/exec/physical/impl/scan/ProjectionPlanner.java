@@ -18,6 +18,7 @@
 package org.apache.drill.exec.physical.impl.scan;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -30,12 +31,17 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ExecConstants;
+import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.ScanProjection.SelectType;
+import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.ScanProjection.TableSchemaType;
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.store.ImplicitColumnExplorer;
 import org.apache.drill.exec.store.ImplicitColumnExplorer.ImplicitFileColumns;
 import org.apache.hadoop.fs.Path;
+
+import jersey.repackaged.com.google.common.collect.Lists;
 
 /**
  * Fluent builder for the projection mapping. Accepts the inputs needed
@@ -225,7 +231,7 @@ public class ProjectionPlanner {
    */
 
   public abstract static class OutputColumn {
-    public enum ColumnType { DATA_SOURCE, NULL, IMPLICIT, PARTITION, COLUMNS }
+    public enum ColumnType { EARLY_TABLE, LATE_TABLE, NULL, IMPLICIT, PARTITION, COLUMNS }
 
     protected final int index;
     private final SelectColumn queryCol;
@@ -251,7 +257,11 @@ public class ProjectionPlanner {
     public SelectColumn projection() { return queryCol; }
 
     public String name() {
-      return queryCol != null ? queryCol.name() : schema.getName();
+      if (queryCol == null  ||  queryCol.isStar()) {
+        return schema.getName();
+      } else {
+        return queryCol.name();
+      }
     }
 
     @Override
@@ -277,23 +287,11 @@ public class ProjectionPlanner {
     protected void buildString(StringBuilder buf) { }
   }
 
-  /**
-   * Output column which projects a table column. The type of the output
-   * is the same as the table column. The name matches the input when the query
-   * provides a SELECT list, else matches that from the table. The two will differ
-   * if the table column is, say, a and the SELECT list uses A.
-   */
+  public static abstract class ProjectedColumn extends OutputColumn {
 
-  public static class ProjectedColumn extends OutputColumn {
-    private final TableColumn source;
-
-    public ProjectedColumn(SelectColumn inCol, int index, TableColumn dsCol) {
-      super(inCol, index, dsCol.schema);
-      source = dsCol;
+    public ProjectedColumn(SelectColumn queryCol, int index, MaterializedField schema) {
+      super(queryCol, index, schema);
     }
-
-    @Override
-    public ColumnType columnType() { return ColumnType.DATA_SOURCE; }
 
     /**
      * The data source column to which this projected column is mapped.
@@ -301,6 +299,28 @@ public class ProjectionPlanner {
      * @return the non-null data source column
      */
 
+    public abstract TableColumn source();
+  }
+
+  /**
+   * Output column which projects a table column. The type of the output
+   * is the same as the table column. The name matches the input when the query
+   * provides a SELECT list, else matches that from the table. The two will differ
+   * if the table column is, say, a and the SELECT list uses A.
+   */
+
+  public static class EarlyProjectedColumn extends ProjectedColumn {
+    private final TableColumn source;
+
+    public EarlyProjectedColumn(SelectColumn inCol, int index, TableColumn dsCol) {
+      super(inCol, index, dsCol.schema);
+      source = dsCol;
+    }
+
+    @Override
+    public ColumnType columnType() { return ColumnType.EARLY_TABLE; }
+
+    @Override
     public TableColumn source() { return source; }
 
     @Override
@@ -317,20 +337,27 @@ public class ProjectionPlanner {
    * list.
    */
 
-  public static class ColumnsArrayColumn extends OutputColumn {
-    public ColumnsArrayColumn(SelectColumn inCol, int index) {
-      super(inCol, index, MaterializedField.create("columns",
-          MajorType.newBuilder()
-            .setMinorType(MinorType.VARCHAR)
-            .setMode(DataMode.REPEATED)
-            .build()));
+  public static class ColumnsArrayColumn extends EarlyProjectedColumn {
+
+    public ColumnsArrayColumn(SelectColumn inCol, int index, TableColumn dsCol) {
+      super(inCol, index, dsCol);
     }
 
     @Override
     public ColumnType columnType() { return ColumnType.COLUMNS; }
+  }
+
+  public static class LateProjectedColumn extends ProjectedColumn {
+
+    public LateProjectedColumn(SelectColumn queryCol, int index) {
+      super(queryCol, index, null);
+    }
 
     @Override
-    public String name() { return schema.getName(); }
+    public TableColumn source() { return null; }
+
+    @Override
+    public ColumnType columnType() { return ColumnType.LATE_TABLE; }
   }
 
   /**
@@ -471,8 +498,7 @@ public class ProjectionPlanner {
 
   // Input
 
-  private boolean selectAll = true;
-  private List<SelectColumn> queryCols;
+  private List<SelectColumn> queryCols = new ArrayList<>();
   private MajorType nullColType;
   private List<TableColumn> tableCols;
   private Map<String, TableColumn> tableIndex = CaseInsensitiveMap.newHashMap();
@@ -488,6 +514,9 @@ public class ProjectionPlanner {
   private List<PartitionColumn> partitionCols = new ArrayList<>();
   private List<StaticColumn> staticCols = new ArrayList<>();
   private List<OutputColumn> outputCols = new ArrayList<>();
+  private SelectType selectType;
+  private TableSchemaType tableType;
+  private SelectColumn starColumn;
 
   public ProjectionPlanner(OptionSet optionManager) {
     partitionDesignator = optionManager.getOption(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL_VALIDATOR);
@@ -508,8 +537,7 @@ public class ProjectionPlanner {
    * @return this builder
    */
   public ProjectionPlanner selectAll() {
-    selectAll = true;
-    return this;
+    return queryCols(Lists.newArrayList(new SchemaPath[] {SchemaPath.getSimplePath("*")}));
   }
 
   /**
@@ -536,12 +564,11 @@ public class ProjectionPlanner {
    * @return this builder
    */
   public ProjectionPlanner queryCols(List<SchemaPath> queryCols) {
-    selectAll = false;
+    assert this.queryCols.isEmpty();
     this.queryCols = new ArrayList<>();
     for (SchemaPath col : queryCols) {
       SelectColumn sCol = new SelectColumn(col);
       this.queryCols.add(sCol);
-      selectAll |= sCol.isStar();
     }
     return this;
   }
@@ -555,8 +582,13 @@ public class ProjectionPlanner {
    */
 
   public ProjectionPlanner tableColumns(List<MaterializedField> cols) {
+    return tableColumns(cols);
+  }
+
+  public ProjectionPlanner tableColumns(Iterator<MaterializedField> iter) {
     tableCols = new ArrayList<>();
-    for (MaterializedField col : cols) {
+    while (iter.hasNext()) {
+      MaterializedField col = iter.next();
       if (tableIndex.containsKey(col.getName())) {
         throw new IllegalStateException("Duplicate selection column: " + col.getName());
       }
@@ -565,6 +597,10 @@ public class ProjectionPlanner {
       tableIndex.put(col.getName(), dsCol);
     }
     return this;
+  }
+
+  public ProjectionPlanner tableColumns(BatchSchema schema) {
+    return tableColumns(schema.iterator());
   }
 
   /**
@@ -591,46 +627,59 @@ public class ProjectionPlanner {
     String[] p = Path.getPathWithoutSchemeAndAuthority(filePath).toString().split("/");
 
     if (p.length - 1 < r.length) {
-      throw new IllegalStateException("Selection root of \"" + selectionRoot +
-                                      "\" is shorter than file path of \"" + filePath.toString());
+      throw new IllegalArgumentException("Selection root of \"" + selectionRoot +
+                                      "\" is shorter than file path of \"" + filePath.toString() + "\"");
     }
     for (int i = 1; i < r.length; i++) {
       if (! r[i].equals(p[i])) {
-        throw new IllegalStateException("Selection root of \"" + selectionRoot +
-            "\" is leading path of \"" + filePath.toString());
+        throw new IllegalArgumentException("Selection root of \"" + selectionRoot +
+            "\" is not a leading path of \"" + filePath.toString() + "\"");
       }
     }
     dirPath = ArrayUtils.subarray(p, r.length, p.length - 1);
     return this;
- }
+  }
 
   /**
    * Perform projection planning and return the final projection plan.
    * @return the finalized projection plan
    */
 
-  public ProjectionPlan build() {
-    if (selectAll) {
-      selectAllTableCols();
-    } else {
-      mapSelectedCols();
-    }
-    if (selectAll && useLegacyStarPlan) {
+  public ScanProjection build() {
+    mapSelectedCols();
+    if (selectType == SelectType.ALL && useLegacyStarPlan) {
       selectAllPartitions();
       selectAllImplicitCols();
-    } else {
-      mapImplicitCols();
-      mapPartitionCols();
     }
-    return new ProjectionPlan(this);
-  }
+    mapImplicitCols();
+    mapPartitionCols();
 
-  private void selectAllTableCols() {
-    for (TableColumn col : tableCols) {
-      col.projection = new ProjectedColumn(null, outputCols.size(), col);
-      projectedCols.add(col.projection);
-      outputCols.add(col.projection);
+    if (selectType == SelectType.ALL) {
+      if (tableCols == null) {
+        // SELECT *: is late schema
+
+        tableType = TableSchemaType.LATE;
+      } else {
+        // Table columns provided: early schema
+
+        tableType = TableSchemaType.EARLY;
+      }
+    } else if (columnsArrayCol != null) {
+
+      // Has special `columns` column, is early schema because all columns
+      // go into the one, known, array.
+
+     tableType = TableSchemaType.EARLY;
+    } else if (tableCols != null) {
+      // Table columns provided: early schema
+
+      tableType = TableSchemaType.EARLY;
+    } else {
+      // Is late schema.
+
+      tableType = TableSchemaType.LATE;
     }
+    return new ScanProjection(this);
   }
 
   private void selectAllPartitions() {
@@ -654,7 +703,7 @@ public class ProjectionPlanner {
       return;
     }
     for (ImplicitColumnDefn iCol : implicitColDefns) {
-      ImplicitColumn outCol = new ImplicitColumn(null, outputCols.size(), iCol);
+      ImplicitColumn outCol = new ImplicitColumn(starColumn, outputCols.size(), iCol);
       outCol.setValue(filePath);
       implicitCols.add(outCol);
       staticCols.add(outCol);
@@ -663,23 +712,26 @@ public class ProjectionPlanner {
   }
 
   private void mapSelectedCols() {
+    selectType = SelectType.LIST;
+    for (SelectColumn inCol : queryCols) {
+      mapColumn(inCol);
+    }
+  }
+
+  private MajorType getNullColumnType() {
     if (nullColType == null) {
       nullColType = MajorType.newBuilder()
           .setMinorType(MinorType.INT)
           .setMode(DataMode.OPTIONAL)
           .build();
     }
-    int index = 0;
-    for (SelectColumn inCol : queryCols) {
-      OutputColumn outCol = mapColumn(index++, inCol);
-      outputCols.add(outCol);
-      inCol.projection = outCol;
-    }
+    return nullColType;
   }
 
   /**
-   * Map the column into one of five categories.
+   * Map the column into one of six categories.
    * <ol>
+   * <li>Star column (to designate SELECT *)</li>
    * <li>Partition file column (dir0, dir1, etc.)</li>
    * <li>Implicit column (fqn, filepath, filename, suffix)</li>
    * <li>Special <tt>columns</tt> column which holds all columns as
@@ -694,54 +746,161 @@ public class ProjectionPlanner {
    * @return
    */
 
-  private OutputColumn mapColumn(int index, SelectColumn inCol) {
+  private void mapColumn(SelectColumn inCol) {
+    if (inCol.isStar()) {
+
+      // Star column: this is a SELECT * query.
+
+      mapStarColumn(inCol);
+      return;
+    }
     Matcher m = partitionPattern.matcher(inCol.name);
     if (m.matches()) {
-      PartitionColumn outCol = new PartitionColumn(inCol, index, Integer.parseInt(m.group(1)));
-      partitionCols.add(outCol);
-      staticCols.add(outCol);
-      return outCol;
+
+      // Partition column
+
+      mapPartitionColumn(inCol, Integer.parseInt(m.group(1)));
+      return;
     }
     ImplicitColumnDefn iCol = implicitColIndex.get(inCol.name);
     if (iCol != null) {
-      ImplicitColumn outCol = new ImplicitColumn(inCol, index, iCol);
-      implicitCols.add(outCol);
-      staticCols.add(outCol);
-      return outCol;
+
+      // Implicit column
+
+      mapImplicitColumn(iCol, inCol);
+      return;
+    }
+
+    // The column is a table-like column. Not compatibile with SELECT *.
+
+    if (selectType == SelectType.ALL) {
+      throw new IllegalArgumentException("Cannot list table columns and `*` together: " + inCol.name);
     }
 
     if (inCol.name.equalsIgnoreCase("columns")) {
-      if (! projectedCols.isEmpty() || ! nullCols.isEmpty()) {
-        throw new IllegalArgumentException("Cannot combine columns[] with other columns");
-      }
-      columnsArrayCol = new ColumnsArrayColumn(inCol, index);
-      return columnsArrayCol;
+
+      // Special `columns` array column.
+
+      mapColumnsArrayColumn(inCol);
+      return;
     }
+
+    // True table column. Not compatible with `columns` column.
 
     if (columnsArrayCol != null) {
       throw new IllegalArgumentException("Cannot combine columns[] with other columns: " + inCol.name);
     }
 
-    // If a schema is not known, assume all columns are projected.
+    if (tableCols == null) {
+      // If a schema is not known, assume all columns are projected.
+      // The scan operator must sort out actual schema batch-by-batch.
 
-    if (tableCols.isEmpty()) {
-      ProjectedColumn outCol = new ProjectedColumn(inCol, index, null);
-      projectedCols.add(outCol);
-      return outCol;
+      mapLateProjectColumn(inCol);
+      return;
     }
 
     TableColumn dsCol = tableIndex.get(inCol.name);
     if (dsCol != null) {
-      ProjectedColumn outCol = new ProjectedColumn(inCol, index, dsCol);
-      dsCol.projection = outCol;
-      projectedCols.add(outCol);
-      return outCol;
+      // Early schema, found a table column match. This is a projected column.
+
+      mapEarlyProjectedColumn(dsCol, inCol);
+      return;
     } else {
-      NullColumn outCol = new NullColumn(inCol, index, MaterializedField.create(inCol.name, nullColType));
-      nullCols.add(outCol);
-      staticCols.add(outCol);
-      return outCol;
+
+      // Early schema, but not match. This is a null column.
+
+      mapNullColumn(inCol);
+      return;
     }
+  }
+
+  private void mapStarColumn(SelectColumn inCol) {
+    if (! projectedCols.isEmpty()) {
+      throw new IllegalArgumentException("Cannot list table columns and `*` together");
+    }
+    if (starColumn != null) {
+      throw new IllegalArgumentException("Duplicate * entry in select list");
+    }
+    selectType = SelectType.ALL;
+    starColumn = inCol;
+
+    // Select 'em if we got 'em.
+
+    if (tableCols != null) {
+      for (TableColumn col : tableCols) {
+        col.projection = new EarlyProjectedColumn(starColumn, outputCols.size(), col);
+        projectedCols.add(col.projection);
+        outputCols.add(col.projection);
+      }
+    }
+
+  }
+
+  private void mapPartitionColumn(SelectColumn inCol, int partition) {
+    PartitionColumn outCol = new PartitionColumn(inCol, outputCols.size(), partition);
+    partitionCols.add(outCol);
+    staticCols.add(outCol);
+    outputCols.add(outCol);
+    inCol.projection = outCol;
+  }
+
+  private void mapImplicitColumn(ImplicitColumnDefn iCol, SelectColumn inCol) {
+    ImplicitColumn outCol = new ImplicitColumn(inCol, outputCols.size(), iCol);
+    implicitCols.add(outCol);
+    staticCols.add(outCol);
+    outputCols.add(outCol);
+    inCol.projection = outCol;
+  }
+
+  private void mapColumnsArrayColumn(SelectColumn inCol) {
+
+    if (! projectedCols.isEmpty() || ! nullCols.isEmpty()) {
+      throw new IllegalArgumentException("Cannot combine columns[] with other columns");
+    }
+    if (columnsArrayCol != null) {
+      throw new IllegalArgumentException("Duplicate columns[] column");
+    }
+    if (tableCols != null) {
+      throw new IllegalArgumentException("Cannot specify `columns` with a table schema");
+    }
+
+    MaterializedField colSchema = MaterializedField.create("columns",
+          MajorType.newBuilder()
+            .setMinorType(MinorType.VARCHAR)
+            .setMode(DataMode.REPEATED)
+            .build());
+    TableColumn tableCol = new TableColumn(0, colSchema);
+    tableCols = new ArrayList<>();
+    tableCols.add(tableCol);
+
+    columnsArrayCol = new ColumnsArrayColumn(inCol, outputCols.size(), tableCol);
+    outputCols.add(columnsArrayCol);
+    inCol.projection = columnsArrayCol;
+    tableCol.projection = columnsArrayCol;
+    projectedCols.add(columnsArrayCol);
+  }
+
+  private void mapLateProjectColumn(SelectColumn inCol) {
+    ProjectedColumn outCol = new LateProjectedColumn(inCol, outputCols.size());
+    projectedCols.add(outCol);
+    outputCols.add(outCol);
+    inCol.projection = outCol;
+  }
+
+  private void mapEarlyProjectedColumn(TableColumn dsCol, SelectColumn inCol) {
+    ProjectedColumn outCol = new EarlyProjectedColumn(inCol, outputCols.size(), dsCol);
+    dsCol.projection = outCol;
+    projectedCols.add(outCol);
+    outputCols.add(outCol);
+    inCol.projection = outCol;
+  }
+
+  private void mapNullColumn(SelectColumn inCol) {
+    NullColumn outCol = new NullColumn(inCol, outputCols.size(), MaterializedField.create(inCol.name, getNullColumnType()));
+    nullCols.add(outCol);
+    staticCols.add(outCol);
+    outputCols.add(outCol);
+    inCol.projection = outCol;
   }
 
   private void mapImplicitCols() {
@@ -766,9 +925,13 @@ public class ProjectionPlanner {
   }
 
 
-  public static class ProjectionPlan {
+  public static class ScanProjection {
 
-    private final boolean selectAll;
+    public enum SelectType { ALL, LIST }
+    public enum TableSchemaType { EARLY, LATE }
+
+    private final SelectType selectType;
+    private final TableSchemaType tableType;
     private final List<SelectColumn> queryCols;
     private final List<TableColumn> tableCols;
     private final ColumnsArrayColumn columnsCol;
@@ -783,8 +946,9 @@ public class ProjectionPlanner {
       return new ProjectionPlanner(options);
     }
 
-    public ProjectionPlan(ProjectionPlanner builder) {
-      selectAll = builder.selectAll;
+    public ScanProjection(ProjectionPlanner builder) {
+      selectType = builder.selectType;
+      tableType = builder.tableType;
       queryCols = builder.queryCols;
       tableCols = builder.tableCols;
       columnsCol = builder.columnsArrayCol;
@@ -800,7 +964,10 @@ public class ProjectionPlanner {
      * Return whether this is a SELECT * query
      * @return true if this is a SELECT * query
      */
-    public boolean isSelectAll() { return selectAll; }
+    public boolean isSelectAll() { return selectType == SelectType.ALL; }
+
+    public TableSchemaType tableSchemaType() { return tableType; }
+
     /**
      * Return the set of columns from the SELECT list
      * @return the SELECT list columns, in SELECT list order,

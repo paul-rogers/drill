@@ -116,6 +116,8 @@ public interface ResultSetLoader {
 
   int rowCount();
 
+  VectorContainer outputContainer();
+
   /**
    * Harvest the current row batch, and reset the mutator
    * to the start of the next row batch (which may already contain

@@ -25,7 +25,7 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.ColumnProjectionBuilder;
-import org.apache.drill.exec.physical.impl.scan.ResultSetBuilder.StaticSchemaResultSetBuilder;
+import org.apache.drill.exec.physical.impl.scan.ProjectionPlan.EarlySchemaProjectPlan;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
@@ -75,7 +75,7 @@ public class TestResultSetBuilder extends SubOperatorTest {
 
     VectorContainer output = new VectorContainer(fixture.allocator());
 
-    StaticSchemaResultSetBuilder rsBuilder = new StaticSchemaResultSetBuilder(projection, null, output);
+    EarlySchemaProjectPlan rsBuilder = new EarlySchemaProjectPlan(projection, null, output);
 
     // Create the result set loader for the table
 

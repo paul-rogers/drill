@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -23,7 +23,6 @@ import java.util.Iterator;
 import org.antlr.runtime.ANTLRStringStream;
 import org.antlr.runtime.CommonTokenStream;
 import org.antlr.runtime.RecognitionException;
-import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.expression.PathSegment.ArraySegment;
 import org.apache.drill.common.expression.PathSegment.NameSegment;
 import org.apache.drill.common.expression.parser.ExprLexer;
@@ -39,7 +38,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterators;
+import com.google.common.collect.ImmutableSet;
 
 public class SchemaPath extends LogicalExpressionBase {
 
@@ -58,7 +57,6 @@ public class SchemaPath extends LogicalExpressionBase {
     return new SchemaPath(s);
   }
 
-  @SuppressWarnings("unused")
   public PathSegment getLastSegment() {
     PathSegment s= rootSegment;
     while (s.getChild() != null) {
@@ -157,7 +155,6 @@ public class SchemaPath extends LogicalExpressionBase {
     return new SchemaPath(newRoot);
   }
 
-  @SuppressWarnings("unused")
   public SchemaPath getUnindexedArrayChild() {
     NameSegment newRoot = rootSegment.cloneWithNewChild(new ArraySegment(null));
     return new SchemaPath(newRoot);
@@ -218,7 +215,7 @@ public class SchemaPath extends LogicalExpressionBase {
 
   @Override
   public Iterator<LogicalExpression> iterator() {
-    return Iterators.emptyIterator();
+    return ImmutableSet.<LogicalExpression>of().iterator();
   }
 
   @Override
@@ -251,6 +248,7 @@ public class SchemaPath extends LogicalExpressionBase {
     return sb.toString();
   }
 
+  @SuppressWarnings("serial")
   public static class De extends StdDeserializer<SchemaPath> {
 
     public De() {
@@ -284,7 +282,5 @@ public class SchemaPath extends LogicalExpressionBase {
         throw new RuntimeException(e);
       }
     }
-
   }
-
 }
