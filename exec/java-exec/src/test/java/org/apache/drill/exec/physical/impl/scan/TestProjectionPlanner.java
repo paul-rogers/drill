@@ -17,7 +17,13 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,21 +31,17 @@ import java.util.List;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner;
 import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.OutputColumn.ColumnType;
 import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.ScanProjection;
 import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
-import com.google.common.collect.Lists;
-
 public class TestProjectionPlanner extends SubOperatorTest {
 
-  private static List<SchemaPath> selectList(String... names) {
+  static List<SchemaPath> selectList(String... names) {
     List<SchemaPath> selected = new ArrayList<>();
     for (String name: names) {
       selected.add(SchemaPath.getSimplePath(name));

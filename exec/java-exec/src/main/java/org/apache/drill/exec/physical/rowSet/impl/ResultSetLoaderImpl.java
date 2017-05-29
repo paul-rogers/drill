@@ -189,7 +189,17 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
 
   public BufferAllocator allocator() { return allocator; }
 
-  protected int bumpVersion() { return ++activeSchemaVersion; }
+  protected int bumpVersion() {
+    activeSchemaVersion++;
+    if (state != State.OVERFLOW) {
+      // If overflow row, don't advertise the version to the client
+      // as the overflow schema is invisible to the client at this
+      // point.
+
+      harvestSchemaVersion = activeSchemaVersion;
+    }
+    return activeSchemaVersion;
+  }
 
   @Override
   public int schemaVersion() { return harvestSchemaVersion; }
@@ -199,6 +209,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     if (state != State.START && state != State.HARVESTED) {
       throw new IllegalStateException("Unexpected state: " + state);
     }
+
+    // Update the visible schema with any pending overflow batch
+    // updates.
+
+    harvestSchemaVersion = activeSchemaVersion;
     rootTuple.start();
     if (pendingRowCount == 0) {
       writerIndex.reset();
@@ -305,27 +320,16 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
       throw new IllegalStateException("Unexpected state: " + state);
     }
 
-    if (state == State.ACTIVE) {
-      harvestSchemaVersion = activeSchemaVersion;
-    }
-
     // Wrap up the vectors: final fill-in, set value count, etc.
 
     rootTuple.harvest();
+    VectorContainer container = outputContainer();
 
     // Row count is the number of items to be harvested. If overflow,
     // it is the number of rows in the saved vectors. Otherwise,
     // it is the number in the active vectors.
 
     int rowCount = pendingRowCount > 0 ? pendingRowCount : writerIndex.size();
-
-    // Build the output container.
-
-    if (containerBuilder == null) {
-      containerBuilder = new VectorContainerBuilder(this);
-    }
-    containerBuilder.update();
-    VectorContainer container = containerBuilder.container();
     container.setRecordCount(rowCount);
 
     // Finalize: update counts, set state.
@@ -338,6 +342,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
 
   @Override
   public VectorContainer outputContainer() {
+    // Build the output container.
+
     if (containerBuilder == null) {
       containerBuilder = new VectorContainerBuilder(this);
     }

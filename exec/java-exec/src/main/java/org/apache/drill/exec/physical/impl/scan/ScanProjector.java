@@ -108,12 +108,14 @@ public abstract class ScanProjector {
    * Build  scan projector given an projection plan.
    */
 
-  public static class ScanProjectorBuilder {
+  public static class Builder {
     private BufferAllocator allocator;
     private ScanProjection projection;
     private ResultSetLoaderImpl.OptionBuilder options;
+    private StaticColumnLoader staticLoader;
+    private RowBatchMerger batchMerger;
 
-    public ScanProjectorBuilder(BufferAllocator allocator, ScanProjection projection) {
+    public Builder(BufferAllocator allocator, ScanProjection projection) {
       this.allocator = allocator;
       this.projection = projection;
     }
@@ -130,18 +132,45 @@ public abstract class ScanProjector {
 
     public ScanProjector buildEarlySchema() {
       ResultSetLoader tableLoader = makeStaticTableLoader();
-      StaticColumnLoader staticLoader = null;
-      RowBatchMerger batchMerger = null;
       VectorContainer output;
-      List<StaticColumn> staticCols = projection.staticCols();
-      if (staticCols.isEmpty()) {
-        output = tableLoader.outputContainer();
+      if (requiresProjection()) {
+        output = prepareProjection(tableLoader);
       } else {
-        staticLoader = new StaticColumnLoader(allocator, staticCols);
-        batchMerger = makeBatchMerger(tableLoader, staticLoader);
-        output = batchMerger.getOutput();
+        output = tableLoader.outputContainer();
       }
       return new EarlySchemaProjectPlan(tableLoader, staticLoader, batchMerger, output);
+    }
+
+    private boolean requiresProjection() {
+
+      // Must do projection if we have static columns (implicit, partition
+      // or null.)
+
+      if (! projection.staticCols().isEmpty()) {
+        return true;
+      }
+
+      // If select all, then the table determines column order, so no projection.
+
+      if (projection.isSelectAll()) {
+        return false;
+      }
+
+      // Must do projection if the table columns are returned in an order
+      // different than that of the table.
+
+      List<ProjectedColumn> projectedCols = projection.projectedCols();
+      for (int i = 1; i < projectedCols.size(); i++) {
+        TableColumn prevCol = projectedCols.get(i-1).source();
+        TableColumn thisCol = projectedCols.get(i).source();
+        if (prevCol.index() > thisCol.index()) {
+          return true;
+        }
+      }
+
+      // Returning columns in same order as the table.
+
+      return false;
     }
 
     private ResultSetLoader makeStaticTableLoader() {
@@ -156,7 +185,12 @@ public abstract class ScanProjector {
         }
         options.setSelection(selection);
       }
-      ResultSetLoaderImpl loader =  new ResultSetLoaderImpl(allocator, options.build());
+      ResultSetLoaderImpl loader;
+      if (options == null) {
+        loader = new ResultSetLoaderImpl(allocator);
+      } else {
+        loader = new ResultSetLoaderImpl(allocator, options.build());
+      }
       TupleSchema schema = loader.writer().schema();
       for (TableColumn tableCol : projection.tableCols()) {
         schema.addColumn(tableCol.schema());
@@ -164,21 +198,25 @@ public abstract class ScanProjector {
       return loader;
     }
 
-    protected RowBatchMerger makeBatchMerger(ResultSetLoader tableLoader, StaticColumnLoader staticLoader) {
+    protected VectorContainer prepareProjection(ResultSetLoader tableLoader) {
       RowBatchMerger.Builder builder = new RowBatchMerger.Builder();
       VectorContainer tableContainer = tableLoader.outputContainer();
       List<ProjectedColumn> projections = projection.projectedCols();
       for (int i = 0; i < projections.size(); i++) {
-        builder.addProjection(tableContainer, i, projections.get(i).index());
+        builder.addProjection(tableContainer, projections.get(i).source().index(), i);
       }
 
-      VectorContainer staticContainer = staticLoader.output();
       List<StaticColumn> staticCols = projection.staticCols();
-      for (int i = 0; i < staticCols.size(); i++) {
-        builder.addProjection(staticContainer, i, staticCols.get(i).index());
+      if (! staticCols.isEmpty()) {
+        staticLoader = new StaticColumnLoader(allocator, staticCols);
+        VectorContainer staticContainer = staticLoader.output();
+        for (int i = 0; i < staticCols.size(); i++) {
+          builder.addProjection(staticContainer, i, staticCols.get(i).index());
+        }
       }
 
-      return builder.build(allocator);
+      batchMerger = builder.build(allocator);
+      return batchMerger.getOutput();
     }
 
     public ScanProjector buildLateSchemaSelectAll() {
@@ -295,18 +333,18 @@ public abstract class ScanProjector {
   public abstract void build();
 
   protected void doMerge() {
-    tableLoader.harvest();
-    if (staticColumnLoader == null) {
+    VectorContainer tableBatch = tableLoader.harvest();
+    if (batchMerger == null) {
       return;
     }
-    int rowCount = output.getRecordCount();
-    staticColumnLoader.load(rowCount);
+    int rowCount = tableBatch.getRecordCount();
+    if (staticColumnLoader != null) {
+      staticColumnLoader.load(rowCount);
+    }
     batchMerger.project(rowCount);
   }
 
-  public VectorContainer output() {
-    return output;
-  }
+  public VectorContainer output() { return output; }
 
   public ResultSetLoader tableLoader() { return tableLoader; }
 }
