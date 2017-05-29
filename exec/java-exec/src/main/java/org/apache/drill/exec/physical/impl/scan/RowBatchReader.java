@@ -17,8 +17,11 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
+import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.store.RecordReader;
 
 /**
@@ -34,14 +37,52 @@ import org.apache.drill.exec.store.RecordReader;
 public interface RowBatchReader {
 
   /**
+   * Negotiate the select and table schemas with the scan operator. Depending
+   * on the design of the storage plugin, the selection list may be something that
+   * the scan operator understands, or that the record reader understands. If the
+   * storage plugin; the <tt>addSelectColumn()</tt> methods are not needed. But,
+   * if the record reader defines the select list, call the various
+   * <tt>addSelectColumn()</tt> methods to specify the select. All methods are
+   * equivalent, though processing can be saved if the reader knows the column
+   * type.
+   * <p>
+   * All readers must announce the table schema. This can be done at open time
+   * for an "early schema" reader. But, if the schema is not known at open
+   * time, then the reader is a "late schema" reader and schema will be
+   * discovered, and adjusted, on each batch.
+   * <p>
+   * Regardless of the schema type, the result of building the schema is a
+   * result set loader used to prepare batches for use in the query. If the
+   * select list contains a subset of columns from the table, then the result
+   * set loader will return null when the reader asks for the column loader for
+   * that column. The null value tells the reader to skip that column. The reader
+   * can use that information to avoid reading the data, if possible, for
+   * efficiency.
+   */
+
+  public interface SchemaNegotiator {
+    enum ColumnType { ANY, TABLE, META_ANY, META_IMPLICIT, META_PARTITION };
+
+    void addSelectColumn(String name);
+    void addSelectColumn(SchemaPath path);
+    void addSelectColumn(SchemaPath path, ColumnType type);
+    void addTableColumn(String name, MajorType type);
+    void addTableColumn(MaterializedField schema);
+    ResultSetLoader build();
+    // TODO: return a projection map as an array of booleans
+  }
+
+  /**
    * Setup the record reader. Called just before the first call
    * to <tt>next()</tt>. Allocate resources here, not in the constructor.
    * Example: open files, allocate buffers, etc.
    * @param context execution context
-   * @param mutator row set mutator used to create batches
+   * @param schemaNegotiator mechanism to negotiate select and table
+   * schemas, then create the row set reader used to load data into
+   * value vectors
    */
 
-  void open(OperatorExecServices context, ResultSetLoader mutator);
+  void open(OperatorExecServices context, SchemaNegotiator schemaNegotiator);
 
   /**
    * Read the next batch. Reading continues until either EOF,

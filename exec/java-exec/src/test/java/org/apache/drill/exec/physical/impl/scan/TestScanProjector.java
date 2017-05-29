@@ -17,28 +17,27 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
-import java.io.Writer;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.ImplicitColumn;
-import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.ImplicitColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.SelectColumn;
-import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.StaticColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.ImplicitColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.ImplicitColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.NullColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.PartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.SelectColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.StaticColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjector.StaticColumnLoader;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.impl.LogicalTupleLoader;
 import org.apache.drill.exec.physical.rowSet.impl.TupleSetImpl.TupleLoaderImpl;
 import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.NullColumn;
-import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.ScanProjection;
 import org.apache.drill.exec.store.ImplicitColumnExplorer.ImplicitFileColumns;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -98,6 +97,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     new RowSetComparison(expected)
         .verifyAndClearAll(fixture.wrap(staticLoader.output()));
+    staticLoader.close();
   }
 
   @Test
@@ -137,7 +137,7 @@ public class TestScanProjector extends SubOperatorTest {
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
     }
-    scanProj.build();
+    scanProj.harvest();
 
     // Verify
 
@@ -148,6 +148,8 @@ public class TestScanProjector extends SubOperatorTest {
 
     new RowSetComparison(expected)
         .verifyAndClearAll(fixture.wrap(scanProj.output()));
+
+    scanProj.close();
   }
 
   @Test
@@ -186,7 +188,7 @@ public class TestScanProjector extends SubOperatorTest {
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
     }
-    scanProj.build();
+    scanProj.harvest();
 
     // Verify
 
@@ -197,6 +199,8 @@ public class TestScanProjector extends SubOperatorTest {
 
     new RowSetComparison(expected)
         .verifyAndClearAll(fixture.wrap(scanProj.output()));
+
+    scanProj.close();
   }
 
   @Test
@@ -235,7 +239,7 @@ public class TestScanProjector extends SubOperatorTest {
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
     }
-    scanProj.build();
+    scanProj.harvest();
 
     // Verify
 
@@ -250,6 +254,8 @@ public class TestScanProjector extends SubOperatorTest {
 
     new RowSetComparison(expected)
         .verifyAndClearAll(fixture.wrap(scanProj.output()));
+
+    scanProj.close();
   }
 
   @Test
@@ -288,7 +294,7 @@ public class TestScanProjector extends SubOperatorTest {
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
     }
-    scanProj.build();
+    scanProj.harvest();
 
     // Verify
 
@@ -304,6 +310,8 @@ public class TestScanProjector extends SubOperatorTest {
 
     new RowSetComparison(expected)
         .verifyAndClearAll(fixture.wrap(scanProj.output()));
+
+    scanProj.close();
   }
 
   @Test
@@ -341,7 +349,7 @@ public class TestScanProjector extends SubOperatorTest {
       assertNull(writer.column(1));
       loader.saveRow();
     }
-    scanProj.build();
+    scanProj.harvest();
 
     // Verify
 
@@ -355,6 +363,8 @@ public class TestScanProjector extends SubOperatorTest {
 
     new RowSetComparison(expected)
         .verifyAndClearAll(fixture.wrap(scanProj.output()));
+
+    scanProj.close();
   }
 
   @Test
@@ -399,7 +409,7 @@ public class TestScanProjector extends SubOperatorTest {
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
     }
-    scanProj.build();
+    scanProj.harvest();
 
     // Verify
 
@@ -416,6 +426,8 @@ public class TestScanProjector extends SubOperatorTest {
 
     new RowSetComparison(expected)
         .verifyAndClearAll(fixture.wrap(scanProj.output()));
+
+    scanProj.close();
   }
 
   @Test
@@ -453,7 +465,7 @@ public class TestScanProjector extends SubOperatorTest {
       assertNull(writer.column(1));
       loader.saveRow();
     }
-    scanProj.build();
+    scanProj.harvest();
 
     // Verify
 
@@ -467,7 +479,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     new RowSetComparison(expected)
         .verifyAndClearAll(fixture.wrap(scanProj.output()));
+
+    scanProj.close();
   }
-
-
 }

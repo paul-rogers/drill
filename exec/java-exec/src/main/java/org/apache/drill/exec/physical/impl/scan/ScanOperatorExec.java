@@ -20,21 +20,20 @@ package org.apache.drill.exec.physical.impl.scan;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.BatchAccessor;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExec;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.VectorContainerAccessor;
+import org.apache.drill.exec.physical.impl.scan.RowBatchReader.SchemaNegotiator;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.SelectColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.TableColumn;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
-import org.apache.drill.exec.physical.rowSet.TupleLoader;
-import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
 
@@ -80,19 +79,70 @@ import com.google.common.annotations.VisibleForTesting;
 
 public class ScanOperatorExec implements OperatorExec {
 
-  public static class ImplicitColumnDefn {
-    public final String colName;
-    public final String value;
+  private static class SchemaNegotiatorImpl implements SchemaNegotiator {
 
-    public ImplicitColumnDefn(String colName, String value) {
-      this.colName = colName;
-      this.value = value;
+    private final ScanOperatorExec opExec;
+    private final List<SelectColumn> selection = new ArrayList<>();
+    private final List<TableColumn> tableSchema = new ArrayList<>();
+
+    private SchemaNegotiatorImpl(ScanOperatorExec opExec) {
+      this.opExec = opExec;
+    }
+
+    @Override
+    public void addSelectColumn(String name) {
+      addSelectColumn(SchemaPath.getSimplePath(name));
+    }
+
+    @Override
+    public void addSelectColumn(SchemaPath path) {
+      addSelectColumn(path, ColumnType.ANY);
+    }
+
+    @Override
+    public void addSelectColumn(SchemaPath path, ColumnType type) {
+
+      // Can't yet handle column type
+      // Always treated as ANY: the planner will sort out the meaning.
+
+      selection.add(new SelectColumn(path));
+    }
+
+    @Override
+    public void addTableColumn(String name, MajorType type) {
+      addTableColumn(MaterializedField.create(name, type));
+    }
+
+    @Override
+    public void addTableColumn(MaterializedField schema) {
+      tableSchema.add(new TableColumn(tableSchema.size(), schema));
+    }
+
+    @Override
+    public ResultSetLoader build() {
+      ProjectionPlanner planner = new ProjectionPlanner(opExec.context.getFragmentContext().getOptionSet());
+      if (opExec.options.selection != null) {
+        if (! selection.isEmpty()) {
+          throw new IllegalStateException("Select list provided by scan operator; cannot also be provided by reader");
+        }
+        planner.queryCols(opExec.options.selection);
+      } else {
+        planner.selection(selection);
+      }
+      planner.tableSchema(tableSchema);
+      ScanProjection projection = planner.build();
+      opExec.scanProjector = new ScanProjector.Builder(opExec.context.allocator(), projection)
+          .build();
+      return opExec.scanProjector.tableLoader();
     }
   }
 
+  // TODO: Move into the projection planner
+
   public static class ScanOptions {
-    public List<ImplicitColumnDefn> implicitColumns;
-    public boolean reuseSchemaAcrossReaders;
+//    public List<ImplicitColumnDefn> implicitColumns;
+//    public boolean reuseSchemaAcrossReaders;
+    public List<SchemaPath> selection;
   }
 
   private enum State { START, NEXT_READER, LOOK_AHEAD, READER, READER_EOF, END, FAILED, CLOSED }
@@ -104,17 +154,17 @@ public class ScanOperatorExec implements OperatorExec {
   private final Iterator<RowBatchReader> readers;
   private final ScanOptions options;
   private final VectorContainerAccessor containerAccessor = new VectorContainerAccessor();
-  private ResultSetLoader rowSetMutator;
+  private ScanProjector scanProjector;
   private RowBatchReader reader;
   private int readerCount;
 
   private VectorContainer lookahead;
 
-  public ScanOperatorExec(Iterator<RowBatchReader> readers,
-                          List<Map<String, String>> implicitColumns) {
-    this(readers,
-        convertImplicitCols(implicitColumns));
-  }
+//  public ScanOperatorExec(Iterator<RowBatchReader> readers,
+//                          List<Map<String, String>> implicitColumns) {
+//    this(readers,
+//        convertImplicitCols(implicitColumns));
+//  }
 
   public ScanOperatorExec(Iterator<RowBatchReader> readers,
                           ScanOptions options) {
@@ -126,17 +176,17 @@ public class ScanOperatorExec implements OperatorExec {
     this(iterator, new ScanOptions());
   }
 
-  public static ScanOptions convertImplicitCols(List<Map<String, String>> implicitColumns) {
-    List<ImplicitColumnDefn> newForm = new ArrayList<>();
-    for ( Map<String, String> map : implicitColumns ) {
-      for (Map.Entry<String, String> entry : map.entrySet()) {
-        newForm.add(new ImplicitColumnDefn(entry.getKey(), entry.getValue()));
-      }
-    }
-    ScanOptions options = new ScanOptions();
-    options.implicitColumns = newForm;
-    return options;
-  }
+//  public static ScanOptions convertImplicitCols(List<Map<String, String>> implicitColumns) {
+//    List<ImplicitColumnDefn> newForm = new ArrayList<>();
+//    for ( Map<String, String> map : implicitColumns ) {
+//      for (Map.Entry<String, String> entry : map.entrySet()) {
+//        newForm.add(new ImplicitColumnDefn(entry.getKey(), entry.getValue()));
+//      }
+//    }
+//    ScanOptions options = new ScanOptions();
+//    options.implicitColumns = newForm;
+//    return options;
+//  }
 
   @Override
   public void bind(OperatorExecServices context) {
@@ -253,7 +303,7 @@ public class ScanOperatorExec implements OperatorExec {
       // The reader is done, but the mutator may have one final
       // row representing an overflow from the previous batch.
 
-      if (rowSetMutator.rowCount() > 0) {
+      if (scanProjector.tableLoader().rowCount() > 0) {
         prepareBatch();
         return;
       }
@@ -272,31 +322,16 @@ public class ScanOperatorExec implements OperatorExec {
     // Get the next reader, if any.
 
     if (! readers.hasNext()) {
-      if (rowSetMutator != null) {
-        rowSetMutator.close();
-      }
       containerAccessor.setContainer(null);
       return false;
     }
     reader = readers.next();
     readerCount++;
 
-    // Prepare the row set mutator to receive input rows
-
-    if (rowSetMutator == null) {
-      rowSetMutator = new ResultSetLoaderImpl(context.allocator());
-    } else if (options.reuseSchemaAcrossReaders) {
-        rowSetMutator.reset();
-    } else {
-      // Discard or reset the current row set mutator.
-      rowSetMutator.close();
-      rowSetMutator = new ResultSetLoaderImpl(context.allocator());
-    }
-
     // Open the reader. This can fail. if it does, clean up.
 
     try {
-      reader.open(context, rowSetMutator);
+      reader.open(context, new SchemaNegotiatorImpl(this));
       return true;
 
     // When catching errors, leave the reader member set;
@@ -320,7 +355,7 @@ public class ScanOperatorExec implements OperatorExec {
 
     // Prepare for the batch.
 
-    rowSetMutator.startBatch();
+    scanProjector.tableLoader().startBatch();
 
     // Try to read a batch. This may fail. If so, clean up the
     // mess.
@@ -344,79 +379,79 @@ public class ScanOperatorExec implements OperatorExec {
   }
 
   private void prepareBatch() {
-    VectorContainer container = rowSetMutator.harvest();
 
     // Add implicit columns, if any.
-
-    if (options.implicitColumns != null) {
-      container = mergeImplicitColumns(container);
-    }
-
     // Identify the output container and its schema version.
 
-    containerAccessor.setContainer(container);
+    containerAccessor.setContainer(scanProjector.harvest());
   }
 
-  /**
-   * Add implicit columns to the given vector. This is done by creating a
-   * second row set mutator, using that to define and write the implicit
-   * columns, then merging the reader's container with the implicit columns
-   * to produce the final batch.
-   *
-   * @param container container with the data from the reader
-   * @return new container with the original data merged with the implicit
-   * columns
-   */
-
-  private VectorContainer mergeImplicitColumns(VectorContainer container) {
-
-    // Setup. Do nothing if the implicit columns list is empty.
-
-    List<ImplicitColumnDefn> implicitCols = options.implicitColumns;
-    int colCount = implicitCols.size();
-    if (colCount == 0) {
-      return container;
-    }
-
-    // Build the implicit column schema.
-
-    ResultSetLoader overlay = new ResultSetLoaderImpl(context.allocator());
-    overlay.startBatch();
-    TupleLoader writer = overlay.writer();
-    int rowCount = container.getRecordCount();
-    for (ImplicitColumnDefn col : implicitCols) {
-      MajorType type = MajorType.newBuilder()
-          .setMinorType(MinorType.VARCHAR)
-          .setMode(DataMode.REQUIRED)
-          // Note: can't set width because width varies across files
-          //.setPrecision(col.value.length())
-          .build();
-      MaterializedField colSchema = MaterializedField.create(col.colName, type);
-      writer.schema().addColumn(colSchema);
-    }
-
-    // Populate the columns. This is a bit of a waste; would be nice to
-    // use a single value with multiple pointers..
-
-    for (int i = 0; i < rowCount; i++) {
-      overlay.startRow();
-      for (int j = 0; j < colCount; j++) {
-        writer.column(j).setString(implicitCols.get(j).value);
-      }
-      overlay.saveRow();
-    }
-
-    // Merge the two containers.
-
-    VectorContainer implicitContainer = overlay.harvest();
-    return container.merge(implicitContainer);
-  }
+//  /**
+//   * Add implicit columns to the given vector. This is done by creating a
+//   * second row set mutator, using that to define and write the implicit
+//   * columns, then merging the reader's container with the implicit columns
+//   * to produce the final batch.
+//   *
+//   * @param container container with the data from the reader
+//   * @return new container with the original data merged with the implicit
+//   * columns
+//   */
+//
+//  private VectorContainer mergeImplicitColumns(VectorContainer container) {
+//
+//    // Setup. Do nothing if the implicit columns list is empty.
+//
+//    List<ImplicitColumnDefn> implicitCols = options.implicitColumns;
+//    int colCount = implicitCols.size();
+//    if (colCount == 0) {
+//      return container;
+//    }
+//
+//    // Build the implicit column schema.
+//
+//    ResultSetLoader overlay = new ResultSetLoaderImpl(context.allocator());
+//    overlay.startBatch();
+//    TupleLoader writer = overlay.writer();
+//    int rowCount = container.getRecordCount();
+//    for (ImplicitColumnDefn col : implicitCols) {
+//      MajorType type = MajorType.newBuilder()
+//          .setMinorType(MinorType.VARCHAR)
+//          .setMode(DataMode.REQUIRED)
+//          // Note: can't set width because width varies across files
+//          //.setPrecision(col.value.length())
+//          .build();
+//      MaterializedField colSchema = MaterializedField.create(col.colName, type);
+//      writer.schema().addColumn(colSchema);
+//    }
+//
+//    // Populate the columns. This is a bit of a waste; would be nice to
+//    // use a single value with multiple pointers..
+//
+//    for (int i = 0; i < rowCount; i++) {
+//      overlay.startRow();
+//      for (int j = 0; j < colCount; j++) {
+//        writer.column(j).setString(implicitCols.get(j).value);
+//      }
+//      overlay.saveRow();
+//    }
+//
+//    // Merge the two containers.
+//
+//    VectorContainer implicitContainer = overlay.harvest();
+//    return container.merge(implicitContainer);
+//  }
 
   /**
    * Close the current reader.
    */
 
   private void closeReader() {
+
+    try {
+      scanProjector.close();
+    } catch (Throwable t) {
+      logger.warn("Exception while closing table loader", t);
+    }
 
     // Close the reader. This can fail.
 
@@ -480,12 +515,17 @@ public class ScanOperatorExec implements OperatorExec {
 
       // Will not throw exceptions
 
-      if (rowSetMutator != null) {
-        rowSetMutator.close();
-        rowSetMutator = null;
+      if (scanProjector != null) {
+        scanProjector.close();
+        scanProjector = null;
       }
     }
   }
 
-  public ResultSetLoader getMutator() { return rowSetMutator; }
+  public ResultSetLoader getMutator() {
+    if (scanProjector == null) {
+      return null;
+    }
+    return scanProjector.tableLoader();
+  }
 }

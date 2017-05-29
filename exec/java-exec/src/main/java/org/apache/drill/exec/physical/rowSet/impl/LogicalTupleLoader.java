@@ -19,7 +19,6 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -28,10 +27,27 @@ import org.apache.drill.exec.physical.rowSet.ColumnLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.MaterializedField;
 
+/**
+ * Shim inserted between an actual tuple loader and the client to remove columns
+ * that are not projected from input to output. The underlying loader handles only
+ * the projected columns in order to improve efficiency. This class presents the
+ * full table schema, but returns null for the non-projected columns. This allows
+ * the reader to work with the table schema as defined by the data source, but
+ * skip those columns which are not projected. Skipping non-projected columns avoids
+ * creating value vectors which are immediately discarded. It may also save the reader
+ * from reading unwanted data.
+ */
 public class LogicalTupleLoader implements TupleLoader {
+
+  /**
+   * Implementation of the tuple schema that describes the full data source
+   * schema. The underlying loader schema is a subset of these columns. Note
+   * that the columns appear in the same order in both schemas, but the loader
+   * schema is a subset of the table schema.
+   */
 
   private class LogicalTupleSchema implements TupleSchema {
 

@@ -21,12 +21,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.ProjectedColumn;
-import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.ScanProjection;
-import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.ScanProjection.TableSchemaType;
-import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.SelectColumn;
-import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.StaticColumn;
-import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.TableColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.ProjectedColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.SelectColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.StaticColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.TableColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.TableSchemaType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
@@ -101,6 +100,10 @@ public abstract class ScanProjector {
 
     public VectorContainer output() {
       return loader.outputContainer();
+    }
+
+    public void close() {
+      loader.close();
     }
   }
 
@@ -243,8 +246,8 @@ public abstract class ScanProjector {
     }
 
     @Override
-    public void build() {
-      doMerge();
+    public VectorContainer harvest() {
+      return doMerge();
     }
   }
 
@@ -330,21 +333,31 @@ public abstract class ScanProjector {
     this.output = output;
   }
 
-  public abstract void build();
+  public abstract VectorContainer harvest();
 
-  protected void doMerge() {
+  protected VectorContainer doMerge() {
     VectorContainer tableBatch = tableLoader.harvest();
     if (batchMerger == null) {
-      return;
+      return output;
     }
     int rowCount = tableBatch.getRecordCount();
     if (staticColumnLoader != null) {
       staticColumnLoader.load(rowCount);
     }
     batchMerger.project(rowCount);
+    return output;
   }
 
   public VectorContainer output() { return output; }
 
   public ResultSetLoader tableLoader() { return tableLoader; }
+
+  public void close() {
+    if (staticColumnLoader != null) {
+      staticColumnLoader.close();
+    }
+    if (tableLoader != null) {
+      tableLoader.close();
+    }
+  }
 }

@@ -31,7 +31,9 @@ import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.store.easy.text.TextFormatPlugin.TextFormatConfig;
 import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.ClusterTest;
+import org.apache.drill.test.QueryBuilder.QuerySummary;
 import org.apache.drill.test.rowSet.RowSet;
+import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.SchemaBuilder;
@@ -46,6 +48,11 @@ import org.junit.Test;
  */
 
 public class TestCsv extends ClusterTest {
+
+  public static final String HEADERS = "headers";
+  public static final String NO_HEADERS = "plain";
+  public static final String STAR = "*";
+  public static final String COLUMNS = "columns";
 
   private static File testDir;
 
@@ -62,7 +69,15 @@ public class TestCsv extends ClusterTest {
     csvFormat.fieldDelimiter = ',';
     csvFormat.skipFirstLine = false;
     csvFormat.extractHeader = true;
-    cluster.defineWorkspace("dfs", "data", testDir.getAbsolutePath(), "csv", csvFormat);
+    cluster.defineWorkspace("dfs", HEADERS, testDir.getAbsolutePath(), "csv", csvFormat);
+
+    // And one without headers.
+
+//    csvFormat = new TextFormatConfig();
+//    csvFormat.fieldDelimiter = ',';
+//    csvFormat.skipFirstLine = true;
+//    csvFormat.extractHeader = false;
+//    cluster.defineWorkspace("dfs", NO_HEADERS, testDir.getAbsolutePath(), "csv", csvFormat);
   }
 
   String emptyHeaders[] = {
@@ -70,16 +85,59 @@ public class TestCsv extends ClusterTest {
       "10,foo,bar"
   };
 
+  /**
+   * Test an empty CSV file, with headers enabled. Should get
+   * an error.
+   * @throws IOException if test itself fails
+   */
+
   @Test
   public void testEmptyCsvHeaders() throws IOException {
-    String fileName = "case1.csv";
+    String fileName = "emptyh.csv";
     buildFile(fileName, emptyHeaders);
     try {
-      client.queryBuilder().sql(makeStatement(fileName)).run();
+      client.queryBuilder().sql(makeStatement(HEADERS, fileName, STAR)).run();
       fail();
     } catch (Exception e) {
       assertTrue(e.getMessage().contains("must define at least one header"));
     }
+  }
+
+  String emptyFile[] = { };
+
+  /**
+   * Test an empty CSV file without headers. Should return an
+   * empty result set.
+   *
+   * @throws Exception
+   */
+
+  @Test
+  public void testEmptyCsvFileStar() throws Exception {
+    String fileName = "emptyp.csv";
+    buildFile(fileName, emptyFile);
+    RowSet actual = client.queryBuilder().sql(makeStatement(NO_HEADERS, fileName, STAR)).rowSet();
+    SingleRowSet expected = client.rowSetBuilder(columnsSchema())
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(actual);
+  }
+
+  @Test
+  public void testEmptyCsvFileColumns() throws Exception {
+    String fileName = "emptyp.csv";
+    buildFile(fileName, emptyFile);
+    RowSet results = client.queryBuilder().sql(makeStatement(NO_HEADERS, fileName, COLUMNS)).rowSet();
+    SingleRowSet expected = client.rowSetBuilder(columnsSchema())
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(results);
+  }
+
+  private BatchSchema columnsSchema() {
+    return new SchemaBuilder()
+        .addArray("columns", MinorType.VARCHAR)
+        .build();
   }
 
   String validHeaders[] = {
@@ -88,10 +146,10 @@ public class TestCsv extends ClusterTest {
   };
 
   @Test
-  public void testValidCsvHeaders() throws IOException {
-    String fileName = "case2.csv";
+  public void testValidCsvHeadersStar() throws IOException {
+    String fileName = "validHeads.csv";
     buildFile(fileName, validHeaders);
-    RowSet actual = client.queryBuilder().sql(makeStatement(fileName)).rowSet();
+    RowSet actual = client.queryBuilder().sql(makeStatement(HEADERS, fileName, STAR)).rowSet();
 
     BatchSchema expectedSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
@@ -100,8 +158,46 @@ public class TestCsv extends ClusterTest {
         .build();
     assertEquals(expectedSchema, actual.batchSchema());
 
-    RowSet expected = new RowSetBuilder(client.allocator(), expectedSchema)
+    RowSet expected = client.rowSetBuilder(expectedSchema)
         .add("10", "foo", "bar")
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(actual);
+  }
+
+  @Test
+  public void testValidCsvHeadersSelection() throws IOException {
+    String fileName = "headers.csv";
+    buildFile(fileName, validHeaders);
+    RowSet actual = client.queryBuilder().sql(makeStatement(HEADERS, fileName, "c, a")).rowSet();
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .add("c", MinorType.VARCHAR)
+        .add("a", MinorType.VARCHAR)
+        .build();
+
+    RowSet expected = client.rowSetBuilder(expectedSchema)
+        .add("bar", "10")
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(actual);
+  }
+
+
+  @Test
+  public void testValidCsvHeadersMissing() throws IOException {
+    String fileName = "headers.csv";
+    buildFile(fileName, validHeaders);
+    RowSet actual = client.queryBuilder().sql(makeStatement(HEADERS, fileName, "a, c, d")).rowSet();
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .add("a", MinorType.VARCHAR)
+        .add("c", MinorType.VARCHAR)
+        .add("d", MinorType.VARCHAR)
+        .build();
+
+    RowSet expected = client.rowSetBuilder(expectedSchema)
+        .add("10", "bar", null)
         .build();
     new RowSetComparison(expected)
       .verifyAndClearAll(actual);
@@ -114,9 +210,9 @@ public class TestCsv extends ClusterTest {
 
   @Test
   public void testInvalidCsvHeaders() throws IOException {
-    String fileName = "case3.csv";
+    String fileName = "case3h.csv";
     buildFile(fileName, invalidHeaders);
-    RowSet actual = client.queryBuilder().sql(makeStatement(fileName)).rowSet();
+    RowSet actual = client.queryBuilder().sql(makeStatement(HEADERS, fileName, "*")).rowSet();
 
     BatchSchema expectedSchema = new SchemaBuilder()
         .add("column_1", MinorType.VARCHAR)
@@ -135,8 +231,47 @@ public class TestCsv extends ClusterTest {
       .verifyAndClearAll(actual);
   }
 
-  private String makeStatement(String fileName) {
-    return "SELECT * FROM `dfs.data`.`" + fileName + "`";
+  @Test
+  public void testCsvHeadersWithColumns() throws IOException {
+    String fileName = "headers.csv";
+    buildFile(fileName, validHeaders);
+    RowSet actual = client.queryBuilder().sql(makeStatement(HEADERS, fileName, COLUMNS)).rowSet();
+
+    RowSet expected = client.rowSetBuilder(columnsSchema())
+        .addSingleCol(new String[] {"10", "foo", "bar"})
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(actual);
+  }
+
+  @Test
+  public void testCsvHeadersWithColumnsAndSelect() throws IOException {
+    String fileName = "headers.csv";
+    buildFile(fileName, validHeaders);
+    RowSet actual = client.queryBuilder().sql(makeStatement(HEADERS, fileName, COLUMNS + ", a")).rowSet();
+
+    RowSet expected = client.rowSetBuilder(columnsSchema())
+        .addSingleCol(new String[] {"10", "foo", "bar"})
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(actual);
+  }
+
+  @Test
+  public void testCsvPlainWithColumnsAndSelect() throws IOException {
+    String fileName = "headers.csv";
+    buildFile(fileName, validHeaders);
+    RowSet actual = client.queryBuilder().sql(makeStatement(HEADERS, fileName, COLUMNS + ", a")).rowSet();
+
+    RowSet expected = client.rowSetBuilder(columnsSchema())
+        .addSingleCol(new String[] {"10", "foo", "bar"})
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(actual);
+  }
+
+  private String makeStatement(String workSpace, String fileName, String cols) {
+    return "SELECT " + cols + " FROM `dfs." + workSpace + "`.`" + fileName + "`";
   }
 
   private void buildFile(String fileName, String[] data) throws IOException {
@@ -146,5 +281,4 @@ public class TestCsv extends ClusterTest {
       }
     }
   }
-
 }

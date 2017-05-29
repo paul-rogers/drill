@@ -28,11 +28,13 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServicesImpl;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
+import org.apache.drill.exec.physical.impl.scan.RowBatchReader.SchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ImplicitColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ScanOptions;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
@@ -51,18 +53,37 @@ import com.google.common.collect.Lists;
 public class TestScanOperatorExec extends SubOperatorTest {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestScanOperatorExec.class);
 
-  private static class MockRowReader implements RowBatchReader {
+  private static class BaseTestRowReader implements RowBatchReader {
+    protected ResultSetLoader mutator;
+
+    protected void makeBatch() {
+      TupleLoader writer = mutator.writer();
+      mutator.startRow();
+      writer.column(0).setInt(10);
+      writer.column(1).setString("fred");
+      mutator.saveRow();
+      mutator.startRow();
+      writer.column(0).setInt(20);
+      writer.column(1).setString("wilma");
+      mutator.saveRow();
+    }
+
+    @Override
+    public void close() {
+    }
+  }
+
+  private static class MockLateSchemaRowReader extends BaseTestRowReader {
 
     public boolean openCalled;
     public boolean closeCalled;
-    protected ResultSetLoader mutator;
     public int batchLimit;
     public int batchCount;
     public boolean returnDataOnFirst;
 
     @Override
-    public void open(OperatorExecServices context, ResultSetLoader mutator) {
-      this.mutator = mutator;
+    public void open(OperatorExecServices context, SchemaNegotiator schemaNegotiator) {
+      this.mutator = schemaNegotiator.build();
       openCalled = true;
     }
 
@@ -85,26 +106,17 @@ public class TestScanOperatorExec extends SubOperatorTest {
         }
       }
 
-      TupleLoader writer = mutator.writer();
-      mutator.startRow();
-      writer.column(0).setInt(10);
-      writer.column(1).setString("fred");
-      mutator.saveRow();
-      mutator.startRow();
-      writer.column(0).setInt(20);
-      writer.column(1).setString("wilma");
-      mutator.saveRow();
+      makeBatch();
       return true;
     }
 
     @Override
     public void close() {
-      mutator.close();
       closeCalled = true;
     }
   }
 
-  private static class MockRowReader2 extends MockRowReader {
+  private static class MockRowReader2 extends MockLateSchemaRowReader {
 
     @Override
     public boolean next() {
@@ -138,6 +150,35 @@ public class TestScanOperatorExec extends SubOperatorTest {
     }
   }
 
+  private static class MockEarlySchemaRowReader extends BaseTestRowReader {
+
+    public int batchLimit;
+    public int batchCount;
+
+    @Override
+    public void open(OperatorExecServices context, SchemaNegotiator schemaNegotiator) {
+      MaterializedField a = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
+      schemaNegotiator.addTableColumn(a);
+      MaterializedField b = new SchemaBuilder.ColumnBuilder("b", MinorType.VARCHAR)
+          .setMode(DataMode.OPTIONAL)
+          .setWidth(10)
+          .build();
+      schemaNegotiator.addTableColumn(b);
+      this.mutator = schemaNegotiator.build();
+    }
+
+    @Override
+    public boolean next() {
+      batchCount++;
+      if (batchCount > batchLimit) {
+        return false;
+      }
+
+      makeBatch();
+      return true;
+    }
+  }
+
   private SingleRowSet makeExpected() {
     BatchSchema expectedSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
@@ -150,21 +191,6 @@ public class TestScanOperatorExec extends SubOperatorTest {
     return expected;
   }
 
-//  private ScanOperatorExec makeScanExec(List<RowReader> readers) {
-//    OperatorExecServicesImpl services = new OperatorExecServicesImpl(fixture.codeGenContext(), null);
-//    ScanOperatorExec scanOp = new ScanOperatorExec(services, readers.iterator());
-//    services.setOpExec(scanOp);
-//    return scanOp;
-//  }
-//
-//  private ScanOperatorExec makeScanExec(List<RowReader> readers,
-//      ScanOptions options) {
-//    OperatorExecServicesImpl services = new OperatorExecServicesImpl(fixture.codeGenContext(), null);
-//    ScanOperatorExec scanOp = new ScanOperatorExec(services, readers.iterator(), options);
-//    services.setOpExec(scanOp);
-//    return scanOp;
-//  }
-
   private class MockBatch {
 
     private OperatorExecServicesImpl services;
@@ -176,10 +202,12 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     public MockBatch(List<RowBatchReader> readers, ScanOptions options) {
       if (options == null) {
-        scanOp = new ScanOperatorExec(readers.iterator());
-      } else {
-        scanOp = new ScanOperatorExec(readers.iterator(), options);
+        options = new ScanOptions();
       }
+      if (options.selection == null) {
+        options.selection = Lists.newArrayList(new SchemaPath[] {SchemaPath.getSimplePath("*")});
+      }
+      scanOp = new ScanOperatorExec(readers.iterator(), options);
       services = new OperatorExecServicesImpl(fixture.codeGenContext(), null, scanOp);
       scanOp.bind(services);
     }
@@ -194,13 +222,13 @@ public class TestScanOperatorExec extends SubOperatorTest {
   }
 
   @Test
-  public void testNormalLifecycle() {
+  public void testLateSchemaLifecycle() {
     SingleRowSet expected = makeExpected();
     RowSetComparison verifier = new RowSetComparison(expected);
 
     // Create a mock reader, return two batches: one schema-only, another with data.
 
-    MockRowReader reader = new MockRowReader();
+    MockLateSchemaRowReader reader = new MockLateSchemaRowReader();
     reader.batchLimit = 2;
     List<RowBatchReader> readers = Lists.newArrayList(reader);
 
@@ -235,6 +263,48 @@ public class TestScanOperatorExec extends SubOperatorTest {
     mockBatch.close();
   }
 
+
+  @Test
+  public void testEarlySchemaLifecycle() {
+    SingleRowSet expected = makeExpected();
+    RowSetComparison verifier = new RowSetComparison(expected);
+
+    // Create a mock reader, return two batches: one schema-only, another with data.
+
+    MockEarlySchemaRowReader reader = new MockEarlySchemaRowReader();
+    reader.batchLimit = 2;
+    List<RowBatchReader> readers = Lists.newArrayList(reader);
+
+    // Create options and the scan operator
+
+    MockBatch mockBatch = new MockBatch(readers);
+    ScanOperatorExec scan = mockBatch.scanOp;
+
+    // First batch: build schema. Batch is empty, created just
+    // to return the early schema.
+
+    assertTrue(scan.buildSchema());
+    assertEquals(expected.batchSchema(), scan.batchAccessor().getSchema());
+    assertEquals(0, scan.batchAccessor().getRowCount());
+
+    // Next call, return with data.
+
+    assertTrue(scan.next());
+    verifier.verifyAndClear(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+
+    // More data. In this case, the batch cound is just for data.
+
+    assertTrue(scan.next());
+    verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+
+    // EOF
+
+    assertFalse(scan.next());
+    assertEquals(0, scan.batchAccessor().getRowCount());
+
+    mockBatch.close();
+  }
+
   public static final String MOCK_FILE_NAME = "foo.csv";
   public static final String MOCK_SUFFIX = "csv";
 
@@ -257,7 +327,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Reader with two batches: 1) schema only, 2) with data.
 
-    MockRowReader reader = new MockRowReader();
+    MockLateSchemaRowReader reader = new MockLateSchemaRowReader();
     reader.batchLimit = 2;
     List<RowBatchReader> readers = Lists.newArrayList(reader);
 
@@ -303,7 +373,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     SingleRowSet expected = makeExpected();
     RowSetComparison verifier = new RowSetComparison(expected);
 
-    MockRowReader reader = new MockRowReader();
+    MockLateSchemaRowReader reader = new MockLateSchemaRowReader();
     reader.batchLimit = 2;
     reader.returnDataOnFirst = true;
     List<RowBatchReader> readers = Lists.newArrayList(reader);
@@ -349,7 +419,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testEOFOnFirstBatch() {
-    MockRowReader reader = new MockRowReader();
+    MockLateSchemaRowReader reader = new MockLateSchemaRowReader();
     reader.batchLimit = 0;
     List<RowBatchReader> readers = Lists.newArrayList(reader);
     MockBatch mockBatch = new MockBatch(readers);
@@ -374,10 +444,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
     SingleRowSet expected = makeExpected();
     RowSetComparison verifier = new RowSetComparison(expected);
 
-    MockRowReader reader1 = new MockRowReader();
+    MockLateSchemaRowReader reader1 = new MockLateSchemaRowReader();
     reader1.batchLimit = 2;
     reader1.returnDataOnFirst = true;
-    MockRowReader reader2 = new MockRowReader();
+    MockLateSchemaRowReader reader2 = new MockLateSchemaRowReader();
     reader2.batchLimit = 2;
     reader2.returnDataOnFirst = true;
     List<RowBatchReader> readers = Lists.newArrayList(reader1, reader2);
@@ -447,10 +517,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
     SingleRowSet expected = makeExpected();
     RowSetComparison verifier = new RowSetComparison(expected);
 
-    MockRowReader reader1 = new MockRowReader();
+    MockLateSchemaRowReader reader1 = new MockLateSchemaRowReader();
     reader1.batchLimit = 2;
     reader1.returnDataOnFirst = true;
-    MockRowReader reader2 = new MockRowReader2();
+    MockLateSchemaRowReader reader2 = new MockRowReader2();
     reader2.batchLimit = 2;
     reader2.returnDataOnFirst = true;
     List<RowBatchReader> readers = Lists.newArrayList(reader1, reader2);
@@ -516,10 +586,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testMultiEOFOnFirstBatch() {
-    MockRowReader reader1 = new MockRowReader();
+    MockLateSchemaRowReader reader1 = new MockLateSchemaRowReader();
     reader1.batchLimit = 0;
     reader1.returnDataOnFirst = true;
-    MockRowReader reader2 = new MockRowReader();
+    MockLateSchemaRowReader reader2 = new MockLateSchemaRowReader();
     reader2.batchLimit = 0;
     reader2.returnDataOnFirst = true;
     List<RowBatchReader> readers = Lists.newArrayList(reader1, reader2);
@@ -541,7 +611,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testExceptionOnOpen() {
-    MockRowReader reader = new MockRowReader() {
+    MockLateSchemaRowReader reader = new MockLateSchemaRowReader() {
       @Override
       public void open(OperatorExecServices context, ResultSetLoader mutator) {
         super.open(context, mutator);
@@ -572,7 +642,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testUserExceptionOnOpen() {
-    MockRowReader reader = new MockRowReader() {
+    MockLateSchemaRowReader reader = new MockLateSchemaRowReader() {
       @Override
       public void open(OperatorExecServices context, ResultSetLoader mutator) {
         super.open(context, mutator);
@@ -605,7 +675,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testExceptionOnFirstNext() {
-    MockRowReader reader = new MockRowReader() {
+    MockLateSchemaRowReader reader = new MockLateSchemaRowReader() {
       @Override
       public boolean next() {
         super.next(); // Load some data
@@ -636,7 +706,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testUserExceptionOnFirstNext() {
-    MockRowReader reader = new MockRowReader() {
+    MockLateSchemaRowReader reader = new MockLateSchemaRowReader() {
       @Override
       public boolean next() {
         super.next(); // Load some data
@@ -676,7 +746,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testExceptionOnSecondNext() {
-    MockRowReader reader = new MockRowReader() {
+    MockLateSchemaRowReader reader = new MockLateSchemaRowReader() {
       @Override
       public boolean next() {
         if (batchCount == 1) {
@@ -717,7 +787,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testUserExceptionOnSecondNext() {
-    MockRowReader reader = new MockRowReader() {
+    MockLateSchemaRowReader reader = new MockLateSchemaRowReader() {
       @Override
       public boolean next() {
         if (batchCount == 2) {
@@ -759,7 +829,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testExceptionOnClose() {
-    MockRowReader reader1 = new MockRowReader() {
+    MockLateSchemaRowReader reader1 = new MockLateSchemaRowReader() {
       @Override
       public void close() {
         super.close(); // Load some data
@@ -769,7 +839,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader1.batchLimit = 2;
     reader1.returnDataOnFirst = true;
 
-    MockRowReader reader2 = new MockRowReader();
+    MockLateSchemaRowReader reader2 = new MockLateSchemaRowReader();
     reader2.batchLimit = 2;
     reader2.returnDataOnFirst = true;
 
@@ -811,7 +881,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
    * fill and a row to overflow from one batch to the next.
    */
 
-  private static class OverflowReader extends MockRowReader {
+  private static class OverflowReader extends MockLateSchemaRowReader {
 
     private final String value;
     public int rowCount;
@@ -863,7 +933,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     OverflowReader reader1 = new OverflowReader();
     reader1.batchLimit = 2;
     reader1.returnDataOnFirst = true;
-    MockRowReader reader2 = new MockRowReader();
+    MockLateSchemaRowReader reader2 = new MockLateSchemaRowReader();
     reader2.batchLimit = 2;
     reader2.returnDataOnFirst = true;
     List<RowBatchReader> readers = Lists.newArrayList(reader1, reader2);
