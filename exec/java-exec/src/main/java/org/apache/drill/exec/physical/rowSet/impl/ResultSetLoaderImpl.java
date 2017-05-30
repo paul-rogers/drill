@@ -21,7 +21,7 @@ import java.util.Collection;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.impl.scan.VectorInventory;
+import org.apache.drill.exec.physical.impl.scan.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
@@ -39,7 +39,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     public final int vectorSizeLimit;
     public final int rowCountLimit;
     public final boolean caseSensitive;
-    public final VectorInventory inventory;
+    public final ResultVectorCache inventory;
     private final Collection<String> selection;
 
     public ResultSetOptions() {
@@ -64,7 +64,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     private int rowCountLimit;
     private boolean caseSensitive;
     private Collection<String> selection;
-    private VectorInventory inventory;
+    private ResultVectorCache inventory;
 
     public OptionBuilder() {
       ResultSetOptions options = new ResultSetOptions();
@@ -88,7 +88,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
       return this;
     }
 
-    public OptionBuilder setInventory(VectorInventory inventory) {
+    public OptionBuilder setInventory(ResultVectorCache inventory) {
       this.inventory = inventory;
       return this;
     }
@@ -168,9 +168,10 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
   private final TupleSetImpl rootTuple;
   private final TupleLoader rootWriter;
   private final WriterIndexImpl writerIndex;
-  private final VectorInventory inventory;
+  private final ResultVectorCache inventory;
   private ResultSetLoaderImpl.State state = State.START;
   private int activeSchemaVersion = 0;
+  private int harvestSchemaVersion = 0;
   private VectorContainerBuilder containerBuilder;
   private int previousBatchCount;
   private int previousRowCount;
@@ -187,7 +188,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
       rootWriter = new LogicalTupleLoader(this, rootTuple.loader(), options.selection);
     }
     if (options.inventory == null) {
-      inventory = new VectorInventory(allocator);
+      inventory = new ResultVectorCache(allocator);
     } else {
       inventory = options.inventory;
     }
@@ -203,26 +204,20 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
 
   public BufferAllocator allocator() { return allocator; }
 
-//  protected int bumpVersion() {
-//    activeSchemaVersion++;
-//    if (state != State.OVERFLOW) {
-//      // If overflow row, don't advertise the version to the client
-//      // as the overflow schema is invisible to the client at this
-//      // point.
-//
-//      harvestSchemaVersion = activeSchemaVersion;
-//    }
-//    return activeSchemaVersion;
-//  }
+  protected int bumpVersion() {
+    activeSchemaVersion++;
+    if (state != State.OVERFLOW) {
+      // If overflow row, don't advertise the version to the client
+      // as the overflow schema is invisible to the client at this
+      // point.
+
+      harvestSchemaVersion = activeSchemaVersion;
+    }
+    return activeSchemaVersion;
+  }
 
   @Override
-  public int schemaVersion() {
-    if (state == State.OVERFLOW || pendingRowCount > 0) {
-      return activeSchemaVersion;
-    } else {
-      return inventory.schemaVersion();
-    }
-  }
+  public int schemaVersion() { return harvestSchemaVersion; }
 
   @Override
   public void startBatch() {
@@ -230,6 +225,10 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
       throw new IllegalStateException("Unexpected state: " + state);
     }
 
+    // Update the visible schema with any pending overflow batch
+    // updates.
+
+    harvestSchemaVersion = activeSchemaVersion;
     rootTuple.start();
     if (pendingRowCount == 0) {
       writerIndex.reset();
@@ -326,14 +325,10 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
         .memoryError("A single column value is larger than the maximum allowed size of 16 MB")
         .build(logger);
     }
-
-    // Save the current schema version to isolate the client from schema
-    // changes in the overflow row.
-
-    activeSchemaVersion = inventory.schemaVersion();
     pendingRowCount = rowCount();
     rootTuple.rollOver(writerIndex.vectorIndex());
     writerIndex.reset();
+    harvestSchemaVersion = activeSchemaVersion;
     state = State.OVERFLOW;
   }
 
@@ -414,5 +409,5 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     return total;
   }
 
-  public VectorInventory vectorInventory() { return inventory; }
+  public ResultVectorCache vectorInventory() { return inventory; }
 }

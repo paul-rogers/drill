@@ -404,7 +404,7 @@ public class ScanOperatorExec implements OperatorExec {
   private final Iterator<RowBatchReader> readers;
   private final ScanOptions options;
   private final VectorContainerAccessor containerAccessor = new VectorContainerAccessor();
-  private VectorInventory inventory;
+  private ResultVectorCache inventory;
   private int readerCount;
   private ReaderState readerState;
 
@@ -439,7 +439,7 @@ public class ScanOperatorExec implements OperatorExec {
   @Override
   public void bind(OperatorExecServices context) {
     this.context = context;
-    inventory = new VectorInventory(context.allocator());
+    inventory = new ResultVectorCache(context.allocator());
   }
 
   @Override

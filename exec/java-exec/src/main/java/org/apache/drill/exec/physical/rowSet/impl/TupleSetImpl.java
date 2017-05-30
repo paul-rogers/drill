@@ -22,7 +22,7 @@ import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.exec.expr.TypeHelper;
-import org.apache.drill.exec.physical.impl.scan.VectorInventory;
+import org.apache.drill.exec.physical.impl.scan.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.ColumnLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
@@ -159,9 +159,9 @@ public class TupleSetImpl implements TupleSchema {
       this.schema = schema;
       this.index = index;
       ResultSetLoaderImpl rowSetMutator = tupleSet.rowSetMutator();
-      VectorInventory inventory = rowSetMutator.vectorInventory();
+      addVersion = rowSetMutator.bumpVersion();
+      ResultVectorCache inventory = rowSetMutator.vectorInventory();
       vector = inventory.addOrGet(schema);
-      addVersion = inventory.schemaVersion();
       columnWriter = ColumnAccessorFactory.newWriter(schema.getType());
       WriterIndexImpl writerIndex = rowSetMutator.writerIndex();
       columnWriter.bind(writerIndex, vector);

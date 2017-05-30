@@ -70,7 +70,7 @@ import org.apache.drill.exec.vector.ValueVector;
  * in all subsequent batches (provided the column is nullable or an array.)</li>
  * </ul>
  */
-public class VectorInventory {
+public class ResultVectorCache {
 
   /**
    * State of a projected vector. At first all we have is a name.
@@ -99,9 +99,8 @@ public class VectorInventory {
   private final BufferAllocator allocator;
   private final Map<String, VectorState> vectors = new HashMap<>();
   private final List<VectorState> schemaOrder = new ArrayList<>();
-  private int schemaVersion;
 
-  public VectorInventory(BufferAllocator allocator) {
+  public ResultVectorCache(BufferAllocator allocator) {
     this.allocator = allocator;
   }
 
@@ -149,10 +148,6 @@ public class VectorInventory {
       return vs.vector;
     }
 
-    // Something will change. this is a schema change event.
-
-    schemaVersion++;
-
     // If no vector, this is a late schema. Create the vector.
 
     if (vs == null) {
@@ -171,6 +166,4 @@ public class VectorInventory {
     vs.vector = TypeHelper.getNewVector(colSchema, allocator, null);
     return vs.vector;
   }
-
-  public int schemaVersion() { return schemaVersion; }
 }
