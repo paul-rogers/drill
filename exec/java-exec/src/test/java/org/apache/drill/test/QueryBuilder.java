@@ -293,7 +293,7 @@ public class QueryBuilder {
 
     QueryDataBatch dataBatch = null;
     for (QueryDataBatch batch : results()) {
-      if (dataBatch == null  &&  batch.getHeader().getRowCount() != 0) {
+      if (dataBatch == null) {
         dataBatch = batch;
       } else {
         batch.release();

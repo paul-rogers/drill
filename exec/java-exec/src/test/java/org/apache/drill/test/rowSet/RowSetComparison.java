@@ -125,6 +125,9 @@ public class RowSetComparison {
     assertTrue("Missing actual rows", actual.rowCount() >= dataLength);
     RowSetReader er = expected.reader();
     RowSetReader ar = actual.reader();
+    int actualColCount = actual.batchSchema().getFieldCount();
+    assertTrue("Missing actual columns", actualColCount >= mask.length);
+    assertTrue("Unexpected actual columns", actualColCount <= mask.length);
     for (int i = 0; i < offset; i++) {
       er.next();
       ar.next();
