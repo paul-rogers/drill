@@ -123,6 +123,11 @@ public abstract class ScanProjector {
       this.projection = projection;
     }
 
+    public Builder resultSetOptions(ResultSetLoaderImpl.OptionBuilder options) {
+      this.options = options;
+      return this;
+    }
+
     public ScanProjector build() {
       if (projection.tableSchemaType() == TableSchemaType.EARLY) {
         return buildEarlySchema();

@@ -148,7 +148,6 @@ public class VectorContainer implements VectorAccessible {
         return (T) newVector;
       }
     } else {
-
       vector = TypeHelper.getNewVector(field, this.getAllocator(), callBack);
       add(vector);
     }

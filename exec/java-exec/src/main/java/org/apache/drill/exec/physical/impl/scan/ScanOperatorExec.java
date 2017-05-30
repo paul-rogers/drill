@@ -33,7 +33,9 @@ import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.VectorCo
 import org.apache.drill.exec.physical.impl.scan.RowBatchReader.SchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.SelectColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.TableColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.TableSchemaType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
 
@@ -79,14 +81,15 @@ import com.google.common.annotations.VisibleForTesting;
 
 public class ScanOperatorExec implements OperatorExec {
 
+
   private static class SchemaNegotiatorImpl implements SchemaNegotiator {
 
-    private final ScanOperatorExec opExec;
+    private final ReaderState readerState;
     private final List<SelectColumn> selection = new ArrayList<>();
     private final List<TableColumn> tableSchema = new ArrayList<>();
 
-    private SchemaNegotiatorImpl(ScanOperatorExec opExec) {
-      this.opExec = opExec;
+    private SchemaNegotiatorImpl(ReaderState readerState) {
+      this.readerState = readerState;
     }
 
     @Override
@@ -120,20 +123,22 @@ public class ScanOperatorExec implements OperatorExec {
 
     @Override
     public ResultSetLoader build() {
-      ProjectionPlanner planner = new ProjectionPlanner(opExec.context.getFragmentContext().getOptionSet());
-      if (opExec.options.selection != null) {
+      ScanOperatorExec scanOp = readerState.scanOp();
+      ProjectionPlanner planner = new ProjectionPlanner(scanOp.context.getFragmentContext().getOptionSet());
+      if (scanOp.options.selection != null) {
         if (! selection.isEmpty()) {
           throw new IllegalStateException("Select list provided by scan operator; cannot also be provided by reader");
         }
-        planner.queryCols(opExec.options.selection);
+        planner.queryCols(scanOp.options.selection);
       } else {
         planner.selection(selection);
       }
       planner.tableSchema(tableSchema);
-      ScanProjection projection = planner.build();
-      opExec.scanProjector = new ScanProjector.Builder(opExec.context.allocator(), projection)
+      readerState.projection = planner.build();
+      readerState.scanProjector = new ScanProjector.Builder(scanOp.context.allocator(), readerState.projection)
+          .resultSetOptions(new ResultSetLoaderImpl.OptionBuilder().setInventory(scanOp.inventory))
           .build();
-      return opExec.scanProjector.tableLoader();
+      return readerState.scanProjector.tableLoader();
     }
   }
 
@@ -145,7 +150,252 @@ public class ScanOperatorExec implements OperatorExec {
     public List<SchemaPath> selection;
   }
 
-  private enum State { START, NEXT_READER, LOOK_AHEAD, READER, READER_EOF, END, FAILED, CLOSED }
+  /**
+   * Manages a row batch reader through its lifecycle. Created when the reader
+   * is opened, discarded when the reader is closed. Encapsulates state that
+   * follows the life of the reader.
+   */
+
+  public static class ReaderState {
+    private enum State { START, LOOK_AHEAD, ACTIVE, EOF, CLOSED };
+
+    private final ScanOperatorExec scanOp;
+    private final RowBatchReader reader;
+    private State state = State.START;
+    protected ScanProjection projection;
+    protected ScanProjector scanProjector;
+    private boolean earlySchema;
+    private VectorContainer lookahead;
+
+    public ReaderState(ScanOperatorExec scanOp, RowBatchReader reader) {
+      this.scanOp = scanOp;
+      this.reader = reader;
+    }
+
+    protected ScanOperatorExec scanOp() { return scanOp; }
+
+    /**
+     * Open the next available reader, if any, preparing both the
+     * reader and row set mutator.
+     * @return true if another reader is active, false if no more
+     * readers are available
+     */
+
+    private boolean open() {
+
+      // Open the reader. This can fail. if it does, clean up.
+
+      try {
+        reader.open(scanOp.context, new SchemaNegotiatorImpl(this));
+
+      // When catching errors, leave the reader member set;
+      // we must close it on close() later.
+
+      } catch (UserException e) {
+        throw e;
+      } catch (Throwable t) {
+        throw UserException.executionError(t)
+          .addContext("Open failed for reader", reader.getClass().getSimpleName())
+          .build(logger);
+      }
+
+      earlySchema = projection.tableSchemaType() == TableSchemaType.EARLY;
+      if (earlySchema) {
+        // TODO: Setup the empty batch
+      }
+      return true;
+    }
+
+    /**
+     * Prepare the schema for this reader. Called for the first reader within a
+     * scan batch, if the reader returns <tt>true</tt> from <tt>open()</tt>. If
+     * this is an early-schema reader, then the result set loader already has
+     * the proper value vectors set up. If this is a late-schema reader, we must
+     * read one batch to get the schema, then set aside the data for the next
+     * call to <tt>next()</tt>.
+     * <p>
+     * Semantics for all readers:
+     * <ul>
+     * <li>If the file was not found, <tt>open()</tt> returned false and this
+     * method should never be called.</li>
+     * </ul>
+     * <p>
+     * Semantics for early-schema readers:
+     * <ul>
+     * <li>If if turned out that the file was
+     * empty when trying to read the schema, <tt>open()</tt> returned false
+     * and this method should never be called.</tt>
+     * <li>Otherwise, if a schema was available, then the schema is already
+     * set up in the result set loader as the result of schema negotiation, and
+     * this method simply returns <tt>true</tt>.
+     * </ul>
+     * <p>
+     * Semantics for late-schema readers:
+     * <ul>
+     * <li>This method will ask the reader to
+     * read a batch. If the reader hits EOF before finding any data, this method
+     * will return false, indicating that no schema is available.</li>
+     * <li>If the reader can read enough of the file to
+     * figure out the schema, but the file has no data, then this method will
+     * return <tt>true</tt> and a schema will be available. The first call to
+     * <tt>next()</tt> will report EOF.</li>
+     * <li>Otherwise, this method returns true, sets up an empty batch with the
+     * schema, saves the data batch, and will return that look-ahead batch on the
+     * first call to <tt>next()</tt>.</li>
+     * </ul>
+     * @return true if the schema was read, false if EOF was reached while trying
+     * to read the schema.
+     */
+    protected boolean buildSchema() {
+
+      if (earlySchema) {
+        return true;
+      }
+
+      // Late schema. Read a batch.
+
+      if (! next()) {
+        return false;
+      }
+      if (scanOp.containerAccessor.getRowCount() == 0) {
+        return true;
+      }
+
+      // The reader returned actual data. Just forward the schema
+      // in a dummy container, saving the data for next time.
+
+      assert lookahead == null;
+      lookahead = new VectorContainer(scanOp.context.allocator(), scanOp.containerAccessor.getSchema());
+      lookahead.setRecordCount(0);
+      lookahead.exchange(scanOp.containerAccessor.getOutgoingContainer());
+      state = State.LOOK_AHEAD;
+      return true;
+    }
+
+    protected boolean next() {
+      switch (state) {
+      case LOOK_AHEAD:
+        // Use batch previously read.
+        assert lookahead != null;
+        lookahead.exchange(scanOp.containerAccessor.getOutgoingContainer());
+        assert lookahead.getRecordCount() == 0;
+        lookahead = null;
+        state = State.ACTIVE;
+        return true;
+
+      case ACTIVE:
+        if (readBatch()) {
+          return true;
+        }
+        state = State.EOF;
+
+        // The reader is done, but the mutator may have one final
+        // row representing an overflow from the previous batch.
+
+        if (scanProjector.tableLoader().rowCount() > 0) {
+          prepareBatch();
+          return true;
+        }
+        return false;
+
+      case EOF:
+        return false;
+
+      default:
+        throw new IllegalStateException("Unexpected state: " + state);
+      }
+    }
+
+    /**
+     * Read a batch from the current reader.
+     * @return true if a batch was read, false if the reader hit EOF
+     */
+
+    private boolean readBatch() {
+
+      // Prepare for the batch.
+
+      scanProjector.tableLoader().startBatch();
+
+      // Try to read a batch. This may fail. If so, clean up the
+      // mess.
+
+      try {
+        if (!reader.next()) {
+          return false;
+        }
+      } catch (UserException e) {
+        throw e;
+      } catch (Throwable t) {
+        throw UserException.executionError(t)
+          .addContext("Read failed for reader", reader.getClass().getSimpleName())
+          .build(logger);
+      }
+
+      // Have a batch. Prepare it for return.
+
+      prepareBatch();
+
+      // TODO: Need to retain value vectors across files if no schema change
+
+      return true;
+    }
+
+    private void prepareBatch() {
+
+      // Add implicit columns, if any.
+      // Identify the output container and its schema version.
+
+      scanOp.containerAccessor.setContainer(scanProjector.harvest());
+    }
+
+    public boolean isEof() {
+      return state == State.EOF;
+    }
+
+    /**
+     * Close the current reader.
+     */
+
+    private void close() {
+      if (state == State.CLOSED) {
+        return;
+      }
+
+      try {
+        scanProjector.close();
+      } catch (Throwable t) {
+        logger.warn("Exception while closing table loader", t);
+      }
+
+      // Close the reader. This can fail.
+
+      try {
+        reader.close();
+      } catch (UserException e) {
+        throw e;
+      } catch (Throwable t) {
+        throw UserException.executionError(t)
+          .addContext("Close failed for reader", reader.getClass().getSimpleName())
+          .build(logger);
+      } finally {
+
+        // Will not throw exceptions
+
+        if (lookahead != null) {
+          lookahead.clear();
+          lookahead = null;
+        }
+        state = State.CLOSED;
+      }
+    }
+
+    public ResultSetLoader tableLoader() {
+      return scanProjector.tableLoader();
+    }
+  }
+
+  private enum State { START, READER, END, FAILED, CLOSED }
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ScanOperatorExec.class);
 
@@ -154,11 +404,9 @@ public class ScanOperatorExec implements OperatorExec {
   private final Iterator<RowBatchReader> readers;
   private final ScanOptions options;
   private final VectorContainerAccessor containerAccessor = new VectorContainerAccessor();
-  private ScanProjector scanProjector;
-  private RowBatchReader reader;
+  private VectorInventory inventory;
   private int readerCount;
-
-  private VectorContainer lookahead;
+  private ReaderState readerState;
 
 //  public ScanOperatorExec(Iterator<RowBatchReader> readers,
 //                          List<Map<String, String>> implicitColumns) {
@@ -191,6 +439,7 @@ public class ScanOperatorExec implements OperatorExec {
   @Override
   public void bind(OperatorExecServices context) {
     this.context = context;
+    inventory = new VectorInventory(context.allocator());
   }
 
   @Override
@@ -202,34 +451,48 @@ public class ScanOperatorExec implements OperatorExec {
   @Override
   public boolean buildSchema() {
     assert state == State.START;
-    state = State.NEXT_READER;
-    nextBatch();
-    if (state == State.END) {
-      if (readerCount == 0) {
-        // return false; // When empty batches are supported
-        throw UserException.executionError(
-            new ExecutionSetupException("A scan batch must contain at least one reader."))
-          .build(logger);
-      }
-      return false;
-    }
-
-    // If the reader returned an empty first batch (schema only),
-    // just pass that empty batch along.
-
-    if (containerAccessor.getRowCount() == 0) {
+    nextSchema();
+    if (state != State.END) {
       return true;
     }
+    if (readerCount == 0) {
+      // return false; // When empty batches are supported
+      throw UserException.executionError(
+          new ExecutionSetupException("A scan batch must contain at least one reader."))
+        .build(logger);
+    }
+    return false;
+  }
 
-    // The reader returned actual data. Just forward the schema
-    // in a dummy container, saving the data for next time.
+  /**
+   * Spin though readers looking for the first that has enough data
+   * to provide a schema. Skips empty, missing or otherwise "null"
+   * readers.
+   */
 
-    assert lookahead == null;
-    lookahead = new VectorContainer(context.allocator(), containerAccessor.getSchema());
-    lookahead.setRecordCount(0);
-    lookahead.exchange(containerAccessor.getOutgoingContainer());
-    state = State.LOOK_AHEAD;
-    return true;
+  private void nextSchema() {
+    for (;;) {
+
+      // If have a reader, load the schema
+
+      if (readerState != null) {
+        if (readerState.buildSchema()) {
+          return;
+        }
+
+        // Done with the current reader
+
+        closeReader();
+      }
+
+      // Need to open another reader?
+
+      if (! openReader()) {
+        state = State.END;
+        return;
+      }
+      state = State.READER;
+    }
   }
 
   @Override
@@ -237,17 +500,7 @@ public class ScanOperatorExec implements OperatorExec {
     try {
       switch (state) {
 
-      case LOOK_AHEAD:
-        // Use batch previously read.
-        assert lookahead != null;
-        lookahead.exchange(containerAccessor.getOutgoingContainer());
-        assert lookahead.getRecordCount() == 0;
-        lookahead = null;
-        state = State.READER;
-        return true;
-
       case READER:
-      case READER_EOF:
         nextBatch();
         return state != State.END;
 
@@ -273,40 +526,25 @@ public class ScanOperatorExec implements OperatorExec {
   private void nextBatch() {
     for (;;) {
 
-      // Done with the current reader?
+      // If have a reader, read a batch
 
-      if (state == State.READER_EOF) {
+      if (readerState != null) {
+        if (readerState.next()) {
+          return;
+        }
+
+        // Done with the current reader
+
         closeReader();
-        state = State.NEXT_READER;
       }
 
       // Need to open another reader?
 
-      if (state == State.NEXT_READER) {
-        if (! openReader()) {
-          state = State.END;
-          return;
-        }
-        state = State.READER;
-      }
-
-      // Read a batch.
-
-      if (readBatch()) {
+      if (! openReader()) {
+        state = State.END;
         return;
       }
-
-      // No more batches from the current reader.
-
-      state = State.READER_EOF;
-
-      // The reader is done, but the mutator may have one final
-      // row representing an overflow from the previous batch.
-
-      if (scanProjector.tableLoader().rowCount() > 0) {
-        prepareBatch();
-        return;
-      }
+      state = State.READER;
     }
   }
 
@@ -325,66 +563,35 @@ public class ScanOperatorExec implements OperatorExec {
       containerAccessor.setContainer(null);
       return false;
     }
-    reader = readers.next();
+    RowBatchReader reader = readers.next();
     readerCount++;
 
-    // Open the reader. This can fail. if it does, clean up.
+    // Open the reader. This can fail.
 
-    try {
-      reader.open(context, new SchemaNegotiatorImpl(this));
-      return true;
-
-    // When catching errors, leave the reader member set;
-    // we must close it on close() later.
-
-    } catch (UserException e) {
-      throw e;
-    } catch (Throwable t) {
-      throw UserException.executionError(t)
-        .addContext("Open failed for reader", reader.getClass().getSimpleName())
-        .build(logger);
-    }
-  }
-
-  /**
-   * Read a batch from the current reader.
-   * @return true if a batch was read, false if the reader hit EOF
-   */
-
-  private boolean readBatch() {
-
-    // Prepare for the batch.
-
-    scanProjector.tableLoader().startBatch();
-
-    // Try to read a batch. This may fail. If so, clean up the
-    // mess.
-
-    try {
-      if (!reader.next()) {
-        return false;
-      }
-    } catch (UserException e) {
-      throw e;
-    } catch (Throwable t) {
-      throw UserException.executionError(t)
-        .addContext("Read failed for reader", reader.getClass().getSimpleName())
-        .build(logger);
-    }
-
-    // Have a batch. Prepare it for return.
-
-    prepareBatch();
+    readerState = new ReaderState(this, reader);
+    readerState.open();
     return true;
   }
 
-  private void prepareBatch() {
-
-    // Add implicit columns, if any.
-    // Identify the output container and its schema version.
-
-    containerAccessor.setContainer(scanProjector.harvest());
-  }
+//  private boolean readBatch() {
+//
+//    if (! readerState.next()) {
+//      return false;
+//    }
+//
+//    // Have a batch. Prepare it for return.
+//
+//    prepareBatch();
+//    return true;
+//  }
+//
+//  private void prepareBatch() {
+//
+//    // Add implicit columns, if any.
+//    // Identify the output container and its schema version.
+//
+//    containerAccessor.setContainer(scanProjector.harvest());
+//  }
 
 //  /**
 //   * Add implicit columns to the given vector. This is done by creating a
@@ -448,23 +655,9 @@ public class ScanOperatorExec implements OperatorExec {
   private void closeReader() {
 
     try {
-      scanProjector.close();
-    } catch (Throwable t) {
-      logger.warn("Exception while closing table loader", t);
-    }
-
-    // Close the reader. This can fail.
-
-    try {
-      reader.close();
-    } catch (UserException e) {
-      throw e;
-    } catch (Throwable t) {
-      throw UserException.executionError(t)
-        .addContext("Close failed for reader", reader.getClass().getSimpleName())
-        .build(logger);
+      readerState.close();
     } finally {
-      reader = null;
+      readerState = null;
     }
   }
 
@@ -503,29 +696,18 @@ public class ScanOperatorExec implements OperatorExec {
     // May throw an unchecked exception
 
     try {
-      if (reader != null) {
+      if (readerState != null) {
         closeReader();
       }
     } finally {
 
-      if (lookahead != null) {
-        lookahead.clear();
-        lookahead = null;
-      }
-
-      // Will not throw exceptions
-
-      if (scanProjector != null) {
-        scanProjector.close();
-        scanProjector = null;
-      }
     }
   }
 
   public ResultSetLoader getMutator() {
-    if (scanProjector == null) {
+    if (readerState == null) {
       return null;
     }
-    return scanProjector.tableLoader();
+    return readerState.tableLoader();
   }
 }

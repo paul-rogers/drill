@@ -588,8 +588,14 @@ public class TestResultSetLoader extends SubOperatorTest {
     // Row count should include the overflow row
 
     int expectedCount = ValueVector.MAX_BUFFER_SIZE / value.length;
-    assertEquals(expectedCount, count);
-    assertEquals(expectedCount + 1, rsLoader.rowCount());
+    assertEquals(expectedCount + 1, count);
+
+    // Loader's row count should include only "visible" rows
+
+    assertEquals(expectedCount, rsLoader.rowCount());
+
+    // Total count should include invisible and look-ahead rows.
+
     assertEquals(expectedCount + 1, rsLoader.totalRowCount());
 
     // Result should exclude the overflow row
