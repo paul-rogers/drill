@@ -1134,7 +1134,112 @@ public class TestScanOperatorExec extends SubOperatorTest {
     mockBatch.close();
   }
 
-  // TODO: Test schema "smoothing"
+  private static class MockOneColEarlySchemaReader extends BaseMockBatchReader {
+
+    @Override
+    public boolean open(OperatorExecServices context, SchemaNegotiator schemaNegotiator) {
+      openCalled = true;
+      buildSelect(schemaNegotiator);
+      MaterializedField a = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
+      schemaNegotiator.addTableColumn(a);
+      this.mutator = schemaNegotiator.build();
+      return true;
+    }
+
+    @Override
+    public boolean next() {
+      batchCount++;
+      if (batchCount > batchLimit) {
+        return false;
+      }
+
+      makeBatch();
+      return true;
+    }
+
+    @Override
+    protected void writeRow(TupleLoader writer, int col1, String col2) {
+      mutator.startRow();
+      if (writer.column(0) != null) {
+        writer.column(0).setInt(col1 + 1);
+      }
+      mutator.saveRow();
+    }
+  }
+
+  /**
+   * Test the ability of the scan operator to "smooth" out schema changes
+   * by reusing the type from a previous reader, if known. That is,
+   * given three readers:<br>
+   * (a, b)<br>
+   * (b)<br>
+   * (a, b)<br>
+   * Then the type of column a should be preserved for the second reader that
+   * does not include a. This works if a is nullable. If so, a's type will
+   * be used for the empty column, rather than the usual nullable int.
+   * <p>
+   * This trick works only for an explicit select list. Does not work for
+   * SELECT *.
+   */
+  
+  @Test
+  public void testSchemaSmoothing() {
+    String selectList[] = new String[]{"a", "b"};
+    MockEarlySchemaReader reader1 = new MockEarlySchemaReader();
+    reader1.batchLimit = 1;
+    reader1.setSelect(selectList);
+    MockOneColEarlySchemaReader reader2 = new MockOneColEarlySchemaReader();
+    reader2.batchLimit = 1;
+    reader2.setSelect(selectList);
+    reader2.startIndex = 100;
+    MockEarlySchemaReader reader3 = new MockEarlySchemaReader();
+    reader3.batchLimit = 1;
+    reader3.startIndex = 200;
+    reader3.setSelect(selectList);
+    List<RowBatchReader> readers = Lists.newArrayList(reader1, reader2, reader3);
+
+    MockBatch mockBatch = new MockBatch(readers);
+    ScanOperatorExec scan = mockBatch.scanOp;
+
+    // Schema based on (a, b)
+
+    assertTrue(scan.buildSchema());
+    assertEquals(1, scan.batchAccessor().schemaVersion());
+    scan.batchAccessor().release();
+
+    // Batch from (a, b) reader 1
+
+    assertTrue(scan.next());
+    assertEquals(1, scan.batchAccessor().schemaVersion());
+    verifyBatch(0, scan.batchAccessor().getOutgoingContainer());
+
+    // Batch from (a) reader 2
+    // Due to schema smoothing, b vector type is left unchanged,
+    // but is null filled.
+
+    assertTrue(scan.next());
+    assertEquals(1, scan.batchAccessor().schemaVersion());
+
+    SingleRowSet expected = fixture.rowSetBuilder(scan.batchAccessor().getSchema())
+        .addSingleCol(11)
+        .addSingleCol(12)
+        .build();
+    new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+
+    // Batch from (a, b) reader 3
+    // Recycles b again, back to being a table column.
+
+    assertTrue(scan.next());
+    assertEquals(1, scan.batchAccessor().schemaVersion());
+    verifyBatch(200, scan.batchAccessor().getOutgoingContainer());
+
+    assertFalse(scan.next());
+    scan.close();
+  }
+
+  // TODO: Test schema "smoothing" limits: required
+  // TODO: Test schema smoothing with repeated
   // TODO: Test schema negotiation
-  // TODO: Test soft failure on open
+  // TODO: Test set missing vector type
 }
