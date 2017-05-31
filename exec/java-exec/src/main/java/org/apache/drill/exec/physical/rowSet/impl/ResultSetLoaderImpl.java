@@ -88,7 +88,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
       return this;
     }
 
-    public OptionBuilder setInventory(ResultVectorCache inventory) {
+    public OptionBuilder setVectorCache(ResultVectorCache inventory) {
       this.inventory = inventory;
       return this;
     }

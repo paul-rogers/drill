@@ -29,19 +29,21 @@ import java.util.Iterator;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
+import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.BatchAccessor;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.ContainerAndSv2Accessor;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExec;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
-import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServicesImpl;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.VectorContainerAccessor;
 import org.apache.drill.exec.proto.UserBitShared.NamePart;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.RecordBatch.IterOutcome;
 import org.apache.drill.exec.record.TypedFieldId;
+import org.apache.drill.exec.record.VectorAccessibleUtilities;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.vector.IntVector;
@@ -50,6 +52,11 @@ import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
+
+/**
+ * Test the implementation of the Drill Volcano iterator protocol that
+ * wraps the modular operator implementation.
+ */
 
 public class TestOperatorRecordBatch extends SubOperatorTest {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(SubOperatorTest.class);
@@ -73,10 +80,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     private final VectorContainerAccessor batchAccessor;
 
     public MockOperatorExec() {
-      this(new VectorContainer(fixture.allocator(), new SchemaBuilder()
-          .add("a", MinorType.INT)
-          .build()));
-      batchAccessor.getOutgoingContainer().buildSchema(SelectionVectorMode.NONE);
+      this(mockBatch());
     }
 
     public MockOperatorExec(VectorContainer container) {
@@ -123,6 +127,14 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
       batchAccessor().getOutgoingContainer().clear();
       closeCalled = true;
     }
+  }
+
+  private static VectorContainer mockBatch() {
+    VectorContainer container = new VectorContainer(fixture.allocator(), new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .build());
+    container.buildSchema(SelectionVectorMode.NONE);
+    return container;
   }
 
   private OperatorRecordBatch makeOpBatch(MockOperatorExec opExec) {
@@ -398,6 +410,91 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
       fail(e.getMessage());
     }
     assertTrue(opExec.closeCalled);
+  }
+
+  @Test
+  public void testSchemaChange() {
+    BatchSchema schema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .build();
+    SingleRowSet rs = fixture.rowSetBuilder(schema)
+        .add(10, "fred")
+        .add(20, "wilma")
+        .build();
+    VectorContainer container = rs.container();
+    MockOperatorExec opExec = new MockOperatorExec(container);
+    int schemaVersion = opExec.batchAccessor().schemaVersion();
+
+    // Be tidy: start at 1.
+
+    assertEquals(1, schemaVersion);
+
+    // Changing data does not trigger schema change
+
+    container.zeroVectors();
+    opExec.batchAccessor.setContainer(container);
+    assertEquals(schemaVersion, opExec.batchAccessor().schemaVersion());
+
+    // Different container, same vectors, does not trigger a change
+
+    VectorContainer c2 = new VectorContainer(fixture.allocator());
+    for (VectorWrapper<?> vw : container) {
+      c2.add(vw.getValueVector());
+    }
+    c2.buildSchema(SelectionVectorMode.NONE);
+    opExec.batchAccessor.setContainer(c2);
+    assertEquals(schemaVersion, opExec.batchAccessor().schemaVersion());
+
+    opExec.batchAccessor.setContainer(container);
+    assertEquals(schemaVersion, opExec.batchAccessor().schemaVersion());
+
+    // Replacing a vector with another of the same type does trigger
+    // a change.
+
+    VectorContainer c3 = new VectorContainer(fixture.allocator());
+    c3.add(container.getValueVector(0).getValueVector());
+    c3.add(TypeHelper.getNewVector(
+            container.getValueVector(1).getValueVector().getField(),
+            fixture.allocator(), null));
+    c3.buildSchema(SelectionVectorMode.NONE);
+    opExec.batchAccessor.setContainer(c3);
+    assertEquals(schemaVersion + 1, opExec.batchAccessor().schemaVersion());
+    schemaVersion = opExec.batchAccessor().schemaVersion();
+
+    // No change if same schema again
+
+    opExec.batchAccessor.setContainer(c3);
+    assertEquals(schemaVersion, opExec.batchAccessor().schemaVersion());
+
+    // Adding a vector triggers a change
+
+    MaterializedField c = SchemaBuilder.columnSchema("c", MinorType.INT, DataMode.OPTIONAL);
+    c3.add(TypeHelper.getNewVector(c, fixture.allocator(), null));
+    c3.buildSchema(SelectionVectorMode.NONE);
+    opExec.batchAccessor.setContainer(c3);
+    assertEquals(schemaVersion + 1, opExec.batchAccessor().schemaVersion());
+    schemaVersion = opExec.batchAccessor().schemaVersion();
+
+    // No change if same schema again
+
+    opExec.batchAccessor.setContainer(c3);
+    assertEquals(schemaVersion, opExec.batchAccessor().schemaVersion());
+
+    // Removing a vector triggers a change
+
+    c3.remove(c3.getValueVector(2).getValueVector());
+    c3.buildSchema(SelectionVectorMode.NONE);
+    assertEquals(2, c3.getNumberOfColumns());
+    opExec.batchAccessor.setContainer(c3);
+    assertEquals(schemaVersion + 1, opExec.batchAccessor().schemaVersion());
+    schemaVersion = opExec.batchAccessor().schemaVersion();
+
+    // Clean up
+
+    opExec.close();
+    c2.clear();
+    c3.clear();
   }
 
   /**

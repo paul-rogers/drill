@@ -23,6 +23,7 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.TableSchemaType;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.store.ImplicitColumnExplorer.ImplicitFileColumns;
@@ -31,7 +32,6 @@ import org.apache.hadoop.fs.Path;
 public class ScanProjection {
 
   public enum SelectType { ALL, LIST }
-  public enum TableSchemaType { EARLY, LATE }
 
   /**
    * Definition of a column from the SELECT list. This is
@@ -60,7 +60,7 @@ public class ScanProjection {
     }
 
     /**
-     * Return if this column is the special "*" colum which means to select
+     * Return if this column is the special "*" column which means to select
      * all table columns.
      *
      * @return true if the column is "*"
@@ -423,7 +423,7 @@ public class ScanProjection {
   }
 
   private final ScanProjection.SelectType selectType;
-  private final ScanProjection.TableSchemaType tableType;
+  private final TableSchemaType tableType;
   private final List<SelectColumn> queryCols;
   private final List<TableColumn> tableCols;
   private final ColumnsArrayColumn columnsCol;
@@ -458,7 +458,7 @@ public class ScanProjection {
    */
   public boolean isSelectAll() { return selectType == SelectType.ALL; }
 
-  public ScanProjection.TableSchemaType tableSchemaType() { return tableType; }
+  public TableSchemaType tableSchemaType() { return tableType; }
 
   /**
    * Return the set of columns from the SELECT list

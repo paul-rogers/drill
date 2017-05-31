@@ -30,14 +30,14 @@ import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.BatchAcc
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExec;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.VectorContainerAccessor;
-import org.apache.drill.exec.physical.impl.scan.RowBatchReader.SchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.SelectColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.TableColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjection.TableSchemaType;
+import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.TableSchemaType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.hadoop.fs.Path;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -82,11 +82,40 @@ import com.google.common.annotations.VisibleForTesting;
 public class ScanOperatorExec implements OperatorExec {
 
 
+  /**
+   * Implementation of the schema negotiation between scan operator and
+   * batch reader. Anticipates that the select list (and/or the list of
+   * predefined fields (implicit, partition) might be set by the scanner.
+   * For now, all readers have their own implementation of the select
+   * set.
+   * <p>
+   * Handles both early- and late-schema readers. Early-schema readers
+   * provide a table schema, late-schema readers do not.
+   * <p>
+   * If the reader (or, later, the scanner) has a SELECT list, then that
+   * select list is pushed down into the result set loader created for
+   * the reader.
+   * <p>
+   * Also handles parsing out various column types, filling in null
+   * columns and (via the vector cache), minimizing changes across
+   * readers. In the worst case, a reader might have a column "c" in
+   * one file, might skip "c" in the second file, and "c" may appear again
+   * in a third file. This negotiator, along with the scan projection
+   * and vector cache, "smooths out" schema changes by preserving the vector
+   * for "c" across all three files. In the first and third files "c" is
+   * a vector written by the reader, in the second, it is a null column
+   * filled in by the scan projector (assuming, of course, that "c"
+   * is nullable or an array.)
+   */
+
   private static class SchemaNegotiatorImpl implements SchemaNegotiator {
 
     private final ReaderState readerState;
     private final List<SelectColumn> selection = new ArrayList<>();
     private final List<TableColumn> tableSchema = new ArrayList<>();
+    private TableSchemaType tableSchemaType = TableSchemaType.LATE;
+    private Path filePath;
+    private Path rootPath;
 
     private SchemaNegotiatorImpl(ReaderState readerState) {
       this.readerState = readerState;
@@ -106,9 +135,17 @@ public class ScanOperatorExec implements OperatorExec {
     public void addSelectColumn(SchemaPath path, ColumnType type) {
 
       // Can't yet handle column type
-      // Always treated as ANY: the planner will sort out the meaning.
+      // Always treated as ANY: the projection planner will sort out the meaning.
 
       selection.add(new SelectColumn(path));
+    }
+
+    @Override
+    public void setTableSchemaType(TableSchemaType type) {
+      if (type == TableSchemaType.LATE && ! tableSchema.isEmpty()) {
+        throw new IllegalArgumentException("Can't set schema to LATE after providing table columns.");
+      }
+      tableSchemaType = type;
     }
 
     @Override
@@ -118,27 +155,23 @@ public class ScanOperatorExec implements OperatorExec {
 
     @Override
     public void addTableColumn(MaterializedField schema) {
+      tableSchemaType = TableSchemaType.EARLY;
       tableSchema.add(new TableColumn(tableSchema.size(), schema));
     }
 
     @Override
+    public void setFilePath(Path filePath) {
+      this.filePath = filePath;
+    }
+
+    @Override
+    public void setSelectionRoot(Path rootPath) {
+      this.rootPath = rootPath;
+    }
+
+    @Override
     public ResultSetLoader build() {
-      ScanOperatorExec scanOp = readerState.scanOp();
-      ProjectionPlanner planner = new ProjectionPlanner(scanOp.context.getFragmentContext().getOptionSet());
-      if (scanOp.options.selection != null) {
-        if (! selection.isEmpty()) {
-          throw new IllegalStateException("Select list provided by scan operator; cannot also be provided by reader");
-        }
-        planner.queryCols(scanOp.options.selection);
-      } else {
-        planner.selection(selection);
-      }
-      planner.tableSchema(tableSchema);
-      readerState.projection = planner.build();
-      readerState.scanProjector = new ScanProjector.Builder(scanOp.context.allocator(), readerState.projection)
-          .resultSetOptions(new ResultSetLoaderImpl.OptionBuilder().setInventory(scanOp.inventory))
-          .build();
-      return readerState.scanProjector.tableLoader();
+      return readerState.buildSchema(this);
     }
   }
 
@@ -186,7 +219,16 @@ public class ScanOperatorExec implements OperatorExec {
       // Open the reader. This can fail. if it does, clean up.
 
       try {
-        reader.open(scanOp.context, new SchemaNegotiatorImpl(this));
+
+        // The reader can return a "soft" failure: the open worked, but
+        // the file is empty, non-existent or some other form of "no data."
+        // Handle this by immediately moving to EOF. The scanner will quietly
+        // pass over this reader and move onto the next, if any.
+
+        if (! reader.open(scanOp.context, new SchemaNegotiatorImpl(this))) {
+          state = State.EOF;
+          return false;
+        }
 
       // When catching errors, leave the reader member set;
       // we must close it on close() later.
@@ -200,10 +242,81 @@ public class ScanOperatorExec implements OperatorExec {
       }
 
       earlySchema = projection.tableSchemaType() == TableSchemaType.EARLY;
-      if (earlySchema) {
-        // TODO: Setup the empty batch
-      }
+      state = State.ACTIVE;
       return true;
+    }
+
+    /**
+     * Callback from the schema negotiator to build the schema from information from
+     * both the table and scan operator. Returns the result set loader to be used
+     * by the reader to write to the table's value vectors.
+     *
+     * @param schemaNegotiator builder given to the reader to provide it's
+     * schema information
+     * @return the result set loader to be used by the reader
+     */
+
+    protected ResultSetLoader buildSchema(SchemaNegotiatorImpl schemaNegotiator) {
+
+      // Plan the projection: (table columns), (static columns) --> (output schema)
+      // Where (output schema) is the (select list) expanded as needed and
+      // decorated with type information.
+
+      ProjectionPlanner planner = new ProjectionPlanner(scanOp.context.getFragmentContext().getOptionSet());
+
+      // Either the scan operator, or reader, but not both,
+      // can provide the selection list
+
+      if (scanOp.options.selection != null) {
+        if (! schemaNegotiator.selection.isEmpty()) {
+          throw new IllegalStateException("Select list provided by scan operator; cannot also be provided by reader");
+        }
+        planner.queryCols(scanOp.options.selection);
+      } else {
+        planner.selection(schemaNegotiator.selection);
+      }
+
+      // Provide the table schema (if any) provided by the reader.
+      // For the projection planner, a null list means late schema.
+
+      if (schemaNegotiator.tableSchemaType == TableSchemaType.EARLY) {
+        planner.tableSchema(schemaNegotiator.tableSchema);
+      }
+
+      // Populate the file and selection root, if any, for implicit
+      // columns and partition columns.
+      // TODO: Clean up API to pass either a string or path both places..
+
+      if (schemaNegotiator.filePath != null) {
+        planner.setSource(schemaNegotiator.filePath,
+            schemaNegotiator.rootPath == null ? null :
+              Path.getPathWithoutSchemeAndAuthority(schemaNegotiator.rootPath).toString());
+      }
+
+      // Create the plan
+      projection = planner.build();
+
+      // Implement the plan by creating the loader, static column
+      // loader, and mechanism to knit the resulting columns
+      // together.
+
+      scanProjector = new ScanProjector.Builder(scanOp.context.allocator(), projection)
+          .vectorCache(scanOp.vectorCache)
+          .build();
+
+      // Set the output container to zero rows. Required so that we can
+      // send the schema downstream in the form of an empty batch.
+
+      VectorContainer output = scanProjector.output();
+      output.setRecordCount(0);
+
+      // Bind the output container to the output of the scan operator.
+
+      scanOp.containerAccessor.setContainer(output);
+
+      // Return the result set loader to be used by the reader.
+
+      return scanProjector.tableLoader();
     }
 
     /**
@@ -346,7 +459,13 @@ public class ScanOperatorExec implements OperatorExec {
       // Add implicit columns, if any.
       // Identify the output container and its schema version.
 
-      scanOp.containerAccessor.setContainer(scanProjector.harvest());
+      VectorContainer output = scanProjector.harvest();
+
+      // Late schema readers may change their schema between batches
+
+      if (! earlySchema) {
+        scanOp.containerAccessor.setContainer(output);
+      }
     }
 
     public boolean isEof() {
@@ -399,47 +518,29 @@ public class ScanOperatorExec implements OperatorExec {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ScanOperatorExec.class);
 
-  private State state = State.START;
-  private OperatorExecServices context;
   private final Iterator<RowBatchReader> readers;
   private final ScanOptions options;
   private final VectorContainerAccessor containerAccessor = new VectorContainerAccessor();
-  private ResultVectorCache inventory;
+  private State state = State.START;
+  private OperatorExecServices context;
+  private ResultVectorCache vectorCache;
   private int readerCount;
   private ReaderState readerState;
-
-//  public ScanOperatorExec(Iterator<RowBatchReader> readers,
-//                          List<Map<String, String>> implicitColumns) {
-//    this(readers,
-//        convertImplicitCols(implicitColumns));
-//  }
 
   public ScanOperatorExec(Iterator<RowBatchReader> readers,
                           ScanOptions options) {
     this.readers = readers;
-    this.options = options;
+    this.options = options == null ? new ScanOptions() : options;
   }
 
   public ScanOperatorExec(Iterator<RowBatchReader> iterator) {
     this(iterator, new ScanOptions());
   }
 
-//  public static ScanOptions convertImplicitCols(List<Map<String, String>> implicitColumns) {
-//    List<ImplicitColumnDefn> newForm = new ArrayList<>();
-//    for ( Map<String, String> map : implicitColumns ) {
-//      for (Map.Entry<String, String> entry : map.entrySet()) {
-//        newForm.add(new ImplicitColumnDefn(entry.getKey(), entry.getValue()));
-//      }
-//    }
-//    ScanOptions options = new ScanOptions();
-//    options.implicitColumns = newForm;
-//    return options;
-//  }
-
   @Override
   public void bind(OperatorExecServices context) {
     this.context = context;
-    inventory = new ResultVectorCache(context.allocator());
+    vectorCache = new ResultVectorCache(context.allocator());
   }
 
   @Override
@@ -455,6 +556,11 @@ public class ScanOperatorExec implements OperatorExec {
     if (state != State.END) {
       return true;
     }
+
+    // Reader count check done here because readers are passed as
+    // an iterator, not list. We don't know the count until we've
+    // seen EOF from the iterator.
+
     if (readerCount == 0) {
       // return false; // When empty batches are supported
       throw UserException.executionError(
@@ -471,28 +577,7 @@ public class ScanOperatorExec implements OperatorExec {
    */
 
   private void nextSchema() {
-    for (;;) {
-
-      // If have a reader, load the schema
-
-      if (readerState != null) {
-        if (readerState.buildSchema()) {
-          return;
-        }
-
-        // Done with the current reader
-
-        closeReader();
-      }
-
-      // Need to open another reader?
-
-      if (! openReader()) {
-        state = State.END;
-        return;
-      }
-      state = State.READER;
-    }
+    nextAction(true);
   }
 
   @Override
@@ -524,27 +609,40 @@ public class ScanOperatorExec implements OperatorExec {
    */
 
   private void nextBatch() {
+    nextAction(false);
+  }
+
+  private void nextAction(boolean schema) {
     for (;;) {
 
       // If have a reader, read a batch
 
       if (readerState != null) {
-        if (readerState.next()) {
-          return;
+        boolean ok;
+        if (schema) {
+          ok = readerState.buildSchema();
+        } else {
+          ok = readerState.next();
         }
-
-        // Done with the current reader
-
+        if (ok) {
+          break;
+        }
         closeReader();
       }
 
-      // Need to open another reader?
+      // Another reader available?
 
-      if (! openReader()) {
+      if (! nextReader()) {
         state = State.END;
         return;
       }
       state = State.READER;
+
+      // Is the reader usable?
+
+      if (! readerState.open()) {
+        closeReader();
+      }
     }
   }
 
@@ -555,7 +653,7 @@ public class ScanOperatorExec implements OperatorExec {
    * readers are available
    */
 
-  private boolean openReader() {
+  private boolean nextReader() {
 
     // Get the next reader, if any.
 
@@ -569,84 +667,8 @@ public class ScanOperatorExec implements OperatorExec {
     // Open the reader. This can fail.
 
     readerState = new ReaderState(this, reader);
-    readerState.open();
     return true;
   }
-
-//  private boolean readBatch() {
-//
-//    if (! readerState.next()) {
-//      return false;
-//    }
-//
-//    // Have a batch. Prepare it for return.
-//
-//    prepareBatch();
-//    return true;
-//  }
-//
-//  private void prepareBatch() {
-//
-//    // Add implicit columns, if any.
-//    // Identify the output container and its schema version.
-//
-//    containerAccessor.setContainer(scanProjector.harvest());
-//  }
-
-//  /**
-//   * Add implicit columns to the given vector. This is done by creating a
-//   * second row set mutator, using that to define and write the implicit
-//   * columns, then merging the reader's container with the implicit columns
-//   * to produce the final batch.
-//   *
-//   * @param container container with the data from the reader
-//   * @return new container with the original data merged with the implicit
-//   * columns
-//   */
-//
-//  private VectorContainer mergeImplicitColumns(VectorContainer container) {
-//
-//    // Setup. Do nothing if the implicit columns list is empty.
-//
-//    List<ImplicitColumnDefn> implicitCols = options.implicitColumns;
-//    int colCount = implicitCols.size();
-//    if (colCount == 0) {
-//      return container;
-//    }
-//
-//    // Build the implicit column schema.
-//
-//    ResultSetLoader overlay = new ResultSetLoaderImpl(context.allocator());
-//    overlay.startBatch();
-//    TupleLoader writer = overlay.writer();
-//    int rowCount = container.getRecordCount();
-//    for (ImplicitColumnDefn col : implicitCols) {
-//      MajorType type = MajorType.newBuilder()
-//          .setMinorType(MinorType.VARCHAR)
-//          .setMode(DataMode.REQUIRED)
-//          // Note: can't set width because width varies across files
-//          //.setPrecision(col.value.length())
-//          .build();
-//      MaterializedField colSchema = MaterializedField.create(col.colName, type);
-//      writer.schema().addColumn(colSchema);
-//    }
-//
-//    // Populate the columns. This is a bit of a waste; would be nice to
-//    // use a single value with multiple pointers..
-//
-//    for (int i = 0; i < rowCount; i++) {
-//      overlay.startRow();
-//      for (int j = 0; j < colCount; j++) {
-//        writer.column(j).setString(implicitCols.get(j).value);
-//      }
-//      overlay.saveRow();
-//    }
-//
-//    // Merge the two containers.
-//
-//    VectorContainer implicitContainer = overlay.harvest();
-//    return container.merge(implicitContainer);
-//  }
 
   /**
    * Close the current reader.

@@ -32,6 +32,7 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.*;
+import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.TableSchemaType;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.server.options.OptionSet;
@@ -460,7 +461,6 @@ public class ProjectionPlanner {
         outputCols.add(col.projection);
       }
     }
-
   }
 
   private void mapPartitionColumn(SelectColumn inCol, int partition) {

@@ -91,8 +91,7 @@ public class ResultVectorCache {
         return false;
       }
       MaterializedField vectorSchema = vector.getField();
-      return vectorSchema.getType() == colSchema.getType() &&
-             vectorSchema.getDataMode() == colSchema.getDataMode();
+      return vectorSchema.getType().equals(colSchema.getType());
     }
   }
 

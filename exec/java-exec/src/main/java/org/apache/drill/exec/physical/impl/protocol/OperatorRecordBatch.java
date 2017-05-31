@@ -17,7 +17,9 @@
  */
 package org.apache.drill.exec.physical.impl.protocol;
 
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
@@ -34,6 +36,7 @@ import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.WritableBatch;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
+import org.apache.drill.exec.vector.ValueVector;
 
 /**
  * Modular implementation of the standard Drill record batch iterator
@@ -74,36 +77,69 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
    * example, each batch output from a series of readers might be compared,
    * as they are returned, to detect schema changes from one batch to the
    * next. This class does not track vector-by-vector changes as a schema
-   * is built.
+   * is built, but rather periodic "snapshots" at times determined by the
+   * operator.
+   * <p>
+   * If an operator is guaranteed to emit a consistent schema, then no
+   * checks need be done, and this tracker will report no schema change.
+   * On the other hand, a scanner might check schema more often. At least
+   * once per reader, and more often if a reader is "late-schema": if the
+   * reader can change schema batch-by-batch.
+   * <p>
+   * Drill defines "schema change" in a very specific way. Not only must
+   * the set of columns be the same, and have the same types, it must also
+   * be the case that the <b>vectors</b> that hold the columns be identical.
+   * Generated code contains references to specific vector objects; passing
+   * along different vectors requires new code to be generated and is treated
+   * as a schema change.
+   * <p>
+   * Drill has no concept of "same schema, different vectors." A change in
+   * vector is just as serious as a change in schema. Hence, operators
+   * try to use the same vectors for their entire lives. That is the change
+   * tracked here.
    */
+
+  // TODO: Does not handle SV4 situations
 
   public static class SchemaTracker {
 
     private int schemaVersion;
-    private int currentFieldCount;
     private BatchSchema currentSchema;
+    private List<ValueVector> currentVectors = new ArrayList<>();
 
-    public void trackSchema(BatchSchema newSchema) {
-      if (currentSchema == newSchema) {
+    public void trackSchema(VectorContainer newBatch) {
 
-        // The new schema is the same as this one. Only need to
-        // check for new fields (existing ones cannot be changed or
-        // removed.)
-
-        if (currentFieldCount == newSchema.getFieldCount()) {
-          return;
-        }
-      } else if (currentSchema != null && currentSchema.isEquivalent(newSchema)) {
-        return;
+      if (! isSameSchema(newBatch)) {
+        schemaVersion++;
+        captureSchema(newBatch);
       }
-      currentSchema = newSchema;
-      currentFieldCount = currentSchema.getFieldCount();
-      schemaVersion++;
     }
 
-    public int schemaVersion() {
-      return schemaVersion;
+    private boolean isSameSchema(VectorContainer newBatch) {
+      if (currentVectors.size() != newBatch.getNumberOfColumns()) {
+        return false;
+      }
+
+      // Compare vectors by identity: not just same type,
+      // must be same instance.
+
+      for (int i = 0; i < currentVectors.size(); i++) {
+        if (currentVectors.get(i) != newBatch.getValueVector(i).getValueVector())
+          return false;
+      }
+      return true;
     }
+
+    private void captureSchema(VectorContainer newBatch) {
+      currentVectors.clear();
+      for (VectorWrapper<?> vw : newBatch) {
+        currentVectors.add(vw.getValueVector());
+      }
+      currentSchema = newBatch.getSchema();
+    }
+
+    public int schemaVersion() { return schemaVersion; }
+    public BatchSchema schema() { return currentSchema; }
   }
 
   public static class VectorContainerAccessor implements BatchAccessor {
@@ -111,10 +147,21 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
     private VectorContainer container;
     private SchemaTracker schemaTracker = new SchemaTracker();
 
+    /**
+     * Set the vector container. Done initially, and any time the schema of
+     * the container may have changed. May be called with the same container
+     * as the previous call, or a different one. A different container
+     * triggers a schema change unless the vectors are identical across the
+     * two containers.
+     *
+     * @param container the container that holds vectors to be sent
+     * downstream
+     */
+
     public void setContainer(VectorContainer container) {
       this.container = container;
       if (container != null) {
-        schemaTracker.trackSchema(container.getSchema());
+        schemaTracker.trackSchema(container);
       }
     }
 

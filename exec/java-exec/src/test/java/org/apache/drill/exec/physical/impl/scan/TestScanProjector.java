@@ -482,4 +482,68 @@ public class TestScanProjector extends SubOperatorTest {
 
     scanProj.close();
   }
+
+  @Test
+  public void testMixture() {
+    // Define the projection plan.
+    // SELECT dir0, a, suffix, c FROM table(a, b)
+
+    ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
+    builder.queryCols(TestProjectionPlanner.selectList("dir0", "b", "suffix", "c"));
+
+    BatchSchema tableSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .build();
+    builder.tableColumns(tableSchema);
+
+    // Set file path
+
+    Path path = new Path("hdfs:///w/x/y/z.csv");
+    builder.setSource(path, "hdfs:///w");
+
+    ScanProjection projection = builder.build();
+
+    // Create the scan projector.
+
+    ScanProjector.Builder scanBuilder = new ScanProjector.Builder(fixture.allocator(), projection);
+    ScanProjector scanProj = scanBuilder.build();
+    assertTrue(scanProj instanceof ScanProjector.EarlySchemaProjectPlan);
+
+    // Create a batch of data.
+
+    String bValues[] = new String[] { "fred", "wilma" };
+    ResultSetLoader loader = scanProj.tableLoader();
+    loader.startBatch();
+
+    // Should be a direct writer, no projection
+    TupleLoader writer = loader.writer();
+    assertTrue(writer instanceof LogicalTupleLoader);
+    for (int i = 0; i < 2; i++) {
+      loader.startRow();
+      assertNull(writer.column(0));
+      writer.column(1).setString(bValues[i]);
+      loader.saveRow();
+    }
+    scanProj.harvest();
+
+    // Verify
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .addNullable("dir0", MinorType.VARCHAR)
+        .add("b", MinorType.VARCHAR)
+        .add("suffix", MinorType.VARCHAR)
+        .addNullable("c", MinorType.INT)
+        .build();
+    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .add("x", "fred", "csv", null)
+        .add("x", "wilma", "csv", null)
+        .build();
+
+    new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(scanProj.output()));
+
+    scanProj.close();
+  }
+
 }

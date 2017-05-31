@@ -25,7 +25,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanProjection.ProjectedColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.SelectColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.StaticColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.TableColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjection.TableSchemaType;
+import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.TableSchemaType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
@@ -70,16 +70,43 @@ public abstract class ScanProjector {
     private final String values[];
 
     public StaticColumnLoader(BufferAllocator allocator, List<StaticColumn> defns) {
-      loader = new ResultSetLoaderImpl(allocator);
+      this(allocator, defns, null);
+    }
+
+    public StaticColumnLoader(BufferAllocator allocator, List<StaticColumn> defns, ResultVectorCache vectorCache) {
+
+      // If vector cache provided, use it in the loader.
+
+      if (vectorCache == null) {
+        loader = new ResultSetLoaderImpl(allocator);
+      } else {
+        ResultSetLoaderImpl.ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+            .setVectorCache(vectorCache)
+            .build();
+        loader = new ResultSetLoaderImpl(allocator, options);
+      }
+
+      // Populate the loader schema from that provided
+
       TupleSchema schema = loader.writer().schema();
       for (StaticColumn defn : defns) {
         schema.addColumn(defn.schema());
       }
+
+      // Cache the static values for use later
+
       values = new String[defns.size()];
       for (int i = 0; i < defns.size(); i++) {
         values[i] = defns.get(i).value();
       }
     }
+
+    /**
+     * Populate static vectors with the defined static values.
+     *
+     * @param rowCount number of rows to generate. Must match the
+     * row count in the batch returned by the reader
+     */
 
     public void load(int rowCount) {
       loader.startBatch();
@@ -87,9 +114,15 @@ public abstract class ScanProjector {
       for (int i = 0; i < rowCount; i++) {
         loader.startRow();
         for (int j = 0; j < values.length; j++) {
+
+          // Set the column (of any type) to null if the string value
+          // is null.
+
           if (values[j] == null) {
             writer.column(j).setNull();
           } else {
+            // Else, set the static (string) value.
+
             writer.column(j).setString(values[j]);
           }
         }
@@ -117,6 +150,7 @@ public abstract class ScanProjector {
     private ResultSetLoaderImpl.OptionBuilder options;
     private StaticColumnLoader staticLoader;
     private RowBatchMerger batchMerger;
+    private ResultVectorCache vectorCache;
 
     public Builder(BufferAllocator allocator, ScanProjection projection) {
       this.allocator = allocator;
@@ -125,6 +159,11 @@ public abstract class ScanProjector {
 
     public Builder resultSetOptions(ResultSetLoaderImpl.OptionBuilder options) {
       this.options = options;
+      return this;
+    }
+
+    public Builder vectorCache(ResultVectorCache vectorCache) {
+      this.vectorCache = vectorCache;
       return this;
     }
 
@@ -148,6 +187,12 @@ public abstract class ScanProjector {
       }
       return new EarlySchemaProjectPlan(tableLoader, staticLoader, batchMerger, output);
     }
+
+    /**
+     * Determine if a projection step is needed, or if the table loader's
+     * output can be used directly.
+     * @return true if a projection step must be added
+     */
 
     private boolean requiresProjection() {
 
@@ -181,24 +226,44 @@ public abstract class ScanProjector {
       return false;
     }
 
+    /**
+     * Create a result set loader for the case in which the table schema is
+     * known and is static (does not change between batches.)
+     * @return the result set loader for this table
+     */
+
     private ResultSetLoader makeStaticTableLoader() {
+
+      // Use the vector cache if provided
+
+      if (options == null) {
+        options = new ResultSetLoaderImpl.OptionBuilder();
+      }
+      if (vectorCache != null) {
+        options.setVectorCache(vectorCache);
+      }
+
+      // Set up a selection list if available and is a subset of
+      // table columns. (If we want all columns, either because of *
+      // or we selected them all, then no need to add filtering.)
+
       if (! projection.isSelectAll() &&
           projection.projectedCols().size() < projection.tableCols().size()) {
-       if (options == null) {
-          options = new ResultSetLoaderImpl.OptionBuilder();
-        }
-       List<String> selection = new ArrayList<>();
+        List<String> selection = new ArrayList<>();
         for (SelectColumn selCol : projection.queryCols()) {
           selection.add(selCol.name());
         }
         options.setSelection(selection);
       }
+
+      // Create the table loader
+
       ResultSetLoaderImpl loader;
-      if (options == null) {
-        loader = new ResultSetLoaderImpl(allocator);
-      } else {
-        loader = new ResultSetLoaderImpl(allocator, options.build());
-      }
+      loader = new ResultSetLoaderImpl(allocator, options.build());
+
+      // We know the table schema. Preload it into the
+      // result set loader.
+
       TupleSchema schema = loader.writer().schema();
       for (TableColumn tableCol : projection.tableCols()) {
         schema.addColumn(tableCol.schema());
@@ -206,29 +271,82 @@ public abstract class ScanProjector {
       return loader;
     }
 
+    /**
+     * A projection is needed to:
+     * <ul>
+     * <li>Reorder table columns</li>
+     * <li>Select a subset of table columns</li>
+     * <li>Fill in missing select columns</li>
+     * <li>Fill in implicit or partition columns</li>
+     * </ul>
+     * Creates and returns the batch merger that does the projection.
+     * <p>
+     * To visualize this, assume we have numbered table columns, lettered
+     * implicit, null or partition columns:<pre><code>
+     * [ 1 | 2 | 3 | 4 ]    Table columns in table order
+     * [ A | B | C ]        Static columns
+     * </code></pre>
+     * Now, we wish to project them into select order.
+     * Let's say that the SELECT clause looked like this, with "t"
+     * indicating table columns:<pre><code>
+     * SLECT t2, t3, C, B, t1, A, t2 ...
+     * </code></pre>
+     * Then the projection looks like this:<pre><code>
+     * [ 2 | 3 | C | B | 1 | A | 2 ]
+     * </code></pre>
+     * Often, not all table columns are projected. In this case, the
+     * result set loader presents the full table schema to the reader,
+     * but actually writes only the projected columns. Suppose we
+     * have:<pre><code>
+     * SLECT t3, C, B, t1,, A ...
+     * </code></pre>
+     * Then the abbreviated table schema looks like this:<pre><code>
+     * [ 1 | 3 ]</code></pre>
+     * Note that table columns retain their table ordering.
+     * The projection looks like this:<pre><code>
+     * [ 2 | C | B | 1 | A ]
+     * </code></pre>
+     *
+     * @param tableLoader result set loader for the table
+     * @return final vector container returned downstream
+     */
+
     protected VectorContainer prepareProjection(ResultSetLoader tableLoader) {
+
+      // Create a builder
+
       RowBatchMerger.Builder builder = new RowBatchMerger.Builder();
+
+      // Project table columns into their output schema locations
+
+      // Projection of table columns is from the abbreviated table
+      // schema after removing unprojected columns.
+
       VectorContainer tableContainer = tableLoader.outputContainer();
       List<ProjectedColumn> projections = projection.projectedCols();
       for (int i = 0; i < projections.size(); i++) {
-        builder.addProjection(tableContainer, projections.get(i).source().index(), i);
+        builder.addProjection(tableContainer, i, projections.get(i).index());
       }
+
+      // Project static columns into their output schema locations
 
       List<StaticColumn> staticCols = projection.staticCols();
       if (! staticCols.isEmpty()) {
-        staticLoader = new StaticColumnLoader(allocator, staticCols);
+        staticLoader = new StaticColumnLoader(allocator, staticCols, vectorCache);
         VectorContainer staticContainer = staticLoader.output();
         for (int i = 0; i < staticCols.size(); i++) {
           builder.addProjection(staticContainer, i, staticCols.get(i).index());
         }
       }
 
+      // Build the batch projector and return its output container
+
       batchMerger = builder.build(allocator);
       return batchMerger.getOutput();
     }
 
     public ScanProjector buildLateSchemaSelectAll() {
-      return null;
+      throw new UnsupportedOperationException("Not yet");
     }
 
     public ScanProjector buildLatesSchemaSelectList() {
