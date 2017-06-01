@@ -150,9 +150,8 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
     /**
      * Set the vector container. Done initially, and any time the schema of
      * the container may have changed. May be called with the same container
-     * as the previous call, or a different one. A different container
-     * triggers a schema change unless the vectors are identical across the
-     * two containers.
+     * as the previous call, or a different one. A schema change occurs
+     * unless the vectors are identical across the two containers.
      *
      * @param container the container that holds vectors to be sent
      * downstream

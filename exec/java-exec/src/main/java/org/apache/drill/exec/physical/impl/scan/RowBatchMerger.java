@@ -52,13 +52,40 @@ public class RowBatchMerger {
 
   public static class Projection {
     private final VectorContainer batch;
+    private final boolean direct;
     private final int fromIndex;
     private final int toIndex;
+    private ValueVector fromVector;
+    private ValueVector toVector;
 
-    public Projection(VectorContainer batch, int fromIndex, int toIndex) {
+    public Projection(VectorContainer batch, boolean direct, int fromIndex, int toIndex) {
       this.batch = batch;
+      this.direct = direct;
       this.fromIndex = fromIndex;
       this.toIndex = toIndex;
+    }
+
+    public void setFromVector(ValueVector vector) {
+      fromVector = vector;
+      if (direct) {
+        toVector = fromVector;
+      }
+    }
+
+    public void makeToVector(VectorContainer output) {
+      if (direct) {
+        toVector = fromVector;
+        output.add(toVector);
+      } else {
+        toVector = output.addOrGet(batch.getSchema().getColumn(fromIndex));
+      }
+    }
+
+    public void project() {
+      if (! direct) {
+        toVector.clear();
+        toVector.exchange(fromVector);
+      }
     }
   }
 
@@ -66,17 +93,13 @@ public class RowBatchMerger {
 
     private List<Projection> projections = new ArrayList<>();
 
-    public Builder addBatch(VectorContainer batch, int projection[]) {
-      for (int i = 0; i < projection.length; i++) {
-        if (projection[i] != -1) {
-          addProjection(batch, i, projection[i]);
-        }
-      }
+    public Builder addDirectProjection(VectorContainer batch, int fromIndex, int toIndex) {
+      projections.add(new Projection(batch, true, fromIndex, toIndex));
       return this;
     }
 
-    public Builder addProjection(VectorContainer batch, int fromIndex, int toIndex) {
-      projections .add(new Projection(batch, fromIndex, toIndex));
+    public Builder addExchangeProjection(VectorContainer batch, int fromIndex, int toIndex) {
+      projections.add(new Projection(batch, false, fromIndex, toIndex));
       return this;
     }
 
@@ -102,33 +125,29 @@ public class RowBatchMerger {
         }
       }
 
-      ValueVector inputs[] = new ValueVector[count];
-      ValueVector outputs[] = new ValueVector[count];
       for (int i = 0; i < count; i++) {
         Projection proj = projections.get(i);
-        inputs[i] = proj.batch.getValueVector(proj.fromIndex).getValueVector();
-        outputs[i] = output.addOrGet(proj.batch.getSchema().getColumn(proj.fromIndex));
+        proj.setFromVector(proj.batch.getValueVector(proj.fromIndex).getValueVector() );
+        proj.makeToVector(output);
       }
       output.buildSchema(SelectionVectorMode.NONE);
-      return new RowBatchMerger(output, inputs, outputs);
+      Projection projArray[] = new Projection[count];
+      projections.toArray(projArray);
+      return new RowBatchMerger(output, projArray);
     }
   }
 
   private final VectorContainer output;
-  private final ValueVector sourceVectors[];
-  private final ValueVector destVectors[];
+  private final Projection projections[];
 
-  public RowBatchMerger(VectorContainer output, ValueVector[] inputs,
-      ValueVector[] outputs) {
+  public RowBatchMerger(VectorContainer output, Projection projections[]) {
     this.output = output;
-    sourceVectors = inputs;
-    destVectors = outputs;
+    this.projections = projections;
   }
 
   public void project(int rowCount) {
-    output.zeroVectors();
-    for (int i = 0; i < sourceVectors.length; i++) {
-      sourceVectors[i].exchange(destVectors[i]);
+    for (int i = 0; i < projections.length; i++) {
+      projections[i].project();
     }
     output.setRecordCount(rowCount);
   }

@@ -129,6 +129,13 @@ public interface SchemaNegotiator {
   void setSelectionRoot(Path rootPath);
 
   /**
+   * Specify the type to use for projected columns that do not
+   * match any data source columns. Defaults to nullable int.
+   */
+
+  void setNullType(MajorType type);
+
+  /**
    * Build the schema, plan the required projections and static
    * columns and return a loader used to populate value vectors.
    * If the select list includes a subset of table columns, then

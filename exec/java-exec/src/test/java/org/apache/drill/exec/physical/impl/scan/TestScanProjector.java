@@ -17,28 +17,35 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.EarlyProjectedColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.ImplicitColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.ImplicitColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.LateProjectedColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.NullColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.OutputColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.SelectColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.StaticColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjector.StaticColumnLoader;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.TableColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjector.ImplicitColumnLoader;
+import org.apache.drill.exec.physical.impl.scan.ScanProjector.NullColumnLoader;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.impl.LogicalTupleLoader;
 import org.apache.drill.exec.physical.rowSet.impl.TupleSetImpl.TupleLoaderImpl;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.store.ImplicitColumnExplorer.ImplicitFileColumns;
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
@@ -64,20 +71,18 @@ public class TestScanProjector extends SubOperatorTest {
   public void testStaticColumnLoader() {
 
     List<StaticColumn> defns = new ArrayList<>();
-    defns.add(new NullColumn(buildSelectCol("null"), 0,
-        SchemaBuilder.columnSchema("null", MinorType.INT, DataMode.OPTIONAL)));
-
     ImplicitColumnDefn iDefn = new ImplicitColumnDefn("suffix", ImplicitFileColumns.SUFFIX);
-    ImplicitColumn iCol = new ImplicitColumn(buildSelectCol("suffix"), 1, iDefn);
+    ImplicitColumn iCol = new ImplicitColumn(buildSelectCol("suffix"), 0, iDefn);
     defns.add(iCol);
     Path path = new Path("hdfs:///w/x/y/z.csv");
     iCol.setValue(path);
 
-    PartitionColumn pCol = new PartitionColumn(buildSelectCol("dir0"), 2, 0);
+    PartitionColumn pCol = new PartitionColumn(buildSelectCol("dir0"), 1, 0);
     defns.add(pCol);
     pCol.setValue("w");
 
-    StaticColumnLoader staticLoader = new StaticColumnLoader(fixture.allocator(), defns);
+    ResultVectorCache cache = new ResultVectorCache(fixture.allocator());
+    ImplicitColumnLoader staticLoader = new ImplicitColumnLoader(fixture.allocator(), defns, cache);
 
     // Create a batch
 
@@ -86,17 +91,75 @@ public class TestScanProjector extends SubOperatorTest {
     // Verify
 
     BatchSchema expectedSchema = new SchemaBuilder()
-        .addNullable("null", MinorType.INT)
         .addNullable("suffix", MinorType.VARCHAR)
         .addNullable("dir0", MinorType.VARCHAR)
         .build();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .add(null, "csv", "w")
-        .add(null, "csv", "w")
+        .add("csv", "w")
+        .add("csv", "w")
         .build();
 
     new RowSetComparison(expected)
         .verifyAndClearAll(fixture.wrap(staticLoader.output()));
+    staticLoader.close();
+  }
+
+  @SuppressWarnings("resource")
+  @Test
+  public void testNullColumnLoader() {
+
+    List<OutputColumn> defns = new ArrayList<>();
+    defns.add(new LateProjectedColumn(buildSelectCol("req"), 0));
+    defns.add(new LateProjectedColumn(buildSelectCol("opt"), 1));
+    defns.add(new LateProjectedColumn(buildSelectCol("rep"), 2));
+    defns.add(new EarlyProjectedColumn(buildSelectCol("defreq"), 3,
+        new TableColumn(0, SchemaBuilder.columnSchema("defreq", MinorType.BIGINT, DataMode.REQUIRED))));
+    defns.add(new EarlyProjectedColumn(buildSelectCol("defopt"), 4,
+        new TableColumn(1, SchemaBuilder.columnSchema("defopt", MinorType.BIGINT, DataMode.OPTIONAL))));
+    defns.add(new LateProjectedColumn(buildSelectCol("unk"), 5));
+
+    // Populate the cache with a column of each mode.
+
+    ResultVectorCache cache = new ResultVectorCache(fixture.allocator());
+    cache.addOrGet(SchemaBuilder.columnSchema("req", MinorType.FLOAT8, DataMode.REQUIRED));
+    ValueVector opt = cache.addOrGet(SchemaBuilder.columnSchema("opt", MinorType.FLOAT8, DataMode.OPTIONAL));
+    ValueVector rep = cache.addOrGet(SchemaBuilder.columnSchema("rep", MinorType.FLOAT8, DataMode.REPEATED));
+
+    // Use nullable Varchar for unknown null columns.
+
+    MajorType nullType = MajorType.newBuilder()
+        .setMinorType(MinorType.VARCHAR)
+        .setMode(DataMode.OPTIONAL)
+        .build();
+    NullColumnLoader staticLoader = new NullColumnLoader(fixture.allocator(), defns, cache, nullType);
+
+    // Create a batch
+
+    staticLoader.load(2);
+
+    // Verify vectors are reused
+
+    VectorContainer output = staticLoader.output();
+    assertSame(opt, output.getValueVector(1).getValueVector());
+    assertSame(rep, output.getValueVector(2).getValueVector());
+
+    // Verify values and types
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .addNullable("req", MinorType.FLOAT8)
+        .addNullable("opt", MinorType.FLOAT8)
+        .addArray("rep", MinorType.FLOAT8)
+        .addNullable("defreq", MinorType.BIGINT)
+        .addNullable("defopt", MinorType.BIGINT)
+        .addNullable("unk", MinorType.VARCHAR)
+        .build();
+    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .add(null, null, new int[] { }, null, null, null)
+        .add(null, null, new int[] { }, null, null, null)
+        .build();
+
+    new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(output));
     staticLoader.close();
   }
 
@@ -118,9 +181,9 @@ public class TestScanProjector extends SubOperatorTest {
 
     // Create the scan projector.
 
-    ScanProjector.Builder scanBuilder = new ScanProjector.Builder(fixture.allocator(), projection);
-    ScanProjector scanProj = scanBuilder.build();
-    assertTrue(scanProj instanceof ScanProjector.EarlySchemaProjectPlan);
+    ScanProjectorBuilder.Builder scanBuilder = new ScanProjectorBuilder.Builder(fixture.allocator(), projection);
+    ScanProjectorBuilder scanProj = scanBuilder.build();
+    assertTrue(scanProj instanceof ScanProjectorBuilder.EarlySchemaProjectPlan);
 
     // Create a batch of data.
 
@@ -169,9 +232,9 @@ public class TestScanProjector extends SubOperatorTest {
 
     // Create the scan projector.
 
-    ScanProjector.Builder scanBuilder = new ScanProjector.Builder(fixture.allocator(), projection);
-    ScanProjector scanProj = scanBuilder.build();
-    assertTrue(scanProj instanceof ScanProjector.EarlySchemaProjectPlan);
+    ScanProjectorBuilder.Builder scanBuilder = new ScanProjectorBuilder.Builder(fixture.allocator(), projection);
+    ScanProjectorBuilder scanProj = scanBuilder.build();
+    assertTrue(scanProj instanceof ScanProjectorBuilder.EarlySchemaProjectPlan);
 
     // Create a batch of data.
 
@@ -220,9 +283,9 @@ public class TestScanProjector extends SubOperatorTest {
 
     // Create the scan projector.
 
-    ScanProjector.Builder scanBuilder = new ScanProjector.Builder(fixture.allocator(), projection);
-    ScanProjector scanProj = scanBuilder.build();
-    assertTrue(scanProj instanceof ScanProjector.EarlySchemaProjectPlan);
+    ScanProjectorBuilder.Builder scanBuilder = new ScanProjectorBuilder.Builder(fixture.allocator(), projection);
+    ScanProjectorBuilder scanProj = scanBuilder.build();
+    assertTrue(scanProj instanceof ScanProjectorBuilder.EarlySchemaProjectPlan);
 
     // Create a batch of data.
 
@@ -275,9 +338,9 @@ public class TestScanProjector extends SubOperatorTest {
 
     // Create the scan projector.
 
-    ScanProjector.Builder scanBuilder = new ScanProjector.Builder(fixture.allocator(), projection);
-    ScanProjector scanProj = scanBuilder.build();
-    assertTrue(scanProj instanceof ScanProjector.EarlySchemaProjectPlan);
+    ScanProjectorBuilder.Builder scanBuilder = new ScanProjectorBuilder.Builder(fixture.allocator(), projection);
+    ScanProjectorBuilder scanProj = scanBuilder.build();
+    assertTrue(scanProj instanceof ScanProjectorBuilder.EarlySchemaProjectPlan);
 
     // Create a batch of data.
 
@@ -331,9 +394,9 @@ public class TestScanProjector extends SubOperatorTest {
 
     // Create the scan projector.
 
-    ScanProjector.Builder scanBuilder = new ScanProjector.Builder(fixture.allocator(), projection);
-    ScanProjector scanProj = scanBuilder.build();
-    assertTrue(scanProj instanceof ScanProjector.EarlySchemaProjectPlan);
+    ScanProjectorBuilder.Builder scanBuilder = new ScanProjectorBuilder.Builder(fixture.allocator(), projection);
+    ScanProjectorBuilder scanProj = scanBuilder.build();
+    assertTrue(scanProj instanceof ScanProjectorBuilder.EarlySchemaProjectPlan);
 
     // Create a batch of data.
 
@@ -390,9 +453,9 @@ public class TestScanProjector extends SubOperatorTest {
 
     // Create the scan projector.
 
-    ScanProjector.Builder scanBuilder = new ScanProjector.Builder(fixture.allocator(), projection);
-    ScanProjector scanProj = scanBuilder.build();
-    assertTrue(scanProj instanceof ScanProjector.EarlySchemaProjectPlan);
+    ScanProjectorBuilder.Builder scanBuilder = new ScanProjectorBuilder.Builder(fixture.allocator(), projection);
+    ScanProjectorBuilder scanProj = scanBuilder.build();
+    assertTrue(scanProj instanceof ScanProjectorBuilder.EarlySchemaProjectPlan);
 
     // Create a batch of data.
 
@@ -447,9 +510,9 @@ public class TestScanProjector extends SubOperatorTest {
 
     // Create the scan projector.
 
-    ScanProjector.Builder scanBuilder = new ScanProjector.Builder(fixture.allocator(), projection);
-    ScanProjector scanProj = scanBuilder.build();
-    assertTrue(scanProj instanceof ScanProjector.EarlySchemaProjectPlan);
+    ScanProjectorBuilder.Builder scanBuilder = new ScanProjectorBuilder.Builder(fixture.allocator(), projection);
+    ScanProjectorBuilder scanProj = scanBuilder.build();
+    assertTrue(scanProj instanceof ScanProjectorBuilder.EarlySchemaProjectPlan);
 
     // Create a batch of data.
 
@@ -506,9 +569,9 @@ public class TestScanProjector extends SubOperatorTest {
 
     // Create the scan projector.
 
-    ScanProjector.Builder scanBuilder = new ScanProjector.Builder(fixture.allocator(), projection);
-    ScanProjector scanProj = scanBuilder.build();
-    assertTrue(scanProj instanceof ScanProjector.EarlySchemaProjectPlan);
+    ScanProjectorBuilder.Builder scanBuilder = new ScanProjectorBuilder.Builder(fixture.allocator(), projection);
+    ScanProjectorBuilder scanProj = scanBuilder.build();
+    assertTrue(scanProj instanceof ScanProjectorBuilder.EarlySchemaProjectPlan);
 
     // Create a batch of data.
 

@@ -32,6 +32,7 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.OutputColumn.ColumnType;
+import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.TableSchemaType;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
@@ -77,7 +78,7 @@ public class TestProjectionPlanner extends SubOperatorTest {
 
     ScanProjection projection = builder.build();
     assertFalse(projection.isSelectAll());
-    assertEquals(ScanProjection.TableSchemaType.EARLY, projection.tableSchemaType());
+    assertEquals(TableSchemaType.EARLY, projection.tableSchemaType());
     assertNull(projection.columnsCol());
     assertEquals(0, projection.partitionCols().size());
 
@@ -161,7 +162,7 @@ public class TestProjectionPlanner extends SubOperatorTest {
 
     ScanProjection projection = builder.build();
     assertTrue(projection.isSelectAll());
-    assertEquals(ScanProjection.TableSchemaType.EARLY, projection.tableSchemaType());
+    assertEquals(TableSchemaType.EARLY, projection.tableSchemaType());
     assertNull(projection.columnsCol());
     assertEquals(1, projection.queryCols().size());
     assertTrue(projection.queryCols().get(0).isStar());
@@ -202,7 +203,7 @@ public class TestProjectionPlanner extends SubOperatorTest {
     // Build the planner and verify
 
     ScanProjection projection = builder.build();
-    assertEquals(ScanProjection.TableSchemaType.EARLY, projection.tableSchemaType());
+    assertEquals(TableSchemaType.EARLY, projection.tableSchemaType());
     assertEquals("a", projection.outputCols().get(0).name());
     assertEquals("C", projection.outputCols().get(1).name());
     assertEquals("d", projection.outputCols().get(2).name());
@@ -230,7 +231,7 @@ public class TestProjectionPlanner extends SubOperatorTest {
 
     ScanProjection projection = builder.build();
     assertFalse(projection.isSelectAll());
-    assertEquals(ScanProjection.TableSchemaType.EARLY, projection.tableSchemaType());
+    assertEquals(TableSchemaType.EARLY, projection.tableSchemaType());
     assertNotNull(projection.columnsCol());
     assertEquals(1, projection.queryCols().size());
     assertEquals(1, projection.projectedCols().size());
@@ -280,7 +281,7 @@ public class TestProjectionPlanner extends SubOperatorTest {
 
     ScanProjection projection = builder.build();
     assertFalse(projection.isSelectAll());
-    assertEquals(ScanProjection.TableSchemaType.EARLY, projection.tableSchemaType());
+    assertEquals(TableSchemaType.EARLY, projection.tableSchemaType());
     assertNull(projection.columnsCol());
     assertEquals(3, projection.queryCols().size());
     assertEquals(3, projection.tableCols().size());
@@ -320,7 +321,7 @@ public class TestProjectionPlanner extends SubOperatorTest {
 
     ScanProjection projection = builder.build();
     assertFalse(projection.isSelectAll());
-    assertEquals(ScanProjection.TableSchemaType.LATE, projection.tableSchemaType());
+    assertEquals(TableSchemaType.LATE, projection.tableSchemaType());
     assertNull(projection.columnsCol());
     assertEquals(3, projection.queryCols().size());
     assertNull(projection.tableCols());

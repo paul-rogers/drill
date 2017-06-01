@@ -97,7 +97,6 @@ public class ResultVectorCache {
 
   private final BufferAllocator allocator;
   private final Map<String, VectorState> vectors = new HashMap<>();
-  private final List<VectorState> schemaOrder = new ArrayList<>();
 
   public ResultVectorCache(BufferAllocator allocator) {
     this.allocator = allocator;
@@ -112,19 +111,18 @@ public class ResultVectorCache {
   private VectorState addVector(String colName) {
     VectorState vs = new VectorState(colName);
     vectors.put(vs.name, vs);
-    schemaOrder.add(vs);
     return vs;
   }
 
   public void newBatch() {
-    for (VectorState vs : schemaOrder) {
+    for (VectorState vs : vectors.values()) {
       vs.touched = false;
     }
   }
 
   public void trimUnused() {
     List<VectorState> unused = new ArrayList<>();
-    for (VectorState vs : schemaOrder) {
+    for (VectorState vs : vectors.values()) {
       if (! vs.touched) {
         unused.add(vs);
       }
@@ -134,7 +132,6 @@ public class ResultVectorCache {
     }
     for (VectorState vs : unused) {
       vectors.remove(vs.name);
-      schemaOrder.remove(vs);
     }
   }
 
@@ -164,5 +161,13 @@ public class ResultVectorCache {
     vs.touched = true;
     vs.vector = TypeHelper.getNewVector(colSchema, allocator, null);
     return vs.vector;
+  }
+
+  public MaterializedField getType(String name) {
+    VectorState vs = vectors.get(name);
+    if (vs == null || vs.vector == null) {
+      return null;
+    }
+    return vs.vector.getField();
   }
 }
