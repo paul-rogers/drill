@@ -117,6 +117,11 @@ import org.apache.drill.exec.record.VectorContainer;
 
 public class ScanProjector {
 
+  /**
+   * Base class for columns that take values based on the
+   * reader, not individual rows.
+   */
+
   public abstract static class StaticColumnLoader {
     protected final ResultSetLoader loader;
 
@@ -158,19 +163,24 @@ public class ScanProjector {
   }
 
   /**
-   * Populate implicit and partition columns.
+   * Populate metadata columns either file metadata (AKA "implicit
+   * columns") or directory metadata (AKA "partition columns.") In both
+   * cases the column type is nullable Varchar and the column value
+   * is predefined by the projection planner; this class just copies
+   * that value into each row.
    */
 
-  public static class ImplicitColumnLoader extends StaticColumnLoader {
+  public static class MetadataColumnLoader extends StaticColumnLoader {
     private final String values[];
-    private final List<StaticColumn> staticCols;
+    private final List<StaticColumn> metadataCols;
 
-    public ImplicitColumnLoader(BufferAllocator allocator, List<StaticColumn> defns, ResultVectorCache vectorCache) {
+    public MetadataColumnLoader(BufferAllocator allocator, List<StaticColumn> defns, ResultVectorCache vectorCache) {
       super(allocator, vectorCache);
 
-      // Populate the loader schema from that provided
+      // Populate the loader schema from that provided.
+      // Cache values for faster access.
 
-      staticCols = defns;
+      metadataCols = defns;
       TupleSchema schema = loader.writer().schema();
       values = new String[defns.size()];
       for (int i = 0; i < defns.size(); i++) {
@@ -204,8 +214,42 @@ public class ScanProjector {
       }
     }
 
-    public List<StaticColumn> columns() { return staticCols; }
+    public List<StaticColumn> columns() { return metadataCols; }
   }
+
+  /**
+   * Create and populate null columns for the case in which a
+   * SELECT statement refers to columns that do not exist in the
+   * actual table. Nullable and array types are suitable for null
+   * columns. (Drill defines an empty array as the same as a null
+   * array: not true, but the best we have at present.) Required
+   * types cannot be used as we don't know what value to set into
+   * the column values.
+   * <p>
+   * Seeks to preserve "vector continuity" by reusing
+   * vectors when possible. Cases:
+   * <ul>
+   * <li>A column a was available in a prior reader (or batch), but
+   * is no longer available, and is thus null. Reuses the type and
+   * vector of the prior reader (or batch) to prevent trivial
+   * schema changes.</li>
+   * <li>A column has an implied type (specified in the metadata
+   * about the column provided by the reader.) That type information is
+   * used instead of the defined null column type.</li>
+   * <li>A column has no type information. The type becomes the
+   * null column type defined by the reader (or nullable int by
+   * default.</li>
+   * <li>Required columns are not suitable. If any of the above found
+   * a required type, convert the type to nullable.</li>
+   * <li>The resulting column and type, whatever it turned out to be,
+   * is placed into the vector cache so that it can be reused by
+   * the next reader or batch, to again preserve vector
+   * continuity.</li>
+   * </ul>
+   * The above rules eliminate "trivia" schema changes, but can still
+   * result in "hard" schema changes if a required type is replaced by
+   * a nullable type.
+   */
 
   public static class NullColumnLoader extends StaticColumnLoader {
 
@@ -230,36 +274,40 @@ public class ScanProjector {
       isArray = new boolean[defns.size()];
       for (int i = 0; i < defns.size(); i++) {
         OutputColumn defn = defns.get(i);
-
-        // Prefer the type of any previous occurrence of
-        // this column.
-
-        MaterializedField colSchema = vectorCache.getType(defn.name());
-
-        // Else, use the type defined in the projection, if any.
-
-        if (colSchema == null) {
-          colSchema = defn.schema();
-        }
-
-        // Else, use the specified null type.
-
-        if (colSchema == null) {
-          colSchema = MaterializedField.create(defn.name(), nullType);
-        }
-
-        // Map required to optional. Will cause a schema change.
-
-        if (colSchema.getDataMode() == DataMode.REQUIRED) {
-          colSchema = MaterializedField.create(colSchema.getName(),
-              MajorType.newBuilder()
-                .setMinorType(colSchema.getType().getMinorType())
-                .setMode(DataMode.OPTIONAL)
-                .build());
-        }
+        MaterializedField colSchema = selectType(defn);
         isArray[i] = colSchema.getDataMode() == DataMode.REPEATED;
         schema.addColumn(colSchema);
       }
+    }
+
+    private MaterializedField selectType(OutputColumn defn) {
+      // Prefer the type of any previous occurrence of
+      // this column.
+
+      MaterializedField colSchema = vectorCache.getType(defn.name());
+
+      // Else, use the type defined in the projection, if any.
+
+      if (colSchema == null) {
+        colSchema = defn.schema();
+      }
+
+      // Else, use the specified null type.
+
+      if (colSchema == null) {
+        colSchema = MaterializedField.create(defn.name(), nullType);
+      }
+
+      // Map required to optional. Will cause a schema change.
+
+      if (colSchema.getDataMode() == DataMode.REQUIRED) {
+        colSchema = MaterializedField.create(colSchema.getName(),
+            MajorType.newBuilder()
+              .setMinorType(colSchema.getType().getMinorType())
+              .setMode(DataMode.OPTIONAL)
+              .build());
+      }
+      return colSchema;
     }
 
     /**
@@ -291,7 +339,7 @@ public class ScanProjector {
   private final MajorType nullType;
   private ScanProjection projection;
   private ResultSetLoader tableLoader;
-  private ImplicitColumnLoader implicitColumnLoader;
+  private MetadataColumnLoader implicitColumnLoader;
   private NullColumnLoader nullColumnLoader;
   private RowBatchMerger output;
   private int prevTableSchemaVersion;
@@ -307,7 +355,7 @@ public class ScanProjector {
     boolean first = this.projection == null;
     this.projection = projection;
     if (first) {
-      buildImplicitColumns();
+      buildMetadataColumns();
     }
     planProjection();
 
@@ -318,18 +366,19 @@ public class ScanProjector {
   }
 
   /**
-   * The implicit and partition columns are static: they are the same across
+   * The implicit (file metadata) and partition (directory metadata)
+   * columns are static: they are the same across
    * all readers. If any such columns exist, build the loader for them.
    */
 
-  private void buildImplicitColumns() {
-    List<StaticColumn> staticCols = new ArrayList<>();
-    staticCols.addAll(projection.implicitCols());
-    staticCols.addAll(projection.partitionCols());
-    if (staticCols.isEmpty()) {
+  private void buildMetadataColumns() {
+    List<StaticColumn> metadataCols = new ArrayList<>();
+    metadataCols.addAll(projection.fileInfoCols());
+    metadataCols.addAll(projection.partitionCols());
+    if (metadataCols.isEmpty()) {
       return;
     }
-    implicitColumnLoader = new ImplicitColumnLoader(allocator, staticCols, vectorCache);
+    implicitColumnLoader = new MetadataColumnLoader(allocator, metadataCols, vectorCache);
   }
 
   private void planProjection() {

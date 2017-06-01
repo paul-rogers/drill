@@ -36,7 +36,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanProjection.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.SelectColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.StaticColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.TableColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjector.ImplicitColumnLoader;
+import org.apache.drill.exec.physical.impl.scan.ScanProjector.MetadataColumnLoader;
 import org.apache.drill.exec.physical.impl.scan.ScanProjector.NullColumnLoader;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
@@ -82,7 +82,7 @@ public class TestScanProjector extends SubOperatorTest {
     pCol.setValue("w");
 
     ResultVectorCache cache = new ResultVectorCache(fixture.allocator());
-    ImplicitColumnLoader staticLoader = new ImplicitColumnLoader(fixture.allocator(), defns, cache);
+    MetadataColumnLoader staticLoader = new MetadataColumnLoader(fixture.allocator(), defns, cache);
 
     // Create a batch
 

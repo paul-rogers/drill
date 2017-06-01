@@ -490,7 +490,7 @@ public class ScanProjection {
    * Return the subset of output columns which are implicit
    * @return the implicit columns, in output order
    */
-  public List<ImplicitColumn> implicitCols() { return implicitCols; }
+  public List<ImplicitColumn> fileInfoCols() { return implicitCols; }
   /**
    * Return the subset of output columns which hold partition (directory)
    * values

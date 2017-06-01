@@ -370,20 +370,20 @@ public class TestProjectionPlanner extends SubOperatorTest {
     assertEquals(0, projection.nullCols().size());
     assertEquals(0, projection.partitionCols().size());
 
-    assertEquals(4, projection.implicitCols().size());
+    assertEquals(4, projection.fileInfoCols().size());
 
-    assertEquals("fqn", projection.implicitCols().get(0).name());
-    assertEquals("filEPath", projection.implicitCols().get(1).name());
-    assertEquals("filename", projection.implicitCols().get(2).name());
-    assertEquals("suffix", projection.implicitCols().get(3).name());
+    assertEquals("fqn", projection.fileInfoCols().get(0).name());
+    assertEquals("filEPath", projection.fileInfoCols().get(1).name());
+    assertEquals("filename", projection.fileInfoCols().get(2).name());
+    assertEquals("suffix", projection.fileInfoCols().get(3).name());
 
-    assertEquals("hdfs:/x/y/z.csv", projection.implicitCols().get(0).value());
-    assertEquals("hdfs:/x/y", projection.implicitCols().get(1).value());
-    assertEquals("z.csv", projection.implicitCols().get(2).value());
-    assertEquals("csv", projection.implicitCols().get(3).value());
+    assertEquals("hdfs:/x/y/z.csv", projection.fileInfoCols().get(0).value());
+    assertEquals("hdfs:/x/y", projection.fileInfoCols().get(1).value());
+    assertEquals("z.csv", projection.fileInfoCols().get(2).value());
+    assertEquals("csv", projection.fileInfoCols().get(3).value());
 
-    assertEquals(MinorType.VARCHAR, projection.implicitCols().get(0).schema().getType().getMinorType());
-    assertEquals(DataMode.REQUIRED, projection.implicitCols().get(0).schema().getDataMode());
+    assertEquals(MinorType.VARCHAR, projection.fileInfoCols().get(0).schema().getType().getMinorType());
+    assertEquals(DataMode.REQUIRED, projection.fileInfoCols().get(0).schema().getDataMode());
 
     assertEquals(5, projection.outputCols().size());
 
@@ -393,22 +393,22 @@ public class TestProjectionPlanner extends SubOperatorTest {
     assertEquals("filename", projection.outputCols().get(3).name());
     assertEquals("suffix", projection.outputCols().get(4).name());
 
-    assertSame(projection.implicitCols().get(0), projection.outputCols().get(1));
-    assertSame(projection.implicitCols().get(1), projection.outputCols().get(2));
-    assertSame(projection.implicitCols().get(2), projection.outputCols().get(3));
-    assertSame(projection.implicitCols().get(3), projection.outputCols().get(4));
+    assertSame(projection.fileInfoCols().get(0), projection.outputCols().get(1));
+    assertSame(projection.fileInfoCols().get(1), projection.outputCols().get(2));
+    assertSame(projection.fileInfoCols().get(2), projection.outputCols().get(3));
+    assertSame(projection.fileInfoCols().get(3), projection.outputCols().get(4));
 
     // Verify bindings
 
-    assertSame(projection.queryCols().get(1).projection(), projection.implicitCols().get(0));
-    assertSame(projection.queryCols().get(2).projection(), projection.implicitCols().get(1));
-    assertSame(projection.queryCols().get(3).projection(), projection.implicitCols().get(2));
-    assertSame(projection.queryCols().get(4).projection(), projection.implicitCols().get(3));
+    assertSame(projection.queryCols().get(1).projection(), projection.fileInfoCols().get(0));
+    assertSame(projection.queryCols().get(2).projection(), projection.fileInfoCols().get(1));
+    assertSame(projection.queryCols().get(3).projection(), projection.fileInfoCols().get(2));
+    assertSame(projection.queryCols().get(4).projection(), projection.fileInfoCols().get(3));
 
-    assertSame(projection.queryCols().get(1), projection.implicitCols().get(0).projection());
-    assertSame(projection.queryCols().get(2), projection.implicitCols().get(1).projection());
-    assertSame(projection.queryCols().get(3), projection.implicitCols().get(2).projection());
-    assertSame(projection.queryCols().get(4), projection.implicitCols().get(3).projection());
+    assertSame(projection.queryCols().get(1), projection.fileInfoCols().get(0).projection());
+    assertSame(projection.queryCols().get(2), projection.fileInfoCols().get(1).projection());
+    assertSame(projection.queryCols().get(3), projection.fileInfoCols().get(2).projection());
+    assertSame(projection.queryCols().get(4), projection.fileInfoCols().get(3).projection());
   }
 
   /**
@@ -439,7 +439,7 @@ public class TestProjectionPlanner extends SubOperatorTest {
     assertEquals(1, projection.tableCols().size());
     assertEquals(1, projection.projectedCols().size());
     assertEquals(0, projection.nullCols().size());
-    assertEquals(2, projection.implicitCols().size());
+    assertEquals(2, projection.fileInfoCols().size());
     assertEquals(0, projection.partitionCols().size());
     assertEquals(3, projection.outputCols().size());
 
@@ -469,7 +469,7 @@ public class TestProjectionPlanner extends SubOperatorTest {
     assertEquals(1, projection.tableCols().size());
     assertEquals(1, projection.projectedCols().size());
     assertEquals(0, projection.nullCols().size());
-    assertEquals(2, projection.implicitCols().size());
+    assertEquals(2, projection.fileInfoCols().size());
     assertEquals(0, projection.partitionCols().size());
     assertEquals(3, projection.outputCols().size());
 
@@ -507,7 +507,7 @@ public class TestProjectionPlanner extends SubOperatorTest {
     assertEquals(1, projection.tableCols().size());
     assertEquals(1, projection.projectedCols().size());
     assertEquals(0, projection.nullCols().size());
-    assertEquals(4, projection.implicitCols().size());
+    assertEquals(4, projection.fileInfoCols().size());
     assertEquals(0, projection.partitionCols().size());
     assertEquals(5, projection.outputCols().size());
 
@@ -546,7 +546,7 @@ public class TestProjectionPlanner extends SubOperatorTest {
     assertEquals(1, projection.tableCols().size());
     assertEquals(1, projection.projectedCols().size());
     assertEquals(0, projection.nullCols().size());
-    assertEquals(0, projection.implicitCols().size());
+    assertEquals(0, projection.fileInfoCols().size());
     assertEquals(3, projection.partitionCols().size());
     assertEquals(4, projection.outputCols().size());
 
