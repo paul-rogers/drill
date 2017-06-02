@@ -17,13 +17,19 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.SelectColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.TableColumn;
 import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.TableSchemaType;
+import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.physical.rowSet.TupleSchema;
+import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.store.ImplicitColumnExplorer.ImplicitFileColumns;
@@ -345,10 +351,10 @@ public class ScanProjection {
    * along with the column definition.
    */
 
-  public static class ImplicitColumn extends StaticColumn {
+  public static class FileInfoColumn extends StaticColumn {
     private final ImplicitColumnDefn defn;
 
-    public ImplicitColumn(SelectColumn inCol, int index, ImplicitColumnDefn defn) {
+    public FileInfoColumn(SelectColumn inCol, int index, ImplicitColumnDefn defn) {
       super(inCol, index, MaterializedField.create(defn.colName,
           MajorType.newBuilder()
             .setMinorType(MinorType.VARCHAR)
@@ -429,7 +435,7 @@ public class ScanProjection {
   private final ColumnsArrayColumn columnsCol;
   private final List<ProjectedColumn> projectedCols;
   private final List<NullColumn> nullCols;
-  private final List<ImplicitColumn> implicitCols;
+  private final List<FileInfoColumn> implicitCols;
   private final List<PartitionColumn> partitionCols;
   private final List<StaticColumn> staticCols;
   private final List<OutputColumn> outputCols;
@@ -490,7 +496,7 @@ public class ScanProjection {
    * Return the subset of output columns which are implicit
    * @return the implicit columns, in output order
    */
-  public List<ImplicitColumn> fileInfoCols() { return implicitCols; }
+  public List<FileInfoColumn> fileInfoCols() { return implicitCols; }
   /**
    * Return the subset of output columns which hold partition (directory)
    * values

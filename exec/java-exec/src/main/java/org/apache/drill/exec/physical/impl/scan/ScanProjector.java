@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.drill.exec.physical.impl.scan;
 
 import java.util.ArrayList;
@@ -12,7 +29,9 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.scan.RowBatchMerger.Builder;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.OutputColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.ProjectedColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.SelectColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.StaticColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.TableColumn;
 import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.TableSchemaType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
@@ -124,6 +143,7 @@ public class ScanProjector {
 
   public abstract static class StaticColumnLoader {
     protected final ResultSetLoader loader;
+    protected final ResultVectorCache vectorCache;
 
     public StaticColumnLoader(BufferAllocator allocator, ResultVectorCache vectorCache) {
 
@@ -131,6 +151,7 @@ public class ScanProjector {
             .setVectorCache(vectorCache)
             .build();
       loader = new ResultSetLoaderImpl(allocator, options);
+      this.vectorCache = vectorCache;
     }
 
     /**
@@ -253,6 +274,7 @@ public class ScanProjector {
 
   public static class NullColumnLoader extends StaticColumnLoader {
 
+    private final MajorType nullType;
     private final boolean isArray[];
 
     public NullColumnLoader(BufferAllocator allocator, List<OutputColumn> defns,
@@ -262,10 +284,12 @@ public class ScanProjector {
       // Use the provided null type, else the standard nullable int.
 
       if (nullType == null ) {
-        nullType = MajorType.newBuilder()
+        this.nullType = MajorType.newBuilder()
               .setMinorType(MinorType.INT)
               .setMode(DataMode.OPTIONAL)
               .build();
+      } else {
+        this.nullType = nullType;
       }
 
       // Populate the loader schema from that provided
@@ -296,6 +320,13 @@ public class ScanProjector {
 
       if (colSchema == null) {
         colSchema = MaterializedField.create(defn.name(), nullType);
+      }
+
+      // If the schema had the special NULL type, replace it with the
+      // null column type.
+
+      if (colSchema.getType().getMinorType() == MinorType.NULL) {
+        colSchema = MaterializedField.create(colSchema.getName(), nullType);
       }
 
       // Map required to optional. Will cause a schema change.
@@ -339,9 +370,10 @@ public class ScanProjector {
   private final MajorType nullType;
   private ScanProjection projection;
   private ResultSetLoader tableLoader;
-  private MetadataColumnLoader implicitColumnLoader;
+  private MetadataColumnLoader metadataColumnLoader;
   private NullColumnLoader nullColumnLoader;
   private RowBatchMerger output;
+  private int tableCount;
   private int prevTableSchemaVersion;
 
   public ScanProjector(BufferAllocator allocator, MajorType nullType) {
@@ -350,11 +382,53 @@ public class ScanProjector {
     this.nullType = nullType;
   }
 
-  public void setTableLoader(ResultSetLoader tableLoader, ScanProjection projection) {
-    this.tableLoader = tableLoader;
-    boolean first = this.projection == null;
+  /**
+   * Create a result set loader for the case in which the table schema is
+   * known and is static (does not change between batches.)
+   * @param tableSchemaType
+   * @return the result set loader for this table
+   */
+
+  public ResultSetLoader makeTableLoader(ScanProjection projection) {
+
+    closeTable();
+    tableCount++;
     this.projection = projection;
-    if (first) {
+    ResultSetLoaderImpl.OptionBuilder options = new ResultSetLoaderImpl.OptionBuilder();
+
+    // Set up a selection list if available and is a subset of
+    // table columns. (If we want all columns, either because of *
+    // or we selected them all, then no need to add filtering.)
+
+    if (! projection.isSelectAll() &&
+        projection.projectedCols().size() < projection.tableCols().size()) {
+      List<String> selection = new ArrayList<>();
+      for (SelectColumn selCol : projection.queryCols()) {
+        selection.add(selCol.name());
+      }
+      options.setSelection(selection);
+    }
+
+    // Create the table loader
+
+    tableLoader = new ResultSetLoaderImpl(allocator, options.build());
+
+    if (projection.tableSchemaType() == TableSchemaType.EARLY) {
+
+      // We know the table schema. Preload it into the
+      // result set loader.
+
+      TupleSchema schema = tableLoader.writer().schema();
+      for (TableColumn tableCol : projection.tableCols()) {
+        schema.addColumn(tableCol.schema());
+      }
+      updateTableSchema();
+    }
+    return tableLoader;
+  }
+
+  public void updateTableSchema() {
+    if (tableCount == 1) {
       buildMetadataColumns();
     }
     planProjection();
@@ -378,18 +452,17 @@ public class ScanProjector {
     if (metadataCols.isEmpty()) {
       return;
     }
-    implicitColumnLoader = new MetadataColumnLoader(allocator, metadataCols, vectorCache);
+    metadataColumnLoader = new MetadataColumnLoader(allocator, metadataCols, vectorCache);
   }
 
   private void planProjection() {
-    nullColumnLoader = null;
     RowBatchMerger.Builder builder = new RowBatchMerger.Builder();
     List<OutputColumn> nullCols = buildNullColumns();
     if (nullCols != null) {
       mapNullColumns(builder, nullCols);
     }
     mapTableColumns(builder);
-    mapImplicitColumns(builder);
+    mapMetadataColumns(builder);
     output = builder.build(allocator);
     prevTableSchemaVersion = tableLoader.schemaVersion();
   }
@@ -440,17 +513,17 @@ public class ScanProjector {
    * @param builder
    */
 
-  private void mapImplicitColumns(RowBatchMerger.Builder builder) {
+  private void mapMetadataColumns(RowBatchMerger.Builder builder) {
 
     // Project static columns into their output schema locations
 
-    if (implicitColumnLoader == null) {
+    if (metadataColumnLoader == null) {
       return;
     }
-    VectorContainer staticContainer = implicitColumnLoader.output();
-    List<StaticColumn> staticCols = implicitColumnLoader.columns();
-    for (int i = 0; i < staticCols.size(); i++) {
-      builder.addDirectProjection(staticContainer, i, staticCols.get(i).index());
+    VectorContainer metadataContainer = metadataColumnLoader.output();
+    List<StaticColumn> metadataCols = metadataColumnLoader.columns();
+    for (int i = 0; i < metadataCols.size(); i++) {
+      builder.addDirectProjection(metadataContainer, i, metadataCols.get(i).index());
     }
   }
 
@@ -470,8 +543,8 @@ public class ScanProjector {
     }
     VectorContainer tableContainer = tableLoader.harvest();
     int rowCount = tableContainer.getRecordCount();
-    if (implicitColumnLoader != null) {
-      implicitColumnLoader.load(rowCount);
+    if (metadataColumnLoader != null) {
+      metadataColumnLoader.load(rowCount);
     }
     if (nullColumnLoader != null) {
       nullColumnLoader.load(rowCount);
@@ -484,10 +557,15 @@ public class ScanProjector {
   }
 
   public void close() {
-    if (implicitColumnLoader != null) {
-      implicitColumnLoader.close();
-      implicitColumnLoader = null;
+    if (metadataColumnLoader != null) {
+      metadataColumnLoader.close();
+      metadataColumnLoader = null;
     }
+    closeTable();
+    output.close();
+  }
+
+  private void closeTable() {
     if (nullColumnLoader != null) {
       nullColumnLoader.close();
       nullColumnLoader = null;

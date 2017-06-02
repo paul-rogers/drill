@@ -27,7 +27,7 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.EarlyProjectedColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjection.ImplicitColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjection.FileInfoColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.ImplicitColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.LateProjectedColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.NullColumn;
@@ -72,7 +72,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     List<StaticColumn> defns = new ArrayList<>();
     ImplicitColumnDefn iDefn = new ImplicitColumnDefn("suffix", ImplicitFileColumns.SUFFIX);
-    ImplicitColumn iCol = new ImplicitColumn(buildSelectCol("suffix"), 0, iDefn);
+    FileInfoColumn iCol = new FileInfoColumn(buildSelectCol("suffix"), 0, iDefn);
     defns.add(iCol);
     Path path = new Path("hdfs:///w/x/y/z.csv");
     iCol.setValue(path);
@@ -166,6 +166,8 @@ public class TestScanProjector extends SubOperatorTest {
   @Test
   public void testEarlySchemaSelectStar() {
 
+    ScanProjector projector = new ScanProjector(fixture.allocator(), null);
+
     // Define the projection plan.
     // SELECT * FROM table(a, b)
 
@@ -179,16 +181,13 @@ public class TestScanProjector extends SubOperatorTest {
     builder.tableColumns(tableSchema);
     ScanProjection projection = builder.build();
 
-    // Create the scan projector.
+    // Create the table loader
 
-    ScanProjectorBuilder.Builder scanBuilder = new ScanProjectorBuilder.Builder(fixture.allocator(), projection);
-    ScanProjectorBuilder scanProj = scanBuilder.build();
-    assertTrue(scanProj instanceof ScanProjectorBuilder.EarlySchemaProjectPlan);
+    ResultSetLoader loader = projector.makeTableLoader(projection);
 
     // Create a batch of data.
 
     String bValues[] = new String[] { "fred", "wilma" };
-    ResultSetLoader loader = scanProj.tableLoader();
     loader.startBatch();
     TupleLoader writer = loader.writer();
 
@@ -200,7 +199,7 @@ public class TestScanProjector extends SubOperatorTest {
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
     }
-    scanProj.harvest();
+    projector.publish();
 
     // Verify
 
@@ -210,18 +209,21 @@ public class TestScanProjector extends SubOperatorTest {
         .build();
 
     new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(scanProj.output()));
+        .verifyAndClearAll(fixture.wrap(projector.output()));
 
-    scanProj.close();
+    projector.close();
   }
 
   @Test
   public void testEarlySchemaSelectAll() {
+
+    ScanProjector projector = new ScanProjector(fixture.allocator(), null);
+
     // Define the projection plan.
     // SELECT a, b FROM table(a, b)
 
     ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
-    builder.queryCols(TestProjectionPlanner.selectList("a", "b"));
+    builder.queryCols(TestScanProjectionPlanner.selectList("a", "b"));
 
     BatchSchema tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
@@ -230,16 +232,13 @@ public class TestScanProjector extends SubOperatorTest {
     builder.tableColumns(tableSchema);
     ScanProjection projection = builder.build();
 
-    // Create the scan projector.
+    // Create the table loader
 
-    ScanProjectorBuilder.Builder scanBuilder = new ScanProjectorBuilder.Builder(fixture.allocator(), projection);
-    ScanProjectorBuilder scanProj = scanBuilder.build();
-    assertTrue(scanProj instanceof ScanProjectorBuilder.EarlySchemaProjectPlan);
+    ResultSetLoader loader = projector.makeTableLoader(projection);
 
     // Create a batch of data.
 
     String bValues[] = new String[] { "fred", "wilma" };
-    ResultSetLoader loader = scanProj.tableLoader();
     loader.startBatch();
 
     // Should be a direct writer, no projection
@@ -251,7 +250,7 @@ public class TestScanProjector extends SubOperatorTest {
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
     }
-    scanProj.harvest();
+    projector.publish();
 
     // Verify
 
@@ -261,18 +260,21 @@ public class TestScanProjector extends SubOperatorTest {
         .build();
 
     new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(scanProj.output()));
+        .verifyAndClearAll(fixture.wrap(projector.output()));
 
-    scanProj.close();
+    projector.close();
   }
 
   @Test
   public void testEarlySchemaSelectAllReorder() {
+
+    ScanProjector projector = new ScanProjector(fixture.allocator(), null);
+
     // Define the projection plan.
     // SELECT b, a FROM table(a, b)
 
     ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
-    builder.queryCols(TestProjectionPlanner.selectList("b", "a"));
+    builder.queryCols(TestScanProjectionPlanner.selectList("b", "a"));
 
     BatchSchema tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
@@ -281,16 +283,13 @@ public class TestScanProjector extends SubOperatorTest {
     builder.tableColumns(tableSchema);
     ScanProjection projection = builder.build();
 
-    // Create the scan projector.
+    // Create the table loader
 
-    ScanProjectorBuilder.Builder scanBuilder = new ScanProjectorBuilder.Builder(fixture.allocator(), projection);
-    ScanProjectorBuilder scanProj = scanBuilder.build();
-    assertTrue(scanProj instanceof ScanProjectorBuilder.EarlySchemaProjectPlan);
+    ResultSetLoader loader = projector.makeTableLoader(projection);
 
     // Create a batch of data.
 
     String bValues[] = new String[] { "fred", "wilma" };
-    ResultSetLoader loader = scanProj.tableLoader();
     loader.startBatch();
 
     // Should be a direct writer, no projection
@@ -302,7 +301,7 @@ public class TestScanProjector extends SubOperatorTest {
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
     }
-    scanProj.harvest();
+    projector.publish();
 
     // Verify
 
@@ -316,18 +315,21 @@ public class TestScanProjector extends SubOperatorTest {
         .build();
 
     new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(scanProj.output()));
+        .verifyAndClearAll(fixture.wrap(projector.output()));
 
-    scanProj.close();
+    projector.close();
   }
 
   @Test
   public void testEarlySchemaSelectExtra() {
+
+    ScanProjector projector = new ScanProjector(fixture.allocator(), null);
+
     // Define the projection plan.
     // SELECT a, b, c FROM table(a, b)
 
     ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
-    builder.queryCols(TestProjectionPlanner.selectList("a", "b", "c"));
+    builder.queryCols(TestScanProjectionPlanner.selectList("a", "b", "c"));
 
     BatchSchema tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
@@ -336,16 +338,13 @@ public class TestScanProjector extends SubOperatorTest {
     builder.tableColumns(tableSchema);
     ScanProjection projection = builder.build();
 
-    // Create the scan projector.
+    // Create the table loader
 
-    ScanProjectorBuilder.Builder scanBuilder = new ScanProjectorBuilder.Builder(fixture.allocator(), projection);
-    ScanProjectorBuilder scanProj = scanBuilder.build();
-    assertTrue(scanProj instanceof ScanProjectorBuilder.EarlySchemaProjectPlan);
+    ResultSetLoader loader = projector.makeTableLoader(projection);
 
     // Create a batch of data.
 
     String bValues[] = new String[] { "fred", "wilma" };
-    ResultSetLoader loader = scanProj.tableLoader();
     loader.startBatch();
 
     // Should be a direct writer, no projection
@@ -357,7 +356,7 @@ public class TestScanProjector extends SubOperatorTest {
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
     }
-    scanProj.harvest();
+    projector.publish();
 
     // Verify
 
@@ -372,18 +371,25 @@ public class TestScanProjector extends SubOperatorTest {
         .build();
 
     new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(scanProj.output()));
+        .verifyAndClearAll(fixture.wrap(projector.output()));
 
-    scanProj.close();
+    projector.close();
   }
 
   @Test
-  public void testEarlySchemaSelectSubset() {
+  public void testEarlySchemaSelectExtraCustomType() {
+
+    MajorType nullType = MajorType.newBuilder()
+        .setMinorType(MinorType.VARCHAR)
+        .setMode(DataMode.OPTIONAL)
+        .build();
+    ScanProjector projector = new ScanProjector(fixture.allocator(), nullType);
+
     // Define the projection plan.
-    // SELECT a FROM table(a, b)
+    // SELECT a, b, c FROM table(a, b)
 
     ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
-    builder.queryCols(TestProjectionPlanner.selectList("a"));
+    builder.queryCols(TestScanProjectionPlanner.selectList("a", "b", "c"));
 
     BatchSchema tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
@@ -392,15 +398,67 @@ public class TestScanProjector extends SubOperatorTest {
     builder.tableColumns(tableSchema);
     ScanProjection projection = builder.build();
 
-    // Create the scan projector.
+    // Create the table loader
 
-    ScanProjectorBuilder.Builder scanBuilder = new ScanProjectorBuilder.Builder(fixture.allocator(), projection);
-    ScanProjectorBuilder scanProj = scanBuilder.build();
-    assertTrue(scanProj instanceof ScanProjectorBuilder.EarlySchemaProjectPlan);
+    ResultSetLoader loader = projector.makeTableLoader(projection);
 
     // Create a batch of data.
 
-    ResultSetLoader loader = scanProj.tableLoader();
+    String bValues[] = new String[] { "fred", "wilma" };
+    loader.startBatch();
+
+    TupleLoader writer = loader.writer();
+    assertTrue(writer instanceof TupleLoaderImpl);
+    for (int i = 0; i < 2; i++) {
+      loader.startRow();
+      writer.column(0).setInt((i+1));
+      writer.column(1).setString(bValues[i]);
+      loader.saveRow();
+    }
+    projector.publish();
+
+    // Verify
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .addNullable("c", MinorType.VARCHAR)
+        .build();
+    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .add(1, "fred", null)
+        .add(2, "wilma", null)
+        .build();
+
+    new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+
+    projector.close();
+  }
+
+  @Test
+  public void testEarlySchemaSelectSubset() {
+
+    ScanProjector projector = new ScanProjector(fixture.allocator(), null);
+
+    // Define the projection plan.
+    // SELECT a FROM table(a, b)
+
+    ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
+    builder.queryCols(TestScanProjectionPlanner.selectList("a"));
+
+    BatchSchema tableSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .build();
+    builder.tableColumns(tableSchema);
+    ScanProjection projection = builder.build();
+
+    // Create the table loader
+
+    ResultSetLoader loader = projector.makeTableLoader(projection);
+
+    // Create a batch of data.
+
     loader.startBatch();
 
     // Should be a projection
@@ -412,7 +470,7 @@ public class TestScanProjector extends SubOperatorTest {
       assertNull(writer.column(1));
       loader.saveRow();
     }
-    scanProj.harvest();
+    projector.publish();
 
     // Verify
 
@@ -425,18 +483,21 @@ public class TestScanProjector extends SubOperatorTest {
         .build();
 
     new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(scanProj.output()));
+        .verifyAndClearAll(fixture.wrap(projector.output()));
 
-    scanProj.close();
+    projector.close();
   }
 
   @Test
-  public void testEarlySchemaSelectAllAndStatic() {
+  public void testEarlySchemaSelectAllAndMetadata() {
+
+    ScanProjector projector = new ScanProjector(fixture.allocator(), null);
+
     // Define the projection plan.
     // SELECT a, b, dir0, suffix FROM table(a, b)
 
     ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
-    builder.queryCols(TestProjectionPlanner.selectList("a", "b", "dir0", "suffix"));
+    builder.queryCols(TestScanProjectionPlanner.selectList("a", "b", "dir0", "suffix"));
 
     BatchSchema tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
@@ -451,16 +512,13 @@ public class TestScanProjector extends SubOperatorTest {
 
     ScanProjection projection = builder.build();
 
-    // Create the scan projector.
+    // Create the table loader
 
-    ScanProjectorBuilder.Builder scanBuilder = new ScanProjectorBuilder.Builder(fixture.allocator(), projection);
-    ScanProjectorBuilder scanProj = scanBuilder.build();
-    assertTrue(scanProj instanceof ScanProjectorBuilder.EarlySchemaProjectPlan);
+    ResultSetLoader loader = projector.makeTableLoader(projection);
 
     // Create a batch of data.
 
     String bValues[] = new String[] { "fred", "wilma" };
-    ResultSetLoader loader = scanProj.tableLoader();
     loader.startBatch();
 
     // Should be a direct writer, no projection
@@ -472,7 +530,7 @@ public class TestScanProjector extends SubOperatorTest {
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
     }
-    scanProj.harvest();
+    projector.publish();
 
     // Verify
 
@@ -488,18 +546,21 @@ public class TestScanProjector extends SubOperatorTest {
         .build();
 
     new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(scanProj.output()));
+        .verifyAndClearAll(fixture.wrap(projector.output()));
 
-    scanProj.close();
+    projector.close();
   }
 
   @Test
   public void testEarlySchemaSelectNone() {
+
+    ScanProjector projector = new ScanProjector(fixture.allocator(), null);
+
     // Define the projection plan.
     // SELECT c FROM table(a, b)
 
     ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
-    builder.queryCols(TestProjectionPlanner.selectList("c"));
+    builder.queryCols(TestScanProjectionPlanner.selectList("c"));
 
     BatchSchema tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
@@ -508,15 +569,12 @@ public class TestScanProjector extends SubOperatorTest {
     builder.tableColumns(tableSchema);
     ScanProjection projection = builder.build();
 
-    // Create the scan projector.
+    // Create the table loader
 
-    ScanProjectorBuilder.Builder scanBuilder = new ScanProjectorBuilder.Builder(fixture.allocator(), projection);
-    ScanProjectorBuilder scanProj = scanBuilder.build();
-    assertTrue(scanProj instanceof ScanProjectorBuilder.EarlySchemaProjectPlan);
+    ResultSetLoader loader = projector.makeTableLoader(projection);
 
     // Create a batch of data.
 
-    ResultSetLoader loader = scanProj.tableLoader();
     loader.startBatch();
 
     // Should be a projection
@@ -528,7 +586,7 @@ public class TestScanProjector extends SubOperatorTest {
       assertNull(writer.column(1));
       loader.saveRow();
     }
-    scanProj.harvest();
+    projector.publish();
 
     // Verify
 
@@ -541,18 +599,21 @@ public class TestScanProjector extends SubOperatorTest {
         .build();
 
     new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(scanProj.output()));
+        .verifyAndClearAll(fixture.wrap(projector.output()));
 
-    scanProj.close();
+    projector.close();
   }
 
   @Test
   public void testMixture() {
+
+    ScanProjector projector = new ScanProjector(fixture.allocator(), null);
+
     // Define the projection plan.
     // SELECT dir0, a, suffix, c FROM table(a, b)
 
     ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
-    builder.queryCols(TestProjectionPlanner.selectList("dir0", "b", "suffix", "c"));
+    builder.queryCols(TestScanProjectionPlanner.selectList("dir0", "b", "suffix", "c"));
 
     BatchSchema tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
@@ -567,16 +628,13 @@ public class TestScanProjector extends SubOperatorTest {
 
     ScanProjection projection = builder.build();
 
-    // Create the scan projector.
+    // Create the table loader
 
-    ScanProjectorBuilder.Builder scanBuilder = new ScanProjectorBuilder.Builder(fixture.allocator(), projection);
-    ScanProjectorBuilder scanProj = scanBuilder.build();
-    assertTrue(scanProj instanceof ScanProjectorBuilder.EarlySchemaProjectPlan);
+    ResultSetLoader loader = projector.makeTableLoader(projection);
 
     // Create a batch of data.
 
     String bValues[] = new String[] { "fred", "wilma" };
-    ResultSetLoader loader = scanProj.tableLoader();
     loader.startBatch();
 
     // Should be a direct writer, no projection
@@ -588,7 +646,7 @@ public class TestScanProjector extends SubOperatorTest {
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
     }
-    scanProj.harvest();
+    projector.publish();
 
     // Verify
 
@@ -604,9 +662,14 @@ public class TestScanProjector extends SubOperatorTest {
         .build();
 
     new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(scanProj.output()));
+        .verifyAndClearAll(fixture.wrap(projector.output()));
 
-    scanProj.close();
+    projector.close();
   }
+
+  // TODO: Test two identical tables -- vectors are identical
+  // TODO: Test (a, b), (a), b is filled, using prev type. Identical vectors.
+  // TODO: Test columns
+  // TODO: Test version tracking
 
 }

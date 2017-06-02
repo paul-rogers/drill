@@ -153,4 +153,8 @@ public class RowBatchMerger {
   }
 
   public VectorContainer getOutput() { return output; }
+
+  public void close() {
+    output.clear();
+  }
 }

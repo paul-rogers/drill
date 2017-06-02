@@ -39,7 +39,7 @@ import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
-public class TestProjectionPlanner extends SubOperatorTest {
+public class TestScanProjectionPlanner extends SubOperatorTest {
 
   static List<SchemaPath> selectList(String... names) {
     List<SchemaPath> selected = new ArrayList<>();

@@ -291,15 +291,9 @@ public class ScanOperatorExec implements OperatorExec {
       projection = buildProjectionPlan(schemaNegotiator);
       earlySchema = projection.tableSchemaType() == TableSchemaType.EARLY;
 
-      // Create the table loader
+      // Build and return the result set loader to be used by the reader.
 
-      tableLoader = makeTableLoader(schemaNegotiator.tableSchemaType);
-
-      setupScanProjector(schemaNegotiator.nullType);
-
-     // Return the result set loader to be used by the reader.
-
-      return tableLoader;
+      return scanOp.buildTableLoader(projection, schemaNegotiator.nullType);
     }
 
     private ScanProjection buildProjectionPlan(
@@ -345,67 +339,6 @@ public class ScanOperatorExec implements OperatorExec {
       // batch is read.
 
       return planner.build();
-    }
-
-    private void setupScanProjector(MajorType nullType) {
-
-      // If this is the first reader, create the scan projector
-      // using the null type provided by the first reader. The
-      // null type should be per group of readers, but there is
-      // no good way to do that at present.
-
-      if (scanOp.scanProjector == null) {
-        scanOp.scanProjector = new ScanProjector(scanOp.context.allocator(), nullType);
-      }
-
-      // Prepare the projection needed for this table.
-
-      scanOp.scanProjector.setTableLoader(tableLoader, projection);
-
-      // Bind the output container to the output of the scan operator.
-
-      scanOp.containerAccessor.setContainer(scanOp.scanProjector.output());
-    }
-
-   /**
-     * Create a result set loader for the case in which the table schema is
-     * known and is static (does not change between batches.)
-     * @param tableSchemaType
-     * @return the result set loader for this table
-     */
-
-    private ResultSetLoader makeTableLoader(TableSchemaType tableSchemaType) {
-
-      ResultSetLoaderImpl.OptionBuilder options = new ResultSetLoaderImpl.OptionBuilder();
-
-      // Set up a selection list if available and is a subset of
-      // table columns. (If we want all columns, either because of *
-      // or we selected them all, then no need to add filtering.)
-
-      if (! projection.isSelectAll() &&
-          projection.projectedCols().size() < projection.tableCols().size()) {
-        List<String> selection = new ArrayList<>();
-        for (SelectColumn selCol : projection.queryCols()) {
-          selection.add(selCol.name());
-        }
-        options.setSelection(selection);
-      }
-
-      // Create the table loader
-
-      ResultSetLoaderImpl loader = new ResultSetLoaderImpl(scanOp.context.allocator(), options.build());
-
-      if (tableSchemaType == TableSchemaType.EARLY) {
-
-        // We know the table schema. Preload it into the
-        // result set loader.
-
-        TupleSchema schema = loader.writer().schema();
-        for (TableColumn tableCol : projection.tableCols()) {
-          schema.addColumn(tableCol.schema());
-        }
-      }
-      return loader;
     }
 
     /**
@@ -641,6 +574,28 @@ public class ScanOperatorExec implements OperatorExec {
 
   private void nextSchema() {
     nextAction(true);
+  }
+
+  private ResultSetLoader buildTableLoader(ScanProjection projection, MajorType nullType) {
+
+    // If this is the first reader, create the scan projector
+    // using the null type provided by the first reader. The
+    // null type should be per group of readers, but there is
+    // no good way to do that at present.
+
+    if (scanProjector == null) {
+      scanProjector = new ScanProjector(context.allocator(), nullType);
+    }
+
+    // Create the table loader
+
+    ResultSetLoader tableLoader = scanProjector.makeTableLoader(projection);
+
+    // Bind the output container to the output of the scan operator.
+
+    containerAccessor.setContainer(scanProjector.output());
+
+    return tableLoader;
   }
 
   @Override

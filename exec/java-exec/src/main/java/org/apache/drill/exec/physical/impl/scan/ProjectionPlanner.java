@@ -123,7 +123,7 @@ public class ProjectionPlanner {
   protected ColumnsArrayColumn columnsArrayCol;
   protected List<ProjectedColumn> projectedCols = new ArrayList<>();
   protected List<NullColumn> nullCols = new ArrayList<>();
-  protected List<ImplicitColumn> implicitCols = new ArrayList<>();
+  protected List<FileInfoColumn> implicitCols = new ArrayList<>();
   protected List<PartitionColumn> partitionCols = new ArrayList<>();
   protected List<StaticColumn> staticCols = new ArrayList<>();
   protected List<OutputColumn> outputCols = new ArrayList<>();
@@ -331,7 +331,7 @@ public class ProjectionPlanner {
       return;
     }
     for (ImplicitColumnDefn iCol : implicitColDefns) {
-      ImplicitColumn outCol = new ImplicitColumn(starColumn, outputCols.size(), iCol);
+      FileInfoColumn outCol = new FileInfoColumn(starColumn, outputCols.size(), iCol);
       outCol.setValue(filePath);
       implicitCols.add(outCol);
       staticCols.add(outCol);
@@ -349,7 +349,7 @@ public class ProjectionPlanner {
   private MajorType getNullColumnType() {
     if (nullColType == null) {
       nullColType = MajorType.newBuilder()
-          .setMinorType(MinorType.INT)
+          .setMinorType(MinorType.NULL)
           .setMode(DataMode.OPTIONAL)
           .build();
     }
@@ -472,7 +472,7 @@ public class ProjectionPlanner {
   }
 
   private void mapImplicitColumn(ImplicitColumnDefn iCol, SelectColumn inCol) {
-    ImplicitColumn outCol = new ImplicitColumn(inCol, outputCols.size(), iCol);
+    FileInfoColumn outCol = new FileInfoColumn(inCol, outputCols.size(), iCol);
     implicitCols.add(outCol);
     staticCols.add(outCol);
     outputCols.add(outCol);
@@ -535,7 +535,7 @@ public class ProjectionPlanner {
       return;
     }
 
-    for (ImplicitColumn col : implicitCols) {
+    for (FileInfoColumn col : implicitCols) {
       col.setValue(filePath);
     }
   }
