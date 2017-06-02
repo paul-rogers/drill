@@ -671,5 +671,6 @@ public class TestScanProjector extends SubOperatorTest {
   // TODO: Test (a, b), (a), b is filled, using prev type. Identical vectors.
   // TODO: Test columns
   // TODO: Test version tracking
+  // TODO: Flavors of schema evolution
 
 }
