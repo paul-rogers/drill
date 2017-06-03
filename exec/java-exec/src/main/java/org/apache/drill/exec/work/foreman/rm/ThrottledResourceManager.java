@@ -83,7 +83,8 @@ public class ThrottledResourceManager extends AbstractResourceManager {
     }
 
     private void planMemory() {
-      if (plan.getProperties().hasResourcePlan && plan == null) {
+      if (plan.getProperties().hasResourcePlan) {
+        logger.debug("Memory already planned.");
         return;
       }
 
@@ -142,7 +143,7 @@ public class ThrottledResourceManager extends AbstractResourceManager {
 
       long nodeMemory = queryMemoryPerNode();
       long sortMemory = nodeMemory / width;
-      logger.debug("Query: {}, Node: {}, allocating {} bytes per {} sort(s).",
+      logger.debug("Query: {}, Node: {}, allocating {} bytes each for {} sort(s).",
                    QueryIdHelper.getQueryId(queryContext.getQueryId()),
                    nodeAddr,
                    sortMemory, width);
@@ -221,7 +222,6 @@ public class ThrottledResourceManager extends AbstractResourceManager {
       root.accept(finder, sorts);
       return sorts;
     }
-
   }
 
   /**
@@ -249,11 +249,20 @@ public class ThrottledResourceManager extends AbstractResourceManager {
 
     @Override
     public void admit( ) throws QueueTimeoutException, QueryQueueException {
-      lease = rm.queue().queue(foreman.getQueryId(), queryCost);
+      lease = rm.queue().enqueue(foreman.getQueryId(), queryCost);
     }
 
     @Override
     protected long queryMemoryPerNode() {
+
+      // No lease: use static estimate.
+
+      if (lease == null) {
+        return super.queryMemoryPerNode();
+      }
+
+      // Use actual memory assigned to this query.
+
       return lease.queryMemoryPerNode();
     }
 

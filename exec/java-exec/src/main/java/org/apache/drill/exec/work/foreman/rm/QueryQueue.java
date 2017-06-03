@@ -121,7 +121,7 @@ public interface QueryQueue {
    * @throws QueryQueueException for any other error condition.
    */
 
-  QueueLease queue(QueryId queryId, double cost) throws QueueTimeoutException, QueryQueueException;
+  QueueLease enqueue(QueryId queryId, double cost) throws QueueTimeoutException, QueryQueueException;
 
   void close();
 }

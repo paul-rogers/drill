@@ -125,5 +125,4 @@ public class DefaultResourceManager implements ResourceManager {
   public void close() {
     // Nothing to do.
   }
-
 }

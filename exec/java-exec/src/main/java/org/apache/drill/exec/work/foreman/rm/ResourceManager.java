@@ -21,18 +21,31 @@ import org.apache.drill.exec.ops.QueryContext;
 import org.apache.drill.exec.work.foreman.Foreman;
 
 /**
- * Drillbit-wide resource manager shared by all queries.
+ * Drillbit-wide resource manager shared by all queries. Manages
+ * memory (at present) and CPU (planned). Since queries are the
+ * primary consumer of resources, manages resources by throttling
+ * queries into the system, and allocating resources to queries
+ * in order to control total use. An "null" implementation handles the
+ * case of no queuing. Clearly, the null case cannot effectively control
+ * resource use.
  */
 
 public interface ResourceManager {
 
+  /**
+   * Returns the memory, in bytes, assigned to each node in a Drill
+   * cluster. Since Drill nodes are symmetrical, knowing he memory on
+   * any one node also gives the memory on all other nodes.
+   * @return the memory, in bytes, available in each Drillbit
+   */
   long memoryPerNode();
   int cpusPerNode();
 
   /**
    * Create a resource manager to prepare or describe a query.
    * In this form, no queuing is done, but the plan is created
-   * as if queuing had been done.
+   * as if queuing had been done. Used when executing
+   * EXPLAIN PLAN.
    * @return a resource manager for the query
    */
 

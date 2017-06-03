@@ -95,6 +95,7 @@ public class DistributedQueryQueue implements QueryQueue {
     }
   }
 
+  private long memoryPerNode;
   private int largeQueueSize;
   private int smallQueueSize;
   private SystemOptionManager optionManager;
@@ -112,6 +113,11 @@ public class DistributedQueryQueue implements QueryQueue {
 
   @Override
   public void setMemoryPerNode(long memoryPerNode) {
+    this.memoryPerNode = memoryPerNode;
+    refreshConfig();
+  }
+
+  private void assignMemory() {
 
     // Divide up memory between queues using admission rate
     // to give more memory to larger queries and less to
@@ -122,8 +128,13 @@ public class DistributedQueryQueue implements QueryQueue {
     double largeToSmallRatio = 4.0; // TODO: add config param.
     double totalUnits = largeToSmallRatio * largeQueueSize + smallQueueSize;
     double memoryUnit = memoryPerNode / totalUnits;
-    memoryPerSmallQuery = Math.round( memoryUnit * largeToSmallRatio * largeQueueSize );
-    memoryPerLargeQuery = Math.round( memoryUnit * smallQueueSize );
+    memoryPerLargeQuery = Math.round(memoryUnit * largeToSmallRatio);
+    memoryPerSmallQuery = Math.round(memoryUnit);
+
+    logger.debug("Distributed queue memory config: total memory = {}, large/small memory ratio = {}",
+                 memoryPerNode, largeToSmallRatio);
+    logger.debug("Small queue: {} slots, {} bytes per slot", smallQueueSize, memoryPerSmallQuery);
+    logger.debug("Large queue: {} slots, {} bytes per slot", largeQueueSize, memoryPerLargeQuery);
   }
 
   @Override
@@ -137,15 +148,15 @@ public class DistributedQueryQueue implements QueryQueue {
    * until it can. Beware that this is called under run(), and so will consume a Thread
    * while it waits for the required distributed semaphore.
    *
+   * @param queryId query identifier
    * @param totalCost the query plan
    * @throws QueryQueueException
    * @throws QueueTimeoutException
-   * @throws ForemanSetupException
    */
 
   @SuppressWarnings("resource")
   @Override
-  public QueueLease queue(QueryId queryId, double cost) throws QueryQueueException, QueueTimeoutException {
+  public QueueLease enqueue(QueryId queryId, double cost) throws QueryQueueException, QueueTimeoutException {
     refreshConfig();
     final String queueName;
     DistributedLease lease = null;
@@ -163,16 +174,19 @@ public class DistributedQueryQueue implements QueryQueue {
         queueName = "small";
         queryMemory = memoryPerSmallQuery;
       }
+      logger.debug("Query {} with cost {} placed into the {} queue.",
+                   QueryIdHelper.getQueryId(queryId), cost, queueName);
 
       lease = distributedSemaphore.acquire(queueTimeout, TimeUnit.MILLISECONDS);
     } catch (final Exception e) {
-      logger.error("Unable to acquire slot for query.", e);
+      logger.error("Unable to acquire slot for query " +
+                   QueryIdHelper.getQueryId(queryId), e);
       throw new QueryQueueException("Unable to acquire slot for query.", e);
     }
 
     if (lease == null) {
       int timeoutSecs = (int) Math.round(queueTimeout/1000.0);
-      logger.warn(String.format("Queue timeout: %s after %d seconds.", queueName, timeoutSecs));
+      logger.warn("Queue timeout: {} after {} seconds.", queueName, timeoutSecs);
       throw new QueueTimeoutException(queryId, queueName, timeoutSecs);
     }
     return new DistributedQueueLease(queryId, queueName, lease, queryMemory);
@@ -188,6 +202,11 @@ public class DistributedQueryQueue implements QueryQueue {
     largeQueueSize = (int) optionManager.getOption(ExecConstants.LARGE_QUEUE_SIZE);
     smallQueueSize = (int) optionManager.getOption(ExecConstants.SMALL_QUEUE_SIZE);
     refreshTime = now + 5000;
+    logger.debug("Configuration: small queue size = {}, large queue size = {}",
+                  smallQueueSize, largeQueueSize);
+    logger.debug("Configuration: cost threshold = {}, timeout = {} ms.",
+                 queueThreshold, queueTimeout);
+    assignMemory();
   }
 
   @Override

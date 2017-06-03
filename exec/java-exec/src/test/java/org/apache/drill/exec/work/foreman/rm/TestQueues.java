@@ -22,6 +22,7 @@ import static org.junit.Assert.*;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.work.foreman.rm.EmbeddedQueryQueue;
 import org.apache.drill.test.ClientFixture;
 import org.apache.drill.test.ClusterFixture;
@@ -33,29 +34,55 @@ import org.junit.Test;
 public class TestQueues {
 
   @Test
-  public void test() throws Exception {
+  public void testEmbedded() throws Exception {
     FixtureBuilder builder = ClusterFixture.builder()
         .configProperty(EmbeddedQueryQueue.ENABLED, true)
         .configProperty(EmbeddedQueryQueue.QUEUE_SIZE, 2)
-        .configProperty(EmbeddedQueryQueue.TIMEOUT_MS, 5000)
+        .configProperty(EmbeddedQueryQueue.TIMEOUT_MS, 20000)
         ;
     try(ClusterFixture cluster = builder.build();
         ClientFixture client = cluster.clientFixture()) {
-      List<QuerySummaryFuture> futures = new ArrayList<>( );
-      int n = 10;
-      for( int i = 0; i < n; i++ ) {
-        futures.add( client.queryBuilder().sql("SELECT `id_i` FROM `mock`.`implicit_10K` ORDER BY `id_i`").futureSummary() );
+      List<QuerySummaryFuture> futures = new ArrayList<>();
+      int n = 100;
+      for (int i = 0; i < n; i++) {
+        futures.add(client.queryBuilder().sql("SELECT `id_i` FROM `mock`.`implicit_10K` ORDER BY `id_i`").futureSummary());
       }
-      for( QuerySummaryFuture future : futures ) {
-        QuerySummary summary = future.get( );
+      for (QuerySummaryFuture future : futures) {
+        QuerySummary summary = future.get();
         System.out.print( summary.queryIdString() + ": " );
         if (summary.failed()) {
-          System.out.println( "Error - " + summary.error().getMessage() );
+          System.out.println("Error - " + summary.error().getMessage());
         } else {
-          System.out.println( summary.recordCount() );
+          System.out.println(summary.recordCount());
         }
       }
     }
   }
 
+  @Test
+  public void testZk() throws Exception {
+    FixtureBuilder builder = ClusterFixture.builder()
+        .systemOption(ExecConstants.ENABLE_QUEUE.getOptionName(), true)
+        .systemOption(ExecConstants.LARGE_QUEUE_SIZE.getOptionName(), 1)
+        .systemOption(ExecConstants.SMALL_QUEUE_SIZE.getOptionName(), 2)
+        .withLocalZk()
+        ;
+    try(ClusterFixture cluster = builder.build();
+        ClientFixture client = cluster.clientFixture()) {
+      List<QuerySummaryFuture> futures = new ArrayList<>();
+      int n = 100;
+      for (int i = 0; i < n; i++) {
+        futures.add(client.queryBuilder().sql("SELECT `id_i` FROM `mock`.`implicit_10K` ORDER BY `id_i`").futureSummary());
+      }
+      for (QuerySummaryFuture future : futures) {
+        QuerySummary summary = future.get();
+        System.out.print( summary.queryIdString() + ": " );
+        if (summary.failed()) {
+          System.out.println("Error - " + summary.error().getMessage());
+        } else {
+          System.out.println(summary.recordCount());
+        }
+      }
+    }
+  }
 }

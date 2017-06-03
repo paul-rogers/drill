@@ -29,14 +29,12 @@ import org.apache.drill.exec.server.options.SystemOptionManager;
  * system options.
  * <p>
  * <ul>
- * <li>If the Drillbit is embedded
- * <ul>
+ * <li>If the Drillbit is embedded<ul>
  * <li>If queues are enabled, then the admission-controlled resource manager
  * with the local query queue.</li>
  * <li>Otherwise, the default resource manager and no queues.</li>
  * </ul></li>
- * <li>If the Drillbit is in a cluster
- * <ul>
+ * <li>If the Drillbit is in a cluster<ul>
  * <li>If queues are enabled, then the admission-controlled resource manager
  * with the distributed query queue.</li>
  * <li>Otherwise, the default resource manager and no queues.</li>
@@ -55,6 +53,8 @@ import org.apache.drill.exec.server.options.SystemOptionManager;
  */
 public class ResourceManagerBuilder {
 
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ResourceManagerBuilder.class);
+
   private DrillbitContext context ;
 
   public ResourceManagerBuilder(final DrillbitContext context) {
@@ -65,16 +65,16 @@ public class ResourceManagerBuilder {
   public ResourceManager build() {
     ClusterCoordinator coord = context.getClusterCoordinator();
     DrillConfig config = context.getConfig();
-    SystemOptionManager systemOptions = context.getOptionManager();
     if (coord instanceof LocalClusterCoordinator) {
       if (config.getBoolean(EmbeddedQueryQueue.ENABLED)) {
+        logger.debug("Enabling embedded, local query queue.");
         return new ThrottledResourceManager(context, new EmbeddedQueryQueue(context));
+      } else {
+        logger.debug("No query queueing enabled.");
+        return new DefaultResourceManager();
       }
     } else {
-      if (systemOptions.getOption(ExecConstants.ENABLE_QUEUE)) {
-        return new ThrottledResourceManager(context, new DistributedQueryQueue(context));
-      }
+      return new DynamicResourceManager(context);
     }
-    return new DefaultResourceManager();
   }
 }
