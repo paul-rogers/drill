@@ -185,16 +185,24 @@ public final class UnsafeDirectLittleEndian extends WrappedByteBuf {
     return (! (index < 0 || index > capacity() - fieldLength));
   }
 
-  // Clone of the super class setBytes(), but with bounds checking done as a boolean,
-  // not assertion.
+  /**
+   * Write bytes into the buffer at the given index, if space is available.
+   * @param index location to write
+   * @param src bytes to write
+   * @param srcIndex start of data in the source array
+   * @param length length of the data to write
+   * @return true if the value was written, false if the value was not
+   * written because the value would overflow the buffer
+   */
 
   public boolean setBytesBounded(int index, byte[] src, int srcIndex, int length) {
-    if (! hasCapacity(index, length)) {
+
+    // Optimized for speed: caller responsible for passing valid indexes.
+
+    if (index + length > buf.capacity()) {
       return false;
     }
-    if (length != 0) {
-      PlatformDependent.copyMemory(src, srcIndex, addr(index), length);
-    }
+    PlatformDependent.copyMemory(src, srcIndex, memoryAddress + index, length);
     return true;
   }
 

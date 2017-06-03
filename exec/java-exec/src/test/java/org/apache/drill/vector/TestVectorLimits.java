@@ -445,10 +445,9 @@ public class TestVectorLimits extends SubOperatorTest {
       vector.allocateNew( );
 
       VarCharVector.Mutator mutator = vector.getMutator();
-      int posn = 0;
-      for (;;) {
+      for (int j = 0; j < ValueVector.MAX_ROW_COUNT; j++) {
         try {
-          mutator.setScalar(posn++, value, 0, value.length);
+          mutator.setScalar(j, value, 0, value.length);
         } catch (VectorOverflowException e) {
           break;
         }

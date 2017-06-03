@@ -603,14 +603,9 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
     }
 
     public void setScalar(int index, byte[] bytes, int start, int length) throws VectorOverflowException {
-      if (index >= MAX_ROW_COUNT) {
-        throw new VectorOverflowException();
-      }
-      setArrayItem(index, bytes, start, length);
-    }
 
-    public void setArrayItem(int index, byte[] bytes, int start, int length) throws VectorOverflowException {
-      assert index >= 0;
+      // Does not check index against value limit; caller is expected
+      // to do that.
 
       final int currentOffset = offsetVector.getAccessor().get(index);
       final int newSize = currentOffset + length;
@@ -618,10 +613,19 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
         throw new VectorOverflowException();
       }
 
-      while (! data.setBytesBounded(currentOffset, bytes, start, length)) {
+      // Calling UDLE method directly to avoid passing four arguments through
+      // two calls. This is tight inner loop code.
+
+      while (! data.udle().setBytesBounded(currentOffset, bytes, start, length)) {
         reAlloc();
       }
       offsetVector.getMutator().setSafe(index + 1, newSize);
+    }
+
+    public void setArrayItem(int index, byte[] bytes, int start, int length) throws VectorOverflowException {
+      // No difference between array and scalar behavior for variable-width vectors.
+
+      setScalar(index, bytes, start, length);
     }
 
     @Override

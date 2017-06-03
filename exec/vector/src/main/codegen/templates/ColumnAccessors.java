@@ -19,11 +19,13 @@
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/drill/exec/vector/accessor/ColumnAccessors.java" />
 <#include "/@includes/license.ftl" />
-<#macro getType label>
+<#macro getType drillType label>
     @Override
     public ValueType valueType() {
   <#if label == "Int">
       return ValueType.INTEGER;
+  <#elseif drillType == "VarChar" || drillType == "Var16Char">
+      return ValueType.STRING;
   <#else>
       return ValueType.${label?upper_case};
   </#if>
@@ -64,17 +66,15 @@
     @Override
     public ${accessorType} get${label}(<#if isArray>int index</#if>) {
   <#if isArray>
-    <#assign index=", index"/>
-    <#assign getObject="getSingleObject">
+    <#assign indexVar = "index"/>
+    <#assign index = ", " + indexVar/>
+    <#assign getObject = "getSingleObject"/>
   <#else>
-    <#assign index=""/>
-    <#assign getObject="getObject">
+    <#assign indexVar = ""/>
+    <#assign index = ""/>
+    <#assign getObject =" getObject"/>
   </#if>
-  <#if drillType == "VarChar">
-      return new String(accessor().get(vectorIndex.vectorIndex()${index}), Charsets.UTF_8);
-  <#elseif drillType == "Var16Char">
-      return new String(accessor().get(vectorIndex.vectorIndex()${index}), Charsets.UTF_16);
-  <#elseif drillType == "VarBinary">
+  <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
       return accessor().get(vectorIndex.vectorIndex()${index});
   <#elseif drillType == "Decimal9" || drillType == "Decimal18">
       return DecimalUtility.getBigDecimalFromPrimitiveTypes(
@@ -87,6 +87,19 @@
       return accessor().get(vectorIndex.vectorIndex()${index});
   </#if>
     }
+  <#if drillType == "VarChar">
+
+    @Override
+    public String getString(<#if isArray>int index</#if>) {
+      return new String(getBytes(${indexVar}), Charsets.UTF_8);
+    }
+  <#elseif drillType == "Var16Char">
+
+    @Override
+    public String getString(<#if isArray>int index</#if>) {
+      return new String(getBytes(${indexVar}), Charsets.UTF_16);
+    }
+  </#if>
 </#macro>
 <#macro bindWriter prefix drillType>
   <#if drillType = "Decimal9" || drillType == "Decimal18">
@@ -130,13 +143,7 @@
       try {
         final int writeIndex = vectorIndex.vectorIndex();
         <@fillEmpties drillType mode />
-  <#if drillType == "VarChar">
-        final byte bytes[] = value.getBytes(Charsets.UTF_8);
-        mutator.${setFn}(writeIndex, bytes, 0, bytes.length);
-  <#elseif drillType == "Var16Char">
-        final byte bytes[] = value.getBytes(Charsets.UTF_16);
-        mutator.${setFn}(writeIndex, bytes, 0, bytes.length);
-  <#elseif drillType == "VarBinary">
+  <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
         mutator.${setFn}(writeIndex, value, 0, len);
   <#elseif drillType == "Decimal9">
         mutator.${setFn}(writeIndex,
@@ -168,19 +175,19 @@
         throw e;
       }
     }
-  <#if drillType == "VarChar" || drillType == "Var16Char">
+  <#if drillType == "VarChar">
 
     @Override
-    public void setBytes(byte value[], int len) throws VectorOverflowException {
-      try {
-        final int writeIndex = vectorIndex.vectorIndex();
-        <@fillEmpties drillType mode />
-        mutator.${setFn}(writeIndex, value, 0, len);
-        lastWriteIndex = writeIndex;
-      } catch (VectorOverflowException e) {
-        vectorIndex.overflowed();
-        throw e;
-      }
+    public void setString(String value) throws VectorOverflowException {
+      final byte bytes[] = value.getBytes(Charsets.UTF_8);
+      setBytes(bytes, bytes.length);
+    }
+  <#elseif drillType == "Var16Char">
+
+    @Override
+    public void setString(String value) throws VectorOverflowException {
+      final byte bytes[] = value.getBytes(Charsets.UTF_8);
+      setBytes(bytes, bytes.length);
     }
   </#if>
 </#macro>
@@ -252,6 +259,10 @@ public class ColumnAccessors {
     <#if accessorType=="BigDecimal">
       <#assign label="Decimal">
     </#if>
+    <#if drillType == "VarChar" || drillType == "Var16Char">
+      <#assign accessorType = "byte[]">
+      <#assign label = "Bytes">
+    </#if>
     <#if ! notyet>
   //------------------------------------------------------------------------
   // ${drillType} readers and writers
@@ -260,7 +271,7 @@ public class ColumnAccessors {
 
     <@bindReader "" drillType />
 
-    <@getType label />
+    <@getType drillType label />
 
     <@get drillType accessorType label false/>
   }
@@ -269,7 +280,7 @@ public class ColumnAccessors {
 
     <@bindReader "Nullable" drillType />
 
-    <@getType label />
+    <@getType drillType label />
 
     @Override
     public boolean isNull() {
@@ -283,7 +294,7 @@ public class ColumnAccessors {
 
     <@bindReader "Repeated" drillType />
 
-    <@getType label />
+    <@getType drillType label />
 
     @Override
     public int size() {
@@ -297,7 +308,7 @@ public class ColumnAccessors {
 
     <@bindWriter "" drillType />
 
-    <@getType label />
+    <@getType drillType label />
 
     <@set drillType accessorType label "" "setScalar" />
 
@@ -308,7 +319,7 @@ public class ColumnAccessors {
 
     <@bindWriter "Nullable" drillType />
 
-    <@getType label />
+    <@getType drillType label />
 
     @Override
     public void setNull() throws VectorOverflowException {
@@ -331,7 +342,7 @@ public class ColumnAccessors {
 
     <@bindWriter "Repeated" drillType />
 
-    <@getType label />
+    <@getType drillType label />
 
     protected BaseRepeatedValueVector.BaseRepeatedMutator mutator() {
       return mutator;
