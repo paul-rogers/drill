@@ -90,6 +90,38 @@ public class TupleSetImpl implements TupleSchema {
       }
       return col.writer;
     }
+
+    @Override
+    public TupleLoader loadRow(Object... values) {
+      tupleSet.rowSetMutator().startRow();
+      for (int i = 0; i < values.length;  i++) {
+        set(i, values[i]);
+      }
+      tupleSet.rowSetMutator().saveRow();
+      return this;
+    }
+
+    @Override
+    public TupleLoader loadSingletonRow(Object value) {
+      tupleSet.rowSetMutator().startRow();
+      set(0, value);
+      tupleSet.rowSetMutator().saveRow();
+      return this;
+    }
+
+    @Override
+    public void set(int colIndex, Object value) {
+      column(colIndex).set(value);
+    }
+
+    public void setArray(int colIndex, Object value) {
+      ColumnLoader colWriter = column(colIndex);
+      if (value == null) {
+        colWriter.setNull();
+      } else {
+        colWriter.array().setArray(value);
+      }
+    }
   }
 
   public static class ColumnImpl {

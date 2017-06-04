@@ -19,4 +19,6 @@ package org.apache.drill.exec.physical.rowSet;
 
 public interface ArrayLoader extends ColumnLoader {
   int size();
+
+  void setArray(Object value);
 }

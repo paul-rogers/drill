@@ -142,4 +142,27 @@ public class LogicalTupleLoader implements TupleLoader {
     int lIndex = schema.columnIndex(rsLoader.toKey(colName));
     return lIndex == -1 ? null : column(lIndex);
   }
+
+  @Override
+  public TupleLoader loadRow(Object... values) {
+    rsLoader.startRow();
+    for (int i = 0; i < values.length;  i++) {
+      set(i, values[i]);
+    }
+    rsLoader.saveRow();
+    return this;
+  }
+
+  @Override
+  public TupleLoader loadSingletonRow(Object value) {
+    return loadRow(new Object[] {value});
+  }
+
+  @Override
+  public void set(int colIndex, Object value) {
+    if (mappingCache[colIndex] != null) {
+      physicalLoader.set(mapping.get(colIndex), value);
+    }
+  }
+
 }

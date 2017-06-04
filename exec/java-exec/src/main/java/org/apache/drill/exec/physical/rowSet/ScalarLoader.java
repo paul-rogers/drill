@@ -40,4 +40,5 @@ public interface ScalarLoader {
   void setBytes(byte[] value);
   void setDecimal(BigDecimal value);
   void setPeriod(Period value);
+  void set(Object value);
 }

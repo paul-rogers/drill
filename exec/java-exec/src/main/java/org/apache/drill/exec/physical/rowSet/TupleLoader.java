@@ -17,6 +17,9 @@
  */
 package org.apache.drill.exec.physical.rowSet;
 
+import org.apache.drill.exec.vector.VectorOverflowException;
+import org.apache.drill.test.rowSet.RowSetBuilder;
+
 /**
  * Writes values into the current row or map by column index or name.
  * Column indexes and names are as defined by the schema.
@@ -62,4 +65,41 @@ public interface TupleLoader {
    * undefined.
    */
   ColumnLoader column(String colName);
+
+  /**
+   * Load a row using column values passed as variable-length arguments. Expects
+   * map values to be flattened. a schema of (a:int, b:map(c:varchar)) would be>
+   * set as <br><tt>loadRow(10, "foo");</tt><br> Values of arrays can be expressed as a Java
+   * array. A schema of (a:int, b:int[]) can be set as<br>
+   * <tt>loadRow(10, new int[] {100, 200});</tt><br>.
+   * Primarily for testing, too slow for production code.
+   * @param values column values in column index order
+   * @return this loader
+   */
+
+  TupleLoader loadRow(Object...values);
+
+  /**
+   * Write a row that consists of a single object. Use this if Java becomes
+   * confused about the whether the single argument to {@link #loadRow} is
+   * an single array of values (what you want) or an array of multiple values
+   * (which you don't want when setting an array.)
+   *
+   * @param value value of the single column to set
+   * @return this loader
+   */
+
+  TupleLoader loadSingletonRow(Object value);
+
+  /**
+   * Write a value to the given column, automatically calling the proper
+   * <tt>set<i>Type</i></tt> method for the data. While this method is
+   * convenient for testing, it incurs quite a bit of type-checking overhead
+   * and is not suitable for production code.
+   * @param colIndex the index of the column to set
+   * @param value the value to set. Must be of a type that maps to one of
+   * the <tt>set<i>Type</i></tt> methods
+   */
+
+  void set(int colIndex, Object value);
 }

@@ -32,7 +32,7 @@ import org.joda.time.Period;
  * class is common to scalar columns and the members of arrays.
  */
 
-public abstract class AbstractScalarLoader implements ScalarLoader {
+public abstract class AbstractScalarLoader extends AbstractColumnLoader implements ScalarLoader {
 
   protected static final String ROLLOVER_FAILED = "Row batch rollover failed.";
 
@@ -147,10 +147,12 @@ public abstract class AbstractScalarLoader implements ScalarLoader {
     }
   }
 
+  @Override
   public TupleLoader map() {
     throw new UnsupportedOperationException();
   }
 
+  @Override
   public ArrayLoader array() {
     throw new UnsupportedOperationException();
   }
