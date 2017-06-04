@@ -17,7 +17,10 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,11 +29,11 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.SchemaTracker;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.EarlyProjectedColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.FileInfoColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.ImplicitColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.LateProjectedColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjection.NullColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.OutputColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.SelectColumn;
@@ -667,10 +670,119 @@ public class TestScanProjector extends SubOperatorTest {
     projector.close();
   }
 
+  /**
+   * Test the ability of the scan projector to "smooth" out schema changes
+   * by reusing the type from a previous reader, if known. That is,
+   * given three readers:<br>
+   * (a, b)<br>
+   * (b)<br>
+   * (a, b)<br>
+   * Then the type of column a should be preserved for the second reader that
+   * does not include a. This works if a is nullable. If so, a's type will
+   * be used for the empty column, rather than the usual nullable int.
+   * <p>
+   * Detailed testing of type matching for "missing" columns is done
+   * in {@link #testNullColumnLoader()}.
+   */
+
+  @Test
+  public void testSchemaSmoothing() {
+
+    ScanProjector projector = new ScanProjector(fixture.allocator(), null);
+
+    BatchSchema twoColSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addNullable("b", MinorType.VARCHAR, 10)
+        .build();
+    BatchSchema oneColSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .build();
+
+    SchemaTracker tracker = new SchemaTracker();
+    int schemaVersion;
+    {
+      // Projection of (a, b) to (a, b)
+
+      ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
+      builder.queryCols(TestScanProjectionPlanner.selectList("a", "b"));
+      builder.tableColumns(twoColSchema);
+      ScanProjection projection = builder.build();
+      ResultSetLoader loader = projector.makeTableLoader(projection);
+
+      loader.startBatch();
+      loader.writer()
+          .loadRow(10, "fred")
+          .loadRow(20, "wilma");
+      projector.publish();
+
+      tracker.trackSchema(projector.output());
+      schemaVersion = tracker.schemaVersion();
+
+      SingleRowSet expected = fixture.rowSetBuilder(twoColSchema)
+          .add(10, "fred")
+          .add(20, "wilma")
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+    }
+    {
+      // Projection of (a) to (a, b), reusing b from above.
+
+      ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
+      builder.queryCols(TestScanProjectionPlanner.selectList("a", "b"));
+      builder.tableColumns(oneColSchema);
+      ScanProjection projection = builder.build();
+      ResultSetLoader loader = projector.makeTableLoader(projection);
+
+      loader.startBatch();
+      loader.writer()
+          .loadRow(30)
+          .loadRow(40);
+      projector.publish();
+
+      tracker.trackSchema(projector.output());
+      assertEquals(schemaVersion, tracker.schemaVersion());
+
+      SingleRowSet expected = fixture.rowSetBuilder(oneColSchema)
+          .add(30)
+          .add(40)
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+    }
+    {
+      // Projection of (a, b), to (a, b), reusing b yet again
+
+      ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
+      builder.queryCols(TestScanProjectionPlanner.selectList("a", "b"));
+      builder.tableColumns(twoColSchema);
+      ScanProjection projection = builder.build();
+      ResultSetLoader loader = projector.makeTableLoader(projection);
+
+      loader.startBatch();
+      loader.writer()
+          .loadRow(50, "dino")
+          .loadRow(60, "barney");
+      projector.publish();
+
+      tracker.trackSchema(projector.output());
+      assertEquals(schemaVersion, tracker.schemaVersion());
+
+      SingleRowSet expected = fixture.rowSetBuilder(twoColSchema)
+          .add(50, "dino")
+          .add(60, "barney")
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+    }
+
+    projector.close();
+  }
+
   // TODO: Test two identical tables -- vectors are identical
-  // TODO: Test (a, b), (a), b is filled, using prev type. Identical vectors.
   // TODO: Test columns
   // TODO: Test version tracking
   // TODO: Flavors of schema evolution
-
+  // TODO: Schema smoothing for SELECT *
+  // TODO: Schema smoothing for reordered schema
 }

@@ -72,12 +72,15 @@ public class RowBatchMerger {
       }
     }
 
-    public void makeToVector(VectorContainer output) {
+    public void makeToVector(VectorContainer output, ResultVectorCache vectorCache) {
       if (direct) {
         toVector = fromVector;
         output.add(toVector);
-      } else {
+      } else if (vectorCache == null) {
         toVector = output.addOrGet(batch.getSchema().getColumn(fromIndex));
+      } else {
+        toVector = vectorCache.addOrGet(batch.getSchema().getColumn(fromIndex));
+        output.add(toVector);
       }
     }
 
@@ -92,6 +95,7 @@ public class RowBatchMerger {
   public static class Builder {
 
     private List<Projection> projections = new ArrayList<>();
+    private ResultVectorCache vectorCache;
 
     public Builder addDirectProjection(VectorContainer batch, int fromIndex, int toIndex) {
       projections.add(new Projection(batch, true, fromIndex, toIndex));
@@ -100,6 +104,11 @@ public class RowBatchMerger {
 
     public Builder addExchangeProjection(VectorContainer batch, int fromIndex, int toIndex) {
       projections.add(new Projection(batch, false, fromIndex, toIndex));
+      return this;
+    }
+
+    public Builder vectorCache(ResultVectorCache vectorCache) {
+      this.vectorCache = vectorCache;
       return this;
     }
 
@@ -128,7 +137,7 @@ public class RowBatchMerger {
       for (int i = 0; i < count; i++) {
         Projection proj = projections.get(i);
         proj.setFromVector(proj.batch.getValueVector(proj.fromIndex).getValueVector() );
-        proj.makeToVector(output);
+        proj.makeToVector(output, vectorCache);
       }
       output.buildSchema(SelectionVectorMode.NONE);
       Projection projArray[] = new Projection[count];

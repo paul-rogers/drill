@@ -305,6 +305,7 @@ public class ScanProjector {
     }
 
     private MaterializedField selectType(OutputColumn defn) {
+
       // Prefer the type of any previous occurrence of
       // this column.
 
@@ -456,7 +457,8 @@ public class ScanProjector {
   }
 
   private void planProjection() {
-    RowBatchMerger.Builder builder = new RowBatchMerger.Builder();
+    RowBatchMerger.Builder builder = new RowBatchMerger.Builder()
+        .vectorCache(vectorCache);
     List<OutputColumn> nullCols = buildNullColumns();
     if (nullCols != null) {
       mapNullColumns(builder, nullCols);
