@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.rowSet;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.vector.accessor.ColumnAccessor.ValueType;
 import org.joda.time.Period;
 
 /**
@@ -41,4 +42,5 @@ public interface ScalarLoader {
   void setDecimal(BigDecimal value);
   void setPeriod(Period value);
   void set(Object value);
+  ValueType valueType();
 }

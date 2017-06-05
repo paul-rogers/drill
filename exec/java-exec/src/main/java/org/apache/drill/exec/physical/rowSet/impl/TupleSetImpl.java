@@ -436,6 +436,16 @@ public class TupleSetImpl implements TupleSchema {
     return colImpl.index;
   }
 
+  @Override
+  public void setSchema(BatchSchema schema) {
+    if (! columns.isEmpty()) {
+      throw new IllegalStateException("Can only set schema when the tuple schema is empty");
+    }
+    for (MaterializedField field : schema) {
+      addColumn(field);
+    }
+  }
+
   public ResultSetLoaderImpl rowSetMutator() { return resultSetLoader; }
 
   @Override

@@ -54,6 +54,14 @@ public interface TupleSchema {
   int addColumn(MaterializedField columnSchema);
 
   /**
+   * Create the tuple schema from a batch schema. The tuple schema
+   * must be empty.
+   * @param schema the schema for the tuple
+   */
+
+  void setSchema(BatchSchema schema);
+
+  /**
    * Report if a column is selected.
    * @param colIndex index of the column to check
    * @return true if the column is selected (data is collected),

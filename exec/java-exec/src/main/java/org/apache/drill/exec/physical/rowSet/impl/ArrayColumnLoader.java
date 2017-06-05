@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 
 import org.apache.drill.exec.physical.rowSet.ArrayLoader;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.accessor.ColumnAccessor.ValueType;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnWriter;
 import org.joda.time.Period;
 
@@ -175,6 +176,9 @@ public class ArrayColumnLoader extends AbstractStructuredLoader {
     this.writer = writer;
     member = new ArrayMemberLoader(writerIndex, writer.array());
   }
+
+  @Override
+  public ValueType valueType() { return writer.valueType(); }
 
   @Override
   public int writeIndex() { return writer.lastWriteIndex(); }

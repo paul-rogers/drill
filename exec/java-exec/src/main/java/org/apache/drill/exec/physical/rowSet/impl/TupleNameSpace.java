@@ -70,4 +70,8 @@ public class TupleNameSpace<T> implements Iterable<T> {
   public Iterator<T> iterator() {
     return entries.iterator();
   }
+
+  public boolean isEmpty() {
+    return entries.isEmpty();
+  }
 }

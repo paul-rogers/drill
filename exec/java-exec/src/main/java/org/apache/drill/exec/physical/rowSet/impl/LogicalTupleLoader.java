@@ -88,6 +88,16 @@ public class LogicalTupleLoader implements TupleLoader {
     }
 
     @Override
+    public void setSchema(BatchSchema schema) {
+      if (! logicalSchema.isEmpty()) {
+        throw new IllegalStateException("Can only set schema when the tuple schema is empty");
+      }
+      for (MaterializedField field : schema) {
+        addColumn(field);
+      }
+    }
+
+    @Override
     public boolean selected(int colIndex) {
       return mapping.get(colIndex) != -1;
     }

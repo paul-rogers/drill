@@ -24,6 +24,7 @@ import org.apache.drill.exec.physical.rowSet.ScalarLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
+import org.apache.drill.exec.vector.accessor.ColumnAccessor.ValueType;
 import org.joda.time.Period;
 
 /**
@@ -43,6 +44,9 @@ public abstract class AbstractScalarLoader extends AbstractColumnLoader implemen
     this.index = index;
     this.scalarWriter = writer;
   }
+
+  @Override
+  public ValueType valueType() { return scalarWriter.valueType(); }
 
   @Override
   public void setInt(int value) {
