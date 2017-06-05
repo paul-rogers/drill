@@ -56,51 +56,51 @@ public abstract class AbstractColumnWriter implements ColumnWriter {
 
   @Override
   public void setNull() throws VectorOverflowException {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("setNull");
   }
 
   @Override
   public void setInt(int value) throws VectorOverflowException {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("setInt");
   }
 
   @Override
   public void setLong(long value) throws VectorOverflowException {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("setLong");
   }
 
   @Override
   public void setDouble(double value) throws VectorOverflowException {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("setDouble");
   }
 
   @Override
   public void setString(String value) throws VectorOverflowException {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("setString");
   }
 
   @Override
   public void setBytes(byte[] value, int len) throws VectorOverflowException {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("setBytes");
   }
 
   @Override
   public void setDecimal(BigDecimal value) throws VectorOverflowException {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("setDecimal");
   }
 
   @Override
   public void setPeriod(Period value) throws VectorOverflowException {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("setPeriod");
   }
 
   @Override
   public TupleWriter map() {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("map");
   }
 
   @Override
   public ArrayWriter array() {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("array");
   }
 }
