@@ -778,5 +778,166 @@ public class TestScanProjectionPlanner extends SubOperatorTest {
     }
   }
 
+  //-----------------------------------------------------------------
+  // Prior schema tests
+
+  /**
+   * Case in which the table schema is a superset of the prior
+   * schema. Discard prior schema.
+   */
+
+  @Test
+  public void testPriorSmaller() {
+    BatchSchema priorSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .build();
+    BatchSchema tableSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .build();
+    ScanProjection projection = new ProjectionPlanner(fixture.options())
+        .selectAll()
+        .priorSchema(priorSchema)
+        .tableColumns(tableSchema)
+        .build();
+    assertTrue(projection.outputSchema().isEquivalent(tableSchema));
+  }
+
+  /**
+   * Case in which the table schema and prior are disjoint
+   * sets. Discard the prior schema.
+   */
+
+  @Test
+  public void testPriorDisjoint() {
+    BatchSchema priorSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .build();
+    BatchSchema tableSchema = new SchemaBuilder()
+        .add("b", MinorType.VARCHAR)
+        .build();
+    ScanProjection projection = new ProjectionPlanner(fixture.options())
+        .selectAll()
+        .priorSchema(priorSchema)
+        .tableColumns(tableSchema)
+        .build();
+    assertTrue(projection.outputSchema().isEquivalent(tableSchema));
+  }
+
+  /**
+   * Column names match, but types differe. Discard the prior schema.
+   */
+
+  @Test
+  public void testPriorDifferentTypes() {
+    BatchSchema priorSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .build();
+    BatchSchema tableSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addNullable("b", MinorType.VARCHAR)
+        .build();
+    ScanProjection projection = new ProjectionPlanner(fixture.options())
+        .selectAll()
+        .priorSchema(priorSchema)
+        .tableColumns(tableSchema)
+        .build();
+    assertTrue(projection.outputSchema().isEquivalent(tableSchema));
+  }
+
+  /**
+   * The prior and table schemas are identical. Discard the prior
+   * schema (though, the output is no different than if we preserved
+   * the prior schema...)
+   */
+
+  @Test
+  public void testPriorSameSchemas() {
+    BatchSchema priorSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .build();
+    BatchSchema tableSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .build();
+    ScanProjection projection = new ProjectionPlanner(fixture.options())
+        .selectAll()
+        .priorSchema(priorSchema)
+        .tableColumns(tableSchema)
+        .build();
+    assertTrue(projection.outputSchema().isEquivalent(tableSchema));
+  }
+
+  /**
+   * Can't preserve the prior schema if it had required columns
+   * where the table has no columns.
+   */
+
+  @Test
+  public void testPriorRequired() {
+    BatchSchema priorSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addNullable("b", MinorType.VARCHAR)
+        .build();
+    BatchSchema tableSchema = new SchemaBuilder()
+        .addNullable("b", MinorType.VARCHAR)
+        .build();
+    ScanProjection projection = new ProjectionPlanner(fixture.options())
+        .selectAll()
+        .priorSchema(priorSchema)
+        .tableColumns(tableSchema)
+        .build();
+    assertTrue(projection.outputSchema().isEquivalent(tableSchema));
+  }
+
+  /**
+   * Preserve the prior schema if table is a subset and missing columns
+   * are nullable or repeated.
+   */
+
+  @Test
+  public void testPriorSmoothing() {
+    BatchSchema priorSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .addArray("c", MinorType.BIGINT)
+        .build();
+    BatchSchema tableSchema = new SchemaBuilder()
+        .add("b", MinorType.VARCHAR)
+        .build();
+    ScanProjection projection = new ProjectionPlanner(fixture.options())
+        .selectAll()
+        .priorSchema(priorSchema)
+        .tableColumns(tableSchema)
+        .build();
+    assertTrue(projection.outputSchema().isEquivalent(priorSchema));
+  }
+
+  /**
+   * Preserve the prior schema if table is a subset. Map the table
+   * columns to the output using the prior schema orderng.
+   */
+
+  @Test
+  public void testPriorReordering() {
+    BatchSchema priorSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .addArray("c", MinorType.BIGINT)
+        .build();
+    BatchSchema tableSchema = new SchemaBuilder()
+        .add("b", MinorType.VARCHAR)
+        .addNullable("a", MinorType.INT)
+        .build();
+    ScanProjection projection = new ProjectionPlanner(fixture.options())
+        .selectAll()
+        .priorSchema(priorSchema)
+        .tableColumns(tableSchema)
+        .build();
+    assertTrue(projection.outputSchema().isEquivalent(priorSchema));
+  }
+
   // TODO: Test customizing partition name, implicit col names.
 }

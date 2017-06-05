@@ -18,6 +18,7 @@
 package org.apache.drill.exec.physical.impl.scan;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -111,9 +112,10 @@ public class ProjectionPlanner {
 
   // Input
 
-  List<SelectColumn> queryCols = new ArrayList<>();
+  protected List<SelectColumn> queryCols = new ArrayList<>();
+  private BatchSchema priorSchema;
   private MajorType nullColType;
-  List<TableColumn> tableCols;
+  protected List<TableColumn> tableCols;
   private Map<String, TableColumn> tableIndex = CaseInsensitiveMap.newHashMap();
   private Path filePath;
   private String[] dirPath;
@@ -165,6 +167,11 @@ public class ProjectionPlanner {
 
   public ProjectionPlanner useLegacyStarPlan(boolean flag) {
     useLegacyStarPlan = flag;
+    return this;
+  }
+
+  public ProjectionPlanner priorSchema(BatchSchema schema) {
+    this.priorSchema = schema;
     return this;
   }
 
@@ -399,7 +406,7 @@ public class ProjectionPlanner {
       return;
     }
 
-    // The column is a table-like column. Not compatibile with SELECT *.
+    // The column is a table-like column. Not compatible with SELECT *.
 
     if (selectType == SelectType.ALL) {
       throw new IllegalArgumentException("Cannot list table columns and `*` together: " + inCol.name());
@@ -452,15 +459,89 @@ public class ProjectionPlanner {
     selectType = SelectType.ALL;
     starColumn = inCol;
 
-    // Select 'em if we got 'em.
+    // If late schema, can't do more.
 
-    if (tableCols != null) {
-      for (TableColumn col : tableCols) {
+    if (tableCols == null) {
+      return;
+    }
+
+    // If a prior schema build a merged mapping
+
+    if (priorSchema != null  &&  mapPriorSchema()) {
+      return;
+    }
+
+    // Map the table columns to produce the output schema.
+
+    for (TableColumn col : tableCols) {
+      col.projection = new EarlyProjectedColumn(starColumn, outputCols.size(), col);
+      projectedCols.add(col.projection);
+      outputCols.add(col.projection);
+    }
+  }
+
+  private boolean mapPriorSchema() {
+    // Can't match if have more table columns than prior columns,
+    // new fields appeared in this table.
+
+    if (priorSchema.getFieldCount() < tableCols.size()) {
+      return false;
+    }
+    Map<String, MaterializedField> prior = new HashMap<>();
+    for (MaterializedField field : priorSchema) {
+      prior.put(field.getName(), field);
+    }
+    for (TableColumn col : tableCols) {
+      MaterializedField priorCol = prior.get(col.name());
+
+      // New field in this table; can't preserve schema
+
+      if (priorCol == null) {
+        return false;
+      }
+
+      // Can't preserve schema if column types differ.
+
+      if (! priorCol.getType().equals(col.schema().getType())) {
+        return false;
+      }
+    }
+
+    // No need to preserve schema if the table schema is the same size as
+    // the prior schema. Since we checked for extra table columns above,
+    // if the schemas equal here, the columns are the same, only the types
+    // (may) differ. So, nothing to preserve.
+
+    if (tableCols.size() == priorSchema.getFieldCount()) {
+      return false;
+    }
+
+    // Can't preserve schema if missing columns are required.
+
+    for (MaterializedField field : priorSchema) {
+      TableColumn col = tableIndex.get(field.getName());
+      if (col == null  &&  field.getDataMode() == DataMode.REQUIRED) {
+        return false;
+      }
+    }
+
+    // This table schema is a subset of the prior
+    // schema. Build the output schema using the prior schema as
+    // the select list.
+
+    for (MaterializedField field : priorSchema) {
+      TableColumn col = tableIndex.get(field.getName());
+      if (col == null) {
+        NullColumn nullCol = new NullColumn(starColumn, outputCols.size(), field);
+        nullCols.add(nullCol);
+        outputCols.add(nullCol);
+      } else {
         col.projection = new EarlyProjectedColumn(starColumn, outputCols.size(), col);
         projectedCols.add(col.projection);
         outputCols.add(col.projection);
       }
     }
+    return true;
   }
 
   private void mapPartitionColumn(SelectColumn inCol, int partition) {

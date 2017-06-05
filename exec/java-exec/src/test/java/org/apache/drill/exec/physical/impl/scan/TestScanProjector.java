@@ -17,10 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -683,6 +680,9 @@ public class TestScanProjector extends SubOperatorTest {
    * <p>
    * Detailed testing of type matching for "missing" columns is done
    * in {@link #testNullColumnLoader()}.
+   * <p>
+   * As a side effect, makes sure that two identical tables (in this case,
+   * separated by a different table) results in no schema change.
    */
 
   @Test
@@ -779,10 +779,261 @@ public class TestScanProjector extends SubOperatorTest {
     projector.close();
   }
 
-  // TODO: Test two identical tables -- vectors are identical
-  // TODO: Test columns
-  // TODO: Test version tracking
+  /**
+   * Verify that different table column orders are projected into the
+   * SELECT order, preserving vectors, so no schema change for column
+   * reordering.
+   */
+
+  @Test
+  public void testColumnReordering() {
+
+    ScanProjector projector = new ScanProjector(fixture.allocator(), null);
+
+    BatchSchema schema1 = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addNullable("b", MinorType.VARCHAR, 10)
+        .add("c", MinorType.BIGINT)
+        .build();
+    BatchSchema schema2 = new SchemaBuilder()
+        .add("c", MinorType.BIGINT)
+        .add("a", MinorType.INT)
+        .addNullable("b", MinorType.VARCHAR, 10)
+        .build();
+    BatchSchema schema3 = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("c", MinorType.BIGINT)
+        .addNullable("b", MinorType.VARCHAR, 10)
+        .build();
+
+    SchemaTracker tracker = new SchemaTracker();
+    int schemaVersion;
+    {
+      // Projection of (a, b, c) to (a, b, c)
+
+      ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
+      builder.queryCols(TestScanProjectionPlanner.selectList("a", "b", "c"));
+      builder.tableColumns(schema1);
+      ScanProjection projection = builder.build();
+      ResultSetLoader loader = projector.makeTableLoader(projection);
+
+      loader.startBatch();
+      loader.writer()
+          .loadRow(10, "fred", 110L)
+          .loadRow(20, "wilma", 110L);
+      projector.publish();
+
+      tracker.trackSchema(projector.output());
+      schemaVersion = tracker.schemaVersion();
+
+      SingleRowSet expected = fixture.rowSetBuilder(schema1)
+          .add(10, "fred", 110L)
+          .add(20, "wilma", 110L)
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+    }
+    {
+      // Projection of (c, a, b) to (a, b, c)
+
+      ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
+      builder.queryCols(TestScanProjectionPlanner.selectList("a", "b", "c"));
+      builder.tableColumns(schema2);
+      ScanProjection projection = builder.build();
+      ResultSetLoader loader = projector.makeTableLoader(projection);
+
+      loader.startBatch();
+      loader.writer()
+          .loadRow(330L, 30, "bambam")
+          .loadRow(440L, 40, "betty");
+      projector.publish();
+
+      tracker.trackSchema(projector.output());
+      assertEquals(schemaVersion, tracker.schemaVersion());
+
+      SingleRowSet expected = fixture.rowSetBuilder(schema1)
+          .add(30, "bambam", 330L)
+          .add(40, "betty", 440L)
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+    }
+    {
+      // Projection of (a, c, b) to (a, b, c)
+
+      ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
+      builder.queryCols(TestScanProjectionPlanner.selectList("a", "b", "c"));
+      builder.tableColumns(schema3);
+      ScanProjection projection = builder.build();
+      ResultSetLoader loader = projector.makeTableLoader(projection);
+
+      loader.startBatch();
+      loader.writer()
+          .loadRow(50, 550L, "dino")
+          .loadRow(60, 660L, "barney");
+      projector.publish();
+
+      tracker.trackSchema(projector.output());
+      assertEquals(schemaVersion, tracker.schemaVersion());
+
+      SingleRowSet expected = fixture.rowSetBuilder(schema1)
+          .add(50, "dino", 550L)
+          .add(60, "barney", 660L)
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+    }
+
+    projector.close();
+  }
+
+  /**
+   * A SELECT * query uses the schema of the table as the output schema.
+   * This is trivial when the scanner has one table. But, if two or more
+   * tables occur, then things get interesting. The first table sets the
+   * schema. The second table then has:
+   * <ul>
+   * <li>The same schema, trivial case.</li>
+   * <li>A subset of the first table. The type of the "missing" column
+   * from the first table is used for a null column in the second table.</li>
+   * <li>A superset or disjoint set of the first schema. This triggers a hard schema
+   * change.</li>
+   * </ul>
+   * <p>
+   * It is an open question whether previous columns should be preserved on
+   * a hard reset. For now, the code implements, and this test verifies, that a
+   * hard reset clears the "memory" of prior schemas.
+   */
+
+  @Test
+  public void testSelectStarSmoothing() {
+
+    ScanProjector projector = new ScanProjector(fixture.allocator(), null);
+
+    BatchSchema firstSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addNullable("b", MinorType.VARCHAR, 10)
+        .addNullable("c", MinorType.BIGINT)
+        .build();
+    BatchSchema subsetSchema = new SchemaBuilder()
+        .addNullable("b", MinorType.VARCHAR, 10)
+        .add("a", MinorType.INT)
+        .build();
+    BatchSchema disjointSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addNullable("b", MinorType.VARCHAR, 10)
+        .add("d", MinorType.VARCHAR)
+        .build();
+
+    SchemaTracker tracker = new SchemaTracker();
+    int schemaVersion;
+    {
+      // First table, establishes the baseline
+
+      ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
+      builder.queryCols(TestScanProjectionPlanner.selectList("*"));
+      builder.tableColumns(firstSchema);
+      ScanProjection projection = builder.build();
+      ResultSetLoader loader = projector.makeTableLoader(projection);
+
+      loader.startBatch();
+      loader.writer()
+          .loadRow(10, "fred", 110L)
+          .loadRow(20, "wilma", 110L);
+      projector.publish();
+
+      tracker.trackSchema(projector.output());
+      schemaVersion = tracker.schemaVersion();
+
+      SingleRowSet expected = fixture.rowSetBuilder(firstSchema)
+          .add(10, "fred", 110L)
+          .add(20, "wilma", 110L)
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+    }
+    {
+      // Second table, same schema, the trivial case
+
+      ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
+      builder.queryCols(TestScanProjectionPlanner.selectList("*"));
+      builder.tableColumns(firstSchema);
+      builder.priorSchema(projector.output().getSchema());
+      ScanProjection projection = builder.build();
+      ResultSetLoader loader = projector.makeTableLoader(projection);
+
+      loader.startBatch();
+      loader.writer()
+          .loadRow(70, "pebbles", 770L)
+          .loadRow(80, "hoppy", 880L);
+      projector.publish();
+
+      tracker.trackSchema(projector.output());
+      assertEquals(schemaVersion, tracker.schemaVersion());
+
+      SingleRowSet expected = fixture.rowSetBuilder(firstSchema)
+          .add(70, "pebbles", 770L)
+          .add(80, "hoppy", 880L)
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+    }
+    {
+      // Third table: subset schema of first two
+
+      ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
+      builder.queryCols(TestScanProjectionPlanner.selectList("*"));
+      builder.tableColumns(subsetSchema);
+      builder.priorSchema(projector.output().getSchema());
+      ScanProjection projection = builder.build();
+      ResultSetLoader loader = projector.makeTableLoader(projection);
+
+      loader.startBatch();
+      loader.writer()
+          .loadRow("bambam", 30)
+          .loadRow("betty", 40);
+      projector.publish();
+
+      tracker.trackSchema(projector.output());
+      assertEquals(schemaVersion, tracker.schemaVersion());
+
+      SingleRowSet expected = fixture.rowSetBuilder(firstSchema)
+          .add(30, "bambam", null)
+          .add(40, "betty", null)
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+    }
+    {
+      // Fourth table: disjoint schema, cases a schema reset
+
+      ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
+      builder.queryCols(TestScanProjectionPlanner.selectList("*"));
+      builder.tableColumns(disjointSchema);
+      builder.priorSchema(projector.output().getSchema());
+      ScanProjection projection = builder.build();
+      ResultSetLoader loader = projector.makeTableLoader(projection);
+
+      loader.startBatch();
+      loader.writer()
+          .loadRow(50, "dino", "supporting")
+          .loadRow(60, "barney", "main");
+      projector.publish();
+
+      tracker.trackSchema(projector.output());
+      assertNotEquals(schemaVersion, tracker.schemaVersion());
+
+      SingleRowSet expected = fixture.rowSetBuilder(disjointSchema)
+          .add(50, "dino", "supporting")
+          .add(60, "barney", "main")
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+    }
+
+    projector.close();
+  }
+
   // TODO: Flavors of schema evolution
-  // TODO: Schema smoothing for SELECT *
-  // TODO: Schema smoothing for reordered schema
+  // TODO: Late schema testing
 }

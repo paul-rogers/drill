@@ -239,37 +239,32 @@ public class ScanProjector {
   }
 
   /**
-   * Create and populate null columns for the case in which a
-   * SELECT statement refers to columns that do not exist in the
-   * actual table. Nullable and array types are suitable for null
-   * columns. (Drill defines an empty array as the same as a null
-   * array: not true, but the best we have at present.) Required
-   * types cannot be used as we don't know what value to set into
-   * the column values.
+   * Create and populate null columns for the case in which a SELECT statement
+   * refers to columns that do not exist in the actual table. Nullable and array
+   * types are suitable for null columns. (Drill defines an empty array as the
+   * same as a null array: not true, but the best we have at present.) Required
+   * types cannot be used as we don't know what value to set into the column
+   * values.
    * <p>
-   * Seeks to preserve "vector continuity" by reusing
-   * vectors when possible. Cases:
+   * Seeks to preserve "vector continuity" by reusing vectors when possible.
+   * Cases:
    * <ul>
-   * <li>A column a was available in a prior reader (or batch), but
-   * is no longer available, and is thus null. Reuses the type and
-   * vector of the prior reader (or batch) to prevent trivial
-   * schema changes.</li>
-   * <li>A column has an implied type (specified in the metadata
-   * about the column provided by the reader.) That type information is
-   * used instead of the defined null column type.</li>
-   * <li>A column has no type information. The type becomes the
-   * null column type defined by the reader (or nullable int by
-   * default.</li>
-   * <li>Required columns are not suitable. If any of the above found
-   * a required type, convert the type to nullable.</li>
-   * <li>The resulting column and type, whatever it turned out to be,
-   * is placed into the vector cache so that it can be reused by
-   * the next reader or batch, to again preserve vector
-   * continuity.</li>
+   * <li>A column a was available in a prior reader (or batch), but is no longer
+   * available, and is thus null. Reuses the type and vector of the prior reader
+   * (or batch) to prevent trivial schema changes.</li>
+   * <li>A column has an implied type (specified in the metadata about the
+   * column provided by the reader.) That type information is used instead of
+   * the defined null column type.</li>
+   * <li>A column has no type information. The type becomes the null column type
+   * defined by the reader (or nullable int by default.</li>
+   * <li>Required columns are not suitable. If any of the above found a required
+   * type, convert the type to nullable.</li>
+   * <li>The resulting column and type, whatever it turned out to be, is placed
+   * into the vector cache so that it can be reused by the next reader or batch,
+   * to again preserve vector continuity.</li>
    * </ul>
-   * The above rules eliminate "trivia" schema changes, but can still
-   * result in "hard" schema changes if a required type is replaced by
-   * a nullable type.
+   * The above rules eliminate "trivia" schema changes, but can still result in
+   * "hard" schema changes if a required type is replaced by a nullable type.
    */
 
   public static class NullColumnLoader extends StaticColumnLoader {
@@ -303,6 +298,13 @@ public class ScanProjector {
         schema.addColumn(colSchema);
       }
     }
+
+    /**
+     * Implements the type mapping algorithm; preferring the best fit
+     * to preserve the schema, else resorting to changes when needed.
+     * @param defn output column definition
+     * @return type of the empty column that implements the definition
+     */
 
     private MaterializedField selectType(OutputColumn defn) {
 
@@ -367,14 +369,72 @@ public class ScanProjector {
   }
 
   private final BufferAllocator allocator;
+
+  /**
+   * Cache used to preserve the same vectors from one output batch to the
+   * next to keep the Project operator happy (which depends on exactly the
+   * same vectors.
+   * <p>
+   * If the Project operator ever changes so that it depends on looking up
+   * vectors rather than vector instances, this cache can be deprecated.
+   */
+
   private final ResultVectorCache vectorCache;
+
+  /**
+   * The reader-specified null type if other than the default.
+   */
+
   private final MajorType nullType;
+
+  /**
+   * Scan projection plan based on static information. May contain a table
+   * projection plan if the table is early schema, else the table (and thus
+   * null column) projections are worked out per batch.
+   */
+
   private ScanProjection projection;
+
+  /**
+   * The vector writer created here, and used by the reader. If the table is
+   * early-schema, the schema is populated here. If late schema, the schema
+   * is populated by the reader as the schema is discovered.
+   */
+
   private ResultSetLoader tableLoader;
+
+  /**
+   * Creates the metadata (file and directory) columns, if needed.
+   */
+
   private MetadataColumnLoader metadataColumnLoader;
+
+  /**
+   * Creates null columns if needed.
+   */
+
   private NullColumnLoader nullColumnLoader;
+
+  /**
+   * Assembles the table, metadata and null columns into the final output
+   * batch to be sent downstream. The key goal of this class is to "smooth"
+   * schema changes in this output batch by absorbing trivial schema changes
+   * that occur across readers.
+   */
+
   private RowBatchMerger output;
+
+  /**
+   * Count of the number of tables seen by this instance.
+   */
+
   private int tableCount;
+
+  /**
+   * Tracks the schema version last seen from the table loader. Used to detect
+   * when the reader changes the table loader schema.
+   */
+
   private int prevTableSchemaVersion;
 
   public ScanProjector(BufferAllocator allocator, MajorType nullType) {
@@ -424,20 +484,29 @@ public class ScanProjector {
         schema.addColumn(tableCol.schema());
       }
       updateTableSchema();
+
+      // Set the output container to zero rows. Required so that we can
+      // send the schema downstream in the form of an empty batch.
+
+      output.getOutput().setRecordCount(0);
+    } else {
+      // Late-schema tables must read a batch of data before this class can
+      // prepare the first output batch to send downstream.
     }
     return tableLoader;
   }
+
+  /**
+   * Update table and null column mappings when the table schema changes.
+   * Fills in nulls when needed, "swaps out" nulls for table columns when
+   * available.
+   */
 
   public void updateTableSchema() {
     if (tableCount == 1) {
       buildMetadataColumns();
     }
     planProjection();
-
-    // Set the output container to zero rows. Required so that we can
-    // send the schema downstream in the form of an empty batch.
-
-    output.getOutput().setRecordCount(0);
   }
 
   /**
@@ -456,6 +525,11 @@ public class ScanProjector {
     metadataColumnLoader = new MetadataColumnLoader(allocator, metadataCols, vectorCache);
   }
 
+  /**
+   * Create the projection from null, metadata and table columns to output
+   * batch.
+   */
+
   private void planProjection() {
     RowBatchMerger.Builder builder = new RowBatchMerger.Builder()
         .vectorCache(vectorCache);
@@ -469,8 +543,22 @@ public class ScanProjector {
     prevTableSchemaVersion = tableLoader.schemaVersion();
   }
 
+  /**
+   * Create the list of null columns by comparing the SELECT list against the
+   * columns available in the table's schema. Create null columns for those that
+   * are missing. If the table is early-schema, then this work was already done
+   * in the static projection plan. Else, it has to be worked out for each new
+   * batch when the table schema changes. For a SELECT *, the null column check
+   * only need be done if null columns were created when mapping from a pror
+   * schema.
+   * @return the list of null columns for this table or batch
+   */
+
+  // TODO: For late-schema, must compare current schema with previous, and fill
+  // in missing columns. Omit if a hard schema change occurs.
+
   private List<OutputColumn> buildNullColumns() {
-    if (projection.isSelectAll()) {
+    if (projection.isSelectAll() && projection.nullCols().isEmpty()) {
       return null;
     }
     List<OutputColumn> nullCols = new ArrayList<>();
@@ -496,15 +584,20 @@ public class ScanProjector {
     return nullCols;
   }
 
+  /**
+   * Project selected, available table columns to their output schema positions.
+   *
+   * @param builder the batch merger builder
+   */
+
   private void mapTableColumns(Builder builder) {
 
     // Projection of table columns is from the abbreviated table
     // schema after removing unprojected columns.
 
     VectorContainer tableContainer = tableLoader.outputContainer();
-    List<ProjectedColumn> projections = projection.projectedCols();
-    for (int i = 0; i < projections.size(); i++) {
-      builder.addExchangeProjection(tableContainer, i, projections.get(i).index());
+    for (ProjectedColumn projCol : projection.projectedCols()) {
+      builder.addExchangeProjection(tableContainer, projCol.source().index(), projCol.index() );
     }
   }
 
@@ -512,7 +605,7 @@ public class ScanProjector {
    * Project implicit and partition columns into the output. Since
    * these columns are consistent across all readers, just project
    * the result set loader's own vectors; not need to do an exchange.
-   * @param builder
+   * @param builder the batch merger builder
    */
 
   private void mapMetadataColumns(RowBatchMerger.Builder builder) {
@@ -529,6 +622,12 @@ public class ScanProjector {
     }
   }
 
+  /**
+   * Map null columns from the null column laoder schema into the output
+   * schema.
+   * @param builder the batch merger builder
+   * @param nullCols the list of null columns to project
+   */
   private void mapNullColumns(Builder builder, List<OutputColumn> nullCols) {
     if (nullColumnLoader == null) {
       return;
@@ -538,6 +637,12 @@ public class ScanProjector {
       builder.addDirectProjection(staticContainer, i, nullCols.get(i).index());
     }
   }
+
+  /**
+   * Build the final output batch by projecting columns from the three input sources
+   * to the output batch. First, build the metadata and/or null columns for the
+   * table row count. Then, merge the sources.
+   */
 
   public void publish() {
     if (prevTableSchemaVersion < tableLoader.schemaVersion()) {

@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
@@ -24,10 +25,14 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.TableSchemaType;
+import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.store.ImplicitColumnExplorer.ImplicitFileColumns;
 import org.apache.hadoop.fs.Path;
+
+import com.google.common.annotations.VisibleForTesting;
 
 public class ScanProjection {
 
@@ -517,4 +522,13 @@ public class ScanProjection {
    * @return the set of output columns in output order
    */
   public List<OutputColumn> outputCols() { return outputCols; }
+
+  @VisibleForTesting
+  public BatchSchema outputSchema() {
+    List<MaterializedField> fields = new ArrayList<>();
+    for (OutputColumn col : outputCols) {
+      fields.add(col.schema);
+    }
+    return new BatchSchema(SelectionVectorMode.NONE, fields);
+  }
 }
