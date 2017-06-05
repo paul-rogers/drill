@@ -34,8 +34,6 @@ import org.apache.drill.exec.physical.impl.scan.ScanProjection.SelectColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.TableColumn;
 import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.TableSchemaType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
-import org.apache.drill.exec.physical.rowSet.TupleSchema;
-import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.hadoop.fs.Path;

@@ -60,5 +60,4 @@ public abstract class AbstractColumnLoader implements ColumnLoader {
                 value.getClass().getSimpleName());
     }
   }
-
 }

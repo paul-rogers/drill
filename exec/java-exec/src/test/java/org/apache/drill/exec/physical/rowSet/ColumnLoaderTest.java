@@ -231,4 +231,9 @@ public class ColumnLoaderTest extends SubOperatorTest {
     testArrayVarchar();
   }
 
+  // TODO: Var16Char
+  // TODO: VarBinary
+  // TODO: Date types
+  // TODO: Decimal types
+
 }
