@@ -201,7 +201,7 @@
     <#if mode == "">
       // See DRILL-5530 for why this is needed for required vectors.
     </#if>
-      mutator.fillEmptiesBounded(lastWriteIndex, rowCount);
+      mutator.fillEmptiesBounded(lastWriteIndex, rowCount - 1);
    </#if>
       mutator.setValueCount(rowCount);
     }

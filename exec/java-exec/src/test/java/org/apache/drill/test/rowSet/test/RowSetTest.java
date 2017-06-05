@@ -213,6 +213,7 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(0, reader.column(0).getInt());
     assertTrue(reader.next());
     assertEquals(Byte.MAX_VALUE, reader.column(0).getInt());
+    assertEquals((int) Byte.MAX_VALUE, reader.column(0).getObject());
     assertTrue(reader.next());
     assertEquals(Byte.MIN_VALUE, reader.column(0).getInt());
     assertFalse(reader.next());
@@ -234,6 +235,7 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(0, reader.column(0).getInt());
     assertTrue(reader.next());
     assertEquals(Short.MAX_VALUE, reader.column(0).getInt());
+    assertEquals((int) Short.MAX_VALUE, reader.column(0).getObject());
     assertTrue(reader.next());
     assertEquals(Short.MIN_VALUE, reader.column(0).getInt());
     assertFalse(reader.next());
@@ -255,6 +257,7 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(0, reader.column(0).getInt());
     assertTrue(reader.next());
     assertEquals(Integer.MAX_VALUE, reader.column(0).getInt());
+    assertEquals(Integer.MAX_VALUE, reader.column(0).getObject());
     assertTrue(reader.next());
     assertEquals(Integer.MIN_VALUE, reader.column(0).getInt());
     assertFalse(reader.next());
@@ -276,6 +279,7 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(0, reader.column(0).getLong());
     assertTrue(reader.next());
     assertEquals(Long.MAX_VALUE, reader.column(0).getLong());
+    assertEquals(Long.MAX_VALUE, reader.column(0).getObject());
     assertTrue(reader.next());
     assertEquals(Long.MIN_VALUE, reader.column(0).getLong());
     assertFalse(reader.next());
@@ -297,6 +301,7 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(0, reader.column(0).getDouble(), 0.000001);
     assertTrue(reader.next());
     assertEquals(Float.MAX_VALUE, reader.column(0).getDouble(), 0.000001);
+    assertEquals((double) Float.MAX_VALUE, (double) reader.column(0).getObject(), 0.000001);
     assertTrue(reader.next());
     assertEquals(Float.MIN_VALUE, reader.column(0).getDouble(), 0.000001);
     assertFalse(reader.next());
@@ -318,8 +323,28 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(0, reader.column(0).getDouble(), 0.000001);
     assertTrue(reader.next());
     assertEquals(Double.MAX_VALUE, reader.column(0).getDouble(), 0.000001);
+    assertEquals(Double.MAX_VALUE, (double) reader.column(0).getObject(), 0.000001);
     assertTrue(reader.next());
     assertEquals(Double.MIN_VALUE, reader.column(0).getDouble(), 0.000001);
+    assertFalse(reader.next());
+    rs.clear();
+  }
+
+  @Test
+  public void testStringRW() {
+    BatchSchema batchSchema = new SchemaBuilder()
+        .add("col", MinorType.VARCHAR)
+        .build();
+    SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
+        .add("")
+        .add("abcd")
+        .build();
+    RowSetReader reader = rs.reader();
+    assertTrue(reader.next());
+    assertEquals("", reader.column(0).getString());
+    assertTrue(reader.next());
+    assertEquals("abcd", reader.column(0).getString());
+    assertEquals("abcd", reader.column(0).getObject());
     assertFalse(reader.next());
     rs.clear();
   }

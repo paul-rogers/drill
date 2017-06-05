@@ -27,7 +27,7 @@ import org.joda.time.Period;
  * {@link ArrayWriter} interfaces.
  */
 
-public interface ScalarWriter {
+public interface ScalarWriter extends ColumnAccessor {
   void setInt(int value) throws VectorOverflowException;
   void setLong(long value) throws VectorOverflowException;
   void setDouble(double value) throws VectorOverflowException;
