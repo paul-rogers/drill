@@ -110,13 +110,16 @@ public class TestVectorContainer extends DrillTest {
     RowSet mergedRs = left.merge(right);
     comparison.verifyAndClear(mergedRs);
 
-    // Add a selection vector. Ensure the SV appears in the merged
-    // result. Test as a row set since container's don't actually
-    // carry the selection vector.
+    // Add a selection vector. Merging is forbidden.
 
     SingleRowSet leftIndirect = left.toIndirect();
-    RowSet mergedIndirect = leftIndirect.merge(right);
-    assertEquals(SelectionVectorMode.TWO_BYTE, mergedIndirect.indirectionType());
-    comparison.verifyAndClear(mergedIndirect);
+    try {
+      leftIndirect.merge(right);
+      fail();
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
+    leftIndirect.clear();
+    right.clear();
   }
 }
