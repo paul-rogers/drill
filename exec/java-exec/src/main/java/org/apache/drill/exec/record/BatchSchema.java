@@ -188,20 +188,22 @@ public class BatchSchema implements Iterable<MaterializedField> {
    * Merge two schema to produce a new, merged schema. The caller is responsible
    * for ensuring that column names are unique. The order of the fields in the
    * new schema is the same as that of this schema, with the other schema's fields
-   * appended in the order defined in the other schema. The resulting selection
-   * vector mode is the same as this schema. (That is, this schema is assumed to
-   * be the main part of the batch, possibly with a selection vector, with the
-   * other schema representing additional, new columns.)
+   * appended in the order defined in the other schema.
+   * <p>
+   * Merging data with selection vectors is unlikely to be useful, or work well.
+   * So, this method forbids merging schemas if either of them carry a selection
+   * vector.
    * @param otherSchema the schema to merge with this one
    * @return the new, merged, schema
    */
 
   public BatchSchema merge(BatchSchema otherSchema) {
-    if (otherSchema.selectionVectorMode != SelectionVectorMode.NONE &&
-        selectionVectorMode != otherSchema.selectionVectorMode) {
-      throw new IllegalArgumentException("Left schema must carry the selection vector mode");
+    if (selectionVectorMode != SelectionVectorMode.NONE ||
+        otherSchema.selectionVectorMode != SelectionVectorMode.NONE) {
+      throw new IllegalArgumentException("Cannot merge schemas with selection vectors");
     }
-    List<MaterializedField> mergedFields = new ArrayList<>();
+    List<MaterializedField> mergedFields =
+        new ArrayList<>(fields.size() + otherSchema.fields.size());
     mergedFields.addAll(this.fields);
     mergedFields.addAll(otherSchema.fields);
     return new BatchSchema(selectionVectorMode, mergedFields);
