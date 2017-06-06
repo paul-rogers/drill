@@ -50,6 +50,13 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
   public static final int DEBUG_LOG_LENGTH = 6;
   public static final boolean DEBUG = AssertionUtil.isAssertionsEnabled()
       || Boolean.parseBoolean(System.getProperty(DEBUG_ALLOCATOR, "false"));
+
+  /**
+   * Size of the I/O buffer used when writing to files. Set here
+   * because the buffer is used multiple times by an operator.
+   */
+
+  private static final int IO_BUFFER_SIZE = 32*1024;
   private final Object DEBUG_LOCK = DEBUG ? new Object() : null;
 
   private final BaseAllocator parentAllocator;
@@ -804,7 +811,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
       // sizes provide no increase in performance.
       // Revisit from time to time.
 
-      ioBuffer = new byte[32*1024];
+      ioBuffer = new byte[IO_BUFFER_SIZE];
     }
     return ioBuffer;
   }

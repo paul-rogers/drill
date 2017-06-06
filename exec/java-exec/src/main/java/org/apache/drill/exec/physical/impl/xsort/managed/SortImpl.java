@@ -440,32 +440,28 @@ public class SortImpl {
     // Consolidate batches to a number that can be merged in
     // a single last pass.
 
-    while (consolidateBatches()) {
-      ;
+    loop:
+    for (;;) {
+      MergeTask task = memManager.consolidateBatches(
+          allocator.getAllocatedMemory(),
+          bufferedBatches.size(),
+          spilledRuns.size());
+      switch (task.action) {
+      case SPILL:
+        spillFromMemory();
+        break;
+      case MERGE:
+        mergeRuns(task.count);
+        break;
+      case NONE:
+        break loop;
+      default:
+        throw new IllegalStateException("Unexpected action: " + task.action);
+      }
     }
 
     int mergeRowCount = memManager.getMergeBatchRowCount();
     return spilledRuns.finalMerge(bufferedBatches.removeAll(), outputBatch, mergeRowCount);
-  }
-
-  private boolean consolidateBatches() {
-
-    MergeTask task = memManager.consolidateBatches(
-                      allocator.getAllocatedMemory(),
-                      bufferedBatches.size(),
-                      spilledRuns.size());
-    switch (task.action) {
-    case SPILL:
-      spillFromMemory();
-      return true;
-    case MERGE:
-      mergeRuns(task.count);
-      return true;
-    case NONE:
-      return false;
-    default:
-      throw new IllegalStateException("Unexpected action: " + task.action);
-    }
   }
 
   private void mergeRuns(int targetCount) {
@@ -486,7 +482,7 @@ public class SortImpl {
     try {
       bufferedBatches.close();
     } catch (RuntimeException e) {
-      ex = e;
+      ex = ex == null ? e : ex;
     }
     if (ex != null) {
       throw ex;

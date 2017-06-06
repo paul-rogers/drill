@@ -189,7 +189,7 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
   public enum Metric implements MetricDef {
     SPILL_COUNT,            // number of times operator spilled to disk
-    RETIRED1,               // Was: peak value for totalSizeInMemory
+    NOT_USED,               // Was: peak value for totalSizeInMemory
                             // But operator already provides this value
     PEAK_BATCHES_IN_MEMORY, // maximum number of batches kept in memory
     MERGE_COUNT,            // Number of second+ generation merges
@@ -410,8 +410,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
 
       logger.error("received OUT_OF_MEMORY, trying to spill");
       if (! sortImpl.forceSpill()) {
-        logger.error("not enough batches to spill, sending OUT_OF_MEMORY downstream");
-        return IterOutcome.OUT_OF_MEMORY;
+        throw UserException.memoryError("Received OUT_OF_MEMORY, but enough batches to spill")
+          .build(logger);
       }
       break;
     default:
@@ -440,6 +440,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     } else {
       throw UserException.unsupportedError()
             .message("Schema changes not supported in External Sort. Please enable Union type.")
+            .addContext("Previous schema", schema.toString())
+            .addContext("Incoming schema", incoming.getSchema().toString())
             .build(logger);
     }
     sortImpl.setSchema(schema);

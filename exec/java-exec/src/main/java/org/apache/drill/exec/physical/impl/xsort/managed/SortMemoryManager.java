@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.physical.impl.xsort.managed;
 
+import com.google.common.annotations.VisibleForTesting;
+
 public class SortMemoryManager {
 
   /**
@@ -95,10 +97,6 @@ public class SortMemoryManager {
 
   private SortConfig config;
 
-//  private long spillPoint;
-
-//  private long minMergeMemory;
-
   private int estimatedInputSize;
 
   private boolean potentialOverflow;
@@ -138,8 +136,8 @@ public class SortMemoryManager {
    *
    * @param batchSize the overall size of the current batch received from
    * upstream
-   * @param batchRowWidth the width in bytes (including overhead) of each
-   * row in the current input batch
+   * @param batchRowWidth the average width in bytes (including overhead) of
+   * rows in the current input batch
    * @param batchRowCount the number of actual (not filtered) records in
    * that upstream batch
    */
@@ -289,7 +287,7 @@ public class SortMemoryManager {
     long minNeeds = 2 * estimatedInputSize + expectedSpillBatchSize;
     if (minNeeds > memoryLimit) {
       ExternalSortBatch.logger.warn("Potential memory overflow during load phase! " +
-          "Minumum needed = {} bytes, actual available = {} bytes",
+          "Minimum needed = {} bytes, actual available = {} bytes",
           minNeeds, memoryLimit);
       bufferMemoryLimit = 0;
       potentialOverflow = true;
@@ -300,7 +298,7 @@ public class SortMemoryManager {
     minNeeds = 2 * expectedSpillBatchSize + expectedMergeBatchSize;
     if (minNeeds > memoryLimit) {
       ExternalSortBatch.logger.warn("Potential memory overflow during merge phase! " +
-          "Minumum needed = {} bytes, actual available = {} bytes",
+          "Minimum needed = {} bytes, actual available = {} bytes",
           minNeeds, memoryLimit);
       mergeMemoryLimit = 0;
       potentialOverflow = true;
@@ -494,13 +492,22 @@ public class SortMemoryManager {
 
   // Primarily for testing
 
+  @VisibleForTesting
   public long getMemoryLimit() { return memoryLimit; }
+  @VisibleForTesting
   public int getRowWidth() { return estimatedRowWidth; }
+  @VisibleForTesting
   public int getInputBatchSize() { return estimatedInputBatchSize; }
+  @VisibleForTesting
   public int getPreferredSpillBatchSize() { return preferredSpillBatchSize; }
+  @VisibleForTesting
   public int getPreferredMergeBatchSize() { return preferredMergeBatchSize; }
+  @VisibleForTesting
   public int getSpillBatchSize() { return expectedSpillBatchSize; }
+  @VisibleForTesting
   public int getMergeBatchSize() { return expectedMergeBatchSize; }
+  @VisibleForTesting
   public long getBufferMemoryLimit() { return bufferMemoryLimit; }
+  @VisibleForTesting
   public boolean mayOverflow() { return potentialOverflow; }
 }

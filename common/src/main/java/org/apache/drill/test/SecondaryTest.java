@@ -24,11 +24,11 @@ package org.apache.drill.test;
  * <li>It is slow</li>
  * <li>It tests particular functionality which need not be tested on every
  * build.</li>
- * <li>It is old, but still worth running some times.</li>
+ * <li>It is old, but still worth running once in a while.</li>
  * <li>It requires specialized setup and/or runs on specific platforms.</li>
  * </ul>
  *
- * To mark a test as secondary, do either:<pre>
+ * To mark a test as secondary, do either:<pre><code>
  * {@literal @}Category(SecondaryTest.class)
  * class MyTest {
  *    ...
@@ -38,7 +38,8 @@ package org.apache.drill.test;
  *   {@literal @}Category(SecondaryTest.class)
  *   public void slowTest() { ... }
  * }
- * </code></pre>Maven is configured as follows:<pre><code>
+ * </code></pre>
+ * Maven is configured as follows:<pre><code>
  *    &lt;plugin>
  *      &lt;artifactId>maven-surefire-plugin&lt;/artifactId>
  *      ...
@@ -48,7 +49,7 @@ package org.apache.drill.test;
  *      &lt;/configuration>
  *      ...
  *    &lt;/plugin></code></pre>
- *  To run the secondary tests (preliminary):<pre><code>
+ *  To run all tests (including the secondary tests) (preliminary):<pre><code>
  *  > mvn surefire:test -Dgroups=org.apache.drill.test.SecondaryTest -DexcludedGroups=</code></pre>
  *  The above says to run the secondary test and exclude nothing. The exclusion
  *  is required to override the default exclusions: skip that parameter and Maven will
