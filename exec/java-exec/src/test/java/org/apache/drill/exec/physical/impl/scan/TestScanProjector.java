@@ -1036,4 +1036,5 @@ public class TestScanProjector extends SubOperatorTest {
 
   // TODO: Flavors of schema evolution
   // TODO: Late schema testing
+  // TODO: Test schema smoothing with repeated
 }

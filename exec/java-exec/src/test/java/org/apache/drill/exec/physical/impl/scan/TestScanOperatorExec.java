@@ -1177,22 +1177,26 @@ public class TestScanOperatorExec extends SubOperatorTest {
    * does not include a. This works if a is nullable. If so, a's type will
    * be used for the empty column, rather than the usual nullable int.
    * <p>
-   * This trick works only for an explicit select list. Does not work for
-   * SELECT *.
+   * Full testing of smoothing is done in
+   * {#link TestScanProjector}. Here we just make sure that the
+   * smoothing logic is available via the scan operator.
    */
 
   @Test
   public void testSchemaSmoothing() {
     String selectList[] = new String[]{"a", "b"};
+
     // Reader returns (a, b)
     MockEarlySchemaReader reader1 = new MockEarlySchemaReader();
     reader1.batchLimit = 1;
     reader1.setSelect(selectList);
+
     // Reader returns (a)
     MockOneColEarlySchemaReader reader2 = new MockOneColEarlySchemaReader();
     reader2.batchLimit = 1;
     reader2.setSelect(selectList);
     reader2.startIndex = 100;
+
     // Reader returns (a, b)
     MockEarlySchemaReader reader3 = new MockEarlySchemaReader();
     reader3.batchLimit = 1;
@@ -1239,9 +1243,4 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertFalse(scan.next());
     mockBatch.close();
   }
-
-  // TODO: Test schema "smoothing" limits: required
-  // TODO: Test schema smoothing with repeated
-  // TODO: Test schema negotiation
-  // TODO: Test set missing vector type
 }
