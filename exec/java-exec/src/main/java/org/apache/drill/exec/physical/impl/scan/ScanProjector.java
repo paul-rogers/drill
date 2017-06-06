@@ -549,7 +549,7 @@ public class ScanProjector {
    * are missing. If the table is early-schema, then this work was already done
    * in the static projection plan. Else, it has to be worked out for each new
    * batch when the table schema changes. For a SELECT *, the null column check
-   * only need be done if null columns were created when mapping from a pror
+   * only need be done if null columns were created when mapping from a prior
    * schema.
    * @return the list of null columns for this table or batch
    */
@@ -594,10 +594,15 @@ public class ScanProjector {
 
     // Projection of table columns is from the abbreviated table
     // schema after removing unprojected columns.
+    // The table columns may be projected, so we want to get the
+    // vector index of the table column. Non-projected table columns
+    // don't have a vector, so can't use the table column index directly.
 
     VectorContainer tableContainer = tableLoader.outputContainer();
+    TupleSchema tableSchema = tableLoader.writer().schema();
     for (ProjectedColumn projCol : projection.projectedCols()) {
-      builder.addExchangeProjection(tableContainer, projCol.source().index(), projCol.index() );
+      int tableVectorIndex = tableSchema.metadata(projCol.source().index()).vectorIndex();
+      builder.addExchangeProjection(tableContainer, tableVectorIndex, projCol.index() );
     }
   }
 

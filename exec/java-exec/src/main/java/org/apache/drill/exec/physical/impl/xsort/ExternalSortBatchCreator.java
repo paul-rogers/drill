@@ -45,7 +45,7 @@ public class ExternalSortBatchCreator implements BatchCreator<ExternalSort>{
 
     OptionManager optionManager = context.getOptions();
     boolean disableManaged = optionManager.getOption(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED_OPTION);
-    if ( ! disableManaged ) {
+    if (! disableManaged) {
       DrillConfig drillConfig = context.getConfig();
       disableManaged = drillConfig.hasPath(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED) &&
                        drillConfig.getBoolean(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED);

@@ -124,7 +124,7 @@ public class TupleSetImpl implements TupleSchema {
     }
   }
 
-  public static class ColumnImpl {
+  public static class ColumnImpl implements TupleColumnSchema {
 
     private enum State {
 
@@ -362,6 +362,15 @@ public class TupleSetImpl implements TupleSchema {
         containerBuilder.add(vector);
       }
     }
+
+    @Override
+    public MaterializedField schema() { return schema; }
+
+    @Override
+    public boolean isSelected() { return true; }
+
+    @Override
+    public int vectorIndex() { return index; }
   }
 
   private final ResultSetLoaderImpl resultSetLoader;
@@ -456,18 +465,21 @@ public class TupleSetImpl implements TupleSchema {
 
   @Override
   public MaterializedField column(int colIndex) {
-    return columnImpl(colIndex).schema;
+    return columnImpl(colIndex).schema();
   }
 
   @Override
-  public boolean selected(int colIndex) {
-    // Lookup will never return null. But, we do the lookup
-    // to trigger an exception if the index is invalid.
-    return column(colIndex) != null;
+  public TupleColumnSchema metadata(int colIndex) {
+    return columnImpl(colIndex);
   }
 
   protected ColumnImpl columnImpl(String colName) {
     return columns.get(resultSetLoader.toKey(colName));
+  }
+
+  @Override
+  public TupleColumnSchema metadata(String colName) {
+    return columnImpl(colName);
   }
 
   @Override

@@ -29,9 +29,25 @@ import org.apache.drill.exec.record.MaterializedField;
  */
 
 public interface TupleSchema {
+
+  public interface TupleColumnSchema {
+    MaterializedField schema();
+
+    /**
+     * Report if a column is selected.
+     * @param colIndex index of the column to check
+     * @return true if the column is selected (data is collected),
+     * false if the column is unselected (data is discarded)
+     */
+
+    boolean isSelected();
+    int vectorIndex();
+  }
+
   int columnCount();
   int columnIndex(String colName);
   MaterializedField column(int colIndex);
+  TupleColumnSchema metadata(int colIndex);
 
   /**
    * Return the schema for the given column name.
@@ -43,6 +59,7 @@ public interface TupleSchema {
    */
 
   MaterializedField column(String colName);
+  TupleColumnSchema metadata(String colName);
 
   /**
    * Add a new column to the schema.
@@ -60,15 +77,6 @@ public interface TupleSchema {
    */
 
   void setSchema(BatchSchema schema);
-
-  /**
-   * Report if a column is selected.
-   * @param colIndex index of the column to check
-   * @return true if the column is selected (data is collected),
-   * false if the column is unselected (data is discarded)
-   */
-
-  boolean selected(int colIndex);
 
   /**
    * Return the column list as a batch schema. Primarily for testing.

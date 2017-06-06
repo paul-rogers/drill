@@ -66,7 +66,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     public int startIndex;
     public int batchCount;
     public int batchLimit;
-    protected ResultSetLoader mutator;
+    protected ResultSetLoader tableLoader;
     protected String[] select = SELECT_STAR;
     protected Path filePath;
     protected Path rootPath;
@@ -103,21 +103,21 @@ public class TestScanOperatorExec extends SubOperatorTest {
     }
 
     protected void makeBatch() {
-      TupleLoader writer = mutator.writer();
+      TupleLoader writer = tableLoader.writer();
       int offset = (batchCount - 1) * 20 + startIndex;
       writeRow(writer, offset + 10, "fred");
       writeRow(writer, offset + 20, "wilma");
     }
 
     protected void writeRow(TupleLoader writer, int col1, String col2) {
-      mutator.startRow();
+      tableLoader.startRow();
       if (writer.column(0) != null) {
         writer.column(0).setInt(col1);
       }
       if (writer.column(1) != null) {
         writer.column(1).setString(col2);
       }
-      mutator.saveRow();
+      tableLoader.saveRow();
     }
 
     @Override
@@ -132,7 +132,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     @Override
     public boolean open(OperatorExecServices context, SchemaNegotiator schemaNegotiator) {
-      this.mutator = schemaNegotiator.build();
+      this.tableLoader = schemaNegotiator.build();
       openCalled = true;
       return true;
     }
@@ -143,7 +143,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
       if (batchCount > batchLimit) {
         return false;
       } else if (batchCount == 1) {
-        TupleSchema schema = mutator.writer().schema();
+        TupleSchema schema = tableLoader.writer().schema();
         MaterializedField a = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
         schema.addColumn(a);
         MaterializedField b = new SchemaBuilder.ColumnBuilder("b", MinorType.VARCHAR)
@@ -194,7 +194,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
           .setWidth(10)
           .build();
       schemaNegotiator.addTableColumn(b);
-      this.mutator = schemaNegotiator.build();
+      this.tableLoader = schemaNegotiator.build();
       return true;
     }
 
@@ -224,20 +224,20 @@ public class TestScanOperatorExec extends SubOperatorTest {
           .setWidth(10)
           .build();
       schemaNegotiator.addTableColumn(b);
-      this.mutator = schemaNegotiator.build();
+      this.tableLoader = schemaNegotiator.build();
       return true;
     }
 
     @Override
     protected void writeRow(TupleLoader writer, int col1, String col2) {
-      mutator.startRow();
+      tableLoader.startRow();
       if (writer.column(0) != null) {
         writer.column(0).setString(Integer.toString(col1));
       }
       if (writer.column(1) != null) {
         writer.column(1).setString(col2);
       }
-      mutator.saveRow();
+      tableLoader.saveRow();
     }
   }
 
@@ -281,7 +281,6 @@ public class TestScanOperatorExec extends SubOperatorTest {
       scanOp.bind(services);
     }
 
-    @SuppressWarnings("unused")
     public MockBatch(List<RowBatchReader> readers, String select[]) {
       this(readers, toOptions(select));
     }
@@ -1035,7 +1034,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
       buildSelect(schemaNegotiator);
       MaterializedField a = SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED);
       schemaNegotiator.addTableColumn(a);
-      this.mutator = schemaNegotiator.build();
+      this.tableLoader = schemaNegotiator.build();
       return true;
     }
 
@@ -1046,11 +1045,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
         return false;
       }
 
-      TupleLoader writer = mutator.writer();
-      while (! mutator.isFull()) {
-        mutator.startRow();
+      TupleLoader writer = tableLoader.writer();
+      while (! tableLoader.isFull()) {
+        tableLoader.startRow();
         writer.column(0).setString(value);
-        mutator.saveRow();
+        tableLoader.saveRow();
         rowCount++;
       }
 
@@ -1142,7 +1141,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
       buildSelect(schemaNegotiator);
       MaterializedField a = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
       schemaNegotiator.addTableColumn(a);
-      this.mutator = schemaNegotiator.build();
+      this.tableLoader = schemaNegotiator.build();
       return true;
     }
 
@@ -1159,11 +1158,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     @Override
     protected void writeRow(TupleLoader writer, int col1, String col2) {
-      mutator.startRow();
+      tableLoader.startRow();
       if (writer.column(0) != null) {
         writer.column(0).setInt(col1 + 1);
       }
-      mutator.saveRow();
+      tableLoader.saveRow();
     }
   }
 
@@ -1181,17 +1180,20 @@ public class TestScanOperatorExec extends SubOperatorTest {
    * This trick works only for an explicit select list. Does not work for
    * SELECT *.
    */
-  
+
   @Test
   public void testSchemaSmoothing() {
     String selectList[] = new String[]{"a", "b"};
+    // Reader returns (a, b)
     MockEarlySchemaReader reader1 = new MockEarlySchemaReader();
     reader1.batchLimit = 1;
     reader1.setSelect(selectList);
+    // Reader returns (a)
     MockOneColEarlySchemaReader reader2 = new MockOneColEarlySchemaReader();
     reader2.batchLimit = 1;
     reader2.setSelect(selectList);
     reader2.startIndex = 100;
+    // Reader returns (a, b)
     MockEarlySchemaReader reader3 = new MockEarlySchemaReader();
     reader3.batchLimit = 1;
     reader3.startIndex = 200;
@@ -1221,8 +1223,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertEquals(1, scan.batchAccessor().schemaVersion());
 
     SingleRowSet expected = fixture.rowSetBuilder(scan.batchAccessor().getSchema())
-        .addSingleCol(11)
-        .addSingleCol(12)
+        .addSingleCol(111)
+        .addSingleCol(121)
         .build();
     new RowSetComparison(expected)
         .verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
@@ -1235,7 +1237,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     verifyBatch(200, scan.batchAccessor().getOutgoingContainer());
 
     assertFalse(scan.next());
-    scan.close();
+    mockBatch.close();
   }
 
   // TODO: Test schema "smoothing" limits: required

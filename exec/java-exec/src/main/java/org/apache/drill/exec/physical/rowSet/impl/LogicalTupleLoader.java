@@ -26,6 +26,7 @@ import java.util.Set;
 import org.apache.drill.exec.physical.rowSet.ColumnLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
+import org.apache.drill.exec.physical.rowSet.TupleSchema.TupleColumnSchema;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
@@ -42,6 +43,28 @@ import org.apache.drill.exec.record.MaterializedField;
  */
 public class LogicalTupleLoader implements TupleLoader {
 
+  public static final int UNMAPPED = -1;
+
+  private static class MappedColumn implements TupleColumnSchema {
+
+    private final MaterializedField schema;
+    private final int mapping;
+
+    public MappedColumn(MaterializedField schema, int mapping) {
+      this.schema = schema;
+      this.mapping = mapping;
+    }
+
+    @Override
+    public MaterializedField schema() { return schema; }
+
+    @Override
+    public boolean isSelected() { return mapping != UNMAPPED; }
+
+    @Override
+    public int vectorIndex() { return mapping; }
+  }
+
   /**
    * Implementation of the tuple schema that describes the full data source
    * schema. The underlying loader schema is a subset of these columns. Note
@@ -53,7 +76,6 @@ public class LogicalTupleLoader implements TupleLoader {
 
     private final Set<String> selection = new HashSet<>();
     private final TupleSchema physicalSchema;
-    private final TupleNameSpace<MaterializedField> logicalSchema = new TupleNameSpace<>();
 
     private LogicalTupleSchema(TupleSchema physicalSchema, Collection<String> selection) {
       this.physicalSchema = physicalSchema;
@@ -69,22 +91,27 @@ public class LogicalTupleLoader implements TupleLoader {
     }
 
     @Override
-    public MaterializedField column(int colIndex) { return logicalSchema.get(colIndex); }
+    public TupleColumnSchema metadata(int colIndex) { return logicalSchema.get(colIndex); }
 
     @Override
-    public MaterializedField column(String colName) { return logicalSchema.get(colName); }
+    public MaterializedField column(int colIndex) { return logicalSchema.get(colIndex).schema(); }
+
+    @Override
+    public TupleColumnSchema metadata(String colName) { return logicalSchema.get(colName); }
+
+    @Override
+    public MaterializedField column(String colName) { return logicalSchema.get(colName).schema(); }
 
     @Override
     public int addColumn(MaterializedField columnSchema) {
       String key = rsLoader.toKey(columnSchema.getName());
-      int lIndex = logicalSchema.add(columnSchema.getName(), columnSchema);
+      int pIndex;
       if (selection.contains(key)) {
-        addMapping(physicalSchema.addColumn(columnSchema));
+        pIndex = physicalSchema.addColumn(columnSchema);
       } else {
-        addMapping(-1);
+        pIndex = UNMAPPED;
       }
-      assert mapping.size() == lIndex + 1;
-      return lIndex;
+      return logicalSchema.add(columnSchema.getName(), new MappedColumn(columnSchema, pIndex));
     }
 
     @Override
@@ -98,15 +125,10 @@ public class LogicalTupleLoader implements TupleLoader {
     }
 
     @Override
-    public boolean selected(int colIndex) {
-      return mapping.get(colIndex) != -1;
-    }
-
-    @Override
     public BatchSchema schema() {
       List<MaterializedField> fields = new ArrayList<>();
-      for (MaterializedField col : logicalSchema) {
-        fields.add(col);
+      for (int i = 0; i < columnCount(); i++) {
+        fields.add(column(i));
       }
       return new BatchSchema(SelectionVectorMode.NONE, fields);
     }
@@ -115,18 +137,13 @@ public class LogicalTupleLoader implements TupleLoader {
   private final ResultSetLoaderImpl rsLoader;
   private final LogicalTupleSchema schema;
   private final TupleLoader physicalLoader;
-  private final List<Integer> mapping = new ArrayList<>();
   private ColumnLoader mappingCache[];
+  private final TupleNameSpace<MappedColumn> logicalSchema = new TupleNameSpace<>();
 
   public LogicalTupleLoader(ResultSetLoaderImpl rsLoader, TupleLoader physicalLoader, Collection<String> selection) {
     this.rsLoader = rsLoader;
     this.schema = new LogicalTupleSchema(physicalLoader.schema(), selection);
     this.physicalLoader = physicalLoader;
-  }
-
-  private void addMapping(int target) {
-    mapping.add(target);
-    mappingCache = null;
   }
 
   @Override
@@ -135,11 +152,11 @@ public class LogicalTupleLoader implements TupleLoader {
   @Override
   public ColumnLoader column(int colIndex) {
     if (mappingCache == null) {
-      final int count = mapping.size();
+      final int count = logicalSchema.count();
       mappingCache = new ColumnLoader[count];
       for (int i = 0; i < count; i++) {
-        int pIndex = mapping.get(i);
-        if (pIndex != -1) {
+        int pIndex = logicalSchema.get(i).mapping;
+        if (pIndex != UNMAPPED) {
           mappingCache[i] = physicalLoader.column(pIndex);
         }
       }
@@ -171,8 +188,7 @@ public class LogicalTupleLoader implements TupleLoader {
   @Override
   public void set(int colIndex, Object value) {
     if (mappingCache[colIndex] != null) {
-      physicalLoader.set(mapping.get(colIndex), value);
+      physicalLoader.set(logicalSchema.get(colIndex).mapping, value);
     }
   }
-
 }

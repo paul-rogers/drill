@@ -34,6 +34,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanProjection.SelectColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.TableColumn;
 import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.TableSchemaType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.hadoop.fs.Path;
@@ -100,7 +101,7 @@ public class ScanOperatorExec implements OperatorExec {
    * readers. In the worst case, a reader might have a column "c" in
    * one file, might skip "c" in the second file, and "c" may appear again
    * in a third file. This negotiator, along with the scan projection
-   * and vector cache, "smooths out" schema changes by preserving the vector
+   * and vector cache, "smoothes out" schema changes by preserving the vector
    * for "c" across all three files. In the first and third files "c" is
    * a vector written by the reader, in the second, it is a null column
    * filled in by the scan projector (assuming, of course, that "c"
@@ -291,7 +292,8 @@ public class ScanOperatorExec implements OperatorExec {
 
       // Build and return the result set loader to be used by the reader.
 
-      return scanOp.buildTableLoader(projection, schemaNegotiator.nullType);
+      tableLoader = scanOp.buildTableLoader(projection, schemaNegotiator.nullType);
+      return tableLoader;
     }
 
     private ScanProjection buildProjectionPlan(
@@ -329,6 +331,13 @@ public class ScanOperatorExec implements OperatorExec {
         planner.setSource(schemaNegotiator.filePath,
             schemaNegotiator.rootPath == null ? null :
               Path.getPathWithoutSchemeAndAuthority(schemaNegotiator.rootPath).toString());
+      }
+
+      // Populate the prior schema, if any
+
+      BatchSchema priorSchema = scanOp.getPriorSchema();
+      if (priorSchema != null) {
+        planner.priorSchema(priorSchema);
       }
 
       // Create the projection plan. This is the full projection
@@ -473,15 +482,6 @@ public class ScanOperatorExec implements OperatorExec {
         return;
       }
 
-      try {
-        if (tableLoader != null) {
-          tableLoader.close();
-          tableLoader = null;
-        }
-      } catch (Throwable t) {
-        logger.warn("Exception while closing table loader", t);
-      }
-
       // Close the reader. This can fail.
 
       try {
@@ -493,6 +493,15 @@ public class ScanOperatorExec implements OperatorExec {
           .addContext("Close failed for reader", reader.getClass().getSimpleName())
           .build(logger);
       } finally {
+
+        try {
+          if (tableLoader != null) {
+            tableLoader.close();
+            tableLoader = null;
+          }
+        } catch (Throwable t) {
+          logger.warn("Exception while closing table loader", t);
+        }
 
         // Will not throw exceptions
 
@@ -574,6 +583,13 @@ public class ScanOperatorExec implements OperatorExec {
     nextAction(true);
   }
 
+  private BatchSchema getPriorSchema() {
+    if (scanProjector == null) {
+      return null;
+    }
+    return scanProjector.output().getSchema();
+  }
+
   private ResultSetLoader buildTableLoader(ScanProjection projection, MajorType nullType) {
 
     // If this is the first reader, create the scan projector
@@ -649,6 +665,7 @@ public class ScanOperatorExec implements OperatorExec {
       // Another reader available?
 
       if (! nextReader()) {
+        closeProjector();
         state = State.END;
         return;
       }
@@ -758,7 +775,14 @@ public class ScanOperatorExec implements OperatorExec {
         closeReader();
       }
     } finally {
+      closeProjector();
+    }
+  }
 
+  private void closeProjector() {
+    if (scanProjector != null) {
+      scanProjector.close();
+      scanProjector = null;
     }
   }
 
