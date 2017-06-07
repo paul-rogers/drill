@@ -17,7 +17,12 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,9 +37,7 @@ import org.apache.drill.exec.physical.impl.scan.SelectionListPlan.ResolvedFileIn
 import org.apache.drill.exec.physical.impl.scan.SelectionListPlan.SelectType;
 import org.apache.drill.exec.physical.impl.scan.SelectionListPlan.TypedColumn;
 import org.apache.drill.exec.physical.impl.scan.SelectionListPlan.WildcardColumn;
-import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.test.SubOperatorTest;
-import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
@@ -317,7 +320,6 @@ public class TestSelectionListPlan extends SubOperatorTest {
     assertEquals("dir0", projection.outputCols().get(2).name());
     assertEquals("a", projection.outputCols().get(3).name());
 
-
     // Verify bindings
 
     assertSame(projection.outputCols().get(1), projection.queryCols().get(1).resolution());
@@ -343,5 +345,127 @@ public class TestSelectionListPlan extends SubOperatorTest {
     assertNull(pCol.value(fileInfo));
   }
 
-  // Next up: testPartitionColumnTwoDigits
+  /**
+   * Test the obscure case that the partition column contains two digits:
+   * dir11. Also tests the obscure case that the output only has partition
+   * columns.
+   */
+
+  @Test
+  public void testPartitionColumnTwoDigits() {
+    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+
+    builder.queryCols(selectList("dir11"));
+
+    SelectionListPlan projection = builder.build();
+    assertEquals("dir11", projection.outputCols().get(0).name());
+
+    Path path = new Path("hdfs:///x/0/1/2/3/4/5/6/7/8/9/10/d11/z.csv");
+    ResolvedFileInfo fileInfo = new ResolvedFileInfo(path, "hdfs:///x");
+    PartitionColumn pCol = (PartitionColumn) projection.outputCols().get(0);
+    assertEquals("d11", pCol.value(fileInfo));
+  }
+
+  // TODO: testPartitionColumnStarLegacy
+  // TODO: testPartitionColumnStarRevised
+
+  @Test
+  public void testErrorStarAndColumns() {
+    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+
+    builder.queryCols(selectList("*", "a"));
+    try {
+      builder.build();
+      fail();
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
+  }
+
+  @Test
+  public void testErrorColumnAndStar() {
+    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+
+    builder.queryCols(selectList("a", "*"));
+    try {
+      builder.build();
+      fail();
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
+  }
+
+  @Test
+  public void testErrorTwoStars() {
+    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+
+    builder.queryCols(selectList("*", "*"));
+    try {
+      builder.build();
+      fail();
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
+  }
+
+  @Test
+  public void testErrorColumnsArrayAndColumn() {
+    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+
+    builder.queryCols(selectList("columns", "a"));
+    try {
+      builder.build();
+      fail();
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
+  }
+
+  @Test
+  public void testErrorColumnAndColumnsArray() {
+    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+
+    builder.queryCols(selectList("a", "columns"));
+    try {
+      builder.build();
+      fail();
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
+  }
+
+  @Test
+  public void testErrorTwoColumnsArray() {
+    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+
+    builder.queryCols(selectList("columns", "columns"));
+    try {
+      builder.build();
+      fail();
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
+  }
+
+
+  @Test
+  public void testErrorInvalidPath() {
+    Path path = new Path("hdfs:///w/x/y/z.csv");
+    try {
+      new ResolvedFileInfo(path, "hdfs:///bad");
+      fail();
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
+  }
+
+  @Test
+  public void testErrorShortPath() {
+    Path path = new Path("hdfs:///w/z.csv");
+    try {
+      new ResolvedFileInfo(path, "hdfs:///w/x/y");
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
+  }
 }
