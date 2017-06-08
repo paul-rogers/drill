@@ -20,9 +20,11 @@ package org.apache.drill.exec.physical.impl.scan;
 import static org.junit.Assert.*;
 
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.OutputColumn.ColumnType;
 import org.apache.drill.exec.physical.impl.scan.TableSelectionPlan.TableSelectionBuilder;
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.hadoop.fs.Path;
@@ -97,6 +99,8 @@ public class TestTableProjectionPlan extends SubOperatorTest {
     assertEquals("columns", fullSelect.output().get(1).name());
     assertEquals(ColumnType.PARTITION, fullSelect.output().get(2).columnType());
     assertEquals("dir0", fullSelect.output().get(2).name());
+    assertEquals(MinorType.VARCHAR, fullSelect.output().get(1).schema().getType().getMinorType());
+    assertEquals(DataMode.REPEATED, fullSelect.output().get(1).schema().getDataMode());
   }
 
   @Test
@@ -123,4 +127,39 @@ public class TestTableProjectionPlan extends SubOperatorTest {
       // Expected
     }
   }
+
+  public void testEarlySchemaFullList() {
+    SelectionListPlan.Builder sBuilder = new SelectionListPlan.Builder(fixture.options());
+
+    // Simulate SELECT c, b, a ...
+
+    sBuilder.queryCols(TestSelectionListPlan.selectList("c", "b", "a"));
+    SelectionListPlan selectList = sBuilder.build();
+
+    // Simulate a data source, with early schema, of (a, b, c)
+
+    MaterializedSchema tableSchema = new SchemaBuilder()
+        .add("A", MinorType.VARCHAR)
+        .add("B", MinorType.VARCHAR)
+        .add("C", MinorType.VARCHAR)
+        .buildSchema();
+
+    TableSelectionBuilder tBuilder = new TableSelectionBuilder(selectList);
+    tBuilder.setTableSchema(tableSchema);
+    TableSelectionPlan fullSelect = tBuilder.build();
+
+    assertTrue(fullSelect.isResolved());
+    assertEquals(3, fullSelect.output().size());
+    assertEquals(ColumnType.PROJECTED, fullSelect.output().get(0).columnType());
+    assertEquals("c", fullSelect.output().get(0).name());
+    assertEquals(ColumnType.PROJECTED, fullSelect.output().get(1).columnType());
+    assertEquals("b", fullSelect.output().get(1).name());
+    assertEquals(ColumnType.PROJECTED, fullSelect.output().get(2).columnType());
+    assertEquals("a", fullSelect.output().get(2).name());
+  }
+
+  // Early schema select list
+  // Late schema star
+  // Late schema columns
+  // Late schema list
 }
