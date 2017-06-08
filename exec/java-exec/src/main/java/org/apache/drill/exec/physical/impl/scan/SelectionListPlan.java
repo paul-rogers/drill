@@ -23,20 +23,55 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.map.CaseInsensitiveMap;
-import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.ColumnType;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.server.options.OptionValue;
+import org.apache.drill.exec.store.ImplicitColumnExplorer;
 import org.apache.drill.exec.store.ImplicitColumnExplorer.ImplicitFileColumns;
-import org.apache.hadoop.fs.Path;
 
-import jersey.repackaged.com.google.common.collect.Lists;
+import com.google.common.collect.Lists;
+
+/**
+ * Parses and analyzes the selection list passed to the scanner. The
+ * selection list is per scan, independent of any tables that the
+ * scanner might scan. The selection list is then used as input to the
+ * per-table projection planning.
+ * <p>
+ * Mappings can be based on three primary use cases:
+ * <ul>
+ * <li>SELECT *: Select all data source columns, whatever they happen
+ * to be. Create columns using names from the data source. The data source
+ * also determines the order of columns within the row.</li>
+ * <li>SELECT columns: Similar to SELECT * in that it selects all columns
+ * from the data source, in data source order. But, rather than creating
+ * individual output columns for each data source column, creates a single
+ * column which is an array of Varchars which holds the (text form) of
+ * each column as an array element.</li>
+ * <li>SELECT a, b, c, ...: Select a specific set of columns, identified by
+ * case-insensitive name. The output row uses the names from the SELECT list,
+ * but types from the data source. Columns appear in the row in the order
+ * specified by the SELECT.</li>
+ * </ul>
+ * Names in the SELECT list can reference any of four distinct types of output
+ * columns:
+ * <ul>
+ * <li>Wildcard ("*") column: indictes the place in the select list to insert
+ * the table columns once found in the table projection plan.</li>
+ * <li>Data source columns: columns from the underlying table. The table
+ * projection planner will determine if the column exists, or must be filled
+ * in with a null column.</i>
+ * <li>Implicit columns: fqn, filename, filepath and suffix. These reference
+ * parts of the name of the file being scanned.</li>
+ * <li>Partition columns: dir0, dir1, ...: These reference parts of the path
+ * name of the file.</li>
+ * </ul>
+ *
+ * @see {@link ImplicitColumnExplorer}, the class from which this class
+ * evolved
+ */
 
 public class SelectionListPlan {
 
@@ -53,6 +88,7 @@ public class SelectionListPlan {
 
   public static class SelectColumn {
     private final String name;
+    @SuppressWarnings("unused")
     private final ColumnType typeHint;
     protected OutputColumn resolution;
 
@@ -130,257 +166,14 @@ public class SelectionListPlan {
   }
 
   /**
-   * Specify the file name and optional selection root. If the selection root
-   * is provided, then partitions are defined as the portion of the file name
-   * that is not also part of the selection root. That is, if selection root is
-   * /a/b and the file path is /a/b/c/d.csv, then dir0 is c.
-   */
-
-  public static class ResolvedFileInfo {
-
-    private final Path filePath;
-    private final String[] dirPath;
-
-    public ResolvedFileInfo(Path filePath, String selectionRoot) {
-      this.filePath = filePath;
-      if (selectionRoot == null) {
-        dirPath = null;
-        return;
-      }
-
-      // Result of splitting /x/y is ["", "x", "y"], so ignore first.
-
-      String[] r = Path.getPathWithoutSchemeAndAuthority(new Path(selectionRoot)).toString().split("/");
-
-      // Result of splitting "/x/y/z.csv" is ["", "x", "y", "z.csv"], so ignore first and last
-
-      String[] p = Path.getPathWithoutSchemeAndAuthority(filePath).toString().split("/");
-
-      if (p.length - 1 < r.length) {
-        throw new IllegalArgumentException("Selection root of \"" + selectionRoot +
-                                        "\" is shorter than file path of \"" + filePath.toString() + "\"");
-      }
-      for (int i = 1; i < r.length; i++) {
-        if (! r[i].equals(p[i])) {
-          throw new IllegalArgumentException("Selection root of \"" + selectionRoot +
-              "\" is not a leading path of \"" + filePath.toString() + "\"");
-        }
-      }
-      dirPath = ArrayUtils.subarray(p, r.length, p.length - 1);
-    }
-
-    public Path filePath() { return filePath; }
-
-    public String partition(int index) {
-      if (dirPath == null ||  dirPath.length <= index) {
-        return null;
-      }
-      return dirPath[index];
-    }
-  }
-
-  /**
-   * Represents a column in the output rows (record batch, result set) from
-   * the scan operator. Each column has an index, which is the column's position
-   * within the output tuple.
-   */
-
-  public abstract static class OutputColumn {
-    public enum ColumnType { TABLE, FILE_METADATA, PARTITION, COLUMNS_ARRAY, WILDCARD }
-
-    protected final SelectColumn inCol;
-
-    public OutputColumn(SelectColumn inCol) {
-      this.inCol = inCol;
-    }
-
-    public abstract ColumnType columnType();
-
-    public String name() { return inCol.name(); }
-
-    @Override
-    public String toString() {
-      StringBuilder buf = new StringBuilder()
-          .append("[")
-          .append(getClass().getSimpleName());
-      buildString(buf);
-      buf.append("]");
-      return buf.toString();
-    }
-
-    protected void buildString(StringBuilder buf) { }
-
-    public SelectColumn source() { return inCol; }
-  }
-
-  public static class WildcardColumn extends OutputColumn {
-
-    public final boolean includePartitions;
-
-    public WildcardColumn(SelectColumn inCol, boolean includePartitions) {
-      super(inCol);
-      this.includePartitions = includePartitions;
-    }
-
-    @Override
-    public ColumnType columnType() { return ColumnType.WILDCARD; }
-
-    @Override
-    protected void buildString(StringBuilder buf) {
-      super.buildString(buf);
-      buf.append(", partitions=")
-         .append(includePartitions);
-    }
-
-    public boolean includePartitions() { return includePartitions; }
-  }
-
-  public static class ExpectedTableColumn extends OutputColumn {
-
-    public ExpectedTableColumn(SelectColumn inCol) {
-      super(inCol);
-    }
-
-    @Override
-    public ColumnType columnType() { return ColumnType.TABLE; }
-  }
-
-  public static abstract class TypedColumn extends OutputColumn {
-
-    private final MajorType type;
-
-    public TypedColumn(SelectColumn inCol, MajorType type) {
-      super(inCol);
-      this.type = type;
-    }
-
-    public MajorType type() { return type; }
-
-    @Override
-    protected void buildString(StringBuilder buf) {
-      super.buildString(buf);
-      buf.append(", type=")
-         .append(type.toString());
-    }
-  }
-
-  /**
-   * Represents Drill's special "columns" column which holds all actual columns
-   * as an array of Varchars. There can be only one such column in the SELECT
-   * list.
-   */
-
-  public static class ColumnsArrayColumn extends TypedColumn {
-
-    public ColumnsArrayColumn(SelectColumn inCol) {
-      super(inCol,
-          MajorType.newBuilder()
-          .setMinorType(MinorType.VARCHAR)
-          .setMode(DataMode.REPEATED)
-          .build());
-    }
-
-    @Override
-    public ColumnType columnType() { return ColumnType.COLUMNS_ARRAY; }
-  }
-
-  /**
-   * Base class for the various static (implicit) columns. Holds the
-   * value of the column.
-   */
-
-  public abstract static class MetadataColumn extends TypedColumn {
-
-    public MetadataColumn(SelectColumn inCol, MajorType type) {
-      super(inCol, type);
-    }
-
-    public abstract String value(ResolvedFileInfo fileInfo);
-  }
-
-  /**
-   * Represents an output column created from an implicit column. Since
-   * values are known before reading data, the value is provided
-   * along with the column definition.
-   */
-
-  public static class FileMetadataColumn extends MetadataColumn {
-
-    private final FileMetadataColumnDefn defn;
-
-    public FileMetadataColumn(SelectColumn inCol, FileMetadataColumnDefn defn) {
-      super(inCol, MajorType.newBuilder()
-            .setMinorType(MinorType.VARCHAR)
-            .setMode(DataMode.REQUIRED)
-            .build());
-      this.defn = defn;
-    }
-
-    @Override
-    public ColumnType columnType() { return ColumnType.FILE_METADATA; }
-
-    @Override
-    public String name() {
-      if (inCol.isWildcard()) {
-        return defn.colName;
-      } else {
-        return super.name();
-      }
-    }
-
-    @Override
-    public String value(ResolvedFileInfo fileInfo) {
-      return defn.defn.getValue(fileInfo.filePath());
-    }
-
-    @Override
-    protected void buildString(StringBuilder buf) {
-      super.buildString(buf);
-      buf.append(", defn=")
-         .append(defn);
-    }
-  }
-
-  /**
-   * Partition output column for "dir<n>" for some n.
-   * Data type is optional because some files may be more deeply
-   * nested than others, so some files may have, say a dir2
-   * while others do not.
+   * Fluent builder for the projection mapping. Accepts the inputs needed to
+   * plan a projection, builds the mappings, and constructs the selection
+   * mapping object.
    * <p>
-   * The "dir" portion is customizable via a session option.
-   * <p>
-   * The value of the partition is known up front, and so the value
-   * is stored in this column definition.
+   * Builds the per-scan projection plan given a set of selected columns.
+   * Determines the output schema, which columns to project from the data
+   * source, which are metadata, and so on.
    */
-
-  public static class PartitionColumn extends MetadataColumn {
-    private final int partition;
-
-    public PartitionColumn(SelectColumn inCol, int partition) {
-      super(inCol, MajorType.newBuilder()
-          .setMinorType(MinorType.VARCHAR)
-          .setMode(DataMode.OPTIONAL)
-          .build());
-      this.partition = partition;
-    }
-
-    @Override
-    public ColumnType columnType() { return ColumnType.PARTITION; }
-
-    @Override
-    public String value(ResolvedFileInfo fileInfo) {
-      return fileInfo.partition(partition);
-    }
-
-    @Override
-    protected void buildString(StringBuilder buf) {
-      super.buildString(buf);
-      buf.append(", partition=")
-         .append(partition);
-    }
-
-    public int partition() { return partition; }
-  }
 
   public static class Builder {
 
@@ -399,9 +192,10 @@ public class SelectionListPlan {
     // Output
 
     protected List<OutputColumn> outputCols = new ArrayList<>();
-    protected ColumnsArrayColumn columnsArrayCol;
+    protected OutputColumn.ColumnsArrayColumn columnsArrayCol;
     protected SelectType selectType;
     protected SelectColumn starColumn;
+    protected boolean hasMetadata;
 
     public Builder(OptionSet optionManager) {
       partitionDesignator = optionManager.getOption(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL_VALIDATOR);
@@ -505,9 +299,10 @@ public class SelectionListPlan {
 
         // Partition column
 
-        PartitionColumn outCol = new PartitionColumn(inCol, Integer.parseInt(m.group(1)));
+        OutputColumn.PartitionColumn outCol = new OutputColumn.PartitionColumn(inCol, Integer.parseInt(m.group(1)));
         inCol.resolution = outCol;
         outputCols.add(outCol);
+        hasMetadata = true;
         return;
       }
 
@@ -516,9 +311,10 @@ public class SelectionListPlan {
 
         // File metadata (implicit) column
 
-        FileMetadataColumn outCol = new FileMetadataColumn(inCol, iCol);
+        OutputColumn.FileMetadataColumn outCol = new OutputColumn.FileMetadataColumn(inCol, iCol);
         inCol.resolution = outCol;
         outputCols.add(outCol);
+        hasMetadata = true;
         return;
       }
 
@@ -532,7 +328,7 @@ public class SelectionListPlan {
 
       // This is a desired table column.
 
-      ExpectedTableColumn tableCol = new ExpectedTableColumn(inCol);
+      OutputColumn.ExpectedTableColumn tableCol = new OutputColumn.ExpectedTableColumn(inCol);
       inCol.resolution = tableCol;
       outputCols.add(tableCol);
     }
@@ -547,11 +343,12 @@ public class SelectionListPlan {
       // Put the wildcard column into the projection list as a placeholder to be filled
       // in later with actual table columns.
 
-      inCol.resolution = new WildcardColumn(inCol, useLegacyStarPlan);
+      inCol.resolution = new OutputColumn.WildcardColumn(inCol, useLegacyStarPlan);
       outputCols.add(inCol.resolution);
       if (useLegacyStarPlan) {
+        hasMetadata = true;
         for (FileMetadataColumnDefn iCol : implicitColDefns) {
-          FileMetadataColumn outCol = new FileMetadataColumn(starColumn, iCol);
+          OutputColumn.FileMetadataColumn outCol = new OutputColumn.FileMetadataColumn(starColumn, iCol);
           outputCols.add(outCol);
         }
       }
@@ -564,7 +361,7 @@ public class SelectionListPlan {
       }
 
       selectType = SelectType.COLUMNS_ARRAY;
-      columnsArrayCol = new ColumnsArrayColumn(inCol);
+      columnsArrayCol = new OutputColumn.ColumnsArrayColumn(inCol);
       outputCols.add(columnsArrayCol);
       inCol.resolution = columnsArrayCol;
     }
@@ -587,11 +384,15 @@ public class SelectionListPlan {
   }
 
   private final SelectType selectType;
+  private final boolean hasMetadata;
+  private final boolean useLegacyStarPlan;
   private final List<SelectColumn> queryCols;
   private final List<OutputColumn> outputCols;
 
   public SelectionListPlan(Builder builder) {
     selectType = builder.selectType;
+    hasMetadata = builder.hasMetadata;
+    useLegacyStarPlan = builder.useLegacyStarPlan;
     queryCols = builder.queryCols;
     outputCols = builder.outputCols;
   }
@@ -613,6 +414,8 @@ public class SelectionListPlan {
 
   public List<SelectColumn> queryCols() { return queryCols; }
 
+  public boolean hasMetadata() { return hasMetadata; }
+
   /**
    * The entire set of output columns, in output order. Output order is
    * that specified in the SELECT (for an explicit list of columns) or
@@ -621,6 +424,8 @@ public class SelectionListPlan {
    */
 
   public List<OutputColumn> outputCols() { return outputCols; }
+
+  public boolean useLegacyWildcardPartition() { return useLegacyStarPlan; }
 
   // TODO: Test allowing * (for table) along with metadata columns
 }

@@ -30,13 +30,13 @@ import java.util.List;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.SelectionListPlan.FileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.SelectionListPlan.OutputColumn.ColumnType;
-import org.apache.drill.exec.physical.impl.scan.SelectionListPlan.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.SelectionListPlan.ResolvedFileInfo;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.ColumnType;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.FileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.PartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.ResolvedFileInfo;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.TypedColumn;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.WildcardColumn;
 import org.apache.drill.exec.physical.impl.scan.SelectionListPlan.SelectType;
-import org.apache.drill.exec.physical.impl.scan.SelectionListPlan.TypedColumn;
-import org.apache.drill.exec.physical.impl.scan.SelectionListPlan.WildcardColumn;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
@@ -119,7 +119,7 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
     assertEquals(1, projection.outputCols().size());
     assertEquals("*", projection.outputCols().get(0).name());
-    assertFalse(((WildcardColumn) (projection.outputCols().get(0))).includePartitions());
+    assertFalse(((OutputColumn.WildcardColumn) (projection.outputCols().get(0))).includePartitions());
 
     // Verify bindings
 
@@ -153,7 +153,7 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
     assertEquals(1, projection.outputCols().size());
     assertEquals("*", projection.outputCols().get(0).name());
-    assertFalse(((WildcardColumn) (projection.outputCols().get(0))).includePartitions());
+    assertFalse(((OutputColumn.WildcardColumn) (projection.outputCols().get(0))).includePartitions());
 
     // Verify bindings
 
@@ -222,8 +222,8 @@ public class TestSelectionListPlan extends SubOperatorTest {
     assertEquals("filename", projection.outputCols().get(3).name());
     assertEquals("suffix", projection.outputCols().get(4).name());
 
-    assertEquals(MinorType.VARCHAR, ((TypedColumn) (projection.outputCols().get(1))).type().getMinorType());
-    assertEquals(DataMode.REQUIRED, ((TypedColumn) (projection.outputCols().get(1))).type().getMode());
+    assertEquals(MinorType.VARCHAR, ((OutputColumn.TypedColumn) (projection.outputCols().get(1))).type().getMinorType());
+    assertEquals(DataMode.REQUIRED, ((OutputColumn.TypedColumn) (projection.outputCols().get(1))).type().getMode());
 
     // Verify bindings
 
@@ -237,14 +237,14 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
     // Verify resolving the value for the metadata columns
 
-    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///x/y/z.csv"), null);
-    FileMetadataColumn mdCol = (FileMetadataColumn) projection.outputCols().get(1);
+    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///x/y/z.csv"), (String) null);
+    OutputColumn.FileMetadataColumn mdCol = (OutputColumn.FileMetadataColumn) projection.outputCols().get(1);
     assertEquals("hdfs:/x/y/z.csv", mdCol.value(fileInfo));
-    mdCol = (FileMetadataColumn) projection.outputCols().get(2);
+    mdCol = (OutputColumn.FileMetadataColumn) projection.outputCols().get(2);
     assertEquals("hdfs:/x/y", mdCol.value(fileInfo));
-    mdCol = (FileMetadataColumn) projection.outputCols().get(3);
+    mdCol = (OutputColumn.FileMetadataColumn) projection.outputCols().get(3);
     assertEquals("z.csv", mdCol.value(fileInfo));
-    mdCol = (FileMetadataColumn) projection.outputCols().get(4);
+    mdCol = (OutputColumn.FileMetadataColumn) projection.outputCols().get(4);
     assertEquals("csv", mdCol.value(fileInfo));
   }
 
@@ -295,7 +295,7 @@ public class TestSelectionListPlan extends SubOperatorTest {
     assertEquals(5, projection.outputCols().size());
 
     assertEquals(SelectionListPlan.WILDCARD, projection.outputCols().get(0).name());
-    assertTrue(((WildcardColumn) (projection.outputCols().get(0))).includePartitions());
+    assertTrue(((OutputColumn.WildcardColumn) (projection.outputCols().get(0))).includePartitions());
     assertEquals("fqn", projection.outputCols().get(1).name());
     assertEquals("filepath", projection.outputCols().get(2).name());
     assertEquals("filename", projection.outputCols().get(3).name());
@@ -331,17 +331,17 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
     // Verify data type
 
-    assertEquals(MinorType.VARCHAR, ((TypedColumn) (projection.outputCols().get(0))).type().getMinorType());
-    assertEquals(DataMode.OPTIONAL, ((TypedColumn) (projection.outputCols().get(0))).type().getMode());
+    assertEquals(MinorType.VARCHAR, ((OutputColumn.TypedColumn) (projection.outputCols().get(0))).type().getMinorType());
+    assertEquals(DataMode.OPTIONAL, ((OutputColumn.TypedColumn) (projection.outputCols().get(0))).type().getMode());
 
     // Verify resolving the value for the partition columns
 
     ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    PartitionColumn pCol = (PartitionColumn) projection.outputCols().get(2);
+    OutputColumn.PartitionColumn pCol = (OutputColumn.PartitionColumn) projection.outputCols().get(2);
     assertEquals("x", pCol.value(fileInfo));
-    pCol = (PartitionColumn) projection.outputCols().get(1);
+    pCol = (OutputColumn.PartitionColumn) projection.outputCols().get(1);
     assertEquals("y", pCol.value(fileInfo));
-    pCol = (PartitionColumn) projection.outputCols().get(0);
+    pCol = (OutputColumn.PartitionColumn) projection.outputCols().get(0);
     assertNull(pCol.value(fileInfo));
   }
 
@@ -361,8 +361,8 @@ public class TestSelectionListPlan extends SubOperatorTest {
     assertEquals("dir11", projection.outputCols().get(0).name());
 
     Path path = new Path("hdfs:///x/0/1/2/3/4/5/6/7/8/9/10/d11/z.csv");
-    ResolvedFileInfo fileInfo = new ResolvedFileInfo(path, "hdfs:///x");
-    PartitionColumn pCol = (PartitionColumn) projection.outputCols().get(0);
+    OutputColumn.ResolvedFileInfo fileInfo = new OutputColumn.ResolvedFileInfo(path, "hdfs:///x");
+    OutputColumn.PartitionColumn pCol = (OutputColumn.PartitionColumn) projection.outputCols().get(0);
     assertEquals("d11", pCol.value(fileInfo));
   }
 
@@ -452,7 +452,7 @@ public class TestSelectionListPlan extends SubOperatorTest {
   public void testErrorInvalidPath() {
     Path path = new Path("hdfs:///w/x/y/z.csv");
     try {
-      new ResolvedFileInfo(path, "hdfs:///bad");
+      new OutputColumn.ResolvedFileInfo(path, "hdfs:///bad");
       fail();
     } catch (IllegalArgumentException e) {
       // Expected
@@ -463,7 +463,7 @@ public class TestSelectionListPlan extends SubOperatorTest {
   public void testErrorShortPath() {
     Path path = new Path("hdfs:///w/z.csv");
     try {
-      new ResolvedFileInfo(path, "hdfs:///w/x/y");
+      new OutputColumn.ResolvedFileInfo(path, "hdfs:///w/x/y");
     } catch (IllegalArgumentException e) {
       // Expected
     }
