@@ -26,6 +26,7 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.MetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.RowBatchMerger.Builder;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.OutputColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.ProjectedColumn;
@@ -193,9 +194,9 @@ public class ScanProjector {
 
   public static class MetadataColumnLoader extends StaticColumnLoader {
     private final String values[];
-    private final List<StaticColumn> metadataCols;
+    private final List<MetadataColumn> metadataCols;
 
-    public MetadataColumnLoader(BufferAllocator allocator, List<StaticColumn> defns, ResultVectorCache vectorCache) {
+    public MetadataColumnLoader(BufferAllocator allocator, List<MetadataColumn> defns, ResultVectorCache vectorCache) {
       super(allocator, vectorCache);
 
       // Populate the loader schema from that provided.
@@ -205,7 +206,7 @@ public class ScanProjector {
       TupleSchema schema = loader.writer().schema();
       values = new String[defns.size()];
       for (int i = 0; i < defns.size(); i++) {
-        StaticColumn defn  = defns.get(i);
+        MetadataColumn defn  = defns.get(i);
         values[i] = defn.value();
         schema.addColumn(defn.schema());
       }
@@ -235,7 +236,7 @@ public class ScanProjector {
       }
     }
 
-    public List<StaticColumn> columns() { return metadataCols; }
+    public List<MetadataColumn> columns() { return metadataCols; }
   }
 
   /**
@@ -516,7 +517,7 @@ public class ScanProjector {
    */
 
   private void buildMetadataColumns() {
-    List<StaticColumn> metadataCols = new ArrayList<>();
+    List<MetadataColumn> metadataCols = new ArrayList<>();
     metadataCols.addAll(projection.fileInfoCols());
     metadataCols.addAll(projection.partitionCols());
     if (metadataCols.isEmpty()) {

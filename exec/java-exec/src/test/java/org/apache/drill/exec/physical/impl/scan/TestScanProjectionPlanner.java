@@ -41,14 +41,6 @@ import org.junit.Test;
 
 public class TestScanProjectionPlanner extends SubOperatorTest {
 
-  static List<SchemaPath> selectList(String... names) {
-    List<SchemaPath> selected = new ArrayList<>();
-    for (String name: names) {
-      selected.add(SchemaPath.getSimplePath(name));
-    }
-    return selected;
-  }
-
   /**
    * Basic test: select a set of columns (a, b, c) when the
    * data source has an early schema of (a, c, d). (a, c) are
@@ -165,7 +157,7 @@ public class TestScanProjectionPlanner extends SubOperatorTest {
     assertEquals(TableSchemaType.EARLY, projection.tableSchemaType());
     assertNull(projection.columnsCol());
     assertEquals(1, projection.queryCols().size());
-    assertTrue(projection.queryCols().get(0).isStar());
+    assertTrue(projection.queryCols().get(0).isWildcard());
     assertEquals(3, projection.tableCols().size());
     assertEquals(3, projection.projectedCols().size());
     assertTrue(projection.nullCols().isEmpty());

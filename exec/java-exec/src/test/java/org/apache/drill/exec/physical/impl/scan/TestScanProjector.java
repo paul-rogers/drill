@@ -71,8 +71,8 @@ public class TestScanProjector extends SubOperatorTest {
   public void testStaticColumnLoader() {
 
     List<StaticColumn> defns = new ArrayList<>();
-    ImplicitColumnDefn iDefn = new ImplicitColumnDefn("suffix", ImplicitFileColumns.SUFFIX);
-    FileInfoColumn iCol = new FileInfoColumn(buildSelectCol("suffix"), 0, iDefn);
+    FileMetadataColumnDefn iDefn = new FileMetadataColumnDefn("suffix", ImplicitFileColumns.SUFFIX);
+    FileMetadataColumn iCol = new FileMetadataColumn(buildSelectCol("suffix"), 0, iDefn);
     defns.add(iCol);
     Path path = new Path("hdfs:///w/x/y/z.csv");
     iCol.setValue(path);

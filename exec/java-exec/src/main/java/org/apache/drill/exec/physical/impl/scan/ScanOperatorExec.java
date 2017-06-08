@@ -30,9 +30,9 @@ import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.BatchAcc
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExec;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.VectorContainerAccessor;
-import org.apache.drill.exec.physical.impl.scan.ScanProjection.SelectColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjection.TableColumn;
 import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.TableSchemaType;
+import org.apache.drill.exec.physical.impl.scan.SelectionListPlan.Builder;
+import org.apache.drill.exec.physical.impl.scan.SelectionListPlan.SelectColumn;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
@@ -112,7 +112,7 @@ public class ScanOperatorExec implements OperatorExec {
 
     private final ReaderState readerState;
     private final List<SelectColumn> selection = new ArrayList<>();
-    private final List<TableColumn> tableSchema = new ArrayList<>();
+    private final MaterializedSchema tableSchema = new MaterializedSchema();
     private TableSchemaType tableSchemaType = TableSchemaType.LATE;
     private Path filePath;
     private Path rootPath;
@@ -157,7 +157,7 @@ public class ScanOperatorExec implements OperatorExec {
     @Override
     public void addTableColumn(MaterializedField schema) {
       tableSchemaType = TableSchemaType.EARLY;
-      tableSchema.add(new TableColumn(tableSchema.size(), schema));
+      tableSchema.add(schema);
     }
 
     @Override
@@ -299,7 +299,7 @@ public class ScanOperatorExec implements OperatorExec {
     private ScanProjection buildProjectionPlan(
         SchemaNegotiatorImpl schemaNegotiator) {
 
-      ProjectionPlanner planner = new ProjectionPlanner(scanOp.context.getFragmentContext().getOptionSet());
+      Builder planner = new SelectionListPlan.Builder(scanOp.context.getFragmentContext().getOptionSet());
 
       // Either the scan operator, or reader, but not both,
       // can provide the selection list.
