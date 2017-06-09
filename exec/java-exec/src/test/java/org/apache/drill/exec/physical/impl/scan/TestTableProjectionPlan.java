@@ -23,7 +23,7 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.OutputColumn.ColumnType;
-import org.apache.drill.exec.physical.impl.scan.TableSelectionPlan.TableSelectionBuilder;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.ResolvedFileInfo;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
@@ -33,12 +33,42 @@ import org.junit.Test;
 public class TestTableProjectionPlan extends SubOperatorTest {
 
   @Test
-  public void testEarlySchemaStar() {
-    SelectionListPlan.Builder sBuilder = new SelectionListPlan.Builder(fixture.options());
-    sBuilder.useLegacyStarPlan(false);
+  public void testFileSelectionPlan() {
+    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
+    querySelBuilder.useLegacyStarPlan(false);
 
-    sBuilder.queryCols(TestSelectionListPlan.selectList("filename", "*", "dir0"));
-    SelectionListPlan selectList = sBuilder.build();
+    querySelBuilder.queryCols(TestSelectionListPlan.selectList("filename", "a", "dir0"));
+    QuerySelectionPlan selectList = querySelBuilder.build();
+
+    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
+    FileSelectionPlan fileSel = new FileSelectionPlan(selectList, fileInfo);
+    assertEquals(3, fileSel.output().size());
+
+    assertEquals(ColumnType.FILE_METADATA, fileSel.output().get(0).columnType());
+    assertEquals("filename", fileSel.output().get(0).name());
+    assertEquals("z.csv", ((OutputColumn.MetadataColumn) fileSel.output().get(0)).value());
+    assertEquals(ColumnType.TABLE, fileSel.output().get(1).columnType());
+    assertEquals("a", fileSel.output().get(1).name());
+    assertEquals(ColumnType.PARTITION, fileSel.output().get(2).columnType());
+    assertEquals("dir0", fileSel.output().get(2).name());
+    assertEquals("x", ((OutputColumn.MetadataColumn) fileSel.output().get(2)).value());
+  }
+
+  /**
+   * Resolve a selection list using SELECT *.
+   */
+
+  @Test
+  public void testWildcard() {
+    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
+    querySelBuilder.useLegacyStarPlan(false);
+
+    querySelBuilder.queryCols(TestSelectionListPlan.selectList("filename", "*", "dir0"));
+    QuerySelectionPlan selectList = querySelBuilder.build();
+
+    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
+    FileSelectionPlan fileSel = new FileSelectionPlan(selectList, fileInfo);
+    assertEquals(3, fileSel.output().size());
 
     MaterializedSchema tableSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
@@ -46,24 +76,31 @@ public class TestTableProjectionPlan extends SubOperatorTest {
         .addArray("d", MinorType.FLOAT8)
         .buildSchema();
 
-    TableSelectionBuilder tBuilder = new TableSelectionBuilder(selectList);
-    tBuilder.setTableSchema(tableSchema);
-    tBuilder.setFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    TableSelectionPlan fullSelect = tBuilder.build();
+    TableProjectionPlan tableSel = fileSel.resolve(tableSchema);
+    assertEquals(5, tableSel.output().size());
 
-    assertTrue(fullSelect.isResolved());
-    assertEquals(5, fullSelect.output().size());
+    assertEquals(ColumnType.FILE_METADATA, tableSel.output().get(0).columnType());
+    assertEquals("filename", tableSel.output().get(0).name());
+    assertEquals(ColumnType.PROJECTED, tableSel.output().get(1).columnType());
+    assertEquals("a", tableSel.output().get(1).name());
+    assertEquals(ColumnType.PROJECTED, tableSel.output().get(2).columnType());
+    assertEquals("c", tableSel.output().get(2).name());
+    assertEquals(ColumnType.PROJECTED, tableSel.output().get(3).columnType());
+    assertEquals("d", tableSel.output().get(3).name());
+    assertEquals(ColumnType.PARTITION, tableSel.output().get(4).columnType());
+    assertEquals("dir0", tableSel.output().get(4).name());
 
-    assertEquals(ColumnType.FILE_METADATA, fullSelect.output().get(0).columnType());
-    assertEquals("filename", fullSelect.output().get(0).name());
-    assertEquals(ColumnType.PROJECTED, fullSelect.output().get(1).columnType());
-    assertEquals("a", fullSelect.output().get(1).name());
-    assertEquals(ColumnType.PROJECTED, fullSelect.output().get(2).columnType());
-    assertEquals("c", fullSelect.output().get(2).name());
-    assertEquals(ColumnType.PROJECTED, fullSelect.output().get(3).columnType());
-    assertEquals("d", fullSelect.output().get(3).name());
-    assertEquals(ColumnType.PARTITION, fullSelect.output().get(4).columnType());
-    assertEquals("dir0", fullSelect.output().get(4).name());
+    boolean selMap[] = tableSel.selectionMap();
+    assertEquals(3, selMap.length);
+    assertTrue(selMap[0]);
+    assertTrue(selMap[1]);
+    assertTrue(selMap[2]);
+
+    int projMap[] = tableSel.logicalToPhysicalMap();
+    assertEquals(3, projMap.length);
+    assertEquals(0, projMap[0]);
+    assertEquals(1, projMap[1]);
+    assertEquals(2, projMap[2]);
   }
 
   /**
@@ -72,12 +109,15 @@ public class TestTableProjectionPlan extends SubOperatorTest {
    */
 
   @Test
-  public void testEarlyColumnsArray() {
-    SelectionListPlan.Builder sBuilder = new SelectionListPlan.Builder(fixture.options());
-    sBuilder.useLegacyStarPlan(false);
+  public void testColumnsArray() {
+    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
+    querySelBuilder.useLegacyStarPlan(false);
 
-    sBuilder.queryCols(TestSelectionListPlan.selectList("filename", "columns", "dir0"));
-    SelectionListPlan selectList = sBuilder.build();
+    querySelBuilder.queryCols(TestSelectionListPlan.selectList("filename", "columns", "dir0"));
+    QuerySelectionPlan selectList = querySelBuilder.build();
+
+    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
+    FileSelectionPlan fileSel = new FileSelectionPlan(selectList, fileInfo);
 
     MaterializedSchema tableSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
@@ -85,31 +125,42 @@ public class TestTableProjectionPlan extends SubOperatorTest {
         .add("d", MinorType.VARCHAR)
         .buildSchema();
 
-    TableSelectionBuilder tBuilder = new TableSelectionBuilder(selectList);
-    tBuilder.setTableSchema(tableSchema);
-    tBuilder.setFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    TableSelectionPlan fullSelect = tBuilder.build();
+    TableProjectionPlan tableSel = fileSel.resolve(tableSchema);
+    assertEquals(3, tableSel.output().size());
 
-    assertTrue(fullSelect.isResolved());
-    assertEquals(3, fullSelect.output().size());
+    assertEquals(ColumnType.FILE_METADATA, tableSel.output().get(0).columnType());
+    assertEquals("filename", tableSel.output().get(0).name());
+    assertEquals(ColumnType.COLUMNS_ARRAY, tableSel.output().get(1).columnType());
+    assertEquals("columns", tableSel.output().get(1).name());
+    assertEquals(ColumnType.PARTITION, tableSel.output().get(2).columnType());
+    assertEquals("dir0", tableSel.output().get(2).name());
+    assertEquals(MinorType.VARCHAR, tableSel.output().get(1).type().getMinorType());
+    assertEquals(DataMode.REPEATED, tableSel.output().get(1).type().getMode());
 
-    assertEquals(ColumnType.FILE_METADATA, fullSelect.output().get(0).columnType());
-    assertEquals("filename", fullSelect.output().get(0).name());
-    assertEquals(ColumnType.COLUMNS_ARRAY, fullSelect.output().get(1).columnType());
-    assertEquals("columns", fullSelect.output().get(1).name());
-    assertEquals(ColumnType.PARTITION, fullSelect.output().get(2).columnType());
-    assertEquals("dir0", fullSelect.output().get(2).name());
-    assertEquals(MinorType.VARCHAR, fullSelect.output().get(1).schema().getType().getMinorType());
-    assertEquals(DataMode.REPEATED, fullSelect.output().get(1).schema().getDataMode());
+    boolean selMap[] = tableSel.selectionMap();
+    assertEquals(1, selMap.length);
+    assertTrue(selMap[0]);
+
+    int projMap[] = tableSel.logicalToPhysicalMap();
+    assertEquals(1, projMap.length);
+    assertEquals(0, projMap[0]);
   }
 
-  @Test
-  public void testEarlyColumnsArrayIncompatible() {
-    SelectionListPlan.Builder sBuilder = new SelectionListPlan.Builder(fixture.options());
-    sBuilder.useLegacyStarPlan(false);
+  /**
+   * Test attempting to use the columns array with an early schema with
+   * column types not compatible with a varchar array.
+   */
 
-    sBuilder.queryCols(TestSelectionListPlan.selectList("filename", "columns", "dir0"));
-    SelectionListPlan selectList = sBuilder.build();
+  @Test
+  public void testColumnsArrayIncompatible() {
+    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
+    querySelBuilder.useLegacyStarPlan(false);
+
+    querySelBuilder.queryCols(TestSelectionListPlan.selectList("filename", "columns", "dir0"));
+    QuerySelectionPlan selectList = querySelBuilder.build();
+
+    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
+    FileSelectionPlan fileSel = new FileSelectionPlan(selectList, fileInfo);
 
     MaterializedSchema tableSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
@@ -117,24 +168,30 @@ public class TestTableProjectionPlan extends SubOperatorTest {
         .add("d", MinorType.FLOAT8)
         .buildSchema();
 
-    TableSelectionBuilder tBuilder = new TableSelectionBuilder(selectList);
-    tBuilder.setTableSchema(tableSchema);
-    tBuilder.setFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
     try {
-      tBuilder.build();
+      fileSel.resolve(tableSchema);
       fail();
     } catch (UserException e) {
       // Expected
     }
   }
 
-  public void testEarlySchemaFullList() {
-    SelectionListPlan.Builder sBuilder = new SelectionListPlan.Builder(fixture.options());
+  /**
+   * Test SELECT list with columns defined in a order and with
+   * name case different than the early-schema table.
+   */
+
+  @Test
+  public void testFullList() {
+    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
 
     // Simulate SELECT c, b, a ...
 
-    sBuilder.queryCols(TestSelectionListPlan.selectList("c", "b", "a"));
-    SelectionListPlan selectList = sBuilder.build();
+    querySelBuilder.queryCols(TestSelectionListPlan.selectList("c", "b", "a"));
+    QuerySelectionPlan selectList = querySelBuilder.build();
+
+    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
+    FileSelectionPlan fileSel = new FileSelectionPlan(selectList, fileInfo);
 
     // Simulate a data source, with early schema, of (a, b, c)
 
@@ -144,22 +201,115 @@ public class TestTableProjectionPlan extends SubOperatorTest {
         .add("C", MinorType.VARCHAR)
         .buildSchema();
 
-    TableSelectionBuilder tBuilder = new TableSelectionBuilder(selectList);
-    tBuilder.setTableSchema(tableSchema);
-    TableSelectionPlan fullSelect = tBuilder.build();
+    TableProjectionPlan tableSel = fileSel.resolve(tableSchema);
 
-    assertTrue(fullSelect.isResolved());
-    assertEquals(3, fullSelect.output().size());
-    assertEquals(ColumnType.PROJECTED, fullSelect.output().get(0).columnType());
-    assertEquals("c", fullSelect.output().get(0).name());
-    assertEquals(ColumnType.PROJECTED, fullSelect.output().get(1).columnType());
-    assertEquals("b", fullSelect.output().get(1).name());
-    assertEquals(ColumnType.PROJECTED, fullSelect.output().get(2).columnType());
-    assertEquals("a", fullSelect.output().get(2).name());
+    assertEquals(3, tableSel.output().size());
+    assertEquals(ColumnType.PROJECTED, tableSel.output().get(0).columnType());
+    assertEquals(MinorType.VARCHAR, tableSel.output().get(0).type().getMinorType());
+    assertEquals(DataMode.REQUIRED, tableSel.output().get(0).type().getMode());
+    assertEquals("c", tableSel.output().get(0).name());
+    assertEquals(ColumnType.PROJECTED, tableSel.output().get(1).columnType());
+    assertEquals("b", tableSel.output().get(1).name());
+    assertEquals(ColumnType.PROJECTED, tableSel.output().get(2).columnType());
+    assertEquals("a", tableSel.output().get(2).name());
+
+    boolean selMap[] = tableSel.selectionMap();
+    assertEquals(3, selMap.length);
+    assertTrue(selMap[0]);
+    assertTrue(selMap[1]);
+    assertTrue(selMap[2]);
+
+    int projMap[] = tableSel.logicalToPhysicalMap();
+    assertEquals(3, projMap.length);
+    assertEquals(0, projMap[0]);
+    assertEquals(1, projMap[1]);
+    assertEquals(2, projMap[2]);
   }
 
-  // Early schema select list
-  // Late schema star
-  // Late schema columns
-  // Late schema list
+  /**
+   * Test SELECT list with columns missing from the table schema.
+   */
+
+  @Test
+  public void testMissing() {
+    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
+
+    // Simulate SELECT c, b, a ...
+
+    querySelBuilder.queryCols(TestSelectionListPlan.selectList("c", "b", "x"));
+    QuerySelectionPlan selectList = querySelBuilder.build();
+
+    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
+    FileSelectionPlan fileSel = new FileSelectionPlan(selectList, fileInfo);
+
+    // Simulate a data source, with early schema, of (a, b, c)
+
+    MaterializedSchema tableSchema = new SchemaBuilder()
+        .add("A", MinorType.VARCHAR)
+        .add("B", MinorType.VARCHAR)
+        .add("C", MinorType.VARCHAR)
+        .buildSchema();
+
+    TableProjectionPlan tableSel = fileSel.resolve(tableSchema);
+
+    assertEquals(3, tableSel.output().size());
+    assertEquals(ColumnType.PROJECTED, tableSel.output().get(0).columnType());
+    assertEquals("c", tableSel.output().get(0).name());
+    assertEquals(ColumnType.PROJECTED, tableSel.output().get(1).columnType());
+    assertEquals("b", tableSel.output().get(1).name());
+    assertEquals(ColumnType.NULL, tableSel.output().get(2).columnType());
+    assertEquals("x", tableSel.output().get(2).name());
+    assertNull(tableSel.output().get(2).type());
+
+    boolean selMap[] = tableSel.selectionMap();
+    assertEquals(3, selMap.length);
+    assertFalse(selMap[0]);
+    assertTrue(selMap[1]);
+    assertTrue(selMap[2]);
+
+    int projMap[] = tableSel.logicalToPhysicalMap();
+    assertEquals(3, projMap.length);
+    assertEquals(-1, projMap[0]);
+    assertEquals(0, projMap[1]);
+    assertEquals(1, projMap[2]);
+  }
+
+  @Test
+  public void testSubset() {
+    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
+
+    // Simulate SELECT c, b, a ...
+
+    querySelBuilder.queryCols(TestSelectionListPlan.selectList("c", "a"));
+    QuerySelectionPlan selectList = querySelBuilder.build();
+
+    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
+    FileSelectionPlan fileSel = new FileSelectionPlan(selectList, fileInfo);
+
+    // Simulate a data source, with early schema, of (a, b, c)
+
+    MaterializedSchema tableSchema = new SchemaBuilder()
+        .add("A", MinorType.VARCHAR)
+        .add("B", MinorType.VARCHAR)
+        .add("C", MinorType.VARCHAR)
+        .buildSchema();
+
+    TableProjectionPlan tableSel = fileSel.resolve(tableSchema);
+
+    assertEquals(2, tableSel.output().size());
+    assertEquals("c", tableSel.output().get(0).name());
+    assertEquals("a", tableSel.output().get(1).name());
+
+    boolean selMap[] = tableSel.selectionMap();
+    assertEquals(3, selMap.length);
+    assertTrue(selMap[0]);
+    assertFalse(selMap[1]);
+    assertTrue(selMap[2]);
+
+    int projMap[] = tableSel.logicalToPhysicalMap();
+    assertEquals(3, projMap.length);
+    assertEquals(0, projMap[0]);
+    assertEquals(-1, projMap[1]);
+    assertEquals(1, projMap[2]);
+  }
 }

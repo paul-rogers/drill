@@ -101,28 +101,28 @@ public class TestScanProjectionPlanner extends SubOperatorTest {
     assertSame(projection.nullCols().get(0), projection.queryCols().get(1).projection());
     assertSame(projection.nullCols().get(0).projection(), projection.queryCols().get(1));
 
-    assertEquals(3, projection.outputCols().size());
-    assertEquals("a", projection.outputCols().get(0).name());
-    assertEquals("b", projection.outputCols().get(1).name());
-    assertEquals("c", projection.outputCols().get(2).name());
+    assertEquals(3, projection.output().size());
+    assertEquals("a", projection.output().get(0).name());
+    assertEquals("b", projection.output().get(1).name());
+    assertEquals("c", projection.output().get(2).name());
 
-    assertEquals(ColumnType.EARLY_TABLE, projection.outputCols().get(0).columnType());
-    assertEquals(ColumnType.NULL, projection.outputCols().get(1).columnType());
-    assertEquals(ColumnType.EARLY_TABLE, projection.outputCols().get(2).columnType());
+    assertEquals(ColumnType.EARLY_TABLE, projection.output().get(0).columnType());
+    assertEquals(ColumnType.NULL, projection.output().get(1).columnType());
+    assertEquals(ColumnType.EARLY_TABLE, projection.output().get(2).columnType());
 
-    assertSame(projection.outputCols().get(0), projection.projectedCols().get(0));
-    assertSame(projection.outputCols().get(1), projection.nullCols().get(0));
-    assertSame(projection.outputCols().get(2), projection.projectedCols().get(1));
+    assertSame(projection.output().get(0), projection.projectedCols().get(0));
+    assertSame(projection.output().get(1), projection.nullCols().get(0));
+    assertSame(projection.output().get(2), projection.projectedCols().get(1));
 
-    assertEquals(0, projection.outputCols().get(0).index());
-    assertEquals(1, projection.outputCols().get(1).index());
-    assertEquals(2, projection.outputCols().get(2).index());
+    assertEquals(0, projection.output().get(0).index());
+    assertEquals(1, projection.output().get(1).index());
+    assertEquals(2, projection.output().get(2).index());
 
-    assertEquals(tableSchema.getColumn(0), projection.outputCols().get(0).schema());
+    assertEquals(tableSchema.getColumn(0), projection.output().get(0).schema());
     // Dummy column, defaults to nullable int
-    assertEquals(projection.outputCols().get(1).schema().getType().getMinorType(), MinorType.INT);
-    assertEquals(projection.outputCols().get(1).schema().getDataMode(), DataMode.OPTIONAL);
-    assertEquals(tableSchema.getColumn(1), projection.outputCols().get(2).schema());
+    assertEquals(projection.output().get(1).schema().getType().getMinorType(), MinorType.INT);
+    assertEquals(projection.output().get(1).schema().getDataMode(), DataMode.OPTIONAL);
+    assertEquals(tableSchema.getColumn(1), projection.output().get(2).schema());
   }
 
   /**
@@ -162,11 +162,11 @@ public class TestScanProjectionPlanner extends SubOperatorTest {
     assertEquals(3, projection.projectedCols().size());
     assertTrue(projection.nullCols().isEmpty());
     assertEquals(0, projection.partitionCols().size());
-    assertEquals(3, projection.outputCols().size());
+    assertEquals(3, projection.output().size());
 
-    assertEquals("a", projection.outputCols().get(0).name());
-    assertEquals("C", projection.outputCols().get(1).name());
-    assertEquals("d", projection.outputCols().get(2).name());
+    assertEquals("a", projection.output().get(0).name());
+    assertEquals("C", projection.output().get(1).name());
+    assertEquals("d", projection.output().get(2).name());
   }
 
   /**
@@ -196,9 +196,9 @@ public class TestScanProjectionPlanner extends SubOperatorTest {
 
     ScanProjection projection = builder.build();
     assertEquals(TableSchemaType.EARLY, projection.tableSchemaType());
-    assertEquals("a", projection.outputCols().get(0).name());
-    assertEquals("C", projection.outputCols().get(1).name());
-    assertEquals("d", projection.outputCols().get(2).name());
+    assertEquals("a", projection.output().get(0).name());
+    assertEquals("C", projection.output().get(1).name());
+    assertEquals("d", projection.output().get(2).name());
   }
 
   /**
@@ -229,14 +229,14 @@ public class TestScanProjectionPlanner extends SubOperatorTest {
     assertEquals(1, projection.projectedCols().size());
     assertTrue(projection.nullCols().isEmpty());
     assertEquals(0, projection.partitionCols().size());
-    assertEquals(1, projection.outputCols().size());
+    assertEquals(1, projection.output().size());
 
-    assertEquals("columns", projection.outputCols().get(0).name());
-    assertSame(projection.outputCols().get(0), projection.columnsCol());
-    assertEquals(projection.outputCols().get(0).schema().getType().getMinorType(), MinorType.VARCHAR);
-    assertEquals(projection.outputCols().get(0).schema().getDataMode(), DataMode.REPEATED);
-    assertSame(projection.outputCols().get(0).projection(), projection.queryCols().get(0));
-    assertSame(projection.outputCols().get(0), projection.queryCols().get(0).projection());
+    assertEquals("columns", projection.output().get(0).name());
+    assertSame(projection.output().get(0), projection.columnsCol());
+    assertEquals(projection.output().get(0).schema().getType().getMinorType(), MinorType.VARCHAR);
+    assertEquals(projection.output().get(0).schema().getDataMode(), DataMode.REPEATED);
+    assertSame(projection.output().get(0).projection(), projection.queryCols().get(0));
+    assertSame(projection.output().get(0), projection.queryCols().get(0).projection());
 
     assertEquals(1, projection.tableCols().size());
     assertEquals("columns", projection.tableCols().get(0).name());
@@ -291,10 +291,10 @@ public class TestScanProjectionPlanner extends SubOperatorTest {
 
     // Output columns take the case of the SELECT clause
 
-    assertEquals(3, projection.outputCols().size());
-    assertEquals("c", projection.outputCols().get(0).name());
-    assertEquals("b", projection.outputCols().get(1).name());
-    assertEquals("a", projection.outputCols().get(2).name());
+    assertEquals(3, projection.output().size());
+    assertEquals("c", projection.output().get(0).name());
+    assertEquals("b", projection.output().get(1).name());
+    assertEquals("a", projection.output().get(2).name());
   }
 
   @Test
@@ -327,9 +327,9 @@ public class TestScanProjectionPlanner extends SubOperatorTest {
     assertNull(projection.projectedCols().get(0).source());
     assertNull(projection.projectedCols().get(1).source());
     assertNull(projection.projectedCols().get(2).source());
-    assertEquals(ColumnType.LATE_TABLE, projection.outputCols().get(0).columnType());
-    assertEquals(ColumnType.LATE_TABLE, projection.outputCols().get(1).columnType());
-    assertEquals(ColumnType.LATE_TABLE, projection.outputCols().get(2).columnType());
+    assertEquals(ColumnType.LATE_TABLE, projection.output().get(0).columnType());
+    assertEquals(ColumnType.LATE_TABLE, projection.output().get(1).columnType());
+    assertEquals(ColumnType.LATE_TABLE, projection.output().get(2).columnType());
     assertSame(projection.projectedCols().get(0).projection(), projection.queryCols().get(0));
     assertSame(projection.projectedCols().get(1).projection(), projection.queryCols().get(1));
     assertSame(projection.projectedCols().get(2).projection(), projection.queryCols().get(2));
@@ -377,18 +377,18 @@ public class TestScanProjectionPlanner extends SubOperatorTest {
     assertEquals(MinorType.VARCHAR, projection.fileInfoCols().get(0).schema().getType().getMinorType());
     assertEquals(DataMode.REQUIRED, projection.fileInfoCols().get(0).schema().getDataMode());
 
-    assertEquals(5, projection.outputCols().size());
+    assertEquals(5, projection.output().size());
 
-    assertEquals("a", projection.outputCols().get(0).name());
-    assertEquals("fqn", projection.outputCols().get(1).name());
-    assertEquals("filEPath", projection.outputCols().get(2).name());
-    assertEquals("filename", projection.outputCols().get(3).name());
-    assertEquals("suffix", projection.outputCols().get(4).name());
+    assertEquals("a", projection.output().get(0).name());
+    assertEquals("fqn", projection.output().get(1).name());
+    assertEquals("filEPath", projection.output().get(2).name());
+    assertEquals("filename", projection.output().get(3).name());
+    assertEquals("suffix", projection.output().get(4).name());
 
-    assertSame(projection.fileInfoCols().get(0), projection.outputCols().get(1));
-    assertSame(projection.fileInfoCols().get(1), projection.outputCols().get(2));
-    assertSame(projection.fileInfoCols().get(2), projection.outputCols().get(3));
-    assertSame(projection.fileInfoCols().get(3), projection.outputCols().get(4));
+    assertSame(projection.fileInfoCols().get(0), projection.output().get(1));
+    assertSame(projection.fileInfoCols().get(1), projection.output().get(2));
+    assertSame(projection.fileInfoCols().get(2), projection.output().get(3));
+    assertSame(projection.fileInfoCols().get(3), projection.output().get(4));
 
     // Verify bindings
 
@@ -433,11 +433,11 @@ public class TestScanProjectionPlanner extends SubOperatorTest {
     assertEquals(0, projection.nullCols().size());
     assertEquals(2, projection.fileInfoCols().size());
     assertEquals(0, projection.partitionCols().size());
-    assertEquals(3, projection.outputCols().size());
+    assertEquals(3, projection.output().size());
 
-    assertEquals("filename", projection.outputCols().get(0).name());
-    assertEquals("a", projection.outputCols().get(1).name());
-    assertEquals("suffix", projection.outputCols().get(2).name());
+    assertEquals("filename", projection.output().get(0).name());
+    assertEquals("a", projection.output().get(1).name());
+    assertEquals("suffix", projection.output().get(2).name());
   }
 
   /**
@@ -463,11 +463,11 @@ public class TestScanProjectionPlanner extends SubOperatorTest {
     assertEquals(0, projection.nullCols().size());
     assertEquals(2, projection.fileInfoCols().size());
     assertEquals(0, projection.partitionCols().size());
-    assertEquals(3, projection.outputCols().size());
+    assertEquals(3, projection.output().size());
 
-    assertEquals("filename", projection.outputCols().get(0).name());
-    assertEquals("columns", projection.outputCols().get(1).name());
-    assertEquals("suffix", projection.outputCols().get(2).name());
+    assertEquals("filename", projection.output().get(0).name());
+    assertEquals("columns", projection.output().get(1).name());
+    assertEquals("suffix", projection.output().get(2).name());
   }
 
   /**
@@ -501,16 +501,16 @@ public class TestScanProjectionPlanner extends SubOperatorTest {
     assertEquals(0, projection.nullCols().size());
     assertEquals(4, projection.fileInfoCols().size());
     assertEquals(0, projection.partitionCols().size());
-    assertEquals(5, projection.outputCols().size());
+    assertEquals(5, projection.output().size());
 
-    assertEquals("A", projection.outputCols().get(0).name());
-    assertEquals("fqn", projection.outputCols().get(1).name());
-    assertEquals("filepath", projection.outputCols().get(2).name());
-    assertEquals("filename", projection.outputCols().get(3).name());
-    assertEquals("suffix", projection.outputCols().get(4).name());
+    assertEquals("A", projection.output().get(0).name());
+    assertEquals("fqn", projection.output().get(1).name());
+    assertEquals("filepath", projection.output().get(2).name());
+    assertEquals("filename", projection.output().get(3).name());
+    assertEquals("suffix", projection.output().get(4).name());
 
-    assertEquals(ColumnType.EARLY_TABLE, projection.outputCols().get(0).columnType());
-    assertEquals(ColumnType.IMPLICIT, projection.outputCols().get(1).columnType());
+    assertEquals(ColumnType.EARLY_TABLE, projection.output().get(0).columnType());
+    assertEquals(ColumnType.IMPLICIT, projection.output().get(1).columnType());
   }
 
   /**
@@ -540,18 +540,18 @@ public class TestScanProjectionPlanner extends SubOperatorTest {
     assertEquals(0, projection.nullCols().size());
     assertEquals(0, projection.fileInfoCols().size());
     assertEquals(3, projection.partitionCols().size());
-    assertEquals(4, projection.outputCols().size());
+    assertEquals(4, projection.output().size());
 
-    assertEquals("dir2", projection.outputCols().get(0).name());
-    assertEquals("DIR1", projection.outputCols().get(1).name());
-    assertEquals("dir0", projection.outputCols().get(2).name());
-    assertEquals("a", projection.outputCols().get(3).name());
+    assertEquals("dir2", projection.output().get(0).name());
+    assertEquals("DIR1", projection.output().get(1).name());
+    assertEquals("dir0", projection.output().get(2).name());
+    assertEquals("a", projection.output().get(3).name());
 
-    assertEquals(MinorType.VARCHAR, projection.outputCols().get(0).schema().getType().getMinorType());
-    assertEquals(DataMode.OPTIONAL, projection.outputCols().get(0).schema().getDataMode());
+    assertEquals(MinorType.VARCHAR, projection.output().get(0).schema().getType().getMinorType());
+    assertEquals(DataMode.OPTIONAL, projection.output().get(0).schema().getDataMode());
 
-    assertEquals(ColumnType.PARTITION, projection.outputCols().get(0).columnType());
-    assertEquals(ColumnType.EARLY_TABLE, projection.outputCols().get(3).columnType());
+    assertEquals(ColumnType.PARTITION, projection.output().get(0).columnType());
+    assertEquals(ColumnType.EARLY_TABLE, projection.output().get(3).columnType());
 
     assertNull(projection.partitionCols().get(0).value());
     assertEquals("y", projection.partitionCols().get(1).value());
@@ -581,7 +581,7 @@ public class TestScanProjectionPlanner extends SubOperatorTest {
     ScanProjection projection = builder.build();
     assertTrue(projection.projectedCols().isEmpty());
 
-    assertEquals("dir11", projection.outputCols().get(0).name());
+    assertEquals("dir11", projection.output().get(0).name());
     assertEquals("d11", projection.partitionCols().get(0).value());
   }
 
@@ -608,12 +608,12 @@ public class TestScanProjectionPlanner extends SubOperatorTest {
     builder.setSource(path, "hdfs:///w");
 
     ScanProjection projection = builder.build();
-    assertEquals(7, projection.outputCols().size());
+    assertEquals(7, projection.output().size());
 
-    assertEquals("A", projection.outputCols().get(0).name());
-    assertEquals("dir0", projection.outputCols().get(1).name());
-    assertEquals("dir1", projection.outputCols().get(2).name());
-    assertEquals("fqn", projection.outputCols().get(3).name());
+    assertEquals("A", projection.output().get(0).name());
+    assertEquals("dir0", projection.output().get(1).name());
+    assertEquals("dir1", projection.output().get(2).name());
+    assertEquals("fqn", projection.output().get(3).name());
 
     assertEquals("x", projection.partitionCols().get(0).value());
     assertEquals("y", projection.partitionCols().get(1).value());
@@ -641,9 +641,9 @@ public class TestScanProjectionPlanner extends SubOperatorTest {
     builder.setSource(path, "hdfs:///w");
 
     ScanProjection projection = builder.build();
-    assertEquals(1, projection.outputCols().size());
+    assertEquals(1, projection.output().size());
 
-    assertEquals("A", projection.outputCols().get(0).name());
+    assertEquals("A", projection.output().get(0).name());
   }
 
   @Test

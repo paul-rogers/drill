@@ -23,6 +23,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.drill.common.map.CaseInsensitiveMap;
+
 /**
  * Implementation of a tuple name space. Tuples allow both indexed and
  * named access to their members.
@@ -31,7 +33,7 @@ import java.util.Map;
  */
 
 public class TupleNameSpace<T> implements Iterable<T> {
-  private final Map<String,Integer> nameSpace = new HashMap<>();
+  private final Map<String,Integer> nameSpace = CaseInsensitiveMap.newHashMap();
   private final List<T> entries = new ArrayList<>();
 
   public int add(String key, T value) {

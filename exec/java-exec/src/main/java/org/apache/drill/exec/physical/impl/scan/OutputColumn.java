@@ -23,7 +23,7 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.SelectionListPlan.SelectColumn;
+import org.apache.drill.exec.physical.impl.scan.QuerySelectionPlan.SelectColumn;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.hadoop.fs.Path;
 
@@ -40,7 +40,7 @@ public abstract class OutputColumn {
 
     public final boolean includePartitions;
 
-    public WildcardColumn(SelectionListPlan.SelectColumn inCol, boolean includePartitions) {
+    public WildcardColumn(QuerySelectionPlan.SelectColumn inCol, boolean includePartitions) {
       super(inCol);
       this.includePartitions = includePartitions;
     }
@@ -65,7 +65,7 @@ public abstract class OutputColumn {
 
   public static class ExpectedTableColumn extends OutputColumn {
 
-    public ExpectedTableColumn(SelectionListPlan.SelectColumn inCol) {
+    public ExpectedTableColumn(QuerySelectionPlan.SelectColumn inCol) {
       super(inCol);
     }
 
@@ -82,11 +82,12 @@ public abstract class OutputColumn {
 
     private final MajorType type;
 
-    public TypedColumn(SelectionListPlan.SelectColumn inCol, MajorType type) {
+    public TypedColumn(QuerySelectionPlan.SelectColumn inCol, MajorType type) {
       super(inCol);
       this.type = type;
     }
 
+    @Override
     public MajorType type() { return type; }
 
     @Override
@@ -109,7 +110,7 @@ public abstract class OutputColumn {
 
   public static class ColumnsArrayColumn extends TypedColumn {
 
-    public ColumnsArrayColumn(SelectionListPlan.SelectColumn inCol) {
+    public ColumnsArrayColumn(QuerySelectionPlan.SelectColumn inCol) {
       super(inCol,
           MajorType.newBuilder()
           .setMinorType(MinorType.VARCHAR)
@@ -135,11 +136,11 @@ public abstract class OutputColumn {
 
     public final String value;
 
-    public MetadataColumn(SelectionListPlan.SelectColumn inCol, MajorType type) {
+    public MetadataColumn(QuerySelectionPlan.SelectColumn inCol, MajorType type) {
       this(inCol, type, null);
     }
 
-    public MetadataColumn(SelectionListPlan.SelectColumn inCol, MajorType type, String value) {
+    public MetadataColumn(QuerySelectionPlan.SelectColumn inCol, MajorType type, String value) {
       super(inCol, type);
       this.value = value;
     }
@@ -156,12 +157,12 @@ public abstract class OutputColumn {
 
   public static class FileMetadataColumn extends MetadataColumn {
 
-    private final SelectionListPlan.FileMetadataColumnDefn defn;
+    private final QuerySelectionPlan.FileMetadataColumnDefn defn;
 
-    public FileMetadataColumn(SelectionListPlan.SelectColumn inCol, SelectionListPlan.FileMetadataColumnDefn defn) {
+    public FileMetadataColumn(QuerySelectionPlan.SelectColumn inCol, QuerySelectionPlan.FileMetadataColumnDefn defn) {
       this(inCol, defn, null);
     }
-    public FileMetadataColumn(SelectionListPlan.SelectColumn inCol, SelectionListPlan.FileMetadataColumnDefn defn, String value) {
+    public FileMetadataColumn(QuerySelectionPlan.SelectColumn inCol, QuerySelectionPlan.FileMetadataColumnDefn defn, String value) {
       super(inCol, MajorType.newBuilder()
             .setMinorType(MinorType.VARCHAR)
             .setMode(DataMode.REQUIRED)
@@ -218,11 +219,11 @@ public abstract class OutputColumn {
   public static class PartitionColumn extends MetadataColumn {
     private final int partition;
 
-    public PartitionColumn(SelectionListPlan.SelectColumn inCol, int partition) {
+    public PartitionColumn(QuerySelectionPlan.SelectColumn inCol, int partition) {
       this(inCol, partition, null);
     }
 
-    public PartitionColumn(SelectionListPlan.SelectColumn inCol, int partition, String value) {
+    public PartitionColumn(QuerySelectionPlan.SelectColumn inCol, int partition, String value) {
       super(inCol, MajorType.newBuilder()
           .setMinorType(MinorType.VARCHAR)
           .setMode(DataMode.OPTIONAL)
@@ -291,9 +292,9 @@ public abstract class OutputColumn {
     private int tableColumnIndex;
 
     public ProjectedColumn(SelectColumn inCol, int index,
-        MaterializedField schema) {
-      super(inCol, schema.getName());
-      this.schema = schema;
+        MaterializedField schema, String name) {
+      super(inCol, name);
+      this.schema = MaterializedField.create(inCol.name(), schema.getType());
       this.tableColumnIndex = index;
     }
 
@@ -301,6 +302,9 @@ public abstract class OutputColumn {
     public ColumnType columnType() {
       return ColumnType.PROJECTED;
     }
+
+    @Override
+    public MajorType type() { return schema.getType(); }
 
     @Override
     protected void visit(
@@ -370,7 +374,7 @@ public abstract class OutputColumn {
 
   public static class Visitor {
 
-    public void visit(SelectionListPlan plan) {
+    public void visit(QuerySelectionPlan plan) {
       visit(plan.outputCols());
     }
 
@@ -440,6 +444,7 @@ public abstract class OutputColumn {
   protected void buildString(StringBuilder buf) { }
 
   public SelectColumn source() { return inCol; }
+  public MajorType type() { return null; }
 
   protected abstract void visit(OutputColumn.Visitor visitor);
 }

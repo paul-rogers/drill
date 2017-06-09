@@ -73,7 +73,7 @@ import com.google.common.collect.Lists;
  * evolved
  */
 
-public class SelectionListPlan {
+public class QuerySelectionPlan {
 
   public enum SelectType { WILDCARD, COLUMNS_ARRAY, LIST }
 
@@ -262,13 +262,13 @@ public class SelectionListPlan {
      * @return the finalized projection plan
      */
 
-    public SelectionListPlan build() {
+    public QuerySelectionPlan build() {
       selectType = SelectType.LIST;
       for (SelectColumn inCol : queryCols) {
         mapColumn(inCol);
       }
       verify();
-      return new SelectionListPlan(this);
+      return new QuerySelectionPlan(this);
     }
 
     /**
@@ -389,7 +389,7 @@ public class SelectionListPlan {
   private final List<SelectColumn> queryCols;
   private final List<OutputColumn> outputCols;
 
-  public SelectionListPlan(Builder builder) {
+  public QuerySelectionPlan(Builder builder) {
     selectType = builder.selectType;
     hasMetadata = builder.hasMetadata;
     useLegacyStarPlan = builder.useLegacyStarPlan;

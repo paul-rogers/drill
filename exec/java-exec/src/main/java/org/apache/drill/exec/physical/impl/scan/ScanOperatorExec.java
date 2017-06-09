@@ -31,8 +31,8 @@ import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.Operator
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.VectorContainerAccessor;
 import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.TableSchemaType;
-import org.apache.drill.exec.physical.impl.scan.SelectionListPlan.Builder;
-import org.apache.drill.exec.physical.impl.scan.SelectionListPlan.SelectColumn;
+import org.apache.drill.exec.physical.impl.scan.QuerySelectionPlan.Builder;
+import org.apache.drill.exec.physical.impl.scan.QuerySelectionPlan.SelectColumn;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
@@ -299,7 +299,7 @@ public class ScanOperatorExec implements OperatorExec {
     private ScanProjection buildProjectionPlan(
         SchemaNegotiatorImpl schemaNegotiator) {
 
-      Builder planner = new SelectionListPlan.Builder(scanOp.context.getFragmentContext().getOptionSet());
+      Builder planner = new QuerySelectionPlan.Builder(scanOp.context.getFragmentContext().getOptionSet());
 
       // Either the scan operator, or reader, but not both,
       // can provide the selection list.

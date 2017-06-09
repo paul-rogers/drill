@@ -36,7 +36,7 @@ import org.apache.drill.exec.physical.impl.scan.OutputColumn.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.OutputColumn.ResolvedFileInfo;
 import org.apache.drill.exec.physical.impl.scan.OutputColumn.TypedColumn;
 import org.apache.drill.exec.physical.impl.scan.OutputColumn.WildcardColumn;
-import org.apache.drill.exec.physical.impl.scan.SelectionListPlan.SelectType;
+import org.apache.drill.exec.physical.impl.scan.QuerySelectionPlan.SelectType;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
@@ -59,7 +59,7 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
   @Test
   public void testBasics() {
-    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+    QuerySelectionPlan.Builder builder = new QuerySelectionPlan.Builder(fixture.options());
 
     // Simulate SELECT a, b, c ...
 
@@ -67,7 +67,7 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
     // Build the projection plan and verify
 
-    SelectionListPlan projection = builder.build();
+    QuerySelectionPlan projection = builder.build();
     assertFalse(projection.isSelectAll());
     assertEquals(SelectType.LIST, projection.selectType());
 
@@ -103,14 +103,14 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
   @Test
   public void testSelectAll() {
-    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+    QuerySelectionPlan.Builder builder = new QuerySelectionPlan.Builder(fixture.options());
     builder.useLegacyStarPlan(false);
 
     // Simulate SELECT * ...
 
     builder.selectAll();
 
-    SelectionListPlan projection = builder.build();
+    QuerySelectionPlan projection = builder.build();
     assertTrue(projection.isSelectAll());
     assertEquals(SelectType.WILDCARD, projection.selectType());
 
@@ -137,14 +137,14 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
   @Test
   public void testStarQuery() {
-    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+    QuerySelectionPlan.Builder builder = new QuerySelectionPlan.Builder(fixture.options());
     builder.useLegacyStarPlan(false);
 
     // Simulate SELECT * ...
 
     builder.queryCols(selectList("*"));
 
-    SelectionListPlan projection = builder.build();
+    QuerySelectionPlan projection = builder.build();
     assertTrue(projection.isSelectAll());
     assertEquals(SelectType.WILDCARD, projection.selectType());
 
@@ -173,7 +173,7 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
   @Test
   public void testColumnsArray() {
-    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+    QuerySelectionPlan.Builder builder = new QuerySelectionPlan.Builder(fixture.options());
 
     // Simulate SELECT columns ...
 
@@ -181,7 +181,7 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
     // Build the planner and verify
 
-    SelectionListPlan projection = builder.build();
+    QuerySelectionPlan projection = builder.build();
     assertFalse(projection.isSelectAll());
     assertEquals(SelectType.COLUMNS_ARRAY, projection.selectType());
     assertEquals(1, projection.queryCols().size());
@@ -202,7 +202,7 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
   @Test
   public void testFileMetadataColumnSelection() {
-    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+    QuerySelectionPlan.Builder builder = new QuerySelectionPlan.Builder(fixture.options());
 
     // Simulate SELECT a, b, c ...
 
@@ -210,7 +210,7 @@ public class TestSelectionListPlan extends SubOperatorTest {
                                  "filEPath", // Sic, to test case sensitivity
                                  "filename", "suffix"));
 
-    SelectionListPlan projection = builder.build();
+    QuerySelectionPlan projection = builder.build();
     assertFalse(projection.isSelectAll());
     assertEquals(5, projection.queryCols().size());
 
@@ -255,11 +255,11 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
   @Test
   public void testImplicitColumnsWithColumnsArray() {
-    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+    QuerySelectionPlan.Builder builder = new QuerySelectionPlan.Builder(fixture.options());
 
     builder.queryCols(selectList("filename", "columns", "suffix"));
 
-    SelectionListPlan projection = builder.build();
+    QuerySelectionPlan projection = builder.build();
     assertFalse(projection.isSelectAll());
     assertEquals(SelectType.COLUMNS_ARRAY, projection.selectType());
 
@@ -284,17 +284,17 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
   @Test
   public void testImplicitColumnStarLegacy() {
-    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+    QuerySelectionPlan.Builder builder = new QuerySelectionPlan.Builder(fixture.options());
     builder.useLegacyStarPlan(true);
 
     builder.selectAll();
 
-    SelectionListPlan projection = builder.build();
+    QuerySelectionPlan projection = builder.build();
 
     assertTrue(projection.isSelectAll());
     assertEquals(5, projection.outputCols().size());
 
-    assertEquals(SelectionListPlan.WILDCARD, projection.outputCols().get(0).name());
+    assertEquals(QuerySelectionPlan.WILDCARD, projection.outputCols().get(0).name());
     assertTrue(((OutputColumn.WildcardColumn) (projection.outputCols().get(0))).includePartitions());
     assertEquals("fqn", projection.outputCols().get(1).name());
     assertEquals("filepath", projection.outputCols().get(2).name());
@@ -308,11 +308,11 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
   @Test
   public void testPartitionColumnSelection() {
-    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+    QuerySelectionPlan.Builder builder = new QuerySelectionPlan.Builder(fixture.options());
 
     builder.queryCols(selectList("dir2", "DIR1", "dir0", "a"));
 
-    SelectionListPlan projection = builder.build();
+    QuerySelectionPlan projection = builder.build();
 
     assertEquals(4, projection.outputCols().size());
     assertEquals("dir2", projection.outputCols().get(0).name());
@@ -353,11 +353,11 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
   @Test
   public void testPartitionColumnTwoDigits() {
-    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+    QuerySelectionPlan.Builder builder = new QuerySelectionPlan.Builder(fixture.options());
 
     builder.queryCols(selectList("dir11"));
 
-    SelectionListPlan projection = builder.build();
+    QuerySelectionPlan projection = builder.build();
     assertEquals("dir11", projection.outputCols().get(0).name());
 
     Path path = new Path("hdfs:///x/0/1/2/3/4/5/6/7/8/9/10/d11/z.csv");
@@ -371,7 +371,7 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
   @Test
   public void testErrorStarAndColumns() {
-    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+    QuerySelectionPlan.Builder builder = new QuerySelectionPlan.Builder(fixture.options());
 
     builder.queryCols(selectList("*", "a"));
     try {
@@ -384,7 +384,7 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
   @Test
   public void testErrorColumnAndStar() {
-    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+    QuerySelectionPlan.Builder builder = new QuerySelectionPlan.Builder(fixture.options());
 
     builder.queryCols(selectList("a", "*"));
     try {
@@ -397,7 +397,7 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
   @Test
   public void testErrorTwoStars() {
-    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+    QuerySelectionPlan.Builder builder = new QuerySelectionPlan.Builder(fixture.options());
 
     builder.queryCols(selectList("*", "*"));
     try {
@@ -410,7 +410,7 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
   @Test
   public void testErrorColumnsArrayAndColumn() {
-    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+    QuerySelectionPlan.Builder builder = new QuerySelectionPlan.Builder(fixture.options());
 
     builder.queryCols(selectList("columns", "a"));
     try {
@@ -423,7 +423,7 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
   @Test
   public void testErrorColumnAndColumnsArray() {
-    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+    QuerySelectionPlan.Builder builder = new QuerySelectionPlan.Builder(fixture.options());
 
     builder.queryCols(selectList("a", "columns"));
     try {
@@ -436,7 +436,7 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
   @Test
   public void testErrorTwoColumnsArray() {
-    SelectionListPlan.Builder builder = new SelectionListPlan.Builder(fixture.options());
+    QuerySelectionPlan.Builder builder = new QuerySelectionPlan.Builder(fixture.options());
 
     builder.queryCols(selectList("columns", "columns"));
     try {

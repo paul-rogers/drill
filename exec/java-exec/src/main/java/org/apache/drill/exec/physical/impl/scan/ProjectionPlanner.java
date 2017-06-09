@@ -35,7 +35,7 @@ import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.physical.impl.scan.OutputColumn.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.*;
 import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.TableSchemaType;
-import org.apache.drill.exec.physical.impl.scan.SelectionListPlan.Builder;
+import org.apache.drill.exec.physical.impl.scan.QuerySelectionPlan.Builder;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.server.options.OptionSet;
