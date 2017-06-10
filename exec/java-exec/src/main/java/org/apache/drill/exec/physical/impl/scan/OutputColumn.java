@@ -23,6 +23,7 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.ResolvedFileInfo;
 import org.apache.drill.exec.physical.impl.scan.QuerySelectionPlan.SelectColumn;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.hadoop.fs.Path;
@@ -58,8 +59,8 @@ public abstract class OutputColumn {
     public boolean includePartitions() { return includePartitions; }
 
     @Override
-    protected void visit(OutputColumn.Visitor visitor) {
-      visitor.visitWildcard(this);
+    protected void visit(int index, Visitor visitor) {
+      visitor.visitWildcard(index, this);
     }
   }
 
@@ -73,8 +74,8 @@ public abstract class OutputColumn {
     public ColumnType columnType() { return ColumnType.TABLE; }
 
     @Override
-    protected void visit(OutputColumn.Visitor visitor) {
-      visitor.visitTableColumn(this);
+    protected void visit(int index, Visitor visitor) {
+      visitor.visitTableColumn(index, this);
     }
   }
 
@@ -82,8 +83,8 @@ public abstract class OutputColumn {
 
     private final MajorType type;
 
-    public TypedColumn(QuerySelectionPlan.SelectColumn inCol, MajorType type) {
-      super(inCol);
+    public TypedColumn(QuerySelectionPlan.SelectColumn inCol, MajorType type, String name) {
+      super(inCol, name);
       this.type = type;
     }
 
@@ -115,15 +116,15 @@ public abstract class OutputColumn {
           MajorType.newBuilder()
           .setMinorType(MinorType.VARCHAR)
           .setMode(DataMode.REPEATED)
-          .build());
+          .build(), null);
     }
 
     @Override
     public ColumnType columnType() { return ColumnType.COLUMNS_ARRAY; }
 
     @Override
-    protected void visit(OutputColumn.Visitor visitor) {
-      visitor.visitColumnsArray(this);
+    protected void visit(int index, Visitor visitor) {
+      visitor.visitColumnsArray(index, this);
     }
   }
 
@@ -137,15 +138,14 @@ public abstract class OutputColumn {
     public final String value;
 
     public MetadataColumn(QuerySelectionPlan.SelectColumn inCol, MajorType type) {
-      this(inCol, type, null);
+      this(inCol, type, null, null);
     }
 
-    public MetadataColumn(QuerySelectionPlan.SelectColumn inCol, MajorType type, String value) {
-      super(inCol, type);
+    public MetadataColumn(QuerySelectionPlan.SelectColumn inCol, MajorType type, String name, String value) {
+      super(inCol, type, name);
       this.value = value;
     }
 
-    public abstract String value(OutputColumn.ResolvedFileInfo fileInfo);
     public String value() { return value; }
   }
 
@@ -160,14 +160,23 @@ public abstract class OutputColumn {
     private final QuerySelectionPlan.FileMetadataColumnDefn defn;
 
     public FileMetadataColumn(QuerySelectionPlan.SelectColumn inCol, QuerySelectionPlan.FileMetadataColumnDefn defn) {
-      this(inCol, defn, null);
-    }
-    public FileMetadataColumn(QuerySelectionPlan.SelectColumn inCol, QuerySelectionPlan.FileMetadataColumnDefn defn, String value) {
-      super(inCol, MajorType.newBuilder()
-            .setMinorType(MinorType.VARCHAR)
-            .setMode(DataMode.REQUIRED)
-            .build(), value);
+      super(inCol, dataType());
       this.defn = defn;
+    }
+
+    public FileMetadataColumn(QuerySelectionPlan.SelectColumn inCol,
+            QuerySelectionPlan.FileMetadataColumnDefn defn,
+            String name, ResolvedFileInfo fileInfo) {
+      super(inCol, dataType(), name,
+            defn.defn.getValue(fileInfo.filePath()));
+      this.defn = defn;
+    }
+
+    private static MajorType dataType() {
+      return MajorType.newBuilder()
+          .setMinorType(MinorType.VARCHAR)
+          .setMode(DataMode.REQUIRED)
+          .build();
     }
 
     @Override
@@ -181,12 +190,6 @@ public abstract class OutputColumn {
         return super.name();
       }
     }
-
-    @Override
-    public String value(OutputColumn.ResolvedFileInfo fileInfo) {
-      return defn.defn.getValue(fileInfo.filePath());
-    }
-
     @Override
     protected void buildString(StringBuilder buf) {
       super.buildString(buf);
@@ -195,12 +198,12 @@ public abstract class OutputColumn {
     }
 
     @Override
-    protected void visit(OutputColumn.Visitor visitor) {
-      visitor.visitFileInfoColumn(this);
+    protected void visit(int index, Visitor visitor) {
+      visitor.visitFileInfoColumn(index, this);
     }
 
-    public OutputColumn cloneWithValue(OutputColumn.ResolvedFileInfo fileInfo) {
-      return new FileMetadataColumn(inCol, defn, value(fileInfo));
+    public FileMetadataColumn cloneWithValue(ResolvedFileInfo fileInfo) {
+      return new FileMetadataColumn(inCol, defn, name(), fileInfo);
     }
   }
 
@@ -220,24 +223,25 @@ public abstract class OutputColumn {
     private final int partition;
 
     public PartitionColumn(QuerySelectionPlan.SelectColumn inCol, int partition) {
-      this(inCol, partition, null);
+      super(inCol, dataType());
+      this.partition = partition;
     }
 
-    public PartitionColumn(QuerySelectionPlan.SelectColumn inCol, int partition, String value) {
-      super(inCol, MajorType.newBuilder()
+    public PartitionColumn(QuerySelectionPlan.SelectColumn inCol, int partition, String name, ResolvedFileInfo fileInfo) {
+      super(inCol, dataType(), name,
+          fileInfo.partition(partition));
+      this.partition = partition;
+    }
+
+    private static MajorType dataType() {
+      return MajorType.newBuilder()
           .setMinorType(MinorType.VARCHAR)
           .setMode(DataMode.OPTIONAL)
-          .build(), value);
-      this.partition = partition;
+          .build();
     }
 
     @Override
     public ColumnType columnType() { return ColumnType.PARTITION; }
-
-    @Override
-    public String value(OutputColumn.ResolvedFileInfo fileInfo) {
-      return fileInfo.partition(partition);
-    }
 
     @Override
     protected void buildString(StringBuilder buf) {
@@ -249,12 +253,12 @@ public abstract class OutputColumn {
     public int partition() { return partition; }
 
     @Override
-    protected void visit(OutputColumn.Visitor visitor) {
-      visitor.visitPartitionColumn(this);
+    protected void visit(int index, Visitor visitor) {
+      visitor.visitPartitionColumn(index, this);
     }
 
-    public OutputColumn cloneWithValue(OutputColumn.ResolvedFileInfo fileInfo) {
-      return new PartitionColumn(inCol, partition, value(fileInfo));
+    public PartitionColumn cloneWithValue(ResolvedFileInfo fileInfo) {
+      return new PartitionColumn(inCol, partition, name(), fileInfo);
     }
   }
 
@@ -275,9 +279,8 @@ public abstract class OutputColumn {
     }
 
     @Override
-    protected void visit(
-        OutputColumn.Visitor visitor) {
-      visitor.visitNullColumn(this);
+    protected void visit(int index, Visitor visitor) {
+      visitor.visitNullColumn(index, this);
     }
   }
 
@@ -289,13 +292,16 @@ public abstract class OutputColumn {
   public static class ProjectedColumn extends OutputColumn {
 
     private MaterializedField schema;
-    private int tableColumnIndex;
 
-    public ProjectedColumn(SelectColumn inCol, int index,
+    public ProjectedColumn(SelectColumn inCol,
         MaterializedField schema, String name) {
       super(inCol, name);
       this.schema = MaterializedField.create(inCol.name(), schema.getType());
-      this.tableColumnIndex = index;
+    }
+
+    public ProjectedColumn(SelectColumn inCol, MajorType type) {
+      super(inCol);
+      this.schema = MaterializedField.create(inCol.name(), type);
     }
 
     @Override
@@ -307,9 +313,8 @@ public abstract class OutputColumn {
     public MajorType type() { return schema.getType(); }
 
     @Override
-    protected void visit(
-        OutputColumn.Visitor visitor) {
-      visitor.visitProjection(this);
+    protected void visit(int index, Visitor visitor) {
+      visitor.visitProjection(index, this);
     }
 
   }
@@ -379,52 +384,52 @@ public abstract class OutputColumn {
     }
 
     public void visit(List<OutputColumn> cols) {
-      for (OutputColumn col : cols) {
-        col.visit(this);
+      for (int i = 0; i < cols.size(); i++) {
+        cols.get(i).visit(i, this);
       }
     }
 
-    protected void visitPartitionColumn(PartitionColumn col) {
-      visitColumn(col);
+    protected void visitPartitionColumn(int index, PartitionColumn col) {
+      visitColumn(index, col);
     }
 
-    protected void visitFileInfoColumn(FileMetadataColumn col) {
-      visitColumn(col);
+    protected void visitFileInfoColumn(int index, FileMetadataColumn col) {
+      visitColumn(index, col);
     }
 
-    protected void visitColumnsArray(ColumnsArrayColumn col) {
-      visitColumn(col);
+    protected void visitColumnsArray(int index, ColumnsArrayColumn col) {
+      visitColumn(index, col);
     }
 
-    protected void visitTableColumn(ExpectedTableColumn col) {
-      visitColumn(col);
+    protected void visitTableColumn(int index, ExpectedTableColumn col) {
+      visitColumn(index, col);
     }
 
-    protected void visitWildcard(WildcardColumn col) {
-      visitColumn(col);
+    protected void visitWildcard(int index, WildcardColumn col) {
+      visitColumn(index, col);
     }
 
-    protected void visitColumn(OutputColumn col) { }
-
-    public void visitProjection(ProjectedColumn col) {
-      visitColumn(col);
+    public void visitProjection(int index, ProjectedColumn col) {
+      visitColumn(index, col);
     }
 
-    public void visitNullColumn(NullColumn col) {
-      visitColumn(col);
+    public void visitNullColumn(int index, NullColumn col) {
+      visitColumn(index, col);
     }
+
+    protected void visitColumn(int index, OutputColumn col) { }
   }
 
   protected final SelectColumn inCol;
   protected final String name;
 
   public OutputColumn(SelectColumn inCol) {
-    this(inCol, inCol.name());
+    this(inCol, null);
   }
 
   public OutputColumn(SelectColumn inCol, String name) {
     this.inCol = inCol;
-    this.name = name;
+    this.name = name != null ? name : inCol.name();
   }
 
   public abstract OutputColumn.ColumnType columnType();
@@ -446,5 +451,5 @@ public abstract class OutputColumn {
   public SelectColumn source() { return inCol; }
   public MajorType type() { return null; }
 
-  protected abstract void visit(OutputColumn.Visitor visitor);
+  protected abstract void visit(int index, OutputColumn.Visitor visitor);
 }

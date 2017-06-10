@@ -17,7 +17,11 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,14 +31,15 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.SchemaTracker;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.ExpectedTableColumn;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.FileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.MetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.NullColumn;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.PartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.ResolvedFileInfo;
+import org.apache.drill.exec.physical.impl.scan.QuerySelectionPlan.FileMetadataColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.QuerySelectionPlan.SelectColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.EarlyProjectedColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjection.FileInfoColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjection.ImplicitColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjection.LateProjectedColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjection.OutputColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjection.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjection.SelectColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjection.StaticColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.TableColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjector.MetadataColumnLoader;
 import org.apache.drill.exec.physical.impl.scan.ScanProjector.NullColumnLoader;
@@ -70,16 +75,14 @@ public class TestScanProjector extends SubOperatorTest {
   @Test
   public void testStaticColumnLoader() {
 
-    List<StaticColumn> defns = new ArrayList<>();
+    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
+    List<MetadataColumn> defns = new ArrayList<>();
     FileMetadataColumnDefn iDefn = new FileMetadataColumnDefn("suffix", ImplicitFileColumns.SUFFIX);
-    FileMetadataColumn iCol = new FileMetadataColumn(buildSelectCol("suffix"), 0, iDefn);
+    FileMetadataColumn iCol = new FileMetadataColumn(buildSelectCol("suffix"), iDefn, null, fileInfo);
     defns.add(iCol);
-    Path path = new Path("hdfs:///w/x/y/z.csv");
-    iCol.setValue(path);
 
-    PartitionColumn pCol = new PartitionColumn(buildSelectCol("dir0"), 1, 0);
+    PartitionColumn pCol = new PartitionColumn(buildSelectCol("dir1"), 1, null, fileInfo);
     defns.add(pCol);
-    pCol.setValue("w");
 
     ResultVectorCache cache = new ResultVectorCache(fixture.allocator());
     MetadataColumnLoader staticLoader = new MetadataColumnLoader(fixture.allocator(), defns, cache);
@@ -95,8 +98,8 @@ public class TestScanProjector extends SubOperatorTest {
         .addNullable("dir0", MinorType.VARCHAR)
         .build();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .add("csv", "w")
-        .add("csv", "w")
+        .add("csv", "y")
+        .add("csv", "y")
         .build();
 
     new RowSetComparison(expected)
@@ -108,15 +111,11 @@ public class TestScanProjector extends SubOperatorTest {
   @Test
   public void testNullColumnLoader() {
 
-    List<OutputColumn> defns = new ArrayList<>();
-    defns.add(new LateProjectedColumn(buildSelectCol("req"), 0));
-    defns.add(new LateProjectedColumn(buildSelectCol("opt"), 1));
-    defns.add(new LateProjectedColumn(buildSelectCol("rep"), 2));
-    defns.add(new EarlyProjectedColumn(buildSelectCol("defreq"), 3,
-        new TableColumn(0, SchemaBuilder.columnSchema("defreq", MinorType.BIGINT, DataMode.REQUIRED))));
-    defns.add(new EarlyProjectedColumn(buildSelectCol("defopt"), 4,
-        new TableColumn(1, SchemaBuilder.columnSchema("defopt", MinorType.BIGINT, DataMode.OPTIONAL))));
-    defns.add(new LateProjectedColumn(buildSelectCol("unk"), 5));
+    List<NullColumn> defns = new ArrayList<>();
+    defns.add(new NullColumn(buildSelectCol("req")));
+    defns.add(new NullColumn(buildSelectCol("opt")));
+    defns.add(new NullColumn(buildSelectCol("rep")));
+    defns.add(new NullColumn(buildSelectCol("unk")));
 
     // Populate the cache with a column of each mode.
 
@@ -149,13 +148,11 @@ public class TestScanProjector extends SubOperatorTest {
         .addNullable("req", MinorType.FLOAT8)
         .addNullable("opt", MinorType.FLOAT8)
         .addArray("rep", MinorType.FLOAT8)
-        .addNullable("defreq", MinorType.BIGINT)
-        .addNullable("defopt", MinorType.BIGINT)
         .addNullable("unk", MinorType.VARCHAR)
         .build();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .add(null, null, new int[] { }, null, null, null)
-        .add(null, null, new int[] { }, null, null, null)
+        .add(null, null, new int[] { }, null)
+        .add(null, null, new int[] { }, null)
         .build();
 
     new RowSetComparison(expected)

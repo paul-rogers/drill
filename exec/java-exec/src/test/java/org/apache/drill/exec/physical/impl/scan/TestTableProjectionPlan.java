@@ -23,6 +23,7 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.OutputColumn.ColumnType;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.MetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.OutputColumn.ResolvedFileInfo;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.test.SubOperatorTest;
@@ -31,28 +32,6 @@ import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
 public class TestTableProjectionPlan extends SubOperatorTest {
-
-  @Test
-  public void testFileSelectionPlan() {
-    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
-    querySelBuilder.useLegacyStarPlan(false);
-
-    querySelBuilder.queryCols(TestSelectionListPlan.selectList("filename", "a", "dir0"));
-    QuerySelectionPlan selectList = querySelBuilder.build();
-
-    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileSelectionPlan fileSel = new FileSelectionPlan(selectList, fileInfo);
-    assertEquals(3, fileSel.output().size());
-
-    assertEquals(ColumnType.FILE_METADATA, fileSel.output().get(0).columnType());
-    assertEquals("filename", fileSel.output().get(0).name());
-    assertEquals("z.csv", ((OutputColumn.MetadataColumn) fileSel.output().get(0)).value());
-    assertEquals(ColumnType.TABLE, fileSel.output().get(1).columnType());
-    assertEquals("a", fileSel.output().get(1).name());
-    assertEquals(ColumnType.PARTITION, fileSel.output().get(2).columnType());
-    assertEquals("dir0", fileSel.output().get(2).name());
-    assertEquals("x", ((OutputColumn.MetadataColumn) fileSel.output().get(2)).value());
-  }
 
   /**
    * Resolve a selection list using SELECT *.
@@ -63,7 +42,7 @@ public class TestTableProjectionPlan extends SubOperatorTest {
     QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
     querySelBuilder.useLegacyStarPlan(false);
 
-    querySelBuilder.queryCols(TestSelectionListPlan.selectList("filename", "*", "dir0"));
+    querySelBuilder.queryCols(TestQuerySelectionPlan.selectList("filename", "*", "dir0"));
     QuerySelectionPlan selectList = querySelBuilder.build();
 
     ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
@@ -77,6 +56,7 @@ public class TestTableProjectionPlan extends SubOperatorTest {
         .buildSchema();
 
     TableProjectionPlan tableSel = fileSel.resolve(tableSchema);
+    assertFalse(tableSel.hasNullColumns());
     assertEquals(5, tableSel.output().size());
 
     assertEquals(ColumnType.FILE_METADATA, tableSel.output().get(0).columnType());
@@ -96,11 +76,15 @@ public class TestTableProjectionPlan extends SubOperatorTest {
     assertTrue(selMap[1]);
     assertTrue(selMap[2]);
 
-    int projMap[] = tableSel.logicalToPhysicalMap();
-    assertEquals(3, projMap.length);
-    assertEquals(0, projMap[0]);
-    assertEquals(1, projMap[1]);
-    assertEquals(2, projMap[2]);
+    int lToPMap[] = tableSel.logicalToPhysicalMap();
+    assertEquals(0, lToPMap[0]);
+    assertEquals(1, lToPMap[1]);
+    assertEquals(2, lToPMap[2]);
+
+    int projMap[] = tableSel.tableColumnProjectionMap();
+    assertEquals(1, projMap[0]);
+    assertEquals(2, projMap[1]);
+    assertEquals(3, projMap[2]);
   }
 
   /**
@@ -113,7 +97,7 @@ public class TestTableProjectionPlan extends SubOperatorTest {
     QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
     querySelBuilder.useLegacyStarPlan(false);
 
-    querySelBuilder.queryCols(TestSelectionListPlan.selectList("filename", "columns", "dir0"));
+    querySelBuilder.queryCols(TestQuerySelectionPlan.selectList("filename", "columns", "dir0"));
     QuerySelectionPlan selectList = querySelBuilder.build();
 
     ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
@@ -126,11 +110,15 @@ public class TestTableProjectionPlan extends SubOperatorTest {
         .buildSchema();
 
     TableProjectionPlan tableSel = fileSel.resolve(tableSchema);
+    assertFalse(tableSel.hasNullColumns());
     assertEquals(3, tableSel.output().size());
 
     assertEquals(ColumnType.FILE_METADATA, tableSel.output().get(0).columnType());
     assertEquals("filename", tableSel.output().get(0).name());
-    assertEquals(ColumnType.COLUMNS_ARRAY, tableSel.output().get(1).columnType());
+
+    // The columns array is now an actual table column.
+
+    assertEquals(ColumnType.PROJECTED, tableSel.output().get(1).columnType());
     assertEquals("columns", tableSel.output().get(1).name());
     assertEquals(ColumnType.PARTITION, tableSel.output().get(2).columnType());
     assertEquals("dir0", tableSel.output().get(2).name());
@@ -138,12 +126,13 @@ public class TestTableProjectionPlan extends SubOperatorTest {
     assertEquals(DataMode.REPEATED, tableSel.output().get(1).type().getMode());
 
     boolean selMap[] = tableSel.selectionMap();
-    assertEquals(1, selMap.length);
     assertTrue(selMap[0]);
 
-    int projMap[] = tableSel.logicalToPhysicalMap();
-    assertEquals(1, projMap.length);
-    assertEquals(0, projMap[0]);
+    int lToPMap[] = tableSel.logicalToPhysicalMap();
+    assertEquals(0, lToPMap[0]);
+
+    int projMap[] = tableSel.tableColumnProjectionMap();
+    assertEquals(1, projMap[0]);
   }
 
   /**
@@ -156,7 +145,7 @@ public class TestTableProjectionPlan extends SubOperatorTest {
     QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
     querySelBuilder.useLegacyStarPlan(false);
 
-    querySelBuilder.queryCols(TestSelectionListPlan.selectList("filename", "columns", "dir0"));
+    querySelBuilder.queryCols(TestQuerySelectionPlan.selectList("filename", "columns", "dir0"));
     QuerySelectionPlan selectList = querySelBuilder.build();
 
     ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
@@ -187,7 +176,7 @@ public class TestTableProjectionPlan extends SubOperatorTest {
 
     // Simulate SELECT c, b, a ...
 
-    querySelBuilder.queryCols(TestSelectionListPlan.selectList("c", "b", "a"));
+    querySelBuilder.queryCols(TestQuerySelectionPlan.selectList("c", "b", "a"));
     QuerySelectionPlan selectList = querySelBuilder.build();
 
     ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
@@ -202,6 +191,7 @@ public class TestTableProjectionPlan extends SubOperatorTest {
         .buildSchema();
 
     TableProjectionPlan tableSel = fileSel.resolve(tableSchema);
+    assertFalse(tableSel.hasNullColumns());
 
     assertEquals(3, tableSel.output().size());
     assertEquals(ColumnType.PROJECTED, tableSel.output().get(0).columnType());
@@ -219,11 +209,16 @@ public class TestTableProjectionPlan extends SubOperatorTest {
     assertTrue(selMap[1]);
     assertTrue(selMap[2]);
 
-    int projMap[] = tableSel.logicalToPhysicalMap();
-    assertEquals(3, projMap.length);
-    assertEquals(0, projMap[0]);
+    int ltoPMap[] = tableSel.logicalToPhysicalMap();
+    assertEquals(3, ltoPMap.length);
+    assertEquals(0, ltoPMap[0]);
+    assertEquals(1, ltoPMap[1]);
+    assertEquals(2, ltoPMap[2]);
+
+    int projMap[] = tableSel.tableColumnProjectionMap();
+    assertEquals(2, projMap[0]);
     assertEquals(1, projMap[1]);
-    assertEquals(2, projMap[2]);
+    assertEquals(0, projMap[2]);
   }
 
   /**
@@ -236,7 +231,7 @@ public class TestTableProjectionPlan extends SubOperatorTest {
 
     // Simulate SELECT c, b, a ...
 
-    querySelBuilder.queryCols(TestSelectionListPlan.selectList("c", "b", "x"));
+    querySelBuilder.queryCols(TestQuerySelectionPlan.selectList("c", "v", "b", "w"));
     QuerySelectionPlan selectList = querySelBuilder.build();
 
     ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
@@ -251,15 +246,18 @@ public class TestTableProjectionPlan extends SubOperatorTest {
         .buildSchema();
 
     TableProjectionPlan tableSel = fileSel.resolve(tableSchema);
+    assertTrue(tableSel.hasNullColumns());
 
-    assertEquals(3, tableSel.output().size());
+    assertEquals(4, tableSel.output().size());
     assertEquals(ColumnType.PROJECTED, tableSel.output().get(0).columnType());
     assertEquals("c", tableSel.output().get(0).name());
-    assertEquals(ColumnType.PROJECTED, tableSel.output().get(1).columnType());
-    assertEquals("b", tableSel.output().get(1).name());
-    assertEquals(ColumnType.NULL, tableSel.output().get(2).columnType());
-    assertEquals("x", tableSel.output().get(2).name());
-    assertNull(tableSel.output().get(2).type());
+    assertEquals(ColumnType.NULL, tableSel.output().get(1).columnType());
+    assertEquals("v", tableSel.output().get(1).name());
+    assertEquals(ColumnType.PROJECTED, tableSel.output().get(2).columnType());
+    assertEquals("b", tableSel.output().get(2).name());
+    assertEquals(ColumnType.NULL, tableSel.output().get(3).columnType());
+    assertEquals("w", tableSel.output().get(3).name());
+    assertNull(tableSel.output().get(3).type());
 
     boolean selMap[] = tableSel.selectionMap();
     assertEquals(3, selMap.length);
@@ -267,11 +265,24 @@ public class TestTableProjectionPlan extends SubOperatorTest {
     assertTrue(selMap[1]);
     assertTrue(selMap[2]);
 
-    int projMap[] = tableSel.logicalToPhysicalMap();
-    assertEquals(3, projMap.length);
+    int ltoPMap[] = tableSel.logicalToPhysicalMap();
+    assertEquals(3, ltoPMap.length);
+    assertEquals(-1, ltoPMap[0]);
+    assertEquals(0, ltoPMap[1]);
+    assertEquals(1, ltoPMap[2]);
+
+    int projMap[] = tableSel.tableColumnProjectionMap();
     assertEquals(-1, projMap[0]);
-    assertEquals(0, projMap[1]);
-    assertEquals(1, projMap[2]);
+    assertEquals(2, projMap[1]);
+    assertEquals(0, projMap[2]);
+
+    assertEquals(2, tableSel.nullColumns().size());
+    assertEquals("v", tableSel.nullColumns().get(0).name());
+    assertEquals("w", tableSel.nullColumns().get(1).name());
+
+    int nullProjMap[] = tableSel.nullProjectionMap();
+    assertEquals(1, nullProjMap[0]);
+    assertEquals(3, nullProjMap[1]);
   }
 
   @Test
@@ -280,7 +291,7 @@ public class TestTableProjectionPlan extends SubOperatorTest {
 
     // Simulate SELECT c, b, a ...
 
-    querySelBuilder.queryCols(TestSelectionListPlan.selectList("c", "a"));
+    querySelBuilder.queryCols(TestQuerySelectionPlan.selectList("c", "a"));
     QuerySelectionPlan selectList = querySelBuilder.build();
 
     ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
@@ -295,6 +306,7 @@ public class TestTableProjectionPlan extends SubOperatorTest {
         .buildSchema();
 
     TableProjectionPlan tableSel = fileSel.resolve(tableSchema);
+    assertFalse(tableSel.hasNullColumns());
 
     assertEquals(2, tableSel.output().size());
     assertEquals("c", tableSel.output().get(0).name());
@@ -306,10 +318,15 @@ public class TestTableProjectionPlan extends SubOperatorTest {
     assertFalse(selMap[1]);
     assertTrue(selMap[2]);
 
-    int projMap[] = tableSel.logicalToPhysicalMap();
-    assertEquals(3, projMap.length);
-    assertEquals(0, projMap[0]);
+    int lToPMap[] = tableSel.logicalToPhysicalMap();
+    assertEquals(3, lToPMap.length);
+    assertEquals(0, lToPMap[0]);
+    assertEquals(-1, lToPMap[1]);
+    assertEquals(1, lToPMap[2]);
+
+    int projMap[] = tableSel.tableColumnProjectionMap();
+    assertEquals(1, projMap[0]);
     assertEquals(-1, projMap[1]);
-    assertEquals(1, projMap[2]);
+    assertEquals(0, projMap[2]);
   }
 }

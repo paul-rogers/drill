@@ -25,6 +25,10 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.ColumnType;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.ColumnsArrayColumn;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.NullColumn;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.ProjectedColumn;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.store.ImplicitColumnExplorer;
 
@@ -69,51 +73,62 @@ public class TableProjectionPlan {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TableProjectionPlan.class);
 
+  private static class BaseTableColumnVisitor extends OutputColumn.Visitor {
+
+    protected MaterializedSchema tableSchema;
+    protected List<OutputColumn> outputCols = new ArrayList<>();
+    protected boolean selectionMap[];
+    protected int logicalToPhysicalMap[];
+    protected int projectionMap[];
+    protected int selectionCount;
+
+    public BaseTableColumnVisitor(MaterializedSchema tableSchema) {
+      this.tableSchema = tableSchema;
+    }
+
+    @Override
+    protected void visitColumn(int index, OutputColumn col) {
+      outputCols.add(col);
+    }
+
+    protected void addTableColumn(int colIndex, ProjectedColumn col) {
+      projectionMap[colIndex] = outputCols.size();
+      selectionMap[colIndex] = true;
+      selectionCount++;
+      outputCols.add(col);
+    }
+  }
+
   /**
    * Given a partially-resolved select list, possibly with a wildcard
    * column, produce a new select list with the wildcard columns
    * replaced with the actual list of table columns,
-   * in table schema order.
+   * in table schema order. Note that the list may contain metadata
+   * columns, either before the wildcard, after, or both.
    */
 
-  private static class WildcardExpander extends OutputColumn.Visitor {
-    MaterializedSchema tableSchema;
-    List<OutputColumn> outputCols = new ArrayList<>();
+  private static class WildcardExpander extends BaseTableColumnVisitor {
 
     public WildcardExpander(MaterializedSchema tableSchema) {
-      this.tableSchema = tableSchema;
-    }
+      super(tableSchema);
+      selectionMap = new boolean[tableSchema.size()];
+      projectionMap = new int[tableSchema.size()];
 
-    public List<OutputColumn> build(List<OutputColumn> input) {
-      visit(input);
-      return outputCols;
+      // For SELECT *, columns in the output are the full set of
+      // table columns, in table column order.
+
+      logicalToPhysicalMap = new int[tableSchema.size()];
+      for (int i = 0; i < logicalToPhysicalMap.length; i++) {
+        logicalToPhysicalMap[i] = i;
+      }
     }
 
     @Override
-    protected void visitWildcard(OutputColumn.WildcardColumn col) {
+    protected void visitWildcard(int index, OutputColumn.WildcardColumn col) {
       for (int i = 0; i < tableSchema.size(); i++) {
-        outputCols.add(new OutputColumn.ProjectedColumn(col.inCol, i,
+        addTableColumn(i, new ProjectedColumn(col.inCol,
             tableSchema.column(i), tableSchema.column(i).getName()));
       }
-    }
-
-    @Override
-    protected void visitColumn(OutputColumn col) {
-      outputCols.add(col);
-    }
-
-    public boolean[] projectionMap() {
-      boolean map[] = new boolean[tableSchema.size()];
-      Arrays.fill(map, true);
-      return map;
-    }
-
-    public int[] logicalToPhysicalMap() {
-      int map[] = new int[tableSchema.size()];
-      for (int i = 0; i < map.length; i++) {
-        map[i] = i;
-      }
-      return map;
     }
   }
 
@@ -124,86 +139,165 @@ public class TableProjectionPlan {
    * null columns (if no such column exists in the table.)
    */
 
-  public static class TableSchemaProjection extends OutputColumn.Visitor {
-    MaterializedSchema tableSchema;
-    List<OutputColumn> outputCols = new ArrayList<>();
-    boolean tableColumnProjected[];
+  public static class TableSchemaProjection extends BaseTableColumnVisitor {
+
+    protected List<NullColumn> nullCols = new ArrayList<>();
+    protected int nullProjectionMap[];
 
     public TableSchemaProjection(MaterializedSchema tableSchema) {
-      this.tableSchema = tableSchema;
-      tableColumnProjected = new boolean[tableSchema.size()];
+      super(tableSchema);
+      selectionMap = new boolean[tableSchema.size()];
+      logicalToPhysicalMap = new int[tableSchema.size()];
+      Arrays.fill(logicalToPhysicalMap, -1);
+      projectionMap = new int[tableSchema.size()];
+      Arrays.fill(projectionMap, -1);
     }
 
-    public List<OutputColumn> build(List<OutputColumn> input) {
-      visit(input);
-      return outputCols;
-    }
+    @Override
+    public void visit(List<OutputColumn> input) {
+      nullProjectionMap = new int[input.size()];
+      super.visit(input);
 
-    public boolean[] projectionMap() { return tableColumnProjected; }
+      // Construct the logical (full table schema) to physical
+      // (selected columns only) map.
 
-    public int[] logicalToPhysicalMap() {
-      int lToPMap[] = new int[tableColumnProjected.length];
       int physicalIndex = 0;
-      for (int i = 0; i < tableColumnProjected.length; i++) {
-        lToPMap[i] = tableColumnProjected[i] ? physicalIndex++ : -1;
+      for (int i = 0; i < selectionMap.length; i++) {
+        logicalToPhysicalMap[i] = selectionMap[i] ? physicalIndex++ : -1;
       }
-      return lToPMap;
     }
 
     @Override
-    protected void visitTableColumn(OutputColumn.ExpectedTableColumn col) {
-      int index = tableSchema.index(col.name());
-      if (index == -1) {
-        outputCols.add(new OutputColumn.NullColumn(col.inCol));
+    protected void visitTableColumn(int index, OutputColumn.ExpectedTableColumn col) {
+      int tableColIndex = tableSchema.index(col.name());
+      if (tableColIndex == -1) {
+        NullColumn nullCol = new NullColumn(col.inCol);
+        nullProjectionMap[nullCols.size()] = outputCols.size();
+        outputCols.add(nullCol);
+        nullCols.add(nullCol);
       } else {
-        outputCols.add(new OutputColumn.ProjectedColumn(col.inCol, index, tableSchema.column(index), col.inCol.name()));
-        tableColumnProjected[index] = true;
+        addTableColumn(tableColIndex, new ProjectedColumn(
+              col.inCol, tableSchema.column(tableColIndex), col.inCol.name()));
       }
     }
+  }
+
+  /**
+   * Turn the "columns" column into a made-up table column (that nonetheless
+   * appears in the table loader.) The list may also contain metadata columns.
+   */
+
+  public static class ColumnsArrayProjection extends BaseTableColumnVisitor {
+
+    public ColumnsArrayProjection(MaterializedSchema tableSchema) {
+      super(tableSchema);
+      selectionMap = new boolean[] { true };
+      logicalToPhysicalMap = new int[] { 0 };
+      projectionMap = new int[1];
+   }
 
     @Override
-    protected void visitColumn(OutputColumn col) {
-      outputCols.add(col);
+    protected void visitColumnsArray(int index, ColumnsArrayColumn col) {
+      addTableColumn(0, new ProjectedColumn(
+          col.inCol, MajorType.newBuilder()
+              .setMinorType(MinorType.VARCHAR)
+              .setMode(DataMode.REPEATED)
+              .build()));
     }
   }
 
   private final QuerySelectionPlan selectionPlan;
   private final MaterializedSchema tableSchema;
   private final List<OutputColumn> outputCols;
+
+  /**
+   * Map, in table schema order, indicating which columns are selected.
+   * The number of entries is the same as the table schema size.
+   */
+
   private final boolean[] selectionMap;
+
+  /**
+   * Map, in table schema order, indicating the physical column position.
+   * Differs from the logical position when a subset of columns are selected.
+   */
+
   private final int[] logicalToPhysicalMap;
+
+  /**
+   * Map, in physical table schema order, of the output column position for each
+   * selected table column. The number of valid entries is the physical table
+   * schema size.
+   */
+
+  private final int[] tableColumnProjectionMap;
+  private final int[] nullProjectionMap;
+
+  protected final List<NullColumn> nullCols;
 
   public TableProjectionPlan(FileSelectionPlan filePlan, MaterializedSchema tableSchema) {
     selectionPlan = filePlan.selectionPlan();
     this.tableSchema = tableSchema;
+    BaseTableColumnVisitor baseBuilder;
     switch (selectionPlan.selectType()) {
+
+    // SELECT a, b, c
+
     case LIST:
       TableSchemaProjection schemaProj = new TableSchemaProjection(tableSchema);
-      outputCols = schemaProj.build(filePlan.output());
-      selectionMap = schemaProj.projectionMap();
-      logicalToPhysicalMap = schemaProj.logicalToPhysicalMap();
+      schemaProj.visit(filePlan.output());
+      nullCols = schemaProj.nullCols;
+      nullProjectionMap = schemaProj.nullProjectionMap;
+      baseBuilder = schemaProj;
       break;
+
+    // SELECT *
+
     case WILDCARD:
       WildcardExpander expander = new WildcardExpander(tableSchema);
-      outputCols = expander.build(filePlan.output());
-      selectionMap = expander.projectionMap();
-      logicalToPhysicalMap = expander.logicalToPhysicalMap();
+      expander.visit(filePlan.output());
+      nullCols = null;
+      nullProjectionMap = null;
+      baseBuilder = expander;
       break;
+
+    // SELECT columns
+
     case COLUMNS_ARRAY:
       validateColumnsArray(filePlan.output());
-      outputCols = filePlan.output();
-      selectionMap = new boolean[] { true };
-      logicalToPhysicalMap = new int[] { 0 };
+      ColumnsArrayProjection colArrayProj = new ColumnsArrayProjection(tableSchema);
+      colArrayProj.visit(filePlan.output());
+      nullCols = null;
+      nullProjectionMap = null;
+      baseBuilder = colArrayProj;
       break;
     default:
       throw new IllegalStateException("Unexpected selection type: " + selectionPlan.selectType());
     }
+    outputCols = baseBuilder.outputCols;
+    selectionMap = baseBuilder.selectionMap;
+    logicalToPhysicalMap = baseBuilder.logicalToPhysicalMap;
+    tableColumnProjectionMap = baseBuilder.projectionMap;
   }
 
   public QuerySelectionPlan selectionPlan() { return selectionPlan; }
   public List<OutputColumn> output() { return outputCols; }
-  protected boolean[] selectionMap() { return selectionMap; }
-  protected int[] logicalToPhysicalMap() { return logicalToPhysicalMap; }
+  public boolean[] selectionMap() { return selectionMap; }
+  public int[] logicalToPhysicalMap() { return logicalToPhysicalMap; }
+  public int[] tableColumnProjectionMap() { return tableColumnProjectionMap; }
+  public boolean hasNullColumns() { return nullCols != null && ! nullCols.isEmpty(); }
+  public List<NullColumn> nullColumns() { return nullCols; }
+  public int[] nullProjectionMap() { return nullProjectionMap; }
+
+  public List<String> selectedTableColumns() {
+    List<String> selection = new ArrayList<>();
+    for (int i = 0; i < selectionMap.length; i++) {
+      if (selectionMap[i]) {
+        selection.add(tableSchema.column(i).getName());
+      }
+    }
+    return selection;
+  }
 
   private void validateColumnsArray(List<OutputColumn> input) {
 

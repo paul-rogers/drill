@@ -41,7 +41,7 @@ import org.apache.drill.test.SubOperatorTest;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
-public class TestSelectionListPlan extends SubOperatorTest {
+public class TestQuerySelectionPlan extends SubOperatorTest {
 
   static List<SchemaPath> selectList(String... names) {
     List<SchemaPath> selected = new ArrayList<>();
@@ -67,33 +67,42 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
     // Build the projection plan and verify
 
-    QuerySelectionPlan projection = builder.build();
-    assertFalse(projection.isSelectAll());
-    assertEquals(SelectType.LIST, projection.selectType());
+    QuerySelectionPlan querySelPlan = builder.build();
+    assertFalse(querySelPlan.isSelectAll());
+    assertEquals(SelectType.LIST, querySelPlan.selectType());
+    assertFalse(querySelPlan.hasMetadata());
+    assertTrue(querySelPlan.useLegacyWildcardPartition());
 
-    assertEquals(3, projection.queryCols().size());
-    assertEquals("a", projection.queryCols().get(0).name());
-    assertEquals("b", projection.queryCols().get(1).name());
-    assertEquals("c", projection.queryCols().get(2).name());
+    assertEquals(3, querySelPlan.queryCols().size());
+    assertEquals("a", querySelPlan.queryCols().get(0).name());
+    assertEquals("b", querySelPlan.queryCols().get(1).name());
+    assertEquals("c", querySelPlan.queryCols().get(2).name());
 
-    assertEquals(3, projection.outputCols().size());
-    assertEquals("a", projection.outputCols().get(0).name());
-    assertEquals("b", projection.outputCols().get(1).name());
-    assertEquals("c", projection.outputCols().get(2).name());
+    assertEquals(3, querySelPlan.outputCols().size());
+    assertEquals("a", querySelPlan.outputCols().get(0).name());
+    assertEquals("b", querySelPlan.outputCols().get(1).name());
+    assertEquals("c", querySelPlan.outputCols().get(2).name());
 
     // Verify bindings
 
-    assertSame(projection.outputCols().get(0), projection.queryCols().get(0).resolution());
-    assertSame(projection.outputCols().get(1), projection.queryCols().get(1).resolution());
-    assertSame(projection.outputCols().get(2), projection.queryCols().get(2).resolution());
+    assertSame(querySelPlan.outputCols().get(0), querySelPlan.queryCols().get(0).resolution());
+    assertSame(querySelPlan.outputCols().get(1), querySelPlan.queryCols().get(1).resolution());
+    assertSame(querySelPlan.outputCols().get(2), querySelPlan.queryCols().get(2).resolution());
 
-    assertSame(projection.outputCols().get(0).source(), projection.queryCols().get(0));
-    assertSame(projection.outputCols().get(1).source(), projection.queryCols().get(1));
-    assertSame(projection.outputCols().get(2).source(), projection.queryCols().get(2));
+    assertSame(querySelPlan.outputCols().get(0).source(), querySelPlan.queryCols().get(0));
+    assertSame(querySelPlan.outputCols().get(1).source(), querySelPlan.queryCols().get(1));
+    assertSame(querySelPlan.outputCols().get(2).source(), querySelPlan.queryCols().get(2));
 
     // Verify column type
 
-    assertEquals(ColumnType.TABLE, projection.outputCols().get(0).columnType());
+    assertEquals(ColumnType.TABLE, querySelPlan.outputCols().get(0).columnType());
+
+    // Table column selection
+
+    assertEquals(3, querySelPlan.tableColNames().size());
+    assertEquals("a", querySelPlan.tableColNames().get(0));
+    assertEquals("b", querySelPlan.tableColNames().get(1));
+    assertEquals("c", querySelPlan.tableColNames().get(2));
   }
 
   /**
@@ -110,25 +119,27 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
     builder.selectAll();
 
-    QuerySelectionPlan projection = builder.build();
-    assertTrue(projection.isSelectAll());
-    assertEquals(SelectType.WILDCARD, projection.selectType());
+    QuerySelectionPlan querySelPlan = builder.build();
+    assertTrue(querySelPlan.isSelectAll());
+    assertEquals(SelectType.WILDCARD, querySelPlan.selectType());
+    assertFalse(querySelPlan.useLegacyWildcardPartition());
+    assertTrue(querySelPlan.tableColNames().isEmpty());
 
-    assertEquals(1, projection.queryCols().size());
-    assertTrue(projection.queryCols().get(0).isWildcard());
+    assertEquals(1, querySelPlan.queryCols().size());
+    assertTrue(querySelPlan.queryCols().get(0).isWildcard());
 
-    assertEquals(1, projection.outputCols().size());
-    assertEquals("*", projection.outputCols().get(0).name());
-    assertFalse(((OutputColumn.WildcardColumn) (projection.outputCols().get(0))).includePartitions());
+    assertEquals(1, querySelPlan.outputCols().size());
+    assertEquals("*", querySelPlan.outputCols().get(0).name());
+    assertFalse(((OutputColumn.WildcardColumn) (querySelPlan.outputCols().get(0))).includePartitions());
 
     // Verify bindings
 
-    assertSame(projection.outputCols().get(0), projection.queryCols().get(0).resolution());
-    assertSame(projection.outputCols().get(0).source(), projection.queryCols().get(0));
+    assertSame(querySelPlan.outputCols().get(0), querySelPlan.queryCols().get(0).resolution());
+    assertSame(querySelPlan.outputCols().get(0).source(), querySelPlan.queryCols().get(0));
 
     // Verify column type
 
-    assertEquals(ColumnType.WILDCARD, projection.outputCols().get(0).columnType());
+    assertEquals(ColumnType.WILDCARD, querySelPlan.outputCols().get(0).columnType());
   }
 
   /**
@@ -144,25 +155,24 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
     builder.queryCols(selectList("*"));
 
-    QuerySelectionPlan projection = builder.build();
-    assertTrue(projection.isSelectAll());
-    assertEquals(SelectType.WILDCARD, projection.selectType());
+    QuerySelectionPlan querySelPlan = builder.build();
+    assertTrue(querySelPlan.isSelectAll());
+    assertEquals(SelectType.WILDCARD, querySelPlan.selectType());
+    assertEquals(1, querySelPlan.queryCols().size());
+    assertTrue(querySelPlan.queryCols().get(0).isWildcard());
 
-    assertEquals(1, projection.queryCols().size());
-    assertTrue(projection.queryCols().get(0).isWildcard());
-
-    assertEquals(1, projection.outputCols().size());
-    assertEquals("*", projection.outputCols().get(0).name());
-    assertFalse(((OutputColumn.WildcardColumn) (projection.outputCols().get(0))).includePartitions());
+    assertEquals(1, querySelPlan.outputCols().size());
+    assertEquals("*", querySelPlan.outputCols().get(0).name());
+    assertFalse(((OutputColumn.WildcardColumn) (querySelPlan.outputCols().get(0))).includePartitions());
 
     // Verify bindings
 
-    assertSame(projection.outputCols().get(0), projection.queryCols().get(0).resolution());
-    assertSame(projection.outputCols().get(0).source(), projection.queryCols().get(0));
+    assertSame(querySelPlan.outputCols().get(0), querySelPlan.queryCols().get(0).resolution());
+    assertSame(querySelPlan.outputCols().get(0).source(), querySelPlan.queryCols().get(0));
 
     // Verify column type
 
-    assertEquals(ColumnType.WILDCARD, projection.outputCols().get(0).columnType());
+    assertEquals(ColumnType.WILDCARD, querySelPlan.outputCols().get(0).columnType());
   }
 
   /**
@@ -181,22 +191,23 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
     // Build the planner and verify
 
-    QuerySelectionPlan projection = builder.build();
-    assertFalse(projection.isSelectAll());
-    assertEquals(SelectType.COLUMNS_ARRAY, projection.selectType());
-    assertEquals(1, projection.queryCols().size());
+    QuerySelectionPlan querySelPlan = builder.build();
+    assertFalse(querySelPlan.isSelectAll());
+    assertEquals(SelectType.COLUMNS_ARRAY, querySelPlan.selectType());
+    assertEquals(1, querySelPlan.queryCols().size());
+    assertTrue(querySelPlan.tableColNames().isEmpty());
 
-    assertEquals(1, projection.outputCols().size());
-    assertEquals("columns", projection.outputCols().get(0).name());
+    assertEquals(1, querySelPlan.outputCols().size());
+    assertEquals("columns", querySelPlan.outputCols().get(0).name());
 
     // Verify bindings
 
-    assertSame(projection.outputCols().get(0), projection.queryCols().get(0).resolution());
-    assertSame(projection.outputCols().get(0).source(), projection.queryCols().get(0));
+    assertSame(querySelPlan.outputCols().get(0), querySelPlan.queryCols().get(0).resolution());
+    assertSame(querySelPlan.outputCols().get(0).source(), querySelPlan.queryCols().get(0));
 
     // Verify column type
 
-    assertEquals(ColumnType.COLUMNS_ARRAY, projection.outputCols().get(0).columnType());
+    assertEquals(ColumnType.COLUMNS_ARRAY, querySelPlan.outputCols().get(0).columnType());
   }
 
 
@@ -234,18 +245,6 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
     assertEquals(ColumnType.TABLE, projection.outputCols().get(0).columnType());
     assertEquals(ColumnType.FILE_METADATA, projection.outputCols().get(1).columnType());
-
-    // Verify resolving the value for the metadata columns
-
-    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///x/y/z.csv"), (String) null);
-    OutputColumn.FileMetadataColumn mdCol = (OutputColumn.FileMetadataColumn) projection.outputCols().get(1);
-    assertEquals("hdfs:/x/y/z.csv", mdCol.value(fileInfo));
-    mdCol = (OutputColumn.FileMetadataColumn) projection.outputCols().get(2);
-    assertEquals("hdfs:/x/y", mdCol.value(fileInfo));
-    mdCol = (OutputColumn.FileMetadataColumn) projection.outputCols().get(3);
-    assertEquals("z.csv", mdCol.value(fileInfo));
-    mdCol = (OutputColumn.FileMetadataColumn) projection.outputCols().get(4);
-    assertEquals("csv", mdCol.value(fileInfo));
   }
 
   /**
@@ -274,32 +273,6 @@ public class TestSelectionListPlan extends SubOperatorTest {
     assertEquals(ColumnType.FILE_METADATA, projection.outputCols().get(0).columnType());
     assertEquals(ColumnType.COLUMNS_ARRAY, projection.outputCols().get(1).columnType());
     assertEquals(ColumnType.FILE_METADATA, projection.outputCols().get(2).columnType());
-  }
-
-  /**
-   * For obscure reasons, Drill 1.10 and earlier would add all implicit
-   * columns in a SELECT *, then would remove them again in a PROJECT
-   * if not needed.
-   */
-
-  @Test
-  public void testImplicitColumnStarLegacy() {
-    QuerySelectionPlan.Builder builder = new QuerySelectionPlan.Builder(fixture.options());
-    builder.useLegacyStarPlan(true);
-
-    builder.selectAll();
-
-    QuerySelectionPlan projection = builder.build();
-
-    assertTrue(projection.isSelectAll());
-    assertEquals(5, projection.outputCols().size());
-
-    assertEquals(QuerySelectionPlan.WILDCARD, projection.outputCols().get(0).name());
-    assertTrue(((OutputColumn.WildcardColumn) (projection.outputCols().get(0))).includePartitions());
-    assertEquals("fqn", projection.outputCols().get(1).name());
-    assertEquals("filepath", projection.outputCols().get(2).name());
-    assertEquals("filename", projection.outputCols().get(3).name());
-    assertEquals("suffix", projection.outputCols().get(4).name());
   }
 
   /**
@@ -333,41 +306,22 @@ public class TestSelectionListPlan extends SubOperatorTest {
 
     assertEquals(MinorType.VARCHAR, ((OutputColumn.TypedColumn) (projection.outputCols().get(0))).type().getMinorType());
     assertEquals(DataMode.OPTIONAL, ((OutputColumn.TypedColumn) (projection.outputCols().get(0))).type().getMode());
-
-    // Verify resolving the value for the partition columns
-
-    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    OutputColumn.PartitionColumn pCol = (OutputColumn.PartitionColumn) projection.outputCols().get(2);
-    assertEquals("x", pCol.value(fileInfo));
-    pCol = (OutputColumn.PartitionColumn) projection.outputCols().get(1);
-    assertEquals("y", pCol.value(fileInfo));
-    pCol = (OutputColumn.PartitionColumn) projection.outputCols().get(0);
-    assertNull(pCol.value(fileInfo));
   }
-
-  /**
-   * Test the obscure case that the partition column contains two digits:
-   * dir11. Also tests the obscure case that the output only has partition
-   * columns.
-   */
 
   @Test
-  public void testPartitionColumnTwoDigits() {
+  public void testErrorWildcardLegacyAndFileMetaata() {
     QuerySelectionPlan.Builder builder = new QuerySelectionPlan.Builder(fixture.options());
+    builder.useLegacyStarPlan(true);
 
-    builder.queryCols(selectList("dir11"));
+    builder.queryCols(selectList("filename", "*"));
 
-    QuerySelectionPlan projection = builder.build();
-    assertEquals("dir11", projection.outputCols().get(0).name());
-
-    Path path = new Path("hdfs:///x/0/1/2/3/4/5/6/7/8/9/10/d11/z.csv");
-    OutputColumn.ResolvedFileInfo fileInfo = new OutputColumn.ResolvedFileInfo(path, "hdfs:///x");
-    OutputColumn.PartitionColumn pCol = (OutputColumn.PartitionColumn) projection.outputCols().get(0);
-    assertEquals("d11", pCol.value(fileInfo));
+    try {
+      builder.build();
+      fail();
+    } catch (IllegalArgumentException e) {
+      // expected
+    }
   }
-
-  // TODO: testPartitionColumnStarLegacy
-  // TODO: testPartitionColumnStarRevised
 
   @Test
   public void testErrorStarAndColumns() {
@@ -379,6 +333,21 @@ public class TestSelectionListPlan extends SubOperatorTest {
       fail();
     } catch (IllegalArgumentException e) {
       // Expected
+    }
+  }
+
+  @Test
+  public void testErrorWildcardLegacyAndPartition() {
+    QuerySelectionPlan.Builder builder = new QuerySelectionPlan.Builder(fixture.options());
+    builder.useLegacyStarPlan(true);
+
+    builder.queryCols(selectList("*", "dir8"));
+
+    try {
+      builder.build();
+      fail();
+    } catch (IllegalArgumentException e) {
+      // expected
     }
   }
 

@@ -26,6 +26,7 @@ import java.util.regex.Pattern;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.exec.ExecConstants;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.ColumnsArrayColumn;
 import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.ColumnType;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.server.options.OptionValue;
@@ -163,6 +164,8 @@ public class QuerySelectionPlan {
         .append("]");
       return buf.toString();
     }
+
+    public String colName() { return colName; }
   }
 
   /**
@@ -192,7 +195,8 @@ public class QuerySelectionPlan {
     // Output
 
     protected List<OutputColumn> outputCols = new ArrayList<>();
-    protected OutputColumn.ColumnsArrayColumn columnsArrayCol;
+    protected List<String> tableColNames = new ArrayList<>();
+    protected ColumnsArrayColumn columnsArrayCol;
     protected SelectType selectType;
     protected SelectColumn starColumn;
     protected boolean hasMetadata;
@@ -331,6 +335,7 @@ public class QuerySelectionPlan {
       OutputColumn.ExpectedTableColumn tableCol = new OutputColumn.ExpectedTableColumn(inCol);
       inCol.resolution = tableCol;
       outputCols.add(tableCol);
+      tableColNames.add(tableCol.name());
     }
 
     private void mapWildcardColumn(SelectColumn inCol) {
@@ -344,14 +349,16 @@ public class QuerySelectionPlan {
       // in later with actual table columns.
 
       inCol.resolution = new OutputColumn.WildcardColumn(inCol, useLegacyStarPlan);
-      outputCols.add(inCol.resolution);
       if (useLegacyStarPlan) {
+
+        // Old-style wildcard handling inserts all metadata coluns in
+        // the scanner, removes them in Project.
+        // Fill in the file metadata columns. Can do here because the
+        // set is constant across all files.
+
         hasMetadata = true;
-        for (FileMetadataColumnDefn iCol : implicitColDefns) {
-          OutputColumn.FileMetadataColumn outCol = new OutputColumn.FileMetadataColumn(starColumn, iCol);
-          outputCols.add(outCol);
-        }
       }
+      outputCols.add(inCol.resolution);
     }
 
     private void mapColumnsArrayColumn(SelectColumn inCol) {
@@ -371,30 +378,50 @@ public class QuerySelectionPlan {
         throw new IllegalArgumentException("Cannot select columns[] and `*` together");
       }
       for (OutputColumn outCol : outputCols) {
-        if (outCol.columnType() == OutputColumn.ColumnType.TABLE) {
+        switch (outCol.columnType()) {
+        case TABLE:
           if (starColumn != null) {
             throw new IllegalArgumentException("Cannot select table columns and `*` together");
           }
           if (columnsArrayCol != null) {
             throw new IllegalArgumentException("Cannot select columns[] and other table columns: " + outCol.name());
           }
+          break;
+        case FILE_METADATA:
+          if (starColumn != null  &&  useLegacyStarPlan) {
+            throw new IllegalArgumentException("Cannot select file metadata columns and `*` together");
+          }
+          break;
+        case PARTITION:
+          if (starColumn != null  &&  useLegacyStarPlan) {
+            throw new IllegalArgumentException("Cannot select partitions and `*` together");
+          }
+          break;
+        default:
+          break;
         }
       }
     }
   }
 
+  private final String partitionDesignator;
+  private final List<FileMetadataColumnDefn> implicitColDefns;
   private final SelectType selectType;
   private final boolean hasMetadata;
   private final boolean useLegacyStarPlan;
   private final List<SelectColumn> queryCols;
   private final List<OutputColumn> outputCols;
+  private final List<String> tableColNames;
 
   public QuerySelectionPlan(Builder builder) {
+    partitionDesignator = builder.partitionDesignator;
+    implicitColDefns = builder.implicitColDefns;
     selectType = builder.selectType;
     hasMetadata = builder.hasMetadata;
     useLegacyStarPlan = builder.useLegacyStarPlan;
     queryCols = builder.queryCols;
     outputCols = builder.outputCols;
+    tableColNames = builder.tableColNames;
   }
 
   /**
@@ -427,5 +454,11 @@ public class QuerySelectionPlan {
 
   public boolean useLegacyWildcardPartition() { return useLegacyStarPlan; }
 
-  // TODO: Test allowing * (for table) along with metadata columns
+  public List<String> tableColNames() { return tableColNames; }
+
+  public List<FileMetadataColumnDefn> implicitColDefns() { return implicitColDefns; }
+
+  public String partitionName(int partition) {
+    return partitionDesignator + partition;
+  }
 }

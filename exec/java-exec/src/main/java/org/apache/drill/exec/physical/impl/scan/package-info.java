@@ -41,7 +41,7 @@
  * is an old version without a new column c, while file B includes the column.
  * And so on.
  * <p>
- * The scan operator here works to ensure schema continuitity as much as
+ * The scan operator here works to ensure schema continuity as much as
  * possible, smoothing out "soft" schema changes that are simply artifacts of
  * reading a collection of files. Only "hard" changes (true changes) are
  * passed downstream.
@@ -117,6 +117,58 @@
  * <li>Level 3: {@link ScanProjector}.</li>
  * <li>Level 4: {@link OperatorRecordBatch.SchemaTracker}.</li>
  * </ul>
+ * <h4>Selection List Processing</h4>
+ * A key challenge in the scan operator is mapping of table schemas to the
+ * schema returned by the scan operator. We recognize three distinct kinds of
+ * selection:
+ * <ul>
+ * <li>Wildcard: <tt>SELECT *</tt></li>
+ * <li>Generic: <tt>SELECT columns</tt>, where "columns" is an array of column
+ * values. Supported only by readers that return text columns.</li>
+ * <li>Explicit: <tt>SELECT a, b, c, ...</tt> where "a", "b", "c" and so on are
+ * the <i>expected</i> names of table columns</li>
+ * </ul>
+ * Since Drill uses schema-on-read, we are not sure of the table schema until
+ * we actually ask the reader to open the table (file or other data source.)
+ * Then, a table can be "early schema" (known at open time) or "late schema"
+ * (known only after reading data.)
+ * <p>
+ * A selection list goes through three distinct phases to result in a final
+ * schema of the batch returned downstream.
+ * <ol>
+ * <li>Query selection planning: resolves column names to metadata (AKA implicit
+ * or partition) columns, to "*", to the special "columns" column, or to a list
+ * of expected table columns.</li>
+ * <li>File selection planning: determines the values of metadata columns based
+ * on file and/or directory names.</li>
+ * <li>Table selection planning: determines the fully resolved output schema by
+ * resolving the wildcard or selection list against the actual table columns.
+ * A late-schema table may do table selection planning multiple times: once
+ * each time the schema changes.</li>
+ * </ul>
+ * <h4>Output Batch Construction</h4>
+ * The batches produced by the scan have up to four distinct kinds of columns:
+ * <ul>
+ * <li>File metadata (filename, fqn, etc.)</li>
+ * <li>Directory (partition metadata: (dir0, dir1, etc.)</li>
+ * <li>Table columns (or the special "columns" column)</li>
+ * <li>Null columns (expected table columns that turned out to not match any
+ * actual table column. To avoid errors, Drill returns these as columns filled
+ * with nulls.</li>
+ * </ul>
+ * In practice, the scan operator uses three distinct result set loaders to create
+ * these columns:
+ * <ul>
+ * <li>Table loader: for the table itself. This loader uses a selection layer to
+ * write only the data needed for the output batch, skipping unused columns.</li>
+ * <li>Metadata loader: to create the file and directory metadata columns.</li>
+ * <li>Null loader: to populate the null columns.</li>
+ * </ul>
+ * The scan operator merges the three sets of columns to produce the output
+ * batch. The merge step also performs projection: it places columns into the
+ * output batch in the order specified by the original SELECT list (or table order,
+ * if the original SELECT had a wildcard.) Fortunately, this is just involves
+ * moving around pointers to vectors; no actual data is moved during projection.
  */
 
 package org.apache.drill.exec.physical.impl.scan;
