@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.impl.scan;
 
 import org.apache.drill.exec.physical.rowSet.impl.TupleNameSpace;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
 
 /**
@@ -61,4 +62,7 @@ public class MaterializedSchema {
 
   public boolean isEmpty() { return nameSpace.count( ) == 0; }
 
+  public BatchSchema asBatchSchema() {
+    return new BatchSchema(SelectionVectorMode.NONE, nameSpace.entries());
+  }
 }

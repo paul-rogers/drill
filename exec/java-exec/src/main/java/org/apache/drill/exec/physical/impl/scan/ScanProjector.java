@@ -25,6 +25,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.scan.OutputColumn.MetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.OutputColumn.NullColumn;
+import org.apache.drill.exec.physical.impl.scan.OutputColumn.ResolvedFileInfo;
 import org.apache.drill.exec.physical.impl.scan.QuerySelectionPlan.SelectType;
 import org.apache.drill.exec.physical.impl.scan.RowBatchMerger.Builder;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
@@ -427,6 +428,11 @@ public class ScanProjector {
     vectorCache = new ResultVectorCache(allocator);
   }
 
+  public void startTable(ResolvedFileInfo fileInfo) {
+    FileSelectionPlan fileSel = new FileSelectionPlan(querySelPlan, fileInfo);
+    startTable(fileSel);
+  }
+
   public void startTable(FileSelectionPlan filePlan) {
     closeTable();
     prevTableSchemaVersion = 0;
@@ -465,6 +471,9 @@ public class ScanProjector {
 
   public ResultSetLoader makeTableLoader(MaterializedSchema tableSchema) {
 
+    if (filePlan == null) {
+      throw new IllegalStateException("Must start file before setting table schema");
+    }
     tablePlan = filePlan.resolve(tableSchema);
 
     ResultSetLoaderImpl.OptionBuilder options = new ResultSetLoaderImpl.OptionBuilder();

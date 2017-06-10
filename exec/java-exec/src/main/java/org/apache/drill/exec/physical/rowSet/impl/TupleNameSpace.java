@@ -25,6 +25,8 @@ import java.util.Map;
 
 import org.apache.drill.common.map.CaseInsensitiveMap;
 
+import com.google.common.collect.ImmutableList;
+
 /**
  * Implementation of a tuple name space. Tuples allow both indexed and
  * named access to their members.
@@ -75,5 +77,9 @@ public class TupleNameSpace<T> implements Iterable<T> {
 
   public boolean isEmpty() {
     return entries.isEmpty();
+  }
+
+  public List<T> entries() {
+    return ImmutableList.copyOf(entries);
   }
 }

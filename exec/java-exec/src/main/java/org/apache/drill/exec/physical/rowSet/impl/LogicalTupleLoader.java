@@ -187,8 +187,9 @@ public class LogicalTupleLoader implements TupleLoader {
 
   @Override
   public void set(int colIndex, Object value) {
-    if (mappingCache[colIndex] != null) {
-      physicalLoader.set(logicalSchema.get(colIndex).mapping, value);
+    ColumnLoader colLoader = column(colIndex);
+    if (colLoader != null) {
+      colLoader.set(value);
     }
   }
 }
