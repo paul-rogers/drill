@@ -507,5 +507,12 @@ public class ScanProjectionDefn {
           .build();
   }
 
+  public static MajorType nullType() {
+    return MajorType.newBuilder()
+        .setMinorType(MinorType.NULL)
+        .setMode(DataMode.OPTIONAL)
+        .build();
+  }
+
   public MajorType columnsArrayType() { return columnsArrayType; }
 }

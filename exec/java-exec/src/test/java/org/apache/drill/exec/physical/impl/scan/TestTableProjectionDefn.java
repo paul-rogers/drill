@@ -19,12 +19,10 @@ package org.apache.drill.exec.physical.impl.scan;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ColumnType;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadata;
@@ -48,7 +46,7 @@ public class TestTableProjectionDefn extends SubOperatorTest {
     ScanProjectionDefn scanProj = scanProjBuilder.build();
 
     FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileProjectionDefn fileProj = new FileProjectionDefn(scanProj, fileInfo);
+    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
     assertEquals(3, fileProj.output().size());
 
     MaterializedSchema tableSchema = new SchemaBuilder()
@@ -57,20 +55,24 @@ public class TestTableProjectionDefn extends SubOperatorTest {
         .addArray("d", MinorType.FLOAT8)
         .buildSchema();
 
-    TableProjectionDefn tableProj = fileProj.resolve(tableSchema);
+    TableLevelProjection tableProj = fileProj.resolve(tableSchema);
     assertFalse(tableProj.hasNullColumns());
-    assertEquals(5, tableProj.output().size());
+
+    MaterializedSchema expectedSchema = new SchemaBuilder()
+        .add("filename", MinorType.VARCHAR)
+        .add("a", MinorType.VARCHAR)
+        .addNullable("c", MinorType.INT)
+        .addArray("d", MinorType.FLOAT8)
+        .addNullable("dir0", MinorType.VARCHAR)
+        .buildSchema();
+
+    assertTrue(tableProj.outputSchema().isEquivalent(expectedSchema));
 
     assertEquals(ColumnType.FILE_METADATA, tableProj.output().get(0).columnType());
-    assertEquals("filename", tableProj.output().get(0).name());
     assertEquals(ColumnType.PROJECTED, tableProj.output().get(1).columnType());
-    assertEquals("a", tableProj.output().get(1).name());
     assertEquals(ColumnType.PROJECTED, tableProj.output().get(2).columnType());
-    assertEquals("c", tableProj.output().get(2).name());
     assertEquals(ColumnType.PROJECTED, tableProj.output().get(3).columnType());
-    assertEquals("d", tableProj.output().get(3).name());
     assertEquals(ColumnType.PARTITION, tableProj.output().get(4).columnType());
-    assertEquals("dir0", tableProj.output().get(4).name());
 
     boolean selMap[] = tableProj.selectionMap();
     assertEquals(3, selMap.length);
@@ -103,7 +105,7 @@ public class TestTableProjectionDefn extends SubOperatorTest {
     ScanProjectionDefn scanProj = scanProjBuilder.build();
 
     FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileProjectionDefn fileProj = new FileProjectionDefn(scanProj, fileInfo);
+    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
 
     MaterializedSchema tableSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
@@ -111,21 +113,23 @@ public class TestTableProjectionDefn extends SubOperatorTest {
         .add("d", MinorType.VARCHAR)
         .buildSchema();
 
-    TableProjectionDefn tableProj = fileProj.resolve(tableSchema);
+    TableLevelProjection tableProj = fileProj.resolve(tableSchema);
     assertFalse(tableProj.hasNullColumns());
-    assertEquals(3, tableProj.output().size());
+
+    MaterializedSchema expectedSchema = new SchemaBuilder()
+        .add("filename", MinorType.VARCHAR)
+        .addArray("columns", MinorType.VARCHAR)
+        .addNullable("dir0", MinorType.VARCHAR)
+        .buildSchema();
+
+    assertTrue(tableProj.outputSchema().isEquivalent(expectedSchema));
 
     assertEquals(ColumnType.FILE_METADATA, tableProj.output().get(0).columnType());
-    assertEquals("filename", tableProj.output().get(0).name());
 
     // The columns array is now an actual table column.
 
     assertEquals(ColumnType.PROJECTED, tableProj.output().get(1).columnType());
-    assertEquals("columns", tableProj.output().get(1).name());
     assertEquals(ColumnType.PARTITION, tableProj.output().get(2).columnType());
-    assertEquals("dir0", tableProj.output().get(2).name());
-    assertEquals(MinorType.VARCHAR, tableProj.output().get(1).type().getMinorType());
-    assertEquals(DataMode.REPEATED, tableProj.output().get(1).type().getMode());
 
     boolean selMap[] = tableProj.selectionMap();
     assertTrue(selMap[0]);
@@ -151,7 +155,7 @@ public class TestTableProjectionDefn extends SubOperatorTest {
     ScanProjectionDefn scanProj = scanProjBuilder.build();
 
     FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileProjectionDefn fileProj = new FileProjectionDefn(scanProj, fileInfo);
+    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
 
     MaterializedSchema tableSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
@@ -182,7 +186,7 @@ public class TestTableProjectionDefn extends SubOperatorTest {
     ScanProjectionDefn scanProj = scanProjBuilder.build();
 
     FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileProjectionDefn fileProj = new FileProjectionDefn(scanProj, fileInfo);
+    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
 
     // Simulate a data source, with early schema, of (a, b, c)
 
@@ -192,18 +196,19 @@ public class TestTableProjectionDefn extends SubOperatorTest {
         .add("C", MinorType.VARCHAR)
         .buildSchema();
 
-    TableProjectionDefn tableProj = fileProj.resolve(tableSchema);
+    TableLevelProjection tableProj = fileProj.resolve(tableSchema);
     assertFalse(tableProj.hasNullColumns());
 
-    assertEquals(3, tableProj.output().size());
+    MaterializedSchema expectedSchema = new SchemaBuilder()
+        .add("c", MinorType.VARCHAR)
+        .add("b", MinorType.VARCHAR)
+        .add("a", MinorType.VARCHAR)
+        .buildSchema();
+
+    assertTrue(tableProj.outputSchema().isEquivalent(expectedSchema));
     assertEquals(ColumnType.PROJECTED, tableProj.output().get(0).columnType());
-    assertEquals(MinorType.VARCHAR, tableProj.output().get(0).type().getMinorType());
-    assertEquals(DataMode.REQUIRED, tableProj.output().get(0).type().getMode());
-    assertEquals("c", tableProj.output().get(0).name());
     assertEquals(ColumnType.PROJECTED, tableProj.output().get(1).columnType());
-    assertEquals("b", tableProj.output().get(1).name());
     assertEquals(ColumnType.PROJECTED, tableProj.output().get(2).columnType());
-    assertEquals("a", tableProj.output().get(2).name());
 
     boolean selMap[] = tableProj.selectionMap();
     assertEquals(3, selMap.length);
@@ -237,7 +242,7 @@ public class TestTableProjectionDefn extends SubOperatorTest {
     ScanProjectionDefn scanProj = scanProjBuilder.build();
 
     FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileProjectionDefn fileProj = new FileProjectionDefn(scanProj, fileInfo);
+    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
 
     // Simulate a data source, with early schema, of (a, b, c)
 
@@ -247,19 +252,17 @@ public class TestTableProjectionDefn extends SubOperatorTest {
         .add("C", MinorType.VARCHAR)
         .buildSchema();
 
-    TableProjectionDefn tableProj = fileProj.resolve(tableSchema);
+    TableLevelProjection tableProj = fileProj.resolve(tableSchema);
     assertTrue(tableProj.hasNullColumns());
 
-    assertEquals(4, tableProj.output().size());
-    assertEquals(ColumnType.PROJECTED, tableProj.output().get(0).columnType());
-    assertEquals("c", tableProj.output().get(0).name());
-    assertEquals(ColumnType.NULL, tableProj.output().get(1).columnType());
-    assertEquals("v", tableProj.output().get(1).name());
-    assertEquals(ColumnType.PROJECTED, tableProj.output().get(2).columnType());
-    assertEquals("b", tableProj.output().get(2).name());
-    assertEquals(ColumnType.NULL, tableProj.output().get(3).columnType());
-    assertEquals("w", tableProj.output().get(3).name());
-    assertEquals(tableProj.output().get(3).type().getMinorType(), MinorType.NULL);
+    MaterializedSchema expectedSchema = new SchemaBuilder()
+        .add("c", MinorType.VARCHAR)
+        .addNullable("v", MinorType.NULL)
+        .add("b", MinorType.VARCHAR)
+        .addNullable("w", MinorType.NULL)
+        .buildSchema();
+
+    assertTrue(tableProj.outputSchema().isEquivalent(expectedSchema));
 
     boolean selMap[] = tableProj.selectionMap();
     assertEquals(3, selMap.length);
@@ -291,13 +294,13 @@ public class TestTableProjectionDefn extends SubOperatorTest {
   public void testSubset() {
     ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
 
-    // Simulate SELECT c, b, a ...
+    // Simulate SELECT c, a ...
 
     scanProjBuilder.queryCols(TestScanProjectionDefn.projectList("c", "a"));
     ScanProjectionDefn scanProj = scanProjBuilder.build();
 
     FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileProjectionDefn fileProj = new FileProjectionDefn(scanProj, fileInfo);
+    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
 
     // Simulate a data source, with early schema, of (a, b, c)
 
@@ -307,12 +310,15 @@ public class TestTableProjectionDefn extends SubOperatorTest {
         .add("C", MinorType.VARCHAR)
         .buildSchema();
 
-    TableProjectionDefn tableProj = fileProj.resolve(tableSchema);
+    TableLevelProjection tableProj = fileProj.resolve(tableSchema);
     assertFalse(tableProj.hasNullColumns());
 
-    assertEquals(2, tableProj.output().size());
-    assertEquals("c", tableProj.output().get(0).name());
-    assertEquals("a", tableProj.output().get(1).name());
+    MaterializedSchema expectedSchema = new SchemaBuilder()
+        .add("c", MinorType.VARCHAR)
+        .add("a", MinorType.VARCHAR)
+        .buildSchema();
+
+    assertTrue(tableProj.outputSchema().isEquivalent(expectedSchema));
 
     boolean selMap[] = tableProj.selectionMap();
     assertEquals(3, selMap.length);

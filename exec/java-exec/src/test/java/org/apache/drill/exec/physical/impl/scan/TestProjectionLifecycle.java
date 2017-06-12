@@ -274,6 +274,41 @@ public class TestProjectionLifecycle extends SubOperatorTest {
   }
 
   /**
+   * The prior and table schemas are identical, but the cases of names differ.
+   * Preserve the case of the first schema.
+   */
+
+  @Test
+  public void testDifferentCase() {
+    MaterializedSchema priorSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
+    MaterializedSchema tableSchema = new SchemaBuilder()
+        .add("A", MinorType.INT)
+        .add("B", MinorType.VARCHAR)
+        .buildSchema();
+
+    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    scanProjBuilder.useLegacyWildcardExpansion(false);
+    scanProjBuilder.projectAll();
+    ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
+
+    {
+      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
+      lifecycle.startFile(fileInfo);
+      lifecycle.startSchema(priorSchema);
+    }
+    {
+      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
+      lifecycle.startFile(fileInfo);
+      lifecycle.startSchema(tableSchema);
+      assertEquals(1, lifecycle.schemaVersion());
+      assertTrue(lifecycle.outputSchema().isEquivalent(priorSchema));
+    }
+  }
+
+  /**
    * Can't preserve the prior schema if it had required columns
    * where the new schema has no columns.
    */

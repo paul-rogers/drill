@@ -28,6 +28,9 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ColumnsArrayColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.NullColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ProjectedColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.RequestedTableColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.WildcardColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.ProjectionType;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.store.ImplicitColumnExplorer;
 
@@ -70,9 +73,9 @@ import com.google.common.annotations.VisibleForTesting;
  * evolved
  */
 
-public class TableProjectionDefn {
+public class TableLevelProjection {
 
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TableProjectionDefn.class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TableLevelProjection.class);
 
   private static class BaseTableColumnVisitor extends ScanOutputColumn.Visitor {
 
@@ -126,7 +129,7 @@ public class TableProjectionDefn {
     }
 
     @Override
-    protected void visitWildcard(int index, ScanOutputColumn.WildcardColumn col) {
+    protected void visitWildcard(int index, WildcardColumn col) {
       for (int i = 0; i < tableSchema.size(); i++) {
         addTableColumn(ProjectedColumn.fromWildcard(col,
             i, tableSchema.column(i)));
@@ -170,16 +173,17 @@ public class TableProjectionDefn {
     }
 
     @Override
-    protected void visitTableColumn(int index, ScanOutputColumn.RequestedTableColumn col) {
+    protected void visitTableColumn(int index, RequestedTableColumn col) {
       int tableColIndex = tableSchema.index(col.name());
       if (tableColIndex == -1) {
-        NullColumn nullCol = NullColumn.fromResolution(col.inCol);
+        NullColumn nullCol = NullColumn.fromResolution(col);
         nullProjectionMap[nullCols.size()] = outputCols.size();
         outputCols.add(nullCol);
         nullCols.add(nullCol);
       } else {
         addTableColumn(
-            ProjectedColumn.fromResolution(col, tableColIndex, tableSchema.column(tableColIndex)));
+            ProjectedColumn.fromResolution(col, tableColIndex,
+                tableSchema.column(tableColIndex)));
       }
     }
   }
@@ -204,7 +208,7 @@ public class TableProjectionDefn {
     }
   }
 
-  private final FileProjectionDefn filePlan;
+  private final FileLevelProjection fileProjection;
   private final MaterializedSchema tableSchema;
   private final List<ScanOutputColumn> outputCols;
 
@@ -233,17 +237,20 @@ public class TableProjectionDefn {
 
   protected final List<NullColumn> nullCols;
 
-  public TableProjectionDefn(FileProjectionDefn filePlan, MaterializedSchema tableSchema) {
-    this.filePlan = filePlan;
+  private TableLevelProjection(FileLevelProjection fileProj,
+                    MaterializedSchema tableSchema, boolean reresolve) {
+    fileProjection = fileProj;
     this.tableSchema = tableSchema;
     BaseTableColumnVisitor baseBuilder;
-    switch (filePlan.scanProjection().projectType()) {
+    ProjectionType projType = reresolve ? ProjectionType.LIST
+                                        : fileProj.scanProjection().projectType();
+    switch (projType) {
 
     // SELECT a, b, c
 
     case LIST:
       TableSchemaProjection schemaProj = new TableSchemaProjection(tableSchema);
-      schemaProj.visit(filePlan.output());
+      schemaProj.visit(fileProj.output());
       nullCols = schemaProj.nullCols;
       nullProjectionMap = schemaProj.nullProjectionMap;
       baseBuilder = schemaProj;
@@ -253,7 +260,7 @@ public class TableProjectionDefn {
 
     case WILDCARD:
       WildcardExpander expander = new WildcardExpander(tableSchema);
-      expander.visit(filePlan.output());
+      expander.visit(fileProj.output());
       nullCols = null;
       nullProjectionMap = null;
       baseBuilder = expander;
@@ -262,16 +269,16 @@ public class TableProjectionDefn {
     // SELECT columns
 
     case COLUMNS_ARRAY:
-      validateColumnsArray(filePlan.output());
+      validateColumnsArray(fileProj.output());
       ColumnsArrayProjection colArrayProj = new ColumnsArrayProjection(tableSchema);
-      colArrayProj.visit(filePlan.output());
+      colArrayProj.visit(fileProj.output());
       nullCols = null;
       nullProjectionMap = null;
       baseBuilder = colArrayProj;
       break;
     default:
       throw new IllegalStateException("Unexpected selection type: " +
-                filePlan.scanProjection().projectType());
+                fileProj.scanProjection().projectType());
     }
     outputCols = baseBuilder.outputCols;
     selectionMap = baseBuilder.columnIsProjected;
@@ -279,8 +286,8 @@ public class TableProjectionDefn {
     tableColumnProjectionMap = baseBuilder.projectionMap;
   }
 
-  public ScanProjectionDefn scanProjection() { return filePlan.scanProjection(); }
-  public FileProjectionDefn fileProjection() { return filePlan; }
+  public ScanProjectionDefn scanProjection() { return fileProjection.scanProjection(); }
+  public FileLevelProjection fileProjection() { return fileProjection; }
   public List<ScanOutputColumn> output() { return outputCols; }
   public boolean[] selectionMap() { return selectionMap; }
   public int[] logicalToPhysicalMap() { return logicalToPhysicalMap; }
@@ -323,5 +330,32 @@ public class TableProjectionDefn {
       return false;
     }
     return type.getMinorType() == MinorType.VARCHAR;
+  }
+
+  /**
+   * Resolve a file-level projection definition by resolving each table-column
+   * reference and/or expanding a wildcard.
+   *
+   * @param fileProj the file-level projection definition
+   * @param tableSchema the current table (or batch) schema
+   * @return the fully resolved table-level projection
+   */
+
+  public static TableLevelProjection resolve(
+      FileLevelProjection fileProj, MaterializedSchema tableSchema) {
+    return new TableLevelProjection(fileProj, tableSchema, false);
+  }
+
+  /**
+   * Re-resolve a projection created by "unresolving" a prior wildcard
+   * projection. This is a special case: we resolve as if the original projection
+   * were of the form SELECT a, b, c, but we use the names of the
+   * @param fileProj
+   * @param tableSchema
+   * @return
+   */
+  public static TableLevelProjection reresolve(
+      FileLevelProjection fileProj, MaterializedSchema tableSchema) {
+    return new TableLevelProjection(fileProj, tableSchema, true);
   }
 }

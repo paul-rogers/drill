@@ -427,8 +427,8 @@ public class ScanProjector {
   }
 
   public void startFile(FileMetadata fileInfo) {
-    projectionDefn.startFile(fileInfo);
     closeTable();
+    projectionDefn.startFile(fileInfo);
     prevTableSchemaVersion = 0;
     buildMetadataColumns();
   }
@@ -553,7 +553,7 @@ public class ScanProjector {
    */
 
   private void buildNullColumns(Builder builder) {
-    TableProjectionDefn tableProj = projectionDefn.tableProjection();
+    TableLevelProjection tableProj = projectionDefn.tableProjection();
     if (! tableProj.hasNullColumns()) {
       return;
     }
@@ -584,7 +584,7 @@ public class ScanProjector {
     // vector index of the table column. Non-projected table columns
     // don't have a vector, so can't use the table column index directly.
 
-    TableProjectionDefn tableProj = projectionDefn.tableProjection();
+    TableLevelProjection tableProj = projectionDefn.tableProjection();
     VectorContainer tableContainer = tableLoader.outputContainer();
     TupleSchema tableSchema = tableLoader.writer().schema();
     int tableColCount = tableSchema.columnCount();
@@ -625,7 +625,7 @@ public class ScanProjector {
     if (metadataColumnLoader == null) {
       return;
     }
-    FileProjectionDefn fileProj = projectionDefn.fileProjection();
+    FileLevelProjection fileProj = projectionDefn.fileProjection();
     VectorContainer metadataContainer = metadataColumnLoader.output();
     List<MetadataColumn> metadataCols = metadataColumnLoader.columns();
     for (int i = 0; i < metadataCols.size(); i++) {

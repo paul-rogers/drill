@@ -87,7 +87,7 @@ public abstract class ScanOutputColumn {
     }
 
     public static RequestedTableColumn fromSelect(RequestedColumn inCol) {
-      return new RequestedTableColumn(inCol, inCol.name(), null);
+      return new RequestedTableColumn(inCol, inCol.name(), ScanProjectionDefn.nullType());
     }
 
     public static RequestedTableColumn fromUnresolution(TypedColumn resolved) {
@@ -198,6 +198,7 @@ public abstract class ScanOutputColumn {
         return super.name();
       }
     }
+
     @Override
     protected void buildString(StringBuilder buf) {
       super.buildString(buf);
@@ -299,15 +300,8 @@ public abstract class ScanOutputColumn {
       super(inCol, name, type);
     }
 
-    public static NullColumn fromResolution(RequestedColumn inCol) {
-      return new NullColumn(inCol, inCol.name(), nullType());
-    }
-
-    public static MajorType nullType() {
-      return MajorType.newBuilder()
-          .setMinorType(MinorType.NULL)
-          .setMode(DataMode.OPTIONAL)
-          .build();
+    public static NullColumn fromResolution(RequestedTableColumn tableCol) {
+      return new NullColumn(tableCol.source(), tableCol.name(), tableCol.type());
     }
 
     @Override
@@ -350,7 +344,7 @@ public abstract class ScanOutputColumn {
 
     public static ProjectedColumn fromResolution(RequestedTableColumn col,
         int columnIndex, MaterializedField column) {
-      return new ProjectedColumn(col.source(), col.inCol.name(),
+      return new ProjectedColumn(col.source(), col.name(),
           columnIndex, column);
     }
 
@@ -507,11 +501,12 @@ public abstract class ScanOutputColumn {
   public abstract ScanOutputColumn.ColumnType columnType();
   public String name() { return name; }
   public RequestedColumn source() { return inCol; }
-  public MajorType type() { return null; }
+  public MajorType type() { return ScanProjectionDefn.nullType(); }
   public ScanOutputColumn unresolve() { return this; }
 
   protected void buildString(StringBuilder buf) { }
   protected abstract void visit(int index, ScanOutputColumn.Visitor visitor);
+
 
   @Override
   public String toString() {
@@ -538,11 +533,7 @@ public abstract class ScanOutputColumn {
 
   @VisibleForTesting
   public MaterializedField schema() {
-    MajorType type = type();
-    if (type == null) {
-      type = NullColumn.nullType();
-    }
-    return MaterializedField.create(name(), type);
+    return MaterializedField.create(name(), type());
   }
 
   @VisibleForTesting

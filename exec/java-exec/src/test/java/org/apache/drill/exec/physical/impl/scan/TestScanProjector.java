@@ -17,10 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +31,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadataCol
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.NullColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.PartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.RequestedTableColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.RequestedColumn;
@@ -103,15 +101,19 @@ public class TestScanProjector extends SubOperatorTest {
     staticLoader.close();
   }
 
+  private NullColumn makeNullCol(String name) {
+    return NullColumn.fromResolution(RequestedTableColumn.fromSelect(buildSelectCol(name)));
+  }
+
   @SuppressWarnings("resource")
   @Test
   public void testNullColumnLoader() {
 
     List<NullColumn> defns = new ArrayList<>();
-    defns.add(NullColumn.fromResolution(buildSelectCol("req")));
-    defns.add(NullColumn.fromResolution(buildSelectCol("opt")));
-    defns.add(NullColumn.fromResolution(buildSelectCol("rep")));
-    defns.add(NullColumn.fromResolution(buildSelectCol("unk")));
+    defns.add(makeNullCol("req"));
+    defns.add(makeNullCol("opt"));
+    defns.add(makeNullCol("rep"));
+    defns.add(makeNullCol("unk"));
 
     // Populate the cache with a column of each mode.
 
@@ -995,156 +997,154 @@ public class TestScanProjector extends SubOperatorTest {
     projector.close();
   }
 
-  // Test turns out to be near impossible to do right. Trying to make this work
-  // forced us to realize that schema persistence is non-trivial, and perhaps
-  // not even desired, with a SELECT * query and changing underlying schema.
-//  /**
-//   * A SELECT * query uses the schema of the table as the output schema.
-//   * This is trivial when the scanner has one table. But, if two or more
-//   * tables occur, then things get interesting. The first table sets the
-//   * schema. The second table then has:
-//   * <ul>
-//   * <li>The same schema, trivial case.</li>
-//   * <li>A subset of the first table. The type of the "missing" column
-//   * from the first table is used for a null column in the second table.</li>
-//   * <li>A superset or disjoint set of the first schema. This triggers a hard schema
-//   * change.</li>
-//   * </ul>
-//   * <p>
-//   * It is an open question whether previous columns should be preserved on
-//   * a hard reset. For now, the code implements, and this test verifies, that a
-//   * hard reset clears the "memory" of prior schemas.
-//   */
-//
-//  @Test
-//  public void testSelectStarSmoothing() {
-//
-//    ScanProjector projector = new ScanProjector(fixture.allocator(), null);
-//
-//    BatchSchema firstSchema = new SchemaBuilder()
-//        .add("a", MinorType.INT)
-//        .addNullable("b", MinorType.VARCHAR, 10)
-//        .addNullable("c", MinorType.BIGINT)
-//        .build();
-//    BatchSchema subsetSchema = new SchemaBuilder()
-//        .addNullable("b", MinorType.VARCHAR, 10)
-//        .add("a", MinorType.INT)
-//        .build();
-//    BatchSchema disjointSchema = new SchemaBuilder()
-//        .add("a", MinorType.INT)
-//        .addNullable("b", MinorType.VARCHAR, 10)
-//        .add("d", MinorType.VARCHAR)
-//        .build();
-//
-//    SchemaTracker tracker = new SchemaTracker();
-//    int schemaVersion;
-//    {
-//      // First table, establishes the baseline
-//
-//      ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
-//      builder.queryCols(TestScanProjectionPlanner.selectList("*"));
-//      builder.tableColumns(firstSchema);
-//      ScanProjection projection = builder.build();
-//      ResultSetLoader loader = projector.makeTableLoader(projection);
-//
-//      loader.startBatch();
-//      loader.writer()
-//          .loadRow(10, "fred", 110L)
-//          .loadRow(20, "wilma", 110L);
-//      projector.publish();
-//
-//      tracker.trackSchema(projector.output());
-//      schemaVersion = tracker.schemaVersion();
-//
-//      SingleRowSet expected = fixture.rowSetBuilder(firstSchema)
-//          .add(10, "fred", 110L)
-//          .add(20, "wilma", 110L)
-//          .build();
-//      new RowSetComparison(expected)
-//        .verifyAndClearAll(fixture.wrap(projector.output()));
-//    }
-//    {
-//      // Second table, same schema, the trivial case
-//
-//      ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
-//      builder.queryCols(TestScanProjectionPlanner.selectList("*"));
-//      builder.tableColumns(firstSchema);
-//      builder.priorSchema(projector.output().getSchema());
-//      ScanProjection projection = builder.build();
-//      ResultSetLoader loader = projector.makeTableLoader(projection);
-//
-//      loader.startBatch();
-//      loader.writer()
-//          .loadRow(70, "pebbles", 770L)
-//          .loadRow(80, "hoppy", 880L);
-//      projector.publish();
-//
-//      tracker.trackSchema(projector.output());
-//      assertEquals(schemaVersion, tracker.schemaVersion());
-//
-//      SingleRowSet expected = fixture.rowSetBuilder(firstSchema)
-//          .add(70, "pebbles", 770L)
-//          .add(80, "hoppy", 880L)
-//          .build();
-//      new RowSetComparison(expected)
-//        .verifyAndClearAll(fixture.wrap(projector.output()));
-//    }
-//    {
-//      // Third table: subset schema of first two
-//
-//      ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
-//      builder.queryCols(TestScanProjectionPlanner.selectList("*"));
-//      builder.tableColumns(subsetSchema);
-//      builder.priorSchema(projector.output().getSchema());
-//      ScanProjection projection = builder.build();
-//      ResultSetLoader loader = projector.makeTableLoader(projection);
-//
-//      loader.startBatch();
-//      loader.writer()
-//          .loadRow("bambam", 30)
-//          .loadRow("betty", 40);
-//      projector.publish();
-//
-//      tracker.trackSchema(projector.output());
-//      assertEquals(schemaVersion, tracker.schemaVersion());
-//
-//      SingleRowSet expected = fixture.rowSetBuilder(firstSchema)
-//          .add(30, "bambam", null)
-//          .add(40, "betty", null)
-//          .build();
-//      new RowSetComparison(expected)
-//        .verifyAndClearAll(fixture.wrap(projector.output()));
-//    }
-//    {
-//      // Fourth table: disjoint schema, cases a schema reset
-//
-//      ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
-//      builder.queryCols(TestScanProjectionPlanner.selectList("*"));
-//      builder.tableColumns(disjointSchema);
-//      builder.priorSchema(projector.output().getSchema());
-//      ScanProjection projection = builder.build();
-//      ResultSetLoader loader = projector.makeTableLoader(projection);
-//
-//      loader.startBatch();
-//      loader.writer()
-//          .loadRow(50, "dino", "supporting")
-//          .loadRow(60, "barney", "main");
-//      projector.publish();
-//
-//      tracker.trackSchema(projector.output());
-//      assertNotEquals(schemaVersion, tracker.schemaVersion());
-//
-//      SingleRowSet expected = fixture.rowSetBuilder(disjointSchema)
-//          .add(50, "dino", "supporting")
-//          .add(60, "barney", "main")
-//          .build();
-//      new RowSetComparison(expected)
-//        .verifyAndClearAll(fixture.wrap(projector.output()));
-//    }
-//
-//    projector.close();
-//  }
+  /**
+   * A SELECT * query uses the schema of the table as the output schema.
+   * This is trivial when the scanner has one table. But, if two or more
+   * tables occur, then things get interesting. The first table sets the
+   * schema. The second table then has:
+   * <ul>
+   * <li>The same schema, trivial case.</li>
+   * <li>A subset of the first table. The type of the "missing" column
+   * from the first table is used for a null column in the second table.</li>
+   * <li>A superset or disjoint set of the first schema. This triggers a hard schema
+   * change.</li>
+   * </ul>
+   * <p>
+   * It is an open question whether previous columns should be preserved on
+   * a hard reset. For now, the code implements, and this test verifies, that a
+   * hard reset clears the "memory" of prior schemas.
+   */
 
+  @Test
+  public void testWildcardSmoothing() {
+
+    ScanProjectionDefn.Builder querySelBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    querySelBuilder.useLegacyWildcardExpansion(false);
+    querySelBuilder.projectAll();
+    ScanProjectionDefn querySelPlan = querySelBuilder.build();
+
+    ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
+
+    MaterializedSchema firstSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addNullable("b", MinorType.VARCHAR, 10)
+        .addNullable("c", MinorType.BIGINT)
+        .buildSchema();
+    MaterializedSchema subsetSchema = new SchemaBuilder()
+        .addNullable("b", MinorType.VARCHAR, 10)
+        .add("a", MinorType.INT)
+        .buildSchema();
+    MaterializedSchema disjointSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addNullable("b", MinorType.VARCHAR, 10)
+        .add("d", MinorType.VARCHAR)
+        .buildSchema();
+
+    SchemaTracker tracker = new SchemaTracker();
+    int schemaVersion;
+    {
+      // First table, establishes the baseline
+      // ... FROM file a.csv
+
+      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
+      projector.startFile(fileInfo);
+
+      ResultSetLoader loader = projector.makeTableLoader(firstSchema);
+
+      loader.startBatch();
+      loader.writer()
+          .loadRow(10, "fred", 110L)
+          .loadRow(20, "wilma", 110L);
+      projector.publish();
+
+      tracker.trackSchema(projector.output());
+      schemaVersion = tracker.schemaVersion();
+
+      SingleRowSet expected = fixture.rowSetBuilder(firstSchema)
+          .add(10, "fred", 110L)
+          .add(20, "wilma", 110L)
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+    }
+    {
+      // Second table, same schema, the trivial case
+      // ... FROM file b.csv
+
+      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
+      projector.startFile(fileInfo);
+
+      ResultSetLoader loader = projector.makeTableLoader(firstSchema);
+
+      loader.startBatch();
+      loader.writer()
+          .loadRow(70, "pebbles", 770L)
+          .loadRow(80, "hoppy", 880L);
+      projector.publish();
+
+      tracker.trackSchema(projector.output());
+      assertEquals(schemaVersion, tracker.schemaVersion());
+
+      SingleRowSet expected = fixture.rowSetBuilder(firstSchema)
+          .add(70, "pebbles", 770L)
+          .add(80, "hoppy", 880L)
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+    }
+    {
+      // Third table: subset schema of first two
+      // ... FROM file b.csv
+
+      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/c.csv"), "hdfs:///w");
+      projector.startFile(fileInfo);
+
+      ResultSetLoader loader = projector.makeTableLoader(subsetSchema);
+
+      loader.startBatch();
+      loader.writer()
+          .loadRow("bambam", 30)
+          .loadRow("betty", 40);
+      projector.publish();
+
+      tracker.trackSchema(projector.output());
+      assertEquals(schemaVersion, tracker.schemaVersion());
+
+      SingleRowSet expected = fixture.rowSetBuilder(firstSchema)
+          .add(30, "bambam", null)
+          .add(40, "betty", null)
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+    }
+    {
+      // Fourth table: disjoint schema, cases a schema reset
+      // ... FROM file b.csv
+
+      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/c.csv"), "hdfs:///w");
+      projector.startFile(fileInfo);
+
+      ResultSetLoader loader = projector.makeTableLoader(disjointSchema);
+
+      loader.startBatch();
+      loader.writer()
+          .loadRow(50, "dino", "supporting")
+          .loadRow(60, "barney", "main");
+      projector.publish();
+
+      tracker.trackSchema(projector.output());
+      assertNotEquals(schemaVersion, tracker.schemaVersion());
+
+      SingleRowSet expected = fixture.rowSetBuilder(disjointSchema)
+          .add(50, "dino", "supporting")
+          .add(60, "barney", "main")
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+    }
+
+    projector.close();
+  }
 
   /**
    * Verify that metadata columns follow distinct files

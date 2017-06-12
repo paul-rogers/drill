@@ -112,7 +112,7 @@ public abstract class ProjectionLifecycle {
 
     @Override
     public void startFile(FileMetadata fileInfo) {
-      fileProjDefn = new FileProjectionDefn(scanProjDefn, fileInfo);
+      fileProjDefn = new FileLevelProjection(scanProjDefn, fileInfo);
       tableProjDefn = null;
       schemaVersion++;
     }
@@ -178,7 +178,7 @@ public abstract class ProjectionLifecycle {
     public void startFile(FileMetadata newFileInfo) {
       this.fileInfo = newFileInfo;
       if (priorSchema != null && isCompatible(newFileInfo)) {
-        fileProjDefn = new FileProjectionDefn(scanProjDefn, priorSchema.generatedSelect, fileInfo);
+        fileProjDefn = new FileLevelProjection(scanProjDefn, priorSchema.generatedSelect, fileInfo);
       } else {
         resetFileSchema();
       }
@@ -186,7 +186,7 @@ public abstract class ProjectionLifecycle {
 
     private void resetFileSchema() {
       priorSchema = null;
-      fileProjDefn = new FileProjectionDefn(scanProjDefn, fileInfo);
+      fileProjDefn = new FileLevelProjection(scanProjDefn, fileInfo);
       schemaVersion++;
     }
 
@@ -269,8 +269,8 @@ public abstract class ProjectionLifecycle {
    * columns resolved.
    */
 
-  protected FileProjectionDefn fileProjDefn;
-  protected TableProjectionDefn tableProjDefn;
+  protected FileLevelProjection fileProjDefn;
+  protected TableLevelProjection tableProjDefn;
 
   /**
    * Tracks the schema version last seen from the table loader. Used to detect
@@ -286,8 +286,8 @@ public abstract class ProjectionLifecycle {
   public abstract void startFile(FileMetadata fileInfo);
   public abstract void startSchema(MaterializedSchema newSchema);
   public ScanProjectionDefn scanProjection() { return scanProjDefn; }
-  public FileProjectionDefn fileProjection() { return fileProjDefn; }
-  public TableProjectionDefn tableProjection() { return tableProjDefn; }
+  public FileLevelProjection fileProjection() { return fileProjDefn; }
+  public TableLevelProjection tableProjection() { return tableProjDefn; }
   public MaterializedSchema outputSchema() { return tableProjDefn.outputSchema(); }
   public int schemaVersion() { return schemaVersion; }
 

@@ -45,7 +45,7 @@ public class TestFileProjectionDefn extends SubOperatorTest {
     ScanProjectionDefn scanProj = scanProjBuilder.build();
 
     FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileProjectionDefn fileProj = new FileProjectionDefn(scanProj, fileInfo);
+    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
     assertTrue(fileProj.hasMetadata());
     assertSame(scanProj, fileProj.scanProjection());
     assertEquals(3, fileProj.output().size());
@@ -81,7 +81,7 @@ public class TestFileProjectionDefn extends SubOperatorTest {
     ScanProjectionDefn scanProj = scanProjBuilder.build();
 
     FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileProjectionDefn fileProj = new FileProjectionDefn(scanProj, fileInfo);
+    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
     assertFalse(fileProj.hasMetadata());
     assertEquals(1, fileProj.output().size());
 
@@ -129,7 +129,7 @@ public class TestFileProjectionDefn extends SubOperatorTest {
     ScanProjectionDefn scanProj = scanProjBuilder.build();
 
     FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileProjectionDefn fileProj = new FileProjectionDefn(scanProj, fileInfo);
+    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
 
     assertTrue(fileProj.hasMetadata());
     assertEquals(7, fileProj.output().size());
@@ -162,7 +162,7 @@ public class TestFileProjectionDefn extends SubOperatorTest {
     ScanProjectionDefn scanProj = scanProjBuilder.build();
 
     FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileProjectionDefn fileProj = new FileProjectionDefn(scanProj, fileInfo);
+    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
 
     assertTrue(fileProj.hasMetadata());
     assertEquals(5, fileProj.output().size());
@@ -195,7 +195,7 @@ public class TestFileProjectionDefn extends SubOperatorTest {
 
     Path path = new Path("hdfs:///x/0/1/2/3/4/5/6/7/8/9/10/d11/z.csv");
     FileMetadata fileInfo = new FileMetadata(path, "hdfs:///x");
-    FileProjectionDefn fileProj = new FileProjectionDefn(scanProj, fileInfo);
+    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
 
      assertEquals("d11", ((MetadataColumn) fileProj.output().get(0)).value());
   }

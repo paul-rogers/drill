@@ -26,6 +26,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.PartitionColumn
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.WildcardColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.FileMetadataColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.ProjectionType;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -35,7 +36,7 @@ import com.google.common.annotations.VisibleForTesting;
  * produce the final, fully-resolved projection list.
  */
 
-public class FileProjectionDefn {
+public class FileLevelProjection {
 
   /**
    * Given an unresolved projection list, possibly with placeholder metadata
@@ -112,21 +113,23 @@ public class FileProjectionDefn {
   private final List<ScanOutputColumn> outputCols;
   private final List<MetadataColumn> metadataColumns;
   private final int metadataProjectionMap[];
+  private final boolean isReresolution;
 
-  public FileProjectionDefn(ScanProjectionDefn scanProjDefn, FileMetadata fileInfo) {
+  public FileLevelProjection(ScanProjectionDefn scanProjDefn, FileMetadata fileInfo) {
     this(scanProjDefn, scanProjDefn.outputCols(), fileInfo);
   }
 
-  public FileProjectionDefn(ScanProjectionDefn scanProjDefn,
+  public FileLevelProjection(ScanProjectionDefn scanProjDefn,
       List<ScanOutputColumn> inputCols, FileMetadata fileInfo) {
     this.scanProjection = scanProjDefn;
+    isReresolution = inputCols != scanProjDefn.outputCols();
 
     // If the projection plan has file or partition metadata
     // columns, rewrite them with actual file information.
 
     if (scanProjDefn.hasMetadata()) {
       FileSchemaBuilder builder = new FileSchemaBuilder(scanProjDefn, inputCols, fileInfo);
-       outputCols = builder.outputCols;
+      outputCols = builder.outputCols;
       metadataColumns = builder.metadataColumns;
       metadataProjectionMap = builder.metadataProjection;
     } else {
@@ -161,8 +164,12 @@ public class FileProjectionDefn {
    * @return a fully-resolved projection plan
    */
 
-  public TableProjectionDefn resolve(MaterializedSchema tableSchema) {
-    return new TableProjectionDefn(this, tableSchema);
+  public TableLevelProjection resolve(MaterializedSchema tableSchema) {
+    if (isReresolution) {
+      return TableLevelProjection.reresolve(this, tableSchema);
+    } else {
+      return TableLevelProjection.resolve(this, tableSchema);
+    }
   }
 
   @VisibleForTesting
