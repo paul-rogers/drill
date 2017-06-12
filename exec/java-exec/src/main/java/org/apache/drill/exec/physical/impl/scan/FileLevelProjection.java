@@ -20,13 +20,12 @@ package org.apache.drill.exec.physical.impl.scan;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.WildcardColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.FileMetadataColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.ProjectionType;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -46,13 +45,13 @@ public class FileLevelProjection {
    */
 
   private static class FileSchemaBuilder extends ScanOutputColumn.Visitor {
-    private ScanProjectionDefn scanProj;
+    private ScanLevelProjection scanProj;
     private FileMetadata fileInfo;
     private List<ScanOutputColumn> outputCols = new ArrayList<>();
     private List<MetadataColumn> metadataColumns = new ArrayList<>();
     private int metadataProjection[];
 
-    public FileSchemaBuilder(ScanProjectionDefn plan, List<ScanOutputColumn> inputCols, FileMetadata fileInfo) {
+    public FileSchemaBuilder(ScanLevelProjection plan, List<ScanOutputColumn> inputCols, FileMetadata fileInfo) {
       this.scanProj = plan;
       this.fileInfo = fileInfo;
       int mapLen = inputCols.size();
@@ -109,17 +108,17 @@ public class FileLevelProjection {
     }
   }
 
-  private final ScanProjectionDefn scanProjection;
+  private final ScanLevelProjection scanProjection;
   private final List<ScanOutputColumn> outputCols;
   private final List<MetadataColumn> metadataColumns;
   private final int metadataProjectionMap[];
   private final boolean isReresolution;
 
-  public FileLevelProjection(ScanProjectionDefn scanProjDefn, FileMetadata fileInfo) {
+  private FileLevelProjection(ScanLevelProjection scanProjDefn, FileMetadata fileInfo) {
     this(scanProjDefn, scanProjDefn.outputCols(), fileInfo);
   }
 
-  public FileLevelProjection(ScanProjectionDefn scanProjDefn,
+  private FileLevelProjection(ScanLevelProjection scanProjDefn,
       List<ScanOutputColumn> inputCols, FileMetadata fileInfo) {
     this.scanProjection = scanProjDefn;
     isReresolution = inputCols != scanProjDefn.outputCols();
@@ -143,7 +142,7 @@ public class FileLevelProjection {
     }
   }
 
-  public ScanProjectionDefn scanProjection() { return scanProjection; }
+  public ScanLevelProjection scanProjection() { return scanProjection; }
   public List<ScanOutputColumn> output() { return outputCols; }
   public boolean hasMetadata() { return metadataColumns != null && ! metadataColumns.isEmpty(); }
   public List<MetadataColumn> metadataColumns() { return metadataColumns; }
@@ -166,14 +165,25 @@ public class FileLevelProjection {
 
   public TableLevelProjection resolve(MaterializedSchema tableSchema) {
     if (isReresolution) {
-      return TableLevelProjection.reresolve(this, tableSchema);
+      return TableLevelProjection.fromReresolution(this, tableSchema);
     } else {
-      return TableLevelProjection.resolve(this, tableSchema);
+      return TableLevelProjection.fromResolution(this, tableSchema);
     }
   }
 
   @VisibleForTesting
   public MaterializedSchema outputSchema() {
     return ScanOutputColumn.schema(output());
+  }
+
+  public static FileLevelProjection fromResolution(
+      ScanLevelProjection scanProj, FileMetadata fileMetadata) {
+    return new FileLevelProjection(scanProj, fileMetadata);
+  }
+
+  public static FileLevelProjection fromReresolution(
+      ScanLevelProjection scanProj, List<ScanOutputColumn> generatedSelect,
+      FileMetadata fileInfo) {
+    return new FileLevelProjection(scanProj, generatedSelect, fileInfo);
   }
 }

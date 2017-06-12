@@ -23,17 +23,17 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.physical.impl.scan.RowBatchMerger.Builder;
+import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.ProjectionType;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.NullColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadata;
-import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.ProjectionType;
-import org.apache.drill.exec.physical.impl.scan.RowBatchMerger.Builder;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.hadoop.fs.Path;
 
 /**
  * Performs projection of a record reader, along with a set of static
@@ -419,16 +419,16 @@ public class ScanProjector {
 
   private int prevTableSchemaVersion;
 
-  public ScanProjector(BufferAllocator allocator, ScanProjectionDefn scanProj, MajorType nullType) {
+  public ScanProjector(BufferAllocator allocator, ScanLevelProjection scanProj, MajorType nullType) {
     this.allocator = allocator;
     this.projectionDefn = ProjectionLifecycle.newLifecycle(scanProj);
     this.nullType = nullType;
     vectorCache = new ResultVectorCache(allocator);
   }
 
-  public void startFile(FileMetadata fileInfo) {
+  public void startFile(Path filePath) {
     closeTable();
-    projectionDefn.startFile(fileInfo);
+    projectionDefn.startFile(filePath);
     prevTableSchemaVersion = 0;
     buildMetadataColumns();
   }

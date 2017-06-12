@@ -25,7 +25,6 @@ import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ColumnType;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
@@ -42,16 +41,16 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
   @Test
   public void testDiscrete() {
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(true);
-    scanProjBuilder.queryCols(TestScanProjectionDefn.projectList("filename", "a", "b"));
+    scanProjBuilder.setScanRootDir("hdfs:///w");
+    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("filename", "a", "b"));
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newDiscreteLifecycle(scanProjBuilder);
 
     {
       // Define a file a.csv
 
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
 
       // Verify
 
@@ -88,8 +87,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
     {
       // Define a file b.csv
 
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
 
       // Verify
 
@@ -148,21 +146,20 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
+    scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
 
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
       lifecycle.startSchema(priorSchema);
       assertEquals(1, lifecycle.schemaVersion());
       assertTrue(lifecycle.outputSchema().isEquivalent(priorSchema));
     }
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+       lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(2, lifecycle.schemaVersion());
       assertTrue(lifecycle.outputSchema().isEquivalent(tableSchema));
@@ -183,19 +180,18 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
+    scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
 
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
       lifecycle.startSchema(priorSchema);
     }
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(2, lifecycle.schemaVersion());
       assertTrue(lifecycle.outputSchema().isEquivalent(tableSchema));
@@ -217,19 +213,18 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .addNullable("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
+    scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
 
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
       lifecycle.startSchema(priorSchema);
     }
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(2, lifecycle.schemaVersion());
       assertTrue(lifecycle.outputSchema().isEquivalent(tableSchema));
@@ -253,19 +248,18 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
+    scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
 
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
       lifecycle.startSchema(priorSchema);
     }
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(1, lifecycle.schemaVersion());
       assertTrue(lifecycle.outputSchema().isEquivalent(tableSchema));
@@ -289,19 +283,18 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("B", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
+    scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
 
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
       lifecycle.startSchema(priorSchema);
     }
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(1, lifecycle.schemaVersion());
       assertTrue(lifecycle.outputSchema().isEquivalent(priorSchema));
@@ -323,19 +316,18 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .addNullable("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
+    scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
 
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
       lifecycle.startSchema(priorSchema);
     }
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(2, lifecycle.schemaVersion());
       assertTrue(lifecycle.outputSchema().isEquivalent(tableSchema));
@@ -358,19 +350,18 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
+    scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
 
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
       lifecycle.startSchema(priorSchema);
     }
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(1, lifecycle.schemaVersion());
       assertTrue(lifecycle.outputSchema().isEquivalent(priorSchema));
@@ -394,19 +385,18 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .addNullable("a", MinorType.INT)
         .buildSchema();
 
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
+    scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
 
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
       lifecycle.startSchema(priorSchema);
     }
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(1, lifecycle.schemaVersion());
       assertTrue(lifecycle.outputSchema().isEquivalent(priorSchema));
@@ -425,21 +415,20 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(true);
+    scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
 
-    MaterializedSchema expectedSchema = TestFileProjectionDefn.expandMetadata(lifecycle.scanProjection(), tableSchema, 2);
+    MaterializedSchema expectedSchema = TestFileLevelProjection.expandMetadata(lifecycle.scanProjection(), tableSchema, 2);
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
       lifecycle.startSchema(tableSchema);
       assertTrue(lifecycle.outputSchema().isEquivalent(expectedSchema));
     }
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(1, lifecycle.schemaVersion());
       assertTrue(lifecycle.outputSchema().isEquivalent(expectedSchema));
@@ -459,21 +448,20 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(true);
+    scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
 
-    MaterializedSchema expectedSchema = TestFileProjectionDefn.expandMetadata(lifecycle.scanProjection(), tableSchema, 2);
+    MaterializedSchema expectedSchema = TestFileLevelProjection.expandMetadata(lifecycle.scanProjection(), tableSchema, 2);
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
       lifecycle.startSchema(tableSchema);
       assertTrue(lifecycle.outputSchema().isEquivalent(expectedSchema));
     }
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/b.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(1, lifecycle.schemaVersion());
       assertTrue(lifecycle.outputSchema().isEquivalent(expectedSchema));
@@ -492,154 +480,24 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(true);
+    scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
 
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/a.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/a.csv"));
       lifecycle.startSchema(tableSchema);
-      MaterializedSchema expectedSchema = TestFileProjectionDefn.expandMetadata(lifecycle.scanProjection(), tableSchema, 1);
+      MaterializedSchema expectedSchema = TestFileLevelProjection.expandMetadata(lifecycle.scanProjection(), tableSchema, 1);
       assertTrue(lifecycle.outputSchema().isEquivalent(expectedSchema));
     }
     {
-      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
-      lifecycle.startFile(fileInfo);
+      lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(2, lifecycle.schemaVersion());
-      MaterializedSchema expectedSchema = TestFileProjectionDefn.expandMetadata(lifecycle.scanProjection(), tableSchema, 2);
+      MaterializedSchema expectedSchema = TestFileLevelProjection.expandMetadata(lifecycle.scanProjection(), tableSchema, 2);
       assertTrue(lifecycle.outputSchema().isEquivalent(expectedSchema));
      }
   }
-
-//@Test
-//public void testSelectStarSmoothing() {
-//
-//  ScanProjector projector = new ScanProjector(fixture.allocator(), null);
-//
-//  BatchSchema firstSchema = new SchemaBuilder()
-//      .add("a", MinorType.INT)
-//      .addNullable("b", MinorType.VARCHAR, 10)
-//      .addNullable("c", MinorType.BIGINT)
-//      .build();
-//  BatchSchema subsetSchema = new SchemaBuilder()
-//      .addNullable("b", MinorType.VARCHAR, 10)
-//      .add("a", MinorType.INT)
-//      .build();
-//  BatchSchema disjointSchema = new SchemaBuilder()
-//      .add("a", MinorType.INT)
-//      .addNullable("b", MinorType.VARCHAR, 10)
-//      .add("d", MinorType.VARCHAR)
-//      .build();
-//
-//  SchemaTracker tracker = new SchemaTracker();
-//  int schemaVersion;
-//  {
-//    // First table, establishes the baseline
-//
-//    ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
-//    builder.queryCols(TestScanProjectionPlanner.selectList("*"));
-//    builder.tableColumns(firstSchema);
-//    ScanProjection projection = builder.build();
-//    ResultSetLoader loader = projector.makeTableLoader(projection);
-//
-//    loader.startBatch();
-//    loader.writer()
-//        .loadRow(10, "fred", 110L)
-//        .loadRow(20, "wilma", 110L);
-//    projector.publish();
-//
-//    tracker.trackSchema(projector.output());
-//    schemaVersion = tracker.schemaVersion();
-//
-//    SingleRowSet expected = fixture.rowSetBuilder(firstSchema)
-//        .add(10, "fred", 110L)
-//        .add(20, "wilma", 110L)
-//        .build();
-//    new RowSetComparison(expected)
-//      .verifyAndClearAll(fixture.wrap(projector.output()));
-//  }
-//  {
-//    // Second table, same schema, the trivial case
-//
-//    ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
-//    builder.queryCols(TestScanProjectionPlanner.selectList("*"));
-//    builder.tableColumns(firstSchema);
-//    builder.priorSchema(projector.output().getSchema());
-//    ScanProjection projection = builder.build();
-//    ResultSetLoader loader = projector.makeTableLoader(projection);
-//
-//    loader.startBatch();
-//    loader.writer()
-//        .loadRow(70, "pebbles", 770L)
-//        .loadRow(80, "hoppy", 880L);
-//    projector.publish();
-//
-//    tracker.trackSchema(projector.output());
-//    assertEquals(schemaVersion, tracker.schemaVersion());
-//
-//    SingleRowSet expected = fixture.rowSetBuilder(firstSchema)
-//        .add(70, "pebbles", 770L)
-//        .add(80, "hoppy", 880L)
-//        .build();
-//    new RowSetComparison(expected)
-//      .verifyAndClearAll(fixture.wrap(projector.output()));
-//  }
-//  {
-//    // Third table: subset schema of first two
-//
-//    ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
-//    builder.queryCols(TestScanProjectionPlanner.selectList("*"));
-//    builder.tableColumns(subsetSchema);
-//    builder.priorSchema(projector.output().getSchema());
-//    ScanProjection projection = builder.build();
-//    ResultSetLoader loader = projector.makeTableLoader(projection);
-//
-//    loader.startBatch();
-//    loader.writer()
-//        .loadRow("bambam", 30)
-//        .loadRow("betty", 40);
-//    projector.publish();
-//
-//    tracker.trackSchema(projector.output());
-//    assertEquals(schemaVersion, tracker.schemaVersion());
-//
-//    SingleRowSet expected = fixture.rowSetBuilder(firstSchema)
-//        .add(30, "bambam", null)
-//        .add(40, "betty", null)
-//        .build();
-//    new RowSetComparison(expected)
-//      .verifyAndClearAll(fixture.wrap(projector.output()));
-//  }
-//  {
-//    // Fourth table: disjoint schema, cases a schema reset
-//
-//    ProjectionPlanner builder = new ProjectionPlanner(fixture.options());
-//    builder.queryCols(TestScanProjectionPlanner.selectList("*"));
-//    builder.tableColumns(disjointSchema);
-//    builder.priorSchema(projector.output().getSchema());
-//    ScanProjection projection = builder.build();
-//    ResultSetLoader loader = projector.makeTableLoader(projection);
-//
-//    loader.startBatch();
-//    loader.writer()
-//        .loadRow(50, "dino", "supporting")
-//        .loadRow(60, "barney", "main");
-//    projector.publish();
-//
-//    tracker.trackSchema(projector.output());
-//    assertNotEquals(schemaVersion, tracker.schemaVersion());
-//
-//    SingleRowSet expected = fixture.rowSetBuilder(disjointSchema)
-//        .add(50, "dino", "supporting")
-//        .add(60, "barney", "main")
-//        .build();
-//    new RowSetComparison(expected)
-//      .verifyAndClearAll(fixture.wrap(projector.output()));
-//  }
-//
-//  projector.close();
-//}
 }

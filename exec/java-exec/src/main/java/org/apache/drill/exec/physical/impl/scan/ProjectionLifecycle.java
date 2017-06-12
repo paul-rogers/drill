@@ -23,12 +23,12 @@ import java.util.Map;
 
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.RequestedTableColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.NullColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ProjectedColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.RequestedTableColumn;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.hadoop.fs.Path;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -106,13 +106,13 @@ public abstract class ProjectionLifecycle {
 
   public static class DiscreteProjectionLifecycle extends ProjectionLifecycle {
 
-    DiscreteProjectionLifecycle(ScanProjectionDefn queryPlan) {
+    DiscreteProjectionLifecycle(ScanLevelProjection queryPlan) {
       super(queryPlan);
     }
 
     @Override
-    public void startFile(FileMetadata fileInfo) {
-      fileProjDefn = new FileLevelProjection(scanProjDefn, fileInfo);
+    public void startFile(Path filePath) {
+      fileProjDefn = scanProjDefn.resolve(filePath);
       tableProjDefn = null;
       schemaVersion++;
     }
@@ -168,17 +168,17 @@ public abstract class ProjectionLifecycle {
   public static class ContinuousProjectionLifecycle extends ProjectionLifecycle {
 
     private PriorSchema priorSchema;
-    private FileMetadata fileInfo;
+    private ScanLevelProjection.FileMetadata fileInfo;
 
-    private ContinuousProjectionLifecycle(ScanProjectionDefn queryPlan) {
+    private ContinuousProjectionLifecycle(ScanLevelProjection queryPlan) {
       super(queryPlan);
     }
 
     @Override
-    public void startFile(FileMetadata newFileInfo) {
-      this.fileInfo = newFileInfo;
-      if (priorSchema != null && isCompatible(newFileInfo)) {
-        fileProjDefn = new FileLevelProjection(scanProjDefn, priorSchema.generatedSelect, fileInfo);
+    public void startFile(Path filePath) {
+      fileInfo = scanProjDefn.fileMetadata(filePath);
+      if (priorSchema != null && isCompatible(fileInfo)) {
+        fileProjDefn = FileLevelProjection.fromReresolution(scanProjDefn, priorSchema.generatedSelect, fileInfo);
       } else {
         resetFileSchema();
       }
@@ -186,11 +186,11 @@ public abstract class ProjectionLifecycle {
 
     private void resetFileSchema() {
       priorSchema = null;
-      fileProjDefn = new FileLevelProjection(scanProjDefn, fileInfo);
+      fileProjDefn = scanProjDefn.resolve(fileInfo);
       schemaVersion++;
     }
 
-    private boolean isCompatible(FileMetadata fileInfo) {
+    private boolean isCompatible(ScanLevelProjection.FileMetadata fileInfo) {
 
       // Can't smooth over the schema if we need more partition columns
       // than the prior plan.
@@ -262,7 +262,7 @@ public abstract class ProjectionLifecycle {
    * Scan projection definition based on static information.
    */
 
-  protected final ScanProjectionDefn scanProjDefn;
+  protected final ScanLevelProjection scanProjDefn;
 
   /**
    * Rewritten projection definition with file or partition metadata
@@ -279,34 +279,34 @@ public abstract class ProjectionLifecycle {
 
   protected int schemaVersion;
 
-  private ProjectionLifecycle(ScanProjectionDefn queryPlan) {
+  private ProjectionLifecycle(ScanLevelProjection queryPlan) {
     scanProjDefn = queryPlan;
   }
 
-  public abstract void startFile(FileMetadata fileInfo);
+  public abstract void startFile(Path filePath);
   public abstract void startSchema(MaterializedSchema newSchema);
-  public ScanProjectionDefn scanProjection() { return scanProjDefn; }
+  public ScanLevelProjection scanProjection() { return scanProjDefn; }
   public FileLevelProjection fileProjection() { return fileProjDefn; }
   public TableLevelProjection tableProjection() { return tableProjDefn; }
   public MaterializedSchema outputSchema() { return tableProjDefn.outputSchema(); }
   public int schemaVersion() { return schemaVersion; }
 
   @VisibleForTesting
-  public static ProjectionLifecycle newDiscreteLifecycle(ScanProjectionDefn.Builder builder) {
+  public static ProjectionLifecycle newDiscreteLifecycle(ScanLevelProjection.Builder builder) {
     return new DiscreteProjectionLifecycle(builder.build());
   }
 
   @VisibleForTesting
-  public static ProjectionLifecycle newContinuousLifecycle(ScanProjectionDefn.Builder builder) {
+  public static ProjectionLifecycle newContinuousLifecycle(ScanLevelProjection.Builder builder) {
     return new ContinuousProjectionLifecycle(builder.build());
   }
 
   @VisibleForTesting
-  public static ProjectionLifecycle newLifecycle(ScanProjectionDefn.Builder builder) {
+  public static ProjectionLifecycle newLifecycle(ScanLevelProjection.Builder builder) {
     return newLifecycle(builder.build());
   }
 
-  public static ProjectionLifecycle newLifecycle(ScanProjectionDefn scanProj) {
+  public static ProjectionLifecycle newLifecycle(ScanLevelProjection scanProj) {
     if (scanProj.isProjectAll()) {
       return new ContinuousProjectionLifecycle(scanProj);
     } else {

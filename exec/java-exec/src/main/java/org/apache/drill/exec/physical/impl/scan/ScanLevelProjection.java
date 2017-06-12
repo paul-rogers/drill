@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.common.types.TypeProtos.DataMode;
@@ -34,11 +35,11 @@ import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadataCol
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.RequestedTableColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.WildcardColumn;
-import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.ColumnType;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.store.ImplicitColumnExplorer;
 import org.apache.drill.exec.store.ImplicitColumnExplorer.ImplicitFileColumns;
+import org.apache.hadoop.fs.Path;
 
 import com.google.common.collect.Lists;
 
@@ -86,7 +87,7 @@ import com.google.common.collect.Lists;
  * evolved
  */
 
-public class ScanProjectionDefn {
+public class ScanLevelProjection {
 
   public enum ProjectionType { WILDCARD, COLUMNS_ARRAY, LIST }
 
@@ -101,17 +102,15 @@ public class ScanProjectionDefn {
 
   public static class RequestedColumn {
     private final String name;
-    @SuppressWarnings("unused")
-    private final ColumnType typeHint;
     protected ScanOutputColumn resolution;
 
     public RequestedColumn(SchemaPath col) {
-      this(col, null);
-    }
-
-    public RequestedColumn(SchemaPath col, ColumnType hint) {
+//      this(col, null);
+//    }
+//
+//    public RequestedColumn(SchemaPath col, ColumnType hint) {
       this.name = col.getAsUnescapedPath();
-      typeHint = hint;
+//      typeHint = hint;
     }
 
     public String name() { return name; }
@@ -210,6 +209,7 @@ public class ScanProjectionDefn {
 
     // Input
 
+    protected String scanRootDir;
     protected List<RequestedColumn> queryCols = new ArrayList<>();
 
     // Output
@@ -240,7 +240,7 @@ public class ScanProjectionDefn {
      * @return this builder
      */
     public Builder projectAll() {
-      return queryCols(Lists.newArrayList(new SchemaPath[] {SchemaPath.getSimplePath(WILDCARD)}));
+      return projectedCols(Lists.newArrayList(new SchemaPath[] {SchemaPath.getSimplePath(WILDCARD)}));
     }
 
     /**
@@ -266,7 +266,7 @@ public class ScanProjectionDefn {
      * @param queryCols list of columns in the SELECT list in SELECT list order
      * @return this builder
      */
-    public Builder queryCols(List<SchemaPath> queryCols) {
+    public Builder projectedCols(List<SchemaPath> queryCols) {
       assert this.queryCols.isEmpty();
       this.queryCols = new ArrayList<>();
       for (SchemaPath col : queryCols) {
@@ -288,18 +288,22 @@ public class ScanProjectionDefn {
           .build();
     }
 
+    public void setScanRootDir(String rootDir) {
+      this.scanRootDir = rootDir;
+    }
+
     /**
      * Perform projection planning and return the final projection plan.
      * @return the finalized projection plan
      */
 
-    public ScanProjectionDefn build() {
+    public ScanLevelProjection build() {
       projectionType = ProjectionType.LIST;
       for (RequestedColumn inCol : queryCols) {
         mapColumn(inCol);
       }
       verify();
-      return new ScanProjectionDefn(this);
+      return new ScanLevelProjection(this);
     }
 
     /**
@@ -441,22 +445,82 @@ public class ScanProjectionDefn {
     }
   }
 
+  /**
+   * Specify the file name and optional selection root. If the selection root
+   * is provided, then partitions are defined as the portion of the file name
+   * that is not also part of the selection root. That is, if selection root is
+   * /a/b and the file path is /a/b/c/d.csv, then dir0 is c.
+   */
+
+  public static class FileMetadata {
+
+    private final Path filePath;
+    private final String[] dirPath;
+
+    public FileMetadata(Path filePath, String selectionRoot) {
+      this.filePath = filePath;
+      if (selectionRoot == null) {
+        dirPath = null;
+        return;
+      }
+
+      // Result of splitting /x/y is ["", "x", "y"], so ignore first.
+
+      String[] r = Path.getPathWithoutSchemeAndAuthority(new Path(selectionRoot)).toString().split("/");
+
+      // Result of splitting "/x/y/z.csv" is ["", "x", "y", "z.csv"], so ignore first and last
+
+      String[] p = Path.getPathWithoutSchemeAndAuthority(filePath).toString().split("/");
+
+      if (p.length - 1 < r.length) {
+        throw new IllegalArgumentException("Selection root of \"" + selectionRoot +
+                                        "\" is shorter than file path of \"" + filePath.toString() + "\"");
+      }
+      for (int i = 1; i < r.length; i++) {
+        if (! r[i].equals(p[i])) {
+          throw new IllegalArgumentException("Selection root of \"" + selectionRoot +
+              "\" is not a leading path of \"" + filePath.toString() + "\"");
+        }
+      }
+      dirPath = ArrayUtils.subarray(p, r.length, p.length - 1);
+    }
+
+    public FileMetadata(Path fileName, Path rootDir) {
+      this(fileName, rootDir == null ? null : rootDir.toString());
+    }
+
+    public Path filePath() { return filePath; }
+
+    public String partition(int index) {
+      if (dirPath == null ||  dirPath.length <= index) {
+        return null;
+      }
+      return dirPath[index];
+    }
+
+    public int dirPathLength() {
+      return dirPath == null ? 0 : dirPath.length;
+    }
+  }
+
   private final String partitionDesignator;
   private final List<FileMetadataColumnDefn> fileMetadataColDefns;
   private final ProjectionType projectType;
   private final boolean hasMetadata;
-  private final boolean useLegacyStarPlan;
+  private final boolean useLegacyWildcardExpansion;
+  private final String scanRootDir;
   private final List<RequestedColumn> requestedCols;
   private final List<ScanOutputColumn> outputCols;
   private final List<String> tableColNames;
   private final MajorType columnsArrayType;
 
-  public ScanProjectionDefn(Builder builder) {
+  public ScanLevelProjection(Builder builder) {
     partitionDesignator = builder.partitionDesignator;
     fileMetadataColDefns = builder.implicitColDefns;
     projectType = builder.projectionType;
     hasMetadata = builder.hasMetadata;
-    useLegacyStarPlan = builder.useLegacyWildcardExpansion;
+    useLegacyWildcardExpansion = builder.useLegacyWildcardExpansion;
+    scanRootDir = builder.scanRootDir;
     requestedCols = builder.queryCols;
     outputCols = builder.outputCols;
     tableColNames = builder.tableColNames;
@@ -490,7 +554,7 @@ public class ScanProjectionDefn {
 
   public List<ScanOutputColumn> outputCols() { return outputCols; }
 
-  public boolean useLegacyWildcardPartition() { return useLegacyStarPlan; }
+  public boolean useLegacyWildcardPartition() { return useLegacyWildcardExpansion; }
 
   public List<String> tableColNames() { return tableColNames; }
 
@@ -498,6 +562,10 @@ public class ScanProjectionDefn {
 
   public String partitionName(int partition) {
     return partitionDesignator + partition;
+  }
+
+  public FileMetadata fileMetadata(Path filePath) {
+    return new FileMetadata(filePath, scanRootDir);
   }
 
   public static MajorType partitionColType() {
@@ -515,4 +583,12 @@ public class ScanProjectionDefn {
   }
 
   public MajorType columnsArrayType() { return columnsArrayType; }
+
+  public FileLevelProjection resolve(Path filePath) {
+    return resolve(fileMetadata(filePath));
+  }
+
+  public FileLevelProjection resolve(FileMetadata fileInfo) {
+    return FileLevelProjection.fromResolution(this, fileInfo);
+  }
 }

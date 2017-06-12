@@ -30,7 +30,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.NullColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ProjectedColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.RequestedTableColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.WildcardColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.ProjectionType;
+import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.ProjectionType;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.store.ImplicitColumnExplorer;
 
@@ -286,7 +286,7 @@ public class TableLevelProjection {
     tableColumnProjectionMap = baseBuilder.projectionMap;
   }
 
-  public ScanProjectionDefn scanProjection() { return fileProjection.scanProjection(); }
+  public ScanLevelProjection scanProjection() { return fileProjection.scanProjection(); }
   public FileLevelProjection fileProjection() { return fileProjection; }
   public List<ScanOutputColumn> output() { return outputCols; }
   public boolean[] selectionMap() { return selectionMap; }
@@ -341,7 +341,7 @@ public class TableLevelProjection {
    * @return the fully resolved table-level projection
    */
 
-  public static TableLevelProjection resolve(
+  public static TableLevelProjection fromResolution(
       FileLevelProjection fileProj, MaterializedSchema tableSchema) {
     return new TableLevelProjection(fileProj, tableSchema, false);
   }
@@ -354,7 +354,7 @@ public class TableLevelProjection {
    * @param tableSchema
    * @return
    */
-  public static TableLevelProjection reresolve(
+  public static TableLevelProjection fromReresolution(
       FileLevelProjection fileProj, MaterializedSchema tableSchema) {
     return new TableLevelProjection(fileProj, tableSchema, true);
   }

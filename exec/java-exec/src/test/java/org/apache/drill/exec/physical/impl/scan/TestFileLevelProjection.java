@@ -17,20 +17,23 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ColumnType;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.FileMetadataColumnDefn;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
-public class TestFileProjectionDefn extends SubOperatorTest {
+public class TestFileLevelProjection extends SubOperatorTest {
 
   /**
    * Test the file projection planner with metadata.
@@ -38,14 +41,13 @@ public class TestFileProjectionDefn extends SubOperatorTest {
 
   @Test
   public void testWithMetadata() {
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
+    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("filename", "a", "dir0"));
+    scanProjBuilder.setScanRootDir("hdfs:///w");
+    ScanLevelProjection scanProj = scanProjBuilder.build();
 
-    scanProjBuilder.queryCols(TestScanProjectionDefn.projectList("filename", "a", "dir0"));
-    ScanProjectionDefn scanProj = scanProjBuilder.build();
-
-    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
+    FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
     assertTrue(fileProj.hasMetadata());
     assertSame(scanProj, fileProj.scanProjection());
     assertEquals(3, fileProj.output().size());
@@ -74,14 +76,13 @@ public class TestFileProjectionDefn extends SubOperatorTest {
 
   @Test
   public void testWithoutMetadata() {
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
+    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("a"));
+    scanProjBuilder.setScanRootDir("hdfs:///w");
+    ScanLevelProjection scanProj = scanProjBuilder.build();
 
-    scanProjBuilder.queryCols(TestScanProjectionDefn.projectList("a"));
-    ScanProjectionDefn scanProj = scanProjBuilder.build();
-
-    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
+    FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
     assertFalse(fileProj.hasMetadata());
     assertEquals(1, fileProj.output().size());
 
@@ -103,14 +104,14 @@ public class TestFileProjectionDefn extends SubOperatorTest {
    * @return schema with the metadata columns appended to the table columns
    */
 
-  public static MaterializedSchema expandMetadata(ScanProjectionDefn scanProj, MaterializedSchema base, int dirCount) {
+  public static MaterializedSchema expandMetadata(ScanLevelProjection scanProj, MaterializedSchema base, int dirCount) {
     MaterializedSchema metadataSchema = new MaterializedSchema();
     for (FileMetadataColumnDefn fileColDefn : scanProj.fileMetadataColDefns()) {
       metadataSchema.add(MaterializedField.create(fileColDefn.colName(), fileColDefn.dataType()));
     }
     for (int i = 0; i < dirCount; i++) {
       metadataSchema.add(MaterializedField.create(scanProj.partitionName(i),
-          ScanProjectionDefn.partitionColType()));
+          ScanLevelProjection.partitionColType()));
     }
     return base.merge(metadataSchema);
   }
@@ -123,19 +124,19 @@ public class TestFileProjectionDefn extends SubOperatorTest {
 
   @Test
   public void testLegacyWildcard() {
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(true);
     scanProjBuilder.projectAll();
-    ScanProjectionDefn scanProj = scanProjBuilder.build();
+    scanProjBuilder.setScanRootDir("hdfs:///w");
+    ScanLevelProjection scanProj = scanProjBuilder.build();
 
-    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
+    FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
 
     assertTrue(fileProj.hasMetadata());
     assertEquals(7, fileProj.output().size());
 
     MaterializedSchema expectedSchema = new SchemaBuilder()
-        .addNullable(ScanProjectionDefn.WILDCARD, MinorType.NULL)
+        .addNullable(ScanLevelProjection.WILDCARD, MinorType.NULL)
         .buildSchema();
     expectedSchema = expandMetadata(scanProj, expectedSchema, 2);
     assertTrue(fileProj.outputSchema().isEquivalent(expectedSchema));
@@ -154,15 +155,15 @@ public class TestFileProjectionDefn extends SubOperatorTest {
 
   @Test
   public void testFileMetadata() {
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(true);
-    scanProjBuilder.queryCols(TestScanProjectionDefn.projectList("a", "fqn",
+    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("a", "fqn",
         "filEPath", // Sic, to test case sensitivity
         "filename", "suffix"));
-    ScanProjectionDefn scanProj = scanProjBuilder.build();
+    scanProjBuilder.setScanRootDir("hdfs:///w");
+    ScanLevelProjection scanProj = scanProjBuilder.build();
 
-    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
+    FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
 
     assertTrue(fileProj.hasMetadata());
     assertEquals(5, fileProj.output().size());
@@ -186,18 +187,16 @@ public class TestFileProjectionDefn extends SubOperatorTest {
 
   @Test
   public void testPartitionColumnTwoDigits() {
-    ScanProjectionDefn.Builder builder = new ScanProjectionDefn.Builder(fixture.options());
-
-    builder.queryCols(TestScanProjectionDefn.projectList("dir11"));
-
-    ScanProjectionDefn scanProj = builder.build();
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    scanProjBuilder.setScanRootDir("hdfs:///x");
+    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("dir11"));
+    ScanLevelProjection scanProj = scanProjBuilder.build();
     assertEquals("dir11", scanProj.outputCols().get(0).name());
 
     Path path = new Path("hdfs:///x/0/1/2/3/4/5/6/7/8/9/10/d11/z.csv");
-    FileMetadata fileInfo = new FileMetadata(path, "hdfs:///x");
-    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
+    FileLevelProjection fileProj = scanProj.resolve(path);
 
-     assertEquals("d11", ((MetadataColumn) fileProj.output().get(0)).value());
+    assertEquals("d11", ((MetadataColumn) fileProj.output().get(0)).value());
   }
 
   // TODO: Test more partition cols in select than are available dirs

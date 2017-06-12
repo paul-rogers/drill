@@ -19,14 +19,10 @@ package org.apache.drill.exec.physical.impl.scan;
 
 import java.util.List;
 
-import org.apache.commons.lang3.ArrayUtils;
-import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.FileMetadataColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.RequestedColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.FileMetadataColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.RequestedColumn;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.hadoop.fs.Path;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -87,7 +83,7 @@ public abstract class ScanOutputColumn {
     }
 
     public static RequestedTableColumn fromSelect(RequestedColumn inCol) {
-      return new RequestedTableColumn(inCol, inCol.name(), ScanProjectionDefn.nullType());
+      return new RequestedTableColumn(inCol, inCol.name(), ScanLevelProjection.nullType());
     }
 
     public static RequestedTableColumn fromUnresolution(TypedColumn resolved) {
@@ -172,18 +168,18 @@ public abstract class ScanOutputColumn {
     }
 
     public static MetadataColumn fromWildcard(RequestedColumn inCol,
-        FileMetadataColumnDefn defn, FileMetadata fileInfo) {
+        FileMetadataColumnDefn defn, ScanLevelProjection.FileMetadata fileInfo) {
       return new FileMetadataColumn(inCol, defn.colName(), defn,
           valueOf(defn, fileInfo));
     }
 
     public static FileMetadataColumn resolved(RequestedColumn inCol,
-        FileMetadataColumnDefn defn, FileMetadata fileInfo) {
+        FileMetadataColumnDefn defn, ScanLevelProjection.FileMetadata fileInfo) {
       return new FileMetadataColumn(inCol, inCol.name(), defn,
           valueOf(defn, fileInfo));
     }
 
-    private static String valueOf(FileMetadataColumnDefn defn, FileMetadata fileInfo) {
+    private static String valueOf(FileMetadataColumnDefn defn, ScanLevelProjection.FileMetadata fileInfo) {
       return defn.defn.getValue(fileInfo.filePath());
     }
 
@@ -211,7 +207,7 @@ public abstract class ScanOutputColumn {
       visitor.visitFileInfoColumn(index, this);
     }
 
-    public FileMetadataColumn cloneWithValue(FileMetadata fileInfo) {
+    public FileMetadataColumn cloneWithValue(ScanLevelProjection.FileMetadata fileInfo) {
       return new FileMetadataColumn(inCol, name(), defn, valueOf(defn, fileInfo));
     }
 
@@ -246,19 +242,19 @@ public abstract class ScanOutputColumn {
     }
 
     public static MetadataColumn fromWildcard(RequestedColumn inCol, String name,
-        int partition, FileMetadata fileInfo) {
+        int partition, ScanLevelProjection.FileMetadata fileInfo) {
       return new PartitionColumn(inCol, name, dataType(), partition,
           fileInfo.partition(partition));
     }
 
     public static PartitionColumn resolved(RequestedColumn inCol, int partition,
-        FileMetadata fileInfo) {
+        ScanLevelProjection.FileMetadata fileInfo) {
       return new PartitionColumn(inCol, inCol.name(), dataType(), partition,
           fileInfo.partition(partition));
     }
 
     private static MajorType dataType() {
-      return ScanProjectionDefn.partitionColType();
+      return ScanLevelProjection.partitionColType();
     }
 
     @Override
@@ -278,7 +274,7 @@ public abstract class ScanOutputColumn {
       visitor.visitPartitionColumn(index, this);
     }
 
-    public PartitionColumn cloneWithValue(FileMetadata fileInfo) {
+    public PartitionColumn cloneWithValue(ScanLevelProjection.FileMetadata fileInfo) {
       return new PartitionColumn(inCol, name(), type(),
           partition, fileInfo.partition(partition));
     }
@@ -381,71 +377,13 @@ public abstract class ScanOutputColumn {
   }
 
   /**
-   * Specify the file name and optional selection root. If the selection root
-   * is provided, then partitions are defined as the portion of the file name
-   * that is not also part of the selection root. That is, if selection root is
-   * /a/b and the file path is /a/b/c/d.csv, then dir0 is c.
-   */
-
-  public static class FileMetadata {
-
-    private final Path filePath;
-    private final String[] dirPath;
-
-    public FileMetadata(Path filePath, String selectionRoot) {
-      this.filePath = filePath;
-      if (selectionRoot == null) {
-        dirPath = null;
-        return;
-      }
-
-      // Result of splitting /x/y is ["", "x", "y"], so ignore first.
-
-      String[] r = Path.getPathWithoutSchemeAndAuthority(new Path(selectionRoot)).toString().split("/");
-
-      // Result of splitting "/x/y/z.csv" is ["", "x", "y", "z.csv"], so ignore first and last
-
-      String[] p = Path.getPathWithoutSchemeAndAuthority(filePath).toString().split("/");
-
-      if (p.length - 1 < r.length) {
-        throw new IllegalArgumentException("Selection root of \"" + selectionRoot +
-                                        "\" is shorter than file path of \"" + filePath.toString() + "\"");
-      }
-      for (int i = 1; i < r.length; i++) {
-        if (! r[i].equals(p[i])) {
-          throw new IllegalArgumentException("Selection root of \"" + selectionRoot +
-              "\" is not a leading path of \"" + filePath.toString() + "\"");
-        }
-      }
-      dirPath = ArrayUtils.subarray(p, r.length, p.length - 1);
-    }
-
-    public FileMetadata(Path fileName, Path rootDir) {
-      this(fileName, rootDir == null ? null : rootDir.toString());
-    }
-
-    public Path filePath() { return filePath; }
-
-    public String partition(int index) {
-      if (dirPath == null ||  dirPath.length <= index) {
-        return null;
-      }
-      return dirPath[index];
-    }
-
-    public int dirPathLength() {
-      return dirPath == null ? 0 : dirPath.length;
-    }
-  }
-
-  /**
    * Visit each output column via a typed method to allow clean processing
    * of each column type without casts. Classic Gang-of-Four pattern.
    */
 
   public static class Visitor {
 
-    public void visit(ScanProjectionDefn plan) {
+    public void visit(ScanLevelProjection plan) {
       visit(plan.outputCols());
     }
 
@@ -501,7 +439,7 @@ public abstract class ScanOutputColumn {
   public abstract ScanOutputColumn.ColumnType columnType();
   public String name() { return name; }
   public RequestedColumn source() { return inCol; }
-  public MajorType type() { return ScanProjectionDefn.nullType(); }
+  public MajorType type() { return ScanLevelProjection.nullType(); }
   public ScanOutputColumn unresolve() { return this; }
 
   protected void buildString(StringBuilder buf) { }

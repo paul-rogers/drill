@@ -25,13 +25,12 @@ import static org.junit.Assert.fail;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ColumnType;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
-public class TestTableProjectionDefn extends SubOperatorTest {
+public class TestTableLevelProjection extends SubOperatorTest {
 
   /**
    * Resolve a selection list using SELECT *.
@@ -39,14 +38,13 @@ public class TestTableProjectionDefn extends SubOperatorTest {
 
   @Test
   public void testWildcard() {
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
+    scanProjBuilder.setScanRootDir("hdfs:///w");
+    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("filename", "*", "dir0"));
+    ScanLevelProjection scanProj = scanProjBuilder.build();
 
-    scanProjBuilder.queryCols(TestScanProjectionDefn.projectList("filename", "*", "dir0"));
-    ScanProjectionDefn scanProj = scanProjBuilder.build();
-
-    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
+    FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
     assertEquals(3, fileProj.output().size());
 
     MaterializedSchema tableSchema = new SchemaBuilder()
@@ -98,14 +96,13 @@ public class TestTableProjectionDefn extends SubOperatorTest {
 
   @Test
   public void testColumnsArray() {
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
+    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("filename", "columns", "dir0"));
+    scanProjBuilder.setScanRootDir("hdfs:///w");
+    ScanLevelProjection scanProj = scanProjBuilder.build();
 
-    scanProjBuilder.queryCols(TestScanProjectionDefn.projectList("filename", "columns", "dir0"));
-    ScanProjectionDefn scanProj = scanProjBuilder.build();
-
-    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
+    FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
 
     MaterializedSchema tableSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
@@ -148,14 +145,13 @@ public class TestTableProjectionDefn extends SubOperatorTest {
 
   @Test
   public void testColumnsArrayIncompatible() {
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
+    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("filename", "columns", "dir0"));
+    scanProjBuilder.setScanRootDir("hdfs:///w");
+    ScanLevelProjection scanProj = scanProjBuilder.build();
 
-    scanProjBuilder.queryCols(TestScanProjectionDefn.projectList("filename", "columns", "dir0"));
-    ScanProjectionDefn scanProj = scanProjBuilder.build();
-
-    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
+    FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
 
     MaterializedSchema tableSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
@@ -178,15 +174,15 @@ public class TestTableProjectionDefn extends SubOperatorTest {
 
   @Test
   public void testFullList() {
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    scanProjBuilder.setScanRootDir("hdfs:///w");
 
     // Simulate SELECT c, b, a ...
 
-    scanProjBuilder.queryCols(TestScanProjectionDefn.projectList("c", "b", "a"));
-    ScanProjectionDefn scanProj = scanProjBuilder.build();
+    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("c", "b", "a"));
+    ScanLevelProjection scanProj = scanProjBuilder.build();
 
-    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
+    FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
 
     // Simulate a data source, with early schema, of (a, b, c)
 
@@ -234,15 +230,15 @@ public class TestTableProjectionDefn extends SubOperatorTest {
 
   @Test
   public void testMissing() {
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    scanProjBuilder.setScanRootDir("hdfs:///w");
 
     // Simulate SELECT c, b, a ...
 
-    scanProjBuilder.queryCols(TestScanProjectionDefn.projectList("c", "v", "b", "w"));
-    ScanProjectionDefn scanProj = scanProjBuilder.build();
+    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("c", "v", "b", "w"));
+    ScanLevelProjection scanProj = scanProjBuilder.build();
 
-    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
+    FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
 
     // Simulate a data source, with early schema, of (a, b, c)
 
@@ -292,15 +288,15 @@ public class TestTableProjectionDefn extends SubOperatorTest {
 
   @Test
   public void testSubset() {
-    ScanProjectionDefn.Builder scanProjBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    scanProjBuilder.setScanRootDir("hdfs:///w");
 
     // Simulate SELECT c, a ...
 
-    scanProjBuilder.queryCols(TestScanProjectionDefn.projectList("c", "a"));
-    ScanProjectionDefn scanProj = scanProjBuilder.build();
+    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("c", "a"));
+    ScanLevelProjection scanProj = scanProjBuilder.build();
 
-    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    FileLevelProjection fileProj = new FileLevelProjection(scanProj, fileInfo);
+    FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
 
     // Simulate a data source, with early schema, of (a, b, c)
 

@@ -66,39 +66,39 @@ public interface SchemaNegotiator {
     LATE
   }
 
-  /**
-   * For readers that specify the SELECT list, and that have information
-   * about the columns, specifies the column meaning. This information is
-   * optional and not yet available from the Drill planner.
-   */
-  enum ColumnType {
-    /**
-     * The column can be of any type; the scan operator will figure out
-     * the meaning. (Default)
-     */
-    ANY,
-    /**
-     * The column names a table column.
-     */
-    TABLE,
-    /**
-     * The column is some form of meta-data (as opposed to a
-     * table column.)
-     */
-    META_ANY,
-    /**
-     * The columns is implicit: fqn, filename, filepath or
-     * suffix.
-     */
-    META_IMPLICIT,
-    /**
-     * The column is a partition identifier: div0, div1, etc.
-     */
-    META_PARTITION };
-
-  void addSelectColumn(String name);
-  void addSelectColumn(SchemaPath path);
-  void addSelectColumn(SchemaPath path, SchemaNegotiator.ColumnType type);
+//  /**
+//   * For readers that specify the SELECT list, and that have information
+//   * about the columns, specifies the column meaning. This information is
+//   * optional and not yet available from the Drill planner.
+//   */
+//  enum ColumnType {
+//    /**
+//     * The column can be of any type; the scan operator will figure out
+//     * the meaning. (Default)
+//     */
+//    ANY,
+//    /**
+//     * The column names a table column.
+//     */
+//    TABLE,
+//    /**
+//     * The column is some form of meta-data (as opposed to a
+//     * table column.)
+//     */
+//    META_ANY,
+//    /**
+//     * The columns is implicit: fqn, filename, filepath or
+//     * suffix.
+//     */
+//    META_IMPLICIT,
+//    /**
+//     * The column is a partition identifier: div0, div1, etc.
+//     */
+//    META_PARTITION };
+//
+//  void addSelectColumn(String name);
+//  void addSelectColumn(SchemaPath path);
+//  void addSelectColumn(SchemaPath path, SchemaNegotiator.ColumnType type);
 
   /**
    * Specify the type of table schema. Required only in the obscure
@@ -108,7 +108,7 @@ public interface SchemaNegotiator {
    * @param type the table schema type
    */
 
-  void setTableSchemaType(SchemaNegotiator.TableSchemaType type);
+  void setTableSchemaType(TableSchemaType type);
   void addTableColumn(String name, MajorType type);
   void addTableColumn(MaterializedField schema);
 
@@ -119,21 +119,6 @@ public interface SchemaNegotiator {
    */
 
   void setFilePath(Path filePath);
-
-  /**
-   * Specify the selection root for a directory scan, if any.
-   * Used to populate partition columns.
-   * @param rootPath Hadoop file path for the directory
-   */
-
-  void setSelectionRoot(Path rootPath);
-
-  /**
-   * Specify the type to use for projected columns that do not
-   * match any data source columns. Defaults to nullable int.
-   */
-
-  void setNullType(MajorType type);
 
   /**
    * Build the schema, plan the required projections and static

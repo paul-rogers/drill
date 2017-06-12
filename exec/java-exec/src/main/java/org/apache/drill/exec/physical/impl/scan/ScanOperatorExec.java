@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
@@ -31,10 +30,7 @@ import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.Operator
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.VectorContainerAccessor;
 import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.TableSchemaType;
-import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.Builder;
-import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.RequestedColumn;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
-import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.hadoop.fs.Path;
@@ -111,34 +107,12 @@ public class ScanOperatorExec implements OperatorExec {
   private static class SchemaNegotiatorImpl implements SchemaNegotiator {
 
     private final ReaderState readerState;
-    private final List<RequestedColumn> selection = new ArrayList<>();
     private final MaterializedSchema tableSchema = new MaterializedSchema();
     private TableSchemaType tableSchemaType = TableSchemaType.LATE;
     private Path filePath;
-    private Path rootPath;
-    private MajorType nullType;
 
     private SchemaNegotiatorImpl(ReaderState readerState) {
       this.readerState = readerState;
-    }
-
-    @Override
-    public void addSelectColumn(String name) {
-      addSelectColumn(SchemaPath.getSimplePath(name));
-    }
-
-    @Override
-    public void addSelectColumn(SchemaPath path) {
-      addSelectColumn(path, ColumnType.ANY);
-    }
-
-    @Override
-    public void addSelectColumn(SchemaPath path, ColumnType type) {
-
-      // Can't yet handle column type
-      // Always treated as ANY: the projection planner will sort out the meaning.
-
-      selection.add(new RequestedColumn(path));
     }
 
     @Override
@@ -166,27 +140,34 @@ public class ScanOperatorExec implements OperatorExec {
     }
 
     @Override
-    public void setSelectionRoot(Path rootPath) {
-      this.rootPath = rootPath;
-    }
-
-    @Override
-    public void setNullType(MajorType type) {
-      nullType = type;
-    }
-
-    @Override
     public ResultSetLoader build() {
       return readerState.buildSchema(this);
     }
   }
 
-  // TODO: Move into the projection planner
-
   public static class ScanOptions {
-//    public List<ImplicitColumnDefn> implicitColumns;
-//    public boolean reuseSchemaAcrossReaders;
-    public List<SchemaPath> selection;
+    public String scanRootDir;
+    public List<SchemaPath> projection;
+    public MajorType nullType;
+
+    /**
+     * Specify the selection root for a directory scan, if any.
+     * Used to populate partition columns.
+     * @param rootPath Hadoop file path for the directory
+     */
+
+    public void setSelectionRoot(Path rootPath) {
+      scanRootDir = rootPath.toString();
+    }
+
+    /**
+     * Specify the type to use for projected columns that do not
+     * match any data source columns. Defaults to nullable int.
+     */
+
+    public void setNullType(MajorType type) {
+      nullType = type;
+    }
   }
 
   /**
@@ -195,13 +176,12 @@ public class ScanOperatorExec implements OperatorExec {
    * follows the life of the reader.
    */
 
-  public static class ReaderState {
+  private static class ReaderState {
     private enum State { START, LOOK_AHEAD, ACTIVE, EOF, CLOSED };
 
     private final ScanOperatorExec scanOp;
     private final RowBatchReader reader;
     private State state = State.START;
-    protected ScanProjection projection;
     protected ResultSetLoader tableLoader;
     private boolean earlySchema;
     private VectorContainer lookahead;
@@ -210,8 +190,6 @@ public class ScanOperatorExec implements OperatorExec {
       this.scanOp = scanOp;
       this.reader = reader;
     }
-
-    protected ScanOperatorExec scanOp() { return scanOp; }
 
     /**
      * Open the next available reader, if any, preparing both the
@@ -283,70 +261,71 @@ public class ScanOperatorExec implements OperatorExec {
 
     protected ResultSetLoader buildSchema(SchemaNegotiatorImpl schemaNegotiator) {
 
-      // Plan the projection: (table columns), (static columns) --> (output schema)
-      // Where (output schema) is the (select list) expanded as needed and
-      // decorated with type information.
-
-      projection = buildProjectionPlan(schemaNegotiator);
-      earlySchema = projection.tableSchemaType() == TableSchemaType.EARLY;
+      earlySchema = schemaNegotiator.tableSchemaType == TableSchemaType.EARLY;
 
       // Build and return the result set loader to be used by the reader.
 
-      tableLoader = scanOp.buildTableLoader(projection, schemaNegotiator.nullType);
+      ScanProjector projector = scanOp.scanProjector;
+      projector.startFile(schemaNegotiator.filePath);
+      tableLoader = projector.makeTableLoader(schemaNegotiator.tableSchema);
+
+      // Bind the output container to the output of the scan operator.
+
+      scanOp.containerAccessor.setContainer(projector.output());
       return tableLoader;
     }
 
-    private ScanProjection buildProjectionPlan(
-        SchemaNegotiatorImpl schemaNegotiator) {
-
-      Builder planner = new ScanProjectionDefn.Builder(scanOp.context.getFragmentContext().getOptionSet());
-
-      // Either the scan operator, or reader, but not both,
-      // can provide the selection list.
-      // The select list should be provided for the group of readers,
-      // but there is no good way to do that at present.
-
-      if (scanOp.options.selection != null) {
-        if (! schemaNegotiator.selection.isEmpty()) {
-          throw new IllegalStateException(
-              "Select list provided by scan operator; cannot also be provided by reader");
-        }
-        planner.queryCols(scanOp.options.selection);
-      } else {
-        planner.requestColumns(schemaNegotiator.selection);
-      }
-
-      // Provide the table schema (if any) provided by the reader.
-      // For the projection planner, a null list means late schema.
-
-      if (schemaNegotiator.tableSchemaType == TableSchemaType.EARLY) {
-        planner.tableSchema(schemaNegotiator.tableSchema);
-      }
-
-      // Populate the file and selection root, if any, for implicit
-      // columns and partition columns.
-      // TODO: Clean up API to pass either a string or path both places..
-
-      if (schemaNegotiator.filePath != null) {
-        planner.setSource(schemaNegotiator.filePath,
-            schemaNegotiator.rootPath == null ? null :
-              Path.getPathWithoutSchemeAndAuthority(schemaNegotiator.rootPath).toString());
-      }
-
-      // Populate the prior schema, if any
-
-      BatchSchema priorSchema = scanOp.getPriorSchema();
-      if (priorSchema != null) {
-        planner.priorSchema(priorSchema);
-      }
-
-      // Create the projection plan. This is the full projection
-      // plan for early-schema tables, a partial plan for late-schema,
-      // since late-schema does not know the schema until the first
-      // batch is read.
-
-      return planner.build();
-    }
+//    private ScanProjection buildProjectionPlan(
+//        SchemaNegotiatorImpl schemaNegotiator) {
+//
+//      Builder planner = new ScanLevelProjection.Builder(scanOp.context.getFragmentContext().getOptionSet());
+//
+//      // Either the scan operator, or reader, but not both,
+//      // can provide the selection list.
+//      // The select list should be provided for the group of readers,
+//      // but there is no good way to do that at present.
+//
+//      if (scanOp.options.projection != null) {
+//        if (! schemaNegotiator.selection.isEmpty()) {
+//          throw new IllegalStateException(
+//              "Select list provided by scan operator; cannot also be provided by reader");
+//        }
+//        planner.projectedCols(scanOp.options.projection);
+//      } else {
+//        planner.requestColumns(schemaNegotiator.selection);
+//      }
+//
+//      // Provide the table schema (if any) provided by the reader.
+//      // For the projection planner, a null list means late schema.
+//
+//      if (schemaNegotiator.tableSchemaType == TableSchemaType.EARLY) {
+//        planner.tableSchema(schemaNegotiator.tableSchema);
+//      }
+//
+//      // Populate the file and selection root, if any, for implicit
+//      // columns and partition columns.
+//      // TODO: Clean up API to pass either a string or path both places..
+//
+//      if (schemaNegotiator.filePath != null) {
+//        planner.setSource(schemaNegotiator.filePath,
+//            schemaNegotiator.rootPath == null ? null :
+//              Path.getPathWithoutSchemeAndAuthority(schemaNegotiator.rootPath).toString());
+//      }
+//
+//      // Populate the prior schema, if any
+//
+//      BatchSchema priorSchema = scanOp.getPriorSchema();
+//      if (priorSchema != null) {
+//        planner.priorSchema(priorSchema);
+//      }
+//
+//      // Create the projection plan. This is the full projection
+//      // plan for early-schema tables, a partial plan for late-schema,
+//      // since late-schema does not know the schema until the first
+//      // batch is read.
+//
+//      return planner.build();
+//    }
 
     /**
      * Prepare the schema for this reader. Called for the first reader within a
@@ -469,10 +448,6 @@ public class ScanOperatorExec implements OperatorExec {
       }
     }
 
-    public boolean isEof() {
-      return state == State.EOF;
-    }
-
     /**
      * Close the current reader.
      */
@@ -544,6 +519,11 @@ public class ScanOperatorExec implements OperatorExec {
   @Override
   public void bind(OperatorExecServices context) {
     this.context = context;
+    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(context.getFragmentContext().getOptionSet());
+    builder.useLegacyWildcardExpansion(true);
+    builder.setScanRootDir(options.scanRootDir);
+    builder.projectedCols(options.projection);
+    scanProjector = new ScanProjector(context.allocator(), builder.build(), options.nullType);
   }
 
   @Override
@@ -581,35 +561,6 @@ public class ScanOperatorExec implements OperatorExec {
 
   private void nextSchema() {
     nextAction(true);
-  }
-
-  private BatchSchema getPriorSchema() {
-    if (scanProjector == null) {
-      return null;
-    }
-    return scanProjector.output().getSchema();
-  }
-
-  private ResultSetLoader buildTableLoader(ScanProjection projection, MajorType nullType) {
-
-    // If this is the first reader, create the scan projector
-    // using the null type provided by the first reader. The
-    // null type should be per group of readers, but there is
-    // no good way to do that at present.
-
-    if (scanProjector == null) {
-      scanProjector = new ScanProjector(context.allocator(), nullType);
-    }
-
-    // Create the table loader
-
-    ResultSetLoader tableLoader = scanProjector.makeTableLoader(projection);
-
-    // Bind the output container to the output of the scan operator.
-
-    containerAccessor.setContainer(scanProjector.output());
-
-    return tableLoader;
   }
 
   @Override

@@ -289,9 +289,9 @@ public class TestScanOperatorExec extends SubOperatorTest {
       ScanOptions options = null;
       if (select != null) {
         options = new ScanOptions();
-        options.selection = new ArrayList<>();
+        options.projection = new ArrayList<>();
         for (String col : select) {
-          options.selection.add(SchemaPath.getSimplePath(col));
+          options.projection.add(SchemaPath.getSimplePath(col));
         }
       }
       return options;
