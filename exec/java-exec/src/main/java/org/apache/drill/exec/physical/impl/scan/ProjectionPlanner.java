@@ -32,10 +32,10 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.PartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjection.*;
 import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.TableSchemaType;
-import org.apache.drill.exec.physical.impl.scan.QuerySelectionPlan.Builder;
+import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.Builder;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.server.options.OptionSet;
@@ -92,7 +92,7 @@ public class ProjectionPlanner {
     // If have a partition path, select the dir<n> columns as well.
 
     for (int i = 0; i < dirPath.length; i++) {
-      OutputColumn.PartitionColumn partCol = new OutputColumn.PartitionColumn(partitionDesignator, outputCols.size(), i);
+      ScanOutputColumn.PartitionColumn partCol = new ScanOutputColumn.PartitionColumn(partitionDesignator, outputCols.size(), i);
       partCol.setValue(dirPath[i]);
       partitionCols.add(partCol);
       staticCols.add(partCol);
@@ -151,14 +151,14 @@ public class ProjectionPlanner {
 
   public ScanProjection build() {
     mapSelectedCols();
-    if (selectType == SelectType.ALL && useLegacyStarPlan) {
+    if (selectType == ProjectionType.ALL && useLegacyStarPlan) {
       selectAllPartitions();
       selectAllImplicitCols();
     }
     mapImplicitCols();
     mapPartitionCols();
 
-    if (selectType == SelectType.ALL) {
+    if (selectType == ProjectionType.ALL) {
       if (tableCols == null) {
         // SELECT *: is late schema
 
@@ -214,7 +214,7 @@ public class ProjectionPlanner {
    * @return
    */
 
-  private void mapColumn(SelectColumn inCol) {
+  private void mapColumn(RequestedColumn inCol) {
     if (inCol.isWildcard()) {
 
       // Star column: this is a SELECT * query.
@@ -246,7 +246,7 @@ public class ProjectionPlanner {
     }
   }
 
-  private void mapStarColumn(SelectColumn inCol) {
+  private void mapStarColumn(RequestedColumn inCol) {
     // ...
 
     // If late schema, can't do more.
@@ -334,14 +334,14 @@ public class ProjectionPlanner {
     return true;
   }
 
-  private void mapLateProjectColumn(SelectColumn inCol) {
+  private void mapLateProjectColumn(RequestedColumn inCol) {
     ProjectedColumn outCol = new LateProjectedColumn(inCol, outputCols.size());
     projectedCols.add(outCol);
     outputCols.add(outCol);
     inCol.projection = outCol;
   }
 
-  private void mapEarlyProjectedColumn(TableColumn dsCol, SelectColumn inCol) {
+  private void mapEarlyProjectedColumn(TableColumn dsCol, RequestedColumn inCol) {
     ProjectedColumn outCol = new EarlyProjectedColumn(inCol, outputCols.size(), dsCol);
     dsCol.projection = outCol;
     projectedCols.add(outCol);
@@ -349,7 +349,7 @@ public class ProjectionPlanner {
     inCol.projection = outCol;
   }
 
-  private void mapNullColumn(SelectColumn inCol) {
+  private void mapNullColumn(RequestedColumn inCol) {
     NullColumn outCol = new NullColumn(inCol, outputCols.size(), MaterializedField.create(inCol.name(), getNullColumnType()));
     nullCols.add(outCol);
     staticCols.add(outCol);

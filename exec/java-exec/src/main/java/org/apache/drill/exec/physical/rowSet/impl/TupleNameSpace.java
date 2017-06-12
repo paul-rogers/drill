@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -81,5 +80,10 @@ public class TupleNameSpace<T> implements Iterable<T> {
 
   public List<T> entries() {
     return ImmutableList.copyOf(entries);
+  }
+
+  @Override
+  public String toString() {
+    return entries.toString();
   }
 }

@@ -31,8 +31,8 @@ import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.Operator
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.VectorContainerAccessor;
 import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.TableSchemaType;
-import org.apache.drill.exec.physical.impl.scan.QuerySelectionPlan.Builder;
-import org.apache.drill.exec.physical.impl.scan.QuerySelectionPlan.SelectColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.Builder;
+import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.RequestedColumn;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
@@ -111,7 +111,7 @@ public class ScanOperatorExec implements OperatorExec {
   private static class SchemaNegotiatorImpl implements SchemaNegotiator {
 
     private final ReaderState readerState;
-    private final List<SelectColumn> selection = new ArrayList<>();
+    private final List<RequestedColumn> selection = new ArrayList<>();
     private final MaterializedSchema tableSchema = new MaterializedSchema();
     private TableSchemaType tableSchemaType = TableSchemaType.LATE;
     private Path filePath;
@@ -138,7 +138,7 @@ public class ScanOperatorExec implements OperatorExec {
       // Can't yet handle column type
       // Always treated as ANY: the projection planner will sort out the meaning.
 
-      selection.add(new SelectColumn(path));
+      selection.add(new RequestedColumn(path));
     }
 
     @Override
@@ -299,7 +299,7 @@ public class ScanOperatorExec implements OperatorExec {
     private ScanProjection buildProjectionPlan(
         SchemaNegotiatorImpl schemaNegotiator) {
 
-      Builder planner = new QuerySelectionPlan.Builder(scanOp.context.getFragmentContext().getOptionSet());
+      Builder planner = new ScanProjectionDefn.Builder(scanOp.context.getFragmentContext().getOptionSet());
 
       // Either the scan operator, or reader, but not both,
       // can provide the selection list.
@@ -313,7 +313,7 @@ public class ScanOperatorExec implements OperatorExec {
         }
         planner.queryCols(scanOp.options.selection);
       } else {
-        planner.selection(schemaNegotiator.selection);
+        planner.requestColumns(schemaNegotiator.selection);
       }
 
       // Provide the table schema (if any) provided by the reader.

@@ -23,10 +23,10 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.MetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.NullColumn;
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.ResolvedFileInfo;
-import org.apache.drill.exec.physical.impl.scan.QuerySelectionPlan.SelectType;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.NullColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.ProjectionType;
 import org.apache.drill.exec.physical.impl.scan.RowBatchMerger.Builder;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
@@ -306,24 +306,36 @@ public class ScanProjector {
       // Prefer the type of any previous occurrence of
       // this column.
 
-      MaterializedField colSchema = vectorCache.getType(defn.name());
+      MajorType type = vectorCache.getType(defn.name());
+
+      // Else, use the type defined in the projection, if any.
+
+      if (type == null) {
+        type = defn.type();
+      }
 
       // Else, use the specified null type.
 
-      if (colSchema == null) {
-        colSchema = MaterializedField.create(defn.name(), nullType);
+      if (type == null) {
+        type = nullType;
+      }
+
+      // If the schema had the special NULL type, replace it with the
+      // null column type.
+
+      if (type.getMinorType() == MinorType.NULL) {
+        type = nullType;
       }
 
       // Map required to optional. Will cause a schema change.
 
-      if (colSchema.getDataMode() == DataMode.REQUIRED) {
-        colSchema = MaterializedField.create(colSchema.getName(),
-            MajorType.newBuilder()
-              .setMinorType(colSchema.getType().getMinorType())
+      if (type.getMode() == DataMode.REQUIRED) {
+        type = MajorType.newBuilder()
+              .setMinorType(type.getMinorType())
               .setMode(DataMode.OPTIONAL)
-              .build());
+              .build();
       }
-      return colSchema;
+      return MaterializedField.create(defn.name(), type);
     }
 
     /**
@@ -369,19 +381,7 @@ public class ScanProjector {
 
   private final MajorType nullType;
 
-  /**
-   * Scan projection plan based on static information. May contain a table
-   * projection plan if the table is early schema, else the table (and thus
-   * null column) projections are worked out per batch.
-   */
-
-  private QuerySelectionPlan querySelPlan;
-
-  /**
-   *
-   */
-
-  private FileSelectionPlan filePlan;
+  private final ProjectionLifecycle projectionDefn;
 
   /**
    * The vector writer created here, and used by the reader. If the table is
@@ -419,24 +419,17 @@ public class ScanProjector {
 
   private int prevTableSchemaVersion;
 
-  private TableProjectionPlan tablePlan;
-
-  public ScanProjector(BufferAllocator allocator, QuerySelectionPlan querySelPlan, MajorType nullType) {
+  public ScanProjector(BufferAllocator allocator, ScanProjectionDefn scanProj, MajorType nullType) {
     this.allocator = allocator;
-    this.querySelPlan = querySelPlan;
+    this.projectionDefn = ProjectionLifecycle.newLifecycle(scanProj);
     this.nullType = nullType;
     vectorCache = new ResultVectorCache(allocator);
   }
 
-  public void startTable(ResolvedFileInfo fileInfo) {
-    FileSelectionPlan fileSel = new FileSelectionPlan(querySelPlan, fileInfo);
-    startTable(fileSel);
-  }
-
-  public void startTable(FileSelectionPlan filePlan) {
+  public void startFile(FileMetadata fileInfo) {
+    projectionDefn.startFile(fileInfo);
     closeTable();
     prevTableSchemaVersion = 0;
-    this.filePlan = filePlan;
     buildMetadataColumns();
   }
 
@@ -452,8 +445,8 @@ public class ScanProjector {
     // built on the fly, we need to set up the selection ahead of time and
     // can't optimize for the "selected all the columns" case.
 
-    if (querySelPlan.selectType() == SelectType.LIST) {
-      options.setSelection(querySelPlan.tableColNames());
+    if (projectionDefn.scanProjection().projectType() == ProjectionType.LIST) {
+      options.setSelection(projectionDefn.scanProjection().tableColNames());
     }
 
     // Create the table loader
@@ -471,10 +464,10 @@ public class ScanProjector {
 
   public ResultSetLoader makeTableLoader(MaterializedSchema tableSchema) {
 
-    if (filePlan == null) {
+    if (projectionDefn.fileProjection() == null) {
       throw new IllegalStateException("Must start file before setting table schema");
     }
-    tablePlan = filePlan.resolve(tableSchema);
+    projectionDefn.startSchema(tableSchema);
 
     ResultSetLoaderImpl.OptionBuilder options = new ResultSetLoaderImpl.OptionBuilder();
 
@@ -482,8 +475,8 @@ public class ScanProjector {
     // table columns. (If we want all columns, either because of *
     // or we selected them all, then no need to add filtering.)
 
-    if (! querySelPlan.isSelectAll()) {
-      List<String> selection = tablePlan.selectedTableColumns();
+    if (! projectionDefn.scanProjection().isProjectAll()) {
+      List<String> selection = projectionDefn.tableProjection().projectedTableColumns();
       if (selection.size() < tableSchema.size()) {
         options.setSelection(selection);
       }
@@ -526,10 +519,11 @@ public class ScanProjector {
    */
 
   private void buildMetadataColumns() {
-    if (! filePlan.hasMetadata()) {
+    if (! projectionDefn.fileProjection().hasMetadata()) {
       return;
     }
-    metadataColumnLoader = new MetadataColumnLoader(allocator, filePlan.metadataColumns(), vectorCache);
+    metadataColumnLoader = new MetadataColumnLoader(allocator,
+        projectionDefn.fileProjection().metadataColumns(), vectorCache);
   }
 
   /**
@@ -559,18 +553,19 @@ public class ScanProjector {
    */
 
   private void buildNullColumns(Builder builder) {
-    if (! tablePlan.hasNullColumns()) {
+    TableProjectionDefn tableProj = projectionDefn.tableProjection();
+    if (! tableProj.hasNullColumns()) {
       return;
     }
 
-    nullColumnLoader = new NullColumnLoader(allocator, tablePlan.nullColumns(), vectorCache, nullType);
+    nullColumnLoader = new NullColumnLoader(allocator, tableProj.nullColumns(), vectorCache, nullType);
 
     // Map null columns from the null column laoder schema into the output
     // schema.
 
     VectorContainer nullsContainer = nullColumnLoader.output();
-    for (int i = 0; i < tablePlan.nullColumns().size(); i++) {
-      int projIndex = tablePlan.nullProjectionMap()[i];
+    for (int i = 0; i < tableProj.nullColumns().size(); i++) {
+      int projIndex = tableProj.nullProjectionMap()[i];
       builder.addDirectProjection(nullsContainer, i, projIndex);
     }
   }
@@ -589,6 +584,7 @@ public class ScanProjector {
     // vector index of the table column. Non-projected table columns
     // don't have a vector, so can't use the table column index directly.
 
+    TableProjectionDefn tableProj = projectionDefn.tableProjection();
     VectorContainer tableContainer = tableLoader.outputContainer();
     TupleSchema tableSchema = tableLoader.writer().schema();
     int tableColCount = tableSchema.columnCount();
@@ -596,18 +592,18 @@ public class ScanProjector {
 
       // Skip unprojected table columns
 
-      if (! tablePlan.selectionMap()[i]) {
+      if (! tableProj.selectionMap()[i]) {
         continue;
       }
 
       // Get the output schema position for the column
 
-      int projIndex = tablePlan.tableColumnProjectionMap()[i];
+      int projIndex = tableProj.tableColumnProjectionMap()[i];
 
       // Get the physical vector index for the column (reflects
       // column reordering and removing unprojected columns.)
 
-      int tableVectorIndex = tablePlan.logicalToPhysicalMap()[i];
+      int tableVectorIndex = tableProj.logicalToPhysicalMap()[i];
 
       // Project from physical table loader schema to output schema
 
@@ -629,10 +625,11 @@ public class ScanProjector {
     if (metadataColumnLoader == null) {
       return;
     }
+    FileProjectionDefn fileProj = projectionDefn.fileProjection();
     VectorContainer metadataContainer = metadataColumnLoader.output();
     List<MetadataColumn> metadataCols = metadataColumnLoader.columns();
     for (int i = 0; i < metadataCols.size(); i++) {
-      int projIndex = filePlan.metadataProjection()[i];
+      int projIndex = fileProj.metadataProjection()[i];
       builder.addDirectProjection(metadataContainer, i, projIndex);
     }
   }
@@ -669,6 +666,7 @@ public class ScanProjector {
     }
     closeTable();
     output.close();
+    projectionDefn.close();
   }
 
   private void closeTable() {
@@ -676,7 +674,5 @@ public class ScanProjector {
       nullColumnLoader.close();
       nullColumnLoader = null;
     }
-    tablePlan = null;
-    filePlan = null;
   }
 }

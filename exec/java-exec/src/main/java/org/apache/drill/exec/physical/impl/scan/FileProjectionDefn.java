@@ -20,43 +20,46 @@ package org.apache.drill.exec.physical.impl.scan;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.FileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.MetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.ResolvedFileInfo;
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.WildcardColumn;
-import org.apache.drill.exec.physical.impl.scan.QuerySelectionPlan.FileMetadataColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.PartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.WildcardColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.FileMetadataColumnDefn;
+
+import com.google.common.annotations.VisibleForTesting;
 
 /**
- * Represents a partially-resolved select list with the per-file metadata
+ * Represents a partially-resolved projection list with the per-file metadata
  * columns (if any) populated. Must be combined with the table schema to
- * produce the final, fully-resolved selection list.
+ * produce the final, fully-resolved projection list.
  */
 
-public class FileSelectionPlan {
+public class FileProjectionDefn {
 
   /**
-   * Given an unresolved select list, possibly with placeholder metadata
+   * Given an unresolved projection list, possibly with placeholder metadata
    * columns, produce a new, partially resolved list with the metadata
    * columns replaced by concrete versions with associated values. (Metadata
    * columns are constant for an entire file.)
    */
 
-  private static class FileSchemaBuilder extends OutputColumn.Visitor {
-    private QuerySelectionPlan plan;
-    private ResolvedFileInfo fileInfo;
-    private List<OutputColumn> outputCols = new ArrayList<>();
+  private static class FileSchemaBuilder extends ScanOutputColumn.Visitor {
+    private ScanProjectionDefn scanProj;
+    private FileMetadata fileInfo;
+    private List<ScanOutputColumn> outputCols = new ArrayList<>();
     private List<MetadataColumn> metadataColumns = new ArrayList<>();
     private int metadataProjection[];
 
-    public FileSchemaBuilder(QuerySelectionPlan plan, ResolvedFileInfo fileInfo) {
-      this.plan = plan;
+    public FileSchemaBuilder(ScanProjectionDefn plan, List<ScanOutputColumn> inputCols, FileMetadata fileInfo) {
+      this.scanProj = plan;
       this.fileInfo = fileInfo;
-      int mapLen = plan.outputCols().size();
+      int mapLen = inputCols.size();
       if (plan.useLegacyWildcardPartition()) {
-        mapLen += fileInfo.dirPathLength() + plan.implicitColDefns().size();
+        mapLen += fileInfo.dirPathLength() + plan.fileMetadataColDefns().size();
       }
       metadataProjection = new int[mapLen];
+      visit(inputCols);
     }
 
     @Override
@@ -78,7 +81,7 @@ public class FileSelectionPlan {
     @Override
     protected void visitWildcard(int index, WildcardColumn col) {
       visitColumn(index, col);
-      if (! plan.useLegacyWildcardPartition()) {
+      if (! scanProj.useLegacyWildcardPartition()) {
         return;
       }
 
@@ -89,44 +92,56 @@ public class FileSelectionPlan {
       // return this data as an array at some point.
       // Append this after the *, keeping the * for later expansion.
 
-      for (FileMetadataColumnDefn iCol : plan.implicitColDefns()) {
-        addMetadataColumn(new FileMetadataColumn(col.source(),
-            iCol, iCol.colName(), fileInfo));
+      for (FileMetadataColumnDefn iCol : scanProj.fileMetadataColDefns()) {
+        addMetadataColumn(FileMetadataColumn.fromWildcard(col.source(),
+            iCol, fileInfo));
       }
       for (int i = 0; i < fileInfo.dirPathLength(); i++) {
-        addMetadataColumn(new PartitionColumn(col.source(), i,
-            plan.partitionName(i), fileInfo));
+        addMetadataColumn(PartitionColumn.fromWildcard(col.source(),
+            scanProj.partitionName(i), i, fileInfo));
       }
     }
 
     @Override
-    protected void visitColumn(int index, OutputColumn col) {
+    protected void visitColumn(int index, ScanOutputColumn col) {
       outputCols.add(col);
     }
   }
 
-  private final QuerySelectionPlan selectionPlan;
-  private final List<OutputColumn> outputCols;
+  private final ScanProjectionDefn scanProjection;
+  private final List<ScanOutputColumn> outputCols;
   private final List<MetadataColumn> metadataColumns;
-  private final int metadataProjection[];
+  private final int metadataProjectionMap[];
 
-  public FileSelectionPlan(QuerySelectionPlan selectionPlan, ResolvedFileInfo fileInfo) {
-    this.selectionPlan = selectionPlan;
-    if (selectionPlan.hasMetadata()) {
-      FileSchemaBuilder builder = new FileSchemaBuilder(selectionPlan, fileInfo);
-      builder.visit(selectionPlan);
-      outputCols = builder.outputCols;
+  public FileProjectionDefn(ScanProjectionDefn scanProjDefn, FileMetadata fileInfo) {
+    this(scanProjDefn, scanProjDefn.outputCols(), fileInfo);
+  }
+
+  public FileProjectionDefn(ScanProjectionDefn scanProjDefn,
+      List<ScanOutputColumn> inputCols, FileMetadata fileInfo) {
+    this.scanProjection = scanProjDefn;
+
+    // If the projection plan has file or partition metadata
+    // columns, rewrite them with actual file information.
+
+    if (scanProjDefn.hasMetadata()) {
+      FileSchemaBuilder builder = new FileSchemaBuilder(scanProjDefn, inputCols, fileInfo);
+       outputCols = builder.outputCols;
       metadataColumns = builder.metadataColumns;
-      metadataProjection = builder.metadataProjection;
+      metadataProjectionMap = builder.metadataProjection;
     } else {
-      outputCols = selectionPlan.outputCols();
+
+      // No file or partition columns, just use the unresolved
+      // query projection plan as-is.
+
+      outputCols = inputCols;
       metadataColumns = null;
-      metadataProjection = null;
+      metadataProjectionMap = null;
     }
   }
 
-  public QuerySelectionPlan selectionPlan() { return selectionPlan; }
-  public List<OutputColumn> output() { return outputCols; }
+  public ScanProjectionDefn scanProjection() { return scanProjection; }
+  public List<ScanOutputColumn> output() { return outputCols; }
   public boolean hasMetadata() { return metadataColumns != null && ! metadataColumns.isEmpty(); }
   public List<MetadataColumn> metadataColumns() { return metadataColumns; }
 
@@ -136,17 +151,22 @@ public class FileSelectionPlan {
    * {@link #metadataColumns()}, to the position in the full output schema
    * as defined by {@link #output()}
    */
-  public int[] metadataProjection() { return metadataProjection; }
+  public int[] metadataProjection() { return metadataProjectionMap; }
 
   /**
-   * Create a fully-resolved selection plan given a file plan and a table
+   * Create a fully-resolved projection plan given a file plan and a table
    * schema
    * @param tableSchema schema for the table (early-schema) or batch
    * (late-schema)
    * @return a fully-resolved projection plan
    */
 
-  public TableProjectionPlan resolve(MaterializedSchema tableSchema) {
-    return new TableProjectionPlan(this, tableSchema);
+  public TableProjectionDefn resolve(MaterializedSchema tableSchema) {
+    return new TableProjectionDefn(this, tableSchema);
+  }
+
+  @VisibleForTesting
+  public MaterializedSchema outputSchema() {
+    return ScanOutputColumn.schema(output());
   }
 }

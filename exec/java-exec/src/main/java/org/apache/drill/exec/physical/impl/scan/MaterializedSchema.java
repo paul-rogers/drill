@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
+import java.util.Iterator;
+
 import org.apache.drill.exec.physical.rowSet.impl.TupleNameSpace;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
@@ -31,12 +33,18 @@ import org.apache.drill.exec.record.MaterializedField;
  * This form us useful when performing semantic analysis.
  */
 
-public class MaterializedSchema {
+public class MaterializedSchema implements Iterable<MaterializedField> {
   public final TupleNameSpace<MaterializedField> nameSpace = new TupleNameSpace<>();
 
   public MaterializedSchema() { }
 
   public MaterializedSchema(BatchSchema schema) {
+    for (MaterializedField field : schema) {
+      add(field);
+    }
+  }
+
+  public MaterializedSchema(MaterializedSchema schema) {
     for (MaterializedField field : schema) {
       add(field);
     }
@@ -62,7 +70,37 @@ public class MaterializedSchema {
 
   public boolean isEmpty() { return nameSpace.count( ) == 0; }
 
+  @Override
+  public Iterator<MaterializedField> iterator() {
+    return nameSpace.iterator();
+  }
+
   public BatchSchema asBatchSchema() {
     return new BatchSchema(SelectionVectorMode.NONE, nameSpace.entries());
+  }
+
+  public boolean isEquivalent(MaterializedSchema other) {
+    if (nameSpace.count() != other.nameSpace.count()) {
+      return false;
+    }
+    for (int i = 0; i < nameSpace.count(); i++) {
+      if (! nameSpace.get(i).isEquivalent(other.nameSpace.get(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @Override
+  public String toString() {
+    return nameSpace.toString();
+  }
+
+  public MaterializedSchema merge(MaterializedSchema other) {
+    MaterializedSchema merged = new MaterializedSchema(this);
+    for (MaterializedField field : other) {
+      merged.add(field);
+    }
+    return merged;
   }
 }

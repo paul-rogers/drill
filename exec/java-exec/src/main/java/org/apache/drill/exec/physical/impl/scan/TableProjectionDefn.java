@@ -25,28 +25,29 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.ColumnType;
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.ColumnsArrayColumn;
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.NullColumn;
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.ProjectedColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ColumnsArrayColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.NullColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ProjectedColumn;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.store.ImplicitColumnExplorer;
 
+import com.google.common.annotations.VisibleForTesting;
+
 /**
  * Computes the full output schema given a table (or batch)
- * schema. Takes the original, unresolved output list from the selection
- * plan, merges it with the file, directory and table schema information,
+ * schema. Takes the original, unresolved output list from the projection
+ * definition, merges it with the file, directory and table schema information,
  * and produces a partially or fully resolved output list.
  * <p>
- * A "resolved" select list is a list of concrete columns: table
+ * A "resolved" projection list is a list of concrete columns: table
  * columns, nulls, file metadata or partition metadata. An unresolved list
  * has either table column names, but no match, or a wildcard column.
  * <p>
- * The idea is that the selection list moves through stages of resolution
+ * The idea is that the projection list moves through stages of resolution
  * depending on which information is available. An "early schema" table
  * provides schema information up front, and so allows fully resolving
- * the select list on table open. A "late schema" table allows only a
- * partially resolves select list, with the remainder of resolution
+ * the projection list on table open. A "late schema" table allows only a
+ * partially resolves projection list, with the remainder of resolution
  * happening on the first (or perhaps every) batch.
  * <p>
  * Data source (table) schema can be of two forms:
@@ -69,39 +70,40 @@ import org.apache.drill.exec.store.ImplicitColumnExplorer;
  * evolved
  */
 
-public class TableProjectionPlan {
+public class TableProjectionDefn {
 
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TableProjectionPlan.class);
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TableProjectionDefn.class);
 
-  private static class BaseTableColumnVisitor extends OutputColumn.Visitor {
+  private static class BaseTableColumnVisitor extends ScanOutputColumn.Visitor {
 
     protected MaterializedSchema tableSchema;
-    protected List<OutputColumn> outputCols = new ArrayList<>();
-    protected boolean selectionMap[];
+    protected List<ScanOutputColumn> outputCols = new ArrayList<>();
+    protected boolean columnIsProjected[];
     protected int logicalToPhysicalMap[];
     protected int projectionMap[];
-    protected int selectionCount;
+    protected int selectedTableColumnCount;
 
     public BaseTableColumnVisitor(MaterializedSchema tableSchema) {
       this.tableSchema = tableSchema;
     }
 
     @Override
-    protected void visitColumn(int index, OutputColumn col) {
+    protected void visitColumn(int index, ScanOutputColumn col) {
       outputCols.add(col);
     }
 
-    protected void addTableColumn(int colIndex, ProjectedColumn col) {
+    protected void addTableColumn(ProjectedColumn col) {
+      int colIndex = col.columnIndex();
       projectionMap[colIndex] = outputCols.size();
-      selectionMap[colIndex] = true;
-      selectionCount++;
+      columnIsProjected[colIndex] = true;
+      selectedTableColumnCount++;
       outputCols.add(col);
     }
   }
 
   /**
-   * Given a partially-resolved select list, possibly with a wildcard
-   * column, produce a new select list with the wildcard columns
+   * Given a partially-resolved projection list, possibly with a wildcard
+   * column, produce a new projection list with the wildcard columns
    * replaced with the actual list of table columns,
    * in table schema order. Note that the list may contain metadata
    * columns, either before the wildcard, after, or both.
@@ -111,7 +113,7 @@ public class TableProjectionPlan {
 
     public WildcardExpander(MaterializedSchema tableSchema) {
       super(tableSchema);
-      selectionMap = new boolean[tableSchema.size()];
+      columnIsProjected = new boolean[tableSchema.size()];
       projectionMap = new int[tableSchema.size()];
 
       // For SELECT *, columns in the output are the full set of
@@ -124,17 +126,17 @@ public class TableProjectionPlan {
     }
 
     @Override
-    protected void visitWildcard(int index, OutputColumn.WildcardColumn col) {
+    protected void visitWildcard(int index, ScanOutputColumn.WildcardColumn col) {
       for (int i = 0; i < tableSchema.size(); i++) {
-        addTableColumn(i, new ProjectedColumn(col.inCol,
-            tableSchema.column(i), tableSchema.column(i).getName()));
+        addTableColumn(ProjectedColumn.fromWildcard(col,
+            i, tableSchema.column(i)));
       }
     }
   }
 
   /**
-   * Given a partially resolved select list, with table column references
-   * (column names), create a new, fully resolved select list with the
+   * Given a partially resolved projection list, with table column references
+   * (column names), create a new, fully resolved projection list with the
    * column references replaced with either table columns references or
    * null columns (if no such column exists in the table.)
    */
@@ -146,7 +148,7 @@ public class TableProjectionPlan {
 
     public TableSchemaProjection(MaterializedSchema tableSchema) {
       super(tableSchema);
-      selectionMap = new boolean[tableSchema.size()];
+      columnIsProjected = new boolean[tableSchema.size()];
       logicalToPhysicalMap = new int[tableSchema.size()];
       Arrays.fill(logicalToPhysicalMap, -1);
       projectionMap = new int[tableSchema.size()];
@@ -154,30 +156,30 @@ public class TableProjectionPlan {
     }
 
     @Override
-    public void visit(List<OutputColumn> input) {
+    public void visit(List<ScanOutputColumn> input) {
       nullProjectionMap = new int[input.size()];
       super.visit(input);
 
       // Construct the logical (full table schema) to physical
-      // (selected columns only) map.
+      // (projected columns only) map.
 
       int physicalIndex = 0;
-      for (int i = 0; i < selectionMap.length; i++) {
-        logicalToPhysicalMap[i] = selectionMap[i] ? physicalIndex++ : -1;
+      for (int i = 0; i < columnIsProjected.length; i++) {
+        logicalToPhysicalMap[i] = columnIsProjected[i] ? physicalIndex++ : -1;
       }
     }
 
     @Override
-    protected void visitTableColumn(int index, OutputColumn.ExpectedTableColumn col) {
+    protected void visitTableColumn(int index, ScanOutputColumn.RequestedTableColumn col) {
       int tableColIndex = tableSchema.index(col.name());
       if (tableColIndex == -1) {
-        NullColumn nullCol = new NullColumn(col.inCol);
+        NullColumn nullCol = NullColumn.fromResolution(col.inCol);
         nullProjectionMap[nullCols.size()] = outputCols.size();
         outputCols.add(nullCol);
         nullCols.add(nullCol);
       } else {
-        addTableColumn(tableColIndex, new ProjectedColumn(
-              col.inCol, tableSchema.column(tableColIndex), col.inCol.name()));
+        addTableColumn(
+            ProjectedColumn.fromResolution(col, tableColIndex, tableSchema.column(tableColIndex)));
       }
     }
   }
@@ -191,24 +193,20 @@ public class TableProjectionPlan {
 
     public ColumnsArrayProjection(MaterializedSchema tableSchema) {
       super(tableSchema);
-      selectionMap = new boolean[] { true };
+      columnIsProjected = new boolean[] { true };
       logicalToPhysicalMap = new int[] { 0 };
       projectionMap = new int[1];
    }
 
     @Override
     protected void visitColumnsArray(int index, ColumnsArrayColumn col) {
-      addTableColumn(0, new ProjectedColumn(
-          col.inCol, MajorType.newBuilder()
-              .setMinorType(MinorType.VARCHAR)
-              .setMode(DataMode.REPEATED)
-              .build()));
+      addTableColumn(ProjectedColumn.fromColumnsArray(col));
     }
   }
 
-  private final QuerySelectionPlan selectionPlan;
+  private final FileProjectionDefn filePlan;
   private final MaterializedSchema tableSchema;
-  private final List<OutputColumn> outputCols;
+  private final List<ScanOutputColumn> outputCols;
 
   /**
    * Map, in table schema order, indicating which columns are selected.
@@ -235,11 +233,11 @@ public class TableProjectionPlan {
 
   protected final List<NullColumn> nullCols;
 
-  public TableProjectionPlan(FileSelectionPlan filePlan, MaterializedSchema tableSchema) {
-    selectionPlan = filePlan.selectionPlan();
+  public TableProjectionDefn(FileProjectionDefn filePlan, MaterializedSchema tableSchema) {
+    this.filePlan = filePlan;
     this.tableSchema = tableSchema;
     BaseTableColumnVisitor baseBuilder;
-    switch (selectionPlan.selectType()) {
+    switch (filePlan.scanProjection().projectType()) {
 
     // SELECT a, b, c
 
@@ -272,16 +270,18 @@ public class TableProjectionPlan {
       baseBuilder = colArrayProj;
       break;
     default:
-      throw new IllegalStateException("Unexpected selection type: " + selectionPlan.selectType());
+      throw new IllegalStateException("Unexpected selection type: " +
+                filePlan.scanProjection().projectType());
     }
     outputCols = baseBuilder.outputCols;
-    selectionMap = baseBuilder.selectionMap;
+    selectionMap = baseBuilder.columnIsProjected;
     logicalToPhysicalMap = baseBuilder.logicalToPhysicalMap;
     tableColumnProjectionMap = baseBuilder.projectionMap;
   }
 
-  public QuerySelectionPlan selectionPlan() { return selectionPlan; }
-  public List<OutputColumn> output() { return outputCols; }
+  public ScanProjectionDefn scanProjection() { return filePlan.scanProjection(); }
+  public FileProjectionDefn fileProjection() { return filePlan; }
+  public List<ScanOutputColumn> output() { return outputCols; }
   public boolean[] selectionMap() { return selectionMap; }
   public int[] logicalToPhysicalMap() { return logicalToPhysicalMap; }
   public int[] tableColumnProjectionMap() { return tableColumnProjectionMap; }
@@ -289,17 +289,22 @@ public class TableProjectionPlan {
   public List<NullColumn> nullColumns() { return nullCols; }
   public int[] nullProjectionMap() { return nullProjectionMap; }
 
-  public List<String> selectedTableColumns() {
-    List<String> selection = new ArrayList<>();
+  public List<String> projectedTableColumns() {
+    List<String> projection = new ArrayList<>();
     for (int i = 0; i < selectionMap.length; i++) {
       if (selectionMap[i]) {
-        selection.add(tableSchema.column(i).getName());
+        projection.add(tableSchema.column(i).getName());
       }
     }
-    return selection;
+    return projection;
   }
 
-  private void validateColumnsArray(List<OutputColumn> input) {
+  @VisibleForTesting
+  public MaterializedSchema outputSchema() {
+    return ScanOutputColumn.schema(output());
+  }
+
+  private void validateColumnsArray(List<ScanOutputColumn> input) {
 
     // All columns must be required Varchar: the type of the array elements
 

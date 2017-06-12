@@ -25,8 +25,15 @@ import java.util.regex.Pattern;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.map.CaseInsensitiveMap;
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.ColumnsArrayColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ColumnsArrayColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.PartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.RequestedTableColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.WildcardColumn;
 import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.ColumnType;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.server.options.OptionValue;
@@ -36,22 +43,27 @@ import org.apache.drill.exec.store.ImplicitColumnExplorer.ImplicitFileColumns;
 import com.google.common.collect.Lists;
 
 /**
- * Parses and analyzes the selection list passed to the scanner. The
- * selection list is per scan, independent of any tables that the
- * scanner might scan. The selection list is then used as input to the
+ * Parses and analyzes the projection list passed to the scanner. The
+ * projection list is per scan, independent of any tables that the
+ * scanner might scan. The projection list is then used as input to the
  * per-table projection planning.
+ * <p>
+ * An annoying aspect of SQL is that the projection list (the list of
+ * columns to appear in the output) is specified after the SELECT keyword.
+ * In Relational theory, projection is about columns, selection is about
+ * rows...
  * <p>
  * Mappings can be based on three primary use cases:
  * <ul>
- * <li>SELECT *: Select all data source columns, whatever they happen
+ * <li>SELECT *: Project all data source columns, whatever they happen
  * to be. Create columns using names from the data source. The data source
  * also determines the order of columns within the row.</li>
- * <li>SELECT columns: Similar to SELECT * in that it selects all columns
+ * <li>SELECT columns: Similar to SELECT * in that it projects all columns
  * from the data source, in data source order. But, rather than creating
  * individual output columns for each data source column, creates a single
  * column which is an array of Varchars which holds the (text form) of
  * each column as an array element.</li>
- * <li>SELECT a, b, c, ...: Select a specific set of columns, identified by
+ * <li>SELECT a, b, c, ...: Project a specific set of columns, identified by
  * case-insensitive name. The output row uses the names from the SELECT list,
  * but types from the data source. Columns appear in the row in the order
  * specified by the SELECT.</li>
@@ -59,7 +71,7 @@ import com.google.common.collect.Lists;
  * Names in the SELECT list can reference any of four distinct types of output
  * columns:
  * <ul>
- * <li>Wildcard ("*") column: indictes the place in the select list to insert
+ * <li>Wildcard ("*") column: indicates the place in the projection list to insert
  * the table columns once found in the table projection plan.</li>
  * <li>Data source columns: columns from the underlying table. The table
  * projection planner will determine if the column exists, or must be filled
@@ -74,9 +86,9 @@ import com.google.common.collect.Lists;
  * evolved
  */
 
-public class QuerySelectionPlan {
+public class ScanProjectionDefn {
 
-  public enum SelectType { WILDCARD, COLUMNS_ARRAY, LIST }
+  public enum ProjectionType { WILDCARD, COLUMNS_ARRAY, LIST }
 
   public static final String WILDCARD = "*";
   public static final String COLUMNS_ARRAY_NAME = "columns";
@@ -87,17 +99,17 @@ public class QuerySelectionPlan {
    * the meaning of the column name.
    */
 
-  public static class SelectColumn {
+  public static class RequestedColumn {
     private final String name;
     @SuppressWarnings("unused")
     private final ColumnType typeHint;
-    protected OutputColumn resolution;
+    protected ScanOutputColumn resolution;
 
-    public SelectColumn(SchemaPath col) {
+    public RequestedColumn(SchemaPath col) {
       this(col, null);
     }
 
-    public SelectColumn(SchemaPath col, ColumnType hint) {
+    public RequestedColumn(SchemaPath col, ColumnType hint) {
       this.name = col.getAsUnescapedPath();
       typeHint = hint;
     }
@@ -110,12 +122,12 @@ public class QuerySelectionPlan {
      * @return the corresponding output column
      */
 
-    public OutputColumn resolution() {
+    public ScanOutputColumn resolution() {
       return resolution;
     }
 
     /**
-     * Return if this column is the special "*" column which means to select
+     * Return if this column is the special "*" column which means to project
      * all table columns.
      *
      * @return true if the column is "*"
@@ -166,14 +178,21 @@ public class QuerySelectionPlan {
     }
 
     public String colName() { return colName; }
+
+    public MajorType dataType() {
+      return MajorType.newBuilder()
+          .setMinorType(MinorType.VARCHAR)
+          .setMode(DataMode.REQUIRED)
+          .build();
+    }
   }
 
   /**
    * Fluent builder for the projection mapping. Accepts the inputs needed to
-   * plan a projection, builds the mappings, and constructs the selection
+   * plan a projection, builds the mappings, and constructs the projection
    * mapping object.
    * <p>
-   * Builds the per-scan projection plan given a set of selected columns.
+   * Builds the per-scan projection plan given a set of projected columns.
    * Determines the output schema, which columns to project from the data
    * source, which are metadata, and so on.
    */
@@ -186,19 +205,20 @@ public class QuerySelectionPlan {
     private final Pattern partitionPattern;
     private List<FileMetadataColumnDefn> implicitColDefns = new ArrayList<>();;
     private Map<String, FileMetadataColumnDefn> fileMetadataColIndex = CaseInsensitiveMap.newHashMap();
-    private boolean useLegacyStarPlan = true;
+    private boolean useLegacyWildcardExpansion = true;
+    private MajorType columnsArrayType;
 
     // Input
 
-    protected List<SelectColumn> queryCols = new ArrayList<>();
+    protected List<RequestedColumn> queryCols = new ArrayList<>();
 
     // Output
 
-    protected List<OutputColumn> outputCols = new ArrayList<>();
+    protected List<ScanOutputColumn> outputCols = new ArrayList<>();
     protected List<String> tableColNames = new ArrayList<>();
     protected ColumnsArrayColumn columnsArrayCol;
-    protected SelectType selectType;
-    protected SelectColumn starColumn;
+    protected ProjectionType projectionType;
+    protected RequestedColumn wildcardColumn;
     protected boolean hasMetadata;
 
     public Builder(OptionSet optionManager) {
@@ -219,7 +239,7 @@ public class QuerySelectionPlan {
      *
      * @return this builder
      */
-    public Builder selectAll() {
+    public Builder projectAll() {
       return queryCols(Lists.newArrayList(new SchemaPath[] {SchemaPath.getSimplePath(WILDCARD)}));
     }
 
@@ -233,8 +253,8 @@ public class QuerySelectionPlan {
      * @return this builder
      */
 
-    public Builder useLegacyStarPlan(boolean flag) {
-      useLegacyStarPlan = flag;
+    public Builder useLegacyWildcardExpansion(boolean flag) {
+      useLegacyWildcardExpansion = flag;
       return this;
     }
 
@@ -250,15 +270,22 @@ public class QuerySelectionPlan {
       assert this.queryCols.isEmpty();
       this.queryCols = new ArrayList<>();
       for (SchemaPath col : queryCols) {
-        SelectColumn sCol = new SelectColumn(col);
+        RequestedColumn sCol = new RequestedColumn(col);
         this.queryCols.add(sCol);
       }
       return this;
     }
 
-    public void selection(List<SelectColumn> queryCols) {
+    public void requestColumns(List<RequestedColumn> queryCols) {
       assert this.queryCols.isEmpty();
       this.queryCols.addAll(queryCols);
+    }
+
+    public void columnsArrayType(MinorType type) {
+      columnsArrayType = MajorType.newBuilder()
+          .setMinorType(type)
+          .setMode(DataMode.REPEATED)
+          .build();
     }
 
     /**
@@ -266,13 +293,13 @@ public class QuerySelectionPlan {
      * @return the finalized projection plan
      */
 
-    public QuerySelectionPlan build() {
-      selectType = SelectType.LIST;
-      for (SelectColumn inCol : queryCols) {
+    public ScanProjectionDefn build() {
+      projectionType = ProjectionType.LIST;
+      for (RequestedColumn inCol : queryCols) {
         mapColumn(inCol);
       }
       verify();
-      return new QuerySelectionPlan(this);
+      return new ScanProjectionDefn(this);
     }
 
     /**
@@ -290,7 +317,7 @@ public class QuerySelectionPlan {
      * @param inCol the SELECT column
      */
 
-    private void mapColumn(SelectColumn inCol) {
+    private void mapColumn(RequestedColumn inCol) {
       if (inCol.isWildcard()) {
 
         // Star column: this is a SELECT * query.
@@ -303,7 +330,7 @@ public class QuerySelectionPlan {
 
         // Partition column
 
-        OutputColumn.PartitionColumn outCol = new OutputColumn.PartitionColumn(inCol, Integer.parseInt(m.group(1)));
+        PartitionColumn outCol = PartitionColumn.fromSelect(inCol, Integer.parseInt(m.group(1)));
         inCol.resolution = outCol;
         outputCols.add(outCol);
         hasMetadata = true;
@@ -315,7 +342,7 @@ public class QuerySelectionPlan {
 
         // File metadata (implicit) column
 
-        OutputColumn.FileMetadataColumn outCol = new OutputColumn.FileMetadataColumn(inCol, iCol);
+        FileMetadataColumn outCol = FileMetadataColumn.fromSelect(inCol, iCol);
         inCol.resolution = outCol;
         outputCols.add(outCol);
         hasMetadata = true;
@@ -332,24 +359,24 @@ public class QuerySelectionPlan {
 
       // This is a desired table column.
 
-      OutputColumn.ExpectedTableColumn tableCol = new OutputColumn.ExpectedTableColumn(inCol);
+      RequestedTableColumn tableCol = RequestedTableColumn.fromSelect(inCol);
       inCol.resolution = tableCol;
       outputCols.add(tableCol);
       tableColNames.add(tableCol.name());
     }
 
-    private void mapWildcardColumn(SelectColumn inCol) {
-      if (starColumn != null) {
+    private void mapWildcardColumn(RequestedColumn inCol) {
+      if (wildcardColumn != null) {
         throw new IllegalArgumentException("Duplicate * entry in select list");
       }
-      selectType = SelectType.WILDCARD;
-      starColumn = inCol;
+      projectionType = ProjectionType.WILDCARD;
+      wildcardColumn = inCol;
 
       // Put the wildcard column into the projection list as a placeholder to be filled
       // in later with actual table columns.
 
-      inCol.resolution = new OutputColumn.WildcardColumn(inCol, useLegacyStarPlan);
-      if (useLegacyStarPlan) {
+      inCol.resolution = WildcardColumn.fromSelect(inCol);
+      if (useLegacyWildcardExpansion) {
 
         // Old-style wildcard handling inserts all metadata coluns in
         // the scanner, removes them in Project.
@@ -361,26 +388,26 @@ public class QuerySelectionPlan {
       outputCols.add(inCol.resolution);
     }
 
-    private void mapColumnsArrayColumn(SelectColumn inCol) {
+    private void mapColumnsArrayColumn(RequestedColumn inCol) {
 
       if (columnsArrayCol != null) {
         throw new IllegalArgumentException("Duplicate columns[] column");
       }
 
-      selectType = SelectType.COLUMNS_ARRAY;
-      columnsArrayCol = new OutputColumn.ColumnsArrayColumn(inCol);
+      projectionType = ProjectionType.COLUMNS_ARRAY;
+      columnsArrayCol = ColumnsArrayColumn.fromSelect(inCol, columnsArrayType());
       outputCols.add(columnsArrayCol);
       inCol.resolution = columnsArrayCol;
     }
 
     private void verify() {
-      if (starColumn != null && columnsArrayCol != null) {
+      if (wildcardColumn != null && columnsArrayCol != null) {
         throw new IllegalArgumentException("Cannot select columns[] and `*` together");
       }
-      for (OutputColumn outCol : outputCols) {
+      for (ScanOutputColumn outCol : outputCols) {
         switch (outCol.columnType()) {
         case TABLE:
-          if (starColumn != null) {
+          if (wildcardColumn != null) {
             throw new IllegalArgumentException("Cannot select table columns and `*` together");
           }
           if (columnsArrayCol != null) {
@@ -388,12 +415,12 @@ public class QuerySelectionPlan {
           }
           break;
         case FILE_METADATA:
-          if (starColumn != null  &&  useLegacyStarPlan) {
+          if (wildcardColumn != null  &&  useLegacyWildcardExpansion) {
             throw new IllegalArgumentException("Cannot select file metadata columns and `*` together");
           }
           break;
         case PARTITION:
-          if (starColumn != null  &&  useLegacyStarPlan) {
+          if (wildcardColumn != null  &&  useLegacyWildcardExpansion) {
             throw new IllegalArgumentException("Cannot select partitions and `*` together");
           }
           break;
@@ -402,26 +429,38 @@ public class QuerySelectionPlan {
         }
       }
     }
+
+    public MajorType columnsArrayType() {
+      if (columnsArrayType == null) {
+        columnsArrayType = MajorType.newBuilder()
+            .setMinorType(MinorType.VARCHAR)
+            .setMode(DataMode.REPEATED)
+            .build();
+      }
+      return columnsArrayType;
+    }
   }
 
   private final String partitionDesignator;
-  private final List<FileMetadataColumnDefn> implicitColDefns;
-  private final SelectType selectType;
+  private final List<FileMetadataColumnDefn> fileMetadataColDefns;
+  private final ProjectionType projectType;
   private final boolean hasMetadata;
   private final boolean useLegacyStarPlan;
-  private final List<SelectColumn> queryCols;
-  private final List<OutputColumn> outputCols;
+  private final List<RequestedColumn> requestedCols;
+  private final List<ScanOutputColumn> outputCols;
   private final List<String> tableColNames;
+  private final MajorType columnsArrayType;
 
-  public QuerySelectionPlan(Builder builder) {
+  public ScanProjectionDefn(Builder builder) {
     partitionDesignator = builder.partitionDesignator;
-    implicitColDefns = builder.implicitColDefns;
-    selectType = builder.selectType;
+    fileMetadataColDefns = builder.implicitColDefns;
+    projectType = builder.projectionType;
     hasMetadata = builder.hasMetadata;
-    useLegacyStarPlan = builder.useLegacyStarPlan;
-    queryCols = builder.queryCols;
+    useLegacyStarPlan = builder.useLegacyWildcardExpansion;
+    requestedCols = builder.queryCols;
     outputCols = builder.outputCols;
     tableColNames = builder.tableColNames;
+    columnsArrayType = builder.columnsArrayType;
   }
 
   /**
@@ -429,17 +468,16 @@ public class QuerySelectionPlan {
    * @return true if this is a SELECT * query
    */
 
-  public boolean isSelectAll() { return selectType == SelectType.WILDCARD; }
+  public boolean isProjectAll() { return projectType == ProjectionType.WILDCARD; }
 
-  public SelectType selectType() { return selectType; }
+  public ProjectionType projectType() { return projectType; }
 
   /**
    * Return the set of columns from the SELECT list
-   * @return the SELECT list columns, in SELECT list order,
-   * or null if this is a SELECT * query
+   * @return the SELECT list columns, in SELECT list order
    */
 
-  public List<SelectColumn> queryCols() { return queryCols; }
+  public List<RequestedColumn> requestedCols() { return requestedCols; }
 
   public boolean hasMetadata() { return hasMetadata; }
 
@@ -450,15 +488,24 @@ public class QuerySelectionPlan {
    * @return the set of output columns in output order
    */
 
-  public List<OutputColumn> outputCols() { return outputCols; }
+  public List<ScanOutputColumn> outputCols() { return outputCols; }
 
   public boolean useLegacyWildcardPartition() { return useLegacyStarPlan; }
 
   public List<String> tableColNames() { return tableColNames; }
 
-  public List<FileMetadataColumnDefn> implicitColDefns() { return implicitColDefns; }
+  public List<FileMetadataColumnDefn> fileMetadataColDefns() { return fileMetadataColDefns; }
 
   public String partitionName(int partition) {
     return partitionDesignator + partition;
   }
+
+  public static MajorType partitionColType() {
+    return MajorType.newBuilder()
+          .setMinorType(MinorType.VARCHAR)
+          .setMode(DataMode.OPTIONAL)
+          .build();
+  }
+
+  public MajorType columnsArrayType() { return columnsArrayType; }
 }

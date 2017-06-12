@@ -22,6 +22,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.MaterializedField;
@@ -163,11 +164,11 @@ public class ResultVectorCache {
     return vs.vector;
   }
 
-  public MaterializedField getType(String name) {
+  public MajorType getType(String name) {
     VectorState vs = vectors.get(name);
     if (vs == null || vs.vector == null) {
       return null;
     }
-    return vs.vector.getField();
+    return vs.vector.getField().getType();
   }
 }

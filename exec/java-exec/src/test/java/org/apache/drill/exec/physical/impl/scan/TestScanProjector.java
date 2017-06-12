@@ -30,13 +30,13 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.SchemaTracker;
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.FileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.MetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.NullColumn;
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.OutputColumn.ResolvedFileInfo;
-import org.apache.drill.exec.physical.impl.scan.QuerySelectionPlan.FileMetadataColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.QuerySelectionPlan.SelectColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.NullColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.PartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.FileMetadataColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.ScanProjectionDefn.RequestedColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanProjector.MetadataColumnLoader;
 import org.apache.drill.exec.physical.impl.scan.ScanProjector.NullColumnLoader;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
@@ -56,8 +56,8 @@ import org.junit.Test;
 
 public class TestScanProjector extends SubOperatorTest {
 
-  public SelectColumn buildSelectCol(String name) {
-    return new SelectColumn(SchemaPath.getSimplePath(name));
+  public RequestedColumn buildSelectCol(String name) {
+    return new RequestedColumn(SchemaPath.getSimplePath(name));
   }
 
   /**
@@ -71,13 +71,13 @@ public class TestScanProjector extends SubOperatorTest {
   @Test
   public void testStaticColumnLoader() {
 
-    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
+    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
     List<MetadataColumn> defns = new ArrayList<>();
     FileMetadataColumnDefn iDefn = new FileMetadataColumnDefn("suffix", ImplicitFileColumns.SUFFIX);
-    FileMetadataColumn iCol = new FileMetadataColumn(buildSelectCol("suffix"), iDefn, null, fileInfo);
+    FileMetadataColumn iCol = FileMetadataColumn.resolved(buildSelectCol("suffix"), iDefn, fileInfo);
     defns.add(iCol);
 
-    PartitionColumn pCol = new PartitionColumn(buildSelectCol("dir1"), 1, null, fileInfo);
+    PartitionColumn pCol = PartitionColumn.resolved(buildSelectCol("dir1"), 1, fileInfo);
     defns.add(pCol);
 
     ResultVectorCache cache = new ResultVectorCache(fixture.allocator());
@@ -108,10 +108,10 @@ public class TestScanProjector extends SubOperatorTest {
   public void testNullColumnLoader() {
 
     List<NullColumn> defns = new ArrayList<>();
-    defns.add(new NullColumn(buildSelectCol("req")));
-    defns.add(new NullColumn(buildSelectCol("opt")));
-    defns.add(new NullColumn(buildSelectCol("rep")));
-    defns.add(new NullColumn(buildSelectCol("unk")));
+    defns.add(NullColumn.fromResolution(buildSelectCol("req")));
+    defns.add(NullColumn.fromResolution(buildSelectCol("opt")));
+    defns.add(NullColumn.fromResolution(buildSelectCol("rep")));
+    defns.add(NullColumn.fromResolution(buildSelectCol("unk")));
 
     // Populate the cache with a column of each mode.
 
@@ -165,17 +165,17 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT * ...
 
-    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
-    querySelBuilder.useLegacyStarPlan(false);
-    querySelBuilder.selectAll();
-    QuerySelectionPlan querySelPlan = querySelBuilder.build();
+    ScanProjectionDefn.Builder querySelBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    querySelBuilder.useLegacyWildcardExpansion(false);
+    querySelBuilder.projectAll();
+    ScanProjectionDefn querySelPlan = querySelBuilder.build();
 
     ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
 
     // ... FROM file
 
-    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    projector.startTable(fileInfo);
+    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
+    projector.startFile(fileInfo);
 
     // file schema (a, b)
 
@@ -226,17 +226,17 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT a, b ...
 
-    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
-    querySelBuilder.useLegacyStarPlan(false);
-    querySelBuilder.queryCols(TestQuerySelectionPlan.selectList("a", "b"));
-    QuerySelectionPlan querySelPlan = querySelBuilder.build();
+    ScanProjectionDefn.Builder querySelBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    querySelBuilder.useLegacyWildcardExpansion(false);
+    querySelBuilder.queryCols(TestScanProjectionDefn.projectList("a", "b"));
+    ScanProjectionDefn querySelPlan = querySelBuilder.build();
 
     ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
 
     // ... FROM file
 
-    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    projector.startTable(fileInfo);
+    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
+    projector.startFile(fileInfo);
 
     // file schema (a, b)
 
@@ -287,17 +287,17 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT a, b ...
 
-    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
-    querySelBuilder.useLegacyStarPlan(false);
-    querySelBuilder.queryCols(TestQuerySelectionPlan.selectList("b", "a"));
-    QuerySelectionPlan querySelPlan = querySelBuilder.build();
+    ScanProjectionDefn.Builder querySelBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    querySelBuilder.useLegacyWildcardExpansion(false);
+    querySelBuilder.queryCols(TestScanProjectionDefn.projectList("b", "a"));
+    ScanProjectionDefn querySelPlan = querySelBuilder.build();
 
     ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
 
     // ... FROM file
 
-    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    projector.startTable(fileInfo);
+    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
+    projector.startFile(fileInfo);
 
     // file schema (a, b)
 
@@ -353,17 +353,17 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT a, b, c ...
 
-    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
-    querySelBuilder.useLegacyStarPlan(false);
-    querySelBuilder.queryCols(TestQuerySelectionPlan.selectList("a", "b", "c"));
-    QuerySelectionPlan querySelPlan = querySelBuilder.build();
+    ScanProjectionDefn.Builder querySelBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    querySelBuilder.useLegacyWildcardExpansion(false);
+    querySelBuilder.queryCols(TestScanProjectionDefn.projectList("a", "b", "c"));
+    ScanProjectionDefn querySelPlan = querySelBuilder.build();
 
     ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
 
     // ... FROM file
 
-    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    projector.startTable(fileInfo);
+    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
+    projector.startFile(fileInfo);
 
     // file schema (a, b)
 
@@ -420,10 +420,10 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT a, b, c ...
 
-    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
-    querySelBuilder.useLegacyStarPlan(false);
-    querySelBuilder.queryCols(TestQuerySelectionPlan.selectList("a", "b", "c"));
-    QuerySelectionPlan querySelPlan = querySelBuilder.build();
+    ScanProjectionDefn.Builder querySelBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    querySelBuilder.useLegacyWildcardExpansion(false);
+    querySelBuilder.queryCols(TestScanProjectionDefn.projectList("a", "b", "c"));
+    ScanProjectionDefn querySelPlan = querySelBuilder.build();
 
     // Null columns of type VARCHAR
 
@@ -435,8 +435,8 @@ public class TestScanProjector extends SubOperatorTest {
 
     // ... FROM file
 
-    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    projector.startTable(fileInfo);
+    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
+    projector.startFile(fileInfo);
 
     // file schema (a, b)
 
@@ -491,17 +491,17 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT a ...
 
-    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
-    querySelBuilder.useLegacyStarPlan(false);
-    querySelBuilder.queryCols(TestQuerySelectionPlan.selectList("a"));
-    QuerySelectionPlan querySelPlan = querySelBuilder.build();
+    ScanProjectionDefn.Builder querySelBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    querySelBuilder.useLegacyWildcardExpansion(false);
+    querySelBuilder.queryCols(TestScanProjectionDefn.projectList("a"));
+    ScanProjectionDefn querySelPlan = querySelBuilder.build();
 
      ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
 
     // ... FROM file
 
-    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    projector.startTable(fileInfo);
+    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
+    projector.startFile(fileInfo);
 
     // file schema (a, b)
 
@@ -555,10 +555,10 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT a, b, dir0, suffix ...
 
-    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
-    querySelBuilder.useLegacyStarPlan(false);
-    querySelBuilder.queryCols(TestQuerySelectionPlan.selectList("a", "b", "dir0", "suffix"));
-    QuerySelectionPlan querySelPlan = querySelBuilder.build();
+    ScanProjectionDefn.Builder querySelBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    querySelBuilder.useLegacyWildcardExpansion(false);
+    querySelBuilder.queryCols(TestScanProjectionDefn.projectList("a", "b", "dir0", "suffix"));
+    ScanProjectionDefn querySelPlan = querySelBuilder.build();
 
     // Null columns of type VARCHAR
 
@@ -570,8 +570,8 @@ public class TestScanProjector extends SubOperatorTest {
 
     // ... FROM file
 
-    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    projector.startTable(fileInfo);
+    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
+    projector.startFile(fileInfo);
 
     // file schema (a, b)
 
@@ -630,17 +630,17 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT c ...
 
-    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
-    querySelBuilder.useLegacyStarPlan(false);
-    querySelBuilder.queryCols(TestQuerySelectionPlan.selectList("c"));
-    QuerySelectionPlan querySelPlan = querySelBuilder.build();
+    ScanProjectionDefn.Builder querySelBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    querySelBuilder.useLegacyWildcardExpansion(false);
+    querySelBuilder.queryCols(TestScanProjectionDefn.projectList("c"));
+    ScanProjectionDefn querySelPlan = querySelBuilder.build();
 
      ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
 
     // ... FROM file
 
-    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    projector.startTable(fileInfo);
+    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
+    projector.startFile(fileInfo);
 
     // file schema (a, b)
 
@@ -694,17 +694,17 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT dir0, b, suffix, c ...
 
-    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
-    querySelBuilder.useLegacyStarPlan(false);
-    querySelBuilder.queryCols(TestQuerySelectionPlan.selectList("dir0", "b", "suffix", "c"));
-    QuerySelectionPlan querySelPlan = querySelBuilder.build();
+    ScanProjectionDefn.Builder querySelBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    querySelBuilder.useLegacyWildcardExpansion(false);
+    querySelBuilder.queryCols(TestScanProjectionDefn.projectList("dir0", "b", "suffix", "c"));
+    ScanProjectionDefn querySelPlan = querySelBuilder.build();
 
      ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
 
     // ... FROM file
 
-    ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    projector.startTable(fileInfo);
+    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
+    projector.startFile(fileInfo);
 
     // file schema (a, b)
 
@@ -775,10 +775,10 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT a, b ...
 
-    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
-    querySelBuilder.useLegacyStarPlan(false);
-    querySelBuilder.queryCols(TestQuerySelectionPlan.selectList("a", "b"));
-    QuerySelectionPlan querySelPlan = querySelBuilder.build();
+    ScanProjectionDefn.Builder querySelBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    querySelBuilder.useLegacyWildcardExpansion(false);
+    querySelBuilder.queryCols(TestScanProjectionDefn.projectList("a", "b"));
+    ScanProjectionDefn querySelPlan = querySelBuilder.build();
 
      ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
 
@@ -794,8 +794,8 @@ public class TestScanProjector extends SubOperatorTest {
     {
       // ... FROM file a.csv
 
-      ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
-      projector.startTable(fileInfo);
+      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
+      projector.startFile(fileInfo);
 
       // Projection of (a, b) to (a, b)
 
@@ -820,8 +820,8 @@ public class TestScanProjector extends SubOperatorTest {
     {
       // ... FROM file b.csv
 
-      ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
-      projector.startTable(fileInfo);
+      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
+      projector.startFile(fileInfo);
 
       // File schema (a)
 
@@ -852,8 +852,8 @@ public class TestScanProjector extends SubOperatorTest {
     {
       // ... FROM file c.csv
 
-      ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/c.csv"), "hdfs:///w");
-      projector.startTable(fileInfo);
+      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/c.csv"), "hdfs:///w");
+      projector.startFile(fileInfo);
 
       // Projection of (a, b), to (a, b), reusing b yet again
 
@@ -888,10 +888,10 @@ public class TestScanProjector extends SubOperatorTest {
   @Test
   public void testColumnReordering() {
 
-    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
-    querySelBuilder.useLegacyStarPlan(false);
-    querySelBuilder.queryCols(TestQuerySelectionPlan.selectList("a", "b", "c"));
-    QuerySelectionPlan querySelPlan = querySelBuilder.build();
+    ScanProjectionDefn.Builder querySelBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    querySelBuilder.useLegacyWildcardExpansion(false);
+    querySelBuilder.queryCols(TestScanProjectionDefn.projectList("a", "b", "c"));
+    ScanProjectionDefn querySelPlan = querySelBuilder.build();
 
     ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
 
@@ -916,8 +916,8 @@ public class TestScanProjector extends SubOperatorTest {
     {
       // ... FROM file a.csv
 
-      ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
-      projector.startTable(fileInfo);
+      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
+      projector.startFile(fileInfo);
 
       // Projection of (a, b, c) to (a, b, c)
 
@@ -942,8 +942,8 @@ public class TestScanProjector extends SubOperatorTest {
     {
       // ... FROM file b.csv
 
-      ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
-      projector.startTable(fileInfo);
+      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
+      projector.startFile(fileInfo);
 
       // Projection of (c, a, b) to (a, b, c)
 
@@ -968,8 +968,8 @@ public class TestScanProjector extends SubOperatorTest {
     {
       // ... FROM file c.csv
 
-      ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/c.csv"), "hdfs:///w");
-      projector.startTable(fileInfo);
+      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/c.csv"), "hdfs:///w");
+      projector.startFile(fileInfo);
 
       // Projection of (a, c, b) to (a, b, c)
 
@@ -1157,10 +1157,10 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT a, b ...
 
-    QuerySelectionPlan.Builder querySelBuilder = new QuerySelectionPlan.Builder(fixture.options());
-    querySelBuilder.useLegacyStarPlan(false);
-    querySelBuilder.queryCols(TestQuerySelectionPlan.selectList("dir0", "filename", "b"));
-    QuerySelectionPlan querySelPlan = querySelBuilder.build();
+    ScanProjectionDefn.Builder querySelBuilder = new ScanProjectionDefn.Builder(fixture.options());
+    querySelBuilder.useLegacyWildcardExpansion(false);
+    querySelBuilder.queryCols(TestScanProjectionDefn.projectList("dir0", "filename", "b"));
+    ScanProjectionDefn querySelPlan = querySelBuilder.build();
 
     ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
 
@@ -1181,8 +1181,8 @@ public class TestScanProjector extends SubOperatorTest {
     {
       // ... FROM file a.csv
 
-      ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
-      projector.startTable(fileInfo);
+      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/a.csv"), "hdfs:///w");
+      projector.startFile(fileInfo);
 
       ResultSetLoader loader = projector.makeTableLoader(tableSchema);
 
@@ -1205,8 +1205,8 @@ public class TestScanProjector extends SubOperatorTest {
     {
       // ... FROM file b.csv
 
-      ResolvedFileInfo fileInfo = new ResolvedFileInfo(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
-      projector.startTable(fileInfo);
+      FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/b.csv"), "hdfs:///w");
+      projector.startFile(fileInfo);
 
       ResultSetLoader loader = projector.makeTableLoader(tableSchema);
 
@@ -1233,4 +1233,5 @@ public class TestScanProjector extends SubOperatorTest {
   // TODO: Late schema testing
   // TODO: Test schema smoothing with repeated
   // TODO: Test hard schema change
+  // TODO: Typed null column tests (resurrect)
 }
