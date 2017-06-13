@@ -115,9 +115,9 @@ public class HiveStoragePlugin extends AbstractStoragePlugin {
     // discard and rebuild. To work around, we discard the entire schema
     // factory, and all its invalid connections. Very crude, but the
     // easiest short-term solution until we refactor the code to do the
-    // job properly.
+    // job properly. See DRILL-5510.
 
-    } catch (DrillRuntimeException e) {
+    } catch (Throwable e) {
       // Unwrap exception
       Throwable ex = e;
       for (;;) {
@@ -134,7 +134,8 @@ public class HiveStoragePlugin extends AbstractStoragePlugin {
         // the stack.
 
         if (ex.getCause() == null  ||  ex.getCause() == ex) {
-          throw new DrillRuntimeException( "Unknown Hive error", e );
+          logger.error("Hive metastore register schemas failed", e);
+          throw new DrillRuntimeException("Unknown Hive error", e);
         }
         ex = ex.getCause();
       }
@@ -144,6 +145,12 @@ public class HiveStoragePlugin extends AbstractStoragePlugin {
     // Hive metastore connections to be created.
 
     try {
+      schemaFactory.close();
+    } catch (Throwable t) {
+      // Ignore, we're in a bad state.
+      logger.warn("Schema factory forced close failed, error ignored", t);
+    }
+    try {
       schemaFactory = new HiveSchemaFactory(this, name, hiveConf);
     } catch (ExecutionSetupException e) {
       throw new DrillRuntimeException(e);
@@ -152,6 +159,7 @@ public class HiveStoragePlugin extends AbstractStoragePlugin {
     // Try the schemas again. If this fails, just give up.
 
     schemaFactory.registerSchemas(schemaConfig, parent);
+    logger.debug("Successfully recovered from a Hive metastore connection failure.");
   }
 
   @Override
