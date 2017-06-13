@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
@@ -29,9 +30,7 @@ import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.BatchAcc
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExec;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.VectorContainerAccessor;
-import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator.TableSchemaType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
-import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.hadoop.fs.Path;
 
@@ -77,7 +76,6 @@ import com.google.common.annotations.VisibleForTesting;
 
 public class ScanOperatorExec implements OperatorExec {
 
-
   /**
    * Implementation of the schema negotiation between scan operator and
    * batch reader. Anticipates that the select list (and/or the list of
@@ -107,32 +105,32 @@ public class ScanOperatorExec implements OperatorExec {
   private static class SchemaNegotiatorImpl implements SchemaNegotiator {
 
     private final ReaderState readerState;
-    private final MaterializedSchema tableSchema = new MaterializedSchema();
-    private TableSchemaType tableSchemaType = TableSchemaType.LATE;
+    private MaterializedSchema tableSchema;
+//    private TableSchemaType tableSchemaType = TableSchemaType.LATE;
     private Path filePath;
 
     private SchemaNegotiatorImpl(ReaderState readerState) {
       this.readerState = readerState;
     }
 
-    @Override
-    public void setTableSchemaType(TableSchemaType type) {
-      if (type == TableSchemaType.LATE && ! tableSchema.isEmpty()) {
-        throw new IllegalArgumentException("Can't set schema to LATE after providing table columns.");
-      }
-      tableSchemaType = type;
-    }
-
-    @Override
-    public void addTableColumn(String name, MajorType type) {
-      addTableColumn(MaterializedField.create(name, type));
-    }
-
-    @Override
-    public void addTableColumn(MaterializedField schema) {
-      tableSchemaType = TableSchemaType.EARLY;
-      tableSchema.add(schema);
-    }
+//    @Override
+//    public void setTableSchemaType(TableSchemaType type) {
+//      if (type == TableSchemaType.LATE && ! tableSchema.isEmpty()) {
+//        throw new IllegalArgumentException("Can't set schema to LATE after providing table columns.");
+//      }
+//      tableSchemaType = type;
+//    }
+//
+//    @Override
+//    public void addTableColumn(String name, MajorType type) {
+//      addTableColumn(MaterializedField.create(name, type));
+//    }
+//
+//    @Override
+//    public void addTableColumn(MaterializedField schema) {
+//      tableSchemaType = TableSchemaType.EARLY;
+//      tableSchema.add(schema);
+//    }
 
     @Override
     public void setFilePath(Path filePath) {
@@ -143,30 +141,15 @@ public class ScanOperatorExec implements OperatorExec {
     public ResultSetLoader build() {
       return readerState.buildSchema(this);
     }
-  }
 
-  public static class ScanOptions {
-    public String scanRootDir;
-    public List<SchemaPath> projection;
-    public MajorType nullType;
-
-    /**
-     * Specify the selection root for a directory scan, if any.
-     * Used to populate partition columns.
-     * @param rootPath Hadoop file path for the directory
-     */
-
-    public void setSelectionRoot(Path rootPath) {
-      scanRootDir = rootPath.toString();
+    @Override
+    public OperatorExecServices context() {
+      return readerState.scanOp.context;
     }
 
-    /**
-     * Specify the type to use for projected columns that do not
-     * match any data source columns. Defaults to nullable int.
-     */
-
-    public void setNullType(MajorType type) {
-      nullType = type;
+    @Override
+    public void setTableSchema(MaterializedSchema schema) {
+      tableSchema = schema;
     }
   }
 
@@ -209,7 +192,7 @@ public class ScanOperatorExec implements OperatorExec {
         // Handle this by immediately moving to EOF. The scanner will quietly
         // pass over this reader and move onto the next, if any.
 
-        if (! reader.open(scanOp.context, new SchemaNegotiatorImpl(this))) {
+        if (! reader.open(new SchemaNegotiatorImpl(this))) {
 
           // If we had a soft failure, then there should be no schema.
           // The reader should not have negotiated one. Not a huge
@@ -261,7 +244,7 @@ public class ScanOperatorExec implements OperatorExec {
 
     protected ResultSetLoader buildSchema(SchemaNegotiatorImpl schemaNegotiator) {
 
-      earlySchema = schemaNegotiator.tableSchemaType == TableSchemaType.EARLY;
+      earlySchema = schemaNegotiator.tableSchema != null;
 
       // Build and return the result set loader to be used by the reader.
 
@@ -493,12 +476,99 @@ public class ScanOperatorExec implements OperatorExec {
     }
   }
 
+  public static class ScanOperatorExecBuilder {
+    protected String scanRootDir;
+    protected List<SchemaPath> projection = new ArrayList<>();
+    protected MajorType nullType;
+    protected Iterator<RowBatchReader> readerIter;
+    protected List<RowBatchReader> readers;
+    protected boolean useLegacyWildcardExpansion = true;
+
+    /**
+     * Specify the selection root for a directory scan, if any.
+     * Used to populate partition columns.
+     * @param rootPath Hadoop file path for the directory
+     */
+
+    public ScanOperatorExecBuilder setSelectionRoot(Path rootPath) {
+      this.scanRootDir = rootPath.toString();
+      return this;
+    }
+
+    /**
+     * Specify the type to use for projected columns that do not
+     * match any data source columns. Defaults to nullable int.
+     */
+
+    public ScanOperatorExecBuilder setNullType(MajorType type) {
+      this.nullType = type;
+      return this;
+    }
+
+    public ScanOperatorExecBuilder useLegacyWildcardExpansion(boolean flag) {
+      useLegacyWildcardExpansion = flag;
+      return this;
+    }
+
+    public ScanOperatorExecBuilder setReaderIterator(Iterator<RowBatchReader> readerIter) {
+      this.readerIter = readerIter;
+      return this;
+    }
+
+    public ScanOperatorExecBuilder addReader(RowBatchReader reader) {
+      assert readerIter == null;
+      if (readers == null) {
+        readers = new ArrayList<>();
+      }
+      readers.add(reader);
+      return this;
+    }
+
+    @VisibleForTesting
+    public ScanOperatorExecBuilder projectAll() {
+      return addProjection(ScanLevelProjection.WILDCARD);
+    }
+
+    public ScanOperatorExecBuilder addProjection(String colName) {
+      return addProjection(SchemaPath.getSimplePath(colName));
+    }
+
+    public ScanOperatorExecBuilder addProjection(SchemaPath path) {
+      projection.add(path);
+      return this;
+    }
+
+    public ScanOperatorExecBuilder addProjection(List<SchemaPath> projection) {
+      projection.addAll(projection);
+      return this;
+    }
+
+    @VisibleForTesting
+    public ScanOperatorExecBuilder setProjection(String[] projection) {
+      for (String col : projection) {
+        addProjection(col);
+      }
+      return this;
+    }
+
+    public ScanOperatorExec build() {
+      if (readers == null && readerIter == null) {
+        throw new IllegalArgumentException("No readers provided");
+      }
+      return new ScanOperatorExec(this);
+    }
+
+    protected Iterator<RowBatchReader> readers() {
+      return (readerIter != null)? readerIter : readers.iterator();
+    }
+  }
+
   private enum State { START, READER, END, FAILED, CLOSED }
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ScanOperatorExec.class);
 
+  private final ScanOperatorExecBuilder builder;
   private final Iterator<RowBatchReader> readers;
-  private final ScanOptions options;
   private final VectorContainerAccessor containerAccessor = new VectorContainerAccessor();
   private State state = State.START;
   private OperatorExecServices context;
@@ -506,24 +576,19 @@ public class ScanOperatorExec implements OperatorExec {
   private int readerCount;
   private ReaderState readerState;
 
-  public ScanOperatorExec(Iterator<RowBatchReader> readers,
-                          ScanOptions options) {
-    this.readers = readers;
-    this.options = options == null ? new ScanOptions() : options;
-  }
-
-  public ScanOperatorExec(Iterator<RowBatchReader> iterator) {
-    this(iterator, new ScanOptions());
+  public ScanOperatorExec(ScanOperatorExecBuilder builder) {
+    this.builder = builder;
+    this.readers = builder.readers();
   }
 
   @Override
   public void bind(OperatorExecServices context) {
     this.context = context;
-    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(context.getFragmentContext().getOptionSet());
-    builder.useLegacyWildcardExpansion(true);
-    builder.setScanRootDir(options.scanRootDir);
-    builder.projectedCols(options.projection);
-    scanProjector = new ScanProjector(context.allocator(), builder.build(), options.nullType);
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(context.getFragmentContext().getOptionSet());
+    scanProjBuilder.useLegacyWildcardExpansion(builder.useLegacyWildcardExpansion);
+    scanProjBuilder.setScanRootDir(builder.scanRootDir);
+    scanProjBuilder.projectedCols(builder.projection);
+    scanProjector = new ScanProjector(context.allocator(), scanProjBuilder.build(), builder.nullType);
   }
 
   @Override

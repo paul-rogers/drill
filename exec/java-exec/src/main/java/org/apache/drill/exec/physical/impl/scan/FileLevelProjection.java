@@ -49,16 +49,10 @@ public class FileLevelProjection {
     private FileMetadata fileInfo;
     private List<ScanOutputColumn> outputCols = new ArrayList<>();
     private List<MetadataColumn> metadataColumns = new ArrayList<>();
-    private int metadataProjection[];
 
     public FileSchemaBuilder(ScanLevelProjection plan, List<ScanOutputColumn> inputCols, FileMetadata fileInfo) {
       this.scanProj = plan;
       this.fileInfo = fileInfo;
-      int mapLen = inputCols.size();
-      if (plan.useLegacyWildcardPartition()) {
-        mapLen += fileInfo.dirPathLength() + plan.fileMetadataColDefns().size();
-      }
-      metadataProjection = new int[mapLen];
       visit(inputCols);
     }
 
@@ -73,7 +67,6 @@ public class FileLevelProjection {
     }
 
     private void addMetadataColumn(MetadataColumn col) {
-      metadataProjection[metadataColumns.size()] = outputCols.size();
       outputCols.add(col);
       metadataColumns.add(col);
     }
@@ -111,7 +104,6 @@ public class FileLevelProjection {
   private final ScanLevelProjection scanProjection;
   private final List<ScanOutputColumn> outputCols;
   private final List<MetadataColumn> metadataColumns;
-  private final int metadataProjectionMap[];
   private final boolean isReresolution;
 
   private FileLevelProjection(ScanLevelProjection scanProjDefn, FileMetadata fileInfo) {
@@ -130,7 +122,6 @@ public class FileLevelProjection {
       FileSchemaBuilder builder = new FileSchemaBuilder(scanProjDefn, inputCols, fileInfo);
       outputCols = builder.outputCols;
       metadataColumns = builder.metadataColumns;
-      metadataProjectionMap = builder.metadataProjection;
     } else {
 
       // No file or partition columns, just use the unresolved
@@ -138,7 +129,6 @@ public class FileLevelProjection {
 
       outputCols = inputCols;
       metadataColumns = null;
-      metadataProjectionMap = null;
     }
   }
 
@@ -146,14 +136,6 @@ public class FileLevelProjection {
   public List<ScanOutputColumn> output() { return outputCols; }
   public boolean hasMetadata() { return metadataColumns != null && ! metadataColumns.isEmpty(); }
   public List<MetadataColumn> metadataColumns() { return metadataColumns; }
-
-  /**
-   * Metadata projection map.
-   * @return a map, indexed by metadata column positions (as defined by
-   * {@link #metadataColumns()}, to the position in the full output schema
-   * as defined by {@link #output()}
-   */
-  public int[] metadataProjection() { return metadataProjectionMap; }
 
   /**
    * Create a fully-resolved projection plan given a file plan and a table

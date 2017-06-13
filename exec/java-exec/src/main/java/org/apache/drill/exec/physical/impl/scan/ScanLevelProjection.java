@@ -210,7 +210,7 @@ public class ScanLevelProjection {
     // Input
 
     protected String scanRootDir;
-    protected List<RequestedColumn> queryCols = new ArrayList<>();
+    protected List<RequestedColumn> projectionList = new ArrayList<>();
 
     // Output
 
@@ -267,18 +267,18 @@ public class ScanLevelProjection {
      * @return this builder
      */
     public Builder projectedCols(List<SchemaPath> queryCols) {
-      assert this.queryCols.isEmpty();
-      this.queryCols = new ArrayList<>();
+      assert this.projectionList.isEmpty();
+      this.projectionList = new ArrayList<>();
       for (SchemaPath col : queryCols) {
         RequestedColumn sCol = new RequestedColumn(col);
-        this.queryCols.add(sCol);
+        this.projectionList.add(sCol);
       }
       return this;
     }
 
     public void requestColumns(List<RequestedColumn> queryCols) {
-      assert this.queryCols.isEmpty();
-      this.queryCols.addAll(queryCols);
+      assert this.projectionList.isEmpty();
+      this.projectionList.addAll(queryCols);
     }
 
     public void columnsArrayType(MinorType type) {
@@ -299,7 +299,7 @@ public class ScanLevelProjection {
 
     public ScanLevelProjection build() {
       projectionType = ProjectionType.LIST;
-      for (RequestedColumn inCol : queryCols) {
+      for (RequestedColumn inCol : projectionList) {
         mapColumn(inCol);
       }
       verify();
@@ -521,7 +521,7 @@ public class ScanLevelProjection {
     hasMetadata = builder.hasMetadata;
     useLegacyWildcardExpansion = builder.useLegacyWildcardExpansion;
     scanRootDir = builder.scanRootDir;
-    requestedCols = builder.queryCols;
+    requestedCols = builder.projectionList;
     outputCols = builder.outputCols;
     tableColNames = builder.tableColNames;
     columnsArrayType = builder.columnsArrayType;

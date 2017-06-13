@@ -32,6 +32,7 @@ import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.MaterializedSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.hadoop.fs.Path;
 
@@ -625,12 +626,11 @@ public class ScanProjector {
     if (metadataColumnLoader == null) {
       return;
     }
-    FileLevelProjection fileProj = projectionDefn.fileProjection();
     VectorContainer metadataContainer = metadataColumnLoader.output();
     List<MetadataColumn> metadataCols = metadataColumnLoader.columns();
+    int metadataMap[] = projectionDefn.tableProjection().metadataProjection();
     for (int i = 0; i < metadataCols.size(); i++) {
-      int projIndex = fileProj.metadataProjection()[i];
-      builder.addDirectProjection(metadataContainer, i, projIndex);
+      builder.addDirectProjection(metadataContainer, i, metadataMap[i]);
     }
   }
 

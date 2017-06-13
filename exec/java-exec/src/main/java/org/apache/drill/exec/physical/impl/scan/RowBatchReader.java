@@ -36,7 +36,6 @@ public interface RowBatchReader {
    * Setup the record reader. Called just before the first call
    * to <tt>next()</tt>. Allocate resources here, not in the constructor.
    * Example: open files, allocate buffers, etc.
-   * @param context execution context
    * @param schemaNegotiator mechanism to negotiate select and table
    * schemas, then create the row set reader used to load data into
    * value vectors
@@ -49,7 +48,7 @@ public interface RowBatchReader {
    * better than the scan operator can by guessing at the cause
    */
 
-  boolean open(OperatorExecServices context, SchemaNegotiator schemaNegotiator);
+  boolean open(SchemaNegotiator schemaNegotiator);
 
   /**
    * Read the next batch. Reading continues until either EOF,

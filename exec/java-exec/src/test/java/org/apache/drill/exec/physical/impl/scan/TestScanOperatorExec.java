@@ -34,6 +34,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServicesImpl;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
+import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ScanOperatorExecBuilder;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ScanOptions;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
@@ -67,39 +68,15 @@ public class TestScanOperatorExec extends SubOperatorTest {
     public int batchCount;
     public int batchLimit;
     protected ResultSetLoader tableLoader;
-    protected String[] select = SELECT_STAR;
-    protected Path filePath;
-    protected Path rootPath;
+    protected Path filePath = new Path(MOCK_FILE_PATH);
 
-    public void setSelect(String[] select) {
-      this.select = select;
-    }
-
-    public void setFilePath(String filePath, String rootPath) {
+    public BaseMockBatchReader setFilePath(String filePath) {
       this.filePath = new Path(filePath);
-      if (rootPath == null) {
-        this.rootPath = null;
-      } else {
-        this.rootPath = new Path(rootPath);
-      }
-    }
-
-    public void setDefaultFilePath() {
-      setFilePath(MOCK_FILE_PATH, MOCK_ROOT_PATH);
-    }
-
-    protected void buildSelect(SchemaNegotiator schemaNegotiator) {
-      if (select == null) {
-        return;
-      }
-      for (String col : select) {
-        schemaNegotiator.addSelectColumn(col);
-      }
+      return this;
     }
 
     protected void buildFilePath(SchemaNegotiator schemaNegotiator) {
       schemaNegotiator.setFilePath(filePath);
-      schemaNegotiator.setSelectionRoot(rootPath);
     }
 
     protected void makeBatch() {
@@ -169,7 +146,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
   private static class MockNullEarlySchemaReader extends BaseMockBatchReader {
 
     @Override
-    public boolean open(OperatorExecServices context, SchemaNegotiator schemaNegotiator) {
+    public boolean open(SchemaNegotiator schemaNegotiator) {
       openCalled = true;
       return false;
     }
@@ -183,17 +160,14 @@ public class TestScanOperatorExec extends SubOperatorTest {
   private static class MockEarlySchemaReader extends BaseMockBatchReader {
 
     @Override
-    public boolean open(OperatorExecServices context, SchemaNegotiator schemaNegotiator) {
+    public boolean open(SchemaNegotiator schemaNegotiator) {
       openCalled = true;
-      buildSelect(schemaNegotiator);
       buildFilePath(schemaNegotiator);
-      MaterializedField a = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
-      schemaNegotiator.addTableColumn(a);
-      MaterializedField b = new SchemaBuilder.ColumnBuilder("b", MinorType.VARCHAR)
-          .setMode(DataMode.OPTIONAL)
-          .setWidth(10)
-          .build();
-      schemaNegotiator.addTableColumn(b);
+      MaterializedSchema schema = new SchemaBuilder()
+          .add("a", MinorType.INT)
+          .addNullable("b", MinorType.VARCHAR, 10)
+          .buildSchema();
+      schemaNegotiator.setTableSchema(schema);
       this.tableLoader = schemaNegotiator.build();
       return true;
     }
@@ -213,17 +187,14 @@ public class TestScanOperatorExec extends SubOperatorTest {
   private static class MockEarlySchemaReader2 extends MockEarlySchemaReader {
 
     @Override
-    public boolean open(OperatorExecServices context, SchemaNegotiator schemaNegotiator) {
+    public boolean open(SchemaNegotiator schemaNegotiator) {
       openCalled = true;
-      buildSelect(schemaNegotiator);
       buildFilePath(schemaNegotiator);
-      MaterializedField a = SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED);
-      schemaNegotiator.addTableColumn(a);
-      MaterializedField b = new SchemaBuilder.ColumnBuilder("b", MinorType.VARCHAR)
-          .setMode(DataMode.OPTIONAL)
-          .setWidth(10)
-          .build();
-      schemaNegotiator.addTableColumn(b);
+      MaterializedSchema schema = new SchemaBuilder()
+          .add("a", MinorType.VARCHAR)
+          .addNullable("b", MinorType.VARCHAR, 10)
+          .buildSchema();
+      schemaNegotiator.setTableSchema(schema);
       this.tableLoader = schemaNegotiator.build();
       return true;
     }
@@ -263,38 +234,15 @@ public class TestScanOperatorExec extends SubOperatorTest {
         .verifyAndClearAll(fixture.wrap(output));
   }
 
-  private static final String STAR = "*";
-  private static final String[] SELECT_STAR = new String[] { STAR };
-
   private static class MockBatch {
 
     private OperatorExecServicesImpl services;
     public ScanOperatorExec scanOp;
 
-    public MockBatch(List<RowBatchReader> readers) {
-      this(readers, (ScanOptions) null);
-    }
-
-    public MockBatch(List<RowBatchReader> readers, ScanOptions options) {
-      scanOp = new ScanOperatorExec(readers.iterator(), options);
+    public MockBatch(ScanOperatorExecBuilder builder) {
+      scanOp = builder.build();
       services = new OperatorExecServicesImpl(fixture.codeGenContext(), null, scanOp);
       scanOp.bind(services);
-    }
-
-    public MockBatch(List<RowBatchReader> readers, String select[]) {
-      this(readers, toOptions(select));
-    }
-
-    private static ScanOptions toOptions(String select[]) {
-      ScanOptions options = null;
-      if (select != null) {
-        options = new ScanOptions();
-        options.projection = new ArrayList<>();
-        for (String col : select) {
-          options.projection.add(SchemaPath.getSimplePath(col));
-        }
-      }
-      return options;
     }
 
     public void close() {
@@ -352,20 +300,23 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testEarlySchemaLifecycle() {
-    SingleRowSet expected = makeExpected();
-    RowSetComparison verifier = new RowSetComparison(expected);
 
     // Create a mock reader, return two batches: one schema-only, another with data.
 
     MockEarlySchemaReader reader = new MockEarlySchemaReader();
-    reader.setSelect(null);
     reader.batchLimit = 1;
-    List<RowBatchReader> readers = Lists.newArrayList(reader);
 
     // Create the scan operator
 
-    MockBatch mockBatch = new MockBatch(readers, SELECT_STAR);
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader)
+        .projectAll()
+        .useLegacyWildcardExpansion(false)
+        );
     ScanOperatorExec scan = mockBatch.scanOp;
+
+    SingleRowSet expected = makeExpected();
+    RowSetComparison verifier = new RowSetComparison(expected);
 
     // First batch: return schema.
 
@@ -392,24 +343,19 @@ public class TestScanOperatorExec extends SubOperatorTest {
    * with all table columns in table order. Full testing of implicit
    * columns is done on lower-level components.
    */
+
   @Test
-  public void testImplicitColumns() {
+  public void testMetadataColumns() {
 
     MockEarlySchemaReader reader = new MockEarlySchemaReader();
+    reader.batchLimit = 1;
 
     // Select table and implicit columns.
 
-    reader.setSelect(new String[] {"a", "b", "filename", "suffix"});
-
-    // Use the test file path
-
-    reader.setDefaultFilePath();
-    reader.batchLimit = 1;
-    List<RowBatchReader> readers = Lists.newArrayList(reader);
-
-    // Initialize the scan operator
-
-    MockBatch mockBatch = new MockBatch(readers);
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader)
+        .setProjection(new String[] {"a", "b", "filename", "suffix"})
+         );
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Expect data and implicit columns
@@ -452,23 +398,17 @@ public class TestScanOperatorExec extends SubOperatorTest {
    * that the components are wired up correctly.
    */
   @Test
-  public void testFullProject() {
+  public void testFullProject() { // Stopped here
 
     MockEarlySchemaReader reader = new MockEarlySchemaReader();
+    reader.batchLimit = 1;
 
     // Select table and implicit columns.
 
-    reader.setSelect(new String[] {"dir0", "b", "filename", "c", "suffix"});
-
-    // Use the test file path
-
-    reader.setDefaultFilePath();
-    reader.batchLimit = 1;
-    List<RowBatchReader> readers = Lists.newArrayList(reader);
-
-    // Initialize the scan operator
-
-    MockBatch mockBatch = new MockBatch(readers);
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader)
+        .setProjection(new String[] {"dir0", "b", "filename", "c", "suffix"})
+         );
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Expect data and implicit columns

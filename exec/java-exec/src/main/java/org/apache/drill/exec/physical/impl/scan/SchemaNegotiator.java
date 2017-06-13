@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.impl.scan;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.hadoop.fs.Path;
@@ -49,22 +50,22 @@ import org.apache.hadoop.fs.Path;
 
 public interface SchemaNegotiator {
 
-  /**
-   * Indicates the way that the table handles schema.
-   */
-  enum TableSchemaType {
-    /**
-     * The table provides the schema via this negotiator, by calling a
-     * {@link SchemaNegotiator#addTableColumn} method.
-     */
-    EARLY,
-    /**
-     * The reader learns of the table schema only by reading the data
-     * for the table. (Example: JSON.) No schema is provided to the
-     * negotiator.
-     */
-    LATE
-  }
+//  /**
+//   * Indicates the way that the table handles schema.
+//   */
+//  enum TableSchemaType {
+//    /**
+//     * The table provides the schema via this negotiator, by calling a
+//     * {@link SchemaNegotiator#addTableColumn} method.
+//     */
+//    EARLY,
+//    /**
+//     * The reader learns of the table schema only by reading the data
+//     * for the table. (Example: JSON.) No schema is provided to the
+//     * negotiator.
+//     */
+//    LATE
+//  }
 
 //  /**
 //   * For readers that specify the SELECT list, and that have information
@@ -100,6 +101,8 @@ public interface SchemaNegotiator {
 //  void addSelectColumn(SchemaPath path);
 //  void addSelectColumn(SchemaPath path, SchemaNegotiator.ColumnType type);
 
+  OperatorExecServices context();
+
   /**
    * Specify the type of table schema. Required only in the obscure
    * case of an early-schema table with an empty schema, else inferred.
@@ -108,9 +111,7 @@ public interface SchemaNegotiator {
    * @param type the table schema type
    */
 
-  void setTableSchemaType(TableSchemaType type);
-  void addTableColumn(String name, MajorType type);
-  void addTableColumn(MaterializedField schema);
+  void setTableSchema(MaterializedSchema schema);
 
   /**
    * Specify the file path, if any, for the file to be read.

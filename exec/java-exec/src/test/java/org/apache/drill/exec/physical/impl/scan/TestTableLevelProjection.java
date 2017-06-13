@@ -37,7 +37,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
    */
 
   @Test
-  public void testWildcard() {
+  public void testWildcardNew() {
     ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
     scanProjBuilder.setScanRootDir("hdfs:///w");
@@ -46,6 +46,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
     FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
     assertEquals(3, fileProj.output().size());
+    assertTrue(fileProj.hasMetadata());
 
     MaterializedSchema tableSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
@@ -87,6 +88,59 @@ public class TestTableLevelProjection extends SubOperatorTest {
     assertEquals(1, projMap[0]);
     assertEquals(2, projMap[1]);
     assertEquals(3, projMap[2]);
+
+    int mdProj[] = tableProj.metadataProjection();
+    assertEquals(0, mdProj[0]);
+    assertEquals(4, mdProj[1]);
+  }
+
+  @Test
+  public void testWildcardLegacy() {
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    scanProjBuilder.useLegacyWildcardExpansion(true);
+    scanProjBuilder.setScanRootDir("hdfs:///w");
+    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("*"));
+    ScanLevelProjection scanProj = scanProjBuilder.build();
+
+    FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
+    assertEquals(7, fileProj.output().size());
+    assertTrue(fileProj.hasMetadata());
+
+    MaterializedSchema tableSchema = new SchemaBuilder()
+        .add("a", MinorType.VARCHAR)
+        .addNullable("c", MinorType.INT)
+        .addArray("d", MinorType.FLOAT8)
+        .buildSchema();
+
+    TableLevelProjection tableProj = fileProj.resolve(tableSchema);
+    assertEquals(9, tableProj.output().size());
+    assertFalse(tableProj.hasNullColumns());
+
+    MaterializedSchema expectedSchema = TestFileLevelProjection.expandMetadata(scanProj, tableSchema, 2);
+
+    assertTrue(tableProj.outputSchema().isEquivalent(expectedSchema));
+
+    boolean selMap[] = tableProj.selectionMap();
+    assertEquals(3, selMap.length);
+    assertTrue(selMap[0]);
+    assertTrue(selMap[1]);
+    assertTrue(selMap[2]);
+
+    int lToPMap[] = tableProj.logicalToPhysicalMap();
+    assertEquals(0, lToPMap[0]);
+    assertEquals(1, lToPMap[1]);
+    assertEquals(2, lToPMap[2]);
+
+    int projMap[] = tableProj.tableColumnProjectionMap();
+    assertEquals(0, projMap[0]);
+    assertEquals(1, projMap[1]);
+    assertEquals(2, projMap[2]);
+
+    int mdProj[] = tableProj.metadataProjection();
+    int mdCount = fileProj.metadataColumns().size();
+    for (int i = 0; i < mdCount; i++) {
+      assertEquals(i + 3, mdProj[i]);
+    }
   }
 
   /**

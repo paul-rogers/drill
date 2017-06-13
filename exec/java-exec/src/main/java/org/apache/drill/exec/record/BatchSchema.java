@@ -185,7 +185,7 @@ public class BatchSchema implements Iterable<MaterializedField> {
   }
 
   /**
-   * Merge two schema to produce a new, merged schema. The caller is responsible
+   * Merge two schemas to produce a new, merged schema. The caller is responsible
    * for ensuring that column names are unique. The order of the fields in the
    * new schema is the same as that of this schema, with the other schema's fields
    * appended in the order defined in the other schema.

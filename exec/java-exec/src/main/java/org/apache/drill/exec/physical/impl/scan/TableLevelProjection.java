@@ -26,10 +26,14 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ColumnsArrayColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.NullColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ProjectedColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.RequestedTableColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.WildcardColumn;
+import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.ProjectionType;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.store.ImplicitColumnExplorer;
@@ -85,9 +89,32 @@ public class TableLevelProjection {
     protected int logicalToPhysicalMap[];
     protected int projectionMap[];
     protected int selectedTableColumnCount;
+    protected int metadataColumnCount;
+    private int metadataProjection[];
 
     public BaseTableColumnVisitor(MaterializedSchema tableSchema) {
       this.tableSchema = tableSchema;
+    }
+
+    @Override
+    public void visit(List<ScanOutputColumn> cols) {
+      metadataProjection = new int[cols.size()];
+      super.visit(cols);
+    }
+
+    @Override
+    protected void visitPartitionColumn(int index, PartitionColumn col) {
+      addMetadataColumn(col);
+    }
+
+    @Override
+    protected void visitFileInfoColumn(int index, FileMetadataColumn col) {
+      addMetadataColumn(col);
+    }
+
+    private void addMetadataColumn(MetadataColumn col) {
+      metadataProjection[metadataColumnCount++] = outputCols.size();
+      outputCols.add(col);
     }
 
     @Override
@@ -235,7 +262,8 @@ public class TableLevelProjection {
   private final int[] tableColumnProjectionMap;
   private final int[] nullProjectionMap;
 
-  protected final List<NullColumn> nullCols;
+  private final int metadataProjectionMap[];
+  private final List<NullColumn> nullCols;
 
   private TableLevelProjection(FileLevelProjection fileProj,
                     MaterializedSchema tableSchema, boolean reresolve) {
@@ -284,6 +312,7 @@ public class TableLevelProjection {
     selectionMap = baseBuilder.columnIsProjected;
     logicalToPhysicalMap = baseBuilder.logicalToPhysicalMap;
     tableColumnProjectionMap = baseBuilder.projectionMap;
+    metadataProjectionMap = baseBuilder.metadataProjection;
   }
 
   public ScanLevelProjection scanProjection() { return fileProjection.scanProjection(); }
@@ -295,6 +324,14 @@ public class TableLevelProjection {
   public boolean hasNullColumns() { return nullCols != null && ! nullCols.isEmpty(); }
   public List<NullColumn> nullColumns() { return nullCols; }
   public int[] nullProjectionMap() { return nullProjectionMap; }
+
+  /**
+   * Metadata projection map.
+   * @return a map, indexed by metadata column positions (as defined by
+   * {@link #metadataColumns()}, to the position in the full output schema
+   * as defined by {@link #output()}
+   */
+  public int[] metadataProjection() { return metadataProjectionMap; }
 
   public List<String> projectedTableColumns() {
     List<String> projection = new ArrayList<>();
