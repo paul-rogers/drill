@@ -459,7 +459,10 @@ public class ScanLevelProjection {
 
     public FileMetadata(Path filePath, String selectionRoot) {
       this.filePath = filePath;
-      if (selectionRoot == null) {
+
+      // If the data source is not a file, no file metadata is available.
+
+      if (selectionRoot == null || filePath == null) {
         dirPath = null;
         return;
       }

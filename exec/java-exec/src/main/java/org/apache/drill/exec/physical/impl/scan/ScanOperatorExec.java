@@ -106,31 +106,11 @@ public class ScanOperatorExec implements OperatorExec {
 
     private final ReaderState readerState;
     private MaterializedSchema tableSchema;
-//    private TableSchemaType tableSchemaType = TableSchemaType.LATE;
     private Path filePath;
 
     private SchemaNegotiatorImpl(ReaderState readerState) {
       this.readerState = readerState;
     }
-
-//    @Override
-//    public void setTableSchemaType(TableSchemaType type) {
-//      if (type == TableSchemaType.LATE && ! tableSchema.isEmpty()) {
-//        throw new IllegalArgumentException("Can't set schema to LATE after providing table columns.");
-//      }
-//      tableSchemaType = type;
-//    }
-//
-//    @Override
-//    public void addTableColumn(String name, MajorType type) {
-//      addTableColumn(MaterializedField.create(name, type));
-//    }
-//
-//    @Override
-//    public void addTableColumn(MaterializedField schema) {
-//      tableSchemaType = TableSchemaType.EARLY;
-//      tableSchema.add(schema);
-//    }
 
     @Override
     public void setFilePath(Path filePath) {
@@ -224,7 +204,7 @@ public class ScanOperatorExec implements OperatorExec {
       // have known to create the table loader. Fail in this case.
 
       if (tableLoader == null) {
-        throw UserException.executionError(
+        throw UserException.executionError( // TODO: Test this path
             new IllegalStateException("Reader " + reader.getClass().getSimpleName() +
                 " failed to create a table loader"))
           .build(logger);
@@ -257,58 +237,6 @@ public class ScanOperatorExec implements OperatorExec {
       scanOp.containerAccessor.setContainer(projector.output());
       return tableLoader;
     }
-
-//    private ScanProjection buildProjectionPlan(
-//        SchemaNegotiatorImpl schemaNegotiator) {
-//
-//      Builder planner = new ScanLevelProjection.Builder(scanOp.context.getFragmentContext().getOptionSet());
-//
-//      // Either the scan operator, or reader, but not both,
-//      // can provide the selection list.
-//      // The select list should be provided for the group of readers,
-//      // but there is no good way to do that at present.
-//
-//      if (scanOp.options.projection != null) {
-//        if (! schemaNegotiator.selection.isEmpty()) {
-//          throw new IllegalStateException(
-//              "Select list provided by scan operator; cannot also be provided by reader");
-//        }
-//        planner.projectedCols(scanOp.options.projection);
-//      } else {
-//        planner.requestColumns(schemaNegotiator.selection);
-//      }
-//
-//      // Provide the table schema (if any) provided by the reader.
-//      // For the projection planner, a null list means late schema.
-//
-//      if (schemaNegotiator.tableSchemaType == TableSchemaType.EARLY) {
-//        planner.tableSchema(schemaNegotiator.tableSchema);
-//      }
-//
-//      // Populate the file and selection root, if any, for implicit
-//      // columns and partition columns.
-//      // TODO: Clean up API to pass either a string or path both places..
-//
-//      if (schemaNegotiator.filePath != null) {
-//        planner.setSource(schemaNegotiator.filePath,
-//            schemaNegotiator.rootPath == null ? null :
-//              Path.getPathWithoutSchemeAndAuthority(schemaNegotiator.rootPath).toString());
-//      }
-//
-//      // Populate the prior schema, if any
-//
-//      BatchSchema priorSchema = scanOp.getPriorSchema();
-//      if (priorSchema != null) {
-//        planner.priorSchema(priorSchema);
-//      }
-//
-//      // Create the projection plan. This is the full projection
-//      // plan for early-schema tables, a partial plan for late-schema,
-//      // since late-schema does not know the schema until the first
-//      // batch is read.
-//
-//      return planner.build();
-//    }
 
     /**
      * Prepare the schema for this reader. Called for the first reader within a
@@ -358,17 +286,17 @@ public class ScanOperatorExec implements OperatorExec {
 
       // Late schema. Read a batch.
 
-      if (! next()) {
+      if (! next()) { // TODO: Test this path
         return false;
       }
       if (scanOp.containerAccessor.getRowCount() == 0) {
-        return true;
+        return true; // TODO: Test this path
       }
 
       // The reader returned actual data. Just forward the schema
       // in a dummy container, saving the data for next time.
 
-      assert lookahead == null;
+      assert lookahead == null; // TODO: Test this path
       lookahead = new VectorContainer(scanOp.context.allocator(), scanOp.containerAccessor.getSchema());
       lookahead.setRecordCount(0);
       lookahead.exchange(scanOp.containerAccessor.getOutgoingContainer());
@@ -380,7 +308,7 @@ public class ScanOperatorExec implements OperatorExec {
       switch (state) {
       case LOOK_AHEAD:
         // Use batch previously read.
-        assert lookahead != null;
+        assert lookahead != null; // TODO: Test this path
         lookahead.exchange(scanOp.containerAccessor.getOutgoingContainer());
         assert lookahead.getRecordCount() == 0;
         lookahead = null;
@@ -437,7 +365,7 @@ public class ScanOperatorExec implements OperatorExec {
 
     private void close() {
       if (state == State.CLOSED) {
-        return;
+        return; // TODO: Test this path
       }
 
       // Close the reader. This can fail.
@@ -445,7 +373,7 @@ public class ScanOperatorExec implements OperatorExec {
       try {
         reader.close();
       } catch (UserException e) {
-        throw e;
+        throw e; // TODO: Test this path
       } catch (Throwable t) {
         throw UserException.executionError(t)
           .addContext("Close failed for reader", reader.getClass().getSimpleName())
@@ -464,15 +392,11 @@ public class ScanOperatorExec implements OperatorExec {
         // Will not throw exceptions
 
         if (lookahead != null) {
-          lookahead.clear();
+          lookahead.clear(); // TODO: Test this path
           lookahead = null;
         }
         state = State.CLOSED;
       }
-    }
-
-    public ResultSetLoader tableLoader() {
-      return tableLoader;
     }
   }
 
@@ -492,6 +416,11 @@ public class ScanOperatorExec implements OperatorExec {
 
     public ScanOperatorExecBuilder setSelectionRoot(Path rootPath) {
       this.scanRootDir = rootPath.toString();
+      return this;
+    }
+
+    public ScanOperatorExecBuilder setSelectionRoot(String rootPath) {
+      this.scanRootDir = rootPath;
       return this;
     }
 
@@ -611,7 +540,7 @@ public class ScanOperatorExec implements OperatorExec {
 
     if (readerCount == 0) {
       // return false; // When empty batches are supported
-      throw UserException.executionError(
+      throw UserException.executionError( // TODO: Test this path
           new ExecutionSetupException("A scan batch must contain at least one reader."))
         .build(logger);
     }
@@ -638,7 +567,7 @@ public class ScanOperatorExec implements OperatorExec {
         return state != State.END;
 
       case END:
-        return false;
+        return false; // TODO: Test this path
 
       default:
         throw new IllegalStateException("Unexpected state: " + state);
@@ -710,7 +639,7 @@ public class ScanOperatorExec implements OperatorExec {
     // Late schema readers may change their schema between batches
 
     if (! readerState.earlySchema) {
-      containerAccessor.setContainer(scanProjector.output());
+      containerAccessor.setContainer(scanProjector.output()); // TODO: Test this path
     }
     return true;
   }
@@ -770,7 +699,7 @@ public class ScanOperatorExec implements OperatorExec {
   @Override
   public void close() {
     if (state == State.CLOSED) {
-      return;
+      return; // TODO: Test this path
     }
     state = State.CLOSED;
     closeAll();
@@ -800,12 +729,5 @@ public class ScanOperatorExec implements OperatorExec {
       scanProjector.close();
       scanProjector = null;
     }
-  }
-
-  public ResultSetLoader getMutator() {
-    if (readerState == null) {
-      return null;
-    }
-    return readerState.tableLoader();
   }
 }

@@ -17,11 +17,8 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
-import org.apache.drill.exec.record.MaterializedField;
 import org.apache.hadoop.fs.Path;
 
 /**
@@ -49,57 +46,6 @@ import org.apache.hadoop.fs.Path;
  */
 
 public interface SchemaNegotiator {
-
-//  /**
-//   * Indicates the way that the table handles schema.
-//   */
-//  enum TableSchemaType {
-//    /**
-//     * The table provides the schema via this negotiator, by calling a
-//     * {@link SchemaNegotiator#addTableColumn} method.
-//     */
-//    EARLY,
-//    /**
-//     * The reader learns of the table schema only by reading the data
-//     * for the table. (Example: JSON.) No schema is provided to the
-//     * negotiator.
-//     */
-//    LATE
-//  }
-
-//  /**
-//   * For readers that specify the SELECT list, and that have information
-//   * about the columns, specifies the column meaning. This information is
-//   * optional and not yet available from the Drill planner.
-//   */
-//  enum ColumnType {
-//    /**
-//     * The column can be of any type; the scan operator will figure out
-//     * the meaning. (Default)
-//     */
-//    ANY,
-//    /**
-//     * The column names a table column.
-//     */
-//    TABLE,
-//    /**
-//     * The column is some form of meta-data (as opposed to a
-//     * table column.)
-//     */
-//    META_ANY,
-//    /**
-//     * The columns is implicit: fqn, filename, filepath or
-//     * suffix.
-//     */
-//    META_IMPLICIT,
-//    /**
-//     * The column is a partition identifier: div0, div1, etc.
-//     */
-//    META_PARTITION };
-//
-//  void addSelectColumn(String name);
-//  void addSelectColumn(SchemaPath path);
-//  void addSelectColumn(SchemaPath path, SchemaNegotiator.ColumnType type);
 
   OperatorExecServices context();
 

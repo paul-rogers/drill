@@ -23,19 +23,13 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServicesImpl;
-import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ScanOperatorExecBuilder;
-import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ScanOptions;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
@@ -50,16 +44,16 @@ import org.apache.hadoop.fs.Path;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import com.google.common.collect.Lists;
-
 public class TestScanOperatorExec extends SubOperatorTest {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestScanOperatorExec.class);
 
-  public static final String MOCK_FILE_PATH = "hdfs:///w/x/y/foo.csv";
-  public static final String MOCK_ROOT_PATH = "hdfs:///w";
-  public static final String MOCK_FILE_NAME = "foo.csv";
-  public static final String MOCK_SUFFIX = "csv";
-  public static final String MOCK_DIR0 = "x";
+  private static final String MOCK_FILE_PATH = "hdfs:///w/x/y/foo.csv";
+  private static final String MOCK_ROOT_PATH = "hdfs:///w";
+  private static final String MOCK_FILE_NAME = "foo.csv";
+  private static final String MOCK_SUFFIX = "csv";
+  private static final String MOCK_DIR0 = "x";
+  private static final String STAR = "*";
+  private static final String[] SELECT_STAR = new String[] { STAR };
 
   private static abstract class BaseMockBatchReader implements RowBatchReader {
     public boolean openCalled;
@@ -108,7 +102,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     public boolean returnDataOnFirst;
 
     @Override
-    public boolean open(OperatorExecServices context, SchemaNegotiator schemaNegotiator) {
+    public boolean open(SchemaNegotiator schemaNegotiator) {
       this.tableLoader = schemaNegotiator.build();
       openCalled = true;
       return true;
@@ -264,11 +258,13 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     MockLateSchemaReader reader = new MockLateSchemaReader();
     reader.batchLimit = 2;
-    List<RowBatchReader> readers = Lists.newArrayList(reader);
 
     // Create the scan operator
 
-    MockBatch mockBatch = new MockBatch(readers, SELECT_STAR);
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader)
+        .setProjection(SELECT_STAR)
+         );
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Standard startup
@@ -407,6 +403,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
+        .setSelectionRoot(MOCK_ROOT_PATH)
         .setProjection(new String[] {"dir0", "b", "filename", "c", "suffix"})
          );
     ScanOperatorExec scan = mockBatch.scanOp;
@@ -460,9 +457,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockLateSchemaReader reader = new MockLateSchemaReader();
     reader.batchLimit = 2;
     reader.returnDataOnFirst = true;
-    List<RowBatchReader> readers = Lists.newArrayList(reader);
 
-    MockBatch mockBatch = new MockBatch(readers);
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader)
+        .setProjection(SELECT_STAR)
+         );
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // First batch. The reader returns a non-empty batch. The scan
@@ -504,8 +503,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
   @Test
   public void testEOFOnSchema() {
     MockNullEarlySchemaReader reader = new MockNullEarlySchemaReader();
-    List<RowBatchReader> readers = Lists.newArrayList(reader);
-    MockBatch mockBatch = new MockBatch(readers);
+
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader)
+        .setProjection(SELECT_STAR)
+         );
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // EOF
@@ -521,8 +523,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
   public void testEOFOnFirstBatch() {
     MockEarlySchemaReader reader = new MockEarlySchemaReader();
     reader.batchLimit = 0;
-    List<RowBatchReader> readers = Lists.newArrayList(reader);
-    MockBatch mockBatch = new MockBatch(readers);
+
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader)
+        .setProjection(SELECT_STAR)
+         );
     ScanOperatorExec scan = mockBatch.scanOp;
     assertTrue(scan.buildSchema());
 
@@ -551,8 +556,12 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader2.batchLimit = 2;
     reader2.startIndex = 100;
 
-    List<RowBatchReader> readers = Lists.newArrayList(nullReader, reader1, reader2);
-    MockBatch mockBatch = new MockBatch(readers);
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(nullReader)
+        .addReader(reader1)
+        .addReader(reader2)
+        .setProjection(SELECT_STAR)
+         );
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // First batch, schema only.
@@ -613,9 +622,12 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader1.batchLimit = 2;
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader2();
     reader2.batchLimit = 2;
-    List<RowBatchReader> readers = Lists.newArrayList(reader1, reader2);
 
-    MockBatch mockBatch = new MockBatch(readers);
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader1)
+        .addReader(reader2)
+        .setProjection(SELECT_STAR)
+         );
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Build schema
@@ -682,9 +694,12 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader1.batchLimit = 0;
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
     reader2.batchLimit = 0;
-    List<RowBatchReader> readers = Lists.newArrayList(reader1, reader2);
 
-    MockBatch mockBatch = new MockBatch(readers);
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader1)
+        .addReader(reader2)
+        .setProjection(SELECT_STAR)
+         );
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // EOF
@@ -704,15 +719,18 @@ public class TestScanOperatorExec extends SubOperatorTest {
   public void testExceptionOnOpen() {
     MockEarlySchemaReader reader = new MockEarlySchemaReader() {
       @Override
-      public boolean open(OperatorExecServices context, SchemaNegotiator schemaNegotiator) {
+      public boolean open(SchemaNegotiator schemaNegotiator) {
         openCalled = true;
         throw new IllegalStateException(ERROR_MSG);
       }
 
     };
     reader.batchLimit = 0;
-    List<RowBatchReader> readers = Lists.newArrayList(reader);
-    MockBatch mockBatch = new MockBatch(readers);
+
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader)
+        .setProjection(SELECT_STAR)
+         );
     ScanOperatorExec scan = mockBatch.scanOp;
 
     try {
@@ -733,7 +751,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
   public void testUserExceptionOnOpen() {
     MockEarlySchemaReader reader = new MockEarlySchemaReader() {
       @Override
-      public boolean open(OperatorExecServices context, SchemaNegotiator schemaNegotiator) {
+      public boolean open(SchemaNegotiator schemaNegotiator) {
         openCalled = true;
         throw UserException.dataReadError()
             .addContext(ERROR_MSG)
@@ -742,8 +760,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     };
     reader.batchLimit = 2;
-    List<RowBatchReader> readers = Lists.newArrayList(reader);
-    MockBatch mockBatch = new MockBatch(readers);
+
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader)
+        .setProjection(SELECT_STAR)
+         );
     ScanOperatorExec scan = mockBatch.scanOp;
 
     try {
@@ -770,8 +791,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
       }
     };
     reader.batchLimit = 2;
-    List<RowBatchReader> readers = Lists.newArrayList(reader);
-    MockBatch mockBatch = new MockBatch(readers);
+
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader)
+        .setProjection(SELECT_STAR)
+         );
     ScanOperatorExec scan = mockBatch.scanOp;
     scan.buildSchema();
 
@@ -801,10 +825,14 @@ public class TestScanOperatorExec extends SubOperatorTest {
       }
     };
     reader.batchLimit = 2;
-    List<RowBatchReader> readers = Lists.newArrayList(reader);
-    MockBatch mockBatch = new MockBatch(readers);
+
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader)
+         .setProjection(SELECT_STAR)
+         );
     ScanOperatorExec scan = mockBatch.scanOp;
-    scan.buildSchema();
+
+    assertTrue(scan.buildSchema());
 
     // EOF
 
@@ -842,8 +870,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
       }
     };
     reader.batchLimit = 2;
-    List<RowBatchReader> readers = Lists.newArrayList(reader);
-    MockBatch mockBatch = new MockBatch(readers);
+
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader)
+         .setProjection(SELECT_STAR)
+         );
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Schema
@@ -884,8 +915,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
       }
     };
     reader.batchLimit = 2;
-    List<RowBatchReader> readers = Lists.newArrayList(reader);
-    MockBatch mockBatch = new MockBatch(readers);
+
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader)
+         .setProjection(SELECT_STAR)
+         );
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Schema
@@ -925,8 +959,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
     reader2.batchLimit = 2;
 
-    List<RowBatchReader> readers = Lists.newArrayList(reader1, reader2);
-    MockBatch mockBatch = new MockBatch(readers);
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader1)
+        .addReader(reader2)
+        .setProjection(SELECT_STAR)
+         );
     ScanOperatorExec scan = mockBatch.scanOp;
 
     assertTrue(scan.buildSchema());
@@ -969,11 +1006,13 @@ public class TestScanOperatorExec extends SubOperatorTest {
     }
 
     @Override
-    public boolean open(OperatorExecServices context, SchemaNegotiator schemaNegotiator) {
+    public boolean open(SchemaNegotiator schemaNegotiator) {
       openCalled = true;
-      buildSelect(schemaNegotiator);
-      MaterializedField a = SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED);
-      schemaNegotiator.addTableColumn(a);
+      MaterializedSchema schema = new SchemaBuilder()
+          .add("a", MinorType.VARCHAR)
+          .buildSchema();
+      schemaNegotiator.setTableSchema(schema);
+      buildFilePath(schemaNegotiator);
       this.tableLoader = schemaNegotiator.build();
       return true;
     }
@@ -1011,11 +1050,17 @@ public class TestScanOperatorExec extends SubOperatorTest {
   public void testMultipleReadersWithOverflow() {
     OverflowReader reader1 = new OverflowReader();
     reader1.batchLimit = 2;
+    reader1.filePath = new Path("hdfs:///w/x/y/a.csv");
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
     reader2.batchLimit = 2;
-    List<RowBatchReader> readers = Lists.newArrayList(reader1, reader2);
 
-    MockBatch mockBatch = new MockBatch(readers);
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader1)
+        .addReader(reader2)
+        .setSelectionRoot(MOCK_ROOT_PATH)
+        .useLegacyWildcardExpansion(false)
+        .setProjection(SELECT_STAR)
+         );
     ScanOperatorExec scan = mockBatch.scanOp;
 
     assertTrue(scan.buildSchema());
@@ -1076,11 +1121,13 @@ public class TestScanOperatorExec extends SubOperatorTest {
   private static class MockOneColEarlySchemaReader extends BaseMockBatchReader {
 
     @Override
-    public boolean open(OperatorExecServices context, SchemaNegotiator schemaNegotiator) {
+    public boolean open(SchemaNegotiator schemaNegotiator) {
       openCalled = true;
-      buildSelect(schemaNegotiator);
-      MaterializedField a = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
-      schemaNegotiator.addTableColumn(a);
+      buildFilePath(schemaNegotiator);
+      MaterializedSchema schema = new SchemaBuilder()
+          .add("a", MinorType.INT)
+          .buildSchema();
+      schemaNegotiator.setTableSchema(schema);
       this.tableLoader = schemaNegotiator.build();
       return true;
     }
@@ -1124,27 +1171,31 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testSchemaSmoothing() {
-    String selectList[] = new String[]{"a", "b"};
 
     // Reader returns (a, b)
     MockEarlySchemaReader reader1 = new MockEarlySchemaReader();
     reader1.batchLimit = 1;
-    reader1.setSelect(selectList);
+    reader1.setFilePath("hdfs:///w/x/y/a.csv");
 
     // Reader returns (a)
     MockOneColEarlySchemaReader reader2 = new MockOneColEarlySchemaReader();
     reader2.batchLimit = 1;
-    reader2.setSelect(selectList);
+    reader2.setFilePath("hdfs:///w/x/y/b.csv");
     reader2.startIndex = 100;
 
     // Reader returns (a, b)
     MockEarlySchemaReader reader3 = new MockEarlySchemaReader();
     reader3.batchLimit = 1;
     reader3.startIndex = 200;
-    reader3.setSelect(selectList);
-    List<RowBatchReader> readers = Lists.newArrayList(reader1, reader2, reader3);
+    reader3.setFilePath("hdfs:///w/x/y/c.csv");
 
-    MockBatch mockBatch = new MockBatch(readers);
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader1)
+        .addReader(reader2)
+        .addReader(reader3)
+        .setSelectionRoot(MOCK_ROOT_PATH)
+        .setProjection(new String[]{"a", "b"})
+         );
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Schema based on (a, b)

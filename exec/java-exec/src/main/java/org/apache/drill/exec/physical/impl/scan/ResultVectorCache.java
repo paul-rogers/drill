@@ -171,4 +171,11 @@ public class ResultVectorCache {
     }
     return vs.vector.getField().getType();
   }
+
+  public void close() {
+    for (VectorState vs : vectors.values()) {
+      vs.vector.close();
+    }
+    vectors.clear();
+  }
 }

@@ -32,7 +32,6 @@ import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.MaterializedSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.hadoop.fs.Path;
 
@@ -561,7 +560,7 @@ public class ScanProjector {
 
     nullColumnLoader = new NullColumnLoader(allocator, tableProj.nullColumns(), vectorCache, nullType);
 
-    // Map null columns from the null column laoder schema into the output
+    // Map null columns from the null column loader schema into the output
     // schema.
 
     VectorContainer nullsContainer = nullColumnLoader.output();
@@ -627,9 +626,8 @@ public class ScanProjector {
       return;
     }
     VectorContainer metadataContainer = metadataColumnLoader.output();
-    List<MetadataColumn> metadataCols = metadataColumnLoader.columns();
     int metadataMap[] = projectionDefn.tableProjection().metadataProjection();
-    for (int i = 0; i < metadataCols.size(); i++) {
+    for (int i = 0; i < metadataContainer.getNumberOfColumns(); i++) {
       builder.addDirectProjection(metadataContainer, i, metadataMap[i]);
     }
   }
@@ -665,7 +663,10 @@ public class ScanProjector {
       metadataColumnLoader = null;
     }
     closeTable();
-    output.close();
+    if (output != null) {
+      output.close();
+    }
+    vectorCache.close();
     projectionDefn.close();
   }
 
