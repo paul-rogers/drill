@@ -103,7 +103,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     @Override
     public boolean open(SchemaNegotiator schemaNegotiator) {
-      this.tableLoader = schemaNegotiator.build();
+      
+      // No schema or file, just build the table loader.
+      
+      tableLoader = schemaNegotiator.build();
       openCalled = true;
       return true;
     }
@@ -114,6 +117,9 @@ public class TestScanOperatorExec extends SubOperatorTest {
       if (batchCount > batchLimit) {
         return false;
       } else if (batchCount == 1) {
+        
+        // On first batch, pretend to discover the schema.
+        
         TupleSchema schema = tableLoader.writer().schema();
         MaterializedField a = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
         schema.addColumn(a);
@@ -129,11 +135,6 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
       makeBatch();
       return true;
-    }
-
-    @Override
-    public void close() {
-      closeCalled = true;
     }
   }
 
@@ -249,7 +250,6 @@ public class TestScanOperatorExec extends SubOperatorTest {
   }
 
   @Test
-  @Ignore("Not yet")
   public void testLateSchemaLifecycle() {
     SingleRowSet expected = makeExpected();
     RowSetComparison verifier = new RowSetComparison(expected);
@@ -330,6 +330,13 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     assertFalse(scan.next());
     assertEquals(0, scan.batchAccessor().getRowCount());
+
+    // Next again: no-op
+
+    assertFalse(scan.next());
+    mockBatch.close();
+
+    // Close again: no-op
 
     mockBatch.close();
   }
@@ -989,6 +996,53 @@ public class TestScanOperatorExec extends SubOperatorTest {
     mockBatch.close();
   }
 
+
+  @Test
+  public void testUserExceptionOnClose() {
+    MockEarlySchemaReader reader1 = new MockEarlySchemaReader() {
+      @Override
+      public void close() {
+        super.close();
+        throw UserException.dataReadError()
+            .addContext(ERROR_MSG)
+            .build(logger);
+       }
+    };
+    reader1.batchLimit = 2;
+
+    MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
+    reader2.batchLimit = 2;
+
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader1)
+        .addReader(reader2)
+        .setProjection(SELECT_STAR)
+         );
+    ScanOperatorExec scan = mockBatch.scanOp;
+
+    assertTrue(scan.buildSchema());
+
+    assertTrue(scan.next());
+    scan.batchAccessor().release();
+
+    assertTrue(scan.next());
+    scan.batchAccessor().release();
+
+    // Fail on close of first reader
+
+    try {
+      scan.next();
+      fail();
+    } catch (UserException e) {
+      assertTrue(e.getMessage().contains(ERROR_MSG));
+      assertNull(e.getCause());
+    }
+    assertTrue(reader1.closeCalled);
+    assertFalse(reader2.openCalled);
+
+    mockBatch.close();
+  }
+
   /**
    * Mock reader that produces "jumbo" batches that cause a vector to
    * fill and a row to overflow from one batch to the next.
@@ -1234,4 +1288,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertFalse(scan.next());
     mockBatch.close();
   }
+  
+  // Late schema with and without file info
+  // Early schema without file info
 }

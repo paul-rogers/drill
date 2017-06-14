@@ -373,7 +373,7 @@ public class ScanOperatorExec implements OperatorExec {
       try {
         reader.close();
       } catch (UserException e) {
-        throw e; // TODO: Test this path
+        throw e;
       } catch (Throwable t) {
         throw UserException.executionError(t)
           .addContext("Close failed for reader", reader.getClass().getSimpleName())
@@ -567,7 +567,7 @@ public class ScanOperatorExec implements OperatorExec {
         return state != State.END;
 
       case END:
-        return false; // TODO: Test this path
+        return false;
 
       default:
         throw new IllegalStateException("Unexpected state: " + state);
@@ -699,7 +699,7 @@ public class ScanOperatorExec implements OperatorExec {
   @Override
   public void close() {
     if (state == State.CLOSED) {
-      return; // TODO: Test this path
+      return;
     }
     state = State.CLOSED;
     closeAll();
