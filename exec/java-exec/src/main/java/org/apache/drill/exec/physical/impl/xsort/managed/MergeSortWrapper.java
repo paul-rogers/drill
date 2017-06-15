@@ -147,7 +147,7 @@ public class MergeSortWrapper extends BaseSortWrapper implements SortResults {
     cg.plainJavaCapable(true);
 
     // Uncomment out this line to debug the generated code.
-//  cg.saveCodeForDebugging(true);
+    cg.saveCodeForDebugging(true);
     ClassGenerator<MSorter> g = cg.getRoot();
     g.setMappingSet(mainMapping);
 

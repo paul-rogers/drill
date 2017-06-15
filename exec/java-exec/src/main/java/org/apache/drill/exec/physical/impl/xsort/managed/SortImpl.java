@@ -250,6 +250,7 @@ public class SortImpl {
     private final VectorContainer dest;
 
     public EmptyResults(VectorContainer dest) {
+      dest.setRecordCount(0);
       this.dest = dest;
     }
 
