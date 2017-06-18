@@ -21,12 +21,14 @@ import io.netty.buffer.DrillBuf;
 
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.Set;
 
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.exception.SchemaChangeRuntimeException;
 import org.apache.drill.exec.expr.BasicTypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
 import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.AddOrGetResult;
@@ -209,15 +211,16 @@ public abstract class BaseRepeatedValueVector extends BaseValueVector implements
     vector = v;
   }
 
-
   @Override
-  public int getAllocatedByteCount() {
-    return offsets.getAllocatedByteCount() + vector.getAllocatedByteCount();
+  public void getLedgers(Set<BufferLedger> ledgers) {
+    offsets.getLedgers(ledgers);
+    vector.getLedgers(ledgers);
   }
 
   @Override
-  public int getPayloadByteCount() {
-    return offsets.getPayloadByteCount() + vector.getPayloadByteCount();
+  public int getPayloadByteCount(int valueCount) {
+    int entryCount = offsets.getAccessor().get(valueCount);
+    return offsets.getPayloadByteCount(valueCount) + vector.getPayloadByteCount(entryCount);
   }
 
   public abstract class BaseRepeatedAccessor extends BaseValueVector.BaseAccessor implements RepeatedAccessor {

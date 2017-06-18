@@ -22,6 +22,7 @@ import io.netty.buffer.DrillBuf;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.drill.common.types.TypeProtos.DataMode;
@@ -33,6 +34,7 @@ import org.apache.drill.exec.expr.BasicTypeHelper;
 import org.apache.drill.exec.expr.holders.ComplexHolder;
 import org.apache.drill.exec.expr.holders.RepeatedMapHolder;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
 import org.apache.drill.exec.proto.UserBitShared.SerializedField;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TransferPair;
@@ -585,7 +587,8 @@ public class RepeatedMapVector extends AbstractMapVector
   }
 
   @Override
-  public int getAllocatedByteCount() {
-    return super.getAllocatedByteCount( ) + offsets.getAllocatedByteCount();
+  public void getLedgers(Set<BufferLedger> ledgers) {
+    super.getLedgers(ledgers);
+    offsets.getLedgers(ledgers);
   }
 }

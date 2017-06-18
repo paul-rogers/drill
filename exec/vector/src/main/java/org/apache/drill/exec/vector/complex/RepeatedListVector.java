@@ -23,6 +23,7 @@ import io.netty.buffer.DrillBuf;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -30,6 +31,7 @@ import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.expr.holders.ComplexHolder;
 import org.apache.drill.exec.expr.holders.RepeatedListHolder;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.proto.UserBitShared.SerializedField;
 import org.apache.drill.exec.record.MaterializedField;
@@ -428,12 +430,12 @@ public class RepeatedListVector extends AbstractContainerVector
   }
 
   @Override
-  public int getAllocatedByteCount() {
-    return delegate.getAllocatedByteCount();
+  public void getLedgers(Set<BufferLedger> ledgers) {
+    delegate.getLedgers(ledgers);
   }
 
   @Override
-  public int getPayloadByteCount() {
-    return delegate.getPayloadByteCount();
+  public int getPayloadByteCount(int valueCount) {
+    return delegate.getPayloadByteCount(valueCount);
   }
 }

@@ -22,11 +22,13 @@ import io.netty.buffer.DrillBuf;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.drill.common.collections.MapWithOrdinal;
 import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.exec.expr.BasicTypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.util.CallBack;
 import org.apache.drill.exec.vector.ValueVector;
@@ -277,21 +279,18 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
   }
 
   @Override
-  public int getAllocatedByteCount() {
-    int count = 0;
-
+  public void getLedgers(Set<BufferLedger> ledgers) {
     for (final ValueVector v : vectors.values()) {
-      count += v.getAllocatedByteCount();
+      v.getLedgers(ledgers);
     }
-    return count;
   }
 
   @Override
-  public int getPayloadByteCount() {
+  public int getPayloadByteCount(int valueCount) {
     int count = 0;
 
     for (final ValueVector v : vectors.values()) {
-      count += v.getPayloadByteCount();
+      count += v.getPayloadByteCount(valueCount);
     }
     return count;
   }

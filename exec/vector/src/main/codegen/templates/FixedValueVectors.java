@@ -228,8 +228,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
   }
 
   @Override
-  public int getPayloadByteCount() {
-    return getAccessor().getValueCount() * ${type.width};
+  public int getPayloadByteCount(int valueCount) {
+    return valueCount * ${type.width};
   }
 
   private class TransferImpl implements TransferPair{

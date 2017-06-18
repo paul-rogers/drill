@@ -143,11 +143,11 @@ public class SortImpl {
     // The heart of the external sort operator: spill to disk when
     // the in-memory generation exceeds the allowed memory limit.
     // Preemptively spill BEFORE accepting the new batch into our memory
-    // pool. The allocator will throw an OOM exception if we accept the
-    // batch when we are near the limit - despite the fact that the batch
-    // is already in memory and no new memory is allocated during the transfer.
+    // pool. Although the allocator will allow us to exceed the memory limit
+    // during the transfer, we immediately follow the transfer with an SV2
+    // allocation that will fail if we are over the allocation limit.
 
-    if ( isSpillNeeded(sizer.actualSize())) {
+    if (isSpillNeeded(sizer.actualSize())) {
       spillFromMemory();
     }
 
@@ -195,20 +195,32 @@ public class SortImpl {
    * Spilling is driven purely by memory availability (and an optional
    * batch limit for testing.)
    *
-   * @return true if spilling is needed, false otherwise
+   * @return true if spilling is needed (and possible), false otherwise
    */
 
   private boolean isSpillNeeded(int incomingSize) {
 
+    if (bufferedBatches.size() >= config.getBufferedBatchLimit()) {
+      return true;
+    }
+
     // Can't spill if less than two batches else the merge
     // can't make progress.
 
+    final boolean spillNeeded = memManager.isSpillNeeded(allocator.getAllocatedMemory(), incomingSize);
     if (bufferedBatches.size() < 2) {
-      return false; }
 
-    if (bufferedBatches.size() >= config.getBufferedBatchLimit()) {
-      return true; }
-    return memManager.isSpillNeeded(allocator.getAllocatedMemory(), incomingSize);
+      // If we can't fit the batch into memory, then place a definite error
+      // message into the log to ease debugging.
+
+      if (spillNeeded) {
+        logger.error("Insufficient memory to merge two batches. Incoming batch size: {}, available memory: {}",
+                     incomingSize, allocator.getAllocatedMemory());
+      }
+      return false;
+    }
+
+    return spillNeeded;
   }
 
   private void validateBatchSize(long actualBatchSize, long memoryDelta) {

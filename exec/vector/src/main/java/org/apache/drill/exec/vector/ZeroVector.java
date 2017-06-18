@@ -18,11 +18,13 @@
 package org.apache.drill.exec.vector;
 
 import java.util.Iterator;
+import java.util.Set;
 
 import com.google.common.collect.Iterators;
 import io.netty.buffer.DrillBuf;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.record.MaterializedField;
@@ -178,12 +180,10 @@ public class ZeroVector implements ValueVector {
   public void load(UserBitShared.SerializedField metadata, DrillBuf buffer) { }
 
   @Override
-  public int getAllocatedByteCount() {
-    return 0;
-  }
+  public void getLedgers(Set<BufferLedger> ledgers) {}
 
   @Override
-  public int getPayloadByteCount() {
+  public int getPayloadByteCount(int valueCount) {
     return 0;
   }
 }

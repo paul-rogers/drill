@@ -19,9 +19,12 @@ package org.apache.drill.exec.physical.impl.spill;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
+import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.expr.TypeHelper;
+import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
 import org.apache.drill.exec.memory.BaseAllocator;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
@@ -29,8 +32,14 @@ import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
+import org.apache.drill.exec.vector.NullableVector;
+import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
+import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
+import org.apache.drill.exec.vector.complex.RepeatedMapVector;
+
+import com.google.common.collect.Sets;
 
 /**
  * Given a record batch or vector container, determines the actual memory
@@ -44,19 +53,8 @@ public class RecordBatchSizer {
    * Column size information.
    */
   public static class ColumnSize {
+    public final String prefix;
     public final MaterializedField metadata;
-
-    /**
-     * Assumed size from Drill metadata.
-     */
-
-    public int stdSize;
-
-    /**
-     * Actual memory consumed by all the vectors associated with this column.
-     */
-
-    public int totalSize;
 
     /**
      * Actual average column width as determined from actual memory use. This
@@ -65,26 +63,14 @@ public class RecordBatchSizer {
      */
 
     public int estSize;
+    public int valueCount;
     public int capacity;
-    public int density;
     public int dataSize;
 
-    public ColumnSize(ValueVector v) {
+    public ColumnSize(ValueVector v, String prefix, int valueCount, Set<BufferLedger> ledgers) {
+      this.prefix = prefix;
+      this.valueCount = valueCount;
       metadata = v.getField();
-      stdSize = TypeHelper.getSize(metadata.getType());
-
-      // Can't get size estimates if this is an empty batch.
-
-      int rowCount = v.getAccessor().getValueCount();
-      if (rowCount == 0) {
-        estSize = stdSize;
-        return;
-      }
-
-      // Total size taken by all vectors (and underlying buffers)
-      // associated with this vector.
-
-      totalSize = v.getAllocatedByteCount();
 
       // Capacity is the number of values that the vector could
       // contain. This is useful only for fixed-length vectors.
@@ -94,37 +80,29 @@ public class RecordBatchSizer {
       // The amount of memory consumed by the payload: the actual
       // data stored in the vectors.
 
-      dataSize = v.getPayloadByteCount();
+      dataSize = v.getPayloadByteCount(valueCount);
 
-      // Determine "density" the number of rows compared to potential
-      // capacity. Low-density batches occur at block boundaries, ends
-      // of files and so on. Low-density batches throw off our estimates
-      // for Varchar columns because we don't know the actual number of
-      // bytes consumed (that information is hidden behind the Varchar
-      // implementation where we can't get at it.)
-
-      density = roundUp(dataSize * 100, totalSize);
-      estSize = roundUp(dataSize, rowCount);
+      v.getLedgers(ledgers);
+      estSize = roundUp(dataSize, valueCount);
     }
 
     @Override
     public String toString() {
       StringBuilder buf = new StringBuilder()
+          .append(prefix)
           .append(metadata.getName())
           .append("(type: ")
+          .append(metadata.getType().getMode().name())
+          .append(" ")
           .append(metadata.getType().getMinorType().name())
-          .append(", std col. size: ")
-          .append(stdSize)
-          .append(", actual col. size: ")
+          .append(", count: ")
+          .append(valueCount)
+          .append(", actual size: ")
           .append(estSize)
-          .append(", total size: ")
-          .append(totalSize)
           .append(", data size: ")
           .append(dataSize)
           .append(", row capacity: ")
           .append(capacity)
-          .append(", density: ")
-          .append(density)
           .append(")");
       return buf.toString();
     }
@@ -137,14 +115,11 @@ public class RecordBatchSizer {
    */
   private int rowCount;
   /**
-   * Standard row width using Drill meta-data.
-   */
-  private int stdRowWidth;
-  /**
    * Actual batch size summing all buffers used to store data
    * for the batch.
    */
-  private int totalBatchSize;
+  private int accountedMemorySize;
+  private int totalDataSize;
   /**
    * Actual row width computed by dividing total batch memory by the
    * record count.
@@ -158,6 +133,8 @@ public class RecordBatchSizer {
   private boolean hasSv2;
   private int sv2Size;
   private int avgDensity;
+
+  private Set<BufferLedger> ledgers = Sets.newIdentityHashSet();
 
   private int netBatchSize;
 
@@ -174,11 +151,15 @@ public class RecordBatchSizer {
   public RecordBatchSizer(VectorAccessible va, SelectionVector2 sv2) {
     rowCount = va.getRecordCount();
     for (VectorWrapper<?> vw : va) {
-      measureColumn(vw);
+      measureColumn(vw.getValueVector(), "", rowCount);
+    }
+
+    for (BufferLedger ledger : ledgers) {
+      accountedMemorySize += ledger.getAccountedSize();
     }
 
     if (rowCount > 0) {
-      grossRowWidth = roundUp(totalBatchSize, rowCount);
+      grossRowWidth = roundUp(accountedMemorySize, rowCount);
     }
 
     if (sv2 != null) {
@@ -187,15 +168,10 @@ public class RecordBatchSizer {
       netRowWidth += 2;
     }
 
-    int totalDensity = 0;
-    int usableCount = 0;
     for (ColumnSize colSize : columnSizes) {
-      if ( colSize.density > 0 ) {
-        usableCount++;
-      }
-      totalDensity += colSize.density;
+      totalDataSize += colSize.dataSize;
     }
-    avgDensity = roundUp(totalDensity, usableCount);
+    avgDensity = roundUp(totalDataSize * 100, accountedMemorySize);
   }
 
   public void applySv2() {
@@ -205,49 +181,55 @@ public class RecordBatchSizer {
 
     sv2Size = BaseAllocator.nextPowerOfTwo(2 * rowCount);
     grossRowWidth += roundUp(sv2Size, rowCount);
-    totalBatchSize += sv2Size;
+    accountedMemorySize += sv2Size;
   }
 
-  private void measureColumn(VectorWrapper<?> vw) {
-    measureColumn(vw.getValueVector());
-  }
-
-  private void measureColumn(ValueVector v) {
+  private void measureColumn(ValueVector v, String prefix, int valueCount) {
 
     // Maps consume no size themselves. However, their contained
     // vectors do consume space, so visit columns recursively.
 
     if (v.getField().getType().getMinorType() == MinorType.MAP) {
-      expandMap((AbstractMapVector) v);
+      int childCount;
+      if (v.getField().getDataMode() == DataMode.REPEATED) {
+
+        // Repeated vectors are special: they have an associated offset vector
+        // that changes the value count of the contained vectors.
+
+        @SuppressWarnings("resource")
+        UInt4Vector offsetVector = ((RepeatedMapVector) v).getOffsetVector();
+        totalDataSize += offsetVector.getPayloadByteCount(valueCount);
+        childCount = offsetVector.getAccessor().get(valueCount);
+      } else {
+        childCount = valueCount;
+      }
+      expandMap((AbstractMapVector) v, prefix + v.getField().getName() + ".", childCount);
       return;
     }
-    ColumnSize colSize = new ColumnSize(v);
+    ColumnSize colSize = new ColumnSize(v, prefix, valueCount, ledgers);
     columnSizes.add(colSize);
 
-    stdRowWidth += colSize.stdSize;
-    totalBatchSize += colSize.totalSize;
     netBatchSize += colSize.dataSize;
     netRowWidth += colSize.estSize;
   }
 
-  private void expandMap(AbstractMapVector mapVector) {
+  private void expandMap(AbstractMapVector mapVector, String prefix, int valueCount) {
     for (ValueVector vector : mapVector) {
-      measureColumn(vector);
+      measureColumn(vector, prefix, valueCount);
     }
   }
 
   public static int roundUp(int num, int denom) {
-    if(denom == 0) {
+    if (denom == 0) {
       return 0;
     }
     return (int) Math.ceil((double) num / denom);
   }
 
   public int rowCount() { return rowCount; }
-  public int stdRowWidth() { return stdRowWidth; }
   public int grossRowWidth() { return grossRowWidth; }
   public int netRowWidth() { return netRowWidth; }
-  public int actualSize() { return totalBatchSize; }
+  public int actualSize() { return accountedMemorySize; }
   public boolean hasSv2() { return hasSv2; }
   public int avgDensity() { return avgDensity; }
   public int netSize() { return netBatchSize; }
@@ -266,7 +248,9 @@ public class RecordBatchSizer {
     buf.append( "  Records: " );
     buf.append(rowCount);
     buf.append(", Total size: ");
-    buf.append(totalBatchSize);
+    buf.append(accountedMemorySize);
+    buf.append(", Data size: ");
+    buf.append(totalDataSize);
     buf.append(", Gross row width:");
     buf.append(grossRowWidth);
     buf.append(", Net row width:");

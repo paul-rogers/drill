@@ -29,9 +29,12 @@ package org.apache.drill.exec.vector.complex;
 
 <#include "/@includes/vv_imports.ftl" />
 import java.util.Iterator;
+import java.util.Set;
+
 import org.apache.drill.exec.vector.complex.impl.ComplexCopier;
 import org.apache.drill.exec.util.CallBack;
 import org.apache.drill.exec.expr.BasicTypeHelper;
+import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
 
 /*
  * This class is generated using freemarker and the ${.template_name} template.
@@ -202,19 +205,18 @@ public class UnionVector implements ValueVector {
   }
 
   @Override
-  public int getAllocatedByteCount() {
+  public void getLedgers(Set<BufferLedger> ledgers) {
     // Most vectors are held inside the internal map.
 
-    int count = internalMap.getAllocatedByteCount();
+    internalMap.getLedgers(ledgers);
     if (bit != null) {
-      count += bit.getAllocatedByteCount();
+      bit.getLedgers(ledgers);
     }
-    return count;
   }
 
   @Override
-  public int getPayloadByteCount() {
-    return internalMap.getPayloadByteCount();
+  public int getPayloadByteCount(int valueCount) {
+    return internalMap.getPayloadByteCount(valueCount);
   }
 
   @Override

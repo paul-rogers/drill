@@ -18,7 +18,11 @@
 package org.apache.drill.exec.vector;
 
 import io.netty.buffer.DrillBuf;
+
+import java.util.Set;
+
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
 import org.apache.drill.exec.record.MaterializedField;
 
 
@@ -89,7 +93,7 @@ public abstract class BaseDataValueVector extends BaseValueVector {
   public void reset() {}
 
   @Override
-  public int getAllocatedByteCount() {
-    return data.capacity();
+  public void getLedgers(Set<BufferLedger> ledgers) {
+    ledgers.add(data.getLedger());
   }
 }

@@ -18,10 +18,12 @@
 package org.apache.drill.exec.vector;
 
 import java.io.Closeable;
+import java.util.Set;
 
 import io.netty.buffer.DrillBuf;
 
 import org.apache.drill.exec.exception.OutOfMemoryException;
+import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.proto.UserBitShared.SerializedField;
 import org.apache.drill.exec.record.MaterializedField;
@@ -176,16 +178,19 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   void load(SerializedField metadata, DrillBuf buffer);
 
   /**
-   * Return the total memory consumed by all buffers within this vector.
+   * Add the ledgers underlying the buffers underlying the components of the
+   * vector to the set provided. Used to determine actual memory allocation.
+   *
+   * @param ledgers set of ledgers to which to add ledgers for this vector
    */
 
-  int getAllocatedByteCount();
+  void getLedgers(Set<BufferLedger> ledgers);
 
   /**
    * Return the number of value bytes consumed by actual data.
    */
 
-  int getPayloadByteCount();
+  int getPayloadByteCount(int valueCount);
 
   /**
    * An abstraction that is used to read from this vector instance.
@@ -211,7 +216,7 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
   }
 
   /**
-   * An abstractiong that is used to write into this vector instance.
+   * An abstraction that is used to write into this vector instance.
    */
   interface Mutator {
     /**

@@ -1129,6 +1129,57 @@ public class TestExternalSortRM extends DrillTest {
   }
 
   @Test
+  public void testDrill5519() throws Exception {
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        .maxParallelization(1)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
+        .keepLocalFiles()
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption("planner.memory.max_query_memory_per_node", 334288000L)
+        ;
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      String sql = "select count(*) from (select * from (select flatten(flatten(lst_lst)) num from dfs.data.`nested-large.json`) d order by d.num) d1 where d1.num < -1";
+//      String sql = "select * FROM (select * from dfs.data.`250wide.tbl`)d where d.columns[0] = 'ljdfhwuehnoiueyf'";
+      runAndDump(client, sql);
+    }
+  }
+
+  @Test
+  public void testDrill5522() throws Exception {
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        .maxParallelization(1)
+//        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+//        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
+        .keepLocalFiles()
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+//        .sessionOption("planner.memory.max_query_memory_per_node", 334288000L)
+        ;
+    try (ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      String sql = "create table `dfs_test.tmp`.xsort_ctas3_multiple partition by (type, aCol) as select type, rptds, rms, s3.rms.a aCol, uid from (\n" +
+                   "  select * from (\n" +
+                   "    select s1.type type, flatten(s1.rms.rptd) rptds, s1.rms, s1.uid\n" +
+                   "    from (\n" +
+                   "        select d.type type, d.uid uid, flatten(d.map.rm) rms from dfs.data.`nested-large.json` d order by d.uid\n" +
+                   "    ) s1\n" +
+                   "  ) s2\n" +
+                   "  order by s2.rms.mapid, s2.rptds.a\n" +
+                   ") s3";
+//      String sql = "select * FROM (select * from dfs.data.`250wide.tbl`)d where d.columns[0] = 'ljdfhwuehnoiueyf'";
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
+      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+    }
+  }
+
+  @Test
   public void testAdHoc4() throws Exception { // DRILL-5519
     LogFixtureBuilder logBuilder = LogFixture.builder()
         .toConsole()
@@ -1219,4 +1270,3 @@ public class TestExternalSortRM extends DrillTest {
     assertEquals(2880404, summary.recordCount());
   }
 }
-//
