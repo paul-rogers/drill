@@ -245,17 +245,18 @@ public class RecordBatchSizer {
       buf.append(colSize.toString());
       buf.append("\n");
     }
-    buf.append( "  Records: " );
+    buf.append(" "
+        + ": ");
     buf.append(rowCount);
     buf.append(", Total size: ");
     buf.append(accountedMemorySize);
     buf.append(", Data size: ");
     buf.append(totalDataSize);
-    buf.append(", Gross row width:");
+    buf.append(", Gross row width: ");
     buf.append(grossRowWidth);
-    buf.append(", Net row width:");
+    buf.append(", Net row width: ");
     buf.append(netRowWidth);
-    buf.append(", Density:");
+    buf.append(", Density: ");
     buf.append(avgDensity);
     buf.append("}");
     return buf.toString();
