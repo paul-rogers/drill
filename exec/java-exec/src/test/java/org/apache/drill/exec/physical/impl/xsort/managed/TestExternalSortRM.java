@@ -1180,6 +1180,37 @@ public class TestExternalSortRM extends DrillTest {
   }
 
   @Test
+  public void testDrill5513() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger("org.apache.drill.exec.physical.impl.xsort.managed", Level.TRACE)
+        .logger("org.apache.drill.exec.vector", Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        .maxParallelization(1)
+//        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+//        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
+        .keepLocalFiles()
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .configProperty(ExecConstants.EXTERNAL_SORT_MAX_MEMORY, 20_000_000)
+//        .sessionOption("planner.memory.max_query_memory_per_node", 334288000L)
+        ;
+    try (LogFixture logFixture = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "data", "/Users/paulrogers/work/data", "psv");
+      String sql = "select count(*) from (select s1.type type, flatten(s1.rms.rptd) rptds from\n" +
+                   "  (select d.type type, d.uid uid, flatten(d.map.rm) rms \n" +
+                   "    from dfs.data.`nested-large.json` d order by d.uid) s1 order by s1.rms.mapid)";
+//      String sql = "select * FROM (select * from dfs.data.`250wide.tbl`)d where d.columns[0] = 'ljdfhwuehnoiueyf'";
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
+      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+    }
+  }
+
+  @Test
   public void testAdHoc4() throws Exception { // DRILL-5519
     LogFixtureBuilder logBuilder = LogFixture.builder()
         .toConsole()

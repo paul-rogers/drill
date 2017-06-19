@@ -172,7 +172,7 @@ public class TestExternalSortExec extends DrillTest {
     assertFalse(popConfig.getReverse());
     assertEquals(SelectionVectorMode.FOUR_BYTE, popConfig.getSVMode());
     assertEquals(CoreOperatorType.EXTERNAL_SORT_VALUE, popConfig.getOperatorType());
-    assertEquals(ExternalSort.INIT_ALLOCATION, popConfig.getInitialAllocation());
+    assertEquals(ExternalSort.DEFAULT_SORT_ALLOCATION, popConfig.getInitialAllocation());
     assertEquals(AbstractBase.MAX_ALLOCATION, popConfig.getMaxAllocation());
     assertTrue(popConfig.isExecutable());
 
@@ -182,11 +182,7 @@ public class TestExternalSortExec extends DrillTest {
     assertTrue(popConfig.getReverse());
     long maxAlloc = 50_000_000;
     popConfig.setMaxAllocation(maxAlloc);
-    assertEquals(ExternalSort.INIT_ALLOCATION, popConfig.getInitialAllocation());
+    assertEquals(ExternalSort.DEFAULT_SORT_ALLOCATION, popConfig.getInitialAllocation());
     assertEquals(maxAlloc, popConfig.getMaxAllocation());
   }
-
-  public static final long ONE_MEG = 1024 * 1024;
-
-
 }
