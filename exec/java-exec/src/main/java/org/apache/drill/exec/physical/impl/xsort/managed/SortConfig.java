@@ -21,6 +21,7 @@ import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.exec.ExecConstants;
 
 public class SortConfig {
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExternalSortBatch.class);
 
   /**
    * Smallest allowed output batch size. The smallest output batch
@@ -105,11 +106,11 @@ public class SortConfig {
   }
 
   private void logConfig() {
-    ExternalSortBatch.logger.debug("Config: " +
+    logger.debug("Config: " +
                  "spill file size = {}, spill batch size = {}, " +
-                 "merge limit = {}, merge batch size = {}",
-                  spillFileSize(), spillFileSize(),
-                  mergeLimit(), mergeBatchSize());
+                 "merge batch size = {}",
+                  spillFileSize, spillBatchSize,
+                  mergeBatchSize);
   }
 
   public long maxMemory() { return maxMemory; }

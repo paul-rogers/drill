@@ -119,7 +119,6 @@ public class RecordBatchSizer {
    * for the batch.
    */
   private int accountedMemorySize;
-  private int totalDataSize;
   /**
    * Actual row width computed by dividing total batch memory by the
    * record count.
@@ -164,14 +163,16 @@ public class RecordBatchSizer {
 
     if (sv2 != null) {
       sv2Size = sv2.getBuffer(false).capacity();
-      grossRowWidth += roundUp(sv2Size, rowCount);
-      netRowWidth += 2;
+      accountedMemorySize += sv2Size;
     }
 
-    for (ColumnSize colSize : columnSizes) {
-      totalDataSize += colSize.dataSize;
-    }
-    avgDensity = roundUp(totalDataSize * 100, accountedMemorySize);
+    computeEstimates();
+  }
+
+  private void computeEstimates() {
+    grossRowWidth = roundUp(accountedMemorySize, rowCount);
+    netRowWidth = roundUp(netBatchSize, rowCount);
+    avgDensity = roundUp(netBatchSize * 100, accountedMemorySize);
   }
 
   public void applySv2() {
@@ -180,8 +181,8 @@ public class RecordBatchSizer {
     }
 
     sv2Size = BaseAllocator.nextPowerOfTwo(2 * rowCount);
-    grossRowWidth += roundUp(sv2Size, rowCount);
     accountedMemorySize += sv2Size;
+    computeEstimates();
   }
 
   private void measureColumn(ValueVector v, String prefix, int valueCount) {
@@ -198,7 +199,7 @@ public class RecordBatchSizer {
 
         @SuppressWarnings("resource")
         UInt4Vector offsetVector = ((RepeatedMapVector) v).getOffsetVector();
-        totalDataSize += offsetVector.getPayloadByteCount(valueCount);
+        netBatchSize += offsetVector.getPayloadByteCount(valueCount);
         childCount = offsetVector.getAccessor().get(valueCount);
       } else {
         childCount = valueCount;
@@ -210,7 +211,6 @@ public class RecordBatchSizer {
     columnSizes.add(colSize);
 
     netBatchSize += colSize.dataSize;
-    netRowWidth += colSize.estSize;
   }
 
   private void expandMap(AbstractMapVector mapVector, String prefix, int valueCount) {
@@ -245,13 +245,12 @@ public class RecordBatchSizer {
       buf.append(colSize.toString());
       buf.append("\n");
     }
-    buf.append(" "
-        + ": ");
+    buf.append( "  Records: " );
     buf.append(rowCount);
     buf.append(", Total size: ");
     buf.append(accountedMemorySize);
     buf.append(", Data size: ");
-    buf.append(totalDataSize);
+    buf.append(netBatchSize);
     buf.append(", Gross row width: ");
     buf.append(grossRowWidth);
     buf.append(", Net row width: ");

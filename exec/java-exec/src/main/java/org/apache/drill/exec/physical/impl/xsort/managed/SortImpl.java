@@ -88,7 +88,8 @@ public class SortImpl {
 
   private final BufferedBatches bufferedBatches;
 
-  public SortImpl(OperExecContext opContext, SortConfig sortConfig, SpilledRuns spilledRuns, VectorContainer batch) {
+  public SortImpl(OperExecContext opContext, SortConfig sortConfig,
+                  SpilledRuns spilledRuns, VectorContainer batch) {
     this.context = opContext;
     outputBatch = batch;
     this.spilledRuns = spilledRuns;
@@ -103,7 +104,10 @@ public class SortImpl {
     // limit will reduce the probability that random chance causes the allocator
     // to kill the query because of a small, spurious over-allocation.
 
-    allocator.setLimit((long)(allocator.getLimit() * 1.10));
+    long maxMem = memManager.getMemoryLimit();
+    long newMax = (long)(maxMem * 1.10);
+    allocator.setLimit(newMax);
+    logger.debug("Config: Resetting allocator to 10% safety margin: {}", newMax);
   }
 
   public void setSchema(BatchSchema schema) {
@@ -211,11 +215,11 @@ public class SortImpl {
     if (bufferedBatches.size() < 2) {
 
       // If we can't fit the batch into memory, then place a definite error
-      // message into the log to ease debugging.
+      // message into the log to simplify debugging.
 
       if (spillNeeded) {
         logger.error("Insufficient memory to merge two batches. Incoming batch size: {}, available memory: {}",
-                     incomingSize, allocator.getAllocatedMemory());
+                     incomingSize, memManager.freeMemory(allocator.getAllocatedMemory()));
       }
       return false;
     }
@@ -247,7 +251,7 @@ public class SortImpl {
 
     // Do the actual spill.
 
-    logger.trace("Spilling {} of {} batches, memory = {}",
+    logger.trace("Spilling {} of {} batches, allocated memory = {} bytes",
         batchesToSpill.size(), startCount,
         allocator.getAllocatedMemory());
     int spillBatchRowCount = memManager.getSpillBatchRowCount();

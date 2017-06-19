@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.xsort.managed;
 import com.google.common.annotations.VisibleForTesting;
 
 public class SortMemoryManager {
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ExternalSortBatch.class);
 
   /**
    * Maximum memory this operator may use. Usually comes from the
@@ -101,20 +102,37 @@ public class SortMemoryManager {
 
   private boolean potentialOverflow;
 
-  public SortMemoryManager(SortConfig config, long memoryLimit) {
+  public SortMemoryManager(SortConfig config, long opMemoryLimit) {
     this.config = config;
 
     // The maximum memory this operator can use as set by the
     // operator definition (propagated to the allocator.)
 
     if (config.maxMemory() > 0) {
-      this.memoryLimit = Math.min(memoryLimit, config.maxMemory());
+      memoryLimit = Math.min(opMemoryLimit, config.maxMemory());
     } else {
-      this.memoryLimit = memoryLimit;
+      memoryLimit = opMemoryLimit;
     }
 
     preferredSpillBatchSize = config.spillBatchSize();;
     preferredMergeBatchSize = config.mergeBatchSize();
+
+    // Initialize the buffer memory limit for the first batch.
+    // Assume 1/2 of (allocated - spill batch size).
+
+    bufferMemoryLimit = (memoryLimit - config.spillBatchSize()) / 2;
+    if (bufferMemoryLimit < 0) {
+      // Bad news: not enough for even the spill batch.
+      // Assume half of memory, will adjust later.
+      bufferMemoryLimit = memoryLimit / 2;
+    }
+
+    if (memoryLimit == opMemoryLimit) {
+      logger.debug("Memory config: Allocator limit = {}", memoryLimit);
+    } else {
+      logger.debug("Memory config: Allocator limit = {}, Configured limit: {}",
+                   opMemoryLimit, memoryLimit);
+    }
   }
 
   /**
@@ -286,7 +304,7 @@ public class SortMemoryManager {
 
     long minNeeds = 2 * estimatedInputSize + expectedSpillBatchSize;
     if (minNeeds > memoryLimit) {
-      ExternalSortBatch.logger.warn("Potential memory overflow during load phase! " +
+      logger.warn("Potential memory overflow during load phase! " +
           "Minimum needed = {} bytes, actual available = {} bytes",
           minNeeds, memoryLimit);
       bufferMemoryLimit = 0;
@@ -297,7 +315,7 @@ public class SortMemoryManager {
 
     minNeeds = 2 * expectedSpillBatchSize + expectedMergeBatchSize;
     if (minNeeds > memoryLimit) {
-      ExternalSortBatch.logger.warn("Potential memory overflow during merge phase! " +
+      logger.warn("Potential memory overflow during merge phase! " +
           "Minimum needed = {} bytes, actual available = {} bytes",
           minNeeds, memoryLimit);
       mergeMemoryLimit = 0;
@@ -367,13 +385,15 @@ public class SortMemoryManager {
 
   private void logSettings(int actualRecordCount) {
 
-    ExternalSortBatch.logger.debug("Input Batch Estimates: record size = {} bytes; input batch = {} bytes, {} records",
+    logger.debug("Input Batch Estimates: record size = {} bytes; input batch = {} bytes, {} records",
                  estimatedRowWidth, estimatedInputBatchSize, actualRecordCount);
-    ExternalSortBatch.logger.debug("Merge batch size = {} bytes, {} records; spill file size: {} bytes",
-                 expectedSpillBatchSize, spillBatchRowCount, config.spillFileSize());
-    ExternalSortBatch.logger.debug("Output batch size = {} bytes, {} records",
-                 expectedMergeBatchSize, mergeBatchRowCount);
-    ExternalSortBatch.logger.debug("Available memory: {}, buffer memory = {}, merge memory = {}",
+    logger.debug("Merge batch size: net = {} bytes, gross = {} bytes, records = {}; spill file size: {} bytes",
+                 expectedSpillBatchSize, expectedSpillBatchSize * 4 / 3,
+                 spillBatchRowCount, config.spillFileSize());
+    logger.debug("Output batch size: net = {} bytes, gross = {} bytes, records = {}",
+                 expectedMergeBatchSize, expectedMergeBatchSize * 4 / 2,
+                 mergeBatchRowCount);
+    logger.debug("Available memory: {}, buffer memory = {}, merge memory = {}",
                  memoryLimit, bufferMemoryLimit, mergeMemoryLimit);
   }
 

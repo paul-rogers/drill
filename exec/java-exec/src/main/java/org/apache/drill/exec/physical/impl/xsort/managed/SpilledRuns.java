@@ -175,9 +175,9 @@ public class SpilledRuns {
       }
       context.injectChecked(ExternalSortBatch.INTERRUPTION_WHILE_SPILLING, IOException.class);
       newGroup.closeOutputStream();
-      logger.trace("Spilled {} output batches, each of {} by bytes, {} records to {}",
-                   merger.getBatchCount(), merger.getRecordCount(),
-                   merger.getEstBatchSize(), outputFile);
+      logger.trace("Spilled {} output batches, each of {} bytes, {} records, to {}",
+                   merger.getBatchCount(), merger.getEstBatchSize(),
+                   spillBatchRowCount, outputFile);
       newGroup.setBatchSize(merger.getEstBatchSize());
       return newGroup;
     } catch (Throwable e) {

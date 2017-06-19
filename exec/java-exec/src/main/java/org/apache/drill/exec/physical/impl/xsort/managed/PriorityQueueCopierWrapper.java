@@ -252,22 +252,17 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
       if (count > 0) {
         long t = w.elapsed(TimeUnit.MICROSECONDS);
         batchCount++;
-        logger.trace("Took {} us to merge {} records", t, count);
         long size = holder.getAllocator().getAllocatedMemory() - start;
+        logger.trace("Took {} us to merge {} records, consuming {} bytes of memory",
+                     t, count, size);
         estBatchSize = Math.max(estBatchSize, size);
       } else {
         logger.trace("copier returned 0 records");
       }
 
-      // Identify the schema to be used in the output container. (Since
-      // all merged batches have the same schema, the schema we identify
-      // here should be the same as that which we already had.
+      // Initialize output container metadata.
 
       outputContainer.buildSchema(BatchSchema.SelectionVectorMode.NONE);
-
-      // The copier does not set the record count in the output
-      // container, so do that here.
-
       outputContainer.setRecordCount(count);
 
       return count > 0;
