@@ -739,7 +739,7 @@
               </excludes>
               <!-- Modern: include using the @Category annotation.
                    See the Javadoc for SecondaryTest for details. -->
-              <groups>org.apache.drill.test.SecondaryTest</groups>
+              <excludedGroups>org.apache.drill.test.SecondaryTest</excludedGroups>
             </configuration>
           </execution>
         </executions>
