@@ -228,7 +228,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   public void allocateNew(int valueCount) {
     try {
       values.allocateNew(valueCount);
-      bits.allocateNew(valueCount+1);
+      bits.allocateNew(valueCount);
     } catch(OutOfMemoryException e) {
       clear();
       throw e;
