@@ -244,7 +244,6 @@ public final class Repeated${minor.class}Vector extends BaseRepeatedValueVector 
      * buffers for multiple vectors. If one of the allocations failed we need to//
      * clear all the memory that we allocated
      */
-    boolean success = false;
     try {
       offsets.allocateNew(valueCount + 1);
       values.allocateNew(innerValueCount);

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -21,7 +21,6 @@ import org.apache.drill.exec.vector.complex.RepeatedFixedWidthVectorLike;
 import org.apache.drill.exec.vector.complex.RepeatedVariableWidthVectorLike;
 
 public class AllocationHelper {
-//  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AllocationHelper.class);
 
   public static void allocate(ValueVector v, int valueCount, int bytesPerValue) {
     allocate(v, valueCount, bytesPerValue, 5);
