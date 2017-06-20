@@ -47,8 +47,8 @@ public class TestExternalSortInternals extends DrillTest {
     assertEquals(Integer.MAX_VALUE, sortConfig.mergeLimit());
     // Default size: 256 MiB
     assertEquals(256 * ONE_MEG, sortConfig.spillFileSize());
-    // Default size: 8 MiB
-    assertEquals(8 * ONE_MEG, sortConfig.spillBatchSize());
+    // Default size: 16 MiB
+    assertEquals(16 * ONE_MEG, sortConfig.spillBatchSize());
     // Default size: 16 MiB
     assertEquals(16 * ONE_MEG, sortConfig.mergeBatchSize());
     // Default: unlimited
@@ -100,10 +100,10 @@ public class TestExternalSortInternals extends DrillTest {
   }
 
   @Test
-  public void testMemoryManagerBasics() {
+  public void ran() {
     DrillConfig drillConfig = DrillConfig.create();
     SortConfig sortConfig = new SortConfig(drillConfig);
-    long memoryLimit = 50 * ONE_MEG;
+    long memoryLimit = 70 * ONE_MEG;
     SortMemoryManager memManager = new SortMemoryManager(sortConfig, memoryLimit);
 
     // Basic setup
@@ -127,7 +127,7 @@ public class TestExternalSortInternals extends DrillTest {
 
     memManager.updateEstimates(batchSize, rowWidth, 0);
     assertEquals(rowWidth, memManager.getRowWidth());
-    assertEquals(batchSize, memManager.getInputBatchSize());
+    assertEquals(batchSize, memManager.getInputBatchSize().dataSize);
 
     // Larger batch size, update batch size
 
@@ -142,7 +142,7 @@ public class TestExternalSortInternals extends DrillTest {
     int lowBatchSize = rowWidth * rowCount * 2;
     memManager.updateEstimates(lowBatchSize, rowWidth, rowCount);
     assertEquals(rowWidth, memManager.getRowWidth());
-    assertEquals(batchSize, memManager.getInputBatchSize());
+    assertEquals(batchSize, memManager.getInputBatchSize().dataSize);
 
     // Different batch density, update batch size
 
@@ -158,7 +158,7 @@ public class TestExternalSortInternals extends DrillTest {
     lowBatchSize = rowWidth * rowCount * 2;
     memManager.updateEstimates(lowBatchSize, lowRowWidth, rowCount);
     assertEquals(rowWidth, memManager.getRowWidth());
-    assertEquals(batchSize, memManager.getInputBatchSize());
+    assertEquals(batchSize, memManager.getInputBatchSize().dataSize);
 
     // Larger row size, updates calcs
 
@@ -172,7 +172,7 @@ public class TestExternalSortInternals extends DrillTest {
 
     memManager.updateEstimates(lowBatchSize, rowWidth, 5);
     assertEquals(rowWidth, memManager.getRowWidth());
-    assertEquals(batchSize, memManager.getInputBatchSize());
+    assertEquals(batchSize, memManager.getInputBatchSize().dataSize);
   }
 
   private void verifyCalcs(SortConfig sortConfig, long memoryLimit, SortMemoryManager memManager, int batchSize,
@@ -183,7 +183,7 @@ public class TestExternalSortInternals extends DrillTest {
     // Row and batch sizes should be exact
 
     assertEquals(rowWidth, memManager.getRowWidth());
-    assertEquals(batchSize, memManager.getInputBatchSize());
+    assertEquals(batchSize, memManager.getInputBatchSize().dataSize);
 
     // Spill sizes will be rounded, but within reason.
 
@@ -191,9 +191,9 @@ public class TestExternalSortInternals extends DrillTest {
     assertTrue(count >= memManager.getSpillBatchRowCount());
     assertTrue(count/2 <= memManager.getSpillBatchRowCount());
     int spillSize = memManager.getSpillBatchRowCount() * rowWidth;
-    assertTrue(spillSize <= memManager.getSpillBatchSize());
-    assertTrue(spillSize >= memManager.getSpillBatchSize()/2);
-    assertEquals(memoryLimit - memManager.getSpillBatchSize(), memManager.getBufferMemoryLimit());
+    assertTrue(spillSize <= memManager.getSpillBatchSize().dataSize);
+    assertTrue(spillSize >= memManager.getSpillBatchSize().dataSize/2);
+    assertEquals(memoryLimit - memManager.getSpillBatchSize().expectedBufferSize, memManager.getBufferMemoryLimit());
 
     // Merge sizes will also be rounded, within reason.
 
@@ -201,9 +201,9 @@ public class TestExternalSortInternals extends DrillTest {
     assertTrue(count >= memManager.getMergeBatchRowCount());
     assertTrue(count/2 <= memManager.getMergeBatchRowCount());
     int mergeSize = memManager.getMergeBatchRowCount() * rowWidth;
-    assertTrue(mergeSize <= memManager.getMergeBatchSize());
-    assertTrue(mergeSize >= memManager.getMergeBatchSize()/2);
-    assertEquals(memoryLimit - memManager.getMergeBatchSize(), memManager.getMergeMemoryLimit());
+    assertTrue(mergeSize <= memManager.getMergeBatchSize().dataSize);
+    assertTrue(mergeSize >= memManager.getMergeBatchSize().dataSize/2);
+    assertEquals(memoryLimit - memManager.getMergeBatchSize().expectedBufferSize, memManager.getMergeMemoryLimit());
   }
 
   @Test
@@ -220,7 +220,7 @@ public class TestExternalSortInternals extends DrillTest {
     int batchSize = rowCount * 2;
     memManager.updateEstimates(batchSize, rowWidth, rowCount);
     assertEquals(10, memManager.getRowWidth());
-    assertEquals(batchSize, memManager.getInputBatchSize());
+    assertEquals(batchSize, memManager.getInputBatchSize().dataSize);
 
     // Truncate spill, merge batch row count
 
@@ -239,7 +239,7 @@ public class TestExternalSortInternals extends DrillTest {
     batchSize = rowWidth * rowCount;
     memManager.updateEstimates(batchSize, rowWidth, rowCount);
     assertEquals(rowWidth, memManager.getRowWidth());
-    assertEquals(batchSize, memManager.getInputBatchSize());
+    assertEquals(batchSize, memManager.getInputBatchSize().dataSize);
 
     // Truncate spill, merge batch row count
 
@@ -253,33 +253,34 @@ public class TestExternalSortInternals extends DrillTest {
   }
 
   @Test
-  public void testLowMemory() {
+  public void testLowMemory1() {
     DrillConfig drillConfig = DrillConfig.create();
     SortConfig sortConfig = new SortConfig(drillConfig);
-    long memoryLimit = 10 * ONE_MEG;
+    int memoryLimit = 10 * ONE_MEG;
     SortMemoryManager memManager = new SortMemoryManager(sortConfig, memoryLimit);
 
     // Tight squeeze, but can be made to work.
-    // Input batches are a quarter of memory.
+    // Input batch buffer size is a quarter of memory.
 
     int rowWidth = 1000;
-    int rowCount = (int) (memoryLimit / 4 / rowWidth);
-    int batchSize = rowCount * rowWidth;
+    int batchSize = SortMemoryManager.multiply(memoryLimit / 4, SortMemoryManager.PAYLOAD_MULTIPLIER);
+    int rowCount = batchSize / rowWidth;
+    batchSize = rowCount * rowWidth;
     memManager.updateEstimates(batchSize, rowWidth, rowCount);
     assertEquals(rowWidth, memManager.getRowWidth());
-    assertEquals(batchSize, memManager.getInputBatchSize());
+    assertEquals(batchSize, memManager.getInputBatchSize().dataSize);
     assertFalse(memManager.mayOverflow());
 
     // Spill, merge batches should be constrained
 
-    int spillBatchSize = memManager.getSpillBatchSize();
+    int spillBatchSize = memManager.getSpillBatchSize().dataSize;
     assertTrue(spillBatchSize < memManager.getPreferredSpillBatchSize());
     assertTrue(spillBatchSize >= rowWidth);
     assertTrue(spillBatchSize <= memoryLimit / 3);
     assertTrue(spillBatchSize + 2 * batchSize <= memoryLimit);
     assertTrue(spillBatchSize / rowWidth >= memManager.getSpillBatchRowCount());
 
-    int mergeBatchSize = memManager.getMergeBatchSize();
+    int mergeBatchSize = memManager.getMergeBatchSize().dataSize;
     assertTrue(mergeBatchSize < memManager.getPreferredMergeBatchSize());
     assertTrue(mergeBatchSize >= rowWidth);
     assertTrue(mergeBatchSize + 2 * spillBatchSize <= memoryLimit);
@@ -287,25 +288,36 @@ public class TestExternalSortInternals extends DrillTest {
 
     // Should spill after just two batches
 
-    assertFalse(memManager.isSpillNeeded(0, batchSize));
-    assertFalse(memManager.isSpillNeeded(batchSize, batchSize));
-    assertTrue(memManager.isSpillNeeded(2 * batchSize, batchSize));
+    int inputBufferSize = memManager.getInputBatchSize().expectedBufferSize;
+    assertFalse(memManager.isSpillNeeded(0, inputBufferSize));
+    assertFalse(memManager.isSpillNeeded(batchSize, inputBufferSize));
+    assertTrue(memManager.isSpillNeeded(2 * inputBufferSize, inputBufferSize));
+  }
+
+  @Test
+  public void testLowMemory2() {
+    DrillConfig drillConfig = DrillConfig.create();
+    SortConfig sortConfig = new SortConfig(drillConfig);
+    int memoryLimit = 10 * ONE_MEG;
+    SortMemoryManager memManager = new SortMemoryManager(sortConfig, memoryLimit);
+
 
     // Tighter squeeze, but can be made to work.
     // Input batches are 3/8 of memory; two fill 3/4,
     // but small spill and merge batches allow progress.
 
-    rowWidth = 1000;
-    rowCount = (int) (memoryLimit * 3 / 8 / rowWidth);
+    int rowWidth = 1000;
+    int batchSize = SortMemoryManager.multiply(memoryLimit * 3 / 8, SortMemoryManager.PAYLOAD_MULTIPLIER);
+    int rowCount = batchSize / rowWidth;
     batchSize = rowCount * rowWidth;
     memManager.updateEstimates(batchSize, rowWidth, rowCount);
     assertEquals(rowWidth, memManager.getRowWidth());
-    assertEquals(batchSize, memManager.getInputBatchSize());
+    assertEquals(batchSize, memManager.getInputBatchSize().dataSize);
     assertFalse(memManager.mayOverflow());
 
     // Spill, merge batches should be constrained
 
-    spillBatchSize = memManager.getSpillBatchSize();
+    int spillBatchSize = memManager.getSpillBatchSize().dataSize;
     assertTrue(spillBatchSize < memManager.getPreferredSpillBatchSize());
     assertTrue(spillBatchSize >= rowWidth);
     assertTrue(spillBatchSize <= memoryLimit / 3);
@@ -313,7 +325,7 @@ public class TestExternalSortInternals extends DrillTest {
     assertTrue(memManager.getSpillBatchRowCount() > 1);
     assertTrue(spillBatchSize / rowWidth >= memManager.getSpillBatchRowCount());
 
-    mergeBatchSize = memManager.getMergeBatchSize();
+    int mergeBatchSize = memManager.getMergeBatchSize().dataSize;
     assertTrue(mergeBatchSize < memManager.getPreferredMergeBatchSize());
     assertTrue(mergeBatchSize >= rowWidth);
     assertTrue(mergeBatchSize + 2 * spillBatchSize <= memoryLimit);
@@ -338,16 +350,16 @@ public class TestExternalSortInternals extends DrillTest {
     int batchSize = rowWidth;
     memManager.updateEstimates(batchSize, rowWidth, rowCount);
     assertEquals(rowWidth, memManager.getRowWidth());
-    assertEquals(batchSize, memManager.getInputBatchSize());
+    assertEquals(batchSize, memManager.getInputBatchSize().dataSize);
     assertFalse(memManager.mayOverflow());
 
-    int spillBatchSize = memManager.getSpillBatchSize();
+    int spillBatchSize = memManager.getSpillBatchSize().dataSize;
     assertTrue(spillBatchSize >= rowWidth);
     assertTrue(spillBatchSize <= memoryLimit / 3);
     assertTrue(spillBatchSize + 2 * batchSize <= memoryLimit);
     assertEquals(1, memManager.getSpillBatchRowCount());
 
-    int mergeBatchSize = memManager.getMergeBatchSize();
+    int mergeBatchSize = memManager.getMergeBatchSize().dataSize;
     assertTrue(mergeBatchSize >= rowWidth);
     assertTrue(mergeBatchSize + 2 * spillBatchSize <= memoryLimit);
     assertEquals(1, memManager.getMergeBatchRowCount());
@@ -406,7 +418,7 @@ public class TestExternalSortInternals extends DrillTest {
 
     memManager.updateEstimates(batchSize, rowWidth, rowCount);
 
-    int spillBatchSize = memManager.getSpillBatchSize();
+    int spillBatchSize = memManager.getSpillBatchSize().dataSize;
 
     // Test various memory fill levels
 
@@ -432,30 +444,34 @@ public class TestExternalSortInternals extends DrillTest {
         .build();
     SortConfig sortConfig = new SortConfig(drillConfig);
     // Allow four spill batches, 8 MB each, plus one output of 16
-    long memoryLimit = 50 * ONE_MEG;
+    // Allow for internal fragmentation
+    // 70 > (4 * 8 + 16) * 4 / 3
+    long memoryLimit = 70 * ONE_MEG;
     SortMemoryManager memManager = new SortMemoryManager(sortConfig, memoryLimit);
 
-    // Prime the estimates
+    // Prime the estimates. Batch size is data size, not buffer size.
 
     int rowWidth = 300;
     int rowCount = 10000;
     int batchSize = rowWidth * rowCount * 2;
 
     memManager.updateEstimates(batchSize, rowWidth, rowCount);
-    int spillBatchSize = memManager.getSpillBatchSize();
-    int mergeBatchSize = memManager.getMergeBatchSize();
+    assertFalse(memManager.isLowMemory());
+    int spillBatchBufferSize = memManager.getSpillBatchSize().expectedBufferSize;
+    int mergeBatchBufferSize = memManager.getMergeBatchSize().expectedBufferSize;
+    int inputBatchBufferSize = memManager.getInputBatchSize().expectedBufferSize;
 
     // One in-mem batch, no merging.
 
-    long allocMemory = memoryLimit - mergeBatchSize;
+    long allocMemory = inputBatchBufferSize;
     MergeTask task = memManager.consolidateBatches(allocMemory, 1, 0);
     assertEquals(MergeAction.NONE, task.action);
 
     // Many in-mem batches, just enough to merge
 
-    allocMemory = memoryLimit - mergeBatchSize;
-    int memBatches = (int) (allocMemory / batchSize);
-    allocMemory = memBatches * batchSize;
+    allocMemory = memoryLimit - mergeBatchBufferSize;
+    int memBatches = (int) (allocMemory / inputBatchBufferSize);
+    allocMemory = memBatches * inputBatchBufferSize;
     task = memManager.consolidateBatches(allocMemory, memBatches, 0);
     assertEquals(MergeAction.NONE, task.action);
 
@@ -467,28 +483,28 @@ public class TestExternalSortInternals extends DrillTest {
     // One more in-mem batch: now needs to spill
 
     memBatches++;
-    allocMemory = memBatches * batchSize;
+    allocMemory = memBatches * inputBatchBufferSize;
     task = memManager.consolidateBatches(allocMemory, memBatches, 0);
     assertEquals(MergeAction.SPILL, task.action);
 
     // No spill for various in-mem/spill run combinations
 
-    allocMemory = memoryLimit - spillBatchSize - mergeBatchSize;
-    memBatches = (int) (allocMemory / batchSize);
-    allocMemory = memBatches * batchSize;
+    allocMemory = memoryLimit - spillBatchBufferSize - mergeBatchBufferSize;
+    memBatches = (int) (allocMemory / inputBatchBufferSize);
+    allocMemory = memBatches * inputBatchBufferSize;
     task = memManager.consolidateBatches(allocMemory, memBatches, 1);
     assertEquals(MergeAction.NONE, task.action);
 
-    allocMemory = memoryLimit - 2 * spillBatchSize - mergeBatchSize;
-    memBatches = (int) (allocMemory / batchSize);
-    allocMemory = memBatches * batchSize;
+    allocMemory = memoryLimit - 2 * spillBatchBufferSize - mergeBatchBufferSize;
+    memBatches = (int) (allocMemory / inputBatchBufferSize);
+    allocMemory = memBatches * inputBatchBufferSize;
     task = memManager.consolidateBatches(allocMemory, memBatches, 2);
     assertEquals(MergeAction.NONE, task.action);
 
     // No spill if no in-memory, only spill, and spill fits
 
-    long freeMem = memoryLimit - mergeBatchSize;
-    int spillBatches = (int) (freeMem / spillBatchSize);
+    long freeMem = memoryLimit - mergeBatchBufferSize;
+    int spillBatches = (int) (freeMem / spillBatchBufferSize);
     task = memManager.consolidateBatches(0, 0, spillBatches);
     assertEquals(MergeAction.NONE, task.action);
 

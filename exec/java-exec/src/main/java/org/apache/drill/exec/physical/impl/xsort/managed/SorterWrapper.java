@@ -88,5 +88,4 @@ public class SorterWrapper extends BaseSortWrapper {
     generateComparisons(g, batch, logger);
     return getInstance(cg, logger);
   }
-
 }

@@ -214,14 +214,14 @@ public abstract class BatchGroup implements VectorAccessible, AutoCloseable {
       Stopwatch watch = Stopwatch.createStarted();
       long start = allocator.getAllocatedMemory();
       VectorContainer c =  reader.read();
-      if (schema != null) {
-        c = SchemaUtil.coerceContainer(c, schema, allocator);
-      }
       long end = allocator.getAllocatedMemory();
       logger.trace("Read {} records in {} us; size = {}, memory = {}",
                    c.getRecordCount(),
                    watch.elapsed(TimeUnit.MICROSECONDS),
                    (end - start), end);
+      if (schema != null) {
+        c = SchemaUtil.coerceContainer(c, schema, allocator);
+      }
       spilledBatches--;
       currentContainer.zeroVectors();
       Iterator<VectorWrapper<?>> wrapperIterator = c.iterator();
