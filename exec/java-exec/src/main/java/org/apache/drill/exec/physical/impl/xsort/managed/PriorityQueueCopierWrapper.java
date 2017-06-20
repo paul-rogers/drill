@@ -34,6 +34,7 @@ import org.apache.drill.exec.ops.OperExecContext;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortImpl.SortResults;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.SmartAllocationHelper;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
@@ -100,10 +101,12 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
    * @param batchGroupList
    * @param outputContainer
    * @param targetRecordCount
+   * @param allocHelper
    * @return
    */
-  public BatchMerger startMerge(BatchSchema schema, List<? extends BatchGroup> batchGroupList, VectorContainer outputContainer, int targetRecordCount) {
-    return new BatchMerger(this, schema, batchGroupList, outputContainer, targetRecordCount);
+  public BatchMerger startMerge(BatchSchema schema, List<? extends BatchGroup> batchGroupList,
+              VectorContainer outputContainer, int targetRecordCount, SmartAllocationHelper allocHelper) {
+    return new BatchMerger(this, schema, batchGroupList, outputContainer, targetRecordCount, allocHelper);
   }
 
   /**
@@ -195,11 +198,11 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
 
   public static class BatchMerger implements SortResults, AutoCloseable {
 
-    private PriorityQueueCopierWrapper holder;
-    private VectorContainer hyperBatch;
-    private VectorContainer outputContainer;
-    private int targetRecordCount;
-    private int copyCount;
+    private final PriorityQueueCopierWrapper holder;
+    private final VectorContainer hyperBatch;
+    private final VectorContainer outputContainer;
+    private final SmartAllocationHelper allocHelper;
+    private final int targetRecordCount;
     private int batchCount;
     private long estBatchSize;
 
@@ -212,8 +215,8 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
      * @param targetRecordCount number of records for each output batch
      */
     private BatchMerger(PriorityQueueCopierWrapper holder, BatchSchema schema, List<? extends BatchGroup> batchGroupList,
-                        int targetRecordCount) {
-      this(holder, schema, batchGroupList, new VectorContainer(), targetRecordCount);
+                        int targetRecordCount, SmartAllocationHelper allocHelper) {
+      this(holder, schema, batchGroupList, new VectorContainer(), targetRecordCount, allocHelper);
     }
 
     /**
@@ -224,12 +227,13 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
      * @param batchGroupList the input batches
      * @param outputContainer merges output batch into the given output container
      * @param targetRecordCount number of records for each output batch
+     * @param allocHelper
      */
     private BatchMerger(PriorityQueueCopierWrapper holder, BatchSchema schema, List<? extends BatchGroup> batchGroupList,
-                        VectorContainer outputContainer, int targetRecordCount) {
+                        VectorContainer outputContainer, int targetRecordCount, SmartAllocationHelper allocHelper) {
       this.holder = holder;
+      this.allocHelper = allocHelper;
       hyperBatch = constructHyperBatch(schema, batchGroupList);
-      copyCount = 0;
       this.targetRecordCount = targetRecordCount;
       this.outputContainer = outputContainer;
       holder.createCopier(hyperBatch, batchGroupList, outputContainer);
@@ -245,10 +249,12 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
 
     @Override
     public boolean next() {
-      Stopwatch w = Stopwatch.createStarted();
       long start = holder.getAllocator().getAllocatedMemory();
+      allocHelper.allocateBatch(outputContainer, targetRecordCount);
+      logger.trace("Initial output batch allocation: {} bytes",
+                   holder.getAllocator().getAllocatedMemory() - start);
+      Stopwatch w = Stopwatch.createStarted();
       int count = holder.copier.next(targetRecordCount);
-      copyCount += count;
       if (count > 0) {
         long t = w.elapsed(TimeUnit.MICROSECONDS);
         batchCount++;

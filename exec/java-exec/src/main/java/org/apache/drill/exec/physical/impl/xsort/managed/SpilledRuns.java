@@ -28,6 +28,7 @@ import org.apache.drill.exec.physical.impl.spill.SpillSet;
 import org.apache.drill.exec.physical.impl.xsort.managed.BatchGroup.SpilledRun;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortImpl.SortResults;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.SmartAllocationHelper;
 import org.apache.drill.exec.record.VectorContainer;
 
 import com.google.common.collect.Lists;
@@ -86,13 +87,14 @@ public class SpilledRuns {
     return batchesToSpill;
   }
 
-  public void mergeAndSpill(List<BatchGroup> batchesToSpill, int spillBatchRowCount) {
-    spilledRuns.add(safeMergeAndSpill(batchesToSpill, spillBatchRowCount));
+  public void mergeAndSpill(List<BatchGroup> batchesToSpill, int spillBatchRowCount, SmartAllocationHelper allocHelper) {
+    spilledRuns.add(safeMergeAndSpill(batchesToSpill, spillBatchRowCount, allocHelper));
     logger.trace("Completed spill: memory = {}",
         context.getAllocator().getAllocatedMemory());
   }
 
-  public void mergeRuns(int targetCount, long mergeMemoryPool, int spillBatchRowCount) {
+  public void mergeRuns(int targetCount, long mergeMemoryPool,
+                  int spillBatchRowCount, SmartAllocationHelper allocHelper) {
 
     long allocated = context.getAllocator().getAllocatedMemory();
     mergeMemoryPool -= context.getAllocator().getAllocatedMemory();
@@ -128,12 +130,12 @@ public class SpilledRuns {
     // Do the actual spill.
 
     List<BatchGroup> batchesToSpill = prepareSpillBatches(spilledRuns, mergeCount);
-    mergeAndSpill(batchesToSpill, spillBatchRowCount);
+    mergeAndSpill(batchesToSpill, spillBatchRowCount, allocHelper);
   }
 
-  private BatchGroup.SpilledRun safeMergeAndSpill(List<? extends BatchGroup> batchesToSpill, int spillBatchRowCount) {
+  private BatchGroup.SpilledRun safeMergeAndSpill(List<? extends BatchGroup> batchesToSpill, int spillBatchRowCount, SmartAllocationHelper allocHelper) {
     try {
-      return doMergeAndSpill(batchesToSpill, spillBatchRowCount);
+      return doMergeAndSpill(batchesToSpill, spillBatchRowCount, allocHelper);
     }
     // If error is a User Exception, just use as is.
 
@@ -145,7 +147,8 @@ public class SpilledRuns {
     }
   }
 
-  private BatchGroup.SpilledRun doMergeAndSpill(List<? extends BatchGroup> batchesToSpill, int spillBatchRowCount) throws Throwable {
+  private BatchGroup.SpilledRun doMergeAndSpill(List<? extends BatchGroup> batchesToSpill,
+                        int spillBatchRowCount, SmartAllocationHelper allocHelper) throws Throwable {
 
     // Merge the selected set of matches and write them to the
     // spill file. After each write, we release the memory associated
@@ -155,7 +158,8 @@ public class SpilledRuns {
     BatchGroup.SpilledRun newGroup = null;
     VectorContainer dest = new VectorContainer();
     try (AutoCloseable ignored = AutoCloseables.all(batchesToSpill);
-         PriorityQueueCopierWrapper.BatchMerger merger = copierHolder.startMerge(schema, batchesToSpill, dest, spillBatchRowCount)) {
+         PriorityQueueCopierWrapper.BatchMerger merger = copierHolder.startMerge(schema, batchesToSpill,
+                                         dest, spillBatchRowCount, allocHelper)) {
       newGroup = new BatchGroup.SpilledRun(spillSet, outputFile, context.getAllocator());
       logger.trace("Spilling {} batches, into spill batches of {} rows, to {}",
           batchesToSpill.size(), spillBatchRowCount, outputFile);
@@ -192,7 +196,8 @@ public class SpilledRuns {
     }
   }
 
-  public SortResults finalMerge(List<? extends BatchGroup> bufferedBatches, VectorContainer container, int mergeRowCount) {
+  public SortResults finalMerge(List<? extends BatchGroup> bufferedBatches,
+                    VectorContainer container, int mergeRowCount, SmartAllocationHelper allocHelper) {
     List<BatchGroup> allBatches = new LinkedList<>();
     allBatches.addAll(bufferedBatches);
     bufferedBatches.clear();
@@ -200,7 +205,7 @@ public class SpilledRuns {
     spilledRuns.clear();
     logger.debug("Starting merge phase. Runs = {}, Alloc. memory = {}",
         allBatches.size(), context.getAllocator().getAllocatedMemory());
-    return copierHolder.startMerge(schema, allBatches, container, mergeRowCount);
+    return copierHolder.startMerge(schema, allBatches, container, mergeRowCount, allocHelper);
   }
 
   public void close() {

@@ -102,7 +102,7 @@ public class RepeatedMapVector extends AbstractMapVector
   public void allocateNew(int groupCount, int innerValueCount) {
     clear();
     try {
-      offsets.allocateNew(groupCount + 1);
+      allocateOffsetsNew(groupCount);
       for (ValueVector v : getChildren()) {
         AllocationHelper.allocatePrecomputedChildCount(v, groupCount, 50, innerValueCount);
       }
@@ -112,6 +112,10 @@ public class RepeatedMapVector extends AbstractMapVector
     }
     offsets.zeroVector();
     mutator.reset();
+  }
+
+  public void allocateOffsetsNew(int groupCount) {
+    offsets.allocateNew(groupCount + 1);
   }
 
   public Iterator<String> fieldNameIterator() {

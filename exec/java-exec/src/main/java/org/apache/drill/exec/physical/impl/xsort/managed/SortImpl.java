@@ -27,6 +27,7 @@ import org.apache.drill.exec.physical.impl.xsort.MSortTemplate;
 import org.apache.drill.exec.physical.impl.xsort.managed.BatchGroup.InputBatch;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortMemoryManager.MergeTask;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.SmartAllocationHelper;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorAccessibleUtilities;
 import org.apache.drill.exec.record.VectorContainer;
@@ -70,6 +71,37 @@ public class SortImpl {
     SelectionVector4 getSv4();
   }
 
+  public static class EmptyResults implements SortResults {
+
+    private final VectorContainer dest;
+
+    public EmptyResults(VectorContainer dest) {
+      dest.setRecordCount(0);
+      this.dest = dest;
+    }
+
+    @Override
+    public boolean next() { return false; }
+
+    @Override
+    public void close() { }
+
+    @Override
+    public int getBatchCount() { return 0; }
+
+    @Override
+    public int getRecordCount() { return 0; }
+
+    @Override
+    public SelectionVector4 getSv4() { return null; }
+
+    @Override
+    public SelectionVector2 getSv2() { return null; }
+
+    @Override
+    public VectorContainer getContainer() { return dest; }
+  }
+
   private final SortConfig config;
   private final SortMetrics metrics;
   private final SortMemoryManager memManager;
@@ -87,6 +119,10 @@ public class SortImpl {
   private final SpilledRuns spilledRuns;
 
   private final BufferedBatches bufferedBatches;
+
+  private RecordBatchSizer sizer;
+
+  private SmartAllocationHelper allocHelper;
 
   public SortImpl(OperExecContext opContext, SortConfig sortConfig,
                   SpilledRuns spilledRuns, VectorContainer batch) {
@@ -142,7 +178,7 @@ public class SortImpl {
     // ownership. Allows us to figure out if we need to spill first,
     // to avoid overflowing memory simply due to ownership transfer.
 
-    RecordBatchSizer sizer = analyzeIncomingBatch(incoming);
+   analyzeIncomingBatch(incoming);
 
     // The heart of the external sort operator: spill to disk when
     // the in-memory generation exceeds the allowed memory limit.
@@ -176,7 +212,12 @@ public class SortImpl {
     // (which may exclude some records due to filtering.)
 
     validateBatchSize(sizer.actualSize(), batchSize);
-    memManager.updateEstimates((int) batchSize, sizer.netRowWidth(), sizer.rowCount());
+    if (memManager.updateEstimates((int) batchSize, sizer.netRowWidth(), sizer.rowCount())) {
+
+      // If estimates changed, discard the helper based on the old estimates.
+
+      allocHelper = null;
+    }
   }
 
   /**
@@ -185,13 +226,12 @@ public class SortImpl {
    * @return an analysis of the incoming batch
    */
 
-  private RecordBatchSizer analyzeIncomingBatch(VectorAccessible incoming) {
-    RecordBatchSizer sizer = new RecordBatchSizer(incoming);
+  private void analyzeIncomingBatch(VectorAccessible incoming) {
+    sizer = new RecordBatchSizer(incoming);
     sizer.applySv2();
     if (metrics.getInputBatchCount() == 0) {
       logger.debug("{}", sizer.toString());
     }
-    return sizer;
   }
 
   /**
@@ -255,42 +295,18 @@ public class SortImpl {
         batchesToSpill.size(), startCount,
         allocator.getAllocatedMemory());
     int spillBatchRowCount = memManager.getSpillBatchRowCount();
-    spilledRuns.mergeAndSpill(batchesToSpill, spillBatchRowCount);
+    spilledRuns.mergeAndSpill(batchesToSpill, spillBatchRowCount, allocHelper());
     metrics.incrSpillCount();
   }
 
-  public SortMetrics getMetrics() { return metrics; }
-
-  public static class EmptyResults implements SortResults {
-
-    private final VectorContainer dest;
-
-    public EmptyResults(VectorContainer dest) {
-      dest.setRecordCount(0);
-      this.dest = dest;
+  private SmartAllocationHelper allocHelper() {
+    if (allocHelper == null) {
+      allocHelper = sizer.buildAllocHelper();
     }
-
-    @Override
-    public boolean next() { return false; }
-
-    @Override
-    public void close() { }
-
-    @Override
-    public int getBatchCount() { return 0; }
-
-    @Override
-    public int getRecordCount() { return 0; }
-
-    @Override
-    public SelectionVector4 getSv4() { return null; }
-
-    @Override
-    public SelectionVector2 getSv2() { return null; }
-
-    @Override
-    public VectorContainer getContainer() { return dest; }
+    return allocHelper;
   }
+
+  public SortMetrics getMetrics() { return metrics; }
 
   public SortResults startMerge() {
     if (metrics.getInputRowCount() == 0) {
@@ -478,13 +494,13 @@ public class SortImpl {
     }
 
     int mergeRowCount = memManager.getMergeBatchRowCount();
-    return spilledRuns.finalMerge(bufferedBatches.removeAll(), outputBatch, mergeRowCount);
+    return spilledRuns.finalMerge(bufferedBatches.removeAll(), outputBatch, mergeRowCount, allocHelper);
   }
 
   private void mergeRuns(int targetCount) {
     long mergeMemoryPool = memManager.getMergeMemoryLimit();
     int spillBatchRowCount = memManager.getSpillBatchRowCount();
-    spilledRuns.mergeRuns(targetCount, mergeMemoryPool, spillBatchRowCount);
+    spilledRuns.mergeRuns(targetCount, mergeMemoryPool, spillBatchRowCount, allocHelper);
     metrics.incrMergeCount();
   }
 

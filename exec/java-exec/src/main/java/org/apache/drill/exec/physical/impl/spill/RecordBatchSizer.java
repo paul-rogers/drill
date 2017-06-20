@@ -23,21 +23,19 @@ import java.util.Set;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
 import org.apache.drill.exec.memory.BaseAllocator;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.RecordBatch;
+import org.apache.drill.exec.record.SmartAllocationHelper;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
-import org.apache.drill.exec.vector.NullableVector;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
-import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
-import org.apache.drill.exec.vector.complex.RepeatedMapVector;
+import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 import com.google.common.collect.Sets;
 
@@ -47,7 +45,6 @@ import com.google.common.collect.Sets;
  */
 
 public class RecordBatchSizer {
-//  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(RecordBatchSizer.class);
 
   /**
    * Column size information.
@@ -62,27 +59,48 @@ public class RecordBatchSizer {
      * column overhead such as any unused vector space, etc.
      */
 
-    public int estSize;
-    public int valueCount;
-    public int capacity;
-    public int dataSize;
+    public final int estSize;
+    public final int valueCount;
+    public final int entryCount;
+    public final int dataSize;
+    public final int estElementCount;
 
-    public ColumnSize(ValueVector v, String prefix, int valueCount, Set<BufferLedger> ledgers) {
+    public ColumnSize(ValueVector v, String prefix, int valueCount) {
       this.prefix = prefix;
       this.valueCount = valueCount;
       metadata = v.getField();
 
-      // Capacity is the number of values that the vector could
-      // contain. This is useful only for fixed-length vectors.
-
-      capacity = v.getValueCapacity();
-
       // The amount of memory consumed by the payload: the actual
       // data stored in the vectors.
 
-      dataSize = v.getPayloadByteCount(valueCount);
+      if (v.getField().getDataMode() == DataMode.REPEATED) {
 
-      v.getLedgers(ledgers);
+        // Repeated vectors are special: they have an associated offset vector
+        // that changes the value count of the contained vectors.
+
+        @SuppressWarnings("resource")
+        UInt4Vector offsetVector = ((RepeatedValueVector) v).getOffsetVector();
+        entryCount = offsetVector.getAccessor().get(valueCount);
+        estElementCount = roundUp(entryCount, valueCount);
+        if (v.getField().getType().getMinorType() == MinorType.MAP) {
+
+          // For map, the only data associated with the map vector
+          // itself is the offset vector, if any.
+
+          dataSize = offsetVector.getPayloadByteCount(valueCount);
+        } else {
+          dataSize = v.getPayloadByteCount(valueCount);
+        }
+      } else {
+        if (v.getField().getType().getMinorType() == MinorType.MAP) {
+          dataSize = 0;
+        } else {
+          dataSize = v.getPayloadByteCount(valueCount);
+        }
+        entryCount = valueCount;
+        estElementCount = 1;
+      }
+
       estSize = roundUp(dataSize, valueCount);
     }
 
@@ -96,15 +114,50 @@ public class RecordBatchSizer {
           .append(" ")
           .append(metadata.getType().getMinorType().name())
           .append(", count: ")
-          .append(valueCount)
-          .append(", actual size: ")
+          .append(valueCount);
+      if (metadata.getDataMode() == DataMode.REPEATED) {
+        buf.append(", total entries: ")
+           .append(entryCount)
+           .append(", per-array: ")
+           .append(estElementCount);
+      }
+      buf .append(", actual size: ")
           .append(estSize)
           .append(", data size: ")
           .append(dataSize)
-          .append(", row capacity: ")
-          .append(capacity)
           .append(")");
       return buf.toString();
+    }
+
+    public void buildAllocHelper(SmartAllocationHelper allocHelper) {
+      int width = 0;
+      switch(metadata.getType().getMinorType()) {
+      case VAR16CHAR:
+      case VARBINARY:
+      case VARCHAR:
+
+        // Subtract out the offset vector width
+        width = estSize - 4;
+
+        // Subtract out the bits (is-set) vector width
+        if (metadata.getDataMode() == DataMode.OPTIONAL) {
+          width -= 1;
+        }
+        break;
+      default:
+        break;
+      }
+      String name = prefix + metadata.getName();
+      if (metadata.getDataMode() == DataMode.REPEATED) {
+        if (width > 0) {
+          allocHelper.variableWidthArray(name, width, estElementCount);
+        } else {
+          allocHelper.fixedWidthArray(name, estElementCount);
+        }
+      }
+      else if (width > 0) {
+        allocHelper.variableWidth(name, width);
+      }
     }
   }
 
@@ -187,30 +240,18 @@ public class RecordBatchSizer {
 
   private void measureColumn(ValueVector v, String prefix, int valueCount) {
 
+    ColumnSize colSize = new ColumnSize(v, prefix, valueCount);
+    columnSizes.add(colSize);
+    netBatchSize += colSize.dataSize;
+
     // Maps consume no size themselves. However, their contained
     // vectors do consume space, so visit columns recursively.
 
     if (v.getField().getType().getMinorType() == MinorType.MAP) {
-      int childCount;
-      if (v.getField().getDataMode() == DataMode.REPEATED) {
-
-        // Repeated vectors are special: they have an associated offset vector
-        // that changes the value count of the contained vectors.
-
-        @SuppressWarnings("resource")
-        UInt4Vector offsetVector = ((RepeatedMapVector) v).getOffsetVector();
-        netBatchSize += offsetVector.getPayloadByteCount(valueCount);
-        childCount = offsetVector.getAccessor().get(valueCount);
-      } else {
-        childCount = valueCount;
-      }
-      expandMap((AbstractMapVector) v, prefix + v.getField().getName() + ".", childCount);
-      return;
+       expandMap((AbstractMapVector) v, prefix + v.getField().getName() + ".", colSize.entryCount);
+    } else {
+      v.getLedgers(ledgers);
     }
-    ColumnSize colSize = new ColumnSize(v, prefix, valueCount, ledgers);
-    columnSizes.add(colSize);
-
-    netBatchSize += colSize.dataSize;
   }
 
   private void expandMap(AbstractMapVector mapVector, String prefix, int valueCount) {
@@ -259,5 +300,13 @@ public class RecordBatchSizer {
     buf.append(avgDensity);
     buf.append("}");
     return buf.toString();
+  }
+
+  public SmartAllocationHelper buildAllocHelper() {
+    SmartAllocationHelper allocHelper = new SmartAllocationHelper();
+    for (ColumnSize colSize : columnSizes) {
+      colSize.buildAllocHelper(allocHelper);
+    }
+    return allocHelper;
   }
 }
