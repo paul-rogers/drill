@@ -414,6 +414,7 @@ public class RepeatedListVector extends AbstractContainerVector
   public void allocateNew(int valueCount, int innerValueCount) {
     clear();
     getOffsetVector().allocateNew(valueCount + 1);
+    getOffsetVector().getMutator().setSafe(0, 0);
     getMutator().reset();
   }
 
