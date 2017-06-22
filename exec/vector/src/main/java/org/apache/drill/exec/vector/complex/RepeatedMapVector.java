@@ -110,12 +110,12 @@ public class RepeatedMapVector extends AbstractMapVector
       clear();
       throw e;
     }
-    offsets.zeroVector();
     mutator.reset();
   }
 
   public void allocateOffsetsNew(int groupCount) {
     offsets.allocateNew(groupCount + 1);
+    offsets.zeroVector();
   }
 
   public Iterator<String> fieldNameIterator() {

@@ -18,12 +18,9 @@
 package org.apache.drill.exec.record;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 
-import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
@@ -99,16 +96,16 @@ public class SmartAllocationHelper {
     } else {
       allocateVector(vector, recordCount, hint);
     }
-    Set<BufferLedger> ledgers = new HashSet<>();
-    vector.getLedgers(ledgers);
-    int size = 0;
-    for (BufferLedger ledger : ledgers) {
-      size += ledger.getAccountedSize();
-    }
-    System.out.println(key + ": " + vector.getField().toString() +
-        " " +
-        ((hint == null) ? "no hint" : hint.toString()) +
-        ", " + size);
+//    Set<BufferLedger> ledgers = new HashSet<>();
+//    vector.getLedgers(ledgers);
+//    int size = 0;
+//    for (BufferLedger ledger : ledgers) {
+//      size += ledger.getAccountedSize();
+//    }
+//    System.out.println(key + ": " + vector.getField().toString() +
+//        " " +
+//        ((hint == null) ? "no hint" : hint.toString()) +
+//        ", " + size);
   }
 
   private void allocateVector(ValueVector vector, int recordCount, AllocationHint hint) {
