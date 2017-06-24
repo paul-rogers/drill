@@ -286,11 +286,11 @@ public class ScanOperatorExec implements OperatorExec {
 
       // Late schema. Read a batch.
 
-      if (! next()) { // TODO: Test this path
-        return false;
+      if (! next()) {
+        return false; // TODO: Test this path
       }
       if (scanOp.containerAccessor.getRowCount() == 0) {
-        return true; // TODO: Test this path
+        return true;
       }
 
       // The reader returned actual data. Just forward the schema
@@ -529,7 +529,12 @@ public class ScanOperatorExec implements OperatorExec {
   @Override
   public boolean buildSchema() {
     assert state == State.START;
-    nextSchema();
+
+    // Spin though readers looking for the first that has enough data
+    // to provide a schema. Skips empty, missing or otherwise "null"
+    // readers.
+
+    nextAction(true);
     if (state != State.END) {
       return true;
     }
@@ -547,23 +552,18 @@ public class ScanOperatorExec implements OperatorExec {
     return false;
   }
 
-  /**
-   * Spin though readers looking for the first that has enough data
-   * to provide a schema. Skips empty, missing or otherwise "null"
-   * readers.
-   */
-
-  private void nextSchema() {
-    nextAction(true);
-  }
-
   @Override
   public boolean next() {
     try {
       switch (state) {
 
       case READER:
-        nextBatch();
+        // Read another batch from the list of row readers. Keeps opening,
+        // reading from, and closing readers as needed to locate a batch, or
+        // until all readers are exhausted. Terminates when a batch is read,
+        // or all readers are exhausted.
+
+        nextAction(false);
         return state != State.END;
 
       case END:
@@ -578,17 +578,6 @@ public class ScanOperatorExec implements OperatorExec {
     }
   }
 
-  /**
-   * Read another batch from the list of row readers. Keeps opening,
-   * reading from, and closing readers as needed to locate a batch, or
-   * until all readers are exhausted. Terminates when a batch is read,
-   * or all readers are exhausted.
-   */
-
-  private void nextBatch() {
-    nextAction(false);
-  }
-
   private void nextAction(boolean schema) {
     for (;;) {
 
@@ -599,9 +588,22 @@ public class ScanOperatorExec implements OperatorExec {
         if (schema) {
           ok = readerState.buildSchema();
         } else {
-          ok = readBatch();
+          ok = readerState.next();
         }
         if (ok) {
+
+          // Have a batch. Prepare it for return.
+
+          // Add implicit columns, if any.
+          // Identify the output container and its schema version.
+
+          scanProjector.publish();
+
+          // Late schema readers may change their schema between batches
+
+          if (! readerState.earlySchema) {
+            containerAccessor.setContainer(scanProjector.output()); // TODO: Test this path
+          }
           break;
         }
         closeReader();
@@ -622,26 +624,6 @@ public class ScanOperatorExec implements OperatorExec {
         closeReader();
       }
     }
-  }
-
-  private boolean readBatch() {
-    if (! readerState.next()) {
-      return false;
-    }
-
-    // Have a batch. Prepare it for return.
-
-    // Add implicit columns, if any.
-    // Identify the output container and its schema version.
-
-    scanProjector.publish();
-
-    // Late schema readers may change their schema between batches
-
-    if (! readerState.earlySchema) {
-      containerAccessor.setContainer(scanProjector.output()); // TODO: Test this path
-    }
-    return true;
   }
 
   /**

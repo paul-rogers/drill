@@ -64,8 +64,6 @@ public class TestFileLevelProjection extends SubOperatorTest {
     assertEquals(2, fileProj.metadataColumns().size());
     assertSame(fileProj.output().get(0), fileProj.metadataColumns().get(0));
     assertSame(fileProj.output().get(2), fileProj.metadataColumns().get(1));
-    assertEquals(0, fileProj.metadataProjection()[0]);
-    assertEquals(2, fileProj.metadataProjection()[1]);
   }
 
   /**

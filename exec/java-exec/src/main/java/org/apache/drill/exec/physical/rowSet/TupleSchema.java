@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.physical.rowSet;
 
+import org.apache.drill.exec.physical.impl.scan.MaterializedSchema;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 
@@ -86,4 +87,5 @@ public interface TupleSchema {
    */
 
   BatchSchema schema();
+  MaterializedSchema materializedSchema();
 }

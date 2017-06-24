@@ -159,7 +159,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       assertTrue(lifecycle.outputSchema().isEquivalent(priorSchema));
     }
     {
-       lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
+      lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(2, lifecycle.schemaVersion());
       assertTrue(lifecycle.outputSchema().isEquivalent(tableSchema));

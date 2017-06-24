@@ -31,6 +31,7 @@ import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
+import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.OptionBuilder;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.hadoop.fs.Path;
@@ -362,6 +363,122 @@ public class ScanProjector {
     }
   }
 
+  /**
+   * Handles schema mapping differences between early and late schema
+   * tables.
+   */
+
+  private abstract class TableSchemaDriver {
+
+    public ResultSetLoader makeTableLoader() {
+      if (projectionDefn.fileProjection() == null) {
+        throw new IllegalStateException("Must start file before setting table schema");
+      }
+
+      ResultSetLoaderImpl.OptionBuilder options = new ResultSetLoaderImpl.OptionBuilder();
+      setupProjection(options);
+      // Create the table loader
+
+      tableLoader = new ResultSetLoaderImpl(allocator, options.build());
+      setupSchema();
+      return tableLoader;
+    }
+
+    protected abstract void setupProjection(OptionBuilder options);
+
+    protected void setupSchema() {}
+
+    public void endOfBatch() { }
+  }
+
+  /**
+   * Handle schema mapping for early-schema tables: the schema is
+   * known before the first batch is read and stays constant for the
+   * entire table. The schema can be used to populate the batch
+   * loader.
+   */
+
+  private class EarlySchemaDriver extends TableSchemaDriver {
+
+    private final MaterializedSchema tableSchema;
+
+    public EarlySchemaDriver(MaterializedSchema tableSchema) {
+      this.tableSchema = tableSchema;
+    }
+
+    @Override
+    protected void setupProjection(OptionBuilder options) {
+      projectionDefn.startSchema(tableSchema);
+
+      // Set up a selection list if available and is a subset of
+      // table columns. (If we want all columns, either because of *
+      // or we selected them all, then no need to add filtering.)
+
+      if (! projectionDefn.scanProjection().isProjectAll()) {
+        List<String> selection = projectionDefn.tableProjection().projectedTableColumns();
+        if (selection.size() < tableSchema.size()) {
+          options.setSelection(selection);
+        }
+      }
+    }
+
+    @Override
+    protected void setupSchema() {
+
+      // We know the table schema. Preload it into the
+      // result set loader.
+
+      TupleSchema schema = tableLoader.writer().schema();
+      for (int i = 0; i < tableSchema.size(); i++) {
+        schema.addColumn(tableSchema.column(i));
+      }
+      planProjection();
+
+      // Set the output container to zero rows. Required so that we can
+      // send the schema downstream in the form of an empty batch.
+
+      output.getOutput().setRecordCount(0);
+    }
+  }
+
+  /**
+   * Handle schema mapping for a late-schema table. The schema is not
+   * known until the first batch is read, and may change after any
+   * batch. All we know up front is the list of columns (if any)
+   * that the query projects. But, we don't know their types.
+   */
+
+  private class LateSchemaDriver extends TableSchemaDriver {
+
+    /**
+     * Tracks the schema version last seen from the table loader. Used to detect
+     * when the reader changes the table loader schema.
+     */
+
+    private int prevTableSchemaVersion;
+
+    @Override
+    protected void setupProjection(OptionBuilder options) {
+
+      // Set up a selection list if available. Since the actual columns are
+      // built on the fly, we need to set up the selection ahead of time and
+      // can't optimize for the "selected all the columns" case.
+
+      if (projectionDefn.scanProjection().projectType() == ProjectionType.LIST) {
+        options.setSelection(projectionDefn.scanProjection().tableColNames());
+      }
+    }
+
+    @Override
+    public void endOfBatch() {
+      if (prevTableSchemaVersion < tableLoader.schemaVersion()) {
+        projectionDefn.startSchema(tableLoader.writer().schema().materializedSchema());
+        planProjection();
+        prevTableSchemaVersion = tableLoader.schemaVersion();
+      }
+    }
+  }
+
   private final BufferAllocator allocator;
 
   /**
@@ -382,6 +499,8 @@ public class ScanProjector {
   private final MajorType nullType;
 
   private final ProjectionLifecycle projectionDefn;
+
+  private TableSchemaDriver schemaDriver;
 
   /**
    * The vector writer created here, and used by the reader. If the table is
@@ -412,13 +531,6 @@ public class ScanProjector {
 
   private RowBatchMerger output;
 
-  /**
-   * Tracks the schema version last seen from the table loader. Used to detect
-   * when the reader changes the table loader schema.
-   */
-
-  private int prevTableSchemaVersion;
-
   public ScanProjector(BufferAllocator allocator, ScanLevelProjection scanProj, MajorType nullType) {
     this.allocator = allocator;
     this.projectionDefn = ProjectionLifecycle.newLifecycle(scanProj);
@@ -429,30 +541,7 @@ public class ScanProjector {
   public void startFile(Path filePath) {
     closeTable();
     projectionDefn.startFile(filePath);
-    prevTableSchemaVersion = 0;
     buildMetadataColumns();
-  }
-
-  /**
-   * Create a table loader for a "late-schema" table: the schema won't be known
-   * until the reader builds it from observed data.
-   */
-
-  public ResultSetLoader makeTableLoader() {
-    ResultSetLoaderImpl.OptionBuilder options = new ResultSetLoaderImpl.OptionBuilder();
-
-    // Set up a selection list if available. Since the actual columns are
-    // built on the fly, we need to set up the selection ahead of time and
-    // can't optimize for the "selected all the columns" case.
-
-    if (projectionDefn.scanProjection().projectType() == ProjectionType.LIST) {
-      options.setSelection(projectionDefn.scanProjection().tableColNames());
-    }
-
-    // Create the table loader
-
-    tableLoader = new ResultSetLoaderImpl(allocator, options.build());
-    return tableLoader;
   }
 
   /**
@@ -464,52 +553,15 @@ public class ScanProjector {
 
   public ResultSetLoader makeTableLoader(MaterializedSchema tableSchema) {
 
-    if (projectionDefn.fileProjection() == null) {
-      throw new IllegalStateException("Must start file before setting table schema");
-    }
-    projectionDefn.startSchema(tableSchema);
+    // Optional form for late schema: pass a null table schema.
 
-    ResultSetLoaderImpl.OptionBuilder options = new ResultSetLoaderImpl.OptionBuilder();
-
-    // Set up a selection list if available and is a subset of
-    // table columns. (If we want all columns, either because of *
-    // or we selected them all, then no need to add filtering.)
-
-    if (! projectionDefn.scanProjection().isProjectAll()) {
-      List<String> selection = projectionDefn.tableProjection().projectedTableColumns();
-      if (selection.size() < tableSchema.size()) {
-        options.setSelection(selection);
-      }
+    if (tableSchema == null) {
+      schemaDriver = new LateSchemaDriver();
+    } else {
+      schemaDriver = new EarlySchemaDriver(tableSchema);
     }
 
-    // Create the table loader
-
-    tableLoader = new ResultSetLoaderImpl(allocator, options.build());
-
-    // We know the table schema. Preload it into the
-    // result set loader.
-
-    TupleSchema schema = tableLoader.writer().schema();
-    for (int i = 0; i < tableSchema.size(); i++) {
-      schema.addColumn(tableSchema.column(i));
-    }
-    updateTableSchema();
-
-    // Set the output container to zero rows. Required so that we can
-    // send the schema downstream in the form of an empty batch.
-
-    output.getOutput().setRecordCount(0);
-    return tableLoader;
-  }
-
-  /**
-   * Update table and null column mappings when the table schema changes.
-   * Fills in nulls when needed, "swaps out" nulls for table columns when
-   * available.
-   */
-
-  public void updateTableSchema() {
-    planProjection();
+    return schemaDriver.makeTableLoader();
   }
 
   /**
@@ -527,8 +579,9 @@ public class ScanProjector {
   }
 
   /**
-   * Create the projection from null, metadata and table columns to output
-   * batch.
+   * Update table and null column mappings when the table schema changes.
+   * Fills in nulls when needed, "swaps out" nulls for table columns when
+   * available.
    */
 
   private void planProjection() {
@@ -538,7 +591,6 @@ public class ScanProjector {
     mapTableColumns(builder);
     mapMetadataColumns(builder);
     output = builder.build(allocator);
-    prevTableSchemaVersion = tableLoader.schemaVersion();
   }
 
   /**
@@ -639,9 +691,7 @@ public class ScanProjector {
    */
 
   public void publish() {
-    if (prevTableSchemaVersion < tableLoader.schemaVersion()) {
-      planProjection();
-    }
+    schemaDriver.endOfBatch();
     VectorContainer tableContainer = tableLoader.harvest();
     int rowCount = tableContainer.getRecordCount();
     if (metadataColumnLoader != null) {

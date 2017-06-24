@@ -39,6 +39,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanProjector.MetadataColumnLoad
 import org.apache.drill.exec.physical.impl.scan.ScanProjector.NullColumnLoader;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
+import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.physical.rowSet.impl.LogicalTupleLoader;
 import org.apache.drill.exec.physical.rowSet.impl.TupleSetImpl.TupleLoaderImpl;
 import org.apache.drill.exec.record.BatchSchema;
@@ -1222,7 +1223,133 @@ public class TestScanProjector extends SubOperatorTest {
     projector.close();
   }
 
-  // TODO: Late schema testing
+  /**
+   * Test SELECT * from an early-schema table of (a, b)
+   */
+
+  @Test
+  public void testLateSchemaWildcard() {
+
+    // SELECT * ...
+
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    scanProjBuilder.useLegacyWildcardExpansion(false);
+    scanProjBuilder.setScanRootDir("hdfs:///w");
+    scanProjBuilder.projectAll();
+    ScanLevelProjection querySelPlan = scanProjBuilder.build();
+
+    ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
+
+    // ... FROM file
+
+    projector.startFile(new Path("hdfs:///w/x/y/z.csv"));
+
+    // Create the table loader
+
+    ResultSetLoader loader = projector.makeTableLoader(null);
+
+    // file schema (a, b)
+
+    TupleSchema schema = loader.writer().schema();
+    schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED));
+    schema.addColumn(SchemaBuilder.columnSchema("b", MinorType.VARCHAR, DataMode.REQUIRED));
+
+    // Create a batch of data.
+
+    String bValues[] = new String[] { "fred", "wilma" };
+    loader.startBatch();
+    TupleLoader writer = loader.writer();
+
+    // Should be a direct writer, no projection
+    assertTrue(writer instanceof TupleLoaderImpl);
+    for (int i = 0; i < 2; i++) {
+      loader.startRow();
+      writer.column(0).setInt((i+1));
+      writer.column(1).setString(bValues[i]);
+      loader.saveRow();
+    }
+    projector.publish();
+
+    // Verify
+
+    MaterializedSchema tableSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
+    SingleRowSet expected = fixture.rowSetBuilder(tableSchema)
+        .add(1, "fred")
+        .add(2, "wilma")
+        .build();
+
+    new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+
+    projector.close();
+  }
+
+  /**
+   * Test SELECT a, c FROM table(a, b)
+   */
+
+  @Test
+  public void testLateSchemaSelectDisjoint() {
+
+    // SELECT a, c ...
+
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    scanProjBuilder.useLegacyWildcardExpansion(false);
+    scanProjBuilder.setScanRootDir("hdfs:///w");
+    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("a", "c"));
+    ScanLevelProjection querySelPlan = scanProjBuilder.build();
+
+     ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
+
+    // ... FROM file
+
+    projector.startFile(new Path("hdfs:///w/x/y/z.csv"));
+
+    // Create the table loader
+
+    ResultSetLoader loader = projector.makeTableLoader(null);
+
+    // file schema (a, b)
+
+    TupleSchema schema = loader.writer().schema();
+    schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED));
+    schema.addColumn(SchemaBuilder.columnSchema("b", MinorType.VARCHAR, DataMode.REQUIRED));
+
+    // Create a batch of data.
+
+    loader.startBatch();
+
+    // Should be a projection
+    TupleLoader writer = loader.writer();
+    assertTrue(writer instanceof LogicalTupleLoader);
+    for (int i = 0; i < 2; i++) {
+      loader.startRow();
+      writer.column(0).setInt((i+1));
+      assertNull(writer.column(1));
+      loader.saveRow();
+    }
+    projector.publish();
+
+    // Verify
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addNullable("c", MinorType.INT)
+        .build();
+    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .add(1, null)
+        .add(2, null)
+        .build();
+
+    new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+
+    projector.close();
+  }
+
   // TODO: Test schema smoothing with repeated
   // TODO: Test hard schema change
   // TODO: Typed null column tests (resurrect)

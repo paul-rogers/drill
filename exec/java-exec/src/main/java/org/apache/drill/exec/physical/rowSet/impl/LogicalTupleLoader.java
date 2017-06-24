@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.drill.exec.physical.impl.scan.MaterializedSchema;
 import org.apache.drill.exec.physical.rowSet.ColumnLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
@@ -131,6 +132,15 @@ public class LogicalTupleLoader implements TupleLoader {
         fields.add(column(i));
       }
       return new BatchSchema(SelectionVectorMode.NONE, fields);
+    }
+
+    @Override
+    public MaterializedSchema materializedSchema() {
+      MaterializedSchema schema = new MaterializedSchema();
+      for (int i = 0; i < columnCount(); i++) {
+        schema.add(column(i));
+      }
+      return schema;
     }
   }
 

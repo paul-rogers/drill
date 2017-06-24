@@ -44,6 +44,17 @@ import org.apache.hadoop.fs.Path;
 import org.junit.Ignore;
 import org.junit.Test;
 
+/**
+ * Test of the scan operator framework. Here the focus is on the
+ * implementation of the scan operator itself. This operator is
+ * based on a number of lower-level abstractions, each of which has
+ * its own unit tests. To make this more concrete: review the scan
+ * operator code paths. Each path should be exercised by one or more
+ * of the tests here. If, however, the code path depends on the
+ * details of another, supporting class, then tests for that class
+ * appear elsewhere.
+ */
+
 public class TestScanOperatorExec extends SubOperatorTest {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestScanOperatorExec.class);
 
@@ -54,6 +65,14 @@ public class TestScanOperatorExec extends SubOperatorTest {
   private static final String MOCK_DIR0 = "x";
   private static final String STAR = "*";
   private static final String[] SELECT_STAR = new String[] { STAR };
+
+  /**
+   * Base class for the "mock" readers used in this test. The mock readers
+   * follow the normal (enhanced) reader API, but instead of actually reading
+   * from a data source, they just generate data with a known schema.
+   * They also expose internal state such as identifying which methods
+   * were actually called.
+   */
 
   private static abstract class BaseMockBatchReader implements RowBatchReader {
     public boolean openCalled;
@@ -70,7 +89,9 @@ public class TestScanOperatorExec extends SubOperatorTest {
     }
 
     protected void buildFilePath(SchemaNegotiator schemaNegotiator) {
-      schemaNegotiator.setFilePath(filePath);
+      if (filePath != null) {
+        schemaNegotiator.setFilePath(filePath);
+      }
     }
 
     protected void makeBatch() {
@@ -97,15 +118,21 @@ public class TestScanOperatorExec extends SubOperatorTest {
     }
   }
 
+  /**
+   * "Late schema" reader, meaning that the reader does not know the schema on
+   * open, but must "discover" it when reading data.
+   */
+
   private static class MockLateSchemaReader extends BaseMockBatchReader {
 
     public boolean returnDataOnFirst;
 
     @Override
     public boolean open(SchemaNegotiator schemaNegotiator) {
-      
+
       // No schema or file, just build the table loader.
-      
+
+      buildFilePath(schemaNegotiator);
       tableLoader = schemaNegotiator.build();
       openCalled = true;
       return true;
@@ -117,9 +144,9 @@ public class TestScanOperatorExec extends SubOperatorTest {
       if (batchCount > batchLimit) {
         return false;
       } else if (batchCount == 1) {
-        
+
         // On first batch, pretend to discover the schema.
-        
+
         TupleSchema schema = tableLoader.writer().schema();
         MaterializedField a = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
         schema.addColumn(a);
@@ -258,6 +285,104 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     MockLateSchemaReader reader = new MockLateSchemaReader();
     reader.batchLimit = 2;
+    reader.returnDataOnFirst = false;
+
+    // Create the scan operator
+
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader)
+        .setProjection(SELECT_STAR)
+        .useLegacyWildcardExpansion(false)
+         );
+    ScanOperatorExec scan = mockBatch.scanOp;
+
+    // Standard startup
+
+    assertFalse(reader.openCalled);
+
+    // First batch: build schema. The reader helps: it returns an
+    // empty first batch.
+
+    assertTrue(scan.buildSchema());
+    assertTrue(reader.openCalled);
+    assertEquals(1, reader.batchCount);
+    assertEquals(expected.batchSchema(), scan.batchAccessor().getSchema());
+    assertEquals(0, scan.batchAccessor().getRowCount());
+
+    // Next call, return with data.
+
+    assertTrue(scan.next());
+    verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+
+    // EOF
+
+    assertFalse(scan.next());
+    assertTrue(reader.closeCalled);
+    assertEquals(0, scan.batchAccessor().getRowCount());
+
+    mockBatch.close();
+  }
+
+  // TODO: EOF on first batch
+  // TODO: Legacy wildcard expansion
+
+  @Test
+  public void testLateSchemaLifecycleNoFile() {
+    SingleRowSet expected = makeExpected();
+    RowSetComparison verifier = new RowSetComparison(expected);
+
+    // Create a mock reader, return two batches: one schema-only, another with data.
+
+    MockLateSchemaReader reader = new MockLateSchemaReader();
+    reader.batchLimit = 2;
+    reader.returnDataOnFirst = false;
+    reader.filePath = null;
+
+    // Create the scan operator
+
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader)
+        .setProjection(SELECT_STAR)
+         );
+    ScanOperatorExec scan = mockBatch.scanOp;
+
+    // Standard startup
+
+    assertFalse(reader.openCalled);
+
+    // First batch: build schema. The reader helps: it returns an
+    // empty first batch.
+
+    assertTrue(scan.buildSchema());
+    assertTrue(reader.openCalled);
+    assertEquals(0, reader.batchCount);
+    assertEquals(expected.batchSchema(), scan.batchAccessor().getSchema());
+    assertEquals(0, scan.batchAccessor().getRowCount());
+
+    // Next call, return with data.
+
+    assertTrue(scan.next());
+    verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+
+    // EOF
+
+    assertFalse(scan.next());
+    assertTrue(reader.closeCalled);
+    assertEquals(0, scan.batchAccessor().getRowCount());
+
+    mockBatch.close();
+  }
+
+  @Test
+  public void testLateSchemaLifecycleDataOnFirst() {
+    SingleRowSet expected = makeExpected();
+    RowSetComparison verifier = new RowSetComparison(expected);
+
+    // Create a mock reader, return two batches: one schema-only, another with data.
+
+    MockLateSchemaReader reader = new MockLateSchemaReader();
+    reader.batchLimit = 2;
+    reader.returnDataOnFirst = true;
 
     // Create the scan operator
 
@@ -1288,7 +1413,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertFalse(scan.next());
     mockBatch.close();
   }
-  
+
   // Late schema with and without file info
   // Early schema without file info
 }

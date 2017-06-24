@@ -22,6 +22,7 @@ import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.exec.expr.TypeHelper;
+import org.apache.drill.exec.physical.impl.scan.MaterializedSchema;
 import org.apache.drill.exec.physical.impl.scan.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.ColumnLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
@@ -539,5 +540,14 @@ public class TupleSetImpl implements TupleSchema {
       fields.add(col.schema);
     }
     return new BatchSchema(SelectionVectorMode.NONE, fields);
+  }
+
+  @Override
+  public MaterializedSchema materializedSchema() {
+    MaterializedSchema schema = new MaterializedSchema();
+    for (int i = 0; i < columnCount(); i++) {
+      schema.add(column(i));
+    }
+    return schema;
   }
 }
