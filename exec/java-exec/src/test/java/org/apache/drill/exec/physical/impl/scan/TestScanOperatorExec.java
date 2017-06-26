@@ -58,11 +58,13 @@ import org.junit.Test;
 public class TestScanOperatorExec extends SubOperatorTest {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestScanOperatorExec.class);
 
-  private static final String MOCK_FILE_PATH = "hdfs:///w/x/y/foo.csv";
-  private static final String MOCK_ROOT_PATH = "hdfs:///w";
   private static final String MOCK_FILE_NAME = "foo.csv";
+  private static final String MOCK_FILE_PATH = "hdfs:/w/x/y";
+  private static final String MOCK_FILE_FQN = MOCK_FILE_PATH + "/" + MOCK_FILE_NAME;
+  private static final String MOCK_ROOT_PATH = "hdfs:///w";
   private static final String MOCK_SUFFIX = "csv";
   private static final String MOCK_DIR0 = "x";
+  private static final String MOCK_DIR1 = "y";
   private static final String STAR = "*";
   private static final String[] SELECT_STAR = new String[] { STAR };
 
@@ -81,7 +83,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     public int batchCount;
     public int batchLimit;
     protected ResultSetLoader tableLoader;
-    protected Path filePath = new Path(MOCK_FILE_PATH);
+    protected Path filePath = new Path(MOCK_FILE_FQN);
 
     public BaseMockBatchReader setFilePath(String filePath) {
       this.filePath = new Path(filePath);
@@ -278,8 +280,6 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testLateSchemaLifecycle() {
-    SingleRowSet expected = makeExpected();
-    RowSetComparison verifier = new RowSetComparison(expected);
 
     // Create a mock reader, return two batches: one schema-only, another with data.
 
@@ -306,8 +306,13 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(scan.buildSchema());
     assertTrue(reader.openCalled);
     assertEquals(1, reader.batchCount);
-    assertEquals(expected.batchSchema(), scan.batchAccessor().getSchema());
     assertEquals(0, scan.batchAccessor().getRowCount());
+
+    // Create the expected result.
+
+    SingleRowSet expected = makeExpected(20);
+    RowSetComparison verifier = new RowSetComparison(expected);
+    assertEquals(expected.batchSchema(), scan.batchAccessor().getSchema());
 
     // Next call, return with data.
 
@@ -323,13 +328,13 @@ public class TestScanOperatorExec extends SubOperatorTest {
     mockBatch.close();
   }
 
-  // TODO: EOF on first batch
-  // TODO: Legacy wildcard expansion
+  /**
+   * Test a late-schema source that has no file information.
+   * (Like a Hive or JDBC data source.)
+   */
 
   @Test
   public void testLateSchemaLifecycleNoFile() {
-    SingleRowSet expected = makeExpected();
-    RowSetComparison verifier = new RowSetComparison(expected);
 
     // Create a mock reader, return two batches: one schema-only, another with data.
 
@@ -355,9 +360,14 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     assertTrue(scan.buildSchema());
     assertTrue(reader.openCalled);
-    assertEquals(0, reader.batchCount);
-    assertEquals(expected.batchSchema(), scan.batchAccessor().getSchema());
+    assertEquals(1, reader.batchCount);
     assertEquals(0, scan.batchAccessor().getRowCount());
+
+    // Create the expected result.
+
+    SingleRowSet expected = makeExpected(20);
+    RowSetComparison verifier = new RowSetComparison(expected);
+    assertEquals(expected.batchSchema(), scan.batchAccessor().getSchema());
 
     // Next call, return with data.
 
@@ -374,14 +384,42 @@ public class TestScanOperatorExec extends SubOperatorTest {
   }
 
   @Test
-  public void testLateSchemaLifecycleDataOnFirst() {
-    SingleRowSet expected = makeExpected();
-    RowSetComparison verifier = new RowSetComparison(expected);
+  public void testLateSchemaNoData() {
 
     // Create a mock reader, return two batches: one schema-only, another with data.
 
     MockLateSchemaReader reader = new MockLateSchemaReader();
-    reader.batchLimit = 2;
+    reader.batchLimit = 0;
+    reader.returnDataOnFirst = false;
+
+    // Create the scan operator
+
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader)
+        .setProjection(SELECT_STAR)
+        .useLegacyWildcardExpansion(false)
+         );
+    ScanOperatorExec scan = mockBatch.scanOp;
+
+    // Standard startup
+
+    assertFalse(reader.openCalled);
+
+    // First batch: EOF.
+
+    assertFalse(scan.buildSchema());
+    assertTrue(reader.openCalled);
+    assertTrue(reader.closeCalled);
+    mockBatch.close();
+  }
+
+  @Test
+  public void testLateSchemaDataOnFirst() {
+
+    // Create a mock reader, return two batches: one schema-only, another with data.
+
+    MockLateSchemaReader reader = new MockLateSchemaReader();
+    reader.batchLimit = 1;
     reader.returnDataOnFirst = true;
 
     // Create the scan operator
@@ -389,6 +427,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
         .setProjection(SELECT_STAR)
+        .useLegacyWildcardExpansion(false)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -401,9 +440,75 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     assertTrue(scan.buildSchema());
     assertTrue(reader.openCalled);
-    assertEquals(0, reader.batchCount);
-    assertEquals(expected.batchSchema(), scan.batchAccessor().getSchema());
+    assertEquals(1, reader.batchCount);
     assertEquals(0, scan.batchAccessor().getRowCount());
+
+    SingleRowSet expected = makeExpected();
+    RowSetComparison verifier = new RowSetComparison(expected);
+    assertEquals(expected.batchSchema(), scan.batchAccessor().getSchema());
+
+    // Next call, return with data.
+
+    assertTrue(scan.next());
+    verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+
+    // EOF
+
+    assertFalse(scan.next());
+    assertTrue(reader.closeCalled);
+    assertEquals(0, scan.batchAccessor().getRowCount());
+
+    mockBatch.close();
+  }
+
+  @Test
+  public void testLateSchemaFileWildcards() {
+
+    // Create a mock reader, return two batches: one schema-only, another with data.
+
+    MockLateSchemaReader reader = new MockLateSchemaReader();
+    reader.batchLimit = 2;
+    reader.returnDataOnFirst = false;
+
+    // Create the scan operator
+
+    MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
+        .addReader(reader)
+        .setProjection(SELECT_STAR)
+        .setSelectionRoot(MOCK_ROOT_PATH)
+         );
+    ScanOperatorExec scan = mockBatch.scanOp;
+
+    // Standard startup
+
+    assertFalse(reader.openCalled);
+
+    // First batch: build schema. The reader helps: it returns an
+    // empty first batch.
+
+    assertTrue(scan.buildSchema());
+    assertTrue(reader.openCalled);
+    assertEquals(1, reader.batchCount);
+    assertEquals(0, scan.batchAccessor().getRowCount());
+
+    // Create the expected result.
+
+    MaterializedSchema expectedSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addNullable("b", MinorType.VARCHAR, 10)
+        .add("fqn", MinorType.VARCHAR)
+        .add("filepath", MinorType.VARCHAR)
+        .add("filename", MinorType.VARCHAR)
+        .add("suffix", MinorType.VARCHAR)
+        .addNullable("dir0", MinorType.VARCHAR)
+        .addNullable("dir1", MinorType.VARCHAR)
+        .buildSchema();
+    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .add(30, "fred", MOCK_FILE_FQN, MOCK_FILE_PATH, MOCK_FILE_NAME, MOCK_SUFFIX, MOCK_DIR0, MOCK_DIR1)
+        .add(40, "wilma", MOCK_FILE_FQN, MOCK_FILE_PATH, MOCK_FILE_NAME, MOCK_SUFFIX, MOCK_DIR0, MOCK_DIR1)
+        .build();
+    RowSetComparison verifier = new RowSetComparison(expected);
+    assertEquals(expected.batchSchema(), scan.batchAccessor().getSchema());
 
     // Next call, return with data.
 
@@ -1414,6 +1519,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     mockBatch.close();
   }
 
-  // Late schema with and without file info
   // Early schema without file info
+
+  // TODO: Schema change in late reader
 }

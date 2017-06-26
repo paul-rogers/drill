@@ -504,6 +504,8 @@ public class ScanLevelProjection {
     public int dirPathLength() {
       return dirPath == null ? 0 : dirPath.length;
     }
+
+    public boolean isSet() { return filePath != null; }
   }
 
   private final String partitionDesignator;

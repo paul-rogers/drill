@@ -231,10 +231,6 @@ public class ScanOperatorExec implements OperatorExec {
       ScanProjector projector = scanOp.scanProjector;
       projector.startFile(schemaNegotiator.filePath);
       tableLoader = projector.makeTableLoader(schemaNegotiator.tableSchema);
-
-      // Bind the output container to the output of the scan operator.
-
-      scanOp.containerAccessor.setContainer(projector.output());
       return tableLoader;
     }
 
@@ -281,13 +277,18 @@ public class ScanOperatorExec implements OperatorExec {
     protected boolean buildSchema() {
 
       if (earlySchema) {
+
+        // Bind the output container to the output of the scan operator.
+        // This returns an empty batch with the schema filled in.
+
+        scanOp.containerAccessor.setContainer(scanOp.scanProjector.output());
         return true;
       }
 
       // Late schema. Read a batch.
 
       if (! next()) {
-        return false; // TODO: Test this path
+        return false;
       }
       if (scanOp.containerAccessor.getRowCount() == 0) {
         return true;
@@ -296,7 +297,7 @@ public class ScanOperatorExec implements OperatorExec {
       // The reader returned actual data. Just forward the schema
       // in a dummy container, saving the data for next time.
 
-      assert lookahead == null; // TODO: Test this path
+      assert lookahead == null;
       lookahead = new VectorContainer(scanOp.context.allocator(), scanOp.containerAccessor.getSchema());
       lookahead.setRecordCount(0);
       lookahead.exchange(scanOp.containerAccessor.getOutgoingContainer());
@@ -308,7 +309,7 @@ public class ScanOperatorExec implements OperatorExec {
       switch (state) {
       case LOOK_AHEAD:
         // Use batch previously read.
-        assert lookahead != null; // TODO: Test this path
+        assert lookahead != null;
         lookahead.exchange(scanOp.containerAccessor.getOutgoingContainer());
         assert lookahead.getRecordCount() == 0;
         lookahead = null;
@@ -316,15 +317,7 @@ public class ScanOperatorExec implements OperatorExec {
         return true;
 
       case ACTIVE:
-        if (readBatch()) {
-          return true;
-        }
-        state = State.EOF;
-
-        // The reader is done, but the mutator may have one final
-        // row representing an overflow from the previous batch.
-
-        return tableLoader.rowCount() > 0;
+        return readBatch();
 
       case EOF:
         return false;
@@ -349,7 +342,16 @@ public class ScanOperatorExec implements OperatorExec {
       // mess.
 
       try {
-        return reader.next();
+        if (! reader.next()) {
+          state = State.EOF;
+
+          // If the reader has no more rows, the table loader may still have
+          // a lookahead row.
+
+          if ( tableLoader.rowCount() == 0) {
+            return false;
+          }
+        }
       } catch (UserException e) {
         throw e;
       } catch (Throwable t) {
@@ -357,6 +359,22 @@ public class ScanOperatorExec implements OperatorExec {
           .addContext("Read failed for reader", reader.getClass().getSimpleName())
           .build(logger);
       }
+
+      // Have a batch. Prepare it for return.
+
+      // Add implicit columns, if any.
+      // Identify the output container and its schema version.
+
+      scanOp.scanProjector.publish();
+
+      // Late schema readers may change their schema between batches.
+      // Early schema changes only on the first batch of the next
+      // reader.
+
+      if (! earlySchema || tableLoader.batchCount() == 1) {
+        scanOp.containerAccessor.setContainer(scanOp.scanProjector.output());
+      }
+      return true;
     }
 
     /**
@@ -591,19 +609,6 @@ public class ScanOperatorExec implements OperatorExec {
           ok = readerState.next();
         }
         if (ok) {
-
-          // Have a batch. Prepare it for return.
-
-          // Add implicit columns, if any.
-          // Identify the output container and its schema version.
-
-          scanProjector.publish();
-
-          // Late schema readers may change their schema between batches
-
-          if (! readerState.earlySchema) {
-            containerAccessor.setContainer(scanProjector.output()); // TODO: Test this path
-          }
           break;
         }
         closeReader();

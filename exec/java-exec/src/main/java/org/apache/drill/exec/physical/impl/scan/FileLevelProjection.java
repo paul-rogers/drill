@@ -74,7 +74,11 @@ public class FileLevelProjection {
     @Override
     protected void visitWildcard(int index, WildcardColumn col) {
       visitColumn(index, col);
-      if (! scanProj.useLegacyWildcardPartition()) {
+
+      // Skip wildcard expansion if not legacy or if the data source
+      // does not provide file information.
+
+      if (! scanProj.useLegacyWildcardPartition() || ! fileInfo.isSet()) {
         return;
       }
 
