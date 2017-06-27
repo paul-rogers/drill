@@ -70,7 +70,7 @@ public class TestCopier extends DrillTest {
     VectorContainer dest = new VectorContainer();
     try {
       @SuppressWarnings({ "resource", "unused" })
-      BatchMerger merger = copier.startMerge(schema, batches, dest, 10);
+      BatchMerger merger = copier.startMerge(schema, batches, dest, 10, null);
       fail();
     } catch (AssertionError e) {
       // Expected

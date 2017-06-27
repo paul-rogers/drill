@@ -27,10 +27,12 @@ import org.apache.drill.exec.physical.impl.xsort.MSortTemplate;
 import org.apache.drill.exec.physical.impl.xsort.managed.BatchGroup.InputBatch;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortMemoryManager.MergeTask;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.SmartAllocationHelper;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorAccessibleUtilities;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 
@@ -342,10 +344,12 @@ public class SortImpl {
   public static class SingleBatchResults implements SortResults {
 
     private boolean done;
+    private final VectorContainer outputContainer;
     private final BatchGroup.InputBatch batch;
 
-    public SingleBatchResults(BatchGroup.InputBatch batch) {
+    public SingleBatchResults(BatchGroup.InputBatch batch, VectorContainer outputContainer) {
       this.batch = batch;
+      this.outputContainer = outputContainer;
     }
 
     @Override
@@ -353,6 +357,11 @@ public class SortImpl {
       if (done) {
         return false;
       }
+      for (VectorWrapper<?> vw : batch.getContainer()) {
+        outputContainer.add(vw.getValueVector());
+      }
+      outputContainer.buildSchema(SelectionVectorMode.TWO_BYTE);
+      outputContainer.setRecordCount(batch.getRecordCount());
       done = true;
       return true;
     }
@@ -371,7 +380,7 @@ public class SortImpl {
     public int getBatchCount() { return 1; }
 
     @Override
-    public int getRecordCount() { return batch.getRecordCount(); }
+    public int getRecordCount() { return outputContainer.getRecordCount(); }
 
     @Override
     public SelectionVector4 getSv4() { return null; }
@@ -380,7 +389,7 @@ public class SortImpl {
     public SelectionVector2 getSv2() { return batch.getSv2(); }
 
     @Override
-    public VectorContainer getContainer() {return batch.getContainer(); }
+    public VectorContainer getContainer() { return outputContainer; }
   }
 
   /**
@@ -391,7 +400,7 @@ public class SortImpl {
 
   private SortResults singleBatchResult() {
     List<InputBatch> batches = bufferedBatches.removeAll();
-    return new SingleBatchResults(batches.get(0));
+    return new SingleBatchResults(batches.get(0), outputBatch);
   }
 
   /**

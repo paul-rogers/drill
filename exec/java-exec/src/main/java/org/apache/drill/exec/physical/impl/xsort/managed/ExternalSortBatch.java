@@ -32,6 +32,7 @@ import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.record.SchemaUtil;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.WritableBatch;
+import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.testing.ControlsInjector;
 import org.apache.drill.exec.testing.ControlsInjectorFactory;
@@ -231,6 +232,11 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
   @Override
   public SelectionVector4 getSelectionVector4() {
     return resultsIterator.getSv4();
+  }
+
+  @Override
+  public SelectionVector2 getSelectionVector2() {
+    return resultsIterator.getSv2();
   }
 
   /**
