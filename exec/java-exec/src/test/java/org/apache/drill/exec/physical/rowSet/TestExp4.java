@@ -47,19 +47,16 @@ public class TestExp4 extends SubOperatorTest {
     PageAllocatorImpl pageAllocator = new PageAllocatorImpl(fixture.allocator());
     MaterializedField schema = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
     MutablePagedValueVector mutable = new MutablePagedValueVector(schema, pageAllocator);
-    MockIndexer indexer = new MockIndexer();
-    PagedWriter writer = mutable.writer(indexer);
-    int rowCount = Exp4.PAGE_SIZE / Exp4.IntIndexer.VALUE_WIDTH * 2;
+    IntVectorWriter writer = (IntVectorWriter) mutable.writer();
+    int rowCount = Exp4.PAGE_SIZE / Exp4.IntConstants.VALUE_WIDTH * 2;
     for (int i = 0; i < rowCount; i++) {
-      indexer.rowId = i;
-      writer.setInt(i);
+      writer.setInt(i, i);
     }
 
     PagedValueVector immutable = new ImmutablePagedValueVector(mutable);
-    PagedReader reader = immutable.reader(indexer);
+    IntVectorReader reader = (IntVectorReader) immutable.reader();
     for (int i = 0; i < rowCount; i++) {
-      indexer.rowId = i;
-      assertEquals(i, reader.getInt());
+      assertEquals(i, reader.getInt(i));
     }
 
     immutable.free();
@@ -83,6 +80,7 @@ public class TestExp4 extends SubOperatorTest {
   private void timeExistingVector() {
     MaterializedField schema = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
     long start = System.currentTimeMillis();
+    long sum = 0;
     for (int rep = 0; rep < REP_COUNT; rep++) {
       try (IntVector vector = new IntVector(schema, fixture.allocator())) {
         vector.allocateNew(1024);
@@ -92,76 +90,97 @@ public class TestExp4 extends SubOperatorTest {
         }
         Accessor accessor = vector.getAccessor();
         for (int i = 0; i < TARGET_INT_COUNT; i++) {
-          accessor.get(i);
+          sum += accessor.get(i);
         }
       }
     }
     long duration = System.currentTimeMillis() - start;
     System.out.println("Existing vector: " + duration + " ms.");
+    System.out.println(sum);
+  }
+
+  private void timeNewVector2a() {
+    PageAllocatorImpl pageAllocator = new PageAllocatorImpl(fixture.allocator());
+    MaterializedField schema = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
+    long start = System.currentTimeMillis();
+    long sum = 0;
+    for (int rep = 0; rep < REP_COUNT; rep++) {
+      MutablePagedValueVector mutable = new MutablePagedValueVector(schema, pageAllocator);
+      final IntVectorWriter writer = (IntVectorWriter) mutable.writer();
+      for (int i = 0; i < TARGET_INT_COUNT; i++) {
+        writer.setInt(i, i);
+      }
+      final PagedValueVector immutable = new ImmutablePagedValueVector(mutable);
+      final IntVectorReader reader = (IntVectorReader) immutable.reader();
+      for (int i = 0; i < TARGET_INT_COUNT; i++) {
+        sum += reader.getInt(i);
+      }
+      mutable.free();
+    }
+    pageAllocator.close();
+    long duration = System.currentTimeMillis() - start;
+    System.out.println("New vector: " + duration + " ms.");
+    System.out.println(sum);
+  }
+
+  private void timeNewVector2b() {
+    PageAllocatorImpl pageAllocator = new PageAllocatorImpl(fixture.allocator());
+    MaterializedField schema = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
+    long start = System.currentTimeMillis();
+    long sum = 0;
+    for (int rep = 0; rep < REP_COUNT; rep++) {
+      MutablePagedValueVector mutable = new MutablePagedValueVector(schema, pageAllocator);
+      for (int i = 0; i < TARGET_INT_COUNT; i++) {
+        Desperation.setInt(mutable, i, i);
+      }
+      final PagedValueVector immutable = new ImmutablePagedValueVector(mutable);
+      for (int i = 0; i < TARGET_INT_COUNT; i++) {
+        sum += Desperation.getInt(immutable, i);
+      }
+      mutable.free();
+    }
+    pageAllocator.close();
+    long duration = System.currentTimeMillis() - start;
+    System.out.println("New vector: " + duration + " ms.");
+    System.out.println(sum);
   }
 
   private void timeNewVector() {
     PageAllocatorImpl pageAllocator = new PageAllocatorImpl(fixture.allocator());
     MaterializedField schema = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
     long start = System.currentTimeMillis();
+    long sum = 0;
     for (int rep = 0; rep < REP_COUNT; rep++) {
       MutablePagedValueVector mutable = new MutablePagedValueVector(schema, pageAllocator);
-      MockIndexer indexer = new MockIndexer();
-      PagedWriter writer = mutable.writer(indexer);
       for (int i = 0; i < TARGET_INT_COUNT; i++) {
-        indexer.rowId = i;
-        writer.setInt(i);
+        mutable.setInt(i, i);
       }
-      PagedValueVector immutable = new ImmutablePagedValueVector(mutable);
-      PagedReader reader = immutable.reader(indexer);
+      final ImmutablePagedValueVector immutable = new ImmutablePagedValueVector(mutable);
       for (int i = 0; i < TARGET_INT_COUNT; i++) {
-        indexer.rowId = i;
-        reader.getInt();
+        sum += immutable.getInt(i);
       }
-      immutable.free();
+      mutable.free();
     }
     pageAllocator.close();
     long duration = System.currentTimeMillis() - start;
     System.out.println("New vector: " + duration + " ms.");
-  }
-
-  private void timeNewVector2() {
-    PageAllocatorImpl pageAllocator = new PageAllocatorImpl(fixture.allocator());
-    MaterializedField schema = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
-    long start = System.currentTimeMillis();
-    MutablePagedValueVector mutable = new MutablePagedValueVector(schema, pageAllocator);
-    for (int rep = 0; rep < REP_COUNT; rep++) {
-      MockIndexer indexer = new MockIndexer();
-      PagedWriter writer = mutable.writer(indexer);
-      for (int i = 0; i < TARGET_INT_COUNT; i++) {
-        indexer.rowId = i;
-        writer.setInt(i);
-      }
-      PagedValueVector immutable = new ImmutablePagedValueVector(mutable);
-      PagedReader reader = immutable.reader(indexer);
-      for (int i = 0; i < TARGET_INT_COUNT; i++) {
-        indexer.rowId = i;
-        reader.getInt();
-      }
-    }
-    mutable.free();
-    pageAllocator.close();
-    long duration = System.currentTimeMillis() - start;
-    System.out.println("timeNewVector2: " + duration + " ms.");
+    System.out.println(sum);
   }
 
   @Test
   public void timeInt2() {
     for (int i = 0; i < 2; i++) {
 //      timeNewVector();
-//      timeNewVector2();
+      timeExistingVector();
+      timeNewVector();
 //      timeNewVector3();
 //      timeNewVector4();
-      timeNewVector5();
+//      timeNewVector5();
 //      timeNewVector6();
 //      timeNewVector7();
 //      timeNewVector8();
-      timeNewVector9();
+//      timeNewVector9();
+      timeNewVector10();
     }
   }
 
@@ -226,8 +245,8 @@ public class TestExp4 extends SubOperatorTest {
         long addr = mutable.page(i).addr();
         for (int j = 0; j < IntConstants.VALUES_PER_PAGE; j++, rowId++) {
           PlatformDependent.putInt(addr, rowId);
-          addr = Exp4.foo(addr);
-//          addr += IntConstants.VALUE_WIDTH;
+//          addr = Exp4.foo(addr);
+          addr += IntConstants.VALUE_WIDTH;
         }
       }
       PagedValueVector immutable = new ImmutablePagedValueVector(mutable);
@@ -236,8 +255,8 @@ public class TestExp4 extends SubOperatorTest {
         long addr = mutable.page(i).addr();
         for (int j = 0; j < IntConstants.VALUES_PER_PAGE; j++, rowId++) {
           sum += PlatformDependent.getInt(addr);
-          addr = Exp4.foo(addr);
-//          addr += IntConstants.VALUE_WIDTH;
+//          addr = Exp4.foo(addr);
+          addr += IntConstants.VALUE_WIDTH;
         }
       }
       immutable.free();
@@ -393,7 +412,37 @@ public class TestExp4 extends SubOperatorTest {
     }
     pageAllocator.close();
     long duration = System.currentTimeMillis() - start;
-    System.out.println("timeNewVector8: " + duration + " ms.");
+    System.out.println("timeNewVector9: " + duration + " ms.");
+    System.out.println(sum);
+  }
+
+  private void timeNewVector10() {
+    PageAllocatorImpl pageAllocator = new PageAllocatorImpl(fixture.allocator());
+    MaterializedField schema = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
+    long start = System.currentTimeMillis();
+    long sum = 0;
+    for (int rep = 0; rep < REP_COUNT; rep++) {
+      MutablePagedValueVector mutable = new MutablePagedValueVector(schema, pageAllocator);
+      long pageAddr = 0;
+      int curPageId = -1;
+      for (int i = 0; i < TARGET_INT_COUNT; i++) {
+        final int pageId = i >> 0x12;
+        if (pageId != curPageId) {
+          curPageId = pageId;
+          pageAddr = mutable.page(pageId).addr();
+        }
+        PlatformDependent.putInt(pageAddr + ((i & 0x3FFFF) << 2), i);
+      }
+      PagedValueVector immutable = new ImmutablePagedValueVector(mutable);
+      for (int i = 0; i < TARGET_INT_COUNT; i++) {
+        pageAddr = immutable.page(i >> 0x12).addr();
+        sum += PlatformDependent.getInt(pageAddr + ((i & 0x3FFFF) << 2));
+      }
+      immutable.free();
+    }
+    pageAllocator.close();
+    long duration = System.currentTimeMillis() - start;
+    System.out.println("timeNewVector10: " + duration + " ms.");
     System.out.println(sum);
   }
 

@@ -42,26 +42,30 @@ public class Exp4 {
 
   public interface PagedValueVector {
     MaterializedField schema();
-    PagedWriter writer(RowIndexer rowIndexer);
-    PagedReader reader(RowIndexer rowIndexer);
+    Object writer();
+    Object reader();
     int pageCount();
     Page page(int pageId);
+    long pageAddr(int pageId);
     void free();
   }
 
+  public interface PagedReaderEx {
+
+  }
   public interface PagedReader {
-    boolean isNull();
-    int getInt();
-    int getLong();
-    String getString();
+    boolean isNull(int rowId);
+    int getInt(int rowId);
+    int getLong(int rowId);
+    String getString(int rowId);
   }
 
   public interface PagedWriter {
-    void setNull(boolean isNull);
-    void setInt(int value);
-    void setLong(long value);
-    void setString(String value);
-    void copyFrom(PagedReader reader);
+    void setNull(int rowId, boolean isNull);
+    void setInt(int rowId, int value);
+    void setLong(int rowId, long value);
+    void setString(int rowId, String value);
+    void copyFrom(int rowId, PagedReader reader);
   }
 
   public interface PageAllocator {
@@ -86,15 +90,15 @@ public class Exp4 {
     public MaterializedField schema() { return schema; }
 
     @Override
-    public PagedReader reader(RowIndexer rowIndexer) {
-      PagedReaderImpl writer = PagedVectorAccessorFactory.newReader(schema.getType());
-      writer.bind(this, rowIndexer);
-      return writer;
+    public Object reader() {
+      return PagedVectorAccessorFactory.newReader(schema.getType(), this);
     }
   }
 
   public static class MutablePagedValueVector extends AbstractPagedValueVector {
     private final List<Page> pages = new ArrayList<>();
+    private int cachedPageId = -1;
+    private long cachedPageAddr = 0;
 
     public MutablePagedValueVector(MaterializedField schema, PageAllocator allocator) {
       super(schema, allocator);
@@ -104,7 +108,7 @@ public class Exp4 {
     public int pageCount() { return pages.size(); }
 
     @Override
-    public Page page(int pageIndex) {
+    public final Page page(final int pageIndex) {
       if (pageIndex < pages.size()) {
         return pages.get(pageIndex);
       } else {
@@ -116,10 +120,32 @@ public class Exp4 {
     }
 
     @Override
-    public PagedWriter writer(RowIndexer rowIndexer) {
-      PagedWriterImpl writer = PagedVectorAccessorFactory.newWriter(schema.getType());
-      writer.bind(this, rowIndexer);
-      return writer;
+    public long pageAddr(final int pageId) {
+      if (pageId == cachedPageId) {
+        return cachedPageAddr;
+      }
+      cachedPageAddr = page(pageId).addr();
+      return cachedPageAddr;
+    }
+//    private final long pageAddrForRow(final int rowId) {
+//      final int pageId = rowId >> 0x12;
+//      if (pageId != cachedPageId) {
+//          cachedPageAddr = page(pageId).addr();
+//      }
+//      return cachedPageAddr;
+//    }
+
+    public final void setInt(final int rowId, final int value) {
+      final int pageId = rowId >> 0x12;
+      if (pageId != cachedPageId) {
+          cachedPageAddr = page(pageId).addr();
+      }
+      PlatformDependent.putInt(cachedPageAddr + ((rowId & 0x3FFFF) << 2), value);
+    }
+
+    @Override
+    public Object writer() {
+      return PagedVectorAccessorFactory.newWriter(schema.getType(), this);
     }
 
     @Override
@@ -132,11 +158,11 @@ public class Exp4 {
   }
 
   public static class ImmutablePagedValueVector extends AbstractPagedValueVector {
-    private final Page pages[];
+    private final PageImpl pages[];
 
     public ImmutablePagedValueVector(MutablePagedValueVector source) {
       super(source.schema, source.allocator);
-      pages = new Page[source.pages.size()];
+      pages = new PageImpl[source.pages.size()];
       source.pages.toArray(pages);
     }
 
@@ -147,8 +173,18 @@ public class Exp4 {
     public Page page(int pageIndex) { return pages[pageIndex]; }
 
     @Override
-    public PagedWriter writer(RowIndexer rowIndexer) {
+    public long pageAddr(int pageId) {
+      return pages[pageId].addr;
+    }
+
+    @Override
+    public PagedWriter writer() {
       throw new IllegalStateException("Cannot write to an immutable vector.");
+    }
+
+    public final int getInt(final int rowId) {
+      final long pageAddr = pages[rowId >> 0x12].addr;
+      return PlatformDependent.getInt(pageAddr + ((rowId & 0x3FFFF) << 2));
     }
 
     @Override
@@ -215,234 +251,139 @@ public class Exp4 {
 
   public static abstract class PagedWriterImpl implements PagedWriter {
 
-    public abstract void bind(MutablePagedValueVector vector, RowIndexer rowIndexer);
+    public abstract void bind(MutablePagedValueVector vector);
 
     @Override
-    public void setNull(boolean isNull) {
+    public void setNull(int rowId, boolean isNull) {
       if (isNull) {
         throw new UnsupportedOperationException("setNull(true)");
       }
     }
 
     @Override
-    public void setInt(int value) {
+    public void setInt(int rowId, int value) {
       throw new UnsupportedOperationException("setInt()");
     }
 
     @Override
-    public void setLong(long value) {
+    public void setLong(int rowId, long value) {
       throw new UnsupportedOperationException("setLong()");
     }
 
     @Override
-    public void setString(String value) {
+    public void setString(int rowId, String value) {
       throw new UnsupportedOperationException("setString()");
     }
   }
 
   public static abstract class PagedReaderImpl implements PagedReader {
 
-    public abstract void bind(PagedValueVector vector, RowIndexer rowIndexer);
+    public abstract void bind(PagedValueVector vector);
 
     @Override
-    public boolean isNull() { return false; }
+    public boolean isNull(int rowId) { return false; }
 
     @Override
-    public int getInt() {
+    public int getInt(int rowId) {
       throw new UnsupportedOperationException("getInt()");
     }
 
     @Override
-    public int getLong() {
+    public int getLong(int rowId) {
       throw new UnsupportedOperationException("getLong()");
     }
 
     @Override
-    public String getString() {
+    public String getString(int rowId) {
       throw new UnsupportedOperationException("getString()");
     }
   }
 
-  public static class ValueIndexer {
-    private final RowIndexer rowIndexer;
-    private final PagedValueVector vector;
-    private final int valueWidth;
-    private final int valuesPerPage;
-    protected long addr;
-    protected int lastRowId;
-    protected long endOfPageAddr;
-
-    public ValueIndexer(PagedValueVector vector, RowIndexer rowIndexer, int valueWidth) {
-      this.vector = vector;
-      this.rowIndexer = rowIndexer;
-      this.valueWidth = valueWidth;
-      this.valuesPerPage = PAGE_SIZE / valueWidth;
-    }
-
-    protected void updateRowId() {
-      int rowId = rowIndexer.rowId();
-      if (rowId == lastRowId + 1) {
-        addr += valueWidth;
-        if (addr < endOfPageAddr) {
-          lastRowId = rowId;
-          return;
-        }
-      }
-      int pageId = rowId / valuesPerPage;
-      int offset = (rowId % valuesPerPage) * valueWidth;
-      long pageAddr = vector.page(pageId).addr();
-      addr = pageAddr + offset;
-      endOfPageAddr = pageAddr + PAGE_SIZE;
-      lastRowId = rowId;
-    }
-  }
-
-  public static class IntIndexer extends ValueIndexer {
-    public static final int VALUE_WIDTH = 4;
-
-    public IntIndexer(PagedValueVector vector, RowIndexer rowIndexer) {
-      super(vector, rowIndexer, VALUE_WIDTH);
-    }
-
-    public int get() {
-      updateRowId();
-      return PlatformDependent.getInt(addr);
-    }
-
-    public void set(int value) {
-      updateRowId();
-      PlatformDependent.putInt(addr, value);
-    }
-
-  }
-
-  public static class IntVectorWriter extends PagedWriterImpl {
-
-    private IntIndexer valueIndexer;
-
-    @Override
-    public void bind(MutablePagedValueVector vector, RowIndexer rowIndexer) {
-      valueIndexer = new IntIndexer(vector, rowIndexer);
-    }
-
-    @Override
-    public void setInt(final int value) {
-      valueIndexer.set(value);
-    }
-
-    @Override
-    public void copyFrom(PagedReader reader) {
-      // TODO Auto-generated method stub
-
-    }
-  }
 
   public interface IntConstants {
     public static final int VALUE_WIDTH = 4;
     public static final int VALUES_PER_PAGE = PAGE_SIZE / VALUE_WIDTH;
   }
 
-  public static class IntVectorWriter2 extends PagedWriterImpl implements IntConstants {
+  public static class IntVectorWriter {
 
-    private RowIndexer rowIndexer;
-    private PagedValueVector vector;
-    protected long addr;
-    protected int lastRowId;
-    protected long endOfPageAddr;
+    private final PagedValueVector vector;
+    private int cachedPageId = -1;
+    private long cachedPageAddr = 0;
 
-    @Override
-    public void bind(MutablePagedValueVector vector, RowIndexer rowIndexer) {
+    public IntVectorWriter(MutablePagedValueVector vector) {
       this.vector = vector;
-      this.rowIndexer = rowIndexer;
     }
 
-    @Override
-    public void setInt(final int value) {
-      int rowId = rowIndexer.rowId();
-      addr += VALUE_WIDTH;
-      if (rowId != lastRowId + 1 || addr >= endOfPageAddr) {
-        int pageId = rowId / VALUES_PER_PAGE;
-        int offset = (rowId % VALUES_PER_PAGE) * VALUE_WIDTH;
-        long pageAddr = vector.page(pageId).addr();
-        addr = pageAddr + offset;
-        endOfPageAddr = pageAddr + PAGE_SIZE;
+//    @Override
+//    public void bind(MutablePagedValueVector vector) {
+//      this.vector = vector;
+//    }
+
+//    @Override
+    public void setInt(final int rowId, final int value) {
+      final int pageId = rowId >> 0x12;
+      if (pageId != cachedPageId) {
+        cachedPageAddr = vector.pageAddr(pageId);
       }
-      lastRowId = rowId;
-      PlatformDependent.putInt(addr, value);
+      PlatformDependent.putInt(cachedPageAddr + ((rowId & 0x3FFFF) << 2), value);
     }
 
-    @Override
-    public void copyFrom(PagedReader reader) {
-      // TODO Auto-generated method stub
+//    @Override
+//    public void copyFrom(int rowId, PagedReader reader) {
+//      // TODO Auto-generated method stub
+//
+//    }
+  }
 
+  public static class IntVectorReader {
+
+    private final PagedValueVector vector;
+
+    public IntVectorReader(PagedValueVector vector) {
+      this.vector = vector;
+    }
+
+    public int getInt(final int rowId) {
+      final long pageAddr = vector.pageAddr(rowId >> 0x12);
+      return PlatformDependent.getInt(pageAddr + ((rowId & 0x3FFFF) << 2));
     }
   }
 
-  public static class IntVectorReader extends PagedReaderImpl {
+  public static class Desperation {
 
-    private IntIndexer valueIndexer;
-
-    @Override
-    public void bind(PagedValueVector vector, RowIndexer rowIndexer) {
-      valueIndexer = new IntIndexer(vector, rowIndexer);
+    public static void setInt(final MutablePagedValueVector vector, final int rowId, final int value) {
+      final int pageId = rowId >> 0x12;
+      final long pageAddr = vector.pageAddr(pageId);
+      PlatformDependent.putInt(pageAddr + ((rowId & 0x3FFFF) << 2), value);
     }
 
-    @Override
-    public int getInt() {
-      return valueIndexer.get();
-    }
-  }
-
-  public static class IntVectorReader2 extends PagedReaderImpl implements IntConstants {
-
-    private RowIndexer rowIndexer;
-    private PagedValueVector vector;
-    protected long addr;
-    protected int lastRowId;
-    protected long endOfPageAddr;
-
-    @Override
-    public void bind(PagedValueVector vector, RowIndexer rowIndexer) {
-      this.vector = vector;
-      this.rowIndexer = rowIndexer;
-    }
-
-    @Override
-    public int getInt() {
-      int rowId = rowIndexer.rowId();
-      addr += VALUE_WIDTH;
-      if (rowId != lastRowId + 1 || addr >= endOfPageAddr) {
-        int pageId = rowId / VALUES_PER_PAGE;
-        int offset = (rowId % VALUES_PER_PAGE) * VALUE_WIDTH;
-        long pageAddr = vector.page(pageId).addr();
-        addr = pageAddr + offset;
-        endOfPageAddr = pageAddr + PAGE_SIZE;
-      }
-      lastRowId = rowId;
-      return PlatformDependent.getInt(addr);
+    public static int getInt(final PagedValueVector vector, final int rowId) {
+      final long pageAddr = vector.pageAddr(rowId >> 0x12);
+      return PlatformDependent.getInt(pageAddr + ((rowId & 0x3FFFF) << 2));
     }
   }
 
   public static class PagedVectorAccessorFactory {
     private PagedVectorAccessorFactory() { }
 
-    public static PagedWriterImpl newWriter(MajorType type) {
+    public static Object newWriter(MajorType type, MutablePagedValueVector vector) {
       // TODO: Create a table
 
       if (type.getMode() == DataMode.REQUIRED) {
         if (type.getMinorType() == MinorType.INT) {
-          return new IntVectorWriter2();
+          return new IntVectorWriter(vector);
         }
       }
       return null;
     }
 
-    public static PagedReaderImpl newReader(MajorType type) {
+    public static Object newReader(MajorType type, PagedValueVector vector) {
       // TODO: Create a table
 
       if (type.getMode() == DataMode.REQUIRED) {
         if (type.getMinorType() == MinorType.INT) {
-          return new IntVectorReader2();
+          return new IntVectorReader(vector);
         }
       }
       return null;
