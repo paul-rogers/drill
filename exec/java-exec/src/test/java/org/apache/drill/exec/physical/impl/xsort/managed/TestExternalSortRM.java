@@ -1225,16 +1225,204 @@ public class TestExternalSortRM extends DrillTest {
         .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
         .keepLocalFiles()
         .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption(PlannerSettings.ENABLE_DECIMAL_DATA_TYPE_KEY, true)
 //        .sessionOption("planner.memory.max_query_memory_per_node", 334288000L)
         ;
     try (LogFixture logFixture = logBuilder.build();
          ClusterFixture cluster = builder.build();
          ClientFixture client = cluster.clientFixture()) {
       cluster.defineWorkspace("dfs", "ds", "/Users/paulrogers/git/drill-test-framework/framework/resources/Datasources/data-shapes/wide-columns/5000/1000rows/parquet", "parquet");
-      client.queryBuilder().sql("USE `dfs.ds`").run();
+      client.runSqlSilently("USE `dfs.ds`");
 //      String sql = "select columns FROM `dfs.ds`.`wide-strings.tbl` ORDER BY columns[0]";
       String sql = "select ws1.* from widestrings ws1 INNER JOIN (select str_var_null_empty from widestrings where str_var_null_empty is not null and length(str_var_null_empty) <> 0 )ws2 on ws1.str_empty_null=ws2.str_var_null_empty where ws1.str_empty_null is not null and length(ws1.str_empty_null) <> 0";
       QuerySummary summary = client.queryBuilder().sql(sql).run();
+      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+    }
+  }
+
+  @Test
+  public void testDrill5465() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger("org.apache.drill.exec.physical.impl.xsort.managed", Level.TRACE)
+        .logger("org.apache.drill.exec.vector", Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        .maxParallelization(1)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHJOIN.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 200435456)
+        .sessionOption(ExecConstants.MAX_WIDTH_GLOBAL_KEY, 1)
+        .keepLocalFiles()
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption(PlannerSettings.ENABLE_DECIMAL_DATA_TYPE_KEY, true)
+        ;
+    try (LogFixture logFixture = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "tpcds_sf1_parquet", "/Users/paulrogers/work/data/tpcds_sf1_parquet/parquet", "parquet");
+      cluster.defineWorkspace("dfs", "tpcds_sf1_parquet_views", "/Users/paulrogers/work/data/tpcds_sf1_parquet/views", "parquet");
+//      client.enableTrace(true);
+      client.exec(new File("/Users/paulrogers/work/data/tpcds_sf1_parquet/createViewsParquet.sql"));
+      String sql =
+          "SELECT dt.d_year,\n" +
+          "               item.i_brand_id          brand_id,\n" +
+          "               item.i_brand             brand,\n" +
+          "               Sum(ss_ext_discount_amt) sum_agg\n" +
+          "FROM   date_dim dt,\n" +
+          "       store_sales,\n" +
+          "       item\n" +
+          "WHERE  dt.d_date_sk = store_sales.ss_sold_date_sk\n" +
+          "       AND store_sales.ss_item_sk = item.i_item_sk\n" +
+          "       AND item.i_manufact_id = 427\n" +
+          "       AND dt.d_moy = 11\n" +
+          "GROUP  BY dt.d_year,\n" +
+          "          item.i_brand,\n" +
+          "          item.i_brand_id\n" +
+          "ORDER  BY dt.d_year,\n" +
+          "          sum_agg DESC,\n" +
+          "          brand_id";
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
+      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+    }
+  }
+
+  @Test
+  public void testDrill5463() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger("org.apache.drill.exec.physical.impl.xsort.managed", Level.DEBUG)
+//        .logger("org.apache.drill.exec.vector", Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        .maxParallelization(1)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHJOIN.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 200435456)
+        .keepLocalFiles()
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption(PlannerSettings.ENABLE_DECIMAL_DATA_TYPE_KEY, true)
+        ;
+    try (LogFixture logFixture = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "tpcds_sf1_parquet", "/Users/paulrogers/work/data/tpcds_sf1_parquet/parquet", "parquet");
+      cluster.defineWorkspace("dfs", "tpcds_sf1_parquet_views", "/Users/paulrogers/work/data/tpcds_sf1_parquet/views", "parquet");
+      client.exec(new File("/Users/paulrogers/work/data/tpcds_sf1_parquet/createViewsParquet.sql"));
+      File sqlFile = new File("/Users/paulrogers/work/data/DRILL-5463.sql.txt");
+      QuerySummary summary = client.queryBuilder().sql(sqlFile).run();
+      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+    }
+  }
+
+  @Test
+  public void testDrill5447() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger("org.apache.drill.exec.physical.impl.xsort.managed", Level.DEBUG)
+//        .logger("org.apache.drill.exec.vector", Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        .maxParallelization(1)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHJOIN.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 2L * 1024 * 1024 * 1024)
+        .keepLocalFiles()
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption(PlannerSettings.ENABLE_DECIMAL_DATA_TYPE_KEY, true)
+        ;
+    try (LogFixture logFixture = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "ds", "/Users/paulrogers/work/data", "json");
+      client.runSqlSilently("USE `dfs.ds`");
+      String sql = "select count(*) from (select * from (select id, flatten(str_list) str from dfs.ds.`flatten-large-small.json`) d order by d.str) d1 where d1.id=0";
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
+      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+    }
+  }
+
+  @Test
+  public void testDrill5443() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger("org.apache.drill.exec.physical.impl.xsort.managed", Level.DEBUG)
+//        .logger("org.apache.drill.exec.vector", Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        .maxParallelization(1)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHJOIN.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 52428800)
+        .keepLocalFiles()
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption(PlannerSettings.ENABLE_DECIMAL_DATA_TYPE_KEY, true)
+        ;
+    try (LogFixture logFixture = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "ds", "/Users/paulrogers/work/data", "json");
+      client.runSqlSilently("USE `dfs.ds`");
+      String sql = "select s1.type type, flatten(s1.rms.rptd) rptds from (select d.type type, d.uid uid, flatten(d.map.rm) rms from dfs.ds.`nested-large.json` d order by d.uid) s1 order by s1.rms.mapid";
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
+      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+    }
+  }
+
+  @Test
+  public void testDrill5416() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger("org.apache.drill.exec.physical.impl.xsort.managed", Level.DEBUG)
+//        .logger("org.apache.drill.exec.vector", Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        .maxParallelization(1)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHJOIN.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 52428800)
+        .keepLocalFiles()
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption(PlannerSettings.ENABLE_DECIMAL_DATA_TYPE_KEY, true)
+        ;
+    try (LogFixture logFixture = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "ds", "/Users/paulrogers/work/data", "tsv");
+      String sql = "select * from dfs.ds.`/5000files/text` order by columns[1]";
+      QuerySummary summary = client.queryBuilder().sql(sql).run();
+      System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
+    }
+  }
+
+  @Test
+  public void testDrill5453() throws Exception {
+    LogFixtureBuilder logBuilder = LogFixture.builder()
+        .toConsole()
+        .logger("org.apache.drill.exec.physical.impl.xsort.managed", Level.DEBUG)
+//        .logger("org.apache.drill.exec.vector", Level.TRACE)
+        ;
+    FixtureBuilder builder = ClusterFixture.builder()
+        .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
+        .maxParallelization(1)
+        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .sessionOption(PlannerSettings.HASHJOIN.getOptionName(), false)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 2L * 1024 * 1024 * 1024)
+        .keepLocalFiles()
+        .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
+        .sessionOption(PlannerSettings.ENABLE_DECIMAL_DATA_TYPE_KEY, true)
+        ;
+    try (LogFixture logFixture = logBuilder.build();
+         ClusterFixture cluster = builder.build();
+         ClientFixture client = cluster.clientFixture()) {
+      cluster.defineWorkspace("dfs", "ds", "/Users/paulrogers/work/data", "tsv");
+      File sqlFile = new File("/Users/paulrogers/work/data/DRILL-5453.sql.txt");
+      QuerySummary summary = client.queryBuilder().sql(sqlFile).run();
       System.out.println(String.format("Results: %,d records, %d batches, %,d ms", summary.recordCount(), summary.batchCount(), summary.runTimeMs() ) );
     }
   }
@@ -1250,7 +1438,7 @@ public class TestExternalSortRM extends DrillTest {
         .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
         .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
         .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
-        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * 1024 * 1024 * 1024)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 200435456)
         .keepLocalFiles()
         .maxParallelization(1)
         ;

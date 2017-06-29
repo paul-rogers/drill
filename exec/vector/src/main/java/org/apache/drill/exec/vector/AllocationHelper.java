@@ -26,14 +26,16 @@ public class AllocationHelper {
     allocate(v, valueCount, bytesPerValue, 5);
   }
 
-  public static void allocatePrecomputedChildCount(ValueVector v, int valueCount, int bytesPerValue, int childValCount){
-    if(v instanceof FixedWidthVector) {
+  public static void allocatePrecomputedChildCount(ValueVector v, int valueCount, int bytesPerValue, int childValCount) {
+    if (v instanceof FixedWidthVector) {
       ((FixedWidthVector) v).allocateNew(valueCount);
     } else if (v instanceof VariableWidthVector) {
       ((VariableWidthVector) v).allocateNew(valueCount * bytesPerValue, valueCount);
-    } else if(v instanceof RepeatedFixedWidthVectorLike) {
+    } else if (v instanceof RepeatedFixedWidthVectorLike) {
       ((RepeatedFixedWidthVectorLike) v).allocateNew(valueCount, childValCount);
-    } else if(v instanceof RepeatedVariableWidthVectorLike) {
+    } else if (v instanceof RepeatedVariableWidthVectorLike && childValCount > 0 && bytesPerValue > 0) {
+      // Assertion thrown if byte count is zero in the full allocateNew,
+      // so use default version instead.
       ((RepeatedVariableWidthVectorLike) v).allocateNew(childValCount * bytesPerValue, valueCount, childValCount);
     } else {
       v.allocateNew();

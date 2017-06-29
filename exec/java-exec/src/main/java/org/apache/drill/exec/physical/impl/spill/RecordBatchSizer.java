@@ -150,7 +150,9 @@ public class RecordBatchSizer {
       String name = prefix + metadata.getName();
       if (metadata.getDataMode() == DataMode.REPEATED) {
         if (width > 0) {
-          allocHelper.variableWidthArray(name, width, estElementCount);
+          // Estimated width is width of entire column. Divide
+          // by element count to get per-element size.
+          allocHelper.variableWidthArray(name, width / estElementCount, estElementCount);
         } else {
           allocHelper.fixedWidthArray(name, estElementCount);
         }
