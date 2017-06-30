@@ -83,7 +83,7 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
     ClassGenerator<PriorityQueueCopier> g = cg.getRoot();
     cg.plainJavaCapable(true);
     // Uncomment out this line to debug the generated code.
-    cg.saveCodeForDebugging(true);
+//    cg.saveCodeForDebugging(true);
 
     generateComparisons(g, batch, logger);
 
