@@ -32,10 +32,18 @@ import javax.annotation.Nullable;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.OutputMutator;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
+import org.apache.drill.exec.physical.impl.scan.MaterializedSchema;
+import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
+import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator;
+import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.store.AbstractRecordReader;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
@@ -48,16 +56,12 @@ import com.google.common.collect.Iterables;
 import org.apache.drill.exec.expr.TypeHelper;
 
 // New text reader, complies with the RFC 4180 standard for text/csv files
-public class CompliantTextRecordReader extends AbstractRecordReader {
+public class CompliantTextRecordReader implements RowBatchReader {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CompliantTextRecordReader.class);
 
   private static final int MAX_RECORDS_PER_BATCH = 8096;
   private static final int READ_BUFFER = 1024*1024;
   private static final int WHITE_SPACE_BUFFER = 64*1024;
-  // When no named column is required, ask SCAN to return a DEFAULT column.
-  // If such column does not exist, it will be returned as a nullable-int column.
-  private static final List<SchemaPath> DEFAULT_NAMED_TEXT_COLS_TO_READ =
-      ImmutableList.of(SchemaPath.getSimplePath("_DEFAULT_COL_TO_READ_"));
 
   // settings to be used while parsing
   private TextParsingSettings settings;
@@ -70,44 +74,13 @@ public class CompliantTextRecordReader extends AbstractRecordReader {
   // working buffer to handle whitespaces
   private DrillBuf whitespaceBuffer;
   private DrillFileSystem dfs;
-  // operator context for OutputMutator
-  private OperatorContext oContext;
 
-  public CompliantTextRecordReader(FileSplit split, DrillFileSystem dfs, FragmentContext context, TextParsingSettings settings, List<SchemaPath> columns) {
+  private ResultSetLoader loader;
+
+  public CompliantTextRecordReader(FileSplit split, DrillFileSystem dfs, TextParsingSettings settings) {
     this.split = split;
     this.settings = settings;
     this.dfs = dfs;
-    setColumns(columns);
-  }
-
-  // checks to see if we are querying all columns(star) or individual columns
-  @Override
-  public boolean isStarQuery() {
-    if(settings.isUseRepeatedVarChar()) {
-      return super.isStarQuery() || Iterables.tryFind(getColumns(), new Predicate<SchemaPath>() {
-        @Override
-        public boolean apply(@Nullable SchemaPath path) {
-          return path.equals(RepeatedVarCharOutput.COLUMNS);
-        }
-      }).isPresent();
-    }
-    return super.isStarQuery();
-  }
-
-  /**
-   * Returns list of default columns to read to replace empty list of columns.
-   * For text files without headers returns "columns[0]".
-   * Text files with headers do not support columns syntax,
-   * so when header extraction is enabled, returns fake named column "_DEFAULT_COL_TO_READ_".
-   *
-   * @return list of default columns to read
-   */
-  @Override
-  protected List<SchemaPath> getDefaultColumnsToRead() {
-    if (settings.isHeaderExtractionEnabled()) {
-      return DEFAULT_NAMED_TEXT_COLS_TO_READ;
-    }
-    return DEFAULT_TEXT_COLS_TO_READ;
   }
 
   /**
@@ -118,21 +91,24 @@ public class CompliantTextRecordReader extends AbstractRecordReader {
    * @param outputMutator  Used to create the schema in the output record batch
    * @throws ExecutionSetupException
    */
-  @SuppressWarnings("resource")
   @Override
-  public void setup(OperatorContext context, OutputMutator outputMutator) throws ExecutionSetupException {
+  public boolean open(SchemaNegotiator schemaNegotiator) {
+    OperatorExecServices context = schemaNegotiator.context();
 
-    oContext = context;
     // Note: DO NOT use managed buffers here. They remain in existence
     // until the fragment is shut down. The buffers here are large.
     // If we scan 1000 files, and allocate 1 MB for each, we end up
     // holding onto 1 GB of memory in managed buffers.
     // Instead, we allocate the buffers explicitly, and must free
     // them.
-//    readBuffer = context.getManagedBuffer(READ_BUFFER);
-//    whitespaceBuffer = context.getManagedBuffer(WHITE_SPACE_BUFFER);
-    readBuffer = context.getAllocator().buffer(READ_BUFFER);
-    whitespaceBuffer = context.getAllocator().buffer(WHITE_SPACE_BUFFER);
+
+    readBuffer = context.allocator().buffer(READ_BUFFER);
+    whitespaceBuffer = context.allocator().buffer(WHITE_SPACE_BUFFER);
+
+    // TODO: Set this based on size of record rather than
+    // absolute count.
+
+    schemaNegotiator.setBatchSize(MAX_RECORDS_PER_BATCH);
 
     // setup Output, Input, and Reader
     try {
@@ -144,10 +120,27 @@ public class CompliantTextRecordReader extends AbstractRecordReader {
       if (settings.isHeaderExtractionEnabled()){
         //extract header and use that to setup a set of VarCharVectors
         String [] fieldNames = extractHeader();
-        output = new FieldVarCharOutput(outputMutator, fieldNames, getColumns(), isStarQuery());
+        MaterializedSchema schema = new MaterializedSchema();
+        for (String colName : fieldNames) {
+          schema.add(MaterializedField.create(colName,
+              MajorType.newBuilder()
+                .setMinorType(MinorType.VARCHAR)
+                .setMode(DataMode.REQUIRED)
+                .build()));
+        }
+        schemaNegotiator.setTableSchema(schema);
+        loader = schemaNegotiator.build();
+        output = new FieldVarCharOutput(loader.writer());
       } else {
         //simply use RepeatedVarCharVector
-        output = new RepeatedVarCharOutput(outputMutator, getColumns(), isStarQuery());
+        MaterializedSchema schema = new MaterializedSchema();
+        schema.add(MaterializedField.create("columns",
+            MajorType.newBuilder()
+              .setMinorType(MinorType.VARCHAR)
+              .setMode(DataMode.REPEATED)
+              .build()));
+        loader = schemaNegotiator.build();
+        output = new RepeatedVarCharOutput(loader.writer());
       }
 
       // setup Input using InputStream
@@ -173,8 +166,7 @@ public class CompliantTextRecordReader extends AbstractRecordReader {
    */
   @SuppressWarnings("resource")
   private String [] extractHeader() throws SchemaChangeException, IOException, ExecutionSetupException{
-    assert (settings.isHeaderExtractionEnabled());
-    assert (oContext != null);
+    assert settings.isHeaderExtractionEnabled();
 
     // don't skip header in case skipFirstLine is set true
     settings.setSkipFirstLine(false);
@@ -184,10 +176,10 @@ public class CompliantTextRecordReader extends AbstractRecordReader {
     // setup Input using InputStream
     // we should read file header irrespective of split given given to this reader
     InputStream hStream = dfs.openPossiblyCompressedStream(split.getPath());
-    TextInput hInput = new TextInput(settings,  hStream, oContext.getManagedBuffer(READ_BUFFER), 0, split.getLength());
+    TextInput hInput = new TextInput(settings,  hStream, readBuffer, 0, split.getLength());
 
     // setup Reader using Input and Output
-    this.reader = new TextReader(settings, hInput, hOutput, oContext.getManagedBuffer(WHITE_SPACE_BUFFER));
+    this.reader = new TextReader(settings, hInput, hOutput, whitespaceBuffer);
     reader.start();
 
     // extract first row only
@@ -200,6 +192,8 @@ public class CompliantTextRecordReader extends AbstractRecordReader {
     reader.close();
     settings.setSkipFirstLine(true);
 
+    readBuffer.clear();
+    whitespaceBuffer.clear();
     return fieldNames;
   }
 
@@ -208,17 +202,17 @@ public class CompliantTextRecordReader extends AbstractRecordReader {
    * @return  number of records in the batch
    *
    */
+
   @Override
-  public int next() {
+  public boolean next() {
     reader.resetForNextBatch();
-    int cnt = 0;
 
     try{
-      while(cnt < MAX_RECORDS_PER_BATCH && reader.parseNext()){
-        cnt++;
+      while(! loader.isFull() && reader.parseNext()){
+        ;
       }
       reader.finishBatch();
-      return cnt;
+      return loader.rowCount() > 0;
     } catch (IOException | TextParsingException e) {
       throw UserException.dataReadError(e)
           .addContext("Failure while reading file %s. Happened at or shortly before byte position %d.",
@@ -254,63 +248,4 @@ public class CompliantTextRecordReader extends AbstractRecordReader {
       logger.warn("Exception while closing stream.", e);
     }
   }
-
-  /**
-   * TextRecordReader during its first phase read to extract header should pass its own
-   * OutputMutator to avoid reshaping query output.
-   * This class provides OutputMutator for header extraction.
-   */
-  private class HeaderOutputMutator implements OutputMutator {
-    private final Map<String, ValueVector> fieldVectorMap = Maps.newHashMap();
-
-    @SuppressWarnings("resource")
-    @Override
-    public <T extends ValueVector> T addField(MaterializedField field, Class<T> clazz) throws SchemaChangeException {
-      ValueVector v = fieldVectorMap.get(field);
-      if (v == null || v.getClass() != clazz) {
-        // Field does not exist add it to the map
-        v = TypeHelper.getNewVector(field, oContext.getAllocator());
-        if (!clazz.isAssignableFrom(v.getClass())) {
-          throw new SchemaChangeException(String.format(
-              "Class %s was provided, expected %s.", clazz.getSimpleName(), v.getClass().getSimpleName()));
-        }
-        fieldVectorMap.put(field.getPath(), v);
-      }
-      return clazz.cast(v);
-    }
-
-    @Override
-    public void allocate(int recordCount) {
-      //do nothing for now
-    }
-
-    @Override
-    public boolean isNewSchema() {
-      return false;
-    }
-
-    @Override
-    public DrillBuf getManagedBuffer() {
-      return null;
-    }
-
-    @Override
-    public CallBack getCallBack() {
-      return null;
-    }
-
-    /**
-     * Since this OutputMutator is passed by TextRecordReader to get the header out
-     * the mutator might not get cleaned up elsewhere. TextRecordReader will call
-     * this method to clear any allocations
-     */
-    public void close() {
-      for (final ValueVector v : fieldVectorMap.values()) {
-        v.clear();
-      }
-      fieldVectorMap.clear();
-    }
-
-  }
-
 }

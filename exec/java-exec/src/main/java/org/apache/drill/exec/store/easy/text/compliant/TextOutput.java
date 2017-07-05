@@ -39,18 +39,20 @@ abstract class TextOutput implements TextOutputEx {
     }
   }
 
-  /**
-   *  Return the total number of records (across batches) processed
-   */
-  public abstract long getRecordCount();
+//  /**
+//   *  Return the total number of records (across batches) processed
+//   */
+//  public abstract long getRecordCount();
+//
+//  /**
+//   * Informs output to setup for new record batch.
+//   */
+//  public abstract void startBatch();
 
-  /**
-   * Informs output to setup for new record batch.
-   */
-  public abstract void startBatch();
-
-  /**
-   * Does any final cleanup that is required for closing a batch.  Example might include closing the last field.
-   */
-  public abstract void finishBatch();
+  public abstract void startRecord();
+//
+//  /**
+//   * Does any final cleanup that is required for closing a batch.  Example might include closing the last field.
+//   */
+//  public abstract void finishBatch();
 }

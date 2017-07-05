@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -48,11 +48,11 @@ public class EasySubScan extends AbstractSubScan{
   @JsonCreator
   public EasySubScan(
       @JsonProperty("userName") String userName,
-      @JsonProperty("files") List<FileWorkImpl> files, //
-      @JsonProperty("storage") StoragePluginConfig storageConfig, //
-      @JsonProperty("format") FormatPluginConfig formatConfig, //
-      @JacksonInject StoragePluginRegistry engineRegistry, //
-      @JsonProperty("columns") List<SchemaPath> columns, //
+      @JsonProperty("files") List<FileWorkImpl> files,
+      @JsonProperty("storage") StoragePluginConfig storageConfig,
+      @JsonProperty("format") FormatPluginConfig formatConfig,
+      @JacksonInject StoragePluginRegistry engineRegistry,
+      @JsonProperty("columns") List<SchemaPath> columns,
       @JsonProperty("selectionRoot") String selectionRoot
       ) throws IOException, ExecutionSetupException {
     super(userName);
@@ -112,5 +112,4 @@ public class EasySubScan extends AbstractSubScan{
   public int getOperatorType() {
     return formatPlugin.getReaderOperatorType();
   }
-
 }

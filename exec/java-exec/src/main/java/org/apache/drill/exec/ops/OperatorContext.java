@@ -37,10 +37,6 @@ public interface OperatorContext extends OperatorExecContext {
 
   ExecutorService getScanDecodeExecutor();
 
-  DrillFileSystem newFileSystem(Configuration conf) throws IOException;
-
-  DrillFileSystem newNonTrackingFileSystem(Configuration conf) throws IOException;
-
   /**
    * Run the callable as the given proxy user.
    *

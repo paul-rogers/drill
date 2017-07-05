@@ -56,6 +56,7 @@ import org.apache.drill.exec.vector.ValueVector;
  */
 
 public class OperatorRecordBatch implements CloseableRecordBatch {
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(OperatorRecordBatch.class);
 
   public interface BatchAccessor {
     BatchSchema getSchema();
@@ -323,10 +324,7 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
     public void close() {
       opContext.close();
     }
-
   }
-
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(OperatorRecordBatch.class);
 
   /**
    * State machine that drives the operator executable. Converts

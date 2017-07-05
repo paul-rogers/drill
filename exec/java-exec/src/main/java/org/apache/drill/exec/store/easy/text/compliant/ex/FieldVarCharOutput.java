@@ -17,8 +17,6 @@
  */
 package org.apache.drill.exec.store.easy.text.compliant.ex;
 
-import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner;
-import org.apache.drill.exec.physical.impl.scan.ProjectionPlanner.TableColumn;
 import org.apache.drill.exec.physical.rowSet.ColumnLoader;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;

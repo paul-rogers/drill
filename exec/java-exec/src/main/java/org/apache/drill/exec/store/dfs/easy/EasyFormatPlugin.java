@@ -25,6 +25,7 @@ import java.util.Set;
 import com.google.common.base.Functions;
 import com.google.common.collect.Maps;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.FormatPluginConfig;
 import org.apache.drill.common.logical.StoragePluginConfig;
@@ -37,6 +38,12 @@ import org.apache.drill.exec.physical.base.ScanStats;
 import org.apache.drill.exec.physical.base.ScanStats.GroupScanProperty;
 import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.physical.impl.WriterRecordBatch;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServicesImpl;
+import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
+import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
+import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ScanOperatorExecBuilder;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
@@ -52,14 +59,33 @@ import org.apache.drill.exec.store.dfs.FormatMatcher;
 import org.apache.drill.exec.store.dfs.FormatPlugin;
 import org.apache.drill.exec.store.schedule.CompleteFileWork;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.mapred.FileSplit;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
 public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements FormatPlugin {
 
-  @SuppressWarnings("unused")
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(EasyFormatPlugin.class);
+  protected enum ScannerVersion {
+
+    /**
+     * Use the original scanner based on the
+     * {@link RecordReader} interface. Requires that the storage
+     * plugin roll its own solutions for null columns. Is not able
+     * to limit vector or batch sizes. Retained or backward compatibility
+     * with Drill 1.11 and earlier format plugins.
+     */
+    ORIGINAL,
+
+    /**
+     * Revised scanner based on the revised
+     * {@link ResultSetLoader} and {@link RowBatchReader} classes.
+     * Handles most projection tasks automatically. Able to limit
+     * vector and batch sizes. Use this for new format plugins.
+     */
+    ROW_SET_LOADER
+  }
 
   private final BasicFormatMatcher matcher;
   private final DrillbitContext context;
@@ -71,10 +97,21 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
   protected final T formatConfig;
   private final String name;
   private final boolean compressible;
+  private final ScannerVersion usesScannerVersion;
 
   protected EasyFormatPlugin(String name, DrillbitContext context, Configuration fsConf,
-      StoragePluginConfig storageConfig, T formatConfig, boolean readable, boolean writable, boolean blockSplittable,
-      boolean compressible, List<String> extensions, String defaultName){
+      StoragePluginConfig storageConfig, T formatConfig, boolean readable, boolean writable,
+      boolean blockSplittable,
+      boolean compressible, List<String> extensions, String defaultName) {
+    this(name, context, fsConf, storageConfig, formatConfig, readable, writable, blockSplittable,
+        compressible, extensions, defaultName, ScannerVersion.ORIGINAL);
+  }
+
+  protected EasyFormatPlugin(String name, DrillbitContext context, Configuration fsConf,
+      StoragePluginConfig storageConfig, T formatConfig, boolean readable, boolean writable,
+      boolean blockSplittable,
+      boolean compressible, List<String> extensions, String defaultName,
+      ScannerVersion scannerVersion) {
     this.matcher = new BasicFormatMatcher(this, fsConf, extensions, compressible);
     this.readable = readable;
     this.writable = writable;
@@ -85,6 +122,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
     this.storageConfig = storageConfig;
     this.formatConfig = formatConfig;
     this.name = name == null ? defaultName : name;
+    this.usesScannerVersion = scannerVersion;
   }
 
   @Override
@@ -105,35 +143,65 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
   public abstract boolean supportsPushDown();
 
   /**
-   * Whether or not you can split the format based on blocks within file boundaries. If not, the simple format engine will
-   * only split on file boundaries.
+   * Whether or not you can split the format based on blocks within file
+   * boundaries. If not, the simple format engine will only split on file
+   * boundaries.
    *
-   * @return True if splittable.
+   * @return <code>true</code> if splittable.
    */
   public boolean isBlockSplittable() {
     return blockSplittable;
   }
 
-  /** Method indicates whether or not this format could also be in a compression container (for example: csv.gz versus csv).
-   * If this format uses its own internal compression scheme, such as Parquet does, then this should return false.
+  /**
+   * Indicates whether or not this format could also be in a compression
+   * container (for example: csv.gz versus csv). If this format uses its own
+   * internal compression scheme, such as Parquet does, then this should return
+   * false.
+   *
    * @return <code>true</code> if it is compressible
    */
   public boolean isCompressible() {
     return compressible;
   }
 
-  public abstract RecordReader getRecordReader(FragmentContext context, DrillFileSystem dfs, FileWork fileWork,
-      List<SchemaPath> columns, String userName) throws ExecutionSetupException;
+  /**
+   * Return a record reader for the specific file format, when using the original
+   * {@link ScanBatch} scanner.
+   * @param context fragment context
+   * @param dfs Drill file system
+   * @param fileWork metadata about the file to be scanned
+   * @param columns list of projected columns (or may just contain the wildcard)
+   * @param userName the name of the user running the query
+   * @return a record reader for this format
+   * @throws ExecutionSetupException for many reasons
+   */
+
+  public RecordReader getRecordReader(FragmentContext context, DrillFileSystem dfs, FileWork fileWork,
+      List<SchemaPath> columns, String userName) throws ExecutionSetupException {
+    throw new ExecutionSetupException("Must implement getRecordReader() if using the legacy scanner.");
+  }
+
+  CloseableRecordBatch getReaderBatch(final FragmentContext context, final EasySubScan scan) throws ExecutionSetupException {
+    switch (usesScannerVersion) {
+    case ORIGINAL:
+      return buildOriginalScan(context, scan);
+    case ROW_SET_LOADER:
+      return buildRevisedScan(context, scan);
+    default:
+      throw new IllegalStateException( "Unexpected scanner version: " + usesScannerVersion);
+    }
+  }
 
   @SuppressWarnings("resource")
-  CloseableRecordBatch getReaderBatch(FragmentContext context, EasySubScan scan) throws ExecutionSetupException {
+  private CloseableRecordBatch buildOriginalScan(final FragmentContext context, EasySubScan scan) throws ExecutionSetupException {
     final ImplicitColumnExplorer columnExplorer = new ImplicitColumnExplorer(context, scan.getColumns());
 
-    if (!columnExplorer.isStarQuery()) {
+    if (! columnExplorer.isStarQuery()) {
       scan = new EasySubScan(scan.getUserName(), scan.getWorkUnits(), scan.getFormatPlugin(),
           columnExplorer.getTableColumns(), scan.getSelectionRoot());
       scan.setOperatorId(scan.getOperatorId());
-        }
+    }
 
     OperatorContext oContext = context.newOperatorContext(scan);
     final DrillFileSystem dfs;
@@ -160,9 +228,43 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
     Map<String, String> diff = Maps.transformValues(mapWithMaxColumns, Functions.constant((String) null));
     for (Map<String, String> map : implicitColumns) {
       map.putAll(Maps.difference(map, diff).entriesOnlyOnRight());
-      }
+    }
 
     return new ScanBatch(scan, context, oContext, readers.iterator(), implicitColumns);
+  }
+
+  public RowBatchReader makeBatchReader(DrillFileSystem dfs, FileSplit split) throws ExecutionSetupException {
+    throw new ExecutionSetupException("Must implement getRecordReader() if using the revised scanner.");
+  }
+
+  @SuppressWarnings("resource")
+  private CloseableRecordBatch buildRevisedScan(final FragmentContext context, EasySubScan scan) throws ExecutionSetupException {
+    OperatorContext oContext = context.newOperatorContext(scan);
+    final DrillFileSystem dfs;
+    try {
+      dfs = oContext.newFileSystem(fsConf);
+    } catch (IOException e) {
+      throw new ExecutionSetupException(String.format("Failed to create FileSystem: %s", e.getMessage()), e);
+    }
+
+    ScanOperatorExecBuilder builder = ScanOperatorExec.builder()
+        .addProjection(scan.getColumns())
+        .useLegacyWildcardExpansion(true)
+        .setSelectionRoot(scan.getSelectionRoot())
+        .setUserName(scan.getUserName());
+
+    for(FileWork work : scan.getWorkUnits()) {
+      Path path = dfs.makeQualified(new Path(work.getPath()));
+      FileSplit split = new FileSplit(path, work.getStart(), work.getLength(), new String[]{""});
+      builder.addReader(makeBatchReader(dfs, split));
+    }
+    try {
+      return builder.buildRecordBatch(context, scan);
+    } catch (UserException e) {
+      throw e;
+    } catch (Throwable e) {
+      throw new ExecutionSetupException(e);
+    }
   }
 
   public abstract RecordWriter getRecordWriter(FragmentContext context, EasyWriter writer) throws IOException;

@@ -17,13 +17,17 @@
  */
 package org.apache.drill.exec.ops;
 
+import java.io.IOException;
+
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.testing.ExecutionControls;
+import org.apache.hadoop.conf.Configuration;
 
 import io.netty.buffer.DrillBuf;
 
 /**
- * Narrowed version of the {@link OpeartorContext} used to create an
+ * Narrowed version of the {@link OperatorContext} used to create an
  * easy-to-test version of the operator context that excludes services
  * that require a full Drillbit server.
  */
@@ -47,6 +51,10 @@ public interface OperatorExecContext {
   ExecutionControls getExecutionControls();
 
   OperatorStatReceiver getStatsWriter();
+
+  DrillFileSystem newFileSystem(Configuration conf) throws IOException;
+
+  DrillFileSystem newNonTrackingFileSystem(Configuration conf) throws IOException;
 
   void close();
 }

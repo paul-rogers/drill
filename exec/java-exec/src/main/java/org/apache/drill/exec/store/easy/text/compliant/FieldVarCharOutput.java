@@ -23,6 +23,9 @@ import org.apache.drill.common.types.TypeProtos;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.physical.impl.OutputMutator;
+import org.apache.drill.exec.physical.rowSet.ColumnLoader;
+import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.VarCharVector;
 
@@ -40,14 +43,14 @@ import java.util.List;
 class FieldVarCharOutput extends TextOutput {
 
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FieldVarCharOutput.class);
-  static final String COL_NAME = "columns";
+//  public static final String COL_NAME = "columns";
 
   // array of output vector
-  private final VarCharVector [] vectors;
+//  private final VarCharVector [] vectors;
   // boolean array indicating which fields are selected (if star query entire array is set to true)
-  private final boolean[] selectedFields;
+//  private final boolean[] selectedFields;
   // current vector to which field will be added
-  private VarCharVector currentVector;
+//  private VarCharVector currentVector;
   // track which field is getting appended
   private int currentFieldIndex = -1;
   // track chars within field
@@ -57,12 +60,13 @@ class FieldVarCharOutput extends TextOutput {
   // holds chars for a field
   private byte[] fieldBytes;
 
-  private boolean collect = true;
-  private boolean rowHasData= false;
+//  private boolean collect = true;
+//  private boolean rowHasData= false;
   private static final int MAX_FIELD_LENGTH = 1024 * 64;
-  private int recordCount = 0;
-  private int batchIndex = 0;
+//  private int recordCount = 0;
+//  private int batchIndex = 0;
   private int maxField = 0;
+  private final TupleLoader writer;
 
   /**
    * We initialize and add the varchar vector for each incoming field in this
@@ -73,72 +77,20 @@ class FieldVarCharOutput extends TextOutput {
    * @param isStarQuery  boolean to indicate if all fields are selected or not
    * @throws SchemaChangeException
    */
-  public FieldVarCharOutput(OutputMutator outputMutator, String [] fieldNames, Collection<SchemaPath> columns, boolean isStarQuery) throws SchemaChangeException {
-
-    int totalFields = fieldNames.length;
-    List<String> outputColumns = new ArrayList<>(Arrays.asList(fieldNames));
-
-    if (isStarQuery) {
-      maxField = totalFields - 1;
-      this.selectedFields = new boolean[totalFields];
-      Arrays.fill(selectedFields, true);
-    } else {
-      List<Integer> columnIds = new ArrayList<Integer>();
-      String pathStr;
-      int index;
-
-      for (SchemaPath path : columns) {
-        pathStr = path.getRootSegment().getPath();
-        if (pathStr.equals(COL_NAME) && path.getRootSegment().getChild() != null) {
-          //TODO: support both field names and columns index along with predicate pushdown
-          throw UserException
-              .unsupportedError()
-              .message("With extractHeader enabled, only header names are supported")
-              .addContext("column name", pathStr)
-              .addContext("column index", path.getRootSegment().getChild())
-              .build(logger);
-        } else {
-          index = outputColumns.indexOf(pathStr);
-          if (index < 0) {
-            // found col that is not a part of fieldNames, add it
-            // this col might be part of some another scanner
-            index = totalFields++;
-            outputColumns.add(pathStr);
-          }
-        }
-        columnIds.add(index);
-      }
-      Collections.sort(columnIds);
-
-      this.selectedFields = new boolean[totalFields];
-      for(Integer i : columnIds) {
-        selectedFields[i] = true;
-        maxField = i;
-      }
-    }
-
-    this.vectors = new VarCharVector[totalFields];
-
-    for (int i = 0; i <= maxField; i++) {
-      if (selectedFields[i]) {
-        MaterializedField field = MaterializedField.create(outputColumns.get(i), Types.required(TypeProtos.MinorType.VARCHAR));
-        this.vectors[i] = outputMutator.addField(field, VarCharVector.class);
-      }
-    }
-
-    this.fieldBytes = new byte[MAX_FIELD_LENGTH];
-
+  public FieldVarCharOutput(TupleLoader writer) throws SchemaChangeException {
+    this.writer = writer;
+    fieldBytes = new byte[MAX_FIELD_LENGTH];
   }
 
   /**
-   * Start a new record batch. Resets all pointers
+   * Start a new record record. Resets all pointers
    */
   @Override
-  public void startBatch() {
-    this.recordCount = 0;
-    this.batchIndex = 0;
-    this.currentFieldIndex= -1;
-    this.collect = true;
+  public void startRecord() {
+//    this.recordCount = 0;
+//    this.batchIndex = 0;
+    this.currentFieldIndex = -1;
+//    this.collect = true;
     this.fieldOpen = false;
   }
 
@@ -147,15 +99,15 @@ class FieldVarCharOutput extends TextOutput {
     currentFieldIndex = index;
     currentDataPointer = 0;
     fieldOpen = true;
-    collect = selectedFields[index];
-    currentVector = vectors[index];
+//    collect = selectedFields[index];
+//    currentVector = vectors[index];
   }
 
   @Override
   public void append(byte data) {
-    if (!collect) {
-      return;
-    }
+//    if (!collect) {
+//      return;
+//    }
 
     if (currentDataPointer >= MAX_FIELD_LENGTH -1) {
       throw UserException
@@ -173,14 +125,18 @@ class FieldVarCharOutput extends TextOutput {
   public boolean endField() {
     fieldOpen = false;
 
-    if(collect) {
-      assert currentVector != null;
-      currentVector.getMutator().setSafe(recordCount, fieldBytes, 0, currentDataPointer);
+    ColumnLoader colLoader = writer.column(currentFieldIndex);
+    if (colLoader != null) {
+      colLoader.setBytes(fieldBytes, currentDataPointer);
     }
-
-    if (currentDataPointer > 0) {
-      this.rowHasData = true;
-    }
+//    if(collect) {
+//      assert currentVector != null;
+//      currentVector.getMutator().setSafe(recordCount, fieldBytes, 0, currentDataPointer);
+//    }
+//
+//    if (currentDataPointer > 0) {
+//      this.rowHasData = true;
+//    }
 
     return currentFieldIndex < maxField;
   }
@@ -190,36 +146,18 @@ class FieldVarCharOutput extends TextOutput {
     return endField();
   }
 
- @Override
+  @Override
   public void finishRecord() {
     if(fieldOpen){
       endField();
     }
 
-    recordCount++;
-  }
-
-  // Sets the record count in this batch within the value vector
-  @Override
-  public void finishBatch() {
-    batchIndex++;
-
-    for (int i = 0; i <= maxField; i++) {
-      if (this.vectors[i] != null) {
-        this.vectors[i].getMutator().setValueCount(batchIndex);
-      }
-    }
-
-  }
-
-  @Override
-  public long getRecordCount() {
-    return recordCount;
+//    recordCount++;
   }
 
   @Override
   public boolean rowHasData() {
-    return this.rowHasData;
+//    return this.rowHasData;
+    return this.currentFieldIndex > 0;
   }
-
- }
+}

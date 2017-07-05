@@ -223,14 +223,14 @@ public class HeaderBuilder extends TextOutput {
     }
   }
 
+//  @Override
+//  public long getRecordCount() { return 1; }
+//
   @Override
-  public long getRecordCount() { return 1; }
-
-  @Override
-  public void startBatch() { }
-
-  @Override
-  public void finishBatch() { }
+  public void startRecord() { }
+//
+//  @Override
+//  public void finishBatch() { }
 
   @Override
   public boolean rowHasData() {

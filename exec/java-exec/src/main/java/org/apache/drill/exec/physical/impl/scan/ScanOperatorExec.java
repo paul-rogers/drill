@@ -26,6 +26,7 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.ops.FragmentContext;
+import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
@@ -34,6 +35,7 @@ import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.Operator
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.VectorContainerAccessor;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.store.mock.MockSubScanPOP;
 import org.apache.hadoop.fs.Path;
@@ -114,6 +116,11 @@ public class ScanOperatorExec implements OperatorExec {
 
     private SchemaNegotiatorImpl(ReaderState readerState) {
       this.readerState = readerState;
+    }
+
+    @Override
+    public String getUserName() {
+      return readerState.scanOp.userName();
     }
 
     @Override
@@ -429,6 +436,7 @@ public class ScanOperatorExec implements OperatorExec {
     protected Iterator<RowBatchReader> readerIter;
     protected List<RowBatchReader> readers;
     protected boolean useLegacyWildcardExpansion = true;
+    protected String userName;
 
     /**
      * Specify the selection root for a directory scan, if any.
@@ -529,6 +537,11 @@ public class ScanOperatorExec implements OperatorExec {
     protected Iterator<RowBatchReader> readers() {
       return (readerIter != null)? readerIter : readers.iterator();
     }
+
+    public ScanOperatorExecBuilder setUserName(String userName) {
+      this.userName = userName;
+      return this;
+    }
   }
 
   private enum State { START, READER, END, FAILED, CLOSED }
@@ -568,6 +581,8 @@ public class ScanOperatorExec implements OperatorExec {
 
   @VisibleForTesting
   public OperatorExecServices context() { return context; }
+
+  public String userName() { return builder.userName; }
 
   @Override
   public boolean buildSchema() {
