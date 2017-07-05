@@ -342,6 +342,7 @@ public class TupleSetImpl implements TupleSchema {
     }
 
     public void allocateVector(ValueVector toAlloc) {
+      // TODO: Revise with better predictive metadata
       AllocationHelper.allocate(toAlloc, tupleSet.rowSetMutator().targetRowCount(), allocationWidth, 10);
     }
 

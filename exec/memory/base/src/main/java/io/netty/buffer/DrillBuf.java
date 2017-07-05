@@ -563,7 +563,7 @@ public final class DrillBuf extends AbstractByteBuf implements AutoCloseable {
    */
 
   public boolean putInt(int index, int value) {
-    if (index + value > length) {
+    if (index + 4 > length) {
       return false;
     }
     PlatformDependent.putInt(addr(index), value);

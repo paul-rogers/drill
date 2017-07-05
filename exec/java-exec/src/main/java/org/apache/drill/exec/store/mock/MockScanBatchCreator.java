@@ -23,12 +23,12 @@ import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.impl.BatchCreator;
 import org.apache.drill.exec.physical.impl.ScanBatch;
-import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
-import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
+import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ScanOperatorExecBuilder;
 import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.store.RecordReader;
+import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
 
 import com.google.common.base.Preconditions;
@@ -41,13 +41,27 @@ public class MockScanBatchCreator implements BatchCreator<MockSubScanPOP> {
       throws ExecutionSetupException {
     Preconditions.checkArgument(children.isEmpty());
     final List<MockScanEntry> entries = config.getReadEntries();
-    if ( entries.get(0).isExtended( ) ) {
-      final List<RowBatchReader> readers = Lists.newArrayList();
+    MockScanEntry first = entries.get(0);
+    if ( first.isExtended( ) ) {
+      // Extended mode: use the revised, size-aware scan operator
+
+      ScanOperatorExecBuilder builder = ScanOperatorExec.builder();
       for(final MockTableDef.MockScanEntry e : entries) {
-        readers.add(new ExtendedMockRecordReader(e));
+        builder.addReader(new ExtendedMockBatchReader(e));
       }
-      ScanOperatorExec scanOp = new ScanOperatorExec(readers.iterator());
-      return new OperatorRecordBatch(context, config, scanOp);
+
+      // If a single "entry", extract the project list. (If more than one,
+      // the semantics are a bit murky, assume it is a SELECT * with each
+      // entry representing a table that may have distinct schema.)
+
+      if (entries.size() == 1) {
+        for (MockColumn col : first.getTypes()) {
+          builder.addProjection(col.getName());
+        }
+      } else {
+        builder.projectAll();
+      }
+      return builder.buildRecordBatch(context, config);
     } else {
       final List<RecordReader> readers = Lists.newArrayList();
       for(final MockTableDef.MockScanEntry e : entries) {

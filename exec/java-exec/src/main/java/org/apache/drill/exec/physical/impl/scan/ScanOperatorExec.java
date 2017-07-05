@@ -25,13 +25,17 @@ import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.exec.ops.FragmentContext;
+import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.impl.ScanBatch;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.BatchAccessor;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExec;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.VectorContainerAccessor;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.store.mock.MockSubScanPOP;
 import org.apache.hadoop.fs.Path;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -471,6 +475,15 @@ public class ScanOperatorExec implements OperatorExec {
       return this;
     }
 
+    public ScanOperatorExecBuilder addReaders(List<RowBatchReader> readerList) {
+      assert readerIter == null;
+      if (readers == null) {
+        readers = new ArrayList<>();
+      }
+      readers.addAll(readerList);
+      return this;
+    }
+
     @VisibleForTesting
     public ScanOperatorExecBuilder projectAll() {
       return addProjection(ScanLevelProjection.WILDCARD);
@@ -502,7 +515,15 @@ public class ScanOperatorExec implements OperatorExec {
       if (readers == null && readerIter == null) {
         throw new IllegalArgumentException("No readers provided");
       }
+      if (projection.isEmpty()) {
+        logger.warn("No projection list specified: assuming SELECT *");
+        projectAll();
+      }
       return new ScanOperatorExec(this);
+    }
+
+    public OperatorRecordBatch buildRecordBatch(FragmentContext context, PhysicalOperator config) {
+      return new OperatorRecordBatch(context, config, build());
     }
 
     protected Iterator<RowBatchReader> readers() {
@@ -526,6 +547,10 @@ public class ScanOperatorExec implements OperatorExec {
   public ScanOperatorExec(ScanOperatorExecBuilder builder) {
     this.builder = builder;
     this.readers = builder.readers();
+  }
+
+  public static ScanOperatorExecBuilder builder() {
+    return new ScanOperatorExecBuilder();
   }
 
   @Override

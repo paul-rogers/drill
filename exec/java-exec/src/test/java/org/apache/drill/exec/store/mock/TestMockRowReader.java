@@ -27,10 +27,11 @@ import java.util.Map;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.BatchAccessor;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServicesImpl;
 import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
-import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ScanOptions;
+import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ScanOperatorExecBuilder;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.test.SubOperatorTest;
@@ -50,12 +51,12 @@ public class TestMockRowReader extends SubOperatorTest {
       this(readers, null);
     }
 
-    public MockBatch(List<RowBatchReader> readers, ScanOptions options) {
-      if (options == null) {
-        scanOp = new ScanOperatorExec(readers.iterator());
-      } else {
-        scanOp = new ScanOperatorExec(readers.iterator(), options);
+    public MockBatch(List<RowBatchReader> readers, ScanOperatorExecBuilder builder) {
+      if (builder == null) {
+        builder = ScanOperatorExec.builder();
       }
+      builder.addReaders(readers);
+      scanOp = builder.build();
       services = new OperatorExecServicesImpl(fixture.codeGenContext(), null, scanOp);
       scanOp.bind(services);
     }
@@ -81,7 +82,7 @@ public class TestMockRowReader extends SubOperatorTest {
         new MockTableDef.MockColumn("b", MinorType.VARCHAR, DataMode.REQUIRED, 10, null, null, null, null, null )
     };
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, null, null, cols);
-    RowBatchReader reader = new ExtendedMockRecordReader(entry);
+    RowBatchReader reader = new ExtendedMockBatchReader(entry);
     List<RowBatchReader> readers = Lists.newArrayList(reader);
 
     // Create options and the scan operator
@@ -97,13 +98,13 @@ public class TestMockRowReader extends SubOperatorTest {
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR, 10) // Width is reflected in meta-data
         .build();
-    assertEquals(expectedSchema, scan.batchAccessor().getSchema());
+    assertTrue(expectedSchema.isEquivalent(scan.batchAccessor().getSchema()));
     assertEquals(0, scan.batchAccessor().getRowCount());
 
     // Next call, return with data.
 
     assertTrue(scan.next());
-    assertEquals(expectedSchema, scan.batchAccessor().getSchema());
+    assertTrue(expectedSchema.isEquivalent(scan.batchAccessor().getSchema()));
     assertEquals(rowCount, scan.batchAccessor().getRowCount());
     scan.batchAccessor().release();
 
@@ -129,7 +130,7 @@ public class TestMockRowReader extends SubOperatorTest {
         new MockTableDef.MockColumn("b", MinorType.VARCHAR, DataMode.OPTIONAL, 10, null, null, null, null, props )
     };
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, null, null, cols);
-    RowBatchReader reader = new ExtendedMockRecordReader(entry);
+    RowBatchReader reader = new ExtendedMockBatchReader(entry);
     List<RowBatchReader> readers = Lists.newArrayList(reader);
 
     // Create options and the scan operator
@@ -173,7 +174,7 @@ public class TestMockRowReader extends SubOperatorTest {
         new MockTableDef.MockColumn("b", MinorType.VARCHAR, DataMode.REQUIRED, 10, null, null, null, null, null )
     };
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, null, null, cols);
-    RowBatchReader reader = new ExtendedMockRecordReader(entry);
+    RowBatchReader reader = new ExtendedMockBatchReader(entry);
     List<RowBatchReader> readers = Lists.newArrayList(reader);
 
     // Create options and the scan operator
@@ -220,7 +221,7 @@ public class TestMockRowReader extends SubOperatorTest {
         new MockTableDef.MockColumn("b", MinorType.VARCHAR, DataMode.REQUIRED, 10, null, null, null, null, null )
     };
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, batchSize, null, cols);
-    RowBatchReader reader = new ExtendedMockRecordReader(entry);
+    RowBatchReader reader = new ExtendedMockBatchReader(entry);
     List<RowBatchReader> readers = Lists.newArrayList(reader);
 
     // Create options and the scan operator
@@ -262,7 +263,7 @@ public class TestMockRowReader extends SubOperatorTest {
         new MockTableDef.MockColumn("b", MinorType.VARCHAR, DataMode.REQUIRED, 1000, null, null, null, null, null )
     };
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, null, null, cols);
-    RowBatchReader reader = new ExtendedMockRecordReader(entry);
+    RowBatchReader reader = new ExtendedMockBatchReader(entry);
     List<RowBatchReader> readers = Lists.newArrayList(reader);
 
     // Create options and the scan operator
@@ -278,13 +279,18 @@ public class TestMockRowReader extends SubOperatorTest {
 
     // Next call, return with data, limited by batch size.
 
+    int totalRowCount = 0;
+    int batchCount = 0;
     while(scan.next()) {
       assertTrue(scan.batchAccessor().getRowCount() < ValueVector.MAX_ROW_COUNT);
-      scan.batchAccessor().release();
+      BatchAccessor batchAccessor = scan.batchAccessor();
+      totalRowCount += batchAccessor.getRowCount();
+      batchCount++;
+      batchAccessor.release();
     }
 
-    assertEquals(ValueVector.MAX_ROW_COUNT, scan.getMutator().totalRowCount());
-    assertTrue(scan.getMutator().batchCount() > 1);
+    assertEquals(ValueVector.MAX_ROW_COUNT, totalRowCount);
+    assertTrue(batchCount > 1);
 
     mockBatch.close();
   }

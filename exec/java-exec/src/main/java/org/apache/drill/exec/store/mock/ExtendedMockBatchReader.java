@@ -23,13 +23,12 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
-import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.physical.impl.ScanBatch;
-import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
+import org.apache.drill.exec.physical.impl.scan.MaterializedSchema;
 import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
+import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
-import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
@@ -45,14 +44,14 @@ import org.apache.drill.exec.vector.ValueVector;
  * {@link ScanBatch} used to create this record reader.
  */
 
-public class ExtendedMockRecordReader implements RowBatchReader {
+public class ExtendedMockBatchReader implements RowBatchReader {
 
   private final MockScanEntry config;
   private final ColumnDef fields[];
   private ResultSetLoader mutator;
   private TupleLoader writer;
 
-  public ExtendedMockRecordReader(MockScanEntry config) {
+  public ExtendedMockBatchReader(MockScanEntry config) {
     this.config = config;
     fields = buildColumnDefs();
   }
@@ -87,18 +86,23 @@ public class ExtendedMockRecordReader implements RowBatchReader {
     return defArray;
   }
 
+
   @Override
-  public void open(OperatorExecServices context, ResultSetLoader mutator) {
-    this.mutator = mutator;
-    writer = mutator.writer();
-    TupleSchema schema = writer.schema();
+  public boolean open(SchemaNegotiator schemaNegotiator) {
+    MaterializedSchema schema = new MaterializedSchema();
     for (int i = 0; i < fields.length; i++) {
       final ColumnDef col = fields[i];
       final MaterializedField field = MaterializedField.create(col.getName(),
                                           col.getConfig().getMajorType());
-      schema.addColumn(field);
+      schema.add(field);
+    }
+    schemaNegotiator.setTableSchema(schema);
+    mutator = schemaNegotiator.build();
+    writer = mutator.writer();
+    for (int i = 0; i < fields.length; i++) {
       fields[i].generator.setup(fields[i], writer.column(i));
     }
+    return true;
   }
 
   @Override

@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.impl.scan;
 
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.hadoop.fs.Path;
 
 /**
