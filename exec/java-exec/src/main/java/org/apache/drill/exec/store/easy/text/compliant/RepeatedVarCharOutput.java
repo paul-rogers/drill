@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -118,7 +118,6 @@ class RepeatedVarCharOutput extends TextOutput {
    * @throws SchemaChangeException
    */
   public RepeatedVarCharOutput(OutputMutator outputMutator, Collection<SchemaPath> columns, boolean isStarQuery) throws SchemaChangeException {
-    super();
 
     MaterializedField field = MaterializedField.create(COL_NAME, Types.repeated(TypeProtos.MinorType.VARCHAR));
     vector = outputMutator.addField(field, RepeatedVarCharVector.class);

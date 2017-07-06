@@ -39,6 +39,7 @@ import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.store.ImplicitColumnExplorer;
 import org.apache.drill.exec.store.ImplicitColumnExplorer.ImplicitFileColumns;
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.hadoop.fs.Path;
 
 import com.google.common.collect.Lists;
@@ -69,18 +70,21 @@ import com.google.common.collect.Lists;
  * but types from the data source. Columns appear in the row in the order
  * specified by the SELECT.</li>
  * </ul>
- * Names in the SELECT list can reference any of four distinct types of output
+ * Names in the SELECT list can reference any of five distinct types of output
  * columns:
  * <ul>
  * <li>Wildcard ("*") column: indicates the place in the projection list to insert
  * the table columns once found in the table projection plan.</li>
  * <li>Data source columns: columns from the underlying table. The table
  * projection planner will determine if the column exists, or must be filled
- * in with a null column.</i>
- * <li>Implicit columns: fqn, filename, filepath and suffix. These reference
+ * in with a null column.</li>
+ * <li>The generic data source columns array: <tt>columns</tt>, or optionally
+ * specific members of the <tt>columns</tt> array such as <tt>columns[1]</tt>.</li>
+ * <li>Implicit columns: <tt>fqn</tt>, <tt>filename</tt>, <tt>filepath</tt>
+ * and <tt>suffix</tt>. These reference
  * parts of the name of the file being scanned.</li>
- * <li>Partition columns: dir0, dir1, ...: These reference parts of the path
- * name of the file.</li>
+ * <li>Partition columns: <tt>dir0</tt>, <tt>dir1</tt>, ...: These reference
+ * parts of the path name of the file.</li>
  * </ul>
  *
  * @see {@link ImplicitColumnExplorer}, the class from which this class
@@ -101,19 +105,14 @@ public class ScanLevelProjection {
    */
 
   public static class RequestedColumn {
-    private final String name;
+    private final SchemaPath column;
     protected ScanOutputColumn resolution;
 
     public RequestedColumn(SchemaPath col) {
-//      this(col, null);
-//    }
-//
-//    public RequestedColumn(SchemaPath col, ColumnType hint) {
-      this.name = col.getAsUnescapedPath();
-//      typeHint = hint;
+      column = col;
     }
 
-    public String name() { return name; }
+    public String name() { return column.getAsUnescapedPath(); }
 
     /**
      * Return the output column to which this input column is projected.
@@ -132,13 +131,25 @@ public class ScanLevelProjection {
      * @return true if the column is "*"
      */
 
-    public boolean isWildcard() { return name.equals(WILDCARD); }
+    public boolean isWildcard() { return name().equals(WILDCARD); }
+
+    public boolean isColumnsArray() {
+      return name().equalsIgnoreCase(COLUMNS_ARRAY_NAME);
+    }
+
+    public boolean isArray() {
+      return column.getRootSegment().getChild().isArray();
+    }
+
+    public int arrayIndex() {
+      return column.getRootSegment().getChild().getArraySegment().getIndex();
+    }
 
     @Override
     public String toString() {
       StringBuilder buf = new StringBuilder()
-        .append("[InputColumn name=\"")
-        .append(name)
+        .append("[InputColumn path=\"")
+        .append(column)
         .append("\", resolution=");
       if (resolution == null) {
         buf.append("null");
@@ -219,7 +230,9 @@ public class ScanLevelProjection {
     protected ColumnsArrayColumn columnsArrayCol;
     protected ProjectionType projectionType;
     protected RequestedColumn wildcardColumn;
+    protected List<Integer> columnsIndexes;
     protected boolean hasMetadata;
+    protected int maxIndex;
 
     public Builder(OptionSet optionManager) {
       partitionDesignator = optionManager.getOption(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL_VALIDATOR);
@@ -394,14 +407,54 @@ public class ScanLevelProjection {
 
     private void mapColumnsArrayColumn(RequestedColumn inCol) {
 
+      if (inCol.isArray()) {
+        mapColumnsArrayElement(inCol);
+        return;
+      }
+
+      // Query contains a reference to the "columns" generic
+      // columns array. The query can refer to this column only once
+      // (in non-indexed form.)
+
       if (columnsArrayCol != null) {
         throw new IllegalArgumentException("Duplicate columns[] column");
       }
+      if (columnsIndexes != null) {
+        throw new IllegalArgumentException("Cannot refer to both columns and columns[i]");
+      }
+      addColumnsArrayColumn(inCol);
+    }
 
+    private void addColumnsArrayColumn(RequestedColumn inCol) {
       projectionType = ProjectionType.COLUMNS_ARRAY;
       columnsArrayCol = ColumnsArrayColumn.fromSelect(inCol, columnsArrayType());
       outputCols.add(columnsArrayCol);
       inCol.resolution = columnsArrayCol;
+    }
+
+    private void mapColumnsArrayElement(RequestedColumn inCol) {
+      // Add the "columns" column, if not already present.
+      // The project list past this point will contain just the
+      // "columns" entry rather than the series of
+      // columns[1], columns[2], etc. items that appear in the original
+      // project list.
+
+      if (columnsArrayCol == null) {
+
+        // Check if "columns" already appeared without an index.
+
+        if (columnsIndexes == null) {
+          throw new IllegalArgumentException("Cannot refer to both columns and columns[i]");
+        }
+        addColumnsArrayColumn(inCol);
+        columnsIndexes = new ArrayList<>();
+      }
+      int index = inCol.arrayIndex();
+      if (index < 0  ||  index > ValueVector.MAX_ROW_COUNT) {
+        throw new IllegalArgumentException("columns[" + index + "] out of bounds");
+      }
+      columnsIndexes.add(index);
+      maxIndex = Math.max(maxIndex, index);
     }
 
     private void verify() {
@@ -518,6 +571,7 @@ public class ScanLevelProjection {
   private final List<ScanOutputColumn> outputCols;
   private final List<String> tableColNames;
   private final MajorType columnsArrayType;
+  private final boolean columnsIndexes[];
 
   public ScanLevelProjection(Builder builder) {
     partitionDesignator = builder.partitionDesignator;
@@ -530,6 +584,14 @@ public class ScanLevelProjection {
     outputCols = builder.outputCols;
     tableColNames = builder.tableColNames;
     columnsArrayType = builder.columnsArrayType;
+    if (builder.columnsIndexes == null) {
+      columnsIndexes = null;
+    } else {
+      columnsIndexes = new boolean[builder.maxIndex];
+      for (int i = 0; i < builder.columnsIndexes.size(); i++) {
+        columnsIndexes[builder.columnsIndexes.get(i)] = true;
+      }
+    }
   }
 
   /**
@@ -564,6 +626,8 @@ public class ScanLevelProjection {
   public List<String> tableColNames() { return tableColNames; }
 
   public List<FileMetadataColumnDefn> fileMetadataColDefns() { return fileMetadataColDefns; }
+
+  public boolean[] getColumnsIndexes() { return columnsIndexes; }
 
   public String partitionName(int partition) {
     return partitionDesignator + partition;
