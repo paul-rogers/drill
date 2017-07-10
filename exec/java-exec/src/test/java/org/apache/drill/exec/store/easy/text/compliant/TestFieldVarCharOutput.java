@@ -17,8 +17,8 @@
  */
 package org.apache.drill.exec.store.easy.text.compliant;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -33,44 +33,35 @@ import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
-public class TestRepeatedVarCharOutput extends SubOperatorTest {
+public class TestFieldVarCharOutput extends SubOperatorTest {
 
-  private static class RVCOFixture extends TextOutputFixture {
+  private static class FVCOFixture extends TextOutputFixture {
 
-    public RVCOFixture(OperatorFixture fixture) {
-      this(fixture, (boolean[]) null);
+    public FVCOFixture(OperatorFixture fixture, String cols[]) {
+      this(fixture, cols, null);
     }
 
-    public RVCOFixture(OperatorFixture fixture, int[] cols) {
-      this(fixture, buildCols(cols));
-    }
-
-    private static boolean[] buildCols(int[] cols) {
-      if (cols == null) {
-        return new boolean[0];
-      }
-      int maxField = 0;
-      for (int i = 0; i < cols.length; i++) {
-        maxField = Math.max(maxField, cols[i]);
-      }
-      boolean mask[] = new boolean[maxField + 1];
-      for (int i = 0; i < cols.length; i++) {
-        mask[cols[i]] = true;
-      }
-      return mask;
-    }
-
-    public RVCOFixture(OperatorFixture fixture, boolean projectionMask[]) {
+    public FVCOFixture(OperatorFixture fixture, String cols[], String projection[]) {
       super(fixture);
 
       // Setup: normally done by ScanBatch
 
-      loader = new ResultSetLoaderImpl(fixture.allocator());
-      loader.writer().schema().addColumn(
-          SchemaBuilder.columnSchema("columns", MinorType.VARCHAR, DataMode.REPEATED));
+      ResultSetLoaderImpl.OptionBuilder builder = new ResultSetLoaderImpl.OptionBuilder();
+      if (projection != null) {
+        List<String> projCols = new ArrayList<>();
+        for (String projCol : projection) {
+          projCols.add(projCol);
+        }
+        builder.setProjection(projCols);
+      }
+      loader = new ResultSetLoaderImpl(fixture.allocator(), builder.build());
+      for (String col : cols) {
+         loader.writer().schema().addColumn(
+            SchemaBuilder.columnSchema(col, MinorType.VARCHAR, DataMode.REQUIRED));
+      }
 
       try {
-        output = new RepeatedVarCharOutput(loader, projectionMask);
+        output = new FieldVarCharOutput(loader);
       } catch (Throwable t) {
         loader.close();
         oContext.close();
@@ -82,7 +73,7 @@ public class TestRepeatedVarCharOutput extends SubOperatorTest {
     public RowSet makeExpected(BatchSchema schema, String dataValues[][]) {
       RowSetBuilder builder = fixture.rowSetBuilder(schema);
       for (int i = 0; i < dataValues.length; i++) {
-        builder.addSingleCol(dataValues[i]);
+        builder.add((Object[]) dataValues[i]);
       }
       return builder.build();
     }
@@ -90,7 +81,7 @@ public class TestRepeatedVarCharOutput extends SubOperatorTest {
 
   @Test
   public void testBasics() throws SchemaChangeException {
-    RVCOFixture rvco = new RVCOFixture(fixture);
+    FVCOFixture fvco = new FVCOFixture(fixture, new String[] {"a", "b", "c"});
 
     // Load several normal rows
 
@@ -100,25 +91,31 @@ public class TestRepeatedVarCharOutput extends SubOperatorTest {
         { "2.0 aaa", "2.1 bbb", "2.2 ccc" }
     };
 
-    rvco.compare(dataValues);
+    fvco.compare(dataValues);
   }
 
   @Test
   public void testMissingFieldsAtEnd() throws SchemaChangeException {
-    RVCOFixture rvco = new RVCOFixture(fixture);
+    FVCOFixture fvco = new FVCOFixture(fixture, new String[] {"a", "b", "c"});
 
     String dataValues[][] = {
         { "0.0 aaa", "0.1 bbb", "0.2 ccc" },
         { "1.0 aaa", "1.1 bbb", "1.2 ccc" },
         { "2.0 aaa" }
     };
+    String expectedValues[][] = {
+        dataValues[0],
+        dataValues[1],
+        { dataValues[2][0], "", "" }
+    };
 
-    rvco.compare(dataValues);
+    RowSet actual = fvco.writeBatch(dataValues);
+    fvco.compare(actual, expectedValues);
   }
 
   @Test
   public void testMissingFieldsInMiddle() throws SchemaChangeException {
-    RVCOFixture rvco = new RVCOFixture(fixture);
+    FVCOFixture fvco = new FVCOFixture(fixture, new String[] {"a", "b", "c"});
 
     String dataValues[][] = {
         { "0.0 aaa", "0.1 bbb", "0.2 ccc" },
@@ -126,12 +123,12 @@ public class TestRepeatedVarCharOutput extends SubOperatorTest {
         { "2.0 aaa", "2.1 bbb", "2.2 ccc" }
     };
 
-    rvco.compare(dataValues);
+    fvco.compare(dataValues);
   }
 
   @Test
   public void testMissingFirstRow() throws SchemaChangeException {
-    RVCOFixture rvco = new RVCOFixture(fixture);
+    FVCOFixture fvco = new FVCOFixture(fixture, new String[] {"a", "b", "c"});
 
     String dataValues[][] = {
         { },
@@ -139,18 +136,18 @@ public class TestRepeatedVarCharOutput extends SubOperatorTest {
         { "2.0 aaa", "2.1 bbb", "2.2 ccc" }
     };
 
-    RowSet actual = rvco.writeBatch(dataValues);
+    RowSet actual = fvco.writeBatch(dataValues);
 
     // See DRILL-5486
     String expectedValues[][] = {
         dataValues[1], dataValues[2]
     };
-    rvco.compare(actual, expectedValues);
+    fvco.compare(actual, expectedValues);
   }
 
   @Test
   public void testMissingFirstRows() throws SchemaChangeException {
-    RVCOFixture rvco = new RVCOFixture(fixture);
+    FVCOFixture fvco = new FVCOFixture(fixture, new String[] {"a", "b", "c"});
 
     String dataValues[][] = {
         { },
@@ -162,18 +159,18 @@ public class TestRepeatedVarCharOutput extends SubOperatorTest {
         { "1.0 aaa", "1.1 bbb", "1.2 ccc" }
     };
 
-    RowSet actual = rvco.writeBatch(dataValues);
+    RowSet actual = fvco.writeBatch(dataValues);
 
     // See DRILL-5486
     String expectedValues[][] = {
         dataValues[6]
     };
-    rvco.compare(actual, expectedValues);
+    fvco.compare(actual, expectedValues);
   }
 
   @Test
   public void testMissingRow() throws SchemaChangeException {
-    RVCOFixture rvco = new RVCOFixture(fixture);
+    FVCOFixture fvco = new FVCOFixture(fixture, new String[] {"a", "b", "c"});
 
     String dataValues[][] = {
         { "0.0 aaa", "0.1 bbb", "0.2 ccc" },
@@ -181,78 +178,13 @@ public class TestRepeatedVarCharOutput extends SubOperatorTest {
         { "2.0 aaa", "2.1 bbb", "2.2 ccc" }
     };
 
-    RowSet actual = rvco.writeBatch(dataValues);
+    RowSet actual = fvco.writeBatch(dataValues);
 
     // See DRILL-5486
     String expectedValues[][] = {
         dataValues[0], dataValues[2]
     };
-    rvco.compare(actual, expectedValues);
+    fvco.compare(actual, expectedValues);
   }
-
-  @Test
-  public void testProject() {
-    RVCOFixture rvco = new RVCOFixture(fixture, new int[] {1, 2});
-
-    String dataValues[][] = {
-        { "0a", "0b", "0c", "0d", "0f" },
-        { "1a", "1b", "1c", "1d", "1f" },
-        { "2a", "2b", "2c", "2d", "2f" },
-    };
-
-    RowSet actual = rvco.writeBatch(dataValues);
-
-    // The revised CSV writer omits projected columns
-    // past the last projected one. The previous version would
-    // fill the unneeded slots with blanks.
-
-    String expectedValues[][] = {
-        { "", "0b", "0c" },
-        { "", "1b", "1c" },
-        { "", "2b", "2c" },
-    };
-
-    rvco.compare(actual, expectedValues);
-  }
-
-  @Test
-  public void testEmptyProject() {
-    try {
-      new RVCOFixture(fixture, new int[] { });
-      fail();
-    } catch (IllegalStateException e) {
-      assertTrue(e.getMessage().contains("No columns[] indexes selected"));
-    }
-  }
-
-//  /**
-//   * Test a star query for the repeated VarChar output used by the
-//   * easy readers. Assume a simple input of four columns. Try various
-//   * error conditions to attempt to replicate DRILL-5470.
-//   * @throws SchemaChangeException
-//   */
-//
-//  @Test
-//  public void testStar() throws SchemaChangeException {
-//    RVCOFixture rvco = new RVCOFixture(fixture);
-//
-//    // Batch 1
-//
-//    rvco.startBatch();
-//
-//    // Load several normal rows, four columns each
-//
-//    rvco.rvco.startRecord();
-//    String pad = "xxxx|xxxx|xxxx|xxxx|";
-//    for (int i = 0; i < 10; i++) {
-//      for (int j = 0; j < 4; j++) {
-//        rvco.writeField(j, (i + "-" + j + pad));
-//      }
-//    }
-//
-//    //
-//
-//    rvco.close();
-//  }
 
 }

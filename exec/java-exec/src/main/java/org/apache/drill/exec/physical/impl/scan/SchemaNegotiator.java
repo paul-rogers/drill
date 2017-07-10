@@ -72,6 +72,15 @@ public interface SchemaNegotiator {
   void setFilePath(Path filePath);
 
   /**
+   * Set the preferred batch size (which may be overridden by the
+   * result set loader in order to limit vector or batch size.)
+   *
+   * @param maxRecordsPerBatch preferred number of record per batch
+   */
+
+  void setBatchSize(int maxRecordsPerBatch);
+
+  /**
    * Build the schema, plan the required projections and static
    * columns and return a loader used to populate value vectors.
    * If the select list includes a subset of table columns, then
@@ -84,5 +93,6 @@ public interface SchemaNegotiator {
    */
 
   ResultSetLoader build();
-  // TODO: return a projection map as an array of booleans
+
+  boolean[] columnsArrayProjectionMap();
 }

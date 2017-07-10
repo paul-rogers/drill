@@ -38,6 +38,7 @@ import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.store.mock.MockSubScanPOP;
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.hadoop.fs.Path;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -113,6 +114,7 @@ public class ScanOperatorExec implements OperatorExec {
     private final ReaderState readerState;
     private MaterializedSchema tableSchema;
     private Path filePath;
+    private int batchSize = ValueVector.MAX_ROW_COUNT;
 
     private SchemaNegotiatorImpl(ReaderState readerState) {
       this.readerState = readerState;
@@ -141,6 +143,16 @@ public class ScanOperatorExec implements OperatorExec {
     @Override
     public void setTableSchema(MaterializedSchema schema) {
       tableSchema = schema;
+    }
+
+    @Override
+    public void setBatchSize(int maxRecordsPerBatch) {
+      batchSize = maxRecordsPerBatch;
+    }
+
+    @Override
+    public boolean[] columnsArrayProjectionMap() {
+      return readerState.scanOp.scanProjector.columnsArrayProjectionMap();
     }
   }
 
@@ -241,7 +253,8 @@ public class ScanOperatorExec implements OperatorExec {
 
       ScanProjector projector = scanOp.scanProjector;
       projector.startFile(schemaNegotiator.filePath);
-      tableLoader = projector.makeTableLoader(schemaNegotiator.tableSchema);
+      tableLoader = projector.makeTableLoader(schemaNegotiator.tableSchema,
+                                              schemaNegotiator.batchSize);
       return tableLoader;
     }
 

@@ -1272,7 +1272,7 @@ public class TestResultSetLoader extends SubOperatorTest {
   public void testSelection() {
     List<String> selection = Lists.newArrayList("c", "b");
     ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
-        .setSelection(selection)
+        .setProjection(selection)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     TupleLoader rootWriter = rsLoader.writer();

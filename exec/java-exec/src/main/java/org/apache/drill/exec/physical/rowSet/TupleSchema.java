@@ -41,11 +41,12 @@ public interface TupleSchema {
      * false if the column is unselected (data is discarded)
      */
 
-    boolean isSelected();
+    boolean isProjected();
     int vectorIndex();
   }
 
   int columnCount();
+  boolean hasProjection();
   int columnIndex(String colName);
   MaterializedField column(int colIndex);
   TupleColumnSchema metadata(int colIndex);

@@ -60,7 +60,7 @@ public class LogicalTupleLoader implements TupleLoader {
     public MaterializedField schema() { return schema; }
 
     @Override
-    public boolean isSelected() { return mapping != UNMAPPED; }
+    public boolean isProjected() { return mapping != UNMAPPED; }
 
     @Override
     public int vectorIndex() { return mapping; }
@@ -142,6 +142,9 @@ public class LogicalTupleLoader implements TupleLoader {
       }
       return schema;
     }
+
+    @Override
+    public boolean hasProjection() { return true; }
   }
 
   private final ResultSetLoaderImpl rsLoader;

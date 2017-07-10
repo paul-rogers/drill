@@ -53,9 +53,6 @@ final class TextInput {
   private final long startPos;
   private final long endPos;
 
-  private int bufferMark;
-  private long streamMark;
-
   private long streamPos;
 
   private final Seekable seekable;
@@ -161,11 +158,6 @@ final class TextInput {
 
   long getPos(){
     return streamPos + bufferPtr;
-  }
-
-  public void mark(){
-    streamMark = streamPos;
-    bufferMark = bufferPtr;
   }
 
   /**

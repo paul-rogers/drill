@@ -627,7 +627,7 @@ public class ScanLevelProjection {
 
   public List<FileMetadataColumnDefn> fileMetadataColDefns() { return fileMetadataColDefns; }
 
-  public boolean[] getColumnsIndexes() { return columnsIndexes; }
+  public boolean[] columnsArrayIndexes() { return columnsIndexes; }
 
   public String partitionName(int partition) {
     return partitionDesignator + partition;

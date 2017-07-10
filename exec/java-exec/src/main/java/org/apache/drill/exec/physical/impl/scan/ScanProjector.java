@@ -34,6 +34,7 @@ import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.OptionBuilder;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.hadoop.fs.Path;
 
 /**
@@ -370,12 +371,13 @@ public class ScanProjector {
 
   private abstract class TableSchemaDriver {
 
-    public ResultSetLoader makeTableLoader() {
+    public ResultSetLoader makeTableLoader(int batchSize) {
       if (projectionDefn.fileProjection() == null) {
         throw new IllegalStateException("Must start file before setting table schema");
       }
 
       ResultSetLoaderImpl.OptionBuilder options = new ResultSetLoaderImpl.OptionBuilder();
+      options.setRowCountLimit(batchSize);
       setupProjection(options);
       // Create the table loader
 
@@ -417,7 +419,7 @@ public class ScanProjector {
       if (! projectionDefn.scanProjection().isProjectAll()) {
         List<String> selection = projectionDefn.tableProjection().projectedTableColumns();
         if (selection.size() < tableSchema.size()) {
-          options.setSelection(selection);
+          options.setProjection(selection);
         }
       }
     }
@@ -465,7 +467,7 @@ public class ScanProjector {
       // can't optimize for the "selected all the columns" case.
 
       if (projectionDefn.scanProjection().projectType() == ProjectionType.LIST) {
-        options.setSelection(projectionDefn.scanProjection().tableColNames());
+        options.setProjection(projectionDefn.scanProjection().tableColNames());
       }
     }
 
@@ -547,11 +549,12 @@ public class ScanProjector {
   /**
    * Create a result set loader for the case in which the table schema is
    * known and is static (does not change between batches.)
+   * @param batchSize
    * @param tableSchemaType
    * @return the result set loader for this table
    */
 
-  public ResultSetLoader makeTableLoader(MaterializedSchema tableSchema) {
+  public ResultSetLoader makeTableLoader(MaterializedSchema tableSchema, int batchSize) {
 
     // Optional form for late schema: pass a null table schema.
 
@@ -561,7 +564,15 @@ public class ScanProjector {
       schemaDriver = new EarlySchemaDriver(tableSchema);
     }
 
-    return schemaDriver.makeTableLoader();
+    return schemaDriver.makeTableLoader(batchSize);
+  }
+
+  public ResultSetLoader makeTableLoader(MaterializedSchema tableSchema) {
+    return makeTableLoader(tableSchema, ValueVector.MAX_ROW_COUNT);
+  }
+
+  public boolean[] columnsArrayProjectionMap() {
+    return projectionDefn.scanProjection().columnsArrayIndexes();
   }
 
   /**

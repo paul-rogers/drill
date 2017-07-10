@@ -40,13 +40,13 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     public final int rowCountLimit;
     public final boolean caseSensitive;
     public final ResultVectorCache inventory;
-    private final Collection<String> selection;
+    private final Collection<String> projection;
 
     public ResultSetOptions() {
       vectorSizeLimit = ValueVector.MAX_BUFFER_SIZE;
       rowCountLimit = ValueVector.MAX_ROW_COUNT;
       caseSensitive = false;
-      selection = null;
+      projection = null;
       inventory = null;
     }
 
@@ -54,7 +54,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
       this.vectorSizeLimit = builder.vectorSizeLimit;
       this.rowCountLimit = builder.rowCountLimit;
       this.caseSensitive = builder.caseSensitive;
-      this.selection = builder.selection;
+      this.projection = builder.projection;
       this.inventory = builder.inventory;
     }
   }
@@ -63,7 +63,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     private int vectorSizeLimit;
     private int rowCountLimit;
     private boolean caseSensitive;
-    private Collection<String> selection;
+    private Collection<String> projection;
     private ResultVectorCache inventory;
 
     public OptionBuilder() {
@@ -83,8 +83,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
       return this;
     }
 
-    public OptionBuilder setSelection(Collection<String> selection) {
-      this.selection = selection;
+    public OptionBuilder setProjection(Collection<String> projection) {
+      this.projection = projection;
       return this;
     }
 
@@ -182,10 +182,10 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     this.options = options;
     writerIndex = new WriterIndexImpl(this, options.rowCountLimit);
     rootTuple = new TupleSetImpl(this);
-    if (options.selection == null) {
+    if (options.projection == null) {
       rootWriter = rootTuple.loader();
     } else {
-      rootWriter = new LogicalTupleLoader(this, rootTuple.loader(), options.selection);
+      rootWriter = new LogicalTupleLoader(this, rootTuple.loader(), options.projection);
     }
     if (options.inventory == null) {
       inventory = new ResultVectorCache(allocator);

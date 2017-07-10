@@ -31,7 +31,7 @@ public class TestHeaderBuilder extends DrillTest {
   @Test
   public void testEmptyHeader() {
     HeaderBuilder hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     try {
       hb.finishRecord();
     } catch (HeaderError e) {
@@ -39,7 +39,7 @@ public class TestHeaderBuilder extends DrillTest {
     }
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"");
     try {
       hb.finishRecord();
@@ -48,22 +48,22 @@ public class TestHeaderBuilder extends DrillTest {
     }
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"   ");
     validateHeader(hb, new String[] {"column_1"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,",");
     validateHeader(hb, new String[] {"column_1", "column_2"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb," , ");
     validateHeader(hb, new String[] {"column_1", "column_2"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"a,   ");
     validateHeader(hb, new String[] {"a", "column_2"});
   }
@@ -71,27 +71,27 @@ public class TestHeaderBuilder extends DrillTest {
   @Test
   public void testWhiteSpace() {
     HeaderBuilder hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"a");
     validateHeader(hb, new String[] {"a"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb," a ");
     validateHeader(hb, new String[] {"a"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"    a    ");
     validateHeader(hb, new String[] {"a"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"a,b,c");
     validateHeader(hb, new String[] {"a","b","c"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb," a , b ,  c ");
     validateHeader(hb, new String[] {"a","b","c"});
   }
@@ -99,57 +99,57 @@ public class TestHeaderBuilder extends DrillTest {
   @Test
   public void testSyntax() {
     HeaderBuilder hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"a_123");
     validateHeader(hb, new String[] {"a_123"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"a_123_");
     validateHeader(hb, new String[] {"a_123_"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"az09_");
     validateHeader(hb, new String[] {"az09_"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"+");
     validateHeader(hb, new String[] {"column_1"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"+,-");
     validateHeader(hb, new String[] {"column_1", "column_2"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"+9a");
     validateHeader(hb, new String[] {"col_9a"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"9a");
     validateHeader(hb, new String[] {"col_9a"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"a+b");
     validateHeader(hb, new String[] {"a_b"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"a_b");
     validateHeader(hb, new String[] {"a_b"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"EXPR$0");
     validateHeader(hb, new String[] {"EXPR_0"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"(_-^-_)");
     validateHeader(hb, new String[] {"col_______"});
   }
@@ -157,17 +157,17 @@ public class TestHeaderBuilder extends DrillTest {
   @Test
   public void testUnicode() {
     HeaderBuilder hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"Αθήνα");
     validateHeader(hb, new String[] {"Αθήνα"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"Москва");
     validateHeader(hb, new String[] {"Москва"});
 
     hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,"Paris,Αθήνα,Москва");
     validateHeader(hb, new String[] {"Paris","Αθήνα","Москва"});
   }
@@ -184,7 +184,7 @@ public class TestHeaderBuilder extends DrillTest {
 
   private void testParser(String input, String[] expected) {
     HeaderBuilder hb = new HeaderBuilder();
-    hb.startBatch();
+    hb.startRecord();
     parse(hb,input);
     hb.finishRecord();
     validateHeader(hb, expected);

@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.store.easy.text.compliant;
 
-import org.apache.drill.exec.store.easy.text.compliant.ex.TextOutputEx;
 
 /**
  * Base class for producing output record batches while dealing with
@@ -25,7 +24,27 @@ import org.apache.drill.exec.store.easy.text.compliant.ex.TextOutputEx;
  * the corresponding value vectors (record batch).
  */
 
-abstract class TextOutput implements TextOutputEx {
+abstract class TextOutput {
+
+  public abstract void startRecord();
+
+  /**
+   * Start processing a new field within a record.
+   * @param index  index within the record
+   */
+  public abstract void startField(int index);
+
+  /**
+   * End processing a field within a record.
+   * @return  true if engine should continue processing record.  false if rest of record can be skipped.
+   */
+  public abstract boolean endField();
+
+  /**
+   * Shortcut that lets the output know that we are closing ending a field with no data.
+   * @return true if engine should continue processing record.  false if rest of record can be skipped.
+   */
+  public abstract boolean endEmptyField();
 
   /**
    * Add the provided data but drop any whitespace.
@@ -39,20 +58,22 @@ abstract class TextOutput implements TextOutputEx {
     }
   }
 
-//  /**
-//   *  Return the total number of records (across batches) processed
-//   */
-//  public abstract long getRecordCount();
-//
-//  /**
-//   * Informs output to setup for new record batch.
-//   */
-//  public abstract void startBatch();
+  /**
+   * Appends a byte to the output character data buffer
+   * @param data  current byte read
+   */
+  public abstract void append(byte data);
 
-  public abstract void startRecord();
-//
-//  /**
-//   * Does any final cleanup that is required for closing a batch.  Example might include closing the last field.
-//   */
-//  public abstract void finishBatch();
+  /**
+   * Completes the processing of a given record. Also completes the processing of the
+   * last field being read.
+   */
+  public abstract void finishRecord();
+
+  /**
+   *  Return the total number of records (across batches) processed
+   */
+  public abstract long getRecordCount();
+
+  public abstract boolean isFull();
 }

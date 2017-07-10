@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.easy.text.compliant;
 
+@SuppressWarnings("serial")
 class StreamFinishedPseudoException extends RuntimeException {
 
   public static final StreamFinishedPseudoException INSTANCE = new StreamFinishedPseudoException();

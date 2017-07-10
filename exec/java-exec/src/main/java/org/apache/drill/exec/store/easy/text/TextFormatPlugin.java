@@ -36,7 +36,6 @@ import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.ExecProtos.FragmentHandle;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.server.DrillbitContext;
-import org.apache.drill.exec.store.RecordReader;
 import org.apache.drill.exec.store.RecordWriter;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.FileSelection;
@@ -44,15 +43,12 @@ import org.apache.drill.exec.store.dfs.FileSystemConfig;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
 import org.apache.drill.exec.store.dfs.easy.EasyGroupScan;
 import org.apache.drill.exec.store.dfs.easy.EasyWriter;
-import org.apache.drill.exec.store.dfs.easy.FileWork;
 import org.apache.drill.exec.store.easy.text.compliant.CompliantTextRecordReader;
 import org.apache.drill.exec.store.easy.text.compliant.TextParsingSettings;
 import org.apache.drill.exec.store.schedule.CompleteFileWork;
-import org.apache.drill.exec.store.text.DrillTextRecordReader;
 import org.apache.drill.exec.store.text.DrillTextRecordWriter;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileSplit;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -97,7 +93,7 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
   public RowBatchReader makeBatchReader(DrillFileSystem dfs, FileSplit split) throws ExecutionSetupException {
     TextParsingSettings settings = new TextParsingSettings();
     settings.set((TextFormatConfig) formatConfig);
-    return new CompliantTextRecordReader(split, dfs, context, settings, columns);
+    return new CompliantTextRecordReader(split, dfs, settings);
   }
 
   @Override

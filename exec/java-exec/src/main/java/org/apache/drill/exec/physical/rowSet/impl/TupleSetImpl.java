@@ -369,7 +369,7 @@ public class TupleSetImpl implements TupleSchema {
     public MaterializedField schema() { return schema; }
 
     @Override
-    public boolean isSelected() { return true; }
+    public boolean isProjected() { return true; }
 
     @Override
     public int vectorIndex() { return index; }
@@ -551,4 +551,7 @@ public class TupleSetImpl implements TupleSchema {
     }
     return schema;
   }
+
+  @Override
+  public boolean hasProjection() { return false; }
 }

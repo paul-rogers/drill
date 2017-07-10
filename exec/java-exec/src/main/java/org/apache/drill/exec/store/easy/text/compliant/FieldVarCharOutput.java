@@ -17,56 +17,19 @@
  */
 package org.apache.drill.exec.store.easy.text.compliant;
 
-import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.types.TypeProtos;
-import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.exception.SchemaChangeException;
-import org.apache.drill.exec.physical.impl.OutputMutator;
 import org.apache.drill.exec.physical.rowSet.ColumnLoader;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
-import org.apache.drill.exec.physical.rowSet.TupleLoader;
-import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.vector.VarCharVector;
-
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Arrays;
-import java.util.List;
+import org.apache.drill.exec.physical.rowSet.TupleSchema;
 
 /**
  * Class is responsible for generating record batches for text file inputs. We generate
  * a record batch with a set of varchar vectors. A varchar vector contains all the field
  * values for a given column. Each record is a single value within each vector of the set.
  */
-class FieldVarCharOutput extends TextOutput {
+class FieldVarCharOutput extends BaseFieldOutput {
 
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FieldVarCharOutput.class);
-//  public static final String COL_NAME = "columns";
-
-  // array of output vector
-//  private final VarCharVector [] vectors;
-  // boolean array indicating which fields are selected (if star query entire array is set to true)
-//  private final boolean[] selectedFields;
-  // current vector to which field will be added
-//  private VarCharVector currentVector;
-  // track which field is getting appended
-  private int currentFieldIndex = -1;
-  // track chars within field
-  private int currentDataPointer = 0;
-  // track if field is still getting appended
-  private boolean fieldOpen = true;
-  // holds chars for a field
-  private byte[] fieldBytes;
-
-//  private boolean collect = true;
-//  private boolean rowHasData= false;
-  private static final int MAX_FIELD_LENGTH = 1024 * 64;
-//  private int recordCount = 0;
-//  private int batchIndex = 0;
-  private int maxField = 0;
-  private final TupleLoader writer;
+  private final int maxField;
 
   /**
    * We initialize and add the varchar vector for each incoming field in this
@@ -77,87 +40,31 @@ class FieldVarCharOutput extends TextOutput {
    * @param isStarQuery  boolean to indicate if all fields are selected or not
    * @throws SchemaChangeException
    */
-  public FieldVarCharOutput(TupleLoader writer) throws SchemaChangeException {
-    this.writer = writer;
-    fieldBytes = new byte[MAX_FIELD_LENGTH];
-  }
+  public FieldVarCharOutput(ResultSetLoader loader) {
+    super(loader);
 
-  /**
-   * Start a new record record. Resets all pointers
-   */
-  @Override
-  public void startRecord() {
-//    this.recordCount = 0;
-//    this.batchIndex = 0;
-    this.currentFieldIndex = -1;
-//    this.collect = true;
-    this.fieldOpen = false;
-  }
-
-  @Override
-  public void startField(int index) {
-    currentFieldIndex = index;
-    currentDataPointer = 0;
-    fieldOpen = true;
-//    collect = selectedFields[index];
-//    currentVector = vectors[index];
-  }
-
-  @Override
-  public void append(byte data) {
-//    if (!collect) {
-//      return;
-//    }
-
-    if (currentDataPointer >= MAX_FIELD_LENGTH -1) {
-      throw UserException
-          .unsupportedError()
-          .message("Trying to write something big in a column")
-          .addContext("columnIndex", currentFieldIndex)
-          .addContext("Limit", MAX_FIELD_LENGTH)
-          .build(logger);
+    TupleSchema schema = writer.schema();
+    int end = schema.columnCount() - 1;
+    if (schema.hasProjection()) {
+      while (end >= 0 & schema.metadata(end).isProjected()) {
+        end--;
+      }
+      if (end == -1) {
+        throw new IllegalStateException("No columns selected");
+      }
     }
-
-    fieldBytes[currentDataPointer++] = data;
+    maxField = end;
   }
 
   @Override
   public boolean endField() {
-    fieldOpen = false;
+    super.endField();
 
     ColumnLoader colLoader = writer.column(currentFieldIndex);
     if (colLoader != null) {
       colLoader.setBytes(fieldBytes, currentDataPointer);
     }
-//    if(collect) {
-//      assert currentVector != null;
-//      currentVector.getMutator().setSafe(recordCount, fieldBytes, 0, currentDataPointer);
-//    }
-//
-//    if (currentDataPointer > 0) {
-//      this.rowHasData = true;
-//    }
 
     return currentFieldIndex < maxField;
-  }
-
-  @Override
-  public boolean endEmptyField() {
-    return endField();
-  }
-
-  @Override
-  public void finishRecord() {
-    if(fieldOpen){
-      endField();
-    }
-
-//    recordCount++;
-  }
-
-  @Override
-  public boolean rowHasData() {
-//    return this.rowHasData;
-    return this.currentFieldIndex > 0;
   }
 }

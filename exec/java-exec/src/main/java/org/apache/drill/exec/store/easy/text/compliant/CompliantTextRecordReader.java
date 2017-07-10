@@ -17,43 +17,26 @@
  */
 package org.apache.drill.exec.store.easy.text.compliant;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Maps;
-import com.univocity.parsers.common.TextParsingException;
-import io.netty.buffer.DrillBuf;
-
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.List;
-import java.util.Map;
-
-import javax.annotation.Nullable;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.exception.SchemaChangeException;
-import org.apache.drill.exec.ops.FragmentContext;
-import org.apache.drill.exec.ops.OperatorContext;
-import org.apache.drill.exec.physical.impl.OutputMutator;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.impl.scan.MaterializedSchema;
 import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
 import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.store.AbstractRecordReader;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
-import org.apache.drill.exec.util.CallBack;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.hadoop.mapred.FileSplit;
 
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterables;
-import org.apache.drill.exec.expr.TypeHelper;
+import com.univocity.parsers.common.TextParsingException;
+
+import io.netty.buffer.DrillBuf;
 
 // New text reader, complies with the RFC 4180 standard for text/csv files
 public class CompliantTextRecordReader implements RowBatchReader {
@@ -91,6 +74,7 @@ public class CompliantTextRecordReader implements RowBatchReader {
    * @param outputMutator  Used to create the schema in the output record batch
    * @throws ExecutionSetupException
    */
+  @SuppressWarnings("resource")
   @Override
   public boolean open(SchemaNegotiator schemaNegotiator) {
     OperatorExecServices context = schemaNegotiator.context();
@@ -120,6 +104,8 @@ public class CompliantTextRecordReader implements RowBatchReader {
       if (settings.isHeaderExtractionEnabled()){
         //extract header and use that to setup a set of VarCharVectors
         String [] fieldNames = extractHeader();
+        if (fieldNames == null)
+          return false;
         MaterializedSchema schema = new MaterializedSchema();
         for (String colName : fieldNames) {
           schema.add(MaterializedField.create(colName,
@@ -130,7 +116,7 @@ public class CompliantTextRecordReader implements RowBatchReader {
         }
         schemaNegotiator.setTableSchema(schema);
         loader = schemaNegotiator.build();
-        output = new FieldVarCharOutput(loader.writer());
+        output = new FieldVarCharOutput(loader);
       } else {
         //simply use RepeatedVarCharVector
         MaterializedSchema schema = new MaterializedSchema();
@@ -140,7 +126,7 @@ public class CompliantTextRecordReader implements RowBatchReader {
               .setMode(DataMode.REPEATED)
               .build()));
         loader = schemaNegotiator.build();
-        output = new RepeatedVarCharOutput(loader.writer());
+        output = new RepeatedVarCharOutput(loader, schemaNegotiator.columnsArrayProjectionMap());
       }
 
       // setup Input using InputStream
@@ -151,9 +137,9 @@ public class CompliantTextRecordReader implements RowBatchReader {
       reader = new TextReader(settings, input, output, whitespaceBuffer);
       reader.start();
 
-    } catch (SchemaChangeException | IOException e) {
-      throw new ExecutionSetupException(String.format("Failure while setting up text reader for file %s", split.getPath()), e);
-    } catch (IllegalArgumentException e) {
+      return true;
+
+    } catch (IOException e) {
       throw UserException.dataReadError(e).addContext("File Path", split.getPath().toString()).build(logger);
     }
   }
@@ -165,7 +151,7 @@ public class CompliantTextRecordReader implements RowBatchReader {
    * @return field name strings
    */
   @SuppressWarnings("resource")
-  private String [] extractHeader() throws SchemaChangeException, IOException, ExecutionSetupException{
+  private String [] extractHeader() throws IOException {
     assert settings.isHeaderExtractionEnabled();
 
     // don't skip header in case skipFirstLine is set true
