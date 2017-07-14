@@ -27,7 +27,7 @@ public class AccessorUtilities {
 
   private AccessorUtilities() { }
 
-  public static void setFromInt(ColumnWriter writer, int value) throws VectorOverflowException {
+  public static void setFromInt(ScalarWriter writer, int value) throws VectorOverflowException {
     switch (writer.valueType()) {
     case BYTES:
       final byte byteVal[] = Integer.toHexString(value).getBytes();

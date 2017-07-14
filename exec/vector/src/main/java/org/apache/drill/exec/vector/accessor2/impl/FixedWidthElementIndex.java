@@ -17,30 +17,40 @@
  */
 package org.apache.drill.exec.vector.accessor2.impl;
 
-import org.apache.drill.exec.vector.complex.RepeatedMapVector;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 
-public class RepeatedMapWriterImpl extends AbstractObjectWriter {
+/**
+ * Index into the vector of elements for a repeated vector.
+ * Keeps track of the current offset in terms of value positions.
+ * Forwards overflow events to the base index.
+ */
 
-  private class MapWriterImpl extends AbstractTupleWriter {
+public class FixedWidthElementIndex implements ColumnWriterIndex {
 
+  private final ColumnWriterIndex baseIndex;
+  private int startOffset = 0;
+  private int offset = 0;
+
+  public FixedWidthElementIndex(ColumnWriterIndex baseIndex) {
+    this.baseIndex = baseIndex;
   }
 
-  public RepeatedMapWriterImpl(ExtendableRowIndex rowIndex,
-      RepeatedMapVector vector) {
-    MapWriterImpl mapWriter = new MapWriterImpl(sth, vector);
-    MapObjectWriter mapObjWriter = new MapObjectWriter(mapWriter);
-    arrayWriter = new ArrayObjectWriter(rowIndex, mapObjWriter);
+  public void reset() {
+    offset = 0;
+    startOffset = 0;
   }
 
   @Override
-  public ObjectType type() {
-    return ObjectType.ARRAY;
-  }
+  public int vectorIndex() { return offset; }
 
   @Override
-  public void set(Object value) {
-    // TODO Auto-generated method stub
-
+  public void overflowed() {
+    baseIndex.overflowed();
   }
 
+  public int arraySize() {
+    return offset - startOffset;
+  }
+
+  public void next() { offset++; }
 }

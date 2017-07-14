@@ -18,7 +18,8 @@
 package org.apache.drill.test.rowSet;
 
 import org.apache.drill.exec.vector.VectorOverflowException;
-import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.accessor2.TupleWriter;
+import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 
 /**
  * Interface for writing values to a row set. Only available
@@ -72,18 +73,36 @@ public interface RowSetWriter extends TupleWriter {
 
   /**
    * Indicates if the current row position is valid for
-   * writing. Will be true on the first row, and all subsequent
+   * writing. Will be false on the first row, and all subsequent
    * rows until either the maximum number of rows are written,
-   * or a vector overflows. After that, will return false. The
-   * method returns false as soon as any column writer returns
-   * false, even in the middle of a row write.
+   * or a vector overflows. After that, will return true. The
+   * method returns false as soon as any column writer overflows
+   * even in the middle of a row write. That is, this writer
+   * does not automatically handle overflow rows because that
+   * added complexity is seldom needed for tests.
    *
    * @return true if the current row can be written, false
    * if not
    */
 
-  boolean valid();
+  boolean isFull();
   int rowIndex();
-  void save();
-  void done();
+
+  /**
+   * Saves the current row and moves to the next row.
+   * Done automatically if using <tt>setRow()</tt>.
+   * @return true if another row can be added (based on row count),
+   * false if the row count limit is reached
+   */
+
+  boolean save();
+
+  /**
+   * Finish writing and finalize the row set being
+   * written.
+   * @return the completed, read-only row set without a
+   * selection vector
+   */
+
+  SingleRowSet done();
 }

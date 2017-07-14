@@ -19,6 +19,8 @@ package org.apache.drill.exec.vector.accessor2;
 
 import java.util.List;
 
+import org.apache.drill.exec.vector.VectorOverflowException;
+
 public interface ArrayWriter {
   int size();
   void next();
@@ -30,7 +32,7 @@ public interface ArrayWriter {
 //    TupleWriter tuple();
 //    ArrayWriter array();
 
-  void set(Object ...values);
-  void setArray(Object array);
-  void setList(List<? extends Object> list);
+  void set(Object ...values) throws VectorOverflowException;
+  void setArray(Object array) throws VectorOverflowException;
+//  void setList(List<? extends Object> list);
 }

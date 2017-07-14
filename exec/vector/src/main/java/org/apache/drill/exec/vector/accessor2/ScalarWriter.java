@@ -19,17 +19,18 @@ package org.apache.drill.exec.vector.accessor2;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ColumnAccessor;
 import org.joda.time.Period;
 
 public interface ScalarWriter extends ColumnAccessor {
-  void setNull();
-  void setInt(int value);
-  void setLong(long value);
-  void setDouble(double value);
-  void setString(String value);
-  void setBytes(byte[] value);
-  void setDecimal(BigDecimal value);
-  void setPeriod(Period value);
-  void setObject(Object value);
+  void setNull() throws VectorOverflowException;
+  void setInt(int value) throws VectorOverflowException;
+  void setLong(long value) throws VectorOverflowException;
+  void setDouble(double value) throws VectorOverflowException;
+  void setString(String value) throws VectorOverflowException;
+  void setBytes(byte[] value, int len) throws VectorOverflowException;
+  void setDecimal(BigDecimal value) throws VectorOverflowException;
+  void setPeriod(Period value) throws VectorOverflowException;
+  void setObject(Object value) throws VectorOverflowException;
 }

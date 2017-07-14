@@ -17,6 +17,8 @@
  */
 package org.apache.drill.test.rowSet;
 
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
@@ -26,10 +28,20 @@ import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnWriter;
 import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
+import org.apache.drill.exec.vector.accessor2.impl.AbstractArrayWriterImpl.ArrayObjectWriter;
+import org.apache.drill.exec.vector.accessor2.impl.AbstractObjectWriter;
+import org.apache.drill.exec.vector.accessor2.impl.AbstractScalarWriter.ScalarObjectWriter;
+import org.apache.drill.exec.vector.accessor2.impl.BaseScalarWriter;
+import org.apache.drill.exec.vector.accessor2.impl.RepeatedMapWriterImpl;
+import org.apache.drill.exec.vector.accessor2.impl.ScalarArrayWriterImpl;
+import org.apache.drill.exec.vector.complex.RepeatedMapVector;
+import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
+import org.apache.drill.test.rowSet.RowSetWriterImpl.WriterIndexImpl;
 
 /**
  * Implementation of a single row set with no indirection (selection)
@@ -85,12 +97,6 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
   }
 
   @Override
-  public void setRowCount(int rowCount) {
-    container.setRecordCount(rowCount);
-    VectorAccessibleUtilities.setValueCount(container, rowCount);
-  }
-
-  @Override
   public RowSetWriter writer() {
     return writer(10);
   }
@@ -101,15 +107,21 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
       throw new IllegalStateException("Row set already contains data");
     }
     allocate(initialRowCount);
-    RowSetWriterImpl.WriterIndexImpl rowIndex = new RowSetWriterImpl.WriterIndexImpl();
+    return buildWriter(new WriterIndexImpl());
+  }
 
-    //Build writer objects for each column based on the column type.
+  /**
+   * Build writer objects for each column based on the column type.
+   *
+   * @param rowIndex the index which points to each row
+   * @return an array of writers
+   */
 
+  protected RowSetWriter buildWriter(WriterIndexImpl rowIndex) {
     ValueVector[] valueVectors = vectors();
-    AbstractColumnWriter[] writers = new AbstractColumnWriter[valueVectors.length];
+    AbstractObjectWriter[] writers = new AbstractObjectWriter[valueVectors.length];
     for (int i = 0; i < writers.length; i++) {
-      writers[i] = ColumnAccessorFactory.newWriter(valueVectors[i].getField().getType());
-      writers[i].bind(rowIndex, valueVectors[i]);
+      writers[i] = ColumnAccessorFactory.buildColumnWriter(rowIndex, valueVectors[i]);
     }
     TupleSchema accessSchema = schema().hierarchicalAccess();
     return new RowSetWriterImpl(this, accessSchema, rowIndex, writers);

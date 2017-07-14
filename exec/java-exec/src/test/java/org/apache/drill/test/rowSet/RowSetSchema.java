@@ -20,6 +20,7 @@ package org.apache.drill.test.rowSet;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.impl.TupleNameSpace;
 import org.apache.drill.exec.record.BatchSchema;
@@ -47,6 +48,10 @@ import org.apache.drill.exec.record.MaterializedField;
 
 public class RowSetSchema {
 
+  public enum LogicalType {
+    PRIMITIVE, LIST, TUPLE
+  }
+
   /**
    * Logical description of a column. A logical column is a
    * materialized field. For maps, also includes a logical schema
@@ -58,6 +63,7 @@ public class RowSetSchema {
     protected final int accessIndex;
     protected int flatIndex;
     protected final MaterializedField field;
+    protected final LogicalType logicalType;
 
     /**
      * Schema of the map. Includes only those fields directly within
@@ -66,10 +72,26 @@ public class RowSetSchema {
 
     protected PhysicalSchema mapSchema;
 
+    protected LogicalColumn elementSchema;
+
     public LogicalColumn(String fullName, int accessIndex, MaterializedField field) {
       this.fullName = fullName;
       this.accessIndex = accessIndex;
       this.field = field;
+      switch (field.getType().getMinorType()) {
+      case LIST:
+        logicalType = LogicalType.LIST;
+        break;
+      case MAP:
+        if (field.getType().getMode() == DataMode.REPEATED) {
+          logicalType = LogicalType.LIST;
+        } else {
+          logicalType = LogicalType.TUPLE;
+        }
+        break;
+      default:
+        logicalType = LogicalType.PRIMITIVE;
+      }
     }
 
     private void updateStructure(int index, PhysicalSchema children) {
@@ -79,8 +101,10 @@ public class RowSetSchema {
 
     public int accessIndex() { return accessIndex; }
     public int flatIndex() { return flatIndex; }
-    public boolean isMap() { return mapSchema != null; }
+    public boolean isMap() { return logicalType == LogicalType.TUPLE; }
+    public boolean isList() { return logicalType == LogicalType.LIST; }
     public PhysicalSchema mapSchema() { return mapSchema; }
+    public LogicalColumn elementSchema() { return elementSchema; }
     public MaterializedField field() { return field; }
     public String fullName() { return fullName; }
   }
@@ -128,6 +152,25 @@ public class RowSetSchema {
    * columns. Holds only materialized vectors (non-maps). For completeness,
    * provides access to maps also via separate methods, but this is generally
    * of little use.
+   * <p>
+   * A special case occurs for lists and repeated maps. In this case, a single
+   * column cannot capture the repetition semantics. For these cases, the
+   * column here represents an array. The Array content is another array
+   * (for a list) of a column, or is a tuple.
+   * <p>
+   * Examples:
+   * <li>
+   * <li>Map: Flattened into the row schema; map columns appear as top-level
+   * columns.</li>
+   * <li>Int: Appears in the row schema.</li>
+   * <li>Int Array: Appears in the row schema because there is no ambiguity.
+   * <li>
+   * <li>List of maps: A list column appears in the top-schema and represents
+   * the list. The list content is a tuple representing the map. Map columns
+   * are available on the (nested) tuple.</li>
+   * <li>List of list of ints (AKA list of int arrays): The top-level field
+   * is a list, with the entry as an int array.</li>
+   * </ul>
    */
 
   public static class FlattenedSchema extends TupleSchemaImpl {

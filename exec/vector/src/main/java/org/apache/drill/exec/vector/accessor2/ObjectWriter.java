@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.vector.accessor2;
 
+import org.apache.drill.exec.vector.VectorOverflowException;
+
 public interface ObjectWriter {
   public enum ObjectType {
     SCALAR, TUPLE, ARRAY
@@ -26,5 +28,5 @@ public interface ObjectWriter {
   ScalarWriter scalar();
   TupleWriter tuple();
   ArrayWriter array();
-  void set(Object value);
+  void set(Object value) throws VectorOverflowException;
 }

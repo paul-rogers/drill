@@ -132,7 +132,6 @@ public interface RowSet {
 
   public interface ExtendableRowSet extends SingleRowSet {
     void allocate(int recordCount);
-    void setRowCount(int rowCount);
     RowSetWriter writer(int initialRowCount);
   }
 

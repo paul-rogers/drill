@@ -17,18 +17,20 @@
  */
 package org.apache.drill.exec.vector.accessor2.impl;
 
+import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
+import org.apache.drill.exec.vector.accessor2.ArrayWriter;
 import org.apache.drill.exec.vector.accessor2.ObjectWriter;
+import org.apache.drill.exec.vector.accessor2.ObjectWriter.ObjectType;
 import org.apache.drill.exec.vector.accessor2.ScalarWriter;
 import org.apache.drill.exec.vector.accessor2.TupleWriter;
-import org.apache.drill.exec.vector.accessor2.ObjectWriter.ObjectType;
 
 /**
  * Implementation for a writer for a tuple (a row or a map.) Provides access to each
  * column using either a name or a numeric index.
  */
 
-public abstract class AbstractTupleWriter implements TupleWriter {
+public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
   public static class TupleObjectWriter extends AbstractObjectWriter {
 
@@ -44,12 +46,28 @@ public abstract class AbstractTupleWriter implements TupleWriter {
     }
 
     @Override
-    public void set(Object value) {
+    public void set(Object value) throws VectorOverflowException {
       tupleWriter.setTuple(value);
     }
 
-    public void start() {
-      tupleWriter.start();
+    @Override
+    public void startWrite() {
+      tupleWriter.startWrite();
+    }
+
+    @Override
+    public void startRow() {
+      tupleWriter.startRow();
+    }
+
+    @Override
+    public void endRow() {
+      tupleWriter.endRow();
+    }
+
+    @Override
+    public void endWrite() throws VectorOverflowException {
+      tupleWriter.endWrite();
     }
 
     @Override
@@ -71,9 +89,31 @@ public abstract class AbstractTupleWriter implements TupleWriter {
     return schema;
   }
 
-  public void start() {
+  @Override
+  public void startWrite() {
     for (int i = 0; i < writers.length;  i++) {
-      writers[i].start();
+      writers[i].startWrite();
+    }
+  }
+
+  @Override
+  public void startRow() {
+    for (int i = 0; i < writers.length;  i++) {
+      writers[i].startRow();
+    }
+  }
+
+  @Override
+  public void endRow() {
+    for (int i = 0; i < writers.length;  i++) {
+      writers[i].endRow();
+    }
+  }
+
+  @Override
+  public void endWrite() throws VectorOverflowException {
+    for (int i = 0; i < writers.length;  i++) {
+      writers[i].endWrite();
     }
   }
 
@@ -91,7 +131,7 @@ public abstract class AbstractTupleWriter implements TupleWriter {
   }
 
   @Override
-  public void set(int colIndex, Object value) {
+  public void set(int colIndex, Object value) throws VectorOverflowException {
     ObjectWriter colWriter = column(colIndex);
     switch (colWriter.type()) {
     case ARRAY:
@@ -108,10 +148,50 @@ public abstract class AbstractTupleWriter implements TupleWriter {
     }
   }
 
-  public void setTuple(Object ...values) {
+  public void setTuple(Object ...values) throws VectorOverflowException {
     int count = Math.min(values.length, schema().count());
     for (int i = 0; i < count; i++) {
       set(i, values[i]);
     }
+  }
+
+  @Override
+  public ScalarWriter scalar(int colIndex) {
+    return column(colIndex).scalar();
+  }
+
+  @Override
+  public ScalarWriter scalar(String colName) {
+    return column(colName).scalar();
+  }
+
+  @Override
+  public TupleWriter tuple(int colIndex) {
+    return column(colIndex).tuple();
+  }
+
+  @Override
+  public TupleWriter tuple(String colName) {
+    return column(colName).tuple();
+  }
+
+  @Override
+  public ArrayWriter array(int colIndex) {
+    return column(colIndex).array();
+  }
+
+  @Override
+  public ArrayWriter array(String colName) {
+    return column(colName).array();
+  }
+
+  @Override
+  public ObjectType type(int colIndex) {
+    return column(colIndex).type();
+  }
+
+  @Override
+  public ObjectType type(String colName) {
+    return column(colName).type();
   }
 }

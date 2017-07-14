@@ -23,10 +23,10 @@ import java.util.List;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.MaterializedSchema;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.MaterializedSchema;
 
 /**
  * Builder of a row set schema expressed as a list of materialized
@@ -53,14 +53,22 @@ import org.apache.drill.exec.record.MaterializedField;
 
 public class SchemaBuilder {
 
+  /**
+   * Build a column schema (AKA "materialized field") based on name and a
+   * variety of schema options. Every column needs a name and (minor) type,
+   * some may need a mode other than required, may need a width, may
+   * need scale and precision, and so on.
+   */
+
   public static class ColumnBuilder {
-    private String name;
-    private MajorType.Builder typeBuilder;
+    private final String name;
+    private final MajorType.Builder typeBuilder;
 
     public ColumnBuilder(String name, MinorType type) {
       this.name = name;
       typeBuilder = MajorType.newBuilder()
-          .setMinorType(type);
+          .setMinorType(type)
+          .setMode(DataMode.REQUIRED);
     }
 
     public ColumnBuilder setMode(DataMode mode) {
@@ -69,8 +77,7 @@ public class SchemaBuilder {
     }
 
     public ColumnBuilder setWidth(int width) {
-//      typeBuilder.setWidth(width); // Legacy
-      typeBuilder.setPrecision(width); // Since DRILL-5419
+      typeBuilder.setPrecision(width);
       return this;
     }
 
@@ -93,10 +100,14 @@ public class SchemaBuilder {
   public static class MapBuilder extends SchemaBuilder {
     private final SchemaBuilder parent;
     private final String memberName;
+    private final DataMode mode;
 
-    public MapBuilder(SchemaBuilder parent, String memberName) {
+    public MapBuilder(SchemaBuilder parent, String memberName, DataMode mode) {
       this.parent = parent;
       this.memberName = memberName;
+      // Optional maps not supported in Drill
+      assert mode != DataMode.OPTIONAL;
+      this.mode = mode;
     }
 
     @Override
@@ -106,26 +117,33 @@ public class SchemaBuilder {
 
     @Override
     public SchemaBuilder buildMap() {
-      MaterializedField col = MaterializedField.create(memberName,
-          MajorType.newBuilder()
-            .setMinorType(MinorType.MAP)
-            .setMode(DataMode.REQUIRED)
-            .build());
+      MaterializedField col = columnSchema(memberName, MinorType.MAP, mode);
       for (MaterializedField childCol : columns) {
         col.addChild(childCol);
       }
       parent.finishMap(col);
       return parent;
     }
+
+    @Override
+    public SchemaBuilder withSVMode(SelectionVectorMode svMode) {
+      throw new IllegalStateException("Cannot set SVMode for a nested schema");
+    }
   }
 
   protected List<MaterializedField> columns = new ArrayList<>( );
+  private SelectionVectorMode svMode = SelectionVectorMode.NONE;
 
   public SchemaBuilder() { }
 
+  /**
+   * Create a new schema starting with the base schema. Allows appending
+   * additional columns to an additional schema.
+   */
+
   public SchemaBuilder(BatchSchema baseSchema) {
     for (MaterializedField field : baseSchema) {
-      columns.add(field);
+      add(field);
     }
   }
 
@@ -137,6 +155,12 @@ public class SchemaBuilder {
     columns.add(col);
     return this;
   }
+
+  /**
+   * Create a column schema using the "basic three" properties of name, type and
+   * cardinality (AKA "data mode.") Use the {@link ColumnBuilder} for to set
+   * other schema attributes.
+   */
 
   public static MaterializedField columnSchema(String pathName, MinorType type, DataMode mode) {
     return MaterializedField.create(pathName,
@@ -188,11 +212,20 @@ public class SchemaBuilder {
    */
 
   public MapBuilder addMap(String pathName) {
-    return new MapBuilder(this, pathName);
+    return new MapBuilder(this, pathName, DataMode.REQUIRED);
+  }
+
+  public MapBuilder addMapArray(String pathName) {
+    return new MapBuilder(this, pathName, DataMode.REPEATED);
+  }
+
+  public SchemaBuilder withSVMode(SelectionVectorMode svMode) {
+    this.svMode = svMode;
+    return this;
   }
 
   public BatchSchema build() {
-    return new BatchSchema(SelectionVectorMode.NONE, columns);
+    return new BatchSchema(svMode, columns);
   }
 
   void finishMap(MaterializedField map) {

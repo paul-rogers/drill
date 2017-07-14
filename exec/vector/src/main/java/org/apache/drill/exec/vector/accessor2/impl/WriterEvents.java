@@ -15,13 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor2;
+package org.apache.drill.exec.vector.accessor2.impl;
 
-import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.vector.VectorOverflowException;
 
-public class Exp3 {
-
-//  ResultSetWriter newWriter( ) { return null; }
-
-  void ex
+public interface WriterEvents {
+  void startWrite();
+  void startRow();
+  void endRow();
+  // TODO: This seems odd, remove exceptions here?
+  void endWrite() throws VectorOverflowException;
 }

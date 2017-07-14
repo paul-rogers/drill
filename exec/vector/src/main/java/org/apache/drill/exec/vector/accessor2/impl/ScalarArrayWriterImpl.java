@@ -19,22 +19,45 @@ package org.apache.drill.exec.vector.accessor2.impl;
 
 import java.math.BigDecimal;
 
-import org.apache.drill.exec.vector.accessor2.ArrayWriter;
-import org.apache.drill.exec.vector.accessor2.Exp3;
-import org.apache.drill.exec.vector.accessor2.ScalarWriter;
+import org.apache.drill.exec.vector.VectorOverflowException;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
+import org.apache.drill.exec.vector.accessor2.impl.AbstractScalarWriter.ScalarObjectWriter;
+import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 import org.joda.time.Period;
 
-public abstract class AbstractArrayWriter implements ArrayWriter {
+/**
+ * Writer for a column that holds an array of scalars. This writer manages
+ * the array itself. A type-specific child writer manages the elements within
+ * the array. The overall row index (usually) provides the index into
+ * the offset vector. An array-specific element index provides the index
+ * into elements.
+ * <p>
+ * This class manages the offset vector directly. Doing so saves one read and
+ * one write to direct memory per element value.
+ * <p>
+ * Provides generic write methods for testing and other times when
+ * convenience is more important than speed.
+ */
+
+public class ScalarArrayWriterImpl extends AbstractArrayWriterImpl {
+
+  private final BaseScalarWriter elementWriter;
+
+  public ScalarArrayWriterImpl(ColumnWriterIndex baseIndex, RepeatedValueVector vector, BaseScalarWriter elementWriter) {
+    super(baseIndex, vector, new ScalarObjectWriter(elementWriter));
+    this.elementWriter = elementWriter;
+    elementWriter.bind(elementIndex(), vector);
+  }
 
   @Override
-  public void set(Object... values) {
+  public void set(Object... values) throws VectorOverflowException {
     for (Object value : values) {
       entry().set(value);
     }
   }
 
   @Override
-  public void setArray(Object array) {
+  public void setArray(Object array) throws VectorOverflowException {
   if (array == null) {
       // Assume null means a 0-element array since Drill does
       // not support null for the whole array.
@@ -95,73 +118,63 @@ public abstract class AbstractArrayWriter implements ArrayWriter {
     }
   }
 
-  public void setBooleanArray(boolean[] value) {
-    ScalarWriter scalarWriter = entry().scalar();
+  public void setBooleanArray(boolean[] value) throws VectorOverflowException {
     for (int i = 0; i < value.length; i++) {
-      scalarWriter.setInt(value[i] ? 1 : 0);
+      elementWriter.setInt(value[i] ? 1 : 0);
     }
   }
 
-  public void setByteArray(byte[] value) {
-    ScalarWriter scalarWriter = entry().scalar();
+  public void setByteArray(byte[] value) throws VectorOverflowException {
     for (int i = 0; i < value.length; i++) {
-      scalarWriter.setInt(value[i]);
+      elementWriter.setInt(value[i]);
     }
   }
 
-  public void setShortArray(short[] value) {
-    ScalarWriter scalarWriter = entry().scalar();
+  public void setShortArray(short[] value) throws VectorOverflowException {
     for (int i = 0; i < value.length; i++) {
-      scalarWriter.setInt(value[i]);
+      elementWriter.setInt(value[i]);
     }
   }
 
-  public void setIntArray(int[] value) {
-    ScalarWriter scalarWriter = entry().scalar();
+  public void setIntArray(int[] value) throws VectorOverflowException {
     for (int i = 0; i < value.length; i++) {
-      scalarWriter.setInt(value[i]);
+      elementWriter.setInt(value[i]);
     }
   }
 
-  public void setLongArray(long[] value) {
-    ScalarWriter scalarWriter = entry().scalar();
+  public void setLongArray(long[] value) throws VectorOverflowException {
     for (int i = 0; i < value.length; i++) {
-      scalarWriter.setLong(value[i]);
+      elementWriter.setLong(value[i]);
     }
   }
 
-  public void setFloatArray(float[] value) {
-    ScalarWriter scalarWriter = entry().scalar();
+  public void setFloatArray(float[] value) throws VectorOverflowException {
     for (int i = 0; i < value.length; i++) {
-      scalarWriter.setDouble(value[i]);
+      elementWriter.setDouble(value[i]);
     }
   }
 
-  public void setDoubleArray(double[] value) {
-    ScalarWriter scalarWriter = entry().scalar();
+  public void setDoubleArray(double[] value) throws VectorOverflowException {
     for (int i = 0; i < value.length; i++) {
-      scalarWriter.setDouble(value[i]);
+      elementWriter.setDouble(value[i]);
     }
   }
 
-  public void setStringArray(String[] value) {
-    ScalarWriter scalarWriter = entry().scalar();
+  public void setStringArray(String[] value) throws VectorOverflowException {
     for (int i = 0; i < value.length; i++) {
-      scalarWriter.setString(value[i]);
+      elementWriter.setString(value[i]);
     }
   }
 
-  public void setPeriodArray(Period[] value) {
-    ScalarWriter scalarWriter = entry().scalar();
+  public void setPeriodArray(Period[] value) throws VectorOverflowException {
     for (int i = 0; i < value.length; i++) {
-      scalarWriter.setPeriod(value[i]);
+      elementWriter.setPeriod(value[i]);
     }
   }
 
-  public void setBigDecimalArray(BigDecimal[] value) {
-    ScalarWriter scalarWriter = entry().scalar();
+  public void setBigDecimalArray(BigDecimal[] value) throws VectorOverflowException {
     for (int i = 0; i < value.length; i++) {
-      scalarWriter.setDecimal(value[i]);
+      elementWriter.setDecimal(value[i]);
     }
   }
 }

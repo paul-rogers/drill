@@ -18,7 +18,8 @@
 package org.apache.drill.exec.vector.accessor2.impl;
 
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.impl.AbstractColumnAccessor.RowIndex;
+import org.apache.drill.exec.vector.VectorOverflowException;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 
 /**
  * Column writer implementation that acts as the basis for the
@@ -29,11 +30,24 @@ import org.apache.drill.exec.vector.accessor.impl.AbstractColumnAccessor.RowInde
 
 public abstract class BaseScalarWriter extends AbstractScalarWriter {
 
-  protected RowIndex vectorIndex;
+  protected ColumnWriterIndex vectorIndex;
+  protected int lastWriteIndex;
 
-  protected void bind(RowIndex rowIndex) {
-    this.vectorIndex = rowIndex;
+  protected void bind(ColumnWriterIndex vectorIndex) {
+    this.vectorIndex = vectorIndex;
   }
 
-  public abstract void bind(RowIndex rowIndex, ValueVector vector);
+  public abstract void bind(ColumnWriterIndex rowIndex, ValueVector vector);
+
+  @Override
+  public void startWrite() { lastWriteIndex = -1; }
+
+  @Override
+  public void startRow() { }
+
+  @Override
+  public void endRow() { }
+
+  @Override
+  public void endWrite() throws VectorOverflowException { }
 }

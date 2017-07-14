@@ -19,10 +19,11 @@ package org.apache.drill.exec.vector.accessor2.impl;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor2.ScalarWriter;
 import org.joda.time.Period;
 
-public abstract class AbstractScalarWriter implements ScalarWriter {
+public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents {
 
   public static class ScalarObjectWriter extends AbstractObjectWriter {
 
@@ -38,24 +39,42 @@ public abstract class AbstractScalarWriter implements ScalarWriter {
     }
 
     @Override
-    public void set(Object value) {
+    public void set(Object value) throws VectorOverflowException {
       scalarWriter.setObject(value);
     }
 
     public void start() {
-      scalarWriter.start();
+      scalarWriter.startWrite();
     }
 
     @Override
     public ScalarWriter scalar() {
       return scalarWriter;
     }
+
+    @Override
+    public void startWrite() {
+      scalarWriter.startWrite();
+    }
+
+    @Override
+    public void startRow() {
+      scalarWriter.startRow();
+    }
+
+    @Override
+    public void endRow() {
+      scalarWriter.endRow();
+    }
+
+    @Override
+    public void endWrite() throws VectorOverflowException {
+      scalarWriter.endWrite();
+    }
   }
 
-  public void start() { }
-
   @Override
-  public void setObject(Object value) {
+  public void setObject(Object value) throws VectorOverflowException {
     if (value == null) {
       setNull();
     } else if (value instanceof Integer) {
@@ -69,7 +88,8 @@ public abstract class AbstractScalarWriter implements ScalarWriter {
     } else if (value instanceof Period) {
       setPeriod((Period) value);
     } else if (value instanceof byte[]) {
-      setBytes((byte[]) value);
+      byte[] bytes = (byte[]) value;
+      setBytes(bytes, bytes.length);
     } else if (value instanceof Byte) {
       setInt((Byte) value);
     } else if (value instanceof Short) {
@@ -85,42 +105,42 @@ public abstract class AbstractScalarWriter implements ScalarWriter {
   }
 
   @Override
-  public void setNull() {
+  public void setNull() throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void setInt(int value) {
+  public void setInt(int value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void setLong(long value) {
+  public void setLong(long value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void setDouble(double value) {
+  public void setDouble(double value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void setString(String value) {
+  public void setString(String value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void setBytes(byte[] value) {
+  public void setBytes(byte[] value, int len) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void setDecimal(BigDecimal value) {
+  public void setDecimal(BigDecimal value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void setPeriod(Period value) {
+  public void setPeriod(Period value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
 }

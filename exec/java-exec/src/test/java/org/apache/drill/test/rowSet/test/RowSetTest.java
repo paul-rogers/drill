@@ -35,6 +35,9 @@ import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
+import org.apache.drill.exec.vector.accessor2.ResultSetWriter;
+import org.apache.drill.exec.vector.accessor2.ScalarWriter;
+import org.apache.drill.exec.vector.accessor2.TupleWriter;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -190,6 +193,153 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(1, eSchema.count());
     assertEquals("f", eSchema.column(0).field().getName());
     assertEquals("a.e.f", eSchema.column(0).fullName());
+  }
+
+  /**
+   * Test basic protocol of the writers: <pre><code>
+   * row : tuple
+   * tuple : column *
+   * column : scalar obj | array obj | tuple obj
+   * scalar obj : scalar
+   * arary obj : array writer
+   * array writer : element
+   * element : column
+   * tuple obj : tuple
+   * @throws VectorOverflowException
+   *
+   */
+  @Test
+  public void testScalarStructure() throws VectorOverflowException {
+    BatchSchema schema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .build();
+    ExtendableRowSet rowSet = fixture.rowSet(schema);
+    RowSetWriter writer = rowSet.writer();
+
+    // Required Int
+
+    writer.column("a").scalar().setInt(10);
+    writer.save();
+    writer.scalar("a").setInt(20);
+    writer.save();
+    writer.column(0).scalar().setInt(30);
+    writer.save();
+    writer.scalar(0).setInt(40);
+    writer.save();
+
+    // Sanity checks
+
+    try {
+      writer.column(0).array();
+      fail();
+    } catch (UnsupportedOperationException e) {
+      // Expected
+    }
+    try {
+      writer.column(0).tuple();
+      fail();
+    } catch (UnsupportedOperationException e) {
+      // Expected
+    }
+
+    SingleRowSet actual = writer.done();
+
+    RowSetReader reader = actual.reader();
+    assertTrue(reader.next());
+    assertEquals(10, reader.column(0).getInt());
+    assertTrue(reader.next());
+    assertEquals(20, reader.column(0).getInt());
+    assertTrue(reader.next());
+    assertEquals(30, reader.column(0).getInt());
+    assertTrue(reader.next());
+    assertEquals(40, reader.column(0).getInt());
+    assertFalse(reader.next());
+
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
+        .add(10)
+        .add(20)
+        .add(30)
+        .add(40)
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(actual);
+  }
+
+  @Test
+  public void testStructure() {
+    BatchSchema schema = new SchemaBuilder()
+        .add("scalar", MinorType.INT)
+        .addArray("array", MinorType.INT)
+        .addMap("map")
+          .add("c1", MinorType.INT)
+          .addArray("c2", MinorType.INT)
+          .buildMap()
+        .addMapArray("mapList")
+          .add("d1", MinorType.INT)
+          .addArray("d2", MinorType.INT)
+          .buildMap()
+        .build();
+
+    ExtendableRowSet rowSet = fixture.rowSet(schema);
+    RowSetWriter resultWriter = rowSet.writer();
+
+    ArrayWriter batchWriter = resultWriter.rows();
+    batchWriter.next();
+
+    TupleWriter rowWriter = batchWriter.tuple();
+
+    // Required Int
+
+    rowWriter.scalar("scalar").setInt(10);
+
+    // Repeated Int
+
+    ArrayWriter arrayWriter = rowWriter.column("array").array();
+    ScalarWriter bValue = arrayWriter.element().scalar();
+    bArray.next(); // Optional
+    bValue.setInt(10);
+    bArray.save(); // Optional
+    bArray.next(); // Optional
+    bValue.setInt(20);
+    bArray.save(); // Optional
+
+    // Repeated int, abbreviated
+
+    bValue = rowWriter.array("b").scalar();
+    bValue.setInt(30);
+    bValue.setInt(40);
+
+    // Map
+
+    TupleWriter mapWriter = rowWriter.column("map").map();
+    mapWriter.column("c1").scalar().setInt(100);
+    mapWriter.column("c2").array().setArray(new int[] {100, 200});
+
+    // Repeated map
+
+    ArrayWriter mapListWriter = rowWriter.column("d").array();
+    TupleWriter mapElementWriter = mapListWriter.element().tuple();
+    mapListWriter.next();
+    mapElementWriter.column("d1").scalar().setInt(300);
+    mapElementWriter.column("d1").array().setArray(new int[] {111, 211});
+    mapListWriter.next();
+    mapElementWriter.column("d1").scalar().setInt(400);
+    mapElementWriter.column("d1").array().setArray(new int[] {121, 221});
+
+    // List of repeated map
+
+    ArrayWriter eOuter = rowWriter.array("e");
+    ArrayWriter eInner = eOuter.array();
+    TupleWriter eMap = eInner.tuple();
+    eOuter.next();
+    eInner.next();
+    eMap.scalar("e1").setInt(400);
+
+
+    batchWriter.save();
+
+    resultWriter.done();
+    // Get row set, or whatever
   }
 
   /**

@@ -20,9 +20,11 @@ package org.apache.drill.test.rowSet;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
-import org.apache.drill.exec.vector.accessor.impl.AbstractColumnWriter;
-import org.apache.drill.exec.vector.accessor.impl.TupleWriterImpl;
+import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
+import org.apache.drill.exec.vector.accessor2.impl.AbstractObjectWriter;
+import org.apache.drill.exec.vector.accessor2.impl.AbstractTupleWriter;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
+import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 
 /**
  * Implementation of a row set writer. Only available for newly-created,
@@ -30,7 +32,7 @@ import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
  * to a hyper row set.
  */
 
-public class RowSetWriterImpl extends TupleWriterImpl implements RowSetWriter {
+public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWriter {
 
   /**
    * Writer index that points to each row in the row set. The index starts at
@@ -83,11 +85,11 @@ public class RowSetWriterImpl extends TupleWriterImpl implements RowSetWriter {
   private final WriterIndexImpl index;
   private final ExtendableRowSet rowSet;
 
-  protected RowSetWriterImpl(ExtendableRowSet rowSet, TupleSchema schema, WriterIndexImpl index, AbstractColumnWriter[] writers) {
+  protected RowSetWriterImpl(ExtendableRowSet rowSet, TupleSchema schema, WriterIndexImpl index, AbstractObjectWriter[] writers) {
     super(schema, writers);
     this.rowSet = rowSet;
     this.index = index;
-    start();
+    startWrite();
   }
 
   @Override
@@ -99,19 +101,28 @@ public class RowSetWriterImpl extends TupleWriterImpl implements RowSetWriter {
   }
 
   @Override
-  public boolean valid() { return index.valid(); }
-
-  @Override
   public int rowIndex() { return index.vectorIndex(); }
 
   @Override
-  public void save() {
-    index.next();
-    start();
+  public boolean save() {
+    boolean more = index.next();
+    if (more) {
+      startRow();
+    }
+    return more;
   }
 
   @Override
-  public void done() {
-    rowSet.setRowCount(index.size());
+  public boolean isFull( ) { return ! index.valid(); }
+
+  @Override
+  public SingleRowSet done() {
+    try {
+      endWrite();
+      rowSet.container().setRecordCount(index.vectorIndex());
+    } catch (VectorOverflowException e) {
+      throw new IllegalStateException(e);
+    }
+    return rowSet.toIndirect();
   }
 }

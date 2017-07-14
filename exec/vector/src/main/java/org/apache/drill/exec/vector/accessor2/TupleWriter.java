@@ -17,7 +17,28 @@
  */
 package org.apache.drill.exec.vector.accessor2;
 
+import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
+import org.apache.drill.exec.vector.accessor2.ObjectWriter.ObjectType;
+
+/**
+ * Interface for writing to rows via a column writer.
+ * Column writers can be obtained by name or index. Column
+ * indexes are defined by the tuple schema. Also provides
+ * a convenience method to set the column value from a Java
+ * object. The caller is responsible for providing the
+ * correct object type for each column. (The object type
+ * must match the column accessor type.)
+ * <p>
+ * A tuple is composed of columns with a fixed order and
+ * unique names: either can be used to reference columns.
+ * Columns are scalar (simple values), tuples (i.e. maps),
+ * or arrays (of scalars, tuples or arrays.)
+ * <p>
+ * Convenience methods allow getting a column as a scalar, tuple
+ * or array. These methods throw an exception if the column is
+ * not of the requested type.
+ */
 
 public interface TupleWriter {
   TupleSchema schema();
@@ -25,17 +46,42 @@ public interface TupleWriter {
   ObjectWriter column(int colIndex);
   ObjectWriter column(String colName);
 
-    // column(colIndex).scalar()
-    // TODO
-//    ScalarWriter scalar(int colIndex);
-//    ScalarWriter scalar(String colName);
-//    TupleWriter tuple(int colIndex);
-//    TupleWriter tuple(String colName);
-//    ArrayWriter array(int colIndex);
-//    ArrayWriter array(String colName);
-//    ObjectType type(int colIndex);
-//    ObjectType type(String colName);
+  // Convenience methods
 
-  void set(int colIndex, Object value);
-  void setTuple(Object ...values);
+  ScalarWriter scalar(int colIndex);
+  ScalarWriter scalar(String colName);
+  TupleWriter tuple(int colIndex);
+  TupleWriter tuple(String colName);
+  ArrayWriter array(int colIndex);
+  ArrayWriter array(String colName);
+  ObjectType type(int colIndex);
+  ObjectType type(String colName);
+
+  /**
+   * Set one column given a generic object value. Most helpful for testing,
+   * not performant for production code due to object creation and dynamic
+   * type checking.
+   *
+   * @param colIndex the index of the column to set
+   * @param value the value to set. The type of the object must be compatible
+   * with the type of the target column
+   * @throws VectorOverflowException if the vector overflows
+   */
+
+  void set(int colIndex, Object value) throws VectorOverflowException;
+
+  /**
+   * Write a row or map of values, given by Java objects. Object type must
+   * match expected column type.
+   * <p>
+   * Note that a single-column tuple is ambiguous if that column is an
+   * array. To avoid ambiguity, use <tt>set(0, value)</tt> in this case.
+   *
+   * @param values variable-length argument list of column values
+   * @return true if the row was written, false if any column
+   * caused vector overflow.
+   * @throws VectorOverflowException if the vector overflows
+   */
+
+  void setTuple(Object ...values) throws VectorOverflowException;
 }

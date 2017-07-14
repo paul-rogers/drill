@@ -193,7 +193,7 @@
 </#macro>
 <#macro finishBatch drillType mode>
     @Override
-    public void finishBatch() throws VectorOverflowException {
+    public void endWrite() throws VectorOverflowException {
       final int rowCount = vectorIndex.vectorIndex();
   <#-- See note above for the fillEmpties macro. -->
   <#if mode == "Repeated"  || (mode == "" && drillType != "Bit")>
@@ -220,10 +220,11 @@ import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader;
 import org.apache.drill.exec.vector.accessor2.impl.BaseScalarWriter;
+import org.apache.drill.exec.vector.accessor2.impl.BaseElementWriter;
 import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
 import org.apache.drill.exec.vector.accessor.impl.AbstractArrayReader;
-import org.apache.drill.exec.vector.accessor.impl.AbstractArrayWriter;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader.VectorAccessor;
+import org.apache.drill.exec.vector.accessor.ColumnAccessor.ValueType;
 
 import com.google.common.base.Charsets;
 import org.joda.time.Period;
@@ -304,7 +305,7 @@ public class ColumnAccessors {
     <@get drillType accessorType label true/>
   }
 
-  public static class ${drillType}ColumnWriter extends AbstractColumnWriter {
+  public static class ${drillType}ColumnWriter extends BaseScalarWriter {
 
     <@bindWriter "" drillType />
 
@@ -315,7 +316,7 @@ public class ColumnAccessors {
     <@finishBatch drillType "" />
   }
 
-  public static class Nullable${drillType}ColumnWriter extends AbstractColumnWriter {
+  public static class Nullable${drillType}ColumnWriter extends BaseScalarWriter {
 
     <@bindWriter "Nullable" drillType />
 
@@ -338,7 +339,9 @@ public class ColumnAccessors {
     <@finishBatch drillType "Nullable" />
   }
 
-  public static class Repeated${drillType}ColumnWriter extends AbstractArrayWriter {
+  <#-- Disabled. Turns out we can use the base writer.
+
+  public static class Repeated${drillType}ColumnWriter extends BaseElementWriter {
 
     <@bindWriter "Repeated" drillType />
 
@@ -352,6 +355,7 @@ public class ColumnAccessors {
 
     <@finishBatch drillType "Repeated" />
   }
+  -->
 
     </#if>
   </#list>
@@ -372,7 +376,7 @@ public class ColumnAccessors {
   }
 
   public static void defineWriters(
-      Class<? extends AbstractColumnWriter> writers[][]) {
+      Class<? extends BaseScalarWriter> writers[][]) {
 <#list vv.types as type>
   <#list type.minor as minor>
     <#assign drillType=minor.class>
@@ -400,8 +404,9 @@ public class ColumnAccessors {
 </#list>
   }
 
+  <#--
   public static void defineArrayWriters(
-      Class<? extends AbstractArrayWriter> writers[]) {
+      Class<? extends AbstractScalarWriter> writers[]) {
 <#list vv.types as type>
   <#list type.minor as minor>
     <#assign drillType=minor.class>
@@ -413,4 +418,5 @@ public class ColumnAccessors {
   </#list>
 </#list>
   }
+  -->
 }

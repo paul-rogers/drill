@@ -19,7 +19,7 @@ package org.apache.drill.exec.vector.accessor2.impl;
 
 import java.math.BigDecimal;
 
-import org.apache.drill.exec.vector.accessor2.Exp3;
+import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor2.ScalarWriter;
 import org.joda.time.Duration;
 
@@ -27,10 +27,11 @@ public class AccessorUtilities {
 
   private AccessorUtilities() { }
 
-  public static void setFromInt(ScalarWriter writer, int value) {
+  public static void setFromInt(ScalarWriter writer, int value) throws VectorOverflowException {
     switch (writer.valueType()) {
     case BYTES:
-      writer.setBytes(Integer.toHexString(value).getBytes());
+      byte bytes[] = Integer.toHexString(value).getBytes();
+      writer.setBytes(bytes, bytes.length);
       break;
     case DOUBLE:
       writer.setDouble(value);
