@@ -162,10 +162,11 @@ public class ExampleTest {
     FixtureBuilder builder = ClusterFixture.builder()
         // Easy way to run single threaded for easy debugging
         .maxParallelization(1)
-        // Set some session options
-        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 2L * 1024 * 1024 * 1024)
-        .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
-        .sessionOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        // Set some system options
+        .systemOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 2L * 1024 * 1024 * 1024)
+        // TODO: Allow passing the validator itself in place of the name
+        .systemOption(PlannerSettings.EXCHANGE.getOptionName(), true)
+        .systemOption(PlannerSettings.HASHAGG.getOptionName(), false)
         ;
 
     try (LogFixture logs = logBuilder.build();
@@ -175,6 +176,9 @@ public class ExampleTest {
       cluster.defineWorkspace("dfs", "data", "/tmp/drill-test", "psv");
       String sql = "select * from `dfs.data`.`example.tbl` order by columns[0]";
       QuerySummary results = client.queryBuilder().sql(sql).run();
+
+      // Example of explaining the query plan as JSON.
+      System.out.println(client.queryBuilder().sql(sql).explainJson());
       assertEquals( 2, results.recordCount() );
     }
   }
