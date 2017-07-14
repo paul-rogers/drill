@@ -22,7 +22,6 @@ import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.exec.expr.TypeHelper;
-import org.apache.drill.exec.physical.impl.scan.MaterializedSchema;
 import org.apache.drill.exec.physical.impl.scan.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.ColumnLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
@@ -31,6 +30,7 @@ import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.VectorCont
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.MaterializedSchema;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VectorOverflowException;

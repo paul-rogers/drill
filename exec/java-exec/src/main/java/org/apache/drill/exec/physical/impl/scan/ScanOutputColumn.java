@@ -23,6 +23,7 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.RequestedColumn;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.MaterializedSchema;
 
 import com.google.common.annotations.VisibleForTesting;
 

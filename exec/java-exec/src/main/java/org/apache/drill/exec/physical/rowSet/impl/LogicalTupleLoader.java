@@ -23,7 +23,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.apache.drill.exec.physical.impl.scan.MaterializedSchema;
 import org.apache.drill.exec.physical.rowSet.ColumnLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
@@ -31,6 +30,7 @@ import org.apache.drill.exec.physical.rowSet.TupleSchema.TupleColumnSchema;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.MaterializedSchema;
 
 /**
  * Shim inserted between an actual tuple loader and the client to remove columns

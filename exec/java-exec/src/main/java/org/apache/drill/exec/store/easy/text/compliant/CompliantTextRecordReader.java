@@ -26,11 +26,11 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
-import org.apache.drill.exec.physical.impl.scan.MaterializedSchema;
 import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
 import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.MaterializedSchema;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.hadoop.mapred.FileSplit;
 

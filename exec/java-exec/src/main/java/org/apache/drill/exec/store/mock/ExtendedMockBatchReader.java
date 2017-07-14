@@ -24,12 +24,12 @@ import java.util.Random;
 import java.util.Set;
 
 import org.apache.drill.exec.physical.impl.ScanBatch;
-import org.apache.drill.exec.physical.impl.scan.MaterializedSchema;
 import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
 import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.MaterializedSchema;
 import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
 import org.apache.drill.exec.vector.ValueVector;

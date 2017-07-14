@@ -26,6 +26,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadataCol
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.WildcardColumn;
+import org.apache.drill.exec.record.MaterializedSchema;
 
 import com.google.common.annotations.VisibleForTesting;
 

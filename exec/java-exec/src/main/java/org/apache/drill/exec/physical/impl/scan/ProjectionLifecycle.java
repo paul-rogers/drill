@@ -28,6 +28,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.PartitionColumn
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ProjectedColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.RequestedTableColumn;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.MaterializedSchema;
 import org.apache.hadoop.fs.Path;
 
 import com.google.common.annotations.VisibleForTesting;

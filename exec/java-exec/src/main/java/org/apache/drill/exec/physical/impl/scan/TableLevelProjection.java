@@ -36,6 +36,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.WildcardColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.ProjectionType;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.MaterializedSchema;
 import org.apache.drill.exec.store.ImplicitColumnExplorer;
 
 import com.google.common.annotations.VisibleForTesting;

@@ -26,6 +26,7 @@ import java.util.List;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ColumnType;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
+import org.apache.drill.exec.record.MaterializedSchema;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.hadoop.fs.Path;

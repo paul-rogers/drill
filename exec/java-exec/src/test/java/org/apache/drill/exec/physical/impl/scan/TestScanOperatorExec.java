@@ -35,6 +35,7 @@ import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.MaterializedSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;

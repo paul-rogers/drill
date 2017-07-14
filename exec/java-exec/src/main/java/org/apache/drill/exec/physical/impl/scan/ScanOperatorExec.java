@@ -36,6 +36,7 @@ import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.Operator
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.VectorContainerAccessor;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.CloseableRecordBatch;
+import org.apache.drill.exec.record.MaterializedSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.store.mock.MockSubScanPOP;
 import org.apache.drill.exec.vector.ValueVector;

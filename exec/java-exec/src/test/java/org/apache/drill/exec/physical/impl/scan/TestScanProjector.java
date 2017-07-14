@@ -43,6 +43,7 @@ import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.physical.rowSet.impl.LogicalTupleLoader;
 import org.apache.drill.exec.physical.rowSet.impl.TupleSetImpl.TupleLoaderImpl;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.MaterializedSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.store.ImplicitColumnExplorer.ImplicitFileColumns;
 import org.apache.drill.exec.vector.ValueVector;

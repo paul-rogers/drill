@@ -17,9 +17,9 @@
  */
 package org.apache.drill.exec.physical.rowSet;
 
-import org.apache.drill.exec.physical.impl.scan.MaterializedSchema;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.MaterializedSchema;
 
 /**
  * Defines the schema of a tuple: either the top-level row or a nested
