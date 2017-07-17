@@ -17,20 +17,19 @@
  */
 package org.apache.drill.exec.vector.accessor2;
 
-import java.util.List;
-
 import org.apache.drill.exec.vector.VectorOverflowException;
+import org.apache.drill.exec.vector.accessor2.ObjectWriter.ObjectType;
 
 public interface ArrayWriter {
   int size();
-  void next();
-  void save();
+//  void next();
+//  void save();
 
   ObjectWriter entry();
-//    ObjectType type();
-//    ScalarWriter scalar();
-//    TupleWriter tuple();
-//    ArrayWriter array();
+  ObjectType entryType();
+  ScalarWriter scalar();
+  TupleWriter tuple();
+  ArrayWriter array();
 
   void set(Object ...values) throws VectorOverflowException;
   void setArray(Object array) throws VectorOverflowException;

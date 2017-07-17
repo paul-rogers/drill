@@ -20,8 +20,12 @@ package org.apache.drill.exec.vector.accessor2.impl;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
+import org.apache.drill.exec.vector.accessor.ElementWriterIndex;
 import org.apache.drill.exec.vector.accessor2.ArrayWriter;
 import org.apache.drill.exec.vector.accessor2.ObjectWriter;
+import org.apache.drill.exec.vector.accessor2.ScalarWriter;
+import org.apache.drill.exec.vector.accessor2.TupleWriter;
+import org.apache.drill.exec.vector.accessor2.ObjectWriter.ObjectType;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 public abstract class AbstractArrayWriterImpl implements ArrayWriter, WriterEvents {
@@ -87,22 +91,12 @@ public abstract class AbstractArrayWriterImpl implements ArrayWriter, WriterEven
     mutator = vector.getOffsetVector().getMutator();
   }
 
-  protected ColumnWriterIndex elementIndex() { return elementIndex; }
+  protected ElementWriterIndex elementIndex() { return elementIndex; }
 
 
   @Override
   public int size() {
     return elementIndex.arraySize();
-  }
-
-  @Override
-  public void next() {
-    elementIndex.next();
-  }
-
-  @Override
-  public void save() {
-    setOffset(baseIndex.vectorIndex() + 1, elementIndex.vectorIndex());
   }
 
   private void setOffset(int posn, int offset) {
@@ -132,8 +126,34 @@ public abstract class AbstractArrayWriterImpl implements ArrayWriter, WriterEven
   }
 
   @Override
-  public void endRow() { }
+  public void endRow() {
+    assert lastWritePosn == baseIndex.vectorIndex();
+    setOffset(lastWritePosn + 1, elementIndex.vectorIndex());
+  }
 
   @Override
-  public void endWrite() { fillEmpties(); }
+  public void endWrite() {
+    fillEmpties();
+    mutator.setValueCount(elementIndex.vectorIndex());
+  }
+
+  @Override
+  public ObjectType entryType() {
+    return elementObjWriter.type();
+  }
+
+  @Override
+  public ScalarWriter scalar() {
+    return elementObjWriter.scalar();
+  }
+
+  @Override
+  public TupleWriter tuple() {
+    return elementObjWriter.tuple();
+  }
+
+  @Override
+  public ArrayWriter array() {
+    return elementObjWriter.array();
+  }
 }

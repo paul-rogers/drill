@@ -21,6 +21,10 @@ import java.math.BigDecimal;
 
 import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
+import org.apache.drill.exec.vector.accessor2.ArrayWriter;
+import org.apache.drill.exec.vector.accessor2.ObjectWriter.ObjectType;
+import org.apache.drill.exec.vector.accessor2.ScalarWriter;
+import org.apache.drill.exec.vector.accessor2.TupleWriter;
 import org.apache.drill.exec.vector.accessor2.impl.AbstractScalarWriter.ScalarObjectWriter;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 import org.joda.time.Period;
@@ -41,12 +45,12 @@ import org.joda.time.Period;
 
 public class ScalarArrayWriterImpl extends AbstractArrayWriterImpl {
 
-  private final BaseScalarWriter elementWriter;
+  private final BaseElementWriter elementWriter;
 
-  public ScalarArrayWriterImpl(ColumnWriterIndex baseIndex, RepeatedValueVector vector, BaseScalarWriter elementWriter) {
+  public ScalarArrayWriterImpl(ColumnWriterIndex baseIndex, RepeatedValueVector vector, BaseElementWriter elementWriter) {
     super(baseIndex, vector, new ScalarObjectWriter(elementWriter));
     this.elementWriter = elementWriter;
-    elementWriter.bind(elementIndex(), vector);
+    elementWriter.bind(elementIndex(), vector.getDataVector());
   }
 
   @Override

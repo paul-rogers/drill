@@ -195,7 +195,7 @@ public class TupleSetImpl implements TupleSchema {
       addVersion = rowSetMutator.bumpVersion();
       ResultVectorCache inventory = rowSetMutator.vectorInventory();
       vector = inventory.addOrGet(schema);
-      columnWriter = ColumnAccessorFactory.newWriter(schema.getType());
+      columnWriter = ColumnAccessorFactory.newScalarWriter(schema.getType());
       WriterIndexImpl writerIndex = rowSetMutator.writerIndex();
       columnWriter.bind(writerIndex, vector);
       if (schema.getDataMode() == DataMode.REPEATED) {

@@ -15,25 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor2.impl;
+package org.apache.drill.exec.vector.accessor;
 
-import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.ElementWriterIndex;
-
-/**
- * Writer for an array-valued column. This writer appends values: once a value
- * is written, it cannot be changed. As a result, writer methods have no item index;
- * each set advances the array to the next position. This is an abstract base class;
- * subclasses are generated for each repeated value vector type.
- */
-
-public abstract class BaseElementWriter extends AbstractScalarWriter {
-
-  protected ElementWriterIndex vectorIndex;
-
-  protected void bind(ElementWriterIndex vectorIndex) {
-    this.vectorIndex = vectorIndex;
-  }
-
-  public abstract void bind(ElementWriterIndex rowIndex, ValueVector vector);
+public interface ElementWriterIndex extends ColumnWriterIndex {
+  void next();
 }

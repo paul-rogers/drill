@@ -143,4 +143,16 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
   public void setPeriod(Period value) throws VectorOverflowException {
     throw new UnsupportedOperationException();
   }
+
+  @Override
+  public void startWrite() { }
+
+  @Override
+  public void startRow() { }
+
+  @Override
+  public void endRow() { }
+
+  @Override
+  public void endWrite() throws VectorOverflowException { }
 }

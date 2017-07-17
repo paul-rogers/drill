@@ -38,6 +38,7 @@ import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
 import org.apache.drill.exec.vector.accessor2.ResultSetWriter;
 import org.apache.drill.exec.vector.accessor2.ScalarWriter;
 import org.apache.drill.exec.vector.accessor2.TupleWriter;
+import org.apache.drill.exec.vector.accessor2.ObjectWriter.ObjectType;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -218,6 +219,11 @@ public class RowSetTest extends SubOperatorTest {
 
     // Required Int
 
+    assertEquals(ObjectType.SCALAR, writer.column("a").type());
+    assertEquals(ObjectType.SCALAR, writer.column(0).type());
+    assertSame(writer.column("a"), writer.column(0));
+    assertSame(writer.column("a").scalar(), writer.scalar(0));
+
     writer.column("a").scalar().setInt(10);
     writer.save();
     writer.scalar("a").setInt(20);
@@ -260,6 +266,83 @@ public class RowSetTest extends SubOperatorTest {
         .add(20)
         .add(30)
         .add(40)
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(actual);
+  }
+
+  @Test
+  public void testScalarArrayStructure() throws VectorOverflowException {
+    BatchSchema schema = new SchemaBuilder()
+        .addArray("a", MinorType.INT)
+        .build();
+    ExtendableRowSet rowSet = fixture.rowSet(schema);
+    RowSetWriter writer = rowSet.writer();
+
+    // Repeated Int
+
+    assertEquals(ObjectType.ARRAY, writer.column("a").type());
+    assertEquals(ObjectType.ARRAY, writer.column(0).type());
+    assertEquals(ObjectType.SCALAR, writer.column("a").array().entry().type());
+    assertEquals(ObjectType.SCALAR, writer.column("a").array().entryType());
+    ScalarWriter intWriter = writer.column("a").array().entry().scalar();
+    assertSame(writer.column("a").array(), writer.array(0));
+    assertSame(intWriter, writer.array(0).scalar());
+    intWriter.setInt(10);
+    intWriter.setInt(11);
+    writer.save();
+    intWriter.setInt(20);
+    intWriter.setInt(21);
+    intWriter.setInt(22);
+    writer.save();
+    intWriter.setInt(30);
+    writer.save();
+    intWriter.setInt(40);
+    intWriter.setInt(41);
+    writer.save();
+
+    // Sanity checks
+
+    try {
+      writer.column(0).scalar();
+      fail();
+    } catch (UnsupportedOperationException e) {
+      // Expected
+    }
+    try {
+      writer.column(0).tuple();
+      fail();
+    } catch (UnsupportedOperationException e) {
+      // Expected
+    }
+
+    SingleRowSet actual = writer.done();
+
+    RowSetReader reader = actual.reader();
+    ArrayReader intReader = reader.column(0).array();
+    assertTrue(reader.next());
+    assertEquals(2, intReader.size());
+    assertEquals(10, intReader.getInt(0));
+    assertEquals(11, intReader.getInt(1));
+    assertTrue(reader.next());
+    assertEquals(3, intReader.size());
+    assertEquals(20, intReader.getInt(0));
+    assertEquals(21, intReader.getInt(1));
+    assertEquals(22, intReader.getInt(2));
+    assertTrue(reader.next());
+    assertEquals(1, intReader.size());
+    assertEquals(30, intReader.getInt(0));
+    assertTrue(reader.next());
+    assertEquals(2, intReader.size());
+    assertEquals(40, intReader.getInt(0));
+    assertEquals(41, intReader.getInt(1));
+    assertFalse(reader.next());
+
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
+        .addSingleCol(new int[] {10, 11})
+        .addSingleCol(new int[] {20, 21, 22})
+        .addSingleCol(new int[] {30})
+        .addSingleCol(new int[] {40, 41})
         .build();
     new RowSetComparison(expected)
       .verifyAndClearAll(actual);

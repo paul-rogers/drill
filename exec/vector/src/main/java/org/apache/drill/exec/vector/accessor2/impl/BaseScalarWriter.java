@@ -41,13 +41,4 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
 
   @Override
   public void startWrite() { lastWriteIndex = -1; }
-
-  @Override
-  public void startRow() { }
-
-  @Override
-  public void endRow() { }
-
-  @Override
-  public void endWrite() throws VectorOverflowException { }
 }

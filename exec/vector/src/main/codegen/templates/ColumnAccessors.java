@@ -101,19 +101,23 @@
     }
   </#if>
 </#macro>
-<#macro bindWriter prefix drillType>
+<#macro bindWriter vectorPrefix mode drillType>
   <#if drillType = "Decimal9" || drillType == "Decimal18">
     private MaterializedField field;
   </#if>
-    private ${prefix}${drillType}Vector.Mutator mutator;
+    private ${vectorPrefix}${drillType}Vector.Mutator mutator;
 
     @Override
+  <#if mode == "Repeated">
+    public void bind(ElementWriterIndex vectorIndex, ValueVector vector) {
+  <#else>
     public void bind(ColumnWriterIndex vectorIndex, ValueVector vector) {
+  </#if>
       bind(vectorIndex);
   <#if drillType = "Decimal9" || drillType == "Decimal18">
       field = vector.getField();
   </#if>
-      this.mutator = ((${prefix}${drillType}Vector) vector).getMutator();
+      this.mutator = ((${vectorPrefix}${drillType}Vector) vector).getMutator();
     }
 </#macro>
 <#-- DRILL-5529 describes how required and repeated vectors don't implement
@@ -122,17 +126,20 @@
      DRILL-5530 describes why required vectors may not be initialized
      to zeros. -->
 <#macro fillEmpties drillType mode>
-  <#if mode == "Repeated"  || (mode == "" && drillType != "Bit")>
+  <#if mode == "" && drillType != "Bit">
         // Work-around for DRILL-5529: lack of fillEmpties for some vectors.
-    <#if mode == "">
         // See DRILL-5530 for why this is needed for required vectors.
-    </#if>
         if (lastWriteIndex + 1 < writeIndex) {
           mutator.fillEmptiesBounded(lastWriteIndex, writeIndex);
         }
  </#if>
 </#macro>
-<#macro set drillType accessorType label mode setFn>
+<#macro advance mode>
+  <#if mode == "Repeated">
+      vectorIndex.next();
+  </#if>
+</#macro>
+<#macro set drillType accessorType label vectorPrefix mode setFn>
   <#if accessorType == "byte[]">
     <#assign args = ", int len">
   <#else>
@@ -169,11 +176,14 @@
   <#else>
         mutator.${setFn}(writeIndex, <#if cast=="set">(${javaType}) </#if>value);
   </#if>
+  <#if mode != "Repeated">
         lastWriteIndex = writeIndex;
+  </#if>
       } catch (VectorOverflowException e) {
         vectorIndex.overflowed();
         throw e;
       }
+      <@advance mode />
     }
   <#if drillType == "VarChar">
 
@@ -181,6 +191,7 @@
     public void setString(String value) throws VectorOverflowException {
       final byte bytes[] = value.getBytes(Charsets.UTF_8);
       setBytes(bytes, bytes.length);
+      <@advance mode />
     }
   <#elseif drillType == "Var16Char">
 
@@ -188,6 +199,7 @@
     public void setString(String value) throws VectorOverflowException {
       final byte bytes[] = value.getBytes(Charsets.UTF_8);
       setBytes(bytes, bytes.length);
+      <@advance mode />
     }
   </#if>
 </#macro>
@@ -196,11 +208,9 @@
     public void endWrite() throws VectorOverflowException {
       final int rowCount = vectorIndex.vectorIndex();
   <#-- See note above for the fillEmpties macro. -->
-  <#if mode == "Repeated"  || (mode == "" && drillType != "Bit")>
+  <#if mode == "" && drillType != "Bit">
       // Work-around for DRILL-5529: lack of fillEmpties for some vectors.
-    <#if mode == "">
       // See DRILL-5530 for why this is needed for required vectors.
-    </#if>
       mutator.fillEmptiesBounded(lastWriteIndex, rowCount - 1);
    </#if>
       mutator.setValueCount(rowCount);
@@ -307,21 +317,29 @@ public class ColumnAccessors {
 
   public static class ${drillType}ColumnWriter extends BaseScalarWriter {
 
-    <@bindWriter "" drillType />
+    <@bindWriter "" "Required" drillType />
 
     <@getType drillType label />
 
-    <@set drillType accessorType label "" "setScalar" />
+    <@set drillType accessorType label "" "Required" "setScalar" />
 
     <@finishBatch drillType "" />
   }
 
   public static class Nullable${drillType}ColumnWriter extends BaseScalarWriter {
 
-    <@bindWriter "Nullable" drillType />
+    <@bindWriter "Nullable" "Nullable" drillType />
 
     <@getType drillType label />
 
+    <#-- Generated for each type because, unfortunately, there is
+         no common base class for nullable vectors even though the
+         null vector is generic and should be common. Instead, the
+         null vector is generated as part of each kind of nullable
+         vector.
+         TODO: Factor out the null vector and move this code to
+         the base class.
+    -->
     @Override
     public void setNull() throws VectorOverflowException {
       try {
@@ -334,28 +352,19 @@ public class ColumnAccessors {
       }
     }
 
-    <@set drillType accessorType label "Nullable" "setScalar" />
+    <@set drillType accessorType label "Nullable" "Nullable" "setScalar" />
 
     <@finishBatch drillType "Nullable" />
   }
 
-  <#-- Disabled. Turns out we can use the base writer.
-
   public static class Repeated${drillType}ColumnWriter extends BaseElementWriter {
 
-    <@bindWriter "Repeated" drillType />
+    <@bindWriter "" "Repeated" drillType />
 
     <@getType drillType label />
 
-    protected BaseRepeatedValueVector.BaseRepeatedMutator mutator() {
-      return mutator;
-    }
-
-    <@set drillType accessorType label "Repeated" "addEntry" />
-
-    <@finishBatch drillType "Repeated" />
+    <@set drillType accessorType label "" "Repeated" "setScalar" />
   }
-  -->
 
     </#if>
   </#list>
@@ -404,9 +413,8 @@ public class ColumnAccessors {
 </#list>
   }
 
-  <#--
   public static void defineArrayWriters(
-      Class<? extends AbstractScalarWriter> writers[]) {
+      Class<? extends BaseElementWriter> writers[]) {
 <#list vv.types as type>
   <#list type.minor as minor>
     <#assign drillType=minor.class>
@@ -418,5 +426,4 @@ public class ColumnAccessors {
   </#list>
 </#list>
   }
-  -->
 }

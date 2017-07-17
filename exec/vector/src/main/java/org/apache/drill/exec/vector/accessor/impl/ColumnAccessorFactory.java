@@ -30,6 +30,7 @@ import org.apache.drill.exec.vector.accessor2.impl.BaseScalarWriter;
 import org.apache.drill.exec.vector.accessor2.impl.ScalarArrayWriterImpl;
 import org.apache.drill.exec.vector.accessor2.impl.AbstractArrayWriterImpl.ArrayObjectWriter;
 import org.apache.drill.exec.vector.accessor2.impl.AbstractScalarWriter.ScalarObjectWriter;
+import org.apache.drill.exec.vector.accessor2.impl.BaseElementWriter;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
@@ -43,7 +44,7 @@ public class ColumnAccessorFactory {
 
   private static Class<? extends BaseScalarWriter> columnWriters[][] = buildColumnWriters();
   private static Class<? extends AbstractColumnReader> columnReaders[][] = buildColumnReaders();
-//  private static Class<? extends AbstractArrayWriter> arrayWriters[] = buildArrayWriters();
+  private static Class<? extends BaseElementWriter> elementWriters[] = buildArrayWriters();
   private static Class<? extends AbstractArrayReader> arrayReaders[] = buildArrayReaders();
 
   public static AbstractObjectWriter buildColumnWriter(ColumnWriterIndex rowIndex,
@@ -65,14 +66,19 @@ public class ColumnAccessorFactory {
       }
       throw new UnsupportedOperationException(type.toString());
     default:
-      BaseScalarWriter writer = newWriter(type);
-      if (mode == DataMode.REPEATED) {
-        ScalarArrayWriterImpl arrayWriter =
-            new ScalarArrayWriterImpl(rowIndex, (RepeatedValueVector) valueVector, writer);
-        return new ArrayObjectWriter(arrayWriter);
-      } else {
+      switch (type.getMode()) {
+      case OPTIONAL:
+      case REQUIRED:
+        BaseScalarWriter writer = newScalarWriter(type);
         writer.bind(rowIndex, valueVector);
         return new ScalarObjectWriter(writer);
+      case REPEATED:
+        BaseElementWriter elementWriter = newElementWriter(type);
+        ScalarArrayWriterImpl arrayWriter =
+              new ScalarArrayWriterImpl(rowIndex, (RepeatedValueVector) valueVector, elementWriter);
+        return new ArrayObjectWriter(arrayWriter);
+      default:
+        throw new UnsupportedOperationException(type.getMode().toString());
       }
     }
   }
@@ -103,13 +109,13 @@ public class ColumnAccessorFactory {
     return readers;
   }
 
-//  @SuppressWarnings("unchecked")
-//  private static Class<? extends AbstractArrayWriter>[] buildArrayWriters() {
-//    int typeCount = MinorType.values().length;
-//    Class<? extends AbstractArrayWriter> writers[] = new Class[typeCount];
-//    ColumnAccessors.defineArrayWriters(writers);
-//    return writers;
-//  }
+  @SuppressWarnings("unchecked")
+  private static Class<? extends BaseElementWriter>[] buildArrayWriters() {
+    int typeCount = MinorType.values().length;
+    Class<? extends BaseElementWriter> writers[] = new Class[typeCount];
+    ColumnAccessors.defineArrayWriters(writers);
+    return writers;
+  }
 
   @SuppressWarnings("unchecked")
   private static Class<? extends AbstractArrayReader>[] buildArrayReaders() {
@@ -119,21 +125,25 @@ public class ColumnAccessorFactory {
     return readers;
   }
 
-  public static BaseScalarWriter newWriter(MajorType type) {
+  public static BaseScalarWriter newScalarWriter(MajorType type) {
     try {
-//      if (type.getMode() == DataMode.REPEATED) {
-//        Class<? extends AbstractArrayWriter> writerClass = arrayWriters[type.getMinorType().ordinal()];
-//        if (writerClass == null) {
-//          throw new UnsupportedOperationException();
-//        }
-//        return new ArrayColumnWriter(writerClass.newInstance());
-//      } else {
-        Class<? extends BaseScalarWriter> writerClass = columnWriters[type.getMinorType().ordinal()][type.getMode().ordinal()];
-        if (writerClass == null) {
-          throw new UnsupportedOperationException();
-        }
-        return writerClass.newInstance();
-//      }
+      Class<? extends BaseScalarWriter> writerClass = columnWriters[type.getMinorType().ordinal()][type.getMode().ordinal()];
+      if (writerClass == null) {
+        throw new UnsupportedOperationException();
+      }
+      return writerClass.newInstance();
+    } catch (InstantiationException | IllegalAccessException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  public static BaseElementWriter newElementWriter(MajorType type) {
+    try {
+      Class<? extends BaseElementWriter> writerClass = elementWriters[type.getMinorType().ordinal()];
+      if (writerClass == null) {
+        throw new UnsupportedOperationException();
+      }
+      return writerClass.newInstance();
     } catch (InstantiationException | IllegalAccessException e) {
       throw new IllegalStateException(e);
     }

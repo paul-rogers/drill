@@ -105,6 +105,7 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
 
   @Override
   public boolean save() {
+    endRow();
     boolean more = index.next();
     if (more) {
       startRow();
