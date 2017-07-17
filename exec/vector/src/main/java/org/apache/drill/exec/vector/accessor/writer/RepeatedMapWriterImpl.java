@@ -15,25 +15,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor2.impl;
+package org.apache.drill.exec.vector.accessor.writer;
 
-import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.ElementWriterIndex;
+import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 
-/**
- * Writer for an array-valued column. This writer appends values: once a value
- * is written, it cannot be changed. As a result, writer methods have no item index;
- * each set advances the array to the next position. This is an abstract base class;
- * subclasses are generated for each repeated value vector type.
- */
+public class RepeatedMapWriterImpl extends AbstractObjectWriter {
 
-public abstract class BaseElementWriter extends AbstractScalarWriter {
+  private class MapWriterImpl extends AbstractTupleWriter {
 
-  protected ElementWriterIndex vectorIndex;
-
-  protected void bind(ElementWriterIndex vectorIndex) {
-    this.vectorIndex = vectorIndex;
   }
 
-  public abstract void bind(ElementWriterIndex rowIndex, ValueVector vector);
+  public RepeatedMapWriterImpl(ExtendableRowIndex rowIndex,
+      RepeatedMapVector vector) {
+    MapWriterImpl mapWriter = new MapWriterImpl(sth, vector);
+    MapObjectWriter mapObjWriter = new MapObjectWriter(mapWriter);
+    arrayWriter = new ArrayObjectWriter(rowIndex, mapObjWriter);
+  }
+
+  @Override
+  public ObjectType type() {
+    return ObjectType.ARRAY;
+  }
+
+  @Override
+  public void set(Object value) {
+    // TODO Auto-generated method stub
+
+  }
+
 }

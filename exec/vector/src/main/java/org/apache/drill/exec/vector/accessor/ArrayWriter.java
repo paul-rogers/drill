@@ -17,6 +17,9 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
+import org.apache.drill.exec.vector.VectorOverflowException;
+import org.apache.drill.exec.vector.accessor.ObjectWriter.ObjectType;
+
 /**
  * Writer for values into an array. Array writes are write-once,
  * sequential: each call to a <tt>setFoo()</tt> method writes a
@@ -25,18 +28,16 @@ package org.apache.drill.exec.vector.accessor;
  * {@see ArrayReader}
  */
 
-public interface ArrayWriter extends ColumnAccessor, ScalarWriter {
-
+public interface ArrayWriter {
   int size();
 
-  /**
-   * Determine if the next position is valid for writing. Will be invalid
-   * if the writer hits a size or other limit.
-   *
-   * @return true if another item is available and the reader is positioned
-   * at that item, false if no more items are available and the reader
-   * is no longer valid
-   */
+  ObjectWriter entry();
+  ObjectType entryType();
+  ScalarWriter scalar();
+  TupleWriter tuple();
+  ArrayWriter array();
 
-  boolean valid();
+  void set(Object ...values) throws VectorOverflowException;
+  void setArray(Object array) throws VectorOverflowException;
+//  void setList(List<? extends Object> list);
 }

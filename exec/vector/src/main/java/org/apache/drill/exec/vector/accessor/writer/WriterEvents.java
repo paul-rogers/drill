@@ -15,9 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor2;
+package org.apache.drill.exec.vector.accessor.writer;
 
-public interface ResultSetWriter {
-  ArrayWriter rows();
-  void done();
+import org.apache.drill.exec.vector.VectorOverflowException;
+
+public interface WriterEvents {
+  void startWrite();
+  void startRow();
+  void endRow();
+  // TODO: This seems odd, remove exceptions here?
+  void endWrite() throws VectorOverflowException;
 }

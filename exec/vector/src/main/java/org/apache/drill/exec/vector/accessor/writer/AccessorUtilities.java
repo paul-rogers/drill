@@ -15,12 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor2.impl;
+package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.vector.VectorOverflowException;
-import org.apache.drill.exec.vector.accessor2.ScalarWriter;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.joda.time.Duration;
 
 public class AccessorUtilities {

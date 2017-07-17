@@ -15,13 +15,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor2.impl;
+package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.vector.VectorOverflowException;
-import org.apache.drill.exec.vector.accessor2.ScalarWriter;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.joda.time.Period;
+
+/**
+ * Column writer implementation that acts as the basis for the
+ * generated, vector-specific implementations. All set methods
+ * throw an exception; subclasses simply override the supported
+ * method(s).
+ */
 
 public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents {
 

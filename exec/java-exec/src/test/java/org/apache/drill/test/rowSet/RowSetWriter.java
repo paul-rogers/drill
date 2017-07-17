@@ -18,7 +18,7 @@
 package org.apache.drill.test.rowSet;
 
 import org.apache.drill.exec.vector.VectorOverflowException;
-import org.apache.drill.exec.vector.accessor2.TupleWriter;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 
 /**

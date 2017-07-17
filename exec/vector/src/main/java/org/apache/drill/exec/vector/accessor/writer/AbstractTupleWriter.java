@@ -15,15 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor2.impl;
+package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.vector.VectorOverflowException;
+import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.accessor.ObjectWriter;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.accessor.ObjectWriter.ObjectType;
 import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
-import org.apache.drill.exec.vector.accessor2.ArrayWriter;
-import org.apache.drill.exec.vector.accessor2.ObjectWriter;
-import org.apache.drill.exec.vector.accessor2.ObjectWriter.ObjectType;
-import org.apache.drill.exec.vector.accessor2.ScalarWriter;
-import org.apache.drill.exec.vector.accessor2.TupleWriter;
 
 /**
  * Implementation for a writer for a tuple (a row or a map.) Provides access to each

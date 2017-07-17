@@ -15,17 +15,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor2.impl;
+package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.vector.VectorOverflowException;
+import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
-import org.apache.drill.exec.vector.accessor2.ArrayWriter;
-import org.apache.drill.exec.vector.accessor2.ObjectWriter.ObjectType;
-import org.apache.drill.exec.vector.accessor2.ScalarWriter;
-import org.apache.drill.exec.vector.accessor2.TupleWriter;
-import org.apache.drill.exec.vector.accessor2.impl.AbstractScalarWriter.ScalarObjectWriter;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.accessor.ObjectWriter.ObjectType;
+import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter.ScalarObjectWriter;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 import org.joda.time.Period;
 
@@ -43,7 +43,7 @@ import org.joda.time.Period;
  * convenience is more important than speed.
  */
 
-public class ScalarArrayWriterImpl extends AbstractArrayWriterImpl {
+public class ScalarArrayWriterImpl extends AbstractArrayWriter {
 
   private final BaseElementWriter elementWriter;
 

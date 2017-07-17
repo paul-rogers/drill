@@ -15,32 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor2.impl;
+package org.apache.drill.exec.vector.accessor;
 
-import org.apache.drill.exec.vector.complex.RepeatedMapVector;
-
-public class RepeatedMapWriterImpl extends AbstractObjectWriter {
-
-  private class MapWriterImpl extends AbstractTupleWriter {
-
-  }
-
-  public RepeatedMapWriterImpl(ExtendableRowIndex rowIndex,
-      RepeatedMapVector vector) {
-    MapWriterImpl mapWriter = new MapWriterImpl(sth, vector);
-    MapObjectWriter mapObjWriter = new MapObjectWriter(mapWriter);
-    arrayWriter = new ArrayObjectWriter(rowIndex, mapObjWriter);
-  }
-
-  @Override
-  public ObjectType type() {
-    return ObjectType.ARRAY;
-  }
-
-  @Override
-  public void set(Object value) {
-    // TODO Auto-generated method stub
-
-  }
-
+public interface ResultSetWriter {
+  ArrayWriter rows();
+  void done();
 }

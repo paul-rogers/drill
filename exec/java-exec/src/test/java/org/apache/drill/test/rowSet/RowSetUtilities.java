@@ -20,9 +20,9 @@ package org.apache.drill.test.rowSet;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.vector.VectorOverflowException;
-import org.apache.drill.exec.vector.accessor2.impl.AccessorUtilities;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.ColumnAccessor.ValueType;
-import org.apache.drill.exec.vector.accessor2.ScalarWriter;
+import org.apache.drill.exec.vector.accessor.writer.AccessorUtilities;
 import org.joda.time.Duration;
 import org.joda.time.Period;
 

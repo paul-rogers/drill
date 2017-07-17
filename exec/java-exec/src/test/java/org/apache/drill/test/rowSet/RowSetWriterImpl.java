@@ -21,8 +21,8 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
-import org.apache.drill.exec.vector.accessor2.impl.AbstractObjectWriter;
-import org.apache.drill.exec.vector.accessor2.impl.AbstractTupleWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 

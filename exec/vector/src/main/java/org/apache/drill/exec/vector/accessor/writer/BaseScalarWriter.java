@@ -15,22 +15,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor2;
+package org.apache.drill.exec.vector.accessor.writer;
 
-import java.math.BigDecimal;
-
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VectorOverflowException;
-import org.apache.drill.exec.vector.accessor.ColumnAccessor;
-import org.joda.time.Period;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 
-public interface ScalarWriter extends ColumnAccessor {
-  void setNull() throws VectorOverflowException;
-  void setInt(int value) throws VectorOverflowException;
-  void setLong(long value) throws VectorOverflowException;
-  void setDouble(double value) throws VectorOverflowException;
-  void setString(String value) throws VectorOverflowException;
-  void setBytes(byte[] value, int len) throws VectorOverflowException;
-  void setDecimal(BigDecimal value) throws VectorOverflowException;
-  void setPeriod(Period value) throws VectorOverflowException;
-  void setObject(Object value) throws VectorOverflowException;
+/**
+ * Column writer implementation that acts as the basis for the
+ * generated, vector-specific implementations. All set methods
+ * throw an exception; subclasses simply override the supported
+ * method(s).
+ */
+
+public abstract class BaseScalarWriter extends AbstractScalarWriter {
+
+  protected ColumnWriterIndex vectorIndex;
+  protected int lastWriteIndex;
+
+  protected void bind(ColumnWriterIndex vectorIndex) {
+    this.vectorIndex = vectorIndex;
+  }
+
+  public abstract void bind(ColumnWriterIndex rowIndex, ValueVector vector);
+
+  @Override
+  public void startWrite() { lastWriteIndex = -1; }
 }

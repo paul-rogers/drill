@@ -24,13 +24,12 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.impl.AbstractArrayReader.ArrayColumnReader;
-import org.apache.drill.exec.vector.accessor.impl.AbstractArrayWriter.ArrayColumnWriter;
-import org.apache.drill.exec.vector.accessor2.impl.AbstractObjectWriter;
-import org.apache.drill.exec.vector.accessor2.impl.BaseScalarWriter;
-import org.apache.drill.exec.vector.accessor2.impl.ScalarArrayWriterImpl;
-import org.apache.drill.exec.vector.accessor2.impl.AbstractArrayWriterImpl.ArrayObjectWriter;
-import org.apache.drill.exec.vector.accessor2.impl.AbstractScalarWriter.ScalarObjectWriter;
-import org.apache.drill.exec.vector.accessor2.impl.BaseElementWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
+import org.apache.drill.exec.vector.accessor.writer.BaseElementWriter;
+import org.apache.drill.exec.vector.accessor.writer.BaseScalarWriter;
+import org.apache.drill.exec.vector.accessor.writer.ScalarArrayWriterImpl;
+import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayObjectWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter.ScalarObjectWriter;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**

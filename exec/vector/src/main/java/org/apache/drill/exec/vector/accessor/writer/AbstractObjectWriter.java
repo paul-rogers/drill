@@ -15,18 +15,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor2;
+package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.vector.VectorOverflowException;
+import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.accessor.ObjectWriter;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
 
-public interface ObjectWriter {
-  public enum ObjectType {
-    SCALAR, TUPLE, ARRAY
+public abstract class AbstractObjectWriter implements ObjectWriter, WriterEvents {
+
+  @Override
+  public ScalarWriter scalar() {
+    throw new UnsupportedOperationException();
   }
 
-  ObjectType type();
-  ScalarWriter scalar();
-  TupleWriter tuple();
-  ArrayWriter array();
-  void set(Object value) throws VectorOverflowException;
+  @Override
+  public TupleWriter tuple() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ArrayWriter array() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override public void startWrite() { }
+  @Override public void startRow() { }
+  @Override public void endRow() { }
+  @Override public void endWrite() throws VectorOverflowException { }
 }

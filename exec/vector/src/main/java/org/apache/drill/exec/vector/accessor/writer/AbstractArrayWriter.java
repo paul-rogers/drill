@@ -15,26 +15,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor2.impl;
+package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.VectorOverflowException;
+import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ElementWriterIndex;
-import org.apache.drill.exec.vector.accessor2.ArrayWriter;
-import org.apache.drill.exec.vector.accessor2.ObjectWriter;
-import org.apache.drill.exec.vector.accessor2.ScalarWriter;
-import org.apache.drill.exec.vector.accessor2.TupleWriter;
-import org.apache.drill.exec.vector.accessor2.ObjectWriter.ObjectType;
+import org.apache.drill.exec.vector.accessor.ObjectWriter;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.accessor.ObjectWriter.ObjectType;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
-public abstract class AbstractArrayWriterImpl implements ArrayWriter, WriterEvents {
+/**
+ * Writer for an array-valued column. This writer appends values: once a value
+ * is written, it cannot be changed. As a result, writer methods have no item
+ * index; each set advances the array to the next position.
+ * <p>
+ * This class represents the array as a whole. In practice that means building
+ * the offset vector. The array is associated with an element object that
+ * manages writing to the scalar, array or tuple that is the array element. Note
+ * that this representation makes little use of the methods in the "Repeated"
+ * vector class: instead it works directly with the offset and element vectors.
+ */
+
+public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
+
+  /**
+   * Object representation of an array writer.
+   */
 
   public static class ArrayObjectWriter extends AbstractObjectWriter {
 
-    private AbstractArrayWriterImpl arrayWriter;
+    private AbstractArrayWriter arrayWriter;
 
-    public ArrayObjectWriter(AbstractArrayWriterImpl arrayWriter) {
+    public ArrayObjectWriter(AbstractArrayWriter arrayWriter) {
       this.arrayWriter = arrayWriter;
     }
 
@@ -84,7 +100,7 @@ public abstract class AbstractArrayWriterImpl implements ArrayWriter, WriterEven
   private final UInt4Vector.Mutator mutator;
   private int lastWritePosn = 0;
 
-  public AbstractArrayWriterImpl(ColumnWriterIndex baseIndex, RepeatedValueVector vector, AbstractObjectWriter elementObjWriter) {
+  public AbstractArrayWriter(ColumnWriterIndex baseIndex, RepeatedValueVector vector, AbstractObjectWriter elementObjWriter) {
     this.elementObjWriter = elementObjWriter;
     this.baseIndex = baseIndex;
     elementIndex = new FixedWidthElementIndex(baseIndex);

@@ -23,11 +23,26 @@ import org.apache.drill.exec.vector.VectorOverflowException;
 import org.joda.time.Period;
 
 /**
- * Methods common to the {@link ColumnWriter} and
- * {@link ArrayWriter} interfaces.
+ * Represents a scalar value: a required column, a nullable column,
+ * or one element within an array of scalars.
+ * <p>
+ * Vector values are mapped to
+ * their "natural" representations: the representation closest
+ * to the actual vector value. For date and time values, this
+ * generally means a numeric value. Applications can then map
+ * this value to Java objects as desired. Decimal types all
+ * map to BigDecimal as that is the only way in Java to
+ * represent large decimal values.
+ * <p>
+ * In general, a column maps to just one value. However, derived
+ * classes may choose to provide type conversions if convenient.
+ * An exception is thrown if a call is made to a method that
+ * is not supported by the column type.
+ * <p>
  */
 
 public interface ScalarWriter extends ColumnAccessor {
+  void setNull() throws VectorOverflowException;
   void setInt(int value) throws VectorOverflowException;
   void setLong(long value) throws VectorOverflowException;
   void setDouble(double value) throws VectorOverflowException;
@@ -35,4 +50,5 @@ public interface ScalarWriter extends ColumnAccessor {
   void setBytes(byte[] value, int len) throws VectorOverflowException;
   void setDecimal(BigDecimal value) throws VectorOverflowException;
   void setPeriod(Period value) throws VectorOverflowException;
+  void setObject(Object value) throws VectorOverflowException;
 }
