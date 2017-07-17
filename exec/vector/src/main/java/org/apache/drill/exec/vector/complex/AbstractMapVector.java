@@ -130,6 +130,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
       create = true;
     }
     if (create) {
+      @SuppressWarnings("unchecked")
       final T vector = (T) BasicTypeHelper.getNewVector(name, allocator, type, callBack);
       putChild(name, vector);
       if (callBack!=null) {

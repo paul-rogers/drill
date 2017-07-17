@@ -40,7 +40,7 @@ public interface TupleAccessor {
 
   public interface TupleSchema {
     /**
-     * Return a column schema given an indexed into the flattened row structure.
+     * Return a column schema given an index into the flattened row structure.
      *
      * @param index index of the row in the flattened structure
      * @return schema of the column
@@ -53,6 +53,8 @@ public interface TupleAccessor {
     int columnIndex(String name);
 
     int count();
+
+    TupleSchema map(int index);
   }
 
   TupleSchema schema();

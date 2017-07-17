@@ -349,6 +349,143 @@ public class RowSetTest extends SubOperatorTest {
   }
 
   @Test
+  public void testFlatMapStructure() throws VectorOverflowException {
+    BatchSchema schema = new SchemaBuilder()
+        .addMap("m")
+          .add("a", MinorType.INT)
+          .buildMap()
+        .build();
+    ExtendableRowSet rowSet = fixture.rowSet(schema);
+    RowSetWriter writer = rowSet.writer();
+
+    // Required Int
+
+    assertEquals(ObjectType.SCALAR, writer.column("m.a").type());
+    assertEquals(ObjectType.SCALAR, writer.column(0).type());
+    assertSame(writer.column("m.a"), writer.column(0));
+    assertSame(writer.column("m.a").scalar(), writer.scalar(0));
+
+    writer.column("m.a").scalar().setInt(10);
+    writer.save();
+    writer.scalar("m.a").setInt(20);
+    writer.save();
+    writer.column(0).scalar().setInt(30);
+    writer.save();
+    writer.scalar(0).setInt(40);
+    writer.save();
+
+    // Sanity checks
+
+    try {
+      writer.column(0).array();
+      fail();
+    } catch (UnsupportedOperationException e) {
+      // Expected
+    }
+    try {
+      writer.column(0).tuple();
+      fail();
+    } catch (UnsupportedOperationException e) {
+      // Expected
+    }
+
+    SingleRowSet actual = writer.done();
+
+    RowSetReader reader = actual.reader();
+    assertTrue(reader.next());
+    assertEquals(10, reader.column(0).getInt());
+    assertTrue(reader.next());
+    assertEquals(20, reader.column(0).getInt());
+    assertTrue(reader.next());
+    assertEquals(30, reader.column(0).getInt());
+    assertTrue(reader.next());
+    assertEquals(40, reader.column(0).getInt());
+    assertFalse(reader.next());
+
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
+        .add(10)
+        .add(20)
+        .add(30)
+        .add(40)
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(actual);
+  }
+
+  @Test
+  public void testNestedMapStructure() throws VectorOverflowException {
+    BatchSchema schema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addMap("m")
+          .add("b", MinorType.INT)
+        .build();
+    ExtendableRowSet rowSet = fixture.rowSet(schema);
+    RowSetWriter writer = rowSet.writer();
+
+    // Map and Int
+
+    assertEquals(ObjectType.SCALAR, writer.column("a").type());
+    assertEquals(ObjectType.SCALAR, writer.column(0).type());
+    assertEquals(ObjectType.TUPLE, writer.column("m").type());
+    assertEquals(ObjectType.TUPLE, writer.column(1).type());
+    TupleWriter mapWriter = writer.column(1).tuple();
+    assertEquals(ObjectType.SCALAR, mapWriter.column("b").array().entry().type());
+    assertEquals(ObjectType.SCALAR, mapWriter.column("b").array().entryType());
+    
+    ScalarWriter aWriter = writer.column("a").scalar();
+    ScalarWriter bWriter = writer.column("b").tuple().column("b").scalar();
+    assertSame(bWriter, writer.tuple(1).scalar(0));
+    aWriter.setInt(10);
+    bWriter.setInt(11);
+    writer.save();
+    aWriter.setInt(20);
+    bWriter.setInt(21);
+    writer.save();
+    aWriter.setInt(30);
+    aWriter.setInt(31);
+    writer.save();
+
+    // Sanity checks
+
+    try {
+      writer.column(0).scalar();
+      fail();
+    } catch (UnsupportedOperationException e) {
+      // Expected
+    }
+    try {
+      writer.column(0).array();
+      fail();
+    } catch (UnsupportedOperationException e) {
+      // Expected
+    }
+
+    SingleRowSet actual = writer.done();
+
+    RowSetReader reader = actual.reader();
+    ArrayReader aReader = reader.column(0).array();
+    ArrayReader bReader = reader.column(0).array();
+    assertTrue(reader.next());
+    assertEquals(10, aReader.getInt(0));
+    assertEquals(11, bReader.getInt(1));
+    assertTrue(reader.next());
+    assertEquals(20, aReader.getInt(0));
+    assertEquals(21, bReader.getInt(1));
+    assertTrue(reader.next());
+    assertEquals(30, aReader.getInt(0));
+    assertEquals(31, bReader.getInt(1));
+    assertFalse(reader.next());
+
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
+        .add(10, new Object[] {11})
+        .add(20, new Object[] {21})
+        .add(30, new Object[] {31})
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(actual);
+  }
+
+  @Test
   public void testStructure() {
     BatchSchema schema = new SchemaBuilder()
         .add("scalar", MinorType.INT)

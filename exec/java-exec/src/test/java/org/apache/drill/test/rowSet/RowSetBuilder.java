@@ -45,7 +45,7 @@ public final class RowSetBuilder {
 
   public RowSetBuilder(BufferAllocator allocator, BatchSchema schema, int capacity) {
     rowSet = new DirectRowSet(allocator, schema);
-    writer = rowSet.writer(capacity);
+    writer = rowSet.writer(true, capacity);
   }
 
   /**

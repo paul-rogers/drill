@@ -27,7 +27,6 @@ import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
-import org.apache.drill.exec.vector.accessor.ColumnWriter;
 
 /**
  * A row set is a collection of rows stored as value vectors. Elsewhere in
@@ -86,8 +85,6 @@ public interface RowSet {
 
   int rowCount();
 
-  RowSetWriter writer();
-
   RowSetReader reader();
 
   void clear();
@@ -132,7 +129,8 @@ public interface RowSet {
 
   public interface ExtendableRowSet extends SingleRowSet {
     void allocate(int recordCount);
-    RowSetWriter writer(int initialRowCount);
+    RowSetWriter writer();
+    RowSetWriter writer(boolean flatSchema, int initialRowCount);
   }
 
   /**
