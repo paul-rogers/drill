@@ -18,11 +18,20 @@
 package org.apache.drill.test.rowSet;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.expr.TypeHelper;
+import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.record.TupleMetadata.StructureType;
 import org.apache.drill.exec.record.selection.SelectionVector2;
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.ColumnAccessor.ValueType;
 import org.apache.drill.exec.vector.accessor.writer.AccessorUtilities;
+import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.joda.time.Duration;
 import org.joda.time.Period;
 
@@ -104,5 +113,33 @@ public class RowSetUtilities {
     default:
       throw new IllegalArgumentException("Writer is not an interval: " + minorType);
     }
+  }
+
+  public static VectorContainer buildVectors(BufferAllocator allocator, TupleMetadata schema) {
+    VectorContainer container = new VectorContainer(allocator);
+    for (int i = 0; i < schema.size(); i++) {
+      ColumnMetadata colSchema = schema.metadata(i);
+      @SuppressWarnings("resource")
+      ValueVector vector = TypeHelper.getNewVector(colSchema.schema(), allocator, null);
+      container.add(vector);
+      if (colSchema.structureType() == StructureType.TUPLE) {
+        buildMap(allocator, (AbstractMapVector) vector, colSchema.mapSchema());
+      }
+    }
+    container.buildSchema(SelectionVectorMode.NONE);
+    return container;
+  }
+
+  private static void buildMap(BufferAllocator allocator, AbstractMapVector mapVector, TupleMetadata mapSchema) {
+    for (int i = 0; i < mapSchema.size(); i++) {
+      ColumnMetadata colSchema = mapSchema.metadata(i);
+      @SuppressWarnings("resource")
+      ValueVector vector = TypeHelper.getNewVector(colSchema.schema(), allocator, null);
+      mapVector.putChild(colSchema.name(), vector);
+      if (colSchema.structureType() == StructureType.TUPLE) {
+        buildMap(allocator, (AbstractMapVector) vector, colSchema.mapSchema());
+      }
+    }
+
   }
 }

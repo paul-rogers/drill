@@ -20,7 +20,7 @@ package org.apache.drill.exec.physical.impl.scan;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.MaterializedSchema;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.hadoop.fs.Path;
 
@@ -62,7 +62,7 @@ public interface SchemaNegotiator {
    * @param type the table schema type
    */
 
-  void setTableSchema(MaterializedSchema schema);
+  void setTableSchema(TupleMetadata schema);
 
   /**
    * Specify the file path, if any, for the file to be read.

@@ -17,10 +17,10 @@
  */
 package org.apache.drill.test.rowSet;
 
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
-import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
@@ -85,7 +85,7 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
   private final WriterIndexImpl index;
   private final ExtendableRowSet rowSet;
 
-  protected RowSetWriterImpl(ExtendableRowSet rowSet, TupleSchema schema, WriterIndexImpl index, AbstractObjectWriter[] writers) {
+  protected RowSetWriterImpl(ExtendableRowSet rowSet, TupleMetadata schema, WriterIndexImpl index, AbstractObjectWriter[] writers) {
     super(schema, writers);
     this.rowSet = rowSet;
     this.index = index;

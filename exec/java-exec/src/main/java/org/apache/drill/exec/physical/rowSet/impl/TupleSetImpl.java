@@ -30,7 +30,8 @@ import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.VectorCont
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.MaterializedSchema;
+import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.TupleNameSpace;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VectorOverflowException;
@@ -544,8 +545,8 @@ public class TupleSetImpl implements TupleSchema {
   }
 
   @Override
-  public MaterializedSchema materializedSchema() {
-    MaterializedSchema schema = new MaterializedSchema();
+  public TupleMetadata materializedSchema() {
+    TupleMetadata schema = new TupleMetadata();
     for (int i = 0; i < columnCount(); i++) {
       schema.add(column(i));
     }

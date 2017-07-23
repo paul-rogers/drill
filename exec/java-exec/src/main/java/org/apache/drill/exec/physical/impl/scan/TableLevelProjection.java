@@ -36,7 +36,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.WildcardColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.ProjectionType;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.MaterializedSchema;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.store.ImplicitColumnExplorer;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -84,7 +84,7 @@ public class TableLevelProjection {
 
   private static class BaseTableColumnVisitor extends ScanOutputColumn.Visitor {
 
-    protected MaterializedSchema tableSchema;
+    protected TupleMetadata tableSchema;
     protected List<ScanOutputColumn> outputCols = new ArrayList<>();
     protected boolean columnIsProjected[];
     protected int logicalToPhysicalMap[];
@@ -93,7 +93,7 @@ public class TableLevelProjection {
     protected int metadataColumnCount;
     private int metadataProjection[];
 
-    public BaseTableColumnVisitor(MaterializedSchema tableSchema) {
+    public BaseTableColumnVisitor(TupleMetadata tableSchema) {
       this.tableSchema = tableSchema;
     }
 
@@ -142,7 +142,7 @@ public class TableLevelProjection {
 
   private static class WildcardExpander extends BaseTableColumnVisitor {
 
-    public WildcardExpander(MaterializedSchema tableSchema) {
+    public WildcardExpander(TupleMetadata tableSchema) {
       super(tableSchema);
       columnIsProjected = new boolean[tableSchema.size()];
       projectionMap = new int[tableSchema.size()];
@@ -177,7 +177,7 @@ public class TableLevelProjection {
     protected List<NullColumn> nullCols = new ArrayList<>();
     protected int nullProjectionMap[];
 
-    public TableSchemaProjection(MaterializedSchema tableSchema) {
+    public TableSchemaProjection(TupleMetadata tableSchema) {
       super(tableSchema);
       columnIsProjected = new boolean[tableSchema.size()];
       logicalToPhysicalMap = new int[tableSchema.size()];
@@ -223,7 +223,7 @@ public class TableLevelProjection {
 
   public static class ColumnsArrayProjection extends BaseTableColumnVisitor {
 
-    public ColumnsArrayProjection(MaterializedSchema tableSchema) {
+    public ColumnsArrayProjection(TupleMetadata tableSchema) {
       super(tableSchema);
       columnIsProjected = new boolean[] { true };
       logicalToPhysicalMap = new int[] { 0 };
@@ -237,7 +237,7 @@ public class TableLevelProjection {
   }
 
   private final FileLevelProjection fileProjection;
-  private final MaterializedSchema tableSchema;
+  private final TupleMetadata tableSchema;
   private final List<ScanOutputColumn> outputCols;
 
   /**
@@ -267,7 +267,7 @@ public class TableLevelProjection {
   private final List<NullColumn> nullCols;
 
   private TableLevelProjection(FileLevelProjection fileProj,
-                    MaterializedSchema tableSchema, boolean reresolve) {
+                    TupleMetadata tableSchema, boolean reresolve) {
     fileProjection = fileProj;
     this.tableSchema = tableSchema;
     BaseTableColumnVisitor baseBuilder;
@@ -345,7 +345,7 @@ public class TableLevelProjection {
   }
 
   @VisibleForTesting
-  public MaterializedSchema outputSchema() {
+  public TupleMetadata outputSchema() {
     return ScanOutputColumn.schema(output());
   }
 
@@ -380,7 +380,7 @@ public class TableLevelProjection {
    */
 
   public static TableLevelProjection fromResolution(
-      FileLevelProjection fileProj, MaterializedSchema tableSchema) {
+      FileLevelProjection fileProj, TupleMetadata tableSchema) {
     return new TableLevelProjection(fileProj, tableSchema, false);
   }
 
@@ -393,7 +393,7 @@ public class TableLevelProjection {
    * @return
    */
   public static TableLevelProjection fromReresolution(
-      FileLevelProjection fileProj, MaterializedSchema tableSchema) {
+      FileLevelProjection fileProj, TupleMetadata tableSchema) {
     return new TableLevelProjection(fileProj, tableSchema, true);
   }
 }

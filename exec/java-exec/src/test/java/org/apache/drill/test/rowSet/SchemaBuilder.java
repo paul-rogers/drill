@@ -26,7 +26,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.MaterializedSchema;
+import org.apache.drill.exec.record.TupleMetadata;
 
 /**
  * Builder of a row set schema expressed as a list of materialized
@@ -236,8 +236,8 @@ public class SchemaBuilder {
     throw new IllegalStateException("Cannot build map for a top-level schema");
   }
 
-  public MaterializedSchema buildSchema() {
-    MaterializedSchema schema = new MaterializedSchema();
+  public TupleMetadata buildSchema() {
+    TupleMetadata schema = new TupleMetadata();
     for (MaterializedField col : columns) {
       schema.add(col);
     }

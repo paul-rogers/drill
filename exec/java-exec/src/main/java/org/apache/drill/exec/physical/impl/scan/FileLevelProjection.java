@@ -26,7 +26,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadataCol
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.WildcardColumn;
-import org.apache.drill.exec.record.MaterializedSchema;
+import org.apache.drill.exec.record.TupleMetadata;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -150,7 +150,7 @@ public class FileLevelProjection {
    * @return a fully-resolved projection plan
    */
 
-  public TableLevelProjection resolve(MaterializedSchema tableSchema) {
+  public TableLevelProjection resolve(TupleMetadata tableSchema) {
     if (isReresolution) {
       return TableLevelProjection.fromReresolution(this, tableSchema);
     } else {
@@ -159,7 +159,7 @@ public class FileLevelProjection {
   }
 
   @VisibleForTesting
-  public MaterializedSchema outputSchema() {
+  public TupleMetadata outputSchema() {
     return ScanOutputColumn.schema(output());
   }
 

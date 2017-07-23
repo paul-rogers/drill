@@ -23,21 +23,21 @@ import java.util.List;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.record.TupleMetadata.StructureType;
 import org.apache.drill.exec.record.HyperVectorWrapper;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.AccessorUtilities;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader.VectorAccessor;
 import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
+import org.apache.drill.exec.vector.accessor.writer.AccessorUtilities;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.test.rowSet.RowSet.HyperRowSet;
-import org.apache.drill.test.rowSet.RowSetSchema.FlattenedSchema;
-import org.apache.drill.test.rowSet.RowSetSchema.LogicalColumn;
-import org.apache.drill.test.rowSet.RowSetSchema.PhysicalSchema;
 
 /**
  * Implements a row set wrapper around a collection of "hyper vectors."
@@ -57,7 +57,7 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
    * values mapping via an SV4.
    */
 
-  public static class HyperRowIndex extends BoundedRowIndex {
+  public static class HyperRowIndex extends RowSetReaderIndex {
 
     private final SelectionVector4 sv4;
 
@@ -146,20 +146,20 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
     private final List<ValueVector> nestedScalars[];
     private int vectorIndex;
     private int mapIndex;
-    private final PhysicalSchema physicalSchema;
+    private final TupleMetadata physicalSchema;
 
     @SuppressWarnings("unchecked")
     public HyperVectorBuilder(RowSetSchema schema) {
       physicalSchema = schema.physical();
-      FlattenedSchema flatSchema = schema.flatAccess();
-      valueVectors = new HyperVectorWrapper<?>[schema.hierarchicalAccess().count()];
+      TupleMetadata flatSchema = schema.flatAccess();
+      valueVectors = new HyperVectorWrapper<?>[schema.hierarchicalAccess().size()];
       if (flatSchema.mapCount() == 0) {
         mapVectors = null;
         nestedScalars = null;
       } else {
         mapVectors = (HyperVectorWrapper<AbstractMapVector>[])
             new HyperVectorWrapper<?>[flatSchema.mapCount()];
-        nestedScalars = new ArrayList[flatSchema.count()];
+        nestedScalars = new ArrayList[flatSchema.size()];
       }
     }
 
@@ -183,31 +183,31 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
       return (HyperVectorWrapper<ValueVector>[]) valueVectors;
     }
 
-    private void buildHyperMap(PhysicalSchema mapSchema, HyperVectorWrapper<AbstractMapVector> mapWrapper) {
+    private void buildHyperMap(TupleMetadata mapSchema, HyperVectorWrapper<AbstractMapVector> mapWrapper) {
       createHyperVectors(mapSchema);
       for (AbstractMapVector mapVector : mapWrapper.getValueVectors()) {
         buildMap(mapSchema, mapVector);
       }
     }
 
-    private void buildMap(PhysicalSchema mapSchema, AbstractMapVector mapVector) {
+    private void buildMap(TupleMetadata mapSchema, AbstractMapVector mapVector) {
       for (ValueVector v : mapVector) {
-        LogicalColumn col = mapSchema.column(v.getField().getName());
-        if (col.isMap()) {
-          buildMap(col.mapSchema, (AbstractMapVector) v);
+        ColumnMetadata col = mapSchema.metadata(v.getField().getName());
+        if (col.structureType() == StructureType.TUPLE) {
+          buildMap(col.mapSchema(), (AbstractMapVector) v);
         } else {
-          nestedScalars[col.accessIndex()].add(v);
+          nestedScalars[col.index()].add(v);
         }
       }
     }
 
-    private void createHyperVectors(PhysicalSchema mapSchema) {
-      for (int i = 0; i < mapSchema.count(); i++) {
-        LogicalColumn col = mapSchema.column(i);
-        if (col.isMap()) {
-          createHyperVectors(col.mapSchema);
+    private void createHyperVectors(TupleMetadata mapSchema) {
+      for (int i = 0; i < mapSchema.size(); i++) {
+        ColumnMetadata col = mapSchema.metadata(i);
+        if (col.structureType() == StructureType.TUPLE) {
+          createHyperVectors(col.mapSchema());
         } else {
-          nestedScalars[col.accessIndex()] = new ArrayList<ValueVector>();
+          nestedScalars[col.index()] = new ArrayList<ValueVector>();
         }
       }
     }
@@ -252,11 +252,6 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
   public boolean isWritable() { return false; }
 
   @Override
-  public RowSetWriter writer() {
-    throw new UnsupportedOperationException("Cannot write to a hyper vector");
-  }
-
-  @Override
   public RowSetReader reader() {
     return buildReader(new HyperRowIndex(sv4));
   }
@@ -270,8 +265,8 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
    */
 
   protected RowSetReader buildReader(HyperRowIndex rowIndex) {
-    FlattenedSchema accessSchema = schema().flatAccess();
-    AbstractColumnReader readers[] = new AbstractColumnReader[accessSchema.count()];
+    TupleMetadata accessSchema = schema().flatAccess();
+    AbstractColumnReader readers[] = new AbstractColumnReader[accessSchema.size()];
     for (int i = 0; i < readers.length; i++) {
       MaterializedField field = accessSchema.column(i);
       readers[i] = ColumnAccessorFactory.newReader(field.getType());

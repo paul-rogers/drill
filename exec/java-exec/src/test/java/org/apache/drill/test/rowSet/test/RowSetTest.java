@@ -30,6 +30,8 @@ import java.io.UnsupportedEncodingException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
@@ -38,15 +40,12 @@ import org.apache.drill.exec.vector.accessor.ResultSetWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.ObjectWriter.ObjectType;
-import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSetSchema;
-import org.apache.drill.test.rowSet.RowSetSchema.FlattenedSchema;
-import org.apache.drill.test.rowSet.RowSetSchema.PhysicalSchema;
 import org.apache.drill.test.rowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.bouncycastle.util.Arrays;
@@ -55,147 +54,6 @@ import org.junit.Test;
 import com.google.common.base.Splitter;
 
 public class RowSetTest extends SubOperatorTest {
-
-  /**
-   * Test a simple physical schema with no maps.
-   */
-
-  @Test
-  public void testSchema() {
-    BatchSchema batchSchema = new SchemaBuilder()
-        .add("c", MinorType.INT)
-        .add("a", MinorType.INT, DataMode.REPEATED)
-        .addNullable("b", MinorType.VARCHAR)
-        .build();
-
-    assertEquals("c", batchSchema.getColumn(0).getName());
-    assertEquals("a", batchSchema.getColumn(1).getName());
-    assertEquals("b", batchSchema.getColumn(2).getName());
-
-    RowSetSchema schema = new RowSetSchema(batchSchema);
-    TupleSchema access = schema.hierarchicalAccess();
-    assertEquals(3, access.count());
-
-    crossCheck(access, 0, "c", MinorType.INT);
-    assertEquals(DataMode.REQUIRED, access.column(0).getDataMode());
-    assertEquals(DataMode.REQUIRED, access.column(0).getType().getMode());
-    assertTrue(! access.column(0).isNullable());
-
-    crossCheck(access, 1, "a", MinorType.INT);
-    assertEquals(DataMode.REPEATED, access.column(1).getDataMode());
-    assertEquals(DataMode.REPEATED, access.column(1).getType().getMode());
-    assertTrue(! access.column(1).isNullable());
-
-    crossCheck(access, 2, "b", MinorType.VARCHAR);
-    assertEquals(MinorType.VARCHAR, access.column(2).getType().getMinorType());
-    assertEquals(DataMode.OPTIONAL, access.column(2).getDataMode());
-    assertEquals(DataMode.OPTIONAL, access.column(2).getType().getMode());
-    assertTrue(access.column(2).isNullable());
-
-    // No maps: physical schema is the same as access schema.
-
-    PhysicalSchema physical = schema.physical();
-    assertEquals(3, physical.count());
-    assertEquals("c", physical.column(0).field().getName());
-    assertEquals("a", physical.column(1).field().getName());
-    assertEquals("b", physical.column(2).field().getName());
-  }
-
-  /**
-   * Validate that the actual column metadata is as expected by
-   * cross-checking: validate that the column at the index and
-   * the column at the column name are both correct.
-   *
-   * @param schema the schema for the row set
-   * @param index column index
-   * @param fullName expected column name
-   * @param type expected type
-   */
-
-  public void crossCheck(TupleSchema schema, int index, String fullName, MinorType type) {
-    String name = null;
-    for (String part : Splitter.on(".").split(fullName)) {
-      name = part;
-    }
-    assertEquals(name, schema.column(index).getName());
-    assertEquals(index, schema.columnIndex(fullName));
-    assertSame(schema.column(index), schema.column(fullName));
-    assertEquals(type, schema.column(index).getType().getMinorType());
-  }
-
-  /**
-   * Verify that a nested map schema works as expected.
-   */
-
-  @Test
-  public void testMapSchema() {
-    BatchSchema batchSchema = new SchemaBuilder()
-        .add("c", MinorType.INT)
-        .addMap("a")
-          .addNullable("b", MinorType.VARCHAR)
-          .add("d", MinorType.INT)
-          .addMap("e")
-            .add("f", MinorType.VARCHAR)
-            .buildMap()
-          .add("g", MinorType.INT)
-          .buildMap()
-        .add("h", MinorType.BIGINT)
-        .build();
-
-    RowSetSchema schema = new RowSetSchema(batchSchema);
-
-    // Access schema: flattened with maps removed
-
-    FlattenedSchema access = schema.flatAccess();
-    assertEquals(6, access.count());
-    crossCheck(access, 0, "c", MinorType.INT);
-    crossCheck(access, 1, "a.b", MinorType.VARCHAR);
-    crossCheck(access, 2, "a.d", MinorType.INT);
-    crossCheck(access, 3, "a.e.f", MinorType.VARCHAR);
-    crossCheck(access, 4, "a.g", MinorType.INT);
-    crossCheck(access, 5, "h", MinorType.BIGINT);
-
-    // Should have two maps.
-
-    assertEquals(2, access.mapCount());
-    assertEquals("a", access.map(0).getName());
-    assertEquals("e", access.map(1).getName());
-    assertEquals(0, access.mapIndex("a"));
-    assertEquals(1, access.mapIndex("a.e"));
-
-    // Verify physical schema: should mirror the schema created above.
-
-    PhysicalSchema physical = schema.physical();
-    assertEquals(3, physical.count());
-    assertEquals("c", physical.column(0).field().getName());
-    assertEquals("c", physical.column(0).fullName());
-    assertFalse(physical.column(0).isMap());
-    assertNull(physical.column(0).mapSchema());
-
-    assertEquals("a", physical.column(1).field().getName());
-    assertEquals("a", physical.column(1).fullName());
-    assertTrue(physical.column(1).isMap());
-    assertNotNull(physical.column(1).mapSchema());
-
-    assertEquals("h", physical.column(2).field().getName());
-    assertEquals("h", physical.column(2).fullName());
-    assertFalse(physical.column(2).isMap());
-    assertNull(physical.column(2).mapSchema());
-
-    PhysicalSchema aSchema = physical.column(1).mapSchema();
-    assertEquals(4, aSchema.count());
-    assertEquals("b", aSchema.column(0).field().getName());
-    assertEquals("a.b", aSchema.column(0).fullName());
-    assertEquals("d", aSchema.column(1).field().getName());
-    assertEquals("e", aSchema.column(2).field().getName());
-    assertEquals("g", aSchema.column(3).field().getName());
-
-    PhysicalSchema eSchema = aSchema.column(2).mapSchema();
-    assertEquals(1, eSchema.count());
-    assertEquals("f", eSchema.column(0).field().getName());
-    assertEquals("a.e.f", eSchema.column(0).fullName());
-  }
-
   /**
    * Test basic protocol of the writers: <pre><code>
    * row : tuple
@@ -431,7 +289,7 @@ public class RowSetTest extends SubOperatorTest {
     TupleWriter mapWriter = writer.column(1).tuple();
     assertEquals(ObjectType.SCALAR, mapWriter.column("b").array().entry().type());
     assertEquals(ObjectType.SCALAR, mapWriter.column("b").array().entryType());
-    
+
     ScalarWriter aWriter = writer.column("a").scalar();
     ScalarWriter bWriter = writer.column("b").tuple().column("b").scalar();
     assertSame(bWriter, writer.tuple(1).scalar(0));

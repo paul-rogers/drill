@@ -17,24 +17,13 @@
  */
 package org.apache.drill.test.rowSet;
 
-import java.util.Collection;
-
-import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
-import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
-import org.apache.drill.exec.vector.AllocationHelper;
-import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
-import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
-import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
-import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
-import org.apache.drill.exec.vector.accessor.writer.MapWriter;
-import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSetWriterImpl.WriterIndexImpl;
 
@@ -52,7 +41,7 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
    * the first. (This is the JDBC RecordSet convention.)
    */
 
-  private static class DirectRowIndex extends BoundedRowIndex {
+  private static class DirectRowIndex extends RowSetReaderIndex {
 
     public DirectRowIndex(int rowCount) {
       super(rowCount);
@@ -65,10 +54,8 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
     public int batchIndex() { return 0; }
   }
 
-  private WriterIndexImpl index;
-
   public DirectRowSet(BufferAllocator allocator, BatchSchema schema) {
-    super(allocator, schema);
+    super(allocator, TupleMetadata.fromFields(schema));
   }
 
   public DirectRowSet(BufferAllocator allocator, VectorContainer container) {
@@ -88,9 +75,7 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
 
   @Override
   public void allocate(int recordCount) {
-    for (final ValueVector v : valueVectors) {
-      AllocationHelper.allocate(v, recordCount, 50, 10);
-    }
+    rowStorage.allocate(allocator, recordCount);
   }
 
   @Override
@@ -104,66 +89,11 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
       throw new IllegalStateException("Row set already contains data");
     }
     allocate(initialRowCount);
-    index = new WriterIndexImpl();
-    if (flatSchema) {
-      return buildFlattenedWriter(index);
-    } else {
-      return null;
-    }
+    WriterIndexImpl index = new WriterIndexImpl();
+    RowStorage writeStorage = flatSchema ? rowStorage.flatten() : rowStorage;
+    return new RowSetWriterImpl(this, writeStorage.tupleSchema(), index, writeStorage.writers(index));
   }
 
-  /**
-   * Build writer objects for each column based on the column type.
-   *
-   * @param rowIndex the index which points to each row
-   * @return an array of writers
-   */
-
-  protected RowSetWriter buildFlattenedWriter(WriterIndexImpl rowIndex) {
-    ValueVector[] valueVectors = vectors();
-    AbstractObjectWriter[] writers = new AbstractObjectWriter[valueVectors.length];
-    for (int i = 0; i < writers.length; i++) {
-      writers[i] = ColumnAccessorFactory.buildColumnWriter(rowIndex, valueVectors[i]);
-    }
-    TupleSchema accessSchema = schema().flatAccess();
-    return new RowSetWriterImpl(this, accessSchema, rowIndex, writers);
-  }
-
-  protected RowSetWriter buildNestedWriter(WriterIndexImpl rowIndex) {
-    VectorContainer container = container();
-    int vectorCount = container.getNumberOfColumns();
-    TupleSchema accessSchema = schema().hierarchicalAccess();
-    AbstractObjectWriter[] writers = new AbstractObjectWriter[vectorCount];
-    for (int i = 0; i < vectorCount;  i++) {
-      @SuppressWarnings("resource")
-      ValueVector vector = container.getValueVector(i).getValueVector();
-      if (vector.getField().getType().getMinorType() == MinorType.MAP) {
-        writers[i] = buildMapWriter(accessSchema.map(i), rowIndex, (AbstractMapVector) vector);
-      } else {
-        writers[i] = ColumnAccessorFactory.buildColumnWriter(rowIndex, vector);
-      }
-    }
-    return new RowSetWriterImpl(this, accessSchema, rowIndex, writers);
-  }
-
-  private AbstractObjectWriter buildMapWriter(TupleSchema mapSchema, WriterIndexImpl rowIndex, AbstractMapVector mapVector) {
-    Collection<MaterializedField> childSchemas = mapVector.getField().getChildren();
-    int vectorCount = childSchemas.size();
-    assert vectorCount == mapVector.size();
-    AbstractObjectWriter[] writers = new AbstractObjectWriter[vectorCount];
-    for (int i = 0; i < vectorCount;  i++) {
-      @SuppressWarnings("resource")
-      ValueVector vector = mapVector.getChildByOrdinal(i);
-      if (vector.getField().getType().getMinorType() == MinorType.MAP) {
-        writers[i] = buildMapWriter(mapSchema.map(i), rowIndex, (AbstractMapVector) vector);
-      } else {
-        writers[i] = ColumnAccessorFactory.buildColumnWriter(rowIndex, vector);
-      }
-    }
-    MapWriter mapWriter = new MapWriter(mapSchema, writers);
-    return new AbstractTupleWriter.TupleObjectWriter(mapWriter);
-  }
-  
   @Override
   public RowSetReader reader() {
     return buildReader(new DirectRowIndex(rowCount()));

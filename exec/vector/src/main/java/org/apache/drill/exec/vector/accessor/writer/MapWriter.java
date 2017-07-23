@@ -17,11 +17,11 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
-import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
+import org.apache.drill.exec.record.TupleMetadata;
 
 public class MapWriter extends AbstractTupleWriter {
 
-  public MapWriter(TupleSchema schema, AbstractObjectWriter[] writers) {
+  public MapWriter(TupleMetadata schema, AbstractObjectWriter[] writers) {
     super(schema, writers);
   }
 

@@ -19,7 +19,7 @@ package org.apache.drill.exec.physical.rowSet;
 
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.MaterializedSchema;
+import org.apache.drill.exec.record.TupleMetadata;
 
 /**
  * Defines the schema of a tuple: either the top-level row or a nested
@@ -88,5 +88,5 @@ public interface TupleSchema {
    */
 
   BatchSchema schema();
-  MaterializedSchema materializedSchema();
+  TupleMetadata materializedSchema();
 }

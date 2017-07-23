@@ -30,7 +30,7 @@ import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
 import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.MaterializedSchema;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.hadoop.mapred.FileSplit;
 
@@ -106,7 +106,7 @@ public class CompliantTextRecordReader implements RowBatchReader {
         String [] fieldNames = extractHeader();
         if (fieldNames == null)
           return false;
-        MaterializedSchema schema = new MaterializedSchema();
+        TupleMetadata schema = new TupleMetadata();
         for (String colName : fieldNames) {
           schema.add(MaterializedField.create(colName,
               MajorType.newBuilder()
@@ -119,7 +119,7 @@ public class CompliantTextRecordReader implements RowBatchReader {
         output = new FieldVarCharOutput(loader);
       } else {
         //simply use RepeatedVarCharVector
-        MaterializedSchema schema = new MaterializedSchema();
+        TupleMetadata schema = new TupleMetadata();
         schema.add(MaterializedField.create("columns",
             MajorType.newBuilder()
               .setMinorType(MinorType.VARCHAR)

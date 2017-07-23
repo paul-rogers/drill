@@ -28,7 +28,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.PartitionColumn
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ProjectedColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.RequestedTableColumn;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.MaterializedSchema;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.hadoop.fs.Path;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -119,7 +119,7 @@ public abstract class ProjectionLifecycle {
     }
 
     @Override
-    public void startSchema(MaterializedSchema tableSchema) {
+    public void startSchema(TupleMetadata tableSchema) {
       tableProjDefn = fileProjDefn.resolve(tableSchema);
     }
   }
@@ -203,7 +203,7 @@ public abstract class ProjectionLifecycle {
     }
 
     @Override
-    public void startSchema(MaterializedSchema tableSchema) {
+    public void startSchema(TupleMetadata tableSchema) {
       if (priorSchema != null && ! isCompatible(tableSchema)) {
         resetFileSchema();
       }
@@ -211,7 +211,7 @@ public abstract class ProjectionLifecycle {
       unresolveProjection();
     }
 
-    private boolean isCompatible(MaterializedSchema newSchema) {
+    private boolean isCompatible(TupleMetadata newSchema) {
 
       // Can't match if have more table columns than prior columns,
       // new fields appeared in this table.
@@ -285,11 +285,11 @@ public abstract class ProjectionLifecycle {
   }
 
   public abstract void startFile(Path filePath);
-  public abstract void startSchema(MaterializedSchema newSchema);
+  public abstract void startSchema(TupleMetadata newSchema);
   public ScanLevelProjection scanProjection() { return scanProjDefn; }
   public FileLevelProjection fileProjection() { return fileProjDefn; }
   public TableLevelProjection tableProjection() { return tableProjDefn; }
-  public MaterializedSchema outputSchema() { return tableProjDefn.outputSchema(); }
+  public TupleMetadata outputSchema() { return tableProjDefn.outputSchema(); }
   public int schemaVersion() { return schemaVersion; }
 
   @VisibleForTesting

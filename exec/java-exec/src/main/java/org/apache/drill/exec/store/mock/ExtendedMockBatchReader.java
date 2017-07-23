@@ -29,7 +29,7 @@ import org.apache.drill.exec.physical.impl.scan.SchemaNegotiator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.MaterializedSchema;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
 import org.apache.drill.exec.vector.ValueVector;
@@ -89,7 +89,7 @@ public class ExtendedMockBatchReader implements RowBatchReader {
 
   @Override
   public boolean open(SchemaNegotiator schemaNegotiator) {
-    MaterializedSchema schema = new MaterializedSchema();
+    TupleMetadata schema = new TupleMetadata();
     for (int i = 0; i < fields.length; i++) {
       final ColumnDef col = fields[i];
       final MaterializedField field = MaterializedField.create(col.getName(),

@@ -17,23 +17,27 @@
  */
 package org.apache.drill.test.rowSet;
 
-import org.apache.drill.common.types.TypeProtos.MajorType;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
-import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.record.TupleMetadata.StructureType;
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.record.VectorWrapper;
+import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader;
 import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
-import org.apache.drill.exec.vector.complex.MapVector;
+import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
+import org.apache.drill.exec.vector.accessor.writer.MapWriter;
+import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
-import org.apache.drill.test.rowSet.RowSetSchema.FlattenedSchema;
-import org.apache.drill.test.rowSet.RowSetSchema.LogicalColumn;
-import org.apache.drill.test.rowSet.RowSetSchema.PhysicalSchema;
 
 /**
  * Base class for row sets backed by a single record batch.
@@ -42,151 +46,319 @@ import org.apache.drill.test.rowSet.RowSetSchema.PhysicalSchema;
 public abstract class AbstractSingleRowSet extends AbstractRowSet implements SingleRowSet {
 
   /**
-   * Internal helper class to organize a set of value vectors for use by the
-   * row set class. Subclasses either build vectors from a schema, or map an
-   * existing vector container into the row set structure. The row set
-   * structure is based on a flattened structure; all vectors appear in
-   * a single vector array. Maps are set aside in a separate map list.
+   * Common interface to access a tuple backed by a vector container or a
+   * map vector.
    */
 
-  public abstract static class StructureBuilder {
-    protected final PhysicalSchema schema;
-    protected final BufferAllocator allocator;
-    protected final ValueVector[] valueVectors;
-    protected final MapVector[] mapVectors;
-    protected int vectorIndex;
-    protected int mapIndex;
+  public interface TupleStorage {
+    TupleMetadata tupleSchema();
+    int size();
+    ValueVector vector(int index);
+    ColumnStorage storage(int index);
+    AbstractColumnReader[] readers(RowSetReaderIndex rowIndex);
+    AbstractObjectWriter[] writers(ColumnWriterIndex rowIndex);
+    void allocate(BufferAllocator allocator, int rowCount);
+  }
 
-    public StructureBuilder(BufferAllocator allocator, RowSetSchema schema) {
-      this.allocator = allocator;
-      this.schema = schema.physical();
-      FlattenedSchema flatSchema = schema.flatAccess();
-      valueVectors = new ValueVector[flatSchema.count()];
-      if (flatSchema.mapCount() == 0) {
-        mapVectors = null;
-      } else {
-        mapVectors = new MapVector[flatSchema.mapCount()];
-      }
+  /**
+   * Represents a column within a tuple, including the tuple metadata
+   * and column storage. A wrapper around a vector to include metadata
+   * and handle nested tuples.
+   */
+
+  public static abstract class ColumnStorage {
+    protected final ColumnMetadata schema;
+
+    public ColumnStorage(ColumnMetadata schema) {
+      this.schema = schema;
+    }
+
+    public ColumnMetadata columnSchema() { return schema; }
+    public abstract ValueVector vector();
+    public abstract AbstractColumnReader reader(RowSetReaderIndex index);
+    public abstract AbstractObjectWriter writer(ColumnWriterIndex rowIndex);
+    public abstract void allocate(BufferAllocator allocator, int rowCount);
+  }
+
+  /**
+   * Wrapper around a primitive (non-map, non-list) column vector.
+   */
+
+  public static class PrimitiveColumnStorage extends ColumnStorage {
+    protected final ValueVector vector;
+
+    public PrimitiveColumnStorage(ColumnMetadata schema, ValueVector vector) {
+      super(schema);
+      this.vector = vector;
+    }
+
+    @Override
+    public ValueVector vector() { return vector; }
+
+    @Override
+    public AbstractColumnReader reader(RowSetReaderIndex index) {
+      AbstractColumnReader reader = ColumnAccessorFactory.newReader(vector.getField().getType());
+      reader.bind(index, vector);
+      return reader;
+    }
+
+    @Override
+    public void allocate(BufferAllocator allocator, int rowCount) {
+      // TODO: Use better estimates
+
+      AllocationHelper.allocate(vector, rowCount, 50, 10);
+    }
+
+    @Override
+    public AbstractObjectWriter writer(ColumnWriterIndex rowIndex) {
+      return ColumnAccessorFactory.buildColumnWriter(rowIndex, vector);
     }
   }
 
   /**
-   * Create a set of value vectors given a schema, then map them into both
-   * the value container and the row set structure.
+   * Wrapper around a map vector to provide both a column and tuple view of
+   * the map.
    */
 
-  public static class VectorBuilder extends StructureBuilder {
+  public static class MapColumnStorage extends ColumnStorage implements TupleStorage {
 
-    public VectorBuilder(BufferAllocator allocator, RowSetSchema schema) {
-      super(allocator, schema);
+    private final AbstractMapVector vector;
+    private final ColumnStorage columns[];
+
+    public MapColumnStorage(ColumnMetadata schema, AbstractMapVector vector, ColumnStorage columns[]) {
+      super(schema);
+      this.vector = vector;
+      this.columns = columns;
     }
 
-    public ValueVector[] buildContainer(VectorContainer container) {
-      for (int i = 0; i < schema.count(); i++) {
-        LogicalColumn colSchema = schema.column(i);
-        @SuppressWarnings("resource")
-        ValueVector v = TypeHelper.getNewVector(colSchema.field, allocator, null);
-        container.add(v);
-        if (colSchema.field.getType().getMinorType() == MinorType.MAP) {
-          MapVector mv = (MapVector) v;
-          mapVectors[mapIndex++] = mv;
-          buildMap(mv, colSchema.mapSchema);
-        } else {
-          valueVectors[vectorIndex++] = v;
-        }
-      }
-      container.buildSchema(SelectionVectorMode.NONE);
-      return valueVectors;
+    public static MapColumnStorage fromMap(ColumnMetadata schema, AbstractMapVector vector) {
+      return new MapColumnStorage(schema, vector, buildColumns(schema, vector));
     }
 
-    private void buildMap(MapVector mapVector, PhysicalSchema mapSchema) {
-      for (int i = 0; i < mapSchema.count(); i++) {
-        LogicalColumn colSchema = mapSchema.column(i);
-        MajorType type = colSchema.field.getType();
-        Class<? extends ValueVector> vectorClass = TypeHelper.getValueVectorClass(type.getMinorType(), type.getMode());
+    private static ColumnStorage[] buildColumns(ColumnMetadata schema, AbstractMapVector vector) {
+      TupleMetadata mapSchema = schema.mapSchema();
+      ColumnStorage columns[] = new ColumnStorage[mapSchema.size()];
+      for (int i = 0; i < mapSchema.size(); i++) {
+        ColumnMetadata colSchema = mapSchema.metadata(i);
         @SuppressWarnings("resource")
-        ValueVector v = mapVector.addOrGet(colSchema.field.getName(), type, vectorClass);
-        if (type.getMinorType() == MinorType.MAP) {
-          MapVector mv = (MapVector) v;
-          mapVectors[mapIndex++] = mv;
-          buildMap(mv, colSchema.mapSchema);
+        ValueVector child = vector.getChildByOrdinal(i);
+        if (colSchema.structureType() == StructureType.TUPLE) {
+          columns[i] = MapColumnStorage.fromMap(colSchema, (AbstractMapVector) child);
         } else {
-          valueVectors[vectorIndex++] = v;
+          columns[i] = new PrimitiveColumnStorage(colSchema, child);
         }
       }
+      return columns;
+    }
+
+    private static MapColumnStorage flatten(ColumnMetadata destMd, MapColumnStorage sourceMapStorage) {
+      assert destMd.name().equals(sourceMapStorage.columnSchema().name());
+      List<ColumnStorage> destCols = new ArrayList<>();
+      flattenTuple(sourceMapStorage, destMd.mapSchema(), destCols);
+      return new MapColumnStorage(destMd, (AbstractMapVector) sourceMapStorage.vector(),
+                                  destCols.toArray(new ColumnStorage[destCols.size()]));
+    }
+
+    @Override
+    public int size() { return columns.length; }
+
+    @Override
+    public TupleMetadata tupleSchema() { return schema.mapSchema(); }
+
+    @Override
+    public ValueVector vector(int index) {
+      return columns[index].vector();
+    }
+
+    @Override
+    public ValueVector vector() { return vector; }
+
+    @Override
+    public ColumnStorage storage(int index) { return columns[index]; }
+
+    @Override
+    public AbstractColumnReader reader(RowSetReaderIndex index) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public AbstractColumnReader[] readers(RowSetReaderIndex rowIndex) {
+      return RowStorage.readers(this, rowIndex);
+    }
+
+    @Override
+    public AbstractObjectWriter[] writers(ColumnWriterIndex rowIndex) {
+      return RowStorage.writers(this, rowIndex);
+    }
+
+    @Override
+    public void allocate(BufferAllocator allocator, int rowCount) {
+      RowStorage.allocate(this, allocator, rowCount);
+    }
+
+    @Override
+    public AbstractObjectWriter writer(ColumnWriterIndex rowIndex) {
+      AbstractObjectWriter[] writers = writers(rowIndex);
+      MapWriter mapWriter = new MapWriter(tupleSchema(), writers);
+      return new AbstractTupleWriter.TupleObjectWriter(mapWriter);
     }
   }
 
   /**
-   * Build a row set given an existing vector container. In this case,
-   * the vectors exist and we simply need to pull them out of the container
-   * and maps and put them into the row set arrays.
+   * Wrapper around a vector container to map the vector container into the common
+   * tuple format.
    */
 
-  public static class VectorMapper extends StructureBuilder {
+  public static class RowStorage implements TupleStorage {
+    private final TupleMetadata schema;
+    private final ColumnStorage columns[];
+    private final VectorContainer container;
 
-    public VectorMapper(BufferAllocator allocator, RowSetSchema schema) {
-      super(allocator, schema);
+    public RowStorage(TupleMetadata schema, VectorContainer container, ColumnStorage columns[]) {
+      this.schema = schema;
+      this.columns = columns;
+      this.container = container;
     }
 
-    public ValueVector[] mapContainer(VectorContainer container) {
-      for (VectorWrapper<?> w : container) {
+    public static RowStorage fromSchema(BufferAllocator allocator, TupleMetadata schema) {
+      VectorContainer container = RowSetUtilities.buildVectors(allocator, schema);
+      return new RowStorage(schema, container, buildChildren(schema, container));
+    }
+
+    public static RowStorage fromContainer(TupleMetadata schema, VectorContainer container) {
+      return new RowStorage(schema, container, buildChildren(schema, container));
+    }
+
+    private static ColumnStorage[] buildChildren(TupleMetadata schema, VectorContainer container) {
+      assert schema.size() == container.getNumberOfColumns();
+      ColumnStorage colStorage[] = new ColumnStorage[schema.size()];
+      for (int i = 0; i < schema.size(); i++) {
+        ColumnMetadata colSchema = schema.metadata(i);
         @SuppressWarnings("resource")
-        ValueVector v = w.getValueVector();
-        if (v.getField().getType().getMinorType() == MinorType.MAP) {
-          MapVector mv = (MapVector) v;
-          mapVectors[mapIndex++] = mv;
-          buildMap(mv);
+        ValueVector vector = container.getValueVector(i).getValueVector();
+        if (colSchema.structureType() == StructureType.TUPLE) {
+          colStorage[i] = MapColumnStorage.fromMap(colSchema, (AbstractMapVector) vector);
         } else {
-          valueVectors[vectorIndex++] = v;
+          colStorage[i] = new PrimitiveColumnStorage(colSchema, vector);
         }
       }
-      return valueVectors;
+      return colStorage;
     }
 
-    private void buildMap(MapVector mapVector) {
-      for (ValueVector v : mapVector) {
-        if (v.getField().getType().getMinorType() == MinorType.MAP) {
-          MapVector mv = (MapVector) v;
-          mapVectors[mapIndex++] = mv;
-          buildMap(mv);
-        } else {
-          valueVectors[vectorIndex++] = v;
-        }
+    public static RowStorage flattened(RowStorage sourceStorage) {
+      TupleMetadata destSchema = sourceStorage.tupleSchema().flatten();
+      List<ColumnStorage> destCols = new ArrayList<>();
+      flattenTuple(sourceStorage, destSchema, destCols);
+      return new RowStorage(destSchema, null, destCols.toArray(new ColumnStorage[destCols.size()]));
+    }
+
+    @Override
+    public int size() { return columns.length; }
+
+    @Override
+    public TupleMetadata tupleSchema() { return schema; }
+
+    @Override
+    public ValueVector vector(int index) {
+      return columns[index].vector();
+    }
+
+    @Override
+    public ColumnStorage storage(int index) { return columns[index]; }
+
+    public VectorContainer container() { return container; }
+
+    public RowStorage flatten() {
+      return RowStorage.flattened(this);
+    }
+
+    @Override
+    public AbstractColumnReader[] readers(RowSetReaderIndex rowIndex) {
+      return readers(this, rowIndex);
+    }
+
+    @Override
+    public AbstractObjectWriter[] writers(ColumnWriterIndex rowIndex) {
+      return writers(this, rowIndex);
+    }
+
+    @Override
+    public void allocate(BufferAllocator allocator, int rowCount) {
+      allocate(this, allocator, rowCount);
+    }
+
+    protected static AbstractColumnReader[] readers(TupleStorage storage, RowSetReaderIndex rowIndex) {
+      AbstractColumnReader[] readers = new AbstractColumnReader[storage.tupleSchema().size()];
+      for (int i = 0; i < readers.length; i++) {
+        readers[i] = storage.storage(i).reader(rowIndex);
+      }
+      return readers;
+    }
+
+    protected static AbstractObjectWriter[] writers(TupleStorage storage, ColumnWriterIndex rowIndex) {
+      AbstractObjectWriter[] writers = new AbstractObjectWriter[storage.size()];
+      for (int i = 0; i < writers.length;  i++) {
+        writers[i] = storage.storage(i).writer(rowIndex);
+      }
+      return writers;
+    }
+
+    protected static void allocate(TupleStorage storage, BufferAllocator allocator, int rowCount) {
+      for (int i = 0; i < storage.size(); i++) {
+        storage.storage(i).allocate(allocator, rowCount);
       }
     }
   }
 
-  /**
-   * Flattened representation of value vectors using a depth-first
-   * traversal of maps. Order of vectors here correspond to the column
-   * indexes used to access columns in a reader or writer.
-   */
+  protected final RowStorage rowStorage;
 
-  protected final ValueVector[] valueVectors;
-
-  public AbstractSingleRowSet(BufferAllocator allocator, BatchSchema schema) {
+  public AbstractSingleRowSet(BufferAllocator allocator, TupleMetadata schema) {
     super(allocator, schema, new VectorContainer());
-    valueVectors = new VectorBuilder(allocator, super.schema).buildContainer(container);
+    rowStorage = RowStorage.fromSchema(allocator, schema);
   }
 
   public AbstractSingleRowSet(BufferAllocator allocator, VectorContainer container) {
-    super(allocator, container.getSchema(), container);
-    valueVectors = new VectorMapper(allocator, super.schema).mapContainer(container);
+    super(allocator, TupleMetadata.fromFields(container.getSchema()), container);
+    rowStorage = RowStorage.fromContainer(schema, container);
   }
 
   public AbstractSingleRowSet(AbstractSingleRowSet rowSet) {
-    super(rowSet.allocator, rowSet.schema.batch(), rowSet.container);
-    valueVectors = rowSet.valueVectors;
+    super(rowSet.allocator, rowSet.schema, rowSet.container);
+    rowStorage = rowSet.rowStorage;
   }
-
-  @Override
-  public ValueVector[] vectors() { return valueVectors; }
 
   @Override
   public int size() {
     RecordBatchSizer sizer = new RecordBatchSizer(container);
     return sizer.actualSize();
+  }
+
+  /**
+   * Given a tuple storage representing a non-flattened row or map, return
+   * a flattened version of the tuple in which all columns except repeated
+   * maps are pushed up to the root level. Recursively apply these rule for
+   * nested maps.
+   * @param sourceStorage the original, non-flattened row or map
+   * @param destSchema the schema for the destination, flattened tuple
+   * @param destCols the columns for the flattened tuple
+   */
+  private static void flattenTuple(TupleStorage sourceStorage, TupleMetadata destSchema, List<ColumnStorage> destCols) {
+    TupleMetadata sourceSchema = sourceStorage.tupleSchema();
+    for (int i = 0; i < sourceSchema.size(); i++) {
+      ColumnMetadata sourceMd = sourceSchema.metadata(i);
+      ColumnStorage sourceColStorage = sourceStorage.storage(sourceMd.base().index());
+      int destIndex = destCols.size();
+      if (sourceMd.type() != MinorType.MAP) {
+        ColumnMetadata destMd = destSchema.metadata(destIndex);
+        assert destMd.name().equals(sourceMd.name());
+        destCols.add(new PrimitiveColumnStorage(destMd, sourceColStorage.vector()));
+      } else if (sourceMd.mode() == DataMode.REPEATED) {
+        ColumnMetadata destMd = destSchema.metadata(destIndex);
+        destCols.add(MapColumnStorage.flatten(destMd, (MapColumnStorage) sourceColStorage));
+      } else {
+        flattenTuple((MapColumnStorage) sourceColStorage, destSchema, destCols);
+      }
+    }
   }
 
   /**
@@ -197,21 +369,8 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
    * (non-map) vectors.
    */
 
-  protected RowSetReader buildReader(RowSetIndex rowIndex) {
-    FlattenedSchema accessSchema = schema().flatAccess();
-    ValueVector[] valueVectors = vectors();
-    AbstractColumnReader[] readers = new AbstractColumnReader[valueVectors.length];
-    for (int i = 0; i < readers.length; i++) {
-      MinorType type = accessSchema.column(i).getType().getMinorType();
-      if (type == MinorType.MAP) {
-        readers[i] = null; // buildMapAccessor(i);
-      } else if (type == MinorType.LIST) {
-        readers[i] = null; // buildListAccessor(i);
-      } else {
-        readers[i] = ColumnAccessorFactory.newReader(valueVectors[i].getField().getType());
-        readers[i].bind(rowIndex, valueVectors[i]);
-      }
-    }
-    return new RowSetReaderImpl(accessSchema, rowIndex, readers);
+  protected RowSetReader buildReader(RowSetReaderIndex rowIndex) {
+    RowStorage flattened = rowStorage.flatten();
+    return new RowSetReaderImpl(flattened.tupleSchema(), rowIndex, flattened.readers(rowIndex));
   }
 }

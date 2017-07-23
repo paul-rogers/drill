@@ -44,7 +44,7 @@ import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.impl.protocol.OperatorExecutionContext;
 import org.apache.drill.exec.physical.impl.protocol.OperatorExecutionContextImpl;
 import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.record.MaterializedSchema;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.server.options.BaseOptionManager;
 import org.apache.drill.exec.server.options.OptionSet;
@@ -316,7 +316,7 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     return new RowSetBuilder(allocator, schema);
   }
 
-  public RowSetBuilder rowSetBuilder(MaterializedSchema schema) {
+  public RowSetBuilder rowSetBuilder(TupleMetadata schema) {
     return rowSetBuilder(schema.asBatchSchema());
   }
 

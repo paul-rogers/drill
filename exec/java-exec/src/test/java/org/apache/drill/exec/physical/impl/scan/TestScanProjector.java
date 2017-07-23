@@ -43,7 +43,7 @@ import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.physical.rowSet.impl.LogicalTupleLoader;
 import org.apache.drill.exec.physical.rowSet.impl.TupleSetImpl.TupleLoaderImpl;
 import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.record.MaterializedSchema;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.store.ImplicitColumnExplorer.ImplicitFileColumns;
 import org.apache.drill.exec.vector.ValueVector;
@@ -183,7 +183,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // file schema (a, b)
 
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
@@ -244,7 +244,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // file schema (a, b)
 
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
@@ -305,7 +305,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // file schema (a, b)
 
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
@@ -371,7 +371,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // file schema (a, b)
 
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
@@ -444,7 +444,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // file schema (a, b)
 
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
@@ -509,7 +509,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // file schema (a, b)
 
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
@@ -579,7 +579,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // file schema (a, b)
 
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
@@ -648,7 +648,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // file schema (a, b)
 
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
@@ -712,7 +712,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // file schema (a, b)
 
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
@@ -789,7 +789,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // file schema (a, b)
 
-    MaterializedSchema twoColSchema = new SchemaBuilder()
+    TupleMetadata twoColSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addNullable("b", MinorType.VARCHAR, 10)
         .buildSchema();
@@ -828,7 +828,7 @@ public class TestScanProjector extends SubOperatorTest {
 
       // File schema (a)
 
-      MaterializedSchema oneColSchema = new SchemaBuilder()
+      TupleMetadata oneColSchema = new SchemaBuilder()
           .add("a", MinorType.INT)
           .buildSchema();
 
@@ -898,17 +898,17 @@ public class TestScanProjector extends SubOperatorTest {
 
     ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
 
-    MaterializedSchema schema1 = new SchemaBuilder()
+    TupleMetadata schema1 = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addNullable("b", MinorType.VARCHAR, 10)
         .add("c", MinorType.BIGINT)
         .buildSchema();
-    MaterializedSchema schema2 = new SchemaBuilder()
+    TupleMetadata schema2 = new SchemaBuilder()
         .add("c", MinorType.BIGINT)
         .add("a", MinorType.INT)
         .addNullable("b", MinorType.VARCHAR, 10)
         .buildSchema();
-    MaterializedSchema schema3 = new SchemaBuilder()
+    TupleMetadata schema3 = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("c", MinorType.BIGINT)
         .addNullable("b", MinorType.VARCHAR, 10)
@@ -1024,16 +1024,16 @@ public class TestScanProjector extends SubOperatorTest {
 
     ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
 
-    MaterializedSchema firstSchema = new SchemaBuilder()
+    TupleMetadata firstSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addNullable("b", MinorType.VARCHAR, 10)
         .addNullable("c", MinorType.BIGINT)
         .buildSchema();
-    MaterializedSchema subsetSchema = new SchemaBuilder()
+    TupleMetadata subsetSchema = new SchemaBuilder()
         .addNullable("b", MinorType.VARCHAR, 10)
         .add("a", MinorType.INT)
         .buildSchema();
-    MaterializedSchema disjointSchema = new SchemaBuilder()
+    TupleMetadata disjointSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addNullable("b", MinorType.VARCHAR, 10)
         .add("d", MinorType.VARCHAR)
@@ -1162,7 +1162,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // file schema (a, b)
 
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addNullable("b", MinorType.VARCHAR, 10)
         .buildSchema();
@@ -1273,7 +1273,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // Verify
 
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();

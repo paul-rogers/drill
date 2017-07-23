@@ -40,7 +40,7 @@ public class RowSetComparison {
 
   public RowSetComparison(RowSet expected) {
     this.expected = expected;
-    mask = new boolean[expected.schema().hierarchicalAccess().count()];
+    mask = new boolean[expected.schema().size()];
     for (int i = 0; i < mask.length; i++) {
       mask[i] = true;
     }

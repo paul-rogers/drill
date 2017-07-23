@@ -30,7 +30,8 @@ import org.apache.drill.exec.physical.rowSet.TupleSchema.TupleColumnSchema;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.MaterializedSchema;
+import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.TupleNameSpace;
 
 /**
  * Shim inserted between an actual tuple loader and the client to remove columns
@@ -135,8 +136,8 @@ public class LogicalTupleLoader implements TupleLoader {
     }
 
     @Override
-    public MaterializedSchema materializedSchema() {
-      MaterializedSchema schema = new MaterializedSchema();
+    public TupleMetadata materializedSchema() {
+      TupleMetadata schema = new TupleMetadata();
       for (int i = 0; i < columnCount(); i++) {
         schema.add(column(i));
       }

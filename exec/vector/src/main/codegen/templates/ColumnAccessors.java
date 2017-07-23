@@ -229,12 +229,10 @@ import org.apache.drill.exec.util.DecimalUtility;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader;
-import org.apache.drill.exec.vector.accessor2.impl.BaseScalarWriter;
-import org.apache.drill.exec.vector.accessor2.impl.BaseElementWriter;
-import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
+import org.apache.drill.exec.vector.accessor.writer.BaseScalarWriter;
+import org.apache.drill.exec.vector.accessor.writer.BaseElementWriter;
 import org.apache.drill.exec.vector.accessor.impl.AbstractArrayReader;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader.VectorAccessor;
-import org.apache.drill.exec.vector.accessor.ColumnAccessor.ValueType;
 
 import com.google.common.base.Charsets;
 import org.joda.time.Period;

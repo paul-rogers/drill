@@ -17,13 +17,13 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.ObjectWriter.ObjectType;
-import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
 
 /**
  * Implementation for a writer for a tuple (a row or a map.) Provides access to each
@@ -76,16 +76,16 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     }
   }
 
-  protected final TupleSchema schema;
+  protected final TupleMetadata schema;
   private final AbstractObjectWriter writers[];
 
-  public AbstractTupleWriter(TupleSchema schema, AbstractObjectWriter writers[]) {
+  public AbstractTupleWriter(TupleMetadata schema, AbstractObjectWriter writers[]) {
     this.schema = schema;
     this.writers = writers;
   }
 
   @Override
-  public TupleSchema schema() {
+  public TupleMetadata schema() {
     return schema;
   }
 
@@ -124,7 +124,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
   @Override
   public ObjectWriter column(String colName) {
-    int index = schema.columnIndex(colName);
+    int index = schema.index(colName);
     if (index == -1) {
       return null; }
     return writers[index];
@@ -149,7 +149,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   }
 
   public void setTuple(Object ...values) throws VectorOverflowException {
-    int count = Math.min(values.length, schema().count());
+    int count = Math.min(values.length, schema().size());
     for (int i = 0; i < count; i++) {
       set(i, values[i]);
     }

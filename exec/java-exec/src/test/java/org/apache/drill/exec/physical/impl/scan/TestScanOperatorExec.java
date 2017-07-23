@@ -35,7 +35,7 @@ import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.MaterializedSchema;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -188,7 +188,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     public boolean open(SchemaNegotiator schemaNegotiator) {
       openCalled = true;
       buildFilePath(schemaNegotiator);
-      MaterializedSchema schema = new SchemaBuilder()
+      TupleMetadata schema = new SchemaBuilder()
           .add("a", MinorType.INT)
           .addNullable("b", MinorType.VARCHAR, 10)
           .buildSchema();
@@ -215,7 +215,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     public boolean open(SchemaNegotiator schemaNegotiator) {
       openCalled = true;
       buildFilePath(schemaNegotiator);
-      MaterializedSchema schema = new SchemaBuilder()
+      TupleMetadata schema = new SchemaBuilder()
           .add("a", MinorType.VARCHAR)
           .addNullable("b", MinorType.VARCHAR, 10)
           .buildSchema();
@@ -494,7 +494,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create the expected result.
 
-    MaterializedSchema expectedSchema = new SchemaBuilder()
+    TupleMetadata expectedSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addNullable("b", MinorType.VARCHAR, 10)
         .add("fqn", MinorType.VARCHAR)
@@ -1293,7 +1293,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     @Override
     public boolean open(SchemaNegotiator schemaNegotiator) {
       openCalled = true;
-      MaterializedSchema schema = new SchemaBuilder()
+      TupleMetadata schema = new SchemaBuilder()
           .add("a", MinorType.VARCHAR)
           .buildSchema();
       schemaNegotiator.setTableSchema(schema);
@@ -1409,7 +1409,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     public boolean open(SchemaNegotiator schemaNegotiator) {
       openCalled = true;
       buildFilePath(schemaNegotiator);
-      MaterializedSchema schema = new SchemaBuilder()
+      TupleMetadata schema = new SchemaBuilder()
           .add("a", MinorType.INT)
           .buildSchema();
       schemaNegotiator.setTableSchema(schema);

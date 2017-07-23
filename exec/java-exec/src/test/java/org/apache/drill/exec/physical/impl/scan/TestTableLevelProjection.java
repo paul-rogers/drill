@@ -25,7 +25,7 @@ import static org.junit.Assert.fail;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ColumnType;
-import org.apache.drill.exec.record.MaterializedSchema;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.hadoop.fs.Path;
@@ -49,7 +49,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
     assertEquals(3, fileProj.output().size());
     assertTrue(fileProj.hasMetadata());
 
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
         .addNullable("c", MinorType.INT)
         .addArray("d", MinorType.FLOAT8)
@@ -58,7 +58,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
     TableLevelProjection tableProj = fileProj.resolve(tableSchema);
     assertFalse(tableProj.hasNullColumns());
 
-    MaterializedSchema expectedSchema = new SchemaBuilder()
+    TupleMetadata expectedSchema = new SchemaBuilder()
         .add("filename", MinorType.VARCHAR)
         .add("a", MinorType.VARCHAR)
         .addNullable("c", MinorType.INT)
@@ -107,7 +107,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
     assertEquals(7, fileProj.output().size());
     assertTrue(fileProj.hasMetadata());
 
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
         .addNullable("c", MinorType.INT)
         .addArray("d", MinorType.FLOAT8)
@@ -117,7 +117,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
     assertEquals(9, tableProj.output().size());
     assertFalse(tableProj.hasNullColumns());
 
-    MaterializedSchema expectedSchema = TestFileLevelProjection.expandMetadata(scanProj, tableSchema, 2);
+    TupleMetadata expectedSchema = TestFileLevelProjection.expandMetadata(scanProj, tableSchema, 2);
 
     assertTrue(tableProj.outputSchema().isEquivalent(expectedSchema));
 
@@ -159,7 +159,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
     FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
 
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
         .add("c", MinorType.VARCHAR)
         .add("d", MinorType.VARCHAR)
@@ -168,7 +168,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
     TableLevelProjection tableProj = fileProj.resolve(tableSchema);
     assertFalse(tableProj.hasNullColumns());
 
-    MaterializedSchema expectedSchema = new SchemaBuilder()
+    TupleMetadata expectedSchema = new SchemaBuilder()
         .add("filename", MinorType.VARCHAR)
         .addArray("columns", MinorType.VARCHAR)
         .addNullable("dir0", MinorType.VARCHAR)
@@ -208,7 +208,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
     FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
 
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
         .addNullable("c", MinorType.INT)
         .add("d", MinorType.FLOAT8)
@@ -241,7 +241,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
     // Simulate a data source, with early schema, of (a, b, c)
 
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("A", MinorType.VARCHAR)
         .add("B", MinorType.VARCHAR)
         .add("C", MinorType.VARCHAR)
@@ -250,7 +250,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
     TableLevelProjection tableProj = fileProj.resolve(tableSchema);
     assertFalse(tableProj.hasNullColumns());
 
-    MaterializedSchema expectedSchema = new SchemaBuilder()
+    TupleMetadata expectedSchema = new SchemaBuilder()
         .add("c", MinorType.VARCHAR)
         .add("b", MinorType.VARCHAR)
         .add("a", MinorType.VARCHAR)
@@ -297,7 +297,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
     // Simulate a data source, with early schema, of (a, b, c)
 
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("A", MinorType.VARCHAR)
         .add("B", MinorType.VARCHAR)
         .add("C", MinorType.VARCHAR)
@@ -306,7 +306,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
     TableLevelProjection tableProj = fileProj.resolve(tableSchema);
     assertTrue(tableProj.hasNullColumns());
 
-    MaterializedSchema expectedSchema = new SchemaBuilder()
+    TupleMetadata expectedSchema = new SchemaBuilder()
         .add("c", MinorType.VARCHAR)
         .addNullable("v", MinorType.NULL)
         .add("b", MinorType.VARCHAR)
@@ -355,7 +355,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
     // Simulate a data source, with early schema, of (a, b, c)
 
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("A", MinorType.VARCHAR)
         .add("B", MinorType.VARCHAR)
         .add("C", MinorType.VARCHAR)
@@ -364,7 +364,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
     TableLevelProjection tableProj = fileProj.resolve(tableSchema);
     assertFalse(tableProj.hasNullColumns());
 
-    MaterializedSchema expectedSchema = new SchemaBuilder()
+    TupleMetadata expectedSchema = new SchemaBuilder()
         .add("c", MinorType.VARCHAR)
         .add("a", MinorType.VARCHAR)
         .buildSchema();

@@ -19,6 +19,7 @@ package org.apache.drill.test.rowSet;
 
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.SchemaChangeCallBack;
@@ -40,30 +41,18 @@ public abstract class AbstractRowSet implements RowSet {
    * must call <tt>next()</tt> to advance to the first row.
    */
 
-  public static abstract class RowSetIndex implements ColumnReaderIndex {
+  public static abstract class RowSetReaderIndex implements ColumnReaderIndex {
+
     protected int rowIndex = -1;
-
-    public int position() { return rowIndex; }
-    public abstract boolean next();
-    public abstract int size();
-    public abstract boolean valid();
-    public void set(int index) { rowIndex = index; }
-  }
-
-  /**
-   * Bounded (read-only) version of the row set index. When reading,
-   * the row count is fixed, and set here.
-   */
-
-  public static abstract class BoundedRowIndex extends RowSetIndex {
-
     protected final int rowCount;
 
-    public BoundedRowIndex(int rowCount) {
+    public RowSetReaderIndex(int rowCount) {
       this.rowCount = rowCount;
     }
 
-    @Override
+    public int position() { return rowIndex; }
+    public void set(int index) { rowIndex = index; }
+
     public boolean next() {
       if (++rowIndex < rowCount ) {
         return true;
@@ -73,10 +62,8 @@ public abstract class AbstractRowSet implements RowSet {
       }
     }
 
-    @Override
     public int size() { return rowCount; }
 
-    @Override
     public boolean valid() { return rowIndex < rowCount; }
   }
 
@@ -86,9 +73,9 @@ public abstract class AbstractRowSet implements RowSet {
 
   public class RowSetReaderImpl extends TupleReaderImpl implements RowSetReader {
 
-    protected final RowSetIndex index;
+    protected final RowSetReaderIndex index;
 
-    public RowSetReaderImpl(TupleSchema schema, RowSetIndex index, AbstractColumnReader[] readers) {
+    public RowSetReaderImpl(TupleMetadata schema, RowSetReaderIndex index, AbstractColumnReader[] readers) {
       super(schema, readers);
       this.index = index;
     }
@@ -116,13 +103,13 @@ public abstract class AbstractRowSet implements RowSet {
   }
 
   protected final BufferAllocator allocator;
-  protected final RowSetSchema schema;
+  protected final TupleMetadata schema;
   protected final VectorContainer container;
   protected SchemaChangeCallBack callBack = new SchemaChangeCallBack();
 
-  public AbstractRowSet(BufferAllocator allocator, BatchSchema schema, VectorContainer container) {
+  public AbstractRowSet(BufferAllocator allocator, TupleMetadata schema, VectorContainer container) {
     this.allocator = allocator;
-    this.schema = new RowSetSchema(schema);
+    this.schema = schema;
     this.container = container;
   }
 
@@ -142,7 +129,7 @@ public abstract class AbstractRowSet implements RowSet {
   }
 
   @Override
-  public RowSetSchema schema() { return schema; }
+  public TupleMetadata schema() { return schema; }
 
   @Override
   public BufferAllocator allocator() { return allocator; }

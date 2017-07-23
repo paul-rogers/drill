@@ -33,7 +33,7 @@ import org.apache.drill.exec.physical.rowSet.TupleSchema;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.OptionBuilder;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.MaterializedSchema;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.hadoop.fs.Path;
@@ -403,9 +403,9 @@ public class ScanProjector {
 
   private class EarlySchemaDriver extends TableSchemaDriver {
 
-    private final MaterializedSchema tableSchema;
+    private final TupleMetadata tableSchema;
 
-    public EarlySchemaDriver(MaterializedSchema tableSchema) {
+    public EarlySchemaDriver(TupleMetadata tableSchema) {
       this.tableSchema = tableSchema;
     }
 
@@ -555,7 +555,7 @@ public class ScanProjector {
    * @return the result set loader for this table
    */
 
-  public ResultSetLoader makeTableLoader(MaterializedSchema tableSchema, int batchSize) {
+  public ResultSetLoader makeTableLoader(TupleMetadata tableSchema, int batchSize) {
 
     // Optional form for late schema: pass a null table schema.
 
@@ -568,7 +568,7 @@ public class ScanProjector {
     return schemaDriver.makeTableLoader(batchSize);
   }
 
-  public ResultSetLoader makeTableLoader(MaterializedSchema tableSchema) {
+  public ResultSetLoader makeTableLoader(TupleMetadata tableSchema) {
     return makeTableLoader(tableSchema, ValueVector.MAX_ROW_COUNT);
   }
 

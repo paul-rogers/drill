@@ -17,16 +17,9 @@
  */
 package org.apache.drill.test.rowSet;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.rowSet.impl.TupleNameSpace;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
-import org.apache.drill.exec.vector.accessor.TupleAccessor.TupleSchema;
-import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.TupleMetadata;
 
 /**
  * Row set schema presented as a number of distinct "views" for various
@@ -48,209 +41,210 @@ import org.apache.drill.exec.record.MaterializedField;
 
 public class RowSetSchema {
 
-  public enum LogicalType {
-    PRIMITIVE, LIST, TUPLE
-  }
+//  /**
+//   * Logical description of a column. A logical column is a
+//   * materialized field. For maps, also includes a logical schema
+//   * of the map.
+//   */
+//
+//  public static class LogicalColumn {
+//    protected final String fullName;
+//    protected final int accessIndex;
+//    protected int flatIndex;
+//    protected final MaterializedField field;
+//    protected final LogicalType logicalType;
+//
+//    /**
+//     * Schema of the map. Includes only those fields directly within
+//     * the map; does not include fields from nested tuples.
+//     */
+//
+//    protected PhysicalSchema mapSchema;
+//
+//    protected LogicalColumn elementSchema;
+//
+//    public LogicalColumn(String fullName, int accessIndex, MaterializedField field) {
+//      this.fullName = fullName;
+//      this.accessIndex = accessIndex;
+//      this.field = field;
+//      switch (field.getType().getMinorType()) {
+//      case LIST:
+//        logicalType = LogicalType.LIST;
+//        break;
+//      case MAP:
+//        if (field.getType().getMode() == DataMode.REPEATED) {
+//          logicalType = LogicalType.LIST;
+//        } else {
+//          logicalType = LogicalType.TUPLE;
+//        }
+//        break;
+//      default:
+//        logicalType = LogicalType.PRIMITIVE;
+//      }
+//    }
+//
+//    private void updateStructure(int index, PhysicalSchema children) {
+//      flatIndex = index;
+//      mapSchema = children;
+//    }
+//
+//    public int accessIndex() { return accessIndex; }
+//    public int flatIndex() { return flatIndex; }
+//    public boolean isMap() { return logicalType == LogicalType.TUPLE; }
+//    public boolean isList() { return logicalType == LogicalType.LIST; }
+//    public PhysicalSchema mapSchema() { return mapSchema; }
+//    public LogicalColumn elementSchema() { return elementSchema; }
+//    public MaterializedField field() { return field; }
+//    public String fullName() { return fullName; }
+//  }
+//
+//  /**
+//   * Provides a non-flattened, physical view of the schema. The top-level
+//   * row includes maps, maps expand to a nested tuple schema. This view
+//   * corresponds, more-or-less, to the physical storage of vectors in
+//   * a vector accessible or vector container.
+//   */
+//
+//  private static class TupleSchemaImpl implements TupleSchema {
+//
+//    private TupleNameSpace<LogicalColumn> columns;
+//
+//    public TupleSchemaImpl(TupleNameSpace<LogicalColumn> ns) {
+//      this.columns = ns;
+//    }
+//
+//    @Override
+//    public MaterializedField column(int index) {
+//      return logicalColumn(index).field();
+//    }
+//
+//    public LogicalColumn logicalColumn(int index) { return columns.get(index); }
+//
+//    @Override
+//    public MaterializedField column(String name) {
+//      LogicalColumn col = columns.get(name);
+//      return col == null ? null : col.field();
+//    }
+//
+//    @Override
+//    public int columnIndex(String name) {
+//      return columns.indexOf(name);
+//    }
+//
+//    @Override
+//    public int count() { return columns.count(); }
+//  }
 
-  /**
-   * Logical description of a column. A logical column is a
-   * materialized field. For maps, also includes a logical schema
-   * of the map.
-   */
+//  /**
+//   * Represents the flattened view of the schema used to get and set columns.
+//   * Represents a left-to-right, depth-first traversal of the row and map
+//   * columns. Holds only materialized vectors (non-maps). For completeness,
+//   * provides access to maps also via separate methods, but this is generally
+//   * of little use.
+//   * <p>
+//   * A special case occurs for lists and repeated maps. In this case, a single
+//   * column cannot capture the repetition semantics. For these cases, the
+//   * column here represents an array. The Array content is another array
+//   * (for a list) of a column, or is a tuple.
+//   * <p>
+//   * Examples:
+//   * <li>
+//   * <li>Map: Flattened into the row schema; map columns appear as top-level
+//   * columns.</li>
+//   * <li>Int: Appears in the row schema.</li>
+//   * <li>Int Array: Appears in the row schema because there is no ambiguity.
+//   * <li>
+//   * <li>List of maps: A list column appears in the top-schema and represents
+//   * the list. The list content is a tuple representing the map. Map columns
+//   * are available on the (nested) tuple.</li>
+//   * <li>List of list of ints (AKA list of int arrays): The top-level field
+//   * is a list, with the entry as an int array.</li>
+//   * </ul>
+//   */
+//
+//  public static class FlattenedSchema extends TupleSchemaImpl {
+//    protected final TupleSchemaImpl maps;
+//
+//    public FlattenedSchema(TupleNameSpace<LogicalColumn> cols, TupleNameSpace<LogicalColumn> maps) {
+//      super(cols);
+//      this.maps = new TupleSchemaImpl(maps);
+//    }
+//
+//    public LogicalColumn logicalMap(int index) { return maps.logicalColumn(index); }
+//    public MaterializedField map(int index) { return maps.column(index); }
+//    public MaterializedField map(String name) { return maps.column(name); }
+//    public int mapIndex(String name) { return maps.columnIndex(name); }
+//    public int mapCount() { return maps.count(); }
+//  }
 
-  public static class LogicalColumn {
-    protected final String fullName;
-    protected final int accessIndex;
-    protected int flatIndex;
-    protected final MaterializedField field;
-    protected final LogicalType logicalType;
+//  /**
+//   * Physical schema of a row set showing the logical hierarchy of fields
+//   * with map fields as first-class fields. Map members appear as children
+//   * under the map, much as they appear in the physical value-vector
+//   * implementation.
+//   */
+//
+//  public static class PhysicalSchema {
+//    protected final TupleNameSpace<LogicalColumn> schema = new TupleNameSpace<>();
+//
+//    public LogicalColumn column(int index) {
+//      return schema.get(index);
+//    }
+//
+//    public LogicalColumn column(String name) {
+//      return schema.get(name);
+//    }
+//
+//    public int count() { return schema.count(); }
+//
+//    public TupleNameSpace<LogicalColumn> nameSpace() { return schema; }
+//  }
 
-    /**
-     * Schema of the map. Includes only those fields directly within
-     * the map; does not include fields from nested tuples.
-     */
-
-    protected PhysicalSchema mapSchema;
-
-    protected LogicalColumn elementSchema;
-
-    public LogicalColumn(String fullName, int accessIndex, MaterializedField field) {
-      this.fullName = fullName;
-      this.accessIndex = accessIndex;
-      this.field = field;
-      switch (field.getType().getMinorType()) {
-      case LIST:
-        logicalType = LogicalType.LIST;
-        break;
-      case MAP:
-        if (field.getType().getMode() == DataMode.REPEATED) {
-          logicalType = LogicalType.LIST;
-        } else {
-          logicalType = LogicalType.TUPLE;
-        }
-        break;
-      default:
-        logicalType = LogicalType.PRIMITIVE;
-      }
-    }
-
-    private void updateStructure(int index, PhysicalSchema children) {
-      flatIndex = index;
-      mapSchema = children;
-    }
-
-    public int accessIndex() { return accessIndex; }
-    public int flatIndex() { return flatIndex; }
-    public boolean isMap() { return logicalType == LogicalType.TUPLE; }
-    public boolean isList() { return logicalType == LogicalType.LIST; }
-    public PhysicalSchema mapSchema() { return mapSchema; }
-    public LogicalColumn elementSchema() { return elementSchema; }
-    public MaterializedField field() { return field; }
-    public String fullName() { return fullName; }
-  }
-
-  /**
-   * Provides a non-flattened, physical view of the schema. The top-level
-   * row includes maps, maps expand to a nested tuple schema. This view
-   * corresponds, more-or-less, to the physical storage of vectors in
-   * a vector accessible or vector container.
-   */
-
-  private static class TupleSchemaImpl implements TupleSchema {
-
-    private TupleNameSpace<LogicalColumn> columns;
-
-    public TupleSchemaImpl(TupleNameSpace<LogicalColumn> ns) {
-      this.columns = ns;
-    }
-
-    @Override
-    public MaterializedField column(int index) {
-      return logicalColumn(index).field();
-    }
-
-    public LogicalColumn logicalColumn(int index) { return columns.get(index); }
-
-    @Override
-    public MaterializedField column(String name) {
-      LogicalColumn col = columns.get(name);
-      return col == null ? null : col.field();
-    }
-
-    @Override
-    public int columnIndex(String name) {
-      return columns.indexOf(name);
-    }
-
-    @Override
-    public int count() { return columns.count(); }
-  }
-
-  /**
-   * Represents the flattened view of the schema used to get and set columns.
-   * Represents a left-to-right, depth-first traversal of the row and map
-   * columns. Holds only materialized vectors (non-maps). For completeness,
-   * provides access to maps also via separate methods, but this is generally
-   * of little use.
-   * <p>
-   * A special case occurs for lists and repeated maps. In this case, a single
-   * column cannot capture the repetition semantics. For these cases, the
-   * column here represents an array. The Array content is another array
-   * (for a list) of a column, or is a tuple.
-   * <p>
-   * Examples:
-   * <li>
-   * <li>Map: Flattened into the row schema; map columns appear as top-level
-   * columns.</li>
-   * <li>Int: Appears in the row schema.</li>
-   * <li>Int Array: Appears in the row schema because there is no ambiguity.
-   * <li>
-   * <li>List of maps: A list column appears in the top-schema and represents
-   * the list. The list content is a tuple representing the map. Map columns
-   * are available on the (nested) tuple.</li>
-   * <li>List of list of ints (AKA list of int arrays): The top-level field
-   * is a list, with the entry as an int array.</li>
-   * </ul>
-   */
-
-  public static class FlattenedSchema extends TupleSchemaImpl {
-    protected final TupleSchemaImpl maps;
-
-    public FlattenedSchema(TupleNameSpace<LogicalColumn> cols, TupleNameSpace<LogicalColumn> maps) {
-      super(cols);
-      this.maps = new TupleSchemaImpl(maps);
-    }
-
-    public LogicalColumn logicalMap(int index) { return maps.logicalColumn(index); }
-    public MaterializedField map(int index) { return maps.column(index); }
-    public MaterializedField map(String name) { return maps.column(name); }
-    public int mapIndex(String name) { return maps.columnIndex(name); }
-    public int mapCount() { return maps.count(); }
-  }
-
-  /**
-   * Physical schema of a row set showing the logical hierarchy of fields
-   * with map fields as first-class fields. Map members appear as children
-   * under the map, much as they appear in the physical value-vector
-   * implementation.
-   */
-
-  public static class PhysicalSchema {
-    protected final TupleNameSpace<LogicalColumn> schema = new TupleNameSpace<>();
-
-    public LogicalColumn column(int index) {
-      return schema.get(index);
-    }
-
-    public LogicalColumn column(String name) {
-      return schema.get(name);
-    }
-
-    public int count() { return schema.count(); }
-
-    public TupleNameSpace<LogicalColumn> nameSpace() { return schema; }
-  }
-
-  private static class SchemaExpander {
-    private final PhysicalSchema physicalSchema;
-    private final TupleNameSpace<LogicalColumn> cols = new TupleNameSpace<>();
-    private final TupleNameSpace<LogicalColumn> maps = new TupleNameSpace<>();
-
-    public SchemaExpander(BatchSchema schema) {
-      physicalSchema = expand("", schema);
-    }
-
-    private PhysicalSchema expand(String prefix, Iterable<MaterializedField> fields) {
-      PhysicalSchema physical = new PhysicalSchema();
-      for (MaterializedField field : fields) {
-        String name = prefix + field.getName();
-        int index;
-        LogicalColumn colSchema = new LogicalColumn(name, physical.count(), field);
-        physical.schema.add(field.getName(), colSchema);
-        PhysicalSchema children = null;
-        if (field.getType().getMinorType() == MinorType.MAP) {
-          index = maps.add(name, colSchema);
-          children = expand(name + ".", field.getChildren());
-        } else {
-          index = cols.add(name, colSchema);
-        }
-        colSchema.updateStructure(index, children);
-      }
-      return physical;
-    }
-  }
+//  private static class SchemaExpander {
+//    private final TupleMetadata physical;
+//    private final TupleMetadata flattened = new TupleMetadata();
+//
+//    public SchemaExpander(BatchSchema schema) {
+//      physical = new TupleMetadata(schema);
+//      expand(flattened, physical);
+//    }
+//
+//    private PhysicalSchema expand(TupleMetadata tupleSchema, Iterable<MaterializedField> fields) {
+//      for (MaterializedField field : fields) {
+//        String name = prefix + field.getName();
+//        int index;
+//        LogicalColumn colSchema = new LogicalColumn(name, physical.count(), field);
+//        physical.schema.add(field.getName(), colSchema);
+//        PhysicalSchema children = null;
+//        if (field.getType().getMinorType() == MinorType.MAP) {
+//          index = maps.add(name, colSchema);
+//          children = expand(name + ".", field.getChildren());
+//        } else {
+//          index = cols.add(name, colSchema);
+//        }
+//        colSchema.updateStructure(index, children);
+//      }
+//      return physical;
+//    }
+//  }
 
   private final BatchSchema batchSchema;
-  private final TupleSchemaImpl accessSchema;
-  private final FlattenedSchema flatSchema;
-  private final PhysicalSchema physicalSchema;
+  private final TupleMetadata tupleSchema;
+  private final TupleMetadata flatSchema;
 
   public RowSetSchema(BatchSchema schema) {
     batchSchema = schema;
-    SchemaExpander expander = new SchemaExpander(schema);
-    physicalSchema = expander.physicalSchema;
-    accessSchema = new TupleSchemaImpl(physicalSchema.nameSpace());
-    flatSchema = new FlattenedSchema(expander.cols, expander.maps);
+    tupleSchema = TupleMetadata.fromFields(schema);
+    TupleMetadata flattened;
+    try {
+      flattened = tupleSchema.flatten();
+    } catch (IllegalArgumentException e) {
+      // Says that the schema has ambiguous names so a flat
+      // schema is not available.
+
+      flattened = null;
+    }
+    flatSchema = flattened;
   }
 
   /**
@@ -260,7 +254,7 @@ public class RowSetSchema {
    * @return the hierarchical access schema
    */
 
-  public TupleSchema hierarchicalAccess() { return accessSchema; }
+  public TupleMetadata physical() { return tupleSchema; }
 
   /**
    * A flattened (left-to-right, depth-first traversal) of the non-map
@@ -269,16 +263,7 @@ public class RowSetSchema {
    * @return the flattened access schema
    */
 
-  public FlattenedSchema flatAccess() { return flatSchema; }
-
-  /**
-   * Internal physical schema in hierarchical order. Mostly used to create
-   * the other schemas, but may be of use in special cases. Has the same
-   * structure as the batch schema, but with additional information.
-   * @return a tree-structured physical schema
-   */
-
-  public PhysicalSchema physical() { return physicalSchema; }
+  public TupleMetadata flatAccess() { return flatSchema; }
 
   /**
    * The batch schema used by the Drill runtime. Represents a tree-structured
@@ -296,10 +281,6 @@ public class RowSetSchema {
    */
 
   public BatchSchema toBatchSchema(SelectionVectorMode svMode) {
-    List<MaterializedField> fields = new ArrayList<>();
-    for (MaterializedField field : batchSchema) {
-      fields.add(field);
-    }
-    return new BatchSchema(svMode, fields);
+    return new BatchSchema(svMode, tupleSchema.toFieldList());
   }
 }

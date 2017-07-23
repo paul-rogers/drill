@@ -26,7 +26,7 @@ import java.util.List;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ColumnType;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
-import org.apache.drill.exec.record.MaterializedSchema;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.hadoop.fs.Path;
@@ -62,7 +62,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
       // Build the output schema from the (a, b) table schema
 
-      MaterializedSchema twoColSchema = new SchemaBuilder()
+      TupleMetadata twoColSchema = new SchemaBuilder()
           .add("a", MinorType.INT)
           .addNullable("b", MinorType.VARCHAR, 10)
           .buildSchema();
@@ -71,7 +71,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
       // Verify the full output schema
 
-      MaterializedSchema expectedSchema = new SchemaBuilder()
+      TupleMetadata expectedSchema = new SchemaBuilder()
           .add("filename", MinorType.VARCHAR)
           .add("a", MinorType.INT)
           .addNullable("b", MinorType.VARCHAR, 10)
@@ -102,7 +102,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
       // Build the output schema from the (a) table schema
 
-      MaterializedSchema oneColSchema = new SchemaBuilder()
+      TupleMetadata oneColSchema = new SchemaBuilder()
           .add("a", MinorType.INT)
           .buildSchema();
       lifecycle.startSchema(oneColSchema);
@@ -113,7 +113,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       // of the missing column. (Instead, it is filled in at the
       // vector level as part of vector persistance.)
 
-      MaterializedSchema expectedSchema = new SchemaBuilder()
+      TupleMetadata expectedSchema = new SchemaBuilder()
           .add("filename", MinorType.VARCHAR)
           .add("a", MinorType.INT)
           .addNullable("b", MinorType.NULL)
@@ -139,10 +139,10 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
   @Test
   public void testSmaller() {
-    MaterializedSchema priorSchema = new SchemaBuilder()
+    TupleMetadata priorSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .buildSchema();
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
@@ -174,10 +174,10 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
   @Test
   public void testDisjoint() {
-    MaterializedSchema priorSchema = new SchemaBuilder()
+    TupleMetadata priorSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .buildSchema();
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
@@ -205,11 +205,11 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
   @Test
   public void testDifferentTypes() {
-    MaterializedSchema priorSchema = new SchemaBuilder()
+    TupleMetadata priorSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addNullable("b", MinorType.VARCHAR)
         .buildSchema();
@@ -240,11 +240,11 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
   @Test
   public void testSameSchemas() {
-    MaterializedSchema priorSchema = new SchemaBuilder()
+    TupleMetadata priorSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
@@ -275,11 +275,11 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
   @Test
   public void testDifferentCase() {
-    MaterializedSchema priorSchema = new SchemaBuilder()
+    TupleMetadata priorSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("A", MinorType.INT)
         .add("B", MinorType.VARCHAR)
         .buildSchema();
@@ -309,11 +309,11 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
   @Test
   public void testRequired() {
-    MaterializedSchema priorSchema = new SchemaBuilder()
+    TupleMetadata priorSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addNullable("b", MinorType.VARCHAR)
         .buildSchema();
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .addNullable("b", MinorType.VARCHAR)
         .buildSchema();
 
@@ -342,12 +342,12 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
   @Test
   public void testSmoothing() {
-    MaterializedSchema priorSchema = new SchemaBuilder()
+    TupleMetadata priorSchema = new SchemaBuilder()
         .addNullable("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .addArray("c", MinorType.BIGINT)
         .buildSchema();
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
@@ -376,12 +376,12 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
   @Test
   public void testReordering() {
-    MaterializedSchema priorSchema = new SchemaBuilder()
+    TupleMetadata priorSchema = new SchemaBuilder()
         .addNullable("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .addArray("c", MinorType.BIGINT)
         .buildSchema();
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("b", MinorType.VARCHAR)
         .addNullable("a", MinorType.INT)
         .buildSchema();
@@ -411,7 +411,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
   @Test
   public void testSamePartitionLength() {
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
@@ -422,7 +422,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
     scanProjBuilder.projectAll();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
 
-    MaterializedSchema expectedSchema = TestFileLevelProjection.expandMetadata(lifecycle.scanProjection(), tableSchema, 2);
+    TupleMetadata expectedSchema = TestFileLevelProjection.expandMetadata(lifecycle.scanProjection(), tableSchema, 2);
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
       lifecycle.startSchema(tableSchema);
@@ -444,7 +444,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
   @Test
   public void testShorterPartitionLength() {
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
@@ -455,7 +455,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
     scanProjBuilder.projectAll();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
 
-    MaterializedSchema expectedSchema = TestFileLevelProjection.expandMetadata(lifecycle.scanProjection(), tableSchema, 2);
+    TupleMetadata expectedSchema = TestFileLevelProjection.expandMetadata(lifecycle.scanProjection(), tableSchema, 2);
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
       lifecycle.startSchema(tableSchema);
@@ -476,7 +476,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
   @Test
   public void testLongerPartitionLength() {
-    MaterializedSchema tableSchema = new SchemaBuilder()
+    TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
@@ -490,14 +490,14 @@ public class TestProjectionLifecycle extends SubOperatorTest {
     {
       lifecycle.startFile(new Path("hdfs:///w/x/a.csv"));
       lifecycle.startSchema(tableSchema);
-      MaterializedSchema expectedSchema = TestFileLevelProjection.expandMetadata(lifecycle.scanProjection(), tableSchema, 1);
+      TupleMetadata expectedSchema = TestFileLevelProjection.expandMetadata(lifecycle.scanProjection(), tableSchema, 1);
       assertTrue(lifecycle.outputSchema().isEquivalent(expectedSchema));
     }
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(2, lifecycle.schemaVersion());
-      MaterializedSchema expectedSchema = TestFileLevelProjection.expandMetadata(lifecycle.scanProjection(), tableSchema, 2);
+      TupleMetadata expectedSchema = TestFileLevelProjection.expandMetadata(lifecycle.scanProjection(), tableSchema, 2);
       assertTrue(lifecycle.outputSchema().isEquivalent(expectedSchema));
      }
   }

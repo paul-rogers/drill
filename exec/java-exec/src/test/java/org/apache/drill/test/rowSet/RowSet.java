@@ -21,6 +21,7 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.HyperVectorWrapper;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
@@ -31,7 +32,7 @@ import org.apache.drill.exec.vector.accessor.ColumnReader;
 /**
  * A row set is a collection of rows stored as value vectors. Elsewhere in
  * Drill we call this a "record batch", but that term has been overloaded to
- * mean the runtime implementation of an operator...
+ * mean the runtime implementation of an operator.
  * <p>
  * A row set encapsulates a set of vectors and provides access to Drill's
  * various "views" of vectors: {@link VectorContainer},
@@ -89,7 +90,7 @@ public interface RowSet {
 
   void clear();
 
-  RowSetSchema schema();
+  TupleMetadata schema();
 
   BufferAllocator allocator();
 
@@ -116,7 +117,6 @@ public interface RowSet {
    */
 
   public interface SingleRowSet extends RowSet {
-    ValueVector[] vectors();
     SingleRowSet toIndirect();
     SelectionVector2 getSv2();
   }

@@ -40,7 +40,7 @@ public class IndirectRowSet extends AbstractSingleRowSet {
    * around as specified by the indirection vector.
    */
 
-  private static class IndirectRowIndex extends BoundedRowIndex {
+  private static class IndirectRowIndex extends RowSetReaderIndex {
 
     private final SelectionVector2 sv2;
 
@@ -93,11 +93,6 @@ public class IndirectRowSet extends AbstractSingleRowSet {
   public void clear() {
     super.clear();
     getSv2().clear();
-  }
-
-  @Override
-  public RowSetWriter writer() {
-    throw new UnsupportedOperationException("Cannot write to an existing row set");
   }
 
   @Override

@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor.impl;
 
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.TupleReader;
@@ -30,7 +31,7 @@ public class TupleReaderImpl extends AbstractTupleAccessor implements TupleReade
 
   private final AbstractColumnReader readers[];
 
-  public TupleReaderImpl(TupleSchema schema, AbstractColumnReader readers[]) {
+  public TupleReaderImpl(TupleMetadata schema, AbstractColumnReader readers[]) {
     super(schema);
     this.readers = readers;
   }
@@ -42,7 +43,7 @@ public class TupleReaderImpl extends AbstractTupleAccessor implements TupleReade
 
   @Override
   public ColumnReader column(String colName) {
-    int index = schema.columnIndex(colName);
+    int index = schema.index(colName);
     if (index == -1) {
       return null; }
     return readers[index];

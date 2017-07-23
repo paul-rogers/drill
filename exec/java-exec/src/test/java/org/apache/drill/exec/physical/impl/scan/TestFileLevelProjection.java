@@ -28,7 +28,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.FileMetadata
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ColumnType;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.MaterializedSchema;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.hadoop.fs.Path;
@@ -103,8 +103,8 @@ public class TestFileLevelProjection extends SubOperatorTest {
    * @return schema with the metadata columns appended to the table columns
    */
 
-  public static MaterializedSchema expandMetadata(ScanLevelProjection scanProj, MaterializedSchema base, int dirCount) {
-    MaterializedSchema metadataSchema = new MaterializedSchema();
+  public static TupleMetadata expandMetadata(ScanLevelProjection scanProj, TupleMetadata base, int dirCount) {
+    TupleMetadata metadataSchema = new TupleMetadata();
     for (FileMetadataColumnDefn fileColDefn : scanProj.fileMetadataColDefns()) {
       metadataSchema.add(MaterializedField.create(fileColDefn.colName(), fileColDefn.dataType()));
     }
@@ -134,7 +134,7 @@ public class TestFileLevelProjection extends SubOperatorTest {
     assertTrue(fileProj.hasMetadata());
     assertEquals(7, fileProj.output().size());
 
-    MaterializedSchema expectedSchema = new SchemaBuilder()
+    TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable(ScanLevelProjection.WILDCARD, MinorType.NULL)
         .buildSchema();
     expectedSchema = expandMetadata(scanProj, expectedSchema, 2);

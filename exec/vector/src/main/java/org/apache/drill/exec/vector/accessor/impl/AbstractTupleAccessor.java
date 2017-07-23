@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor.impl;
 
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.TupleAccessor;
 
 /**
@@ -25,14 +26,14 @@ import org.apache.drill.exec.vector.accessor.TupleAccessor;
 
 public abstract class AbstractTupleAccessor implements TupleAccessor {
 
-  protected final TupleSchema schema;
+  protected final TupleMetadata schema;
 
-  public AbstractTupleAccessor(TupleSchema schema) {
+  public AbstractTupleAccessor(TupleMetadata schema) {
     this.schema = schema;
   }
 
   @Override
-  public TupleSchema schema() {
+  public TupleMetadata schema() {
     return schema;
   }
 }
