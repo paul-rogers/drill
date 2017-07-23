@@ -40,6 +40,9 @@ public class RowSetComparison {
 
   public RowSetComparison(RowSet expected) {
     this.expected = expected;
+
+    // TODO: The mask only works at the top level presently
+
     mask = new boolean[expected.schema().size()];
     for (int i = 0; i < mask.length; i++) {
       mask[i] = true;

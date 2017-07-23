@@ -29,6 +29,7 @@ import org.apache.drill.exec.record.TupleMetadata;
  * next available index.
  */
 
+@Deprecated
 public interface TupleSchema {
 
   public interface TupleColumnSchema {

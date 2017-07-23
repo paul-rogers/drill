@@ -130,7 +130,7 @@ public interface RowSet {
   public interface ExtendableRowSet extends SingleRowSet {
     void allocate(int recordCount);
     RowSetWriter writer();
-    RowSetWriter writer(boolean flatSchema, int initialRowCount);
+    RowSetWriter writer(int initialRowCount);
   }
 
   /**

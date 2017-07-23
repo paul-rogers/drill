@@ -17,14 +17,10 @@
  */
 package org.apache.drill.test.rowSet;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
 import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.record.TupleMetadata.StructureType;
 import org.apache.drill.exec.record.VectorContainer;
@@ -151,14 +147,6 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
       return columns;
     }
 
-    private static MapColumnStorage flatten(ColumnMetadata destMd, MapColumnStorage sourceMapStorage) {
-      assert destMd.name().equals(sourceMapStorage.columnSchema().name());
-      List<ColumnStorage> destCols = new ArrayList<>();
-      flattenTuple(sourceMapStorage, destMd.mapSchema(), destCols);
-      return new MapColumnStorage(destMd, (AbstractMapVector) sourceMapStorage.vector(),
-                                  destCols.toArray(new ColumnStorage[destCols.size()]));
-    }
-
     @Override
     public int size() { return columns.length; }
 
@@ -229,6 +217,10 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
       return new RowStorage(schema, container, buildChildren(schema, container));
     }
 
+    public static RowStorage fromContainer(VectorContainer container) {
+      return fromContainer(TupleSchema.fromFields(container.getSchema()), container);
+    }
+
     private static ColumnStorage[] buildChildren(TupleMetadata schema, VectorContainer container) {
       assert schema.size() == container.getNumberOfColumns();
       ColumnStorage colStorage[] = new ColumnStorage[schema.size()];
@@ -243,13 +235,6 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
         }
       }
       return colStorage;
-    }
-
-    public static RowStorage flattened(RowStorage sourceStorage) {
-      TupleMetadata destSchema = sourceStorage.tupleSchema().flatten();
-      List<ColumnStorage> destCols = new ArrayList<>();
-      flattenTuple(sourceStorage, destSchema, destCols);
-      return new RowStorage(destSchema, null, destCols.toArray(new ColumnStorage[destCols.size()]));
     }
 
     @Override
@@ -267,10 +252,6 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
     public ColumnStorage storage(int index) { return columns[index]; }
 
     public VectorContainer container() { return container; }
-
-    public RowStorage flatten() {
-      return RowStorage.flattened(this);
-    }
 
     @Override
     public AbstractColumnReader[] readers(RowSetReaderIndex rowIndex) {
@@ -312,53 +293,20 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
 
   protected final RowStorage rowStorage;
 
-  public AbstractSingleRowSet(BufferAllocator allocator, TupleMetadata schema) {
-    super(allocator, schema, new VectorContainer());
-    rowStorage = RowStorage.fromSchema(allocator, schema);
-  }
-
-  public AbstractSingleRowSet(BufferAllocator allocator, VectorContainer container) {
-    super(allocator, TupleMetadata.fromFields(container.getSchema()), container);
-    rowStorage = RowStorage.fromContainer(schema, container);
-  }
-
   public AbstractSingleRowSet(AbstractSingleRowSet rowSet) {
     super(rowSet.allocator, rowSet.schema, rowSet.container);
     rowStorage = rowSet.rowStorage;
+  }
+
+  public AbstractSingleRowSet(BufferAllocator allocator, RowStorage storage) {
+    super(allocator, storage.tupleSchema(), storage.container());
+    rowStorage = storage;
   }
 
   @Override
   public int size() {
     RecordBatchSizer sizer = new RecordBatchSizer(container);
     return sizer.actualSize();
-  }
-
-  /**
-   * Given a tuple storage representing a non-flattened row or map, return
-   * a flattened version of the tuple in which all columns except repeated
-   * maps are pushed up to the root level. Recursively apply these rule for
-   * nested maps.
-   * @param sourceStorage the original, non-flattened row or map
-   * @param destSchema the schema for the destination, flattened tuple
-   * @param destCols the columns for the flattened tuple
-   */
-  private static void flattenTuple(TupleStorage sourceStorage, TupleMetadata destSchema, List<ColumnStorage> destCols) {
-    TupleMetadata sourceSchema = sourceStorage.tupleSchema();
-    for (int i = 0; i < sourceSchema.size(); i++) {
-      ColumnMetadata sourceMd = sourceSchema.metadata(i);
-      ColumnStorage sourceColStorage = sourceStorage.storage(sourceMd.base().index());
-      int destIndex = destCols.size();
-      if (sourceMd.type() != MinorType.MAP) {
-        ColumnMetadata destMd = destSchema.metadata(destIndex);
-        assert destMd.name().equals(sourceMd.name());
-        destCols.add(new PrimitiveColumnStorage(destMd, sourceColStorage.vector()));
-      } else if (sourceMd.mode() == DataMode.REPEATED) {
-        ColumnMetadata destMd = destSchema.metadata(destIndex);
-        destCols.add(MapColumnStorage.flatten(destMd, (MapColumnStorage) sourceColStorage));
-      } else {
-        flattenTuple((MapColumnStorage) sourceColStorage, destSchema, destCols);
-      }
-    }
   }
 
   /**
@@ -370,7 +318,6 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
    */
 
   protected RowSetReader buildReader(RowSetReaderIndex rowIndex) {
-    RowStorage flattened = rowStorage.flatten();
-    return new RowSetReaderImpl(flattened.tupleSchema(), rowIndex, flattened.readers(rowIndex));
+    return new RowSetReaderImpl(rowStorage.tupleSchema(), rowIndex, rowStorage.readers(rowIndex));
   }
 }

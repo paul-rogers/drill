@@ -92,6 +92,7 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
     startWrite();
   }
 
+  // TODO: Move to base class
   @Override
   public void setRow(Object...values) throws VectorOverflowException {
     for (int i = 0; i < values.length;  i++) {
@@ -113,6 +114,7 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
     return more;
   }
 
+  @Deprecated
   @Override
   public boolean isFull( ) { return ! index.valid(); }
 
@@ -124,6 +126,6 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
     } catch (VectorOverflowException e) {
       throw new IllegalStateException(e);
     }
-    return rowSet.toIndirect();
+    return rowSet;
   }
 }

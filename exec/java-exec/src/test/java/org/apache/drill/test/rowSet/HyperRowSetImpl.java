@@ -23,7 +23,7 @@ import java.util.List;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.record.TupleMetadata.BaseColumnMetadata;
 import org.apache.drill.exec.record.TupleMetadata.StructureType;
 import org.apache.drill.exec.record.HyperVectorWrapper;
 import org.apache.drill.exec.record.MaterializedField;
@@ -192,7 +192,7 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
 
     private void buildMap(TupleMetadata mapSchema, AbstractMapVector mapVector) {
       for (ValueVector v : mapVector) {
-        ColumnMetadata col = mapSchema.metadata(v.getField().getName());
+        BaseColumnMetadata col = mapSchema.metadata(v.getField().getName());
         if (col.structureType() == StructureType.TUPLE) {
           buildMap(col.mapSchema(), (AbstractMapVector) v);
         } else {
@@ -203,7 +203,7 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
 
     private void createHyperVectors(TupleMetadata mapSchema) {
       for (int i = 0; i < mapSchema.size(); i++) {
-        ColumnMetadata col = mapSchema.metadata(i);
+        BaseColumnMetadata col = mapSchema.metadata(i);
         if (col.structureType() == StructureType.TUPLE) {
           createHyperVectors(col.mapSchema());
         } else {

@@ -17,9 +17,6 @@
  */
 package org.apache.drill.test.rowSet;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -27,6 +24,8 @@ import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.record.TupleSchema;
 
 /**
  * Builder of a row set schema expressed as a list of materialized
@@ -117,9 +116,12 @@ public class SchemaBuilder {
 
     @Override
     public SchemaBuilder buildMap() {
+      // TODO: Use the map schema directly rather than
+      // rebuilding it as is done here.
+
       MaterializedField col = columnSchema(memberName, MinorType.MAP, mode);
-      for (MaterializedField childCol : columns) {
-        col.addChild(childCol);
+      for (ColumnMetadata md : schema) {
+        col.addChild(md.schema());
       }
       parent.finishMap(col);
       return parent;
@@ -131,7 +133,7 @@ public class SchemaBuilder {
     }
   }
 
-  protected List<MaterializedField> columns = new ArrayList<>( );
+  protected TupleSchema schema = new TupleSchema();
   private SelectionVectorMode svMode = SelectionVectorMode.NONE;
 
   public SchemaBuilder() { }
@@ -147,59 +149,60 @@ public class SchemaBuilder {
     }
   }
 
-  public SchemaBuilder add(String pathName, MajorType type) {
-    return add(MaterializedField.create(pathName, type));
+  public SchemaBuilder add(String name, MajorType type) {
+    return add(MaterializedField.create(name, type));
   }
 
   public SchemaBuilder add(MaterializedField col) {
-    columns.add(col);
+    schema.add(col);
     return this;
   }
 
   /**
    * Create a column schema using the "basic three" properties of name, type and
    * cardinality (AKA "data mode.") Use the {@link ColumnBuilder} for to set
-   * other schema attributes.
+   * other schema attributes. Name is relative to the enclosing map or tuple;
+   * it is not the fully qualified path name.
    */
 
-  public static MaterializedField columnSchema(String pathName, MinorType type, DataMode mode) {
-    return MaterializedField.create(pathName,
+  public static MaterializedField columnSchema(String name, MinorType type, DataMode mode) {
+    return MaterializedField.create(name,
         MajorType.newBuilder()
           .setMinorType(type)
           .setMode(mode)
           .build());
   }
 
-  public SchemaBuilder add(String pathName, MinorType type, DataMode mode) {
-    return add(columnSchema(pathName, type, mode));
+  public SchemaBuilder add(String name, MinorType type, DataMode mode) {
+    return add(columnSchema(name, type, mode));
   }
 
-  public SchemaBuilder add(String pathName, MinorType type) {
-    return add(pathName, type, DataMode.REQUIRED);
+  public SchemaBuilder add(String name, MinorType type) {
+    return add(name, type, DataMode.REQUIRED);
   }
 
-  public SchemaBuilder add(String pathName, MinorType type, int width) {
-    MaterializedField field = new SchemaBuilder.ColumnBuilder(pathName, type)
+  public SchemaBuilder add(String name, MinorType type, int width) {
+    MaterializedField field = new SchemaBuilder.ColumnBuilder(name, type)
         .setMode(DataMode.REQUIRED)
         .setWidth(width)
         .build();
     return add(field);
   }
 
-  public SchemaBuilder addNullable(String pathName, MinorType type) {
-    return add(pathName, type, DataMode.OPTIONAL);
+  public SchemaBuilder addNullable(String name, MinorType type) {
+    return add(name, type, DataMode.OPTIONAL);
   }
 
-  public SchemaBuilder addNullable(String pathName, MinorType type, int width) {
-    MaterializedField field = new SchemaBuilder.ColumnBuilder(pathName, type)
+  public SchemaBuilder addNullable(String name, MinorType type, int width) {
+    MaterializedField field = new SchemaBuilder.ColumnBuilder(name, type)
         .setMode(DataMode.OPTIONAL)
         .setWidth(width)
         .build();
     return add(field);
   }
 
-  public SchemaBuilder addArray(String pathName, MinorType type) {
-    return add(pathName, type, DataMode.REPEATED);
+  public SchemaBuilder addArray(String name, MinorType type) {
+    return add(name, type, DataMode.REPEATED);
   }
 
   /**
@@ -225,11 +228,11 @@ public class SchemaBuilder {
   }
 
   public BatchSchema build() {
-    return new BatchSchema(svMode, columns);
+    return schema.toBatchSchema(svMode);
   }
 
   void finishMap(MaterializedField map) {
-    columns.add(map);
+    schema.add(map);
   }
 
   public SchemaBuilder buildMap() {
@@ -237,10 +240,6 @@ public class SchemaBuilder {
   }
 
   public TupleMetadata buildSchema() {
-    TupleMetadata schema = new TupleMetadata();
-    for (MaterializedField col : columns) {
-      schema.add(col);
-    }
     return schema;
   }
 }

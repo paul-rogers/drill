@@ -1,24 +1,44 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.drill.test.rowSet.test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.record.TupleMetadata.StructureType;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.record.TupleMetadata.StructureType;
 import org.apache.drill.test.SubOperatorTest;
-import org.apache.drill.test.rowSet.RowSetSchema;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
-
-import com.google.common.base.Splitter;
 
 public class TestSchema extends SubOperatorTest {
 
@@ -35,32 +55,84 @@ public class TestSchema extends SubOperatorTest {
         .buildSchema();
 
     assertEquals(3, tupleSchema.size());
+    assertFalse(tupleSchema.isEmpty());
+
     assertEquals("c", tupleSchema.column(0).getName());
     assertEquals("a", tupleSchema.column(1).getName());
     assertEquals("b", tupleSchema.column(2).getName());
 
+    ColumnMetadata md0 = tupleSchema.metadata(0);
+    assertEquals(StructureType.PRIMITIVE, md0.structureType());
+    assertNull(md0.mapSchema());
+    assertEquals(0, md0.index());
+    assertSame(md0.schema(), tupleSchema.column(0));
+    assertEquals(md0.name(), tupleSchema.column(0).getName());
+    assertEquals(MinorType.INT, md0.type());
+    assertEquals(DataMode.REQUIRED, md0.mode());
+    assertSame(tupleSchema, md0.parent());
+    assertEquals(md0.name(), md0.fullName());
+    assertTrue(md0.isEquivalent(md0));
+    assertFalse(md0.isEquivalent(tupleSchema.metadata(1)));
+
+    assertEquals(1, tupleSchema.metadata(1).index());
+    assertEquals(DataMode.REPEATED, tupleSchema.metadata(1).mode());
+    assertEquals(2, tupleSchema.metadata(2).index());
+    assertEquals(DataMode.OPTIONAL, tupleSchema.metadata(2).mode());
+
+    assertSame(tupleSchema.column(0), tupleSchema.column("c"));
+    assertSame(tupleSchema.column(1), tupleSchema.column("a"));
+    assertSame(tupleSchema.column(2), tupleSchema.column("b"));
+
+    assertSame(tupleSchema.metadata(0), tupleSchema.metadata("c"));
+    assertSame(tupleSchema.metadata(1), tupleSchema.metadata("a"));
+    assertSame(tupleSchema.metadata(2), tupleSchema.metadata("b"));
+    assertEquals(0, tupleSchema.index("c"));
+    assertEquals(1, tupleSchema.index("a"));
+    assertEquals(2, tupleSchema.index("b"));
+
+    // Test undefined column
+
+    assertEquals(-1, tupleSchema.index("x"));
+    assertNull(tupleSchema.metadata("x"));
+    assertNull(tupleSchema.column("x"));
+
+    try {
+      tupleSchema.metadata(4);
+      fail();
+    } catch (IndexOutOfBoundsException e) {
+      // Expected
+    }
+
+    try {
+      tupleSchema.column(4);
+      fail();
+    } catch (IndexOutOfBoundsException e) {
+      // Expected
+    }
+
     // No maps. Flat schema is the same as tuple schema.
 
-    TupleMetadata flatSchema = tupleSchema.flatten();
-    assertEquals(3, flatSchema.size());
-
-    crossCheck(flatSchema, 0, "c", MinorType.INT);
-    assertEquals(DataMode.REQUIRED, flatSchema.column(0).getDataMode());
-    assertEquals(DataMode.REQUIRED, flatSchema.column(0).getType().getMode());
-    assertTrue(! flatSchema.column(0).isNullable());
-
-    crossCheck(flatSchema, 1, "a", MinorType.INT);
-    assertEquals(DataMode.REPEATED, flatSchema.column(1).getDataMode());
-    assertEquals(DataMode.REPEATED, flatSchema.column(1).getType().getMode());
-    assertTrue(! flatSchema.column(1).isNullable());
-
-    crossCheck(flatSchema, 2, "b", MinorType.VARCHAR);
-    assertEquals(MinorType.VARCHAR, flatSchema.column(2).getType().getMinorType());
-    assertEquals(DataMode.OPTIONAL, flatSchema.column(2).getDataMode());
-    assertEquals(DataMode.OPTIONAL, flatSchema.column(2).getType().getMode());
-    assertTrue(flatSchema.column(2).isNullable());
+//    TupleMetadata flatSchema = tupleSchema.flatten();
+//    assertEquals(3, flatSchema.size());
+//
+//    crossCheck(flatSchema, 0, "c", MinorType.INT);
+//    assertEquals(DataMode.REQUIRED, flatSchema.column(0).getDataMode());
+//    assertEquals(DataMode.REQUIRED, flatSchema.column(0).getType().getMode());
+//    assertTrue(! flatSchema.column(0).isNullable());
+//
+//    crossCheck(flatSchema, 1, "a", MinorType.INT);
+//    assertEquals(DataMode.REPEATED, flatSchema.column(1).getDataMode());
+//    assertEquals(DataMode.REPEATED, flatSchema.column(1).getType().getMode());
+//    assertTrue(! flatSchema.column(1).isNullable());
+//
+//    crossCheck(flatSchema, 2, "b", MinorType.VARCHAR);
+//    assertEquals(MinorType.VARCHAR, flatSchema.column(2).getType().getMinorType());
+//    assertEquals(DataMode.OPTIONAL, flatSchema.column(2).getDataMode());
+//    assertEquals(DataMode.OPTIONAL, flatSchema.column(2).getType().getMode());
+//    assertTrue(flatSchema.column(2).isNullable());
 
     // Verify batch schema
+    // Tests toFieldList() internally
 
     BatchSchema batchSchema = new BatchSchema(SelectionVectorMode.NONE, tupleSchema.toFieldList());
     assertEquals(3, batchSchema.getFieldCount());
@@ -69,28 +141,42 @@ public class TestSchema extends SubOperatorTest {
     assertSame(batchSchema.getColumn(2), tupleSchema.column(2));
   }
 
-  /**
-   * Validate that the actual column metadata is as expected by
-   * cross-checking: validate that the column at the index and
-   * the column at the column name are both correct.
-   *
-   * @param schema the schema for the row set
-   * @param index column index
-   * @param fullName expected column name
-   * @param type expected type
-   */
+  @Test
+  public void testEmptySchema() {
+    TupleMetadata tupleSchema = new SchemaBuilder()
+        .buildSchema();
 
-  public void crossCheck(TupleMetadata schema, int index, String fullName, MinorType type) {
-    String name = null;
-    for (String part : Splitter.on(".").split(fullName)) {
-      name = part;
-    }
-    assertEquals(name, schema.column(index).getName());
-    assertEquals(index, schema.index(fullName));
-    assertSame(schema.column(index), schema.column(fullName));
-    assertEquals(type, schema.column(index).getType().getMinorType());
+    assertEquals(0, tupleSchema.size());
+    assertTrue(tupleSchema.isEmpty());
   }
 
+  @Test
+  public void testDuplicateName() {
+    try {
+      new SchemaBuilder()
+          .add("foo", MinorType.INT)
+          .add("a", MinorType.INT, DataMode.REPEATED)
+          .addNullable("foo", MinorType.VARCHAR)
+          .buildSchema();
+      fail();
+    } catch (IllegalArgumentException e) {
+      // Expected
+      assertTrue(e.getMessage().contains("foo"));
+    }
+  }
+
+  @Test
+  public void testSVMode() {
+    BatchSchema batchSchema = new SchemaBuilder()
+        .add("c", MinorType.INT)
+        .add("a", MinorType.INT, DataMode.REPEATED)
+        .addNullable("b", MinorType.VARCHAR)
+        .withSVMode(SelectionVectorMode.TWO_BYTE)
+        .build();
+
+    assertEquals(3, batchSchema.getFieldCount());
+    assertEquals(SelectionVectorMode.TWO_BYTE, batchSchema.getSelectionVectorMode());
+  }
 
   /**
    * Verify that a nested map schema.
@@ -144,14 +230,14 @@ public class TestSchema extends SubOperatorTest {
     // Flattened with maps removed. This is for testing use only
     // as it is ambiguous in production.
 
-    TupleMetadata flatSchema = tupleSchema.flatten();
-    assertEquals(6, flatSchema.size());
-    crossCheck(flatSchema, 0, "c", MinorType.INT);
-    crossCheck(flatSchema, 1, "a.b", MinorType.VARCHAR);
-    crossCheck(flatSchema, 2, "a.d", MinorType.INT);
-    crossCheck(flatSchema, 3, "a.e.f", MinorType.VARCHAR);
-    crossCheck(flatSchema, 4, "a.g", MinorType.INT);
-    crossCheck(flatSchema, 5, "h", MinorType.BIGINT);
+//    TupleMetadata flatSchema = tupleSchema.flatten();
+//    assertEquals(6, flatSchema.size());
+//    crossCheck(flatSchema, 0, "c", MinorType.INT);
+//    crossCheck(flatSchema, 1, "a.b", MinorType.VARCHAR);
+//    crossCheck(flatSchema, 2, "a.d", MinorType.INT);
+//    crossCheck(flatSchema, 3, "a.e.f", MinorType.VARCHAR);
+//    crossCheck(flatSchema, 4, "a.g", MinorType.INT);
+//    crossCheck(flatSchema, 5, "h", MinorType.BIGINT);
 
     // Verify batch schema: should mirror the schema created above.
 
@@ -176,7 +262,7 @@ public class TestSchema extends SubOperatorTest {
 
     List<MaterializedField> eMap = new ArrayList<>();
     for (MaterializedField field : aMap.get(2).getChildren()) {
-      aMap.add(field);
+      eMap.add(field);
     }
     assertEquals(1, eMap.size());
     assertSame(eSchema.column(0), eMap.get(0));

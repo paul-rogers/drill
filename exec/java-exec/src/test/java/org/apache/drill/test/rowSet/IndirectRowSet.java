@@ -58,13 +58,17 @@ public class IndirectRowSet extends AbstractSingleRowSet {
 
   private final SelectionVector2 sv2;
 
-  public IndirectRowSet(BufferAllocator allocator, VectorContainer container) {
-    this(allocator, container, makeSv2(allocator, container));
+  private IndirectRowSet(BufferAllocator allocator, RowStorage storage, SelectionVector2 sv2) {
+    super(allocator, storage);
+    this.sv2 = sv2;
   }
 
-  public IndirectRowSet(BufferAllocator allocator, VectorContainer container, SelectionVector2 sv2) {
-    super(allocator, container);
-    this.sv2 = sv2;
+  public static IndirectRowSet fromContainer(BufferAllocator allocator, VectorContainer container) {
+    return new IndirectRowSet(allocator, RowStorage.fromContainer(container), makeSv2(allocator, container));
+  }
+
+  public static IndirectRowSet fromSv2(BufferAllocator allocator, VectorContainer container, SelectionVector2 sv2) {
+    return new IndirectRowSet(allocator, RowStorage.fromContainer(container), sv2);
   }
 
   private static SelectionVector2 makeSv2(BufferAllocator allocator, VectorContainer container) {
@@ -120,6 +124,6 @@ public class IndirectRowSet extends AbstractSingleRowSet {
 
   @Override
   public RowSet merge(RowSet other) {
-    return new IndirectRowSet(allocator, container().merge(other.container()), sv2);
+    return IndirectRowSet.fromSv2(allocator, container().merge(other.container()), sv2);
   }
 }

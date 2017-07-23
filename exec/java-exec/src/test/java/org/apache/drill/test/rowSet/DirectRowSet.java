@@ -21,6 +21,7 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
@@ -54,16 +55,28 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
     public int batchIndex() { return 0; }
   }
 
-  public DirectRowSet(BufferAllocator allocator, BatchSchema schema) {
-    super(allocator, TupleMetadata.fromFields(schema));
+  private DirectRowSet(BufferAllocator allocator, RowStorage storage) {
+    super(allocator, storage);
   }
 
-  public DirectRowSet(BufferAllocator allocator, VectorContainer container) {
-    super(allocator, container);
+  public DirectRowSet(AbstractSingleRowSet from) {
+    super(from);
   }
 
-  public DirectRowSet(BufferAllocator allocator, VectorAccessible va) {
-    super(allocator, toContainer(va, allocator));
+  public static DirectRowSet fromSchema(BufferAllocator allocator, BatchSchema schema) {
+    return fromSchema(allocator, TupleSchema.fromFields(schema));
+  }
+
+  public static DirectRowSet fromSchema(BufferAllocator allocator, TupleMetadata schema) {
+    return new DirectRowSet(allocator, RowStorage.fromSchema(allocator, schema));
+  }
+
+  public static DirectRowSet fromContainer(BufferAllocator allocator, VectorContainer container) {
+    return new DirectRowSet(allocator, RowStorage.fromContainer(container));
+  }
+
+  public static DirectRowSet fromVectorAccessible(BufferAllocator allocator, VectorAccessible va) {
+    return fromContainer(allocator, toContainer(va, allocator));
   }
 
   private static VectorContainer toContainer(VectorAccessible va, BufferAllocator allocator) {
@@ -80,18 +93,17 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
 
   @Override
   public RowSetWriter writer() {
-    return writer(true, 10);
+    return writer(10);
   }
 
   @Override
-  public RowSetWriter writer(boolean flatSchema, int initialRowCount) {
+  public RowSetWriter writer(int initialRowCount) {
     if (container.hasRecordCount()) {
       throw new IllegalStateException("Row set already contains data");
     }
     allocate(initialRowCount);
     WriterIndexImpl index = new WriterIndexImpl();
-    RowStorage writeStorage = flatSchema ? rowStorage.flatten() : rowStorage;
-    return new RowSetWriterImpl(this, writeStorage.tupleSchema(), index, writeStorage.writers(index));
+    return new RowSetWriterImpl(this, rowStorage.tupleSchema(), index, rowStorage.writers(index));
   }
 
   @Override
@@ -118,6 +130,6 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
 
   @Override
   public RowSet merge(RowSet other) {
-    return new DirectRowSet(allocator, container().merge(other.container()));
+    return fromContainer(allocator, container().merge(other.container()));
   }
 }

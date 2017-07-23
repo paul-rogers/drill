@@ -45,7 +45,6 @@ import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetReader;
-import org.apache.drill.test.rowSet.RowSetSchema;
 import org.apache.drill.test.rowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.bouncycastle.util.Arrays;
@@ -69,9 +68,9 @@ public class RowSetTest extends SubOperatorTest {
    */
   @Test
   public void testScalarStructure() throws VectorOverflowException {
-    BatchSchema schema = new SchemaBuilder()
+    TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
-        .build();
+        .buildSchema();
     ExtendableRowSet rowSet = fixture.rowSet(schema);
     RowSetWriter writer = rowSet.writer();
 
@@ -131,9 +130,9 @@ public class RowSetTest extends SubOperatorTest {
 
   @Test
   public void testScalarArrayStructure() throws VectorOverflowException {
-    BatchSchema schema = new SchemaBuilder()
+    TupleMetadata schema = new SchemaBuilder()
         .addArray("a", MinorType.INT)
-        .build();
+        .buildSchema();
     ExtendableRowSet rowSet = fixture.rowSet(schema);
     RowSetWriter writer = rowSet.writer();
 
@@ -207,71 +206,7 @@ public class RowSetTest extends SubOperatorTest {
   }
 
   @Test
-  public void testFlatMapStructure() throws VectorOverflowException {
-    BatchSchema schema = new SchemaBuilder()
-        .addMap("m")
-          .add("a", MinorType.INT)
-          .buildMap()
-        .build();
-    ExtendableRowSet rowSet = fixture.rowSet(schema);
-    RowSetWriter writer = rowSet.writer();
-
-    // Required Int
-
-    assertEquals(ObjectType.SCALAR, writer.column("m.a").type());
-    assertEquals(ObjectType.SCALAR, writer.column(0).type());
-    assertSame(writer.column("m.a"), writer.column(0));
-    assertSame(writer.column("m.a").scalar(), writer.scalar(0));
-
-    writer.column("m.a").scalar().setInt(10);
-    writer.save();
-    writer.scalar("m.a").setInt(20);
-    writer.save();
-    writer.column(0).scalar().setInt(30);
-    writer.save();
-    writer.scalar(0).setInt(40);
-    writer.save();
-
-    // Sanity checks
-
-    try {
-      writer.column(0).array();
-      fail();
-    } catch (UnsupportedOperationException e) {
-      // Expected
-    }
-    try {
-      writer.column(0).tuple();
-      fail();
-    } catch (UnsupportedOperationException e) {
-      // Expected
-    }
-
-    SingleRowSet actual = writer.done();
-
-    RowSetReader reader = actual.reader();
-    assertTrue(reader.next());
-    assertEquals(10, reader.column(0).getInt());
-    assertTrue(reader.next());
-    assertEquals(20, reader.column(0).getInt());
-    assertTrue(reader.next());
-    assertEquals(30, reader.column(0).getInt());
-    assertTrue(reader.next());
-    assertEquals(40, reader.column(0).getInt());
-    assertFalse(reader.next());
-
-    SingleRowSet expected = fixture.rowSetBuilder(schema)
-        .add(10)
-        .add(20)
-        .add(30)
-        .add(40)
-        .build();
-    new RowSetComparison(expected)
-      .verifyAndClearAll(actual);
-  }
-
-  @Test
-  public void testNestedMapStructure() throws VectorOverflowException {
+  public void testMapStructure() throws VectorOverflowException {
     BatchSchema schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("m")

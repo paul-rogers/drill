@@ -17,11 +17,8 @@
  ******************************************************************************/
 package org.apache.drill.test;
 
-import static org.junit.Assert.*;
-
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Test;
 
 public class SubOperatorTest extends DrillTest {
 
@@ -36,5 +33,4 @@ public class SubOperatorTest extends DrillTest {
   public static void tearDownAfterClass() throws Exception {
     fixture.close();
   }
-
 }

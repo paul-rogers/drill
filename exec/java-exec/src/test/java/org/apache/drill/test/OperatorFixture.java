@@ -17,19 +17,13 @@
  */
 package org.apache.drill.test;
 
-import java.io.IOException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.scanner.ClassPathScanner;
-import org.apache.drill.common.scanner.persistence.ScanResult;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.compile.CodeCompiler;
-import org.apache.drill.exec.exception.ClassTransformationException;
-import org.apache.drill.exec.expr.ClassGenerator;
-import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.memory.RootAllocatorFactory;
@@ -45,6 +39,7 @@ import org.apache.drill.exec.physical.impl.protocol.OperatorExecutionContext;
 import org.apache.drill.exec.physical.impl.protocol.OperatorExecutionContextImpl;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.server.options.BaseOptionManager;
 import org.apache.drill.exec.server.options.OptionSet;
@@ -313,15 +308,19 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
   }
 
   public RowSetBuilder rowSetBuilder(BatchSchema schema) {
-    return new RowSetBuilder(allocator, schema);
+    return rowSetBuilder(TupleSchema.fromFields(schema));
   }
 
   public RowSetBuilder rowSetBuilder(TupleMetadata schema) {
-    return rowSetBuilder(schema.asBatchSchema());
+    return new RowSetBuilder(allocator, schema);
   }
 
   public ExtendableRowSet rowSet(BatchSchema schema) {
-    return new DirectRowSet(allocator, schema);
+    return DirectRowSet.fromSchema(allocator, schema);
+  }
+
+  public ExtendableRowSet rowSet(TupleMetadata schema) {
+    return DirectRowSet.fromSchema(allocator, schema);
   }
 
   public RowSet wrap(VectorContainer container) {
@@ -329,9 +328,9 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     case FOUR_BYTE:
       return new HyperRowSetImpl(allocator(), container, container.getSelectionVector4());
     case NONE:
-      return new DirectRowSet(allocator(), container);
+      return DirectRowSet.fromContainer(allocator(), container);
     case TWO_BYTE:
-      return new IndirectRowSet(allocator(), container);
+      return IndirectRowSet.fromContainer(allocator(), container);
     default:
       throw new IllegalStateException( "Unexpected selection mode" );
     }

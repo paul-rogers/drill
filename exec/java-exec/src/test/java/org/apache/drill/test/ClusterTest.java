@@ -21,9 +21,6 @@ import java.io.IOException;
 
 import org.apache.drill.TestBuilder;
 import org.apache.drill.common.AutoCloseables;
-import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.test.DrillTest;
-import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.junit.AfterClass;
 
 /**
