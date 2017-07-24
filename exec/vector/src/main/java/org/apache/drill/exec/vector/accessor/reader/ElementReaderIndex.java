@@ -15,17 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor;
+package org.apache.drill.exec.vector.accessor.reader;
 
-public interface ArrayReader {
+public interface ElementReaderIndex {
+  int batchIndex();
   int size();
-  ObjectType entryType();
-
-  ScalarElementReader elements();
-  ObjectReader entry(int index);
-  TupleReader tuple(int index);
-  ArrayReader array(int index);
-
-  Object getObject();
-  String getAsString();
+  int vectorIndex(int posn);
 }

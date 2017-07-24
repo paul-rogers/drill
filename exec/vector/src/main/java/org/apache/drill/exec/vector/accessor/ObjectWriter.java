@@ -30,10 +30,6 @@ import org.apache.drill.exec.vector.VectorOverflowException;
  */
 
 public interface ObjectWriter {
-  public enum ObjectType {
-    SCALAR, TUPLE, ARRAY
-  }
-
   ObjectType type();
   ScalarWriter scalar();
   TupleWriter tuple();

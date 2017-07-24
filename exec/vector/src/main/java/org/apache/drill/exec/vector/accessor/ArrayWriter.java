@@ -18,7 +18,6 @@
 package org.apache.drill.exec.vector.accessor;
 
 import org.apache.drill.exec.vector.VectorOverflowException;
-import org.apache.drill.exec.vector.accessor.ObjectWriter.ObjectType;
 
 /**
  * Writer for values into an array. Array writes are write-once,

@@ -45,7 +45,7 @@
  * the extra level of indirection which hides the complex, type-specific code
  * otherwise required.)
  * <p>
- * {@link ColumnReader} and {@link ColumnWriter} are the core abstractions: they
+ * {@link ScalarReader} and {@link ColumnWriter} are the core abstractions: they
  * provide simplified access to the myriad of Drill column types via a
  * simplified, uniform API. {@link TupleReader} and {@link TupleWriter} provide
  * a simplified API to rows or maps (both of which are tuples in Drill.)

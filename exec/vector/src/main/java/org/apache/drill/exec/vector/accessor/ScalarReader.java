@@ -42,7 +42,16 @@ import org.joda.time.Period;
  * in the structure.
  */
 
-public interface ColumnReader extends ColumnAccessor {
+public interface ScalarReader {
+  /**
+   * Describe the type of the value. This is a compression of the
+   * value vector type: it describes which method will return the
+   * vector value.
+   * @return the value type which indicates which get method
+   * is valid for the column
+   */
+
+  ValueType valueType();
 
   /**
    * Report if the column is null. Non-nullable columns always
@@ -58,7 +67,7 @@ public interface ColumnReader extends ColumnAccessor {
   byte[] getBytes();
   BigDecimal getDecimal();
   Period getPeriod();
+
   Object getObject();
-  TupleReader map();
-  ArrayReader array();
+  String getAsString();
 }

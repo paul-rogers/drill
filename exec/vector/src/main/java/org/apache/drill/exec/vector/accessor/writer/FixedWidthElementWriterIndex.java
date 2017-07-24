@@ -18,7 +18,6 @@
 package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
-import org.apache.drill.exec.vector.accessor.ElementWriterIndex;
 
 /**
  * Index into the vector of elements for a repeated vector.
@@ -26,13 +25,13 @@ import org.apache.drill.exec.vector.accessor.ElementWriterIndex;
  * Forwards overflow events to the base index.
  */
 
-public class FixedWidthElementIndex implements ElementWriterIndex {
+public class FixedWidthElementWriterIndex implements ElementWriterIndex {
 
   private final ColumnWriterIndex baseIndex;
   private int startOffset = 0;
   private int offset = 0;
 
-  public FixedWidthElementIndex(ColumnWriterIndex baseIndex) {
+  public FixedWidthElementWriterIndex(ColumnWriterIndex baseIndex) {
     this.baseIndex = baseIndex;
   }
 

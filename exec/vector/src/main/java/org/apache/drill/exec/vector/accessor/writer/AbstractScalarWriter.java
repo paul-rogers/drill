@@ -20,6 +20,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.vector.VectorOverflowException;
+import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.joda.time.Period;
 

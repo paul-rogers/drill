@@ -18,7 +18,6 @@
 package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.ElementWriterIndex;
 
 /**
  * Writer for an array-valued column. This writer appends values: once a value

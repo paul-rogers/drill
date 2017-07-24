@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
-public interface ResultSetWriter {
-  ArrayWriter rows();
-  void done();
+public enum ValueType {
+  INTEGER, LONG, DOUBLE, STRING, BYTES, DECIMAL, PERIOD
 }

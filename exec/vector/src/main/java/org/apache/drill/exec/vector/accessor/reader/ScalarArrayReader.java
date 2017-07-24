@@ -15,33 +15,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor.writer;
+package org.apache.drill.exec.vector.accessor.reader;
 
+import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
-import org.apache.drill.exec.vector.complex.RepeatedMapVector;
+import org.apache.drill.exec.vector.accessor.ScalarElementReader;
+import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
-public class RepeatedMapWriterImpl extends AbstractObjectWriter {
+public class ScalarArrayReader extends AbstractArrayReader {
 
-  private class MapWriterImpl extends AbstractTupleWriter {
+  private final BaseElementReader elementReader;
 
-  }
-
-  public RepeatedMapWriterImpl(ExtendableRowIndex rowIndex,
-      RepeatedMapVector vector) {
-    MapWriterImpl mapWriter = new MapWriterImpl(sth, vector);
-    MapObjectWriter mapObjWriter = new MapObjectWriter(mapWriter);
-    arrayWriter = new ArrayObjectWriter(rowIndex, mapObjWriter);
-  }
-
-  @Override
-  public ObjectType type() {
-    return ObjectType.ARRAY;
+  public ScalarArrayReader(ColumnReaderIndex baseIndex,
+                           RepeatedValueVector vector,
+                           BaseElementReader elementReader) {
+    super(baseIndex, vector, new FixedWidthElementReaderIndex(baseIndex));
+    this.elementReader = elementReader;
   }
 
   @Override
-  public void set(Object value) {
+  public ObjectType entryType() {
+    return ObjectType.SCALAR;
+  }
+
+  @Override
+  public ScalarElementReader elements() {
+    return elementReader;
+  }
+
+  @Override
+  public Object getObject() {
     // TODO Auto-generated method stub
+    return null;
+  }
 
+  @Override
+  public String getAsString() {
+    // TODO Auto-generated method stub
+    return null;
   }
 
 }

@@ -36,10 +36,12 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ResultSetWriter;
+import org.apache.drill.exec.vector.accessor.ScalarElementReader;
+import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
-import org.apache.drill.exec.vector.accessor.ObjectWriter.ObjectType;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -231,12 +233,15 @@ public class RowSetTest extends SubOperatorTest {
     assertSame(bWriter, writer.tuple(1).array(0).scalar());
     aWriter.setInt(10);
     bWriter.setInt(11);
+    bWriter.setInt(12);
     writer.save();
     aWriter.setInt(20);
     bWriter.setInt(21);
+    bWriter.setInt(22);
     writer.save();
     aWriter.setInt(30);
-    aWriter.setInt(31);
+    bWriter.setInt(31);
+    bWriter.setInt(32);
     writer.save();
 
     // Sanity checks
@@ -257,23 +262,26 @@ public class RowSetTest extends SubOperatorTest {
     SingleRowSet actual = writer.done();
 
     RowSetReader reader = actual.reader();
-    ArrayReader aReader = reader.column(0).array();
-    ArrayReader bReader = reader.column(0).array();
+    ScalarReader aReader = reader.column(0).scalar();
+    ScalarElementReader bReader = reader.column(0).array().elements();
     assertTrue(reader.next());
-    assertEquals(10, aReader.getInt(0));
+    assertEquals(10, aReader.getInt());
     assertEquals(11, bReader.getInt(1));
+    assertEquals(12, bReader.getInt(1));
     assertTrue(reader.next());
-    assertEquals(20, aReader.getInt(0));
+    assertEquals(20, aReader.getInt());
     assertEquals(21, bReader.getInt(1));
+    assertEquals(22, bReader.getInt(1));
     assertTrue(reader.next());
-    assertEquals(30, aReader.getInt(0));
+    assertEquals(30, aReader.getInt());
     assertEquals(31, bReader.getInt(1));
+    assertEquals(32, bReader.getInt(1));
     assertFalse(reader.next());
 
     SingleRowSet expected = fixture.rowSetBuilder(schema)
-        .add(10, new Object[] {11})
-        .add(20, new Object[] {21})
-        .add(30, new Object[] {31})
+        .add(10, new int[] {11, 12})
+        .add(20, new int[] {21, 22})
+        .add(30, new int[] {31, 23})
         .build();
     new RowSetComparison(expected)
       .verifyAndClearAll(actual);

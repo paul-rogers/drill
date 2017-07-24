@@ -21,7 +21,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import org.apache.drill.exec.vector.accessor.ArrayReader;
-import org.apache.drill.exec.vector.accessor.ColumnReader;
+import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.bouncycastle.util.Arrays;
 
 /**
@@ -172,8 +172,8 @@ public class RowSetComparison {
       if (! mask[i]) {
         continue;
       }
-      ColumnReader ec = er.column(i);
-      ColumnReader ac = ar.column(i);
+      ScalarReader ec = er.column(i);
+      ScalarReader ac = ar.column(i);
       String label = (er.index() + 1) + ":" + i;
       assertEquals(label, ec.valueType(), ac.valueType());
       if (ec.isNull()) {

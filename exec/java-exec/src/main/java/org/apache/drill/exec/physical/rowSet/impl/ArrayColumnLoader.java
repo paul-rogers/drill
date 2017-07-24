@@ -21,7 +21,7 @@ import java.math.BigDecimal;
 
 import org.apache.drill.exec.physical.rowSet.ArrayLoader;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
-import org.apache.drill.exec.vector.accessor.ColumnAccessor.ValueType;
+import org.apache.drill.exec.vector.accessor.ValueType;
 import org.apache.drill.exec.vector.accessor.impl.AbstractColumnWriter;
 import org.joda.time.Period;
 

@@ -17,14 +17,22 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
-public interface ArrayReader {
-  int size();
-  ObjectType entryType();
+/**
+ * Defines a reader to get values for value vectors using
+ * a simple, uniform interface modeled after a JSON object.
+ * Every column value is an object of one of three types:
+ * scalar, array or tuple. Methods exist to "cast" this object
+ * to the proper type. This model allows a very simple representation:
+ * tuples (rows, maps) consist of objects. Arrays are lists of
+ * objects.
+ */
 
+public interface ObjectReader {
+  ObjectType type();
+  ScalarReader scalar();
   ScalarElementReader elements();
-  ObjectReader entry(int index);
-  TupleReader tuple(int index);
-  ArrayReader array(int index);
+  TupleReader tuple();
+  ArrayReader array();
 
   Object getObject();
   String getAsString();

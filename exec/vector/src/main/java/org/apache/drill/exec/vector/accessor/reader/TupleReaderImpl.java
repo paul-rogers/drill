@@ -15,36 +15,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor;
+package org.apache.drill.exec.vector.accessor.reader;
 
 import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.vector.accessor.ArrayReader;
+import org.apache.drill.exec.vector.accessor.ScalarReader;
+import org.apache.drill.exec.vector.accessor.TupleReader;
 
 /**
- * Interface for reading from tuples (rows or maps). Provides
- * a column reader for each column that can be obtained either
- * by name or column index (as defined in the tuple schema.)
- * Also provides two generic methods to get the value as a
- * Java object or as a string.
+ * Reader for a tuple (a row or a map.) Provides access to each
+ * column using either a name or a numeric index.
  */
 
-public interface TupleReader {
-  TupleMetadata schema();
-  int size();
+public class TupleReaderImpl extends AbstractTupleAccessor implements TupleReader {
 
-  ObjectReader column(int colIndex);
-  ObjectReader column(String colName);
+  private final BaseScalarReader readers[];
 
-  // Convenience methods
+  public TupleReaderImpl(TupleMetadata schema, BaseScalarReader readers[]) {
+    super(schema);
+    this.readers = readers;
+  }
 
-  ScalarReader scalar(int colIndex);
-  ScalarReader scalar(String colName);
-  TupleReader tuple(int colIndex);
-  TupleReader tuple(String colName);
-  ArrayReader array(int colIndex);
-  ArrayReader array(String colName);
-  ObjectType type(int colIndex);
-  ObjectType type(String colName);
+  @Override
+  public ScalarReader column(int colIndex) {
+    return readers[colIndex];
+  }
 
-  Object getObject();
-  String getAsString();
+  @Override
+  public ScalarReader column(String colName) {
+    int index = schema.index(colName);
+    if (index == -1) {
+      return null; }
+    return readers[index];
+  }
 }

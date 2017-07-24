@@ -41,7 +41,16 @@ import org.joda.time.Period;
  * <p>
  */
 
-public interface ScalarWriter extends ColumnAccessor {
+public interface ScalarWriter {
+  /**
+   * Describe the type of the value. This is a compression of the
+   * value vector type: it describes which method will return the
+   * vector value.
+   * @return the value type which indicates which get method
+   * is valid for the column
+   */
+
+  ValueType valueType();
   void setNull() throws VectorOverflowException;
   void setInt(int value) throws VectorOverflowException;
   void setLong(long value) throws VectorOverflowException;

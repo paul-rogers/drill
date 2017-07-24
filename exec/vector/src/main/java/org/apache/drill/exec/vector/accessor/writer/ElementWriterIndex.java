@@ -15,18 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor;
+package org.apache.drill.exec.vector.accessor.writer;
 
-import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 
-/**
- * Provides access to a "tuple". In Drill, both rows and maps are
- * tuples: both are an ordered collection of values, defined by a
- * schema. Each tuple has a schema that defines the column ordering
- * for indexed access. Each tuple also provides methods to get column
- * accessors by name or index.
- */
-
-public interface TupleAccessor {
-  TupleMetadata schema();
+public interface ElementWriterIndex extends ColumnWriterIndex {
+  void next();
 }

@@ -15,16 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor.impl;
+package org.apache.drill.exec.vector.accessor.reader;
 
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.ArrayReader;
-import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
-import org.apache.drill.exec.vector.accessor.TupleReader;
+import org.apache.drill.exec.vector.accessor.ObjectType;
+import org.apache.drill.exec.vector.accessor.ScalarReader;
+import org.apache.drill.exec.vector.accessor.impl.AccessorUtilities;
 import org.joda.time.Period;
 
 /**
@@ -34,10 +34,35 @@ import org.joda.time.Period;
  * method(s).
  */
 
-public abstract class AbstractColumnReader implements ColumnReader {
+public abstract class BaseScalarReader implements ScalarReader {
 
-  public interface VectorAccessor {
-    ValueVector vector();
+  public static class ScalarObjectReader extends AbstractObjectReader {
+
+    private BaseScalarReader scalarReader;
+
+    public ScalarObjectReader(BaseScalarReader scalarReader) {
+      this.scalarReader = scalarReader;
+    }
+
+    @Override
+    public ObjectType type() {
+      return ObjectType.SCALAR;
+    }
+
+    @Override
+    public ScalarReader scalar() {
+      return scalarReader;
+    }
+
+    @Override
+    public Object getObject() {
+      return scalarReader.getObject();
+    }
+
+    @Override
+    public String getAsString() {
+      return scalarReader.getAsString();
+    }
   }
 
   protected ColumnReaderIndex vectorIndex;
@@ -56,10 +81,10 @@ public abstract class AbstractColumnReader implements ColumnReader {
 
   @Override
   public Object getObject() {
+    if (isNull()) {
+      return "null";
+    }
     switch (valueType()) {
-    case ARRAY:
-      // TODO: build an array. Just a bit tedious...
-      throw new UnsupportedOperationException();
     case BYTES:
       return getBytes();
     case DECIMAL:
@@ -70,15 +95,32 @@ public abstract class AbstractColumnReader implements ColumnReader {
       return getInt();
     case LONG:
       return getLong();
-    case MAP:
-      // TODO: build an array. Just a bit tedious...
-      throw new UnsupportedOperationException();
     case PERIOD:
       return getPeriod();
     case STRING:
       return getString();
     default:
       throw new IllegalStateException("Unexpected type: " + valueType());
+    }
+  }
+
+  @Override
+  public String getAsString() {
+    switch (valueType()) {
+    case BYTES:
+      return AccessorUtilities.bytesToString(getBytes());
+    case DOUBLE:
+      return Double.toString(getDouble());
+    case INTEGER:
+      return Integer.toString(getInt());
+    case LONG:
+      return Long.toString(getLong());
+    case STRING:
+      return "\"" + getString() + "\"";
+    case DECIMAL:
+      return getDecimal().toPlainString();
+    default:
+      throw new IllegalArgumentException("Unsupported type " + valueType());
     }
   }
 
@@ -119,16 +161,6 @@ public abstract class AbstractColumnReader implements ColumnReader {
 
   @Override
   public Period getPeriod() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public TupleReader map() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public ArrayReader array() {
     throw new UnsupportedOperationException();
   }
 }

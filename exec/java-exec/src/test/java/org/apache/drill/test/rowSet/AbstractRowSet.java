@@ -24,8 +24,8 @@ import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.SchemaChangeCallBack;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
-import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader;
-import org.apache.drill.exec.vector.accessor.impl.TupleReaderImpl;
+import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
+import org.apache.drill.exec.vector.accessor.reader.TupleReaderImpl;
 
 /**
  * Basic implementation of a row set for both the single and multiple
@@ -75,7 +75,7 @@ public abstract class AbstractRowSet implements RowSet {
 
     protected final RowSetReaderIndex index;
 
-    public RowSetReaderImpl(TupleMetadata schema, RowSetReaderIndex index, AbstractColumnReader[] readers) {
+    public RowSetReaderImpl(TupleMetadata schema, RowSetReaderIndex index, BaseScalarReader[] readers) {
       super(schema, readers);
       this.index = index;
     }

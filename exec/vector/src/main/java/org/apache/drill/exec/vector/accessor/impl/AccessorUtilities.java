@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor.writer;
+package org.apache.drill.exec.vector.accessor.impl;
 
 import java.math.BigDecimal;
 
@@ -63,4 +63,22 @@ public class AccessorUtilities {
   public static int sv4Index(int sv4Index) {
     return sv4Index & 0xFFFF;
   }
+
+  public static String bytesToString(byte[] value) {
+    StringBuilder buf = new StringBuilder()
+        .append("[");
+    int len = Math.min(value.length, 20);
+    for (int i = 0; i < len;  i++) {
+      if (i > 0) {
+        buf.append(", ");
+      }
+      buf.append((int) value[i]);
+    }
+    if (value.length > len) {
+      buf.append("...");
+    }
+    buf.append("]");
+    return buf.toString();
+  }
+
 }

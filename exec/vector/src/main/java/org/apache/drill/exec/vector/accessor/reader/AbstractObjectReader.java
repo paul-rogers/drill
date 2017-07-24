@@ -15,33 +15,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor.writer;
+package org.apache.drill.exec.vector.accessor.reader;
 
-import org.apache.drill.exec.vector.accessor.ObjectType;
-import org.apache.drill.exec.vector.complex.RepeatedMapVector;
+import org.apache.drill.exec.vector.accessor.ArrayReader;
+import org.apache.drill.exec.vector.accessor.ObjectReader;
+import org.apache.drill.exec.vector.accessor.ScalarElementReader;
+import org.apache.drill.exec.vector.accessor.ScalarReader;
+import org.apache.drill.exec.vector.accessor.TupleReader;
 
-public class RepeatedMapWriterImpl extends AbstractObjectWriter {
+public abstract class AbstractObjectReader implements ObjectReader {
 
-  private class MapWriterImpl extends AbstractTupleWriter {
+  public void reposition() { }
 
-  }
-
-  public RepeatedMapWriterImpl(ExtendableRowIndex rowIndex,
-      RepeatedMapVector vector) {
-    MapWriterImpl mapWriter = new MapWriterImpl(sth, vector);
-    MapObjectWriter mapObjWriter = new MapObjectWriter(mapWriter);
-    arrayWriter = new ArrayObjectWriter(rowIndex, mapObjWriter);
+  @Override
+  public ScalarReader scalar() {
+    throw new UnsupportedOperationException();
   }
 
   @Override
-  public ObjectType type() {
-    return ObjectType.ARRAY;
+  public TupleReader tuple() {
+    throw new UnsupportedOperationException();
   }
 
   @Override
-  public void set(Object value) {
-    // TODO Auto-generated method stub
-
+  public ArrayReader array() {
+    throw new UnsupportedOperationException();
   }
 
+  @Override
+  public ScalarElementReader elements() {
+    throw new UnsupportedOperationException();
+  }
 }

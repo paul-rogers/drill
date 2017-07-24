@@ -15,25 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor.impl;
+package org.apache.drill.exec.vector.accessor;
 
-import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.vector.accessor.TupleAccessor;
-
-/**
- * Common base class for tuple readers and writers.
- */
-
-public abstract class AbstractTupleAccessor implements TupleAccessor {
-
-  protected final TupleMetadata schema;
-
-  public AbstractTupleAccessor(TupleMetadata schema) {
-    this.schema = schema;
-  }
-
-  @Override
-  public TupleMetadata schema() {
-    return schema;
-  }
+public enum ObjectType {
+  SCALAR, TUPLE, ARRAY
 }

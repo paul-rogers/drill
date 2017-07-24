@@ -23,7 +23,9 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
-import org.apache.drill.exec.vector.accessor.impl.AbstractArrayReader.ArrayColumnReader;
+import org.apache.drill.exec.vector.accessor.reader.AbstractArrayReader;
+import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
+import org.apache.drill.exec.vector.accessor.reader.BaseElementReader;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.BaseElementWriter;
 import org.apache.drill.exec.vector.accessor.writer.BaseScalarWriter;
@@ -39,12 +41,25 @@ import org.apache.drill.exec.vector.complex.RepeatedValueVector;
  * a vector and a row index.
  */
 
+@SuppressWarnings("unchecked")
 public class ColumnAccessorFactory {
 
-  private static Class<? extends BaseScalarWriter> columnWriters[][] = buildColumnWriters();
-  private static Class<? extends AbstractColumnReader> columnReaders[][] = buildColumnReaders();
-  private static Class<? extends BaseElementWriter> elementWriters[] = buildArrayWriters();
-  private static Class<? extends AbstractArrayReader> arrayReaders[] = buildArrayReaders();
+  private static final int typeCount = MinorType.values().length;
+  private static final Class<? extends BaseScalarReader> requiredReaders[] = new Class[typeCount];
+  private static final Class<? extends BaseScalarReader> nullableReaders[] = new Class[typeCount];
+  private static final Class<? extends BaseElementReader> elementReaders[] = new Class[typeCount];
+  private static final Class<? extends BaseScalarWriter> requiredWriters[] = new Class[typeCount];
+  private static final Class<? extends BaseScalarWriter> nullableWriters[] = new Class[typeCount];
+  private static final Class<? extends BaseElementWriter> elementWriters[] = new Class[typeCount];
+
+  {
+    ColumnAccessors.defineRequiredReaders(requiredReaders);
+    ColumnAccessors.defineNullableReaders(nullableReaders);
+    ColumnAccessors.defineArrayReaders(elementReaders);
+    ColumnAccessors.defineRequiredWriters(requiredWriters);
+    ColumnAccessors.defineNullableWriters(nullableWriters);
+    ColumnAccessors.defineArrayWriters(elementWriters);
+  }
 
   public static AbstractObjectWriter buildColumnWriter(ColumnWriterIndex rowIndex,
       ValueVector valueVector) {
@@ -82,53 +97,22 @@ public class ColumnAccessorFactory {
     }
   }
 
-  @SuppressWarnings("unchecked")
-  private static Class<? extends BaseScalarWriter>[][] buildColumnWriters() {
-    int typeCount = MinorType.values().length;
-    int modeCount = DataMode.values().length;
-    Class<? extends BaseScalarWriter> writers[][] = new Class[typeCount][];
-    for (int i = 0; i < typeCount; i++) {
-      writers[i] = new Class[modeCount];
-    }
-
-    ColumnAccessors.defineWriters(writers);
-    return writers;
-  }
-
-  @SuppressWarnings("unchecked")
-  private static Class<? extends AbstractColumnReader>[][] buildColumnReaders() {
-    int typeCount = MinorType.values().length;
-    int modeCount = DataMode.values().length;
-    Class<? extends AbstractColumnReader> readers[][] = new Class[typeCount][];
-    for (int i = 0; i < typeCount; i++) {
-      readers[i] = new Class[modeCount];
-    }
-
-    ColumnAccessors.defineReaders(readers);
-    return readers;
-  }
-
-  @SuppressWarnings("unchecked")
-  private static Class<? extends BaseElementWriter>[] buildArrayWriters() {
-    int typeCount = MinorType.values().length;
-    Class<? extends BaseElementWriter> writers[] = new Class[typeCount];
-    ColumnAccessors.defineArrayWriters(writers);
-    return writers;
-  }
-
-  @SuppressWarnings("unchecked")
-  private static Class<? extends AbstractArrayReader>[] buildArrayReaders() {
-    int typeCount = MinorType.values().length;
-    Class<? extends AbstractArrayReader> readers[] = new Class[typeCount];
-    ColumnAccessors.defineArrayReaders(readers);
-    return readers;
-  }
-
   public static BaseScalarWriter newScalarWriter(MajorType type) {
     try {
-      Class<? extends BaseScalarWriter> writerClass = columnWriters[type.getMinorType().ordinal()][type.getMode().ordinal()];
+      final int typeIndex = type.getMinorType().ordinal();
+      Class<? extends BaseScalarWriter> writerClass;
+      switch (type.getMode()) {
+      case OPTIONAL:
+        writerClass = nullableWriters[typeIndex];
+        break;
+      case REQUIRED:
+        writerClass = requiredWriters[typeIndex];
+        break;
+      default:
+        throw new IllegalArgumentException(type.getMode().toString());
+      }
       if (writerClass == null) {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(type.getMinorType().toString());
       }
       return writerClass.newInstance();
     } catch (InstantiationException | IllegalAccessException e) {
@@ -148,7 +132,7 @@ public class ColumnAccessorFactory {
     }
   }
 
-  public static AbstractColumnReader newReader(MajorType type) {
+  public static BaseScalarReader newReader(MajorType type) {
     try {
       if (type.getMode() == DataMode.REPEATED) {
         Class<? extends AbstractArrayReader> readerClass = arrayReaders[type.getMinorType().ordinal()];
@@ -157,7 +141,7 @@ public class ColumnAccessorFactory {
         }
         return new ArrayColumnReader(readerClass.newInstance());
       } else {
-        Class<? extends AbstractColumnReader> readerClass = columnReaders[type.getMinorType().ordinal()][type.getMode().ordinal()];
+        Class<? extends BaseScalarReader> readerClass = columnReaders[type.getMinorType().ordinal()][type.getMode().ordinal()];
         if (readerClass == null) {
           throw new UnsupportedOperationException();
         }

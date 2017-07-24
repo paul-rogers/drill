@@ -21,11 +21,10 @@ import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
-import org.apache.drill.exec.vector.accessor.ElementWriterIndex;
+import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
-import org.apache.drill.exec.vector.accessor.ObjectWriter.ObjectType;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
@@ -95,7 +94,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   }
 
   private final ColumnWriterIndex baseIndex;
-  private final FixedWidthElementIndex elementIndex;
+  private final FixedWidthElementWriterIndex elementIndex;
   private final AbstractObjectWriter elementObjWriter;
   private final UInt4Vector.Mutator mutator;
   private int lastWritePosn = 0;
@@ -103,7 +102,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   public AbstractArrayWriter(ColumnWriterIndex baseIndex, RepeatedValueVector vector, AbstractObjectWriter elementObjWriter) {
     this.elementObjWriter = elementObjWriter;
     this.baseIndex = baseIndex;
-    elementIndex = new FixedWidthElementIndex(baseIndex);
+    elementIndex = new FixedWidthElementWriterIndex(baseIndex);
     mutator = vector.getOffsetVector().getMutator();
   }
 

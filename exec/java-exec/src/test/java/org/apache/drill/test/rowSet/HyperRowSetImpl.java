@@ -32,10 +32,10 @@ import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader;
-import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader.VectorAccessor;
+import org.apache.drill.exec.vector.accessor.impl.AccessorUtilities;
 import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
-import org.apache.drill.exec.vector.accessor.writer.AccessorUtilities;
+import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
+import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.test.rowSet.RowSet.HyperRowSet;
 
@@ -266,7 +266,7 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
 
   protected RowSetReader buildReader(HyperRowIndex rowIndex) {
     TupleMetadata accessSchema = schema().flatAccess();
-    AbstractColumnReader readers[] = new AbstractColumnReader[accessSchema.size()];
+    BaseScalarReader readers[] = new BaseScalarReader[accessSchema.size()];
     for (int i = 0; i < readers.length; i++) {
       MaterializedField field = accessSchema.column(i);
       readers[i] = ColumnAccessorFactory.newReader(field.getType());

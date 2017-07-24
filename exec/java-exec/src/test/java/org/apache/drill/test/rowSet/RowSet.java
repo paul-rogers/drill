@@ -27,7 +27,7 @@ import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.ColumnReader;
+import org.apache.drill.exec.vector.accessor.ScalarReader;
 
 /**
  * A row set is a collection of rows stored as value vectors. Elsewhere in
@@ -50,7 +50,7 @@ import org.apache.drill.exec.vector.accessor.ColumnReader;
  * Drill provides a large number of vector (data) types. Each requires a
  * type-specific way to set data. The row set writer uses a {@link ColumnWriter}
  * to set each value in a way unique to the specific data type. Similarly, the
- * row set reader provides a {@link ColumnReader} interface. In both cases,
+ * row set reader provides a {@link ScalarReader} interface. In both cases,
  * columns can be accessed by index number (as defined in the schema) or
  * by name.
  * <p>

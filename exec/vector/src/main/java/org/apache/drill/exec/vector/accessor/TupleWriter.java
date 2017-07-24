@@ -19,7 +19,6 @@ package org.apache.drill.exec.vector.accessor;
 
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.VectorOverflowException;
-import org.apache.drill.exec.vector.accessor.ObjectWriter.ObjectType;
 
 /**
  * Interface for writing to rows via a column writer.
@@ -42,6 +41,7 @@ import org.apache.drill.exec.vector.accessor.ObjectWriter.ObjectType;
 
 public interface TupleWriter {
   TupleMetadata schema();
+  int size();
 
   ObjectWriter column(int colIndex);
   ObjectWriter column(String colName);

@@ -31,60 +31,62 @@
   </#if>
     }
 </#macro>
-<#macro bindReader prefix drillType>
+<#macro bindReader vectorPrefix drillType isArray >
   <#if drillType = "Decimal9" || drillType == "Decimal18">
     private MaterializedField field;
   </#if>
-    private ${prefix}${drillType}Vector.Accessor accessor;
+    private ${vectorPrefix}${drillType}Vector.Accessor accessor;
 
+  <#if isArray>
+    <#assign readerIndex = "ElementReaderIndex" />
+  <#else>
+    <#assign readerIndex = "ColumnReaderIndex" />
+  </#if>
     @Override
-    public void bind(ColumnReaderIndex vectorIndex, ValueVector vector) {
+    public void bind(${readerIndex} vectorIndex, ValueVector vector) {
       bind(vectorIndex);
   <#if drillType = "Decimal9" || drillType == "Decimal18">
       field = vector.getField();
   </#if>
-      accessor = ((${prefix}${drillType}Vector) vector).getAccessor();
+      accessor = ((${vectorPrefix}${drillType}Vector) vector).getAccessor();
     }
 
   <#if drillType = "Decimal9" || drillType == "Decimal18">
     @Override
-    public void bind(ColumnReaderIndex vectorIndex, MaterializedField field, VectorAccessor va) {
+    public void bind(${readerIndex} vectorIndex, MaterializedField field, VectorAccessor va) {
       bind(vectorIndex, field, va);
       this.field = field;
     }
 
  </#if>
-   private ${prefix}${drillType}Vector.Accessor accessor() {
+    private ${vectorPrefix}${drillType}Vector.Accessor accessor() {
       if (vectorAccessor == null) {
         return accessor;
       } else {
-        return ((${prefix}${drillType}Vector) vectorAccessor.vector()).getAccessor();
+        return ((${vectorPrefix}${drillType}Vector) vectorAccessor.vector()).getAccessor();
       }
     }
 </#macro>
 <#macro get drillType accessorType label isArray>
     @Override
     public ${accessorType} get${label}(<#if isArray>int index</#if>) {
+    <#assign getObject =" getObject"/>
   <#if isArray>
     <#assign indexVar = "index"/>
-    <#assign index = ", " + indexVar/>
-    <#assign getObject = "getSingleObject"/>
   <#else>
     <#assign indexVar = ""/>
-    <#assign index = ""/>
-    <#assign getObject =" getObject"/>
   </#if>
   <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
-      return accessor().get(vectorIndex.vectorIndex()${index});
+      return accessor().get(vectorIndex.vectorIndex(${indexVar}));
   <#elseif drillType == "Decimal9" || drillType == "Decimal18">
       return DecimalUtility.getBigDecimalFromPrimitiveTypes(
-                accessor().get(vectorIndex.vectorIndex()${index}),
+                accessor().get(vectorIndex.vectorIndex(${indexVar})),
                 field.getScale(),
                 field.getPrecision());
   <#elseif accessorType == "BigDecimal" || accessorType == "Period">
-      return accessor().${getObject}(vectorIndex.vectorIndex()${index});
+      return accessor().${getObject}(vectorIndex.vectorIndex(${indexVar}));
   <#else>
-      return accessor().get(vectorIndex.vectorIndex()${index});
+      return accessor().get(vectorIndex.vectorIndex(${indexVar}));
   </#if>
     }
   <#if drillType == "VarChar">
@@ -221,18 +223,19 @@ package org.apache.drill.exec.vector.accessor;
 
 import java.math.BigDecimal;
 
-import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.vector.*;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.util.DecimalUtility;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
-import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader;
+import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
+import org.apache.drill.exec.vector.accessor.reader.BaseElementReader;
+import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
+import org.apache.drill.exec.vector.accessor.reader.ElementReaderIndex;
 import org.apache.drill.exec.vector.accessor.writer.BaseScalarWriter;
 import org.apache.drill.exec.vector.accessor.writer.BaseElementWriter;
-import org.apache.drill.exec.vector.accessor.impl.AbstractArrayReader;
-import org.apache.drill.exec.vector.accessor.impl.AbstractColumnReader.VectorAccessor;
+import org.apache.drill.exec.vector.accessor.writer.ElementWriterIndex;
 
 import com.google.common.base.Charsets;
 import org.joda.time.Period;
@@ -276,18 +279,18 @@ public class ColumnAccessors {
   //------------------------------------------------------------------------
   // ${drillType} readers and writers
 
-  public static class ${drillType}ColumnReader extends AbstractColumnReader {
+  public static class ${drillType}ColumnReader extends BaseScalarReader {
 
-    <@bindReader "" drillType />
+    <@bindReader "" drillType false />
 
     <@getType drillType label />
 
     <@get drillType accessorType label false/>
   }
 
-  public static class Nullable${drillType}ColumnReader extends AbstractColumnReader {
+  public static class Nullable${drillType}ColumnReader extends BaseScalarReader {
 
-    <@bindReader "Nullable" drillType />
+    <@bindReader "Nullable" drillType false />
 
     <@getType drillType label />
 
@@ -296,21 +299,16 @@ public class ColumnAccessors {
       return accessor().isNull(vectorIndex.vectorIndex());
     }
 
-    <@get drillType accessorType label false/>
+    <@get drillType accessorType label false />
   }
 
-  public static class Repeated${drillType}ColumnReader extends AbstractArrayReader {
+  public static class Repeated${drillType}ColumnReader extends BaseElementReader {
 
-    <@bindReader "Repeated" drillType />
+    <@bindReader "" drillType true />
 
     <@getType drillType label />
 
-    @Override
-    public int size() {
-      return accessor().getInnerValueCountAt(vectorIndex.vectorIndex());
-    }
-
-    <@get drillType accessorType label true/>
+    <@get drillType accessorType label true />
   }
 
   public static class ${drillType}ColumnWriter extends BaseScalarWriter {
@@ -367,38 +365,36 @@ public class ColumnAccessors {
     </#if>
   </#list>
 </#list>
-  public static void defineReaders(
-      Class<? extends AbstractColumnReader> readers[][]) {
+  public static void defineRequiredReaders(
+      Class<? extends BaseScalarReader> readers[]) {
 <#list vv.types as type>
   <#list type.minor as minor>
     <#assign drillType=minor.class>
     <#assign notyet=minor.accessorDisabled!type.accessorDisabled!false>
     <#if ! notyet>
     <#assign typeEnum=drillType?upper_case>
-    readers[MinorType.${typeEnum}.ordinal()][DataMode.REQUIRED.ordinal()] = ${drillType}ColumnReader.class;
-    readers[MinorType.${typeEnum}.ordinal()][DataMode.OPTIONAL.ordinal()] = Nullable${drillType}ColumnReader.class;
+    readers[MinorType.${typeEnum}.ordinal()] = ${drillType}ColumnReader.class;
     </#if>
   </#list>
 </#list>
   }
 
-  public static void defineWriters(
-      Class<? extends BaseScalarWriter> writers[][]) {
+  public static void defineNullableReaders(
+      Class<? extends BaseScalarReader> readers[]) {
 <#list vv.types as type>
   <#list type.minor as minor>
     <#assign drillType=minor.class>
     <#assign notyet=minor.accessorDisabled!type.accessorDisabled!false>
     <#if ! notyet>
     <#assign typeEnum=drillType?upper_case>
-    writers[MinorType.${typeEnum}.ordinal()][DataMode.REQUIRED.ordinal()] = ${drillType}ColumnWriter.class;
-    writers[MinorType.${typeEnum}.ordinal()][DataMode.OPTIONAL.ordinal()] = Nullable${drillType}ColumnWriter.class;
+    readers[MinorType.${typeEnum}.ordinal()] = Nullable${drillType}ColumnReader.class;
     </#if>
   </#list>
 </#list>
   }
 
   public static void defineArrayReaders(
-      Class<? extends AbstractArrayReader> readers[]) {
+      Class<? extends BaseElementReader> readers[]) {
 <#list vv.types as type>
   <#list type.minor as minor>
     <#assign drillType=minor.class>
@@ -406,6 +402,34 @@ public class ColumnAccessors {
     <#if ! notyet>
     <#assign typeEnum=drillType?upper_case>
     readers[MinorType.${typeEnum}.ordinal()] = Repeated${drillType}ColumnReader.class;
+    </#if>
+  </#list>
+</#list>
+  }
+
+  public static void defineRequiredWriters(
+      Class<? extends BaseScalarWriter> writers[]) {
+<#list vv.types as type>
+  <#list type.minor as minor>
+    <#assign drillType=minor.class>
+    <#assign notyet=minor.accessorDisabled!type.accessorDisabled!false>
+    <#if ! notyet>
+    <#assign typeEnum=drillType?upper_case>
+    writers[MinorType.${typeEnum}.ordinal()] = ${drillType}ColumnWriter.class;
+    </#if>
+  </#list>
+</#list>
+  }
+
+  public static void defineNullableWriters(
+      Class<? extends BaseScalarWriter> writers[]) {
+<#list vv.types as type>
+  <#list type.minor as minor>
+    <#assign drillType=minor.class>
+    <#assign notyet=minor.accessorDisabled!type.accessorDisabled!false>
+    <#if ! notyet>
+    <#assign typeEnum=drillType?upper_case>
+    writers[MinorType.${typeEnum}.ordinal()] = Nullable${drillType}ColumnWriter.class;
     </#if>
   </#list>
 </#list>
