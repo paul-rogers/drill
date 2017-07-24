@@ -42,7 +42,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
     @Override
     public ObjectType type() {
-      return ObjectType.SCALAR;
+      return ObjectType.TUPLE;
     }
 
     @Override

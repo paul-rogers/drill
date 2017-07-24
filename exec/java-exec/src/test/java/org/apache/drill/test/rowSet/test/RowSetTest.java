@@ -207,11 +207,12 @@ public class RowSetTest extends SubOperatorTest {
 
   @Test
   public void testMapStructure() throws VectorOverflowException {
-    BatchSchema schema = new SchemaBuilder()
+    TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("m")
-          .add("b", MinorType.INT)
-        .build();
+          .addArray("b", MinorType.INT)
+          .buildMap()
+        .buildSchema();
     ExtendableRowSet rowSet = fixture.rowSet(schema);
     RowSetWriter writer = rowSet.writer();
 
@@ -226,8 +227,8 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(ObjectType.SCALAR, mapWriter.column("b").array().entryType());
 
     ScalarWriter aWriter = writer.column("a").scalar();
-    ScalarWriter bWriter = writer.column("b").tuple().column("b").scalar();
-    assertSame(bWriter, writer.tuple(1).scalar(0));
+    ScalarWriter bWriter = writer.column("m").tuple().column("b").array().entry().scalar();
+    assertSame(bWriter, writer.tuple(1).array(0).scalar());
     aWriter.setInt(10);
     bWriter.setInt(11);
     writer.save();
@@ -241,13 +242,13 @@ public class RowSetTest extends SubOperatorTest {
     // Sanity checks
 
     try {
-      writer.column(0).scalar();
+      writer.column(1).scalar();
       fail();
     } catch (UnsupportedOperationException e) {
       // Expected
     }
     try {
-      writer.column(0).array();
+      writer.column(1).array();
       fail();
     } catch (UnsupportedOperationException e) {
       // Expected
