@@ -22,8 +22,6 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors;
-import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
-import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
 import org.apache.drill.exec.vector.accessor.reader.BaseElementReader;
 import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
@@ -36,8 +34,8 @@ import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
  * Gather generated accessor classes into a set of class tables to allow rapid
- * run-time creation of accessors. The caller is responsible for binding the
- * accessor to a vector and a row index.
+ * run-time creation of accessors. Builds the accessor and its object reader/writer
+ * wrapper which binds the vector to the accessor.
  */
 
 @SuppressWarnings("unchecked")

@@ -207,6 +207,33 @@
       mutator.setValueCount(rowCount);
     }
 </#macro>
+<#macro build types vectorType accessorType>
+  <#if vectorType == "Repeated">
+    <#assign fnPrefix = "Array" />
+    <#assign classType = "Element" />
+  <#else>
+    <#assign fnPrefix = vectorType />
+    <#assign classType = "Scalar" />
+  </#if>
+  <#if vectorType == "Required">
+    <#assign vectorPrefix = "" />
+  <#else>
+    <#assign vectorPrefix = vectorType />
+  </#if>
+  public static void define${fnPrefix}${accessorType}s(
+      Class<? extends Base${classType}${accessorType}> ${accessorType?lower_case}s[]) {
+  <#list types as type>
+  <#list type.minor as minor>
+    <#assign drillType=minor.class>
+    <#assign notyet=minor.accessorDisabled!type.accessorDisabled!false>
+    <#if ! notyet>
+    <#assign typeEnum=drillType?upper_case>
+    ${accessorType?lower_case}s[MinorType.${typeEnum}.ordinal()] = ${vectorPrefix}${drillType}Column${accessorType}.class;
+    </#if>
+  </#list>
+  </#list>
+  }
+</#macro>
 
 package org.apache.drill.exec.vector.accessor;
 
@@ -350,87 +377,15 @@ public class ColumnAccessors {
     </#if>
   </#list>
 </#list>
-  public static void defineRequiredReaders(
-      Class<? extends BaseScalarReader> readers[]) {
-<#list vv.types as type>
-  <#list type.minor as minor>
-    <#assign drillType=minor.class>
-    <#assign notyet=minor.accessorDisabled!type.accessorDisabled!false>
-    <#if ! notyet>
-    <#assign typeEnum=drillType?upper_case>
-    readers[MinorType.${typeEnum}.ordinal()] = ${drillType}ColumnReader.class;
-    </#if>
-  </#list>
-</#list>
-  }
+<@build vv.types "Required" "Reader" />
 
-  public static void defineNullableReaders(
-      Class<? extends BaseScalarReader> readers[]) {
-<#list vv.types as type>
-  <#list type.minor as minor>
-    <#assign drillType=minor.class>
-    <#assign notyet=minor.accessorDisabled!type.accessorDisabled!false>
-    <#if ! notyet>
-    <#assign typeEnum=drillType?upper_case>
-    readers[MinorType.${typeEnum}.ordinal()] = Nullable${drillType}ColumnReader.class;
-    </#if>
-  </#list>
-</#list>
-  }
+<@build vv.types "Nullable" "Reader" />
 
-  public static void defineArrayReaders(
-      Class<? extends BaseElementReader> readers[]) {
-<#list vv.types as type>
-  <#list type.minor as minor>
-    <#assign drillType=minor.class>
-    <#assign notyet=minor.accessorDisabled!type.accessorDisabled!false>
-    <#if ! notyet>
-    <#assign typeEnum=drillType?upper_case>
-    readers[MinorType.${typeEnum}.ordinal()] = Repeated${drillType}ColumnReader.class;
-    </#if>
-  </#list>
-</#list>
-  }
+<@build vv.types "Repeated" "Reader" />
 
-  public static void defineRequiredWriters(
-      Class<? extends BaseScalarWriter> writers[]) {
-<#list vv.types as type>
-  <#list type.minor as minor>
-    <#assign drillType=minor.class>
-    <#assign notyet=minor.accessorDisabled!type.accessorDisabled!false>
-    <#if ! notyet>
-    <#assign typeEnum=drillType?upper_case>
-    writers[MinorType.${typeEnum}.ordinal()] = ${drillType}ColumnWriter.class;
-    </#if>
-  </#list>
-</#list>
-  }
+<@build vv.types "Required" "Writer" />
 
-  public static void defineNullableWriters(
-      Class<? extends BaseScalarWriter> writers[]) {
-<#list vv.types as type>
-  <#list type.minor as minor>
-    <#assign drillType=minor.class>
-    <#assign notyet=minor.accessorDisabled!type.accessorDisabled!false>
-    <#if ! notyet>
-    <#assign typeEnum=drillType?upper_case>
-    writers[MinorType.${typeEnum}.ordinal()] = Nullable${drillType}ColumnWriter.class;
-    </#if>
-  </#list>
-</#list>
-  }
+<@build vv.types "Nullable" "Writer" />
 
-  public static void defineArrayWriters(
-      Class<? extends BaseElementWriter> writers[]) {
-<#list vv.types as type>
-  <#list type.minor as minor>
-    <#assign drillType=minor.class>
-    <#assign notyet=minor.accessorDisabled!type.accessorDisabled!false>
-    <#if ! notyet>
-    <#assign typeEnum=drillType?upper_case>
-    writers[MinorType.${typeEnum}.ordinal()] = Repeated${drillType}ColumnWriter.class;
-    </#if>
-  </#list>
-</#list>
-  }
+<@build vv.types "Repeated" "Writer" />
 }
