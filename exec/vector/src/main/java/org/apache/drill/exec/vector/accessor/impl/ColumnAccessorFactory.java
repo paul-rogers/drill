@@ -26,6 +26,7 @@ import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
 import org.apache.drill.exec.vector.accessor.reader.BaseElementReader;
 import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
 import org.apache.drill.exec.vector.accessor.reader.ScalarArrayReader;
+import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.BaseElementWriter;
 import org.apache.drill.exec.vector.accessor.writer.BaseScalarWriter;
@@ -67,14 +68,8 @@ public class ColumnAccessorFactory {
     case GENERIC_OBJECT:
     case LATE:
     case NULL:
-      throw new UnsupportedOperationException(type.toString());
     case LIST:
-      throw new UnsupportedOperationException(type.toString());
     case MAP:
-      if (mode == DataMode.REPEATED) {
-        throw new UnsupportedOperationException(type.toString());
-//        return new RepeatedMapWriterImpl(rowIndex, (RepeatedMapVector) valueVector);
-      }
       throw new UnsupportedOperationException(type.toString());
     default:
       switch (mode) {
@@ -99,14 +94,8 @@ public class ColumnAccessorFactory {
     case GENERIC_OBJECT:
     case LATE:
     case NULL:
-      throw new UnsupportedOperationException(type.toString());
     case LIST:
-      throw new UnsupportedOperationException(type.toString());
     case MAP:
-      if (mode == DataMode.REPEATED) {
-        throw new UnsupportedOperationException(type.toString());
-//        return new RepeatedMapWriterImpl(rowIndex, (RepeatedMapVector) valueVector);
-      }
       throw new UnsupportedOperationException(type.toString());
     default:
       switch (mode) {
@@ -116,6 +105,31 @@ public class ColumnAccessorFactory {
         return BaseScalarReader.build(vector, newAccessor(type, requiredReaders));
       case REPEATED:
         return ScalarArrayReader.build((RepeatedValueVector) vector, newAccessor(type, elementReaders));
+      default:
+        throw new UnsupportedOperationException(mode.toString());
+      }
+    }
+  }
+
+  public static AbstractObjectReader buildColumnReader(MajorType majorType, VectorAccessor va) {
+    MinorType type = majorType.getMinorType();
+    DataMode mode = majorType.getMode();
+
+    switch (type) {
+    case GENERIC_OBJECT:
+    case LATE:
+    case NULL:
+    case LIST:
+    case MAP:
+      throw new UnsupportedOperationException(type.toString());
+    default:
+      switch (mode) {
+      case OPTIONAL:
+        return BaseScalarReader.build(majorType, va, newAccessor(type, nullableReaders));
+      case REQUIRED:
+        return BaseScalarReader.build(majorType, va, newAccessor(type, requiredReaders));
+      case REPEATED:
+        return ScalarArrayReader.build(majorType, va, newAccessor(type, elementReaders));
       default:
         throw new UnsupportedOperationException(mode.toString());
       }

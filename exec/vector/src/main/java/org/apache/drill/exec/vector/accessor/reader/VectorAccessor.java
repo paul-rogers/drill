@@ -18,7 +18,9 @@
 package org.apache.drill.exec.vector.accessor.reader;
 
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 
 public interface VectorAccessor {
+  void bind(ColumnReaderIndex index);
   ValueVector vector();
 }

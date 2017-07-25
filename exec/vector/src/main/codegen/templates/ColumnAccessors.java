@@ -33,23 +33,23 @@
 </#macro>
 <#macro bindReader vectorPrefix drillType isArray >
   <#if drillType = "Decimal9" || drillType == "Decimal18">
-    private MaterializedField field;
+    private MajorType type;
   </#if>
     private ${vectorPrefix}${drillType}Vector.Accessor accessor;
 
     @Override
     public void bindVector(ValueVector vector) {
   <#if drillType = "Decimal9" || drillType == "Decimal18">
-      field = vector.getField();
+      type = vector.getField().getType();
   </#if>
       accessor = ((${vectorPrefix}${drillType}Vector) vector).getAccessor();
     }
 
   <#if drillType = "Decimal9" || drillType == "Decimal18">
     @Override
-    public void bindVector(MaterializedField field, VectorAccessor va) {
-      super.bindVector(field, va);
-      this.field = field;
+    public void bindVector(MajorType type, VectorAccessor va) {
+      super.bindVector(type, va);
+      this.type = type;
     }
 
  </#if>
@@ -75,8 +75,8 @@
   <#elseif drillType == "Decimal9" || drillType == "Decimal18">
       return DecimalUtility.getBigDecimalFromPrimitiveTypes(
                 accessor().get(vectorIndex.vectorIndex(${indexVar})),
-                field.getScale(),
-                field.getPrecision());
+                type.getScale(),
+                type.getPrecision());
   <#elseif accessorType == "BigDecimal" || accessorType == "Period">
       return accessor().${getObject}(vectorIndex.vectorIndex(${indexVar}));
   <#else>
@@ -99,14 +99,14 @@
 </#macro>
 <#macro bindWriter vectorPrefix mode drillType>
   <#if drillType = "Decimal9" || drillType == "Decimal18">
-    private MaterializedField field;
+    private MajorType type;
   </#if>
     private ${vectorPrefix}${drillType}Vector.Mutator mutator;
 
     @Override
     public void bindVector(ValueVector vector) {
   <#if drillType = "Decimal9" || drillType == "Decimal18">
-      field = vector.getField();
+      type = vector.getField().getType();
   </#if>
       this.mutator = ((${vectorPrefix}${drillType}Vector) vector).getMutator();
     }
@@ -146,11 +146,11 @@
   <#elseif drillType == "Decimal9">
         mutator.${setFn}(writeIndex,
             DecimalUtility.getDecimal9FromBigDecimal(value,
-              field.getScale(), field.getPrecision()));
+              type.getScale(), type.getPrecision()));
   <#elseif drillType == "Decimal18">
         mutator.${setFn}(writeIndex,
             DecimalUtility.getDecimal18FromBigDecimal(value,
-              field.getScale(), field.getPrecision()));
+                type.getScale(), type.getPrecision()));
   <#elseif drillType == "IntervalYear">
         mutator.${setFn}(writeIndex, value.getYears() * 12 + value.getMonths());
   <#elseif drillType == "IntervalDay">
@@ -239,9 +239,9 @@ package org.apache.drill.exec.vector.accessor;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.vector.*;
-import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.util.DecimalUtility;
 import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
 import org.apache.drill.exec.vector.accessor.reader.BaseElementReader;

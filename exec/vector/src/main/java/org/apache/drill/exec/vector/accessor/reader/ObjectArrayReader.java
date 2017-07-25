@@ -87,10 +87,21 @@ public class ObjectArrayReader extends AbstractArrayReader {
     this.elementReader = elementReader;
   }
 
+  private ObjectArrayReader(VectorAccessor vectorAccessor, AbstractObjectReader elementReader) {
+    super(vectorAccessor);
+    this.elementReader = elementReader;
+  }
+
   public static ArrayObjectReader build(RepeatedValueVector vector,
                                         AbstractObjectReader elementReader) {
     return new ArrayObjectReader(
         new ObjectArrayReader(vector, elementReader));
+  }
+
+  public static AbstractObjectReader build(VectorAccessor vectorAccessor,
+                                           AbstractObjectReader elementReader) {
+    return new ArrayObjectReader(
+        new ObjectArrayReader(vectorAccessor, elementReader));
   }
 
   @Override

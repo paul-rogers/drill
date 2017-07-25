@@ -31,13 +31,39 @@ import org.bouncycastle.util.Arrays;
  * For testing, compare the contents of two row sets (record batches)
  * to verify that they are identical. Supports masks to exclude certain
  * columns from comparison.
+ * <p>
+ * Drill rows are analogous to JSON documents: they can have scalars,
+ * arrays and maps, with maps and lists holding maps, arrays and scalars.
+ * This class walks the row structure tree to compare each structure
+ * of two row sets checking counts, types and values to ensure that the
+ * "actual" result set (result of a test) matches the "expected" result
+ * set.
+ * <p>
+ * This class acts as an example of how to use the suite of reader
+ * abstractions.
  */
 
 public class RowSetComparison {
 
+  /**
+   * Row set with the expected outcome of a test. This is the "golden"
+   * copy defined in the test itself.
+   */
   private RowSet expected;
+  /**
+   * Some tests wish to ignore certain (top-level) columns. If a
+   * mask is provided, then only those columns with a <tt>true</tt>
+   * will be verified.
+   */
   private boolean mask[];
+  /**
+   * Floats and doubles do not compare exactly. This delta is used
+   * by JUnit for such comparisons.
+   */
   private double delta = 0.001;
+  /**
+   * Tests can skip the first n rows.
+   */
   private int offset;
   private int span = -1;
 

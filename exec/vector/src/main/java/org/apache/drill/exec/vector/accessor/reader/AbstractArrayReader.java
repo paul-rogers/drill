@@ -111,21 +111,39 @@ public abstract class AbstractArrayReader implements ArrayReader {
   }
 
   private final Accessor accessor;
+  private final VectorAccessor vectorAccessor;
   protected ColumnReaderIndex baseIndex;
   protected BaseElementIndex elementIndex;
 
   public AbstractArrayReader(RepeatedValueVector vector) {
     accessor = vector.getOffsetVector().getAccessor();
+    vectorAccessor = null;
+  }
+
+  public AbstractArrayReader(VectorAccessor vectorAccessor) {
+    accessor = null;
+    this.vectorAccessor = vectorAccessor;
   }
 
   public void bindIndex(ColumnReaderIndex index) {
     baseIndex = index;
+    if (vectorAccessor != null) {
+      vectorAccessor.bind(index);
+    }
+  }
+
+  private Accessor accessor() {
+    if (accessor != null) {
+      return accessor;
+    }
+    return ((RepeatedValueVector) (vectorAccessor.vector())).getOffsetVector().getAccessor();
   }
 
   public void reposition() {
     final int index = baseIndex.vectorIndex();
-    final int startPosn = accessor.get(index);
-    elementIndex.reset(startPosn, accessor.get(index + 1) - startPosn);
+    Accessor curAccesssor = accessor();
+    final int startPosn = curAccesssor.get(index);
+    elementIndex.reset(startPosn, curAccesssor.get(index + 1) - startPosn);
   }
 
   @Override

@@ -19,18 +19,14 @@ package org.apache.drill.test.rowSet.test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.UnsupportedEncodingException;
 
-import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VectorOverflowException;
@@ -52,8 +48,6 @@ import org.apache.drill.test.rowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.bouncycastle.util.Arrays;
 import org.junit.Test;
-
-import com.google.common.base.Splitter;
 
 /**
  * Test row sets. Since row sets are a thin wrapper around vectors,
@@ -670,40 +664,6 @@ public class RowSetTest extends SubOperatorTest {
     assertTrue(reader.next());
     assertEquals("abcd", reader.scalar(0).getString());
     assertEquals("abcd", reader.scalar(0).getObject());
-    assertFalse(reader.next());
-    rs.clear();
-  }
-
-  /**
-   * Test writing to and reading from a row set with nested maps.
-   * Map fields are flattened into a logical schema.
-   */
-
-  @Test
-  // TODO: This relies on a flat view which is no longer valid.
-  public void testMap() {
-    BatchSchema batchSchema = new SchemaBuilder()
-        .add("a", MinorType.INT)
-        .addMap("b")
-          .add("c", MinorType.INT)
-          .add("d", MinorType.INT)
-          .buildMap()
-        .build();
-    SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(10, 20, 30)
-        .add(40, 50, 60)
-        .build();
-    RowSetReader reader = rs.reader();
-    assertTrue(reader.next());
-    assertEquals(10, reader.scalar(0).getInt());
-    assertEquals(20, reader.scalar(1).getInt());
-    assertEquals(30, reader.scalar(2).getInt());
-    assertEquals(10, reader.scalar("a").getInt());
-    assertEquals(30, reader.scalar("b.d").getInt());
-    assertTrue(reader.next());
-    assertEquals(40, reader.scalar(0).getInt());
-    assertEquals(50, reader.scalar(1).getInt());
-    assertEquals(60, reader.scalar(2).getInt());
     assertFalse(reader.next());
     rs.clear();
   }

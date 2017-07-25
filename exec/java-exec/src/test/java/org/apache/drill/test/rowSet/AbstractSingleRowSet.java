@@ -27,7 +27,6 @@ import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
 import org.apache.drill.exec.vector.accessor.reader.MapReader;
@@ -46,41 +45,6 @@ import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 public abstract class AbstractSingleRowSet extends AbstractRowSet implements SingleRowSet {
 
   /**
-   * Common interface to access a tuple backed by a vector container or a
-   * map vector.
-   */
-
-  public interface TupleStorage {
-    TupleMetadata tupleSchema();
-    int size();
-    ValueVector vector(int index);
-    ColumnStorage storage(int index);
-    AbstractObjectReader[] readers();
-    AbstractObjectWriter[] writers();
-    void allocate(BufferAllocator allocator, int rowCount);
-  }
-
-  /**
-   * Represents a column within a tuple, including the tuple metadata
-   * and column storage. A wrapper around a vector to include metadata
-   * and handle nested tuples.
-   */
-
-  public static abstract class ColumnStorage {
-    protected final ColumnMetadata schema;
-
-    public ColumnStorage(ColumnMetadata schema) {
-      this.schema = schema;
-    }
-
-    public ColumnMetadata columnSchema() { return schema; }
-    public abstract ValueVector vector();
-    public abstract AbstractObjectReader reader();
-    public abstract AbstractObjectWriter writer();
-    public abstract void allocate(BufferAllocator allocator, int rowCount);
-  }
-
-  /**
    * Wrapper around a primitive (non-map, non-list) column vector.
    */
 
@@ -91,9 +55,6 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
       super(schema);
       this.vector = vector;
     }
-
-    @Override
-    public ValueVector vector() { return vector; }
 
     @Override
     public AbstractObjectReader reader() {
@@ -118,15 +79,13 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
    * a single or repeated map.
    */
 
-  public static class MapColumnStorage extends ColumnStorage implements TupleStorage {
+  public static class MapColumnStorage extends BaseMapColumnStorage {
 
     private final AbstractMapVector vector;
-    private final ColumnStorage columns[];
 
     public MapColumnStorage(ColumnMetadata schema, AbstractMapVector vector, ColumnStorage columns[]) {
-      super(schema);
+      super(schema, columns);
       this.vector = vector;
-      this.columns = columns;
     }
 
     public static MapColumnStorage fromMap(ColumnMetadata schema, AbstractMapVector vector) {
@@ -148,23 +107,6 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
       }
       return columns;
     }
-
-    @Override
-    public int size() { return columns.length; }
-
-    @Override
-    public TupleMetadata tupleSchema() { return schema.mapSchema(); }
-
-    @Override
-    public ValueVector vector(int index) {
-      return columns[index].vector();
-    }
-
-    @Override
-    public ValueVector vector() { return vector; }
-
-    @Override
-    public ColumnStorage storage(int index) { return columns[index]; }
 
     @Override
     public AbstractObjectReader[] readers() {
@@ -205,15 +147,10 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
    * tuple format.
    */
 
-  public static class RowStorage implements TupleStorage {
-    private final TupleMetadata schema;
-    private final ColumnStorage columns[];
-    private final VectorContainer container;
+  public static class RowStorage extends BaseRowStorage {
 
     public RowStorage(TupleMetadata schema, VectorContainer container, ColumnStorage columns[]) {
-      this.schema = schema;
-      this.columns = columns;
-      this.container = container;
+      super(schema, container, columns);
     }
 
     public static RowStorage fromSchema(BufferAllocator allocator, TupleMetadata schema) {
@@ -246,22 +183,6 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
     }
 
     @Override
-    public int size() { return columns.length; }
-
-    @Override
-    public TupleMetadata tupleSchema() { return schema; }
-
-    @Override
-    public ValueVector vector(int index) {
-      return columns[index].vector();
-    }
-
-    @Override
-    public ColumnStorage storage(int index) { return columns[index]; }
-
-    public VectorContainer container() { return container; }
-
-    @Override
     public AbstractObjectReader[] readers() {
       return readers(this);
     }
@@ -276,22 +197,6 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
       allocate(this, allocator, rowCount);
     }
 
-    protected static AbstractObjectReader[] readers(TupleStorage storage) {
-      AbstractObjectReader[] readers = new AbstractObjectReader[storage.tupleSchema().size()];
-      for (int i = 0; i < readers.length; i++) {
-        readers[i] = storage.storage(i).reader();
-      }
-      return readers;
-    }
-
-    protected static AbstractObjectWriter[] writers(TupleStorage storage) {
-      AbstractObjectWriter[] writers = new AbstractObjectWriter[storage.size()];
-      for (int i = 0; i < writers.length;  i++) {
-        writers[i] = storage.storage(i).writer();
-      }
-      return writers;
-    }
-
     protected static void allocate(TupleStorage storage, BufferAllocator allocator, int rowCount) {
       for (int i = 0; i < storage.size(); i++) {
         storage.storage(i).allocate(allocator, rowCount);
@@ -299,21 +204,17 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
     }
   }
 
-  protected final RowStorage rowStorage;
-
   public AbstractSingleRowSet(AbstractSingleRowSet rowSet) {
-    super(rowSet.allocator, rowSet.schema, rowSet.container);
-    rowStorage = rowSet.rowStorage;
+    super(rowSet.allocator, rowSet.rowStorage);
   }
 
   public AbstractSingleRowSet(BufferAllocator allocator, RowStorage storage) {
-    super(allocator, storage.tupleSchema(), storage.container());
-    rowStorage = storage;
+    super(allocator, storage);
   }
 
   @Override
   public int size() {
-    RecordBatchSizer sizer = new RecordBatchSizer(container);
+    RecordBatchSizer sizer = new RecordBatchSizer(container());
     return sizer.actualSize();
   }
 

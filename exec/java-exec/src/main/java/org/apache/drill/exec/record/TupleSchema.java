@@ -22,6 +22,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 
@@ -56,6 +57,8 @@ public class TupleSchema implements TupleMetadata {
     public MaterializedField schema() { return schema; }
     @Override
     public String name() { return schema.getName(); }
+    @Override
+    public MajorType majorType() { return schema.getType(); }
     @Override
     public MinorType type() { return schema.getType().getMinorType(); }
     @Override

@@ -20,6 +20,7 @@ package org.apache.drill.exec.record;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 
 /**
@@ -62,6 +63,7 @@ public interface TupleMetadata extends Iterable<TupleMetadata.ColumnMetadata> {
     int index();
     MaterializedField schema();
     String name();
+    MajorType majorType();
     MinorType type();
     DataMode mode();
     TupleMetadata parent();

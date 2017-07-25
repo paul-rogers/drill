@@ -87,7 +87,7 @@ public class IndirectRowSet extends AbstractSingleRowSet {
 
   public IndirectRowSet(DirectRowSet directRowSet) {
     super(directRowSet);
-    sv2 = makeSv2(allocator, container);
+    sv2 = makeSv2(allocator, container());
   }
 
   @Override
@@ -118,7 +118,7 @@ public class IndirectRowSet extends AbstractSingleRowSet {
 
   @Override
   public int size() {
-    RecordBatchSizer sizer = new RecordBatchSizer(container, sv2);
+    RecordBatchSizer sizer = new RecordBatchSizer(container(), sv2);
     return sizer.actualSize();
   }
 
