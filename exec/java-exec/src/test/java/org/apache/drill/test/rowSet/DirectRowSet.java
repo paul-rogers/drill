@@ -103,7 +103,7 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
     }
     allocate(initialRowCount);
     WriterIndexImpl index = new WriterIndexImpl();
-    return new RowSetWriterImpl(this, rowStorage.tupleSchema(), index, rowStorage.writers(index));
+    return new RowSetWriterImpl(this, rowStorage.tupleSchema(), index, rowStorage.writers());
   }
 
   @Override

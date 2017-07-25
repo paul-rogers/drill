@@ -28,16 +28,17 @@ import org.apache.drill.test.rowSet.AbstractRowSet.RowSetReaderIndex;
 
 public class RowSetReaderImpl extends AbstractTupleReader implements RowSetReader {
 
-  protected final RowSetReaderIndex index;
+  protected final RowSetReaderIndex readerIndex;
 
   public RowSetReaderImpl(TupleMetadata schema, RowSetReaderIndex index, AbstractObjectReader[] readers) {
     super(schema, readers);
-    this.index = index;
+    this.readerIndex = index;
+    bindIndex(index);
   }
 
   @Override
   public boolean next() {
-    if (! index.next()) {
+    if (! readerIndex.next()) {
       return false;
     }
     reposition();
@@ -45,20 +46,20 @@ public class RowSetReaderImpl extends AbstractTupleReader implements RowSetReade
   }
 
   @Override
-  public boolean valid() { return index.valid(); }
+  public boolean valid() { return readerIndex.valid(); }
 
   @Override
-  public int index() { return index.position(); }
+  public int index() { return readerIndex.position(); }
 
   @Override
-  public int rowCount() { return index.size(); }
+  public int rowCount() { return readerIndex.size(); }
 
   @Override
-  public int rowIndex() { return index.vectorIndex(); }
+  public int rowIndex() { return readerIndex.vectorIndex(); }
 
   @Override
-  public int batchIndex() { return index.batchIndex(); }
+  public int batchIndex() { return readerIndex.batchIndex(); }
 
   @Override
-  public void set(int index) { this.index.set(index); }
+  public void set(int index) { this.readerIndex.set(index); }
 }

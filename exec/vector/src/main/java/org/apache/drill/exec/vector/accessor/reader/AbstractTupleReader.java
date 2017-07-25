@@ -22,6 +22,7 @@ import java.util.List;
 
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
+import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
@@ -40,6 +41,11 @@ public class AbstractTupleReader implements TupleReader {
 
     public TupleObjectReader(AbstractTupleReader tupleReader) {
       this.tupleReader = tupleReader;
+    }
+
+    @Override
+    public void bindIndex(ColumnReaderIndex index) {
+      tupleReader.bindIndex(index);
     }
 
     @Override
@@ -74,6 +80,12 @@ public class AbstractTupleReader implements TupleReader {
   protected AbstractTupleReader(TupleMetadata schema, AbstractObjectReader readers[]) {
     this.schema = schema;
     this.readers = readers;
+  }
+
+  public void bindIndex(ColumnReaderIndex index) {
+    for (int i = 0; i < readers.length; i++) {
+      readers[i].bindIndex(index);
+    }
   }
 
   @Override

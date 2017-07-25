@@ -45,6 +45,11 @@ public abstract class BaseScalarReader implements ScalarReader {
     }
 
     @Override
+    public void bindIndex(ColumnReaderIndex index) {
+      scalarReader.bindIndex(index);
+    }
+
+    @Override
     public ObjectType type() {
       return ObjectType.SCALAR;
     }
@@ -68,20 +73,18 @@ public abstract class BaseScalarReader implements ScalarReader {
   protected ColumnReaderIndex vectorIndex;
   protected VectorAccessor vectorAccessor;
 
-  public static ScalarObjectReader build(ColumnReaderIndex vectorIndex,
-                              ValueVector vector, BaseScalarReader reader) {
-    reader.bind(vectorIndex, vector);
+  public static ScalarObjectReader build(ValueVector vector, BaseScalarReader reader) {
+    reader.bindVector(vector);
     return new ScalarObjectReader(reader);
   }
 
-  public abstract void bind(ColumnReaderIndex rowIndex, ValueVector vector);
+  public abstract void bindVector(ValueVector vector);
 
-  protected void bind(ColumnReaderIndex rowIndex) {
+  protected void bindIndex(ColumnReaderIndex rowIndex) {
     this.vectorIndex = rowIndex;
   }
 
-  public void bind(ColumnReaderIndex rowIndex, MaterializedField field, VectorAccessor va) {
-    bind(rowIndex);
+  public void bindVector(MaterializedField field, VectorAccessor va) {
     vectorAccessor = va;
   }
 

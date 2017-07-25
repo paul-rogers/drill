@@ -82,50 +82,44 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
     }
   }
 
-  private final WriterIndexImpl index;
+  private final WriterIndexImpl writerIndex;
   private final ExtendableRowSet rowSet;
 
   protected RowSetWriterImpl(ExtendableRowSet rowSet, TupleMetadata schema, WriterIndexImpl index, AbstractObjectWriter[] writers) {
     super(schema, writers);
     this.rowSet = rowSet;
-    this.index = index;
+    this.writerIndex = index;
+    bindIndex(index);
     startWrite();
   }
 
   // TODO: Move to base class
   @Override
   public void setRow(Object...values) throws VectorOverflowException {
-    for (int i = 0; i < values.length;  i++) {
-      set(i, values[i]);
-    }
+    setTuple(values);
     save();
   }
 
   @Override
-  public int rowIndex() { return index.vectorIndex(); }
+  public int rowIndex() { return writerIndex.vectorIndex(); }
 
   @Override
   public boolean save() {
-    endRow();
-    boolean more = index.next();
+    endValue();
+    boolean more = writerIndex.next();
     if (more) {
-      startRow();
+      startValue();
     }
     return more;
   }
 
-  @Deprecated
   @Override
-  public boolean isFull( ) { return ! index.valid(); }
+  public boolean isFull( ) { return ! writerIndex.valid(); }
 
   @Override
   public SingleRowSet done() {
-    try {
-      endWrite();
-      rowSet.container().setRecordCount(index.vectorIndex());
-    } catch (VectorOverflowException e) {
-      throw new IllegalStateException(e);
-    }
+    endWrite();
+    rowSet.container().setRecordCount(writerIndex.vectorIndex());
     return rowSet;
   }
 }

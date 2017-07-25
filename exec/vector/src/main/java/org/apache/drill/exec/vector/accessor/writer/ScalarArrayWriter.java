@@ -43,18 +43,28 @@ public class ScalarArrayWriter extends AbstractArrayWriter {
 
   private final BaseElementWriter elementWriter;
 
-  private ScalarArrayWriter(ColumnWriterIndex baseIndex, RepeatedValueVector vector, BaseElementWriter elementWriter) {
-    super(baseIndex, vector, new ScalarObjectWriter(elementWriter));
+  private ScalarArrayWriter(RepeatedValueVector vector, BaseElementWriter elementWriter) {
+    super(vector, new ScalarObjectWriter(elementWriter));
     this.elementWriter = elementWriter;
-    elementWriter.bind(elementIndex(), vector.getDataVector());
+    elementWriter.bindVector(vector.getDataVector());
   }
 
-  public static ArrayObjectWriter build(ColumnWriterIndex vectorIndex,
-                                        RepeatedValueVector vector,
+  public static ArrayObjectWriter build(RepeatedValueVector vector,
                                         BaseElementWriter elementWriter) {
     return new ArrayObjectWriter(
-        new ScalarArrayWriter(vectorIndex, (RepeatedValueVector) vector,
-                                  elementWriter));
+        new ScalarArrayWriter((RepeatedValueVector) vector,
+                              elementWriter));
+  }
+
+  @Override
+  public void bindIndex(ColumnWriterIndex index) {
+    super.bindIndex(index);
+    elementWriter.bindElementIndex(elementIndex());
+  }
+
+  @Override
+  public void save() {
+    // No-op: done when writing each scalar value
   }
 
   @Override

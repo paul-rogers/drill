@@ -23,6 +23,7 @@ import java.util.List;
 
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarElementReader;
 import org.apache.drill.exec.vector.accessor.impl.AccessorUtilities;
@@ -36,6 +37,11 @@ public abstract class BaseElementReader implements ScalarElementReader {
 
     public ScalarElementObjectReader(BaseElementReader elementReader) {
       this.elementReader = elementReader;
+    }
+
+    @Override
+    public void bindIndex(ColumnReaderIndex index) {
+      elementReader.bindIndex((ElementReaderIndex) index);
     }
 
     @Override
@@ -79,14 +85,13 @@ public abstract class BaseElementReader implements ScalarElementReader {
   protected ElementReaderIndex vectorIndex;
   protected VectorAccessor vectorAccessor;
 
-  public abstract void bind(ElementReaderIndex rowIndex, ValueVector vector);
+  public abstract void bindVector(ValueVector vector);
 
-  public void bind(ElementReaderIndex rowIndex, MaterializedField field, VectorAccessor va) {
-    bind(rowIndex);
+  public void bindVector(MaterializedField field, VectorAccessor va) {
     vectorAccessor = va;
   }
 
-  protected void bind(ElementReaderIndex rowIndex) {
+  protected void bindIndex(ElementReaderIndex rowIndex) {
     this.vectorIndex = rowIndex;
   }
 

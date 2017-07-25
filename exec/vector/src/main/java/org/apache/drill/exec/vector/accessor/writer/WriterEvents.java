@@ -17,12 +17,9 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
-import org.apache.drill.exec.vector.VectorOverflowException;
-
 public interface WriterEvents {
   void startWrite();
-  void startRow();
-  void endRow();
-  // TODO: This seems odd, remove exceptions here?
-  void endWrite() throws VectorOverflowException;
+  void startValue();
+  void endValue();
+  void endWrite();
 }

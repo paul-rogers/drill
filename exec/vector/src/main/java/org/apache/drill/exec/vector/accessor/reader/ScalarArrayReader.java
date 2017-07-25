@@ -29,20 +29,24 @@ public class ScalarArrayReader extends AbstractArrayReader {
 
   private final BaseElementReader elementReader;
 
-  private ScalarArrayReader(ColumnReaderIndex baseIndex,
-                           RepeatedValueVector vector,
-                           BaseElementIndex elementIndex,
+  private ScalarArrayReader(RepeatedValueVector vector,
                            BaseElementReader elementReader) {
-    super(baseIndex, vector, elementIndex);
+    super(vector);
     this.elementReader = elementReader;
   }
 
-  public static ArrayObjectReader build(ColumnReaderIndex baseIndex,
-                                        RepeatedValueVector vector,
+  public static ArrayObjectReader build(RepeatedValueVector vector,
                                         BaseElementReader elementReader) {
-    FixedWidthElementReaderIndex elementIndex = new FixedWidthElementReaderIndex(baseIndex);
-    elementReader.bind(elementIndex, vector.getDataVector());
-    return new ArrayObjectReader(new ScalarArrayReader(baseIndex, vector, elementIndex, elementReader));
+    elementReader.bindVector(vector.getDataVector());
+    return new ArrayObjectReader(new ScalarArrayReader(vector, elementReader));
+  }
+
+  @Override
+  public void bindIndex(ColumnReaderIndex index) {
+    super.bindIndex(index);
+    FixedWidthElementReaderIndex fwElementIndex = new FixedWidthElementReaderIndex(baseIndex);
+    elementIndex = fwElementIndex;
+    elementReader.bindIndex(fwElementIndex);
   }
 
   @Override

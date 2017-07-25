@@ -51,8 +51,8 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
     int size();
     ValueVector vector(int index);
     ColumnStorage storage(int index);
-    AbstractObjectReader[] readers(RowSetReaderIndex rowIndex);
-    AbstractObjectWriter[] writers(ColumnWriterIndex rowIndex);
+    AbstractObjectReader[] readers();
+    AbstractObjectWriter[] writers();
     void allocate(BufferAllocator allocator, int rowCount);
   }
 
@@ -71,8 +71,8 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
 
     public ColumnMetadata columnSchema() { return schema; }
     public abstract ValueVector vector();
-    public abstract AbstractObjectReader reader(RowSetReaderIndex index);
-    public abstract AbstractObjectWriter writer(ColumnWriterIndex rowIndex);
+    public abstract AbstractObjectReader reader();
+    public abstract AbstractObjectWriter writer();
     public abstract void allocate(BufferAllocator allocator, int rowCount);
   }
 
@@ -92,8 +92,8 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
     public ValueVector vector() { return vector; }
 
     @Override
-    public AbstractObjectReader reader(RowSetReaderIndex index) {
-      return ColumnAccessorFactory.buildColumnReader(index, vector);
+    public AbstractObjectReader reader() {
+      return ColumnAccessorFactory.buildColumnReader(vector);
     }
 
     @Override
@@ -104,8 +104,8 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
     }
 
     @Override
-    public AbstractObjectWriter writer(ColumnWriterIndex index) {
-      return ColumnAccessorFactory.buildColumnWriter(index, vector);
+    public AbstractObjectWriter writer() {
+      return ColumnAccessorFactory.buildColumnWriter(vector);
     }
   }
 
@@ -163,13 +163,13 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
     public ColumnStorage storage(int index) { return columns[index]; }
 
     @Override
-    public AbstractObjectReader[] readers(RowSetReaderIndex rowIndex) {
-      return RowStorage.readers(this, rowIndex);
+    public AbstractObjectReader[] readers() {
+      return RowStorage.readers(this);
     }
 
     @Override
-    public AbstractObjectWriter[] writers(ColumnWriterIndex rowIndex) {
-      return RowStorage.writers(this, rowIndex);
+    public AbstractObjectWriter[] writers() {
+      return RowStorage.writers(this);
     }
 
     @Override
@@ -178,13 +178,13 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
     }
 
     @Override
-    public AbstractObjectWriter writer(ColumnWriterIndex rowIndex) {
-      return MapWriter.build(tupleSchema(), writers(rowIndex));
+    public AbstractObjectWriter writer() {
+      return MapWriter.build(tupleSchema(), writers());
     }
 
     @Override
-    public AbstractObjectReader reader(RowSetReaderIndex rowIndex) {
-      return MapReader.build(tupleSchema(), readers(rowIndex));
+    public AbstractObjectReader reader() {
+      return MapReader.build(tupleSchema(), readers());
     }
   }
 
@@ -250,13 +250,13 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
     public VectorContainer container() { return container; }
 
     @Override
-    public AbstractObjectReader[] readers(RowSetReaderIndex rowIndex) {
-      return readers(this, rowIndex);
+    public AbstractObjectReader[] readers() {
+      return readers(this);
     }
 
     @Override
-    public AbstractObjectWriter[] writers(ColumnWriterIndex rowIndex) {
-      return writers(this, rowIndex);
+    public AbstractObjectWriter[] writers() {
+      return writers(this);
     }
 
     @Override
@@ -264,18 +264,18 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
       allocate(this, allocator, rowCount);
     }
 
-    protected static AbstractObjectReader[] readers(TupleStorage storage, RowSetReaderIndex rowIndex) {
+    protected static AbstractObjectReader[] readers(TupleStorage storage) {
       AbstractObjectReader[] readers = new AbstractObjectReader[storage.tupleSchema().size()];
       for (int i = 0; i < readers.length; i++) {
-        readers[i] = storage.storage(i).reader(rowIndex);
+        readers[i] = storage.storage(i).reader();
       }
       return readers;
     }
 
-    protected static AbstractObjectWriter[] writers(TupleStorage storage, ColumnWriterIndex rowIndex) {
+    protected static AbstractObjectWriter[] writers(TupleStorage storage) {
       AbstractObjectWriter[] writers = new AbstractObjectWriter[storage.size()];
       for (int i = 0; i < writers.length;  i++) {
-        writers[i] = storage.storage(i).writer(rowIndex);
+        writers[i] = storage.storage(i).writer();
       }
       return writers;
     }
@@ -314,6 +314,6 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
    */
 
   protected RowSetReader buildReader(RowSetReaderIndex rowIndex) {
-    return new RowSetReaderImpl(rowStorage.tupleSchema(), rowIndex, rowStorage.readers(rowIndex));
+    return new RowSetReaderImpl(rowStorage.tupleSchema(), rowIndex, rowStorage.readers());
   }
 }

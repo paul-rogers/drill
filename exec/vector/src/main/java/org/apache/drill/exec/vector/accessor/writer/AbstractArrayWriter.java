@@ -54,6 +54,11 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     }
 
     @Override
+    public void bindIndex(ColumnWriterIndex index) {
+      arrayWriter.bindIndex(index);
+    }
+
+    @Override
     public ObjectType type() {
       return ObjectType.ARRAY;
     }
@@ -78,36 +83,39 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     }
 
     @Override
-    public void startRow() {
-      arrayWriter.startRow();
+    public void startValue() {
+      arrayWriter.startValue();
     }
 
     @Override
-    public void endRow() {
-      arrayWriter.endRow();
+    public void endValue() {
+      arrayWriter.endValue();
     }
 
     @Override
-    public void endWrite() throws VectorOverflowException {
+    public void endWrite() {
       arrayWriter.endWrite();
     }
   }
 
-  private final ColumnWriterIndex baseIndex;
-  private final FixedWidthElementWriterIndex elementIndex;
-  private final AbstractObjectWriter elementObjWriter;
+  protected final AbstractObjectWriter elementObjWriter;
   private final UInt4Vector.Mutator mutator;
+  private ColumnWriterIndex baseIndex;
+  protected FixedWidthElementWriterIndex elementIndex;
   private int lastWritePosn = 0;
 
-  public AbstractArrayWriter(ColumnWriterIndex baseIndex, RepeatedValueVector vector, AbstractObjectWriter elementObjWriter) {
+  public AbstractArrayWriter(RepeatedValueVector vector, AbstractObjectWriter elementObjWriter) {
     this.elementObjWriter = elementObjWriter;
-    this.baseIndex = baseIndex;
-    elementIndex = new FixedWidthElementWriterIndex(baseIndex);
     mutator = vector.getOffsetVector().getMutator();
   }
 
-  protected ElementWriterIndex elementIndex() { return elementIndex; }
+  public void bindIndex(ColumnWriterIndex index) {
+    baseIndex = index;
+    elementIndex = new FixedWidthElementWriterIndex(baseIndex);
+    elementObjWriter.bindIndex(elementIndex);
+  }
 
+  protected ElementWriterIndex elementIndex() { return elementIndex; }
 
   @Override
   public int size() {
@@ -127,10 +135,11 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   public void startWrite() {
     elementIndex.reset();
     setOffset(0, 0);
+    elementObjWriter.startWrite();
   }
 
   @Override
-  public void startRow() { fillEmpties(); }
+  public void startValue() { fillEmpties(); }
 
   private void fillEmpties() {
     final int curPosn = elementIndex.vectorIndex();
@@ -141,7 +150,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   }
 
   @Override
-  public void endRow() {
+  public void endValue() {
     assert lastWritePosn == baseIndex.vectorIndex();
     setOffset(lastWritePosn + 1, elementIndex.vectorIndex());
   }
@@ -150,6 +159,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   public void endWrite() {
     fillEmpties();
     mutator.setValueCount(elementIndex.vectorIndex());
+    elementObjWriter.endWrite();
   }
 
   @Override

@@ -60,8 +60,7 @@ public class ColumnAccessorFactory {
     ColumnAccessors.defineArrayWriters(elementWriters);
   }
 
-  public static AbstractObjectWriter buildColumnWriter(ColumnWriterIndex vectorIndex,
-      ValueVector vector) {
+  public static AbstractObjectWriter buildColumnWriter(ValueVector vector) {
     MajorType major = vector.getField().getType();
     MinorType type = major.getMinorType();
     DataMode mode = major.getMode();
@@ -82,19 +81,18 @@ public class ColumnAccessorFactory {
     default:
       switch (mode) {
       case OPTIONAL:
-        return BaseScalarWriter.build(vectorIndex, vector, newAccessor(type, nullableWriters));
+        return BaseScalarWriter.build(vector, newAccessor(type, nullableWriters));
       case REQUIRED:
-        return BaseScalarWriter.build(vectorIndex, vector, newAccessor(type, requiredWriters));
+        return BaseScalarWriter.build(vector, newAccessor(type, requiredWriters));
       case REPEATED:
-        return ScalarArrayWriter.build(vectorIndex, (RepeatedValueVector) vector, newAccessor(type, elementWriters));
+        return ScalarArrayWriter.build((RepeatedValueVector) vector, newAccessor(type, elementWriters));
       default:
         throw new UnsupportedOperationException(mode.toString());
       }
     }
   }
 
-  public static AbstractObjectReader buildColumnReader(ColumnReaderIndex vectorIndex,
-      ValueVector vector) {
+  public static AbstractObjectReader buildColumnReader(ValueVector vector) {
     MajorType major = vector.getField().getType();
     MinorType type = major.getMinorType();
     DataMode mode = major.getMode();
@@ -115,11 +113,11 @@ public class ColumnAccessorFactory {
     default:
       switch (mode) {
       case OPTIONAL:
-        return BaseScalarReader.build(vectorIndex, vector, newAccessor(type, nullableReaders));
+        return BaseScalarReader.build(vector, newAccessor(type, nullableReaders));
       case REQUIRED:
-        return BaseScalarReader.build(vectorIndex, vector, newAccessor(type, requiredReaders));
+        return BaseScalarReader.build(vector, newAccessor(type, requiredReaders));
       case REPEATED:
-        return ScalarArrayReader.build(vectorIndex, (RepeatedValueVector) vector, newAccessor(type, elementReaders));
+        return ScalarArrayReader.build((RepeatedValueVector) vector, newAccessor(type, elementReaders));
       default:
         throw new UnsupportedOperationException(mode.toString());
       }

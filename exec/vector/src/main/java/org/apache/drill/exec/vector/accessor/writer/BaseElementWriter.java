@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
-import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 
 /**
  * Writer for an array-valued column. This writer appends values: once a value
@@ -30,9 +30,12 @@ public abstract class BaseElementWriter extends AbstractScalarWriter {
 
   protected ElementWriterIndex vectorIndex;
 
-  protected void bind(ElementWriterIndex vectorIndex) {
-    this.vectorIndex = vectorIndex;
+  @Override
+  public void bindIndex(ColumnWriterIndex index) {
+    bindElementIndex((ElementWriterIndex) index);
   }
 
-  public abstract void bind(ElementWriterIndex rowIndex, ValueVector vector);
+  protected void bindElementIndex(ElementWriterIndex vectorIndex) {
+    this.vectorIndex = vectorIndex;
+  }
 }

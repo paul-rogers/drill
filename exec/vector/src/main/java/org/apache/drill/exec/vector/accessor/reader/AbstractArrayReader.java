@@ -47,6 +47,11 @@ public abstract class AbstractArrayReader implements ArrayReader {
     }
 
     @Override
+    public void bindIndex(ColumnReaderIndex index) {
+      arrayReader.bindIndex(index);
+    }
+
+    @Override
     public ObjectType type() {
       return ObjectType.ARRAY;
     }
@@ -79,8 +84,8 @@ public abstract class AbstractArrayReader implements ArrayReader {
 
   public static class BaseElementIndex {
     private final ColumnReaderIndex base;
-    private int startOffset;
-    private int length;
+    protected int startOffset;
+    protected int length;
 
     public BaseElementIndex(ColumnReaderIndex base) {
       this.base = base;
@@ -105,14 +110,16 @@ public abstract class AbstractArrayReader implements ArrayReader {
     }
   }
 
-  protected final ColumnReaderIndex baseIndex;
-  protected final BaseElementIndex elementIndex;
-  private Accessor accessor;
+  private final Accessor accessor;
+  protected ColumnReaderIndex baseIndex;
+  protected BaseElementIndex elementIndex;
 
-  public AbstractArrayReader(ColumnReaderIndex baseIndex, RepeatedValueVector vector, BaseElementIndex elementIndex) {
-    this.baseIndex = baseIndex;
+  public AbstractArrayReader(RepeatedValueVector vector) {
     accessor = vector.getOffsetVector().getAccessor();
-    this.elementIndex = elementIndex;
+  }
+
+  public void bindIndex(ColumnReaderIndex index) {
+    baseIndex = index;
   }
 
   public void reposition() {
@@ -136,15 +143,11 @@ public abstract class AbstractArrayReader implements ArrayReader {
 
   @Override
   public TupleReader tuple(int index) {
-    throw new UnsupportedOperationException();
-//    elementIndex.set(index);
-//    return entry(index).tuple();
+    return entry(index).tuple();
   }
 
   @Override
   public ArrayReader array(int index) {
-    throw new UnsupportedOperationException();
-//    elementIndex.set(index);
-//    return entry(index).array();
+    return entry(index).array();
   }
 }

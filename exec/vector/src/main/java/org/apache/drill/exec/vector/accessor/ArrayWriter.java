@@ -56,6 +56,14 @@ public interface ArrayWriter {
   ArrayWriter array();
 
   /**
+   * When the array contains a tuple or an array, call <tt>save()</tt>
+   * after each array value. Not necessary when writing scalars; each
+   * set operation calls save automatically.
+   */
+
+  void save();
+
+  /**
    * Write the values of an array from a list of arguments.
    * @param values values for each array element
    * @throws VectorOverflowException

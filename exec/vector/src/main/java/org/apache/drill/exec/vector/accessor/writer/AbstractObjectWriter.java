@@ -17,13 +17,15 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
-import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 
 public abstract class AbstractObjectWriter implements ObjectWriter, WriterEvents {
+
+  public abstract void bindIndex(ColumnWriterIndex index);
 
   @Override
   public ScalarWriter scalar() {
@@ -41,7 +43,7 @@ public abstract class AbstractObjectWriter implements ObjectWriter, WriterEvents
   }
 
   @Override public void startWrite() { }
-  @Override public void startRow() { }
-  @Override public void endRow() { }
-  @Override public void endWrite() throws VectorOverflowException { }
+  @Override public void startValue() { }
+  @Override public void endValue() { }
+  @Override public void endWrite() { }
 }

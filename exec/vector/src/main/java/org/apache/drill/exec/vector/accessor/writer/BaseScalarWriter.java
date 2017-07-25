@@ -32,17 +32,15 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
   protected ColumnWriterIndex vectorIndex;
   protected int lastWriteIndex;
 
-  public static ScalarObjectWriter build(ColumnWriterIndex vectorIndex,
-                              ValueVector vector, BaseScalarWriter writer) {
-    writer.bind(vectorIndex, vector);
+  public static ScalarObjectWriter build(ValueVector vector, BaseScalarWriter writer) {
+    writer.bindVector(vector);
     return new ScalarObjectWriter(writer);
   }
 
-  protected void bind(ColumnWriterIndex vectorIndex) {
+  @Override
+  public void bindIndex(ColumnWriterIndex vectorIndex) {
     this.vectorIndex = vectorIndex;
   }
-
-  public abstract void bind(ColumnWriterIndex rowIndex, ValueVector vector);
 
   @Override
   public void startWrite() { lastWriteIndex = -1; }

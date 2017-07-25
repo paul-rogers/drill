@@ -20,6 +20,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
@@ -45,6 +46,11 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     }
 
     @Override
+    public void bindIndex(ColumnWriterIndex index) {
+      tupleWriter.bindIndex(index);
+    }
+
+    @Override
     public ObjectType type() {
       return ObjectType.TUPLE;
     }
@@ -60,17 +66,17 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     }
 
     @Override
-    public void startRow() {
-      tupleWriter.startRow();
+    public void startValue() {
+      tupleWriter.startValue();
     }
 
     @Override
-    public void endRow() {
-      tupleWriter.endRow();
+    public void endValue() {
+      tupleWriter.endValue();
     }
 
     @Override
-    public void endWrite() throws VectorOverflowException {
+    public void endWrite() {
       tupleWriter.endWrite();
     }
 
@@ -80,12 +86,20 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     }
   }
 
+  protected ColumnWriterIndex vectorIndex;
   protected final TupleMetadata schema;
   private final AbstractObjectWriter writers[];
 
   protected AbstractTupleWriter(TupleMetadata schema, AbstractObjectWriter writers[]) {
     this.schema = schema;
     this.writers = writers;
+  }
+
+  public void bindIndex(ColumnWriterIndex index) {
+    vectorIndex = index;
+    for (int i = 0; i < writers.length; i++) {
+      writers[i].bindIndex(index);
+    }
   }
 
   @Override
@@ -102,21 +116,21 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   }
 
   @Override
-  public void startRow() {
+  public void startValue() {
     for (int i = 0; i < writers.length;  i++) {
-      writers[i].startRow();
+      writers[i].startValue();
     }
   }
 
   @Override
-  public void endRow() {
+  public void endValue() {
     for (int i = 0; i < writers.length;  i++) {
-      writers[i].endRow();
+      writers[i].endValue();
     }
   }
 
   @Override
-  public void endWrite() throws VectorOverflowException {
+  public void endWrite() {
     for (int i = 0; i < writers.length;  i++) {
       writers[i].endWrite();
     }

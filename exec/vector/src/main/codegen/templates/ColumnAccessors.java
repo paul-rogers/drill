@@ -37,14 +37,8 @@
   </#if>
     private ${vectorPrefix}${drillType}Vector.Accessor accessor;
 
-  <#if isArray>
-    <#assign readerIndex = "ElementReaderIndex" />
-  <#else>
-    <#assign readerIndex = "ColumnReaderIndex" />
-  </#if>
     @Override
-    public void bind(${readerIndex} vectorIndex, ValueVector vector) {
-      bind(vectorIndex);
+    public void bindVector(ValueVector vector) {
   <#if drillType = "Decimal9" || drillType == "Decimal18">
       field = vector.getField();
   </#if>
@@ -53,8 +47,8 @@
 
   <#if drillType = "Decimal9" || drillType == "Decimal18">
     @Override
-    public void bind(${readerIndex} vectorIndex, MaterializedField field, VectorAccessor va) {
-      bind(vectorIndex, field, va);
+    public void bindVector(MaterializedField field, VectorAccessor va) {
+      super.bindVector(field, va);
       this.field = field;
     }
 
@@ -110,12 +104,7 @@
     private ${vectorPrefix}${drillType}Vector.Mutator mutator;
 
     @Override
-  <#if mode == "Repeated">
-    public void bind(ElementWriterIndex vectorIndex, ValueVector vector) {
-  <#else>
-    public void bind(ColumnWriterIndex vectorIndex, ValueVector vector) {
-  </#if>
-      bind(vectorIndex);
+    public void bindVector(ValueVector vector) {
   <#if drillType = "Decimal9" || drillType == "Decimal18">
       field = vector.getField();
   </#if>
@@ -207,7 +196,7 @@
 </#macro>
 <#macro finishBatch drillType mode>
     @Override
-    public void endWrite() throws VectorOverflowException {
+    protected void finish() throws VectorOverflowException {
       final int rowCount = vectorIndex.vectorIndex();
   <#-- See note above for the fillEmpties macro. -->
   <#if mode == "" && drillType != "Bit">
@@ -227,15 +216,11 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.vector.*;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.util.DecimalUtility;
-import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
-import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
 import org.apache.drill.exec.vector.accessor.reader.BaseElementReader;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
-import org.apache.drill.exec.vector.accessor.reader.ElementReaderIndex;
 import org.apache.drill.exec.vector.accessor.writer.BaseScalarWriter;
 import org.apache.drill.exec.vector.accessor.writer.BaseElementWriter;
-import org.apache.drill.exec.vector.accessor.writer.ElementWriterIndex;
 
 import com.google.common.base.Charsets;
 import org.joda.time.Period;

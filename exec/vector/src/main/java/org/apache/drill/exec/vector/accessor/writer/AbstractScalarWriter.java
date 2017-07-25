@@ -19,7 +19,9 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VectorOverflowException;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.joda.time.Period;
@@ -39,6 +41,11 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
 
     public ScalarObjectWriter(AbstractScalarWriter scalarWriter) {
       this.scalarWriter = scalarWriter;
+    }
+
+    @Override
+    public void bindIndex(ColumnWriterIndex index) {
+      scalarWriter.bindIndex(index);
     }
 
     @Override
@@ -66,20 +73,24 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
     }
 
     @Override
-    public void startRow() {
-      scalarWriter.startRow();
+    public void startValue() {
+      scalarWriter.startValue();
     }
 
     @Override
-    public void endRow() {
-      scalarWriter.endRow();
+    public void endValue() {
+      scalarWriter.endValue();
     }
 
     @Override
-    public void endWrite() throws VectorOverflowException {
+    public void endWrite() {
       scalarWriter.endWrite();
     }
   }
+
+  public abstract void bindIndex(ColumnWriterIndex index);
+
+  public abstract void bindVector(ValueVector vector);
 
   @Override
   public void setObject(Object value) throws VectorOverflowException {
@@ -156,11 +167,32 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
   public void startWrite() { }
 
   @Override
-  public void startRow() { }
+  public void startValue() { }
 
   @Override
-  public void endRow() { }
+  public void endValue() { }
 
   @Override
-  public void endWrite() throws VectorOverflowException { }
+  public void endWrite() {
+
+    // Finish up the vector. The methods used in the generated code
+    // can throw the overflow exception, but they should not be used
+    // here in a way that will actually trigger an overflow, so
+    // rethrow as a non-checked exception.
+
+    try {
+      finish();
+    } catch (VectorOverflowException e) {
+      throw new IllegalStateException("Overflow on finish", e);
+    }
+  }
+
+  /**
+   * Overridden by generated classes to finish up writing. Such as
+   * setting the final element count.
+   *
+   * @throws VectorOverflowException should not actually occur
+   */
+
+  protected void finish() throws VectorOverflowException { }
 }
