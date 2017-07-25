@@ -20,10 +20,12 @@ package org.apache.drill.exec.vector.accessor.writer;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.test.rowSet.AbstractRowSet.RowSetReaderIndex;
 
 /**
  * Implementation for a writer for a tuple (a row or a map.) Provides access to each
@@ -31,6 +33,10 @@ import org.apache.drill.exec.vector.accessor.TupleWriter;
  */
 
 public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
+
+  /**
+   * Generic object wrapper for the tuple writer.
+   */
 
   public static class TupleObjectWriter extends AbstractObjectWriter {
 
@@ -79,7 +85,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   protected final TupleMetadata schema;
   private final AbstractObjectWriter writers[];
 
-  public AbstractTupleWriter(TupleMetadata schema, AbstractObjectWriter writers[]) {
+  protected AbstractTupleWriter(TupleMetadata schema, AbstractObjectWriter writers[]) {
     this.schema = schema;
     this.writers = writers;
   }

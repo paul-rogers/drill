@@ -29,7 +29,7 @@ public interface RowSetReader extends TupleReader {
    * Total number of rows in the row set.
    * @return total number of rows
    */
-  int size();
+  int rowCount();
 
   boolean next();
   int index();

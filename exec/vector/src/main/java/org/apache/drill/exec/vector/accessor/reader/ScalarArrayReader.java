@@ -17,6 +17,9 @@
  */
 package org.apache.drill.exec.vector.accessor.reader;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarElementReader;
@@ -26,11 +29,20 @@ public class ScalarArrayReader extends AbstractArrayReader {
 
   private final BaseElementReader elementReader;
 
-  public ScalarArrayReader(ColumnReaderIndex baseIndex,
+  private ScalarArrayReader(ColumnReaderIndex baseIndex,
                            RepeatedValueVector vector,
+                           BaseElementIndex elementIndex,
                            BaseElementReader elementReader) {
-    super(baseIndex, vector, new FixedWidthElementReaderIndex(baseIndex));
+    super(baseIndex, vector, elementIndex);
     this.elementReader = elementReader;
+  }
+
+  public static ArrayObjectReader build(ColumnReaderIndex baseIndex,
+                                        RepeatedValueVector vector,
+                                        BaseElementReader elementReader) {
+    FixedWidthElementReaderIndex elementIndex = new FixedWidthElementReaderIndex(baseIndex);
+    elementReader.bind(elementIndex, vector.getDataVector());
+    return new ArrayObjectReader(new ScalarArrayReader(baseIndex, vector, elementIndex, elementReader));
   }
 
   @Override
@@ -45,14 +57,24 @@ public class ScalarArrayReader extends AbstractArrayReader {
 
   @Override
   public Object getObject() {
-    // TODO Auto-generated method stub
-    return null;
+    List<Object> elements = new ArrayList<>();
+    for (int i = 0; i < size(); i++) {
+      elements.add(elementReader.getObject(i));
+    }
+    return elements;
   }
 
   @Override
   public String getAsString() {
-    // TODO Auto-generated method stub
-    return null;
+    StringBuilder buf = new StringBuilder();
+    buf.append("[");
+    for (int i = 0; i < size(); i++) {
+      if (i > 0) {
+        buf.append( ", " );
+      }
+      buf.append(elementReader.getAsString(i));
+    }
+    buf.append("]");
+    return buf.toString();
   }
-
 }

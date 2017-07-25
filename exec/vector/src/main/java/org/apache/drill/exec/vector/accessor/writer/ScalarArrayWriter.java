@@ -39,14 +39,22 @@ import org.joda.time.Period;
  * convenience is more important than speed.
  */
 
-public class ScalarArrayWriterImpl extends AbstractArrayWriter {
+public class ScalarArrayWriter extends AbstractArrayWriter {
 
   private final BaseElementWriter elementWriter;
 
-  public ScalarArrayWriterImpl(ColumnWriterIndex baseIndex, RepeatedValueVector vector, BaseElementWriter elementWriter) {
+  private ScalarArrayWriter(ColumnWriterIndex baseIndex, RepeatedValueVector vector, BaseElementWriter elementWriter) {
     super(baseIndex, vector, new ScalarObjectWriter(elementWriter));
     this.elementWriter = elementWriter;
     elementWriter.bind(elementIndex(), vector.getDataVector());
+  }
+
+  public static ArrayObjectWriter build(ColumnWriterIndex vectorIndex,
+                                        RepeatedValueVector vector,
+                                        BaseElementWriter elementWriter) {
+    return new ArrayObjectWriter(
+        new ScalarArrayWriter(vectorIndex, (RepeatedValueVector) vector,
+                                  elementWriter));
   }
 
   @Override

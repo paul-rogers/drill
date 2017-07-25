@@ -90,6 +90,7 @@ public abstract class BaseElementReader implements ScalarElementReader {
     this.vectorIndex = rowIndex;
   }
 
+  @Override
   public int size() { return vectorIndex.size(); }
 
   @Override

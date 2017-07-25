@@ -27,6 +27,11 @@ import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 
+/**
+ * Reader for a tuple (a row or a map.) Provides access to each
+ * column using either a name or a numeric index.
+ */
+
 public class AbstractTupleReader implements TupleReader {
 
   public static class TupleObjectReader extends AbstractObjectReader {
@@ -66,7 +71,7 @@ public class AbstractTupleReader implements TupleReader {
   protected final TupleMetadata schema;
   private final AbstractObjectReader readers[];
 
-  public AbstractTupleReader(TupleMetadata schema, AbstractObjectReader readers[]) {
+  protected AbstractTupleReader(TupleMetadata schema, AbstractObjectReader readers[]) {
     this.schema = schema;
     this.readers = readers;
   }
@@ -75,7 +80,7 @@ public class AbstractTupleReader implements TupleReader {
   public TupleMetadata schema() { return schema; }
 
   @Override
-  public int size() { return schema().size(); }
+  public int columnCount() { return schema().size(); }
 
   @Override
   public ObjectReader column(int colIndex) {
@@ -131,7 +136,7 @@ public class AbstractTupleReader implements TupleReader {
   }
 
   public void reposition() {
-    for (int i = 0; i < size(); i++) {
+    for (int i = 0; i < columnCount(); i++) {
       readers[i].reposition();
     }
   }
@@ -139,7 +144,7 @@ public class AbstractTupleReader implements TupleReader {
   @Override
   public Object getObject() {
     List<Object> elements = new ArrayList<>();
-    for (int i = 0; i < size(); i++) {
+    for (int i = 0; i < columnCount(); i++) {
       elements.add(readers[i].getObject());
     }
     return elements;
@@ -149,7 +154,7 @@ public class AbstractTupleReader implements TupleReader {
   public String getAsString() {
     StringBuilder buf = new StringBuilder();
     buf.append("(");
-    for (int i = 0; i < size(); i++) {
+    for (int i = 0; i < columnCount(); i++) {
       if (i > 0) {
         buf.append( ", " );
       }

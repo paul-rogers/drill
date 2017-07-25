@@ -21,8 +21,11 @@ import org.apache.drill.exec.record.TupleMetadata;
 
 public class MapWriter extends AbstractTupleWriter {
 
-  public MapWriter(TupleMetadata schema, AbstractObjectWriter[] writers) {
+  private MapWriter(TupleMetadata schema, AbstractObjectWriter[] writers) {
     super(schema, writers);
   }
 
+  public static TupleObjectWriter build(TupleMetadata schema, AbstractObjectWriter[] writers) {
+    return new TupleObjectWriter(new MapWriter(schema, writers));
+  }
 }

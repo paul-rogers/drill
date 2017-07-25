@@ -21,7 +21,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import org.apache.drill.exec.vector.accessor.ArrayReader;
+import org.apache.drill.exec.vector.accessor.ObjectReader;
+import org.apache.drill.exec.vector.accessor.ScalarElementReader;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
+import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.bouncycastle.util.Arrays;
 
 /**
@@ -134,7 +137,8 @@ public class RowSetComparison {
     for (int i = 0; i < testLength; i++) {
       er.next();
       ar.next();
-      verifyRow(er, ar);
+      String label = Integer.toString(er.index() + 1);
+      verifyRow(label, er, ar);
     }
   }
 
@@ -167,22 +171,50 @@ public class RowSetComparison {
     }
   }
 
-  private void verifyRow(RowSetReader er, RowSetReader ar) {
+  private void verifyRow(String label, TupleReader er, TupleReader ar) {
+    String prefix = label + ":";
     for (int i = 0; i < mask.length; i++) {
       if (! mask[i]) {
         continue;
       }
-      ScalarReader ec = er.column(i);
-      ScalarReader ac = ar.column(i);
-      String label = (er.index() + 1) + ":" + i;
-      assertEquals(label, ec.valueType(), ac.valueType());
-      if (ec.isNull()) {
-        assertTrue(label + " - column not null", ac.isNull());
-        continue;
-      }
-      if (! ec.isNull()) {
-        assertTrue(label + " - column is null", ! ac.isNull());
-      }
+      verifyColumn(prefix + i, er.column(i), ar.column(i));
+    }
+  }
+
+  private void verifyColumn(String label, ObjectReader ec, ObjectReader ac) {
+    assertEquals(label, ec.type(), ac.type());
+    switch (ec.type()) {
+    case ARRAY:
+      verifyArray(label, ec.array(), ac.array());
+      break;
+    case SCALAR:
+      verifyScalar(label, ac.scalar(), ec.scalar());
+      break;
+    case TUPLE:
+      verifyTuple(label, ec.tuple(), ac.tuple());
+      break;
+    default:
+      throw new IllegalStateException( "Unexpected type: " + ec.type());
+    }
+  }
+
+  private void verifyTuple(String label, TupleReader er, TupleReader ar) {
+    assertEquals(label, er.columnCount(), ar.columnCount());
+    String prefix = label + ":";
+    for (int i = 0; i < er.columnCount(); i++) {
+      verifyColumn(prefix + i, er.column(i), ar.column(i));
+    }
+  }
+
+  private void verifyScalar(String label, ScalarReader ec, ScalarReader ac) {
+    assertEquals(label, ec.valueType(), ac.valueType());
+    if (ec.isNull()) {
+      assertTrue(label + " - column not null", ac.isNull());
+      return;
+    }
+    if (! ec.isNull()) {
+      assertTrue(label + " - column is null", ! ac.isNull());
+    }
     switch (ec.valueType()) {
     case BYTES: {
         byte expected[] = ac.getBytes();
@@ -209,24 +241,34 @@ public class RowSetComparison {
      case PERIOD:
        assertEquals(label, ec.getPeriod(), ac.getPeriod());
        break;
-     case ARRAY:
-       verifyArray(label, ec.array(), ac.array());
-       break;
      default:
         throw new IllegalStateException( "Unexpected type: " + ec.valueType());
-      }
     }
   }
 
-  private void verifyArray(String colLabel, ArrayReader ea,
+  private void verifyArray(String label, ArrayReader ea,
       ArrayReader aa) {
+    assertEquals(label, ea.entryType(), aa.entryType());
+    switch (ea.entryType()) {
+    case ARRAY:
+      throw new UnsupportedOperationException();
+    case SCALAR:
+      verifyScalarArray(label, ea.elements(), aa.elements());
+      break;
+    case TUPLE:
+      throw new UnsupportedOperationException();
+    default:
+      throw new IllegalStateException( "Unexpected type: " + ea.entryType());
+    }
+  }
+
+  private void verifyScalarArray(String colLabel, ScalarElementReader ea,
+      ScalarElementReader aa) {
     assertEquals(colLabel, ea.valueType(), aa.valueType());
     assertEquals(colLabel, ea.size(), aa.size());
     for (int i = 0; i < ea.size(); i++) {
       String label = colLabel + "[" + i + "]";
       switch (ea.valueType()) {
-      case ARRAY:
-        throw new IllegalStateException("Arrays of arrays not supported yet");
       case BYTES: {
         byte expected[] = ea.getBytes(i);
         byte actual[] = aa.getBytes(i);

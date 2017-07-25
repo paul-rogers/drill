@@ -57,6 +57,11 @@ public abstract class AbstractArrayReader implements ArrayReader {
     }
 
     @Override
+    public ScalarElementReader elements() {
+      return arrayReader.elements();
+    }
+
+    @Override
     public Object getObject() {
       return arrayReader.getObject();
     }
@@ -71,41 +76,6 @@ public abstract class AbstractArrayReader implements ArrayReader {
       arrayReader.reposition();
     }
   }
-
-//  /**
-//   * Column reader that provides access to an array column by returning a
-//   * separate reader specifically for that array. That is, reading a column
-//   * is a two-part process:<pre><code>
-//   * tupleReader.column("arrayCol").array().getInt(2);</code></pre>
-//   * This pattern is used to avoid overloading the column reader with
-//   * both scalar and array access. Also, this pattern mimics the way
-//   * that nested tuples (Drill maps) are handled.
-//   */
-//
-//  public static class ArrayColumnReader extends AbstractScalarReader {
-//
-//    private final AbstractArrayReader arrayReader;
-//
-//    public ArrayColumnReader(AbstractArrayReader arrayReader) {
-//      this.arrayReader = arrayReader;
-//    }
-//
-//    @Override
-//    public ValueType valueType() {
-//       return ValueType.ARRAY;
-//    }
-//
-//    @Override
-//    public void bind(ColumnReaderIndex rowIndex, ValueVector vector) {
-//      arrayReader.bind(rowIndex, vector);
-//      vectorIndex = rowIndex;
-//    }
-//
-//    @Override
-//    public ArrayReader array() {
-//      return arrayReader;
-//    }
-//  }
 
   public static class BaseElementIndex {
     private final ColumnReaderIndex base;
@@ -136,23 +106,23 @@ public abstract class AbstractArrayReader implements ArrayReader {
   }
 
   protected final ColumnReaderIndex baseIndex;
-  protected final BaseElementIndex baseElementIndex;
+  protected final BaseElementIndex elementIndex;
   private Accessor accessor;
 
-  public AbstractArrayReader(ColumnReaderIndex baseIndex, RepeatedValueVector vector, BaseElementIndex baseElementIndex) {
+  public AbstractArrayReader(ColumnReaderIndex baseIndex, RepeatedValueVector vector, BaseElementIndex elementIndex) {
     this.baseIndex = baseIndex;
     accessor = vector.getOffsetVector().getAccessor();
-    this.baseElementIndex = baseElementIndex;
+    this.elementIndex = elementIndex;
   }
 
   public void reposition() {
     final int index = baseIndex.vectorIndex();
     final int startPosn = accessor.get(index);
-    baseElementIndex.reset(startPosn, accessor.get(index + 1) - startPosn);
+    elementIndex.reset(startPosn, accessor.get(index + 1) - startPosn);
   }
 
   @Override
-  public int size() { return baseElementIndex.size(); }
+  public int size() { return elementIndex.size(); }
 
   @Override
   public ScalarElementReader elements() {

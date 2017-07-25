@@ -37,10 +37,10 @@ import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ObjectType;
-import org.apache.drill.exec.vector.accessor.ResultSetWriter;
 import org.apache.drill.exec.vector.accessor.ScalarElementReader;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
+import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
@@ -111,13 +111,13 @@ public class RowSetTest extends SubOperatorTest {
 
     RowSetReader reader = actual.reader();
     assertTrue(reader.next());
-    assertEquals(10, reader.column(0).getInt());
+    assertEquals(10, reader.scalar(0).getInt());
     assertTrue(reader.next());
-    assertEquals(20, reader.column(0).getInt());
+    assertEquals(20, reader.scalar(0).getInt());
     assertTrue(reader.next());
-    assertEquals(30, reader.column(0).getInt());
+    assertEquals(30, reader.scalar(0).getInt());
     assertTrue(reader.next());
-    assertEquals(40, reader.column(0).getInt());
+    assertEquals(40, reader.scalar(0).getInt());
     assertFalse(reader.next());
 
     SingleRowSet expected = fixture.rowSetBuilder(schema)
@@ -178,7 +178,7 @@ public class RowSetTest extends SubOperatorTest {
     SingleRowSet actual = writer.done();
 
     RowSetReader reader = actual.reader();
-    ArrayReader intReader = reader.column(0).array();
+    ScalarElementReader intReader = reader.column(0).array().elements();
     assertTrue(reader.next());
     assertEquals(2, intReader.size());
     assertEquals(10, intReader.getInt(0));
@@ -263,25 +263,27 @@ public class RowSetTest extends SubOperatorTest {
 
     RowSetReader reader = actual.reader();
     ScalarReader aReader = reader.column(0).scalar();
-    ScalarElementReader bReader = reader.column(0).array().elements();
+    TupleReader mReader = reader.column(1).tuple();
+    ScalarElementReader bReader = mReader.column(0).elements();
+
     assertTrue(reader.next());
     assertEquals(10, aReader.getInt());
-    assertEquals(11, bReader.getInt(1));
+    assertEquals(11, bReader.getInt(0));
     assertEquals(12, bReader.getInt(1));
     assertTrue(reader.next());
     assertEquals(20, aReader.getInt());
-    assertEquals(21, bReader.getInt(1));
+    assertEquals(21, bReader.getInt(0));
     assertEquals(22, bReader.getInt(1));
     assertTrue(reader.next());
     assertEquals(30, aReader.getInt());
-    assertEquals(31, bReader.getInt(1));
+    assertEquals(31, bReader.getInt(0));
     assertEquals(32, bReader.getInt(1));
     assertFalse(reader.next());
 
     SingleRowSet expected = fixture.rowSetBuilder(schema)
         .add(10, new int[] {11, 12})
         .add(20, new int[] {21, 22})
-        .add(30, new int[] {31, 23})
+        .add(30, new int[] {31, 32})
         .build();
     new RowSetComparison(expected)
       .verifyAndClearAll(actual);
@@ -382,12 +384,12 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(3, rs.rowCount());
     RowSetReader reader = rs.reader();
     assertTrue(reader.next());
-    assertEquals(0, reader.column(0).getInt());
+    assertEquals(0, reader.scalar(0).getInt());
     assertTrue(reader.next());
-    assertEquals(Byte.MAX_VALUE, reader.column(0).getInt());
-    assertEquals((int) Byte.MAX_VALUE, reader.column(0).getObject());
+    assertEquals(Byte.MAX_VALUE, reader.scalar(0).getInt());
+    assertEquals((int) Byte.MAX_VALUE, reader.scalar(0).getObject());
     assertTrue(reader.next());
-    assertEquals(Byte.MIN_VALUE, reader.column(0).getInt());
+    assertEquals(Byte.MIN_VALUE, reader.scalar(0).getInt());
     assertFalse(reader.next());
     rs.clear();
   }
@@ -404,12 +406,12 @@ public class RowSetTest extends SubOperatorTest {
         .build();
     RowSetReader reader = rs.reader();
     assertTrue(reader.next());
-    assertEquals(0, reader.column(0).getInt());
+    assertEquals(0, reader.scalar(0).getInt());
     assertTrue(reader.next());
-    assertEquals(Short.MAX_VALUE, reader.column(0).getInt());
-    assertEquals((int) Short.MAX_VALUE, reader.column(0).getObject());
+    assertEquals(Short.MAX_VALUE, reader.scalar(0).getInt());
+    assertEquals((int) Short.MAX_VALUE, reader.scalar(0).getObject());
     assertTrue(reader.next());
-    assertEquals(Short.MIN_VALUE, reader.column(0).getInt());
+    assertEquals(Short.MIN_VALUE, reader.scalar(0).getInt());
     assertFalse(reader.next());
     rs.clear();
   }
@@ -426,12 +428,12 @@ public class RowSetTest extends SubOperatorTest {
         .build();
     RowSetReader reader = rs.reader();
     assertTrue(reader.next());
-    assertEquals(0, reader.column(0).getInt());
+    assertEquals(0, reader.scalar(0).getInt());
     assertTrue(reader.next());
-    assertEquals(Integer.MAX_VALUE, reader.column(0).getInt());
-    assertEquals(Integer.MAX_VALUE, reader.column(0).getObject());
+    assertEquals(Integer.MAX_VALUE, reader.scalar(0).getInt());
+    assertEquals(Integer.MAX_VALUE, reader.scalar(0).getObject());
     assertTrue(reader.next());
-    assertEquals(Integer.MIN_VALUE, reader.column(0).getInt());
+    assertEquals(Integer.MIN_VALUE, reader.scalar(0).getInt());
     assertFalse(reader.next());
     rs.clear();
   }
@@ -448,12 +450,12 @@ public class RowSetTest extends SubOperatorTest {
         .build();
     RowSetReader reader = rs.reader();
     assertTrue(reader.next());
-    assertEquals(0, reader.column(0).getLong());
+    assertEquals(0, reader.scalar(0).getLong());
     assertTrue(reader.next());
-    assertEquals(Long.MAX_VALUE, reader.column(0).getLong());
-    assertEquals(Long.MAX_VALUE, reader.column(0).getObject());
+    assertEquals(Long.MAX_VALUE, reader.scalar(0).getLong());
+    assertEquals(Long.MAX_VALUE, reader.scalar(0).getObject());
     assertTrue(reader.next());
-    assertEquals(Long.MIN_VALUE, reader.column(0).getLong());
+    assertEquals(Long.MIN_VALUE, reader.scalar(0).getLong());
     assertFalse(reader.next());
     rs.clear();
   }
@@ -470,12 +472,12 @@ public class RowSetTest extends SubOperatorTest {
         .build();
     RowSetReader reader = rs.reader();
     assertTrue(reader.next());
-    assertEquals(0, reader.column(0).getDouble(), 0.000001);
+    assertEquals(0, reader.scalar(0).getDouble(), 0.000001);
     assertTrue(reader.next());
-    assertEquals(Float.MAX_VALUE, reader.column(0).getDouble(), 0.000001);
-    assertEquals((double) Float.MAX_VALUE, (double) reader.column(0).getObject(), 0.000001);
+    assertEquals(Float.MAX_VALUE, reader.scalar(0).getDouble(), 0.000001);
+    assertEquals((double) Float.MAX_VALUE, (double) reader.scalar(0).getObject(), 0.000001);
     assertTrue(reader.next());
-    assertEquals(Float.MIN_VALUE, reader.column(0).getDouble(), 0.000001);
+    assertEquals(Float.MIN_VALUE, reader.scalar(0).getDouble(), 0.000001);
     assertFalse(reader.next());
     rs.clear();
   }
@@ -492,12 +494,12 @@ public class RowSetTest extends SubOperatorTest {
         .build();
     RowSetReader reader = rs.reader();
     assertTrue(reader.next());
-    assertEquals(0, reader.column(0).getDouble(), 0.000001);
+    assertEquals(0, reader.scalar(0).getDouble(), 0.000001);
     assertTrue(reader.next());
-    assertEquals(Double.MAX_VALUE, reader.column(0).getDouble(), 0.000001);
-    assertEquals(Double.MAX_VALUE, (double) reader.column(0).getObject(), 0.000001);
+    assertEquals(Double.MAX_VALUE, reader.scalar(0).getDouble(), 0.000001);
+    assertEquals(Double.MAX_VALUE, (double) reader.scalar(0).getObject(), 0.000001);
     assertTrue(reader.next());
-    assertEquals(Double.MIN_VALUE, reader.column(0).getDouble(), 0.000001);
+    assertEquals(Double.MIN_VALUE, reader.scalar(0).getDouble(), 0.000001);
     assertFalse(reader.next());
     rs.clear();
   }
@@ -513,10 +515,10 @@ public class RowSetTest extends SubOperatorTest {
         .build();
     RowSetReader reader = rs.reader();
     assertTrue(reader.next());
-    assertEquals("", reader.column(0).getString());
+    assertEquals("", reader.scalar(0).getString());
     assertTrue(reader.next());
-    assertEquals("abcd", reader.column(0).getString());
-    assertEquals("abcd", reader.column(0).getObject());
+    assertEquals("abcd", reader.scalar(0).getString());
+    assertEquals("abcd", reader.scalar(0).getObject());
     assertFalse(reader.next());
     rs.clear();
   }
@@ -527,6 +529,7 @@ public class RowSetTest extends SubOperatorTest {
    */
 
   @Test
+  // TODO: This relies on a flat view which is no longer valid.
   public void testMap() {
     BatchSchema batchSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
@@ -541,15 +544,15 @@ public class RowSetTest extends SubOperatorTest {
         .build();
     RowSetReader reader = rs.reader();
     assertTrue(reader.next());
-    assertEquals(10, reader.column(0).getInt());
-    assertEquals(20, reader.column(1).getInt());
-    assertEquals(30, reader.column(2).getInt());
-    assertEquals(10, reader.column("a").getInt());
-    assertEquals(30, reader.column("b.d").getInt());
+    assertEquals(10, reader.scalar(0).getInt());
+    assertEquals(20, reader.scalar(1).getInt());
+    assertEquals(30, reader.scalar(2).getInt());
+    assertEquals(10, reader.scalar("a").getInt());
+    assertEquals(30, reader.scalar("b.d").getInt());
     assertTrue(reader.next());
-    assertEquals(40, reader.column(0).getInt());
-    assertEquals(50, reader.column(1).getInt());
-    assertEquals(60, reader.column(2).getInt());
+    assertEquals(40, reader.scalar(0).getInt());
+    assertEquals(50, reader.scalar(1).getInt());
+    assertEquals(60, reader.scalar(2).getInt());
     assertFalse(reader.next());
     rs.clear();
   }
@@ -569,41 +572,38 @@ public class RowSetTest extends SubOperatorTest {
     ExtendableRowSet rs1 = fixture.rowSet(batchSchema);
     RowSetWriter writer = rs1.writer();
     try {
-      writer.column(0).setInt(10);
-      ArrayWriter array = writer.column(1).array();
+      writer.scalar(0).setInt(10);
+      ScalarWriter array = writer.array(1).scalar();
       array.setInt(100);
       array.setInt(110);
       writer.save();
-      writer.column(0).setInt(20);
-      array = writer.column(1).array();
+      writer.scalar(0).setInt(20);
       array.setInt(200);
       array.setInt(120);
       array.setInt(220);
       writer.save();
-      writer.column(0).setInt(30);
+      writer.scalar(0).setInt(30);
       writer.save();
     } catch (VectorOverflowException e) {
       fail("Should not overflow vector");
     }
-    writer.done();
+    SingleRowSet result = writer.done();
 
-    RowSetReader reader = rs1.reader();
+    RowSetReader reader = result.reader();
     assertTrue(reader.next());
-    assertEquals(10, reader.column(0).getInt());
-    ArrayReader arrayReader = reader.column(1).array();
+    assertEquals(10, reader.scalar(0).getInt());
+    ScalarElementReader arrayReader = reader.array(1).elements();
     assertEquals(2, arrayReader.size());
     assertEquals(100, arrayReader.getInt(0));
     assertEquals(110, arrayReader.getInt(1));
     assertTrue(reader.next());
-    assertEquals(20, reader.column(0).getInt());
-    arrayReader = reader.column(1).array();
+    assertEquals(20, reader.scalar(0).getInt());
     assertEquals(3, arrayReader.size());
     assertEquals(200, arrayReader.getInt(0));
     assertEquals(120, arrayReader.getInt(1));
     assertEquals(220, arrayReader.getInt(2));
     assertTrue(reader.next());
-    assertEquals(30, reader.column(0).getInt());
-    arrayReader = reader.column(1).array();
+    assertEquals(30, reader.scalar(0).getInt());
     assertEquals(0, arrayReader.size());
     assertFalse(reader.next());
 
@@ -624,6 +624,7 @@ public class RowSetTest extends SubOperatorTest {
    */
 
   @Test
+  // TODO: Retrofit to use exceptions
   public void testRowBounds() {
     BatchSchema batchSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
@@ -665,6 +666,7 @@ public class RowSetTest extends SubOperatorTest {
    */
 
   @Test
+  // TODO: Retrofit to use exceptions
   public void testbufferBounds() {
     BatchSchema batchSchema = new SchemaBuilder()
         .add("a", MinorType.INT)

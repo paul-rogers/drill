@@ -24,8 +24,6 @@ import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.SchemaChangeCallBack;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
-import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
-import org.apache.drill.exec.vector.accessor.reader.TupleReaderImpl;
 
 /**
  * Basic implementation of a row set for both the single and multiple
@@ -65,41 +63,6 @@ public abstract class AbstractRowSet implements RowSet {
     public int size() { return rowCount; }
 
     public boolean valid() { return rowIndex < rowCount; }
-  }
-
-  /**
-   * Reader implementation for a row set.
-   */
-
-  public class RowSetReaderImpl extends TupleReaderImpl implements RowSetReader {
-
-    protected final RowSetReaderIndex index;
-
-    public RowSetReaderImpl(TupleMetadata schema, RowSetReaderIndex index, BaseScalarReader[] readers) {
-      super(schema, readers);
-      this.index = index;
-    }
-
-    @Override
-    public boolean next() { return index.next(); }
-
-    @Override
-    public boolean valid() { return index.valid(); }
-
-    @Override
-    public int index() { return index.position(); }
-
-    @Override
-    public int size() { return index.size(); }
-
-    @Override
-    public int rowIndex() { return index.vectorIndex(); }
-
-    @Override
-    public int batchIndex() { return index.batchIndex(); }
-
-    @Override
-    public void set(int index) { this.index.set(index); }
   }
 
   protected final BufferAllocator allocator;

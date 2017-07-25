@@ -48,7 +48,7 @@ public class RowSetPrinter {
         if (i > 0) {
           out.print(", ");
         }
-        out.print(reader.getAsString(i));
+        out.print(reader.column(i).getAsString());
       }
       out.println();
     }

@@ -47,6 +47,7 @@ public interface ScalarElementReader {
    */
 
   ValueType valueType();
+  int size();
 
   boolean isNull(int index);
   int getInt(int index);

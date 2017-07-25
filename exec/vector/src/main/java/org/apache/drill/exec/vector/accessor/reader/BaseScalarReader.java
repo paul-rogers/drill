@@ -68,6 +68,12 @@ public abstract class BaseScalarReader implements ScalarReader {
   protected ColumnReaderIndex vectorIndex;
   protected VectorAccessor vectorAccessor;
 
+  public static ScalarObjectReader build(ColumnReaderIndex vectorIndex,
+                              ValueVector vector, BaseScalarReader reader) {
+    reader.bind(vectorIndex, vector);
+    return new ScalarObjectReader(reader);
+  }
+
   public abstract void bind(ColumnReaderIndex rowIndex, ValueVector vector);
 
   protected void bind(ColumnReaderIndex rowIndex) {

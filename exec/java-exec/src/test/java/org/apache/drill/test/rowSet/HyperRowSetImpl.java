@@ -152,7 +152,7 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
     public HyperVectorBuilder(RowSetSchema schema) {
       physicalSchema = schema.physical();
       TupleMetadata flatSchema = schema.flatAccess();
-      valueVectors = new HyperVectorWrapper<?>[schema.hierarchicalAccess().size()];
+      valueVectors = new HyperVectorWrapper<?>[schema.hierarchicalAccess().rowCount()];
       if (flatSchema.mapCount() == 0) {
         mapVectors = null;
         nestedScalars = null;

@@ -29,7 +29,7 @@ import org.apache.drill.exec.record.TupleMetadata;
 
 public interface TupleReader {
   TupleMetadata schema();
-  int size();
+  int columnCount();
 
   ObjectReader column(int colIndex);
   ObjectReader column(String colName);

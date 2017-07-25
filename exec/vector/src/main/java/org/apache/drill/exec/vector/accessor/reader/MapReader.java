@@ -18,34 +18,14 @@
 package org.apache.drill.exec.vector.accessor.reader;
 
 import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.vector.accessor.ArrayReader;
-import org.apache.drill.exec.vector.accessor.ScalarReader;
-import org.apache.drill.exec.vector.accessor.TupleReader;
 
-/**
- * Reader for a tuple (a row or a map.) Provides access to each
- * column using either a name or a numeric index.
- */
+public class MapReader extends AbstractTupleReader {
 
-public class TupleReaderImpl extends AbstractTupleAccessor implements TupleReader {
-
-  private final BaseScalarReader readers[];
-
-  public TupleReaderImpl(TupleMetadata schema, BaseScalarReader readers[]) {
-    super(schema);
-    this.readers = readers;
+  protected MapReader(TupleMetadata schema, AbstractObjectReader readers[]) {
+    super(schema, readers);
   }
 
-  @Override
-  public ScalarReader column(int colIndex) {
-    return readers[colIndex];
-  }
-
-  @Override
-  public ScalarReader column(String colName) {
-    int index = schema.index(colName);
-    if (index == -1) {
-      return null; }
-    return readers[index];
+  public static TupleObjectReader build(TupleMetadata schema, AbstractObjectReader readers[]) {
+    return new TupleObjectReader(new MapReader(schema, readers));
   }
 }
