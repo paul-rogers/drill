@@ -40,6 +40,8 @@ import org.joda.time.Period;
  * for the target type. Maps and arrays are structured types and
  * require another level of reader abstraction to access each value
  * in the structure.
+ * <p>
+ * {@see ScalarWriter}
  */
 
 public interface ScalarReader {

@@ -51,6 +51,11 @@ public interface TupleMetadata extends Iterable<TupleMetadata.ColumnMetadata> {
     PRIMITIVE, LIST, TUPLE
   }
 
+  /**
+   * Metadata description of a column including names, types and structure
+   * information.
+   */
+
   public interface ColumnMetadata {
     StructureType structureType();
     TupleMetadata mapSchema();
@@ -71,6 +76,13 @@ public interface TupleMetadata extends Iterable<TupleMetadata.ColumnMetadata> {
      */
 
     String fullName( );
+
+    /**
+     * Report whether one column is equivalent to another. Columns are equivalent
+     * if they have the same name, type and structure (ignoring internal structure
+     * such as offset vectors.)
+     */
+
     boolean isEquivalent(ColumnMetadata other);
   }
 

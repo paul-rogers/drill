@@ -27,12 +27,29 @@ import org.apache.drill.exec.vector.VectorOverflowException;
  * to the proper type. This model allows a very simple representation:
  * tuples (rows, maps) consist of objects. Arrays are lists of
  * objects.
+ * <p>
+ * {@see ObjectReader}
  */
 
 public interface ObjectWriter {
+
+  /**
+   * Return the object (structure) type of this writer.
+   * @return type indicating if this is a scalar, tuple or array
+   */
+
   ObjectType type();
   ScalarWriter scalar();
   TupleWriter tuple();
   ArrayWriter array();
+
+  /**
+   * For debugging, set the object to the proper form of Java object
+   * as defined by the underlying writer type.
+   *
+   * @param value Java object value to write
+   * @throws VectorOverflowException
+   */
+
   void set(Object value) throws VectorOverflowException;
 }

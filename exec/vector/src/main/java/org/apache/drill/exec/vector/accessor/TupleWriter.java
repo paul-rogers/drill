@@ -21,27 +21,25 @@ import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.VectorOverflowException;
 
 /**
- * Interface for writing to rows via a column writer.
- * Column writers can be obtained by name or index. Column
- * indexes are defined by the tuple schema. Also provides
- * a convenience method to set the column value from a Java
- * object. The caller is responsible for providing the
- * correct object type for each column. (The object type
- * must match the column accessor type.)
+ * Interface for writing to rows via a column writer. Column writers can be
+ * obtained by name or index. Column indexes are defined by the tuple schema.
+ * Also provides a convenience method to set the column value from a Java
+ * object. The caller is responsible for providing the correct object type for
+ * each column. (The object type must match the column accessor type.)
  * <p>
- * A tuple is composed of columns with a fixed order and
- * unique names: either can be used to reference columns.
- * Columns are scalar (simple values), tuples (i.e. maps),
- * or arrays (of scalars, tuples or arrays.)
+ * A tuple is composed of columns with a fixed order and unique names: either
+ * can be used to reference columns. Columns are scalar (simple values), tuples
+ * (i.e. maps), or arrays (of scalars, tuples or arrays.)
  * <p>
- * Convenience methods allow getting a column as a scalar, tuple
- * or array. These methods throw an exception if the column is
- * not of the requested type.
+ * Convenience methods allow getting a column as a scalar, tuple or array. These
+ * methods throw an exception if the column is not of the requested type.
  */
 
 public interface TupleWriter {
   TupleMetadata schema();
   int size();
+
+  // Return the column as a generic object
 
   ObjectWriter column(int colIndex);
   ObjectWriter column(String colName);

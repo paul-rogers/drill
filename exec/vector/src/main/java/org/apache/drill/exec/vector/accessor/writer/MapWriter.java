@@ -19,6 +19,10 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.record.TupleMetadata;
 
+/**
+ * Writer for a Drill Map type. Maps are actually tuples, just like rows.
+ */
+
 public class MapWriter extends AbstractTupleWriter {
 
   private MapWriter(TupleMetadata schema, AbstractObjectWriter[] writers) {

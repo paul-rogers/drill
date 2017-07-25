@@ -25,15 +25,36 @@ package org.apache.drill.exec.vector.accessor;
  * to the proper type. This model allows a very simple representation:
  * tuples (rows, maps) consist of objects. Arrays are lists of
  * objects.
+ * <p>
+ * {@see ObjectWriter>
  */
 
 public interface ObjectReader {
+
+  /**
+   * The type of this reader.
+   *
+   * @return type of reader
+   */
+
   ObjectType type();
   ScalarReader scalar();
   ScalarElementReader elements();
   TupleReader tuple();
   ArrayReader array();
 
+  /**
+   * Return the value of the underlying data as a Java object.
+   * Primarily for testing
+   * @return Java object that represents the underlying value
+   */
+
   Object getObject();
+
+  /**
+   * Return the entire object as a string. Primarily for debugging.
+   * @return string representation of the object
+   */
+
   String getAsString();
 }

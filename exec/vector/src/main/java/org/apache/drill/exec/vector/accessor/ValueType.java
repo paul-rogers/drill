@@ -17,6 +17,15 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
+/**
+ * Represents the primitive types supported to read and write data
+ * from value vectors. Vectors support many data widths. For simplicity
+ * (and because of no difference in performance), the get/set methods
+ * use a reduced set of types. In general, each reader and writer
+ * supports just one type. Though some may provide more than one
+ * (such as access to bytes for a <tt>STRING</tt> value.)
+ */
+
 public enum ValueType {
   INTEGER, LONG, DOUBLE, STRING, BYTES, DECIMAL, PERIOD
 }

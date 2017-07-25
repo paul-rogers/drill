@@ -39,6 +39,8 @@ import org.joda.time.Period;
  * An exception is thrown if a call is made to a method that
  * is not supported by the column type.
  * <p>
+ * {@see ScalarReader}
+ * {@see ScalarElementReader}
  */
 
 public interface ScalarWriter {

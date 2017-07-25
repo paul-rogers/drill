@@ -19,6 +19,12 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 
+/**
+ * Index for array elements that allows the caller to increment the
+ * index. For arrays, writing (or saving) one value automatically
+ * moves to the next value.
+ */
+
 public interface ElementWriterIndex extends ColumnWriterIndex {
   void next();
 }

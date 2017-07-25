@@ -32,10 +32,9 @@ import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
  * <pre></code>
  * void writeABatch() {
  *   RowSetWriter writer = ...
- *   for (;;) {
- *     if (! writer.valid()) { break; }
- *     writer.column(0).setInt(10);
- *     writer.column(1).setString("foo");
+ *   while (! writer.isFull()) {
+ *     writer.scalar(0).setInt(10);
+ *     writer.scalar(1).setString("foo");
  *     ...
  *     writer.save();
  *   }
@@ -46,15 +45,19 @@ import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
  * <pre></code>
  * void writeABatch() {
  *   RowSetWriter writer = ...
- *   for (;;) {
- *     if (! writer.valid()) { break; }
+ *   while (! writer.isFull()) {
  *     writer.column(0).setInt(10);
- *     if (! writer.column(1).setString("foo")) { break; }
+ *     try {
+ *        writer.column(1).setString("foo");
+ *     } catch (VectorOverflowException e) { break; }
  *     ...
  *     writer.save();
  *   }
  *   // Do something with the partially-written last row.
  * }</code></pre>
+ * <p>
+ * This writer is for testing, so no provision is available to handle a
+ * partial last row. (Elsewhere n Drill there are classes that handle that case.)
  */
 
 public interface RowSetWriter extends TupleWriter {

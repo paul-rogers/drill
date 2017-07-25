@@ -53,6 +53,19 @@
  * <p>
  * Overview of the code structure:
  * <dl>
+ * <dt>ObjectWriter, ObjectReader</dt>
+ * <dd>Drill follows a JSON data model. A row is a tuple (AKA structure). Each
+ * column is a scalar, a map (AKA tuple, structure) or an array (AKA a repeated
+ * value.) The object reader and writer provide a generic, JSON-like interface
+ * to allow any valid combination of readers or writers:<pre><code>
+ * row : tuple
+ * tuple : column *
+ * column : scalar obj | array obj | tuple obj
+ * scalar obj : scalar
+ * arary obj : array writer
+ * array writer : element
+ * element : column
+ * tuple obj : tuple</code></pre></dd>
  * <dt>TupleWriter, TupleReader</dt>
  * <dd>In relational terms, a tuple is an ordered collection of values, where
  * the meaning of the order is provided by a schema (usually a name/type pair.)
@@ -62,12 +75,8 @@
  * But, doing so is slower than access by position (index). To provide efficient
  * code, the tuple classes assume that the implementation imposes a column
  * ordering which can be exposed via the indexes.</dd>
- * <dt>ColumnAccessor</dt>
- * <dd>A generic base class for column readers and writers that provides the
- * column data type.</dd>
- * <dt>ColumnWriter, ColumnReader</dt>
- * <dd>A uniform interface implemented for each column type ("major type" in
- * Drill terminology). The scalar types: Nullable (Drill optional) and
+ * <dt>ScalarWriter, ScalarReader</dt>
+ * <dd>A uniform interface for the scalar types: Nullable (Drill optional) and
  * non-nullable (Drill required) fields use the same interface. Arrays (Drill
  * repeated) are special. To handle the array aspect, even array fields use the
  * same interface, but the <tt>getArray</tt> method returns another layer of
@@ -98,11 +107,11 @@
  * <dd>The generated accessors: one for each combination of write/read, data
  * (minor) type and cardinality (data model).
  * <dd>
- * <dt>RowIndex</dt>
+ * <dt>ColumnReaderIndex, ColumnWriterIndex</dt>
  * <dd>This nested class binds the accessor to the current row position for the
  * entire record batch. That is, you don't ask for the value of column a for row
  * 5, then the value of column b for row 5, etc. as with the "raw" vectors.
- * Instead, the implementation sets the row position (with, say an interator.)
+ * Instead, the implementation sets the row position (with, say an iterator.)
  * Then, all columns implicitly return values for the current row.
  * <p>
  * Different implementations of the row index handle the case of no selection

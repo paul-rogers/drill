@@ -35,6 +35,8 @@ import org.joda.time.Period;
  * <p>
  * Note that the <tt>isNull()</tt> method is provided for completeness,
  * but no Drill array allows null values at present.
+ * <p>
+ * {@see ScalarWriter}
  */
 
 public interface ScalarElementReader {

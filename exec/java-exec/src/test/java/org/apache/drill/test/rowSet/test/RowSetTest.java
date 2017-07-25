@@ -42,6 +42,7 @@ import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.accessor.ValueType;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -54,20 +55,35 @@ import org.junit.Test;
 
 import com.google.common.base.Splitter;
 
+/**
+ * Test row sets. Since row sets are a thin wrapper around vectors,
+ * readers and writers, this is also a test of those constructs.
+ * <p>
+ * Tests basic protocol of the writers: <pre><code>
+ * row : tuple
+ * tuple : column *
+ * column : scalar obj | array obj | tuple obj
+ * scalar obj : scalar
+ * arary obj : array writer
+ * array writer : element
+ * element : column
+ * tuple obj : tuple</code></pre>
+ */
+
 public class RowSetTest extends SubOperatorTest {
+
   /**
-   * Test basic protocol of the writers: <pre><code>
-   * row : tuple
-   * tuple : column *
-   * column : scalar obj | array obj | tuple obj
-   * scalar obj : scalar
-   * arary obj : array writer
-   * array writer : element
-   * element : column
-   * tuple obj : tuple
-   * @throws VectorOverflowException
+   * Test the simplest constructs: a row with top-level scalar
+   * columns.
+   * <p>
+   * The focus here is the structure of the readers and writers, along
+   * with the row set loader and verifier that use those constructs.
+   * That is, while this test uses the int vector, this test is not
+   * focused on that vector.
    *
+   * @throws VectorOverflowException should never occur
    */
+
   @Test
   public void testScalarStructure() throws VectorOverflowException {
     TupleMetadata schema = new SchemaBuilder()
@@ -77,11 +93,16 @@ public class RowSetTest extends SubOperatorTest {
     RowSetWriter writer = rowSet.writer();
 
     // Required Int
+    // Verify the invariants of the "full" and "simple" access paths
 
     assertEquals(ObjectType.SCALAR, writer.column("a").type());
-    assertEquals(ObjectType.SCALAR, writer.column(0).type());
     assertSame(writer.column("a"), writer.column(0));
-    assertSame(writer.column("a").scalar(), writer.scalar(0));
+    assertSame(writer.scalar("a"), writer.scalar(0));
+    assertSame(writer.column("a").scalar(), writer.scalar("a"));
+    assertSame(writer.column(0).scalar(), writer.scalar(0));
+    assertEquals(ValueType.INTEGER, writer.scalar(0).valueType());
+
+    // Test the various ways to get at the scalar writer.
 
     writer.column("a").scalar().setInt(10);
     writer.save();
@@ -107,18 +128,34 @@ public class RowSetTest extends SubOperatorTest {
       // Expected
     }
 
-    SingleRowSet actual = writer.done();
+    // Finish the row set and get a reader.
 
+    SingleRowSet actual = writer.done();
     RowSetReader reader = actual.reader();
+
+    // Verify invariants
+
+    assertEquals(ObjectType.SCALAR, reader.column(0).type());
+    assertSame(reader.column("a"), reader.column(0));
+    assertSame(reader.scalar("a"), reader.scalar(0));
+    assertSame(reader.column("a").scalar(), reader.scalar("a"));
+    assertSame(reader.column(0).scalar(), reader.scalar(0));
+    assertEquals(ValueType.INTEGER, reader.scalar(0).valueType());
+
+    // Test various accessors: full and simple
+
     assertTrue(reader.next());
-    assertEquals(10, reader.scalar(0).getInt());
+    assertEquals(10, reader.column("a").scalar().getInt());
     assertTrue(reader.next());
-    assertEquals(20, reader.scalar(0).getInt());
+    assertEquals(20, reader.scalar("a").getInt());
     assertTrue(reader.next());
-    assertEquals(30, reader.scalar(0).getInt());
+    assertEquals(30, reader.column(0).scalar().getInt());
     assertTrue(reader.next());
     assertEquals(40, reader.scalar(0).getInt());
     assertFalse(reader.next());
+
+    // Test the above again via the writer and reader
+    // utility classes.
 
     SingleRowSet expected = fixture.rowSetBuilder(schema)
         .add(10)
@@ -126,9 +163,15 @@ public class RowSetTest extends SubOperatorTest {
         .add(30)
         .add(40)
         .build();
-    new RowSetComparison(expected)
-      .verifyAndClearAll(actual);
+    new RowSetComparison(expected).verifyAndClearAll(actual);
   }
+
+  /**
+   * Test a record with a top level array. The focus here is on the
+   * scalar array structure.
+   *
+   * @throws VectorOverflowException should never occur
+   */
 
   @Test
   public void testScalarArrayStructure() throws VectorOverflowException {
@@ -139,14 +182,23 @@ public class RowSetTest extends SubOperatorTest {
     RowSetWriter writer = rowSet.writer();
 
     // Repeated Int
+    // Verify the invariants of the "full" and "simple" access paths
 
     assertEquals(ObjectType.ARRAY, writer.column("a").type());
-    assertEquals(ObjectType.ARRAY, writer.column(0).type());
+
+    assertSame(writer.column("a"), writer.column(0));
+    assertSame(writer.array("a"), writer.array(0));
+    assertSame(writer.column("a").array(), writer.array("a"));
+    assertSame(writer.column(0).array(), writer.array(0));
+
     assertEquals(ObjectType.SCALAR, writer.column("a").array().entry().type());
     assertEquals(ObjectType.SCALAR, writer.column("a").array().entryType());
-    ScalarWriter intWriter = writer.column("a").array().entry().scalar();
-    assertSame(writer.column("a").array(), writer.array(0));
-    assertSame(intWriter, writer.array(0).scalar());
+    assertSame(writer.array(0).entry().scalar(), writer.array(0).scalar());
+    assertEquals(ValueType.INTEGER, writer.array(0).scalar().valueType());
+
+    // Write some data
+
+    ScalarWriter intWriter = writer.array("a").scalar();
     intWriter.setInt(10);
     intWriter.setInt(11);
     writer.save();
@@ -175,10 +227,26 @@ public class RowSetTest extends SubOperatorTest {
       // Expected
     }
 
-    SingleRowSet actual = writer.done();
+    // Finish the row set and get a reader.
 
+    SingleRowSet actual = writer.done();
     RowSetReader reader = actual.reader();
-    ScalarElementReader intReader = reader.column(0).array().elements();
+
+    // Verify the invariants of the "full" and "simple" access paths
+
+    assertEquals(ObjectType.ARRAY, writer.column("a").type());
+
+    assertSame(reader.column("a"), reader.column(0));
+    assertSame(reader.array("a"), reader.array(0));
+    assertSame(reader.column("a").array(), reader.array("a"));
+    assertSame(reader.column(0).array(), reader.array(0));
+
+    assertEquals(ObjectType.SCALAR, reader.column("a").array().entryType());
+    assertEquals(ValueType.INTEGER, reader.array(0).elements().valueType());
+
+    // Read and verify the rows
+
+    ScalarElementReader intReader = reader.array(0).elements();
     assertTrue(reader.next());
     assertEquals(2, intReader.size());
     assertEquals(10, intReader.getInt(0));
@@ -197,6 +265,9 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(41, intReader.getInt(1));
     assertFalse(reader.next());
 
+    // Test the above again via the writer and reader
+    // utility classes.
+
     SingleRowSet expected = fixture.rowSetBuilder(schema)
         .addSingleCol(new int[] {10, 11})
         .addSingleCol(new int[] {20, 21, 22})
@@ -206,6 +277,12 @@ public class RowSetTest extends SubOperatorTest {
     new RowSetComparison(expected)
       .verifyAndClearAll(actual);
   }
+
+  /**
+   * Test a simple map structure at the top level of a row.
+   *
+   * @throws VectorOverflowException should never occur
+   */
 
   @Test
   public void testMapStructure() throws VectorOverflowException {
@@ -219,11 +296,14 @@ public class RowSetTest extends SubOperatorTest {
     RowSetWriter writer = rowSet.writer();
 
     // Map and Int
+    // Test Invariants
 
     assertEquals(ObjectType.SCALAR, writer.column("a").type());
     assertEquals(ObjectType.SCALAR, writer.column(0).type());
     assertEquals(ObjectType.TUPLE, writer.column("m").type());
     assertEquals(ObjectType.TUPLE, writer.column(1).type());
+    assertSame(writer.column(1).tuple(), writer.tuple(1));
+
     TupleWriter mapWriter = writer.column(1).tuple();
     assertEquals(ObjectType.SCALAR, mapWriter.column("b").array().entry().type());
     assertEquals(ObjectType.SCALAR, mapWriter.column("b").array().entryType());
@@ -231,6 +311,10 @@ public class RowSetTest extends SubOperatorTest {
     ScalarWriter aWriter = writer.column("a").scalar();
     ScalarWriter bWriter = writer.column("m").tuple().column("b").array().entry().scalar();
     assertSame(bWriter, writer.tuple(1).array(0).scalar());
+    assertEquals(ValueType.INTEGER, bWriter.valueType());
+
+    // Write data
+
     aWriter.setInt(10);
     bWriter.setInt(11);
     bWriter.setInt(12);
@@ -259,12 +343,22 @@ public class RowSetTest extends SubOperatorTest {
       // Expected
     }
 
-    SingleRowSet actual = writer.done();
+    // Finish the row set and get a reader.
 
+    SingleRowSet actual = writer.done();
     RowSetReader reader = actual.reader();
+
+    assertEquals(ObjectType.SCALAR, reader.column("a").type());
+    assertEquals(ObjectType.SCALAR, reader.column(0).type());
+    assertEquals(ObjectType.TUPLE, reader.column("m").type());
+    assertEquals(ObjectType.TUPLE, reader.column(1).type());
+    assertSame(reader.column(1).tuple(), reader.tuple(1));
+
     ScalarReader aReader = reader.column(0).scalar();
     TupleReader mReader = reader.column(1).tuple();
+    assertEquals(ObjectType.SCALAR, mReader.column("b").array().entryType());
     ScalarElementReader bReader = mReader.column(0).elements();
+    assertEquals(ValueType.INTEGER, bReader.valueType());
 
     assertTrue(reader.next());
     assertEquals(10, aReader.getInt());
@@ -624,7 +718,6 @@ public class RowSetTest extends SubOperatorTest {
    */
 
   @Test
-  // TODO: Retrofit to use exceptions
   public void testRowBounds() {
     BatchSchema batchSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
@@ -633,17 +726,17 @@ public class RowSetTest extends SubOperatorTest {
     ExtendableRowSet rs = fixture.rowSet(batchSchema);
     RowSetWriter writer = rs.writer();
     int count = 0;
-    for (;;) {
-      if (! writer.valid()) {
-        break;
-      }
+    boolean lastSave = true;
+    while (! writer.isFull()) {
+      assertTrue(lastSave);
       try {
-        writer.column(0).setInt(count++);
+        writer.scalar(0).setInt(count++);
       } catch (VectorOverflowException e) {
         fail("Int vector should not overflow");
       }
-      writer.save();
+      lastSave = writer.save();
     }
+    assertFalse(lastSave);
     writer.done();
 
     assertEquals(ValueVector.MAX_ROW_COUNT, count);
@@ -666,7 +759,6 @@ public class RowSetTest extends SubOperatorTest {
    */
 
   @Test
-  // TODO: Retrofit to use exceptions
   public void testbufferBounds() {
     BatchSchema batchSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
@@ -685,19 +777,18 @@ public class RowSetTest extends SubOperatorTest {
     ExtendableRowSet rs = fixture.rowSet(batchSchema);
     RowSetWriter writer = rs.writer();
     int count = 0;
-    for (;; count++) {
-      assertTrue(writer.valid());
+    for (;;) {
       try {
-        writer.column(0).setInt(count);
+        writer.scalar(0).setInt(count++);
       } catch (VectorOverflowException e) {
         fail("Int vector should not overflow");
       }
       try {
-        writer.column(1).setString(varCharValue);
+        writer.scalar(1).setString(varCharValue);
       } catch (VectorOverflowException e) {
         break;
       }
-      writer.save();
+      assertTrue(writer.save());
     }
     writer.done();
 
@@ -706,5 +797,4 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(count, rs.rowCount());
     rs.clear();
   }
-
 }

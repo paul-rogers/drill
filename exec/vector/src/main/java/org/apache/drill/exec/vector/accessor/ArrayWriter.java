@@ -20,23 +20,57 @@ package org.apache.drill.exec.vector.accessor;
 import org.apache.drill.exec.vector.VectorOverflowException;
 
 /**
- * Writer for values into an array. Array writes are write-once,
- * sequential: each call to a <tt>setFoo()</tt> method writes a
- * value and advances the array index.
+ * Writer for values into an array. Array writes are write-once, sequential:
+ * each call to a <tt>setFoo()</tt> method writes a value and advances the array
+ * index.
  * <p>
  * {@see ArrayReader}
  */
 
 public interface ArrayWriter {
+
+  /**
+   * Number of elements written thus far to the array.
+   * @return the number of elements
+   */
+
   int size();
 
+  /**
+   * The object type of the list entry. All entries have the same
+   * type.
+   * @return the object type of each entry
+   */
+
   ObjectWriter entry();
+
+  /**
+   * Return a generic object writer for the array entry.
+   *
+   * @return generic object reader
+   */
+
   ObjectType entryType();
   ScalarWriter scalar();
   TupleWriter tuple();
   ArrayWriter array();
 
+  /**
+   * Write the values of an array from a list of arguments.
+   * @param values values for each array element
+   * @throws VectorOverflowException
+   */
   void set(Object ...values) throws VectorOverflowException;
+
+  /**
+   * Write the array given an array of values. The type of array must match
+   * the type of element in the array. That is, if the value is an <tt>int</tt>,
+   * provide an <tt>int[]</tt> array.
+   *
+   * @param array array of values to write
+   * @throws VectorOverflowException
+   */
+
   void setArray(Object array) throws VectorOverflowException;
 //  void setList(List<? extends Object> list);
 }

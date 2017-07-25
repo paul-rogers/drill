@@ -336,7 +336,7 @@ public class QueryBuilder {
     }
     RowSetReader reader = rowSet.reader();
     reader.next();
-    long value = reader.column(0).getLong();
+    long value = reader.scalar(0).getLong();
     rowSet.clear();
     return value;
   }
@@ -357,7 +357,7 @@ public class QueryBuilder {
     }
     RowSetReader reader = rowSet.reader();
     reader.next();
-    int value = reader.column(0).getInt();
+    int value = reader.scalar(0).getInt();
     rowSet.clear();
     return value;
   }
@@ -379,10 +379,10 @@ public class QueryBuilder {
     RowSetReader reader = rowSet.reader();
     reader.next();
     String value;
-    if (reader.column(0).isNull()) {
+    if (reader.scalar(0).isNull()) {
       value = null;
     } else {
-      value = reader.column(0).getString();
+      value = reader.scalar(0).getString();
     }
     rowSet.clear();
     return value;
