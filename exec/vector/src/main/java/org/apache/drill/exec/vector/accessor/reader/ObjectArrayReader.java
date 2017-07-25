@@ -107,10 +107,20 @@ public class ObjectArrayReader extends AbstractArrayReader {
   }
 
   @Override
-  public ObjectReader entry(int index) {
+  public void setPosn(int index) {
     objElementIndex.set(index);
     elementReader.reposition();
+  }
+
+  @Override
+  public ObjectReader entry() {
     return elementReader;
+  }
+
+  @Override
+  public ObjectReader entry(int index) {
+    setPosn(index);
+    return entry();
   }
 
   @Override

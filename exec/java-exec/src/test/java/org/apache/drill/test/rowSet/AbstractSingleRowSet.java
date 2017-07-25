@@ -17,6 +17,7 @@
  */
 package org.apache.drill.test.rowSet;
 
+import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
 import org.apache.drill.exec.record.TupleMetadata;
@@ -30,9 +31,12 @@ import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
 import org.apache.drill.exec.vector.accessor.reader.MapReader;
+import org.apache.drill.exec.vector.accessor.reader.ObjectArrayReader;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.MapWriter;
+import org.apache.drill.exec.vector.accessor.writer.ObjectArrayWriter;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
+import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 
 /**
@@ -111,7 +115,7 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
 
   /**
    * Wrapper around a map vector to provide both a column and tuple view of
-   * the map.
+   * a single or repeated map.
    */
 
   public static class MapColumnStorage extends ColumnStorage implements TupleStorage {
@@ -179,12 +183,20 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
 
     @Override
     public AbstractObjectWriter writer() {
-      return MapWriter.build(tupleSchema(), writers());
+      AbstractObjectWriter mapWriter = MapWriter.build(tupleSchema(), writers());
+      if (schema.mode() != DataMode.REPEATED) {
+        return mapWriter;
+      }
+      return ObjectArrayWriter.build((RepeatedMapVector) vector, mapWriter);
     }
 
     @Override
     public AbstractObjectReader reader() {
-      return MapReader.build(tupleSchema(), readers());
+      AbstractObjectReader mapReader = MapReader.build(tupleSchema(), readers());
+      if (schema.mode() != DataMode.REPEATED) {
+        return mapReader;
+      }
+      return ObjectArrayReader.build((RepeatedMapVector) vector, mapReader);
     }
   }
 

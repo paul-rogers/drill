@@ -60,6 +60,11 @@ public class ScalarArrayReader extends AbstractArrayReader {
   }
 
   @Override
+  public void setPosn(int index) {
+    throw new IllegalStateException("setPosn() not supported for scalar arrays");
+  }
+
+  @Override
   public Object getObject() {
     List<Object> elements = new ArrayList<>();
     for (int i = 0; i < size(); i++) {

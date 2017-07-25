@@ -57,7 +57,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
     @Override
     public void set(Object value) throws VectorOverflowException {
-      tupleWriter.setTuple(value);
+      tupleWriter.setObject(value);
     }
 
     @Override
@@ -169,6 +169,12 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
   @Override
   public void setTuple(Object ...values) throws VectorOverflowException {
+    setObject(values);
+  }
+
+  @Override
+  public void setObject(Object value) throws VectorOverflowException {
+    Object values[] = (Object[]) value;
     int count = Math.min(values.length, schema().size());
     for (int i = 0; i < count; i++) {
       set(i, values[i]);

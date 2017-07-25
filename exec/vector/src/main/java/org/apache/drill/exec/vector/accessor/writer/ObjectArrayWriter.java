@@ -38,8 +38,8 @@ public class ObjectArrayWriter extends AbstractArrayWriter {
 
   @Override
   public void save() {
-    endValue();
     elementIndex.next();
+    endValue();
   }
 
   @Override

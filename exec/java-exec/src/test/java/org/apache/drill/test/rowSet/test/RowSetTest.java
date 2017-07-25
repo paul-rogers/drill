@@ -102,17 +102,6 @@ public class RowSetTest extends SubOperatorTest {
     assertSame(writer.column(0).scalar(), writer.scalar(0));
     assertEquals(ValueType.INTEGER, writer.scalar(0).valueType());
 
-    // Test the various ways to get at the scalar writer.
-
-    writer.column("a").scalar().setInt(10);
-    writer.save();
-    writer.scalar("a").setInt(20);
-    writer.save();
-    writer.column(0).scalar().setInt(30);
-    writer.save();
-    writer.scalar(0).setInt(40);
-    writer.save();
-
     // Sanity checks
 
     try {
@@ -127,6 +116,17 @@ public class RowSetTest extends SubOperatorTest {
     } catch (UnsupportedOperationException e) {
       // Expected
     }
+
+    // Test the various ways to get at the scalar writer.
+
+    writer.column("a").scalar().setInt(10);
+    writer.save();
+    writer.scalar("a").setInt(20);
+    writer.save();
+    writer.column(0).scalar().setInt(30);
+    writer.save();
+    writer.scalar(0).setInt(40);
+    writer.save();
 
     // Finish the row set and get a reader.
 
@@ -196,6 +196,21 @@ public class RowSetTest extends SubOperatorTest {
     assertSame(writer.array(0).entry().scalar(), writer.array(0).scalar());
     assertEquals(ValueType.INTEGER, writer.array(0).scalar().valueType());
 
+    // Sanity checks
+
+    try {
+      writer.column(0).scalar();
+      fail();
+    } catch (UnsupportedOperationException e) {
+      // Expected
+    }
+    try {
+      writer.column(0).tuple();
+      fail();
+    } catch (UnsupportedOperationException e) {
+      // Expected
+    }
+
     // Write some data
 
     ScalarWriter intWriter = writer.array("a").scalar();
@@ -211,21 +226,6 @@ public class RowSetTest extends SubOperatorTest {
     intWriter.setInt(40);
     intWriter.setInt(41);
     writer.save();
-
-    // Sanity checks
-
-    try {
-      writer.column(0).scalar();
-      fail();
-    } catch (UnsupportedOperationException e) {
-      // Expected
-    }
-    try {
-      writer.column(0).tuple();
-      fail();
-    } catch (UnsupportedOperationException e) {
-      // Expected
-    }
 
     // Finish the row set and get a reader.
 
@@ -313,21 +313,6 @@ public class RowSetTest extends SubOperatorTest {
     assertSame(bWriter, writer.tuple(1).array(0).scalar());
     assertEquals(ValueType.INTEGER, bWriter.valueType());
 
-    // Write data
-
-    aWriter.setInt(10);
-    bWriter.setInt(11);
-    bWriter.setInt(12);
-    writer.save();
-    aWriter.setInt(20);
-    bWriter.setInt(21);
-    bWriter.setInt(22);
-    writer.save();
-    aWriter.setInt(30);
-    bWriter.setInt(31);
-    bWriter.setInt(32);
-    writer.save();
-
     // Sanity checks
 
     try {
@@ -342,6 +327,21 @@ public class RowSetTest extends SubOperatorTest {
     } catch (UnsupportedOperationException e) {
       // Expected
     }
+
+    // Write data
+
+    aWriter.setInt(10);
+    bWriter.setInt(11);
+    bWriter.setInt(12);
+    writer.save();
+    aWriter.setInt(20);
+    bWriter.setInt(21);
+    bWriter.setInt(22);
+    writer.save();
+    aWriter.setInt(30);
+    bWriter.setInt(31);
+    bWriter.setInt(32);
+    writer.save();
 
     // Finish the row set and get a reader.
 
@@ -384,80 +384,137 @@ public class RowSetTest extends SubOperatorTest {
   }
 
   @Test
-  public void testStructure() {
-    BatchSchema schema = new SchemaBuilder()
-        .add("scalar", MinorType.INT)
-        .addArray("array", MinorType.INT)
-        .addMap("map")
-          .add("c1", MinorType.INT)
-          .addArray("c2", MinorType.INT)
+  public void testRepeatedMapStructure() throws VectorOverflowException {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addMapArray("m")
+          .add("b", MinorType.INT)
+          .add("c", MinorType.INT)
           .buildMap()
-        .addMapArray("mapList")
-          .add("d1", MinorType.INT)
-          .addArray("d2", MinorType.INT)
-          .buildMap()
-        .build();
-
+        .buildSchema();
     ExtendableRowSet rowSet = fixture.rowSet(schema);
-    RowSetWriter resultWriter = rowSet.writer();
+    RowSetWriter writer = rowSet.writer();
 
-    ArrayWriter batchWriter = resultWriter.rows();
-    batchWriter.next();
+    // Map and Int
+    // Pick out components and lightly test. (Assumes structure
+    // tested earlier is still valid, so no need to exhaustively
+    // test again.)
 
-    TupleWriter rowWriter = batchWriter.tuple();
+    assertEquals(ObjectType.SCALAR, writer.column("a").type());
+    assertEquals(ObjectType.ARRAY, writer.column("m").type());
 
-    // Required Int
+    ArrayWriter maWriter = writer.column(1).array();
+    assertEquals(ObjectType.TUPLE, maWriter.entryType());
 
-    rowWriter.scalar("scalar").setInt(10);
+    TupleWriter mapWriter = maWriter.tuple();
+    assertEquals(ObjectType.SCALAR, mapWriter.column("b").type());
+    assertEquals(ObjectType.SCALAR, mapWriter.column("c").type());
 
-    // Repeated Int
+    ScalarWriter aWriter = writer.column("a").scalar();
+    ScalarWriter bWriter = mapWriter.scalar("b");
+    ScalarWriter cWriter = mapWriter.scalar("c");
+    assertEquals(ValueType.INTEGER, aWriter.valueType());
+    assertEquals(ValueType.INTEGER, bWriter.valueType());
+    assertEquals(ValueType.INTEGER, cWriter.valueType());
 
-    ArrayWriter arrayWriter = rowWriter.column("array").array();
-    ScalarWriter bValue = arrayWriter.element().scalar();
-    bArray.next(); // Optional
-    bValue.setInt(10);
-    bArray.save(); // Optional
-    bArray.next(); // Optional
-    bValue.setInt(20);
-    bArray.save(); // Optional
+    // Write data
 
-    // Repeated int, abbreviated
+    aWriter.setInt(10);
+    bWriter.setInt(101);
+    cWriter.setInt(102);
+    maWriter.save(); // Advance to next array position
+    bWriter.setInt(111);
+    cWriter.setInt(112);
+    maWriter.save();
+    writer.save();
 
-    bValue = rowWriter.array("b").scalar();
-    bValue.setInt(30);
-    bValue.setInt(40);
+    aWriter.setInt(20);
+    bWriter.setInt(201);
+    cWriter.setInt(202);
+    maWriter.save(); // Advance to next array position
+    bWriter.setInt(211);
+    cWriter.setInt(212);
+    maWriter.save();
+    writer.save();
 
-    // Map
+    aWriter.setInt(30);
+    bWriter.setInt(301);
+    cWriter.setInt(302);
+    maWriter.save(); // Advance to next array position
+    bWriter.setInt(311);
+    cWriter.setInt(312);
+    maWriter.save();
+    writer.save();
 
-    TupleWriter mapWriter = rowWriter.column("map").map();
-    mapWriter.column("c1").scalar().setInt(100);
-    mapWriter.column("c2").array().setArray(new int[] {100, 200});
+    // Finish the row set and get a reader.
 
-    // Repeated map
+    SingleRowSet actual = writer.done();
+    RowSetReader reader = actual.reader();
 
-    ArrayWriter mapListWriter = rowWriter.column("d").array();
-    TupleWriter mapElementWriter = mapListWriter.element().tuple();
-    mapListWriter.next();
-    mapElementWriter.column("d1").scalar().setInt(300);
-    mapElementWriter.column("d1").array().setArray(new int[] {111, 211});
-    mapListWriter.next();
-    mapElementWriter.column("d1").scalar().setInt(400);
-    mapElementWriter.column("d1").array().setArray(new int[] {121, 221});
+    // Verify reader structure
 
-    // List of repeated map
+    assertEquals(ObjectType.SCALAR, reader.column("a").type());
+    assertEquals(ObjectType.ARRAY, reader.column("m").type());
 
-    ArrayWriter eOuter = rowWriter.array("e");
-    ArrayWriter eInner = eOuter.array();
-    TupleWriter eMap = eInner.tuple();
-    eOuter.next();
-    eInner.next();
-    eMap.scalar("e1").setInt(400);
+    ArrayReader maReader = reader.column(1).array();
+    assertEquals(ObjectType.TUPLE, maReader.entryType());
 
+    TupleReader mapReader = maReader.tuple();
+    assertEquals(ObjectType.SCALAR, mapReader.column("b").type());
+    assertEquals(ObjectType.SCALAR, mapReader.column("c").type());
 
-    batchWriter.save();
+    ScalarReader aReader = reader.column("a").scalar();
+    ScalarReader bReader = mapReader.scalar("b");
+    ScalarReader cReader = mapReader.scalar("c");
+    assertEquals(ValueType.INTEGER, aReader.valueType());
+    assertEquals(ValueType.INTEGER, bReader.valueType());
+    assertEquals(ValueType.INTEGER, cReader.valueType());
 
-    resultWriter.done();
-    // Get row set, or whatever
+    // Row 1: used index accessors
+
+    assertTrue(reader.next());
+    assertEquals(10, aReader.getInt());
+    TupleReader ixReader = maReader.tuple(0);
+    assertEquals(101, ixReader.scalar(0).getInt());
+    assertEquals(102, ixReader.scalar(1).getInt());
+    ixReader = maReader.tuple(1);
+    assertEquals(111, ixReader.scalar(0).getInt());
+    assertEquals(112, ixReader.scalar(1).getInt());
+
+    // Row 2: use common accessor with explicit positioning,
+    // but access scalars through the map reader.
+
+    assertTrue(reader.next());
+    assertEquals(20, aReader.getInt());
+    maReader.setPosn(0);
+    assertEquals(201, mapReader.scalar(0).getInt());
+    assertEquals(202, mapReader.scalar(1).getInt());
+    maReader.setPosn(1);
+    assertEquals(211, mapReader.scalar(0).getInt());
+    assertEquals(212, mapReader.scalar(1).getInt());
+
+    // Row 3: use common accessor for scalars
+
+    assertTrue(reader.next());
+    assertEquals(30, aReader.getInt());
+    maReader.setPosn(0);
+    assertEquals(301, bReader.getInt());
+    assertEquals(302, cReader.getInt());
+    maReader.setPosn(1);
+    assertEquals(311, bReader.getInt());
+    assertEquals(312, cReader.getInt());
+
+    assertFalse(reader.next());
+
+    // Verify the readers and writers again using the testing tools.
+
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
+        .add(10, new Object[] {new Object[] {101, 102}, new Object[] {111, 112}})
+        .add(20, new Object[] {new Object[] {201, 202}, new Object[] {211, 212}})
+        .add(30, new Object[] {new Object[] {301, 302}, new Object[] {311, 312}})
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(actual);
   }
 
   /**

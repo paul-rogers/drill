@@ -82,4 +82,14 @@ public interface TupleWriter {
    */
 
   void setTuple(Object ...values) throws VectorOverflowException;
+
+  /**
+   * Set the tuple from an array of objects. Primarily for use in
+   * test tools.
+   *
+   * @param value
+   * @throws VectorOverflowException
+   */
+
+  void setObject(Object value) throws VectorOverflowException;
 }

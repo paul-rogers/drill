@@ -150,4 +150,19 @@ public abstract class AbstractArrayReader implements ArrayReader {
   public ArrayReader array(int index) {
     return entry(index).array();
   }
+
+  @Override
+  public ObjectReader entry() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public TupleReader tuple() {
+    return entry().tuple();
+  }
+
+  @Override
+  public ArrayReader array() {
+    return entry().array();
+  }
 }

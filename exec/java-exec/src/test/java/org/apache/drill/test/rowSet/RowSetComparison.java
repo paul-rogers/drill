@@ -249,6 +249,7 @@ public class RowSetComparison {
   private void verifyArray(String label, ArrayReader ea,
       ArrayReader aa) {
     assertEquals(label, ea.entryType(), aa.entryType());
+    assertEquals(label, ea.size(), aa.size());
     switch (ea.entryType()) {
     case ARRAY:
       throw new UnsupportedOperationException();
@@ -256,9 +257,16 @@ public class RowSetComparison {
       verifyScalarArray(label, ea.elements(), aa.elements());
       break;
     case TUPLE:
-      throw new UnsupportedOperationException();
+      verifyTupleArray(label, ea, aa);
+      break;
     default:
       throw new IllegalStateException( "Unexpected type: " + ea.entryType());
+    }
+  }
+
+  private void verifyTupleArray(String label, ArrayReader ea, ArrayReader aa) {
+    for (int i = 0; i < ea.size(); i++) {
+      verifyTuple(label + "[" + i + "]", ea.tuple(i), aa.tuple(i));
     }
   }
 

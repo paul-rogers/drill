@@ -58,7 +58,8 @@ public interface ArrayReader {
 
   /**
    * Return a generic object reader for the array entry. Not available
-   * for scalar elements.
+   * for scalar elements. Positions the reader to read the selected
+   * element.
    *
    * @param index array index
    * @return generic object reader
@@ -67,6 +68,25 @@ public interface ArrayReader {
   ObjectReader entry(int index);
   TupleReader tuple(int index);
   ArrayReader array(int index);
+
+  /**
+   * Return the generic object reader for the array element. This
+   * version <i>does not</i> position the reader, the client must
+   * call {@link setPosn()} to set the position. This form allows
+   * up-front setup of the readers when convenient for the caller.
+   */
+
+  ObjectReader entry();
+  TupleReader tuple();
+  ArrayReader array();
+
+  /**
+   * Set the array reader to read a given array entry. Not used for
+   * scalars, only for maps and arrays when using the non-indexed
+   * methods {@link #entry()}, {@link #tuple()} and {@link #array()}.
+   */
+
+  void setPosn(int index);
 
   /**
    * Return the entire array as an <tt>List</tt> of objects.
