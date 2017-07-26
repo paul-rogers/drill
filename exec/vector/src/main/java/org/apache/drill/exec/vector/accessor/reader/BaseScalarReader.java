@@ -98,7 +98,7 @@ public abstract class BaseScalarReader implements ScalarReader {
   @Override
   public Object getObject() {
     if (isNull()) {
-      return "null";
+      return null;
     }
     switch (valueType()) {
     case BYTES:
@@ -122,6 +122,9 @@ public abstract class BaseScalarReader implements ScalarReader {
 
   @Override
   public String getAsString() {
+    if (isNull()) {
+      return "null";
+    }
     switch (valueType()) {
     case BYTES:
       return AccessorUtilities.bytesToString(getBytes());
@@ -135,6 +138,8 @@ public abstract class BaseScalarReader implements ScalarReader {
       return "\"" + getString() + "\"";
     case DECIMAL:
       return getDecimal().toPlainString();
+    case PERIOD:
+      return getPeriod().toString();
     default:
       throw new IllegalArgumentException("Unsupported type " + valueType());
     }

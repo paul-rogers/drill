@@ -125,7 +125,7 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
 
   @Override
   public void setNull() throws VectorOverflowException {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("Vector is not nullable");
   }
 
   @Override

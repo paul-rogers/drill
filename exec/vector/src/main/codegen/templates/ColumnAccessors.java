@@ -64,7 +64,7 @@
 <#macro get drillType accessorType label isArray>
     @Override
     public ${accessorType} get${label}(<#if isArray>int index</#if>) {
-    <#assign getObject =" getObject"/>
+    <#assign getObject ="getObject"/>
   <#if isArray>
     <#assign indexVar = "index"/>
   <#else>
