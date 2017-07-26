@@ -139,6 +139,8 @@ public abstract class BaseElementReader implements ScalarElementReader {
       return "\"" + getString(index) + "\"";
     case DECIMAL:
       return getDecimal(index).toPlainString();
+    case PERIOD:
+      return getPeriod(index).normalizedStandard().toString();
     default:
       throw new IllegalArgumentException("Unsupported type " + valueType());
     }

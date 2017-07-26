@@ -139,7 +139,7 @@ public abstract class BaseScalarReader implements ScalarReader {
     case DECIMAL:
       return getDecimal().toPlainString();
     case PERIOD:
-      return getPeriod().toString();
+      return getPeriod().normalizedStandard().toString();
     default:
       throw new IllegalArgumentException("Unsupported type " + valueType());
     }

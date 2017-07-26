@@ -156,14 +156,11 @@
   <#elseif drillType == "IntervalDay">
         mutator.${setFn}(writeIndex,<#if mode == "Nullable"> 1,</#if>
                       value.getDays(),
-                      ((value.getHours() * 60 + value.getMinutes()) * 60 +
-                       value.getSeconds()) * 1000 + value.getMillis());
+                      periodToMillis(value));
   <#elseif drillType == "Interval">
         mutator.${setFn}(writeIndex,<#if mode == "Nullable"> 1,</#if>
                       value.getYears() * 12 + value.getMonths(),
-                      value.getDays(),
-                      ((value.getHours() * 60 + value.getMinutes()) * 60 +
-                       value.getSeconds()) * 1000 + value.getMillis());
+                      value.getDays(), periodToMillis(value));
   <#else>
         mutator.${setFn}(writeIndex, <#if cast=="set">(${javaType}) </#if>value);
   </#if>
@@ -377,6 +374,12 @@ public class ColumnAccessors {
     </#if>
   </#list>
 </#list>
+  public static int periodToMillis(Period value) {
+    return ((value.getHours() * 60 +
+             value.getMinutes()) * 60 +
+             value.getSeconds()) * 1000 +
+           value.getMillis();
+  }
 <@build vv.types "Required" "Reader" />
 
 <@build vv.types "Nullable" "Reader" />

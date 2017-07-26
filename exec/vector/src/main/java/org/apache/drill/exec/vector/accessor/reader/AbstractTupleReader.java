@@ -25,6 +25,7 @@ import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
 import org.apache.drill.exec.vector.accessor.ObjectType;
+import org.apache.drill.exec.vector.accessor.ScalarElementReader;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 
@@ -33,7 +34,7 @@ import org.apache.drill.exec.vector.accessor.TupleReader;
  * column using either a name or a numeric index.
  */
 
-public class AbstractTupleReader implements TupleReader {
+public abstract class AbstractTupleReader implements TupleReader {
 
   public static class TupleObjectReader extends AbstractObjectReader {
 
@@ -145,6 +146,16 @@ public class AbstractTupleReader implements TupleReader {
   @Override
   public ObjectType type(String colName) {
     return column(colName).type();
+  }
+
+  @Override
+  public ScalarElementReader elements(int colIndex) {
+    return column(colIndex).elements();
+  }
+
+  @Override
+  public ScalarElementReader elements(String colName) {
+    return column(colName).elements();
   }
 
   public void reposition() {

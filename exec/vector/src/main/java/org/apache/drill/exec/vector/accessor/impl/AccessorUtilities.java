@@ -72,7 +72,11 @@ public class AccessorUtilities {
       if (i > 0) {
         buf.append(", ");
       }
-      buf.append((int) value[i]);
+      String str = Integer.toHexString(value[i] & 0xFF);
+      if (str.length() < 2) {
+        buf.append("0");
+      }
+      buf.append(str);
     }
     if (value.length > len) {
       buf.append("...");
