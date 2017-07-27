@@ -179,7 +179,6 @@
     public void setString(String value) throws VectorOverflowException {
       final byte bytes[] = value.getBytes(Charsets.UTF_8);
       setBytes(bytes, bytes.length);
-      <@advance mode />
     }
   <#elseif drillType == "Var16Char">
 
@@ -187,7 +186,6 @@
     public void setString(String value) throws VectorOverflowException {
       final byte bytes[] = value.getBytes(Charsets.UTF_8);
       setBytes(bytes, bytes.length);
-      <@advance mode />
     }
   </#if>
 </#macro>

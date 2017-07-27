@@ -76,26 +76,32 @@ public class ScalarArrayWriter extends AbstractArrayWriter {
 
   @Override
   public void setArray(Object array) throws VectorOverflowException {
-  if (array == null) {
+    if (array == null) {
       // Assume null means a 0-element array since Drill does
       // not support null for the whole array.
 
       return;
     }
-    if (! array.getClass().getName().startsWith("[")) {
-      throw new IllegalArgumentException("Argument must be an array");
-    }
     String objClass = array.getClass().getName();
-    if (!objClass.startsWith("[")) {
-      throw new IllegalArgumentException("Argument is not an array");
+    if (! objClass.startsWith("[")) {
+      throw new IllegalArgumentException("Argument must be an array");
     }
 
     // Figure out type
 
-    char second = objClass.charAt( 1 );
+    char second = objClass.charAt(1);
     switch ( second ) {
-    case  'B':
-      setByteArray((byte[]) array );
+    case  '[':
+      // bytes is represented as an array of byte arrays.
+
+      char third = objClass.charAt(2);
+      switch (third) {
+      case 'B':
+        setBytesArray((byte[][]) array);
+        break;
+      default:
+        throw new IllegalArgumentException( "Unknown Java array type: " + objClass );
+      }
       break;
     case  'S':
       setShortArray((short[]) array );
@@ -132,7 +138,7 @@ public class ScalarArrayWriter extends AbstractArrayWriter {
       }
       break;
     default:
-      throw new IllegalArgumentException( "Unknown Java array type: " + second );
+      throw new IllegalArgumentException( "Unknown Java array type: " + objClass );
     }
   }
 
@@ -142,9 +148,9 @@ public class ScalarArrayWriter extends AbstractArrayWriter {
     }
   }
 
-  public void setByteArray(byte[] value) throws VectorOverflowException {
+  public void setBytesArray(byte[][] value) throws VectorOverflowException {
     for (int i = 0; i < value.length; i++) {
-      elementWriter.setInt(value[i]);
+      elementWriter.setBytes(value[i], value[i].length);
     }
   }
 

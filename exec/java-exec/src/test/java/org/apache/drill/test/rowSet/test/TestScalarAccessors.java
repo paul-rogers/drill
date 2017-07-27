@@ -42,6 +42,12 @@ import org.junit.Test;
  * and type-specific functions for each type.
  */
 
+// The following types are not fully supported in Drill
+// TODO: Var16Char
+// TODO: Bit
+// TODO: Decimal28Sparse
+// TODO: Decimal38Sparse
+
 public class TestScalarAccessors extends SubOperatorTest {
 
   @Test
@@ -311,8 +317,8 @@ public class TestScalarAccessors extends SubOperatorTest {
         .addArray("col", type)
         .build();
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .addSingleCol(new int[] {})
-        .addSingleCol(new int[] {0, 20, 30})
+        .addSingleCol(new long[] {})
+        .addSingleCol(new long[] {0, 20, 30})
         .build();
     assertEquals(2, rs.rowCount());
 
@@ -328,9 +334,9 @@ public class TestScalarAccessors extends SubOperatorTest {
     assertEquals(0, colReader.getLong(0));
     assertEquals(20, colReader.getLong(1));
     assertEquals(30, colReader.getLong(2));
-    assertEquals(0, colReader.getObject(0));
-    assertEquals(20, colReader.getObject(1));
-    assertEquals(30, colReader.getObject(2));
+    assertEquals(0L, colReader.getObject(0));
+    assertEquals(20L, colReader.getObject(1));
+    assertEquals(30L, colReader.getObject(2));
     assertEquals("0", colReader.getAsString(0));
     assertEquals("20", colReader.getAsString(1));
     assertEquals("30", colReader.getAsString(2));
@@ -441,7 +447,7 @@ public class TestScalarAccessors extends SubOperatorTest {
     assertEquals(0, (double) colReader.getObject(0), 0.00001);
     assertEquals(20.5, (double) colReader.getObject(1), 0.00001);
     assertEquals(30.0, (double) colReader.getObject(2), 0.00001);
-    assertEquals("0", colReader.getAsString(0));
+    assertEquals("0.0", colReader.getAsString(0));
     assertEquals("20.5", colReader.getAsString(1));
     assertEquals("30.0", colReader.getAsString(2));
 
@@ -669,7 +675,40 @@ public class TestScalarAccessors extends SubOperatorTest {
     rs.clear();
   }
 
-  // TODO: Resume here
+  @Test
+  public void testIntervalYearArray() {
+    BatchSchema batchSchema = new SchemaBuilder()
+        .addArray("col", MinorType.INTERVALYEAR)
+        .build();
+
+    Period p1 = Period.years(0);
+    Period p2 = Period.years(2).plusMonths(3);
+    Period p3 = Period.years(1234).plusMonths(11);
+
+    SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
+        .addSingleCol(new Period[] {})
+        .addSingleCol(new Period[] {p1, p2, p3})
+        .build();
+    assertEquals(2, rs.rowCount());
+
+    RowSetReader reader = rs.reader();
+    ScalarElementReader colReader = reader.elements(0);
+    assertEquals(ValueType.PERIOD, colReader.valueType());
+
+    assertTrue(reader.next());
+    assertEquals(0, colReader.size());
+
+    assertTrue(reader.next());
+    assertEquals(3, colReader.size());
+    assertEquals(p1, colReader.getPeriod(0));
+    assertEquals(p2, colReader.getPeriod(1));
+    assertEquals(p3, colReader.getPeriod(2));
+    assertEquals(p2, colReader.getObject(1));
+    assertEquals(p2.toString(), colReader.getAsString(1));
+
+    assertFalse(reader.next());
+    rs.clear();
+  }
 
   @Test
   public void testIntervalDayRW() {
@@ -703,7 +742,7 @@ public class TestScalarAccessors extends SubOperatorTest {
     assertEquals(p2.toString(), colReader.getAsString());
 
     assertTrue(reader.next());
-    assertEquals(p3, colReader.getPeriod().normalizedStandard());
+    assertEquals(p3.normalizedStandard(), colReader.getPeriod().normalizedStandard());
 
     assertFalse(reader.next());
     rs.clear();
@@ -741,6 +780,41 @@ public class TestScalarAccessors extends SubOperatorTest {
 
     assertTrue(reader.next());
     assertEquals(p2, colReader.getPeriod().normalizedStandard());
+
+    assertFalse(reader.next());
+    rs.clear();
+  }
+
+  @Test
+  public void testIntervalDayArray() {
+    BatchSchema batchSchema = new SchemaBuilder()
+        .addArray("col", MinorType.INTERVALDAY)
+        .build();
+
+    Period p1 = Period.days(0);
+    Period p2 = Period.days(3).plusHours(4).plusMinutes(5).plusSeconds(23);
+    Period p3 = Period.days(999).plusHours(23).plusMinutes(59).plusSeconds(59);
+
+    SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
+        .addSingleCol(new Period[] {})
+        .addSingleCol(new Period[] {p1, p2, p3})
+        .build();
+    assertEquals(2, rs.rowCount());
+
+    RowSetReader reader = rs.reader();
+    ScalarElementReader colReader = reader.elements(0);
+    assertEquals(ValueType.PERIOD, colReader.valueType());
+
+    assertTrue(reader.next());
+    assertEquals(0, colReader.size());
+
+    assertTrue(reader.next());
+    assertEquals(3, colReader.size());
+    assertEquals(p1, colReader.getPeriod(0).normalizedStandard());
+    assertEquals(p2, colReader.getPeriod(1).normalizedStandard());
+    assertEquals(p3.normalizedStandard(), colReader.getPeriod(2).normalizedStandard());
+    assertEquals(p2, ((Period) colReader.getObject(1)).normalizedStandard());
+    assertEquals(p2.toString(), colReader.getAsString(1));
 
     assertFalse(reader.next());
     rs.clear();
@@ -828,6 +902,45 @@ public class TestScalarAccessors extends SubOperatorTest {
   }
 
   @Test
+  public void testIntervalArray() {
+    BatchSchema batchSchema = new SchemaBuilder()
+        .addArray("col", MinorType.INTERVAL)
+        .build();
+
+    Period p1 = Period.days(0);
+    Period p2 = Period.years(7).plusMonths(8)
+                      .plusDays(3).plusHours(4)
+                      .plusMinutes(5).plusSeconds(23);
+    Period p3 = Period.years(9999).plusMonths(11)
+                      .plusDays(365).plusHours(23)
+                      .plusMinutes(59).plusSeconds(59);
+
+    SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
+        .addSingleCol(new Period[] {})
+        .addSingleCol(new Period[] {p1, p2, p3})
+        .build();
+    assertEquals(2, rs.rowCount());
+
+    RowSetReader reader = rs.reader();
+    ScalarElementReader colReader = reader.elements(0);
+    assertEquals(ValueType.PERIOD, colReader.valueType());
+
+    assertTrue(reader.next());
+    assertEquals(0, colReader.size());
+
+    assertTrue(reader.next());
+    assertEquals(3, colReader.size());
+    assertEquals(p1, colReader.getPeriod(0).normalizedStandard());
+    assertEquals(p2, colReader.getPeriod(1).normalizedStandard());
+    assertEquals(p3.normalizedStandard(), colReader.getPeriod(2).normalizedStandard());
+    assertEquals(p2, ((Period) colReader.getObject(1)).normalizedStandard());
+    assertEquals(p2.toString(), colReader.getAsString(1));
+
+    assertFalse(reader.next());
+    rs.clear();
+  }
+
+  @Test
   public void testDecimal9RW() {
     MajorType type = MajorType.newBuilder()
         .setMinorType(MinorType.DECIMAL9)
@@ -870,16 +983,15 @@ public class TestScalarAccessors extends SubOperatorTest {
     rs.clear();
   }
 
-  @Test
-  public void testNullableDecimal9() {
-    MajorType type = MajorType.newBuilder()
-        .setMinorType(MinorType.DECIMAL9)
+  private void nullableDecimalTester(MinorType type, int precision) {
+    MajorType majorType = MajorType.newBuilder()
+        .setMinorType(type)
         .setScale(3)
-        .setPrecision(9)
+        .setPrecision(precision)
         .setMode(DataMode.OPTIONAL)
         .build();
     BatchSchema batchSchema = new SchemaBuilder()
-        .add("col", type)
+        .add("col", majorType)
         .build();
 
     BigDecimal v1 = BigDecimal.ZERO;
@@ -910,6 +1022,56 @@ public class TestScalarAccessors extends SubOperatorTest {
 
     assertFalse(reader.next());
     rs.clear();
+  }
+
+  @Test
+  public void testNullableDecimal9() {
+    nullableDecimalTester(MinorType.DECIMAL9, 9);
+  }
+
+  private void decimalArrayTester(MinorType type, int precision) {
+    MajorType majorType = MajorType.newBuilder()
+        .setMinorType(type)
+        .setScale(3)
+        .setPrecision(precision)
+        .setMode(DataMode.REPEATED)
+        .build();
+    BatchSchema batchSchema = new SchemaBuilder()
+        .add("col", majorType)
+        .build();
+
+    BigDecimal v1 = BigDecimal.ZERO;
+    BigDecimal v2 = BigDecimal.valueOf(123_456_789, 3);
+    BigDecimal v3 = BigDecimal.TEN;
+
+    SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
+        .addSingleCol(new BigDecimal[] {})
+        .addSingleCol(new BigDecimal[] {v1, v2, v3})
+        .build();
+    assertEquals(2, rs.rowCount());
+
+    RowSetReader reader = rs.reader();
+    ScalarElementReader colReader = reader.elements(0);
+    assertEquals(ValueType.DECIMAL, colReader.valueType());
+
+    assertTrue(reader.next());
+    assertEquals(0, colReader.size());
+
+    assertTrue(reader.next());
+    assertEquals(3, colReader.size());
+    assertEquals(0, v1.compareTo(colReader.getDecimal(0)));
+    assertEquals(0, v2.compareTo(colReader.getDecimal(1)));
+    assertEquals(0, v3.compareTo(colReader.getDecimal(2)));
+    assertEquals(0, v2.compareTo((BigDecimal) colReader.getObject(1)));
+    assertEquals(v2.toString(), colReader.getAsString(1));
+
+    assertFalse(reader.next());
+    rs.clear();
+  }
+
+  @Test
+  public void testDecimal9Array() {
+    decimalArrayTester(MinorType.DECIMAL9, 9);
   }
 
   @Test
@@ -953,6 +1115,16 @@ public class TestScalarAccessors extends SubOperatorTest {
 
     assertFalse(reader.next());
     rs.clear();
+  }
+
+  @Test
+  public void testNullableDecimal18() {
+    nullableDecimalTester(MinorType.DECIMAL18, 9);
+  }
+
+  @Test
+  public void testDecimal18Array() {
+    decimalArrayTester(MinorType.DECIMAL18, 9);
   }
 
   // From the perspective of the vector, a date vector is just a long.
@@ -1057,9 +1229,38 @@ public class TestScalarAccessors extends SubOperatorTest {
     rs.clear();
   }
 
-  // The following types are not fully supported in Drill
-  // TODO: Var16Char
-  // TODO: Bit
-  // TODO: Decimal28Sparse
-  // TODO: Decimal38Sparse
+  @Test
+  public void testVarBinaryArray() {
+    BatchSchema batchSchema = new SchemaBuilder()
+        .addArray("col", MinorType.VARBINARY)
+        .build();
+
+    byte v1[] = new byte[] {};
+    byte v2[] = new byte[] { (byte) 0x00, (byte) 0x7f, (byte) 0x80, (byte) 0xFF};
+    byte v3[] = new byte[] { (byte) 0xDE, (byte) 0xAD, (byte) 0xBE, (byte) 0xAF};
+
+    SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
+        .addSingleCol(new byte[][] {})
+        .addSingleCol(new byte[][] {v1, v2, v3})
+        .build();
+    assertEquals(2, rs.rowCount());
+
+    RowSetReader reader = rs.reader();
+    ScalarElementReader colReader = reader.elements(0);
+    assertEquals(ValueType.BYTES, colReader.valueType());
+
+    assertTrue(reader.next());
+    assertEquals(0, colReader.size());
+
+    assertTrue(reader.next());
+    assertEquals(3, colReader.size());
+    assertTrue(Arrays.equals(v1, colReader.getBytes(0)));
+    assertTrue(Arrays.equals(v2, colReader.getBytes(1)));
+    assertTrue(Arrays.equals(v3, colReader.getBytes(2)));
+    assertTrue(Arrays.equals(v2, (byte[]) colReader.getObject(1)));
+    assertEquals("[00, 7f, 80, ff]", colReader.getAsString(1));
+
+    assertFalse(reader.next());
+    rs.clear();
+  }
 }

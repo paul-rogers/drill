@@ -61,5 +61,6 @@ public interface ScalarWriter {
   void setBytes(byte[] value, int len) throws VectorOverflowException;
   void setDecimal(BigDecimal value) throws VectorOverflowException;
   void setPeriod(Period value) throws VectorOverflowException;
+
   void setObject(Object value) throws VectorOverflowException;
 }
