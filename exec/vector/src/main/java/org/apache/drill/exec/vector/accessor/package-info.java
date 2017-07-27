@@ -25,6 +25,23 @@
  * unit tests, but the accessor framework could easily be used for other
  * purposes as well.
  * <p>
+ * The object reader and writer provide a generic, JSON-like interface
+ * to allow any valid combination of readers or writers (generically
+ * accessors):<pre><code>
+ * row : tuple
+ * tuple : (name column) *
+ * column : scalar obj | array obj | tuple obj
+ * scalar obj : scalar accessor
+ * array obj : array accessor
+ * array accessor : element accessor
+ * tuple obj : tuple</code></pre>
+ * <p>
+ * As seen above, the accessor tree starts with a tuple (a row in the form of
+ * a class provided by the consumer.) Each column in the tuple is represented
+ * by an object accesor. That object accessor contains a scalar, tuple or array
+ * accessor. This models Drill's JSON structure: a row can have a list of lists
+ * of tuples that contains lists of ints, say.
+ * <p>
  * Drill provides a set of column readers and writers. Compared to those, this
  * set:
  * <ul>
@@ -56,16 +73,7 @@
  * <dt>ObjectWriter, ObjectReader</dt>
  * <dd>Drill follows a JSON data model. A row is a tuple (AKA structure). Each
  * column is a scalar, a map (AKA tuple, structure) or an array (AKA a repeated
- * value.) The object reader and writer provide a generic, JSON-like interface
- * to allow any valid combination of readers or writers:<pre><code>
- * row : tuple
- * tuple : column *
- * column : scalar obj | array obj | tuple obj
- * scalar obj : scalar
- * arary obj : array writer
- * array writer : element
- * element : column
- * tuple obj : tuple</code></pre></dd>
+ * value.)</dd>
  * <dt>TupleWriter, TupleReader</dt>
  * <dd>In relational terms, a tuple is an ordered collection of values, where
  * the meaning of the order is provided by a schema (usually a name/type pair.)
