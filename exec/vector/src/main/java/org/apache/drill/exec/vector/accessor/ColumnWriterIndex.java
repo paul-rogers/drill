@@ -20,4 +20,5 @@ package org.apache.drill.exec.vector.accessor;
 public interface ColumnWriterIndex {
   int vectorIndex();
   void overflowed();
+  boolean legal();
 }

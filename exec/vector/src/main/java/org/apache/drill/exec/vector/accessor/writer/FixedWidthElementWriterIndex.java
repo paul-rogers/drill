@@ -54,4 +54,9 @@ public class FixedWidthElementWriterIndex implements ElementWriterIndex {
 
   @Override
   public void next() { offset++; }
+
+  @Override
+  public boolean legal() {
+    return true;
+  }
 }

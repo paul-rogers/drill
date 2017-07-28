@@ -82,6 +82,7 @@ class WriterIndexImpl implements ColumnWriterIndex {
    * @return true if it is legal to write to a column, false otherwise
    */
 
+  @Override
   public boolean legal() {
     return valid()  &&  listener.writeable();
   }
@@ -93,6 +94,8 @@ class WriterIndexImpl implements ColumnWriterIndex {
     state = State.VECTOR_OVERFLOW;
     if (listener != null) {
       listener.overflowed();
+    } else {
+
     }
   }
 

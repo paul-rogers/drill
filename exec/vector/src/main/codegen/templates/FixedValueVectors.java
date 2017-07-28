@@ -188,22 +188,34 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
    * @throws org.apache.drill.exec.memory.OutOfMemoryException if it can't allocate the new buffer
    */
   public void reAlloc() {
-    final long newAllocationSize = allocationSizeInBytes * 2L;
+    final long newAllocationSize = allocationSizeInBytes << 2;
     // TODO: Replace this with MAX_BUFFER_SIZE once all
     // code is aware of the maximum vector size.
     if (newAllocationSize > MAX_ALLOCATION_SIZE)  {
       throw new OversizedAllocationException("Unable to expand the buffer. Max allowed buffer size is reached.");
     }
 
+    reallocRaw((int) newAllocationSize);
+    final int halfNewCapacity = data.capacity() / 2;
+    data.setZero(halfNewCapacity, halfNewCapacity);
+  }
+
+  /**
+   * Core of vector allocation. Given a new size (which must be a power of two), allocate
+   * the new buffer, copy the current values, and leave the unused parts garbage-filled.
+   *
+   * @param newAllocationSize new buffer size as a power of two
+   * @return the new buffer
+   */
+  public DrillBuf reallocRaw(int newAllocationSize) {
     logger.debug("Reallocating vector [{}]. # of bytes: [{}] -> [{}]", field, allocationSizeInBytes, newAllocationSize);
-    final DrillBuf newBuf = allocator.buffer((int)newAllocationSize);
+    final DrillBuf newBuf = allocator.buffer(newAllocationSize);
     newBuf.setBytes(0, data, 0, data.capacity());
-    final int halfNewCapacity = newBuf.capacity() / 2;
-    newBuf.setZero(halfNewCapacity, halfNewCapacity);
     newBuf.writerIndex(data.writerIndex());
     data.release(1);
     data = newBuf;
-    allocationSizeInBytes = (int)newAllocationSize;
+    allocationSizeInBytes = newAllocationSize;
+    return newBuf;
   }
 
   /**

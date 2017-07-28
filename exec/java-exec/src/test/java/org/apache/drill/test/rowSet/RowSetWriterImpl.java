@@ -80,6 +80,11 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
     public void overflowed() {
       state = State.VECTOR_OVERFLOW;
     }
+
+    @Override
+    public boolean legal() {
+      return true;
+    }
   }
 
   private final WriterIndexImpl writerIndex;
