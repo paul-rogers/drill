@@ -115,7 +115,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     elementObjWriter.bindIndex(elementIndex);
   }
 
-  protected ElementWriterIndex elementIndex() { return elementIndex; }
+  protected ColumnWriterIndex elementIndex() { return elementIndex; }
 
   @Override
   public int size() {

@@ -387,11 +387,16 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
       throw new OversizedAllocationException("Unable to expand the buffer. Max allowed buffer size is reached.");
     }
 
-    final DrillBuf newBuf = allocator.buffer((int)newAllocationSize);
+    reallocRaw((int) newAllocationSize);
+  }
+
+  public DrillBuf reallocRaw(int newAllocationSize) {
+    final DrillBuf newBuf = allocator.buffer(newAllocationSize);
     newBuf.setBytes(0, data, 0, data.capacity());
     data.release();
     data = newBuf;
-    allocationSizeInBytes = (int)newAllocationSize;
+    allocationSizeInBytes = newAllocationSize;
+    return data;
   }
 
   public void decrementAllocationMonitor() {

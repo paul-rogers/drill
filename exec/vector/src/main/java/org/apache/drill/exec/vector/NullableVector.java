@@ -19,5 +19,6 @@ package org.apache.drill.exec.vector;
 
 public interface NullableVector extends ValueVector{
 
+  ValueVector getBitsVector();
   ValueVector getValuesVector();
 }

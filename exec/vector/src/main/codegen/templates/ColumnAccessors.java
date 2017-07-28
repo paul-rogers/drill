@@ -97,162 +97,6 @@
     }
   </#if>
 </#macro>
-<#macro bindWriter vectorPrefix mode drillType>
-  <#if drillType = "Decimal9" || drillType == "Decimal18">
-    private MajorType type;
-  </#if>
-  <#if mode == "Required" >
-    private final int VALUE_WIDTH = ${drillType}Vector.VALUE_WIDTH;
-    private ${drillType}Vector vector;
-  <#else>
-    private ${vectorPrefix}${drillType}Vector.Mutator mutator;
-  </#if>
-
-    @Override
-    public void bindVector(ValueVector vector) {
-  <#if drillType = "Decimal9" || drillType == "Decimal18">
-      type = vector.getField().getType();
-  </#if>
-  <#if mode == "Required" >
-      this.vector = (${vectorPrefix}${drillType}Vector) vector;
-  <#else>
-      this.mutator = ((${vectorPrefix}${drillType}Vector) vector).getMutator();
-  </#if>
-      lastWriteIndex = 0;
-    }
-</#macro>
-<#-- DRILL-5529 describes how required and repeated vectors don't implement
-     fillEmpties() to recover from skiped writes. Since the mutator does
-     not do the work, we must insert code here to do it.
-     DRILL-5530 describes why required vectors may not be initialized
-     to zeros. -->
-<#macro fillEmpties drillType mode>
-  <#if mode == "" && drillType != "Bit">
-        // Work-around for DRILL-5529: lack of fillEmpties for some vectors.
-        // See DRILL-5530 for why this is needed for required vectors.
-        if (lastWriteIndex + 1 < writeIndex) {
-          mutator.fillEmptiesBounded(lastWriteIndex, writeIndex);
-        }
- </#if>
-</#macro>
-<#macro advance mode>
-  <#if mode == "Repeated">
-      vectorIndex.next();
-  </#if>
-</#macro>
-<#macro putFixedWidth drillType javaType cast addr value >
-      PlatformDependent.put${javaType?cap_first}(${addr}, <#if cast=="set">(${javaType}) </#if>${value});
-</#macro>
-<#macro set drillType accessorType label vectorPrefix mode setFn>
-  <#if accessorType == "byte[]">
-    <#assign args = ", int len">
-  <#else>
-    <#assign args = "">
-  </#if>
-    <#-- This is performance critical code; every operation counts. Be thoughtful
-         when changing the code. -->
-    private long writeAddr() {
-      <#-- Check if write is legal, but only if assertions are enabled. -->
-      assert vectorIndex.legal();
-      int writeIndex = vectorIndex.vectorIndex();
-      int offset = writeIndex * VALUE_WIDTH;
-      <#-- Get the current buffer. The buffer changes each time that a
-           realloc is done. -->
-      DrillBuf buf = vector.getBuffer();
-      <#-- The normal case is that the data fits. This is the only bounds check
-           we want to do for the entire set operation.
-           Otherwise, we must grow the buffer. Now is the time to check the absolute vector
-           limit. That means we check this limit infrequently. -->
-      int newSize = offset + VALUE_WIDTH;
-      if (newSize > buf.capacity()) {
-        <#-- Two cases: grow this vector or allocate a new one. -->
-        if (newSize > ValueVector.MAX_BUFFER_SIZE) {
-          <#-- Allocate a new vector, or throw an exception if overflow is not supported.
-               If overflow is supported, the callback will call finish(), which will
-               fill empties, so no need to do that here. Also, bindVector() will
-               be called to provide the new vector. -->
-          vectorIndex.overflowed();
-          <#-- Reset to the new offset in the new vector, and the new buffer. -->
-          buf = vector.getBuffer();
-          writeIndex = vectorIndex.vectorIndex();
-          offset = writeIndex * VALUE_WIDTH;
-          newSize = offset + VALUE_WIDTH;
-          <#-- Pathological case: value is too large for the new vector. -->
-          if (newSize > ValueVector.MAX_BUFFER_SIZE) {
-            throw new IllegalStateException("Value is too large: " + newSize);
-          }
-        } else {
-          <#-- Optimized form of reAlloc() which does not zero memory, does not do bounds
-               checks (since they were already done above) and which returns
-               the new buffer to save a method call. -->
-          buf = vector.reallocRaw(BaseAllocator.nextPowerOfTwo(newSize));
-        }
-      }
-    <#if mode != "Repeated">
-      <#-- Fill empties. This is required because the allocated memory is not
-           zero-filled. -->
-      while (++lastWriteIndex < writeIndex) {
-        <@putFixedWidth drillType javaType cast "lastWriteIndex * VALUE_WIDTH" 0 />
-      }
-    </#if>
-      <#-- Return the direct memory buffer address. OK because, by the time we
-           get here, the address will remain fixed for the rest of the set operation. -->
-      return buf.addr(offset);
-    }
-
-    @Override
-    public void set${label}(${accessorType} value${args}) {
-  <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
-        mutator.${setFn}(writeIndex, value, 0, len);
-  <#elseif drillType == "Decimal9">
-        mutator.${setFn}(writeIndex,
-            DecimalUtility.getDecimal9FromBigDecimal(value,
-              type.getScale(), type.getPrecision()));
-  <#elseif drillType == "Decimal18">
-        mutator.${setFn}(writeIndex,
-            DecimalUtility.getDecimal18FromBigDecimal(value,
-                type.getScale(), type.getPrecision()));
-  <#elseif drillType == "IntervalYear">
-        mutator.${setFn}(writeIndex, value.getYears() * 12 + value.getMonths());
-  <#elseif drillType == "IntervalDay">
-        mutator.${setFn}(writeIndex,<#if mode == "Nullable"> 1,</#if>
-                      value.getDays(),
-                      periodToMillis(value));
-  <#elseif drillType == "Interval">
-        mutator.${setFn}(writeIndex,<#if mode == "Nullable"> 1,</#if>
-                      value.getYears() * 12 + value.getMonths(),
-                      value.getDays(), periodToMillis(value));
-  <#else>
-      <@putFixedWidth drillType javaType cast "writeAddr()" "value" />
-  </#if>
-  <#if mode == "Repeated">
-      <@advance mode />
-  </#if>
-    }
-  <#if drillType == "VarChar">
-
-    @Override
-    public void setString(String value) throws VectorOverflowException {
-      final byte bytes[] = value.getBytes(Charsets.UTF_8);
-      setBytes(bytes, bytes.length);
-    }
-  <#elseif drillType == "Var16Char">
-
-    @Override
-    public void setString(String value) throws VectorOverflowException {
-      final byte bytes[] = value.getBytes(Charsets.UTF_8);
-      setBytes(bytes, bytes.length);
-    }
-  </#if>
-</#macro>
-<#macro finishBatch drillType mode>
-    @Override
-    protected void finish() {
-      <#-- Done this way to avoid another drill buf access in value set path. -->
-      final DrillBuf buf = vector.getBuffer();
-      buf.writerIndex((int)(writeAddr() - buf.addr()));
-    }
-</#macro>
 <#macro build types vectorType accessorType>
   <#if vectorType == "Repeated">
     <#assign fnPrefix = "Array" />
@@ -294,11 +138,9 @@ import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
 import org.apache.drill.exec.vector.accessor.reader.BaseElementReader;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
 import org.apache.drill.exec.vector.accessor.writer.BaseScalarWriter;
-import org.apache.drill.exec.vector.accessor.writer.BaseElementWriter;
 
 import com.google.common.base.Charsets;
 
-import io.netty.buffer.DrillBuf;
 import io.netty.util.internal.PlatformDependent;
 
 import org.joda.time.Period;
@@ -321,6 +163,19 @@ import org.joda.time.Period;
 // This class is generated using freemarker and the ${.template_name} template.
 
 public class ColumnAccessors {
+
+  public static class OffsetWriterIndex implements ColumnWriterIndex {
+    private ColumnWriterIndex baseIndex;
+
+    private OffsetWriterIndex(ColumnWriterIndex baseIndex) {
+      this.baseIndex = baseIndex;
+    }
+
+    @Override public int vectorIndex() { return baseIndex.vectorIndex() + 1; }
+    @Override public void overflowed() { baseIndex.overflowed(); }
+    @Override public boolean legal() { return baseIndex.legal(); }
+    @Override public void nextElement() { }
+  }
 
 <#list vv.types as type>
   <#list type.minor as minor>
@@ -375,54 +230,213 @@ public class ColumnAccessors {
   }
 
   public static class ${drillType}ColumnWriter extends BaseScalarWriter {
+      <#if drillType = "Decimal9" || drillType == "Decimal18" ||
+           drillType == "Decimal28Sparse" || drillType == "Decimal38Sparse">
+    private MajorType type;
+      </#if>
+      <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
+    private UInt4ColumnWriter offsetsWriter = new UInt4ColumnWriter();
+    private int writeOffset;
+      <#else>
+    private final int VALUE_WIDTH = ${drillType}Vector.VALUE_WIDTH;
+      </#if>
+    private ${drillType}Vector vector;
 
-    <@bindWriter "" "Required" drillType />
-
-    <@getType drillType label />
-
-    <@set drillType accessorType label "" "Required" "setScalar" />
-
-    <@finishBatch drillType "" />
-  }
-
-  public static class Nullable${drillType}ColumnWriter extends BaseScalarWriter {
-
-    <@bindWriter "Nullable" "Nullable" drillType />
-
-    <@getType drillType label />
-
-    <#-- Generated for each type because, unfortunately, there is
-         no common base class for nullable vectors even though the
-         null vector is generic and should be common. Instead, the
-         null vector is generated as part of each kind of nullable
-         vector.
-         TODO: Factor out the null vector and move this code to
-         the base class.
-    -->
     @Override
-    public void setNull() throws VectorOverflowException {
-      try {
-        final int writeIndex = vectorIndex.vectorIndex();
-        mutator.setNullBounded(writeIndex);
-        lastWriteIndex = vectorIndex.vectorIndex();
-      } catch (VectorOverflowException e) {
-        vectorIndex.overflowed();
-        throw e;
-      }
+    public void bindVector(ValueVector vector) {
+      <#if drillType = "Decimal9" || drillType == "Decimal18" ||
+           drillType == "Decimal28Sparse" || drillType == "Decimal38Sparse">
+      type = vector.getField().getType();
+      </#if>
+      this.vector = (${drillType}Vector) vector;
+      setAddr(this.vector.getBuffer());
+      <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
+      offsetsWriter.bindVector(this.vector.getOffsetVector());
+      writeOffset = 0;
+      </#if>
+      lastWriteIndex = 0;
     }
 
-    <@set drillType accessorType label "Nullable" "Nullable" "setScalar" />
+      <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
+    @Override
+    public void bindIndex(ColumnWriterIndex index) {
+      offsetsWriter.bindIndex(new OffsetWriterIndex(index));
+      super.bindIndex(index);
+    }
 
-    <@finishBatch drillType "Nullable" />
-  }
-
-  public static class Repeated${drillType}ColumnWriter extends BaseElementWriter {
-
-    <@bindWriter "" "Repeated" drillType />
-
+      </#if>
     <@getType drillType label />
 
-    <@set drillType accessorType label "" "Repeated" "setScalar" />
+      <#if accessorType == "byte[]">
+        <#assign args = ", int len">
+      <#else>
+        <#assign args = "">
+      </#if>
+      <#if javaType == "char">
+        <#assign putType = "short" />
+        <#assign doCast = true />
+      <#else>
+        <#assign putType = javaType />
+        <#assign doCast = (cast == "set") />
+      </#if>
+    <#-- This is performance critical code; every operation counts.
+         Please thoughtful when changing the code.
+         Generated per class in the belief that the JVM will optimize the
+         code path for each value width. Also, the reallocRaw() and
+         setFoo() methods are type specific. (reallocRaw() could be virtual,
+         but the PlatformDependent.setFoo() cannot be. -->
+      <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
+        <#assign width = "width" />
+        <#assign varWidth = true />
+    private int writeOffset(int width) {
+      <#else>
+        <#assign width = "VALUE_WIDTH" />
+        <#assign varWidth = false />
+    private int writeOffset() {
+      </#if>
+      <#-- Check if write is legal, but only if assertions are enabled. -->
+      assert vectorIndex.legal();
+      <#if ! varWidth>
+      int writeIndex = vectorIndex.vectorIndex();
+      int writeOffset = writeIndex * VALUE_WIDTH;
+      </#if>
+      <#-- The normal case is that the data fits. This is the only bounds check
+           we want to do for the entire set operation.
+           Otherwise, we must grow the buffer. Now is the time to check the absolute vector
+           limit. That means we check this limit infrequently. -->
+      final int nextOffset = writeOffset + ${width};
+      if (nextOffset > capacity) {
+        <#-- Two cases: grow this vector or allocate a new one. -->
+        if (nextOffset > ValueVector.MAX_BUFFER_SIZE) {
+          <#-- Allocate a new vector, or throw an exception if overflow is not supported.
+               If overflow is supported, the callback will call finish(), which will
+               fill empties, so no need to do that here. Also, bindVector() will
+               be called to provide the new vector. The write index changes with
+               the new vector. -->
+          vectorIndex.overflowed();
+      <#if varWidth>
+          writeOffset = 0;
+      <#else>
+          writeIndex = vectorIndex.vectorIndex();
+          writeOffset = writeIndex * VALUE_WIDTH;
+      </#if>
+        } else {
+          <#-- Optimized form of reAlloc() which does not zero memory, does not do bounds
+               checks (since they were already done above) and which returns
+               the new buffer to save a method call. The write index and offset
+               remain unchanged. -->
+          setAddr(vector.reallocRaw(BaseAllocator.nextPowerOfTwo(nextOffset)));
+        }
+      }
+      <#-- Fill empties. This is required because the allocated memory is not
+           zero-filled. -->
+      <#if ! varWidth>
+      while (++lastWriteIndex < writeIndex) {
+        <#if drillType == "Decimal9">
+        PlatformDependent.putInt(bufAddr + lastWriteIndex * VALUE_WIDTH, 0);
+        <#elseif drillType == "Decimal18">
+        PlatformDependent.putLong(bufAddr + lastWriteIndex * VALUE_WIDTH, 0);
+        <#elseif drillType == "Decimal28Sparse" || drillType == "Decimal38Sparse">
+        long addr = bufAddr + lastWriteIndex * VALUE_WIDTH;
+        for (int i = 0; i < VALUE_WIDTH / 4; i++, addr += VALUE_WIDTH) {
+          PlatformDependent.putInt(addr, 0);
+        }
+        <#elseif drillType == "IntervalYear">
+        PlatformDependent.putInt(bufAddr + lastWriteIndex * VALUE_WIDTH, 0);
+        <#elseif drillType == "IntervalDay">
+        final long addr = bufAddr + lastWriteIndex * VALUE_WIDTH;
+        PlatformDependent.putInt(addr,     0);
+        PlatformDependent.putInt(addr + 4, 0);
+        <#elseif drillType == "Interval">
+        final long addr = bufAddr + lastWriteIndex * VALUE_WIDTH;
+        PlatformDependent.putInt(addr,     0);
+        PlatformDependent.putInt(addr + 4, 0);
+        PlatformDependent.putInt(addr + 8, 0);
+        <#elseif drillType == "Float4">
+        PlatformDependent.putInt(bufAddr + lastWriteIndex * VALUE_WIDTH, 0);
+        <#elseif drillType == "Float8">
+        PlatformDependent.putLong(bufAddr + lastWriteIndex * VALUE_WIDTH, 0);
+        <#else>
+        PlatformDependent.put${putType?cap_first}(bufAddr + lastWriteIndex * VALUE_WIDTH, <#if doCast>(${putType}) </#if>0);
+        </#if>
+      }
+      </#if>
+      <#-- Return the direct memory buffer address. OK because, by the time we
+           get here, the address will remain fixed for the rest of the set operation. -->
+      return writeOffset;
+    }
+
+    @Override
+    public void set${label}(${accessorType} value${args}) {
+      <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
+      int offset = writeOffset(len);
+      PlatformDependent.copyMemory(value, 0, bufAddr + offset, len);
+      offsetsWriter.setInt(offset + len);
+      <#elseif drillType == "Decimal9">
+      PlatformDependent.putInt(bufAddr + writeOffset(),
+          DecimalUtility.getDecimal9FromBigDecimal(value,
+                type.getScale(), type.getPrecision()));
+      <#elseif drillType == "Decimal18">
+      PlatformDependent.putLong(bufAddr + writeOffset(),
+          DecimalUtility.getDecimal18FromBigDecimal(value,
+                type.getScale(), type.getPrecision()));
+      <#elseif drillType == "Decimal38Sparse">
+      <#-- Hard to optimize this case. Just use the available tools. -->
+      DecimalUtility.getSparseFromBigDecimal(value, vector.getBuffer(), writeOffset(),
+               type.getScale(), type.getPrecision(), 6);
+      <#elseif drillType == "Decimal28Sparse">
+      <#-- Hard to optimize this case. Just use the available tools. -->
+      DecimalUtility.getSparseFromBigDecimal(value, vector.getBuffer(), writeOffset(),
+               type.getScale(), type.getPrecision(), 5);
+      <#elseif drillType == "IntervalYear">
+      PlatformDependent.putInt(bufAddr + writeOffset(),
+                value.getYears() * 12 + value.getMonths());
+      <#elseif drillType == "IntervalDay">
+      final long addr = bufAddr + writeOffset();
+      PlatformDependent.putInt(addr,     value.getDays());
+      PlatformDependent.putInt(addr + 4, periodToMillis(value));
+      <#elseif drillType == "Interval">
+      final long addr = bufAddr + writeOffset();
+      PlatformDependent.putInt(addr,     value.getYears() * 12 + value.getMonths());
+      PlatformDependent.putInt(addr + 4, value.getDays());
+      PlatformDependent.putInt(addr + 8, periodToMillis(value));
+      <#elseif drillType == "Float4">
+      PlatformDependent.putInt(bufAddr + writeOffset(), Float.floatToRawIntBits((float) value));
+      <#elseif drillType == "Float8">
+      PlatformDependent.putLong(bufAddr + writeOffset(), Double.doubleToRawLongBits(value));
+      <#else>
+      PlatformDependent.put${putType?cap_first}(bufAddr + writeOffset(), <#if doCast>(${putType}) </#if>value);
+      </#if>
+      vectorIndex.nextElement();
+    }
+    <#if drillType == "VarChar">
+
+    @Override
+    public void setString(String value) {
+      final byte bytes[] = value.getBytes(Charsets.UTF_8);
+      setBytes(bytes, bytes.length);
+    }
+    <#elseif drillType == "Var16Char">
+
+    @Override
+    public void setString(String value) {
+      final byte bytes[] = value.getBytes(Charsets.UTF_8);
+      setBytes(bytes, bytes.length);
+    }
+    </#if>
+
+    @Override
+    public void finish() {
+      <#if varWidth>
+      offsetsWriter.finish();
+      </#if>
+      <#-- Done this way to avoid another drill buf access in value set path.
+           Though this calls writeOffset(), which handles vector overflow,
+           such overflow should never occur because here we are simply
+           finalizing a position already set. However, the vector size may
+           grow and the "missing" values may be zero-filled. -->
+      vector.getBuffer().writerIndex(writeOffset(<#if varWidth>0</#if>));
+    }
   }
 
     </#if>
@@ -441,8 +455,4 @@ public class ColumnAccessors {
 <@build vv.types "Repeated" "Reader" />
 
 <@build vv.types "Required" "Writer" />
-
-<@build vv.types "Nullable" "Writer" />
-
-<@build vv.types "Repeated" "Writer" />
 }

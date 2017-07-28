@@ -37,20 +37,25 @@ import org.joda.time.Period;
  * <p>
  * Provides generic write methods for testing and other times when
  * convenience is more important than speed.
+ * <p>
+ * The scalar writer for array-valued columns appends values: once a value
+ * is written, it cannot be changed. As a result, writer methods have no item index;
+ * each set advances the array to the next position. This is an abstract base class;
+ * subclasses are generated for each repeated value vector type.
  */
 
 public class ScalarArrayWriter extends AbstractArrayWriter {
 
-  private final BaseElementWriter elementWriter;
+  private final BaseScalarWriter elementWriter;
 
-  private ScalarArrayWriter(RepeatedValueVector vector, BaseElementWriter elementWriter) {
+  private ScalarArrayWriter(RepeatedValueVector vector, BaseScalarWriter elementWriter) {
     super(vector, new ScalarObjectWriter(elementWriter));
     this.elementWriter = elementWriter;
     elementWriter.bindVector(vector.getDataVector());
   }
 
   public static ArrayObjectWriter build(RepeatedValueVector vector,
-                                        BaseElementWriter elementWriter) {
+                                        BaseScalarWriter elementWriter) {
     return new ArrayObjectWriter(
         new ScalarArrayWriter((RepeatedValueVector) vector,
                               elementWriter));
@@ -59,7 +64,7 @@ public class ScalarArrayWriter extends AbstractArrayWriter {
   @Override
   public void bindIndex(ColumnWriterIndex index) {
     super.bindIndex(index);
-    elementWriter.bindElementIndex(elementIndex());
+    elementWriter.bindIndex(elementIndex());
   }
 
   @Override

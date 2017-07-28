@@ -193,6 +193,16 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
     allocationSizeInBytes = curSize;
   }
 
+  // This version uses the base version because this vector appears to not be
+  // used, so not worth the effort to avoid zero-fill.
+
+  public DrillBuf reallocRaw(int newAllocationSize) {
+    while (allocationSizeInBytes < newAllocationSize) {
+      reAlloc();
+    }
+    return data;
+  }
+
   /**
    * {@inheritDoc}
    */

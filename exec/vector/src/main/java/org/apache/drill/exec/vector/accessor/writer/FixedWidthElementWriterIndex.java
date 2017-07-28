@@ -25,7 +25,7 @@ import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
  * Forwards overflow events to the base index.
  */
 
-public class FixedWidthElementWriterIndex implements ElementWriterIndex {
+public class FixedWidthElementWriterIndex implements ColumnWriterIndex {
 
   private final ColumnWriterIndex baseIndex;
   private int startOffset = 0;
@@ -53,7 +53,7 @@ public class FixedWidthElementWriterIndex implements ElementWriterIndex {
   }
 
   @Override
-  public void next() { offset++; }
+  public void nextElement() { offset++; }
 
   @Override
   public boolean legal() {

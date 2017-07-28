@@ -21,4 +21,12 @@ public interface ColumnWriterIndex {
   int vectorIndex();
   void overflowed();
   boolean legal();
+
+  /**
+   * Index for array elements that allows the caller to increment the
+   * index. For arrays, writing (or saving) one value automatically
+   * moves to the next value. Ignored for non-element indexes.
+   */
+
+  void nextElement();
 }

@@ -131,9 +131,10 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   }
 
   @Override
-  public ${valuesName} getValuesVector() {
-    return values;
-  }
+  public ${valuesName} getValuesVector() { return values; }
+
+  @Override
+  public UInt1Vector getBitsVector() { return bits; }
 
   @Override
   public void setInitialCapacity(int numRecords) {
