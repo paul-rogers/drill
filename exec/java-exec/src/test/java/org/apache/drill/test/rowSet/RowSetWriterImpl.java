@@ -52,18 +52,17 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
     private State state = State.OK;
 
     @Override
-    public int vectorIndex() { return rowIndex; }
+    public final int vectorIndex() { return rowIndex; }
 
-    public boolean next() {
+    public final boolean next() {
       if (++rowIndex < ValueVector.MAX_ROW_COUNT) {
         return true;
-      } else {
-        // Should not call next() again once batch is full.
-        assert rowIndex == ValueVector.MAX_ROW_COUNT;
-        rowIndex = ValueVector.MAX_ROW_COUNT;
-        state = state == State.OK ? State.END_OF_BATCH : state;
-        return false;
       }
+      // Should not call next() again once batch is full.
+      assert rowIndex == ValueVector.MAX_ROW_COUNT;
+      rowIndex = ValueVector.MAX_ROW_COUNT;
+      state = state == State.OK ? State.END_OF_BATCH : state;
+      return false;
     }
 
     public int size() {
@@ -88,7 +87,7 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
     }
 
     @Override
-    public void nextElement() { }
+    public final void nextElement() { }
   }
 
   private final WriterIndexImpl writerIndex;
@@ -112,13 +111,11 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
   public int rowIndex() { return writerIndex.vectorIndex(); }
 
   @Override
-  public boolean save() {
+  public void save() {
     endValue();
-    boolean more = writerIndex.next();
-    if (more) {
+    if (writerIndex.next()) {
       startValue();
     }
-    return more;
   }
 
   @Override

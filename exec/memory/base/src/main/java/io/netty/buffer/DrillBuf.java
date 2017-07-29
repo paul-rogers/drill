@@ -109,7 +109,7 @@ public final class DrillBuf extends AbstractByteBuf implements AutoCloseable {
 
   public long addr() { return addr; }
 
-  public long addr(int index) {
+  private long addr(int index) {
     return addr + index;
   }
 
@@ -315,10 +315,6 @@ public final class DrillBuf extends AbstractByteBuf implements AutoCloseable {
 
   @Override
   public ByteBuf unwrap() {
-    return udle;
-  }
-
-  public UnsafeDirectLittleEndian udle() {
     return udle;
   }
 
@@ -552,22 +548,6 @@ public final class DrillBuf extends AbstractByteBuf implements AutoCloseable {
     chk(index, 4);
     PlatformDependent.putInt(addr(index), value);
     return this;
-  }
-
-  /**
-   * Set an integer, with integrated bounds checking.
-   * @param index location to set
-   * @param value value to set
-   * @return true if the value fit into the buffer, false if the buffer
-   * does not contain sufficient space
-   */
-
-  public boolean putInt(int index, int value) {
-    if (index + 4 > length) {
-      return false;
-    }
-    PlatformDependent.putInt(addr(index), value);
-    return true;
   }
 
   @Override

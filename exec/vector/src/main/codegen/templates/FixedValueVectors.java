@@ -904,17 +904,10 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
      */
 
     public void setSafe(int index, <#if (type.width >= 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
-    <#-- optimization for int types; slightly faster than original Version.class -->
-    <#if (minor.javaType!type.javaType) == "int">
-      while (! data.putInt(index * VALUE_WIDTH, value)) {
-        reAlloc();
-      }
-    <#else>
       while(index >= getValueCapacity()) {
         reAlloc();
       }
       set(index, value);
-    </#if>
     }
 
     /**

@@ -31,7 +31,7 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   private final UInt1ColumnWriter isSetWriter = new UInt1ColumnWriter();
   private final BaseScalarWriter baseWriter;
 
-  private NullableScalarWriter(BaseScalarWriter baseWriter) {
+  public NullableScalarWriter(BaseScalarWriter baseWriter) {
     this.baseWriter = baseWriter;
   }
 

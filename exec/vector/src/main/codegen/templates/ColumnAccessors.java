@@ -141,7 +141,7 @@ import org.apache.drill.exec.vector.accessor.writer.BaseScalarWriter;
 
 import com.google.common.base.Charsets;
 
-import antlr.collections.impl.Vector;
+import io.netty.buffer.DrillBuf;
 import io.netty.util.internal.PlatformDependent;
 
 import org.joda.time.Period;
@@ -244,7 +244,7 @@ public class ColumnAccessors {
     private ${drillType}Vector vector;
 
     @Override
-    public void bindVector(ValueVector vector) {
+    public final void bindVector(ValueVector vector) {
       <#if drillType = "Decimal9" || drillType == "Decimal18" ||
            drillType == "Decimal28Sparse" || drillType == "Decimal38Sparse">
       type = vector.getField().getType();
@@ -255,7 +255,22 @@ public class ColumnAccessors {
       offsetsWriter.bindVector(this.vector.getOffsetVector());
       writeOffset = 0;
       </#if>
-      lastWriteIndex = 0;
+      lastWriteIndex = -1;
+    }
+
+     <#-- All change of buffer comes through this function to allow capturing
+          the buffer address and capacity. Only two ways to set the buffer:
+          by binding to a vector in bindVector(), or by resizing the vector
+          in writeIndex(). -->
+    private final void setAddr(DrillBuf buf) {
+      bufAddr = buf.addr();
+      <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
+      capacity = buf.capacity();
+      <#else>
+      <#-- Turns out that keeping track of capacity as the count of
+           values simplifies the per-value code path. -->
+      capacity = buf.capacity() / VALUE_WIDTH;
+      </#if>
     }
 
       <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
@@ -285,30 +300,45 @@ public class ColumnAccessors {
          Generated per class in the belief that the JVM will optimize the
          code path for each value width. Also, the reallocRaw() and
          setFoo() methods are type specific. (reallocRaw() could be virtual,
-         but the PlatformDependent.setFoo() cannot be. -->
+         but the PlatformDependent.setFoo() cannot be.
+         This is a bit tricky. This method has side effects, by design.
+         The current vector buffer, and buffer address, will change in
+         this method when a vector grows or overflows. So, don't use this
+         method in inline calls of the form
+         vector.getBuffer().doSomething(writeIndex());
+         The buffer obtained by getBuffer() can be different than the current
+         buffer after writeIndex().
+         -->
       <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
         <#assign width = "width" />
         <#assign varWidth = true />
-    private int writeOffset(int width) {
+    private final int writeIndex(int width) {
+      if (writeOffset + width < capacity) {
+        return writeOffset;
+      }
       <#else>
         <#assign width = "VALUE_WIDTH" />
         <#assign varWidth = false />
-    private int writeOffset() {
-      </#if>
-      <#-- Check if write is legal, but only if assertions are enabled. -->
-      assert vectorIndex.legal();
-      <#if ! varWidth>
+    private final int writeIndex() {
+      <#-- "Fast path" for the normal case of no fills, no overflow.
+            This is the only bounds check we want to do for the entire
+            set operation. -->
       int writeIndex = vectorIndex.vectorIndex();
-      int writeOffset = writeIndex * VALUE_WIDTH;
+      if (lastWriteIndex + 1 == writeIndex && writeIndex < capacity) {
+        lastWriteIndex = writeIndex;
+        return writeIndex;
+      }
       </#if>
-      <#-- The normal case is that the data fits. This is the only bounds check
-           we want to do for the entire set operation.
-           Otherwise, we must grow the buffer. Now is the time to check the absolute vector
-           limit. That means we check this limit infrequently. -->
-      final int nextOffset = writeOffset + ${width};
-      if (nextOffset > capacity) {
+      <#-- Either empties must be filed or the vector is full. -->
+      <#if varWidth>
+      int size = writeOffset + width;
+      if (size > capacity) {
+      <#else>
+      if (writeIndex >= capacity) {
+        int size = (writeIndex + 1) * VALUE_WIDTH;
+      </#if>
         <#-- Two cases: grow this vector or allocate a new one. -->
-        if (nextOffset > ValueVector.MAX_BUFFER_SIZE) {
+        if (size > ValueVector.MAX_BUFFER_SIZE) {
           <#-- Allocate a new vector, or throw an exception if overflow is not supported.
                If overflow is supported, the callback will call finish(), which will
                fill empties, so no need to do that here. The call to finish() will
@@ -320,126 +350,130 @@ public class ColumnAccessors {
           writeOffset = 0;
       <#else>
           writeIndex = vectorIndex.vectorIndex();
-          writeOffset = writeIndex * VALUE_WIDTH;
       </#if>
         } else {
           <#-- Optimized form of reAlloc() which does not zero memory, does not do bounds
                checks (since they were already done above) and which returns
                the new buffer to save a method call. The write index and offset
                remain unchanged. -->
-          setAddr(vector.reallocRaw(BaseAllocator.nextPowerOfTwo(nextOffset)));
+          setAddr(vector.reallocRaw(BaseAllocator.nextPowerOfTwo(size)));
         }
       }
       <#-- Fill empties. This is required because the allocated memory is not
            zero-filled. -->
       <#if ! varWidth>
-      while (++lastWriteIndex < writeIndex) {
+      while (lastWriteIndex < writeIndex - 1) {
+        <#assign putAddr = "bufAddr + ++lastWriteIndex * VALUE_WIDTH" />
         <#if drillType == "Decimal9">
-        PlatformDependent.putInt(bufAddr + lastWriteIndex * VALUE_WIDTH, 0);
+        PlatformDependent.putInt(${putAddr}, 0);
         <#elseif drillType == "Decimal18">
-        PlatformDependent.putLong(bufAddr + lastWriteIndex * VALUE_WIDTH, 0);
+        PlatformDependent.putLong(${putAddr}, 0);
         <#elseif drillType == "Decimal28Sparse" || drillType == "Decimal38Sparse">
-        long addr = bufAddr + lastWriteIndex * VALUE_WIDTH;
+        long addr = ${putAddr};
         for (int i = 0; i < VALUE_WIDTH / 4; i++, addr += VALUE_WIDTH) {
           PlatformDependent.putInt(addr, 0);
         }
         <#elseif drillType == "IntervalYear">
-        PlatformDependent.putInt(bufAddr + lastWriteIndex * VALUE_WIDTH, 0);
+        PlatformDependent.putInt(${putAddr}, 0);
         <#elseif drillType == "IntervalDay">
-        final long addr = bufAddr + lastWriteIndex * VALUE_WIDTH;
+        final long addr = ${putAddr};
         PlatformDependent.putInt(addr,     0);
         PlatformDependent.putInt(addr + 4, 0);
         <#elseif drillType == "Interval">
-        final long addr = bufAddr + lastWriteIndex * VALUE_WIDTH;
+        final long addr = ${putAddr};
         PlatformDependent.putInt(addr,     0);
         PlatformDependent.putInt(addr + 4, 0);
         PlatformDependent.putInt(addr + 8, 0);
         <#elseif drillType == "Float4">
-        PlatformDependent.putInt(bufAddr + lastWriteIndex * VALUE_WIDTH, 0);
+        PlatformDependent.putInt(${putAddr}, 0);
         <#elseif drillType == "Float8">
-        PlatformDependent.putLong(bufAddr + lastWriteIndex * VALUE_WIDTH, 0);
+        PlatformDependent.putLong(${putAddr}, 0);
         <#else>
-        PlatformDependent.put${putType?cap_first}(bufAddr + lastWriteIndex * VALUE_WIDTH, <#if doCast>(${putType}) </#if>0);
+        PlatformDependent.put${putType?cap_first}(${putAddr}, <#if doCast>(${putType}) </#if>0);
         </#if>
       }
-      </#if>
-      <#-- Return the direct memory buffer address. OK because, by the time we
-           get here, the address will remain fixed for the rest of the set operation. -->
+      <#-- Track the last write location for zero-fill use next time around. -->
+      lastWriteIndex = writeIndex;
+      return writeIndex;
+      <#else>
       return writeOffset;
+      </#if>
     }
 
     @Override
-    public void set${label}(${accessorType} value${args}) {
+    public final void set${label}(${accessorType} value${args}) {
       <#-- Must compute the write offset first; can't be inline because the
            writeOffset() function has a side effect of possibly changing the buffer
            address (bufAddr). -->
       <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
-      final int offset = writeOffset(len);
+      final int offset = writeIndex(len);
       <#else>
-      final int offset = writeOffset();
+      final int writeIndex = writeIndex();
+      <#assign putAddr = "bufAddr + writeIndex * VALUE_WIDTH">
       </#if>
       <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
       PlatformDependent.copyMemory(value, 0, bufAddr + offset, len);
       writeOffset += len;
       offsetsWriter.setInt(writeOffset);
       <#elseif drillType == "Decimal9">
-      PlatformDependent.putInt(bufAddr + offset,
+      PlatformDependent.putInt(${putAddr},
           DecimalUtility.getDecimal9FromBigDecimal(value,
                 type.getScale(), type.getPrecision()));
       <#elseif drillType == "Decimal18">
-      PlatformDependent.putLong(bufAddr + offset,
+      PlatformDependent.putLong(${putAddr},
           DecimalUtility.getDecimal18FromBigDecimal(value,
                 type.getScale(), type.getPrecision()));
       <#elseif drillType == "Decimal38Sparse">
       <#-- Hard to optimize this case. Just use the available tools. -->
-      DecimalUtility.getSparseFromBigDecimal(value, vector.getBuffer(), offset,
+      DecimalUtility.getSparseFromBigDecimal(value, vector.getBuffer(), writeIndex * VALUE_WIDTH,
                type.getScale(), type.getPrecision(), 6);
       <#elseif drillType == "Decimal28Sparse">
       <#-- Hard to optimize this case. Just use the available tools. -->
-      DecimalUtility.getSparseFromBigDecimal(value, vector.getBuffer(), offset,
+      DecimalUtility.getSparseFromBigDecimal(value, vector.getBuffer(), writeIndex * VALUE_WIDTH,
                type.getScale(), type.getPrecision(), 5);
       <#elseif drillType == "IntervalYear">
-      PlatformDependent.putInt(bufAddr + offset,
+      PlatformDependent.putInt(${putAddr},
                 value.getYears() * 12 + value.getMonths());
       <#elseif drillType == "IntervalDay">
-      final long addr = bufAddr + offset;
+      final long addr = ${putAddr};
       PlatformDependent.putInt(addr,     value.getDays());
       PlatformDependent.putInt(addr + 4, periodToMillis(value));
       <#elseif drillType == "Interval">
-      final long addr = bufAddr + offset;
+      final long addr = ${putAddr};
       PlatformDependent.putInt(addr,     value.getYears() * 12 + value.getMonths());
       PlatformDependent.putInt(addr + 4, value.getDays());
       PlatformDependent.putInt(addr + 8, periodToMillis(value));
       <#elseif drillType == "Float4">
-      PlatformDependent.putInt(bufAddr + offset, Float.floatToRawIntBits((float) value));
+      PlatformDependent.putInt(${putAddr}, Float.floatToRawIntBits((float) value));
       <#elseif drillType == "Float8">
-      PlatformDependent.putLong(bufAddr + offset, Double.doubleToRawLongBits(value));
+      PlatformDependent.putLong(${putAddr}, Double.doubleToRawLongBits(value));
       <#else>
-      PlatformDependent.put${putType?cap_first}(bufAddr + offset, <#if doCast>(${putType}) </#if>value);
+      PlatformDependent.put${putType?cap_first}(${putAddr}, <#if doCast>(${putType}) </#if>value);
       </#if>
       vectorIndex.nextElement();
     }
     <#if drillType == "VarChar">
 
     @Override
-    public void setString(String value) {
+    public final void setString(String value) {
       final byte bytes[] = value.getBytes(Charsets.UTF_8);
       setBytes(bytes, bytes.length);
     }
     <#elseif drillType == "Var16Char">
 
     @Override
-    public void setString(String value) {
+    public final void setString(String value) {
       final byte bytes[] = value.getBytes(Charsets.UTF_8);
       setBytes(bytes, bytes.length);
     }
     </#if>
 
     @Override
-    public void finish() {
+    public final void finish() {
       <#if varWidth>
       offsetsWriter.finish();
-      </#if>
+      vector.getBuffer().writerIndex(writeOffset);
+      <#else>
       <#-- Done this way to avoid another drill buf access in value set path.
            Though this calls writeOffset(), which handles vector overflow,
            such overflow should never occur because here we are simply
@@ -448,8 +482,9 @@ public class ColumnAccessors {
            odd cases, the call to writeOffset() might cause the vector to
            resize (as part of filling empties), so grab the buffer AFTER
            the call to writeOffset(). -->
-      final int finalIndex = writeOffset(<#if varWidth>0</#if>);
-      vector.getBuffer().writerIndex(finalIndex);
+      final int finalIndex = writeIndex(<#if varWidth>0</#if>);
+      vector.getBuffer().writerIndex(finalIndex * VALUE_WIDTH);
+      </#if>
     }
   }
 

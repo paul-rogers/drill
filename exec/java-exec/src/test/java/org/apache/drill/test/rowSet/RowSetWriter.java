@@ -94,11 +94,9 @@ public interface RowSetWriter extends TupleWriter {
   /**
    * Saves the current row and moves to the next row.
    * Done automatically if using <tt>setRow()</tt>.
-   * @return true if another row can be added (based on row count),
-   * false if the row count limit is reached
    */
 
-  boolean save();
+  void save();
 
   /**
    * Finish writing and finalize the row set being

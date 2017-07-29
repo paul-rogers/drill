@@ -23,8 +23,6 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.joda.time.Period;
 
-import io.netty.buffer.DrillBuf;
-
 /**
  * Column writer implementation that acts as the basis for the
  * generated, vector-specific implementations. All set methods
@@ -47,18 +45,6 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
   @Override
   public void bindIndex(ColumnWriterIndex vectorIndex) {
     this.vectorIndex = vectorIndex;
-  }
-
-  /**
-   * All change of buffer comes through this function to allow capturing
-   * the buffer address and capacity. Only two ways to set the buffer:
-   * by binding to a vector in <tt>bindVector()</tt>, or by resizing the vector
-   * in <tt>writeOffset()</tt>.
-   */
-
-  protected void setAddr(DrillBuf buf) {
-    bufAddr = buf.addr();
-    capacity = buf.capacity();
   }
 
   @Override
