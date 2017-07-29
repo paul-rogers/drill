@@ -88,7 +88,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
   protected ColumnWriterIndex vectorIndex;
   protected final TupleMetadata schema;
-  private final AbstractObjectWriter writers[];
+  protected final AbstractObjectWriter writers[];
 
   protected AbstractTupleWriter(TupleMetadata schema, AbstractObjectWriter writers[]) {
     this.schema = schema;

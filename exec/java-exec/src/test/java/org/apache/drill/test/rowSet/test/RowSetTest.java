@@ -520,22 +520,19 @@ public class RowSetTest extends SubOperatorTest {
 
     ExtendableRowSet rs1 = fixture.rowSet(batchSchema);
     RowSetWriter writer = rs1.writer();
-    try {
-      writer.scalar(0).setInt(10);
-      ScalarWriter array = writer.array(1).scalar();
-      array.setInt(100);
-      array.setInt(110);
-      writer.save();
-      writer.scalar(0).setInt(20);
-      array.setInt(200);
-      array.setInt(120);
-      array.setInt(220);
-      writer.save();
-      writer.scalar(0).setInt(30);
-      writer.save();
-    } catch (VectorOverflowException e) {
-      fail("Should not overflow vector");
-    }
+    writer.scalar(0).setInt(10);
+    ScalarWriter array = writer.array(1).scalar();
+    array.setInt(100);
+    array.setInt(110);
+    writer.save();
+    writer.scalar(0).setInt(20);
+    array.setInt(200);
+    array.setInt(120);
+    array.setInt(220);
+    writer.save();
+    writer.scalar(0).setInt(30);
+    writer.save();
+
     SingleRowSet result = writer.done();
 
     RowSetReader reader = result.reader();
@@ -584,11 +581,7 @@ public class RowSetTest extends SubOperatorTest {
     boolean lastSave = true;
     while (! writer.isFull()) {
       assertTrue(lastSave);
-      try {
-        writer.scalar(0).setInt(count++);
-      } catch (VectorOverflowException e) {
-        fail("Int vector should not overflow");
-      }
+      writer.scalar(0).setInt(count++);
       lastSave = writer.save();
     }
     assertFalse(lastSave);
@@ -614,7 +607,7 @@ public class RowSetTest extends SubOperatorTest {
    */
 
   @Test
-  public void testbufferBounds() {
+  public void testBufferBounds() {
     BatchSchema batchSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
@@ -632,18 +625,23 @@ public class RowSetTest extends SubOperatorTest {
     ExtendableRowSet rs = fixture.rowSet(batchSchema);
     RowSetWriter writer = rs.writer();
     int count = 0;
-    for (;;) {
-      try {
-        writer.scalar(0).setInt(count++);
-      } catch (VectorOverflowException e) {
-        fail("Int vector should not overflow");
-      }
-      try {
+    try {
+
+      // Test overflow. This is not a typical use case: don't want to
+      // hit overflow without overflow handling. In this case, we throw
+      // away the last row because the row set abstraction does not
+      // implement vector overflow other than throwing an exception.
+
+      for (;;) {
+        writer.scalar(0).setInt(count);
         writer.scalar(1).setString(varCharValue);
-      } catch (VectorOverflowException e) {
-        break;
+
+        // Won't get here on overflow.
+        assertTrue(writer.save());
+        count++;
       }
-      assertTrue(writer.save());
+    } catch (IndexOutOfBoundsException e) {
+      assertTrue(e.getMessage().contains("overflow"));
     }
     writer.done();
 

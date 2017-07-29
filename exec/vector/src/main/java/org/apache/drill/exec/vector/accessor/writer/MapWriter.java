@@ -17,7 +17,9 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
-import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 
 /**
  * Writer for a Drill Map type. Maps are actually tuples, just like rows.
@@ -25,11 +27,48 @@ import org.apache.drill.exec.record.TupleMetadata;
 
 public class MapWriter extends AbstractTupleWriter {
 
-  private MapWriter(TupleMetadata schema, AbstractObjectWriter[] writers) {
-    super(schema, writers);
+  public static class MemberWriterIndex implements ColumnWriterIndex {
+    private ColumnWriterIndex baseIndex;
+
+    private MemberWriterIndex(ColumnWriterIndex baseIndex) {
+      this.baseIndex = baseIndex;
+    }
+
+    @Override public int vectorIndex() { return baseIndex.vectorIndex(); }
+    @Override public void overflowed() { baseIndex.overflowed(); }
+    @Override public boolean legal() { return baseIndex.legal(); }
+    @Override public void nextElement() { }
   }
 
-  public static TupleObjectWriter build(TupleMetadata schema, AbstractObjectWriter[] writers) {
+  protected final ColumnMetadata mapColumnSchema;
+
+  private MapWriter(ColumnMetadata schema, AbstractObjectWriter[] writers) {
+    super(schema.mapSchema(), writers);
+    mapColumnSchema = schema;
+  }
+
+  public static TupleObjectWriter build(ColumnMetadata schema, AbstractObjectWriter[] writers) {
     return new TupleObjectWriter(new MapWriter(schema, writers));
+  }
+
+  @Override
+  public void bindIndex(ColumnWriterIndex index) {
+    vectorIndex = index;
+
+    // If this is a repeated map, then the provided index is an array element
+    // index. Convert this to an index that will not increment the element
+    // index on each write so that a map with three members, say, won't
+    // increment the index for each member. Rather, the index must be
+    // incremented at the array level.
+
+    final ColumnWriterIndex childIndex;
+    if (mapColumnSchema.mode() == DataMode.REPEATED) {
+      childIndex = new MemberWriterIndex(index);
+    } else {
+      childIndex = index;
+    }
+    for (int i = 0; i < writers.length; i++) {
+      writers[i].bindIndex(childIndex);
+    }
   }
 }

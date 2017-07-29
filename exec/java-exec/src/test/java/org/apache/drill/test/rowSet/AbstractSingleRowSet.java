@@ -125,7 +125,7 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
 
     @Override
     public AbstractObjectWriter writer() {
-      AbstractObjectWriter mapWriter = MapWriter.build(tupleSchema(), writers());
+      AbstractObjectWriter mapWriter = MapWriter.build(columnSchema(), writers());
       if (schema.mode() != DataMode.REPEATED) {
         return mapWriter;
       }
@@ -134,7 +134,7 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
 
     @Override
     public AbstractObjectReader reader() {
-      AbstractObjectReader mapReader = MapReader.build(tupleSchema(), readers());
+      AbstractObjectReader mapReader = MapReader.build(columnSchema(), readers());
       if (schema.mode() != DataMode.REPEATED) {
         return mapReader;
       }

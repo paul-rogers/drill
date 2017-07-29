@@ -141,6 +141,7 @@ import org.apache.drill.exec.vector.accessor.writer.BaseScalarWriter;
 
 import com.google.common.base.Charsets;
 
+import antlr.collections.impl.Vector;
 import io.netty.util.internal.PlatformDependent;
 
 import org.joda.time.Period;
@@ -310,7 +311,8 @@ public class ColumnAccessors {
         if (nextOffset > ValueVector.MAX_BUFFER_SIZE) {
           <#-- Allocate a new vector, or throw an exception if overflow is not supported.
                If overflow is supported, the callback will call finish(), which will
-               fill empties, so no need to do that here. Also, bindVector() will
+               fill empties, so no need to do that here. The call to finish() will
+               also set the final writer index for the current vector. Then, bindVector() will
                be called to provide the new vector. The write index changes with
                the new vector. -->
           vectorIndex.overflowed();
@@ -368,44 +370,52 @@ public class ColumnAccessors {
 
     @Override
     public void set${label}(${accessorType} value${args}) {
+      <#-- Must compute the write offset first; can't be inline because the
+           writeOffset() function has a side effect of possibly changing the buffer
+           address (bufAddr). -->
       <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
-      int offset = writeOffset(len);
+      final int offset = writeOffset(len);
+      <#else>
+      final int offset = writeOffset();
+      </#if>
+      <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
       PlatformDependent.copyMemory(value, 0, bufAddr + offset, len);
-      offsetsWriter.setInt(offset + len);
+      writeOffset += len;
+      offsetsWriter.setInt(writeOffset);
       <#elseif drillType == "Decimal9">
-      PlatformDependent.putInt(bufAddr + writeOffset(),
+      PlatformDependent.putInt(bufAddr + offset,
           DecimalUtility.getDecimal9FromBigDecimal(value,
                 type.getScale(), type.getPrecision()));
       <#elseif drillType == "Decimal18">
-      PlatformDependent.putLong(bufAddr + writeOffset(),
+      PlatformDependent.putLong(bufAddr + offset,
           DecimalUtility.getDecimal18FromBigDecimal(value,
                 type.getScale(), type.getPrecision()));
       <#elseif drillType == "Decimal38Sparse">
       <#-- Hard to optimize this case. Just use the available tools. -->
-      DecimalUtility.getSparseFromBigDecimal(value, vector.getBuffer(), writeOffset(),
+      DecimalUtility.getSparseFromBigDecimal(value, vector.getBuffer(), offset,
                type.getScale(), type.getPrecision(), 6);
       <#elseif drillType == "Decimal28Sparse">
       <#-- Hard to optimize this case. Just use the available tools. -->
-      DecimalUtility.getSparseFromBigDecimal(value, vector.getBuffer(), writeOffset(),
+      DecimalUtility.getSparseFromBigDecimal(value, vector.getBuffer(), offset,
                type.getScale(), type.getPrecision(), 5);
       <#elseif drillType == "IntervalYear">
-      PlatformDependent.putInt(bufAddr + writeOffset(),
+      PlatformDependent.putInt(bufAddr + offset,
                 value.getYears() * 12 + value.getMonths());
       <#elseif drillType == "IntervalDay">
-      final long addr = bufAddr + writeOffset();
+      final long addr = bufAddr + offset;
       PlatformDependent.putInt(addr,     value.getDays());
       PlatformDependent.putInt(addr + 4, periodToMillis(value));
       <#elseif drillType == "Interval">
-      final long addr = bufAddr + writeOffset();
+      final long addr = bufAddr + offset;
       PlatformDependent.putInt(addr,     value.getYears() * 12 + value.getMonths());
       PlatformDependent.putInt(addr + 4, value.getDays());
       PlatformDependent.putInt(addr + 8, periodToMillis(value));
       <#elseif drillType == "Float4">
-      PlatformDependent.putInt(bufAddr + writeOffset(), Float.floatToRawIntBits((float) value));
+      PlatformDependent.putInt(bufAddr + offset, Float.floatToRawIntBits((float) value));
       <#elseif drillType == "Float8">
-      PlatformDependent.putLong(bufAddr + writeOffset(), Double.doubleToRawLongBits(value));
+      PlatformDependent.putLong(bufAddr + offset, Double.doubleToRawLongBits(value));
       <#else>
-      PlatformDependent.put${putType?cap_first}(bufAddr + writeOffset(), <#if doCast>(${putType}) </#if>value);
+      PlatformDependent.put${putType?cap_first}(bufAddr + offset, <#if doCast>(${putType}) </#if>value);
       </#if>
       vectorIndex.nextElement();
     }
@@ -434,8 +444,12 @@ public class ColumnAccessors {
            Though this calls writeOffset(), which handles vector overflow,
            such overflow should never occur because here we are simply
            finalizing a position already set. However, the vector size may
-           grow and the "missing" values may be zero-filled. -->
-      vector.getBuffer().writerIndex(writeOffset(<#if varWidth>0</#if>));
+           grow and the "missing" values may be zero-filled. Note that, in
+           odd cases, the call to writeOffset() might cause the vector to
+           resize (as part of filling empties), so grab the buffer AFTER
+           the call to writeOffset(). -->
+      final int finalIndex = writeOffset(<#if varWidth>0</#if>);
+      vector.getBuffer().writerIndex(finalIndex);
     }
   }
 
