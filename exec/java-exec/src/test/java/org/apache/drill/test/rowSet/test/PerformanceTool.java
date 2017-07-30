@@ -25,10 +25,13 @@ import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.NullableIntVector;
+import org.apache.drill.exec.vector.RepeatedIntVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.IntColumnWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.NullableScalarWriter;
+import org.apache.drill.exec.vector.accessor.writer.ScalarArrayWriter;
 import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSetWriter;
@@ -41,62 +44,95 @@ public class PerformanceTool {
   public static final int ROW_COUNT = 16 * 1024 * 1024 / 4;
   public static final int ITERATIONS = 300;
 
-  public static void main(String args[]) {
-    MaterializedField field = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
-    TupleMetadata rowSchema = new SchemaBuilder()
-        .add(field)
-        .buildSchema();
-    try (OperatorFixture fixture = OperatorFixture.standardFixture();) {
-      for (int i = 0; i < 2; i++) {
-        timeVector(field, fixture);
-        timeWriter(rowSchema, fixture);
+  public static abstract class PerfTester {
+    final TupleMetadata rowSchema;
+    final MaterializedField field;
+    final OperatorFixture fixture;
+    final String label;
+    final Stopwatch timer = Stopwatch.createUnstarted();
+
+    public PerfTester(OperatorFixture fixture, DataMode mode, String label) {
+      this.fixture = fixture;
+      this.label = label;
+      field = SchemaBuilder.columnSchema("a", MinorType.INT, mode);
+      rowSchema = new SchemaBuilder()
+                  .add(field)
+                  .buildSchema();
+    }
+
+    public void runTest() {
+      for (int i = 0; i < ITERATIONS; i++) {
+        doTest();
       }
-    } catch (Exception e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+      System.out.println(label + ": " + timer.elapsed(TimeUnit.MILLISECONDS));
     }
+
+    public abstract void doTest();
   }
 
-  private static void timeVector(MaterializedField field, OperatorFixture fixture) {
-    Stopwatch timer = Stopwatch.createUnstarted();
-    for (int i = 0; i < ITERATIONS; i++) {
-      testNullableVector(field, fixture, timer);
-    }
-    System.out.println("Vector: " + timer.elapsed(TimeUnit.MILLISECONDS));
-  }
+  public static class RequiredVectorTester extends PerfTester {
 
-  @SuppressWarnings("unused")
-  private static void testVector(MaterializedField field, OperatorFixture fixture, Stopwatch timer) {
-    try (IntVector vector = new IntVector(field, fixture.allocator());) {
-      vector.allocateNew(4096);
-      IntVector.Mutator mutator = vector.getMutator();
-      timer.start();
-      for (int i = 0; i < ROW_COUNT; i++) {
-        mutator.setSafe(i, 1234);
+    public RequiredVectorTester(OperatorFixture fixture) {
+      super(fixture, DataMode.REQUIRED, "Required vector");
+    }
+
+    @Override
+    public void doTest() {
+      try (IntVector vector = new IntVector(field, fixture.allocator());) {
+        vector.allocateNew(4096);
+        IntVector.Mutator mutator = vector.getMutator();
+        timer.start();
+        for (int i = 0; i < ROW_COUNT; i++) {
+          mutator.setSafe(i, 1234);
+        }
+        timer.stop();
       }
-      timer.stop();
     }
   }
 
-  private static void testNullableVector(MaterializedField field, OperatorFixture fixture, Stopwatch timer) {
-    try (NullableIntVector vector = new NullableIntVector(field, fixture.allocator());) {
-      vector.allocateNew(4096);
-      NullableIntVector.Mutator mutator = vector.getMutator();
-      timer.start();
-      for (int i = 0; i < ROW_COUNT; i++) {
-        mutator.setSafe(i, 1234);
+  public static class NullableVectorTester extends PerfTester {
+
+    public NullableVectorTester(OperatorFixture fixture) {
+      super(fixture, DataMode.OPTIONAL, "Nullable vector");
+    }
+
+    @Override
+    public void doTest() {
+      try (NullableIntVector vector = new NullableIntVector(field, fixture.allocator());) {
+        vector.allocateNew(4096);
+        NullableIntVector.Mutator mutator = vector.getMutator();
+        timer.start();
+        for (int i = 0; i < ROW_COUNT; i++) {
+          mutator.setSafe(i, 1234);
+        }
+        timer.stop();
       }
-      timer.stop();
     }
   }
 
-  private static void timeWriter(TupleMetadata rowSchema,
-      OperatorFixture fixture) {
-    Stopwatch timer = Stopwatch.createUnstarted();
-    for (int i = 0; i < ITERATIONS; i++) {
-      testNullableWriter(rowSchema, fixture, timer);
+  public static class RepeatedVectorTester extends PerfTester {
+
+    public RepeatedVectorTester(OperatorFixture fixture) {
+      super(fixture, DataMode.REQUIRED, "Repeated vector");
     }
-    System.out.println("Writer: " + timer.elapsed(TimeUnit.MILLISECONDS));
+
+    @Override
+    public void doTest() {
+      try (RepeatedIntVector vector = new RepeatedIntVector(field, fixture.allocator());) {
+        vector.allocateNew(4096, 5);
+        RepeatedIntVector.Mutator mutator = vector.getMutator();
+        timer.start();
+        for (int i = 0; i < ROW_COUNT / 5; i++) {
+          mutator.startNewValue(i);
+          mutator.addSafe(i, 12341);
+          mutator.addSafe(i, 12342);
+          mutator.addSafe(i, 12343);
+          mutator.addSafe(i, 12344);
+          mutator.addSafe(i, 12345);
+        }
+        timer.stop();
+      }
+    }
   }
 
   private static class TestWriterIndex implements ColumnWriterIndex {
@@ -118,36 +154,97 @@ public class PerformanceTool {
     public void nextElement() { index++; }
   }
 
-  @SuppressWarnings("unused")
-  private static void testWriter(TupleMetadata rowSchema,
-      OperatorFixture fixture, Stopwatch timer) {
-    try (IntVector vector = new IntVector(rowSchema.column(0), fixture.allocator());) {
-      vector.allocateNew(4096);
-      IntColumnWriter colWriter = new IntColumnWriter();
-      colWriter.bindVector(vector);
-      TestWriterIndex index = new TestWriterIndex();
-      colWriter.bindIndex(index);
-      timer.start();
-      while (index.index < ROW_COUNT) {
-        colWriter.setInt(1234);
+  public static class RequiredWriterTester extends PerfTester {
+
+    public RequiredWriterTester(OperatorFixture fixture) {
+      super(fixture, DataMode.REQUIRED, "Required writer");
+    }
+
+    @Override
+    public void doTest() {
+      try (IntVector vector = new IntVector(rowSchema.column(0), fixture.allocator());) {
+        vector.allocateNew(4096);
+        IntColumnWriter colWriter = new IntColumnWriter();
+        colWriter.bindVector(vector);
+        TestWriterIndex index = new TestWriterIndex();
+        colWriter.bindIndex(index);
+        timer.start();
+        while (index.index < ROW_COUNT) {
+          colWriter.setInt(1234);
+        }
+        timer.stop();
       }
-      timer.stop();
     }
   }
 
-  private static void testNullableWriter(TupleMetadata rowSchema,
-      OperatorFixture fixture, Stopwatch timer) {
-    try (NullableIntVector vector = new NullableIntVector(rowSchema.column(0), fixture.allocator());) {
-      vector.allocateNew(4096);
-      NullableScalarWriter colWriter = new NullableScalarWriter(new IntColumnWriter());
-      colWriter.bindVector(vector);
-      TestWriterIndex index = new TestWriterIndex();
-      colWriter.bindIndex(index);
-      timer.start();
-      while (index.index < ROW_COUNT) {
-        colWriter.setInt(1234);
+  public static class NullableWriterTester extends PerfTester {
+
+    public NullableWriterTester(OperatorFixture fixture) {
+      super(fixture, DataMode.OPTIONAL, "Nullable writer");
+    }
+
+    @Override
+    public void doTest() {
+      try (NullableIntVector vector = new NullableIntVector(rowSchema.column(0), fixture.allocator());) {
+        vector.allocateNew(4096);
+        NullableScalarWriter colWriter = new NullableScalarWriter(new IntColumnWriter());
+        colWriter.bindVector(vector);
+        TestWriterIndex index = new TestWriterIndex();
+        colWriter.bindIndex(index);
+        timer.start();
+        while (index.index < ROW_COUNT) {
+          colWriter.setInt(1234);
+        }
+        timer.stop();
       }
-      timer.stop();
+    }
+  }
+
+  public static class ArrayWriterTester extends PerfTester {
+
+    public ArrayWriterTester(OperatorFixture fixture) {
+      super(fixture, DataMode.REQUIRED, "Array writer");
+    }
+
+    @Override
+    public void doTest() {
+      try (RepeatedIntVector vector = new RepeatedIntVector(rowSchema.column(0), fixture.allocator());) {
+        vector.allocateNew(4096, 5);
+        IntColumnWriter colWriter = new IntColumnWriter();
+        ArrayObjectWriter arrayWriter = ScalarArrayWriter.build(vector, colWriter);
+        TestWriterIndex index = new TestWriterIndex();
+        arrayWriter.bindIndex(index);
+        arrayWriter.startWrite();
+        timer.start();
+        for ( ; index.index < ROW_COUNT / 5; index.index++) {
+          arrayWriter.startValue();
+          colWriter.setInt(12341);
+          colWriter.setInt(12342);
+          colWriter.setInt(12343);
+          colWriter.setInt(12344);
+          colWriter.setInt(12345);
+          arrayWriter.endValue();
+        }
+        arrayWriter.endWrite();
+        timer.stop();
+      }
+    }
+  }
+
+  public static void main(String args[]) {
+    try (OperatorFixture fixture = OperatorFixture.standardFixture();) {
+      for (int i = 0; i < 2; i++) {
+        System.out.println((i==0) ? "Warmup" : "Test run");
+        new RequiredVectorTester(fixture).runTest();
+        new RequiredWriterTester(fixture).runTest();
+        new NullableVectorTester(fixture).runTest();
+        new NullableWriterTester(fixture).runTest();
+        new RepeatedVectorTester(fixture).runTest();
+        new ArrayWriterTester(fixture).runTest();
+      }
+    } catch (Exception e) {
+      // TODO Auto-generated catch block
+      e.printStackTrace();
     }
   }
 
