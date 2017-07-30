@@ -17,18 +17,18 @@
  */
 package org.apache.drill.test.rowSet.test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.UnsupportedEncodingException;
 
-import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ObjectType;
@@ -38,7 +38,6 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.ValueType;
-import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -79,7 +78,7 @@ public class RowSetTest extends SubOperatorTest {
    */
 
   @Test
-  public void testScalarStructure() throws VectorOverflowException {
+  public void testScalarStructure() {
     TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .buildSchema();
@@ -168,7 +167,7 @@ public class RowSetTest extends SubOperatorTest {
    */
 
   @Test
-  public void testScalarArrayStructure() throws VectorOverflowException {
+  public void testScalarArrayStructure() {
     TupleMetadata schema = new SchemaBuilder()
         .addArray("a", MinorType.INT)
         .buildSchema();
@@ -279,7 +278,7 @@ public class RowSetTest extends SubOperatorTest {
    */
 
   @Test
-  public void testMapStructure() throws VectorOverflowException {
+  public void testMapStructure() {
     TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("m")
@@ -378,7 +377,7 @@ public class RowSetTest extends SubOperatorTest {
   }
 
   @Test
-  public void testRepeatedMapStructure() throws VectorOverflowException {
+  public void testRepeatedMapStructure() {
     TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMapArray("m")
@@ -582,13 +581,10 @@ public class RowSetTest extends SubOperatorTest {
     ExtendableRowSet rs = fixture.rowSet(batchSchema);
     RowSetWriter writer = rs.writer();
     int count = 0;
-    boolean lastSave = true;
     while (! writer.isFull()) {
-      assertTrue(lastSave);
       writer.scalar(0).setInt(count++);
-      lastSave = writer.save();
+      writer.save();
     }
-    assertFalse(lastSave);
     writer.done();
 
     assertEquals(ValueVector.MAX_ROW_COUNT, count);
@@ -641,7 +637,7 @@ public class RowSetTest extends SubOperatorTest {
         writer.scalar(1).setString(varCharValue);
 
         // Won't get here on overflow.
-        assertTrue(writer.save());
+        writer.save();
         count++;
       }
     } catch (IndexOutOfBoundsException e) {

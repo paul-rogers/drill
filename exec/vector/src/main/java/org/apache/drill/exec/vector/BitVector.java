@@ -447,20 +447,6 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       set(index, value);
     }
 
-    public void setScalar(int index, int value) throws VectorOverflowException {
-      if (index >= MAX_COUNT) {
-        throw new VectorOverflowException();
-      }
-      setSafe(index, value);
-    }
-
-    public void setArrayItem(int index, int value) throws VectorOverflowException {
-      if (index >= MAX_CAPACITY) {
-        throw new VectorOverflowException();
-      }
-      setSafe(index, value);
-    }
-
     public void setSafe(int index, BitHolder holder) {
       while(index >= getValueCapacity()) {
         reAlloc();
@@ -468,39 +454,11 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
       set(index, holder.value);
     }
 
-    public void setScalar(int index, BitHolder holder) throws VectorOverflowException {
-      if (index >= MAX_COUNT) {
-        throw new VectorOverflowException();
-      }
-      setSafe(index, holder);
-    }
-
-    public void setArrayItem(int index, BitHolder holder) throws VectorOverflowException {
-      if (index >= MAX_CAPACITY) {
-        throw new VectorOverflowException();
-      }
-      setSafe(index, holder);
-    }
-
     public void setSafe(int index, NullableBitHolder holder) {
       while(index >= getValueCapacity()) {
         reAlloc();
       }
       set(index, holder.value);
-    }
-
-    public void setScalar(int index, NullableBitHolder holder) throws VectorOverflowException {
-      if (index >= MAX_COUNT) {
-        throw new VectorOverflowException();
-      }
-      setSafe(index, holder);
-    }
-
-    public void setArrayItem(int index, NullableBitHolder holder) throws VectorOverflowException {
-      if (index >= MAX_CAPACITY) {
-        throw new VectorOverflowException();
-      }
-      setSafe(index, holder);
     }
 
     @Override

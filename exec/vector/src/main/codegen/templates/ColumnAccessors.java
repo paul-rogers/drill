@@ -79,6 +79,8 @@
                 type.getPrecision());
   <#elseif accessorType == "BigDecimal" || accessorType == "Period">
       return accessor().${getObject}(vectorIndex.vectorIndex(${indexVar}));
+  <#elseif drillType == "UInt1">
+      return ((int) accessor().get(vectorIndex.vectorIndex(${indexVar}))) & 0xFF;
   <#else>
       return accessor().get(vectorIndex.vectorIndex(${indexVar}));
   </#if>
@@ -138,6 +140,7 @@ import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
 import org.apache.drill.exec.vector.accessor.reader.BaseElementReader;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
 import org.apache.drill.exec.vector.accessor.writer.BaseScalarWriter;
+import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriter;
 
 import com.google.common.base.Charsets;
 
@@ -164,19 +167,6 @@ import org.joda.time.Period;
 // This class is generated using freemarker and the ${.template_name} template.
 
 public class ColumnAccessors {
-
-  public static class OffsetWriterIndex implements ColumnWriterIndex {
-    private ColumnWriterIndex baseIndex;
-
-    private OffsetWriterIndex(ColumnWriterIndex baseIndex) {
-      this.baseIndex = baseIndex;
-    }
-
-    @Override public int vectorIndex() { return baseIndex.vectorIndex() + 1; }
-    @Override public void overflowed() { baseIndex.overflowed(); }
-    @Override public boolean legal() { return baseIndex.legal(); }
-    @Override public void nextElement() { }
-  }
 
 <#list vv.types as type>
   <#list type.minor as minor>
@@ -231,20 +221,20 @@ public class ColumnAccessors {
   }
 
   public static class ${drillType}ColumnWriter extends BaseScalarWriter {
+      <#assign varWidth = drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary" />
       <#if drillType = "Decimal9" || drillType == "Decimal18" ||
            drillType == "Decimal28Sparse" || drillType == "Decimal38Sparse">
     private MajorType type;
       </#if>
-      <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
-    private UInt4ColumnWriter offsetsWriter = new UInt4ColumnWriter();
-    private int writeOffset;
+      <#if varWidth>
+    private OffsetVectorWriter offsetsWriter = new OffsetVectorWriter();
       <#else>
-    private final int VALUE_WIDTH = ${drillType}Vector.VALUE_WIDTH;
+    private static final int VALUE_WIDTH = ${drillType}Vector.VALUE_WIDTH;
       </#if>
     private ${drillType}Vector vector;
 
     @Override
-    public final void bindVector(ValueVector vector) {
+    public final void bindVector(final ValueVector vector) {
       <#if drillType = "Decimal9" || drillType == "Decimal18" ||
            drillType == "Decimal28Sparse" || drillType == "Decimal38Sparse">
       type = vector.getField().getType();
@@ -253,18 +243,19 @@ public class ColumnAccessors {
       setAddr(this.vector.getBuffer());
       <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
       offsetsWriter.bindVector(this.vector.getOffsetVector());
-      writeOffset = 0;
-      </#if>
+      <#-- lastWriteIndex unused for variable width vectors. -->
+      <#else>
       lastWriteIndex = -1;
+      </#if>
     }
 
      <#-- All change of buffer comes through this function to allow capturing
           the buffer address and capacity. Only two ways to set the buffer:
           by binding to a vector in bindVector(), or by resizing the vector
           in writeIndex(). -->
-    private final void setAddr(DrillBuf buf) {
+    private final void setAddr(final DrillBuf buf) {
       bufAddr = buf.addr();
-      <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
+      <#if varWidth>
       capacity = buf.capacity();
       <#else>
       <#-- Turns out that keeping track of capacity as the count of
@@ -273,10 +264,10 @@ public class ColumnAccessors {
       </#if>
     }
 
-      <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
+      <#if varWidth>
     @Override
-    public void bindIndex(ColumnWriterIndex index) {
-      offsetsWriter.bindIndex(new OffsetWriterIndex(index));
+    public void bindIndex(final ColumnWriterIndex index) {
+      offsetsWriter.bindIndex(index);
       super.bindIndex(index);
     }
 
@@ -309,16 +300,13 @@ public class ColumnAccessors {
          The buffer obtained by getBuffer() can be different than the current
          buffer after writeIndex().
          -->
-      <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
-        <#assign width = "width" />
-        <#assign varWidth = true />
-    private final int writeIndex(int width) {
+      <#if varWidth>
+    private final int writeIndex(final int width) {
+      int writeOffset = offsetsWriter.writeOffset();
       if (writeOffset + width < capacity) {
         return writeOffset;
       }
       <#else>
-        <#assign width = "VALUE_WIDTH" />
-        <#assign varWidth = false />
     private final int writeIndex() {
       <#-- "Fast path" for the normal case of no fills, no overflow.
             This is the only bounds check we want to do for the entire
@@ -347,7 +335,7 @@ public class ColumnAccessors {
                the new vector. -->
           vectorIndex.overflowed();
       <#if varWidth>
-          writeOffset = 0;
+          writeOffset = offsetsWriter.writeOffset();
       <#else>
           writeIndex = vectorIndex.vectorIndex();
       </#if>
@@ -370,7 +358,7 @@ public class ColumnAccessors {
         PlatformDependent.putLong(${putAddr}, 0);
         <#elseif drillType == "Decimal28Sparse" || drillType == "Decimal38Sparse">
         long addr = ${putAddr};
-        for (int i = 0; i < VALUE_WIDTH / 4; i++, addr += VALUE_WIDTH) {
+        for (int i = 0; i < VALUE_WIDTH / 4; i++, addr += 4) {
           PlatformDependent.putInt(addr, 0);
         }
         <#elseif drillType == "IntervalYear">
@@ -401,20 +389,19 @@ public class ColumnAccessors {
     }
 
     @Override
-    public final void set${label}(${accessorType} value${args}) {
+    public final void set${label}(final ${accessorType} value${args}) {
       <#-- Must compute the write offset first; can't be inline because the
            writeOffset() function has a side effect of possibly changing the buffer
            address (bufAddr). -->
-      <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
+      <#if varWidth>
       final int offset = writeIndex(len);
       <#else>
       final int writeIndex = writeIndex();
       <#assign putAddr = "bufAddr + writeIndex * VALUE_WIDTH">
       </#if>
-      <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
+      <#if varWidth>
       PlatformDependent.copyMemory(value, 0, bufAddr + offset, len);
-      writeOffset += len;
-      offsetsWriter.setInt(writeOffset);
+      offsetsWriter.setOffset(offset + len);
       <#elseif drillType == "Decimal9">
       PlatformDependent.putInt(${putAddr},
           DecimalUtility.getDecimal9FromBigDecimal(value,
@@ -463,7 +450,7 @@ public class ColumnAccessors {
 
     @Override
     public final void setString(String value) {
-      final byte bytes[] = value.getBytes(Charsets.UTF_8);
+      final byte bytes[] = value.getBytes(Charsets.UTF_16);
       setBytes(bytes, bytes.length);
     }
     </#if>
@@ -471,8 +458,8 @@ public class ColumnAccessors {
     @Override
     public final void finish() {
       <#if varWidth>
+      vector.getBuffer().writerIndex(offsetsWriter.writeOffset());
       offsetsWriter.finish();
-      vector.getBuffer().writerIndex(writeOffset);
       <#else>
       <#-- Done this way to avoid another drill buf access in value set path.
            Though this calls writeOffset(), which handles vector overflow,
@@ -497,6 +484,7 @@ public class ColumnAccessors {
              value.getSeconds()) * 1000 +
            value.getMillis();
   }
+
 <@build vv.types "Required" "Reader" />
 
 <@build vv.types "Nullable" "Reader" />

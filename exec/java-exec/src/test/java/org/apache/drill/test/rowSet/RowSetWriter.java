@@ -17,7 +17,6 @@
  */
 package org.apache.drill.test.rowSet;
 
-import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 
@@ -72,7 +71,7 @@ public interface RowSetWriter extends TupleWriter {
    * caused vector overflow.
    * @throws VectorOverflowException
    */
-  void setRow(Object...values) throws VectorOverflowException;
+  void setRow(Object...values);
 
   /**
    * Indicates if the current row position is valid for

@@ -102,7 +102,7 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
   }
 
   @Override
-  public void setRow(Object...values) throws VectorOverflowException {
+  public void setRow(Object...values) {
     setObject(values);
     save();
   }

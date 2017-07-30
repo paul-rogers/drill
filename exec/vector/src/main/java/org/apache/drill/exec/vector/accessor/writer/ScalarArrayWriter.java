@@ -19,7 +19,6 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
-import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter.ScalarObjectWriter;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
@@ -73,14 +72,14 @@ public class ScalarArrayWriter extends AbstractArrayWriter {
   }
 
   @Override
-  public void set(Object... values) throws VectorOverflowException {
+  public void set(Object... values) {
     for (Object value : values) {
       entry().set(value);
     }
   }
 
   @Override
-  public void setArray(Object array) throws VectorOverflowException {
+  public void setArray(Object array) {
     if (array == null) {
       // Assume null means a 0-element array since Drill does
       // not support null for the whole array.
@@ -147,61 +146,61 @@ public class ScalarArrayWriter extends AbstractArrayWriter {
     }
   }
 
-  public void setBooleanArray(boolean[] value) throws VectorOverflowException {
+  public void setBooleanArray(boolean[] value) {
     for (int i = 0; i < value.length; i++) {
       elementWriter.setInt(value[i] ? 1 : 0);
     }
   }
 
-  public void setBytesArray(byte[][] value) throws VectorOverflowException {
+  public void setBytesArray(byte[][] value) {
     for (int i = 0; i < value.length; i++) {
       elementWriter.setBytes(value[i], value[i].length);
     }
   }
 
-  public void setShortArray(short[] value) throws VectorOverflowException {
+  public void setShortArray(short[] value) {
     for (int i = 0; i < value.length; i++) {
       elementWriter.setInt(value[i]);
     }
   }
 
-  public void setIntArray(int[] value) throws VectorOverflowException {
+  public void setIntArray(int[] value) {
     for (int i = 0; i < value.length; i++) {
       elementWriter.setInt(value[i]);
     }
   }
 
-  public void setLongArray(long[] value) throws VectorOverflowException {
+  public void setLongArray(long[] value) {
     for (int i = 0; i < value.length; i++) {
       elementWriter.setLong(value[i]);
     }
   }
 
-  public void setFloatArray(float[] value) throws VectorOverflowException {
+  public void setFloatArray(float[] value) {
     for (int i = 0; i < value.length; i++) {
       elementWriter.setDouble(value[i]);
     }
   }
 
-  public void setDoubleArray(double[] value) throws VectorOverflowException {
+  public void setDoubleArray(double[] value) {
     for (int i = 0; i < value.length; i++) {
       elementWriter.setDouble(value[i]);
     }
   }
 
-  public void setStringArray(String[] value) throws VectorOverflowException {
+  public void setStringArray(String[] value) {
     for (int i = 0; i < value.length; i++) {
       elementWriter.setString(value[i]);
     }
   }
 
-  public void setPeriodArray(Period[] value) throws VectorOverflowException {
+  public void setPeriodArray(Period[] value) {
     for (int i = 0; i < value.length; i++) {
       elementWriter.setPeriod(value[i]);
     }
   }
 
-  public void setBigDecimalArray(BigDecimal[] value) throws VectorOverflowException {
+  public void setBigDecimalArray(BigDecimal[] value) {
     for (int i = 0; i < value.length; i++) {
       elementWriter.setDecimal(value[i]);
     }

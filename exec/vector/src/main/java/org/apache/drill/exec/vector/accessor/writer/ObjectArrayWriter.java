@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
-import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
@@ -43,12 +42,12 @@ public class ObjectArrayWriter extends AbstractArrayWriter {
   }
 
   @Override
-  public void set(Object... values) throws VectorOverflowException {
+  public void set(Object... values) {
     setArray(values);
   }
 
   @Override
-  public void setArray(Object array) throws VectorOverflowException {
+  public void setArray(Object array) {
     Object values[] = (Object[]) array;
     for (int i = 0; i < values.length; i++) {
       elementObjWriter.set(values[i]);

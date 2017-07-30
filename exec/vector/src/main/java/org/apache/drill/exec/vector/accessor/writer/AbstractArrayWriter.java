@@ -18,7 +18,6 @@
 package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.vector.UInt4Vector;
-import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
@@ -64,7 +63,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     }
 
     @Override
-    public void set(Object value) throws VectorOverflowException {
+    public void set(Object value) {
       arrayWriter.setArray(value);
     }
 

@@ -29,7 +29,6 @@ import org.apache.drill.exec.vector.RepeatedVarCharVector;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.VarCharVector;
 import org.apache.drill.exec.vector.VarCharVector.Accessor;
-import org.apache.drill.exec.vector.VectorOverflowException;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
@@ -73,11 +72,7 @@ public class TestFillEmpties extends SubOperatorTest {
     // Work around: test fails without this. But, only the new column writers
     // call this method.
 
-    try {
-      mutator.fillEmptiesBounded(0, 2);
-    } catch (VectorOverflowException e) {
-      fail();
-    }
+    mutator.fillEmpties(0, 2);
     value = makeValue("bar");
     mutator.setSafe(2, value, 0, value.length);
 
@@ -121,11 +116,7 @@ public class TestFillEmpties extends SubOperatorTest {
     // Work around: test fails without this. But, only the new column writers
     // call this method.
 
-    try {
-      mutator.fillEmptiesBounded(0, 2);
-    } catch (VectorOverflowException e) {
-      fail();
-    }
+    mutator.fillEmpties(0, 2);
     mutator.startNewValue(2);
     value = makeValue( "c" );
     mutator.addSafe(2, value, 0, value.length);

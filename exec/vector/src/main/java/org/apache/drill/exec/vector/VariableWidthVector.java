@@ -33,8 +33,10 @@ public interface VariableWidthVector extends ValueVector {
    */
   int getByteCapacity();
 
+  @Override
   VariableWidthMutator getMutator();
 
+  @Override
   VariableWidthAccessor getAccessor();
 
   interface VariableWidthAccessor extends Accessor {
