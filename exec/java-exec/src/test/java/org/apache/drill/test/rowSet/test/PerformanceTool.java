@@ -65,6 +65,7 @@ public class PerformanceTool {
     System.out.println("Vector: " + timer.elapsed(TimeUnit.MILLISECONDS));
   }
 
+  @SuppressWarnings("unused")
   private static void testVector(MaterializedField field, OperatorFixture fixture, Stopwatch timer) {
     try (IntVector vector = new IntVector(field, fixture.allocator());) {
       vector.allocateNew(4096);
@@ -117,6 +118,7 @@ public class PerformanceTool {
     public void nextElement() { index++; }
   }
 
+  @SuppressWarnings("unused")
   private static void testWriter(TupleMetadata rowSchema,
       OperatorFixture fixture, Stopwatch timer) {
     try (IntVector vector = new IntVector(rowSchema.column(0), fixture.allocator());) {
@@ -149,6 +151,7 @@ public class PerformanceTool {
     }
   }
 
+  @SuppressWarnings("unused")
   private static void testWriter2(TupleMetadata rowSchema,
       OperatorFixture fixture, Stopwatch timer) {
     ExtendableRowSet rs = fixture.rowSet(rowSchema);
