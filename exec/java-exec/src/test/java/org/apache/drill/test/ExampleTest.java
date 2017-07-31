@@ -162,11 +162,10 @@ public class ExampleTest {
     FixtureBuilder builder = ClusterFixture.builder()
         // Easy way to run single threaded for easy debugging
         .maxParallelization(1)
-        // Set some system options
-        .systemOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 2L * 1024 * 1024 * 1024)
-        // TODO: Allow passing the validator itself in place of the name
-        .systemOption(PlannerSettings.EXCHANGE.getOptionName(), true)
-        .systemOption(PlannerSettings.HASHAGG.getOptionName(), false)
+        // Set some session options
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 2L * 1024 * 1024 * 1024)
+        .sessionOption(PlannerSettings.EXCHANGE, true)
+        .sessionOption(PlannerSettings.HASHAGG, false)
         ;
 
     try (LogFixture logs = logBuilder.build();
