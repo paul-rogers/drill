@@ -39,6 +39,30 @@ import org.apache.drill.test.rowSet.SchemaBuilder;
 
 import com.google.common.base.Stopwatch;
 
+/**
+ * Tests the performance of the writers compared to using the value
+ * vector mutators directly. In order to achieve apples-to-apples
+ * comparison, the tests work directly with individual columns in
+ * the writer case; the row writer level is omitted as the row writer
+ * simulates the reader logic previously used to write to vectors.
+ * <p>
+ * Current results:
+ * <ul>
+ * <li>Writer is 42% faster than a required mutator.</li>
+ * <li>Writer is 73% faster than a nullable mutator.</li>
+ * <li>Writer is 407% faster than a repeated mutator.</li>
+ * </ul>
+ * Since performance is critical for this component (this is the
+ * ultimate "inner loop", please run these tests periodically to
+ * ensure that performance does not drop; it is very easy to add
+ * a bit of code here or there that greatly impacts performance.
+ * <p>
+ * This is not a JUnit test. Rather, it is a stand-alone program
+ * which must be run explicitly. One handy way is to run it from
+ * your IDE. If using Eclipse, monitor the system to wait for Eclipse
+ * to finish its background processing before launching.
+ */
+
 public class PerformanceTool {
 
   public static final int ROW_COUNT = 16 * 1024 * 1024 / 4;
