@@ -20,14 +20,18 @@ package org.apache.drill.exec.vector.accessor.writer;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
+import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayElementWriterIndex;
+import org.apache.drill.exec.vector.complex.AbstractMapVector;
+import org.apache.drill.exec.vector.complex.MapVector;
+import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 
 /**
  * Writer for a Drill Map type. Maps are actually tuples, just like rows.
  */
 
-public class MapWriter extends AbstractTupleWriter {
+public abstract class MapWriter extends AbstractTupleWriter {
 
-  public static class MemberWriterIndex implements ColumnWriterIndex {
+  private static class MemberWriterIndex implements ColumnWriterIndex {
     private ColumnWriterIndex baseIndex;
 
     private MemberWriterIndex(ColumnWriterIndex baseIndex) {
@@ -40,6 +44,60 @@ public class MapWriter extends AbstractTupleWriter {
     @Override public void nextElement() { }
   }
 
+  private static class SingleMapWriter extends MapWriter {
+    private final MapVector mapVector;
+
+    private SingleMapWriter(ColumnMetadata schema, MapVector vector, AbstractObjectWriter[] writers) {
+      super(schema, writers);
+      mapVector = vector;
+    }
+
+    @Override
+    public void endWrite() {
+      super.endWrite();
+      mapVector.getMutator().setValueCount(vectorIndex.vectorIndex());
+    }
+
+    @Override
+    public void bindIndex(ColumnWriterIndex index) {
+      bindIndex(index, index);
+    }
+  }
+
+  private static class ArrayMapWriter extends MapWriter {
+    private final RepeatedMapVector mapVector;
+
+    private ArrayMapWriter(ColumnMetadata schema, RepeatedMapVector vector, AbstractObjectWriter[] writers) {
+      super(schema, writers);
+      mapVector = vector;
+    }
+
+    @Override
+    public void bindIndex(ColumnWriterIndex index) {
+
+      // This is a repeated map, then the provided index is an array element
+      // index. Convert this to an index that will not increment the element
+      // index on each write so that a map with three members, say, won't
+      // increment the index for each member. Rather, the index must be
+      // incremented at the array level.
+
+      final ColumnWriterIndex childIndex = new MemberWriterIndex(index);
+      bindIndex(index, childIndex);
+    }
+
+    @Override
+    public void endWrite() {
+      super.endWrite();
+
+      // A bit of a hack. This writer sees the element index. But,
+      // the vector wants the base element count, provided by the
+      // parent index.
+
+      ColumnWriterIndex baseIndex = ((ArrayElementWriterIndex) vectorIndex).baseIndex();
+      mapVector.getMutator().setValueCount(baseIndex.vectorIndex());
+    }
+  }
+
   protected final ColumnMetadata mapColumnSchema;
 
   private MapWriter(ColumnMetadata schema, AbstractObjectWriter[] writers) {
@@ -47,26 +105,19 @@ public class MapWriter extends AbstractTupleWriter {
     mapColumnSchema = schema;
   }
 
-  public static TupleObjectWriter build(ColumnMetadata schema, AbstractObjectWriter[] writers) {
-    return new TupleObjectWriter(new MapWriter(schema, writers));
+  public static TupleObjectWriter build(ColumnMetadata schema, MapVector vector,
+                                        AbstractObjectWriter[] writers) {
+    return new TupleObjectWriter(new SingleMapWriter(schema, vector, writers));
   }
 
-  @Override
-  public void bindIndex(ColumnWriterIndex index) {
+  public static TupleObjectWriter build(ColumnMetadata schema, RepeatedMapVector vector,
+                                        AbstractObjectWriter[] writers) {
+    return new TupleObjectWriter(new ArrayMapWriter(schema, vector, writers));
+  }
+
+  protected void bindIndex(ColumnWriterIndex index, ColumnWriterIndex childIndex) {
     vectorIndex = index;
 
-    // If this is a repeated map, then the provided index is an array element
-    // index. Convert this to an index that will not increment the element
-    // index on each write so that a map with three members, say, won't
-    // increment the index for each member. Rather, the index must be
-    // incremented at the array level.
-
-    final ColumnWriterIndex childIndex;
-    if (mapColumnSchema.mode() == DataMode.REPEATED) {
-      childIndex = new MemberWriterIndex(index);
-    } else {
-      childIndex = index;
-    }
     for (int i = 0; i < writers.length; i++) {
       writers[i].bindIndex(childIndex);
     }

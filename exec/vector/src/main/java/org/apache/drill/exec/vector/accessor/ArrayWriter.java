@@ -77,6 +77,6 @@ public interface ArrayWriter {
    * @throws VectorOverflowException
    */
 
-  void setArray(Object array);
+  void setObject(Object array);
 //  void setList(List<? extends Object> list);
 }

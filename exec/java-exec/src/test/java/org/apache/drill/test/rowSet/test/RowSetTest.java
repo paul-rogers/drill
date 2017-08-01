@@ -38,6 +38,8 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.ValueType;
+import org.apache.drill.exec.vector.complex.MapVector;
+import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -367,10 +369,16 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(32, bReader.getInt(1));
     assertFalse(reader.next());
 
+    // Verify that the map accessor's value count was set.
+
+    @SuppressWarnings("resource")
+    MapVector mapVector = (MapVector) actual.container().getValueVector(1).getValueVector();
+    assertEquals(actual.rowCount(), mapVector.getAccessor().getValueCount());
+
     SingleRowSet expected = fixture.rowSetBuilder(schema)
-        .add(10, new int[] {11, 12})
-        .add(20, new int[] {21, 22})
-        .add(30, new int[] {31, 32})
+        .add(10, new Object[] {new int[] {11, 12}})
+        .add(20, new Object[] {new int[] {21, 22}})
+        .add(30, new Object[] {new int[] {31, 32}})
         .build();
     new RowSetComparison(expected)
       .verifyAndClearAll(actual);
@@ -424,7 +432,7 @@ public class RowSetTest extends SubOperatorTest {
     aWriter.setInt(20);
     bWriter.setInt(201);
     cWriter.setInt(202);
-    maWriter.save(); // Advance to next array position
+    maWriter.save();
     bWriter.setInt(211);
     cWriter.setInt(212);
     maWriter.save();
@@ -433,7 +441,7 @@ public class RowSetTest extends SubOperatorTest {
     aWriter.setInt(30);
     bWriter.setInt(301);
     cWriter.setInt(302);
-    maWriter.save(); // Advance to next array position
+    maWriter.save();
     bWriter.setInt(311);
     cWriter.setInt(312);
     maWriter.save();
@@ -463,7 +471,7 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(ValueType.INTEGER, bReader.valueType());
     assertEquals(ValueType.INTEGER, cReader.valueType());
 
-    // Row 1: used index accessors
+    // Row 1: use index accessors
 
     assertTrue(reader.next());
     assertEquals(10, aReader.getInt());
@@ -498,6 +506,12 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(312, cReader.getInt());
 
     assertFalse(reader.next());
+
+    // Verify that the map accessor's value count was set.
+
+    @SuppressWarnings("resource")
+    RepeatedMapVector mapVector = (RepeatedMapVector) actual.container().getValueVector(1).getValueVector();
+    assertEquals(actual.rowCount(), mapVector.getAccessor().getValueCount());
 
     // Verify the readers and writers again using the testing tools.
 

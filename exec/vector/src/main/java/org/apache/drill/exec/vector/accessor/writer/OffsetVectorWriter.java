@@ -20,10 +20,16 @@ package org.apache.drill.exec.vector.accessor.writer;
 import org.apache.drill.exec.memory.BaseAllocator;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ColumnAccessors;
 import org.apache.drill.exec.vector.accessor.ValueType;
 
 import io.netty.buffer.DrillBuf;
 import io.netty.util.internal.PlatformDependent;
+
+/**
+ * Specialized column writer for the (hidden) offset vector used
+ * with variable-length or repeated vectors.
+ */
 
 public class OffsetVectorWriter extends BaseScalarWriter {
   private static final int VALUE_WIDTH = UInt4Vector.VALUE_WIDTH;
@@ -35,12 +41,17 @@ public class OffsetVectorWriter extends BaseScalarWriter {
     this.vector = (UInt4Vector) vector;
     setAddr(this.vector.getBuffer());
 
-    // Initialize position 0 to 0. Actual offsets start
-    // at position 1.
+    // Special handling for first value. Alloc vector if needed.
+    // Offset vectors require a 0 at position 0. The (end) offset
+    // for row 0 starts at position 1, which is handled in
+    // writeOffset() below.
 
     writeOffset = 0;
-    PlatformDependent.putInt(bufAddr, writeOffset);
     lastWriteIndex = 0;
+    if (capacity < ColumnAccessors.MIN_BUFFER_SIZE) {
+      setAddr(this.vector.reallocRaw(ColumnAccessors.MIN_BUFFER_SIZE));
+    }
+    PlatformDependent.putInt(bufAddr, writeOffset);
   }
 
   private final void setAddr(final DrillBuf buf) {

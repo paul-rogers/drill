@@ -27,12 +27,14 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.record.TupleMetadata.StructureType;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.ValueType;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.bouncycastle.util.Arrays;
@@ -61,6 +63,23 @@ public class RowSetUtilities {
       sv2.setIndex(i, sv2.getIndex(dest));
       sv2.setIndex(dest, temp);
     }
+  }
+
+  /**
+   * Set a test data value from an int. Uses the type information of the
+   * column to handle interval types. Else, uses the value type of the
+   * accessor. The value set here is purely for testing; the mapping
+   * from ints to intervals has no real meaning.
+   *
+   * @param rowWriter
+   * @param index
+   * @param value
+   */
+
+  public static void setFromInt(RowSetWriter rowWriter, int index, int value) {
+    ScalarWriter writer = rowWriter.scalar(index);
+    MaterializedField field = rowWriter.schema().column(index);
+    writer.setObject(testDataFromInt(writer.valueType(), field.getType(), value));
   }
 
   public static Object testDataFromInt(ValueType valueType, MajorType dataType, int value) {

@@ -43,11 +43,11 @@ public class ObjectArrayWriter extends AbstractArrayWriter {
 
   @Override
   public void set(Object... values) {
-    setArray(values);
+    setObject(values);
   }
 
   @Override
-  public void setArray(Object array) {
+  public void setObject(Object array) {
     Object values[] = (Object[]) array;
     for (int i = 0; i < values.length; i++) {
       elementObjWriter.set(values[i]);

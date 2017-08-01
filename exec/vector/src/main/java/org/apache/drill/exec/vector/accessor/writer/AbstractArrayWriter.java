@@ -63,7 +63,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
     @Override
     public void set(Object value) {
-      arrayWriter.setArray(value);
+      arrayWriter.setObject(value);
     }
 
     public void start() {
@@ -111,6 +111,8 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     public ArrayElementWriterIndex(ColumnWriterIndex baseIndex) {
       this.baseIndex = baseIndex;
     }
+
+    public ColumnWriterIndex baseIndex() { return baseIndex; }
 
     public void reset() {
       offset = 0;

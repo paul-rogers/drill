@@ -153,13 +153,13 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     ObjectWriter colWriter = column(colIndex);
     switch (colWriter.type()) {
     case ARRAY:
-      colWriter.array().setArray(value);
+      colWriter.array().setObject(value);
       break;
     case SCALAR:
       colWriter.scalar().setObject(value);
       break;
     case TUPLE:
-      colWriter.tuple().setTuple(value);
+      colWriter.tuple().setObject(value);
       break;
     default:
       throw new IllegalStateException("Unexpected object type: " + colWriter.type());

@@ -79,7 +79,7 @@ public class ScalarArrayWriter extends AbstractArrayWriter {
   }
 
   @Override
-  public void setArray(Object array) {
+  public void setObject(Object array) {
     if (array == null) {
       // Assume null means a 0-element array since Drill does
       // not support null for the whole array.
