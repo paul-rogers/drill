@@ -35,6 +35,23 @@ import org.apache.drill.exec.record.TupleMetadata;
  */
 
 public interface TupleWriter {
+
+  /**
+   * Unchecked exception thrown when attempting to access a column loader
+   * by name for an undefined columns. Readers that use a fixed schema
+   * can simply omit catch blocks for the exception since it is unchecked
+   * and won't be thrown if the schema can't evolve. Readers that can
+   * discover new columns should catch the exception and define the
+   * column (using an implementation that allows dynamic schema definition.)
+   */
+
+  @SuppressWarnings("serial")
+  public static class UndefinedColumnException extends RuntimeException {
+    public UndefinedColumnException(String colName) {
+      super("Undefined column: " + colName);
+    }
+  }
+
   TupleMetadata schema();
   int size();
 
@@ -55,14 +72,14 @@ public interface TupleWriter {
   ObjectType type(String colName);
 
   /**
-   * Set one column given a generic object value. Most helpful for testing,
-   * not performant for production code due to object creation and dynamic
-   * type checking.
+   * Write a value to the given column, automatically calling the proper
+   * <tt>set<i>Type</i></tt> method for the data. While this method is
+   * convenient for testing, it incurs quite a bit of type-checking overhead
+   * and is not suitable for production code.
    *
    * @param colIndex the index of the column to set
    * @param value the value to set. The type of the object must be compatible
    * with the type of the target column
-   * @throws VectorOverflowException if the vector overflows
    */
 
   void set(int colIndex, Object value);
@@ -77,7 +94,6 @@ public interface TupleWriter {
    * @param values variable-length argument list of column values
    * @return true if the row was written, false if any column
    * caused vector overflow.
-   * @throws VectorOverflowException if the vector overflows
    */
 
   void setTuple(Object ...values);
@@ -86,8 +102,8 @@ public interface TupleWriter {
    * Set the tuple from an array of objects. Primarily for use in
    * test tools.
    *
-   * @param value
-   * @throws VectorOverflowException
+   * @param value the object to set, which must be a generic
+   * <tt>Object</tt> array
    */
 
   void setObject(Object value);

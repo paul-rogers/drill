@@ -357,6 +357,10 @@ public class ColumnAccessors {
            zero-filled. -->
       <#if ! varWidth>
       while (lastWriteIndex < writeIndex - 1) {
+        <#-- Implemented in a type-specific way because PlatformDependent does not
+             provide a general-purpose "fillBytes" function that we could use instead.
+             If that was provided, we'd just fill the entire missing span of data
+             with zeros. -->
         <#assign putAddr = "bufAddr + ++lastWriteIndex * VALUE_WIDTH" />
         <#if drillType == "Decimal9">
         PlatformDependent.putInt(${putAddr}, 0);

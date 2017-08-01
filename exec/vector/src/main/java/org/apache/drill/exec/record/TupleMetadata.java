@@ -88,7 +88,15 @@ public interface TupleMetadata extends Iterable<TupleMetadata.ColumnMetadata> {
     boolean isEquivalent(ColumnMetadata other);
   }
 
-  void add(MaterializedField field);
+
+  /**
+   * Add a new column to the schema.
+   *
+   * @param columnSchema
+   * @return the index of the new column
+   */
+  int add(MaterializedField field);
+
   int size();
   boolean isEmpty();
   int index(String name);

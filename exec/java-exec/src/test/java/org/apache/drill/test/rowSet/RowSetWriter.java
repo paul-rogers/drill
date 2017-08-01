@@ -64,13 +64,24 @@ public interface RowSetWriter extends TupleWriter {
   /**
    * Write a row of values, given by Java objects. Object type must
    * match expected column type. Stops writing, and returns false,
-   * if any value causes vector overflow.
+   * if any value causes vector overflow. Value format:
+   * <ul>
+   * <li>For scalars, the value as a suitable Java type (int or
+   * Integer, say, for <tt>INTEGER</tt> values.)</li>
+   * <li>For scalar arrays, an array of a suitable Java primitive type
+   * for scalars. For example, <tt>int[]</tt> for an <tt>INTEGER</tt>
+   * column.</li>
+   * <li>For a Map, an <tt>Object<tt> array with values encoded as above.
+   * (In fact, the list here is the same as the map format.</li>
+   * <li>For a list (repeated map, list of list), an <tt>Object</tt>
+   * array with values encoded as above. (So, for a repeated map, an outer
+   * <tt>Object</tt> map encodes the array, an inner one encodes the
+   * map members.</li>
+   * </ul>
    *
    * @param values variable-length argument list of column values
-   * @return true if the row was written, false if any column
-   * caused vector overflow.
-   * @throws VectorOverflowException
    */
+
   void setRow(Object...values);
 
   /**
