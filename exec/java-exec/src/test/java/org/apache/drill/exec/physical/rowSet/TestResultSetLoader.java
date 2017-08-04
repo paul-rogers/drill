@@ -31,6 +31,7 @@ import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.ResultSetOptions;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.test.SubOperatorTest;
@@ -57,8 +58,6 @@ public class TestResultSetLoader extends SubOperatorTest {
       System.err.println("This test requires assertions, but they are not enabled - some tests skipped.");
     }
   }
-
-  private ArrayLoader arrayWriter;
 
   @Test
   public void testBasics() {
@@ -88,17 +87,17 @@ public class TestResultSetLoader extends SubOperatorTest {
     // Can define schema before starting the first batch.
 
     TupleLoader rootWriter = rsLoader.writer();
-    TupleSchema schema = rootWriter.schema();
-    assertEquals(0, schema.columnCount());
+    TupleMetadata schema = rootWriter.schema();
+    assertEquals(0, schema.size());
 
     MaterializedField fieldA = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
-    schema.addColumn(fieldA);
+    rootWriter.addColumn(fieldA);
 
-    assertEquals(1, schema.columnCount());
+    assertEquals(1, schema.size());
     assertSame(fieldA, schema.column(0));
     assertSame(fieldA, schema.column("a"));
 
-    // Error to write to a column before the first batch.
+    // Error to start a row before the first batch.
 
     try {
       rsLoader.startRow();
@@ -106,14 +105,10 @@ public class TestResultSetLoader extends SubOperatorTest {
     } catch (IllegalStateException e) {
       // Expected
     }
-    if (hasAssertions) {
-      try {
-        rootWriter.column(0).setInt(50);
-        fail();
-      } catch (AssertionError e) {
-        // Expected
-      }
-    }
+
+    // Because writing is an inner loop; no checks are
+    // done to ensure that writing occurs only in the proper
+    // state. So, can't test setInt() in the wrong state.
 
     rsLoader.startBatch();
     try {
@@ -124,7 +119,8 @@ public class TestResultSetLoader extends SubOperatorTest {
     }
     assertFalse(rsLoader.isFull());
 
-    rootWriter.column(0).setInt(100);
+    rsLoader.startRow();
+    rootWriter.scalar(0).setInt(100);
     assertEquals(0, rsLoader.rowCount());
     assertEquals(0, rsLoader.batchCount());
     rsLoader.saveRow();
@@ -136,14 +132,15 @@ public class TestResultSetLoader extends SubOperatorTest {
     // "back-filled".
 
     MaterializedField fieldB = SchemaBuilder.columnSchema("b", MinorType.INT, DataMode.OPTIONAL);
-    schema.addColumn(fieldB);
+    rootWriter.addColumn(fieldB);
 
-    assertEquals(2, schema.columnCount());
+    assertEquals(2, schema.size());
     assertSame(fieldB, schema.column(1));
     assertSame(fieldB, schema.column("b"));
 
-    rootWriter.column(0).setInt(200);
-    rootWriter.column(1).setInt(210);
+    rsLoader.startRow();
+    rootWriter.scalar(0).setInt(200);
+    rootWriter.scalar(1).setInt(210);
     rsLoader.saveRow();
     assertEquals(2, rsLoader.rowCount());
     assertEquals(1, rsLoader.batchCount());
@@ -193,14 +190,14 @@ public class TestResultSetLoader extends SubOperatorTest {
     assertEquals(0, rsLoader.rowCount());
     assertEquals(1, rsLoader.batchCount());
     assertEquals(2, rsLoader.totalRowCount());
-    rootWriter.column(0).setInt(300);
-    rootWriter.column(1).setInt(310);
+    rootWriter.scalar(0).setInt(300);
+    rootWriter.scalar(1).setInt(310);
     rsLoader.saveRow();
     assertEquals(1, rsLoader.rowCount());
     assertEquals(2, rsLoader.batchCount());
     assertEquals(3, rsLoader.totalRowCount());
-    rootWriter.column(0).setInt(400);
-    rootWriter.column(1).setInt(410);
+    rootWriter.scalar(0).setInt(400);
+    rootWriter.scalar(1).setInt(410);
     rsLoader.saveRow();
 
     // Harvest. Schema has not changed.
@@ -221,14 +218,14 @@ public class TestResultSetLoader extends SubOperatorTest {
     // Next batch. Schema has changed.
 
     rsLoader.startBatch();
-    rootWriter.column(0).setInt(500);
-    rootWriter.column(1).setInt(510);
-    rootWriter.schema().addColumn(SchemaBuilder.columnSchema("c", MinorType.INT, DataMode.OPTIONAL));
-    rootWriter.column(2).setInt(520);
+    rootWriter.scalar(0).setInt(500);
+    rootWriter.scalar(1).setInt(510);
+    rootWriter.addColumn(SchemaBuilder.columnSchema("c", MinorType.INT, DataMode.OPTIONAL));
+    rootWriter.scalar(2).setInt(520);
     rsLoader.saveRow();
-    rootWriter.column(0).setInt(600);
-    rootWriter.column(1).setInt(610);
-    rootWriter.column(2).setInt(620);
+    rootWriter.scalar(0).setInt(600);
+    rootWriter.scalar(1).setInt(610);
+    rootWriter.scalar(2).setInt(620);
     rsLoader.saveRow();
 
     result = fixture.wrap(rsLoader.harvest());
@@ -289,8 +286,8 @@ public class TestResultSetLoader extends SubOperatorTest {
   @Test
   public void testCaseInsensitiveSchema() {
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
-    TupleLoader rootWriter = rsLoader.writer();
-    TupleSchema schema = rootWriter.schema();
+    TupleLoader rootWriter = rsLoader.root();
+    LoaderSchema schema = rootWriter.schema();
 
     // No columns defined in schema
 
@@ -421,8 +418,8 @@ public class TestResultSetLoader extends SubOperatorTest {
         .setCaseSensitive(true)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
-    TupleLoader rootWriter = rsLoader.writer();
-    TupleSchema schema = rootWriter.schema();
+    TupleLoader rootWriter = rsLoader.root();
+    LoaderSchema schema = rootWriter.schema();
 
     MaterializedField col1 = SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED);
     schema.addColumn(col1);
@@ -460,8 +457,8 @@ public class TestResultSetLoader extends SubOperatorTest {
   @Test
   public void testRowLimit() {
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
-    TupleLoader rootWriter = rsLoader.writer();
-    TupleSchema schema = rootWriter.schema();
+    TupleLoader rootWriter = rsLoader.root();
+    LoaderSchema schema = rootWriter.schema();
     schema.addColumn(SchemaBuilder.columnSchema("s", MinorType.VARCHAR, DataMode.REQUIRED));
 
     byte value[] = new byte[200];
@@ -522,8 +519,8 @@ public class TestResultSetLoader extends SubOperatorTest {
         .setRowCountLimit(TEST_ROW_LIMIT)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
-    TupleLoader rootWriter = rsLoader.writer();
-    TupleSchema schema = rootWriter.schema();
+    TupleLoader rootWriter = rsLoader.root();
+    LoaderSchema schema = rootWriter.schema();
     schema.addColumn(SchemaBuilder.columnSchema("s", MinorType.VARCHAR, DataMode.REQUIRED));
 
     byte value[] = new byte[200];
@@ -569,8 +566,8 @@ public class TestResultSetLoader extends SubOperatorTest {
   @Test
   public void testSizeLimit() {
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
-    TupleLoader rootWriter = rsLoader.writer();
-    TupleSchema schema = rootWriter.schema();
+    TupleLoader rootWriter = rsLoader.root();
+    LoaderSchema schema = rootWriter.schema();
     MaterializedField field = SchemaBuilder.columnSchema("s", MinorType.VARCHAR, DataMode.REQUIRED);
     schema.addColumn(field);
 
@@ -625,8 +622,8 @@ public class TestResultSetLoader extends SubOperatorTest {
   @Test
   public void testOversizeArray() {
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
-    TupleLoader rootWriter = rsLoader.writer();
-    TupleSchema schema = rootWriter.schema();
+    TupleLoader rootWriter = rsLoader.root();
+    LoaderSchema schema = rootWriter.schema();
     MaterializedField field = SchemaBuilder.columnSchema("s", MinorType.VARCHAR, DataMode.REPEATED);
     schema.addColumn(field);
 
@@ -652,8 +649,8 @@ public class TestResultSetLoader extends SubOperatorTest {
   @Test
   public void testSizeLimitOnArray() {
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
-    TupleLoader rootWriter = rsLoader.writer();
-    TupleSchema schema = rootWriter.schema();
+    TupleLoader rootWriter = rsLoader.root();
+    LoaderSchema schema = rootWriter.schema();
     MaterializedField field = SchemaBuilder.columnSchema("s", MinorType.VARCHAR, DataMode.REPEATED);
     schema.addColumn(field);
 
@@ -723,8 +720,8 @@ public class TestResultSetLoader extends SubOperatorTest {
   @Test
   public void testLargeArray() {
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
-    TupleLoader rootWriter = rsLoader.writer();
-    TupleSchema schema = rootWriter.schema();
+    TupleLoader rootWriter = rsLoader.root();
+    LoaderSchema schema = rootWriter.schema();
     MaterializedField field = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REPEATED);
     schema.addColumn(field);
 
@@ -752,8 +749,8 @@ public class TestResultSetLoader extends SubOperatorTest {
   @Test
   public void testSchemaChangeFirstBatch() {
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
-    TupleLoader rootWriter = rsLoader.writer();
-    TupleSchema schema = rootWriter.schema();
+    TupleLoader rootWriter = rsLoader.root();
+    LoaderSchema schema = rootWriter.schema();
     schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED));
 
     // Create initial rows
@@ -864,11 +861,11 @@ public class TestResultSetLoader extends SubOperatorTest {
   @Test
   public void testOmittedValuesAtEnd() {
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
-    TupleLoader rootWriter = rsLoader.writer();
+    TupleLoader rootWriter = rsLoader.root();
 
     // Create columns up front
 
-    TupleSchema schema = rootWriter.schema();
+    LoaderSchema schema = rootWriter.schema();
     schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED));
     schema.addColumn(SchemaBuilder.columnSchema("b", MinorType.VARCHAR, DataMode.REQUIRED));
     schema.addColumn(SchemaBuilder.columnSchema("c", MinorType.VARCHAR, DataMode.OPTIONAL));
@@ -984,8 +981,8 @@ public class TestResultSetLoader extends SubOperatorTest {
   @Test
   public void testOmittedValuesAtEndWithOverflow() {
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
-    TupleLoader rootWriter = rsLoader.writer();
-    TupleSchema schema = rootWriter.schema();
+    TupleLoader rootWriter = rsLoader.root();
+    LoaderSchema schema = rootWriter.schema();
     // Row index
     schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED));
     // Column that forces overflow
@@ -1087,8 +1084,8 @@ public class TestResultSetLoader extends SubOperatorTest {
   @Test
   public void testSchemaChangeWithOverflow() {
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
-    TupleLoader rootWriter = rsLoader.writer();
-    TupleSchema schema = rootWriter.schema();
+    TupleLoader rootWriter = rsLoader.root();
+    LoaderSchema schema = rootWriter.schema();
     schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED));
 
     rsLoader.startBatch();
@@ -1178,8 +1175,8 @@ public class TestResultSetLoader extends SubOperatorTest {
   @Test
   public void testSkipRows() {
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
-    TupleLoader rootWriter = rsLoader.writer();
-    TupleSchema schema = rootWriter.schema();
+    TupleLoader rootWriter = rsLoader.root();
+    LoaderSchema schema = rootWriter.schema();
     schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED));
     schema.addColumn(SchemaBuilder.columnSchema("b", MinorType.VARCHAR, DataMode.OPTIONAL));
 
@@ -1224,8 +1221,8 @@ public class TestResultSetLoader extends SubOperatorTest {
   @Test
   public void testSkipOverflowRow() {
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
-    TupleLoader rootWriter = rsLoader.writer();
-    TupleSchema schema = rootWriter.schema();
+    TupleLoader rootWriter = rsLoader.root();
+    LoaderSchema schema = rootWriter.schema();
     schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED));
     schema.addColumn(SchemaBuilder.columnSchema("b", MinorType.VARCHAR, DataMode.OPTIONAL));
 
@@ -1275,9 +1272,9 @@ public class TestResultSetLoader extends SubOperatorTest {
         .setProjection(selection)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
-    TupleLoader rootWriter = rsLoader.writer();
+    TupleLoader rootWriter = rsLoader.root();
     assertTrue(rootWriter instanceof LogicalTupleLoader);
-    TupleSchema schema = rootWriter.schema();
+    LoaderSchema schema = rootWriter.schema();
     schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED));
     schema.addColumn(SchemaBuilder.columnSchema("b", MinorType.INT, DataMode.REQUIRED));
     schema.addColumn(SchemaBuilder.columnSchema("c", MinorType.INT, DataMode.REQUIRED));

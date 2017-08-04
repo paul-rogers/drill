@@ -82,6 +82,26 @@ public interface ResultSetLoader {
   TupleLoader writer();
 
   /**
+   * Load a row using column values passed as variable-length arguments. Expects
+   * map values to represented as an array.
+   * A schema of (a:int, b:map(c:varchar)) would be>
+   * set as <br><tt>loadRow(10, new Object[] {"foo"});</tt><br>
+   * Values of arrays can be expressed as a Java
+   * array. A schema of (a:int, b:int[]) can be set as<br>
+   * <tt>loadRow(10, new int[] {100, 200});</tt><br>.
+   * Primarily for testing, too slow for production code.
+   * <p>
+   * If the row consists of a single map or list, then the one value will be an
+   * <tt>Object</tt> array, creating an ambiguity. Use <tt>writer().set(0, value);</tt>
+   * in this case.
+   *
+   * @param values column values in column index order
+   * @return this loader
+   */
+
+  ResultSetLoader setRow(Object...values);
+
+  /**
    * Called before writing a new row.
    */
 
@@ -134,7 +154,7 @@ public interface ResultSetLoader {
    * appear until the next batch.)
    * <p>
    * Never count on the data in the container; it may be empty, half
-   * written, or inconistent. Always call
+   * written, or inconsistent. Always call
    * {@link #harvest()} to obtain the container for a batch.
    *
    * @return the output container including schema and value
@@ -150,7 +170,7 @@ public interface ResultSetLoader {
    * @return the row batch to send downstream
    */
 
-  VectorContainer harvest(); // ?
+  VectorContainer harvest();
 
   /**
    * Clear the current, empty, in-flight batch to prepare for a new

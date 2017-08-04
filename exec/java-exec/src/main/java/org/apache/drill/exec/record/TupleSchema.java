@@ -24,6 +24,7 @@ import java.util.List;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 
 /**
@@ -36,7 +37,44 @@ import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 
 public class TupleSchema implements TupleMetadata {
 
-  public static abstract class BaseColumnMetadata implements ColumnMetadata {
+  public static abstract class AbstractColumnMetadata implements ColumnMetadata {
+    @Override
+    public String name() { return schema().getName(); }
+    @Override
+    public MajorType majorType() { return schema().getType(); }
+    @Override
+    public MinorType type() { return schema().getType().getMinorType(); }
+    @Override
+    public DataMode mode() { return schema().getDataMode(); }
+
+    @Override
+    public String fullName( ) {
+      ColumnMetadata parentMap = parent().parent();
+      if (parentMap == null) {
+        return name();
+      } else {
+        return parentMap.fullName() + "." + name();
+      }
+    }
+
+    @Override
+    public boolean isEquivalent(ColumnMetadata other) {
+      return schema().isEquivalent(other.schema());
+    }
+
+    @Override
+    public String toString() {
+      return new StringBuilder()
+          .append("[")
+          .append(getClass().getSimpleName())
+          .append(" ")
+          .append(schema().toString())
+          .append("]")
+          .toString();
+    }
+  }
+
+  public static abstract class BaseColumnMetadata extends AbstractColumnMetadata {
     private final int index;
     private final TupleSchema parent;
     protected final MaterializedField schema;
@@ -48,42 +86,16 @@ public class TupleSchema implements TupleMetadata {
     }
 
     @Override
-    public abstract StructureType structureType();
-    @Override
-    public abstract TupleMetadata mapSchema();
-    @Override
     public int index() { return index; }
     @Override
     public MaterializedField schema() { return schema; }
     @Override
-    public String name() { return schema.getName(); }
-    @Override
-    public MajorType majorType() { return schema.getType(); }
-    @Override
-    public MinorType type() { return schema.getType().getMinorType(); }
-    @Override
-    public DataMode mode() { return schema.getDataMode(); }
-    @Override
     public TupleMetadata parent() { return parent; }
-    public MapColumnMetadata parentMap() { return parent.map(); }
-
-    @Override
-    public String fullName( ) {
-      MapColumnMetadata parentMap = parentMap();
-      if (parentMap == null) {
-        return name();
-      } else {
-        return parentMap.fullName() + "." + name();
-      }
-    }
-
-    @Override
-    public boolean isEquivalent(ColumnMetadata other) {
-      return schema.isEquivalent(other.schema());
-    }
   }
 
   public static class PrimitiveColumnMetadata extends BaseColumnMetadata {
+
+    private int allocationSize;
 
     public PrimitiveColumnMetadata(int index, TupleSchema parent,
                                    MaterializedField schema) {
@@ -94,6 +106,13 @@ public class TupleSchema implements TupleMetadata {
     public StructureType structureType() { return StructureType.PRIMITIVE; }
     @Override
     public TupleMetadata mapSchema() { return null; }
+
+    @Override
+    public int allocationSize() {
+      return allocationSize == 0
+          ? TypeHelper.getSize(schema.getType())
+          : allocationSize;
+    }
   }
 
   public static class MapColumnMetadata  extends BaseColumnMetadata {
@@ -111,6 +130,9 @@ public class TupleSchema implements TupleMetadata {
     public StructureType structureType() { return StructureType.TUPLE; }
     @Override
     public TupleMetadata mapSchema() { return mapSchema; }
+
+    @Override
+    public int allocationSize() { return 0; }
   }
 
   private final MapColumnMetadata parentMap;
@@ -143,7 +165,7 @@ public class TupleSchema implements TupleMetadata {
   }
 
   @Override
-  public void add(MaterializedField field) {
+  public ColumnMetadata add(MaterializedField field) {
     int index = nameSpace.count();
     ColumnMetadata md;
     if (field.getType().getMinorType() == MinorType.MAP) {
@@ -151,7 +173,21 @@ public class TupleSchema implements TupleMetadata {
     } else {
       md = new PrimitiveColumnMetadata(index, this, field);
     }
-    nameSpace.add(field.getName(), md);
+    addColumn(md);
+    return md;
+  }
+
+  /**
+   * Add a column metadata column created by the caller. Used for specialized
+   * cases beyond those handled by {@link #add(MaterializedField)}.
+   *
+   * @param md the custom column metadata which must have the correct
+   * index set (from {@link #size()}
+   */
+
+  public void addColumn(ColumnMetadata md) {
+    assert md.index() == nameSpace.count();
+    nameSpace.add(md.name(), md);
   }
 
   @Override
@@ -181,7 +217,9 @@ public class TupleSchema implements TupleMetadata {
     return nameSpace.get(index);
   }
 
-  public MapColumnMetadata map() { return parentMap; }
+  @Override
+  public MapColumnMetadata parent() { return parentMap; }
+
   @Override
   public int size() { return nameSpace.count(); }
 
@@ -218,5 +256,22 @@ public class TupleSchema implements TupleMetadata {
 
   public BatchSchema toBatchSchema(SelectionVectorMode svMode) {
     return new BatchSchema(svMode, toFieldList());
+  }
+
+  @Override
+  public String toString() {
+    StringBuilder buf = new StringBuilder()
+        .append("[")
+        .append(getClass().getSimpleName())
+        .append(" ");
+    boolean first = true;
+    for (ColumnMetadata md : nameSpace) {
+      if (! first) {
+        buf.append(", ");
+      }
+      buf.append(md.toString());
+    }
+    buf.append("]");
+    return buf.toString();
   }
 }

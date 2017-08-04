@@ -38,10 +38,10 @@ public class TestOfTestDataConverter extends SubOperatorTest {
     BatchSchema schema = new SchemaBuilder()
         .add("a", type)
         .build();
-    loader.writer().schema().setSchema(schema);
+    loader.root().schema().setSchema(schema);
 
     loader.startBatch();
-    TestDataConverter converter = new TestDataConverter(loader.writer());
+    TestDataConverter converter = new TestDataConverter(loader.root());
     int count = 10;
     for (int i = 0; i < count; i++) {
       int value = i % maxValue;
@@ -68,7 +68,7 @@ public class TestOfTestDataConverter extends SubOperatorTest {
     BatchSchema schema = new SchemaBuilder()
         .addNullable("a", type)
         .build();
-    TupleLoader writer = loader.writer();
+    TupleLoader writer = loader.root();
     writer.schema().setSchema(schema);
 
     loader.startBatch();

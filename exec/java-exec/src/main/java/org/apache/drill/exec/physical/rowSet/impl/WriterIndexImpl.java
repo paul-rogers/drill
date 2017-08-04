@@ -109,4 +109,7 @@ class WriterIndexImpl implements ColumnWriterIndex {
     state = State.OK;
     rowIndex = 0;
   }
+
+  @Override
+  public void nextElement() { }
 }

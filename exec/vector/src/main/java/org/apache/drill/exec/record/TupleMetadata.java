@@ -22,6 +22,7 @@ import java.util.List;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.vector.ValueVector;
 
 /**
  * Metadata description of the schema of a row or a map.
@@ -86,6 +87,7 @@ public interface TupleMetadata extends Iterable<TupleMetadata.ColumnMetadata> {
      */
 
     boolean isEquivalent(ColumnMetadata other);
+    int allocationSize();
   }
 
 
@@ -95,7 +97,7 @@ public interface TupleMetadata extends Iterable<TupleMetadata.ColumnMetadata> {
    * @param columnSchema
    * @return the index of the new column
    */
-  int add(MaterializedField field);
+  ColumnMetadata add(MaterializedField field);
 
   int size();
   boolean isEmpty();
@@ -105,6 +107,7 @@ public interface TupleMetadata extends Iterable<TupleMetadata.ColumnMetadata> {
   MaterializedField column(int index);
   MaterializedField column(String name);
   boolean isEquivalent(TupleMetadata other);
+  ColumnMetadata parent();
 
   /**
    * Return the schema as a list of <tt>MaterializedField</tt> objects

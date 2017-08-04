@@ -66,7 +66,7 @@ public class TestRepeatedVarCharOutput extends SubOperatorTest {
       // Setup: normally done by ScanBatch
 
       loader = new ResultSetLoaderImpl(fixture.allocator());
-      loader.writer().schema().addColumn(
+      loader.root().schema().addColumn(
           SchemaBuilder.columnSchema("columns", MinorType.VARCHAR, DataMode.REPEATED));
 
       try {

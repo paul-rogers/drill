@@ -17,89 +17,94 @@
  */
 package org.apache.drill.exec.physical.rowSet;
 
-import org.apache.drill.exec.vector.VectorOverflowException;
-import org.apache.drill.test.rowSet.RowSetBuilder;
+import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.vector.accessor.ObjectWriter;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.complex.impl.SingleMapWriter;
 
 /**
- * Writes values into the current row or map by column index or name.
- * Column indexes and names are as defined by the schema.
+ * Represents a tuple: either the top-level row or a nested "map" (really
+ * structure) at the {@link ResultSetLoader} level. A tuple loader represents
+ * loader-specific behavior, plus provides access to the tuple schema and
+ * writers. (The loader is not, itself, a writer.). A tuple loader is a
+ * collection of columns (backed by vectors in the loader itself.) Columns are
+ * accessible via the associated tuple writer by name or index. New columns may
+ * be added via this interface at any time; the new column takes the next
+ * available index.
+ * <p>
+ * The associated writers write values into the current row or map by column
+ * index or name. Column indexes and names are as defined by the schema. This
+ * class wraps the basic {@link TupleWriter} with additional functionality
+ * needed when writing the result set in a data reader.
+ * <p>
+ * Readers can define the schema up front, or can define the schema as the read
+ * progresses. To avoid redundant checks to see if a column is already defined,
+ * readers can simply ask for a column by name. The <tt>column()</tt> (and
+ * related) methods will throw an (unchecked) {@link UndefinedColumnException}
+ * exception if the column is undefined. The reader can catch the exception,
+ * define the column, and fetch the column writer again.
  *
- * @see {@link SingleMapWriter}, the class which this class
- * replaces
+ * @see {@link SingleMapWriter}, the class which this class replaces
  */
 
-public interface TupleLoader {
+public interface TupleLoader extends TupleWriter {
+
+  public static final int UNMAPPED = -1;
 
   /**
-   * Unchecked exception thrown when attempting to access a column loader
-   * by name for an undefined columns. Readers that use a fixed schema
-   * can simply omit catch blocks for the exception since it is unchecked
-   * and won't be thrown if the schema can't evolve. Readers that can
-   * discover new columns should catch the exception and define the
-   * column.
+   * Represents a column within a tuple. A column can be an array, a scalar
+   * or a tuple. Each has an associated column metadata (schema) and a writer.
+   * The writer is one of three kinds, depending on the kind of the column.
+   * If the column is a map, then the column also has an associated tuple
+   * loader to define and write to the tuple.
+   * <p>
+   * Every column resides at an index, is defined by a schema,
+   * is backed by a value vector, and and is written to by a writer.
+   * Each column also tracks the schema version in which it was added
+   * to detect schema evolution. Each column has an optional overflow
+   * vector that holds overflow record values when a batch becomes
+   * full.
    */
 
-  @SuppressWarnings("serial")
-  public static class UndefinedColumnException extends RuntimeException {
-    public UndefinedColumnException(String msg) {
-      super(msg);
-    }
+  public interface ColumnLoader {
+    ColumnMetadata metadata();
+    TupleLoader tupleLoader();
+    ObjectWriter writer();
+
+    /**
+     * Columns can be defined, but not projected into the output row. This
+     * method return true if the column is  projected. Only top-level columns
+     * can be omitted from the projection.
+     *
+     * @return true if the column is selected (data is collected),
+     * false if the column is unselected (data is discarded)
+     */
+
+    boolean isProjected();
+    int vectorIndex();
   }
 
-  TupleSchema schema();
-  ColumnLoader column(int colIndex);
-
   /**
-   * Return the column loader for the given column name. Throws
-   * the {@link UndefinedColumnException} exception if the column
-   * is undefined. For readers, such as JSON, that work by name,
-   * and discover columns as they appear on input,
-   * first attempt to get the column loader. Catch the exception
-   * if the column does not exist, define the column
-   * then the column is undefined, and the code should add the
-   * new column and again retrieve the loader.
-   *
-   * @param colName
-   * @return the column loader for the column
-   * @throws {@link UndefinedColumnException} if the column is
-   * undefined.
-   */
-  ColumnLoader column(String colName);
-
-  /**
-   * Load a row using column values passed as variable-length arguments. Expects
-   * map values to be flattened. a schema of (a:int, b:map(c:varchar)) would be>
-   * set as <br><tt>loadRow(10, "foo");</tt><br> Values of arrays can be expressed as a Java
-   * array. A schema of (a:int, b:int[]) can be set as<br>
-   * <tt>loadRow(10, new int[] {100, 200});</tt><br>.
-   * Primarily for testing, too slow for production code.
-   * @param values column values in column index order
-   * @return this loader
+   * Create the tuple schema from a batch schema. The tuple schema
+   * must be empty.
+   * @param schema the schema for the tuple
    */
 
-  TupleLoader loadRow(Object...values);
+  void setSchema(BatchSchema schema);
+
+  ColumnLoader addColumn(MaterializedField field);
 
   /**
-   * Write a row that consists of a single object. Use this if Java becomes
-   * confused about the whether the single argument to {@link #loadRow} is
-   * an single array of values (what you want) or an array of multiple values
-   * (which you don't want when setting an array.)
-   *
-   * @param value value of the single column to set
-   * @return this loader
+   * Return the column list as a batch schema. Primarily for testing.
+   * @return the current schema as a batch schema, with columns
+   * in the same order as they were added (that is, in row index
+   * order)
    */
 
-  TupleLoader loadSingletonRow(Object value);
+  BatchSchema batchSchema();
 
-  /**
-   * Write a value to the given column, automatically calling the proper
-   * <tt>set<i>Type</i></tt> method for the data. While this method is
-   * convenient for testing, it incurs quite a bit of type-checking overhead
-   * and is not suitable for production code.
-   * @param colIndex the index of the column to set
-   * @param value the value to set. Must be of a type that maps to one of
-   * the <tt>set<i>Type</i></tt> methods
-   */
-
-  void set(int colIndex, Object value);
+  ColumnLoader columnLoader(String name);
+  ColumnLoader columnLoader(int index);
 }

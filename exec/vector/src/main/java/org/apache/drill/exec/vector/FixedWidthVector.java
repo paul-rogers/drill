@@ -27,8 +27,16 @@ public interface FixedWidthVector extends ValueVector {
    */
   void allocateNew(int valueCount);
 
-/**
- * Zero out the underlying buffer backing this vector.
- */
+  /**
+   * Zero out the underlying buffer backing this vector.
+   */
   void zeroVector();
+
+  /**
+   * Convert a fixed width vector to the nullable equivalent.
+   * @param nullableVector the destination vector. Existing data
+   * is discarded
+   */
+
+  public void toNullable(ValueVector nullableVector);
 }

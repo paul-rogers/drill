@@ -39,7 +39,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanProjector.MetadataColumnLoad
 import org.apache.drill.exec.physical.impl.scan.ScanProjector.NullColumnLoader;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
-import org.apache.drill.exec.physical.rowSet.TupleSchema;
+import org.apache.drill.exec.physical.rowSet.LoaderSchema;
 import org.apache.drill.exec.physical.rowSet.impl.LogicalTupleLoader;
 import org.apache.drill.exec.physical.rowSet.impl.TupleSetImpl.TupleLoaderImpl;
 import org.apache.drill.exec.record.BatchSchema;
@@ -196,7 +196,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     String bValues[] = new String[] { "fred", "wilma" };
     loader.startBatch();
-    TupleLoader writer = loader.writer();
+    TupleLoader writer = loader.root();
 
     // Should be a direct writer, no projection
     assertTrue(writer instanceof TupleLoaderImpl);
@@ -259,7 +259,7 @@ public class TestScanProjector extends SubOperatorTest {
     loader.startBatch();
 
     // Should be a direct writer, no projection
-    TupleLoader writer = loader.writer();
+    TupleLoader writer = loader.root();
     assertTrue(writer instanceof TupleLoaderImpl);
     for (int i = 0; i < 2; i++) {
       loader.startRow();
@@ -320,7 +320,7 @@ public class TestScanProjector extends SubOperatorTest {
     loader.startBatch();
 
     // Should be a direct writer, no projection
-    TupleLoader writer = loader.writer();
+    TupleLoader writer = loader.root();
     assertTrue(writer instanceof TupleLoaderImpl);
     for (int i = 0; i < 2; i++) {
       loader.startRow();
@@ -386,7 +386,7 @@ public class TestScanProjector extends SubOperatorTest {
     loader.startBatch();
 
     // Should be a direct writer, no projection
-    TupleLoader writer = loader.writer();
+    TupleLoader writer = loader.root();
     assertTrue(writer instanceof TupleLoaderImpl);
     for (int i = 0; i < 2; i++) {
       loader.startRow();
@@ -458,7 +458,7 @@ public class TestScanProjector extends SubOperatorTest {
     String bValues[] = new String[] { "fred", "wilma" };
     loader.startBatch();
 
-    TupleLoader writer = loader.writer();
+    TupleLoader writer = loader.root();
     assertTrue(writer instanceof TupleLoaderImpl);
     for (int i = 0; i < 2; i++) {
       loader.startRow();
@@ -523,7 +523,7 @@ public class TestScanProjector extends SubOperatorTest {
     loader.startBatch();
 
     // Should be a projection
-    TupleLoader writer = loader.writer();
+    TupleLoader writer = loader.root();
     assertTrue(writer instanceof LogicalTupleLoader);
     for (int i = 0; i < 2; i++) {
       loader.startRow();
@@ -594,7 +594,7 @@ public class TestScanProjector extends SubOperatorTest {
     loader.startBatch();
 
     // Should be a direct writer, no projection
-    TupleLoader writer = loader.writer();
+    TupleLoader writer = loader.root();
     assertTrue(writer instanceof TupleLoaderImpl);
     for (int i = 0; i < 2; i++) {
       loader.startRow();
@@ -662,7 +662,7 @@ public class TestScanProjector extends SubOperatorTest {
     loader.startBatch();
 
     // Should be a projection
-    TupleLoader writer = loader.writer();
+    TupleLoader writer = loader.root();
     assertTrue(writer instanceof LogicalTupleLoader);
     for (int i = 0; i < 2; i++) {
       loader.startRow();
@@ -727,7 +727,7 @@ public class TestScanProjector extends SubOperatorTest {
     loader.startBatch();
 
     // Should be a direct writer, no projection
-    TupleLoader writer = loader.writer();
+    TupleLoader writer = loader.root();
     assertTrue(writer instanceof LogicalTupleLoader);
     for (int i = 0; i < 2; i++) {
       loader.startRow();
@@ -806,9 +806,9 @@ public class TestScanProjector extends SubOperatorTest {
       ResultSetLoader loader = projector.makeTableLoader(twoColSchema);
 
       loader.startBatch();
-      loader.writer()
-          .loadRow(10, "fred")
-          .loadRow(20, "wilma");
+      loader.root()
+          .setRow(10, "fred")
+          .setRow(20, "wilma");
       projector.publish();
 
       tracker.trackSchema(projector.output());
@@ -837,9 +837,9 @@ public class TestScanProjector extends SubOperatorTest {
       ResultSetLoader loader = projector.makeTableLoader(oneColSchema);
 
       loader.startBatch();
-      loader.writer()
-          .loadRow(30)
-          .loadRow(40);
+      loader.root()
+          .setRow(30)
+          .setRow(40);
       projector.publish();
 
       tracker.trackSchema(projector.output());
@@ -862,9 +862,9 @@ public class TestScanProjector extends SubOperatorTest {
       ResultSetLoader loader = projector.makeTableLoader(twoColSchema);
 
       loader.startBatch();
-      loader.writer()
-          .loadRow(50, "dino")
-          .loadRow(60, "barney");
+      loader.root()
+          .setRow(50, "dino")
+          .setRow(60, "barney");
       projector.publish();
 
       tracker.trackSchema(projector.output());
@@ -926,9 +926,9 @@ public class TestScanProjector extends SubOperatorTest {
       ResultSetLoader loader = projector.makeTableLoader(schema1);
 
       loader.startBatch();
-      loader.writer()
-          .loadRow(10, "fred", 110L)
-          .loadRow(20, "wilma", 110L);
+      loader.root()
+          .setRow(10, "fred", 110L)
+          .setRow(20, "wilma", 110L);
       projector.publish();
 
       tracker.trackSchema(projector.output());
@@ -951,9 +951,9 @@ public class TestScanProjector extends SubOperatorTest {
       ResultSetLoader loader = projector.makeTableLoader(schema2);
 
       loader.startBatch();
-      loader.writer()
-          .loadRow(330L, 30, "bambam")
-          .loadRow(440L, 40, "betty");
+      loader.root()
+          .setRow(330L, 30, "bambam")
+          .setRow(440L, 40, "betty");
       projector.publish();
 
       tracker.trackSchema(projector.output());
@@ -976,9 +976,9 @@ public class TestScanProjector extends SubOperatorTest {
       ResultSetLoader loader = projector.makeTableLoader(schema3);
 
       loader.startBatch();
-      loader.writer()
-          .loadRow(50, 550L, "dino")
-          .loadRow(60, 660L, "barney");
+      loader.root()
+          .setRow(50, 550L, "dino")
+          .setRow(60, 660L, "barney");
       projector.publish();
 
       tracker.trackSchema(projector.output());
@@ -1050,9 +1050,9 @@ public class TestScanProjector extends SubOperatorTest {
       ResultSetLoader loader = projector.makeTableLoader(firstSchema);
 
       loader.startBatch();
-      loader.writer()
-          .loadRow(10, "fred", 110L)
-          .loadRow(20, "wilma", 110L);
+      loader.root()
+          .setRow(10, "fred", 110L)
+          .setRow(20, "wilma", 110L);
       projector.publish();
 
       tracker.trackSchema(projector.output());
@@ -1074,9 +1074,9 @@ public class TestScanProjector extends SubOperatorTest {
       ResultSetLoader loader = projector.makeTableLoader(firstSchema);
 
       loader.startBatch();
-      loader.writer()
-          .loadRow(70, "pebbles", 770L)
-          .loadRow(80, "hoppy", 880L);
+      loader.root()
+          .setRow(70, "pebbles", 770L)
+          .setRow(80, "hoppy", 880L);
       projector.publish();
 
       tracker.trackSchema(projector.output());
@@ -1098,9 +1098,9 @@ public class TestScanProjector extends SubOperatorTest {
       ResultSetLoader loader = projector.makeTableLoader(subsetSchema);
 
       loader.startBatch();
-      loader.writer()
-          .loadRow("bambam", 30)
-          .loadRow("betty", 40);
+      loader.root()
+          .setRow("bambam", 30)
+          .setRow("betty", 40);
       projector.publish();
 
       tracker.trackSchema(projector.output());
@@ -1122,9 +1122,9 @@ public class TestScanProjector extends SubOperatorTest {
       ResultSetLoader loader = projector.makeTableLoader(disjointSchema);
 
       loader.startBatch();
-      loader.writer()
-          .loadRow(50, "dino", "supporting")
-          .loadRow(60, "barney", "main");
+      loader.root()
+          .setRow(50, "dino", "supporting")
+          .setRow(60, "barney", "main");
       projector.publish();
 
       tracker.trackSchema(projector.output());
@@ -1182,9 +1182,9 @@ public class TestScanProjector extends SubOperatorTest {
       ResultSetLoader loader = projector.makeTableLoader(tableSchema);
 
       loader.startBatch();
-      loader.writer()
-          .loadRow(10, "fred")
-          .loadRow(20, "wilma");
+      loader.root()
+          .setRow(10, "fred")
+          .setRow(20, "wilma");
       projector.publish();
 
       tracker.trackSchema(projector.output());
@@ -1205,9 +1205,9 @@ public class TestScanProjector extends SubOperatorTest {
       ResultSetLoader loader = projector.makeTableLoader(tableSchema);
 
       loader.startBatch();
-      loader.writer()
-          .loadRow(30, "bambam")
-          .loadRow(40, "betty");
+      loader.root()
+          .setRow(30, "bambam")
+          .setRow(40, "betty");
       projector.publish();
 
       tracker.trackSchema(projector.output());
@@ -1251,7 +1251,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // file schema (a, b)
 
-    TupleSchema schema = loader.writer().schema();
+    LoaderSchema schema = loader.root().schema();
     schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED));
     schema.addColumn(SchemaBuilder.columnSchema("b", MinorType.VARCHAR, DataMode.REQUIRED));
 
@@ -1259,7 +1259,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     String bValues[] = new String[] { "fred", "wilma" };
     loader.startBatch();
-    TupleLoader writer = loader.writer();
+    TupleLoader writer = loader.root();
 
     // Should be a direct writer, no projection
     assertTrue(writer instanceof TupleLoaderImpl);
@@ -1315,7 +1315,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // file schema (a, b)
 
-    TupleSchema schema = loader.writer().schema();
+    LoaderSchema schema = loader.root().schema();
     schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED));
     schema.addColumn(SchemaBuilder.columnSchema("b", MinorType.VARCHAR, DataMode.REQUIRED));
 
@@ -1324,7 +1324,7 @@ public class TestScanProjector extends SubOperatorTest {
     loader.startBatch();
 
     // Should be a projection
-    TupleLoader writer = loader.writer();
+    TupleLoader writer = loader.root();
     assertTrue(writer instanceof LogicalTupleLoader);
     for (int i = 0; i < 2; i++) {
       loader.startRow();

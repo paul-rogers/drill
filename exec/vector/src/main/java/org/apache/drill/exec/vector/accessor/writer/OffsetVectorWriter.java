@@ -98,4 +98,11 @@ public class OffsetVectorWriter extends BaseScalarWriter {
     final int finalIndex = writeIndex();
     vector.getBuffer().writerIndex(finalIndex * VALUE_WIDTH);
   }
+
+  @Override
+  public void reset(int newIndex) {
+    setAddr(vector.getBuffer());
+    lastWriteIndex = newIndex;
+    writeOffset = PlatformDependent.getInt(bufAddr + newIndex * VALUE_WIDTH);
+  }
 }

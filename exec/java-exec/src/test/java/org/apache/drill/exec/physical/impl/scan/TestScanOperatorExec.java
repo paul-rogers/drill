@@ -32,7 +32,7 @@ import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.Operator
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ScanOperatorExecBuilder;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
-import org.apache.drill.exec.physical.rowSet.TupleSchema;
+import org.apache.drill.exec.physical.rowSet.LoaderSchema;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
@@ -98,7 +98,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     }
 
     protected void makeBatch() {
-      TupleLoader writer = tableLoader.writer();
+      TupleLoader writer = tableLoader.root();
       int offset = (batchCount - 1) * 20 + startIndex;
       writeRow(writer, offset + 10, "fred");
       writeRow(writer, offset + 20, "wilma");
@@ -150,7 +150,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
         // On first batch, pretend to discover the schema.
 
-        TupleSchema schema = tableLoader.writer().schema();
+        LoaderSchema schema = tableLoader.root().schema();
         MaterializedField a = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
         schema.addColumn(a);
         MaterializedField b = new SchemaBuilder.ColumnBuilder("b", MinorType.VARCHAR)
@@ -1309,7 +1309,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
         return false;
       }
 
-      TupleLoader writer = tableLoader.writer();
+      TupleLoader writer = tableLoader.root();
       while (! tableLoader.isFull()) {
         tableLoader.startRow();
         writer.column(0).setString(value);

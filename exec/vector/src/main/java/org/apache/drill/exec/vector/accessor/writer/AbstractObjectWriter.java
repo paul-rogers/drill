@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
@@ -24,8 +25,6 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 
 public abstract class AbstractObjectWriter implements ObjectWriter, WriterEvents {
-
-  public abstract void bindIndex(ColumnWriterIndex index);
 
   @Override
   public ScalarWriter scalar() {
@@ -42,8 +41,29 @@ public abstract class AbstractObjectWriter implements ObjectWriter, WriterEvents
     throw new UnsupportedOperationException();
   }
 
-  @Override public void startWrite() { }
-  @Override public void startValue() { }
-  @Override public void endValue() { }
-  @Override public void endWrite() { }
+  protected abstract WriterEvents baseEvents();
+
+  @Override
+  public void bindVector(ValueVector vector) { baseEvents().bindVector(vector); }
+
+  @Override
+  public void bindIndex(ColumnWriterIndex index) { baseEvents().bindIndex(index); }
+
+  @Override
+  public void startWrite() { baseEvents().startWrite(); }
+
+  @Override
+  public void startValue() { baseEvents().startValue(); }
+
+  @Override
+  public void endValue() { baseEvents().endValue(); }
+
+  @Override
+  public void endWrite() { baseEvents().endWrite(); }
+
+  @Override
+  public void reset(int index) { baseEvents().reset(index); }
+
+  @Override
+  public int lastWriteIndex() { return baseEvents().lastWriteIndex(); }
 }

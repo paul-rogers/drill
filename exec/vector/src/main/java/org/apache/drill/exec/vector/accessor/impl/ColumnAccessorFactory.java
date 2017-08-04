@@ -56,7 +56,12 @@ public class ColumnAccessorFactory {
   }
 
   public static AbstractObjectWriter buildColumnWriter(ValueVector vector) {
-    MajorType major = vector.getField().getType();
+    AbstractObjectWriter objWriter = buildColumnWriter(vector.getField().getType());
+    objWriter.bindVector(vector);
+    return objWriter;
+  }
+
+  public static AbstractObjectWriter buildColumnWriter(MajorType major) {
     MinorType type = major.getMinorType();
     DataMode mode = major.getMode();
 
@@ -70,11 +75,11 @@ public class ColumnAccessorFactory {
     default:
       switch (mode) {
       case OPTIONAL:
-        return NullableScalarWriter.build(vector, newAccessor(type, requiredWriters));
+        return NullableScalarWriter.build(newAccessor(type, requiredWriters));
       case REQUIRED:
-        return BaseScalarWriter.build(vector, newAccessor(type, requiredWriters));
+        return BaseScalarWriter.build(newAccessor(type, requiredWriters));
       case REPEATED:
-        return ScalarArrayWriter.build((RepeatedValueVector) vector, newAccessor(type, requiredWriters));
+        return ScalarArrayWriter.build(newAccessor(type, requiredWriters));
       default:
         throw new UnsupportedOperationException(mode.toString());
       }

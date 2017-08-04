@@ -17,6 +17,9 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
@@ -45,59 +48,60 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     }
 
     @Override
-    public void bindIndex(ColumnWriterIndex index) {
-      tupleWriter.bindIndex(index);
-    }
+    public ObjectType type() { return ObjectType.TUPLE; }
 
     @Override
-    public ObjectType type() {
-      return ObjectType.TUPLE;
-    }
+    public void set(Object value) { tupleWriter.setObject(value); }
 
     @Override
-    public void set(Object value) {
-      tupleWriter.setObject(value);
-    }
+    public TupleWriter tuple() { return tupleWriter; }
 
     @Override
-    public void startWrite() {
-      tupleWriter.startWrite();
-    }
+    protected WriterEvents baseEvents() { return tupleWriter; }
 
-    @Override
-    public void startValue() {
-      tupleWriter.startValue();
-    }
-
-    @Override
-    public void endValue() {
-      tupleWriter.endValue();
-    }
-
-    @Override
-    public void endWrite() {
-      tupleWriter.endWrite();
-    }
-
-    @Override
-    public TupleWriter tuple() {
-      return tupleWriter;
-    }
   }
+
+  public enum State { IDLE, IN_WRITE, IN_VALUE }
 
   protected ColumnWriterIndex vectorIndex;
   protected final TupleMetadata schema;
-  protected final AbstractObjectWriter writers[];
+  protected final List<AbstractObjectWriter> writers;
+  private State state = State.IDLE;
 
-  protected AbstractTupleWriter(TupleMetadata schema, AbstractObjectWriter writers[]) {
+  protected AbstractTupleWriter(TupleMetadata schema, List<AbstractObjectWriter> writers) {
     this.schema = schema;
     this.writers = writers;
   }
 
+  protected AbstractTupleWriter(TupleMetadata schema) {
+    this(schema, new ArrayList<>());
+  }
+
+  @Override
   public void bindIndex(ColumnWriterIndex index) {
     vectorIndex = index;
-    for (int i = 0; i < writers.length; i++) {
-      writers[i].bindIndex(index);
+    for (int i = 0; i < writers.size(); i++) {
+      writers.get(i).bindIndex(index);
+    }
+  }
+
+  /**
+   * Add a column writer to an existing tuple writer. Used for implementations
+   * that support "live" schema evolution: column discovery while writing.
+   * The corresponding metadata must already have been added to the schema.
+   *
+   * @param colWriter the column writer to add
+   */
+
+  public void addColumnWriter(AbstractObjectWriter colWriter) {
+    assert writers.size() + 1 == schema.size();
+    writers.add(colWriter);
+    colWriter.bindIndex(vectorIndex);
+    if (state != State.IDLE) {
+      colWriter.startWrite();
+      if (state == State.IN_VALUE) {
+        colWriter.startValue();
+      }
     }
   }
 
@@ -109,35 +113,43 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
   @Override
   public void startWrite() {
-    for (int i = 0; i < writers.length;  i++) {
-      writers[i].startWrite();
+    assert state == State.IDLE;
+    state = State.IN_WRITE;
+    for (int i = 0; i < writers.size();  i++) {
+      writers.get(i).startWrite();
     }
   }
 
   @Override
   public void startValue() {
-    for (int i = 0; i < writers.length;  i++) {
-      writers[i].startValue();
+    assert state == State.IN_WRITE;
+    state = State.IN_VALUE;
+    for (int i = 0; i < writers.size();  i++) {
+      writers.get(i).startValue();
     }
   }
 
   @Override
   public void endValue() {
-    for (int i = 0; i < writers.length;  i++) {
-      writers[i].endValue();
+    assert state == State.IN_VALUE;
+    for (int i = 0; i < writers.size();  i++) {
+      writers.get(i).endValue();
     }
+    state = State.IN_WRITE;
   }
 
   @Override
   public void endWrite() {
-    for (int i = 0; i < writers.length;  i++) {
-      writers[i].endWrite();
+    assert state == State.IN_WRITE;
+    for (int i = 0; i < writers.size();  i++) {
+      writers.get(i).endWrite();
     }
+    state = State.IDLE;
   }
 
   @Override
   public ObjectWriter column(int colIndex) {
-    return writers[colIndex];
+    return writers.get(colIndex);
   }
 
   @Override
@@ -145,7 +157,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     int index = schema.index(colName);
     if (index == -1) {
       return null; }
-    return writers[index];
+    return writers.get(index);
   }
 
   @Override
@@ -218,5 +230,10 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   @Override
   public ObjectType type(String colName) {
     return column(colName).type();
+  }
+
+  @Override
+  public int lastWriteIndex() {
+    return vectorIndex.vectorIndex();
   }
 }

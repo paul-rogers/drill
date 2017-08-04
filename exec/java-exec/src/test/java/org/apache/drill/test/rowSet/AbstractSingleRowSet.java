@@ -17,6 +17,9 @@
  */
 package org.apache.drill.test.rowSet;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
@@ -115,7 +118,7 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
     }
 
     @Override
-    public AbstractObjectWriter[] writers() {
+    public List<AbstractObjectWriter> writers() {
       return RowStorage.writers(this);
     }
 
@@ -191,7 +194,7 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
     }
 
     @Override
-    public AbstractObjectWriter[] writers() {
+    public List<AbstractObjectWriter> writers() {
       return writers(this);
     }
 
@@ -204,6 +207,14 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
       for (int i = 0; i < storage.size(); i++) {
         storage.storage(i).allocate(allocator, rowCount);
       }
+    }
+
+    protected static List<AbstractObjectWriter> writers(AbstractRowSet.TupleStorage storage) {
+      List<AbstractObjectWriter> writers = new ArrayList<>();
+      for (int i = 0; i < storage.size();  i++) {
+        writers.add(storage.storage(i).writer());
+      }
+      return writers;
     }
   }
 

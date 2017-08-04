@@ -39,7 +39,7 @@ public abstract class BaseFieldOutput extends TextOutput {
 
   public BaseFieldOutput(ResultSetLoader resultLoader) {
     this.resultLoader = resultLoader;
-    this.writer = resultLoader.writer();
+    this.writer = resultLoader.root();
     fieldBytes = new byte[MAX_FIELD_LENGTH];
   }
 

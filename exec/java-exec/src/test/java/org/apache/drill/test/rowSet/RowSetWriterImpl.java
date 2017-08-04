@@ -17,6 +17,8 @@
  */
 package org.apache.drill.test.rowSet;
 
+import java.util.List;
+
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
@@ -92,7 +94,7 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
   private final WriterIndexImpl writerIndex;
   private final ExtendableRowSet rowSet;
 
-  protected RowSetWriterImpl(ExtendableRowSet rowSet, TupleMetadata schema, WriterIndexImpl index, AbstractObjectWriter[] writers) {
+  protected RowSetWriterImpl(ExtendableRowSet rowSet, TupleMetadata schema, WriterIndexImpl index, List<AbstractObjectWriter> writers) {
     super(schema, writers);
     this.rowSet = rowSet;
     this.writerIndex = index;
@@ -125,5 +127,16 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
     endWrite();
     rowSet.container().setRecordCount(writerIndex.vectorIndex());
     return rowSet;
+  }
+
+  @Override
+  public void reset(int index) {
+    // TODO Auto-generated method stub
+
+  }
+
+  @Override
+  public int lastWriteIndex() {
+    return writerIndex.vectorIndex();
   }
 }

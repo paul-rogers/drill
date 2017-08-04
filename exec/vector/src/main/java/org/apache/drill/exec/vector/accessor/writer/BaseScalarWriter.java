@@ -37,8 +37,7 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
   protected long bufAddr;
   protected int capacity;
 
-  public static ScalarObjectWriter build(ValueVector vector, BaseScalarWriter writer) {
-    writer.bindVector(vector);
+  public static ScalarObjectWriter build(BaseScalarWriter writer) {
     return new ScalarObjectWriter(writer);
   }
 
@@ -49,8 +48,13 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
 
   @Override
   public void startWrite() { lastWriteIndex = -1; }
+
+  @Override
   public int lastWriteIndex() { return lastWriteIndex; }
-  public void setLastWriteIndex(int index) { lastWriteIndex = index; }
+
+  public void setLastWriteIndex(int index) {
+    lastWriteIndex = index;
+  }
 
   @Override
   public void setNull() {

@@ -251,10 +251,22 @@ public class ColumnAccessors {
       </#if>
     }
 
-     <#-- All change of buffer comes through this function to allow capturing
-          the buffer address and capacity. Only two ways to set the buffer:
-          by binding to a vector in bindVector(), or by resizing the vector
-          in writeIndex(). -->
+    <#-- Inform the writer that it's buffer has changed, and optionally the new
+         last write position within the new buffer. -->
+    @Override
+    public void reset(int newIndex) {
+      setAddr(vector.getBuffer());
+      <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
+      offsetsWriter.reset(newIndex);
+      <#else>
+      lastWriteIndex = newIndex;
+      </#if>
+    }
+
+    <#-- All change of buffer comes through this function to allow capturing
+         the buffer address and capacity. Only two ways to set the buffer:
+         by binding to a vector in bindVector(), or by resizing the vector
+         in writeIndex(). -->
     private final void setAddr(final DrillBuf buf) {
       bufAddr = buf.addr();
       <#if varWidth>

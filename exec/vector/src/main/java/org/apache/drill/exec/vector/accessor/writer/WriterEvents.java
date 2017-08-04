@@ -17,9 +17,77 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
+
+/**
+ * Internal interface used to control the behavior
+ * of writers. Consumers of writers never use this method; it is
+ * instead used by the code that implements writers.
+ */
+
 public interface WriterEvents {
+
+  /**
+   * Bind the writer to a writer index.
+   *
+   * @param index the writer index (top level or nested for
+   * arrays)
+   */
+
+  void bindIndex(ColumnWriterIndex index);
+
+  /**
+   * Bind the writer to a value vector.
+   * @param vector vector of the proper type for the writer
+   */
+
+  void bindVector(ValueVector vector);
+
+  /**
+   * Start a write (batch) operation. Performs any vector initialization
+   * required at the start of a batch (especially for offset vectors.)
+   */
+
   void startWrite();
+
+  /**
+   * Start a new value: row (for top-level tuple) or array value (for
+   * an element within a repeated map or list.)
+   */
+
   void startValue();
+
+  /**
+   * End a value: a row (top-level) or element (for nested element within
+   * a list.)
+   */
+
   void endValue();
+
+  /**
+   * End a batch: finalize any vector values.
+   */
+
   void endWrite();
+
+  /**
+   * Reset the writer with a new buffer and offset: used during vector
+   * overflow processing.
+   *
+   * @param index
+   */
+
+  void reset(int index);
+
+  /**
+   * Return the last write position in the vector. This may be the
+   * same as the writer index position (if the vector was written at
+   * that point), or an earlier point. In either case, this value
+   * points to the last valid value in the vector.
+   *
+   * @return index of the last valid value in the vector
+   */
+
+  int lastWriteIndex();
 }

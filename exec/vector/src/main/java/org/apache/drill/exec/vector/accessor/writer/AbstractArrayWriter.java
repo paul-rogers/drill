@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
@@ -52,48 +53,18 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     }
 
     @Override
-    public void bindIndex(ColumnWriterIndex index) {
-      arrayWriter.bindIndex(index);
-    }
-
-    @Override
-    public ObjectType type() {
-      return ObjectType.ARRAY;
-    }
+    public ObjectType type() { return ObjectType.ARRAY; }
 
     @Override
     public void set(Object value) {
       arrayWriter.setObject(value);
     }
 
-    public void start() {
-      arrayWriter.startWrite();
-    }
+    @Override
+    public ArrayWriter array() { return arrayWriter; }
 
     @Override
-    public ArrayWriter array() {
-      return arrayWriter;
-    }
-
-    @Override
-    public void startWrite() {
-      arrayWriter.startWrite();
-    }
-
-    @Override
-    public void startValue() {
-      arrayWriter.startValue();
-    }
-
-    @Override
-    public void endValue() {
-      arrayWriter.endValue();
-    }
-
-    @Override
-    public void endWrite() {
-      arrayWriter.endWrite();
-    }
+    protected WriterEvents baseEvents() { return arrayWriter; }
   }
 
   /**
@@ -150,19 +121,23 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   private ColumnWriterIndex baseIndex;
   protected ArrayElementWriterIndex elementIndex;
 
-  public AbstractArrayWriter(RepeatedValueVector vector, AbstractObjectWriter elementObjWriter) {
+  public AbstractArrayWriter(AbstractObjectWriter elementObjWriter) {
     this.elementObjWriter = elementObjWriter;
-    offsetsWriter.bindVector(vector.getOffsetVector());
   }
 
+  @Override
+  public void bindVector(ValueVector vector) {
+    RepeatedValueVector repeatedVector = (RepeatedValueVector) vector;
+    offsetsWriter.bindVector(repeatedVector.getOffsetVector());
+  }
+
+  @Override
   public void bindIndex(ColumnWriterIndex index) {
     baseIndex = index;
     offsetsWriter.bindIndex(index);
     elementIndex = new ArrayElementWriterIndex(baseIndex);
     elementObjWriter.bindIndex(elementIndex);
   }
-
-  protected ColumnWriterIndex elementIndex() { return elementIndex; }
 
   @Override
   public int size() {
@@ -212,5 +187,15 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   @Override
   public ArrayWriter array() {
     return elementObjWriter.array();
+  }
+
+  @Override
+  public void reset(int index) {
+    assert false;
+  }
+
+  @Override
+  public int lastWriteIndex() {
+    return baseIndex.vectorIndex();
   }
 }

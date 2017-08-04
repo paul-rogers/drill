@@ -24,7 +24,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ColumnLoader;
 import org.apache.drill.exec.physical.rowSet.ScalarLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
-import org.apache.drill.exec.physical.rowSet.TupleSchema;
+import org.apache.drill.exec.physical.rowSet.LoaderSchema;
 import org.apache.drill.exec.vector.accessor.ValueType;
 import org.joda.time.Duration;
 import org.joda.time.Period;
@@ -237,7 +237,7 @@ public class TestDataConverter {
   public TestColumnConversion columns[];
 
   public TestDataConverter(TupleLoader writer) {
-    TupleSchema schema = writer.schema();
+    LoaderSchema schema = writer.schema();
     columns = new TestColumnConversion[schema.columnCount()];
     for (int i = 0; i < columns.length; i++) {
       columns[i] = createConverter(writer, i);

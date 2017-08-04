@@ -35,10 +35,8 @@ public class NullableScalarWriter extends AbstractScalarWriter {
     this.baseWriter = baseWriter;
   }
 
-  public static ScalarObjectWriter build(ValueVector vector, BaseScalarWriter baseWriter) {
-    NullableScalarWriter writer = new NullableScalarWriter(baseWriter);
-    writer.bindVector(vector);
-    return new ScalarObjectWriter(writer);
+  public static ScalarObjectWriter build(BaseScalarWriter baseWriter) {
+    return new ScalarObjectWriter(new NullableScalarWriter(baseWriter));
   }
 
   @Override
@@ -112,5 +110,16 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   public void setPeriod(Period value) {
     isSetWriter.setInt(1);
     baseWriter.setPeriod(value);
+  }
+
+  @Override
+  public void reset(int index) {
+    // TODO Auto-generated method stub
+    assert false;
+  }
+
+  @Override
+  public int lastWriteIndex() {
+    return baseWriter.lastWriteIndex();
   }
 }

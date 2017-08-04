@@ -98,7 +98,7 @@ public class ExtendedMockBatchReader implements RowBatchReader {
     }
     schemaNegotiator.setTableSchema(schema);
     mutator = schemaNegotiator.build();
-    writer = mutator.writer();
+    writer = mutator.root();
     for (int i = 0; i < fields.length; i++) {
       fields[i].generator.setup(fields[i], writer.column(i));
     }

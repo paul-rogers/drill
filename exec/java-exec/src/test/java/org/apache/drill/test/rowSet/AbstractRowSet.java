@@ -17,6 +17,8 @@
  */
 package org.apache.drill.test.rowSet;
 
+import java.util.List;
+
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.TupleMetadata;
@@ -78,7 +80,7 @@ public abstract class AbstractRowSet implements RowSet {
     int size();
     AbstractRowSet.ColumnStorage storage(int index);
     AbstractObjectReader[] readers();
-    AbstractObjectWriter[] writers();
+    List<AbstractObjectWriter> writers();
     void allocate(BufferAllocator allocator, int rowCount);
   }
 
@@ -160,14 +162,6 @@ public abstract class AbstractRowSet implements RowSet {
         readers[i] = storage.storage(i).reader();
       }
       return readers;
-    }
-
-    protected static AbstractObjectWriter[] writers(AbstractRowSet.TupleStorage storage) {
-      AbstractObjectWriter[] writers = new AbstractObjectWriter[storage.size()];
-      for (int i = 0; i < writers.length;  i++) {
-        writers[i] = storage.storage(i).writer();
-      }
-      return writers;
     }
   }
 

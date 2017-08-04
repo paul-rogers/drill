@@ -17,11 +17,12 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
-import org.apache.drill.common.types.TypeProtos.DataMode;
+import java.util.List;
+
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayElementWriterIndex;
-import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.MapVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 
@@ -45,11 +46,15 @@ public abstract class MapWriter extends AbstractTupleWriter {
   }
 
   private static class SingleMapWriter extends MapWriter {
-    private final MapVector mapVector;
+    private MapVector mapVector;
 
-    private SingleMapWriter(ColumnMetadata schema, MapVector vector, AbstractObjectWriter[] writers) {
+    private SingleMapWriter(ColumnMetadata schema, List<AbstractObjectWriter> writers) {
       super(schema, writers);
-      mapVector = vector;
+    }
+
+    @Override
+    public void bindVector(ValueVector vector) {
+      mapVector = (MapVector) vector;
     }
 
     @Override
@@ -62,14 +67,25 @@ public abstract class MapWriter extends AbstractTupleWriter {
     public void bindIndex(ColumnWriterIndex index) {
       bindIndex(index, index);
     }
+
+
+    @Override
+    public void reset(int index) {
+      // TODO Auto-generated method stub
+
+    }
   }
 
   private static class ArrayMapWriter extends MapWriter {
-    private final RepeatedMapVector mapVector;
+    private RepeatedMapVector mapVector;
 
-    private ArrayMapWriter(ColumnMetadata schema, RepeatedMapVector vector, AbstractObjectWriter[] writers) {
+    private ArrayMapWriter(ColumnMetadata schema, List<AbstractObjectWriter> writers) {
       super(schema, writers);
-      mapVector = vector;
+    }
+
+    @Override
+    public void bindVector(ValueVector vector) {
+      mapVector = (RepeatedMapVector) vector;
     }
 
     @Override
@@ -100,26 +116,31 @@ public abstract class MapWriter extends AbstractTupleWriter {
 
   protected final ColumnMetadata mapColumnSchema;
 
-  private MapWriter(ColumnMetadata schema, AbstractObjectWriter[] writers) {
+  private MapWriter(ColumnMetadata schema, List<AbstractObjectWriter> writers) {
     super(schema.mapSchema(), writers);
     mapColumnSchema = schema;
   }
 
-  public static TupleObjectWriter build(ColumnMetadata schema, MapVector vector,
-                                        AbstractObjectWriter[] writers) {
-    return new TupleObjectWriter(new SingleMapWriter(schema, vector, writers));
+  public static TupleObjectWriter buildSingleMap(ColumnMetadata schema,
+                                        List<AbstractObjectWriter> writers) {
+    return new TupleObjectWriter(new SingleMapWriter(schema, writers));
   }
 
-  public static TupleObjectWriter build(ColumnMetadata schema, RepeatedMapVector vector,
-                                        AbstractObjectWriter[] writers) {
-    return new TupleObjectWriter(new ArrayMapWriter(schema, vector, writers));
+  public static TupleObjectWriter buildMapArray(ColumnMetadata schema,
+                                        List<AbstractObjectWriter> writers) {
+    return new TupleObjectWriter(new ArrayMapWriter(schema, writers));
   }
 
   protected void bindIndex(ColumnWriterIndex index, ColumnWriterIndex childIndex) {
     vectorIndex = index;
 
-    for (int i = 0; i < writers.length; i++) {
-      writers[i].bindIndex(childIndex);
+    for (int i = 0; i < writers.size(); i++) {
+      writers.get(i).bindIndex(childIndex);
     }
+  }
+
+  @Override
+  public void reset(int index) {
+    assert false;
   }
 }

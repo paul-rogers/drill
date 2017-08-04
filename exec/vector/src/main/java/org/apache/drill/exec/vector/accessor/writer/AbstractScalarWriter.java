@@ -19,7 +19,6 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
@@ -48,48 +47,17 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
     }
 
     @Override
-    public ObjectType type() {
-      return ObjectType.SCALAR;
-    }
+    public ObjectType type() { return ObjectType.SCALAR; }
 
     @Override
-    public void set(Object value) {
-      scalarWriter.setObject(value);
-    }
-
-    public void start() {
-      scalarWriter.startWrite();
-    }
+    public void set(Object value) { scalarWriter.setObject(value); }
 
     @Override
-    public ScalarWriter scalar() {
-      return scalarWriter;
-    }
+    public ScalarWriter scalar() { return scalarWriter; }
 
     @Override
-    public void startWrite() {
-      scalarWriter.startWrite();
-    }
-
-    @Override
-    public void startValue() {
-      scalarWriter.startValue();
-    }
-
-    @Override
-    public void endValue() {
-      scalarWriter.endValue();
-    }
-
-    @Override
-    public void endWrite() {
-      scalarWriter.endWrite();
-    }
+    protected WriterEvents baseEvents() { return scalarWriter; }
   }
-
-  public abstract void bindIndex(ColumnWriterIndex index);
-
-  public abstract void bindVector(ValueVector vector);
 
   @Override
   public void setObject(Object value) {

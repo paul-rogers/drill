@@ -20,7 +20,7 @@ package org.apache.drill.exec.store.easy.text.compliant;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.physical.rowSet.ColumnLoader;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
-import org.apache.drill.exec.physical.rowSet.TupleSchema;
+import org.apache.drill.exec.physical.rowSet.LoaderSchema;
 
 /**
  * Class is responsible for generating record batches for text file inputs. We generate
@@ -43,7 +43,7 @@ class FieldVarCharOutput extends BaseFieldOutput {
   public FieldVarCharOutput(ResultSetLoader loader) {
     super(loader);
 
-    TupleSchema schema = writer.schema();
+    LoaderSchema schema = writer.schema();
     int end = schema.columnCount() - 1;
     if (schema.hasProjection()) {
       while (end >= 0 & schema.metadata(end).isProjected()) {

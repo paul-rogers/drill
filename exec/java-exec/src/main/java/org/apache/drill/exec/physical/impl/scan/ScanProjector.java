@@ -29,7 +29,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.NullColumn;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
-import org.apache.drill.exec.physical.rowSet.TupleSchema;
+import org.apache.drill.exec.physical.rowSet.LoaderSchema;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.OptionBuilder;
 import org.apache.drill.exec.record.MaterializedField;
@@ -161,7 +161,7 @@ public class ScanProjector {
 
     public void load(int rowCount) {
       loader.startBatch();
-      TupleLoader writer = loader.writer();
+      TupleLoader writer = loader.root();
       for (int i = 0; i < rowCount; i++) {
         loader.startRow();
         loadRow(writer);
@@ -200,7 +200,7 @@ public class ScanProjector {
       // Cache values for faster access.
 
       metadataCols = defns;
-      TupleSchema schema = loader.writer().schema();
+      LoaderSchema schema = loader.root().schema();
       values = new String[defns.size()];
       for (int i = 0; i < defns.size(); i++) {
         MetadataColumn defn  = defns.get(i);
@@ -287,7 +287,7 @@ public class ScanProjector {
 
       // Populate the loader schema from that provided
 
-      TupleSchema schema = loader.writer().schema();
+      LoaderSchema schema = loader.root().schema();
       isArray = new boolean[defns.size()];
       for (int i = 0; i < defns.size(); i++) {
         NullColumn defn = defns.get(i);
@@ -431,7 +431,7 @@ public class ScanProjector {
       // We know the table schema. Preload it into the
       // result set loader.
 
-      TupleSchema schema = tableLoader.writer().schema();
+      LoaderSchema schema = tableLoader.root().schema();
       for (int i = 0; i < tableSchema.size(); i++) {
         schema.addColumn(tableSchema.column(i));
       }
@@ -475,7 +475,7 @@ public class ScanProjector {
     @Override
     public void endOfBatch() {
       if (prevTableSchemaVersion < tableLoader.schemaVersion()) {
-        projectionDefn.startSchema(tableLoader.writer().schema().materializedSchema());
+        projectionDefn.startSchema(tableLoader.root().schema().materializedSchema());
         planProjection();
         prevTableSchemaVersion = tableLoader.schemaVersion();
       }
@@ -650,7 +650,7 @@ public class ScanProjector {
 
     TableLevelProjection tableProj = projectionDefn.tableProjection();
     VectorContainer tableContainer = tableLoader.outputContainer();
-    TupleSchema tableSchema = tableLoader.writer().schema();
+    LoaderSchema tableSchema = tableLoader.root().schema();
     int tableColCount = tableSchema.columnCount();
     for (int i = 0; i < tableColCount; i++) {
 

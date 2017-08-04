@@ -101,9 +101,9 @@
  * batch is returned. That is, overflow "time shifts" a row addition from
  * one batch to the next, and so it also time-shifts the column addition.
  * </li></ul>
- * Use the {@link TupleSchema} class to build the schema. The schema class is
+ * Use the {@link LoaderSchema} class to build the schema. The schema class is
  * part of the {@link TupleLoader} object available from the
- * {@link #writer()} method.
+ * {@link #root()} method.
  * <h4>Using the Schema</h4>
  * Presents columns using a physical schema. That is, map columns appear
  * as columns that provide a nested map schema. Presumes that column

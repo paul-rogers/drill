@@ -88,7 +88,7 @@ public class VarCharOutputTestUtils {
     }
 
     public BatchSchema schema() {
-      return loader.writer().schema().schema();
+      return loader.root().schema().schema();
     }
 
     public RowSet writeBatch(String dataValues[][]) {

@@ -24,6 +24,7 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.scan.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
+import org.apache.drill.exec.physical.rowSet.impl.BaseTupleLoader.RootLoader;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
@@ -35,9 +36,12 @@ import org.apache.drill.exec.vector.ValueVector;
 
 public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.WriterIndexListener {
 
+  public static final int DEFAULT_INITIAL_ROW_COUNT = 4096;
+
   public static class ResultSetOptions {
     public final int vectorSizeLimit;
     public final int rowCountLimit;
+    public final int initialRowCount;
     public final boolean caseSensitive;
     public final ResultVectorCache inventory;
     private final Collection<String> projection;
@@ -45,6 +49,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     public ResultSetOptions() {
       vectorSizeLimit = ValueVector.MAX_BUFFER_SIZE;
       rowCountLimit = ValueVector.MAX_ROW_COUNT;
+      initialRowCount = DEFAULT_INITIAL_ROW_COUNT;
       caseSensitive = false;
       projection = null;
       inventory = null;
@@ -53,6 +58,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     public ResultSetOptions(OptionBuilder builder) {
       this.vectorSizeLimit = builder.vectorSizeLimit;
       this.rowCountLimit = builder.rowCountLimit;
+      this.initialRowCount = builder.initialRowCount;
       this.caseSensitive = builder.caseSensitive;
       this.projection = builder.projection;
       this.inventory = builder.inventory;
@@ -62,6 +68,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
   public static class OptionBuilder {
     private int vectorSizeLimit;
     private int rowCountLimit;
+    private int initialRowCount;
     private boolean caseSensitive;
     private Collection<String> projection;
     private ResultVectorCache inventory;
@@ -70,6 +77,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
       ResultSetOptions options = new ResultSetOptions();
       vectorSizeLimit = options.vectorSizeLimit;
       rowCountLimit = options.rowCountLimit;
+      initialRowCount = options.initialRowCount;
       caseSensitive = options.caseSensitive;
     }
 
@@ -113,7 +121,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
 
     public void update() {
       if (lastUpdateVersion < rowSetMutator.schemaVersion()) {
-        rowSetMutator.rootTuple.buildContainer(this);
+        rowSetMutator.rootWriter.buildContainer(this);
         container.buildSchema(SelectionVectorMode.NONE);
         lastUpdateVersion = rowSetMutator.schemaVersion();
       }
@@ -165,8 +173,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
 
   private final ResultSetOptions options;
   private final BufferAllocator allocator;
-  private final TupleSetImpl rootTuple;
-  private final TupleLoader rootWriter;
+  private final AbstractTupleLoader rootWriter;
   private final WriterIndexImpl writerIndex;
   private final ResultVectorCache inventory;
   private ResultSetLoaderImpl.State state = State.START;
@@ -181,11 +188,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     this.allocator = allocator;
     this.options = options;
     writerIndex = new WriterIndexImpl(this, options.rowCountLimit);
-    rootTuple = new TupleSetImpl(this);
+    AbstractTupleLoader root = new RootLoader(this, writerIndex);
     if (options.projection == null) {
-      rootWriter = rootTuple.loader();
+      rootWriter = root;
     } else {
-      rootWriter = new LogicalTupleLoader(this, rootTuple.loader(), options.projection);
+      rootWriter = new LogicalTupleLoader(this, root, options.projection);
     }
     if (options.inventory == null) {
       inventory = new ResultVectorCache(allocator);
@@ -229,7 +236,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     // updates.
 
     harvestSchemaVersion = activeSchemaVersion;
-    rootTuple.start();
+    rootWriter.startWrite();
     if (pendingRowCount == 0) {
       writerIndex.reset();
     }
@@ -246,10 +253,18 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
   }
 
   @Override
+  public ResultSetLoader setRow(Object... values) {
+    startRow();
+    writer().setTuple(values);
+    saveRow();
+    return this;
+  }
+
+  @Override
   public void startRow() {
     switch (state) {
     case ACTIVE:
-      rootTuple.startRow();
+      rootWriter.startValue();
       break;
     default:
       throw new IllegalStateException("Unexpected state: " + state);
@@ -260,11 +275,13 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
   public void saveRow() {
     switch (state) {
     case ACTIVE:
+      rootWriter.endValue();
       if (! writerIndex.next()) {
         state = State.FULL_BATCH;
       }
       break;
     case OVERFLOW:
+      rootWriter.endValue();
       writerIndex.next();
       state = State.FULL_BATCH;
       break;
@@ -312,6 +329,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
   @Override
   public int targetRowCount() { return options.rowCountLimit; }
 
+  public int initialRowCount() { return options.initialRowCount; }
+
   @Override
   public int targetVectorSize() { return options.vectorSizeLimit; }
 
@@ -326,7 +345,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
         .build(logger);
     }
     pendingRowCount = rowCount();
-    rootTuple.rollOver(writerIndex.vectorIndex());
+    rootWriter.rollOver(writerIndex.vectorIndex());
     writerIndex.reset();
     harvestSchemaVersion = activeSchemaVersion;
     state = State.OVERFLOW;
@@ -340,7 +359,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
 
     // Wrap up the vectors: final fill-in, set value count, etc.
 
-    rootTuple.harvest();
+    rootWriter.harvest();
     VectorContainer container = outputContainer();
 
     // Row count is the number of items to be harvested. If overflow,
@@ -378,7 +397,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     case ACTIVE:
     case OVERFLOW:
     case FULL_BATCH:
-      rootTuple.reset();
+      rootWriter.reset();
       state = State.HARVESTED;
       break;
     default:
@@ -391,7 +410,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     if (state == State.CLOSED) {
       return;
     }
-    rootTuple.close();
+    rootWriter.close();
     state = State.CLOSED;
   }
 

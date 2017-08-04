@@ -396,6 +396,14 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     mutator.exchange(other.getMutator());
   }
 
+  <#if type.major != "VarLen">
+  @Override
+  public void toNullable(ValueVector nullableVector) {
+    exchange(nullableVector);
+    clear();
+  }
+
+  </#if>
   public final class Accessor extends BaseDataValueVector.BaseAccessor <#if type.major = "VarLen">implements VariableWidthVector.VariableWidthAccessor</#if> {
     final UInt1Vector.Accessor bAccessor = bits.getAccessor();
     final ${valuesName}.Accessor vAccessor = values.getAccessor();

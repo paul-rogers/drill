@@ -45,8 +45,8 @@ public class ColumnLoaderTest extends SubOperatorTest {
 
     public ColumnLoaderFixture(MinorType type, DataMode mode) {
       rsMutator = new ResultSetLoaderImpl(fixture.allocator());
-      rootWriter = rsMutator.writer();
-      TupleSchema schema = rootWriter.schema();
+      rootWriter = rsMutator.root();
+      LoaderSchema schema = rootWriter.schema();
       MaterializedField field = SchemaBuilder.columnSchema("col", type, mode);
       schema.addColumn(field);
       rsMutator.startBatch();

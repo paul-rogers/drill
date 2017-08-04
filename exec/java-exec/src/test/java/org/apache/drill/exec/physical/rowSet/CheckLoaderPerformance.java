@@ -194,12 +194,12 @@ public class CheckLoaderPerformance {
     public RevisedWriterFixture(int batchCount, int rowCount) {
       super(batchCount, rowCount, "Revised writer");
       rsMutator = new ResultSetLoaderImpl(fixture.allocator());
-      TupleLoader rootWriter = rsMutator.writer();
-      TupleSchema schema = rootWriter.schema();
+      TupleLoader rootWriter = rsMutator.root();
+      LoaderSchema schema = rootWriter.schema();
       defineSchema(schema);
     }
 
-    protected abstract void defineSchema(TupleSchema schema);
+    protected abstract void defineSchema(LoaderSchema schema);
 
     @Override
     public void runTest() {
@@ -210,7 +210,7 @@ public class CheckLoaderPerformance {
     @Override
     protected void loadBatch() {
       rsMutator.startBatch();
-      TupleLoader rootWriter = rsMutator.writer();
+      TupleLoader rootWriter = rsMutator.root();
       rowCount = 0;
       for (int i = 0; i < rowTarget; i++) {
         rsMutator.startRow();
@@ -229,7 +229,7 @@ public class CheckLoaderPerformance {
     RevisedWriterFixture fixture = new RevisedWriterFixture(batchTarget, rowTarget) {
 
       @Override
-      protected void defineSchema(TupleSchema schema) {
+      protected void defineSchema(LoaderSchema schema) {
         // Use optional to be same as original writer
         schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.OPTIONAL));
       }
@@ -247,7 +247,7 @@ public class CheckLoaderPerformance {
     RevisedWriterFixture fixture = new RevisedWriterFixture(batchTarget, rowTarget) {
 
       @Override
-      protected void defineSchema(TupleSchema schema) {
+      protected void defineSchema(LoaderSchema schema) {
         // Use optional to be same as original writer
         schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED));
       }
