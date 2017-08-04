@@ -47,10 +47,10 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   }
 
   @Override
-  public void finish() {
-    isSetWriter.finish();
+  public void endWrite() {
+    isSetWriter.endWrite();
     baseWriter.setLastWriteIndex(isSetWriter.lastWriteIndex());
-    baseWriter.finish();
+    baseWriter.endWrite();
   }
 
   @Override

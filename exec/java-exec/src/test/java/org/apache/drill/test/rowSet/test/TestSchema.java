@@ -110,27 +110,6 @@ public class TestSchema extends SubOperatorTest {
       // Expected
     }
 
-    // No maps. Flat schema is the same as tuple schema.
-
-//    TupleMetadata flatSchema = tupleSchema.flatten();
-//    assertEquals(3, flatSchema.size());
-//
-//    crossCheck(flatSchema, 0, "c", MinorType.INT);
-//    assertEquals(DataMode.REQUIRED, flatSchema.column(0).getDataMode());
-//    assertEquals(DataMode.REQUIRED, flatSchema.column(0).getType().getMode());
-//    assertTrue(! flatSchema.column(0).isNullable());
-//
-//    crossCheck(flatSchema, 1, "a", MinorType.INT);
-//    assertEquals(DataMode.REPEATED, flatSchema.column(1).getDataMode());
-//    assertEquals(DataMode.REPEATED, flatSchema.column(1).getType().getMode());
-//    assertTrue(! flatSchema.column(1).isNullable());
-//
-//    crossCheck(flatSchema, 2, "b", MinorType.VARCHAR);
-//    assertEquals(MinorType.VARCHAR, flatSchema.column(2).getType().getMinorType());
-//    assertEquals(DataMode.OPTIONAL, flatSchema.column(2).getDataMode());
-//    assertEquals(DataMode.OPTIONAL, flatSchema.column(2).getType().getMode());
-//    assertTrue(flatSchema.column(2).isNullable());
-
     // Verify batch schema
     // Tests toFieldList() internally
 

@@ -87,6 +87,7 @@ public class MaterializedField {
     children.add(field);
   }
 
+  @Override
   public MaterializedField clone() {
     return withPathAndType(name, getType());
   }
