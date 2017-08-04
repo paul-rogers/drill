@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 
 /**
@@ -51,6 +52,8 @@ public interface TupleWriter {
       super("Undefined column: " + colName);
     }
   }
+
+  ObjectWriter addColumn(MaterializedField schema);
 
   TupleMetadata schema();
   int size();

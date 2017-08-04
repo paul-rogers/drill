@@ -20,7 +20,6 @@ package org.apache.drill.exec.vector.accessor.writer;
 import java.util.List;
 
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayElementWriterIndex;
 import org.apache.drill.exec.vector.complex.MapVector;
@@ -46,15 +45,11 @@ public abstract class MapWriter extends AbstractTupleWriter {
   }
 
   private static class SingleMapWriter extends MapWriter {
-    private MapVector mapVector;
+    private final MapVector mapVector;
 
-    private SingleMapWriter(ColumnMetadata schema, List<AbstractObjectWriter> writers) {
+    private SingleMapWriter(ColumnMetadata schema, MapVector vector, List<AbstractObjectWriter> writers) {
       super(schema, writers);
-    }
-
-    @Override
-    public void bindVector(ValueVector vector) {
-      mapVector = (MapVector) vector;
+      mapVector = vector;
     }
 
     @Override
@@ -77,15 +72,11 @@ public abstract class MapWriter extends AbstractTupleWriter {
   }
 
   private static class ArrayMapWriter extends MapWriter {
-    private RepeatedMapVector mapVector;
+    private final RepeatedMapVector mapVector;
 
-    private ArrayMapWriter(ColumnMetadata schema, List<AbstractObjectWriter> writers) {
+    private ArrayMapWriter(ColumnMetadata schema, RepeatedMapVector vector, List<AbstractObjectWriter> writers) {
       super(schema, writers);
-    }
-
-    @Override
-    public void bindVector(ValueVector vector) {
-      mapVector = (RepeatedMapVector) vector;
+      mapVector = vector;
     }
 
     @Override
@@ -121,14 +112,14 @@ public abstract class MapWriter extends AbstractTupleWriter {
     mapColumnSchema = schema;
   }
 
-  public static TupleObjectWriter buildSingleMap(ColumnMetadata schema,
+  public static TupleObjectWriter build(ColumnMetadata schema, MapVector vector,
                                         List<AbstractObjectWriter> writers) {
-    return new TupleObjectWriter(new SingleMapWriter(schema, writers));
+    return new TupleObjectWriter(new SingleMapWriter(schema, vector, writers));
   }
 
-  public static TupleObjectWriter buildMapArray(ColumnMetadata schema,
+  public static TupleObjectWriter build(ColumnMetadata schema, RepeatedMapVector vector,
                                         List<AbstractObjectWriter> writers) {
-    return new TupleObjectWriter(new ArrayMapWriter(schema, writers));
+    return new TupleObjectWriter(new ArrayMapWriter(schema, vector, writers));
   }
 
   protected void bindIndex(ColumnWriterIndex index, ColumnWriterIndex childIndex) {

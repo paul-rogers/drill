@@ -188,8 +188,7 @@ public class PerformanceTool {
     public void doTest() {
       try (IntVector vector = new IntVector(rowSchema.column(0), fixture.allocator());) {
         vector.allocateNew(4096);
-        IntColumnWriter colWriter = new IntColumnWriter();
-        colWriter.bindVector(vector);
+        IntColumnWriter colWriter = new IntColumnWriter(vector);
         TestWriterIndex index = new TestWriterIndex();
         colWriter.bindIndex(index);
         timer.start();
@@ -211,8 +210,8 @@ public class PerformanceTool {
     public void doTest() {
       try (NullableIntVector vector = new NullableIntVector(rowSchema.column(0), fixture.allocator());) {
         vector.allocateNew(4096);
-        NullableScalarWriter colWriter = new NullableScalarWriter(new IntColumnWriter());
-        colWriter.bindVector(vector);
+        NullableScalarWriter colWriter = new NullableScalarWriter(
+            vector, new IntColumnWriter(vector.getValuesVector()));
         TestWriterIndex index = new TestWriterIndex();
         colWriter.bindIndex(index);
         timer.start();
@@ -234,7 +233,7 @@ public class PerformanceTool {
     public void doTest() {
       try (RepeatedIntVector vector = new RepeatedIntVector(rowSchema.column(0), fixture.allocator());) {
         vector.allocateNew(4096, 5);
-        IntColumnWriter colWriter = new IntColumnWriter();
+        IntColumnWriter colWriter = new IntColumnWriter(vector.getDataVector());
         ArrayObjectWriter arrayWriter = ScalarArrayWriter.build(vector, colWriter);
         TestWriterIndex index = new TestWriterIndex();
         arrayWriter.bindIndex(index);

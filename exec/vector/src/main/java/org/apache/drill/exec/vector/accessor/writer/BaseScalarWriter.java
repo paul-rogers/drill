@@ -19,7 +19,6 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.joda.time.Period;
 
@@ -36,10 +35,6 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
   protected int lastWriteIndex;
   protected long bufAddr;
   protected int capacity;
-
-  public static ScalarObjectWriter build(BaseScalarWriter writer) {
-    return new ScalarObjectWriter(writer);
-  }
 
   @Override
   public void bindIndex(ColumnWriterIndex vectorIndex) {

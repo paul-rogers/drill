@@ -17,6 +17,8 @@
  */
 package org.apache.drill.test.rowSet;
 
+import java.util.List;
+
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
@@ -171,7 +173,7 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
     }
 
     @Override
-    public AbstractObjectWriter[] writers() {
+    public List<AbstractObjectWriter> writers() {
       throw new IllegalStateException("Cannot write to a hyper-vector.");
     }
 
@@ -235,7 +237,7 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
     }
 
     @Override
-    public AbstractObjectWriter[] writers() {
+    public List<AbstractObjectWriter> writers() {
       throw new IllegalStateException("Cannot write to a hyper-vector.");
     }
 

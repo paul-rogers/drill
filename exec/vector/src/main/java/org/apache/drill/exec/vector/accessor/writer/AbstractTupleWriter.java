@@ -20,6 +20,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
@@ -66,6 +67,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   protected ColumnWriterIndex vectorIndex;
   protected final TupleMetadata schema;
   protected final List<AbstractObjectWriter> writers;
+  protected TupleConstructor constructor;
   private State state = State.IDLE;
 
   protected AbstractTupleWriter(TupleMetadata schema, List<AbstractObjectWriter> writers) {
@@ -106,6 +108,16 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   }
 
   @Override
+  public ObjectWriter addColumn(MaterializedField schema) {
+    if (constructor == null) {
+      throw new UnsupportedOperationException("addColumn");
+    }
+    AbstractObjectWriter colWriter = constructor.addColumn(schema, this);
+    addColumnWriter(colWriter);
+    return colWriter;
+  }
+
+  @Override
   public TupleMetadata schema() { return schema; }
 
   @Override
@@ -140,7 +152,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
   @Override
   public void endWrite() {
-    assert state == State.IN_WRITE;
+    assert state != State.IDLE;
     for (int i = 0; i < writers.size();  i++) {
       writers.get(i).endWrite();
     }

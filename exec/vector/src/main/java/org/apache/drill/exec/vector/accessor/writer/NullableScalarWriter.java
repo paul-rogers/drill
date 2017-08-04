@@ -20,7 +20,6 @@ package org.apache.drill.exec.vector.accessor.writer;
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.vector.NullableVector;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ValueType;
@@ -28,22 +27,17 @@ import org.joda.time.Period;
 
 public class NullableScalarWriter extends AbstractScalarWriter {
 
-  private final UInt1ColumnWriter isSetWriter = new UInt1ColumnWriter();
+  private final UInt1ColumnWriter isSetWriter;
   private final BaseScalarWriter baseWriter;
 
-  public NullableScalarWriter(BaseScalarWriter baseWriter) {
+  public NullableScalarWriter(NullableVector nullableVector, BaseScalarWriter baseWriter) {
+    isSetWriter = new UInt1ColumnWriter(nullableVector.getBitsVector());
     this.baseWriter = baseWriter;
   }
 
-  public static ScalarObjectWriter build(BaseScalarWriter baseWriter) {
-    return new ScalarObjectWriter(new NullableScalarWriter(baseWriter));
-  }
-
-  @Override
-  public void bindVector(ValueVector vector) {
-    NullableVector nullableVector = (NullableVector) vector;
-    baseWriter.bindVector(nullableVector.getValuesVector());
-    isSetWriter.bindVector(nullableVector.getBitsVector());
+  public static ScalarObjectWriter build(NullableVector nullableVector, BaseScalarWriter baseWriter) {
+    return new ScalarObjectWriter(
+        new NullableScalarWriter(nullableVector, baseWriter));
   }
 
   @Override

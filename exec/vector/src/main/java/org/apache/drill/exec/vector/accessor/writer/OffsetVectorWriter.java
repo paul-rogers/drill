@@ -28,7 +28,8 @@ import io.netty.util.internal.PlatformDependent;
 
 /**
  * Specialized column writer for the (hidden) offset vector used
- * with variable-length or repeated vectors.
+ * with variable-length or repeated vectors. See comments in the
+ * <tt>ColumnAccessors.java</tt> template file for more details.
  */
 
 public class OffsetVectorWriter extends BaseScalarWriter {
@@ -36,9 +37,12 @@ public class OffsetVectorWriter extends BaseScalarWriter {
   private UInt4Vector vector;
   private int writeOffset;
 
+  public OffsetVectorWriter(UInt4Vector vector) {
+    this.vector = vector;
+  }
+
   @Override
-  public final void bindVector(final ValueVector vector) {
-    this.vector = (UInt4Vector) vector;
+  public void startWrite() {
     setAddr(this.vector.getBuffer());
 
     // Special handling for first value. Alloc vector if needed.
@@ -77,6 +81,9 @@ public class OffsetVectorWriter extends BaseScalarWriter {
       if (size > ValueVector.MAX_BUFFER_SIZE) {
         throw new IllegalStateException("Offset vectors should not overflow");
       } else {
+        if (size < ColumnAccessors.MIN_BUFFER_SIZE) {
+          size = ColumnAccessors.MIN_BUFFER_SIZE;
+        }
         setAddr(vector.reallocRaw(BaseAllocator.nextPowerOfTwo(size)));
       }
     }
@@ -94,7 +101,7 @@ public class OffsetVectorWriter extends BaseScalarWriter {
   }
 
   @Override
-  public final void finish() {
+  public final void endWrite() {
     final int finalIndex = writeIndex();
     vector.getBuffer().writerIndex(finalIndex * VALUE_WIDTH);
   }

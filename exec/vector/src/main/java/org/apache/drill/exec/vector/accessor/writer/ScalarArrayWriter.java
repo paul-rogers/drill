@@ -19,7 +19,6 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter.ScalarObjectWriter;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
@@ -48,21 +47,14 @@ public class ScalarArrayWriter extends AbstractArrayWriter {
 
   private final BaseScalarWriter elementWriter;
 
-  private ScalarArrayWriter(BaseScalarWriter elementWriter) {
-    super(new ScalarObjectWriter(elementWriter));
+  public ScalarArrayWriter(RepeatedValueVector vector, BaseScalarWriter elementWriter) {
+    super(vector, new ScalarObjectWriter(elementWriter));
     this.elementWriter = elementWriter;
   }
 
-  public static ArrayObjectWriter build(BaseScalarWriter elementWriter) {
+  public static ArrayObjectWriter build(RepeatedValueVector repeatedVector, BaseScalarWriter elementWriter) {
     return new ArrayObjectWriter(
-        new ScalarArrayWriter(elementWriter));
-  }
-
-  @Override
-  public void bindVector(ValueVector vector) {
-    super.bindVector(vector);
-    RepeatedValueVector arrayVector = (RepeatedValueVector) vector;
-    elementWriter.bindVector(arrayVector.getDataVector());
+        new ScalarArrayWriter(repeatedVector, elementWriter));
   }
 
   @Override

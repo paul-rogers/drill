@@ -100,6 +100,7 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
     this.writerIndex = index;
     bindIndex(index);
     startWrite();
+    startValue();
   }
 
   @Override

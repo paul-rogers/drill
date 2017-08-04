@@ -17,21 +17,22 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import org.apache.drill.exec.vector.complex.RepeatedValueVector;
+
 /**
  * Writer for an array of either a map or another array.
  */
 
 public class ObjectArrayWriter extends AbstractArrayWriter {
 
-  private ObjectArrayWriter(AbstractObjectWriter elementWriter) {
-    super(elementWriter);
+  private ObjectArrayWriter(RepeatedValueVector vector, AbstractObjectWriter elementWriter) {
+    super(vector, elementWriter);
   }
 
-  public static ArrayObjectWriter build(AbstractObjectWriter elementWriter) {
+  public static ArrayObjectWriter build(RepeatedValueVector vector, AbstractObjectWriter elementWriter) {
     return new ArrayObjectWriter(
-        new ObjectArrayWriter(elementWriter));
+        new ObjectArrayWriter(vector, elementWriter));
   }
-
 
   @Override
   public void save() {

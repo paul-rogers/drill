@@ -15,39 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor.impl;
+package org.apache.drill.exec.vector.accessor.writer;
 
-public class AccessorUtilities {
+import org.apache.drill.exec.record.MaterializedField;
 
-  private AccessorUtilities() { }
-
-  public static int sv4Batch(int sv4Index) {
-    return sv4Index >>> 16;
-  }
-
-  public static int sv4Index(int sv4Index) {
-    return sv4Index & 0xFFFF;
-  }
-
-  public static String bytesToString(byte[] value) {
-    StringBuilder buf = new StringBuilder()
-        .append("[");
-    int len = Math.min(value.length, 20);
-    for (int i = 0; i < len;  i++) {
-      if (i > 0) {
-        buf.append(", ");
-      }
-      String str = Integer.toHexString(value[i] & 0xFF);
-      if (str.length() < 2) {
-        buf.append("0");
-      }
-      buf.append(str);
-    }
-    if (value.length > len) {
-      buf.append("...");
-    }
-    buf.append("]");
-    return buf.toString();
-  }
-
+public interface TupleConstructor {
+  AbstractObjectWriter addColumn(MaterializedField schema, AbstractTupleWriter writer);
 }

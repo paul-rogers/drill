@@ -98,18 +98,4 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
 
   @Override
   public void endValue() { }
-
-  @Override
-  public void endWrite() {
-    finish();
-  }
-
-  /**
-   * Overridden by generated classes to finish up writing. Such as
-   * setting the final element count.
-   *
-   * @throws VectorOverflowException should not actually occur
-   */
-
-  public void finish() { }
 }

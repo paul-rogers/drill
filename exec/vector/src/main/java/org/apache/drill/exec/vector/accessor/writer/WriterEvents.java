@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 
 /**
@@ -36,13 +35,6 @@ public interface WriterEvents {
    */
 
   void bindIndex(ColumnWriterIndex index);
-
-  /**
-   * Bind the writer to a value vector.
-   * @param vector vector of the proper type for the writer
-   */
-
-  void bindVector(ValueVector vector);
 
   /**
    * Start a write (batch) operation. Performs any vector initialization

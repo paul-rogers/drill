@@ -17,9 +17,13 @@
  */
 package org.apache.drill.exec.vector.accessor.impl;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.vector.NullableVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
@@ -28,6 +32,7 @@ import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
 import org.apache.drill.exec.vector.accessor.reader.ScalarArrayReader;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter.ScalarObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.BaseScalarWriter;
 import org.apache.drill.exec.vector.accessor.writer.NullableScalarWriter;
 import org.apache.drill.exec.vector.accessor.writer.ScalarArrayWriter;
@@ -56,12 +61,7 @@ public class ColumnAccessorFactory {
   }
 
   public static AbstractObjectWriter buildColumnWriter(ValueVector vector) {
-    AbstractObjectWriter objWriter = buildColumnWriter(vector.getField().getType());
-    objWriter.bindVector(vector);
-    return objWriter;
-  }
-
-  public static AbstractObjectWriter buildColumnWriter(MajorType major) {
+    MajorType major = vector.getField().getType();
     MinorType type = major.getMinorType();
     DataMode mode = major.getMode();
 
@@ -75,11 +75,15 @@ public class ColumnAccessorFactory {
     default:
       switch (mode) {
       case OPTIONAL:
-        return NullableScalarWriter.build(newAccessor(type, requiredWriters));
+        NullableVector nullableVector = (NullableVector) vector;
+        return NullableScalarWriter.build(nullableVector,
+                newWriter(nullableVector.getValuesVector()));
       case REQUIRED:
-        return BaseScalarWriter.build(newAccessor(type, requiredWriters));
+        return new ScalarObjectWriter(newWriter(vector));
       case REPEATED:
-        return ScalarArrayWriter.build(newAccessor(type, requiredWriters));
+        RepeatedValueVector repeatedVector = (RepeatedValueVector) vector;
+        return ScalarArrayWriter.build(repeatedVector,
+                newWriter(repeatedVector.getDataVector()));
       default:
         throw new UnsupportedOperationException(mode.toString());
       }
@@ -145,6 +149,22 @@ public class ColumnAccessorFactory {
       }
       return accessorClass.newInstance();
     } catch (InstantiationException | IllegalAccessException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  public static BaseScalarWriter newWriter(ValueVector vector) {
+    MajorType major = vector.getField().getType();
+    MinorType type = major.getMinorType();
+    try {
+      Class<? extends BaseScalarWriter> accessorClass = requiredWriters[type.ordinal()];
+      if (accessorClass == null) {
+        throw new UnsupportedOperationException(type.toString());
+      }
+      Constructor<? extends BaseScalarWriter> ctor = accessorClass.getConstructor(ValueVector.class);
+      return ctor.newInstance(vector);
+    } catch (InstantiationException | IllegalAccessException | NoSuchMethodException |
+             SecurityException | IllegalArgumentException | InvocationTargetException e) {
       throw new IllegalStateException(e);
     }
   }

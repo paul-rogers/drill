@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
@@ -117,18 +116,13 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   }
 
   protected final AbstractObjectWriter elementObjWriter;
-  private final OffsetVectorWriter offsetsWriter = new OffsetVectorWriter();
+  private final OffsetVectorWriter offsetsWriter;
   private ColumnWriterIndex baseIndex;
   protected ArrayElementWriterIndex elementIndex;
 
-  public AbstractArrayWriter(AbstractObjectWriter elementObjWriter) {
+  public AbstractArrayWriter(RepeatedValueVector vector, AbstractObjectWriter elementObjWriter) {
     this.elementObjWriter = elementObjWriter;
-  }
-
-  @Override
-  public void bindVector(ValueVector vector) {
-    RepeatedValueVector repeatedVector = (RepeatedValueVector) vector;
-    offsetsWriter.bindVector(repeatedVector.getOffsetVector());
+    offsetsWriter = new OffsetVectorWriter(vector.getOffsetVector());
   }
 
   @Override
@@ -165,7 +159,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
   @Override
   public void endWrite() {
-    offsetsWriter.finish();
+    offsetsWriter.endWrite();
     elementObjWriter.endWrite();
   }
 

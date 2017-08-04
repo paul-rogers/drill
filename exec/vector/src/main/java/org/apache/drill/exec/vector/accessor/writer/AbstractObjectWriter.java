@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
@@ -42,9 +41,6 @@ public abstract class AbstractObjectWriter implements ObjectWriter, WriterEvents
   }
 
   protected abstract WriterEvents baseEvents();
-
-  @Override
-  public void bindVector(ValueVector vector) { baseEvents().bindVector(vector); }
 
   @Override
   public void bindIndex(ColumnWriterIndex index) { baseEvents().bindIndex(index); }
