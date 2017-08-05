@@ -76,7 +76,11 @@ public class SchemaBuilder {
     }
 
     public ColumnBuilder setWidth(int width) {
-      typeBuilder.setPrecision(width);
+      return setPrecision(width);
+    }
+
+    public ColumnBuilder setPrecision(int precision) {
+      typeBuilder.setPrecision(precision);
       return this;
     }
 

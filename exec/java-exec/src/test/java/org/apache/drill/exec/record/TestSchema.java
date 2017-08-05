@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.test.rowSet.test;
+package org.apache.drill.exec.record;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -36,6 +36,8 @@ import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.record.TupleMetadata.StructureType;
+import org.apache.drill.exec.record.TupleSchema.AbstractColumnMetadata;
+import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
@@ -69,6 +71,9 @@ public class TestSchema extends SubOperatorTest {
     assertEquals(md0.name(), tupleSchema.column(0).getName());
     assertEquals(MinorType.INT, md0.type());
     assertEquals(DataMode.REQUIRED, md0.mode());
+    assertFalse(md0.isVariableWidth());
+    assertFalse(md0.isArray());
+    assertFalse(md0.isMap());
     assertSame(tupleSchema, md0.parent());
     assertEquals(md0.name(), md0.fullName());
     assertTrue(md0.isEquivalent(md0));
@@ -76,8 +81,15 @@ public class TestSchema extends SubOperatorTest {
 
     assertEquals(1, tupleSchema.metadata(1).index());
     assertEquals(DataMode.REPEATED, tupleSchema.metadata(1).mode());
+    assertFalse(tupleSchema.metadata(1).isVariableWidth());
+    assertTrue(tupleSchema.metadata(1).isArray());
+    assertFalse(tupleSchema.metadata(1).isMap());
+
     assertEquals(2, tupleSchema.metadata(2).index());
     assertEquals(DataMode.OPTIONAL, tupleSchema.metadata(2).mode());
+    assertTrue(tupleSchema.metadata(2).isVariableWidth());
+    assertFalse(tupleSchema.metadata(2).isArray());
+    assertFalse(tupleSchema.metadata(2).isMap());
 
     assertSame(tupleSchema.column(0), tupleSchema.column("c"));
     assertSame(tupleSchema.column(1), tupleSchema.column("a"));
@@ -172,7 +184,7 @@ public class TestSchema extends SubOperatorTest {
           .addMap("e")
             .add("f", MinorType.VARCHAR)
             .buildMap()
-          .add("g", MinorType.INT)
+          .addArray("g", MinorType.INT)
           .buildMap()
         .add("h", MinorType.BIGINT)
         .buildSchema();
@@ -187,6 +199,7 @@ public class TestSchema extends SubOperatorTest {
     assertEquals("a", tupleSchema.metadata(1).fullName());
     assertEquals(StructureType.TUPLE, tupleSchema.metadata(1).structureType());
     assertNotNull(tupleSchema.metadata(1).mapSchema());
+    assertTrue(tupleSchema.metadata(1).isMap());
 
     assertEquals("h", tupleSchema.metadata(2).name());
     assertEquals("h", tupleSchema.metadata(2).fullName());
@@ -200,23 +213,12 @@ public class TestSchema extends SubOperatorTest {
     assertEquals("d", aSchema.metadata(1).name());
     assertEquals("e", aSchema.metadata(2).name());
     assertEquals("g", aSchema.metadata(3).name());
+    assertTrue(aSchema.metadata(3).isArray());
 
     TupleMetadata eSchema = aSchema.metadata(2).mapSchema();
     assertEquals(1, eSchema.size());
     assertEquals("f", eSchema.metadata(0).name());
     assertEquals("a.e.f", eSchema.metadata(0).fullName());
-
-    // Flattened with maps removed. This is for testing use only
-    // as it is ambiguous in production.
-
-//    TupleMetadata flatSchema = tupleSchema.flatten();
-//    assertEquals(6, flatSchema.size());
-//    crossCheck(flatSchema, 0, "c", MinorType.INT);
-//    crossCheck(flatSchema, 1, "a.b", MinorType.VARCHAR);
-//    crossCheck(flatSchema, 2, "a.d", MinorType.INT);
-//    crossCheck(flatSchema, 3, "a.e.f", MinorType.VARCHAR);
-//    crossCheck(flatSchema, 4, "a.g", MinorType.INT);
-//    crossCheck(flatSchema, 5, "h", MinorType.BIGINT);
 
     // Verify batch schema: should mirror the schema created above.
 
@@ -245,6 +247,198 @@ public class TestSchema extends SubOperatorTest {
     }
     assertEquals(1, eMap.size());
     assertSame(eSchema.column(0), eMap.get(0));
+  }
+
+  @Test
+  public void testSchemaEvolution() {
+    TupleSchema schema = new TupleSchema();
+    assertEquals(0, schema.size());
+
+    // Add top-level fields.
+
+    MaterializedField aField = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
+    ColumnMetadata aSchema = schema.add(aField);
+    assertNotNull(aSchema);
+    assertEquals(0, aSchema.index());
+    assertEquals("a", aSchema.name());
+    assertEquals(1, schema.size());
+    assertSame(aSchema, schema.metadata(0));
+    assertSame(aField, schema.column(0));
+    assertSame(aField, schema.column("a"));
+
+    MaterializedField bField = SchemaBuilder.columnSchema("b", MinorType.VARCHAR, DataMode.REQUIRED);
+    AbstractColumnMetadata bSchema = TupleSchema.fromField(bField);
+    schema.add(bSchema);
+    assertEquals(1, bSchema.index());
+    assertEquals(2, schema.size());
+    assertSame(bSchema, schema.metadata(1));
+    assertSame(bField, schema.column(1));
+    assertSame(bField, schema.column("b"));
+
+    // Create a map field
+
+    MaterializedField cField = SchemaBuilder.columnSchema("c", MinorType.MAP, DataMode.REQUIRED);
+    ColumnMetadata cSchema = schema.add(cField);
+    assertEquals(2, cSchema.index());
+    assertEquals(3, schema.size());
+
+    // Get the map schema
+
+    TupleSchema cMap = (TupleSchema) cSchema.mapSchema();
+    assertNotNull(cMap);
+    assertEquals(0, cMap.size());
+
+    // Add columns to the map repeating the names at the top level.
+    // Name spaces are independent.
+
+    MaterializedField caField = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
+    ColumnMetadata caSchema = cMap.add(caField);
+    assertNotNull(caSchema);
+    assertEquals(0, caSchema.index());
+    assertEquals("a", caSchema.name());
+    assertEquals(1, cMap.size());
+    assertSame(caSchema, cMap.metadata(0));
+    assertSame(caField, cMap.column(0));
+    assertSame(caField, cMap.column("a"));
+
+    MaterializedField cbField = SchemaBuilder.columnSchema("b", MinorType.VARCHAR, DataMode.REQUIRED);
+    AbstractColumnMetadata cbSchema = TupleSchema.fromField(cbField);
+    cMap.add(cbSchema);
+    assertEquals(1, cbSchema.index());
+    assertEquals(2, cMap.size());
+    assertSame(cbSchema, cMap.metadata(1));
+    assertSame(cbField, cMap.column(1));
+    assertSame(cbField, cMap.column("b"));
+
+    // Map fields went into the map schema.
+
+    assertEquals(3, schema.size());
+  }
+
+  @Test
+  public void testAllocationMetadata() {
+    TupleSchema schema = new TupleSchema();
+
+    MaterializedField aField = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
+    ColumnMetadata aSchema = schema.add(aField);
+
+    // Test allocation metadata. Don't bother with width; changing the width
+    // for a fixed-width column is allowed, but undefined.
+
+    assertEquals(IntVector.VALUE_WIDTH, aSchema.expectedWidth());
+    assertEquals(1, aSchema.expectedElementCount());
+    aSchema.setExpectedElementCount(5);
+    assertEquals(1, aSchema.expectedElementCount());
+    aSchema.setExpectedElementCount(-1);
+    aSchema.setExpectedElementCount(1);
+
+    MaterializedField a2Field = SchemaBuilder.columnSchema("a2", MinorType.INT, DataMode.REPEATED);
+    ColumnMetadata a2Schema = schema.add(a2Field);
+
+    // Test allocation metadata. Don't bother with width; changing the width
+    // for a fixed-width column is allowed, but undefined.
+
+    assertEquals(IntVector.VALUE_WIDTH, a2Schema.expectedWidth());
+    assertEquals(ColumnMetadata.DEFAULT_ARRAY_SIZE, a2Schema.expectedElementCount());
+    a2Schema.setExpectedElementCount(5);
+    assertEquals(5, a2Schema.expectedElementCount());
+    a2Schema.setExpectedElementCount(-1);
+    a2Schema.setExpectedElementCount(1);
+
+    MaterializedField bField = SchemaBuilder.columnSchema("b", MinorType.VARCHAR, DataMode.REQUIRED);
+    ColumnMetadata bSchema = schema.add(bField);
+
+    // Test variable width allocation metadata.
+
+    assertEquals(54, bSchema.expectedWidth());
+    assertEquals(1, bSchema.expectedElementCount());
+    bSchema.setExpectedWidth(100);
+    assertEquals(100, bSchema.expectedWidth());
+    bSchema.setExpectedElementCount(0);
+    assertEquals(1, bSchema.expectedElementCount());
+
+    // Specify a width in the field schema
+
+    MaterializedField cField = new SchemaBuilder.ColumnBuilder("c", MinorType.VARCHAR)
+        .setWidth(20)
+        .build();
+    ColumnMetadata cSchema = schema.add(cField);
+    assertEquals(20, cSchema.expectedWidth());
+
+    MaterializedField dField = SchemaBuilder.columnSchema("d", MinorType.MAP, DataMode.REQUIRED);
+    ColumnMetadata dSchema = schema.add(dField);
+    assertEquals(0, dSchema.expectedWidth());
+    assertEquals(1, dSchema.expectedElementCount());
+
+    MaterializedField d2Field = SchemaBuilder.columnSchema("d2", MinorType.MAP, DataMode.REPEATED);
+    ColumnMetadata d2Schema = schema.add(d2Field);
+    assertEquals(0, d2Schema.expectedWidth());
+    assertEquals(ColumnMetadata.DEFAULT_ARRAY_SIZE, d2Schema.expectedElementCount());
+  }
+
+  @Test
+  public void testEquivalenceIdentity() {
+    BatchSchema schema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addArray("b", MinorType.VARCHAR)
+        .build();
+
+    TupleSchema tmd = TupleSchema.fromFields(schema);
+    BatchSchema schema2 = tmd.toBatchSchema(SelectionVectorMode.NONE);
+    assertTrue(schema.isEquivalent(schema2));
+    TupleSchema tmd2 = TupleSchema.fromFields(schema2);
+    assertTrue(tmd.isEquivalent(tmd2));
+
+    BatchSchema schema3 = new SchemaBuilder()
+        .addNullable("a", MinorType.INT) // Different
+        .addArray("b", MinorType.VARCHAR)
+        .build();
+    TupleSchema tmd3 = TupleSchema.fromFields(schema3);
+    assertFalse(tmd3.isEquivalent(tmd));
+  }
+
+  @Test
+  public void testEquivalenceSimilarity() {
+    BatchSchema schema1 = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addArray("b", MinorType.VARCHAR)
+        .addMap("C")
+          .add("c1", MinorType.INT)
+          .buildMap()
+        .build();
+    BatchSchema schema2 = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addArray("b", MinorType.VARCHAR)
+        .addMap("C")
+          .add("c1", MinorType.INT)
+          .buildMap()
+        .build();
+
+    TupleSchema tmd1 = TupleSchema.fromFields(schema1);
+    TupleSchema tmd2 = TupleSchema.fromFields(schema2);
+    assertTrue(tmd1.isEquivalent(tmd2));
+  }
+
+  @Test
+  public void testEquivalenceMapDifference() {
+    BatchSchema schema1 = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addArray("b", MinorType.VARCHAR)
+        .addMap("C")
+          .add("c1", MinorType.INT)
+          .buildMap()
+        .build();
+    BatchSchema schema2 = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addArray("b", MinorType.VARCHAR)
+        .addMap("C")
+          .addNullable("c1", MinorType.INT) // Different
+          .buildMap()
+        .build();
+
+    TupleSchema tmd1 = TupleSchema.fromFields(schema1);
+    TupleSchema tmd2 = TupleSchema.fromFields(schema2);
+    assertFalse(tmd1.isEquivalent(tmd2));
   }
 
 }

@@ -58,6 +58,8 @@ public interface TupleMetadata extends Iterable<TupleMetadata.ColumnMetadata> {
    */
 
   public interface ColumnMetadata {
+    public static final int DEFAULT_ARRAY_SIZE = 10;
+
     StructureType structureType();
     TupleMetadata mapSchema();
     int index();
@@ -66,6 +68,9 @@ public interface TupleMetadata extends Iterable<TupleMetadata.ColumnMetadata> {
     MajorType majorType();
     MinorType type();
     DataMode mode();
+    boolean isArray();
+    boolean isVariableWidth();
+    boolean isMap();
     TupleMetadata parent();
 
     /**
@@ -86,7 +91,11 @@ public interface TupleMetadata extends Iterable<TupleMetadata.ColumnMetadata> {
      */
 
     boolean isEquivalent(ColumnMetadata other);
-    int allocationSize();
+
+    void setExpectedWidth(int width);
+    int expectedWidth();
+    void setExpectedElementCount(int childCount);
+    int expectedElementCount();
   }
 
   /**
