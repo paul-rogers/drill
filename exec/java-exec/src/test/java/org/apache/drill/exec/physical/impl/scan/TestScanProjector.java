@@ -1252,8 +1252,8 @@ public class TestScanProjector extends SubOperatorTest {
     // file schema (a, b)
 
     LoaderSchema schema = loader.root().schema();
-    schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED));
-    schema.addColumn(SchemaBuilder.columnSchema("b", MinorType.VARCHAR, DataMode.REQUIRED));
+    schema.add(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED));
+    schema.add(SchemaBuilder.columnSchema("b", MinorType.VARCHAR, DataMode.REQUIRED));
 
     // Create a batch of data.
 
@@ -1316,8 +1316,8 @@ public class TestScanProjector extends SubOperatorTest {
     // file schema (a, b)
 
     LoaderSchema schema = loader.root().schema();
-    schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED));
-    schema.addColumn(SchemaBuilder.columnSchema("b", MinorType.VARCHAR, DataMode.REQUIRED));
+    schema.add(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED));
+    schema.add(SchemaBuilder.columnSchema("b", MinorType.VARCHAR, DataMode.REQUIRED));
 
     // Create a batch of data.
 

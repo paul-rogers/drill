@@ -205,7 +205,7 @@ public class ScanProjector {
       for (int i = 0; i < defns.size(); i++) {
         MetadataColumn defn  = defns.get(i);
         values[i] = defn.value();
-        schema.addColumn(defn.schema());
+        schema.add(defn.schema());
       }
     }
 
@@ -293,7 +293,7 @@ public class ScanProjector {
         NullColumn defn = defns.get(i);
         MaterializedField colSchema = selectType(defn);
         isArray[i] = colSchema.getDataMode() == DataMode.REPEATED;
-        schema.addColumn(colSchema);
+        schema.add(colSchema);
       }
     }
 
@@ -433,7 +433,7 @@ public class ScanProjector {
 
       LoaderSchema schema = tableLoader.root().schema();
       for (int i = 0; i < tableSchema.size(); i++) {
-        schema.addColumn(tableSchema.column(i));
+        schema.add(tableSchema.column(i));
       }
       planProjection();
 

@@ -48,7 +48,7 @@ public class ColumnLoaderTest extends SubOperatorTest {
       rootWriter = rsMutator.root();
       LoaderSchema schema = rootWriter.schema();
       MaterializedField field = SchemaBuilder.columnSchema("col", type, mode);
-      schema.addColumn(field);
+      schema.add(field);
       rsMutator.startBatch();
       colWriter = rootWriter.column(0);
       rsBuilder = fixture.rowSetBuilder(schema.schema());

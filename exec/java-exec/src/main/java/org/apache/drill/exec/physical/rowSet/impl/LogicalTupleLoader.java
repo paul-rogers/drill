@@ -170,7 +170,7 @@ public class LogicalTupleLoader extends AbstractTupleLoader {
     public TupleMetadata parent() { return parentTuple; }
 
     @Override
-    public int allocationSize() { return physicalColumn.allocationSize(); }
+    public int expectedWidth() { return physicalColumn.expectedWidth(); }
   }
 
   /**
@@ -208,7 +208,7 @@ public class LogicalTupleLoader extends AbstractTupleLoader {
         selection.contains(key)) {
       BaseColumnLoader physicalColLoader = (BaseColumnLoader) physicalLoader.addColumn(columnSchema);
       ColumnMetadata columnMetadata = new ProjectedColumnMetadata(schema, physicalColLoader.metadata(), schema.size());
-      ((TupleSchema) schema).addColumn(columnMetadata);
+      ((TupleSchema) schema).add(columnMetadata);
       colLoader = new ProjectedColumn(this, columnMetadata, physicalColLoader);
     } else {
       ColumnMetadata columnMetadata = schema.add(columnSchema);

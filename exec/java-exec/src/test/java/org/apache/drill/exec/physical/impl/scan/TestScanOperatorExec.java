@@ -152,12 +152,12 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
         LoaderSchema schema = tableLoader.root().schema();
         MaterializedField a = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
-        schema.addColumn(a);
+        schema.add(a);
         MaterializedField b = new SchemaBuilder.ColumnBuilder("b", MinorType.VARCHAR)
             .setMode(DataMode.OPTIONAL)
             .setWidth(10)
             .build();
-        schema.addColumn(b);
+        schema.add(b);
         if ( ! returnDataOnFirst) {
           return true;
         }

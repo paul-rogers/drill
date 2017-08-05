@@ -56,7 +56,7 @@ public class TestFieldVarCharOutput extends SubOperatorTest {
       }
       loader = new ResultSetLoaderImpl(fixture.allocator(), builder.build());
       for (String col : cols) {
-         loader.root().schema().addColumn(
+         loader.root().schema().add(
             SchemaBuilder.columnSchema(col, MinorType.VARCHAR, DataMode.REQUIRED));
       }
 

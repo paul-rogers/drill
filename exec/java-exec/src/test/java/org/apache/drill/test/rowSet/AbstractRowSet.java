@@ -20,6 +20,8 @@ package org.apache.drill.test.rowSet;
 import java.util.List;
 
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.physical.rowSet.model.TupleModel.RowSetModel;
+import org.apache.drill.exec.physical.rowSet.model.simple.RowSetModelImpl.RowSetModelImpl;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
@@ -128,7 +130,6 @@ public abstract class AbstractRowSet implements RowSet {
     public ColumnStorage storage(int index) { return columns[index]; }
   }
 
-
   /**
    * Wrapper around a vector container to map the vector container into the common
    * tuple format.
@@ -167,19 +168,18 @@ public abstract class AbstractRowSet implements RowSet {
 
   protected final BufferAllocator allocator;
   protected SchemaChangeCallBack callBack = new SchemaChangeCallBack();
-  protected final BaseRowStorage rowStorage;
 
-
-  public AbstractRowSet(BufferAllocator allocator, BaseRowStorage rowStorage) {
+  public AbstractRowSet(BufferAllocator allocator) {
     this.allocator = allocator;
-    this.rowStorage = rowStorage;
   }
+
+  public abstract RowSetModel rowSetModel();
 
   @Override
   public VectorAccessible vectorAccessible() { return container(); }
 
   @Override
-  public VectorContainer container() { return rowStorage.container(); }
+  public VectorContainer container() { return rowSetModel().container(); }
 
   @Override
   public int rowCount() { return container().getRecordCount(); }
@@ -192,7 +192,7 @@ public abstract class AbstractRowSet implements RowSet {
   }
 
   @Override
-  public TupleMetadata schema() { return rowStorage.tupleSchema(); }
+  public TupleMetadata schema() { return rowSetModel().schema(); }
 
   @Override
   public BufferAllocator allocator() { return allocator; }

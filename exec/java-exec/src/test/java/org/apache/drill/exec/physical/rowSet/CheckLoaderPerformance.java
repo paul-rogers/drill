@@ -231,7 +231,7 @@ public class CheckLoaderPerformance {
       @Override
       protected void defineSchema(LoaderSchema schema) {
         // Use optional to be same as original writer
-        schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.OPTIONAL));
+        schema.add(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.OPTIONAL));
       }
 
       @Override
@@ -249,7 +249,7 @@ public class CheckLoaderPerformance {
       @Override
       protected void defineSchema(LoaderSchema schema) {
         // Use optional to be same as original writer
-        schema.addColumn(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED));
+        schema.add(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED));
       }
 
       @Override

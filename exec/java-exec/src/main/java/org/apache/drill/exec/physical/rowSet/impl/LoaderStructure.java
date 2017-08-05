@@ -1,29 +1,12 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.expr.TypeHelper;
-import org.apache.drill.exec.physical.impl.scan.ResultVectorCache;
-import org.apache.drill.exec.physical.rowSet.impl.AbstractTupleLoader.AbstractColumnLoader;
+import org.apache.drill.exec.physical.rowSet.TupleLoader;
+import org.apache.drill.exec.physical.rowSet.impl.BaseColumnLoader.PrimitiveColumnLoader.State;
 import org.apache.drill.exec.physical.rowSet.impl.BaseTupleLoader.MapLoader;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.VectorContainerBuilder;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
@@ -35,11 +18,49 @@ import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
 import org.apache.drill.exec.vector.accessor.writer.MapWriter;
 import org.apache.drill.exec.vector.accessor.writer.ObjectArrayWriter;
-import org.apache.drill.exec.vector.complex.MapVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 
-public abstract class BaseColumnLoader extends AbstractColumnLoader {
+public abstract class LoaderStructure {
 
+  public abstract static class TupleStructure extends LoaderStructure {
+    protected final ResultSetLoaderImpl resultSetLoader;
+    private final List<LoaderStructure> children = new ArrayList<>();
+    
+    public TupleStructure() {
+      
+    }
+    
+    public void add() ...
+  }
+  
+  public static class RowStructure extends TupleStructure {
+    
+  }
+  
+  public static class MapStructure extends TupleStructure {
+    
+  }
+  
+  public abstract static class ColumnStructure extends LoaderStructure {
+    protected final AbstractTupleLoader parentTuple;
+    protected final ColumnMetadata schema;
+
+    public ColumnStructure(AbstractTupleLoader parentTuple, ColumnMetadata schema) {
+      this.parentTuple = parentTuple;
+      this.schema = schema;
+    }
+
+//    @Override
+//    public boolean isProjected() { return true; }
+//
+//    @Override
+//    public int vectorIndex() { return schema.index(); }
+
+    public ColumnMetadata metadata() { return schema; }
+
+    public TupleLoader tupleLoader() { return parentTuple; }
+  }
+  
   /**
    * Implementation for primitive columns: those with actual vector
    * backing. (Maps are vectors in name only; they have no actual
@@ -62,7 +83,7 @@ public abstract class BaseColumnLoader extends AbstractColumnLoader {
    * vector. It must be shifted from the active vector into the new
    * overflow buffer.
    */
-  public static class PrimitiveColumnLoader extends BaseColumnLoader {
+  public static class PrimitiveColumnStructure extends ColumnStructure {
     private enum State {
 
       /**
@@ -162,7 +183,7 @@ public abstract class BaseColumnLoader extends AbstractColumnLoader {
 
     public void allocateVector(ValueVector toAlloc) {
       // TODO: Revise with better predictive metadata
-      AllocationHelper.allocate(toAlloc, parentTuple.resultSetLoader().initialRowCount(), schema.expectedWidth(), 10);
+      AllocationHelper.allocate(toAlloc, parentTuple.resultSetLoader().initialRowCount(), schema.allocationSize(), 10);
     }
 
     /**
@@ -278,13 +299,17 @@ public abstract class BaseColumnLoader extends AbstractColumnLoader {
   public static class MapColumnLoader extends BaseColumnLoader {
 
     protected final MapLoader mapLoader;
+    protected final AbstractMapVector mapVector;
+    protected final AbstractTupleWriter mapWriter;
 
     public MapColumnLoader(BaseTupleLoader tupleSet, ColumnMetadata schema, ValueVector vector) {
       super(tupleSet, schema, vector);
       if (schema.mode() == DataMode.REPEATED) {
-        AbstractObjectWriter mapWriter = MapWriter.buildMapArray(schema, new ArrayList<>());
+        RepeatedMapVector repeatedMapVector = (RepeatedMapVector) vector;
+        AbstractObjectWriter mapWriter = MapWriter.buildMapArray(schema, repeatedMapVector);
         writer = ObjectArrayWriter.build(mapWriter);
       } else {
+        MapVector mapVector = (MapVector) vector;
         writer = MapWriter.buildSingleMap(schema, new ArrayList<>());
       }
       writer.bindVector(vector);
@@ -318,36 +343,34 @@ public abstract class BaseColumnLoader extends AbstractColumnLoader {
     }
   }
 
-  protected final ValueVector vector;
-  protected final int addVersion;
-  protected AbstractObjectWriter writer;
+  public abstract void startBatch();
 
   /**
-   * Build a column implementation, including vector and writers, based on the
-   * schema provided.
-   * @param tupleSet the tuple set that owns this column
-   * @param schema the schema of the column
-   * @param index the index of the column within the tuple set
+   * A column within the row batch overflowed. Prepare to absorb the rest of
+   * the in-flight row by rolling values over to a new vector, saving the
+   * complete vector for later. This column could have a value for the overflow
+   * row, or for some previous row, depending on exactly when and where the
+   * overflow occurs.
+   *
+   * @param overflowIndex the index of the row that caused the overflow, the
+   * values of which should be copied to a new "look-ahead" vector
    */
 
-  public BaseColumnLoader(BaseTupleLoader tupleSet, ColumnMetadata schema, ValueVector vector) {
-    super(tupleSet, schema);
-    this.vector = vector;
-    addVersion = tupleSet.resultSetLoader().bumpVersion();
-  }
+  public abstract void rollOver(int overflowIndex);
 
-  @SuppressWarnings("resource")
-  public static BaseColumnLoader build(BaseTupleLoader tupleSet, ColumnMetadata schema) {
-    ResultSetLoaderImpl rowSetMutator = tupleSet.resultSetLoader();
-    ResultVectorCache inventory = rowSetMutator.vectorInventory();
-    ValueVector vector = inventory.addOrGet(schema.schema());
-    if (schema.type() == MinorType.MAP) {
-      return new MapColumnLoader(tupleSet, schema, vector);
-    } else {
-      return new PrimitiveColumnLoader(tupleSet, schema, vector);
-    }
-  }
+  /**
+   * Writing of a row batch is complete. Prepare the vector for harvesting
+   * to send downstream. If this batch encountered overflow, set aside the
+   * look-ahead vector and put the full vector buffer back into the active
+   * vector.
+   */
+
+  public abstract void harvest();
+
+  public abstract void reset();
+
+  public abstract void buildContainer(VectorContainerBuilder containerBuilder);
 
   @Override
-  public ObjectWriter writer() { return writer; }
+  public abstract ObjectWriter writer();
 }

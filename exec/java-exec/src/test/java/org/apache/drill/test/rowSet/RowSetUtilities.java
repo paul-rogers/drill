@@ -147,33 +147,6 @@ public class RowSetUtilities {
     }
   }
 
-  public static VectorContainer buildVectors(BufferAllocator allocator, TupleMetadata schema) {
-    VectorContainer container = new VectorContainer(allocator);
-    for (int i = 0; i < schema.size(); i++) {
-      ColumnMetadata colSchema = schema.metadata(i);
-      @SuppressWarnings("resource")
-      ValueVector vector = TypeHelper.getNewVector(colSchema.schema(), allocator, null);
-      container.add(vector);
-      if (colSchema.structureType() == StructureType.TUPLE) {
-        buildMap(allocator, (AbstractMapVector) vector, colSchema.mapSchema());
-      }
-    }
-    container.buildSchema(SelectionVectorMode.NONE);
-    return container;
-  }
-
-  private static void buildMap(BufferAllocator allocator, AbstractMapVector mapVector, TupleMetadata mapSchema) {
-    for (int i = 0; i < mapSchema.size(); i++) {
-      ColumnMetadata colSchema = mapSchema.metadata(i);
-      @SuppressWarnings("resource")
-      ValueVector vector = TypeHelper.getNewVector(colSchema.schema(), allocator, null);
-      mapVector.putChild(colSchema.name(), vector);
-      if (colSchema.structureType() == StructureType.TUPLE) {
-        buildMap(allocator, (AbstractMapVector) vector, colSchema.mapSchema());
-      }
-    }
-  }
-
   public static void assertEqualValues(ValueType type, Object expectedObj, Object actualObj) {
     assertEqualValues(type.toString(), type, expectedObj, actualObj);
   }
