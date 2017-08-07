@@ -146,6 +146,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   @Override
   public void startWrite() {
     elementIndex.reset();
+    offsetsWriter.startWrite();
     elementObjWriter.startWrite();
   }
 

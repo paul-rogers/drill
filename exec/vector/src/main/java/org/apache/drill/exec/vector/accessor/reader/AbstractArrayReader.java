@@ -96,6 +96,8 @@ public abstract class AbstractArrayReader implements ArrayReader {
     }
 
     public void reset(int startOffset, int length) {
+      assert length >= 0;
+      assert startOffset >= 0;
       this.startOffset = startOffset;
       this.length = length;
     }
@@ -141,7 +143,7 @@ public abstract class AbstractArrayReader implements ArrayReader {
 
   public void reposition() {
     final int index = baseIndex.vectorIndex();
-    Accessor curAccesssor = accessor();
+    final Accessor curAccesssor = accessor();
     final int startPosn = curAccesssor.get(index);
     elementIndex.reset(startPosn, curAccesssor.get(index + 1) - startPosn);
   }

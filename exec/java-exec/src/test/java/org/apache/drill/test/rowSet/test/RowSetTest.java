@@ -521,6 +521,7 @@ public class RowSetTest extends SubOperatorTest {
     new RowSetComparison(expected)
       .verifyAndClearAll(actual);
   }
+
   /**
    * Test an array of ints (as an example fixed-width type)
    * at the top level of a schema.

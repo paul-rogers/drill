@@ -43,7 +43,6 @@ public class OffsetVectorWriter extends BaseScalarWriter {
 
   @Override
   public void startWrite() {
-    setAddr(this.vector.getBuffer());
 
     // Special handling for first value. Alloc vector if needed.
     // Offset vectors require a 0 at position 0. The (end) offset
@@ -53,8 +52,9 @@ public class OffsetVectorWriter extends BaseScalarWriter {
     writeOffset = 0;
     lastWriteIndex = 0;
     if (capacity < ColumnAccessors.MIN_BUFFER_SIZE) {
-      setAddr(this.vector.reallocRaw(ColumnAccessors.MIN_BUFFER_SIZE));
+      vector.reallocRaw(ColumnAccessors.MIN_BUFFER_SIZE);
     }
+    setAddr(vector.getBuffer());
     PlatformDependent.putInt(bufAddr, writeOffset);
   }
 
