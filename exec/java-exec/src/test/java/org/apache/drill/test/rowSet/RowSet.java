@@ -35,7 +35,9 @@ import org.apache.parquet.column.ColumnWriter;
  * <p>
  * A row set encapsulates a set of vectors and provides access to Drill's
  * various "views" of vectors: {@link VectorContainer},
- * {@link VectorAccessible}, etc.
+ * {@link VectorAccessible}, etc. The row set wraps a {#link TupleModel}
+ * which holds the vectors and column metadata. This form is optimized
+ * for easy use in testing; use other implementations for production code.
  * <p>
  * A row set is defined by a {@link RowSetSchema}. For testing purposes, a row
  * set has a fixed schema; we don't allow changing the set of vectors

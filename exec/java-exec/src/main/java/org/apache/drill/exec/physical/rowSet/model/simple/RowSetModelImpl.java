@@ -1,22 +1,89 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.drill.exec.physical.rowSet.model.simple;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.model.TupleModel;
+import org.apache.drill.exec.physical.rowSet.model.TupleModel.ColumnModel;
 import org.apache.drill.exec.physical.rowSet.model.TupleModel.RowSetModel;
+import org.apache.drill.exec.physical.rowSet.model.simple.SimpleTupleModelImpl.SimpleColumnModelImpl;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.record.TupleSchema;
+import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 
+/**
+ * Concrete implementation of the row set model for a "single" row set.
+ * Allows dynamic creation of new columns. (The mechanics of populating
+ * those columns is delegated to writers.)
+ * <p>
+ * Provides the means to allocate vectors according to the allocation metadata
+ * provided by the external schema (mostly the expected column width for
+ * variable-width columns, and the expected cardinality for array columns.)
+ * <p>
+ * Single row sets allow write-once
+ * behavior to populate vectors. After population, vectors can be read
+ * any number of times.
+ */
+
+// TODO: Add list support. (Arrays of maps or primitives are already covered.)
+
 public class RowSetModelImpl extends SimpleTupleModelImpl implements RowSetModel {
+
+  /**
+   * Primitive (non-map) column definition. Handles all three cardinalities.
+   */
 
   public static class PrimitiveColumnModel extends SimpleColumnModelImpl {
     protected final ValueVector vector;
 
+    /**
+     * Create the column model using the column metadata provided, and
+     * using a vector which matches the metadata. In particuclar the
+     * same {@link MaterializedField} must back both the vector and
+     * column metadata.
+     *
+     * @param schema metadata about the vector
+     * @param vector vector to add
+     */
+
     public PrimitiveColumnModel(ColumnMetadata schema, ValueVector vector) {
       super(schema);
       this.vector = vector;
+      assert schema.schema() == vector.getField();
+    }
+
+    /**
+     * Create the column model, creating the column metadata from
+     * the vector's schema.
+     *
+     * @param vector vector to add
+     */
+
+    public PrimitiveColumnModel(ValueVector vector) {
+      this(TupleSchema.fromField(vector.getField()), vector);
     }
 
     @Override
@@ -28,17 +95,54 @@ public class RowSetModelImpl extends SimpleTupleModelImpl implements RowSetModel
       }
     }
 
+    @Override
     public ValueVector vector() { return vector; }
   }
+
+  /**
+   * Map column definition. Represents both single and array maps. Maps
+   * contain a nested tuple structure. (Not that, in this model, map
+   * columns, themselves, are not maps. Rather, map columns contain a
+   * tuple. This makes the class structure much simpler.)
+   */
 
   public static class MapColumnModel extends SimpleColumnModelImpl {
     private final MapModel mapModel;
     private final AbstractMapVector vector;
 
-    public MapColumnModel(ColumnMetadata colSchema, AbstractMapVector vector, MapModel MapModel) {
-      super(colSchema);
+    /**
+     * Construct a map column model from a schema, vector and map which are
+     * all already populated.
+     *
+     * @param schema metadata description of the map column
+     * @param vector vector that backs the column
+     * @param mapModel tuple model for the columns within the map
+     */
+    public MapColumnModel(MapColumnMetadata schema, AbstractMapVector vector, MapModel mapModel) {
+      super(schema);
       this.vector = vector;
-      this.mapModel = MapModel;
+      this.mapModel = mapModel;
+      assert schema.mapSchema() == mapModel.schema();
+      assert schema.schema() == vector.getField();
+      assert vector.size() == schema.mapSchema().size();
+    }
+
+    /**
+     * Create a new, empty map column using the vector and metadata provided.
+     *
+     * @param schema metadata description of the map column
+     * @param vector vector that backs the column
+     */
+
+    public MapColumnModel(ColumnMetadata schema, AbstractMapVector vector) {
+      super(schema);
+      this.vector = vector;
+      mapModel = new MapModel((TupleSchema) schema.mapSchema(), vector);
+      assert schema.mapSchema() == mapModel.schema();
+      assert schema.schema() == vector.getField();
+      assert vector.size() == 0;
+      assert schema.mapSchema().size() == 0;
+      assert vector.getField().getChildren().size() == 0;
     }
 
     @Override
@@ -55,14 +159,45 @@ public class RowSetModelImpl extends SimpleTupleModelImpl implements RowSetModel
 
     public MapModel mapModelImpl() { return mapModel; }
 
+    @Override
     public AbstractMapVector vector() { return vector; }
   }
+
+  /**
+   * Represents the tuple structure of a map column.
+   */
 
   public static class MapModel extends SimpleTupleModelImpl {
     private final AbstractMapVector vector;
 
-    public MapModel(AbstractMapVector vector) {
+    /**
+     * Construct a new, empty map model using the tuple schema provided
+     * (which is generally provided by the map column schema.)
+     *
+     * @param schema empty tuple schema
+     * @param vector empty map vector
+     */
+
+    public MapModel(TupleSchema schema, AbstractMapVector vector) {
+      super(schema, new ArrayList<ColumnModel>());
       this.vector = vector;
+      assert schema.size() == 0;
+    }
+
+    /**
+     * Build the map model given the map vector itself and the
+     * list of column models that represent the map contents, and the tuple
+     * metadata that describes the columns. The same {@link MaterializedField}
+     * must back both the vector and tuple metadata.
+     *
+     * @param schema metadata for the map
+     * @param vector vector which holds the map
+     * @param columns column models for each column in the map
+     */
+    public MapModel(TupleSchema schema, AbstractMapVector vector, List<ColumnModel> columns) {
+      super(schema, columns);
+      this.vector = vector;
+      assert vector.size() == schema.size();
     }
 
     @Override
@@ -74,11 +209,19 @@ public class RowSetModelImpl extends SimpleTupleModelImpl implements RowSetModel
       }
     }
 
+    @Override
     public AbstractMapVector vector() { return vector; }
 
     @Override
     public BufferAllocator allocator() {
       return vector.getAllocator();
+    }
+
+    @Override
+    protected void addColumnImpl(SimpleColumnModelImpl colModel) {
+      addBaseColumn(colModel);
+      vector.putChild(colModel.schema().name(), colModel.vector());
+      assert vector.size() == columns.size();
     }
   }
 
@@ -88,13 +231,23 @@ public class RowSetModelImpl extends SimpleTupleModelImpl implements RowSetModel
     this.container = container;
   }
 
+  public RowSetModelImpl(BufferAllocator allocator) {
+    container = new VectorContainer(allocator);
+  }
+
+  public RowSetModelImpl(TupleMetadata schema, VectorContainer container,
+      List<ColumnModel> columns) {
+    super((TupleSchema) schema, columns);
+    this.container = container;
+  }
+
   public static RowSetModelImpl fromContainer(VectorContainer container) {
-    return new ModelBuilder().buildModel(container);
+    return new VectorContainerParser().buildModel(container);
   }
 
   public static RowSetModelImpl fromSchema(BufferAllocator allocator,
       TupleMetadata schema) {
-    return new ModelStructureBuilder(allocator).buildModel(schema);
+    return new ModelBuilder(allocator).buildModel(schema);
   }
 
   @Override
@@ -107,4 +260,18 @@ public class RowSetModelImpl extends SimpleTupleModelImpl implements RowSetModel
   public <R, A> R visit(ModelVisitor<R, A> visitor, A arg) {
     return visitor.visitRow(this, arg);
   }
+
+  @Override
+  protected void addColumnImpl(SimpleColumnModelImpl colModel) {
+    addBaseColumn(colModel);
+    container.add(colModel.vector());
+    assert container.getNumberOfColumns() == columns.size();
+  }
+
+  public void allocate(int rowCount) {
+    new AllocationVisitor().allocate(this, rowCount);
+  }
+
+  @Override
+  public ValueVector vector() { return null; }
 }

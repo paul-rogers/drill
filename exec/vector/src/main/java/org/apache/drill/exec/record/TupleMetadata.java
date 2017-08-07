@@ -62,7 +62,6 @@ public interface TupleMetadata extends Iterable<TupleMetadata.ColumnMetadata> {
 
     StructureType structureType();
     TupleMetadata mapSchema();
-    int index();
     MaterializedField schema();
     String name();
     MajorType majorType();
@@ -71,18 +70,6 @@ public interface TupleMetadata extends Iterable<TupleMetadata.ColumnMetadata> {
     boolean isArray();
     boolean isVariableWidth();
     boolean isMap();
-    TupleMetadata parent();
-
-    /**
-     * Full name of the column. Note: this name cannot be used to look up
-     * the column because of ambiguity. The name "a.b.c" may mean a single
-     * column with that name, or may mean maps "a", and "b" with column "c",
-     * etc.
-     *
-     * @return full, dotted, column name
-     */
-
-    String fullName( );
 
     /**
      * Report whether one column is equivalent to another. Columns are equivalent
@@ -126,4 +113,17 @@ public interface TupleMetadata extends Iterable<TupleMetadata.ColumnMetadata> {
    */
 
   List<MaterializedField> toFieldList();
+
+  /**
+   * Full name of the column. Note: this name cannot be used to look up
+   * the column because of ambiguity. The name "a.b.c" may mean a single
+   * column with that name, or may mean maps "a", and "b" with column "c",
+   * etc.
+   *
+   * @return full, dotted, column name
+   */
+
+  String fullName(ColumnMetadata column);
+  String fullName(int index);
+
 }

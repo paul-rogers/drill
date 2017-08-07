@@ -20,6 +20,7 @@ package org.apache.drill.test.rowSet;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
+import org.apache.drill.exec.physical.rowSet.model.simple.RowSetModelImpl;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
@@ -58,17 +59,17 @@ public class IndirectRowSet extends AbstractSingleRowSet {
 
   private final SelectionVector2 sv2;
 
-  private IndirectRowSet(BufferAllocator allocator, RowStorage storage, SelectionVector2 sv2) {
+  private IndirectRowSet(BufferAllocator allocator, RowSetModelImpl storage, SelectionVector2 sv2) {
     super(allocator, storage);
     this.sv2 = sv2;
   }
 
   public static IndirectRowSet fromContainer(BufferAllocator allocator, VectorContainer container) {
-    return new IndirectRowSet(allocator, RowStorage.fromContainer(container), makeSv2(allocator, container));
+    return new IndirectRowSet(allocator, RowSetModelImpl.fromContainer(container), makeSv2(allocator, container));
   }
 
   public static IndirectRowSet fromSv2(BufferAllocator allocator, VectorContainer container, SelectionVector2 sv2) {
-    return new IndirectRowSet(allocator, RowStorage.fromContainer(container), sv2);
+    return new IndirectRowSet(allocator, RowSetModelImpl.fromContainer(container), sv2);
   }
 
   private static SelectionVector2 makeSv2(BufferAllocator allocator, VectorContainer container) {

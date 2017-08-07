@@ -1,49 +1,139 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.drill.exec.physical.rowSet.model.simple;
 
-import org.apache.drill.exec.physical.rowSet.model.BaseTupleModel.BaseColumnModel;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.drill.exec.expr.TypeHelper;
+import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.physical.rowSet.model.TupleModel.ColumnModel;
 import org.apache.drill.exec.physical.rowSet.model.simple.RowSetModelImpl.MapColumnModel;
 import org.apache.drill.exec.physical.rowSet.model.simple.RowSetModelImpl.MapModel;
 import org.apache.drill.exec.physical.rowSet.model.simple.RowSetModelImpl.PrimitiveColumnModel;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
-import org.apache.drill.exec.record.TupleMetadata.StructureType;
-import org.apache.drill.exec.record.TupleSchema;
-import org.apache.drill.exec.record.TupleSchema.AbstractColumnMetadata;
+import org.apache.drill.exec.physical.rowSet.model.simple.SimpleTupleModelImpl.SimpleColumnModelImpl;
+import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.record.TupleSchema;
+import org.apache.drill.exec.record.TupleSchema.BaseColumnMetadata;
+import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 
+/**
+ * Constructs all or part of a model from a schema. Builds the vectors,
+ * vector container and the model given a schema using a depth-first
+ * traversal of the schema. Also used to build parts of a model
+ * incrementally.
+ */
+
 public class ModelBuilder {
 
-  public RowSetModelImpl buildModel(VectorContainer container) {
-    RowSetModelImpl rowModel = new RowSetModelImpl(container);
-    for (int i = 0; i < container.getNumberOfColumns(); i++) {
-      @SuppressWarnings("resource")
-      ValueVector vector = container.getValueVector(i).getValueVector();
-      rowModel.add(buildColumn(vector));
-    }
-    return rowModel;
+  private BufferAllocator allocator;
+
+  public ModelBuilder(BufferAllocator allocator) {
+    this.allocator = allocator;
   }
 
-  private BaseColumnModel buildColumn(ValueVector vector) {
-    ColumnMetadata colSchema = TupleSchema.fromField(vector.getField());
-    if (colSchema.structureType() == StructureType.TUPLE) {
-      return buildMapColumn(colSchema, (AbstractMapVector) vector);
+  /**
+   * Build a row set model given a metadata description of the row set.
+   *
+   * @param schema the metadata description
+   * @return a materialized row set model containing the vectors that
+   * implement the model
+   */
+
+  public RowSetModelImpl buildModel(TupleMetadata schema) {
+    VectorContainer container = new VectorContainer(allocator);
+    List<ColumnModel> columns = new ArrayList<>();
+    for (int i = 0; i < schema.size(); i++) {
+      SimpleColumnModelImpl colModel = buildColumn(schema.metadata(i));
+      columns.add(colModel);
+      container.add(colModel.vector());
+    }
+
+    // Build the row set from a matching triple of schema, container and
+    // column models.
+
+    return new RowSetModelImpl(schema, container, columns);
+  }
+
+  /**
+   * Build a column including the backing vector.
+   *
+   * @param schema schema description of the column
+   * @return column model with a backing vector
+   */
+
+  @SuppressWarnings("resource")
+  public SimpleColumnModelImpl buildColumn(ColumnMetadata schema) {
+    if (schema.isMap()) {
+      return buildMap(schema);
     } else {
-      return new PrimitiveColumnModel(colSchema, vector);
+      ValueVector vector = TypeHelper.getNewVector(schema.schema(), allocator, null);
+      return new PrimitiveColumnModel(schema, vector);
     }
   }
 
-  private BaseColumnModel buildMapColumn(ColumnMetadata schema, AbstractMapVector vector) {
-    AbstractColumnMetadata colSchema = TupleSchema.fromField(vector.getField());
-    MapModel mapModel = buildMap(vector);
-    return new MapColumnModel(colSchema, vector, mapModel);
-  }
+  /**
+   * Build a map column including the members of the map given a map
+   * column schema.
+   *
+   * @param schema the schema of the map column
+   * @return the completed map vector column model
+   */
 
-  private MapModel buildMap(AbstractMapVector vector) {
-    MapModel mapModel = new MapModel(vector);
-    for (ValueVector child : vector) {
-      mapModel.add(buildColumn(child));
+  @SuppressWarnings("resource")
+  private SimpleColumnModelImpl buildMap(ColumnMetadata schema) {
+
+    // Creating the map vector will create its contained vectors if we
+    // give it a materialized field with children. So, instead pass a clone
+    // without children so we can add them.
+
+    MaterializedField emptyClone = schema.schema().clone();
+    AbstractMapVector mapVector = (AbstractMapVector) TypeHelper.getNewVector(emptyClone, allocator, null);
+
+    // Create the contents building the model as we go.
+
+    TupleMetadata mapSchema = schema.mapSchema();
+    List<ColumnModel> columns = new ArrayList<>();
+    for (int i = 0; i < mapSchema.size(); i++) {
+      SimpleColumnModelImpl colModel = buildColumn(mapSchema.metadata(i));
+      columns.add(colModel);
+      mapVector.putChild(colModel.schema().name(), colModel.vector());
     }
-    return mapModel;
+
+    // Build the map model from a matching triple of schema, container and
+    // column models.
+
+    MapModel mapModel = new MapModel((TupleSchema) mapSchema, mapVector, columns);
+
+    // Creating the vector cloned the schema a second time. Replace the
+    // field in the column metadata to match the one in the vector.
+    // Doing so is an implementation hack, so acess a method on the
+    // implementation class.
+
+    ((BaseColumnMetadata) schema).replaceField(mapVector.getField());
+
+    // Create the map model with all the pieces.
+
+    return new MapColumnModel((MapColumnMetadata) schema, mapVector, mapModel);
   }
 }

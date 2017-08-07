@@ -21,7 +21,6 @@ import java.util.List;
 
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.model.TupleModel.RowSetModel;
-import org.apache.drill.exec.physical.rowSet.model.simple.RowSetModelImpl.RowSetModelImpl;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;

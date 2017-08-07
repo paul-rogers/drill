@@ -26,6 +26,7 @@ import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema;
+import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
 
 /**
  * Builder of a row set schema expressed as a list of materialized
@@ -127,7 +128,7 @@ public class SchemaBuilder {
       for (ColumnMetadata md : schema) {
         col.addChild(md.schema());
       }
-      parent.finishMap(col);
+      parent.finishMap(TupleSchema.newMap(col, schema));
       return parent;
     }
 
@@ -235,7 +236,7 @@ public class SchemaBuilder {
     return schema.toBatchSchema(svMode);
   }
 
-  void finishMap(MaterializedField map) {
+  void finishMap(MapColumnMetadata map) {
     schema.add(map);
   }
 

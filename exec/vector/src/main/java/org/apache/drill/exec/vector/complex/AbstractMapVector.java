@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -62,7 +62,6 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
       valueVector.close();
     }
     vectors.clear();
-
     super.close();
   }
 
@@ -117,6 +116,7 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
    *
    * @return resultant {@link org.apache.drill.exec.vector.ValueVector}
    */
+  @SuppressWarnings("unchecked")
   @Override
   public <T extends ValueVector> T addOrGet(String name, TypeProtos.MajorType type, Class<T> clazz) {
     final ValueVector existing = getChild(name);
@@ -130,7 +130,6 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
       create = true;
     }
     if (create) {
-      @SuppressWarnings("unchecked")
       final T vector = (T) BasicTypeHelper.getNewVector(name, allocator, type, callBack);
       putChild(name, vector);
       if (callBack!=null) {

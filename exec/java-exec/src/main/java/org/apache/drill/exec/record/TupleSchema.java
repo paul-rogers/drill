@@ -37,26 +37,18 @@ import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 
 public class TupleSchema implements TupleMetadata {
 
-  private static class TupleStructure {
-    protected final TupleSchema parent;
-    protected final int index;
-
-    protected TupleStructure(TupleSchema parent, int index) {
-      this.parent = parent;
-      this.index = index;
-    }
-  }
-
   /**
-   * Abstract definition of column metadata. Allows applications to create
-   * specialized forms of a column metadata object by subclassing from this
-   * abstract class.
+   * Metadata hints associated with column metadata. Pulled into a separate
+   * class to allow two views of the same column to share the same set of
+   * hints. In particular; ensures that changes made to one view are seen
+   * by the other view.
+   * <p>
+   * Contains all (two) hints in one class. If, over time, more hints are
+   * added, can be split into hints for primitive types and hints for
+   * maps.
    */
 
-  public static abstract class AbstractColumnMetadata implements ColumnMetadata {
-
-    private TupleStructure anchor;
-    protected int expectedWidth;
+  protected static class MetadataHints {
 
     /**
      * Predicted number of elements per array entry. Default is
@@ -65,15 +57,35 @@ public class TupleSchema implements TupleMetadata {
 
     protected int expectedElementCount = 1;
 
-    public void bind(TupleStructure anchor) {
-      this.anchor = anchor;
+    protected int expectedWidth;
+  }
+
+  /**
+   * Abstract definition of column metadata. Allows applications to create
+   * specialized forms of a column metadata object by extending from this
+   * abstract class.
+   * <p>
+   * Note that, by design, primitive columns do not have a link to their
+   * tuple parent, or their index within that parent. This allows the same
+   * metadata to be shared between two views of a tuple, perhaps physical
+   * and projected views. This restriction does not apply to map columns,
+   * since maps (and the row itself) will, by definition, differ between
+   * the two views.
+   */
+
+  public static abstract class AbstractColumnMetadata implements ColumnMetadata {
+
+    protected final MetadataHints hints;
+
+    public AbstractColumnMetadata() {
+      hints = new MetadataHints();
     }
 
-    @Override
-    public int index() { return anchor.index; }
+    public AbstractColumnMetadata(MetadataHints hints) {
+      this.hints = hints;
+    }
 
-    @Override
-    public TupleMetadata parent() { return anchor.parent; }
+    protected void bind(TupleSchema parentTuple) { }
 
     @Override
     public String name() { return schema().getName(); }
@@ -97,31 +109,15 @@ public class TupleSchema implements TupleMetadata {
     }
 
     @Override
-    public String fullName( ) {
-      ColumnMetadata parentMap = parent().parent();
-      if (parentMap == null) {
-        return name();
-      } else {
-        return parentMap.fullName() + "." + name();
-      }
-    }
-
-    @Override
     public boolean isEquivalent(ColumnMetadata other) {
       return schema().isEquivalent(other.schema());
     }
 
     @Override
-    public int expectedWidth() { return expectedWidth; }
+    public int expectedWidth() { return 0; }
 
     @Override
-    public void setExpectedWidth(int width) {
-      // The allocation utilities don't like a width of zero, so set to
-      // 1 as the minimum. Adjusted to avoid trivial errors if the caller
-      // makes an error.
-
-      expectedWidth = Math.max(1, width);
-    }
+    public void setExpectedWidth(int width) { }
 
     @Override
     public void setExpectedElementCount(int childCount) {
@@ -130,12 +126,12 @@ public class TupleSchema implements TupleMetadata {
       // makes an error.
 
       if (isArray()) {
-        expectedElementCount = Math.max(1, childCount);
+        hints.expectedElementCount = Math.max(1, childCount);
       }
     }
 
     @Override
-    public int expectedElementCount() { return expectedElementCount; }
+    public int expectedElementCount() { return hints.expectedElementCount; }
 
     @Override
     public String toString() {
@@ -154,14 +150,23 @@ public class TupleSchema implements TupleMetadata {
    */
 
   public static abstract class BaseColumnMetadata extends AbstractColumnMetadata {
-    protected final MaterializedField schema;
+    protected MaterializedField schema;
 
     public BaseColumnMetadata(MaterializedField schema) {
       this.schema = schema;
     }
 
+    public BaseColumnMetadata(MaterializedField schema, MetadataHints hints) {
+      super(hints);
+      this.schema = schema;
+    }
+
     @Override
     public MaterializedField schema() { return schema; }
+
+    public void replaceField(MaterializedField field) {
+      this.schema = field;
+    }
   }
 
   /**
@@ -173,7 +178,7 @@ public class TupleSchema implements TupleMetadata {
 
     public PrimitiveColumnMetadata(MaterializedField schema) {
       super(schema);
-      expectedWidth = TypeHelper.getSize(majorType());
+      hints.expectedWidth = TypeHelper.getSize(majorType());
       if (isVariableWidth()) {
 
         // The above getSize() method uses the deprecated getWidth()
@@ -182,12 +187,16 @@ public class TupleSchema implements TupleMetadata {
 
         int precision = majorType().getPrecision();
         if (precision > 0) {
-          expectedWidth = precision;
+          hints.expectedWidth = precision;
         }
       }
       if (isArray()) {
-        expectedElementCount = DEFAULT_ARRAY_SIZE;
+        hints.expectedElementCount = DEFAULT_ARRAY_SIZE;
       }
+    }
+
+    public PrimitiveColumnMetadata(PrimitiveColumnMetadata from) {
+      super(from.schema(), from.hints);
     }
 
     @Override
@@ -198,6 +207,18 @@ public class TupleSchema implements TupleMetadata {
 
     @Override
     public boolean isMap() { return false; }
+
+    @Override
+    public int expectedWidth() { return hints.expectedWidth; }
+
+    @Override
+    public void setExpectedWidth(int width) {
+      // The allocation utilities don't like a width of zero, so set to
+      // 1 as the minimum. Adjusted to avoid trivial errors if the caller
+      // makes an error.
+
+      hints.expectedWidth = Math.max(1, width);
+    }
   }
 
   /**
@@ -206,18 +227,57 @@ public class TupleSchema implements TupleMetadata {
    */
 
   public static class MapColumnMetadata  extends BaseColumnMetadata {
-    private final TupleMetadata mapSchema;
+    private TupleMetadata parentTuple;
+    private final TupleSchema mapSchema;
+
+    /**
+     * Build a new map column from the field provided
+     *
+     * @param schema materialized field description of the map
+     */
 
     public MapColumnMetadata(MaterializedField schema) {
-      super(schema);
-      mapSchema = new TupleSchema(this);
-      for (MaterializedField child : schema.getChildren()) {
-        mapSchema.add(child);
+      this(schema, new MetadataHints(), null);
+    }
+
+    /**
+     * Create the map column metadata by reusing information from an
+     * existing map schema
+     *
+     * @param from the map metadata to reuse
+     */
+    public MapColumnMetadata(MaterializedField schema, TupleSchema mapSchema) {
+      this(schema, new MetadataHints(), mapSchema);
+    }
+
+    /**
+     * Build a map column metadata by cloning the type information (but not
+     * the children) of the materialized field provided. Use the hints
+     * provided.
+     *
+     * @param schema the schema to use (only the type portion, not the
+     * children)
+     * @param hints metadata hints for this column
+     */
+
+    private MapColumnMetadata(MaterializedField schema, MetadataHints hints, TupleSchema mapSchema) {
+      super(schema, hints);
+      if (mapSchema == null) {
+        this.mapSchema = new TupleSchema();
+      } else {
+        this.mapSchema = mapSchema;
       }
+      assert schema.getChildren().size() == mapSchema.size();
+      this.mapSchema.bind(this);
       if (isArray()) {
-        expectedElementCount = DEFAULT_ARRAY_SIZE;
+        hints.expectedElementCount = DEFAULT_ARRAY_SIZE;
       }
-   }
+    }
+
+    @Override
+    protected void bind(TupleSchema parentTuple) {
+      this.parentTuple = parentTuple;
+    }
 
     @Override
     public StructureType structureType() { return StructureType.TUPLE; }
@@ -230,27 +290,25 @@ public class TupleSchema implements TupleMetadata {
 
     @Override
     public boolean isMap() { return true; }
+
+    public TupleMetadata parentTuple() { return parentTuple; }
+
+    public TupleSchema mapSchemaImpl() { return mapSchema; }
   }
 
-  private final MapColumnMetadata parentMap;
+  private MapColumnMetadata parentMap;
   private final TupleNameSpace<ColumnMetadata> nameSpace = new TupleNameSpace<>();
 
-  public TupleSchema() { this((MapColumnMetadata) null); }
-
-  public TupleSchema(MapColumnMetadata parentMap) {
+  public void bind(MapColumnMetadata parentMap) {
     this.parentMap = parentMap;
   }
 
-  public static TupleSchema fromFields(MapColumnMetadata parent, Iterable<MaterializedField> fields) {
-    TupleSchema tuple = new TupleSchema(parent);
+  public static TupleSchema fromFields(Iterable<MaterializedField> fields) {
+    TupleSchema tuple = new TupleSchema();
     for (MaterializedField field : fields) {
       tuple.add(field);
     }
     return tuple;
-  }
-
-  public static TupleSchema fromFields(Iterable<MaterializedField> fields) {
-    return fromFields(null, fields);
   }
 
   public TupleMetadata copy() {
@@ -261,12 +319,56 @@ public class TupleSchema implements TupleMetadata {
     return tuple;
   }
 
+  /**
+   * Create a column metadata object that holds the given
+   * {@link MaterializedField}. The type of the object will be either a
+   * primitive or map column, depending on the field's type.
+   *
+   * @param field the materialized field to wrap
+   * @return the column metadata that wraps the field
+   */
+
   public static AbstractColumnMetadata fromField(MaterializedField field) {
     if (field.getType().getMinorType() == MinorType.MAP) {
-      return new MapColumnMetadata(field);
+      return newMap(field);
     } else {
       return new PrimitiveColumnMetadata(field);
     }
+  }
+
+  /**
+   * Create a tuple given the list of columns that make up the tuple.
+   * Creates nested maps as needed.
+   *
+   * @param columns list of columns that make up the tuple
+   * @return a tuple metadata object that contains the columns
+   */
+
+  public static TupleSchema fromColumns(List<ColumnMetadata> columns) {
+    TupleSchema tuple = new TupleSchema();
+    for (ColumnMetadata column : columns) {
+      tuple.add((AbstractColumnMetadata) column);
+    }
+    return tuple;
+  }
+
+  /**
+   * Create a column metadata object for a map column, given the
+   * {@link MaterializedField} that describes the column, and a list
+   * of column metadata objects that describe the columns in the map.
+   *
+   * @param field the materialized field that describes the map column
+   * @param schema metadata that describes the tuple of columns in
+   * the map
+   * @return a map column metadata for the map
+   */
+
+  public static MapColumnMetadata newMap(MaterializedField field, TupleSchema schema) {
+    return new MapColumnMetadata(field, schema);
+  }
+
+  public static MapColumnMetadata newMap(MaterializedField field) {
+    return new MapColumnMetadata(field, fromFields(field.getChildren()));
   }
 
   @Override
@@ -285,7 +387,7 @@ public class TupleSchema implements TupleMetadata {
    */
 
   public void add(AbstractColumnMetadata md) {
-    md.bind(new TupleStructure(this, nameSpace.count()));
+    md.bind(this);
     nameSpace.add(md.name(), md);
   }
 
@@ -303,6 +405,11 @@ public class TupleSchema implements TupleMetadata {
   @Override
   public int index(String name) {
     return nameSpace.indexOf(name);
+  }
+
+  @Override
+  public String fullName(int index) {
+    return fullName(metadata(index));
   }
 
   @Override
@@ -356,6 +463,26 @@ public class TupleSchema implements TupleMetadata {
   public BatchSchema toBatchSchema(SelectionVectorMode svMode) {
     return new BatchSchema(svMode, toFieldList());
   }
+
+
+  @Override
+  public String fullName(ColumnMetadata column) {
+    if (isRoot()) {
+      return column.name();
+    } else {
+      return fullName() + "." + column.name();
+    }
+  }
+
+  public String fullName() {
+    if (isRoot()) {
+      return "<root>";
+    } else {
+      return parentMap.parentTuple().fullName(parentMap);
+    }
+  }
+
+  public boolean isRoot() { return parentMap == null; }
 
   @Override
   public String toString() {

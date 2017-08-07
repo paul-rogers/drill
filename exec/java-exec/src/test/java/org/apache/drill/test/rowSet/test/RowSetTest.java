@@ -75,8 +75,6 @@ public class RowSetTest extends SubOperatorTest {
    * with the row set loader and verifier that use those constructs.
    * That is, while this test uses the int vector, this test is not
    * focused on that vector.
-   *
-   * @throws VectorOverflowException should never occur
    */
 
   @Test

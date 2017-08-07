@@ -79,7 +79,7 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
   }
 
   public static DirectRowSet fromSchema(BufferAllocator allocator, TupleMetadata schema) {
-    return new DirectRowSet(allocator, RowStorage.fromSchema(allocator, schema));
+    return new DirectRowSet(allocator, RowSetModelImpl.fromSchema(allocator, schema));
   }
 
   public static DirectRowSet fromContainer(BufferAllocator allocator, VectorContainer container) {
@@ -98,8 +98,8 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
   }
 
   @Override
-  public void allocate(int recordCount) {
-    rowStorage.allocate(allocator, recordCount);
+  public void allocate(int rowCount) {
+    model.allocate(rowCount);
   }
 
   @Override
@@ -113,8 +113,7 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
       throw new IllegalStateException("Row set already contains data");
     }
     allocate(initialRowCount);
-    WriterIndexImpl index = new WriterIndexImpl();
-    return new RowSetWriterImpl(this, rowStorage.tupleSchema(), index, rowStorage.writers());
+    return new RowSetWriterBuilder().buildWriter(this);
   }
 
   @Override
