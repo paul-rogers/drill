@@ -15,10 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.rowSet.model.simple;
+package org.apache.drill.exec.physical.rowSet.model.single;
 
-import org.apache.drill.exec.physical.rowSet.model.simple.RowSetModelImpl.*;
-import org.apache.drill.exec.physical.rowSet.model.simple.SimpleTupleModelImpl.SimpleColumnModelImpl;
+import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
+import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.*;
 
 /**
  * Visitor for the single batch model.
@@ -29,7 +29,7 @@ import org.apache.drill.exec.physical.rowSet.model.simple.SimpleTupleModelImpl.S
 
 public class ModelVisitor<R, A> {
 
-    protected R visitRow(RowSetModelImpl row, A arg) {
+    protected R visitRow(SingleRowSetModel row, A arg) {
       return visitTuple(row, arg);
     }
 
@@ -41,7 +41,7 @@ public class ModelVisitor<R, A> {
       return visitTuple(map, arg);
     }
 
-    protected R visitTuple(SimpleTupleModelImpl tuple, A arg) {
+    protected R visitTuple(AbstractSingleTupleModel tuple, A arg) {
       return tuple.visitChildren(this, arg);
     }
 
@@ -67,5 +67,5 @@ public class ModelVisitor<R, A> {
 //      visitColumn(column);
 //    }
 
-    protected R visitColumn(SimpleColumnModelImpl column, A arg) { return null; }
+    protected R visitColumn(AbstractSingleColumnModel column, A arg) { return null; }
   }

@@ -15,14 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.rowSet.model.simple;
+package org.apache.drill.exec.physical.rowSet.model.hyper;
 
 import java.util.List;
 
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.model.BaseTupleModel;
-import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.record.HyperVectorWrapper;
 import org.apache.drill.exec.record.TupleSchema;
 
 /**
@@ -32,15 +33,15 @@ import org.apache.drill.exec.record.TupleSchema;
  * visitor structure.
  */
 
-public abstract class SimpleTupleModelImpl extends BaseTupleModel {
+public abstract class AbstractHyperTupleModel extends BaseTupleModel {
 
   /**
    * Generic visitor-aware single-vector column model.
    */
 
-  public static abstract class SimpleColumnModelImpl extends BaseColumnModel {
+  public static abstract class AbstractHyperColumnModel extends BaseColumnModel {
 
-    public SimpleColumnModelImpl(ColumnMetadata schema) {
+    public AbstractHyperColumnModel(ColumnMetadata schema) {
       super(schema);
     }
 
@@ -53,28 +54,14 @@ public abstract class SimpleTupleModelImpl extends BaseTupleModel {
      */
 
     public abstract <R, A> R visit(ModelVisitor<R, A> visitor, A arg);
+    public abstract HyperVectorWrapper<? extends ValueVector> vectors();
   }
 
-  public SimpleTupleModelImpl() { }
+  public AbstractHyperTupleModel() { }
 
-  public SimpleTupleModelImpl(TupleSchema schema, List<ColumnModel> columns) {
+  public AbstractHyperTupleModel(TupleSchema schema, List<ColumnModel> columns) {
     super(schema, columns);
   }
-
-  @Override
-  public ColumnModel add(MaterializedField field) {
-    return add(TupleSchema.fromField(field));
-  }
-
-  @Override
-  public ColumnModel add(ColumnMetadata colMetadata) {
-    ModelBuilder builder = new ModelBuilder(allocator());
-    SimpleColumnModelImpl colModel = builder.buildColumn(colMetadata);
-    addColumnImpl(colModel);
-    return colModel;
-  }
-
-  protected abstract void addColumnImpl(SimpleColumnModelImpl colModel);
 
   public abstract BufferAllocator allocator();
 
@@ -90,7 +77,7 @@ public abstract class SimpleTupleModelImpl extends BaseTupleModel {
 
   public <R, A> R visitChildren(ModelVisitor<R, A> visitor, A arg) {
     for (ColumnModel colModel : columns) {
-      ((SimpleColumnModelImpl) colModel).visit(visitor, arg);
+      ((AbstractHyperColumnModel) colModel).visit(visitor, arg);
     }
     return null;
   }

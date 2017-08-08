@@ -17,11 +17,14 @@
  */
 package org.apache.drill.exec.physical.rowSet.model;
 
+import javax.sql.RowSet;
+
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.complex.AbstractMapVector;
 
 /**
  * Common interface to access a tuple backed by a vector container or a
@@ -95,7 +98,6 @@ public interface TupleModel {
   public interface ColumnModel {
     ColumnMetadata schema();
     TupleModel mapModel();
-    ValueVector vector();
   }
 
   /**
@@ -112,7 +114,4 @@ public interface TupleModel {
   int size();
   ColumnModel column(int index);
   ColumnModel column(String name);
-  ColumnModel add(ColumnMetadata schema);
-  ColumnModel add(MaterializedField field);
-  ValueVector vector();
 }

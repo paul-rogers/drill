@@ -20,8 +20,8 @@ package org.apache.drill.test.rowSet;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
 import org.apache.drill.exec.physical.rowSet.model.TupleModel.RowSetModel;
-import org.apache.drill.exec.physical.rowSet.model.simple.ReaderBuilderVisitor;
-import org.apache.drill.exec.physical.rowSet.model.simple.RowSetModelImpl;
+import org.apache.drill.exec.physical.rowSet.model.single.ReaderBuilderVisitor;
+import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 
 /**
@@ -33,19 +33,19 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
   public static class RowSetReaderBuilder extends ReaderBuilderVisitor {
 
     public RowSetReader buildReader(AbstractSingleRowSet rowSet, RowSetReaderIndex rowIndex) {
-      RowSetModelImpl rowModel = rowSet.rowSetModelImpl();
+      SingleRowSetModel rowModel = rowSet.rowSetModelImpl();
       return new RowSetReaderImpl(rowModel.schema(), rowIndex, buildTuple(rowModel));
     }
   }
 
-  protected final RowSetModelImpl model;
+  protected final SingleRowSetModel model;
 
   public AbstractSingleRowSet(AbstractSingleRowSet rowSet) {
     super(rowSet.allocator);
     model = rowSet.model;
   }
 
-  public AbstractSingleRowSet(BufferAllocator allocator, RowSetModelImpl storage) {
+  public AbstractSingleRowSet(BufferAllocator allocator, SingleRowSetModel storage) {
     super(allocator);
     this.model = storage;
   }
@@ -53,7 +53,7 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
   @Override
   public RowSetModel rowSetModel() { return model; }
 
-  public RowSetModelImpl rowSetModelImpl() { return model; }
+  public SingleRowSetModel rowSetModelImpl() { return model; }
 
   @Override
   public int size() {

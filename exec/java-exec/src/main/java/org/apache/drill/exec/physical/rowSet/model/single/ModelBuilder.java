@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.rowSet.model.simple;
+package org.apache.drill.exec.physical.rowSet.model.single;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,10 +23,10 @@ import java.util.List;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.model.TupleModel.ColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.simple.RowSetModelImpl.MapColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.simple.RowSetModelImpl.MapModel;
-import org.apache.drill.exec.physical.rowSet.model.simple.RowSetModelImpl.PrimitiveColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.simple.SimpleTupleModelImpl.SimpleColumnModelImpl;
+import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
+import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapColumnModel;
+import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapModel;
+import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.PrimitiveColumnModel;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
@@ -60,11 +60,11 @@ public class ModelBuilder {
    * implement the model
    */
 
-  public RowSetModelImpl buildModel(TupleMetadata schema) {
+  public SingleRowSetModel buildModel(TupleMetadata schema) {
     VectorContainer container = new VectorContainer(allocator);
     List<ColumnModel> columns = new ArrayList<>();
     for (int i = 0; i < schema.size(); i++) {
-      SimpleColumnModelImpl colModel = buildColumn(schema.metadata(i));
+      AbstractSingleColumnModel colModel = buildColumn(schema.metadata(i));
       columns.add(colModel);
       container.add(colModel.vector());
     }
@@ -72,7 +72,7 @@ public class ModelBuilder {
     // Build the row set from a matching triple of schema, container and
     // column models.
 
-    return new RowSetModelImpl(schema, container, columns);
+    return new SingleRowSetModel(schema, container, columns);
   }
 
   /**
@@ -83,7 +83,7 @@ public class ModelBuilder {
    */
 
   @SuppressWarnings("resource")
-  public SimpleColumnModelImpl buildColumn(ColumnMetadata schema) {
+  public AbstractSingleColumnModel buildColumn(ColumnMetadata schema) {
     if (schema.isMap()) {
       return buildMap(schema);
     } else {
@@ -101,7 +101,7 @@ public class ModelBuilder {
    */
 
   @SuppressWarnings("resource")
-  private SimpleColumnModelImpl buildMap(ColumnMetadata schema) {
+  private AbstractSingleColumnModel buildMap(ColumnMetadata schema) {
 
     // Creating the map vector will create its contained vectors if we
     // give it a materialized field with children. So, instead pass a clone
@@ -115,7 +115,7 @@ public class ModelBuilder {
     TupleMetadata mapSchema = schema.mapSchema();
     List<ColumnModel> columns = new ArrayList<>();
     for (int i = 0; i < mapSchema.size(); i++) {
-      SimpleColumnModelImpl colModel = buildColumn(mapSchema.metadata(i));
+      AbstractSingleColumnModel colModel = buildColumn(mapSchema.metadata(i));
       columns.add(colModel);
       mapVector.putChild(colModel.schema().name(), colModel.vector());
     }

@@ -18,8 +18,8 @@
 package org.apache.drill.test.rowSet;
 
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.rowSet.model.simple.RowSetModelImpl;
-import org.apache.drill.exec.physical.rowSet.model.simple.WriterBuilderVisitor;
+import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel;
+import org.apache.drill.exec.physical.rowSet.model.single.WriterBuilderVisitor;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.TupleMetadata;
@@ -60,13 +60,13 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
   public static class RowSetWriterBuilder extends WriterBuilderVisitor {
 
     public RowSetWriter buildWriter(DirectRowSet rowSet) {
-      RowSetModelImpl rowModel = rowSet.rowSetModelImpl();
+      SingleRowSetModel rowModel = rowSet.rowSetModelImpl();
       WriterIndexImpl index = new WriterIndexImpl();
       return new RowSetWriterImpl(rowSet, rowModel.schema(), index, buildTuple(rowModel));
     }
   }
 
-  private DirectRowSet(BufferAllocator allocator, RowSetModelImpl storage) {
+  private DirectRowSet(BufferAllocator allocator, SingleRowSetModel storage) {
     super(allocator, storage);
   }
 
@@ -79,11 +79,11 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
   }
 
   public static DirectRowSet fromSchema(BufferAllocator allocator, TupleMetadata schema) {
-    return new DirectRowSet(allocator, RowSetModelImpl.fromSchema(allocator, schema));
+    return new DirectRowSet(allocator, SingleRowSetModel.fromSchema(allocator, schema));
   }
 
   public static DirectRowSet fromContainer(BufferAllocator allocator, VectorContainer container) {
-    return new DirectRowSet(allocator, RowSetModelImpl.fromContainer(container));
+    return new DirectRowSet(allocator, SingleRowSetModel.fromContainer(container));
   }
 
   public static DirectRowSet fromVectorAccessible(BufferAllocator allocator, VectorAccessible va) {

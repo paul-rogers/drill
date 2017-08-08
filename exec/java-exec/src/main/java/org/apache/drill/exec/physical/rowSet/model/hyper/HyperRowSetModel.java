@@ -15,18 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.rowSet.model.simple;
+package org.apache.drill.exec.physical.rowSet.model.hyper;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.model.TupleModel;
-import org.apache.drill.exec.physical.rowSet.model.TupleModel.ColumnModel;
 import org.apache.drill.exec.physical.rowSet.model.TupleModel.RowSetModel;
-import org.apache.drill.exec.physical.rowSet.model.simple.SimpleTupleModelImpl.SimpleColumnModelImpl;
+import org.apache.drill.exec.record.HyperVectorWrapper;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
@@ -35,33 +33,31 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 
 /**
- * Concrete implementation of the row set model for a "single" row set.
- * Allows dynamic creation of new columns. (The mechanics of populating
- * those columns is delegated to writers.)
+ * Implements a row set wrapper around a collection of "hyper vectors."
+ * A hyper-vector is a logical vector formed by a series of physical vectors
+ * stacked on top of one another. To make a row set, we have a hyper-vector
+ * for each column. Another way to visualize this is as a "hyper row set":
+ * a stacked collection of single row sets: each column is represented by a
+ * vector per row set, with each vector in a row set having the same number
+ * of rows. An SV4 then provides a uniform index into the rows in the
+ * hyper set. A hyper row set is read-only.
  * <p>
- * Provides the means to allocate vectors according to the allocation metadata
- * provided by the external schema (mostly the expected column width for
- * variable-width columns, and the expected cardinality for array columns.)
- * <p>
- * Single row sets allow write-once
- * behavior to populate vectors. After population, vectors can be read
- * any number of times.
+ * Hyper-batches are read-only. The constituent vectors have already been
+ * allocated and written; a hyper batch can only be read.
  */
 
-// TODO: Add list support. (Arrays of maps or primitives are already covered.)
-
-public class RowSetModelImpl extends SimpleTupleModelImpl implements RowSetModel {
+public class HyperRowSetModel extends AbstractHyperTupleModel implements RowSetModel {
 
   /**
    * Primitive (non-map) column definition. Handles all three cardinalities.
    */
 
-  public static class PrimitiveColumnModel extends SimpleColumnModelImpl {
-    protected final ValueVector vector;
+  public static class PrimitiveColumnModel extends AbstractHyperColumnModel {
+    protected final HyperVectorWrapper<? extends ValueVector> vectors;
 
     /**
      * Create the column model using the column metadata provided, and
-     * using a vector which matches the metadata. In particuclar the
+     * using a vector wrapper which matches the metadata. In particular the
      * same {@link MaterializedField} must back both the vector and
      * column metadata.
      *
@@ -69,10 +65,10 @@ public class RowSetModelImpl extends SimpleTupleModelImpl implements RowSetModel
      * @param vector vector to add
      */
 
-    public PrimitiveColumnModel(ColumnMetadata schema, ValueVector vector) {
+    public PrimitiveColumnModel(ColumnMetadata schema, HyperVectorWrapper<? extends ValueVector> vectors) {
       super(schema);
-      this.vector = vector;
-      assert schema.schema() == vector.getField();
+      this.vectors = vectors;
+      assert schema.schema() == vectors.getField();
     }
 
     /**
@@ -82,8 +78,8 @@ public class RowSetModelImpl extends SimpleTupleModelImpl implements RowSetModel
      * @param vector vector to add
      */
 
-    public PrimitiveColumnModel(ValueVector vector) {
-      this(TupleSchema.fromField(vector.getField()), vector);
+    public PrimitiveColumnModel(HyperVectorWrapper<? extends ValueVector> vectors) {
+      this(TupleSchema.fromField(vectors.getField()), vectors);
     }
 
     @Override
@@ -96,7 +92,7 @@ public class RowSetModelImpl extends SimpleTupleModelImpl implements RowSetModel
     }
 
     @Override
-    public ValueVector vector() { return vector; }
+    public HyperVectorWrapper<? extends ValueVector> vectors() { return vectors; }
   }
 
   /**
@@ -106,9 +102,9 @@ public class RowSetModelImpl extends SimpleTupleModelImpl implements RowSetModel
    * tuple. This makes the class structure much simpler.)
    */
 
-  public static class MapColumnModel extends SimpleColumnModelImpl {
+  public static class MapColumnModel extends AbstractHyperColumnModel {
     private final MapModel mapModel;
-    private final AbstractMapVector vector;
+    protected final HyperVectorWrapper<? extends AbstractMapVector> vectors;
 
     /**
      * Construct a map column model from a schema, vector and map which are
@@ -118,31 +114,14 @@ public class RowSetModelImpl extends SimpleTupleModelImpl implements RowSetModel
      * @param vector vector that backs the column
      * @param mapModel tuple model for the columns within the map
      */
-    public MapColumnModel(MapColumnMetadata schema, AbstractMapVector vector, MapModel mapModel) {
+    public MapColumnModel(MapColumnMetadata schema,
+                          HyperVectorWrapper<? extends AbstractMapVector> vectors,
+                          MapModel mapModel) {
       super(schema);
-      this.vector = vector;
+      this.vectors = vectors;
       this.mapModel = mapModel;
       assert schema.mapSchema() == mapModel.schema();
-      assert schema.schema() == vector.getField();
-      assert vector.size() == schema.mapSchema().size();
-    }
-
-    /**
-     * Create a new, empty map column using the vector and metadata provided.
-     *
-     * @param schema metadata description of the map column
-     * @param vector vector that backs the column
-     */
-
-    public MapColumnModel(ColumnMetadata schema, AbstractMapVector vector) {
-      super(schema);
-      this.vector = vector;
-      mapModel = new MapModel((TupleSchema) schema.mapSchema(), vector);
-      assert schema.mapSchema() == mapModel.schema();
-      assert schema.schema() == vector.getField();
-      assert vector.size() == 0;
-      assert schema.mapSchema().size() == 0;
-      assert vector.getField().getChildren().size() == 0;
+      assert schema.schema() == vectors.getField();
     }
 
     @Override
@@ -160,15 +139,15 @@ public class RowSetModelImpl extends SimpleTupleModelImpl implements RowSetModel
     public MapModel mapModelImpl() { return mapModel; }
 
     @Override
-    public AbstractMapVector vector() { return vector; }
+    public HyperVectorWrapper<? extends ValueVector> vectors() { return vectors; }
   }
 
   /**
    * Represents the tuple structure of a map column.
    */
 
-  public static class MapModel extends SimpleTupleModelImpl {
-    private final AbstractMapVector vector;
+  public static class MapModel extends AbstractHyperTupleModel {
+    protected final HyperVectorWrapper<? extends AbstractMapVector> vectors;
 
     /**
      * Construct a new, empty map model using the tuple schema provided
@@ -178,9 +157,9 @@ public class RowSetModelImpl extends SimpleTupleModelImpl implements RowSetModel
      * @param vector empty map vector
      */
 
-    public MapModel(TupleSchema schema, AbstractMapVector vector) {
+    public MapModel(TupleSchema schema, HyperVectorWrapper<? extends AbstractMapVector> vectors) {
       super(schema, new ArrayList<ColumnModel>());
-      this.vector = vector;
+      this.vectors = vectors;
       assert schema.size() == 0;
     }
 
@@ -194,11 +173,11 @@ public class RowSetModelImpl extends SimpleTupleModelImpl implements RowSetModel
      * @param vector vector which holds the map
      * @param columns column models for each column in the map
      */
-    public MapModel(TupleSchema schema, AbstractMapVector vector, List<ColumnModel> columns) {
+    public MapModel(TupleSchema schema, HyperVectorWrapper<? extends AbstractMapVector> vectors, List<ColumnModel> columns) {
       super(schema, columns);
-      this.vector = vector;
-      assert vector.size() == schema.size();
-    }
+      this.vectors = vectors;
+      assert schema.size() == vectors.getField().getChildren().size();
+     }
 
     @Override
     public <R, A> R visit(ModelVisitor<R, A> visitor, A arg) {
@@ -209,45 +188,29 @@ public class RowSetModelImpl extends SimpleTupleModelImpl implements RowSetModel
       }
     }
 
-    @Override
-    public AbstractMapVector vector() { return vector; }
+    public HyperVectorWrapper<? extends ValueVector> vectors() { return vectors; }
 
     @Override
     public BufferAllocator allocator() {
-      return vector.getAllocator();
-    }
-
-    @Override
-    protected void addColumnImpl(SimpleColumnModelImpl colModel) {
-      addBaseColumn(colModel);
-      vector.putChild(colModel.schema().name(), colModel.vector());
-      assert vector.size() == columns.size();
+      if (vectors.getValueVectors().length == 0) {
+        return null;
+      } else {
+        return vectors.getValueVectors()[0].getAllocator();
+      }
     }
   }
 
   private final VectorContainer container;
 
-  public RowSetModelImpl(VectorContainer container) {
-    this.container = container;
-  }
-
-  public RowSetModelImpl(BufferAllocator allocator) {
-    container = new VectorContainer(allocator);
-  }
-
-  public RowSetModelImpl(TupleMetadata schema, VectorContainer container,
+  public HyperRowSetModel(VectorContainer container, TupleSchema schema,
       List<ColumnModel> columns) {
-    super((TupleSchema) schema, columns);
+    super(schema, columns);
     this.container = container;
+    assert container.getNumberOfColumns() == schema.size();
   }
 
-  public static RowSetModelImpl fromContainer(VectorContainer container) {
+  public static HyperRowSetModel fromContainer(VectorContainer container) {
     return new VectorContainerParser().buildModel(container);
-  }
-
-  public static RowSetModelImpl fromSchema(BufferAllocator allocator,
-      TupleMetadata schema) {
-    return new ModelBuilder(allocator).buildModel(schema);
   }
 
   @Override
@@ -260,18 +223,4 @@ public class RowSetModelImpl extends SimpleTupleModelImpl implements RowSetModel
   public <R, A> R visit(ModelVisitor<R, A> visitor, A arg) {
     return visitor.visitRow(this, arg);
   }
-
-  @Override
-  protected void addColumnImpl(SimpleColumnModelImpl colModel) {
-    addBaseColumn(colModel);
-    container.add(colModel.vector());
-    assert container.getNumberOfColumns() == columns.size();
-  }
-
-  public void allocate(int rowCount) {
-    new AllocationVisitor().allocate(this, rowCount);
-  }
-
-  @Override
-  public ValueVector vector() { return null; }
 }

@@ -17,10 +17,14 @@
  */
 
 /**
- * This set of classes models the structure of a batch consisting
- * of single vectors (as contrasted with a hyper batch.) Provides tools
- * or metdata-based construction, allocation, reading and writing of
- * the vectors.
+ * Implementation of a row set model for hyper-batches. A hyper batch is
+ * one that contains a list of batches. The batch is logically comprised
+ * of "hyper-vectors" which are the individual vectors from each batch
+ * stacked "end-to-end."
+ * <p>
+ * Hyper batches allow only reading. So, the only services here are to
+ * parse a hyper-container into a row set model, then use that model to
+ * create a matching set of readers.
  */
 
-package org.apache.drill.exec.physical.rowSet.model.simple;
+package org.apache.drill.exec.physical.rowSet.model.hyper;

@@ -15,18 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.rowSet.model.simple;
+package org.apache.drill.exec.physical.rowSet.model.hyper;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.model.TupleModel.ColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.simple.RowSetModelImpl.MapColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.simple.RowSetModelImpl.MapModel;
-import org.apache.drill.exec.physical.rowSet.model.simple.RowSetModelImpl.PrimitiveColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.simple.SimpleTupleModelImpl.SimpleColumnModelImpl;
+import org.apache.drill.exec.physical.rowSet.model.hyper.AbstractHyperTupleModel.AbstractHyperColumnModel;
+import org.apache.drill.exec.physical.rowSet.model.hyper.HyperRowSetModel.*;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.record.HyperVectorWrapper;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
 import org.apache.drill.exec.record.VectorContainer;
@@ -41,29 +41,32 @@ import org.apache.drill.exec.vector.complex.AbstractMapVector;
 
 public class VectorContainerParser {
 
-  public RowSetModelImpl buildModel(VectorContainer container) {
-    RowSetModelImpl rowModel = new RowSetModelImpl(container);
+  public HyperRowSetModel buildModel(VectorContainer container) {
+    List<ColumnModel> columns = new ArrayList<>();
+    List<ColumnMetadata> colMetadata = new ArrayList<>();
     for (int i = 0; i < container.getNumberOfColumns(); i++) {
-      @SuppressWarnings("resource")
-      ValueVector vector = container.getValueVector(i).getValueVector();
-      rowModel.addColumnImpl(buildColumn(vector));
+      AbstractHyperColumnModel colModel = buildColumn((HyperVectorWrapper<? extends ValueVector>) container.getValueVector(i));
+      columns.add(colModel);
+      colMetadata.add(colModel.schema());
     }
-    return rowModel;
+    TupleSchema schema = TupleSchema.fromColumns(colMetadata);
+    return new HyperRowSetModel(container, schema, columns);
   }
 
-  private SimpleColumnModelImpl buildColumn(ValueVector vector) {
-    if (vector.getField().getType().getMinorType() == MinorType.MAP) {
-      return buildMapColumn((AbstractMapVector) vector);
+  @SuppressWarnings("unchecked")
+  private AbstractHyperColumnModel buildColumn(HyperVectorWrapper<? extends ValueVector> vectors) {
+    if (vectors.getField().getType().getMinorType() == MinorType.MAP) {
+      return buildMapColumn((HyperVectorWrapper<? extends AbstractMapVector>) vectors);
     } else {
-      ColumnMetadata colSchema = TupleSchema.fromField(vector.getField());
-      return new PrimitiveColumnModel(colSchema, vector);
+      ColumnMetadata colSchema = TupleSchema.fromField(vectors.getField());
+      return new PrimitiveColumnModel(colSchema, vectors);
     }
   }
 
-  private SimpleColumnModelImpl buildMapColumn(AbstractMapVector vector) {
-    MapModel mapModel = buildMap(vector);
-    MapColumnMetadata schema = TupleSchema.newMap(vector.getField(), mapModel.schema());
-    return new MapColumnModel(schema, vector, mapModel);
+  private AbstractHyperColumnModel buildMapColumn(HyperVectorWrapper<? extends AbstractMapVector> vectors) {
+    MapModel mapModel = buildMap(vectors);
+    MapColumnMetadata schema = TupleSchema.newMap(vectors.getField(), (TupleSchema) mapModel.schema());
+    return new MapColumnModel(schema, vectors, mapModel);
   }
 
   /**
@@ -73,15 +76,16 @@ public class VectorContainerParser {
    * @return the corresponding map tuple
    */
 
-  private MapModel buildMap(AbstractMapVector vector) {
+  private MapModel buildMap(HyperVectorWrapper<? extends AbstractMapVector> vectors) {
     List<ColumnModel> columns = new ArrayList<>();
     List<ColumnMetadata> colMetadata = new ArrayList<>();
-    for (ValueVector child : vector) {
-      SimpleColumnModelImpl colModel = buildColumn(child);
+    MaterializedField mapField = vectors.getField();
+    for (int i = 0; i < mapField.getChildren().size(); i++) {
+      AbstractHyperColumnModel colModel = buildColumn((HyperVectorWrapper<? extends ValueVector>) vectors.getChildWrapper(new int[] {i}));
       columns.add(colModel);
       colMetadata.add(colModel.schema());
     }
     TupleSchema schema = TupleSchema.fromColumns(colMetadata);
-    return new MapModel(schema, vector, columns);
+    return new MapModel(schema, vectors, columns);
   }
 }
