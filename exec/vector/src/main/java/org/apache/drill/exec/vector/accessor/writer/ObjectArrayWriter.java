@@ -61,7 +61,7 @@ public class ObjectArrayWriter extends AbstractArrayWriter {
 
   @Override
   public int lastWriteIndex() {
-    // TODO Auto-generated method stub
+    // Undefined for arrays
     return 0;
   }
 }

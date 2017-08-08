@@ -17,8 +17,8 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
-import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 
 /**
  * Interface for writing to rows via a column writer. Column writers can be
@@ -38,6 +38,17 @@ import org.apache.drill.exec.record.TupleMetadata;
 public interface TupleWriter {
 
   /**
+   * Listener (callback) to handle requests to add a new column to a tuple
+   * (row or map). Implemented and bound by the client code that creates or
+   * uses the tuple writer. If no listener is bound, then an attempt to add
+   * a column throws an exception.
+   */
+
+  public interface TupleWriterListener {
+    ObjectWriter addColumn(TupleWriter tuple, ColumnMetadata column);
+  }
+
+  /**
    * Unchecked exception thrown when attempting to access a column loader
    * by name for an undefined columns. Readers that use a fixed schema
    * can simply omit catch blocks for the exception since it is unchecked
@@ -53,7 +64,20 @@ public interface TupleWriter {
     }
   }
 
-  ObjectWriter addColumn(MaterializedField schema);
+  void bindListener(TupleWriterListener listener);
+
+  /**
+   * Add a column to the tuple (row or map) that backs this writer. Support for
+   * this operation depends on whether the client code has registered a listener
+   * to implement the addition. Throws an exception if no listener is implemented,
+   * or if the add request is otherwise invalid (duplicate name, etc.)
+   *
+   * @param column the metadata for the column to add
+   * @return the index of the newly added column which can be used to access
+   * the newly added writer
+   */
+
+  int addColumn(ColumnMetadata column);
 
   TupleMetadata schema();
   int size();

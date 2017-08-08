@@ -20,6 +20,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
+import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter.ScalarObjectWriter;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 import org.joda.time.Period;
@@ -61,6 +62,11 @@ public class ScalarArrayWriter extends AbstractArrayWriter {
   public void bindIndex(ColumnWriterIndex index) {
     super.bindIndex(index);
     elementWriter.bindIndex(elementIndex);
+  }
+
+  @Override
+  public void bindListener(ColumnWriterListener listener) {
+    elementWriter.bindListener(listener);
   }
 
   @Override

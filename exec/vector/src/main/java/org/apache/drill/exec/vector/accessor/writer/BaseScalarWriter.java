@@ -32,6 +32,7 @@ import org.joda.time.Period;
 public abstract class BaseScalarWriter extends AbstractScalarWriter {
 
   protected ColumnWriterIndex vectorIndex;
+  protected ColumnWriterListener listener;
   protected int lastWriteIndex;
   protected long bufAddr;
   protected int capacity;
@@ -42,6 +43,11 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
   }
 
   @Override
+  public void bindListener(ColumnWriterListener listener) {
+    this.listener = listener;
+  }
+
+  @Override
   public void startWrite() { lastWriteIndex = -1; }
 
   @Override
@@ -49,6 +55,14 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
 
   public void setLastWriteIndex(int index) {
     lastWriteIndex = index;
+  }
+
+  protected void overflowed() {
+    if (listener == null) {
+      throw new UnsupportedOperationException("Overflow");
+    } else {
+      listener.overflowed(this);
+    }
   }
 
   @Override

@@ -116,4 +116,9 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   public int lastWriteIndex() {
     return baseWriter.lastWriteIndex();
   }
+
+  @Override
+  public void bindListener(ColumnWriterListener listener) {
+    baseWriter.bindListener(listener);
+  }
 }

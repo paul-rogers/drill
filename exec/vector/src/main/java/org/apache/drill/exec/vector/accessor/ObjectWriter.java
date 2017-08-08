@@ -17,6 +17,9 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
+import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
+import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
+
 /**
  * Defines a writer to set values for value vectors using
  * a simple, uniform interface modeled after a JSON object.
@@ -30,6 +33,24 @@ package org.apache.drill.exec.vector.accessor;
  */
 
 public interface ObjectWriter {
+
+  /**
+   * Bind a listener to the underlying scalar column, or array of scalar
+   * columns. Not valid if the underlying writer is a map or array of maps.
+   *
+   * @param listener the column listener to bind
+   */
+
+  void bindListener(ColumnWriterListener listener);
+
+  /**
+   * Bind a listener to the underlying map or map array column. Not valid
+   * if the underlying writer is a scalar or scalar array.
+   *
+   * @param listener the tuple listener to bind
+   */
+
+  void bindListener(TupleWriterListener listener);
 
   /**
    * Return the object (structure) type of this writer.

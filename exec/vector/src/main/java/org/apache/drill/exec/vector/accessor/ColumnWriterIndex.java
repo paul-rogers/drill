@@ -17,10 +17,28 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
+/**
+ * A Drill record batch consists of a variety of vectors, including maps and lists.
+ * Each vector is written independently. A reader may skip some values in each row
+ * if no values appear for those columns.
+ * <p>
+ * This index provides a single view of the "current row" or "current array index"
+ * across a set of vectors. Each writer consults this index to determine:
+ * <ul>
+ * <li>The position to which to write a value.</li>
+ * <li>Whether the write position is beyond the "last write" position, which
+ * would require filling in any "missing" values.</li>
+ * </ul>
+ */
+
 public interface ColumnWriterIndex {
+
+  /**
+   * Current row or array index.
+   * @return row or array index
+   */
+
   int vectorIndex();
-  void overflowed();
-  boolean legal();
 
   /**
    * Index for array elements that allows the caller to increment the

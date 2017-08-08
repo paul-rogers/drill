@@ -23,6 +23,8 @@ import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
+import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
@@ -64,6 +66,16 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
     @Override
     protected WriterEvents baseEvents() { return arrayWriter; }
+
+    @Override
+    public void bindListener(ColumnWriterListener listener) {
+      arrayWriter.bindListener(listener);
+    }
+
+    @Override
+    public void bindListener(TupleWriterListener listener) {
+      arrayWriter.bindListener(listener);
+    }
   }
 
   /**
@@ -97,22 +109,12 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     @Override
     public int vectorIndex() { return offset; }
 
-    @Override
-    public void overflowed() {
-      baseIndex.overflowed();
-    }
-
     public int arraySize() {
       return offset - startOffset;
     }
 
     @Override
     public void nextElement() { offset++; }
-
-    @Override
-    public boolean legal() {
-      return true;
-    }
   }
 
   protected final AbstractObjectWriter elementObjWriter;
@@ -192,5 +194,13 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   @Override
   public int lastWriteIndex() {
     return baseIndex.vectorIndex();
+  }
+
+  public void bindListener(ColumnWriterListener listener) {
+    elementObjWriter.bindListener(listener);
+  }
+
+  public void bindListener(TupleWriterListener listener) {
+    elementObjWriter.bindListener(listener);
   }
 }

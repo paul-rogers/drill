@@ -22,6 +22,8 @@ import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
+import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
 
 public abstract class AbstractObjectWriter implements ObjectWriter, WriterEvents {
 
@@ -62,4 +64,15 @@ public abstract class AbstractObjectWriter implements ObjectWriter, WriterEvents
 
   @Override
   public int lastWriteIndex() { return baseEvents().lastWriteIndex(); }
+
+  @Override
+  public void bindListener(ColumnWriterListener listener) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void bindListener(TupleWriterListener listener) {
+    throw new UnsupportedOperationException();
+  }
+
 }

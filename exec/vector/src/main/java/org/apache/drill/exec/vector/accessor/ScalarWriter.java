@@ -43,6 +43,20 @@ import org.joda.time.Period;
  */
 
 public interface ScalarWriter {
+
+  /**
+   * Listener (callback) for vector overflow events. To be optionally
+   * implemented and bound by the client code of the writer. If no
+   * listener is bound, and a vector overflows, then an exception is
+   * thrown.
+   */
+
+  public interface ColumnWriterListener {
+    void overflowed(ScalarWriter writer);
+  }
+
+  void bindListener(ColumnWriterListener listener);
+
   /**
    * Describe the type of the value. This is a compression of the
    * value vector type: it describes which method will return the

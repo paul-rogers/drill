@@ -112,4 +112,12 @@ public class OffsetVectorWriter extends BaseScalarWriter {
     lastWriteIndex = newIndex;
     writeOffset = PlatformDependent.getInt(bufAddr + newIndex * VALUE_WIDTH);
   }
+
+  @Override
+  public void bindListener(ColumnWriterListener listener) {
+
+    // No listener for overflow vectors as they can't overflow.
+
+    throw new UnsupportedOperationException();
+  }
 }

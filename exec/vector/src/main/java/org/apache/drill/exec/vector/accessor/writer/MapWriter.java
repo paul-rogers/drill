@@ -39,8 +39,6 @@ public abstract class MapWriter extends AbstractTupleWriter {
     }
 
     @Override public int vectorIndex() { return baseIndex.vectorIndex(); }
-    @Override public void overflowed() { baseIndex.overflowed(); }
-    @Override public boolean legal() { return baseIndex.legal(); }
     @Override public void nextElement() { }
   }
 

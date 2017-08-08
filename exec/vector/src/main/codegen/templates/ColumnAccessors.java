@@ -353,7 +353,7 @@ public class ColumnAccessors {
                also set the final writer index for the current vector. Then, bindVector() will
                be called to provide the new vector. The write index changes with
                the new vector. -->
-          vectorIndex.overflowed();
+          overflowed();
       <#if varWidth>
           writeOffset = offsetsWriter.writeOffset();
       <#else>

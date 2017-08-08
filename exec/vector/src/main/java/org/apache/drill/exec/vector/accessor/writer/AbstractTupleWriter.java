@@ -20,8 +20,8 @@ package org.apache.drill.exec.vector.accessor.writer;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
@@ -60,14 +60,47 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     @Override
     protected WriterEvents baseEvents() { return tupleWriter; }
 
+    @Override
+    public void bindListener(TupleWriterListener listener) {
+      tupleWriter.bindListener(listener);
+    }
   }
 
-  public enum State { IDLE, IN_WRITE, IN_VALUE }
+  /**
+   * Tracks the write state of the tuple to allow applying the correct
+   * operations to newly-added columns to synchronize them with the rest
+   * of the tuple.
+   */
+
+  public enum State {
+    /**
+     * No write is in progress. Nothing need be done to newly-added
+     * writers.
+     */
+    IDLE,
+
+    /**
+     * <tt>startWrite()</tt> has been called to start a write operation
+     * (start a batch), but <tt>startValue()</tt> has not yet been called
+     * to start a row (or value within an array). <tt>startWrite()</tt> must
+     * be called on newly added columns.
+     */
+
+    IN_WRITE,
+
+    /**
+     * Both <tt>startWrite()</tt> and <tt>startValue()</tt> has been called on
+     * the tuple to prepare for writing values, and both must be called on
+     * newly-added vectors.
+     */
+
+    IN_VALUE
+  }
 
   protected ColumnWriterIndex vectorIndex;
   protected final TupleMetadata schema;
   protected final List<AbstractObjectWriter> writers;
-  protected TupleConstructor constructor;
+  protected TupleWriterListener listener;
   private State state = State.IDLE;
 
   protected AbstractTupleWriter(TupleMetadata schema, List<AbstractObjectWriter> writers) {
@@ -95,8 +128,9 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
    * @param colWriter the column writer to add
    */
 
-  public void addColumnWriter(AbstractObjectWriter colWriter) {
+  public int addColumnWriter(AbstractObjectWriter colWriter) {
     assert writers.size() + 1 == schema.size();
+    int colIndex = writers.size();
     writers.add(colWriter);
     colWriter.bindIndex(vectorIndex);
     if (state != State.IDLE) {
@@ -105,16 +139,16 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
         colWriter.startValue();
       }
     }
+    return colIndex;
   }
 
   @Override
-  public ObjectWriter addColumn(MaterializedField schema) {
-    if (constructor == null) {
+  public int addColumn(ColumnMetadata column) {
+    if (listener == null) {
       throw new UnsupportedOperationException("addColumn");
     }
-    AbstractObjectWriter colWriter = constructor.addColumn(schema, this);
-    addColumnWriter(colWriter);
-    return colWriter;
+    AbstractObjectWriter colWriter = (AbstractObjectWriter) listener.addColumn(this, column);
+    return addColumnWriter(colWriter);
   }
 
   @Override
@@ -247,5 +281,10 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   @Override
   public int lastWriteIndex() {
     return vectorIndex.vectorIndex();
+  }
+
+  @Override
+  public void bindListener(TupleWriterListener listener) {
+    this.listener = listener;
   }
 }

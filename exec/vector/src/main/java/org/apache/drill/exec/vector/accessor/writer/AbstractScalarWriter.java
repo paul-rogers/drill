@@ -57,6 +57,11 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
 
     @Override
     protected WriterEvents baseEvents() { return scalarWriter; }
+
+    @Override
+    public void bindListener(ColumnWriterListener listener) {
+      scalarWriter.bindListener(listener);
+    }
   }
 
   @Override
