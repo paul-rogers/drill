@@ -62,7 +62,9 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
     public RowSetWriter buildWriter(DirectRowSet rowSet) {
       SingleRowSetModel rowModel = rowSet.rowSetModelImpl();
       WriterIndexImpl index = new WriterIndexImpl();
-      return new RowSetWriterImpl(rowSet, rowModel.schema(), index, buildTuple(rowModel));
+      RowSetWriterImpl writer = new RowSetWriterImpl(rowSet, rowModel.schema(), index, buildTuple(rowModel));
+      rowModel.bindWriter(writer);
+      return writer;
     }
   }
 

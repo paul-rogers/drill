@@ -23,8 +23,13 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.model.BaseTupleModel;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.record.TupleSchema;
+import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ObjectWriter;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
+import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
 
 /**
  * Base class common to columns and tuples in the single-batch implementation.
@@ -33,13 +38,27 @@ import org.apache.drill.exec.record.TupleSchema;
  * visitor structure.
  */
 
-public abstract class AbstractSingleTupleModel extends BaseTupleModel {
+public abstract class AbstractSingleTupleModel extends BaseTupleModel implements TupleWriterListener {
+
+  public interface TupleCoordinator {
+    void columnAdded(AbstractSingleTupleModel tuple, AbstractSingleColumnModel column);
+
+    ObjectWriter columnAdded(AbstractSingleTupleModel abstractSingleTupleModel,
+        TupleWriter tupleWriter, ColumnMetadata column);
+  }
+
+  public interface ColumnCoordinator {
+    void overflowed(AbstractSingleColumnModel model);
+  }
 
   /**
    * Generic visitor-aware single-vector column model.
    */
 
-  public static abstract class AbstractSingleColumnModel extends BaseColumnModel {
+  public static abstract class AbstractSingleColumnModel extends BaseColumnModel implements ColumnWriterListener {
+
+    private ColumnCoordinator coordinator;
+    private ObjectWriter writer;
 
     public AbstractSingleColumnModel(ColumnMetadata schema) {
       super(schema);
@@ -55,7 +74,34 @@ public abstract class AbstractSingleTupleModel extends BaseTupleModel {
 
     public abstract <R, A> R visit(ModelVisitor<R, A> visitor, A arg);
     public abstract ValueVector vector();
+
+    public void bindCoordinator(ColumnCoordinator coordinator) {
+      this.coordinator = coordinator;
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T extends ColumnCoordinator> T coordinator() {
+      return (T) coordinator;
+    }
+
+    public void bindWriter(ObjectWriter writer) {
+      this.writer = writer;
+      writer.bindListener(this);
+    }
+
+    public ObjectWriter writer() { return writer; }
+
+    @Override
+    public void overflowed(ScalarWriter writer) {
+      if (coordinator != null) {
+        coordinator.overflowed(this);
+      } else {
+        throw new UnsupportedOperationException("Vector overflow");
+      }
+    }
   }
+
+  private TupleCoordinator coordinator;
 
   public AbstractSingleTupleModel() { }
 
@@ -93,5 +139,23 @@ public abstract class AbstractSingleTupleModel extends BaseTupleModel {
       ((AbstractSingleColumnModel) colModel).visit(visitor, arg);
     }
     return null;
+  }
+
+  public void bindCoordinator(TupleCoordinator coordinator) {
+    this.coordinator = coordinator;
+  }
+
+  @SuppressWarnings("unchecked")
+  public <T extends TupleCoordinator> T coordinator() {
+    return (T) coordinator;
+  }
+
+  @Override
+  public ObjectWriter addColumn(TupleWriter tupleWriter, ColumnMetadata column) {
+    if (coordinator == null) {
+      throw new UnsupportedOperationException("Column add");
+    } else {
+      return coordinator.columnAdded(this, tupleWriter, column);
+    }
   }
 }

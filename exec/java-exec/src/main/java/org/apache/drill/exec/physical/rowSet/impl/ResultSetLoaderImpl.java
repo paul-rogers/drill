@@ -176,7 +176,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
   private final AbstractTupleLoader rootWriter;
   private final WriterIndexImpl writerIndex;
   private final ResultVectorCache inventory;
-  private ResultSetLoaderImpl.State state = State.START;
+  private State state = State.START;
   private int activeSchemaVersion = 0;
   private int harvestSchemaVersion = 0;
   private VectorContainerBuilder containerBuilder;

@@ -30,6 +30,8 @@ import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ObjectWriter;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 
 /**
@@ -167,6 +169,7 @@ public class SingleRowSetModel extends AbstractSingleTupleModel implements RowSe
 
   public static class MapModel extends AbstractSingleTupleModel {
     private final AbstractMapVector vector;
+    private ObjectWriter writer;
 
     /**
      * Construct a new, empty map model using the tuple schema provided
@@ -220,9 +223,17 @@ public class SingleRowSetModel extends AbstractSingleTupleModel implements RowSe
       vector.putChild(colModel.schema().name(), colModel.vector());
       assert vector.size() == columns.size();
     }
+
+    public void bindWriter(ObjectWriter writer) {
+      this.writer = writer;
+      writer.bindListener(this);
+    }
+
+    public ObjectWriter writer() { return writer; }
   }
 
   private final VectorContainer container;
+  private TupleWriter writer;
 
   public SingleRowSetModel(VectorContainer container) {
     this.container = container;
@@ -268,4 +279,11 @@ public class SingleRowSetModel extends AbstractSingleTupleModel implements RowSe
   public void allocate(int rowCount) {
     new AllocationVisitor().allocate(this, rowCount);
   }
+
+  public void bindWriter(TupleWriter writer) {
+    this.writer = writer;
+    writer.bindListener(this);
+  }
+
+  public TupleWriter writer() { return writer; }
 }

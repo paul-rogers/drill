@@ -43,12 +43,14 @@ public abstract class WriterBuilderVisitor extends ModelVisitor<Void, WriterBuil
   @Override
   protected Void visitMap(MapModel map, Context context) {
     context.mapWriter = MapWriter.build(context.mapColumn.schema(), (MapVector) map.vector(), buildTuple(map));
+    map.bindWriter(context.mapWriter);
     return null;
   }
 
   @Override
   protected Void visitMapArray(MapModel map, Context context) {
     context.mapWriter = MapWriter.build(context.mapColumn.schema(), (RepeatedMapVector) map.vector(), buildTuple(map));
+    map.bindWriter(context.mapWriter);
     return null;
   }
 
@@ -70,7 +72,9 @@ public abstract class WriterBuilderVisitor extends ModelVisitor<Void, WriterBuil
   }
 
   private Void visitScalarColumn(PrimitiveColumnModel column, Context context) {
-    context.childWriters.add(ColumnAccessorFactory.buildColumnWriter(column.vector()));
+    AbstractObjectWriter colWriter = ColumnAccessorFactory.buildColumnWriter(column.vector());
+    context.childWriters.add(colWriter);
+    column.bindWriter(colWriter);
     return null;
   }
 
