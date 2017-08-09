@@ -32,6 +32,7 @@ import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 
 /**
@@ -233,7 +234,7 @@ public class SingleRowSetModel extends AbstractSingleTupleModel implements RowSe
   }
 
   private final VectorContainer container;
-  private TupleWriter writer;
+  private AbstractTupleWriter writer;
 
   public SingleRowSetModel(VectorContainer container) {
     this.container = container;
@@ -280,10 +281,10 @@ public class SingleRowSetModel extends AbstractSingleTupleModel implements RowSe
     new AllocationVisitor().allocate(this, rowCount);
   }
 
-  public void bindWriter(TupleWriter writer) {
+  public void bindWriter(AbstractTupleWriter writer) {
     this.writer = writer;
     writer.bindListener(this);
   }
 
-  public TupleWriter writer() { return writer; }
+  public AbstractTupleWriter writer() { return writer; }
 }

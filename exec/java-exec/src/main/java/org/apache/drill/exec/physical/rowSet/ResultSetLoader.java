@@ -18,6 +18,7 @@
 package org.apache.drill.exec.physical.rowSet;
 
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
 
 /**
  * Builds a result set (series of zero or more row sets) based on a defined
@@ -79,7 +80,7 @@ public interface ResultSetLoader {
    * @return writer for the top-level columns
    */
 
-  TupleLoader writer();
+  TupleWriter writer();
 
   /**
    * Load a row using column values passed as variable-length arguments. Expects

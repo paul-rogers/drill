@@ -704,7 +704,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       target.setCount = temp;
     }
 
-    public void fromNotNullable(${minor.class}Vector) srce) {
+    public void fromNotNullable(${minor.class}Vector srce) {
       clear();
       final int valueCount = srce.getAccessor().getValueCount();
 

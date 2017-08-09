@@ -32,24 +32,14 @@ import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 
 class WriterIndexImpl implements ColumnWriterIndex {
 
-  public enum State { OK, VECTOR_OVERFLOW, END_OF_BATCH }
-
-  public interface WriterIndexListener {
-    void overflowed();
-    boolean writeable();
-  }
-
-  private final WriterIndexListener listener;
   private final int rowCountLimit;
   private int rowIndex = 0;
-  private WriterIndexImpl.State state = State.OK;
 
-  public WriterIndexImpl(WriterIndexListener listener) {
-    this(listener, ValueVector.MAX_ROW_COUNT);
+  public WriterIndexImpl() {
+    this(ValueVector.MAX_ROW_COUNT);
   }
 
-  public WriterIndexImpl(WriterIndexListener listener, int rowCountLimit) {
-    this.listener = listener;
+  public WriterIndexImpl(int rowCountLimit) {
     this.rowCountLimit = rowCountLimit;
   }
 
@@ -62,7 +52,6 @@ class WriterIndexImpl implements ColumnWriterIndex {
     } else {
       // Should not call next() again once batch is full.
       rowIndex = rowCountLimit;
-      state = state == State.OK ? State.END_OF_BATCH : state;
       return false;
     }
   }
@@ -73,40 +62,24 @@ class WriterIndexImpl implements ColumnWriterIndex {
     return rowIndex;
   }
 
-  public boolean valid() { return state == State.OK; }
+  public boolean valid() { return rowIndex < rowCountLimit; }
 
-  /**
-   * Indicate if it is legal to write to a column. Used for test-time
-   * assertions to validate that column writes occur only when a batch
-   * is active.
-   * @return true if it is legal to write to a column, false otherwise
-   */
-
-  @Override
-  public boolean legal() {
-    return valid()  &&  listener.writeable();
-  }
-
-  public boolean hasOverflow() { return state == State.VECTOR_OVERFLOW; }
-
-  @Override
-  public void overflowed() {
-    state = State.VECTOR_OVERFLOW;
-    if (listener != null) {
-      listener.overflowed();
-    } else {
-
-    }
-  }
+//  @Override
+//  public void overflowed() {
+//    state = State.VECTOR_OVERFLOW;
+//    if (listener != null) {
+//      listener.overflowed();
+//    } else {
+//
+//    }
+//  }
 
   public void reset(int index) {
     assert index <= rowIndex;
-    state = State.OK;
     rowIndex = index;
   }
 
   public void reset() {
-    state = State.OK;
     rowIndex = 0;
   }
 

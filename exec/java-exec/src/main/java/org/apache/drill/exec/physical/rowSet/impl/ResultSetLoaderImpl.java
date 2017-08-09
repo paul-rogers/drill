@@ -25,9 +25,14 @@ import org.apache.drill.exec.physical.impl.scan.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.impl.BaseTupleLoader.RootLoader;
+import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.BuildContainerVisitor;
+import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.RollOverVisitor;
+import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.StartWriteVisitor;
+import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
 
 /**
  * Implementation of the result set loader.
@@ -43,7 +48,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     public final int rowCountLimit;
     public final int initialRowCount;
     public final boolean caseSensitive;
-    public final ResultVectorCache inventory;
+    public final ResultVectorCache vectorCache;
     private final Collection<String> projection;
 
     public ResultSetOptions() {
@@ -52,7 +57,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
       initialRowCount = DEFAULT_INITIAL_ROW_COUNT;
       caseSensitive = false;
       projection = null;
-      inventory = null;
+      vectorCache = null;
     }
 
     public ResultSetOptions(OptionBuilder builder) {
@@ -61,7 +66,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
       this.initialRowCount = builder.initialRowCount;
       this.caseSensitive = builder.caseSensitive;
       this.projection = builder.projection;
-      this.inventory = builder.inventory;
+      this.vectorCache = builder.inventory;
     }
   }
 
@@ -121,7 +126,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
 
     public void update() {
       if (lastUpdateVersion < rowSetMutator.schemaVersion()) {
-        rowSetMutator.rootWriter.buildContainer(this);
+        new BuildContainerVisitor().apply(rowSetMutator.rootModel, this);
         container.buildSchema(SelectionVectorMode.NONE);
         lastUpdateVersion = rowSetMutator.schemaVersion();
       }
@@ -173,9 +178,9 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
 
   private final ResultSetOptions options;
   private final BufferAllocator allocator;
-  private final AbstractTupleLoader rootWriter;
+  private final SingleRowSetModel rootModel;
   private final WriterIndexImpl writerIndex;
-  private final ResultVectorCache inventory;
+  private final ResultVectorCache vectorCache;
   private State state = State.START;
   private int activeSchemaVersion = 0;
   private int harvestSchemaVersion = 0;
@@ -194,10 +199,10 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     } else {
       rootWriter = new LogicalTupleLoader(this, root, options.projection);
     }
-    if (options.inventory == null) {
-      inventory = new ResultVectorCache(allocator);
+    if (options.vectorCache == null) {
+      vectorCache = new ResultVectorCache(allocator);
     } else {
-      inventory = options.inventory;
+      vectorCache = options.vectorCache;
     }
   }
 
@@ -236,7 +241,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     // updates.
 
     harvestSchemaVersion = activeSchemaVersion;
-    rootWriter.startWrite();
+    rootModel.writer().startWrite();
     if (pendingRowCount == 0) {
       writerIndex.reset();
     }
@@ -245,11 +250,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
   }
 
   @Override
-  public TupleLoader writer() {
+  public TupleWriter writer() {
     if (state == State.CLOSED) {
       throw new IllegalStateException("Unexpected state: " + state);
     }
-    return rootWriter;
+    return rootModel.writer();
   }
 
   @Override
@@ -264,7 +269,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
   public void startRow() {
     switch (state) {
     case ACTIVE:
-      rootWriter.startValue();
+      rootModel.writer().startValue();
       break;
     default:
       throw new IllegalStateException("Unexpected state: " + state);
@@ -275,13 +280,13 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
   public void saveRow() {
     switch (state) {
     case ACTIVE:
-      rootWriter.endValue();
+      rootModel.writer().endValue();
       if (! writerIndex.next()) {
         state = State.FULL_BATCH;
       }
       break;
     case OVERFLOW:
-      rootWriter.endValue();
+      rootModel.writer().endValue();
       writerIndex.next();
       state = State.FULL_BATCH;
       break;
@@ -345,7 +350,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
         .build(logger);
     }
     pendingRowCount = rowCount();
-    rootWriter.rollOver(writerIndex.vectorIndex());
+    new RollOverVisitor().apply(rootModel, writerIndex.vectorIndex());
     writerIndex.reset();
     harvestSchemaVersion = activeSchemaVersion;
     state = State.OVERFLOW;
@@ -359,7 +364,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
 
     // Wrap up the vectors: final fill-in, set value count, etc.
 
-    rootWriter.harvest();
+    rootModel.writer().endWrite();
     VectorContainer container = outputContainer();
 
     // Row count is the number of items to be harvested. If overflow,
@@ -397,7 +402,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     case ACTIVE:
     case OVERFLOW:
     case FULL_BATCH:
-      rootWriter.reset();
+      rootModel.writer().reset();
       state = State.HARVESTED;
       break;
     default:
@@ -410,7 +415,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     if (state == State.CLOSED) {
       return;
     }
-    rootWriter.close();
+    rootModel.writer().close();
     state = State.CLOSED;
   }
 
@@ -428,5 +433,5 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     return total;
   }
 
-  public ResultVectorCache vectorInventory() { return inventory; }
+  public ResultVectorCache vectorInventory() { return vectorCache; }
 }
