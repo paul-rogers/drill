@@ -27,29 +27,34 @@ import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.impl.BaseTupleLoader.RootLoader;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.BuildContainerVisitor;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.RollOverVisitor;
-import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.StartWriteVisitor;
 import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel;
+import org.apache.drill.exec.physical.rowSet.model.single.WriterBuilderVisitor;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.test.rowSet.DirectRowSet;
+import org.apache.drill.test.rowSet.RowSetWriter;
+import org.apache.drill.test.rowSet.RowSetWriterImpl;
 
 /**
  * Implementation of the result set loader.
  * @see {@link ResultSetLoader}
  */
 
-public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.WriterIndexListener {
+public class ResultSetLoaderImpl implements ResultSetLoader {
 
   public static final int DEFAULT_INITIAL_ROW_COUNT = 4096;
 
   public static class ResultSetOptions {
-    public final int vectorSizeLimit;
-    public final int rowCountLimit;
-    public final int initialRowCount;
-    public final boolean caseSensitive;
-    public final ResultVectorCache vectorCache;
+    private final int vectorSizeLimit;
+    private final int rowCountLimit;
+    private final int initialRowCount;
+    private final boolean caseSensitive;
+    private final ResultVectorCache vectorCache;
     private final Collection<String> projection;
+    private final TupleMetadata schema;
 
     public ResultSetOptions() {
       vectorSizeLimit = ValueVector.MAX_BUFFER_SIZE;
@@ -77,6 +82,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
     private boolean caseSensitive;
     private Collection<String> projection;
     private ResultVectorCache inventory;
+    private TupleMetadata schema;
 
     public OptionBuilder() {
       ResultSetOptions options = new ResultSetOptions();
@@ -106,11 +112,25 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
       return this;
     }
 
+    public OptionBuilder setSchema(TupleMetadata schema) {
+      this.schema = schema;
+      return this;
+    }
+
     // TODO: No setter for vector length yet: is hard-coded
     // at present in the value vector.
 
     public ResultSetOptions build() {
       return new ResultSetOptions(this);
+    }
+  }
+
+  public static class RowSetWriterBuilder extends WriterBuilderVisitor {
+
+    public RowSetLoaderImpl buildWriter(SingleRowSetModel rowModel, WriterIndexImpl index) {
+      RowSetLoaderImpl writer = new RowSetLoaderImpl(rowModel, index, buildTuple(rowModel));
+      rowModel.bindWriter(writer);
+      return writer;
     }
   }
 
@@ -180,6 +200,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
   private final BufferAllocator allocator;
   private final SingleRowSetModel rootModel;
   private final WriterIndexImpl writerIndex;
+  private final RowSetLoaderImpl rootWriter;
   private final ResultVectorCache vectorCache;
   private State state = State.START;
   private int activeSchemaVersion = 0;
@@ -192,18 +213,40 @@ public class ResultSetLoaderImpl implements ResultSetLoader, WriterIndexImpl.Wri
   public ResultSetLoaderImpl(BufferAllocator allocator, ResultSetOptions options) {
     this.allocator = allocator;
     this.options = options;
-    writerIndex = new WriterIndexImpl(this, options.rowCountLimit);
-    AbstractTupleLoader root = new RootLoader(this, writerIndex);
-    if (options.projection == null) {
-      rootWriter = root;
-    } else {
-      rootWriter = new LogicalTupleLoader(this, root, options.projection);
-    }
+    writerIndex = new WriterIndexImpl(options.rowCountLimit);
+
     if (options.vectorCache == null) {
       vectorCache = new ResultVectorCache(allocator);
     } else {
       vectorCache = options.vectorCache;
     }
+
+    // Build the row set model depending on whether a schema is provided.
+
+    if (options.schema == null) {
+
+      // No schema. Columns will be added incrementally as they
+      // are discovered. Start with an empty model.
+
+      rootModel = new SingleRowSetModel(allocator);
+    } else {
+
+      // Schema provided. Populate a model (and create vectors) for the
+      // provided schema. The schema can be extended later, but normally
+      // won't be if known up front.
+
+      rootModel = SingleRowSetModel.fromSchema(allocator, options.schema);
+    }
+//    AbstractTupleLoader root = new RootLoader(this, writerIndex);
+//    if (options.projection == null) {
+//      rootWriter = root;
+//    } else {
+//      rootWriter = new LogicalTupleLoader(this, root, options.projection);
+//    }
+
+    // Define the writers. (May be only a root writer if no schema yet.)
+
+    rootWriter = new RowSetWriterBuilder().buildWriter(rootModel, writerIndex);
   }
 
   public ResultSetLoaderImpl(BufferAllocator allocator) {

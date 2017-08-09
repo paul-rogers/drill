@@ -77,11 +77,6 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
     public boolean hasOverflow() { return state == State.VECTOR_OVERFLOW; }
 
     @Override
-    public boolean legal() {
-      return true;
-    }
-
-    @Override
     public final void nextElement() { }
   }
 
