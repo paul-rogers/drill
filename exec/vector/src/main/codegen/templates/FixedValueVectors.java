@@ -348,22 +348,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
   @Override
   public void toNullable(ValueVector nullableVector) {
     Nullable${minor.class}Vector dest = (Nullable${minor.class}Vector) nullableVector;
-    dest.clear();
-    final int valueCount = getAccessor().getValueCount();
-
-    // Create a new bits vector, all values non-null
-
-    UInt1Vector bits = dest.getBitsVector();
-    bits.allocateNew(valueCount);
-    UInt1Vector.Mutator bitsMutator = bits.getMutator();
-    for (int i = 0; i < valueCount; i++) {
-      bitsMutator.set(i, 1);
-    }
-
-    // Swap the data portion
-
-    dest.getValuesVector().exchange(this);
-    dest.getMutator().setValueCount(valueCount);
+    dest.getMutator().fromNotNullable(this);
   }
 
   public final class Accessor extends BaseDataValueVector.BaseAccessor {

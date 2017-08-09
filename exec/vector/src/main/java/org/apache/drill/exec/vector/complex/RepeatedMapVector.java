@@ -601,4 +601,9 @@ public class RepeatedMapVector extends AbstractMapVector
   public int getAllocatedByteCount() {
     return super.getAllocatedByteCount( ) + offsets.getAllocatedByteCount();
   }
+
+  @Override
+  public void toNullable(ValueVector nullableVector) {
+    throw new UnsupportedOperationException();
+  }
 }

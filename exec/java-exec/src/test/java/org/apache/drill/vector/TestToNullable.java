@@ -7,8 +7,11 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.NullableIntVector;
+import org.apache.drill.exec.vector.NullableVarCharVector;
+import org.apache.drill.exec.vector.VarCharVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.bouncycastle.util.Arrays;
 import org.junit.Test;
 
 public class TestToNullable extends SubOperatorTest {
@@ -77,4 +80,39 @@ public class TestToNullable extends SubOperatorTest {
     // If it is not, the test will fail with a memory leak error.
   }
 
+  @SuppressWarnings("resource")
+  @Test
+  public void testVariableWidth() {
+    MaterializedField nonNullableSchema =
+        SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED);
+    VarCharVector nonNullableVector = new VarCharVector(nonNullableSchema, fixture.allocator());
+    VarCharVector.Mutator mutator = nonNullableVector.getMutator();
+    nonNullableVector.allocateNew(100, 20);
+    byte value[] = new byte[20];
+    for (int i = 0; i < 100; i++) {
+      Arrays.fill(value, (byte)('A' + i % 26));
+      mutator.setSafe(i, value);
+    }
+    mutator.setValueCount(100);
+
+    MaterializedField nullableVarCharSchema =
+        SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.OPTIONAL);
+    NullableVarCharVector nullableVector = new NullableVarCharVector(nullableVarCharSchema, fixture.allocator());
+
+    nonNullableVector.toNullable(nullableVector);
+
+    assertEquals(0, nonNullableVector.getAccessor().getValueCount());
+    NullableVarCharVector.Accessor nullableAccessor = nullableVector.getAccessor();
+    assertEquals(100, nullableAccessor.getValueCount());
+    for (int i = 0; i < 100; i++) {
+      assertFalse(nullableAccessor.isNull(i));
+      Arrays.fill(value, (byte)('A' + i % 26));
+      assertTrue(Arrays.areEqual(value, nullableAccessor.get(i)));
+    }
+
+    nullableVector.clear();
+
+    // Don't clear the nonNullableVector, it should be empty.
+    // If it is not, the test will fail with a memory leak error.
+  }
 }

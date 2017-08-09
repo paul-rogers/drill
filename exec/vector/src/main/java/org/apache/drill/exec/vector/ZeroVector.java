@@ -165,4 +165,9 @@ public class ZeroVector implements ValueVector {
 
   @Override
   public void exchange(ValueVector other) { }
+
+  @Override
+  public void toNullable(ValueVector nullableVector) {
+    throw new UnsupportedOperationException();
+  }
 }

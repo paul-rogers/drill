@@ -500,4 +500,10 @@ public final class BitVector extends BaseDataValueVector implements FixedWidthVe
     // One byte per value
     return valueCount;
   }
+
+  @Override
+  public void toNullable(ValueVector nullableVector) {
+    NullableBitVector dest = (NullableBitVector) nullableVector;
+    dest.getMutator().fromNotNullable(this);
+  }
 }

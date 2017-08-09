@@ -61,11 +61,9 @@ public abstract class MapWriter extends AbstractTupleWriter {
       bindIndex(index, index);
     }
 
-
     @Override
     public void reset(int index) {
       // TODO Auto-generated method stub
-
     }
   }
 

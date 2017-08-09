@@ -568,7 +568,6 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       values.getMutator().set(index, holder);
     }
 
-
     public void set(int index, Nullable${minor.class}Holder holder) {
       final ${valuesName}.Mutator valuesMutator = values.getMutator();
       <#if type.major == "VarLen">
@@ -620,8 +619,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       values.getMutator().setSafe(index<#list fields as field><#if field.include!true >, ${field.name}Field</#if></#list>);
       setCount++;
       <#if type.major == "VarLen">lastSet = index;</#if>
-   }
-
+    }
 
     public void setSafe(int index, Nullable${minor.class}Holder value) {
       <#if type.major == "VarLen">
@@ -704,6 +702,21 @@ public final class ${className} extends BaseDataValueVector implements <#if type
       int temp = setCount;
       setCount = target.setCount;
       target.setCount = temp;
+    }
+
+    public void fromNotNullable(${minor.class}Vector) srce) {
+      clear();
+      final int valueCount = srce.getAccessor().getValueCount();
+
+      // Create a new bits vector, all values non-null
+
+      fillBitsVector(getBitsVector(), valueCount);
+
+      // Swap the data portion
+
+      getValuesVector().exchange(srce);
+      <#if type.major = "VarLen">lastSet = valueCount;</#if>
+      setValueCount(valueCount);
     }
   }
 }
