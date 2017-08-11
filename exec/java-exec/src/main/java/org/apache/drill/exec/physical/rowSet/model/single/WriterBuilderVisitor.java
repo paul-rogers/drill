@@ -49,7 +49,7 @@ public abstract class WriterBuilderVisitor extends ModelVisitor<Void, WriterBuil
 
   @Override
   protected Void visitMapArray(MapModel map, Context context) {
-    context.mapWriter = MapWriter.build(context.mapColumn.schema(), (RepeatedMapVector) map.vector(), buildTuple(map));
+    context.mapWriter = MapWriter.buildMapArray(context.mapColumn.schema(), (RepeatedMapVector) map.vector(), buildTuple(map));
     map.bindWriter(context.mapWriter);
     return null;
   }

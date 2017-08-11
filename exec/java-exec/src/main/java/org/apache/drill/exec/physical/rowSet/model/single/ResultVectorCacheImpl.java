@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan;
+package org.apache.drill.exec.physical.rowSet.model.single;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -25,6 +25,7 @@ import java.util.Map;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.physical.rowSet.model.ResultVectorCache;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.ValueVector;
 
@@ -71,7 +72,7 @@ import org.apache.drill.exec.vector.ValueVector;
  * in all subsequent batches (provided the column is nullable or an array.)</li>
  * </ul>
  */
-public class ResultVectorCache {
+public class ResultVectorCacheImpl implements ResultVectorCache {
 
   /**
    * State of a projected vector. At first all we have is a name.
@@ -99,9 +100,12 @@ public class ResultVectorCache {
   private final BufferAllocator allocator;
   private final Map<String, VectorState> vectors = new HashMap<>();
 
-  public ResultVectorCache(BufferAllocator allocator) {
+  public ResultVectorCacheImpl(BufferAllocator allocator) {
     this.allocator = allocator;
   }
+
+  @Override
+  public BufferAllocator allocator() { return allocator; }
 
   public void predefine(List<String> selected) {
     for (String colName : selected) {
@@ -136,6 +140,7 @@ public class ResultVectorCache {
     }
   }
 
+  @Override
   public ValueVector addOrGet(MaterializedField colSchema) {
     VectorState vs = vectors.get(colSchema.getName());
 

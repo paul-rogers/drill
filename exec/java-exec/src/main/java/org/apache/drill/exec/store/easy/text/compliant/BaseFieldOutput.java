@@ -51,7 +51,7 @@ public abstract class BaseFieldOutput extends TextOutput {
   public void startRecord() {
     currentFieldIndex = -1;
     fieldOpen = false;
-    resultLoader.startRow();
+    resultLoader.start();
   }
 
   @Override

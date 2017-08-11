@@ -120,7 +120,7 @@ public abstract class AbstractSingleTupleModel extends BaseTupleModel implements
     return colModel;
   }
 
-  protected abstract void addColumnImpl(AbstractSingleColumnModel colModel);
+  public abstract void addColumnImpl(AbstractSingleColumnModel colModel);
 
   public abstract BufferAllocator allocator();
 
@@ -148,6 +148,11 @@ public abstract class AbstractSingleTupleModel extends BaseTupleModel implements
   @SuppressWarnings("unchecked")
   public <T extends TupleCoordinator> T coordinator() {
     return (T) coordinator;
+  }
+
+  @Override
+  public ObjectWriter addColumn(TupleWriter tupleWriter, MaterializedField column) {
+    return addColumn(tupleWriter, TupleSchema.fromField(column));
   }
 
   @Override

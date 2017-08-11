@@ -15,103 +15,120 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.test.rowSet;
+package org.apache.drill.exec.physical.rowSet;
 
 import org.apache.drill.exec.vector.accessor.TupleWriter;
-import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 
 /**
- * Interface for writing values to a row set. Only available
- * for newly-created, single, direct row sets. Eventually, if
- * we want to allow updating a row set, we have to create a
- * new row set with the updated columns, then merge the new
- * and old row sets to create a new immutable row set.
+ * Interface for writing values to a row set. Only available for newly-created
+ * single row sets.
  * <p>
  * Typical usage:
+ *
  * <pre></code>
  * void writeABatch() {
- *   RowSetWriter writer = ...
+ *   RowSetLoader writer = ...
  *   while (! writer.isFull()) {
+ *     writer.start();
  *     writer.scalar(0).setInt(10);
  *     writer.scalar(1).setString("foo");
  *     ...
  *     writer.save();
  *   }
  * }</code></pre>
- * The above writes until the batch is full, based on size. If values
- * are large enough to potentially cause vector overflow, do the
- * following instead:
+ * Alternative usage:
+ *
  * <pre></code>
  * void writeABatch() {
- *   RowSetWriter writer = ...
- *   while (! writer.isFull()) {
- *     writer.column(0).setInt(10);
- *     try {
- *        writer.column(1).setString("foo");
- *     } catch (VectorOverflowException e) { break; }
+ *   RowSetLoader writer = ...
+ *   while (writer.start()) {
+ *     writer.scalar(0).setInt(10);
+ *     writer.scalar(1).setString("foo");
  *     ...
  *     writer.save();
  *   }
- *   // Do something with the partially-written last row.
  * }</code></pre>
- * <p>
- * This writer is for testing, so no provision is available to handle a
- * partial last row. (Elsewhere n Drill there are classes that handle that case.)
+ *
+ * The above writes until the batch is full, based on size or vector overflow.
+ * That is, the details of vector overflow are hidden from the code that calls
+ * the writer.
  */
 
 public interface RowSetLoader extends TupleWriter {
 
   /**
-   * Write a row of values, given by Java objects. Object type must
-   * match expected column type. Stops writing, and returns false,
-   * if any value causes vector overflow. Value format:
+   * Write a row of values, given by Java objects. Object type must match
+   * expected column type. Stops writing, and returns false, if any value causes
+   * vector overflow. Value format:
    * <ul>
-   * <li>For scalars, the value as a suitable Java type (int or
-   * Integer, say, for <tt>INTEGER</tt> values.)</li>
-   * <li>For scalar arrays, an array of a suitable Java primitive type
-   * for scalars. For example, <tt>int[]</tt> for an <tt>INTEGER</tt>
-   * column.</li>
+   * <li>For scalars, the value as a suitable Java type (int or Integer, say,
+   * for <tt>INTEGER</tt> values.)</li>
+   * <li>For scalar arrays, an array of a suitable Java primitive type for
+   * scalars. For example, <tt>int[]</tt> for an <tt>INTEGER</tt> column.</li>
    * <li>For a Map, an <tt>Object<tt> array with values encoded as above.
    * (In fact, the list here is the same as the map format.</li>
-   * <li>For a list (repeated map, list of list), an <tt>Object</tt>
-   * array with values encoded as above. (So, for a repeated map, an outer
-   * <tt>Object</tt> map encodes the array, an inner one encodes the
-   * map members.</li>
+   * <li>For a list (repeated map, list of list), an <tt>Object</tt> array with
+   * values encoded as above. (So, for a repeated map, an outer <tt>Object</tt>
+   * map encodes the array, an inner one encodes the map members.</li>
    * </ul>
    *
-   * @param values variable-length argument list of column values
+   * @param values
+   *          variable-length argument list of column values
    */
 
-  void setRow(Object...values);
+  void setRow(Object... values);
 
   /**
-   * Indicates if the current row position is valid for
-   * writing. Will be false on the first row, and all subsequent
-   * rows until either the maximum number of rows are written,
-   * or a vector overflows. After that, will return true. The
-   * method returns false as soon as any column writer overflows
-   * even in the middle of a row write. That is, this writer
-   * does not automatically handle overflow rows because that
-   * added complexity is seldom needed for tests.
+   * Indicates that no more rows fit into the current row batch and that the row
+   * batch should be harvested and sent downstream. Any overflow row is
+   * automatically saved for the next cycle. The value is undefined when a batch
+   * is not active.
+   * <p>
+   * Will be false on the first row, and all subsequent rows until either the
+   * maximum number of rows are written, or a vector overflows. After that, will
+   * return true. The method returns false as soon as any column writer
+   * overflows even in the middle of a row write. That is, this writer does not
+   * automatically handle overflow rows because that added complexity is seldom
+   * needed for tests.
    *
-   * @return true if the current row can be written, false
-   * if not
+   * @return true if another row can be written, false if not
    */
 
   boolean isFull();
+
+  /**
+   * The number of rows in the current row set. Does not count any overflow row
+   * saved for the next batch.
+   *
+   * @return number of rows to be sent downstream
+   */
+
+  int rowCount();
+
+  /**
+   * The index of the current row. Same as the row count except in an overflow
+   * row in which case the row index will revert to zero as soon as any vector
+   * overflows. Note: this means that the index can change between columns in a
+   * single row. Applications usually don't use this index directly; rely on the
+   * writers to write to the proper location.
+   *
+   * @return the current write index
+   */
+
   int rowIndex();
 
   /**
    * Prepare a new row for writing.
    *
-   * @return true if another row can be added, false if the batch
-   * is full
+   * @return true if another row can be added, false if the batch is full
    */
 
-  boolean startRow();
+  boolean start();
 
   /**
-   * Saves the current row and moves to the next row.
+   * Saves the current row and moves to the next row. Failing to call this
+   * method effectively abandons the in-flight row; something that may be useful
+   * to recover from partially-written rows that turn out to contain errors.
    * Done automatically if using <tt>setRow()</tt>.
    */
 

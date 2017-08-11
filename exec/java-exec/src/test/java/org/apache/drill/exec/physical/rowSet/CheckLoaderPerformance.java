@@ -213,7 +213,7 @@ public class CheckLoaderPerformance {
       TupleLoader rootWriter = rsMutator.root();
       rowCount = 0;
       for (int i = 0; i < rowTarget; i++) {
-        rsMutator.startRow();
+        rsMutator.start();
         loadRow(rootWriter);
         rsMutator.saveRow();
         rowCount++;

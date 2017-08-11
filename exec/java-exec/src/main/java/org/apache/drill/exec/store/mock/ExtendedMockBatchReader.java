@@ -121,7 +121,7 @@ public class ExtendedMockBatchReader implements RowBatchReader {
       if (mutator.isFull()) {
         break;
       }
-      mutator.startRow();
+      mutator.start();
       for (int j = 0; j < fields.length; j++) {
         if (fields[j].nullable && rand.nextInt(100) < fields[j].nullablePercent) {
           writer.column(j).setNull();

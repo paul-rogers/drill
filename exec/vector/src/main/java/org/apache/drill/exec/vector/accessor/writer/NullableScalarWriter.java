@@ -47,13 +47,6 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   }
 
   @Override
-  public void endWrite() {
-    isSetWriter.endWrite();
-    baseWriter.setLastWriteIndex(isSetWriter.lastWriteIndex());
-    baseWriter.endWrite();
-  }
-
-  @Override
   public ValueType valueType() {
     return baseWriter.valueType();
   }
@@ -108,8 +101,8 @@ public class NullableScalarWriter extends AbstractScalarWriter {
 
   @Override
   public void reset(int index) {
-    // TODO Auto-generated method stub
-    assert false;
+    isSetWriter.reset(index);
+    baseWriter.reset(index);
   }
 
   @Override
@@ -120,5 +113,35 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   @Override
   public void bindListener(ColumnWriterListener listener) {
     baseWriter.bindListener(listener);
+  }
+
+  @Override
+  public void startWrite() {
+    isSetWriter.startWrite();
+    baseWriter.startWrite();
+  }
+
+  @Override
+  public void startValue() {
+    // Skip calls for performance: they do nothing for
+    // scalar writers -- the only kind supported here.
+//    isSetWriter.startValue();
+//    baseWriter.startValue();
+  }
+
+  @Override
+  public void endValue() {
+    // Skip calls for performance: they do nothing for
+    // scalar writers -- the only kind supported here.
+//    isSetWriter.endValue();
+//    baseWriter.endValue();
+  }
+
+  @Override
+  public void endWrite() {
+    isSetWriter.endWrite();
+    // Avoid back-filling null values.
+    baseWriter.setLastWriteIndex(isSetWriter.lastWriteIndex());
+    baseWriter.endWrite();
   }
 }

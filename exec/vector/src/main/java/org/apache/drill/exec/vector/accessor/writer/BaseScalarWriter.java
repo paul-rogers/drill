@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.joda.time.Period;
 
@@ -30,6 +31,22 @@ import org.joda.time.Period;
  */
 
 public abstract class BaseScalarWriter extends AbstractScalarWriter {
+
+  public static abstract class BaseVarWidthWriter extends BaseScalarWriter {
+    protected final OffsetVectorWriter offsetsWriter;
+
+    public BaseVarWidthWriter(UInt4Vector offsetVector) {
+      offsetsWriter = new OffsetVectorWriter(offsetVector);
+    }
+
+    @Override
+    public int lastWriteIndex() { return offsetsWriter.lastWriteIndex() - 1; }
+
+    @Override
+    public void setLastWriteIndex(int index) {
+      offsetsWriter.setLastWriteIndex(index);
+    }
+  }
 
   protected ColumnWriterIndex vectorIndex;
   protected ColumnWriterListener listener;

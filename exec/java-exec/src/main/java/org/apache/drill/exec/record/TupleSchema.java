@@ -39,29 +39,6 @@ import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
 public class TupleSchema implements TupleMetadata {
 
   /**
-   * Metadata hints associated with column metadata. Pulled into a separate
-   * class to allow two views of the same column to share the same set of
-   * hints. In particular; ensures that changes made to one view are seen
-   * by the other view.
-   * <p>
-   * Contains all (two) hints in one class. If, over time, more hints are
-   * added, can be split into hints for primitive types and hints for
-   * maps.
-   */
-
-  protected static class MetadataHints {
-
-    /**
-     * Predicted number of elements per array entry. Default is
-     * taken from the often hard-coded value of 10.
-     */
-
-    protected int expectedElementCount = 1;
-
-    protected int expectedWidth;
-  }
-
-  /**
    * Abstract definition of column metadata. Allows applications to create
    * specialized forms of a column metadata object by extending from this
    * abstract class.
@@ -76,18 +53,35 @@ public class TupleSchema implements TupleMetadata {
 
   public static abstract class AbstractColumnMetadata implements ColumnMetadata {
 
-    protected final MetadataHints hints;
+    protected MaterializedField schema;
 
-    public AbstractColumnMetadata() {
-      hints = new MetadataHints();
+    /**
+     * Predicted number of elements per array entry. Default is
+     * taken from the often hard-coded value of 10.
+     */
+
+    protected int expectedElementCount = 1;
+
+    public AbstractColumnMetadata(MaterializedField schema) {
+      this.schema = schema;
+      if (isArray()) {
+        expectedElementCount = DEFAULT_ARRAY_SIZE;
+      }
     }
 
-    public AbstractColumnMetadata(MetadataHints hints) {
-      this.hints = hints;
+    public AbstractColumnMetadata(AbstractColumnMetadata from) {
+      schema = from.schema;
+      expectedElementCount = from.expectedElementCount;
     }
 
     protected void bind(TupleSchema parentTuple) { }
 
+    @Override
+    public MaterializedField schema() { return schema; }
+
+    public void replaceField(MaterializedField field) {
+      this.schema = field;
+    }
     @Override
     public String name() { return schema().getName(); }
 
@@ -127,12 +121,12 @@ public class TupleSchema implements TupleMetadata {
       // makes an error.
 
       if (isArray()) {
-        hints.expectedElementCount = Math.max(1, childCount);
+        expectedElementCount = Math.max(1, childCount);
       }
     }
 
     @Override
-    public int expectedElementCount() { return hints.expectedElementCount; }
+    public int expectedElementCount() { return expectedElementCount; }
 
     @Override
     public String toString() {
@@ -147,39 +141,17 @@ public class TupleSchema implements TupleMetadata {
   }
 
   /**
-   * Concrete base class shared by primitive and map columns.
-   */
-
-  public static abstract class BaseColumnMetadata extends AbstractColumnMetadata {
-    protected MaterializedField schema;
-
-    public BaseColumnMetadata(MaterializedField schema) {
-      this.schema = schema;
-    }
-
-    public BaseColumnMetadata(MaterializedField schema, MetadataHints hints) {
-      super(hints);
-      this.schema = schema;
-    }
-
-    @Override
-    public MaterializedField schema() { return schema; }
-
-    public void replaceField(MaterializedField field) {
-      this.schema = field;
-    }
-  }
-
-  /**
    * Primitive (non-map) column. Describes non-nullable, nullable and
    * array types (which differ only in mode, but not in metadata structure.)
    */
 
-  public static class PrimitiveColumnMetadata extends BaseColumnMetadata {
+  public static class PrimitiveColumnMetadata extends AbstractColumnMetadata {
+
+    protected int expectedWidth;
 
     public PrimitiveColumnMetadata(MaterializedField schema) {
       super(schema);
-      hints.expectedWidth = TypeHelper.getSize(majorType());
+      expectedWidth = TypeHelper.getSize(majorType());
       if (isVariableWidth()) {
 
         // The above getSize() method uses the deprecated getWidth()
@@ -188,16 +160,14 @@ public class TupleSchema implements TupleMetadata {
 
         int precision = majorType().getPrecision();
         if (precision > 0) {
-          hints.expectedWidth = precision;
+          expectedWidth = precision;
         }
-      }
-      if (isArray()) {
-        hints.expectedElementCount = DEFAULT_ARRAY_SIZE;
       }
     }
 
     public PrimitiveColumnMetadata(PrimitiveColumnMetadata from) {
-      super(from.schema(), from.hints);
+      super(from);
+      expectedWidth = from.expectedWidth;
     }
 
     @Override
@@ -210,7 +180,7 @@ public class TupleSchema implements TupleMetadata {
     public boolean isMap() { return false; }
 
     @Override
-    public int expectedWidth() { return hints.expectedWidth; }
+    public int expectedWidth() { return expectedWidth; }
 
     @Override
     public void setExpectedWidth(int width) {
@@ -218,7 +188,12 @@ public class TupleSchema implements TupleMetadata {
       // 1 as the minimum. Adjusted to avoid trivial errors if the caller
       // makes an error.
 
-      hints.expectedWidth = Math.max(1, width);
+      expectedWidth = Math.max(1, width);
+    }
+
+    @Override
+    public ColumnMetadata cloneEmpty() {
+      return new PrimitiveColumnMetadata(this);
     }
   }
 
@@ -227,7 +202,7 @@ public class TupleSchema implements TupleMetadata {
    * schema as part of the column definition.
    */
 
-  public static class MapColumnMetadata  extends BaseColumnMetadata {
+  public static class MapColumnMetadata  extends AbstractColumnMetadata {
     private TupleMetadata parentTuple;
     private final TupleSchema mapSchema;
 
@@ -238,17 +213,19 @@ public class TupleSchema implements TupleMetadata {
      */
 
     public MapColumnMetadata(MaterializedField schema) {
-      this(schema, new MetadataHints(), null);
+      this(schema, null);
     }
 
     /**
      * Create the map column metadata by reusing information from an
-     * existing map schema
+     * existing map schema, excluding child columns.
      *
      * @param from the map metadata to reuse
      */
-    public MapColumnMetadata(MaterializedField schema, TupleSchema mapSchema) {
-      this(schema, new MetadataHints(), mapSchema);
+    public MapColumnMetadata(MapColumnMetadata from) {
+      super(from);
+      mapSchema = new TupleSchema();
+      mapSchema.bind(this);
     }
 
     /**
@@ -261,8 +238,8 @@ public class TupleSchema implements TupleMetadata {
      * @param hints metadata hints for this column
      */
 
-    private MapColumnMetadata(MaterializedField schema, MetadataHints hints, TupleSchema mapSchema) {
-      super(schema, hints);
+    private MapColumnMetadata(MaterializedField schema, TupleSchema mapSchema) {
+      super(schema);
       if (mapSchema == null) {
         this.mapSchema = new TupleSchema();
       } else {
@@ -270,9 +247,6 @@ public class TupleSchema implements TupleMetadata {
       }
       assert schema.getChildren().size() == mapSchema.size();
       this.mapSchema.bind(this);
-      if (isArray()) {
-        hints.expectedElementCount = DEFAULT_ARRAY_SIZE;
-      }
     }
 
     @Override
@@ -295,6 +269,11 @@ public class TupleSchema implements TupleMetadata {
     public TupleMetadata parentTuple() { return parentTuple; }
 
     public TupleSchema mapSchemaImpl() { return mapSchema; }
+
+    @Override
+    public ColumnMetadata cloneEmpty() {
+      return new MapColumnMetadata(this);
+    }
   }
 
   private MapColumnMetadata parentMap;
@@ -390,6 +369,12 @@ public class TupleSchema implements TupleMetadata {
   public void add(AbstractColumnMetadata md) {
     md.bind(this);
     nameSpace.add(md.name(), md);
+  }
+
+  @Override
+  public int addColumn(ColumnMetadata column) {
+    add((AbstractColumnMetadata) column);
+    return size();
   }
 
   @Override

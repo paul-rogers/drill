@@ -70,7 +70,7 @@ public class ColumnLoaderTest extends SubOperatorTest {
     ColumnLoaderFixture loader = new ColumnLoaderFixture(type, nullable ? DataMode.OPTIONAL : DataMode.REQUIRED);
 
     for (int i = 0; i < ROW_COUNT; i++) {
-      loader.rsMutator.startRow();
+      loader.rsMutator.start();
       if (nullable && i % 5 == 0) {
         loader.colWriter.setNull();
         loader.rsBuilder.addSingleCol(null);
@@ -90,7 +90,7 @@ public class ColumnLoaderTest extends SubOperatorTest {
 
     ArrayLoader memberWriter = loader.colWriter.array();
     for (int i = 0; i < ROW_COUNT; i++) {
-      loader.rsMutator.startRow();
+      loader.rsMutator.start();
       int memberCount = (i * 7) % MAX_MEMBERS;
       int expected[] = new int[memberCount];
       for (int j = 0; j < memberCount; j++) {
@@ -126,7 +126,7 @@ public class ColumnLoaderTest extends SubOperatorTest {
     ColumnLoaderFixture loader = new ColumnLoaderFixture(type, nullable ? DataMode.OPTIONAL : DataMode.REQUIRED);
 
     for (int i = 0; i < ROW_COUNT; i++) {
-      loader.rsMutator.startRow();
+      loader.rsMutator.start();
       if (nullable && i % 5 == 0) {
         loader.colWriter.setNull();
         loader.rsBuilder.addSingleCol(null);
@@ -146,7 +146,7 @@ public class ColumnLoaderTest extends SubOperatorTest {
 
     ArrayLoader memberWriter = loader.colWriter.array();
     for (int i = 0; i < ROW_COUNT; i++) {
-      loader.rsMutator.startRow();
+      loader.rsMutator.start();
       int memberCount = (i * 7) % MAX_MEMBERS;
       long expected[] = new long[memberCount];
       for (int j = 0; j < memberCount; j++) {
@@ -177,7 +177,7 @@ public class ColumnLoaderTest extends SubOperatorTest {
     ColumnLoaderFixture loader = new ColumnLoaderFixture(MinorType.VARCHAR, nullable ? DataMode.OPTIONAL : DataMode.REQUIRED);
 
     for (int i = 0; i < ROW_COUNT; i++) {
-      loader.rsMutator.startRow();
+      loader.rsMutator.start();
       if (nullable && i % 5 == 0) {
         loader.colWriter.setNull();
         loader.rsBuilder.addSingleCol(null);
@@ -203,7 +203,7 @@ public class ColumnLoaderTest extends SubOperatorTest {
 
     ArrayLoader memberWriter = loader.colWriter.array();
     for (int i = 0; i < ROW_COUNT; i++) {
-      loader.rsMutator.startRow();
+      loader.rsMutator.start();
       int memberCount = (i * 7) % MAX_MEMBERS;
       String expected[] = new String[memberCount];
       for (int j = 0; j < memberCount; j++) {

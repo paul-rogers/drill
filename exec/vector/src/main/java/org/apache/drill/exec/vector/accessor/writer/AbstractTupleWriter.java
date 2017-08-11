@@ -20,6 +20,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
@@ -152,6 +153,15 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   }
 
   @Override
+  public int addColumn(MaterializedField field) {
+    if (listener == null) {
+      throw new UnsupportedOperationException("addColumn");
+    }
+    AbstractObjectWriter colWriter = (AbstractObjectWriter) listener.addColumn(this, field);
+    return addColumnWriter(colWriter);
+  }
+
+  @Override
   public TupleMetadata schema() { return schema; }
 
   @Override
@@ -202,7 +212,8 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   public ObjectWriter column(String colName) {
     int index = schema.index(colName);
     if (index == -1) {
-      return null; }
+      throw new UndefinedColumnException(colName);
+    }
     return writers.get(index);
   }
 

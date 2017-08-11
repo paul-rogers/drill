@@ -29,10 +29,12 @@ import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
+import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 
 /**
  * Concrete implementation of the row set model for a "single" row set.
@@ -97,6 +99,26 @@ public class SingleRowSetModel extends AbstractSingleTupleModel implements RowSe
 
     @Override
     public ValueVector vector() { return vector; }
+
+    public void allocate(int valueCount) {
+      AllocationHelper.allocatePrecomputedChildCount(vector, valueCount, schema.expectedWidth(), schema.expectedElementCount());
+//      if (schema.isArray()) {
+//        int expectedElementCount = schema.expectedElementCount();
+//        if (schema.isVariableWidth()) {
+//          final int byteCount = expectedElementCount * schema.expectedWidth();
+//          ((RepeatedVariableWidthVectorLike) vector).allocateNew(byteCount, valueCount, expectedElementCount);
+//        } else {
+//          ((RepeatedFixedWidthVectorLike) vector).allocateNew(valueCount, expectedElementCount);
+//        }
+//      } else {
+//        if (schema.isVariableWidth()) {
+//          final int byteCount = valueCount * schema.expectedWidth();
+//          ((VariableWidthVector) vector).allocateNew(byteCount, valueCount);
+//        } else {
+//          ((FixedWidthVector) vector).allocateNew(valueCount);
+//        }
+//      }
+    }
   }
 
   /**
@@ -161,6 +183,10 @@ public class SingleRowSetModel extends AbstractSingleTupleModel implements RowSe
 
     @Override
     public AbstractMapVector vector() { return vector; }
+
+    public void allocateArray(int valueCount) {
+      ((RepeatedMapVector) vector).getOffsetVector().allocateNew(valueCount);
+    }
   }
 
   /**
@@ -218,7 +244,7 @@ public class SingleRowSetModel extends AbstractSingleTupleModel implements RowSe
     }
 
     @Override
-    protected void addColumnImpl(AbstractSingleColumnModel colModel) {
+    public void addColumnImpl(AbstractSingleColumnModel colModel) {
       addBaseColumn(colModel);
       vector.putChild(colModel.schema().name(), colModel.vector());
       assert vector.size() == columns.size();
@@ -270,10 +296,18 @@ public class SingleRowSetModel extends AbstractSingleTupleModel implements RowSe
   }
 
   @Override
-  protected void addColumnImpl(AbstractSingleColumnModel colModel) {
+  public void addColumnImpl(AbstractSingleColumnModel colModel) {
     addBaseColumn(colModel);
-    container.add(colModel.vector());
-    assert container.getNumberOfColumns() == columns.size();
+
+    // Add the column if not already part of the container. If
+    // part of the container, ensure that the vectors match.
+
+    if (container.getNumberOfColumns() < columns.size()) {
+      container.add(colModel.vector());
+      assert container.getNumberOfColumns() == columns.size();
+    } else {
+      assert container.getValueVector(columns.size() - 1).getValueVector() == colModel.vector();
+    }
   }
 
   public void allocate(int rowCount) {
@@ -286,4 +320,9 @@ public class SingleRowSetModel extends AbstractSingleTupleModel implements RowSe
   }
 
   public AbstractTupleWriter writer() { return writer; }
+
+  @Override
+  public void close() {
+    container.clear();
+  }
 }

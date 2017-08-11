@@ -67,7 +67,8 @@ public interface WriterEvents {
    * Reset the writer with a new buffer and offset: used during vector
    * overflow processing.
    *
-   * @param index
+   * @param index next write position, which may reflect overflow
+   * values copied into the vector from a prior batch
    */
 
   void reset(int index);

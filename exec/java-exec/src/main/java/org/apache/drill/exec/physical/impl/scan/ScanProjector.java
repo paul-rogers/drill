@@ -32,6 +32,7 @@ import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.LoaderSchema;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.OptionBuilder;
+import org.apache.drill.exec.physical.rowSet.model.ResultVectorCache;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
@@ -163,7 +164,7 @@ public class ScanProjector {
       loader.startBatch();
       TupleLoader writer = loader.root();
       for (int i = 0; i < rowCount; i++) {
-        loader.startRow();
+        loader.start();
         loadRow(writer);
         loader.saveRow();
       }

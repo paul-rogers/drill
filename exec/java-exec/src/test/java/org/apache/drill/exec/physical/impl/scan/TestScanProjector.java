@@ -42,6 +42,7 @@ import org.apache.drill.exec.physical.rowSet.TupleLoader;
 import org.apache.drill.exec.physical.rowSet.LoaderSchema;
 import org.apache.drill.exec.physical.rowSet.impl.LogicalTupleLoader;
 import org.apache.drill.exec.physical.rowSet.impl.TupleSetImpl.TupleLoaderImpl;
+import org.apache.drill.exec.physical.rowSet.model.ResultVectorCache;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
@@ -201,7 +202,7 @@ public class TestScanProjector extends SubOperatorTest {
     // Should be a direct writer, no projection
     assertTrue(writer instanceof TupleLoaderImpl);
     for (int i = 0; i < 2; i++) {
-      loader.startRow();
+      loader.start();
       writer.column(0).setInt((i+1));
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
@@ -262,7 +263,7 @@ public class TestScanProjector extends SubOperatorTest {
     TupleLoader writer = loader.root();
     assertTrue(writer instanceof TupleLoaderImpl);
     for (int i = 0; i < 2; i++) {
-      loader.startRow();
+      loader.start();
       writer.column(0).setInt((i+1));
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
@@ -323,7 +324,7 @@ public class TestScanProjector extends SubOperatorTest {
     TupleLoader writer = loader.root();
     assertTrue(writer instanceof TupleLoaderImpl);
     for (int i = 0; i < 2; i++) {
-      loader.startRow();
+      loader.start();
       writer.column(0).setInt((i+1));
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
@@ -389,7 +390,7 @@ public class TestScanProjector extends SubOperatorTest {
     TupleLoader writer = loader.root();
     assertTrue(writer instanceof TupleLoaderImpl);
     for (int i = 0; i < 2; i++) {
-      loader.startRow();
+      loader.start();
       writer.column(0).setInt((i+1));
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
@@ -461,7 +462,7 @@ public class TestScanProjector extends SubOperatorTest {
     TupleLoader writer = loader.root();
     assertTrue(writer instanceof TupleLoaderImpl);
     for (int i = 0; i < 2; i++) {
-      loader.startRow();
+      loader.start();
       writer.column(0).setInt((i+1));
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
@@ -526,7 +527,7 @@ public class TestScanProjector extends SubOperatorTest {
     TupleLoader writer = loader.root();
     assertTrue(writer instanceof LogicalTupleLoader);
     for (int i = 0; i < 2; i++) {
-      loader.startRow();
+      loader.start();
       writer.column(0).setInt((i+1));
       assertNull(writer.column(1));
       loader.saveRow();
@@ -597,7 +598,7 @@ public class TestScanProjector extends SubOperatorTest {
     TupleLoader writer = loader.root();
     assertTrue(writer instanceof TupleLoaderImpl);
     for (int i = 0; i < 2; i++) {
-      loader.startRow();
+      loader.start();
       writer.column(0).setInt((i+1));
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
@@ -665,7 +666,7 @@ public class TestScanProjector extends SubOperatorTest {
     TupleLoader writer = loader.root();
     assertTrue(writer instanceof LogicalTupleLoader);
     for (int i = 0; i < 2; i++) {
-      loader.startRow();
+      loader.start();
       assertNull(writer.column(0));
       assertNull(writer.column(1));
       loader.saveRow();
@@ -730,7 +731,7 @@ public class TestScanProjector extends SubOperatorTest {
     TupleLoader writer = loader.root();
     assertTrue(writer instanceof LogicalTupleLoader);
     for (int i = 0; i < 2; i++) {
-      loader.startRow();
+      loader.start();
       assertNull(writer.column(0));
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
@@ -1264,7 +1265,7 @@ public class TestScanProjector extends SubOperatorTest {
     // Should be a direct writer, no projection
     assertTrue(writer instanceof TupleLoaderImpl);
     for (int i = 0; i < 2; i++) {
-      loader.startRow();
+      loader.start();
       writer.column(0).setInt((i+1));
       writer.column(1).setString(bValues[i]);
       loader.saveRow();
@@ -1327,7 +1328,7 @@ public class TestScanProjector extends SubOperatorTest {
     TupleLoader writer = loader.root();
     assertTrue(writer instanceof LogicalTupleLoader);
     for (int i = 0; i < 2; i++) {
-      loader.startRow();
+      loader.start();
       writer.column(0).setInt((i+1));
       assertNull(writer.column(1));
       loader.saveRow();

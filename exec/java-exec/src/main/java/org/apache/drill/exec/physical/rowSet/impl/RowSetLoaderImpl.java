@@ -20,20 +20,24 @@ package org.apache.drill.exec.physical.rowSet.impl;
 import java.util.List;
 
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
-import org.apache.drill.exec.physical.rowSet.model.TupleModel.RowSetModel;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
 
+/**
+ * Implementation of the row set loader. Provides row-level operations, leaving the
+ * result set loader to provide batch-level operations. However, all control
+ * operations are actually delegated to the result set loader, which handles
+ * the details of working with overflow rows.
+ */
+
 public class RowSetLoaderImpl extends AbstractTupleWriter implements RowSetLoader {
 
-  private final WriterIndexImpl writerIndex;
-  private final RowSetModel model;
+  private final ResultSetLoaderImpl rsLoader;
 
-  protected RowSetLoaderImpl(RowSetModel model, WriterIndexImpl index, List<AbstractObjectWriter> writers) {
-    super(model.schema(), writers);
-    this.model = model;
-    this.writerIndex = index;
-    bindIndex(index);
+  protected RowSetLoaderImpl(ResultSetLoaderImpl rsLoader, List<AbstractObjectWriter> writers) {
+    super(rsLoader.rootModel().schema(), writers);
+    this.rsLoader = rsLoader;
+    bindIndex(rsLoader.writerIndex());
   }
 
   @Override
@@ -43,25 +47,26 @@ public class RowSetLoaderImpl extends AbstractTupleWriter implements RowSetLoade
   }
 
   @Override
-  public int rowIndex() { return writerIndex.vectorIndex(); }
+  public int rowIndex() { return rsLoader.writerIndex().vectorIndex(); }
 
   @Override
-  public void save() {
-    endValue();
-  }
+  public void save() { rsLoader.saveRow(); }
 
   @Override
-  public boolean startRow() {
-    if (! writerIndex.valid()) {
+  public boolean start() {
+    if (rsLoader.isFull()) {
       return false;
     }
-    startValue();
+    rsLoader.startRow();
     return true;
   }
 
   @Override
-  public boolean isFull( ) { return ! writerIndex.valid(); }
+  public boolean isFull( ) { return rsLoader.isFull(); }
 
   @Override
   public void reset(int index) { }
+
+  @Override
+  public int rowCount() { return rsLoader.rowCount(); }
 }

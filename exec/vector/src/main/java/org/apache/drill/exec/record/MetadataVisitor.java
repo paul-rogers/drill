@@ -64,16 +64,15 @@ public class MetadataVisitor<R, A> {
     }
   }
 
-  protected R visitPrimitiveColumn(ColumnMetadata row, A arg) {
-    return visitColumn(row, arg);
+  protected R visitPrimitiveColumn(ColumnMetadata column, A arg) {
+    return visitColumn(column, arg);
   }
 
-
-  protected R visitMapColumn(ColumnMetadata row, A arg) {
-    return visitColumn(row, arg);
+  protected R visitMapColumn(ColumnMetadata column, A arg) {
+    return visitColumn(column, arg);
   }
 
-  private R visitColumn(ColumnMetadata row, A arg) {
+  private R visitColumn(ColumnMetadata column, A arg) {
     return null;
   }
 }

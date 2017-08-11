@@ -22,6 +22,7 @@ import java.util.List;
 
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.physical.rowSet.model.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.model.TupleModel.ColumnModel;
 import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
 import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapColumnModel;
@@ -32,7 +33,7 @@ import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema;
-import org.apache.drill.exec.record.TupleSchema.BaseColumnMetadata;
+import org.apache.drill.exec.record.TupleSchema.AbstractColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
@@ -46,10 +47,14 @@ import org.apache.drill.exec.vector.complex.AbstractMapVector;
 
 public class ModelBuilder {
 
-  private BufferAllocator allocator;
+  private final ResultVectorCache vectorCache;
 
   public ModelBuilder(BufferAllocator allocator) {
-    this.allocator = allocator;
+    this.vectorCache = new NullResultVectorCacheImpl(allocator);
+  }
+
+  public ModelBuilder(ResultVectorCache vectorCache) {
+    this.vectorCache = vectorCache;
   }
 
   /**
@@ -61,7 +66,7 @@ public class ModelBuilder {
    */
 
   public SingleRowSetModel buildModel(TupleMetadata schema) {
-    VectorContainer container = new VectorContainer(allocator);
+    VectorContainer container = new VectorContainer(vectorCache.allocator());
     List<ColumnModel> columns = new ArrayList<>();
     for (int i = 0; i < schema.size(); i++) {
       AbstractSingleColumnModel colModel = buildColumn(schema.metadata(i));
@@ -87,7 +92,7 @@ public class ModelBuilder {
     if (schema.isMap()) {
       return buildMap(schema);
     } else {
-      ValueVector vector = TypeHelper.getNewVector(schema.schema(), allocator, null);
+      ValueVector vector = vectorCache.addOrGet(schema.schema());
       return new PrimitiveColumnModel(schema, vector);
     }
   }
@@ -108,7 +113,19 @@ public class ModelBuilder {
     // without children so we can add them.
 
     MaterializedField emptyClone = schema.schema().clone();
-    AbstractMapVector mapVector = (AbstractMapVector) TypeHelper.getNewVector(emptyClone, allocator, null);
+
+    // Don't get the map vector from the vector cache. Map vectors may
+    // have content that varies from batch to batch. Only the leaf
+    // vectors can be cached.
+
+    AbstractMapVector mapVector = (AbstractMapVector) TypeHelper.getNewVector(emptyClone, vectorCache.allocator(), null);
+
+    // Creating the vector cloned the schema a second time. Replace the
+    // field in the column metadata to match the one in the vector.
+    // Doing so is an implementation hack, so acess a method on the
+    // implementation class.
+
+    ((AbstractColumnMetadata) schema).replaceField(mapVector.getField());
 
     // Create the contents building the model as we go.
 
@@ -124,13 +141,6 @@ public class ModelBuilder {
     // column models.
 
     MapModel mapModel = new MapModel((TupleSchema) mapSchema, mapVector, columns);
-
-    // Creating the vector cloned the schema a second time. Replace the
-    // field in the column metadata to match the one in the vector.
-    // Doing so is an implementation hack, so acess a method on the
-    // implementation class.
-
-    ((BaseColumnMetadata) schema).replaceField(mapVector.getField());
 
     // Create the map model with all the pieces.
 

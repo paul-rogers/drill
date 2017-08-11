@@ -17,14 +17,10 @@
  */
 package org.apache.drill.exec.physical.rowSet.model.single;
 
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.*;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
-import org.apache.drill.exec.vector.FixedWidthVector;
-import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.VariableWidthVector;
-import org.apache.drill.exec.vector.complex.RepeatedFixedWidthVectorLike;
-import org.apache.drill.exec.vector.complex.RepeatedMapVector;
-import org.apache.drill.exec.vector.complex.RepeatedVariableWidthVectorLike;
+import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
+import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapColumnModel;
+import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.PrimitiveColumnModel;
+import org.apache.drill.exec.vector.AllocationHelper;
 
 /**
  * Walk the row set tree to allocate new vectors according to a given
@@ -44,39 +40,22 @@ public class AllocationVisitor extends ModelVisitor<Void, Integer> {
     rowModel.visit(this, rowCount);
   }
 
-  @SuppressWarnings("resource")
   @Override
   public Void visitPrimitiveColumn(PrimitiveColumnModel column, Integer valueCount) {
-    ColumnMetadata schema = column.schema();
-    ValueVector vector = column.vector();
-    if (schema.isVariableWidth()) {
-      final int byteCount = valueCount * schema.expectedWidth();
-      ((VariableWidthVector) vector).allocateNew(byteCount, valueCount);
-    } else {
-      ((FixedWidthVector) vector).allocateNew(valueCount);
-    }
+    column.allocate(valueCount);
     return null;
   }
 
-  @SuppressWarnings("resource")
   @Override
   protected Void visitPrimitiveArrayColumn(PrimitiveColumnModel column, Integer valueCount) {
-    ColumnMetadata schema = column.schema();
-    ValueVector vector = column.vector();
-    int expectedElementCount = schema.expectedElementCount();
-    if (schema.isVariableWidth()) {
-      final int byteCount = expectedElementCount * schema.expectedWidth();
-      ((RepeatedVariableWidthVectorLike) vector).allocateNew(byteCount, valueCount, expectedElementCount);
-    } else {
-      ((RepeatedFixedWidthVectorLike) vector).allocateNew(valueCount, expectedElementCount);
-    }
+    column.allocate(valueCount);
     return null;
   }
 
   @Override
   protected Void visitMapArrayColumn(MapColumnModel column, Integer valueCount) {
-    int expectedValueCount = valueCount = column.schema().expectedElementCount();
-    ((RepeatedMapVector) column.vector()).getOffsetVector().allocateNew(expectedValueCount);
+    int expectedValueCount = valueCount * column.schema().expectedElementCount();
+    column.allocateArray(expectedValueCount);
     column.mapModelImpl().visit(this, expectedValueCount);
     return null;
   }

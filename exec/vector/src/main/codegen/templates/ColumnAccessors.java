@@ -222,15 +222,17 @@ public class ColumnAccessors {
     <@get drillType accessorType label true />
   }
 
-  public static class ${drillType}ColumnWriter extends BaseScalarWriter {
       <#assign varWidth = drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary" />
+      <#if varWidth>
+  public static class ${drillType}ColumnWriter extends BaseScalarWriter.BaseVarWidthWriter {
+      <#else>
+  public static class ${drillType}ColumnWriter extends BaseScalarWriter {
+      </#if>
       <#if drillType = "Decimal9" || drillType == "Decimal18" ||
            drillType == "Decimal28Sparse" || drillType == "Decimal38Sparse">
     private MajorType type;
       </#if>
-      <#if varWidth>
-    private final OffsetVectorWriter offsetsWriter;
-      <#else>
+      <#if ! varWidth>
     private static final int VALUE_WIDTH = ${drillType}Vector.VALUE_WIDTH;
       </#if>
     private final ${drillType}Vector vector;
@@ -240,10 +242,10 @@ public class ColumnAccessors {
            drillType == "Decimal28Sparse" || drillType == "Decimal38Sparse">
       type = vector.getField().getType();
       </#if>
-      this.vector = (${drillType}Vector) vector;
       <#if varWidth>
-      offsetsWriter = new OffsetVectorWriter(this.vector.getOffsetVector());
+      super(((${drillType}Vector) vector).getOffsetVector());
       </#if>
+      this.vector = (${drillType}Vector) vector;
     }
 
     @Override

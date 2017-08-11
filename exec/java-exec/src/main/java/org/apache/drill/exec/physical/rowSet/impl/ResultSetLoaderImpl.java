@@ -21,22 +21,17 @@ import java.util.Collection;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.impl.scan.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
-import org.apache.drill.exec.physical.rowSet.TupleLoader;
-import org.apache.drill.exec.physical.rowSet.impl.BaseTupleLoader.RootLoader;
-import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.BuildContainerVisitor;
-import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.RollOverVisitor;
+import org.apache.drill.exec.physical.rowSet.RowSetLoader;
+import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.*;
+import org.apache.drill.exec.physical.rowSet.model.ResultVectorCache;
+import org.apache.drill.exec.physical.rowSet.model.single.NullResultVectorCacheImpl;
 import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel;
 import org.apache.drill.exec.physical.rowSet.model.single.WriterBuilderVisitor;
-import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.vector.BaseValueVector;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.TupleWriter;
-import org.apache.drill.test.rowSet.DirectRowSet;
-import org.apache.drill.test.rowSet.RowSetWriter;
-import org.apache.drill.test.rowSet.RowSetWriterImpl;
 
 /**
  * Implementation of the result set loader.
@@ -45,16 +40,20 @@ import org.apache.drill.test.rowSet.RowSetWriterImpl;
 
 public class ResultSetLoaderImpl implements ResultSetLoader {
 
-  public static final int DEFAULT_INITIAL_ROW_COUNT = 4096;
+  public static final int DEFAULT_INITIAL_ROW_COUNT = BaseValueVector.INITIAL_VALUE_ALLOCATION;
+
+  /**
+   * Read-only set of options for the result set loader.
+   */
 
   public static class ResultSetOptions {
-    private final int vectorSizeLimit;
-    private final int rowCountLimit;
-    private final int initialRowCount;
-    private final boolean caseSensitive;
-    private final ResultVectorCache vectorCache;
-    private final Collection<String> projection;
-    private final TupleMetadata schema;
+    public final int vectorSizeLimit;
+    public final int rowCountLimit;
+    public final int initialRowCount;
+    public final boolean caseSensitive;
+    public final ResultVectorCache vectorCache;
+    public final Collection<String> projection;
+    public final TupleMetadata schema;
 
     public ResultSetOptions() {
       vectorSizeLimit = ValueVector.MAX_BUFFER_SIZE;
@@ -63,6 +62,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       caseSensitive = false;
       projection = null;
       vectorCache = null;
+      schema = null;
     }
 
     public ResultSetOptions(OptionBuilder builder) {
@@ -71,9 +71,16 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       this.initialRowCount = builder.initialRowCount;
       this.caseSensitive = builder.caseSensitive;
       this.projection = builder.projection;
-      this.vectorCache = builder.inventory;
+      this.vectorCache = builder.vectorCache;
+      this.schema = builder.schema;
     }
   }
+
+  /**
+   * Builder for the options for the row set loader. Reasonable defaults
+   * are provided for all options; use these options for test code or
+   * for clients that don't need special settings.
+   */
 
   public static class OptionBuilder {
     private int vectorSizeLimit;
@@ -81,7 +88,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     private int initialRowCount;
     private boolean caseSensitive;
     private Collection<String> projection;
-    private ResultVectorCache inventory;
+    private ResultVectorCache vectorCache;
     private TupleMetadata schema;
 
     public OptionBuilder() {
@@ -92,25 +99,79 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       caseSensitive = options.caseSensitive;
     }
 
+    // Nice idea, but is over-achieving, will be removed
+    @Deprecated
     public OptionBuilder setCaseSensitive(boolean flag) {
       caseSensitive = flag;
       return this;
     }
+
+    /**
+     * Specify the maximum number of rows per batch. Defaults to
+     * {@link BaseValueVector#INITIAL_VALUE_ALLOCATION}. Batches end either
+     * when this limit is reached, or when a vector overflows, whichever
+     * occurs first. The limit is capped at
+     * {@link ValueVector#MAX_ROW_COUNT}.
+     *
+     * @param limit the row count limit
+     * @return this builder
+     */
 
     public OptionBuilder setRowCountLimit(int limit) {
       rowCountLimit = Math.min(limit, ValueVector.MAX_ROW_COUNT);
       return this;
     }
 
+    /**
+     * Record (batch) readers often read a subset of available table columns,
+     * but want to use a writer schema that includes all columns for ease of
+     * writing. (For example, a CSV reader must read all columns, even if the user
+     * wants a subset. The unwanted columns are simply discarded.)
+     * <p>
+     * This option provides a projection list, in the form of column names, for
+     * those columns which are to be projected. Only those columns will be
+     * backed by value vectors; non-projected columns will be backed by "null"
+     * writers that discard all values.
+     *
+     * @param projection the list of projected columns
+     * @return this builder
+     */
+
+    // TODO: Use SchemaPath in place of strings.
+
     public OptionBuilder setProjection(Collection<String> projection) {
       this.projection = projection;
       return this;
     }
 
-    public OptionBuilder setVectorCache(ResultVectorCache inventory) {
-      this.inventory = inventory;
+    /**
+     * Downstream operators require "vector persistence": the same vector
+     * must represent the same column in every batch. For the scan operator,
+     * which creates multiple readers, this can be a challenge. The vector
+     * cache provides a transparent mechanism to enable vector persistence
+     * by returning the same vector for a set of independent readers. By
+     * default, the code uses a "null" cache which creates a new vector on
+     * each request. If a true cache is needed, the caller must provide one
+     * here.
+     */
+
+    public OptionBuilder setVectorCache(ResultVectorCache vectorCache) {
+      this.vectorCache = vectorCache;
       return this;
     }
+
+    /**
+     * Clients can use the row set builder in several ways:
+     * <ul>
+     * <li>Provide the schema up front, when known, by using this method to
+     * provide the schema.</li>
+     * <li>Discover the schema on the fly, adding columns during the write
+     * operation. Leave this method unset to start with an empty schema.</li>
+     * <li>A combination of the above.</li>
+     * </ul>
+     * @param schema the initial schema for the loader
+     * @return this builder
+     */
 
     public OptionBuilder setSchema(TupleMetadata schema) {
       this.schema = schema;
@@ -127,37 +188,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
   public static class RowSetWriterBuilder extends WriterBuilderVisitor {
 
-    public RowSetLoaderImpl buildWriter(SingleRowSetModel rowModel, WriterIndexImpl index) {
-      RowSetLoaderImpl writer = new RowSetLoaderImpl(rowModel, index, buildTuple(rowModel));
-      rowModel.bindWriter(writer);
+    public RowSetLoaderImpl buildWriter(ResultSetLoaderImpl rsLoader) {
+      SingleRowSetModel rootModel = rsLoader.rootModel();
+      RowSetLoaderImpl writer = new RowSetLoaderImpl(rsLoader, buildTuple(rootModel));
+      rootModel.bindWriter(writer);
       return writer;
-    }
-  }
-
-  public static class VectorContainerBuilder {
-    private final ResultSetLoaderImpl rowSetMutator;
-    private int lastUpdateVersion = -1;
-    private VectorContainer container;
-
-    public VectorContainerBuilder(ResultSetLoaderImpl rowSetMutator) {
-      this.rowSetMutator = rowSetMutator;
-      container = new VectorContainer(rowSetMutator.allocator);
-    }
-
-    public void update() {
-      if (lastUpdateVersion < rowSetMutator.schemaVersion()) {
-        new BuildContainerVisitor().apply(rowSetMutator.rootModel, this);
-        container.buildSchema(SelectionVectorMode.NONE);
-        lastUpdateVersion = rowSetMutator.schemaVersion();
-      }
-    }
-
-    public VectorContainer container() { return container; }
-
-    public int lastUpdateVersion() { return lastUpdateVersion; }
-
-    public void add(ValueVector vector) {
-      container.add(vector);
     }
   }
 
@@ -165,49 +200,156 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     /**
      * Before the first batch.
      */
+
     START,
+
     /**
      * Writing to a batch normally.
      */
+
     ACTIVE,
+
     /**
      * Batch overflowed a vector while writing. Can continue
      * to write to a temporary "overflow" batch until the
      * end of the current row.
      */
+
     OVERFLOW,
+
     /**
      * Batch is full due to reaching the row count limit
      * when saving a row.
      * No more writes allowed until harvesting the current batch.
      */
+
     FULL_BATCH,
 
     /**
-     * Current batch was harvested: data is gone. A lookahead
-     * row may exist for the next batch.
+     * Current batch was harvested: data is gone. No lookahead
+     * batch exists.
      */
+
     HARVESTED,
+
+    /**
+     * Current batch was harvested and its data is gone. However,
+     * overflow occurred during that batch and the data exists
+     * in the overflow vectors.
+     */
+
+    LOOK_AHEAD,
+
     /**
      * Mutator is closed: no more operations are allowed.
      */
+
     CLOSED
   }
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ResultSetLoaderImpl.class);
 
+  /**
+   * Options provided to this loader.
+   */
+
   private final ResultSetOptions options;
-  private final BufferAllocator allocator;
-  private final SingleRowSetModel rootModel;
+
+  /**
+   * Allocator for vectors created by this loader.
+   */
+
+  final BufferAllocator allocator;
+
+  /**
+   * Internal structure used to work with the vectors (real or dummy) used
+   * by this loader.
+   */
+
+  final SingleRowSetModel rootModel;
+
+  /**
+   * Top-level writer index that steps through the rows as they are written.
+   * When an overflow batch is in effect, indexes into that batch instead.
+   * Since a batch is really a tree of tuples, in which some branches of
+   * the tree are arrays, the root indexes here feeds into array indexes
+   * within the writer structure that points to the current position within
+   * an array column.
+   */
+
   private final WriterIndexImpl writerIndex;
+
+  /**
+   * The row-level writer for stepping through rows as they are written,
+   * and for accessing top-level columns.
+   */
+
   private final RowSetLoaderImpl rootWriter;
+
+  /**
+   * Vector cache for this loader.
+   * @see {@link OptionBuilder#setVectorCache()}.
+   */
+
   private final ResultVectorCache vectorCache;
+
+  /**
+   * Tracks the state of the row set loader. Handling vector overflow requires
+   * careful stepping through a variety of states as the write proceeds.
+   */
+
   private State state = State.START;
-  private int activeSchemaVersion = 0;
-  private int harvestSchemaVersion = 0;
+
+  /**
+   * Track the current schema as seen by the writer. Each addition of a column
+   * anywhere in the schema causes the active schema version to increase by one.
+   * This allows very easy checks for schema changes: save the prior version number
+   * and compare it against the current version number.
+   */
+
+  private int activeSchemaVersion;
+
+  /**
+   * Track the current schema as seen by the consumer of the batches that this
+   * loader produces. The harvest schema version can be behind the active schema
+   * version in the case in which new columns are added to the overflow row.
+   * Since the overflow row won't be visible to the harvested batch, that batch
+   * sees the schema as it existed at a prior version: the harvest schema
+   * version.
+   */
+
+  private int harvestSchemaVersion;
+
+  /**
+   * Builds the harvest vector container that includes only the columns that
+   * are included in the harvest schema version. That is, it excludes columns
+   * added while writing the overflow row.
+   */
+
   private VectorContainerBuilder containerBuilder;
-  private int previousBatchCount;
+
+  /**
+   * Counts the batches harvested (sent downstream) from this loader. Does
+   * not include the current, in-flight batch.
+   */
+
+  private int harvestBatchCount;
+
+  /**
+   * Counts the rows included in previously-harvested batches. Does not
+   * include the number of rows in the current batch.
+   */
+
   private int previousRowCount;
+
+  /**
+   * Number of rows in the harvest batch. If an overflow batch is in effect,
+   * then this is the number of rows in the "main" batch before the overflow;
+   * that is the number of rows in the batch that will be harvested. If no
+   * overflow row is in effect, then this number is undefined (and should be
+   * zero.)
+   */
+
   private int pendingRowCount;
 
   public ResultSetLoaderImpl(BufferAllocator allocator, ResultSetOptions options) {
@@ -216,7 +358,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     writerIndex = new WriterIndexImpl(options.rowCountLimit);
 
     if (options.vectorCache == null) {
-      vectorCache = new ResultVectorCache(allocator);
+      vectorCache = new NullResultVectorCacheImpl(allocator);
     } else {
       vectorCache = options.vectorCache;
     }
@@ -237,6 +379,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
       rootModel = SingleRowSetModel.fromSchema(allocator, options.schema);
     }
+
+    // Create the loader state objects for each vector
+
+    new BuildStateVisitor().apply(rootModel, this);
+
 //    AbstractTupleLoader root = new RootLoader(this, writerIndex);
 //    if (options.projection == null) {
 //      rootWriter = root;
@@ -246,7 +393,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
     // Define the writers. (May be only a root writer if no schema yet.)
 
-    rootWriter = new RowSetWriterBuilder().buildWriter(rootModel, writerIndex);
+    rootWriter = new RowSetWriterBuilder().buildWriter(this);
   }
 
   public ResultSetLoaderImpl(BufferAllocator allocator) {
@@ -276,15 +423,31 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
   @Override
   public void startBatch() {
-    if (state != State.START && state != State.HARVESTED) {
+    switch (state) {
+    case ACTIVE:
+      break;
+    case CLOSED:
+      break;
+    case FULL_BATCH:
+      break;
+    case HARVESTED:
+      break;
+    case OVERFLOW:
+      break;
+    case START:
+      break;
+    default:
       throw new IllegalStateException("Unexpected state: " + state);
     }
 
-    // Update the visible schema with any pending overflow batch
-    // updates.
+    new StartBatchVisitor().apply(rootModel);
+    rootWriter.startWrite();
 
-    harvestSchemaVersion = activeSchemaVersion;
-    rootModel.writer().startWrite();
+    // If a row overflowed, keep the writer index at its current value
+    // as it points to the second row in the overflow batch. However,
+    // if the previous batch ended without overflow, then we are starting
+    // a new batch, so reset the write index to 0.
+
     if (pendingRowCount == 0) {
       writerIndex.reset();
     }
@@ -293,11 +456,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   }
 
   @Override
-  public TupleWriter writer() {
+  public RowSetLoader writer() {
     if (state == State.CLOSED) {
       throw new IllegalStateException("Unexpected state: " + state);
     }
-    return rootModel.writer();
+    return rootWriter;
   }
 
   @Override
@@ -308,28 +471,41 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     return this;
   }
 
-  @Override
-  public void startRow() {
+  /**
+   * Called before writing a new row. Implementation of
+   * {@link RowSetLoader#start()}.
+   */
+
+  protected void startRow() {
     switch (state) {
     case ACTIVE:
-      rootModel.writer().startValue();
+
+      // Update the visible schema with any pending overflow batch
+      // updates.
+
+      harvestSchemaVersion = activeSchemaVersion;
+      rootWriter.startValue();
       break;
     default:
       throw new IllegalStateException("Unexpected state: " + state);
     }
   }
 
-  @Override
-  public void saveRow() {
+  /**
+   * Finalize the current row. Implementation of
+   * {@link RowSetLoader#save()}.
+   */
+
+  protected void saveRow() {
     switch (state) {
     case ACTIVE:
-      rootModel.writer().endValue();
+      rootWriter.endValue();
       if (! writerIndex.next()) {
         state = State.FULL_BATCH;
       }
       break;
     case OVERFLOW:
-      rootModel.writer().endValue();
+      rootWriter.endValue();
       writerIndex.next();
       state = State.FULL_BATCH;
       break;
@@ -338,8 +514,13 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     }
   }
 
-  @Override
-  public boolean isFull() {
+  /**
+   * Implementation of {@link RowSetLoader#isFull()}
+   * @return true if the batch is full (reached vector capacity or the
+   * row count limit), false if more rows can be added
+   */
+
+  protected boolean isFull() {
     switch (state) {
     case ACTIVE:
       return ! writerIndex.valid();
@@ -361,8 +542,14 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
            state == State.FULL_BATCH ;
   }
 
-  @Override
-  public int rowCount() {
+  /**
+   * Implementation for {#link {@link RowSetLoader#rowCount()}.
+   *
+   * @return the number of rows to be sent downstream for this
+   * batch. Does not include the overflow row.
+   */
+
+  protected int rowCount() {
     if (! isBatchActive()) {
       return 0;
     } else if (pendingRowCount > 0) {
@@ -382,8 +569,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   @Override
   public int targetVectorSize() { return options.vectorSizeLimit; }
 
-  @Override
-  public void overflowed() {
+  protected void overflowed() {
     if (state != State.ACTIVE) {
       throw new IllegalStateException("Unexpected state: " + state);
     }
@@ -394,8 +580,15 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     }
     pendingRowCount = rowCount();
     new RollOverVisitor().apply(rootModel, writerIndex.vectorIndex());
+
+    // The writer index is reset back to 0. Because of the above roll-over
+    // processing, some vectors may now already have values in the 0 slot.
+    // However, the vector that triggered overflow has not yet written to
+    // the current record, and so will now write to position 0. After the
+    // completion of the row, all 0-position values should be written (or
+    // at least those provided by the client.)
+
     writerIndex.reset();
-    harvestSchemaVersion = activeSchemaVersion;
     state = State.OVERFLOW;
   }
 
@@ -405,24 +598,44 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       throw new IllegalStateException("Unexpected state: " + state);
     }
 
-    // Wrap up the vectors: final fill-in, set value count, etc.
+    int rowCount;
+    switch (state) {
+    case ACTIVE:
+    case FULL_BATCH:
+      rowCount = harvestNormalBatch();
+      break;
+    case OVERFLOW:
+      rowCount = harvestOverflowBatch();
+      break;
+    default:
+      throw new IllegalStateException("Unexpected state: " + state);
+    }
 
-    rootModel.writer().endWrite();
+    // Build the output container
+
     VectorContainer container = outputContainer();
-
-    // Row count is the number of items to be harvested. If overflow,
-    // it is the number of rows in the saved vectors. Otherwise,
-    // it is the number in the active vectors.
-
-    int rowCount = pendingRowCount > 0 ? pendingRowCount : writerIndex.size();
     container.setRecordCount(rowCount);
 
     // Finalize: update counts, set state.
 
-    previousBatchCount++;
+    harvestBatchCount++;
     previousRowCount += rowCount;
-    state = State.HARVESTED;
     return container;
+  }
+
+  private int harvestNormalBatch() {
+
+    // Wrap up the vectors: final fill-in, set value count, etc.
+
+    rootWriter.endWrite();
+    state = State.HARVESTED;
+    return writerIndex.size();
+  }
+
+  private int harvestOverflowBatch() {
+    new HarvestOverflowVisitor().apply(rootModel);
+    state = State.LOOK_AHEAD;
+    return pendingRowCount;
   }
 
   @Override
@@ -437,6 +650,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   }
 
   @Override
+  public TupleMetadata harvestSchema() {
+    return containerBuilder.schema();
+  }
+
+  @Override
   public void reset() {
     switch (state) {
     case HARVESTED:
@@ -445,7 +663,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     case ACTIVE:
     case OVERFLOW:
     case FULL_BATCH:
-      rootModel.writer().reset();
+      new ResetVisitor().apply(rootModel);
       state = State.HARVESTED;
       break;
     default:
@@ -458,13 +676,17 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     if (state == State.CLOSED) {
       return;
     }
-    rootModel.writer().close();
+    rootModel.close();
+
+    // Do not close the vector cache; the caller owns that and
+    // will, presumably, reuse those vectors for another writer.
+
     state = State.CLOSED;
   }
 
   @Override
   public int batchCount() {
-    return previousBatchCount + (rowCount() == 0 ? 0 : 1);
+    return harvestBatchCount + (rowCount() == 0 ? 0 : 1);
   }
 
   @Override
@@ -476,5 +698,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     return total;
   }
 
-  public ResultVectorCache vectorInventory() { return vectorCache; }
+  public ResultVectorCache vectorCache() { return vectorCache; }
+
+  protected SingleRowSetModel rootModel() { return rootModel; }
 }

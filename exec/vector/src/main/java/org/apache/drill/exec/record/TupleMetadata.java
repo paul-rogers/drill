@@ -22,6 +22,7 @@ import java.util.List;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 
 /**
  * Metadata description of the schema of a row or a map.
@@ -83,6 +84,16 @@ public interface TupleMetadata extends Iterable<TupleMetadata.ColumnMetadata> {
     int expectedWidth();
     void setExpectedElementCount(int childCount);
     int expectedElementCount();
+
+    /**
+     * Create an empty version of this column. If the column is a scalar,
+     * produces a simple copy. If a map, produces a clone without child
+     * columns.
+     *
+     * @return empty clone of this column
+     */
+
+    ColumnMetadata cloneEmpty();
   }
 
   /**
@@ -92,6 +103,7 @@ public interface TupleMetadata extends Iterable<TupleMetadata.ColumnMetadata> {
    * @return the index of the new column
    */
   ColumnMetadata add(MaterializedField field);
+  int addColumn(ColumnMetadata column);
 
   int size();
   boolean isEmpty();
@@ -125,5 +137,4 @@ public interface TupleMetadata extends Iterable<TupleMetadata.ColumnMetadata> {
 
   String fullName(ColumnMetadata column);
   String fullName(int index);
-
 }

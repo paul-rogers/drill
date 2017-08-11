@@ -114,4 +114,9 @@ public interface TupleModel {
   int size();
   ColumnModel column(int index);
   ColumnModel column(String name);
+
+  // Free memory associated with the vectors owned by
+  // this model.
+
+  void close();
 }

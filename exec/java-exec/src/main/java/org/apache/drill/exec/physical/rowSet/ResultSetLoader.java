@@ -17,8 +17,9 @@
  */
 package org.apache.drill.exec.physical.rowSet;
 
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.complex.impl.VectorContainerWriter;
 
 /**
  * Builds a result set (series of zero or more row sets) based on a defined
@@ -45,7 +46,26 @@ public interface ResultSetLoader {
    */
 
   int schemaVersion();
+
+  /**
+   * The number of rows produced by this loader (as configured in the loader
+   * options.)
+   *
+   * @return the target row count for batches that this loader produces
+   */
+
   int targetRowCount();
+
+  /**
+   * The largest vector size produced by this loader (as specified by
+   * the value vector limit.)
+   *
+   * @return the largest vector size. Attempting to extend a vector beyond
+   * this limit causes automatic vector overflow and terminates the
+   * in-flight batch, even if the batch has not yet reached the target
+   * row count
+   */
+
   int targetVectorSize();
 
   /**
@@ -80,7 +100,8 @@ public interface ResultSetLoader {
    * @return writer for the top-level columns
    */
 
-  TupleWriter writer();
+  RowSetLoader writer();
+  boolean writeable();
 
   /**
    * Load a row using column values passed as variable-length arguments. Expects
@@ -101,41 +122,6 @@ public interface ResultSetLoader {
    */
 
   ResultSetLoader setRow(Object...values);
-
-  /**
-   * Called before writing a new row.
-   */
-
-  void startRow();
-
-  /**
-   * Called after writing each row to move to the next row. Failing to
-   * call this method effectively abandons the in-flight row; something
-   * that may be useful to recover from partially-written rows that turn
-   * out to contain errors.
-   */
-
-  void saveRow();
-
-  /**
-   * Indicates that no more rows fit into the current row batch
-   * and that the row batch should be harvested and sent downstream.
-   * Any overflow row is automatically saved for the next cycle.
-   * The value is undefined when a batch is not active.
-   *
-   * @return true if the current row set has reached capacity,
-   * false if more rows can be written
-   */
-
-  boolean isFull();
-
-  /**
-   * The number of rows in the current row set. Does not count any
-   * overflow row saved for the next batch.
-   * @return number of rows to be sent downstream
-   */
-
-  int rowCount();
 
   /**
    * Return the output container, primarily to obtain the schema
@@ -168,10 +154,33 @@ public interface ResultSetLoader {
    * Harvest the current row batch, and reset the mutator
    * to the start of the next row batch (which may already contain
    * an overflow row.
+   * <p>
+   * The schema of the returned container is defined as:
+   * <ul>
+   * <li>The schema as passed in via the loader options, plus</li>
+   * <li>Columns added dynamically during write, minus</li>
+   * <li>Any columns not included in the project list, minus</li>
+   * <li>Any columns added in the overflow row.</li>
+   * </ul>
+   * That is, column order is as defined by the initial schema and column
+   * additions. In particular, the schema order is <b>not</b> defined by
+   * the projection list. (Another mechanism is required to reorder columns
+   * for the actual projection.)
+   *
    * @return the row batch to send downstream
    */
 
   VectorContainer harvest();
+
+  /**
+   * The schema of the harvested batch. Valid until the start of the
+   * next batch.
+   *
+   * @return the extended schema of the harvested batch which includes
+   * any allocation hints used when creating the batch
+   */
+
+  TupleMetadata harvestSchema();
 
   /**
    * Clear the current, empty, in-flight batch to prepare for a new

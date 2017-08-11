@@ -105,7 +105,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     }
 
     protected void writeRow(TupleLoader writer, int col1, String col2) {
-      tableLoader.startRow();
+      tableLoader.start();
       if (writer.column(0) != null) {
         writer.column(0).setInt(col1);
       }
@@ -226,7 +226,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     @Override
     protected void writeRow(TupleLoader writer, int col1, String col2) {
-      tableLoader.startRow();
+      tableLoader.start();
       if (writer.column(0) != null) {
         writer.column(0).setString(Integer.toString(col1));
       }
@@ -1311,7 +1311,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
       TupleLoader writer = tableLoader.root();
       while (! tableLoader.isFull()) {
-        tableLoader.startRow();
+        tableLoader.start();
         writer.column(0).setString(value);
         tableLoader.saveRow();
         rowCount++;
@@ -1430,7 +1430,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     @Override
     protected void writeRow(TupleLoader writer, int col1, String col2) {
-      tableLoader.startRow();
+      tableLoader.start();
       if (writer.column(0) != null) {
         writer.column(0).setInt(col1 + 1);
       }

@@ -45,7 +45,7 @@ public class TestOfTestDataConverter extends SubOperatorTest {
     int count = 10;
     for (int i = 0; i < count; i++) {
       int value = i % maxValue;
-      loader.startRow();
+      loader.start();
       converter.column(0).setInt(value);
       loader.saveRow();
     }
@@ -76,7 +76,7 @@ public class TestOfTestDataConverter extends SubOperatorTest {
     int count = 10;
     for (int i = 0; i < count; i++) {
       int value = i % maxValue;
-      loader.startRow();
+      loader.start();
       if (i % 3 == 0) {
         writer.column(0).setNull();
       } else {
