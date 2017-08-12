@@ -623,7 +623,7 @@ public class TestResultSetLoader extends SubOperatorTest {
       count++;
     }
 
-    // Row count should include the overflow row
+    // Our row count should include the overflow row
 
     int expectedCount = ValueVector.MAX_BUFFER_SIZE / value.length;
     assertEquals(expectedCount + 1, count);

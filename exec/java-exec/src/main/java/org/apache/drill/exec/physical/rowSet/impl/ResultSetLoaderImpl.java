@@ -408,13 +408,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
   protected int bumpVersion() {
     activeSchemaVersion++;
-    if (state != State.OVERFLOW) {
-      // If overflow row, don't advertise the version to the client
-      // as the overflow schema is invisible to the client at this
-      // point.
-
-      harvestSchemaVersion = activeSchemaVersion;
-    }
     return activeSchemaVersion;
   }
 
@@ -424,33 +417,34 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   @Override
   public void startBatch() {
     switch (state) {
-    case ACTIVE:
-      break;
-    case CLOSED:
-      break;
-    case FULL_BATCH:
-      break;
     case HARVESTED:
-      break;
-    case OVERFLOW:
-      break;
     case START:
+
+      // The previous batch ended without overflow, so start
+      // a new batch, and reset the write index to 0.
+
+      rootWriter.startWrite();
+      writerIndex.reset();
       break;
+
+    case LOOK_AHEAD:
+
+      // A row overflowed so keep the writer index at its current value
+      // as it points to the second row in the overflow batch. However,
+      // the last write position of each writer must be restored on
+      // a column-by-column basis, which is done by the visitor.
+
+      new StartOverflowBatchVisitor().apply(rootModel);
+
+      // Reset the writers to a new vector, but at a given position.
+
+      rootWriter.reset(writerIndex.vectorIndex());
+      break;
+
     default:
       throw new IllegalStateException("Unexpected state: " + state);
     }
 
-    new StartBatchVisitor().apply(rootModel);
-    rootWriter.startWrite();
-
-    // If a row overflowed, keep the writer index at its current value
-    // as it points to the second row in the overflow batch. However,
-    // if the previous batch ended without overflow, then we are starting
-    // a new batch, so reset the write index to 0.
-
-    if (pendingRowCount == 0) {
-      writerIndex.reset();
-    }
     pendingRowCount = 0;
     state = State.ACTIVE;
   }
@@ -503,12 +497,32 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       if (! writerIndex.next()) {
         state = State.FULL_BATCH;
       }
+
+      // No overflow row. Advertise the schema version to the client.
+
+      harvestSchemaVersion = activeSchemaVersion;
       break;
+
     case OVERFLOW:
+
+      // End the value of the look-ahead row in the look-ahead vectors.
+
       rootWriter.endValue();
+
+      // Advance the writer index relative to the look-ahead batch.
+
       writerIndex.next();
-      state = State.FULL_BATCH;
+
+      // Stay in the overflow state. Doing so will cause the writer
+      // to report that it is full.
+      //
+      // Also, do not change the harvest schema version. We will
+      // expose to the downstream operators the schema in effect
+      // at the start of the row. Columns added within the row won't
+      // appear until the next batch.
+
       break;
+
     default:
       throw new IllegalStateException("Unexpected state: " + state);
     }
@@ -550,12 +564,14 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
    */
 
   protected int rowCount() {
-    if (! isBatchActive()) {
-      return 0;
-    } else if (pendingRowCount > 0) {
-      return pendingRowCount;
-    } else {
+    switch (state) {
+    case ACTIVE:
+    case FULL_BATCH:
       return writerIndex.size();
+    case OVERFLOW:
+      return pendingRowCount;
+    default:
+      return 0;
     }
   }
 
@@ -570,16 +586,26 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   public int targetVectorSize() { return options.vectorSizeLimit; }
 
   protected void overflowed() {
+
+    // If we see overflow when we are already handling overflow, it means
+    // that a single value is too large to fit into an entire vector.
+    // Fail the query.
+    //
+    // Note that this is a judgement call. It is possible to allow the
+    // vector to double beyond the limit, but that will require a bit
+    // of thought to get right -- and, of course, completely defeats
+    // the purpose of limiting vector size to avoid memory fragmentation...
+
+    if (state == State.OVERFLOW) {
+      throw UserException
+          .memoryError("A single column value is larger than the maximum allowed size of 16 MB")
+          .build(logger);
+    }
     if (state != State.ACTIVE) {
       throw new IllegalStateException("Unexpected state: " + state);
     }
-    if (rowCount() == 0) {
-      throw UserException
-        .memoryError("A single column value is larger than the maximum allowed size of 16 MB")
-        .build(logger);
-    }
-    pendingRowCount = rowCount();
-    new RollOverVisitor().apply(rootModel, writerIndex.vectorIndex());
+    pendingRowCount = writerIndex.vectorIndex();
+    new RollOverVisitor().apply(rootModel, pendingRowCount);
 
     // The writer index is reset back to 0. Because of the above roll-over
     // processing, some vectors may now already have values in the 0 slot.
@@ -587,17 +613,21 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     // the current record, and so will now write to position 0. After the
     // completion of the row, all 0-position values should be written (or
     // at least those provided by the client.)
+    //
+    // For arrays, the writer might have written a set of values
+    // (v1, v2, v3), and v4 might have triggered the overflow. In this case,
+    // the array values have been moved, offset vectors adjusted, the
+    // element writer adjusted, so that v4 will be written to index 3
+    // to produce (v1, v2, v3, v4, v5, ...) in the look-ahead vector.
 
     writerIndex.reset();
     state = State.OVERFLOW;
   }
 
+  protected boolean hasOverflow() { return state == State.OVERFLOW; }
+
   @Override
   public VectorContainer harvest() {
-    if (! isBatchActive()) {
-      throw new IllegalStateException("Unexpected state: " + state);
-    }
-
     int rowCount;
     switch (state) {
     case ACTIVE:

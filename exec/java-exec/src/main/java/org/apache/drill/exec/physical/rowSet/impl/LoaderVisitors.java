@@ -86,26 +86,6 @@ public class LoaderVisitors {
   }
 
   /**
-   * Writing of a row batch is complete, and an overflow occurred. Prepare the
-   * vector for harvesting to send downstream. Set aside the look-ahead vector
-   * and put the full vector buffer back into the active vector.
-   */
-
-  public static class HarvestOverflowVisitor extends ModelVisitor<Void, Void> {
-
-    public void apply(SingleRowSetModel rowModel) {
-      rowModel.visit(this, null);
-    }
-
-    @Override
-    protected Void visitColumn(AbstractSingleColumnModel column, Void arg) {
-      PrimitiveColumnState state = column.coordinator();
-      state.startBatch();
-      return null;
-    }
-  }
-
-  /**
    * A column within the row batch overflowed. Prepare to absorb the rest of the
    * in-flight row by rolling values over to a new vector, saving the complete
    * vector for later. This column could have a value for the overflow row, or
@@ -131,12 +111,56 @@ public class LoaderVisitors {
     }
   }
 
-  public static class ResetVisitor
-      extends ModelVisitor<Void, VectorContainerBuilder> {
+  /**
+   * Writing of a row batch is complete, and an overflow occurred. Prepare the
+   * vector for harvesting to send downstream. Set aside the look-ahead vector
+   * and put the full vector buffer back into the active vector.
+   */
+
+  public static class HarvestOverflowVisitor extends ModelVisitor<Void, Void> {
 
     public void apply(SingleRowSetModel rowModel) {
       rowModel.visit(this, null);
     }
 
+    @Override
+    protected Void visitColumn(AbstractSingleColumnModel column, Void arg) {
+      PrimitiveColumnState state = column.coordinator();
+      state.harvestWithOverflow();
+      return null;
+    }
+  }
+
+  /**
+   * Start a new batch by shifting the overflow buffers back into the main
+   * write vectors. The writers are updated as a separate step.
+   */
+
+  public static class StartOverflowBatchVisitor extends ModelVisitor<Void, Void> {
+
+    public void apply(SingleRowSetModel rowModel) {
+      rowModel.visit(this, null);
+    }
+
+    @Override
+    protected Void visitColumn(AbstractSingleColumnModel column, Void arg) {
+      PrimitiveColumnState state = column.coordinator();
+      state.startOverflowBatch();
+      return null;
+    }
+  }
+
+  public static class ResetVisitor extends ModelVisitor<Void, Void> {
+
+    public void apply(SingleRowSetModel rowModel) {
+      rowModel.visit(this, null);
+    }
+
+    @Override
+    protected Void visitColumn(AbstractSingleColumnModel column, Void arg) {
+      PrimitiveColumnState state = column.coordinator();
+      state.reset();
+      return null;
+    }
   }
 }

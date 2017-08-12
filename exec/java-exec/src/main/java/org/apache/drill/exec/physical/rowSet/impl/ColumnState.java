@@ -40,34 +40,27 @@ public abstract class ColumnState implements ColumnCoordinator {
   protected enum State {
 
     /**
-     * Column is newly added. No data yet provided.
+     * Column is in the normal state of writing with no overflow
+     * in effect.
      */
-    START,
+
+    NORMAL,
 
     /**
-     * Actively writing to the column. May have data.
-     */
-    ACTIVE,
-
-    /**
-     * After sending the current batch downstream, before starting
-     * the next one.
-     */
-    HARVESTED,
-
-    /**
-     * Like ACTIVE, but means that the data has overflowed and the
+     * Like NORMAL, but means that the data has overflowed and the
      * column's data for the current row appears in the new,
-     * overflow batch. For a reader that omits some columns, written
+     * overflow batch. For a client that omits some columns, written
      * columns will be in OVERFLOW state, unwritten columns in
-     * ACTIVE state.
+     * NORMAL state.
      */
+
     OVERFLOW,
 
     /**
-     * Like HARVESTED, but indicates that the column has data saved
+     * Indicates that the column has data saved
      * in the overflow batch.
      */
+
     LOOK_AHEAD,
 
     /**
@@ -75,16 +68,18 @@ public abstract class ColumnState implements ColumnCoordinator {
      * was added after overflow, so there is no vector for the column
      * in the harvested batch.
      */
+
     NEW_LOOK_AHEAD
   }
 
   protected final ResultSetLoaderImpl resultSetLoader;
   protected final int addVersion;
-  protected State state = State.START;
+  protected State state;
 
   public ColumnState(ResultSetLoaderImpl resultSetLoader) {
     this.resultSetLoader = resultSetLoader;
     this.addVersion = resultSetLoader.bumpVersion();
+    state = resultSetLoader.hasOverflow() ?
+        State.NEW_LOOK_AHEAD : State.NORMAL;
   }
-
 }

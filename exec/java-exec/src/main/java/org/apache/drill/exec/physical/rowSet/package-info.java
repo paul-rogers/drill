@@ -117,8 +117,8 @@
  * are added while loading, their index is always at the end of the existing
  * columns.
  * <h4>Writing Data to the Batch</h4>
- * Each batch is delimited by a call to {@link #startBatch()} and a call to
- * {@link #harvest()} to obtain the completed batch. Note that readers do not
+ * Each batch is delimited by a call to {@link #startOverflowBatch()} and a call to
+ * {@link #harvestWithOverflow()} to obtain the completed batch. Note that readers do not
  * call these methods; the scan operator does this work.
  * <p>
  * Each row is delimited by a call to {@link #startValue()} and a call to
@@ -164,7 +164,7 @@
  * method. After each call to {@link #saveRow()}, the client should call
  * <tt>isFull()</tt> to determine if the client can add another row. Note
  * that failing to do this check will cause the next call to
- * {@link #startBatch()} to throw an exception.
+ * {@link #startOverflowBatch()} to throw an exception.
  * <p>
  * The limits have subtle differences, however. Row limits are simple: at
  * the end of the last row, the mutator notices that no more rows are possible,

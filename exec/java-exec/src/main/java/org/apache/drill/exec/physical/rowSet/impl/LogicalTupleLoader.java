@@ -71,8 +71,8 @@ public class LogicalTupleLoader extends AbstractTupleLoader {
     public ObjectWriter writer() { return mapping.writer(); }
 
     @Override
-    public void startBatch() {
-      mapping.startBatch();
+    public void startOverflowBatch() {
+      mapping.startOverflowBatch();
     }
 
     @Override
@@ -81,8 +81,8 @@ public class LogicalTupleLoader extends AbstractTupleLoader {
     }
 
     @Override
-    public void harvest() {
-      mapping.harvest();
+    public void harvestWithOverflow() {
+      mapping.harvestWithOverflow();
     }
 
     @Override
@@ -118,13 +118,13 @@ public class LogicalTupleLoader extends AbstractTupleLoader {
     public ObjectWriter writer() { return null; }
 
     @Override
-    public void startBatch() { }
+    public void startOverflowBatch() { }
 
     @Override
     public void rollOver(int overflowIndex) { }
 
     @Override
-    public void harvest() { }
+    public void harvestWithOverflow() { }
 
     @Override
     public void reset() { }
@@ -250,8 +250,8 @@ public class LogicalTupleLoader extends AbstractTupleLoader {
   }
 
   @Override
-  protected void harvest() {
-    physicalLoader.harvest();
+  protected void harvestWithOverflow() {
+    physicalLoader.harvestWithOverflow();
   }
 
   @Override
