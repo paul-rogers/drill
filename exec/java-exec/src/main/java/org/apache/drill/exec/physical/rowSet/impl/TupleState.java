@@ -20,8 +20,6 @@ package org.apache.drill.exec.physical.rowSet.impl;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapArrayColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapColumnState;
-import org.apache.drill.exec.physical.rowSet.impl.PrimitiveColumnState.PrimitiveArrayColumnState;
-import org.apache.drill.exec.physical.rowSet.impl.PrimitiveColumnState.SimplePrimitiveColumnState;
 import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel;
 import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
 import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.TupleCoordinator;
@@ -142,9 +140,9 @@ public abstract class TupleState implements TupleCoordinator {
 
     PrimitiveColumnState colState;
     if (colModel.schema().isArray()) {
-      colState = new PrimitiveArrayColumnState(resultSetLoader, colModel);
+      colState = PrimitiveColumnState.newPrimitiveArray(resultSetLoader, colModel);
     } else {
-      colState = new SimplePrimitiveColumnState(resultSetLoader, colModel);
+      colState = PrimitiveColumnState.newSimplePrimitive(resultSetLoader, colModel);
     }
     colModel.bindCoordinator(colState);
 

@@ -214,7 +214,8 @@ public class TestResultSetOverflow extends SubOperatorTest {
 
   /**
    * Create an array that contains more than 64K values. Drill has no numeric
-   * limit on array lengths.
+   * limit on array lengths. (Well, it does, but the limit is about 2 billion
+   * which, even for bytes, is too large to fit into a vector...)
    */
 
   @Test

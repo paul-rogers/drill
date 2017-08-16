@@ -32,6 +32,7 @@ import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 public class RepeatedVectorState implements VectorState {
   private final ColumnMetadata schema;
+  private final AbstractArrayWriter arrayWriter;
   private final OffsetVectorState offsetsState;
   private final ValuesVectorState valuesState;
 
@@ -46,7 +47,7 @@ public class RepeatedVectorState implements VectorState {
     // Create the offsets state with the offset vector portion of the repeated
     // vector, and the offset writer portion of the array writer.
 
-    AbstractArrayWriter arrayWriter = (AbstractArrayWriter) columnModel.writer().array();
+    arrayWriter = (AbstractArrayWriter) columnModel.writer().array();
     offsetsState = new OffsetVectorState(arrayWriter.offsetWriter(), vector.getOffsetVector());
 
     // Then, create the values state using the value (data) portion of the repeated
@@ -132,6 +133,13 @@ public class RepeatedVectorState implements VectorState {
 
     int newIndex = valuesState.rollOver(dataStartIndex, childCardinality(cardinality));
     offsetsState.rollOver(sourceStartIndex, cardinality);
+
+    // The array introduces a new vector index level for the
+    // (one and only) child writer. Adjust that vector index to point to the
+    // next array write position. This position must reflect any array entries
+    // already written.
+
+    arrayWriter.resetElementIndex(newIndex);
     return newIndex;
   }
 

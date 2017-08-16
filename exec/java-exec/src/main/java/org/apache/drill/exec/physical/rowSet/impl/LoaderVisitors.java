@@ -19,8 +19,6 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapArrayColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapColumnState;
-import org.apache.drill.exec.physical.rowSet.impl.PrimitiveColumnState.PrimitiveArrayColumnState;
-import org.apache.drill.exec.physical.rowSet.impl.PrimitiveColumnState.SimplePrimitiveColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.RowState;
 import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
@@ -38,6 +36,11 @@ import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.Prim
  */
 
 public class LoaderVisitors {
+
+  /**
+   * Given a column model build from an up-front schema, attach the loader state
+   * to each node in the vector model tree.
+   */
 
   public static class BuildStateVisitor
       extends ModelVisitor<Void, Void> {
@@ -62,14 +65,14 @@ public class LoaderVisitors {
     @Override
     protected Void visitPrimitiveColumn(PrimitiveColumnModel column,
         Void arg) {
-      column.bindCoordinator(new SimplePrimitiveColumnState(rsLoader, column));
+      column.bindCoordinator(PrimitiveColumnState.newSimplePrimitive(rsLoader, column));
       return null;
     }
 
     @Override
     protected Void visitPrimitiveArrayColumn(PrimitiveColumnModel column,
         Void arg) {
-      column.bindCoordinator(new PrimitiveArrayColumnState(rsLoader, column));
+      column.bindCoordinator(PrimitiveColumnState.newPrimitiveArray(rsLoader, column));
       return null;
     }
 
@@ -232,6 +235,11 @@ public class LoaderVisitors {
       return null;
     }
   }
+
+  /**
+   * Clean up state (such as backup vectors) associated with the state
+   * for each vector.
+   */
 
   public static class ResetVisitor extends ModelVisitor<Void, Void> {
 

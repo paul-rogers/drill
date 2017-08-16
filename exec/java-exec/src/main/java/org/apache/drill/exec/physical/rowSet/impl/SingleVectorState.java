@@ -66,9 +66,9 @@ public abstract class SingleVectorState implements VectorState {
       // Copy overflow values from the full vector to the new
       // look-ahead vector.
 
-      int newIndex = -1;
+      int newIndex = 0;
       for (int src = sourceStartIndex; src <= sourceEndIndex; src++, newIndex++) {
-        mainVector.copyEntry(newIndex + 1, backupVector, src);
+        mainVector.copyEntry(newIndex, backupVector, src);
       }
       return newIndex;
     }
@@ -123,9 +123,9 @@ public abstract class SingleVectorState implements VectorState {
       // Position zero is special and will be filled in by the writer
       // later.
 
-      int newIndex = -1;
+      int newIndex = 0;
       for (int src = sourceStartIndex; src <= sourceEndIndex; src++, newIndex++) {
-        destMutator.set(newIndex + 2, sourceAccessor.get(src) - offset);
+        destMutator.set(newIndex + 1, sourceAccessor.get(src) - offset);
       }
       return newIndex;
     }
@@ -189,12 +189,12 @@ public abstract class SingleVectorState implements VectorState {
     // Copy overflow values from the full vector to the new
     // look-ahead vector.
 
-    int newLastWritePosition = copyOverflow(sourceStartIndex, sourceEndIndex);
+    int newIndex = copyOverflow(sourceStartIndex, sourceEndIndex);
 
     // Tell the writer that it has a new buffer and that it should reset
     // its last write index depending on whether data was copied or not.
 
-    writer.startWriteAt(newLastWritePosition);
+    writer.startWriteAt(newIndex - 1);
 
     // At this point, the writer is positioned to write to the look-ahead
     // vector at the position after the copied values. The original vector
@@ -204,7 +204,7 @@ public abstract class SingleVectorState implements VectorState {
     // Return the next writer index which is one more than the last
     // write position.
 
-    return newLastWritePosition + 1;
+    return newIndex;
   }
 
   protected abstract int copyOverflow(int sourceStartIndex, int sourceEndIndex);

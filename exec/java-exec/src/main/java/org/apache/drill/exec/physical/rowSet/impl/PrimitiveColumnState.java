@@ -22,35 +22,9 @@ import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleMod
 import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.PrimitiveColumnModel;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
 
-public abstract class PrimitiveColumnState extends ColumnState {
-
-  public static class SimplePrimitiveColumnState extends PrimitiveColumnState {
-    public SimplePrimitiveColumnState(ResultSetLoaderImpl resultSetLoader,
-        PrimitiveColumnModel columnModel) {
-      super(resultSetLoader, columnModel,
-          new ValuesVectorState(
-              columnModel.schema(),
-              (AbstractScalarWriter) columnModel.writer().scalar(),
-              columnModel.vector()));
-    }
-  }
-
-  public static class PrimitiveArrayColumnState extends PrimitiveColumnState {
-
-    public PrimitiveArrayColumnState(ResultSetLoaderImpl resultSetLoader,
-        PrimitiveColumnModel columnModel) {
-      super(resultSetLoader, columnModel,
-          new RepeatedVectorState(columnModel));
-    }
-
-    @Override
-    protected void adjustWriterIndex(int newIndex) {
-      ((AbstractArrayWriter) columnModel.writer().array()).resetElementIndex(newIndex);
-    }
-  }
+public class PrimitiveColumnState extends ColumnState {
 
   protected final PrimitiveColumnModel columnModel;
 
@@ -59,6 +33,23 @@ public abstract class PrimitiveColumnState extends ColumnState {
       VectorState vectorState) {
     super(resultSetLoader, vectorState);
     this.columnModel = columnModel;
+  }
+
+  public static PrimitiveColumnState newSimplePrimitive(
+      ResultSetLoaderImpl resultSetLoader,
+      PrimitiveColumnModel columnModel) {
+    return new PrimitiveColumnState(resultSetLoader, columnModel,
+        new ValuesVectorState(
+            columnModel.schema(),
+            (AbstractScalarWriter) columnModel.writer().scalar(),
+            columnModel.vector()));
+  }
+
+  public static PrimitiveColumnState newPrimitiveArray(
+      ResultSetLoaderImpl resultSetLoader,
+      PrimitiveColumnModel columnModel) {
+    return new PrimitiveColumnState(resultSetLoader, columnModel,
+        new RepeatedVectorState(columnModel));
   }
 
   @Override
@@ -71,4 +62,3 @@ public abstract class PrimitiveColumnState extends ColumnState {
 
   public ColumnMetadata schema() { return columnModel.schema(); }
 }
-

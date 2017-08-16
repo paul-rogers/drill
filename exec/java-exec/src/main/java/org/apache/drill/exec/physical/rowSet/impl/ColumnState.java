@@ -231,21 +231,12 @@ public abstract class ColumnState implements ColumnCoordinator {
 
     // Otherwise, do the roll-over to a look-ahead vector.
 
-    int newIndex = vectorState.rollOver(sourceStartIndex, outerCardinality);
-
-    // The array introduces a new vector index level for the
-    // (one and only) child writer. Adjust that vector index to point to the
-    // next array write position. This position must reflect any array entries
-    // already written.
-
-    adjustWriterIndex(newIndex);
+    vectorState.rollOver(sourceStartIndex, outerCardinality);
 
     // Remember that we did this overflow processing.
 
     state = State.OVERFLOW;
   }
-
-  protected void adjustWriterIndex(int newIndex) { }
 
   /**
    * Writing of a row batch is complete. Prepare the vector for harvesting
