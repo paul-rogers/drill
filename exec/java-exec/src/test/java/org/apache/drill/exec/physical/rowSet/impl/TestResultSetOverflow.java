@@ -155,11 +155,12 @@ public class TestResultSetOverflow extends SubOperatorTest {
     int count = 0;
     int rowSize = 0;
     int totalSize = 0;
+    int valuesPerArray = 13;
     while (rootWriter.start()) {
       totalSize += rowSize;
       rowSize = 0;
       ScalarWriter array = rootWriter.array(0).scalar();
-      for (int i = 0; i < 3; i++) {
+      for (int i = 0; i < valuesPerArray; i++) {
         String cellValue = strValue + (count + 1) + "." + i;
         array.setString(cellValue);
         rowSize += cellValue.length();
@@ -186,14 +187,16 @@ public class TestResultSetOverflow extends SubOperatorTest {
     RowSetReader reader = result.reader();
     reader.set(expectedCount - 1);
     ScalarElementReader arrayReader = reader.column(0).elements();
-    assertEquals(3, arrayReader.size());
-    assertEquals(strValue + expectedCount + ".0", arrayReader.getString(0));
-    assertEquals(strValue + expectedCount + ".1", arrayReader.getString(1));
-    assertEquals(strValue + expectedCount + ".2", arrayReader.getString(2));
+    assertEquals(valuesPerArray, arrayReader.size());
+    for (int i = 0; i < valuesPerArray; i++) {
+      String cellValue = strValue + (count - 1) + "." + i;
+      assertEquals(cellValue, arrayReader.getString(i));
+    }
     result.clear();
 
     // Next batch should start with the overflow row.
-    // Only row should be the whole array being written overflow.
+    // The only row in this next batch should be the whole
+    // array being written at the time of overflow.
 
     rsLoader.startBatch();
     assertEquals(1, rootWriter.rowCount());
@@ -203,10 +206,11 @@ public class TestResultSetOverflow extends SubOperatorTest {
     reader = result.reader();
     reader.next();
     arrayReader = reader.column(0).elements();
-    assertEquals(3, arrayReader.size());
-    assertEquals(strValue + count + ".0", arrayReader.getString(0));
-    assertEquals(strValue + count + ".1", arrayReader.getString(1));
-    assertEquals(strValue + count + ".2", arrayReader.getString(2));
+    assertEquals(valuesPerArray, arrayReader.size());
+    for (int i = 0; i < valuesPerArray; i++) {
+      String cellValue = strValue + (count) + "." + i;
+      assertEquals(cellValue, arrayReader.getString(i));
+    }
     result.clear();
 
     rsLoader.close();
