@@ -64,14 +64,14 @@ public interface WriterEvents {
   void endWrite();
 
   /**
-   * Reset the writer with a new buffer and offset: used during vector
+   * Start the writer with a new buffer and offset: used during vector
    * overflow processing.
    *
-   * @param index next write position, which may reflect overflow
-   * values copied into the vector from a prior batch
+   * @param index initial value for the last write position, which may
+   * reflect overflow values copied into the vector from a prior batch
    */
 
-  void reset(int index);
+  void startWriteAt(int index);
 
   /**
    * Return the last write position in the vector. This may be the

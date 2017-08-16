@@ -47,4 +47,20 @@ public interface ColumnWriterIndex {
    */
 
   void nextElement();
+
+  /**
+   * When handling overflow, the index must be reset a specific point based
+   * on the data that is rolled over to the look-ahead vectors. While a
+   * vector index is, in general, meant to provide a top-down, synchronized
+   * idea of the current write position, this reset method is a bottom-up
+   * adjustment based on actual data. As such, it should only be used
+   * during overflow processing as care must be taken to ensure all levels
+   * of indexes agree on a consistent set of positions. For internal and
+   * leaf indexes (those that correspond to arrays), the index must
+   * correspond with the associated offset vector.
+   *
+   * @param newIndex the new write index position after roll-over
+   */
+
+  void resetTo(int newIndex);
 }

@@ -68,21 +68,21 @@ public class LogicalTupleLoader extends AbstractTupleLoader {
     public int vectorIndex() { return mapping.vectorIndex(); }
 
     @Override
-    public ObjectWriter writer() { return mapping.writer(); }
+    public ObjectWriter scalarWriter() { return mapping.scalarWriter(); }
 
     @Override
-    public void startOverflowBatch() {
-      mapping.startOverflowBatch();
+    public void startBatch() {
+      mapping.startBatch();
     }
 
     @Override
-    public void rollOver(int overflowIndex) {
-      mapping.rollOver(overflowIndex);
+    public void rollOverValues(int overflowIndex) {
+      mapping.rollOverValues(overflowIndex);
     }
 
     @Override
-    public void harvestWithOverflow() {
-      mapping.harvestWithOverflow();
+    public void harvestWithLookAhead() {
+      mapping.harvestWithLookAhead();
     }
 
     @Override
@@ -115,16 +115,16 @@ public class LogicalTupleLoader extends AbstractTupleLoader {
     public int vectorIndex() { return UNMAPPED; }
 
     @Override
-    public ObjectWriter writer() { return null; }
+    public ObjectWriter scalarWriter() { return null; }
 
     @Override
-    public void startOverflowBatch() { }
+    public void startBatch() { }
 
     @Override
-    public void rollOver(int overflowIndex) { }
+    public void rollOverValues(int overflowIndex) { }
 
     @Override
-    public void harvestWithOverflow() { }
+    public void harvestWithLookAhead() { }
 
     @Override
     public void reset() { }
@@ -245,13 +245,13 @@ public class LogicalTupleLoader extends AbstractTupleLoader {
   }
 
   @Override
-  protected void rollOver(int overflowIndex) {
-    physicalLoader.rollOver(overflowIndex);
+  protected void rollOverValues(int overflowIndex) {
+    physicalLoader.rollOverValues(overflowIndex);
   }
 
   @Override
-  protected void harvestWithOverflow() {
-    physicalLoader.harvestWithOverflow();
+  protected void harvestWithLookAhead() {
+    physicalLoader.harvestWithLookAhead();
   }
 
   @Override
@@ -270,7 +270,7 @@ public class LogicalTupleLoader extends AbstractTupleLoader {
   }
 
   @Override
-  public void reset(int index) {
+  public void startWriteAt(int index) {
     throw new IllegalStateException();
   }
 

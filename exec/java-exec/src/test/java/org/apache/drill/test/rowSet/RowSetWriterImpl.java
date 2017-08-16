@@ -78,6 +78,11 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
 
     @Override
     public final void nextElement() { }
+
+    @Override
+    public void resetTo(int newIndex) {
+      throw new UnsupportedOperationException("Reset not supported in the row set writer.");
+    }
   }
 
   private final WriterIndexImpl writerIndex;
@@ -120,7 +125,7 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
   }
 
   @Override
-  public void reset(int index) {
+  public void startWriteAt(int index) {
     // TODO Auto-generated method stub
 
   }

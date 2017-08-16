@@ -140,7 +140,6 @@ import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
 import org.apache.drill.exec.vector.accessor.reader.BaseElementReader;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
 import org.apache.drill.exec.vector.accessor.writer.BaseScalarWriter;
-import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriter;
 
 import com.google.common.base.Charsets;
 
@@ -168,7 +167,7 @@ import org.joda.time.Period;
 
 public class ColumnAccessors {
 
-  public static final int MIN_BUFFER_SIZE = 4096;
+  public static final int MIN_BUFFER_SIZE = 1024;
 
 <#list vv.types as type>
   <#list type.minor as minor>
@@ -262,10 +261,10 @@ public class ColumnAccessors {
     <#-- Inform the writer that it's buffer has changed, and optionally the new
          last write position within the new buffer. -->
     @Override
-    public void reset(int newIndex) {
+    public void startWriteAt(int newIndex) {
       setAddr(vector.getBuffer());
       <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
-      offsetsWriter.reset(newIndex);
+      offsetsWriter.startWriteAt(newIndex);
       <#else>
       lastWriteIndex = newIndex;
       </#if>
@@ -324,7 +323,7 @@ public class ColumnAccessors {
          -->
       <#if varWidth>
     private final int writeIndex(final int width) {
-      int writeOffset = offsetsWriter.writeOffset();
+      int writeOffset = offsetsWriter.targetOffset();
       if (writeOffset + width < capacity) {
         return writeOffset;
       }
@@ -357,7 +356,7 @@ public class ColumnAccessors {
                the new vector. -->
           overflowed();
       <#if varWidth>
-          writeOffset = offsetsWriter.writeOffset();
+          writeOffset = offsetsWriter.targetOffset();
       <#else>
           writeIndex = vectorIndex.vectorIndex();
       </#if>
@@ -488,7 +487,7 @@ public class ColumnAccessors {
     @Override
     public final void endWrite() {
       <#if varWidth>
-      vector.getBuffer().writerIndex(offsetsWriter.writeOffset());
+      vector.getBuffer().writerIndex(offsetsWriter.targetOffset());
       offsetsWriter.endWrite();
       <#else>
       <#-- Done this way to avoid another drill buf access in value set path.

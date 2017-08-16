@@ -60,7 +60,7 @@ public abstract class AbstractObjectWriter implements ObjectWriter, WriterEvents
   public void endWrite() { baseEvents().endWrite(); }
 
   @Override
-  public void reset(int index) { baseEvents().reset(index); }
+  public void startWriteAt(int index) { baseEvents().startWriteAt(index); }
 
   @Override
   public int lastWriteIndex() { return baseEvents().lastWriteIndex(); }

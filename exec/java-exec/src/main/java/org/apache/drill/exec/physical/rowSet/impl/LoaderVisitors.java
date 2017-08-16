@@ -17,14 +17,16 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
+import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapArrayColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapColumnState;
-import org.apache.drill.exec.physical.rowSet.impl.LoaderTupleCoordinator.MapCoordinator;
-import org.apache.drill.exec.physical.rowSet.impl.LoaderTupleCoordinator.RowCoordinator;
+import org.apache.drill.exec.physical.rowSet.impl.PrimitiveColumnState.PrimitiveArrayColumnState;
+import org.apache.drill.exec.physical.rowSet.impl.PrimitiveColumnState.SimplePrimitiveColumnState;
+import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapState;
+import org.apache.drill.exec.physical.rowSet.impl.TupleState.RowState;
 import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
 import org.apache.drill.exec.physical.rowSet.model.single.ModelVisitor;
 import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel;
 import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapModel;
 import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.PrimitiveColumnModel;
 
 /**
@@ -38,50 +40,95 @@ import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.Prim
 public class LoaderVisitors {
 
   public static class BuildStateVisitor
-      extends ModelVisitor<Void, ResultSetLoaderImpl> {
+      extends ModelVisitor<Void, Void> {
 
-    public void apply(SingleRowSetModel rowModel,
-        ResultSetLoaderImpl rsLoader) {
-      rowModel.visit(this, rsLoader);
+    private final ResultSetLoaderImpl rsLoader;
+
+    public BuildStateVisitor(ResultSetLoaderImpl rsLoader) {
+      this.rsLoader = rsLoader;
+    }
+
+    public void apply(SingleRowSetModel rowModel) {
+      rowModel.visit(this, null);
     }
 
     @Override
-    protected Void visitRow(SingleRowSetModel row,
-        ResultSetLoaderImpl rsLoader) {
-      row.bindCoordinator(new RowCoordinator(rsLoader, row));
-      return visitTuple(row, rsLoader);
-    }
-
-    @Override
-    protected Void visitMap(MapModel map, ResultSetLoaderImpl rsLoader) {
-      map.bindCoordinator(new MapCoordinator(rsLoader, map));
-      return visitTuple(map, rsLoader);
+    protected Void visitRow(SingleRowSetModel row, Void arg) {
+      row.bindCoordinator(new RowState(rsLoader, row));
+      row.visitChildren(this,  arg);
+      return null;
     }
 
     @Override
     protected Void visitPrimitiveColumn(PrimitiveColumnModel column,
-        ResultSetLoaderImpl rsLoader) {
-      column.bindCoordinator(new PrimitiveColumnState(rsLoader, column));
+        Void arg) {
+      column.bindCoordinator(new SimplePrimitiveColumnState(rsLoader, column));
       return null;
     }
 
     @Override
     protected Void visitPrimitiveArrayColumn(PrimitiveColumnModel column,
-        ResultSetLoaderImpl rsLoader) {
-      return visitPrimitiveColumn(column, rsLoader);
+        Void arg) {
+      column.bindCoordinator(new PrimitiveArrayColumnState(rsLoader, column));
+      return null;
     }
 
     @Override
     protected Void visitMapColumn(MapColumnModel column,
-        ResultSetLoaderImpl rsLoader) {
-      column.bindCoordinator(new MapColumnState(rsLoader));
+        Void arg) {
+      column.bindCoordinator(new MapColumnState(rsLoader, column));
+      column.mapModelImpl().bindCoordinator(new MapState(rsLoader, column));
+      column.mapModelImpl().visitChildren(this, arg);
       return null;
     }
 
     @Override
     protected Void visitMapArrayColumn(MapColumnModel column,
-        ResultSetLoaderImpl rsLoader) {
-      return visitMapColumn(column, rsLoader);
+        Void arg) {
+      column.bindCoordinator(new MapArrayColumnState(rsLoader, column));
+      column.mapModelImpl().bindCoordinator(new MapState(rsLoader, column));
+      column.mapModelImpl().visitChildren(this, arg);
+      return null;
+    }
+  }
+
+  /**
+   * Start a new batch by shifting the overflow buffers back into the main
+   * write vectors and updating the writers.
+   */
+
+  public static class UpdateCardinalityVisitor extends ModelVisitor<Void, Integer> {
+
+    public void apply(SingleRowSetModel rowModel, int rowCount) {
+      rowModel.visit(this, rowCount);
+    }
+
+    @Override
+    protected Void visitMapColumn(MapColumnModel column, Integer cardinality) {
+      visitMap(column, cardinality);
+      return null;
+    }
+
+    @Override
+    protected Void visitMapArrayColumn(MapColumnModel column, Integer cardinality) {
+      visitMap(column, cardinality);
+      int childCardinality = cardinality * column.schema().expectedElementCount();
+      column.mapModelImpl().visitChildren(this, childCardinality);
+      return null;
+    }
+
+    private void visitMap(MapColumnModel column, int cardinality) {
+      MapColumnState state = column.coordinator();
+      state.setCardinality(cardinality);
+      MapState mapState = column.mapModelImpl().coordinator();
+      mapState.setCardinality(cardinality);
+    }
+
+    @Override
+    protected Void visitColumn(AbstractSingleColumnModel column, Integer cardinality) {
+      PrimitiveColumnState state = column.coordinator();
+      state.setCardinality(cardinality);
+      return null;
     }
   }
 
@@ -102,6 +149,24 @@ public class LoaderVisitors {
     public void apply(SingleRowSetModel rowModel, int overflowIndex) {
       rowModel.visit(this, overflowIndex);
     }
+
+    @Override
+    protected Void visitMapArrayColumn(MapColumnModel column,
+        Integer overflowIndex) {
+      MapArrayColumnState colState = column.coordinator();
+      colState.rollOver(overflowIndex);
+      int arrayStartOffset = colState.offsetAt(overflowIndex);
+      column.mapModelImpl().visitChildren(this, arrayStartOffset);
+      return null;
+    }
+
+    /**
+     * Roll over a simple scalar or array of scalars.
+     *
+     * @param column the scalar column to roll-over
+     * @param context rollover point and cardinality for the new vector
+     * @return null
+     */
 
     @Override
     protected Void visitColumn(AbstractSingleColumnModel column, Integer overflowIndex) {
@@ -126,26 +191,44 @@ public class LoaderVisitors {
     @Override
     protected Void visitColumn(AbstractSingleColumnModel column, Void arg) {
       PrimitiveColumnState state = column.coordinator();
-      state.harvestWithOverflow();
+      state.harvestWithLookAhead();
       return null;
     }
   }
 
   /**
    * Start a new batch by shifting the overflow buffers back into the main
-   * write vectors. The writers are updated as a separate step.
+   * write vectors and updating the writers.
    */
 
-  public static class StartOverflowBatchVisitor extends ModelVisitor<Void, Void> {
+  public static class StartBatchVisitor extends ModelVisitor<Void, Void> {
 
     public void apply(SingleRowSetModel rowModel) {
       rowModel.visit(this, null);
     }
 
     @Override
+    protected Void visitMapColumn(MapColumnModel column, Void arg) {
+      visitMap(column);
+      return null;
+    }
+
+    @Override
+    protected Void visitMapArrayColumn(MapColumnModel column, Void arg) {
+      visitMap(column);
+      return null;
+    }
+
+    private void visitMap(MapColumnModel column) {
+      MapColumnState state = column.coordinator();
+      state.startBatch();
+      column.mapModelImpl().visitChildren(this, null);
+    }
+
+    @Override
     protected Void visitColumn(AbstractSingleColumnModel column, Void arg) {
       PrimitiveColumnState state = column.coordinator();
-      state.startOverflowBatch();
+      state.startBatch();
       return null;
     }
   }

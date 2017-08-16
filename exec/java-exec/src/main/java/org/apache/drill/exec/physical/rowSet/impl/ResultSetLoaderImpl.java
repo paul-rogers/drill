@@ -40,7 +40,7 @@ import org.apache.drill.exec.vector.ValueVector;
 
 public class ResultSetLoaderImpl implements ResultSetLoader {
 
-  public static final int DEFAULT_INITIAL_ROW_COUNT = BaseValueVector.INITIAL_VALUE_ALLOCATION;
+  public static final int DEFAULT_ROW_COUNT = BaseValueVector.INITIAL_VALUE_ALLOCATION;
 
   /**
    * Read-only set of options for the result set loader.
@@ -49,17 +49,13 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   public static class ResultSetOptions {
     public final int vectorSizeLimit;
     public final int rowCountLimit;
-    public final int initialRowCount;
-    public final boolean caseSensitive;
     public final ResultVectorCache vectorCache;
     public final Collection<String> projection;
     public final TupleMetadata schema;
 
     public ResultSetOptions() {
       vectorSizeLimit = ValueVector.MAX_BUFFER_SIZE;
-      rowCountLimit = ValueVector.MAX_ROW_COUNT;
-      initialRowCount = DEFAULT_INITIAL_ROW_COUNT;
-      caseSensitive = false;
+      rowCountLimit = DEFAULT_ROW_COUNT;
       projection = null;
       vectorCache = null;
       schema = null;
@@ -68,8 +64,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     public ResultSetOptions(OptionBuilder builder) {
       this.vectorSizeLimit = builder.vectorSizeLimit;
       this.rowCountLimit = builder.rowCountLimit;
-      this.initialRowCount = builder.initialRowCount;
-      this.caseSensitive = builder.caseSensitive;
       this.projection = builder.projection;
       this.vectorCache = builder.vectorCache;
       this.schema = builder.schema;
@@ -85,8 +79,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   public static class OptionBuilder {
     private int vectorSizeLimit;
     private int rowCountLimit;
-    private int initialRowCount;
-    private boolean caseSensitive;
     private Collection<String> projection;
     private ResultVectorCache vectorCache;
     private TupleMetadata schema;
@@ -95,15 +87,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       ResultSetOptions options = new ResultSetOptions();
       vectorSizeLimit = options.vectorSizeLimit;
       rowCountLimit = options.rowCountLimit;
-      initialRowCount = options.initialRowCount;
-      caseSensitive = options.caseSensitive;
-    }
-
-    // Nice idea, but is over-achieving, will be removed
-    @Deprecated
-    public OptionBuilder setCaseSensitive(boolean flag) {
-      caseSensitive = flag;
-      return this;
     }
 
     /**
@@ -118,7 +101,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
      */
 
     public OptionBuilder setRowCountLimit(int limit) {
-      rowCountLimit = Math.min(limit, ValueVector.MAX_ROW_COUNT);
+      rowCountLimit = Math.max(1,
+          Math.min(limit, ValueVector.MAX_ROW_COUNT));
       return this;
     }
 
@@ -352,10 +336,19 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
   private int pendingRowCount;
 
+  /**
+   * The number of rows per batch. Starts with the configured amount. Can be
+   * adjusted between batches, perhaps based on the actual observed size of
+   * input data.
+   */
+
+  private int targetRowCount;
+
   public ResultSetLoaderImpl(BufferAllocator allocator, ResultSetOptions options) {
     this.allocator = allocator;
     this.options = options;
-    writerIndex = new WriterIndexImpl(options.rowCountLimit);
+    targetRowCount = options.rowCountLimit;
+    writerIndex = new WriterIndexImpl(this);
 
     if (options.vectorCache == null) {
       vectorCache = new NullResultVectorCacheImpl(allocator);
@@ -382,7 +375,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
     // Create the loader state objects for each vector
 
-    new BuildStateVisitor().apply(rootModel, this);
+    new BuildStateVisitor(this).apply(rootModel);
 
 //    AbstractTupleLoader root = new RootLoader(this, writerIndex);
 //    if (options.projection == null) {
@@ -394,14 +387,19 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     // Define the writers. (May be only a root writer if no schema yet.)
 
     rootWriter = new RowSetWriterBuilder().buildWriter(this);
+
+    // Provide the expected cardinality for the structure created
+    // thus far.
+
+    updateCardinality();
+  }
+
+  private void updateCardinality() {
+    new UpdateCardinalityVisitor().apply(rootModel, targetRowCount());
   }
 
   public ResultSetLoaderImpl(BufferAllocator allocator) {
     this(allocator, new ResultSetOptions());
-  }
-
-  public String toKey(String colName) {
-    return options.caseSensitive ? colName : colName.toLowerCase();
   }
 
   public BufferAllocator allocator() { return allocator; }
@@ -419,12 +417,14 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     switch (state) {
     case HARVESTED:
     case START:
+      updateCardinality();
+      new StartBatchVisitor().apply(rootModel);
 
       // The previous batch ended without overflow, so start
       // a new batch, and reset the write index to 0.
 
-      rootWriter.startWrite();
       writerIndex.reset();
+      rootWriter.startWrite();
       break;
 
     case LOOK_AHEAD:
@@ -434,11 +434,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       // the last write position of each writer must be restored on
       // a column-by-column basis, which is done by the visitor.
 
-      new StartOverflowBatchVisitor().apply(rootModel);
+      new StartBatchVisitor().apply(rootModel);
 
       // Reset the writers to a new vector, but at a given position.
 
-      rootWriter.reset(writerIndex.vectorIndex());
+      rootWriter.startWriteAt(writerIndex.vectorIndex());
       break;
 
     default:
@@ -578,9 +578,12 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   protected WriterIndexImpl writerIndex() { return writerIndex; }
 
   @Override
-  public int targetRowCount() { return options.rowCountLimit; }
+  public void setTargetRowCount(int rowCount) {
+    targetRowCount = Math.max(1, rowCount);
+  }
 
-  public int initialRowCount() { return options.initialRowCount; }
+  @Override
+  public int targetRowCount() { return targetRowCount; }
 
   @Override
   public int targetVectorSize() { return options.vectorSizeLimit; }
@@ -591,10 +594,17 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     // that a single value is too large to fit into an entire vector.
     // Fail the query.
     //
-    // Note that this is a judgement call. It is possible to allow the
+    // Note that this is a judgment call. It is possible to allow the
     // vector to double beyond the limit, but that will require a bit
     // of thought to get right -- and, of course, completely defeats
     // the purpose of limiting vector size to avoid memory fragmentation...
+    //
+    // Individual columns handle the case in which overflow occurs on the
+    // first row of the main batch. This check handles the pathological case
+    // in which we successfully overflowed, but then another column
+    // overflowed during the overflow row -- that indicates that that one
+    // column can't fit in an empty vector. That is, this check is for a
+    // second-order overflow.
 
     if (state == State.OVERFLOW) {
       throw UserException
@@ -605,6 +615,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       throw new IllegalStateException("Unexpected state: " + state);
     }
     pendingRowCount = writerIndex.vectorIndex();
+    updateCardinality();
     new RollOverVisitor().apply(rootModel, pendingRowCount);
 
     // The writer index is reset back to 0. Because of the above roll-over
@@ -619,8 +630,15 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     // the array values have been moved, offset vectors adjusted, the
     // element writer adjusted, so that v4 will be written to index 3
     // to produce (v1, v2, v3, v4, v5, ...) in the look-ahead vector.
+    //
+    // Note that resetting of writers and their indexes was done bottom-up.
+    // We SHOULD NOT attempt to reset them top down here, else we'll lose
+    // knowledge of the roll-over array values.
 
     writerIndex.reset();
+
+    // Remember that overflow is in effect.
+
     state = State.OVERFLOW;
   }
 

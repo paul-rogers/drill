@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
-import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 
 /**
@@ -28,55 +28,53 @@ import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
  * the current row. The most recent row can be abandoned easily simply by not
  * calling <tt>next()</tt>. This means that the number of completed rows is
  * the same as the row index.
+ * <p>
+ * The writer index enforces the row count limit for a new batch. The
+ * limit is set by the result set loader and can vary from batch to batch
+ * if the client chooses in order to adjust the row count based on actual
+ * data size.
  */
 
 class WriterIndexImpl implements ColumnWriterIndex {
 
-  private final int rowCountLimit;
+  private final ResultSetLoader rsLoader;
   private int rowIndex = 0;
 
-  public WriterIndexImpl() {
-    this(ValueVector.MAX_ROW_COUNT);
-  }
-
-  public WriterIndexImpl(int rowCountLimit) {
-    this.rowCountLimit = rowCountLimit;
+  public WriterIndexImpl(ResultSetLoader rsLoader) {
+    this.rsLoader = rsLoader;
   }
 
   @Override
   public int vectorIndex() { return rowIndex; }
 
   public boolean next() {
-    if (++rowIndex < rowCountLimit) {
+    if (++rowIndex < rsLoader.targetRowCount()) {
       return true;
     } else {
       // Should not call next() again once batch is full.
-      rowIndex = rowCountLimit;
+      rowIndex = rsLoader.targetRowCount();
       return false;
     }
   }
 
   public int size() {
+
     // The index always points to the next slot past the
     // end of valid rows.
+
     return rowIndex;
   }
 
-  public boolean valid() { return rowIndex < rowCountLimit; }
-
-//  @Override
-//  public void overflowed() {
-//    state = State.VECTOR_OVERFLOW;
-//    if (listener != null) {
-//      listener.overflowed();
-//    } else {
-//
-//    }
-//  }
+  public boolean valid() { return rowIndex < rsLoader.targetRowCount(); }
 
   public void reset(int index) {
     assert index <= rowIndex;
     rowIndex = index;
+  }
+
+  @Override
+  public void resetTo(int newIndex) {
+    throw new IllegalStateException("The top level index should not be reset to a non-zero position");
   }
 
   public void reset() {

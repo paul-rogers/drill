@@ -234,6 +234,45 @@
  * starts as an index relative to the result set (a row index), and is
  * recursively replaced with an array offset for each level of the array.
  *
+ * <h4>Resynching Writers after Overflow</h4>
+ *
+ * When an overflow occurs, our focus is starts with the single top-level row
+ * that will not fit into the current batch. We move this row to the look-ahead
+ * vectors. Doing so is quite simple when each row is a simple tuple. As
+ * described above, the work is quite a bit more complex when the structure
+ * is a JSON-like tree flattened into vectors.
+ * <p>
+ * Consider the writers. Each writer corresponds to a single vector. Writers
+ * are grouped into logical tree nodes. Those in the root node write to
+ * (single, scalar) columns that are either top-level columns, or nested
+ * some level down in single-value (not array) tuples. Another tree level
+ * occurs in an array: the elements of the array use a different
+ * (faster-changing) index than the top (row-level) writers. Different arrays
+ * have different indexes: a row may have, say, four elements in array A,
+ * but 20 elements in array B.
+ * <p>
+ * Further, arrays can be singular (a repeated int, say) or for an entire
+ * tuple (a repeated map.) And, since Drill supports the full JSON model, in
+ * the most general case, there is a tree of array indexes that can be nested
+ * to an arbitrary level. (A row can have an array of maps which contains a
+ * column that is, itself, a list of repeated maps, a field of which is an
+ * array of ints.)
+ * <p>
+ * Writers handle this index tree via a tree of {@link ColumnWriterIndex}
+ * objects, often specialized for various tasks.
+ * <p>
+ * Now we can get to the key concept in this section: how we update those indexes
+ * after an overflow. The top-level index reverts to zero. (We start writing
+ * the 0th row in the new look-ahead batch.) But, nested indexes (those for arrays)
+ * will start at some other position depending on the number elements already
+ * written in an overflow row. The number of such elements is determined by a
+ * top-down traversal of the tree (to determine the start offset of each array
+ * for the row.) Resetting the writer indexes is a bottom-up process: based on
+ * the number of elements in that array, the writer index is reset to match.
+ * <p>
+ * This flow is the opposite of the "normal" case in which a new batch is started
+ * top-down, with each index being reset to zero.
+ *
  * <h4>The Need for a Uniform Structure</h4>
  *
  * Drill has vastly different implementations and interfaces for:

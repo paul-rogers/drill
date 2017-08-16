@@ -18,6 +18,10 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.exec.expr.TypeHelper;
+import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapArrayColumnState;
+import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapColumnState;
+import org.apache.drill.exec.physical.rowSet.impl.PrimitiveColumnState.PrimitiveArrayColumnState;
+import org.apache.drill.exec.physical.rowSet.impl.PrimitiveColumnState.SimplePrimitiveColumnState;
 import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel;
 import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
 import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.TupleCoordinator;
@@ -40,33 +44,45 @@ import org.apache.drill.exec.vector.accessor.writer.ObjectArrayWriter;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 
-public class LoaderTupleCoordinator implements TupleCoordinator {
+public abstract class TupleState implements TupleCoordinator {
 
-  public static class RowCoordinator extends LoaderTupleCoordinator {
+  public static class RowState extends TupleState {
 
+    @SuppressWarnings("unused")
     private final SingleRowSetModel row;
 
-    public RowCoordinator(ResultSetLoaderImpl rsLoader, SingleRowSetModel row) {
+    public RowState(ResultSetLoaderImpl rsLoader, SingleRowSetModel row) {
       super(rsLoader);
       this.row = row;
     }
 
+    @Override
+    public int innerCardinality() { return resultSetLoader.targetRowCount();}
   }
 
-  public static class MapCoordinator extends LoaderTupleCoordinator {
+  public static class MapState extends TupleState {
 
-    private final MapModel map;
+    private final MapColumnModel mapColumn;
+    protected int outerCardinality;
 
-    public MapCoordinator(ResultSetLoaderImpl rsLoader, MapModel map) {
+    public MapState(ResultSetLoaderImpl rsLoader, MapColumnModel mapColumn) {
       super(rsLoader);
-      this.map = map;
+      this.mapColumn = mapColumn;
     }
 
+    public void setCardinality(int outerCardinality) {
+      this.outerCardinality = outerCardinality;
+    }
+
+    @Override
+    public int innerCardinality() {
+      return outerCardinality * mapColumn.schema().expectedElementCount();
+    }
   }
 
   protected final ResultSetLoaderImpl resultSetLoader;
 
-  protected LoaderTupleCoordinator(ResultSetLoaderImpl rsLoader) {
+  protected TupleState(ResultSetLoaderImpl rsLoader) {
     this.resultSetLoader = rsLoader;
   }
 
@@ -79,6 +95,8 @@ public class LoaderTupleCoordinator implements TupleCoordinator {
     assert false;
   }
 
+  public abstract int innerCardinality();
+
   @Override
   public ObjectWriter columnAdded(
       AbstractSingleTupleModel tupleModel,
@@ -87,11 +105,9 @@ public class LoaderTupleCoordinator implements TupleCoordinator {
     // Verify name is not a (possibly case insensitive) duplicate.
 
     TupleMetadata tupleSchema = tupleModel.schema();
-    String lastName = columnSchema.name();
-    String key = resultSetLoader.toKey(lastName);
-    if (tupleSchema.column(key) != null) {
-      // TODO: Include full path as context
-      throw new IllegalArgumentException("Duplicate column: " + lastName);
+    String colName = columnSchema.name();
+    if (tupleSchema.column(colName) != null) {
+      throw new IllegalArgumentException("Duplicate column: " + colName);
     }
 
     if (columnSchema.isMap()) {
@@ -122,9 +138,22 @@ public class LoaderTupleCoordinator implements TupleCoordinator {
 
     colModel.bindWriter(colWriter);
 
-    // Create a new column coordinator for the new column.
+    // Create a column coordinator for the new column.
 
-    colModel.bindCoordinator(new PrimitiveColumnState(resultSetLoader, colModel));
+    PrimitiveColumnState colState;
+    if (colModel.schema().isArray()) {
+      colState = new PrimitiveArrayColumnState(resultSetLoader, colModel);
+    } else {
+      colState = new SimplePrimitiveColumnState(resultSetLoader, colModel);
+    }
+    colModel.bindCoordinator(colState);
+
+    // Allocate vectors if a batch is active.
+
+    colState.setCardinality(innerCardinality());
+    if (resultSetLoader.writeable()) {
+      colState.allocateVectors();
+    }
     return colWriter;
   }
 
@@ -176,8 +205,22 @@ public class LoaderTupleCoordinator implements TupleCoordinator {
 
     mapColModel.bindWriter(mapWriter);
 
-    // No column coordinator for map columns.
+    // Create a column coordinator for the new column.
 
+    ColumnState colState;
+    if (mapColModel.schema().isArray()) {
+      colState = new MapArrayColumnState(resultSetLoader, mapColModel);
+    } else {
+      colState = new MapColumnState(resultSetLoader, mapColModel);
+    }
+    mapColModel.bindCoordinator(colState);
+
+    // Allocate vectors if a batch is active.
+
+    colState.setCardinality(innerCardinality());
+    if (resultSetLoader.writeable()) {
+      colState.allocateVectors();
+    }
     return mapWriter;
   }
 }

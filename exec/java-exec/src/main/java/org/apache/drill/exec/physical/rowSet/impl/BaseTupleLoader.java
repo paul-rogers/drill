@@ -91,30 +91,30 @@ public abstract class BaseTupleLoader extends AbstractTupleLoader {
     // If a batch is active, prepare the column for writing.
 
     if (resultSetLoader.writeable()) {
-      colLoader.startOverflowBatch();
+      colLoader.startBatch();
     }
     return colLoader;
   }
 
   @Override
-  protected void rollOver(int overflowIndex) {
+  protected void rollOverValues(int overflowIndex) {
     for (AbstractColumnLoader col : columns) {
-      col.rollOver(overflowIndex);
+      col.rollOverValues(overflowIndex);
     }
   }
 
   @Override
   protected void resetBatch() {
     for (AbstractColumnLoader col : columns) {
-      col.startOverflowBatch();
+      col.startBatch();
     }
   }
 
   @Override
-  protected void harvestWithOverflow() {
+  protected void harvestWithLookAhead() {
     endWrite();
     for (AbstractColumnLoader col : columns) {
-      col.harvestWithOverflow();
+      col.harvestWithLookAhead();
     }
   }
 
@@ -133,7 +133,7 @@ public abstract class BaseTupleLoader extends AbstractTupleLoader {
   }
 
   @Override
-  public void reset(int index) {
+  public void startWriteAt(int index) {
     throw new IllegalStateException();
   }
 

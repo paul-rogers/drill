@@ -321,7 +321,6 @@ public class SingleRowSetModel extends AbstractSingleTupleModel implements RowSe
 
   public AbstractTupleWriter writer() { return writer; }
 
-  @Override
   public void close() {
     container.clear();
   }

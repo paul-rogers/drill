@@ -33,6 +33,10 @@ import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 
 public abstract class MapWriter extends AbstractTupleWriter {
 
+  /**
+   * TODO: Why do we need this to wrap the outer index?
+   */
+
   private static class MemberWriterIndex implements ColumnWriterIndex {
     private ColumnWriterIndex baseIndex;
 
@@ -42,7 +46,19 @@ public abstract class MapWriter extends AbstractTupleWriter {
 
     @Override public int vectorIndex() { return baseIndex.vectorIndex(); }
     @Override public void nextElement() { }
+
+    @Override
+    public void resetTo(int newIndex) {
+      // TODO Auto-generated method stub
+      assert false;
+    }
   }
+
+  /**
+   * Writer for a single (non-array) map. Clients don't really "write" maps;
+   * rather, this writer is a holder for the columns within the map, and those
+   * columns are what is written.
+   */
 
   private static class SingleMapWriter extends MapWriter {
     private final MapVector mapVector;
@@ -64,10 +80,19 @@ public abstract class MapWriter extends AbstractTupleWriter {
     }
 
     @Override
-    public void reset(int index) {
+    public void startWriteAt(int index) {
       // TODO Auto-generated method stub
+      assert false;
     }
   }
+
+  /**
+   * Writer for a an array of maps. A single array index coordinates writes
+   * to the constituent member vectors so that, say, the values for (row 10,
+   * element 5) all occur to the same position in the columns within the map.
+   * Since the map is an array, it has an associated offset vector, which the
+   * parrent array writer is responsible for maintaining.
+   */
 
   private static class ArrayMapWriter extends MapWriter {
     private final RepeatedMapVector mapVector;
@@ -148,7 +173,8 @@ public abstract class MapWriter extends AbstractTupleWriter {
   }
 
   @Override
-  public void reset(int index) {
+  public void startWriteAt(int index) {
+    // TODO
     assert false;
   }
 }

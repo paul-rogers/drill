@@ -167,15 +167,10 @@ public class PerformanceTool {
     public int vectorIndex() { return index; }
 
     @Override
-    public void overflowed() {
-      throw new IllegalStateException();
-    }
-
-    @Override
-    public boolean legal() { return true; }
-
-    @Override
     public void nextElement() { index++; }
+
+    @Override
+    public void resetTo(int newIndex) { }
   }
 
   public static class RequiredWriterTester extends PerfTester {

@@ -61,5 +61,8 @@ public class RowSetReaderImpl extends AbstractTupleReader implements RowSetReade
   public int batchIndex() { return readerIndex.batchIndex(); }
 
   @Override
-  public void set(int index) { this.readerIndex.set(index); }
+  public void set(int index) {
+    this.readerIndex.set(index);
+    reposition();
+  }
 }

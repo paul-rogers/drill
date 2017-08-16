@@ -65,7 +65,7 @@ public class RowSetLoaderImpl extends AbstractTupleWriter implements RowSetLoade
   public boolean isFull( ) { return rsLoader.isFull(); }
 
   @Override
-  public void reset(int index) { }
+  public void startWriteAt(int index) { }
 
   @Override
   public int rowCount() { return rsLoader.rowCount(); }

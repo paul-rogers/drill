@@ -100,9 +100,9 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   }
 
   @Override
-  public void reset(int index) {
-    isSetWriter.reset(index);
-    baseWriter.reset(index);
+  public void startWriteAt(int index) {
+    isSetWriter.startWriteAt(index);
+    baseWriter.startWriteAt(index);
   }
 
   @Override

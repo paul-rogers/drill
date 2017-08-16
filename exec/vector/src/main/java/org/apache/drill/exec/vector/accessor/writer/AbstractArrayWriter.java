@@ -115,6 +115,14 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
     @Override
     public void nextElement() { offset++; }
+
+    public int startOffset() { return startOffset; }
+
+    @Override
+    public void resetTo(int newIndex) {
+      startOffset = 0;
+      offset = newIndex;
+    }
   }
 
   protected final AbstractObjectWriter elementObjWriter;
@@ -187,13 +195,40 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   }
 
   @Override
-  public void reset(int index) {
+  public void startWriteAt(int index) {
     assert false;
   }
 
   @Override
   public int lastWriteIndex() {
     return baseIndex.vectorIndex();
+  }
+
+  /**
+   * When handling overflow, we need to know the position, within
+   * the array column, of the first value for the current outer
+   * (say, row) value.
+   *
+   * @return the offset into the array of the first value for
+   * the outer value
+   */
+
+  public int lastArrayOffset() {
+    return elementIndex.startOffset();
+  }
+
+  /**
+   * Return the writer for the offset vector for this array. Primarily used
+   * to handle overflow; other clients should not attempt to muck about with
+   * the offset vector directly.
+   *
+   * @return the writer for the offset vector associated with this array
+   */
+
+  public OffsetVectorWriter offsetWriter() { return offsetsWriter; }
+
+  public void resetElementIndex(int newIndex) {
+    elementIndex.resetTo(newIndex);
   }
 
   public void bindListener(ColumnWriterListener listener) {

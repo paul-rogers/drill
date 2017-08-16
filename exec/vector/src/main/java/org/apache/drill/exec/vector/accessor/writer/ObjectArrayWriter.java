@@ -55,7 +55,7 @@ public class ObjectArrayWriter extends AbstractArrayWriter {
   }
 
   @Override
-  public void reset(int index) {
+  public void startWriteAt(int index) {
     assert false;
   }
 

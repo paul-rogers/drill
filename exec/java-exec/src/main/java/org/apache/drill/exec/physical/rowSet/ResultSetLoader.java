@@ -48,6 +48,15 @@ public interface ResultSetLoader {
   int schemaVersion();
 
   /**
+   * Adjust the number of rows to produce in the next batch. Takes
+   * affect after the next call to {@link #startBatch()}.
+   *
+   * @param count target batch row count
+   */
+
+  void setTargetRowCount(int count);
+
+  /**
    * The number of rows produced by this loader (as configured in the loader
    * options.)
    *

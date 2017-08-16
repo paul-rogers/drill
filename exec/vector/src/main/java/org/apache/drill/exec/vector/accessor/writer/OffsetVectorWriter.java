@@ -30,12 +30,25 @@ import io.netty.util.internal.PlatformDependent;
  * Specialized column writer for the (hidden) offset vector used
  * with variable-length or repeated vectors. See comments in the
  * <tt>ColumnAccessors.java</tt> template file for more details.
+ * <p>
+ * Note that the <tt>lastWriteIndex</tt> tracked here corresponds
+ * to the data values; it is one less than the actual offset vector
+ * last write index due to the nature of offset vector layouts. The selection
+ * of last write index basis makes roll-over processing easier as only this
+ * writer need know about the +1 translation required for writing.
  */
 
 public class OffsetVectorWriter extends BaseScalarWriter {
   private static final int VALUE_WIDTH = UInt4Vector.VALUE_WIDTH;
   private UInt4Vector vector;
-  private int writeOffset;
+
+  /**
+   * Offset into the data vector that this offset vector targets. Caching
+   * the value here avoids the need to query the offset vector for every
+   * new value.
+   */
+
+  private int lastTargetOffset;
 
   public OffsetVectorWriter(UInt4Vector vector) {
     this.vector = vector;
@@ -49,13 +62,21 @@ public class OffsetVectorWriter extends BaseScalarWriter {
     // for row 0 starts at position 1, which is handled in
     // writeOffset() below.
 
-    writeOffset = 0;
-    lastWriteIndex = 0;
-    if (capacity < ColumnAccessors.MIN_BUFFER_SIZE) {
-      vector.reallocRaw(ColumnAccessors.MIN_BUFFER_SIZE);
-    }
+    lastTargetOffset = 0;
+    lastWriteIndex = -1;
     setAddr(vector.getBuffer());
-    PlatformDependent.putInt(bufAddr, writeOffset);
+    if (capacity < ColumnAccessors.MIN_BUFFER_SIZE) {
+      vector.reallocRaw(ColumnAccessors.MIN_BUFFER_SIZE * VALUE_WIDTH);
+      setAddr(vector.getBuffer());
+    }
+    PlatformDependent.putInt(bufAddr, lastTargetOffset);
+  }
+
+  @Override
+  public void startWriteAt(int newIndex) {
+    startWrite();
+    lastWriteIndex = newIndex;
+    lastTargetOffset = PlatformDependent.getInt(bufAddr + (lastWriteIndex + 1) * VALUE_WIDTH);
   }
 
   private final void setAddr(final DrillBuf buf) {
@@ -63,17 +84,26 @@ public class OffsetVectorWriter extends BaseScalarWriter {
     capacity = buf.capacity() / VALUE_WIDTH;
   }
 
-  public int writeOffset() { return writeOffset; }
+  public int targetOffset() { return lastTargetOffset; }
 
   @Override
   public ValueType valueType() {
     return ValueType.INTEGER;
   }
 
+  /**
+   * Return the write offset, which is one greater than the index reported
+   * by the vector index.
+   *
+   * @return the offset in which to write the current offset of the end
+   * of the current data value
+   */
+
   private final int writeIndex() {
-    int writeIndex = vectorIndex.vectorIndex() + 1;
-    if (lastWriteIndex + 1 == writeIndex && writeIndex < capacity) {
-      lastWriteIndex = writeIndex;
+    int valueIndex = vectorIndex.vectorIndex();
+    int writeIndex = valueIndex + 1;
+    if (lastWriteIndex + 1 == valueIndex && writeIndex < capacity) {
+      lastWriteIndex = valueIndex;
       return writeIndex;
     }
     if (writeIndex >= capacity) {
@@ -87,30 +117,23 @@ public class OffsetVectorWriter extends BaseScalarWriter {
         setAddr(vector.reallocRaw(BaseAllocator.nextPowerOfTwo(size)));
       }
     }
-    while (lastWriteIndex < writeIndex - 1) {
-      PlatformDependent.putInt(bufAddr + ++lastWriteIndex * VALUE_WIDTH, writeOffset);
+    while (lastWriteIndex < valueIndex - 1) {
+      PlatformDependent.putInt(bufAddr + (++lastWriteIndex + 1) * VALUE_WIDTH, lastTargetOffset);
     }
-    lastWriteIndex = writeIndex;
+    lastWriteIndex = valueIndex;
     return writeIndex;
   }
 
   public final void setOffset(final int curOffset) {
     final int writeIndex = writeIndex();
     PlatformDependent.putInt(bufAddr + writeIndex * VALUE_WIDTH, curOffset);
-    writeOffset = curOffset;
+    lastTargetOffset = curOffset;
   }
 
   @Override
   public final void endWrite() {
     final int finalIndex = writeIndex();
     vector.getBuffer().writerIndex(finalIndex * VALUE_WIDTH);
-  }
-
-  @Override
-  public void reset(int newIndex) {
-    startWrite();
-    lastWriteIndex = newIndex + 1;
-    writeOffset = PlatformDependent.getInt(bufAddr + lastWriteIndex * VALUE_WIDTH);
   }
 
   @Override
