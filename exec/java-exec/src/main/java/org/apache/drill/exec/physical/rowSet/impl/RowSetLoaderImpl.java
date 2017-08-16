@@ -41,9 +41,13 @@ public class RowSetLoaderImpl extends AbstractTupleWriter implements RowSetLoade
   }
 
   @Override
-  public void setRow(Object...values) {
+  public RowSetLoader setRow(Object...values) {
+    if (! start()) {
+      throw new IllegalStateException("Batch is full.");
+    }
     setObject(values);
     save();
+    return this;
   }
 
   @Override

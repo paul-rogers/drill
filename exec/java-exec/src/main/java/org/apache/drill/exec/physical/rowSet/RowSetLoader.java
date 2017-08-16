@@ -76,7 +76,7 @@ public interface RowSetLoader extends TupleWriter {
    *          variable-length argument list of column values
    */
 
-  void setRow(Object... values);
+  RowSetLoader setRow(Object... values);
 
   /**
    * Indicates that no more rows fit into the current row batch and that the row

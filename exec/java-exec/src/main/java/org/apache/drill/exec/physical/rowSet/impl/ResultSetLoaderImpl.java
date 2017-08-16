@@ -373,10 +373,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       rootModel = SingleRowSetModel.fromSchema(allocator, options.schema);
     }
 
-    // Create the loader state objects for each vector
-
-    new BuildStateVisitor(this).apply(rootModel);
-
 //    AbstractTupleLoader root = new RootLoader(this, writerIndex);
 //    if (options.projection == null) {
 //      rootWriter = root;
@@ -387,6 +383,10 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     // Define the writers. (May be only a root writer if no schema yet.)
 
     rootWriter = new RowSetWriterBuilder().buildWriter(this);
+
+    // Create the loader state objects for each vector
+
+    new BuildStateVisitor(this).apply(rootModel);
 
     // Provide the expected cardinality for the structure created
     // thus far.

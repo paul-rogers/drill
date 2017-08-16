@@ -40,7 +40,7 @@ import org.junit.Test;
 
 import com.google.common.base.Charsets;
 
-public class TestResultSetOverflow extends SubOperatorTest {
+public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
   /**
    * Test that the writer detects a vector overflow. The offending column
@@ -134,6 +134,13 @@ public class TestResultSetOverflow extends SubOperatorTest {
     rsLoader.close();
   }
 
+  /**
+   * Test a row with a single array column which overflows. Verifies
+   * that all the fiddly bits about offset vectors and so on works
+   * correctly. Run this test (the simplest case) if you change anything
+   * about the array handling code.
+   */
+
   @Test
   public void testSizeLimitOnArray() {
     ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
@@ -210,6 +217,188 @@ public class TestResultSetOverflow extends SubOperatorTest {
     for (int i = 0; i < valuesPerArray; i++) {
       String cellValue = strValue + (count) + "." + i;
       assertEquals(cellValue, arrayReader.getString(i));
+    }
+    result.clear();
+
+    rsLoader.close();
+  }
+
+  /**
+   * Test the complete set of array overflow cases:
+   * <ul>
+   * <li>Array a is written before the column that has overflow,
+   * and must be copied, in its entirety, to the overflow row.</li>
+   * <li>Column b causes the overflow.</li>
+   * <li>Column c is written after the overflow, and should go
+   * to the look-ahead row.</li>
+   * <li>Column d is written for a while, then has empties before
+   * the overflow row, but is written in the overflow row.<li>
+   * <li>Column e is like d, but is not written in the overflow
+   * row.</li>
+   */
+
+  @Test
+  public void testArrayOverflowWithOtherArrays() {
+    TupleMetadata schema = new SchemaBuilder()
+        .addArray("a", MinorType.INT)
+        .addArray("b", MinorType.VARCHAR)
+        .addArray("c", MinorType.INT)
+        .addArray("d", MinorType.INT)
+        .buildSchema();
+    ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+        .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
+        .setSchema(schema)
+        .build();
+    ResultSetLoaderImpl rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    RowSetLoader rootWriter = rsLoader.writer();
+
+    // Fill batch with rows of with a single array, three values each. Tack on
+    // a suffix to each so we can be sure the proper data is written and moved
+    // to the overflow batch.
+
+    byte value[] = new byte[512];
+    Arrays.fill(value, (byte) 'X');
+    String strValue = new String(value, Charsets.UTF_8);
+
+    int aCount = 3;
+    int bCount = 11;
+    int cCount = 5;
+    int dCount = 7;
+
+    int cCutoff = ValueVector.MAX_BUFFER_SIZE / value.length / bCount / 2;
+
+    ScalarWriter aWriter = rootWriter.array("a").scalar();
+    ScalarWriter bWriter = rootWriter.array("b").scalar();
+    ScalarWriter cWriter = rootWriter.array("c").scalar();
+    ScalarWriter dWriter = rootWriter.array("d").scalar();
+
+    int count = 0;
+    rsLoader.startBatch();
+    while (rootWriter.start()) {
+      for (int i = 0; i < aCount; i++) {
+        aWriter.setInt(count * aCount + i);
+      }
+      for (int i = 0; i < bCount; i++) {
+        String cellValue = strValue + (count * bCount + i);
+        bWriter.setString(cellValue);
+      }
+      if (count < cCutoff) {
+        for (int i = 0; i < cCount; i++) {
+          cWriter.setInt(count * cCount + i);
+        }
+      }
+      if (count < cCutoff || rsLoader.hasOverflow()) {
+        for (int i = 0; i < dCount; i++) {
+          dWriter.setInt(count * dCount + i);
+        }
+      }
+      rootWriter.save();
+      count++;
+    }
+
+    // Verify
+
+    RowSet result = fixture.wrap(rsLoader.harvest());
+    assertEquals(count - 1, result.rowCount());
+
+    RowSetReader reader = result.reader();
+    ScalarElementReader aReader = reader.array("a").elements();
+    ScalarElementReader bReader = reader.array("b").elements();
+    ScalarElementReader cReader = reader.array("c").elements();
+    ScalarElementReader dReader = reader.array("d").elements();
+
+    while (reader.next()) {
+      int rowId = reader.rowIndex();
+      assertEquals(aCount, aReader.size());
+      for (int i = 0; i < aCount; i++) {
+        assertEquals(rowId * aCount + i, aReader.getInt(i));
+      }
+      assertEquals(bCount, bReader.size());
+      for (int i = 0; i < bCount; i++) {
+        String cellValue = strValue + (rowId * bCount + i);
+        assertEquals(cellValue, bReader.getString(i));
+      }
+      if (rowId < cCutoff) {
+        assertEquals(cCount, cReader.size());
+        for (int i = 0; i < cCount; i++) {
+          assertEquals(rowId * cCount + i, cReader.getInt(i));
+        }
+        assertEquals(dCount, dReader.size());
+        for (int i = 0; i < dCount; i++) {
+          assertEquals(rowId * dCount + i, dReader.getInt(i));
+        }
+      } else {
+        assertEquals(0, cReader.size());
+        assertEquals(0, dReader.size());
+      }
+    }
+    result.clear();
+    int firstCount = count - 1;
+
+    // One row is in the batch. Write more, skipping over the
+    // initial few values for columns c and d. Column d has a
+    // roll-over value, c has an empty roll-over.
+
+    rsLoader.startBatch();
+    for (int j = 0; j < 5; j++) {
+      rootWriter.start();
+      for (int i = 0; i < aCount; i++) {
+        aWriter.setInt(count * aCount + i);
+      }
+      for (int i = 0; i < bCount; i++) {
+        String cellValue = strValue + (count * bCount + i);
+        bWriter.setString(cellValue);
+      }
+      if (j > 3) {
+        for (int i = 0; i < cCount; i++) {
+          cWriter.setInt(count * cCount + i);
+        }
+        for (int i = 0; i < dCount; i++) {
+          dWriter.setInt(count * dCount + i);
+        }
+      }
+      rootWriter.save();
+      count++;
+    }
+
+    result = fixture.wrap(rsLoader.harvest());
+    assertEquals(6, result.rowCount());
+
+    reader = result.reader();
+    aReader = reader.array("a").elements();
+    bReader = reader.array("b").elements();
+    cReader = reader.array("c").elements();
+    dReader = reader.array("d").elements();
+
+    int j = 0;
+    while (reader.next()) {
+      int rowId = firstCount + reader.rowIndex();
+      assertEquals(aCount, aReader.size());
+      for (int i = 0; i < aCount; i++) {
+        assertEquals(rowId * aCount + i, aReader.getInt(i));
+      }
+      assertEquals(bCount, bReader.size());
+      for (int i = 0; i < bCount; i++) {
+        String cellValue = strValue + (rowId * bCount + i);
+        assertEquals(cellValue, bReader.getString(i));
+      }
+      if (j > 4) {
+        assertEquals(cCount, cReader.size());
+        for (int i = 0; i < cCount; i++) {
+          assertEquals(rowId * cCount + i, cReader.getInt(i));
+        }
+      } else {
+        assertEquals(0, cReader.size());
+      }
+      if (j == 0 || j > 4) {
+        assertEquals(dCount, dReader.size());
+        for (int i = 0; i < dCount; i++) {
+          assertEquals(rowId * dCount + i, dReader.getInt(i));
+        }
+      } else {
+        assertEquals(0, dReader.size());
+      }
+      j++;
     }
     result.clear();
 

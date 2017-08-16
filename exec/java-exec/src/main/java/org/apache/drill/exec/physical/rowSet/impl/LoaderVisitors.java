@@ -63,22 +63,19 @@ public class LoaderVisitors {
     }
 
     @Override
-    protected Void visitPrimitiveColumn(PrimitiveColumnModel column,
-        Void arg) {
+    protected Void visitPrimitiveColumn(PrimitiveColumnModel column, Void arg) {
       column.bindCoordinator(PrimitiveColumnState.newSimplePrimitive(rsLoader, column));
       return null;
     }
 
     @Override
-    protected Void visitPrimitiveArrayColumn(PrimitiveColumnModel column,
-        Void arg) {
+    protected Void visitPrimitiveArrayColumn(PrimitiveColumnModel column, Void arg) {
       column.bindCoordinator(PrimitiveColumnState.newPrimitiveArray(rsLoader, column));
       return null;
     }
 
     @Override
-    protected Void visitMapColumn(MapColumnModel column,
-        Void arg) {
+    protected Void visitMapColumn(MapColumnModel column, Void arg) {
       column.bindCoordinator(new MapColumnState(rsLoader, column));
       column.mapModelImpl().bindCoordinator(new MapState(rsLoader, column));
       column.mapModelImpl().visitChildren(this, arg);
@@ -86,8 +83,7 @@ public class LoaderVisitors {
     }
 
     @Override
-    protected Void visitMapArrayColumn(MapColumnModel column,
-        Void arg) {
+    protected Void visitMapArrayColumn(MapColumnModel column, Void arg) {
       column.bindCoordinator(new MapArrayColumnState(rsLoader, column));
       column.mapModelImpl().bindCoordinator(new MapState(rsLoader, column));
       column.mapModelImpl().visitChildren(this, arg);

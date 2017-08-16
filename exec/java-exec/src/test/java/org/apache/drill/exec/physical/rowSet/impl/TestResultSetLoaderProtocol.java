@@ -429,4 +429,43 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
 
     rsLoader.close();
   }
+
+  /**
+   * Provide a schema up front to the loader; schema is built before
+   * the first row.
+   * <p>
+   * Also verifies the test-time method to set a row of values using
+   * a single method.
+   */
+
+  @Test
+  public void testInitialSchema() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addNullable("b", MinorType.INT)
+        .add("c", MinorType.VARCHAR)
+        .buildSchema();
+    ResultSetLoaderImpl.ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+        .setSchema(schema)
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    RowSetLoader rootWriter = rsLoader.writer();
+    assertSame(schema, rootWriter.schema());
+
+    rsLoader.startBatch();
+    rootWriter
+        .setRow(10, 100, "fred")
+        .setRow(20, null, "barney")
+        .setRow(30, 300, "wilma");
+    RowSet actual = fixture.wrap(rsLoader.harvest());
+
+    RowSet expected = fixture.rowSetBuilder(schema)
+        .add(10, 100, "fred")
+        .add(20, null, "barney")
+        .add(30, 300, "wilma")
+        .build();
+
+    new RowSetComparison(expected).verifyAndClearAll(actual);
+    rsLoader.close();
+  }
 }
