@@ -27,7 +27,7 @@ import org.apache.drill.exec.vector.complex.impl.VectorContainerWriter;
  * evolve (expand) over time. Automatically rolls "overflow" rows over
  * when a batch fills.
  * <p>
- * Many of the methods in this interface are verify that the loader is
+ * Many of the methods in this interface verify that the loader is
  * in the proper state. For example, an exception is thrown if the caller
  * attempts to save a row before starting a batch. However, the per-column
  * write methods are checked only through assertions that should enabled
