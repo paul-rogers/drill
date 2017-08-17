@@ -175,6 +175,12 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   }
 
   @Override
+  public void rewind() {
+    offsetsWriter.rewind();
+    elementIndex.resetTo(offsetsWriter.targetOffset());
+  }
+
+  @Override
   public ObjectType entryType() {
     return elementObjWriter.type();
   }

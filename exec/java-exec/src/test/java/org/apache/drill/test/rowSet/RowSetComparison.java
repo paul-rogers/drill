@@ -214,7 +214,7 @@ public class RowSetComparison {
       verifyArray(label, ec.array(), ac.array());
       break;
     case SCALAR:
-      verifyScalar(label, ac.scalar(), ec.scalar());
+      verifyScalar(label, ec.scalar(), ac.scalar());
       break;
     case TUPLE:
       verifyTuple(label, ec.tuple(), ac.tuple());

@@ -65,6 +65,15 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
   }
 
   @Override
+  public void startWrite() { }
+
+  @Override
+  public void startValue() { }
+
+  @Override
+  public void endValue() { }
+
+  @Override
   public void setObject(Object value) {
     if (value == null) {
       setNull();
@@ -94,13 +103,4 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
                 value.getClass().getSimpleName());
     }
   }
-
-  @Override
-  public void startWrite() { }
-
-  @Override
-  public void startValue() { }
-
-  @Override
-  public void endValue() { }
 }

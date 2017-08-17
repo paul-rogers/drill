@@ -118,7 +118,22 @@ public interface RowSetLoader extends TupleWriter {
   int rowIndex();
 
   /**
-   * Prepare a new row for writing.
+   * Prepare a new row for writing. Call this before each row.
+   * <p>
+   * Handles a very special case: that of discarding the last row written.
+   * A reader can read a row into vectors, then "sniff" the row to check,
+   * for example, against a filter. If the row is not wanted, simply omit
+   * the call to <tt>save()</tt> and the next all to <tt>start()</tt> will
+   * discard the unsaved row.
+   * <p>
+   * Note that the vectors still contain values in the
+   * discarded position; just the various pointers are unset. If
+   * the batch ends before the discarded values are overwritten, the
+   * discarded values just exist at the end of the vector. Since vectors
+   * start with garbage contents, the discarded values are simply a different
+   * kind of garbage. But, if the client writes a new row, then the new
+   * row overwrites the discarded row. This works because we only change
+   * the tail part of a vector; never the internals.
    *
    * @return true if another row can be added, false if the batch is full
    */

@@ -59,9 +59,21 @@ public class RowSetLoaderImpl extends AbstractTupleWriter implements RowSetLoade
   @Override
   public boolean start() {
     if (rsLoader.isFull()) {
+
+      // Full batch? Return false.
+
       return false;
+    } else if (state == State.IN_VALUE) {
+
+      // Already in a row? Rewind the to start of the row.
+
+      rewind();
+    } else {
+
+      // Otherwise, advance to the next row.
+
+      rsLoader.startRow();
     }
-    rsLoader.startRow();
     return true;
   }
 

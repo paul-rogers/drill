@@ -64,6 +64,14 @@ public interface WriterEvents {
   void endWrite();
 
   /**
+   * During a write, rewind the the current index position.
+   * Done when abandoning the current row, such as when filtering out
+   * a row at read time.
+   */
+
+  void rewind();
+
+  /**
    * Start the writer with a new buffer and offset: used during vector
    * overflow processing.
    *

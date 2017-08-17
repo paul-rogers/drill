@@ -249,7 +249,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();
-    ResultSetLoaderImpl rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     RowSetLoader rootWriter = rsLoader.writer();
 
     // Fill batch with rows of with a single array, three values each. Tack on
@@ -287,7 +287,11 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
           cWriter.setInt(count * cCount + i);
         }
       }
-      if (count < cCutoff || rsLoader.hasOverflow()) {
+
+      // Relies on fact that isFull becomes true right after
+      // a vector overflows; don't have to wait for saveRow().
+
+      if (count < cCutoff || rootWriter.isFull()) {
         for (int i = 0; i < dCount; i++) {
           dWriter.setInt(count * dCount + i);
         }

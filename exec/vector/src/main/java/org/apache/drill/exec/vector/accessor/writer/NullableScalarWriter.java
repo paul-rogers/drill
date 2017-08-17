@@ -52,9 +52,15 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   }
 
   @Override
+  public void rewind() {
+    isSetWriter.rewind();
+    baseWriter.rewind();
+  }
+
+  @Override
   public void setNull() {
     isSetWriter.setInt(0);
-    baseWriter.setLastWriteIndex(isSetWriter.lastWriteIndex());
+    baseWriter.skipNulls();
   }
 
   @Override
@@ -141,7 +147,7 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   public void endWrite() {
     isSetWriter.endWrite();
     // Avoid back-filling null values.
-    baseWriter.setLastWriteIndex(isSetWriter.lastWriteIndex());
+    baseWriter.skipNulls();
     baseWriter.endWrite();
   }
 }

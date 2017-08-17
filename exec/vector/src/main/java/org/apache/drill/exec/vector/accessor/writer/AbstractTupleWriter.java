@@ -102,7 +102,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   protected final TupleMetadata schema;
   protected final List<AbstractObjectWriter> writers;
   protected TupleWriterListener listener;
-  private State state = State.IDLE;
+  protected State state = State.IDLE;
 
   protected AbstractTupleWriter(TupleMetadata schema, List<AbstractObjectWriter> writers) {
     this.schema = schema;
@@ -201,6 +201,14 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
       writers.get(i).endWrite();
     }
     state = State.IDLE;
+  }
+
+  @Override
+  public void rewind() {
+    assert state == State.IN_VALUE;
+    for (int i = 0; i < writers.size();  i++) {
+      writers.get(i).rewind();
+    }
   }
 
   @Override

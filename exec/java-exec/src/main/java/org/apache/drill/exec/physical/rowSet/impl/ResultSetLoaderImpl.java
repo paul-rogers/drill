@@ -405,7 +405,24 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   public BufferAllocator allocator() { return allocator; }
 
   protected int bumpVersion() {
+
+    // Update the active schema version. We cannot update the published
+    // schema version at this point because a column later in this same
+    // row might cause overflow, and any new columns in this row will
+    // be hidden until a later batch. But, if we are between batches,
+    // then it is fine to add the column to the schema.
+
     activeSchemaVersion++;
+    switch (state) {
+    case HARVESTED:
+    case START:
+    case LOOK_AHEAD:
+      harvestSchemaVersion = activeSchemaVersion;
+      break;
+    default:
+      break;
+
+    }
     return activeSchemaVersion;
   }
 
@@ -445,6 +462,10 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       throw new IllegalStateException("Unexpected state: " + state);
     }
 
+    // Update the visible schema with any pending overflow batch
+    // updates.
+
+    harvestSchemaVersion = activeSchemaVersion;
     pendingRowCount = 0;
     state = State.ACTIVE;
   }
@@ -677,6 +698,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
     rootWriter.endWrite();
     state = State.HARVESTED;
+    harvestSchemaVersion = activeSchemaVersion;
     return writerIndex.size();
   }
 

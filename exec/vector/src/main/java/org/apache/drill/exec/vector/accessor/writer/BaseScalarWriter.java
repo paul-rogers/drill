@@ -53,9 +53,10 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
     public int lastWriteIndex() { return offsetsWriter.lastWriteIndex(); }
 
     @Override
-    public void setLastWriteIndex(int index) {
-      offsetsWriter.setLastWriteIndex(index);
-    }
+    public void skipNulls() { offsetsWriter.skipNulls(); }
+
+    @Override
+    public void rewind() { offsetsWriter.rewind(); }
   }
 
   /**
@@ -114,8 +115,8 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
   @Override
   public int lastWriteIndex() { return lastWriteIndex; }
 
-  public void setLastWriteIndex(int index) {
-    lastWriteIndex = index;
+  public void skipNulls() {
+    lastWriteIndex = vectorIndex.vectorIndex();
   }
 
   protected void overflowed() {
@@ -124,6 +125,11 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
     } else {
       listener.overflowed(this);
     }
+  }
+
+  @Override
+  public void rewind() {
+    lastWriteIndex = Math.min(lastWriteIndex, vectorIndex.vectorIndex() - 1);
   }
 
   @Override

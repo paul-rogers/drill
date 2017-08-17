@@ -131,6 +131,20 @@ public class OffsetVectorWriter extends BaseScalarWriter {
   }
 
   @Override
+  public void skipNulls() {
+
+    // To skip nulls, must carry forward the the last end offset.
+
+    setOffset(lastTargetOffset);
+  }
+
+  @Override
+  public void rewind() {
+    super.rewind();
+    lastTargetOffset = PlatformDependent.getInt(bufAddr + (lastWriteIndex + 1) * VALUE_WIDTH);
+  }
+
+  @Override
   public final void endWrite() {
     final int finalIndex = writeIndex();
     vector.getBuffer().writerIndex(finalIndex * VALUE_WIDTH);
