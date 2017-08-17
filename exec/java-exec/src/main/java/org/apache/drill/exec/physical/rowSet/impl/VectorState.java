@@ -19,6 +19,26 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 /**
  * Handles batch and overflow operation for a (possibly compound) vector.
+ * <p>
+ * The data model is the following:
+ * <ul>
+ * <li>Column model<ul>
+ *   <li>Value vector itself</li>
+ *   <li>Column writer</li>
+ *   <li>Column schema</li>
+ *   <li>Column coordinator (this class)</li>
+ * </ul></li></ul>
+ * The vector state coordinates events between the result set loader
+ * on the one side and the model, writers and schema on the other.
+ * For example:
+ * <pre><code>
+ * Result Set       Vector       Tuple, Column
+ *   Loader   <-->  State   <-->    Models
+ * </code></pre>
+ * Events from the row set loader deal with allocation, roll-over,
+ * harvesting completed batches and so on. Events from the writer,
+ * via the tuple model deal with adding columns and column
+ * overflow.
  */
 
 public interface VectorState {

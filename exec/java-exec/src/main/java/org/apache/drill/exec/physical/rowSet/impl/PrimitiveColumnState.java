@@ -24,6 +24,12 @@ import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
 
+/**
+ * Represents a primitive (scalar) column: either a simple
+ * scalar (optional or required), or an array of scalars
+ * (repeated scalar.)
+ */
+
 public class PrimitiveColumnState extends ColumnState {
 
   protected final PrimitiveColumnModel columnModel;
