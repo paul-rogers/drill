@@ -98,6 +98,9 @@ public class BatchSchema implements Iterable<MaterializedField> {
     return result;
   }
 
+  // DRILL-5525: the semantics of this method are badly broken.
+  // Caveat emptor.
+
   @Override
   public boolean equals(Object obj) {
     if (this == obj) {
@@ -110,13 +113,24 @@ public class BatchSchema implements Iterable<MaterializedField> {
       return false;
     }
     BatchSchema other = (BatchSchema) obj;
-    if (fields == null) {
-      if (other.fields != null) {
-        return false;
-      }
-    } else if (!fields.equals(other.fields)) {
+    if (selectionVectorMode != other.selectionVectorMode) {
       return false;
     }
+    if (fields == null) {
+      return other.fields == null;
+    }
+
+    // Compare names.
+    // (DRILL-5525: actually compares all fields.)
+
+    if (!fields.equals(other.fields)) {
+      return false;
+    }
+
+    // Compare types
+    // (DRILL-5525: this code is redundant because any differences
+    // will fail above.)
+
     for (int i = 0; i < fields.size(); i++) {
       MajorType t1 = fields.get(i).getType();
       MajorType t2 = other.fields.get(i).getType();
@@ -130,8 +144,20 @@ public class BatchSchema implements Iterable<MaterializedField> {
         }
       }
     }
-    if (selectionVectorMode != other.selectionVectorMode) {
+    return true;
+  }
+
+  public boolean isEquivalent(BatchSchema other) {
+    if (fields == null || other.fields == null) {
+      return fields == other.fields;
+    }
+    if (fields.size() != other.fields.size()) {
       return false;
+    }
+    for (int i = 0; i < fields.size(); i++) {
+      if (! fields.get(i).isEquivalent(other.fields.get(i))) {
+        return false;
+      }
     }
     return true;
   }
@@ -159,7 +185,7 @@ public class BatchSchema implements Iterable<MaterializedField> {
   }
 
   /**
-   * Merge two schema to produce a new, merged schema. The caller is responsible
+   * Merge two schemas to produce a new, merged schema. The caller is responsible
    * for ensuring that column names are unique. The order of the fields in the
    * new schema is the same as that of this schema, with the other schema's fields
    * appended in the order defined in the other schema.

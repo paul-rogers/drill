@@ -17,37 +17,17 @@
  */
 package org.apache.drill.exec.record;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.fail;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
-import org.apache.drill.test.DrillTest;
-import org.apache.drill.test.OperatorFixture;
+import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.SchemaBuilder;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
-public class TestVectorContainer extends DrillTest {
-
-  // TODO: Replace the following with an extension of SubOperatorTest class
-  // once that is available.
-
-  protected static OperatorFixture fixture;
-
-  @BeforeClass
-  public static void setUpBeforeClass() throws Exception {
-    fixture = OperatorFixture.standardFixture();
-  }
-
-  @AfterClass
-  public static void tearDownAfterClass() throws Exception {
-    fixture.close();
-  }
+public class TestVectorContainer extends SubOperatorTest {
 
   /**
    * Test of the ability to merge two schemas and to merge
@@ -56,6 +36,7 @@ public class TestVectorContainer extends DrillTest {
    * vectors, we just combine the two lists to create the
    * merged result.
    */
+
   @Test
   public void testContainerMerge() {
 
@@ -71,7 +52,7 @@ public class TestVectorContainer extends DrillTest {
         .add(30, "wilma")
         .build();
 
-    // Simulated "implicit" coumns: row number and file name
+    // Simulated "implicit" columns: row number and file name
 
     BatchSchema rightSchema = new SchemaBuilder()
         .add("x", MinorType.SMALLINT)
