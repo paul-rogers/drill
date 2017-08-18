@@ -42,10 +42,13 @@ import org.apache.drill.exec.ops.OperatorExecContext;
 import org.apache.drill.exec.ops.OperatorStatReceiver;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.server.options.BaseOptionSet;
 import org.apache.drill.exec.server.options.OptionDefinition;
 import org.apache.drill.exec.server.options.OptionSet;
+import org.apache.drill.exec.server.options.OptionValidator;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.server.options.OptionValue.AccessibleScopes;
 import org.apache.drill.exec.server.options.OptionValue.OptionScope;
@@ -335,11 +338,19 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
   }
 
   public RowSetBuilder rowSetBuilder(BatchSchema schema) {
+    return rowSetBuilder(TupleSchema.fromFields(schema));
+  }
+
+  public RowSetBuilder rowSetBuilder(TupleMetadata schema) {
     return new RowSetBuilder(allocator, schema);
   }
 
   public ExtendableRowSet rowSet(BatchSchema schema) {
-    return new DirectRowSet(allocator, schema);
+    return DirectRowSet.fromSchema(allocator, schema);
+  }
+
+  public ExtendableRowSet rowSet(TupleMetadata schema) {
+    return DirectRowSet.fromSchema(allocator, schema);
   }
 
   public RowSet wrap(VectorContainer container) {
@@ -347,9 +358,9 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     case FOUR_BYTE:
       return new HyperRowSetImpl(allocator(), container, container.getSelectionVector4());
     case NONE:
-      return new DirectRowSet(allocator(), container);
+      return DirectRowSet.fromContainer(allocator(), container);
     case TWO_BYTE:
-      return new IndirectRowSet(allocator(), container);
+      return IndirectRowSet.fromContainer(allocator(), container);
     default:
       throw new IllegalStateException( "Unexpected selection mode" );
     }
