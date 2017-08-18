@@ -20,25 +20,24 @@ package org.apache.drill.test.rowSet;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
-import org.apache.drill.exec.record.HyperVectorWrapper;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
-import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.ColumnReader;
-import org.apache.drill.exec.vector.accessor.ColumnWriter;
-import org.apache.drill.exec.vector.accessor.TupleReader;
-import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.accessor.ScalarReader;
+import org.apache.parquet.column.ColumnWriter;
 
 /**
  * A row set is a collection of rows stored as value vectors. Elsewhere in
  * Drill we call this a "record batch", but that term has been overloaded to
- * mean the runtime implementation of an operator...
+ * mean the runtime implementation of an operator.
  * <p>
  * A row set encapsulates a set of vectors and provides access to Drill's
  * various "views" of vectors: {@link VectorContainer},
- * {@link VectorAccessible}, etc.
+ * {@link VectorAccessible}, etc. The row set wraps a {#link TupleModel}
+ * which holds the vectors and column metadata. This form is optimized
+ * for easy use in testing; use other implementations for production code.
  * <p>
  * A row set is defined by a {@link RowSetSchema}. For testing purposes, a row
  * set has a fixed schema; we don't allow changing the set of vectors
@@ -52,7 +51,7 @@ import org.apache.drill.exec.vector.accessor.TupleWriter;
  * Drill provides a large number of vector (data) types. Each requires a
  * type-specific way to set data. The row set writer uses a {@link ColumnWriter}
  * to set each value in a way unique to the specific data type. Similarly, the
- * row set reader provides a {@link ColumnReader} interface. In both cases,
+ * row set reader provides a {@link ScalarReader} interface. In both cases,
  * columns can be accessed by index number (as defined in the schema) or
  * by name.
  * <p>
@@ -136,13 +135,11 @@ public interface RowSet {
 
   int rowCount();
 
-  RowSetWriter writer();
-
   RowSetReader reader();
 
   void clear();
 
-  RowSetSchema schema();
+  TupleMetadata schema();
 
   BufferAllocator allocator();
 
@@ -159,15 +156,13 @@ public interface RowSet {
    */
   long size();
 
-  RowSet merge(RowSet other);
-
   BatchSchema batchSchema();
 
   /**
    * Row set that manages a single batch of rows.
    */
-  interface SingleRowSet extends RowSet {
-    ValueVector[] vectors();
+
+  public interface SingleRowSet extends RowSet {
     SingleRowSet toIndirect();
     SelectionVector2 getSv2();
   }
@@ -179,7 +174,7 @@ public interface RowSet {
    */
   interface ExtendableRowSet extends SingleRowSet {
     void allocate(int recordCount);
-    void setRowCount(int rowCount);
+    RowSetWriter writer();
     RowSetWriter writer(int initialRowCount);
   }
 
@@ -189,6 +184,5 @@ public interface RowSet {
    */
   interface HyperRowSet extends RowSet {
     SelectionVector4 getSv4();
-    HyperVectorWrapper<ValueVector> getHyperVector(int i);
   }
 }
