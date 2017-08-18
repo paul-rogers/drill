@@ -15,10 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector;
+/**
+ * Provides the reader hierarchy as explained in the API package.
+ * The only caveat is that a simplification is provided for arrays of
+ * scalar values: rather than a scalar reader for each value, the
+ * {#link ScalarElementReader} class provides access to the entire array
+ * via indexed get methods.
+ */
 
-public interface NullableVector extends ValueVector{
-
-  ValueVector getBitsVector();
-  ValueVector getValuesVector();
-}
+package org.apache.drill.exec.vector.accessor.reader;

@@ -15,68 +15,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor.impl;
-
-import java.math.BigDecimal;
+package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
-import org.apache.drill.exec.vector.accessor.ColumnWriter;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
+import org.apache.drill.exec.vector.accessor.ObjectWriter;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
-import org.joda.time.Period;
+import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
+import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
 
-/**
- * Column writer implementation that acts as the basis for the
- * generated, vector-specific implementations. All set methods
- * throw an exception; subclasses simply override the supported
- * method(s).
- */
-
-public abstract class AbstractColumnWriter extends AbstractColumnAccessor implements ColumnWriter {
-
-  public void start() { }
+public abstract class AbstractObjectWriter implements ObjectWriter, WriterEvents {
 
   @Override
-  public void setNull() {
+  public ScalarWriter scalar() {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public void setInt(int value) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public void setLong(long value) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public void setDouble(double value) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public void setString(String value) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public void setBytes(byte[] value) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public void setDecimal(BigDecimal value) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public void setPeriod(Period value) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public TupleWriter map() {
+  public TupleWriter tuple() {
     throw new UnsupportedOperationException();
   }
 
@@ -84,4 +41,41 @@ public abstract class AbstractColumnWriter extends AbstractColumnAccessor implem
   public ArrayWriter array() {
     throw new UnsupportedOperationException();
   }
+
+  protected abstract WriterEvents baseEvents();
+
+  @Override
+  public void bindIndex(ColumnWriterIndex index) { baseEvents().bindIndex(index); }
+
+  @Override
+  public void startWrite() { baseEvents().startWrite(); }
+
+  @Override
+  public void startValue() { baseEvents().startValue(); }
+
+  @Override
+  public void endValue() { baseEvents().endValue(); }
+
+  @Override
+  public void endWrite() { baseEvents().endWrite(); }
+
+  @Override
+  public void rewind() { baseEvents().rewind(); }
+
+  @Override
+  public void startWriteAt(int index) { baseEvents().startWriteAt(index); }
+
+  @Override
+  public int lastWriteIndex() { return baseEvents().lastWriteIndex(); }
+
+  @Override
+  public void bindListener(ColumnWriterListener listener) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void bindListener(TupleWriterListener listener) {
+    throw new UnsupportedOperationException();
+  }
+
 }
