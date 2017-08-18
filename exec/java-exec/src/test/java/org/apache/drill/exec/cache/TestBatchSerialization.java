@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.cache;
 
+import static org.junit.Assert.assertTrue;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -32,10 +34,10 @@ import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
-import org.apache.drill.test.rowSet.RowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetUtilities;
+import org.apache.drill.test.rowSet.RowSetWriter;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -73,7 +75,7 @@ public class TestBatchSerialization extends DrillTest {
       if (i % 2 == 0) {
         RowSetUtilities.setFromInt(writer, 0, i);
       } else {
-        writer.column(0).setNull();
+        writer.scalar(0).setNull();
       }
       writer.save();
     }
@@ -163,17 +165,17 @@ public class TestBatchSerialization extends DrillTest {
 
   private SingleRowSet buildMapSet(BatchSchema schema) {
     return fixture.rowSetBuilder(schema)
-        .add(1, 100, "first")
-        .add(2, 200, "second")
-        .add(3, 300, "third")
+        .addRow(1, new Object[] {100, "first"})
+        .addRow(2, new Object[] {200, "second"})
+        .addRow(3, new Object[] {300, "third"})
         .build();
   }
 
   private SingleRowSet buildArraySet(BatchSchema schema) {
     return fixture.rowSetBuilder(schema)
-        .add(1, new String[] { "first, second, third" } )
-        .add(2, null)
-        .add(3, new String[] { "third, fourth, fifth" } )
+        .addRow(1, new String[] { "first, second, third" } )
+        .addRow(2, null)
+        .addRow(3, new String[] { "third, fourth, fifth" } )
         .build();
   }
 
