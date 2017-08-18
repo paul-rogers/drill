@@ -15,27 +15,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.rowSet.model.single;
+package org.apache.drill.exec.physical.rowSet;
 
-import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.rowSet.model.ResultVectorCache;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.ValueVector;
 
-public class NullResultVectorCacheImpl implements ResultVectorCache {
+/**
+ * Interface for a cache that implements "vector persistence" across
+ * multiple result set loaders. Allows a single scan operator to offer
+ * the same set of vectors even when data is read by a set of readers.
+ */
 
-  private final BufferAllocator allocator;
-
-  public NullResultVectorCacheImpl(BufferAllocator allocator) {
-    this.allocator = allocator;
-  }
-
-  @Override
-  public BufferAllocator allocator() { return allocator; }
-
-  @Override
-  public ValueVector addOrGet(MaterializedField colSchema) {
-    return TypeHelper.getNewVector(colSchema, allocator, null);
-  }
+public interface ResultVectorCache {
+  BufferAllocator allocator();
+  ValueVector addOrGet(MaterializedField colSchema);
 }

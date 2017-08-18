@@ -121,7 +121,7 @@
  * {@link #harvestWithLookAhead()} to obtain the completed batch. Note that readers do not
  * call these methods; the scan operator does this work.
  * <p>
- * Each row is delimited by a call to {@link #startRow()} and a call to
+ * Each row is delimited by a call to {@link #startValue()} and a call to
  * {@link #saveRow()}. <tt>startRow()</tt> performs initialization necessary
  * for some vectors such as repeated vectors. <tt>saveRow()</tt> moves the
  * row pointer ahead.
