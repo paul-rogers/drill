@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.vector;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
 
@@ -105,7 +106,7 @@ public class ZeroVector implements ValueVector {
 
   @Override
   public Iterator<ValueVector> iterator() {
-    return Iterators.emptyIterator();
+    return Collections.emptyIterator();
   }
 
   @Override
