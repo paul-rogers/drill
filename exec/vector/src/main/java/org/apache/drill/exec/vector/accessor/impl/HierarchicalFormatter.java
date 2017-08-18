@@ -15,10 +15,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector;
+package org.apache.drill.exec.vector.accessor.impl;
 
-public interface NullableVector extends ValueVector{
+/**
+ * Interface for dumping object state in a hierarchical fashion during
+ * debugging.
+ */
 
-  ValueVector getBitsVector();
-  ValueVector getValuesVector();
+public interface HierarchicalFormatter {
+
+  HierarchicalFormatter startObject(Object obj);
+  void extend();
+  HierarchicalFormatter attribute(String label);
+  HierarchicalFormatter attribute(String label, Object value);
+  HierarchicalFormatter attributeIdentity(String label, Object value);
+  HierarchicalFormatter attributeArray(String label);
+  HierarchicalFormatter element(int index, Object value);
+  HierarchicalFormatter elementIdentity(int index, Object value);
+  HierarchicalFormatter element(int index);
+  HierarchicalFormatter endArray();
+  HierarchicalFormatter endObject();
 }

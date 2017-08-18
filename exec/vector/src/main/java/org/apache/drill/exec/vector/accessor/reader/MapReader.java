@@ -15,10 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector;
+package org.apache.drill.exec.vector.accessor.reader;
 
-public interface NullableVector extends ValueVector{
+import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 
-  ValueVector getBitsVector();
-  ValueVector getValuesVector();
+/**
+ * Reader for a Drill Map type. Maps are actually tuples, just like rows.
+ */
+
+public class MapReader extends AbstractTupleReader {
+
+  protected MapReader(ColumnMetadata schema, AbstractObjectReader readers[]) {
+    super(schema.mapSchema(), readers);
+  }
+
+  public static TupleObjectReader build(ColumnMetadata schema, AbstractObjectReader readers[]) {
+    return new TupleObjectReader(new MapReader(schema, readers));
+  }
 }

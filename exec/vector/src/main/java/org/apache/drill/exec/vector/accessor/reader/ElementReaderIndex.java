@@ -15,10 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector;
+package org.apache.drill.exec.vector.accessor.reader;
 
-public interface NullableVector extends ValueVector{
-
-  ValueVector getBitsVector();
-  ValueVector getValuesVector();
+public interface ElementReaderIndex {
+  int batchIndex();
+  int size();
+  int vectorIndex(int posn);
 }
