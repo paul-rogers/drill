@@ -92,6 +92,10 @@ public class MaterializedField {
     return withPathAndType(name, getType());
   }
 
+  public MaterializedField cloneEmpty() {
+    return create(name, type);
+  }
+
   public MaterializedField withType(MajorType type) {
     return withPathAndType(name, type);
   }
