@@ -151,10 +151,10 @@ public class RowSetTest extends SubOperatorTest {
     // utility classes.
 
     SingleRowSet expected = fixture.rowSetBuilder(schema)
-        .add(10)
-        .add(20)
-        .add(30)
-        .add(40)
+        .addRow(10)
+        .addRow(20)
+        .addRow(30)
+        .addRow(40)
         .build();
     new RowSetComparison(expected).verifyAndClearAll(actual);
   }
@@ -374,9 +374,9 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(actual.rowCount(), mapVector.getAccessor().getValueCount());
 
     SingleRowSet expected = fixture.rowSetBuilder(schema)
-        .add(10, new Object[] {new int[] {11, 12}})
-        .add(20, new Object[] {new int[] {21, 22}})
-        .add(30, new Object[] {new int[] {31, 32}})
+        .addRow(10, new Object[] {new int[] {11, 12}})
+        .addRow(20, new Object[] {new int[] {21, 22}})
+        .addRow(30, new Object[] {new int[] {31, 32}})
         .build();
     new RowSetComparison(expected)
       .verifyAndClearAll(actual);
@@ -514,9 +514,9 @@ public class RowSetTest extends SubOperatorTest {
     // Verify the readers and writers again using the testing tools.
 
     SingleRowSet expected = fixture.rowSetBuilder(schema)
-        .add(10, new Object[] {new Object[] {101, 102}, new Object[] {111, 112}})
-        .add(20, new Object[] {new Object[] {201, 202}, new Object[] {211, 212}})
-        .add(30, new Object[] {new Object[] {301, 302}, new Object[] {311, 312}})
+        .addRow(10, new Object[] {new Object[] {101, 102}, new Object[] {111, 112}})
+        .addRow(20, new Object[] {new Object[] {201, 202}, new Object[] {211, 212}})
+        .addRow(30, new Object[] {new Object[] {301, 302}, new Object[] {311, 312}})
         .build();
     new RowSetComparison(expected)
       .verifyAndClearAll(actual);
@@ -570,9 +570,9 @@ public class RowSetTest extends SubOperatorTest {
     assertFalse(reader.next());
 
     SingleRowSet rs2 = fixture.rowSetBuilder(batchSchema)
-      .add(10, new int[] {100, 110})
-      .add(20, new int[] {200, 120, 220})
-      .add(30, null)
+      .addRow(10, new int[] {100, 110})
+      .addRow(20, new int[] {200, 120, 220})
+      .addRow(30, null)
       .build();
 
     new RowSetComparison(rs1)

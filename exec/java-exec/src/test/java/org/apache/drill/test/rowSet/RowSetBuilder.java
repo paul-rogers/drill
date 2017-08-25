@@ -70,13 +70,13 @@ public final class RowSetBuilder {
    * seldom create a full vector of data.
    */
 
-  public RowSetBuilder add(Object...values) {
+  public RowSetBuilder addRow(Object...values) {
     writer.setRow(values);
     return this;
   }
 
   /**
-   * The {@link #add(Object...)} method uses Java variable-length arguments to
+   * The {@link #addRow(Object...)} method uses Java variable-length arguments to
    * pass a row of values. But, when the row consists of a single array, Java
    * gets confused: is that an array for variable-arguments or is it the value
    * of the first argument? This method clearly states that the single value
@@ -103,7 +103,7 @@ public final class RowSetBuilder {
    */
 
   public RowSetBuilder addSingleCol(Object value) {
-    return add(new Object[] { value });
+    return addRow(new Object[] { value });
   }
 
   /**

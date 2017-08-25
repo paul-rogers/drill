@@ -83,6 +83,19 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
     public void resetTo(int newIndex) {
       throw new UnsupportedOperationException("Reset not supported in the row set writer.");
     }
+
+    @Override
+    public String toString() {
+      return new StringBuilder()
+        .append("[")
+        .append(getClass().getSimpleName())
+        .append(" state = ")
+        .append(state)
+        .append(", rowIndex = ")
+        .append(rowIndex)
+        .append("]")
+        .toString();
+    }
   }
 
   private final WriterIndexImpl writerIndex;
@@ -94,7 +107,7 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
     this.writerIndex = index;
     bindIndex(index);
     startWrite();
-    startValue();
+    startRow();
   }
 
   @Override
@@ -108,9 +121,14 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
 
   @Override
   public void save() {
-    endValue();
+    saveValue();
+    saveRow();
+
+    // For convenience, start a new row after each save.
+    // The last (unused) row is abandoned when the batch is full.
+
     if (writerIndex.next()) {
-      startValue();
+      startRow();
     }
   }
 
@@ -126,8 +144,10 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
 
   @Override
   public void startWriteAt(int index) {
-    // TODO Auto-generated method stub
 
+    // Used only with overflow, which is not supported here.
+
+    throw new UnsupportedOperationException();
   }
 
   @Override

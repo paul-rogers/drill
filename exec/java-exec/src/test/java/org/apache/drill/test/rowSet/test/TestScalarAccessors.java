@@ -56,9 +56,9 @@ public class TestScalarAccessors extends SubOperatorTest {
         .add("col", MinorType.TINYINT)
         .build();
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(0)
-        .add(Byte.MAX_VALUE)
-        .add(Byte.MIN_VALUE)
+        .addRow(0)
+        .addRow(Byte.MAX_VALUE)
+        .addRow(Byte.MIN_VALUE)
         .build();
     assertEquals(3, rs.rowCount());
 
@@ -87,9 +87,9 @@ public class TestScalarAccessors extends SubOperatorTest {
         .addNullable("col", type)
         .build();
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(10)
+        .addRow(10)
         .addSingleCol(null)
-        .add(30)
+        .addRow(30)
         .build();
     assertEquals(3, rs.rowCount());
 
@@ -162,9 +162,9 @@ public class TestScalarAccessors extends SubOperatorTest {
         .add("col", MinorType.SMALLINT)
         .build();
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(0)
-        .add(Short.MAX_VALUE)
-        .add(Short.MIN_VALUE)
+        .addRow(0)
+        .addRow(Short.MAX_VALUE)
+        .addRow(Short.MIN_VALUE)
         .build();
     assertEquals(3, rs.rowCount());
 
@@ -204,9 +204,9 @@ public class TestScalarAccessors extends SubOperatorTest {
         .add("col", MinorType.INT)
         .build();
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(0)
-        .add(Integer.MAX_VALUE)
-        .add(Integer.MIN_VALUE)
+        .addRow(0)
+        .addRow(Integer.MAX_VALUE)
+        .addRow(Integer.MIN_VALUE)
         .build();
     assertEquals(3, rs.rowCount());
 
@@ -245,9 +245,9 @@ public class TestScalarAccessors extends SubOperatorTest {
         .add("col", type)
         .build();
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(0L)
-        .add(Long.MAX_VALUE)
-        .add(Long.MIN_VALUE)
+        .addRow(0L)
+        .addRow(Long.MAX_VALUE)
+        .addRow(Long.MIN_VALUE)
         .build();
     assertEquals(3, rs.rowCount());
 
@@ -281,9 +281,9 @@ public class TestScalarAccessors extends SubOperatorTest {
         .addNullable("col", type)
         .build();
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(10L)
+        .addRow(10L)
         .addSingleCol(null)
-        .add(30L)
+        .addRow(30L)
         .build();
     assertEquals(3, rs.rowCount());
 
@@ -356,10 +356,10 @@ public class TestScalarAccessors extends SubOperatorTest {
         .add("col", MinorType.FLOAT4)
         .build();
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(0F)
-        .add(Float.MAX_VALUE)
-        .add(Float.MIN_VALUE)
-        .add(100F)
+        .addRow(0F)
+        .addRow(Float.MAX_VALUE)
+        .addRow(Float.MIN_VALUE)
+        .addRow(100F)
         .build();
     assertEquals(4, rs.rowCount());
 
@@ -391,9 +391,9 @@ public class TestScalarAccessors extends SubOperatorTest {
         .addNullable("col", type)
         .build();
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(10F)
+        .addRow(10F)
         .addSingleCol(null)
-        .add(30F)
+        .addRow(30F)
         .build();
     assertEquals(3, rs.rowCount());
 
@@ -466,10 +466,10 @@ public class TestScalarAccessors extends SubOperatorTest {
         .add("col", MinorType.FLOAT8)
         .build();
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(0D)
-        .add(Double.MAX_VALUE)
-        .add(Double.MIN_VALUE)
-        .add(100D)
+        .addRow(0D)
+        .addRow(Double.MAX_VALUE)
+        .addRow(Double.MIN_VALUE)
+        .addRow(100D)
         .build();
     assertEquals(4, rs.rowCount());
 
@@ -512,8 +512,8 @@ public class TestScalarAccessors extends SubOperatorTest {
         .add("col", MinorType.VARCHAR)
         .build();
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add("")
-        .add("abcd")
+        .addRow("")
+        .addRow("abcd")
         .build();
     assertEquals(2, rs.rowCount());
 
@@ -540,9 +540,9 @@ public class TestScalarAccessors extends SubOperatorTest {
         .addNullable("col", MinorType.VARCHAR)
         .build();
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add("")
+        .addRow("")
         .addSingleCol(null)
-        .add("abcd")
+        .addRow("abcd")
         .build();
     assertEquals(3, rs.rowCount());
 
@@ -612,9 +612,9 @@ public class TestScalarAccessors extends SubOperatorTest {
     Period p3 = Period.years(1234).plusMonths(11);
 
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(p1)
-        .add(p2)
-        .add(p3)
+        .addRow(p1)
+        .addRow(p2)
+        .addRow(p3)
         .build();
     assertEquals(3, rs.rowCount());
 
@@ -648,9 +648,9 @@ public class TestScalarAccessors extends SubOperatorTest {
     Period p2 = Period.years(2).plusMonths(3);
 
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(p1)
+        .addRow(p1)
         .addSingleCol(null)
-        .add(p2)
+        .addRow(p2)
         .build();
     assertEquals(3, rs.rowCount());
 
@@ -721,9 +721,9 @@ public class TestScalarAccessors extends SubOperatorTest {
     Period p3 = Period.days(999).plusHours(23).plusMinutes(59).plusSeconds(59);
 
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(p1)
-        .add(p2)
-        .add(p3)
+        .addRow(p1)
+        .addRow(p2)
+        .addRow(p3)
         .build();
     assertEquals(3, rs.rowCount());
 
@@ -758,9 +758,9 @@ public class TestScalarAccessors extends SubOperatorTest {
     Period p2 = Period.days(3).plusHours(4).plusMinutes(5).plusSeconds(23);
 
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(p1)
+        .addRow(p1)
         .addSingleCol(null)
-        .add(p2)
+        .addRow(p2)
         .build();
     assertEquals(3, rs.rowCount());
 
@@ -835,9 +835,9 @@ public class TestScalarAccessors extends SubOperatorTest {
                       .plusMinutes(59).plusSeconds(59);
 
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(p1)
-        .add(p2)
-        .add(p3)
+        .addRow(p1)
+        .addRow(p2)
+        .addRow(p3)
         .build();
     assertEquals(3, rs.rowCount());
 
@@ -874,9 +874,9 @@ public class TestScalarAccessors extends SubOperatorTest {
                       .plusMinutes(5).plusSeconds(23);
 
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(p1)
+        .addRow(p1)
         .addSingleCol(null)
-        .add(p2)
+        .addRow(p2)
         .build();
     assertEquals(3, rs.rowCount());
 
@@ -957,9 +957,9 @@ public class TestScalarAccessors extends SubOperatorTest {
     BigDecimal v3 = BigDecimal.valueOf(999_999_999, 3);
 
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(v1)
-        .add(v2)
-        .add(v3)
+        .addRow(v1)
+        .addRow(v2)
+        .addRow(v3)
         .build();
     assertEquals(3, rs.rowCount());
 
@@ -998,9 +998,9 @@ public class TestScalarAccessors extends SubOperatorTest {
     BigDecimal v2 = BigDecimal.valueOf(123_456_789, 3);
 
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(v1)
+        .addRow(v1)
         .addSingleCol(null)
-        .add(v2)
+        .addRow(v2)
         .build();
     assertEquals(3, rs.rowCount());
 
@@ -1091,9 +1091,9 @@ public class TestScalarAccessors extends SubOperatorTest {
     BigDecimal v3 = BigDecimal.valueOf(999_999_999_999_999_999L, 3);
 
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(v1)
-        .add(v2)
-        .add(v3)
+        .addRow(v1)
+        .addRow(v2)
+        .addRow(v3)
         .build();
     assertEquals(3, rs.rowCount());
 
@@ -1171,8 +1171,8 @@ public class TestScalarAccessors extends SubOperatorTest {
     byte v2[] = new byte[] { (byte) 0x00, (byte) 0x7f, (byte) 0x80, (byte) 0xFF};
 
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(v1)
-        .add(v2)
+        .addRow(v1)
+        .addRow(v2)
         .build();
     assertEquals(2, rs.rowCount());
 
@@ -1203,9 +1203,9 @@ public class TestScalarAccessors extends SubOperatorTest {
     byte v2[] = new byte[] { (byte) 0x00, (byte) 0x7f, (byte) 0x80, (byte) 0xFF};
 
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
-        .add(v1)
+        .addRow(v1)
         .addSingleCol(null)
-        .add(v2)
+        .addRow(v2)
         .build();
     assertEquals(3, rs.rowCount());
 

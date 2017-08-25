@@ -235,13 +235,13 @@ public class PerformanceTool {
         arrayWriter.startWrite();
         timer.start();
         for ( ; index.index < ROW_COUNT / 5; index.index++) {
-          arrayWriter.startValue();
+          arrayWriter.startRow();
           colWriter.setInt(12341);
           colWriter.setInt(12342);
           colWriter.setInt(12343);
           colWriter.setInt(12344);
           colWriter.setInt(12345);
-          arrayWriter.endValue();
+          arrayWriter.saveValue();
         }
         arrayWriter.endWrite();
         timer.stop();
