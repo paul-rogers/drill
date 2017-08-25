@@ -105,19 +105,18 @@ public class LoaderVisitors {
     @Override
     protected Void visitMapColumn(MapColumnModel column, Integer cardinality) {
       visitMap(column, cardinality);
-      return null;
+      return column.mapModelImpl().visitChildren(this, cardinality);
     }
 
     @Override
     protected Void visitMapArrayColumn(MapColumnModel column, Integer cardinality) {
       visitMap(column, cardinality);
       int childCardinality = cardinality * column.schema().expectedElementCount();
-      column.mapModelImpl().visitChildren(this, childCardinality);
-      return null;
+      return column.mapModelImpl().visitChildren(this, childCardinality);
     }
 
     private void visitMap(MapColumnModel column, int cardinality) {
-      MapColumnState state = column.coordinator();
+      ColumnState state = column.coordinator();
       state.setCardinality(cardinality);
       MapState mapState = column.mapModelImpl().coordinator();
       mapState.setCardinality(cardinality);
@@ -150,13 +149,18 @@ public class LoaderVisitors {
     }
 
     @Override
+    protected Void visitMapColumn(MapColumnModel column,
+        Integer overflowIndex) {
+      return column.mapModelImpl().visitChildren(this, overflowIndex);
+    }
+
+    @Override
     protected Void visitMapArrayColumn(MapColumnModel column,
         Integer overflowIndex) {
       MapArrayColumnState colState = column.coordinator();
       colState.rollOver(overflowIndex);
       int arrayStartOffset = colState.offsetAt(overflowIndex);
-      column.mapModelImpl().visitChildren(this, arrayStartOffset);
-      return null;
+      return column.mapModelImpl().visitChildren(this, arrayStartOffset);
     }
 
     /**
@@ -185,6 +189,22 @@ public class LoaderVisitors {
 
     public void apply(SingleRowSetModel rowModel) {
       rowModel.visit(this, null);
+    }
+
+    @Override
+    protected Void visitMapColumn(MapColumnModel column, Void arg) {
+      visitMap(column);
+      return null;
+    }
+
+    @Override
+    protected Void visitMapArrayColumn(MapColumnModel column, Void arg) {
+      visitMap(column);
+      return null;
+    }
+
+    private void visitMap(MapColumnModel column) {
+      column.mapModelImpl().visitChildren(this, null);
     }
 
     @Override
@@ -219,7 +239,7 @@ public class LoaderVisitors {
     }
 
     private void visitMap(MapColumnModel column) {
-      MapColumnState state = column.coordinator();
+      ColumnState state = column.coordinator();
       state.startBatch();
       column.mapModelImpl().visitChildren(this, null);
     }

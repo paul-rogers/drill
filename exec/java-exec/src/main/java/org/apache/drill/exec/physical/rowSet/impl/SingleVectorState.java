@@ -183,6 +183,7 @@ public abstract class SingleVectorState implements VectorState {
     if (backupVector == null) {
       backupVector = TypeHelper.getNewVector(mainVector.getField(), mainVector.getAllocator(), null);
     }
+    assert cardinality > 0;
     allocateVector(backupVector, cardinality);
     mainVector.exchange(backupVector);
 

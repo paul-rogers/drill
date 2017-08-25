@@ -18,11 +18,12 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.exec.expr.TypeHelper;
-import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapArrayColumnState;
-import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapColumnState;
+import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.BuildStateVisitor;
+import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.UpdateCardinalityVisitor;
 import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel;
 import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
 import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.TupleCoordinator;
+import org.apache.drill.exec.physical.rowSet.model.single.AllocationVisitor;
 import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel;
 import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapColumnModel;
 import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapModel;
@@ -36,6 +37,7 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.MapWriter;
 import org.apache.drill.exec.vector.accessor.writer.ObjectArrayWriter;
@@ -56,6 +58,11 @@ public abstract class TupleState implements TupleCoordinator {
 
     @Override
     public int innerCardinality() { return resultSetLoader.targetRowCount();}
+
+    @Override
+    public void dump(HierarchicalFormatter format) {
+      format.startObject(this).endObject();
+    }
   }
 
   public static class MapState extends TupleState {
@@ -75,6 +82,15 @@ public abstract class TupleState implements TupleCoordinator {
     @Override
     public int innerCardinality() {
       return outerCardinality * mapColumn.schema().expectedElementCount();
+    }
+
+    @Override
+    public void dump(HierarchicalFormatter format) {
+      format
+        .startObject(this)
+        .attribute("column", mapColumn.schema().name())
+        .attribute("cardinality", outerCardinality)
+        .endObject();
     }
   }
 
@@ -136,22 +152,7 @@ public abstract class TupleState implements TupleCoordinator {
 
     colModel.bindWriter(colWriter);
 
-    // Create a column coordinator for the new column.
-
-    PrimitiveColumnState colState;
-    if (colModel.schema().isArray()) {
-      colState = PrimitiveColumnState.newPrimitiveArray(resultSetLoader, colModel);
-    } else {
-      colState = PrimitiveColumnState.newSimplePrimitive(resultSetLoader, colModel);
-    }
-    colModel.bindCoordinator(colState);
-
-    // Allocate vectors if a batch is active.
-
-    colState.setCardinality(innerCardinality());
-    if (resultSetLoader.writeable()) {
-      colState.allocateVectors();
-    }
+    prepareColumn(colModel);
     return colWriter;
   }
 
@@ -177,7 +178,7 @@ public abstract class TupleState implements TupleCoordinator {
 
     // Creating the vector cloned the schema. Replace the
     // field in the column metadata to match the one in the vector.
-    // Doing so is an implementation hack, so acesss a method on the
+    // Doing so is an implementation hack, so access a method on the
     // implementation class.
 
     ((AbstractColumnMetadata) columnSchema).replaceField(mapVector.getField());
@@ -202,23 +203,19 @@ public abstract class TupleState implements TupleCoordinator {
     // Bind the writer to the model.
 
     mapColModel.bindWriter(mapWriter);
+    mapModel.bindWriter(mapWriter);
 
-    // Create a column coordinator for the new column.
-
-    ColumnState colState;
-    if (mapColModel.schema().isArray()) {
-      colState = new MapArrayColumnState(resultSetLoader, mapColModel);
-    } else {
-      colState = new MapColumnState(resultSetLoader, mapColModel);
-    }
-    mapColModel.bindCoordinator(colState);
-
-    // Allocate vectors if a batch is active.
-
-    colState.setCardinality(innerCardinality());
-    if (resultSetLoader.writeable()) {
-      colState.allocateVectors();
-    }
+    prepareColumn(mapColModel);
     return mapWriter;
+  }
+
+  private void prepareColumn(AbstractSingleColumnModel colModel) {
+
+    // Use visitors to build the state, define cardinality and allocate
+    // vectors.
+
+    colModel.visit(new BuildStateVisitor(resultSetLoader), null);
+    colModel.visit(new UpdateCardinalityVisitor(), innerCardinality());
+    colModel.visit(new AllocationVisitor(), innerCardinality());
   }
 }

@@ -83,4 +83,15 @@ class WriterIndexImpl implements ColumnWriterIndex {
 
   @Override
   public void nextElement() { }
+
+  @Override
+  public String toString() {
+    return new StringBuilder()
+      .append("[")
+      .append(getClass().getSimpleName())
+      .append(" rowIndex = ")
+      .append(rowIndex)
+      .append("]")
+      .toString();
+  }
 }

@@ -22,6 +22,7 @@ import java.util.Collection;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.BuildStateVisitor;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.HarvestOverflowVisitor;
@@ -29,14 +30,13 @@ import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.ResetVisitor;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.RollOverVisitor;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.StartBatchVisitor;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.UpdateCardinalityVisitor;
-import org.apache.drill.exec.physical.rowSet.model.ResultVectorCache;
-import org.apache.drill.exec.physical.rowSet.model.single.NullResultVectorCacheImpl;
 import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel;
 import org.apache.drill.exec.physical.rowSet.model.single.WriterBuilderVisitor;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.BaseValueVector;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
 /**
  * Implementation of the result set loader.
@@ -44,8 +44,6 @@ import org.apache.drill.exec.vector.ValueVector;
  */
 
 public class ResultSetLoaderImpl implements ResultSetLoader {
-
-  public static final int DEFAULT_ROW_COUNT = BaseValueVector.INITIAL_VALUE_ALLOCATION;
 
   /**
    * Read-only set of options for the result set loader.
@@ -72,6 +70,15 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       this.projection = builder.projection;
       this.vectorCache = builder.vectorCache;
       this.schema = builder.schema;
+    }
+
+    public void dump(HierarchicalFormatter format) {
+      format
+        .startObject(this)
+        .attribute("vectorSizeLimit", vectorSizeLimit)
+        .attribute("rowCountLimit", rowCountLimit)
+        .attribute("projection", projection)
+        .endObject();
     }
   }
 
@@ -378,13 +385,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       rootModel = SingleRowSetModel.fromSchema(allocator, options.schema);
     }
 
-//    AbstractTupleLoader root = new RootLoader(this, writerIndex);
-//    if (options.projection == null) {
-//      rootWriter = root;
-//    } else {
-//      rootWriter = new LogicalTupleLoader(this, root, options.projection);
-//    }
-
     // Define the writers. (May be only a root writer if no schema yet.)
 
     rootWriter = new RowSetWriterBuilder().buildWriter(this);
@@ -504,7 +504,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       // updates.
 
       harvestSchemaVersion = activeSchemaVersion;
-      rootWriter.startValue();
+      rootWriter.startRow();
       break;
     default:
       throw new IllegalStateException("Unexpected state: " + state);
@@ -519,7 +519,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   protected void saveRow() {
     switch (state) {
     case ACTIVE:
-      rootWriter.endValue();
+      rootWriter.saveValue();
+      rootWriter.saveRow();
       if (! writerIndex.next()) {
         state = State.FULL_BATCH;
       }
@@ -533,7 +534,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
       // End the value of the look-ahead row in the look-ahead vectors.
 
-      rootWriter.endValue();
+      rootWriter.saveValue();
+      rootWriter.saveRow();
 
       // Advance the writer index relative to the look-ahead batch.
 
@@ -701,7 +703,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
     // Wrap up the vectors: final fill-in, set value count, etc.
 
-    rootWriter.endWrite();
+    rootWriter.endBatch();
     state = State.HARVESTED;
     harvestSchemaVersion = activeSchemaVersion;
     return writerIndex.size();
@@ -720,7 +722,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     if (containerBuilder == null) {
       containerBuilder = new VectorContainerBuilder(this);
     }
-    containerBuilder.update();
+    containerBuilder.update(harvestSchemaVersion);
     return containerBuilder.container();
   }
 
@@ -776,4 +778,21 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   public ResultVectorCache vectorCache() { return vectorCache; }
 
   protected SingleRowSetModel rootModel() { return rootModel; }
+
+  public void dump(HierarchicalFormatter format) {
+    format
+      .startObject(this)
+      .attribute("options");
+    options.dump(format);
+    format
+      .attribute("index", writerIndex.vectorIndex())
+      .attribute("state", state)
+      .attribute("activeSchemaVersion", activeSchemaVersion)
+      .attribute("harvestSchemaVersion", harvestSchemaVersion)
+      .attribute("pendingRowCount", pendingRowCount)
+      .attribute("targetRowCount", targetRowCount)
+      ;
+    format.attribute("root");
+    rootModel.dump(format);
+  }
 }

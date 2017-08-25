@@ -22,6 +22,7 @@ import java.util.List;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter.State;
 
 /**
  * Implementation of the row set loader. Provides row-level operations, leaving the
@@ -41,7 +42,7 @@ public class RowSetLoaderImpl extends AbstractTupleWriter implements RowSetLoade
   }
 
   @Override
-  public RowSetLoader setRow(Object...values) {
+  public RowSetLoader addRow(Object...values) {
     if (! start()) {
       throw new IllegalStateException("Batch is full.");
     }
@@ -63,11 +64,11 @@ public class RowSetLoaderImpl extends AbstractTupleWriter implements RowSetLoade
       // Full batch? Return false.
 
       return false;
-    } else if (state == State.IN_VALUE) {
+    } else if (state == State.IN_ROW) {
 
       // Already in a row? Rewind the to start of the row.
 
-      rewind();
+      restartRow();
     } else {
 
       // Otherwise, advance to the next row.
@@ -75,6 +76,14 @@ public class RowSetLoaderImpl extends AbstractTupleWriter implements RowSetLoade
       rsLoader.startRow();
     }
     return true;
+  }
+
+  public void endBatch() {
+    if (state == State.IN_ROW) {
+      restartRow();
+      state = State.IN_WRITE;
+    }
+    endWrite();
   }
 
   @Override

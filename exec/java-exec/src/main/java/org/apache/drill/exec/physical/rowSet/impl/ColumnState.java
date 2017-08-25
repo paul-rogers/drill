@@ -80,33 +80,6 @@ public abstract class ColumnState implements ColumnCoordinator {
     public int offsetAt(int index) {
       return ((OffsetVectorState) vectorState).offsetAt(index);
     }
-
-//    @Override
-//    public void startBatch(int outerCardinality) {
-//
-//    }
-//
-//    @Override
-//    public void rollOver(int sourceStartIndex, int outerCardinality) {
-//      AbstractArrayWriter arrayWriter = (AbstractArrayWriter) columnModel.writer().array();
-//      rollOverOffsets(arrayWriter, sourceStartIndex, outerCardinality);
-//    }
-//
-//    private void rollOverOffsets(AbstractArrayWriter arrayWriter,
-//        int sourceStartIndex, int newVectorSize) {
-//
-//      if (offsetsState == null) {
-//        offsetsState = new SingleVectorState(arrayWriter.offsetWriter(), offsetVector());
-//      }
-//      allocateOffsetVector(offsetsState.backupVector, newVectorSize);
-//      offsetsState.rollOver(sourceStartIndex);
-//    }
-//
-//    public ValueVector vector() { return columnModel.vector(); }
-//
-//    public UInt4Vector offsetVector() {
-//      return ((RepeatedMapVector) vector()).getOffsetVector();
-//    }
   }
 
   protected enum State {

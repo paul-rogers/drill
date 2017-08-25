@@ -30,28 +30,38 @@ import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
+import org.apache.drill.exec.vector.complex.MapVector;
+import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 
 /**
  * Builds the harvest vector container that includes only the columns that
  * are included in the harvest schema version. That is, it excludes columns
- * added while writing the overflow row.
+ * added while writing an overflow row.
  * <p>
  * Because a Drill row is actually a hierarchy, walks the internal hierarchy
  * and builds a corresponding output hierarchy.
  * <ul>
  * <li>The root node is the row itself (vector container),</li>
- * <li>Internal nodes are maps (structures),</li.
- * <li>Leaf notes are primitive vectors (which may be arrays.</li>
+ * <li>Internal nodes are maps (structures),</li>
+ * <li>Leaf notes are primitive vectors (which may be arrays).</li>
  * </ul>
  * The basic algorithm is to identify the version of the output schema,
  * then add any new columns added up to that version. This object maintains
  * the output container across batches, meaning that updates are incremental:
- * we need only add columns that are new since the last update.
+ * we need only add columns that are new since the last update. And, those new
+ * columns will always appear directly after all existing columns in the row
+ * or in a map.
  * <p>
  * As special case occurs when columns are added in the overflow row. These
- * columns <b>do not</i> appear in the output container for the main part
+ * columns <i>do not</i> appear in the output container for the main part
  * of the batch; instead they appear in the <i>next</i> output container
  * that includes the overflow row.
+ * <p>
+ * Since the container here may contain a subset of the internal columns, an
+ * interesting case occurs for maps. The maps in the output container are
+ * <b>not</b> the same as those used internally. Since a map column can contain
+ * either one list of columns or another, the internal and external maps must
+ * differ. The set of child vectors (except for child maps) are shared.
  */
 
 public class VectorContainerBuilder {
@@ -140,7 +150,7 @@ public class VectorContainerBuilder {
   }
 
   private final ResultSetLoaderImpl resultSetLoader;
-  private int lastUpdateVersion = -1;
+  private int outputSchemaVersion = -1;
   private TupleMetadata schema;
   private VectorContainer container;
 
@@ -150,18 +160,18 @@ public class VectorContainerBuilder {
     schema = new TupleSchema();
   }
 
-  public void update() {
-    if (lastUpdateVersion >= resultSetLoader.schemaVersion()) {
+  public void update(int targetVersion) {
+    if (outputSchemaVersion >= targetVersion) {
       return;
     }
-    lastUpdateVersion = resultSetLoader.schemaVersion();
+    outputSchemaVersion = targetVersion;
     updateTuple(resultSetLoader.rootModel(), new ContainerProxy(schema, container));
     container.buildSchema(SelectionVectorMode.NONE);
   }
 
   public VectorContainer container() { return container; }
 
-  public int lastUpdateVersion() { return lastUpdateVersion; }
+  public int outputSchemaVersion() { return outputSchemaVersion; }
 
   public BufferAllocator allocator() {
      return resultSetLoader.allocator();
@@ -180,12 +190,16 @@ public class VectorContainerBuilder {
       }
     }
 
-    // Add new columns, which map be maps
+    // Add new columns, which may be maps
 
     for (int i = prevCount; i < currentCount; i++) {
       AbstractSingleColumnModel colModel = (AbstractSingleColumnModel) sourceModel.column(i);
       ColumnState state = colModel.coordinator();
-      if (state.addVersion > lastUpdateVersion) {
+
+      // If the column was added after the output schema version cutoff,
+      // skip that column for now.
+
+      if (state.addVersion > outputSchemaVersion) {
         break;
       }
       if (colModel.schema().isMap()) {
@@ -198,6 +212,7 @@ public class VectorContainerBuilder {
     }
   }
 
+  @SuppressWarnings("resource")
   private void buildMap(TupleProxy parentTuple, MapColumnModel colModel) {
 
     // Creating the map vector will create its contained vectors if we
@@ -210,14 +225,23 @@ public class VectorContainerBuilder {
     // have content that varies from batch to batch. Only the leaf
     // vectors can be cached.
 
-    @SuppressWarnings("resource")
-    AbstractMapVector mapVector = (AbstractMapVector) TypeHelper.getNewVector(mapColSchema.schema(), allocator(), null);
+    AbstractMapVector mapVector;
+    if (mapColSchema.isArray()) {
+
+      // A repeated map shares an offset vector with the internal
+      // repeated map.
+
+      RepeatedMapVector internalVector = (RepeatedMapVector) colModel.vector();
+      mapVector = new RepeatedMapVector(mapColSchema.schema(), internalVector.getOffsetVector(), null);
+    } else {
+      mapVector = new MapVector(mapColSchema.schema(), allocator(), null);
+    }
 
     // Add the map vector and schema to the parent tuple
 
     parentTuple.add(mapVector);
     int index = parentTuple.schema.addColumn(mapColSchema);
-    assert index == parentTuple.size();
+    assert parentTuple.size() == parentTuple.size();
 
     // Update the tuple, which will add the new columns in the map
 
