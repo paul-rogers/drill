@@ -30,6 +30,7 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
 /**
  * Base class common to columns and tuples in the single-batch implementation.
@@ -45,6 +46,8 @@ public abstract class AbstractSingleTupleModel extends BaseTupleModel implements
 
     ObjectWriter columnAdded(AbstractSingleTupleModel abstractSingleTupleModel,
         TupleWriter tupleWriter, ColumnMetadata column);
+
+    void dump(HierarchicalFormatter format);
   }
 
   public interface ColumnCoordinator {
@@ -132,7 +135,7 @@ public abstract class AbstractSingleTupleModel extends BaseTupleModel implements
    * @return value returned from the visitor method
    */
 
-  public abstract <R, A> R  visit(ModelVisitor<R, A> visitor, A arg);
+  public abstract <R, A> R visit(ModelVisitor<R, A> visitor, A arg);
 
   public <R, A> R visitChildren(ModelVisitor<R, A> visitor, A arg) {
     for (ColumnModel colModel : columns) {
@@ -162,5 +165,17 @@ public abstract class AbstractSingleTupleModel extends BaseTupleModel implements
     } else {
       return coordinator.columnAdded(this, tupleWriter, column);
     }
+  }
+
+  public void dump(HierarchicalFormatter format) {
+    format.startObject(this);
+    if (coordinator == null) {
+      format.attribute("coordinator", null);
+    } else {
+      format.attribute("coordinator");
+      coordinator.dump(format);
+    }
+
+    format.endObject();
   }
 }

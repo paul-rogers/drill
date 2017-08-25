@@ -94,7 +94,13 @@ public class TupleSchema implements TupleMetadata {
     public DataMode mode() { return schema().getDataMode(); }
 
     @Override
+    public boolean isNullable() { return mode() == DataMode.OPTIONAL; }
+
+    @Override
     public boolean isArray() { return mode() == DataMode.REPEATED; }
+
+    @Override
+    public boolean isList() { return false; }
 
     @Override
     public boolean isVariableWidth() {
@@ -137,6 +143,8 @@ public class TupleSchema implements TupleMetadata {
           .append("]")
           .toString();
     }
+
+    public abstract AbstractColumnMetadata copy();
   }
 
   /**
@@ -160,6 +168,10 @@ public class TupleSchema implements TupleMetadata {
         int precision = majorType().getPrecision();
         if (precision > 0) {
           expectedWidth = precision;
+        } else {
+          // TypeHelper includes the offset vector width
+
+          expectedWidth = expectedWidth - 4;
         }
       }
     }
@@ -167,6 +179,11 @@ public class TupleSchema implements TupleMetadata {
     public PrimitiveColumnMetadata(PrimitiveColumnMetadata from) {
       super(from);
       expectedWidth = from.expectedWidth;
+    }
+
+    @Override
+    public AbstractColumnMetadata copy() {
+      return new PrimitiveColumnMetadata(this);
     }
 
     @Override
@@ -187,7 +204,9 @@ public class TupleSchema implements TupleMetadata {
       // 1 as the minimum. Adjusted to avoid trivial errors if the caller
       // makes an error.
 
-      expectedWidth = Math.max(1, width);
+      if (isVariableWidth()) {
+        expectedWidth = Math.max(1, width);
+      }
     }
 
     @Override
@@ -201,7 +220,7 @@ public class TupleSchema implements TupleMetadata {
    * schema as part of the column definition.
    */
 
-  public static class MapColumnMetadata  extends AbstractColumnMetadata {
+  public static class MapColumnMetadata extends AbstractColumnMetadata {
     private TupleMetadata parentTuple;
     private final TupleSchema mapSchema;
 
@@ -213,18 +232,6 @@ public class TupleSchema implements TupleMetadata {
 
     public MapColumnMetadata(MaterializedField schema) {
       this(schema, null);
-    }
-
-    /**
-     * Create the map column metadata by reusing information from an
-     * existing map schema, excluding child columns.
-     *
-     * @param from the map metadata to reuse
-     */
-    public MapColumnMetadata(MapColumnMetadata from) {
-      super(from);
-      mapSchema = new TupleSchema();
-      mapSchema.bind(this);
     }
 
     /**
@@ -244,8 +251,13 @@ public class TupleSchema implements TupleMetadata {
       } else {
         this.mapSchema = mapSchema;
       }
-      assert schema.getChildren().size() == mapSchema.size();
+      assert schema.getChildren().size() == this.mapSchema.size();
       this.mapSchema.bind(this);
+    }
+
+    @Override
+    public AbstractColumnMetadata copy() {
+      return new MapColumnMetadata(schema, (TupleSchema) mapSchema.copy());
     }
 
     @Override
@@ -271,7 +283,7 @@ public class TupleSchema implements TupleMetadata {
 
     @Override
     public ColumnMetadata cloneEmpty() {
-      return new MapColumnMetadata(this);
+      return new MapColumnMetadata(schema().cloneEmpty(), null);
     }
   }
 
@@ -293,7 +305,7 @@ public class TupleSchema implements TupleMetadata {
   public TupleMetadata copy() {
     TupleMetadata tuple = new TupleSchema();
     for (ColumnMetadata md : this) {
-      tuple.add(md.schema());
+      tuple.addColumn(((AbstractColumnMetadata) md).copy());
     }
     return tuple;
   }
@@ -368,12 +380,15 @@ public class TupleSchema implements TupleMetadata {
   public void add(AbstractColumnMetadata md) {
     md.bind(this);
     nameSpace.add(md.name(), md);
+    if (parentMap != null) {
+      parentMap.schema.addChild(md.schema());
+    }
   }
 
   @Override
   public int addColumn(ColumnMetadata column) {
     add((AbstractColumnMetadata) column);
-    return size();
+    return size() - 1;
   }
 
   @Override
@@ -393,14 +408,8 @@ public class TupleSchema implements TupleMetadata {
   }
 
   @Override
-  public String fullName(int index) {
-    return fullName(metadata(index));
-  }
-
-  @Override
   public MaterializedField column(int index) {
-    ColumnMetadata md = metadata(index);
-    return md == null ? null : md.schema();
+    return metadata(index).schema();
   }
 
   @Override
@@ -449,13 +458,21 @@ public class TupleSchema implements TupleMetadata {
     return new BatchSchema(svMode, toFieldList());
   }
 
+  @Override
+  public String fullName(int index) {
+    return fullName(metadata(index));
+  }
 
   @Override
   public String fullName(ColumnMetadata column) {
+    String quotedName = column.name();
+    if (quotedName.contains(".")) {
+      quotedName = "`" + quotedName + "`";
+    }
     if (isRoot()) {
       return column.name();
     } else {
-      return fullName() + "." + column.name();
+      return fullName() + "." + quotedName;
     }
   }
 

@@ -32,6 +32,7 @@ import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.AllocationHelper;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
@@ -102,22 +103,6 @@ public class SingleRowSetModel extends AbstractSingleTupleModel implements RowSe
 
     public void allocate(int valueCount) {
       AllocationHelper.allocatePrecomputedChildCount(vector, valueCount, schema.expectedWidth(), schema.expectedElementCount());
-//      if (schema.isArray()) {
-//        int expectedElementCount = schema.expectedElementCount();
-//        if (schema.isVariableWidth()) {
-//          final int byteCount = expectedElementCount * schema.expectedWidth();
-//          ((RepeatedVariableWidthVectorLike) vector).allocateNew(byteCount, valueCount, expectedElementCount);
-//        } else {
-//          ((RepeatedFixedWidthVectorLike) vector).allocateNew(valueCount, expectedElementCount);
-//        }
-//      } else {
-//        if (schema.isVariableWidth()) {
-//          final int byteCount = valueCount * schema.expectedWidth();
-//          ((VariableWidthVector) vector).allocateNew(byteCount, valueCount);
-//        } else {
-//          ((FixedWidthVector) vector).allocateNew(valueCount);
-//        }
-//      }
     }
   }
 
@@ -256,6 +241,17 @@ public class SingleRowSetModel extends AbstractSingleTupleModel implements RowSe
     }
 
     public ObjectWriter writer() { return writer; }
+
+    @Override
+    public void dump(HierarchicalFormatter format) {
+      format.extend();
+      super.dump(format);
+      format
+        .attributeIdentity("vector", vector)
+        .attribute("schema", vector.getField())
+        .attributeIdentity("writer", writer)
+        .endObject();
+    }
   }
 
   private final VectorContainer container;
@@ -323,5 +319,18 @@ public class SingleRowSetModel extends AbstractSingleTupleModel implements RowSe
 
   public void close() {
     container.clear();
+  }
+
+  @Override
+  public void dump(HierarchicalFormatter format) {
+    format.extend();
+    super.dump(format);
+    format.attributeArray("container");
+    for (int i = 0; i < container.getNumberOfColumns(); i++) {
+      format.elementIdentity(i, container.getValueVector(i).getValueVector());
+    }
+    format.endArray().attribute("writer");
+    writer.dump(format);
+    format.endObject();
   }
 }

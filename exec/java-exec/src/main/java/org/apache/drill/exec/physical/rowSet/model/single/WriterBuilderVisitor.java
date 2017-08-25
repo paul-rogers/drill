@@ -82,13 +82,25 @@ public abstract class WriterBuilderVisitor extends ModelVisitor<Void, WriterBuil
 
   @Override
   protected Void visitMapColumn(MapColumnModel column, Context context) {
-    context.childWriters.add(buildMap(column));
+
+    // Build the tuple writer for this column. Bind it to the model.
+
+    AbstractObjectWriter tupleWriter = buildMap(column);
+    context.childWriters.add(tupleWriter);
+    column.bindWriter(tupleWriter);
     return null;
   }
 
   @Override
   protected Void visitMapArrayColumn(MapColumnModel column, Context context) {
-    context.childWriters.add(ObjectArrayWriter.build((RepeatedMapVector) column.vector(), buildMap(column)));
+
+    // First, build a tuple writer for the map, then wrap it in an array
+    // writer for the repeated map. Bind that to the column model.
+
+    AbstractObjectWriter tupleWriter = buildMap(column);
+    AbstractObjectWriter arrayWriter = ObjectArrayWriter.build((RepeatedMapVector) column.vector(), tupleWriter);
+    context.childWriters.add(arrayWriter);
+    column.bindWriter(arrayWriter);
     return null;
   }
 
