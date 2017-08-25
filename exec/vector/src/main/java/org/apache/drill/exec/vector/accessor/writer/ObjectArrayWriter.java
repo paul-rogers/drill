@@ -17,10 +17,21 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
- * Writer for an array of either a map or another array.
+ * Writer for an array of either a map or another array. Here, the contents
+ * are a structure and need explicit saves. State transitions in addition to the
+ * base class are:
+ *
+ * <table border=1>
+ * <tr><th>Public API</th><th>Array Event</th><th>Offset Event</th><th>Element Event</th></tr>
+ * <tr><td>save() (array)</td>
+ *     <td>saveValue()</td>
+ *     <td>saveValue()</td>
+ *     <td>saveValue()</td></tr>
+ * </table>
  */
 
 public class ObjectArrayWriter extends AbstractArrayWriter {
@@ -35,9 +46,21 @@ public class ObjectArrayWriter extends AbstractArrayWriter {
   }
 
   @Override
+  public void bindIndex(ColumnWriterIndex index) {
+    elementIndex = new ArrayElementWriterIndex(index);
+    super.bindIndex(index);
+  }
+
+  @Override
   public void save() {
     elementIndex.nextElement();
-    endValue();
+    saveValue();
+
+    // The end value above is for the "outer" value: the array
+    // as a whole. Here, we end the value for the "inner" value:
+    // the array elements.
+
+    elementObjWriter.saveValue();
   }
 
   @Override

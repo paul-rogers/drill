@@ -248,6 +248,9 @@ public class ColumnAccessors {
     }
 
     @Override
+    public ValueVector vector() { return vector; }
+
+    @Override
     public void startWrite() {
       setAddr(vector.getBuffer());
       <#if varWidth>
@@ -308,7 +311,7 @@ public class ColumnAccessors {
         <#assign doCast = (cast == "set") />
       </#if>
     <#-- This is performance critical code; every operation counts.
-         Please thoughtful when changing the code.
+         Please be thoughtful when changing the code.
          Generated per class in the belief that the JVM will optimize the
          code path for each value width. Also, the reallocRaw() and
          setFoo() methods are type specific. (reallocRaw() could be virtual,

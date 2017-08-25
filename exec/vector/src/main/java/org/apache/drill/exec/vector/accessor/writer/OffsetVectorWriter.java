@@ -22,6 +22,7 @@ import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors;
 import org.apache.drill.exec.vector.accessor.ValueType;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
 import io.netty.buffer.DrillBuf;
 import io.netty.util.internal.PlatformDependent;
@@ -39,20 +40,32 @@ import io.netty.util.internal.PlatformDependent;
  */
 
 public class OffsetVectorWriter extends BaseScalarWriter {
+
   private static final int VALUE_WIDTH = UInt4Vector.VALUE_WIDTH;
+
   private UInt4Vector vector;
 
   /**
    * Offset into the data vector that this offset vector targets. Caching
    * the value here avoids the need to query the offset vector for every
-   * new value.
+   * new value. This is the value for the current row.
    */
 
-  private int lastTargetOffset;
+  private int targetOffset;
+
+  /**
+   * Cached offset value for the next row, rotated into the current
+   * row at the completion of each value.
+   */
+
+  private int nextOffset;
 
   public OffsetVectorWriter(UInt4Vector vector) {
     this.vector = vector;
   }
+
+  @Override
+  public ValueVector vector() { return vector; }
 
   @Override
   public void startWrite() {
@@ -62,21 +75,22 @@ public class OffsetVectorWriter extends BaseScalarWriter {
     // for row 0 starts at position 1, which is handled in
     // writeOffset() below.
 
-    lastTargetOffset = 0;
+    targetOffset = 0;
+    nextOffset = 0;
     lastWriteIndex = -1;
     setAddr(vector.getBuffer());
     if (capacity < ColumnAccessors.MIN_BUFFER_SIZE) {
       vector.reallocRaw(ColumnAccessors.MIN_BUFFER_SIZE * VALUE_WIDTH);
       setAddr(vector.getBuffer());
     }
-    PlatformDependent.putInt(bufAddr, lastTargetOffset);
+    PlatformDependent.putInt(bufAddr, targetOffset);
   }
 
   @Override
   public void startWriteAt(int newIndex) {
     startWrite();
     lastWriteIndex = newIndex;
-    lastTargetOffset = PlatformDependent.getInt(bufAddr + (lastWriteIndex + 1) * VALUE_WIDTH);
+    nextOffset = PlatformDependent.getInt(bufAddr + (lastWriteIndex + 1) * VALUE_WIDTH);
   }
 
   private final void setAddr(final DrillBuf buf) {
@@ -84,7 +98,7 @@ public class OffsetVectorWriter extends BaseScalarWriter {
     capacity = buf.capacity() / VALUE_WIDTH;
   }
 
-  public int targetOffset() { return lastTargetOffset; }
+  public int targetOffset() { return targetOffset; }
 
   @Override
   public ValueType valueType() {
@@ -118,7 +132,7 @@ public class OffsetVectorWriter extends BaseScalarWriter {
       }
     }
     while (lastWriteIndex < valueIndex - 1) {
-      PlatformDependent.putInt(bufAddr + (++lastWriteIndex + 1) * VALUE_WIDTH, lastTargetOffset);
+      PlatformDependent.putInt(bufAddr + (++lastWriteIndex + 1) * VALUE_WIDTH, targetOffset);
     }
     lastWriteIndex = valueIndex;
     return writeIndex;
@@ -127,7 +141,11 @@ public class OffsetVectorWriter extends BaseScalarWriter {
   public final void setOffset(final int curOffset) {
     final int writeIndex = writeIndex();
     PlatformDependent.putInt(bufAddr + writeIndex * VALUE_WIDTH, curOffset);
-    lastTargetOffset = curOffset;
+
+    // Next offset is set aside for now. Allows rewriting the present
+    // value any number of times using the current offset.
+
+    nextOffset = curOffset;
   }
 
   @Override
@@ -135,13 +153,22 @@ public class OffsetVectorWriter extends BaseScalarWriter {
 
     // To skip nulls, must carry forward the the last end offset.
 
-    setOffset(lastTargetOffset);
+    setOffset(targetOffset);
   }
 
   @Override
-  public void rewind() {
-    super.rewind();
-    lastTargetOffset = PlatformDependent.getInt(bufAddr + (lastWriteIndex + 1) * VALUE_WIDTH);
+  public void restartRow() {
+    super.restartRow();
+    targetOffset = PlatformDependent.getInt(bufAddr + (lastWriteIndex + 1) * VALUE_WIDTH);
+    nextOffset = targetOffset;
+  }
+
+  @Override
+  public final void saveValue() {
+
+    // Value is ending. Advance the offset to the next position.
+
+    targetOffset = nextOffset;
   }
 
   @Override
@@ -156,5 +183,15 @@ public class OffsetVectorWriter extends BaseScalarWriter {
     // No listener for overflow vectors as they can't overflow.
 
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void dump(HierarchicalFormatter format) {
+    format.extend();
+    super.dump(format);
+    format
+      .attribute("targetOffset", targetOffset)
+      .attribute("nextOffset", nextOffset)
+      .endObject();
   }
 }

@@ -24,6 +24,15 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
+
+/**
+ * Abstract base class for the object layer in writers. This class acts
+ * as the glue between a column and the data type of that column, per the
+ * JSON model which Drill uses. This base class provides stubs for most
+ * methods so that type-specific subclasses can simply fill in the bits
+ * needed for that particular class.
+ */
 
 public abstract class AbstractObjectWriter implements ObjectWriter, WriterEvents {
 
@@ -51,16 +60,19 @@ public abstract class AbstractObjectWriter implements ObjectWriter, WriterEvents
   public void startWrite() { baseEvents().startWrite(); }
 
   @Override
-  public void startValue() { baseEvents().startValue(); }
+  public void startRow() { baseEvents().startRow(); }
 
   @Override
-  public void endValue() { baseEvents().endValue(); }
+  public void saveValue() { baseEvents().saveValue(); }
+
+  @Override
+  public void restartRow() { baseEvents().restartRow(); }
+
+  @Override
+  public void saveRow() { baseEvents().saveRow(); }
 
   @Override
   public void endWrite() { baseEvents().endWrite(); }
-
-  @Override
-  public void rewind() { baseEvents().rewind(); }
 
   @Override
   public void startWriteAt(int index) { baseEvents().startWriteAt(index); }
@@ -69,13 +81,10 @@ public abstract class AbstractObjectWriter implements ObjectWriter, WriterEvents
   public int lastWriteIndex() { return baseEvents().lastWriteIndex(); }
 
   @Override
-  public void bindListener(ColumnWriterListener listener) {
-    throw new UnsupportedOperationException();
-  }
+  public void bindListener(ColumnWriterListener listener) { }
 
   @Override
-  public void bindListener(TupleWriterListener listener) {
-    throw new UnsupportedOperationException();
-  }
+  public void bindListener(TupleWriterListener listener) { }
 
+  public abstract void dump(HierarchicalFormatter format);
 }

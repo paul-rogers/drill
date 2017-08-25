@@ -20,17 +20,21 @@ package org.apache.drill.exec.vector.accessor.writer;
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.vector.NullableVector;
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnWriter;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ValueType;
 import org.joda.time.Period;
 
 public class NullableScalarWriter extends AbstractScalarWriter {
 
+  private final NullableVector vector;
   private final UInt1ColumnWriter isSetWriter;
   private final BaseScalarWriter baseWriter;
 
   public NullableScalarWriter(NullableVector nullableVector, BaseScalarWriter baseWriter) {
+    vector = nullableVector;
     isSetWriter = new UInt1ColumnWriter(nullableVector.getBitsVector());
     this.baseWriter = baseWriter;
   }
@@ -39,6 +43,9 @@ public class NullableScalarWriter extends AbstractScalarWriter {
     return new ScalarObjectWriter(
         new NullableScalarWriter(nullableVector, baseWriter));
   }
+
+  @Override
+  public ValueVector vector() { return vector; }
 
   @Override
   public void bindIndex(ColumnWriterIndex index) {
@@ -52,9 +59,9 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   }
 
   @Override
-  public void rewind() {
-    isSetWriter.rewind();
-    baseWriter.rewind();
+  public void restartRow() {
+    isSetWriter.restartRow();
+    baseWriter.restartRow();
   }
 
   @Override
@@ -128,7 +135,7 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   }
 
   @Override
-  public void startValue() {
+  public void startRow() {
     // Skip calls for performance: they do nothing for
     // scalar writers -- the only kind supported here.
 //    isSetWriter.startValue();
@@ -136,11 +143,11 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   }
 
   @Override
-  public void endValue() {
+  public void saveValue() {
     // Skip calls for performance: they do nothing for
     // scalar writers -- the only kind supported here.
-//    isSetWriter.endValue();
-//    baseWriter.endValue();
+//    isSetWriter.saveValue();
+    baseWriter.saveValue();
   }
 
   @Override
@@ -149,5 +156,16 @@ public class NullableScalarWriter extends AbstractScalarWriter {
     // Avoid back-filling null values.
     baseWriter.skipNulls();
     baseWriter.endWrite();
+  }
+
+  @Override
+  public void dump(HierarchicalFormatter format) {
+    format.extend();
+    super.dump(format);
+    format.attribute("isSetWriter");
+    isSetWriter.dump(format);
+    format.attribute("baseWriter");
+    baseWriter.dump(format);
+    format.endObject();
   }
 }

@@ -52,7 +52,6 @@ public final class DrillBuf extends AbstractByteBuf implements AutoCloseable {
   private final int offset;
   private final BufferLedger ledger;
   private final BufferManager bufManager;
-  private final ByteBufAllocator alloc;
   private final boolean isEmpty;
   private volatile int length;
   private final HistoricalLog historicalLog = BaseAllocator.DEBUG ?
@@ -72,7 +71,6 @@ public final class DrillBuf extends AbstractByteBuf implements AutoCloseable {
     this.udle = byteBuf;
     this.isEmpty = isEmpty;
     this.bufManager = manager;
-    this.alloc = alloc;
     this.addr = byteBuf.memoryAddress() + offset;
     this.ledger = ledger;
     this.length = length;

@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.joda.time.Period;
 
 /**
@@ -50,13 +51,25 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
     }
 
     @Override
+    public void saveValue() { offsetsWriter.saveValue(); }
+
+    @Override
     public int lastWriteIndex() { return offsetsWriter.lastWriteIndex(); }
 
     @Override
     public void skipNulls() { offsetsWriter.skipNulls(); }
 
     @Override
-    public void rewind() { offsetsWriter.rewind(); }
+    public void restartRow() { offsetsWriter.restartRow(); }
+
+    @Override
+    public void dump(HierarchicalFormatter format) {
+      format.extend();
+      super.dump(format);
+      format.attribute("offsetsWriter");
+      offsetsWriter.dump(format);
+      format.endObject();
+    }
   }
 
   /**
@@ -128,7 +141,7 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
   }
 
   @Override
-  public void rewind() {
+  public void restartRow() {
     lastWriteIndex = Math.min(lastWriteIndex, vectorIndex.vectorIndex() - 1);
   }
 
@@ -170,5 +183,17 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
   @Override
   public void setPeriod(Period value) {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void dump(HierarchicalFormatter format) {
+    format.extend();
+    super.dump(format);
+    format
+      .attribute("vectorIndex", vectorIndex)
+      .attributeIdentity("listener", listener)
+      .attribute("lastWriteIndex", lastWriteIndex)
+      .attribute("capacity", capacity)
+      .endObject();
   }
 }

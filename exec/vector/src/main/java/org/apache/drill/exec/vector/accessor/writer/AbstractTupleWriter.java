@@ -29,10 +29,69 @@ import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
 /**
  * Implementation for a writer for a tuple (a row or a map.) Provides access to each
  * column using either a name or a numeric index.
+ * <p>
+ * A tuple maintains an internal state needed to handle dynamic column additions.
+ * The state identifies the amount of "catch up" needed to get the new column into
+ * the same state as the existing columns. The state is also handy for understanding
+ * the tuple lifecycle. This lifecycle works for all three cases of:
+ * <ul>
+ * <li>Top-level tuple (row).</li>
+ * <li>Nested tuple (map).</li>
+ * <li>Array of tuples (repeated map).</li>
+ * </ul>
+ *
+ * Specifically, the transitions, for batch, row and array events, are:
+ *
+ * <table border=1>
+ * <tr><th>Public API</th><th>Tuple Event</th><th>State Transition</th>
+ *     <th>Child Event</th></tr>
+ * <tr><td>(Start state)</td>
+ *     <td>&mdash;</td>
+ *     <td>IDLE</td>
+ *     <td>&mdash;</td></tr>
+ * <tr><td>startBatch()</td>
+ *     <td>startWrite()</td>
+ *     <td>IDLE &rarr; IN_WRITE</td>
+ *     <td>startWrite()</td></tr>
+ * <tr><td>start() (new row)</td>
+ *     <td>startRow()</td>
+ *     <td>IN_WRITE &rarr; IN_ROW</td>
+ *     <td>startRow()</td></tr>
+ * <tr><td>start() (without save)</td>
+ *     <td>restartRow()</td>
+ *     <td>IN_ROW &rarr; IN_ROW</td>
+ *     <td>restartRow()</td></tr>
+ * <tr><td>save() (array)</td>
+ *     <td>saveValue()</td>
+ *     <td>IN_ROW &rarr; IN_ROW</td>
+ *     <td>saveValue()</td></tr>
+ * <tr><td rowspan=2>save() (row)</td>
+ *     <td>saveValue()</td>
+ *     <td>IN_ROW &rarr; IN_ROW</td>
+ *     <td>saveValue()</td></tr>
+ * <tr><td>saveRow()</td>
+ *     <td>IN_ROW &rarr; IN_WRITE</td>
+ *     <td>saveRow()</td></tr>
+ * <tr><td rowspan=2>end batch</td>
+ *     <td>&mdash;</td>
+ *     <td>IN_ROW &rarr; IDLE</td>
+ *     <td>endWrite()</td></tr>
+ * <tr><td>&mdash;</td>
+ *     <td>IN_WRITE &rarr; IDLE</td>
+ *     <td>endWrite()</td></tr>
+ * </table>
+ *
+ * Notes:
+ * <ul>
+ * <li>For the top-level tuple, a special case occurs with ending a batch. (The
+ *     method for doing so differs depending on implementation.) If a row is active,
+ *     then that row's values are discarded. Then, the batch is ended.</li>
+ * </ul>
  */
 
 public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
@@ -65,6 +124,15 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     public void bindListener(TupleWriterListener listener) {
       tupleWriter.bindListener(listener);
     }
+
+    @Override
+    public void dump(HierarchicalFormatter format) {
+      format
+        .startObject(this)
+        .attribute("tupleWriter");
+      tupleWriter.dump(format);
+      format.endObject();
+    }
   }
 
   /**
@@ -95,12 +163,13 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
      * newly-added vectors.
      */
 
-    IN_VALUE
+    IN_ROW
   }
 
-  protected ColumnWriterIndex vectorIndex;
   protected final TupleMetadata schema;
   protected final List<AbstractObjectWriter> writers;
+  protected ColumnWriterIndex vectorIndex;
+  protected ColumnWriterIndex childIndex;
   protected TupleWriterListener listener;
   protected State state = State.IDLE;
 
@@ -113,12 +182,18 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     this(schema, new ArrayList<AbstractObjectWriter>());
   }
 
+  protected void bindIndex(ColumnWriterIndex index, ColumnWriterIndex childIndex) {
+    vectorIndex = index;
+    this.childIndex = childIndex;
+
+    for (int i = 0; i < writers.size(); i++) {
+      writers.get(i).bindIndex(childIndex);
+    }
+  }
+
   @Override
   public void bindIndex(ColumnWriterIndex index) {
-    vectorIndex = index;
-    for (int i = 0; i < writers.size(); i++) {
-      writers.get(i).bindIndex(index);
-    }
+    bindIndex(index, index);
   }
 
   /**
@@ -133,11 +208,11 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     assert writers.size() + 1 == schema.size();
     int colIndex = writers.size();
     writers.add(colWriter);
-    colWriter.bindIndex(vectorIndex);
+    colWriter.bindIndex(childIndex);
     if (state != State.IDLE) {
       colWriter.startWrite();
-      if (state == State.IN_VALUE) {
-        colWriter.startValue();
+      if (state == State.IN_ROW) {
+        colWriter.startRow();
       }
     }
     return colIndex;
@@ -177,19 +252,47 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   }
 
   @Override
-  public void startValue() {
+  public void startRow() {
+    // Must be in a write. Can start a row only once.
+    // To restart, call restartRow() instead.
+
     assert state == State.IN_WRITE;
-    state = State.IN_VALUE;
+    state = State.IN_ROW;
     for (int i = 0; i < writers.size();  i++) {
-      writers.get(i).startValue();
+      writers.get(i).startRow();
     }
   }
 
   @Override
-  public void endValue() {
-    assert state == State.IN_VALUE;
+  public void saveValue() {
+    assert state == State.IN_ROW;
     for (int i = 0; i < writers.size();  i++) {
-      writers.get(i).endValue();
+      writers.get(i).saveValue();
+    }
+  }
+
+  @Override
+  public void restartRow() {
+
+    // Rewind is normally called only when a value is active: it resets
+    // pointers to allow rewriting the value. However, if this tuple
+    // is nested in an array, then the array entry could have been
+    // saved (state here is IN_WRITE), but the row as a whole has
+    // not been saved. Thus, we must also allow a rewind() while in
+    // the IN_WRITE state to set the pointers back to the start of
+    // the current row.
+
+    assert state == State.IN_ROW;
+    for (int i = 0; i < writers.size();  i++) {
+      writers.get(i).restartRow();
+    }
+  }
+
+  @Override
+  public void saveRow() {
+    assert state == State.IN_ROW;
+    for (int i = 0; i < writers.size();  i++) {
+      writers.get(i).saveRow();
     }
     state = State.IN_WRITE;
   }
@@ -201,14 +304,6 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
       writers.get(i).endWrite();
     }
     state = State.IDLE;
-  }
-
-  @Override
-  public void rewind() {
-    assert state == State.IN_VALUE;
-    for (int i = 0; i < writers.size();  i++) {
-      writers.get(i).rewind();
-    }
   }
 
   @Override
@@ -305,5 +400,18 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   @Override
   public void bindListener(TupleWriterListener listener) {
     this.listener = listener;
+  }
+
+  public void dump(HierarchicalFormatter format) {
+    format
+      .startObject(this)
+      .attribute("vectorIndex", vectorIndex)
+      .attribute("state", state)
+      .attributeArray("writers");
+    for (int i = 0; i < writers.size(); i++) {
+      format.element(i);
+      writers.get(i).dump(format);
+    }
+    format.endArray().endObject();
   }
 }

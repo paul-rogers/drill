@@ -25,6 +25,7 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
@@ -37,6 +38,53 @@ import org.apache.drill.exec.vector.complex.RepeatedValueVector;
  * manages writing to the scalar, array or tuple that is the array element. Note
  * that this representation makes little use of the methods in the "Repeated"
  * vector class: instead it works directly with the offset and element vectors.
+ * <p>
+ * An array has a one-to-many relationship with its children. Starting an array
+ * prepares for writing the first element. Each element must be saved by calling
+ * <tt>endValue()</tt>. This is done automatically for scalars (since there is
+ * exactly one value per element), but must be done via the client code for
+ * arrays of arrays or tuples. Valid state transitions:
+ *
+ * <table border=1>
+ * <tr><th>Public API</th><th>Array Event</th><th>Offset Event</th><th>Element Event</th></tr>
+ * <tr><td>startBatch()</td>
+ *     <td>startWrite()</td>
+ *     <td>startWrite()</td>
+ *     <td>startWrite()</td></tr>
+ * <tr><td>start() (new row)</td>
+ *     <td>startRow()</td>
+ *     <td>startRow()</td>
+ *     <td>startRow()</td></tr>
+ * <tr><td>start() (without save)</td>
+ *     <td>restartRow()</td>
+ *     <td>restartRow()</td>
+ *     <td>restartRow()</td></tr>
+ * <tr><td>save() (array)</td>
+ *     <td>saveValue()</td>
+ *     <td>saveValue()</td>
+ *     <td>saveValue()</td></tr>
+ * <tr><td>save() (row)</td>
+ *     <td colspan=3>See subclasses.</td></tr>
+ * <tr><td>harvest()</td>
+ *     <td>endWrite()</td>
+ *     <td>endWrite()</td>
+ *     <td>endWrite()</td></tr>
+ * </table>
+ *
+ * Some items to note:
+ * <ul>
+ * <li>Batch and row events are passed to the element.</li>
+ * <li>Each element is saved via a call to {@link #save()} on the array.
+ *     Without this call, the element value is discarded. This is necessary
+ *     because the array always has an active element: no "startElement"
+ *     method is necessary. This also means that any unsaved element values
+ *     can be discarded simply by omitting a call to <tt>save()</tt>.</li>
+ * <li>Since elements must be saved individually, the call to
+ *     {@link #saveRow()} <i>does not</i> call <tt>saveValue()</tt>. This
+ *     is an important distinction between an array and a tuple.</li>
+ * <li>The offset and element writers are treated equally: the same events
+ *     are passed to both.</li>
+ * </ul>
  */
 
 public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
@@ -76,6 +124,15 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     public void bindListener(TupleWriterListener listener) {
       arrayWriter.bindListener(listener);
     }
+
+    @Override
+    public void dump(HierarchicalFormatter format) {
+      format
+        .startObject(this)
+        .attribute("arrayWriter");
+      arrayWriter.dump(format);
+      format.endObject();
+    }
   }
 
   /**
@@ -84,7 +141,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
    * Forwards overflow events to the base index.
    */
 
-  public class ArrayElementWriterIndex implements ColumnWriterIndex {
+  public static class ArrayElementWriterIndex implements ColumnWriterIndex {
 
     private final ColumnWriterIndex baseIndex;
     private int startOffset = 0;
@@ -123,6 +180,21 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
       startOffset = 0;
       offset = newIndex;
     }
+
+    @Override
+    public String toString() {
+      return new StringBuilder()
+        .append("[")
+        .append(getClass().getSimpleName())
+        .append(" baseIndex = ")
+        .append(baseIndex.toString())
+        .append(", startOffset = ")
+        .append(startOffset)
+        .append(", offset = ")
+        .append(offset)
+        .append("]")
+        .toString();
+    }
   }
 
   protected final AbstractObjectWriter elementObjWriter;
@@ -137,9 +209,9 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
   @Override
   public void bindIndex(ColumnWriterIndex index) {
+    assert elementIndex != null;
     baseIndex = index;
     offsetsWriter.bindIndex(index);
-    elementIndex = new ArrayElementWriterIndex(baseIndex);
     elementObjWriter.bindIndex(elementIndex);
   }
 
@@ -161,23 +233,44 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   }
 
   @Override
-  public void startValue() { }
+  public void startRow() {
+
+    // Starting an outer value automatically starts the first
+    // element value. If no elements are written, then this
+    // inner start will just be ignored.
+
+    offsetsWriter.startRow();
+    elementObjWriter.startRow();
+  }
 
   @Override
-  public void endValue() {
+  public void saveValue() {
+
+    // Save of the array value itself. Saves the offset vector
+    // state. Does not invoke a save on children which must be
+    // saved via the call to save().
+
     offsetsWriter.setOffset(elementIndex.endValue());
+    offsetsWriter.saveValue();
+  }
+
+  @Override
+  public void restartRow() {
+    offsetsWriter.restartRow();
+    elementIndex.resetTo(offsetsWriter.targetOffset());
+    elementObjWriter.restartRow();
+  }
+
+  @Override
+  public void saveRow() {
+    offsetsWriter.saveRow();
+    elementObjWriter.saveRow();
   }
 
   @Override
   public void endWrite() {
     offsetsWriter.endWrite();
     elementObjWriter.endWrite();
-  }
-
-  @Override
-  public void rewind() {
-    offsetsWriter.rewind();
-    elementIndex.resetTo(offsetsWriter.targetOffset());
   }
 
   @Override
@@ -243,5 +336,16 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
   public void bindListener(TupleWriterListener listener) {
     elementObjWriter.bindListener(listener);
+  }
+
+  public void dump(HierarchicalFormatter format) {
+    format
+      .startObject(this)
+      .attribute("elementIndex", elementIndex.vectorIndex())
+      .attribute("offsetsWriter");
+    offsetsWriter.dump(format);
+    format.attribute("elementObjWriter");
+    elementObjWriter.dump(format);
+    format.endObject();
   }
 }

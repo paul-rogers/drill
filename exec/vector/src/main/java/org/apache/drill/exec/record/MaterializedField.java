@@ -87,8 +87,13 @@ public class MaterializedField {
     children.add(field);
   }
 
+  @Override
   public MaterializedField clone() {
     return withPathAndType(name, getType());
+  }
+
+  public MaterializedField cloneEmpty() {
+    return create(name, type);
   }
 
   public MaterializedField withType(MajorType type) {
@@ -107,14 +112,6 @@ public class MaterializedField {
     return new MaterializedField(name, type, newChildren);
   }
 
-//  public String getLastName(){
-//    PathSegment seg = key.path.getRootSegment();
-//    while (seg.getChild() != null) {
-//      seg = seg.getChild();
-//    }
-//    return seg.getNameSegment().getPath();
-//  }
-
   // TODO: rewrite without as direct match rather than conversion then match.
   public boolean matches(SerializedField field){
     MaterializedField f = create(field);
@@ -124,27 +121,6 @@ public class MaterializedField {
   public static MaterializedField create(String name, MajorType type){
     return new MaterializedField(name, type, new LinkedHashSet<MaterializedField>());
   }
-
-//  public String getName(){
-//    StringBuilder sb = new StringBuilder();
-//    boolean first = true;
-//    for(NamePart np : def.getNameList()){
-//      if(np.getType() == Type.ARRAY){
-//        sb.append("[]");
-//      }else{
-//        if(first){
-//          first = false;
-//        }else{
-//          sb.append(".");
-//        }
-//        sb.append('`');
-//        sb.append(np.getName());
-//        sb.append('`');
-//
-//      }
-//    }
-//    return sb.toString();
-//  }
 
   public String getPath() { return getName(); }
   public String getLastName() { return getName(); }

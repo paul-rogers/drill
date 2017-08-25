@@ -34,7 +34,9 @@ import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 public abstract class MapWriter extends AbstractTupleWriter {
 
   /**
-   * TODO: Why do we need this to wrap the outer index?
+   * Wrap the outer index to avoid incrementing the array index
+   * on the call to <tt>nextElement().</tt> For maps, the increment
+   * is done at the map level, not the column level.
    */
 
   private static class MemberWriterIndex implements ColumnWriterIndex {
@@ -51,6 +53,17 @@ public abstract class MapWriter extends AbstractTupleWriter {
     public void resetTo(int newIndex) {
       // TODO Auto-generated method stub
       assert false;
+    }
+
+    @Override
+    public String toString() {
+      return new StringBuilder()
+        .append("[")
+        .append(getClass().getSimpleName())
+        .append(" baseIndex = ")
+        .append(baseIndex.toString())
+        .append("]")
+        .toString();
     }
   }
 
@@ -75,11 +88,6 @@ public abstract class MapWriter extends AbstractTupleWriter {
     }
 
     @Override
-    public void bindIndex(ColumnWriterIndex index) {
-      bindIndex(index, index);
-    }
-
-    @Override
     public void startWriteAt(int index) {
       // TODO Auto-generated method stub
       assert false;
@@ -91,7 +99,7 @@ public abstract class MapWriter extends AbstractTupleWriter {
    * to the constituent member vectors so that, say, the values for (row 10,
    * element 5) all occur to the same position in the columns within the map.
    * Since the map is an array, it has an associated offset vector, which the
-   * parrent array writer is responsible for maintaining.
+   * parent array writer is responsible for maintaining.
    */
 
   private static class ArrayMapWriter extends MapWriter {
@@ -162,14 +170,6 @@ public abstract class MapWriter extends AbstractTupleWriter {
   public static TupleObjectWriter build(ColumnMetadata schema, AbstractMapVector vector) {
     assert schema.mapSchema().size() == 0;
     return build(schema, vector, new ArrayList<AbstractObjectWriter>());
-  }
-
-  protected void bindIndex(ColumnWriterIndex index, ColumnWriterIndex childIndex) {
-    vectorIndex = index;
-
-    for (int i = 0; i < writers.size(); i++) {
-      writers.get(i).bindIndex(childIndex);
-    }
   }
 
   @Override

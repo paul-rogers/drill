@@ -19,9 +19,11 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.joda.time.Period;
 
 /**
@@ -62,16 +64,30 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
     public void bindListener(ColumnWriterListener listener) {
       scalarWriter.bindListener(listener);
     }
+
+    @Override
+    public void dump(HierarchicalFormatter format) {
+      format
+        .startObject(this)
+        .attribute("scalarWriter");
+      scalarWriter.dump(format);
+      format.endObject();
+    }
   }
+
+  public abstract ValueVector vector();
 
   @Override
   public void startWrite() { }
 
   @Override
-  public void startValue() { }
+  public void startRow() { }
 
   @Override
-  public void endValue() { }
+  public void saveValue() { }
+
+  @Override
+  public void saveRow() { }
 
   @Override
   public void setObject(Object value) {
@@ -102,5 +118,13 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
       throw new IllegalArgumentException("Unsupported type " +
                 value.getClass().getSimpleName());
     }
+  }
+
+  public void dump(HierarchicalFormatter format) {
+    format
+      .startObject(this)
+      .attributeIdentity("vector", vector())
+      .attribute("schema", vector().getField())
+      .endObject();
   }
 }

@@ -46,6 +46,26 @@ import org.joda.time.Period;
 
 public class ScalarArrayWriter extends AbstractArrayWriter {
 
+  /**
+   * For scalar arrays, incrementing the element index and
+   * committing the current value is done automatically since
+   * there is exactly one value per array element.
+   */
+
+  public class ScalarElementWriterIndex extends ArrayElementWriterIndex {
+
+    public ScalarElementWriterIndex(ColumnWriterIndex baseIndex) {
+      super(baseIndex);
+    }
+
+    @Override
+    public void nextElement() {
+      elementObjWriter.saveValue();
+      saveValue();
+      super.nextElement();
+    }
+  }
+
   private final BaseScalarWriter elementWriter;
 
   public ScalarArrayWriter(RepeatedValueVector vector, BaseScalarWriter elementWriter) {
@@ -60,6 +80,7 @@ public class ScalarArrayWriter extends AbstractArrayWriter {
 
   @Override
   public void bindIndex(ColumnWriterIndex index) {
+    elementIndex = new ScalarElementWriterIndex(index);
     super.bindIndex(index);
     elementWriter.bindIndex(elementIndex);
   }
