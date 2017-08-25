@@ -47,9 +47,9 @@ public class TestVectorContainer extends SubOperatorTest {
         .addNullable("b", MinorType.VARCHAR)
         .build();
     SingleRowSet left = fixture.rowSetBuilder(leftSchema)
-        .add(10, "fred")
-        .add(20, "barney")
-        .add(30, "wilma")
+        .addRow(10, "fred")
+        .addRow(20, "barney")
+        .addRow(30, "wilma")
         .build();
 
     // Simulated "implicit" columns: row number and file name
@@ -59,9 +59,9 @@ public class TestVectorContainer extends SubOperatorTest {
         .add("y", MinorType.VARCHAR)
         .build();
     SingleRowSet right = fixture.rowSetBuilder(rightSchema)
-        .add(1, "foo.txt")
-        .add(2, "bar.txt")
-        .add(3, "dino.txt")
+        .addRow(1, "foo.txt")
+        .addRow(2, "bar.txt")
+        .addRow(3, "dino.txt")
         .build();
 
     // The merge batch we expect to see
@@ -73,9 +73,9 @@ public class TestVectorContainer extends SubOperatorTest {
         .add("y", MinorType.VARCHAR)
         .build();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .add(10, "fred", 1, "foo.txt")
-        .add(20, "barney", 2, "bar.txt")
-        .add(30, "wilma", 3, "dino.txt")
+        .addRow(10, "fred", 1, "foo.txt")
+        .addRow(20, "barney", 2, "bar.txt")
+        .addRow(30, "wilma", 3, "dino.txt")
         .build();
 
     // Merge containers without selection vector

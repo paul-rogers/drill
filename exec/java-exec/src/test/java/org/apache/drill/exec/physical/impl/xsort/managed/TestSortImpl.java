@@ -247,10 +247,10 @@ public class TestSortImpl extends DrillTest {
       BatchSchema schema = SortTestUtilities.nonNullSchema();
       SortTestFixture sortTest = new SortTestFixture(fixture);
       sortTest.addInput(fixture.rowSetBuilder(schema)
-          .add(1, "first")
+          .addRow(1, "first")
           .build());
       sortTest.addOutput(fixture.rowSetBuilder(schema)
-          .add(1, "first")
+          .addRow(1, "first")
           .build());
       sortTest.run();
     }
@@ -267,12 +267,12 @@ public class TestSortImpl extends DrillTest {
       BatchSchema schema = SortTestUtilities.nonNullSchema();
       SortTestFixture sortTest = new SortTestFixture(fixture);
       sortTest.addInput(fixture.rowSetBuilder(schema)
-          .add(2, "second")
-          .add(1, "first")
+          .addRow(2, "second")
+          .addRow(1, "first")
           .build());
       sortTest.addOutput(fixture.rowSetBuilder(schema)
-          .add(1, "first")
-          .add(2, "second")
+          .addRow(1, "first")
+          .addRow(2, "second")
           .build());
       sortTest.run();
     }
@@ -290,14 +290,14 @@ public class TestSortImpl extends DrillTest {
       BatchSchema schema = SortTestUtilities.nonNullSchema();
       SortTestFixture sortTest = new SortTestFixture(fixture);
       sortTest.addInput(fixture.rowSetBuilder(schema)
-          .add(2, "second")
+          .addRow(2, "second")
           .build());
       sortTest.addInput(fixture.rowSetBuilder(schema)
-          .add(1, "first")
+          .addRow(1, "first")
           .build());
       sortTest.addOutput(fixture.rowSetBuilder(schema)
-          .add(1, "first")
-          .add(2, "second")
+          .addRow(1, "first")
+          .addRow(2, "second")
           .build());
       sortTest.run();
     }
@@ -361,7 +361,7 @@ public class TestSortImpl extends DrillTest {
       RowSetBuilder builder = fixture.rowSetBuilder(schema);
       int end = Math.min(batchSize, targetCount - rowCount);
       for (int i = 0; i < end; i++) {
-        builder.add(currentValue, i + ", " + currentValue);
+        builder.addRow(currentValue, i + ", " + currentValue);
         currentValue = (currentValue + step) % targetCount;
         rowCount++;
       }
@@ -598,18 +598,18 @@ public class TestSortImpl extends DrillTest {
         }
       };
       sortTest.addInput(fixture.rowSetBuilder(schema)
-          .add(2, "second")
+          .addRow(2, "second")
           .build());
       sortTest.addInput(fixture.rowSetBuilder(schema)
-          .add(3, "third")
+          .addRow(3, "third")
           .build());
       sortTest.addInput(fixture.rowSetBuilder(schema)
-          .add(1, "first")
+          .addRow(1, "first")
           .build());
       sortTest.addOutput(fixture.rowSetBuilder(schema)
-          .add(1, "first")
-          .add(2, "second")
-          .add(3, "third")
+          .addRow(1, "first")
+          .addRow(2, "second")
+          .addRow(3, "third")
           .build());
       sortTest.run();
     }

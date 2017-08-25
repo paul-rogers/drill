@@ -165,17 +165,17 @@ public class TestBatchSerialization extends DrillTest {
 
   private SingleRowSet buildMapSet(BatchSchema schema) {
     return fixture.rowSetBuilder(schema)
-        .add(1, new Object[] {100, "first"})
-        .add(2, new Object[] {200, "second"})
-        .add(3, new Object[] {300, "third"})
+        .addRow(1, new Object[] {100, "first"})
+        .addRow(2, new Object[] {200, "second"})
+        .addRow(3, new Object[] {300, "third"})
         .build();
   }
 
   private SingleRowSet buildArraySet(BatchSchema schema) {
     return fixture.rowSetBuilder(schema)
-        .add(1, new String[] { "first, second, third" } )
-        .add(2, null)
-        .add(3, new String[] { "third, fourth, fifth" } )
+        .addRow(1, new String[] { "first, second, third" } )
+        .addRow(2, null)
+        .addRow(3, new String[] { "third, fourth, fifth" } )
         .build();
   }
 

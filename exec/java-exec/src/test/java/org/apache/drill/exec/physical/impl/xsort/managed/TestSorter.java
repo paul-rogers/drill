@@ -108,12 +108,12 @@ public class TestSorter extends DrillTest {
   public void testSingleRow() throws Exception {
     BatchSchema schema = SortTestUtilities.nonNullSchema();
     SingleRowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
-          .add(0, "0")
+          .addRow(0, "0")
           .withSv2()
           .build();
 
     SingleRowSet expected = new RowSetBuilder(fixture.allocator(), schema)
-        .add(0, "0")
+        .addRow(0, "0")
         .build();
     runSorterTest(rowSet, expected);
   }
@@ -124,14 +124,14 @@ public class TestSorter extends DrillTest {
   public void testTwoRows() throws Exception {
     BatchSchema schema = SortTestUtilities.nonNullSchema();
     SingleRowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
-        .add(1, "1")
-        .add(0, "0")
+        .addRow(1, "1")
+        .addRow(0, "0")
         .withSv2()
         .build();
 
     SingleRowSet expected = new RowSetBuilder(fixture.allocator(), schema)
-        .add(0, "0")
-        .add(1, "1")
+        .addRow(0, "0")
+        .addRow(1, "1")
         .build();
     runSorterTest(rowSet, expected);
   }
@@ -366,7 +366,7 @@ public class TestSorter extends DrillTest {
         int mo = rand.nextInt(12);
         int yr = rand.nextInt(10);
         Period period = makePeriod(yr, mo, day, hr, min, sec, ms);
-        builder.add(period);
+        builder.addRow(period);
       }
       return builder.build();
     }
@@ -583,16 +583,16 @@ public class TestSorter extends DrillTest {
         .build();
 
     SingleRowSet input = fixture.rowSetBuilder(schema)
-        .add(3, "third")
-        .add(1, "first")
-        .add(2, "second")
+        .addRow(3, "third")
+        .addRow(1, "first")
+        .addRow(2, "second")
         .withSv2()
         .build();
 
     SingleRowSet output = fixture.rowSetBuilder(schema)
-        .add(1, "first")
-        .add(2, "second")
-        .add(3, "third")
+        .addRow(1, "first")
+        .addRow(2, "second")
+        .addRow(3, "third")
         .build();
     Sort popConfig = makeSortConfig("map.key", Ordering.ORDER_ASC, Ordering.NULLS_LAST);
     runSorterTest(popConfig, input, output);
