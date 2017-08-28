@@ -19,9 +19,9 @@ package org.apache.drill.exec.physical.rowSet.model;
 
 import javax.sql.RowSet;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
