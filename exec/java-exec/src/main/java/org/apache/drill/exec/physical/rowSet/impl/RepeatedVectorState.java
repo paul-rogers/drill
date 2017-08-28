@@ -19,9 +19,11 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.ValuesVectorState;
-import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
@@ -33,29 +35,34 @@ import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 public class RepeatedVectorState implements VectorState {
   private final ColumnMetadata schema;
   private final AbstractArrayWriter arrayWriter;
+  private final RepeatedValueVector vector;
   private final OffsetVectorState offsetsState;
   private final ValuesVectorState valuesState;
 
-  public RepeatedVectorState(AbstractSingleColumnModel columnModel) {
-    this.schema = columnModel.schema();
+  public RepeatedVectorState(AbstractObjectWriter writer, RepeatedValueVector vector) {
+    this.schema = writer.schema();
 
     // Get the repeated vector
 
-    @SuppressWarnings("resource")
-    RepeatedValueVector vector = (RepeatedValueVector) columnModel.vector();
+    this.vector = vector;
+
+    // Create the values state using the value (data) portion of the repeated
+    // vector, and the scalar (value) portion of the array writer.
+
+    arrayWriter = (AbstractArrayWriter) writer.array();
+    AbstractScalarWriter colWriter = (AbstractScalarWriter) arrayWriter.scalar();
+    valuesState = new ValuesVectorState(schema, colWriter, vector.getDataVector());
 
     // Create the offsets state with the offset vector portion of the repeated
     // vector, and the offset writer portion of the array writer.
 
-    arrayWriter = (AbstractArrayWriter) columnModel.writer().array();
-    offsetsState = new OffsetVectorState(arrayWriter.offsetWriter(), vector.getOffsetVector());
-
-    // Then, create the values state using the value (data) portion of the repeated
-    // vector, and the scalar (value) portion of the array writer.
-
-    AbstractScalarWriter colWriter = (AbstractScalarWriter) arrayWriter.scalar();
-    valuesState = new ValuesVectorState(schema, colWriter, vector.getDataVector());
+    offsetsState = new OffsetVectorState(arrayWriter.offsetWriter(),
+        vector.getOffsetVector(),
+        (AbstractObjectWriter) arrayWriter.entry());
   }
+
+  @Override
+  public ValueVector vector() { return vector; }
 
   @Override
   public void allocate(int cardinality) {
@@ -75,17 +82,15 @@ public class RepeatedVectorState implements VectorState {
    * <p>
    * Data structure:
    * <p><pre></code>
-   * PrimitiveColumnModel
-   * +- PrimitiveColumnState
-   * .  +- RepeatedVectorState (this class)
-   * .  .  +- OffsetVectorState
-   * .  .  .  +- OffsetVectorWriter (A)
-   * .  .  .  +- Offset vector (B)
-   * .  .  .  +- Backup (e.g. look-ahead) offset vector
-   * .  .  +- ValuesVectorState
-   * .  .  .  +- Scalar (element) writer (C)
-   * .  .  .  +- Data (elements) vector (D)
-   * .  .  .  +- Backup elements vector
+   * RepeatedVectorState (this class)
+   * +- OffsetVectorState
+   * .  +- OffsetVectorWriter (A)
+   * .  +- Offset vector (B)
+   * .  +- Backup (e.g. look-ahead) offset vector
+   * +- ValuesVectorState
+   * .  +- Scalar (element) writer (C)
+   * .  +- Data (elements) vector (D)
+   * .  +- Backup elements vector
    * +- Array Writer
    * .  +- ColumnWriterIndex (for array as a whole)
    * .  +- OffsetVectorWriter (A)
@@ -118,29 +123,14 @@ public class RepeatedVectorState implements VectorState {
    */
 
   @Override
-  public int rollOver(int sourceStartIndex, int cardinality) {
-
-    // Obtain the start of the data portion of the overflow. Do
-    // this BEFORE swapping out the offset vector. If we are at row
-    // n, then the offset at row n is the start position of data for
-    // row n.
-
-    int dataStartIndex = offsetsState.offsetAt(sourceStartIndex);
+  public void rollover(int cardinality) {
 
     // Swap out the two vectors. The index presented to the caller
     // is that of the data vector: the next position in the data
     // vector to be set into the data vector writer index.
 
-    int newIndex = valuesState.rollOver(dataStartIndex, childCardinality(cardinality));
-    offsetsState.rollOver(sourceStartIndex, cardinality);
-
-    // The array introduces a new vector index level for the
-    // (one and only) child writer. Adjust that vector index to point to the
-    // next array write position. This position must reflect any array entries
-    // already written.
-
-    arrayWriter.resetElementIndex(newIndex);
-    return newIndex;
+    valuesState.rollover(childCardinality(cardinality));
+    offsetsState.rollover(cardinality);
   }
 
   @Override
@@ -159,5 +149,21 @@ public class RepeatedVectorState implements VectorState {
   public void reset() {
     offsetsState.reset();
     valuesState.reset();
+  }
+
+  @Override
+  public void dump(HierarchicalFormatter format) {
+    format
+      .startObject(this)
+      .attribute("schema", schema)
+      .attributeIdentity("writer", arrayWriter)
+      .attributeIdentity("vector", vector)
+      .attribute("offsetsState");
+    offsetsState.dump(format);
+    format
+      .attribute("valuesState");
+    valuesState.dump(format);
+    format
+      .endObject();
   }
 }

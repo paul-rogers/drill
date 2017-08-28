@@ -18,67 +18,89 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.exec.physical.rowSet.impl.NullVectorState.UnmanagedVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
-import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.ColumnCoordinator;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapColumnModel;
+import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapState;
+import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
+import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 
-public abstract class ColumnState implements ColumnCoordinator {
+public abstract class ColumnState {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ColumnState.class);
 
-  public static class MapColumnState extends ColumnState {
+  public static abstract class BaseMapColumnState extends ColumnState {
+    protected final MapState mapState;
 
-    @SuppressWarnings("unused")
-    private final MapColumnModel columnModel;
-
-    public MapColumnState(ResultSetLoaderImpl resultSetLoader, MapColumnModel columnModel) {
-      super(resultSetLoader, new NullVectorState());
-      this.columnModel = columnModel;
+    public BaseMapColumnState(ResultSetLoaderImpl resultSetLoader,
+         AbstractMapVector mapVector,
+         AbstractObjectWriter writer, VectorState vectorState) {
+      super(resultSetLoader, writer, vectorState);
+      mapState = new MapState(resultSetLoader, this, mapVector);
     }
 
     @Override
-    public void overflowed(AbstractSingleColumnModel model) {
-      // Should never occur: map columns can't overflow
-      // (only the content columns are subject to overflow.)
-
-      throw new IllegalStateException();
+    public void rollover() {
+      super.rollover();
+      mapState.rollover();
     }
 
     @Override
-    public void startBatch() { }
+    public void startBatch() {
+      super.startBatch();
+      mapState.startBatch();
+    }
 
     @Override
-    public void rollOver(int sourceStartIndex) { }
+    public void harvestWithLookAhead() {
+      super.harvestWithLookAhead();
+      mapState.harvestWithLookAhead();
+    }
+
+    @Override
+    public void close() {
+      super.close();
+      mapState.close();
+    }
+
+    public MapState mapState() { return mapState; }
   }
 
-  public static class MapArrayColumnState extends ColumnState {
+  public static class MapColumnState extends BaseMapColumnState {
 
-    @SuppressWarnings("unused")
-    private final MapColumnModel columnModel;
-    protected SingleVectorState offsetsState;
-
-    public MapArrayColumnState(ResultSetLoaderImpl resultSetLoader, MapColumnModel columnModel) {
-      super(resultSetLoader,
-          new OffsetVectorState(
-              ((AbstractArrayWriter) columnModel.writer().array()).offsetWriter(),
-              ((RepeatedMapVector) columnModel.vector()).getOffsetVector()));
-      this.columnModel = columnModel;
+    public MapColumnState(ResultSetLoaderImpl resultSetLoader,
+        AbstractMapVector mapVector, AbstractObjectWriter writer) {
+      super(resultSetLoader, mapVector, writer,
+          new UnmanagedVectorState(mapVector));
     }
 
     @Override
-    public void overflowed(AbstractSingleColumnModel model) {
+    public void updateCardinality(int cardinality) {
+      super.updateCardinality(cardinality);
+      mapState.updateCardinality(cardinality);
+    }
+  }
 
-      // Should never occur: map columns can't overflow
-      // (only the content columns are subject to overflow.)
+  public static class MapArrayColumnState extends BaseMapColumnState {
 
-      throw new IllegalStateException();
+    public MapArrayColumnState(ResultSetLoaderImpl resultSetLoader,
+        AbstractMapVector mapVector, AbstractObjectWriter writer) {
+      super(resultSetLoader, mapVector, writer,
+          new OffsetVectorState(
+              ((AbstractArrayWriter) writer.array()).offsetWriter(),
+              ((RepeatedMapVector) mapVector).getOffsetVector(),
+              (AbstractObjectWriter) writer.array().entry()));
     }
 
-    public int offsetAt(int index) {
-      return ((OffsetVectorState) vectorState).offsetAt(index);
+    @Override
+    public void updateCardinality(int cardinality) {
+      super.updateCardinality(cardinality);
+      int childCardinality = cardinality * schema().expectedElementCount();
+      mapState.updateCardinality(childCardinality);
     }
   }
 
@@ -121,19 +143,33 @@ public abstract class ColumnState implements ColumnCoordinator {
   protected final int addVersion;
   protected final VectorState vectorState;
   protected State state;
+  protected AbstractObjectWriter writer;
+
+  /**
+   * Cardinality of the value itself. If this is an array,
+   * then this is the number of arrays. A separate number,
+   * the inner cardinality, is computed as the outer cardinality
+   * times the expected array count (from metadata.) The inner
+   * cardinality is the total number of array items in the
+   * vector.
+   */
+
   protected int outerCardinality;
 
-  public ColumnState(ResultSetLoaderImpl resultSetLoader, VectorState vectorState) {
+  public ColumnState(ResultSetLoaderImpl resultSetLoader,
+      AbstractObjectWriter writer, VectorState vectorState) {
     this.resultSetLoader = resultSetLoader;
     this.vectorState = vectorState;
     this.addVersion = resultSetLoader.bumpVersion();
     state = resultSetLoader.hasOverflow() ?
         State.NEW_LOOK_AHEAD : State.NORMAL;
+    this.writer = writer;
   }
 
-  public void setCardinality(int outerCardinality) {
-    this.outerCardinality = outerCardinality;
-  }
+  public AbstractObjectWriter writer() { return writer; }
+  public ColumnMetadata schema() { return writer.schema(); }
+
+  public ValueVector vector() { return vectorState.vector(); }
 
   public void allocateVectors() {
     assert outerCardinality != 0;
@@ -175,16 +211,18 @@ public abstract class ColumnState implements ColumnCoordinator {
   }
 
   /**
-   * A vector overflowed. Move values for the current row from the main vector
-   * to the overflow vector.
+   * A column within the row batch overflowed. Prepare to absorb the rest of the
+   * in-flight row by rolling values over to a new vector, saving the complete
+   * vector for later. This column could have a value for the overflow row, or
+   * for some previous row, depending on exactly when and where the overflow
+   * occurs.
    *
-   * @param valueIndex index within the vector of the values to roll
-   * over
-   * @param outerCardinality number of values to allocate in the look-ahead
-   * vector
+   * @param overflowIndex
+   *          the index of the row that caused the overflow, the values of which
+   *          should be copied to a new "look-ahead" vector
    */
 
-  public void rollOver(int sourceStartIndex) {
+  public void rollover() {
     assert state == State.NORMAL;
 
     // If the source index is 0, then we could not fit this one
@@ -196,7 +234,7 @@ public abstract class ColumnState implements ColumnCoordinator {
     // of thought to get right -- and, of course, completely defeats
     // the purpose of limiting vector size to avoid memory fragmentation...
 
-    if (sourceStartIndex == 0) {
+    if (writer.events().writerIndex().vectorIndex() == 0) {
       throw UserException
         .memoryError("A single column value is larger than the maximum allowed size of 16 MB")
         .build(logger);
@@ -204,7 +242,7 @@ public abstract class ColumnState implements ColumnCoordinator {
 
     // Otherwise, do the roll-over to a look-ahead vector.
 
-    vectorState.rollOver(sourceStartIndex, outerCardinality);
+    vectorState.rollover(outerCardinality);
 
     // Remember that we did this overflow processing.
 
@@ -245,11 +283,23 @@ public abstract class ColumnState implements ColumnCoordinator {
     }
   }
 
-//  public void allocateOffsetVector(ValueVector toAlloc, int newLength) {
-//    AllocationHelper.allocate(toAlloc, newLength, 0, 1);
-//  }
-
-  public void reset() {
+  public void close() {
     vectorState.reset();
+  }
+
+  public void updateCardinality(int cardinality) {
+    outerCardinality = cardinality;
+  }
+
+  public void dump(HierarchicalFormatter format) {
+    format
+      .startObject(this)
+      .attribute("addVersion", addVersion)
+      .attribute("state", state)
+      .attributeIdentity("writer", writer)
+      .attribute("vectorState")
+      ;
+    vectorState.dump(format);
+    format.endObject();
   }
 }

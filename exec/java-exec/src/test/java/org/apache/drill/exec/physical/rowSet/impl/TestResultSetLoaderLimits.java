@@ -102,7 +102,7 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
     // Try to set a default value larger than the hard limit. Value
     // is truncated to the limit.
 
-    ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT + 1)
         .build();
     assertEquals(ValueVector.MAX_ROW_COUNT, options.rowCountLimit);
@@ -110,13 +110,13 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
     // Just a bit of paranoia that we check against the vector limit,
     // not any previous value...
 
-    options = new ResultSetLoaderImpl.OptionBuilder()
+    options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT + 1)
         .setRowCountLimit(TEST_ROW_LIMIT)
         .build();
     assertEquals(TEST_ROW_LIMIT, options.rowCountLimit);
 
-    options = new ResultSetLoaderImpl.OptionBuilder()
+    options = new OptionBuilder()
         .setRowCountLimit(TEST_ROW_LIMIT)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT + 1)
         .build();
@@ -124,14 +124,14 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
 
     // Can't set the limit lower than 1
 
-    options = new ResultSetLoaderImpl.OptionBuilder()
+    options = new OptionBuilder()
         .setRowCountLimit(0)
         .build();
     assertEquals(1, options.rowCountLimit);
 
     // Do load with a (valid) limit lower than the default.
 
-    options = new ResultSetLoaderImpl.OptionBuilder()
+    options = new OptionBuilder()
         .setRowCountLimit(TEST_ROW_LIMIT)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
@@ -184,7 +184,7 @@ public class TestResultSetLoaderLimits extends SubOperatorTest {
 
     // Start with a small limit.
 
-    ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(TEST_ROW_LIMIT)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);

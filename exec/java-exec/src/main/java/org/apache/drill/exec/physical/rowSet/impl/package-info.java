@@ -39,6 +39,7 @@
  * <li>Blank indicates no value was written in that row.</li>
  * <li>! indicates the value that triggered overflow.</li>
  * <li>- indicates a column that did not exist prior to overflow.</li>
+ * <li>O indicates a value written after overflow.</li>
  * </ul>
  * Column a is written before overflow occurs, b causes overflow, and all other
  * columns either are not written, or written after overflow.
@@ -56,7 +57,9 @@
  * ahead batch.</li>
  * <li>The last write position in the lookahead batch is 0 (since data was
  * copied into the 0th row.</li>
- * <li>When harvesting, no empty-filling is needed.</li>
+ * <li>When harvesting, no empty-filling is needed. Values in the main
+ * batch are zero-filled when the batch is finished, values in the look-ahead
+ * batch are back-filled when the first value is written.</li>
  * <li>When starting the next batch, the last write position must be set to 0 to
  * reflect the presence of the value for row n.</li>
  * </ul>
@@ -88,7 +91,7 @@
  * a.</li>
  * </ul>
  * </dd>
- * <dt>d</</dt>
+ * <dt>d</dt>
  * <dd>Column d writes values to the last two rows before overflow, but not to
  * the overflow row.
  * <ul>
@@ -130,11 +133,17 @@
  * At the time of overflow on row n:
  * <ul>
  * <li>Create or clear the lookahead vector.</li>
- * <li>Copy (last write position - n) values from row n in the old vector to 0
- * in the new one. If (last write position - n) is negative, copy nothing.</li>
- * <li>Save the last write position from the old vector, clamped at n.</li>
+ * <li>Copy (last write position - n  + 1) values from row n in the old vector to 0
+ * in the new one. If the copy count is negative, copy nothing. (A negative
+ * copy count means that the last write position is behind the current
+ * row position. Should not occur after back-filling.)</li>
+ * <li>Save the last write position from the old vector, clamped at n.
+ * (That is, if the last write position is before n, keep it. If at
+ * n+1, set it back to n.)</li>
  * <li>Set the last write position of the overflow vector to (original last
- * write position - n), clamped at -1.</li>
+ * write position - n), clamped at -1. That is, if the original last write
+ * position was before n, the new one is -1. If the original last write
+ * position is after n, shift it down by n places.</li>
  * <li>Swap buffers from the main vectors and the overflow vectors. This sets
  * aside the main values, and allows writing to continue using the overflow
  * buffers.</li>
