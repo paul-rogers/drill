@@ -17,12 +17,12 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
-import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
-import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
@@ -34,7 +34,16 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
  * needed for that particular class.
  */
 
-public abstract class AbstractObjectWriter implements ObjectWriter, WriterEvents {
+public abstract class AbstractObjectWriter implements ObjectWriter {
+
+  private ColumnMetadata schema;
+
+  public AbstractObjectWriter(ColumnMetadata schema) {
+    this.schema = schema;
+  }
+
+  @Override
+  public ColumnMetadata schema() { return schema; }
 
   @Override
   public ScalarWriter scalar() {
@@ -51,34 +60,7 @@ public abstract class AbstractObjectWriter implements ObjectWriter, WriterEvents
     throw new UnsupportedOperationException();
   }
 
-  protected abstract WriterEvents baseEvents();
-
-  @Override
-  public void bindIndex(ColumnWriterIndex index) { baseEvents().bindIndex(index); }
-
-  @Override
-  public void startWrite() { baseEvents().startWrite(); }
-
-  @Override
-  public void startRow() { baseEvents().startRow(); }
-
-  @Override
-  public void saveValue() { baseEvents().saveValue(); }
-
-  @Override
-  public void restartRow() { baseEvents().restartRow(); }
-
-  @Override
-  public void saveRow() { baseEvents().saveRow(); }
-
-  @Override
-  public void endWrite() { baseEvents().endWrite(); }
-
-  @Override
-  public void startWriteAt(int index) { baseEvents().startWriteAt(index); }
-
-  @Override
-  public int lastWriteIndex() { return baseEvents().lastWriteIndex(); }
+  public abstract WriterEvents events();
 
   @Override
   public void bindListener(ColumnWriterListener listener) { }

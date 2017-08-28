@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
@@ -97,7 +98,8 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
     private AbstractArrayWriter arrayWriter;
 
-    public ArrayObjectWriter(AbstractArrayWriter arrayWriter) {
+    public ArrayObjectWriter(ColumnMetadata schema, AbstractArrayWriter arrayWriter) {
+      super(schema);
       this.arrayWriter = arrayWriter;
     }
 
@@ -113,7 +115,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     public ArrayWriter array() { return arrayWriter; }
 
     @Override
-    protected WriterEvents baseEvents() { return arrayWriter; }
+    public WriterEvents events() { return arrayWriter; }
 
     @Override
     public void bindListener(ColumnWriterListener listener) {
@@ -141,44 +143,33 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
    * Forwards overflow events to the base index.
    */
 
-  public static class ArrayElementWriterIndex implements ColumnWriterIndex {
+  public class ArrayElementWriterIndex implements ColumnWriterIndex {
 
-    private final ColumnWriterIndex baseIndex;
-    private int startOffset = 0;
-    private int offset = 0;
+    private int elementIndex;
 
-    public ArrayElementWriterIndex(ColumnWriterIndex baseIndex) {
-      this.baseIndex = baseIndex;
-    }
-
-    public ColumnWriterIndex baseIndex() { return baseIndex; }
-
-    public void reset() {
-      offset = 0;
-      startOffset = 0;
-    }
-
-    public int endValue() {
-      startOffset = offset;
-      return offset;
-    }
+    public void reset() { elementIndex = 0; }
 
     @Override
-    public int vectorIndex() { return offset; }
-
-    public int arraySize() {
-      return offset - startOffset;
-    }
+    public int vectorIndex() { return elementIndex + offsetsWriter.nextOffset(); }
 
     @Override
-    public void nextElement() { offset++; }
+    public int rowStartIndex() { return offsetsWriter.rowStartOffset(); }
 
-    public int startOffset() { return startOffset; }
+    public int arraySize() { return elementIndex; }
 
     @Override
-    public void resetTo(int newIndex) {
-      startOffset = 0;
-      offset = newIndex;
+    public void nextElement() { }
+
+    public void next() { elementIndex++; }
+
+    public int valueStartOffset() { return offsetsWriter.nextOffset(); }
+
+    @Override
+    public void rollover() { }
+
+    @Override
+    public ColumnWriterIndex outerIndex() {
+      return outerIndex;
     }
 
     @Override
@@ -186,12 +177,8 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
       return new StringBuilder()
         .append("[")
         .append(getClass().getSimpleName())
-        .append(" baseIndex = ")
-        .append(baseIndex.toString())
-        .append(", startOffset = ")
-        .append(startOffset)
-        .append(", offset = ")
-        .append(offset)
+        .append(" elementIndex = ")
+        .append(elementIndex)
         .append("]")
         .toString();
     }
@@ -199,7 +186,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
   protected final AbstractObjectWriter elementObjWriter;
   private final OffsetVectorWriter offsetsWriter;
-  private ColumnWriterIndex baseIndex;
+  private ColumnWriterIndex outerIndex;
   protected ArrayElementWriterIndex elementIndex;
 
   public AbstractArrayWriter(RepeatedValueVector vector, AbstractObjectWriter elementObjWriter) {
@@ -210,26 +197,25 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   @Override
   public void bindIndex(ColumnWriterIndex index) {
     assert elementIndex != null;
-    baseIndex = index;
+    outerIndex = index;
     offsetsWriter.bindIndex(index);
-    elementObjWriter.bindIndex(elementIndex);
+    elementObjWriter.events().bindIndex(elementIndex);
   }
 
   @Override
-  public int size() {
-    return elementIndex.arraySize();
-  }
+  public ColumnWriterIndex writerIndex() { return outerIndex; }
 
   @Override
-  public ObjectWriter entry() {
-    return elementObjWriter;
-  }
+  public int size() { return elementIndex.arraySize(); }
+
+  @Override
+  public ObjectWriter entry() { return elementObjWriter; }
 
   @Override
   public void startWrite() {
     elementIndex.reset();
     offsetsWriter.startWrite();
-    elementObjWriter.startWrite();
+    elementObjWriter.events().startWrite();
   }
 
   @Override
@@ -240,38 +226,54 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     // inner start will just be ignored.
 
     offsetsWriter.startRow();
-    elementObjWriter.startRow();
+    elementIndex.reset();
+    elementObjWriter.events().startRow();
   }
 
   @Override
-  public void saveValue() {
-
-    // Save of the array value itself. Saves the offset vector
-    // state. Does not invoke a save on children which must be
-    // saved via the call to save().
-
-    offsetsWriter.setOffset(elementIndex.endValue());
-    offsetsWriter.saveValue();
+  public void endArrayValue() {
+    offsetsWriter.setNextOffset(elementIndex.vectorIndex());
+    elementIndex.reset();
   }
 
   @Override
   public void restartRow() {
     offsetsWriter.restartRow();
-    elementIndex.resetTo(offsetsWriter.targetOffset());
-    elementObjWriter.restartRow();
+    elementIndex.reset();
+    elementObjWriter.events().restartRow();
   }
 
   @Override
   public void saveRow() {
     offsetsWriter.saveRow();
-    elementObjWriter.saveRow();
+    elementObjWriter.events().saveRow();
   }
 
   @Override
   public void endWrite() {
     offsetsWriter.endWrite();
-    elementObjWriter.endWrite();
+    elementObjWriter.events().endWrite();
   }
+
+  @Override
+  public void preRollover() {
+    elementObjWriter.events().preRollover();
+    offsetsWriter.preRollover();
+  }
+
+  @Override
+  public void postRollover() {
+    elementObjWriter.events().postRollover();
+
+    // Reset the index after the vectors: the vectors
+    // need the old row start index from the index.
+
+    offsetsWriter.postRollover();
+    elementIndex.rollover();
+  }
+
+  @Override
+  public int lastWriteIndex() { return outerIndex.vectorIndex(); }
 
   @Override
   public ObjectType entryType() {
@@ -293,29 +295,6 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     return elementObjWriter.array();
   }
 
-  @Override
-  public void startWriteAt(int index) {
-    assert false;
-  }
-
-  @Override
-  public int lastWriteIndex() {
-    return baseIndex.vectorIndex();
-  }
-
-  /**
-   * When handling overflow, we need to know the position, within
-   * the array column, of the first value for the current outer
-   * (say, row) value.
-   *
-   * @return the offset into the array of the first value for
-   * the outer value
-   */
-
-  public int lastArrayOffset() {
-    return elementIndex.startOffset();
-  }
-
   /**
    * Return the writer for the offset vector for this array. Primarily used
    * to handle overflow; other clients should not attempt to muck about with
@@ -325,10 +304,6 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
    */
 
   public OffsetVectorWriter offsetWriter() { return offsetsWriter; }
-
-  public void resetElementIndex(int newIndex) {
-    elementIndex.resetTo(newIndex);
-  }
 
   public void bindListener(ColumnWriterListener listener) {
     elementObjWriter.bindListener(listener);
