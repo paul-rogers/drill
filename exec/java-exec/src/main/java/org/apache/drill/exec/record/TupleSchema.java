@@ -187,7 +187,7 @@ public class TupleSchema implements TupleMetadata {
     }
 
     @Override
-    public StructureType structureType() { return StructureType.PRIMITIVE; }
+    public ColumnMetadata.StructureType structureType() { return ColumnMetadata.StructureType.PRIMITIVE; }
 
     @Override
     public TupleMetadata mapSchema() { return null; }
@@ -251,7 +251,6 @@ public class TupleSchema implements TupleMetadata {
       } else {
         this.mapSchema = mapSchema;
       }
-      assert schema.getChildren().size() == this.mapSchema.size();
       this.mapSchema.bind(this);
     }
 
@@ -266,7 +265,7 @@ public class TupleSchema implements TupleMetadata {
     }
 
     @Override
-    public StructureType structureType() { return StructureType.TUPLE; }
+    public ColumnMetadata.StructureType structureType() { return ColumnMetadata.StructureType.TUPLE; }
 
     @Override
     public TupleMetadata mapSchema() { return mapSchema; }
@@ -327,6 +326,14 @@ public class TupleSchema implements TupleMetadata {
     }
   }
 
+  public static AbstractColumnMetadata fromView(MaterializedField field) {
+    if (field.getType().getMinorType() == MinorType.MAP) {
+      return new MapColumnMetadata(field, null);
+    } else {
+      return new PrimitiveColumnMetadata(field);
+    }
+  }
+
   /**
    * Create a tuple given the list of columns that make up the tuple.
    * Creates nested maps as needed.
@@ -365,6 +372,12 @@ public class TupleSchema implements TupleMetadata {
   @Override
   public ColumnMetadata add(MaterializedField field) {
     AbstractColumnMetadata md = fromField(field);
+    add(md);
+    return md;
+  }
+
+  public ColumnMetadata addView(MaterializedField field) {
+    AbstractColumnMetadata md = fromView(field);
     add(md);
     return md;
   }

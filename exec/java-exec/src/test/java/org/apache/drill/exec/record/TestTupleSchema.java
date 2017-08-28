@@ -31,8 +31,6 @@ import java.util.List;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
-import org.apache.drill.exec.record.TupleMetadata.StructureType;
 import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema.PrimitiveColumnMetadata;
 import org.apache.drill.test.SubOperatorTest;
@@ -63,7 +61,7 @@ public class TestTupleSchema extends SubOperatorTest {
 
     // Generic checks
 
-    assertEquals(StructureType.PRIMITIVE, col.structureType());
+    assertEquals(ColumnMetadata.StructureType.PRIMITIVE, col.structureType());
     assertNull(col.mapSchema());
     assertSame(field, col.schema());
     assertEquals(field.getName(), col.name());
@@ -110,7 +108,7 @@ public class TestTupleSchema extends SubOperatorTest {
     MaterializedField field = SchemaBuilder.columnSchema("c", MinorType.INT, DataMode.OPTIONAL );
     ColumnMetadata col = TupleSchema.fromField(field);
 
-    assertEquals(StructureType.PRIMITIVE, col.structureType());
+    assertEquals(ColumnMetadata.StructureType.PRIMITIVE, col.structureType());
     assertTrue(col.isNullable());
     assertFalse(col.isArray());
     assertFalse(col.isVariableWidth());
@@ -157,7 +155,7 @@ public class TestTupleSchema extends SubOperatorTest {
     MaterializedField field = SchemaBuilder.columnSchema("c", MinorType.VARCHAR, DataMode.REQUIRED );
     ColumnMetadata col = TupleSchema.fromField(field);
 
-    assertEquals(StructureType.PRIMITIVE, col.structureType());
+    assertEquals(ColumnMetadata.StructureType.PRIMITIVE, col.structureType());
     assertNull(col.mapSchema());
     assertFalse(col.isNullable());
     assertFalse(col.isArray());
@@ -251,7 +249,7 @@ public class TestTupleSchema extends SubOperatorTest {
     MapColumnMetadata mapCol = (MapColumnMetadata) col;
     assertNull(mapCol.parentTuple());
 
-    assertEquals(StructureType.TUPLE, col.structureType());
+    assertEquals(ColumnMetadata.StructureType.TUPLE, col.structureType());
     assertFalse(col.isNullable());
     assertFalse(col.isArray());
     assertFalse(col.isVariableWidth());
