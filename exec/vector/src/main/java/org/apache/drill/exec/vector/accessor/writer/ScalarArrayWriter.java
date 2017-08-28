@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter.ScalarObjectWriter;
@@ -54,33 +55,27 @@ public class ScalarArrayWriter extends AbstractArrayWriter {
 
   public class ScalarElementWriterIndex extends ArrayElementWriterIndex {
 
-    public ScalarElementWriterIndex(ColumnWriterIndex baseIndex) {
-      super(baseIndex);
-    }
-
     @Override
-    public void nextElement() {
-      elementObjWriter.saveValue();
-      saveValue();
-      super.nextElement();
-    }
+    public void nextElement() { next(); }
   }
 
   private final BaseScalarWriter elementWriter;
 
-  public ScalarArrayWriter(RepeatedValueVector vector, BaseScalarWriter elementWriter) {
-    super(vector, new ScalarObjectWriter(elementWriter));
+  public ScalarArrayWriter(ColumnMetadata schema,
+      RepeatedValueVector vector, BaseScalarWriter elementWriter) {
+    super(vector, new ScalarObjectWriter(schema, elementWriter));
     this.elementWriter = elementWriter;
   }
 
-  public static ArrayObjectWriter build(RepeatedValueVector repeatedVector, BaseScalarWriter elementWriter) {
-    return new ArrayObjectWriter(
-        new ScalarArrayWriter(repeatedVector, elementWriter));
+  public static ArrayObjectWriter build(ColumnMetadata schema,
+      RepeatedValueVector repeatedVector, BaseScalarWriter elementWriter) {
+    return new ArrayObjectWriter(schema,
+        new ScalarArrayWriter(schema, repeatedVector, elementWriter));
   }
 
   @Override
   public void bindIndex(ColumnWriterIndex index) {
-    elementIndex = new ScalarElementWriterIndex(index);
+    elementIndex = new ScalarElementWriterIndex();
     super.bindIndex(index);
     elementWriter.bindIndex(elementIndex);
   }

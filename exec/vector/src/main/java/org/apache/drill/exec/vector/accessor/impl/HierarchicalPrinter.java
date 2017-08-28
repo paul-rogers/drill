@@ -177,7 +177,11 @@ public class HierarchicalPrinter implements HierarchicalFormatter {
       level--;
       indent();
       out.println("}");
-      curObject = stack.pop();
+      if (level == 0) {
+        curObject = null;
+      } else {
+        curObject = stack.pop();
+      }
     } else {
       curObject.extensions--;
     }

@@ -34,6 +34,13 @@ package org.apache.drill.exec.vector.accessor;
 public interface ColumnWriterIndex {
 
   /**
+   * Index of the first entry for the current row
+   * @return index of the first entry for the current row
+   */
+
+  int rowStartIndex();
+
+  /**
    * Current row or array index.
    * @return row or array index
    */
@@ -49,18 +56,21 @@ public interface ColumnWriterIndex {
   void nextElement();
 
   /**
-   * When handling overflow, the index must be reset a specific point based
-   * on the data that is rolled over to the look-ahead vectors. While a
-   * vector index is, in general, meant to provide a top-down, synchronized
-   * idea of the current write position, this reset method is a bottom-up
-   * adjustment based on actual data. As such, it should only be used
-   * during overflow processing as care must be taken to ensure all levels
-   * of indexes agree on a consistent set of positions. For internal and
-   * leaf indexes (those that correspond to arrays), the index must
-   * correspond with the associated offset vector.
-   *
-   * @param newIndex the new write index position after roll-over
+   * When handling overflow, the index must be reset so that the current row
+   * starts at the start of the vector. Relative offsets must be preserved.
+   * (That is, if the current write position for an array is four greater than
+   * the start, then that offset must now be reset to four from the start of
+   * the vector.)
    */
 
-  void resetTo(int newIndex);
+  void rollover();
+
+  /**
+   * If this index represents a repeat level, return the index of the
+   * next higher repeat level.
+   *
+   * @return the outer repeat level index, if any
+   */
+
+  ColumnWriterIndex outerIndex();
 }

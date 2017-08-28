@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.NullableVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnWriter;
@@ -39,10 +40,14 @@ public class NullableScalarWriter extends AbstractScalarWriter {
     this.baseWriter = baseWriter;
   }
 
-  public static ScalarObjectWriter build(NullableVector nullableVector, BaseScalarWriter baseWriter) {
-    return new ScalarObjectWriter(
+  public static ScalarObjectWriter build(ColumnMetadata schema,
+      NullableVector nullableVector, BaseScalarWriter baseWriter) {
+    return new ScalarObjectWriter(schema,
         new NullableScalarWriter(nullableVector, baseWriter));
   }
+
+  public BaseScalarWriter bitsWriter() { return isSetWriter; }
+  public BaseScalarWriter baseWriter() { return baseWriter; }
 
   @Override
   public ValueVector vector() { return vector; }
@@ -52,6 +57,9 @@ public class NullableScalarWriter extends AbstractScalarWriter {
     isSetWriter.bindIndex(index);
     baseWriter.bindIndex(index);
   }
+
+  @Override
+  public ColumnWriterIndex writerIndex() { return baseWriter.writerIndex(); }
 
   @Override
   public ValueType valueType() {
@@ -72,50 +80,61 @@ public class NullableScalarWriter extends AbstractScalarWriter {
 
   @Override
   public void setInt(int value) {
-    isSetWriter.setInt(1);
     baseWriter.setInt(value);
+    isSetWriter.setInt(1);
   }
 
   @Override
   public void setLong(long value) {
-    isSetWriter.setInt(1);
     baseWriter.setLong(value);
+    isSetWriter.setInt(1);
   }
 
   @Override
   public void setDouble(double value) {
-    isSetWriter.setInt(1);
     baseWriter.setDouble(value);
+    isSetWriter.setInt(1);
   }
 
   @Override
   public void setString(String value) {
-    isSetWriter.setInt(1);
+    // String may overflow. Set bits after
+    // overflow since bits vector does not have
+    // overflow handling separate from the nullable
+    // vector as a whole.
+
     baseWriter.setString(value);
+    isSetWriter.setInt(1);
   }
 
   @Override
   public void setBytes(byte[] value, int len) {
-    isSetWriter.setInt(1);
     baseWriter.setBytes(value, len);
+    isSetWriter.setInt(1);
   }
 
   @Override
   public void setDecimal(BigDecimal value) {
-    isSetWriter.setInt(1);
     baseWriter.setDecimal(value);
+    isSetWriter.setInt(1);
   }
 
   @Override
   public void setPeriod(Period value) {
-    isSetWriter.setInt(1);
     baseWriter.setPeriod(value);
+    isSetWriter.setInt(1);
   }
 
   @Override
-  public void startWriteAt(int index) {
-    isSetWriter.startWriteAt(index);
-    baseWriter.startWriteAt(index);
+  public void preRollover() {
+    isSetWriter.preRollover();
+    baseWriter.preRollover();
+  }
+
+  @Override
+  public void postRollover() {
+    isSetWriter.postRollover();
+    baseWriter.postRollover();
   }
 
   @Override
@@ -138,16 +157,16 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   public void startRow() {
     // Skip calls for performance: they do nothing for
     // scalar writers -- the only kind supported here.
-//    isSetWriter.startValue();
-//    baseWriter.startValue();
+//    isSetWriter.startRow();
+    baseWriter.startRow();
   }
 
   @Override
-  public void saveValue() {
+  public void endArrayValue() {
     // Skip calls for performance: they do nothing for
     // scalar writers -- the only kind supported here.
 //    isSetWriter.saveValue();
-    baseWriter.saveValue();
+    baseWriter.endArrayValue();
   }
 
   @Override

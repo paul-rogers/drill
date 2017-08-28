@@ -353,6 +353,10 @@ public class MapVector extends AbstractMapVector {
     return getChildByOrdinal(id);
   }
 
+  public void setMapValueCount(int valueCount) {
+    this.valueCount = valueCount;
+  }
+
   public class Mutator extends BaseValueVector.BaseMutator {
 
     @Override
@@ -360,7 +364,7 @@ public class MapVector extends AbstractMapVector {
       for (final ValueVector v : getChildren()) {
         v.getMutator().setValueCount(valueCount);
       }
-      MapVector.this.valueCount = valueCount;
+      setMapValueCount(valueCount);
     }
 
     @Override

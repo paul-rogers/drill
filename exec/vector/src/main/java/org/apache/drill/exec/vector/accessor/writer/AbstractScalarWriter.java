@@ -19,8 +19,8 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
@@ -39,13 +39,9 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
 
     private AbstractScalarWriter scalarWriter;
 
-    public ScalarObjectWriter(AbstractScalarWriter scalarWriter) {
+    public ScalarObjectWriter(ColumnMetadata schema, AbstractScalarWriter scalarWriter) {
+      super(schema);
       this.scalarWriter = scalarWriter;
-    }
-
-    @Override
-    public void bindIndex(ColumnWriterIndex index) {
-      scalarWriter.bindIndex(index);
     }
 
     @Override
@@ -58,7 +54,7 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
     public ScalarWriter scalar() { return scalarWriter; }
 
     @Override
-    protected WriterEvents baseEvents() { return scalarWriter; }
+    public WriterEvents events() { return scalarWriter; }
 
     @Override
     public void bindListener(ColumnWriterListener listener) {
@@ -84,7 +80,7 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
   public void startRow() { }
 
   @Override
-  public void saveValue() { }
+  public void endArrayValue() { }
 
   @Override
   public void saveRow() { }
