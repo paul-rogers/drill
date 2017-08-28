@@ -31,7 +31,6 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
@@ -79,15 +78,6 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
     assertEquals(0, rsLoader.writer().rowCount());
     assertEquals(0, rsLoader.batchCount());
     assertEquals(0, rsLoader.totalRowCount());
-
-    // Verify internal state
-
-    SingleRowSetModel rootModel = rsLoaderImpl.rootModel();
-    assertNotNull(rootModel);
-    assertEquals(0, rootModel.size());
-    assertSame(rsLoader.writer(), rootModel.writer());
-    assertNotNull(rootModel.coordinator());
-    assertSame(rootModel.schema(), rsLoader.writer().schema());
 
     // Failures due to wrong state (Start)
 
@@ -462,12 +452,11 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
         .addNullable("b", MinorType.INT)
         .add("c", MinorType.VARCHAR)
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     RowSetLoader rootWriter = rsLoader.writer();
-    assertSame(schema, rootWriter.schema());
 
     rsLoader.startBatch();
     rootWriter
@@ -487,41 +476,37 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
   }
 
   /**
-   * The writer protocol allows a client to write to a row
-   * any number of times before invoking <tt>save()</tt>.
-   * In this case, each new value simply overwrites the
-   * previous value. Here, we test the most basic case:
-   * a simple, flat tuple with no arrays. We use a very
-   * large Varchar that would, if overwrite were not working,
-   * cause vector overflow.
+   * The writer protocol allows a client to write to a row any number of times
+   * before invoking <tt>save()</tt>. In this case, each new value simply
+   * overwrites the previous value. Here, we test the most basic case: a simple,
+   * flat tuple with no arrays. We use a very large Varchar that would, if
+   * overwrite were not working, cause vector overflow.
    * <p>
-   * This version calls start at the beginning of each row,
-   * as if the prior row were filtered out and ignored.
+   * The ability to overwrite rows is seldom needed except in one future use
+   * case: writing a row, then applying a filter "in-place" to discard unwanted
+   * rows, without having to send the row downstream.
+   * <p>
+   * Because of this use case, specific rules apply when discarding row or
+   * overwriting values.
+   * <ul>
+   * <li>Values can be written once per row. Fixed-width columns actually allow
+   * multiple writes. But, because of the way variable-width columns work,
+   * multiple writes will cause undefined results.</li>
+   * <li>To overwrite a row, call <tt>start()</tt> without calling
+   * <tt>save()</tt> on the previous row. Doing so ignores data for the
+   * previous row and starts a new row in place of the old one.</li>
+   * </ul>
+   * Note that there is no explicit method to discard a row. Instead,
+   * the rule is that a row is not saved until <tt>save()</tt> is called.
    */
 
   @Test
   public void testOverwriteRow() {
-    doTestOverwriteRow(true);
-  }
-
-  /**
-   * Again test the ability to omit values. This version omits the
-   * <tt>start()</tt> call before each rewrite, testing the case that
-   * the code keeps rewriting the same row values until if finds a
-   * set of values it likes.
-   */
-
-  @Test
-  public void testOverwriteRowWithoutStart() {
-    doTestOverwriteRow(false);
-  }
-
-  private void doTestOverwriteRow(boolean withStart) {
     TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();
@@ -541,21 +526,13 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
     Arrays.fill(value, (byte) 'X');
     int count = 0;
     rsLoader.startBatch();
-    if (! withStart) {
-      rootWriter.start();
-    }
     while (count < 100_000) {
-      if (withStart) {
-        rootWriter.start();
-      }
+      rootWriter.start();
       count++;
       aWriter.setInt(count);
       bWriter.setBytes(value, value.length);
       if (count % 100 == 0) {
         rootWriter.save();
-        if (! withStart) {
-          rootWriter.start();
-        }
       }
     }
 
@@ -572,6 +549,38 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
     }
 
     result.clear();
+    rsLoader.close();
+  }
+
+  /**
+   * Test that memory is released if the loader is closed with an active
+   * batch (that is, before the batch is harvested.)
+   */
+
+  @Test
+  public void testCloseWithoutHarvest() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setSchema(schema)
+        .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    RowSetLoader rootWriter = rsLoader.writer();
+
+    rsLoader.startBatch();
+    for (int i = 0; i < 100; i++) {
+      rootWriter.start();
+      rootWriter.scalar("a").setInt(i);
+      rootWriter.scalar("b").setString("b-" + i);
+      rootWriter.save();
+    }
+
+    // Don't harvest the batch. Allocator will complain if the
+    // loader does not release memory.
+
     rsLoader.close();
   }
 }

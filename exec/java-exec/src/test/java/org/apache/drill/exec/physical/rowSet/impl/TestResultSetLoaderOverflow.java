@@ -17,7 +17,9 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.Arrays;
 
@@ -53,7 +55,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
   @Test
   public void testSizeLimit() {
-    ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
@@ -104,6 +106,45 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
   }
 
   /**
+   * Load a batch to overflow. Then, close the loader with the overflow
+   * batch unharvested. The Loader should release the memory allocated
+   * to the unused overflow vectors.
+   */
+
+  @Test
+  public void testCloseWithOverflow() {
+    ResultSetOptions options = new OptionBuilder()
+        .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    RowSetLoader rootWriter = rsLoader.writer();
+    MaterializedField field = SchemaBuilder.columnSchema("s", MinorType.VARCHAR, DataMode.REQUIRED);
+    rootWriter.addColumn(field);
+
+    rsLoader.startBatch();
+    byte value[] = new byte[512];
+    Arrays.fill(value, (byte) 'X');
+    int count = 0;
+    while (! rootWriter.isFull()) {
+      rootWriter.start();
+      rootWriter.scalar(0).setBytes(value, value.length);
+      rootWriter.save();
+      count++;
+    }
+
+    assertTrue(count < ValueVector.MAX_ROW_COUNT);
+
+    // Harvest the full batch
+
+    RowSet result = fixture.wrap(rsLoader.harvest());
+    result.clear();
+
+    // Close without harvesting the overflow batch.
+
+    rsLoader.close();
+  }
+
+  /**
    * Case where a single array fills up the vector to the maximum size
    * limit. Overflow won't work here; the attempt will fail with a user
    * exception.
@@ -111,7 +152,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
   @Test
   public void testOversizeArray() {
-    ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
@@ -147,7 +188,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
   @Test
   public void testSizeLimitOnArray() {
-    ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
@@ -193,6 +234,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     // Result should exclude the overflow row. Last row
     // should hold the last full array.
 
+//    VectorPrinter.printStrings((VarCharVector) ((VarCharColumnWriter) rootWriter.array(0).scalar()).vector(), 0, 5);
     RowSet result = fixture.wrap(rsLoader.harvest());
     assertEquals(expectedCount, result.rowCount());
     RowSetReader reader = result.reader();
@@ -210,9 +252,12 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     // array being written at the time of overflow.
 
     rsLoader.startBatch();
+//    VectorPrinter.printStrings((VarCharVector) ((VarCharColumnWriter) rootWriter.array(0).scalar()).vector(), 0, 5);
+//    ((ResultSetLoaderImpl) rsLoader).dump(new HierarchicalPrinter());
     assertEquals(1, rootWriter.rowCount());
     assertEquals(expectedCount + 1, rsLoader.totalRowCount());
     result = fixture.wrap(rsLoader.harvest());
+//    VectorPrinter.printStrings((VarCharVector) ((VarCharColumnWriter) rootWriter.array(0).scalar()).vector(), 0, 5);
     assertEquals(1, result.rowCount());
     reader = result.reader();
     reader.next();
@@ -249,7 +294,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
         .addArray("c", MinorType.INT)
         .addArray("d", MinorType.INT)
         .buildSchema();
-    ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();
@@ -440,6 +485,123 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     } catch (UserException e) {
       // Expected
     }
+    rsLoader.close();
+  }
+
+  /**
+   * Test the case that an array has "missing values" before the overflow.
+   */
+
+  @Test
+  public void testMissingArrayValues() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .addArray("c", MinorType.INT)
+        .buildSchema();
+    ResultSetOptions options = new OptionBuilder()
+        .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
+        .setSchema(schema)
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    RowSetLoader rootWriter = rsLoader.writer();
+
+    byte value[] = new byte[512];
+    Arrays.fill(value, (byte) 'X');
+
+    int blankAfter = ValueVector.MAX_BUFFER_SIZE / 512 * 2 / 3;
+    ScalarWriter cWriter = rootWriter.array("c").scalar();
+
+    rsLoader.startBatch();
+    int rowId = 0;
+    while (rootWriter.start()) {
+      rootWriter.scalar("a").setInt(rowId);
+      rootWriter.scalar("b").setBytes(value, value.length);
+      if (rowId < blankAfter) {
+        for (int i = 0; i < 3; i++) {
+          cWriter.setInt(rowId * 3 + i);
+        }
+      }
+      rootWriter.save();
+      rowId++;
+    }
+
+    RowSet result = fixture.wrap(rsLoader.harvest());
+    assertEquals(rowId - 1, result.rowCount());
+    RowSetReader reader = result.reader();
+    ScalarElementReader cReader = reader.array("c").elements();
+    while (reader.next()) {
+      assertEquals(reader.rowIndex(), reader.scalar("a").getInt());
+      assertTrue(Arrays.equals(value, reader.scalar("b").getBytes()));
+      if (reader.rowIndex() < blankAfter) {
+        assertEquals(3, cReader.size());
+        for (int i = 0; i < 3; i++) {
+          assertEquals(reader.rowIndex() * 3 + i, cReader.getInt(i));
+        }
+      } else {
+        assertEquals(0, cReader.size());
+      }
+    }
+    result.clear();
+    rsLoader.close();
+  }
+
+  @Test
+  public void testOverflowWithNullables() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("n", MinorType.INT)
+        .addNullable("a", MinorType.VARCHAR)
+        .addNullable("b", MinorType.VARCHAR)
+        .addNullable("c", MinorType.VARCHAR)
+        .buildSchema();
+    ResultSetOptions options = new OptionBuilder()
+        .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
+        .setSchema(schema)
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    RowSetLoader rootWriter = rsLoader.writer();
+
+    rsLoader.startBatch();
+    byte value[] = new byte[512];
+    Arrays.fill(value, (byte) 'X');
+    int count = 0;
+    while (! rootWriter.isFull()) {
+      rootWriter.start();
+      rootWriter.scalar(0).setInt(count);
+      rootWriter.scalar(1).setNull();
+      rootWriter.scalar(2).setBytes(value, value.length);
+      rootWriter.scalar(3).setNull();
+      rootWriter.save();
+      count++;
+    }
+
+    // Result should exclude the overflow row
+
+    RowSet result = fixture.wrap(rsLoader.harvest());
+    assertEquals(count - 1, result.rowCount());
+
+    RowSetReader reader = result.reader();
+    while (reader.next()) {
+      assertEquals(reader.rowIndex(), reader.scalar(0).getInt());
+      assertTrue(reader.scalar(1).isNull());
+      assertTrue(Arrays.equals(value, reader.scalar(2).getBytes()));
+      assertTrue(reader.scalar(3).isNull());
+    }
+    result.clear();
+
+    // Next batch should start with the overflow row
+
+    rsLoader.startBatch();
+    result = fixture.wrap(rsLoader.harvest());
+    reader = result.reader();
+    assertEquals(1, result.rowCount());
+    assertTrue(reader.next());
+    assertEquals(count - 1, reader.scalar(0).getInt());
+    assertTrue(reader.scalar(1).isNull());
+    assertTrue(Arrays.equals(value, reader.scalar(2).getBytes()));
+    assertTrue(reader.scalar(3).isNull());
+    result.clear();
+
     rsLoader.close();
   }
 }
