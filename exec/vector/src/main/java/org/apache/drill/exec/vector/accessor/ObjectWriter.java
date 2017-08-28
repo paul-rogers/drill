@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
 
@@ -44,6 +45,14 @@ import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
  */
 
 public interface ObjectWriter {
+
+  /**
+   * Returns the schema of the column associated with this writer.
+   *
+   * @return schema for this writer's column
+   */
+
+  ColumnMetadata schema();
 
   /**
    * Bind a listener to the underlying scalar column, or array of scalar

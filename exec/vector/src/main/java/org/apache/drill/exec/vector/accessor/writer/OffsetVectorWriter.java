@@ -37,6 +37,90 @@ import io.netty.util.internal.PlatformDependent;
  * last write index due to the nature of offset vector layouts. The selection
  * of last write index basis makes roll-over processing easier as only this
  * writer need know about the +1 translation required for writing.
+ * <p>
+ * The states illustrated in the base class apply here as well,
+ * remembering that the end offset for a row (or array position)
+ * is written one ahead of the vector index.
+ * <p>
+ * The vector index does create an interesting dynamic for the child
+ * writers. From the child writer's perspective, the states described in
+ * the super class are the only states of interest. Here we want to
+ * take the perspective of the parent.
+ * <p>
+ * The offset vector is an implementation of a repeat level. A repeat
+ * level can occur for a single array, or for a collection of columns
+ * within a repeated map. (A repeat level also occurs for variable-width
+ * fields, but this is a bit harder to see, so let's ignore that for
+ * now.)
+ * <p>
+ * The key point to realize is that each repeat level introduces an
+ * isolation level in terms of indexing. That is, empty values in the
+ * outer level have no affect on indexing in the inner level. In fact,
+ * the nature of a repeated outer level means that there are no empties
+ * in the inner level.
+ * <p>
+ * To illustrate:<pre><code>
+ *       Offset Vector          Data Vector   Indexes
+ *  lw, v > | 10 |   - - - - - >   | X |        10
+ *          | 12 |   - - +         | X | < lw'  11
+ *          |    |       + - - >   |   | < v'   12
+ * </code></pre>
+ * In the above, the client has just written an array of two elements
+ * at the current write position. The data starts at offset 10 in
+ * the data vector, and the next write will be at 12. The end offset
+ * is written one ahead of the vector index.
+ * <p>
+ * From the data vector's perspective, its last-write (lw') reflects
+ * the last element written. If this is an array of scalars, then the
+ * write index is automatically incremented, as illustrated by v'.
+ * (For map arrays, the index must be incremented by calling
+ * <tt>save()</tt> on the map array writer.)
+ * <p>
+ * Suppose the client now skips some arrays:<pre><code>
+ *       Offset Vector          Data Vector
+ *     lw > | 10 |   - - - - - >   | X |        10
+ *          | 12 |   - - +         | X | < lw'  11
+ *          |    |       + - - >   |   | < v'   12
+ *          |    |                 |   |        13
+ *      v > |    |                 |   |        14
+ * </code></pre>
+ * The last write position does not move and there are gaps in the
+ * offset vector. The vector index points to the current row. Note
+ * that the data vector last write and vector indexes do not change,
+ * this reflects the fact that the the data vector's vector index
+ * (v') matches the tail offset
+ * <p>
+ * The
+ * client now writes a three-element vector:<pre><code>
+ *       Offset Vector          Data Vector
+ *          | 10 |   - - - - - >   | X |        10
+ *          | 12 |   - - +         | X |        11
+ *          | 12 |   - - + - - >   | Y |        12
+ *          | 12 |   - - +         | Y |        13
+ *  lw, v > | 12 |   - - +         | Y | < lw'  14
+ *          | 15 |   - - - - - >   |   | < v'   15
+ * </code></pre>
+ * Quite a bit just happened. The empty offset slots were back-filled
+ * with the last write offset in the data vector. The client wrote
+ * three values, which advanced the last write and vector indexes
+ * in the data vector. And, the last write index in the offset
+ * vector also moved to reflect the update of the offset vector.
+ * Note that as a result, multiple positions in the offset vector
+ * point to the same location in the data vector. This is fine; we
+ * compute the number of entries as the difference between two successive
+ * offset vector positions, so the empty positions have become 0-length
+ * arrays.
+ * <p>
+ * Note that, for an array of scalars, when overflow occurs,
+ * we need only worry about two
+ * states in the data vector. Either data has been written for the
+ * row (as in the third example above), and so must be moved to the
+ * roll-over vector, or no data has been written and no move is
+ * needed. We never have to worry about missing values because the
+ * cannot occur in the data vector.
+ * <p>
+ * See {@link ObjectArrayWriter} for information about arrays of
+ * maps (arrays of multiple columns.)
  */
 
 public class OffsetVectorWriter extends BaseScalarWriter {
@@ -45,17 +129,21 @@ public class OffsetVectorWriter extends BaseScalarWriter {
 
   private UInt4Vector vector;
 
+  protected int lastWriteIndex;
+
   /**
-   * Offset into the data vector that this offset vector targets. Caching
-   * the value here avoids the need to query the offset vector for every
-   * new value. This is the value for the current row.
+   * Offset of the first value for the current row. Used during
+   * overflow or if the row is restarted.
    */
 
-  private int targetOffset;
+  private int rowStartOffset;
 
   /**
-   * Cached offset value for the next row, rotated into the current
-   * row at the completion of each value.
+   * Cached value of the end offset for the current value. Used
+   * primarily for variable-width columns to allow the column to be
+   * rewritten multiple times within the same row. The start offset
+   * value is updated with the end offset only when the value is
+   * committed in {@link @endValue()}.
    */
 
   private int nextOffset;
@@ -68,6 +156,9 @@ public class OffsetVectorWriter extends BaseScalarWriter {
   public ValueVector vector() { return vector; }
 
   @Override
+  public int lastWriteIndex() { return lastWriteIndex; }
+
+  @Override
   public void startWrite() {
 
     // Special handling for first value. Alloc vector if needed.
@@ -75,22 +166,15 @@ public class OffsetVectorWriter extends BaseScalarWriter {
     // for row 0 starts at position 1, which is handled in
     // writeOffset() below.
 
-    targetOffset = 0;
     nextOffset = 0;
     lastWriteIndex = -1;
+    rowStartOffset = 0;
     setAddr(vector.getBuffer());
     if (capacity < ColumnAccessors.MIN_BUFFER_SIZE) {
       vector.reallocRaw(ColumnAccessors.MIN_BUFFER_SIZE * VALUE_WIDTH);
       setAddr(vector.getBuffer());
     }
-    PlatformDependent.putInt(bufAddr, targetOffset);
-  }
-
-  @Override
-  public void startWriteAt(int newIndex) {
-    startWrite();
-    lastWriteIndex = newIndex;
-    nextOffset = PlatformDependent.getInt(bufAddr + (lastWriteIndex + 1) * VALUE_WIDTH);
+    PlatformDependent.putInt(bufAddr, nextOffset);
   }
 
   private final void setAddr(final DrillBuf buf) {
@@ -98,12 +182,14 @@ public class OffsetVectorWriter extends BaseScalarWriter {
     capacity = buf.capacity() / VALUE_WIDTH;
   }
 
-  public int targetOffset() { return targetOffset; }
+  public int nextOffset() { return nextOffset; }
+  public int rowStartOffset() { return rowStartOffset; }
 
   @Override
-  public ValueType valueType() {
-    return ValueType.INTEGER;
-  }
+  public ValueType valueType() { return ValueType.INTEGER; }
+
+  @Override
+  public void startRow() { rowStartOffset = nextOffset; }
 
   /**
    * Return the write offset, which is one greater than the index reported
@@ -113,13 +199,27 @@ public class OffsetVectorWriter extends BaseScalarWriter {
    * of the current data value
    */
 
-  private final int writeIndex() {
-    int valueIndex = vectorIndex.vectorIndex();
-    int writeIndex = valueIndex + 1;
-    if (lastWriteIndex + 1 == valueIndex && writeIndex < capacity) {
-      lastWriteIndex = valueIndex;
-      return writeIndex;
+  protected final int writeIndex() {
+    final int valueIndex = vectorIndex.vectorIndex();
+    final int writeIndex = valueIndex + 1;
+    if (lastWriteIndex + 1 < valueIndex || writeIndex >= capacity) {
+      prepareWrite(writeIndex);
     }
+    return writeIndex;
+  }
+
+  /**
+   * Prepare a write in which either the next write index is past the
+   * end of the buffer (and so the buffer must be resized), empties must
+   * be filled, or both. For an offset vector, empties are filled with
+   * the next offset value.
+   *
+   * @param writeIndex target write index. This is the position we wish
+   * to write, which is one greater than the current position given by
+   * the vector index
+   */
+
+  private final void prepareWrite(int writeIndex) {
     if (writeIndex >= capacity) {
       int size = (writeIndex + 1) * VALUE_WIDTH;
       if (size > ValueVector.MAX_BUFFER_SIZE) {
@@ -131,44 +231,45 @@ public class OffsetVectorWriter extends BaseScalarWriter {
         setAddr(vector.reallocRaw(BaseAllocator.nextPowerOfTwo(size)));
       }
     }
-    while (lastWriteIndex < valueIndex - 1) {
-      PlatformDependent.putInt(bufAddr + (++lastWriteIndex + 1) * VALUE_WIDTH, targetOffset);
+    while (lastWriteIndex < writeIndex - 2) {
+      PlatformDependent.putInt(bufAddr + (++lastWriteIndex + 1) * VALUE_WIDTH, nextOffset);
     }
-    lastWriteIndex = valueIndex;
-    return writeIndex;
   }
 
-  public final void setOffset(final int curOffset) {
+  public final void setNextOffset(final int newOffset) {
     final int writeIndex = writeIndex();
-    PlatformDependent.putInt(bufAddr + writeIndex * VALUE_WIDTH, curOffset);
-
-    // Next offset is set aside for now. Allows rewriting the present
-    // value any number of times using the current offset.
-
-    nextOffset = curOffset;
+    PlatformDependent.putInt(bufAddr + writeIndex * VALUE_WIDTH, newOffset);
+    nextOffset = newOffset;
+    lastWriteIndex = writeIndex - 1;
   }
 
   @Override
   public void skipNulls() {
 
-    // To skip nulls, must carry forward the the last end offset.
-
-    setOffset(targetOffset);
+    // Nothing to do. Fill empties logic will fill in missing
+    // offsets.
   }
 
   @Override
   public void restartRow() {
-    super.restartRow();
-    targetOffset = PlatformDependent.getInt(bufAddr + (lastWriteIndex + 1) * VALUE_WIDTH);
-    nextOffset = targetOffset;
+    nextOffset = rowStartOffset;
+    lastWriteIndex = Math.min(lastWriteIndex, vectorIndex.vectorIndex() - 1);
   }
 
   @Override
-  public final void saveValue() {
+  public void preRollover() {
+    final int valueCount = vectorIndex.rowStartIndex();
+    prepareWrite(valueCount);
+    vector.getBuffer().writerIndex((valueCount + 1) * VALUE_WIDTH);
+  }
 
-    // Value is ending. Advance the offset to the next position.
-
-    targetOffset = nextOffset;
+  @Override
+  public void postRollover() {
+    final int newNext = nextOffset - rowStartOffset;
+    final int newLastWriteIndex = Math.max(lastWriteIndex - vectorIndex.rowStartIndex(), -1);
+    startWrite();
+    nextOffset = newNext;
+    lastWriteIndex = newLastWriteIndex;
   }
 
   @Override
@@ -190,7 +291,7 @@ public class OffsetVectorWriter extends BaseScalarWriter {
     format.extend();
     super.dump(format);
     format
-      .attribute("targetOffset", targetOffset)
+      .attribute("lastWriteIndex", lastWriteIndex)
       .attribute("nextOffset", nextOffset)
       .endObject();
   }

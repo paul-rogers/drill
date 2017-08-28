@@ -94,7 +94,7 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
       long origAddr = vector.getBuffer().addr();
       for (int i = 0; i < 3000; i++) {
         index.index = i;
-        int startOffset = writer.targetOffset();
+        int startOffset = writer.currentStartOffset();
         assertEquals(i * 10, startOffset);
         writer.setOffset(startOffset + 10);
       }
@@ -144,7 +144,7 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
       // Start write. This will fill in position 0.
 
       writer.startWriteAt(2);
-      assertEquals(30, writer.targetOffset());
+      assertEquals(30, writer.currentStartOffset());
 
       // Simulate resuming with a few more values.
 
@@ -200,7 +200,7 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
       long origAddr = vector.getBuffer().addr();
       for (int i = 5; i < 3001; i += 5) {
         index.index = i;
-        int startOffset = writer.targetOffset();
+        int startOffset = writer.currentStartOffset();
         assertEquals((i/5 - 1) * 10, startOffset);
         writer.setOffset(startOffset + 10);
       }

@@ -20,9 +20,8 @@ package org.apache.drill.exec.vector.accessor.writer;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
-import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayElementWriterIndex;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.MapVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
@@ -46,13 +45,12 @@ public abstract class MapWriter extends AbstractTupleWriter {
       this.baseIndex = baseIndex;
     }
 
+    @Override public int rowStartIndex() { return baseIndex.rowStartIndex(); }
     @Override public int vectorIndex() { return baseIndex.vectorIndex(); }
     @Override public void nextElement() { }
-
-    @Override
-    public void resetTo(int newIndex) {
-      // TODO Auto-generated method stub
-      assert false;
+    @Override public void rollover() { }
+    @Override public ColumnWriterIndex outerIndex() {
+      return baseIndex.outerIndex();
     }
 
     @Override
@@ -84,13 +82,16 @@ public abstract class MapWriter extends AbstractTupleWriter {
     @Override
     public void endWrite() {
       super.endWrite();
-      mapVector.getMutator().setValueCount(vectorIndex.vectorIndex());
-    }
 
-    @Override
-    public void startWriteAt(int index) {
-      // TODO Auto-generated method stub
-      assert false;
+      // Special form of set value count: used only for
+      // this class to avoid setting the value count of children.
+      // Setting these counts was already done. Doing it again
+      // will corrupt nullable vectors because the writers don't
+      // set the "lastSet" field of nullable vector accessors,
+      // and the initial value of -1 will cause all values to
+      // be overwritten.
+
+      mapVector.setMapValueCount(vectorIndex.vectorIndex());
     }
   }
 
@@ -103,6 +104,7 @@ public abstract class MapWriter extends AbstractTupleWriter {
    */
 
   private static class ArrayMapWriter extends MapWriter {
+    @SuppressWarnings("unused")
     private final RepeatedMapVector mapVector;
 
     private ArrayMapWriter(ColumnMetadata schema, RepeatedMapVector vector, List<AbstractObjectWriter> writers) {
@@ -113,26 +115,26 @@ public abstract class MapWriter extends AbstractTupleWriter {
     @Override
     public void bindIndex(ColumnWriterIndex index) {
 
-      // This is a repeated map, then the provided index is an array element
+      // This is a repeated map, so the provided index is an array element
       // index. Convert this to an index that will not increment the element
       // index on each write so that a map with three members, say, won't
       // increment the index for each member. Rather, the index must be
       // incremented at the array level.
 
-      final ColumnWriterIndex childIndex = new MemberWriterIndex(index);
-      bindIndex(index, childIndex);
+      bindIndex(index, new MemberWriterIndex(index));
     }
 
     @Override
     public void endWrite() {
       super.endWrite();
 
-      // A bit of a hack. This writer sees the element index. But,
-      // the vector wants the base element count, provided by the
-      // parent index.
+      // Do not call setValueCount on the map vector.
+      // Doing so will zero-fill the composite vectors because
+      // the internal map state does not track the writer state.
+      // Instead, the code in this structure has set the value
+      // count for each composite vector individually.
 
-      ColumnWriterIndex baseIndex = ((ArrayElementWriterIndex) vectorIndex).baseIndex();
-      mapVector.getMutator().setValueCount(baseIndex.vectorIndex());
+//      mapVector.getMutator().setValueCount(vectorIndex.outerIndex().vectorIndex());
     }
   }
 
@@ -145,12 +147,12 @@ public abstract class MapWriter extends AbstractTupleWriter {
 
   public static TupleObjectWriter buildMap(ColumnMetadata schema, MapVector vector,
                                         List<AbstractObjectWriter> writers) {
-    return new TupleObjectWriter(new SingleMapWriter(schema, vector, writers));
+    return new TupleObjectWriter(schema, new SingleMapWriter(schema, vector, writers));
   }
 
   public static TupleObjectWriter buildMapArray(ColumnMetadata schema, RepeatedMapVector vector,
                                         List<AbstractObjectWriter> writers) {
-    return new TupleObjectWriter(new ArrayMapWriter(schema, vector, writers));
+    return new TupleObjectWriter(schema, new ArrayMapWriter(schema, vector, writers));
   }
 
   public static TupleObjectWriter buildMapArray(ColumnMetadata schema, RepeatedMapVector vector) {
@@ -170,11 +172,5 @@ public abstract class MapWriter extends AbstractTupleWriter {
   public static TupleObjectWriter build(ColumnMetadata schema, AbstractMapVector vector) {
     assert schema.mapSchema().size() == 0;
     return build(schema, vector, new ArrayList<AbstractObjectWriter>());
-  }
-
-  @Override
-  public void startWriteAt(int index) {
-    // TODO
-    assert false;
   }
 }

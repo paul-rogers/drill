@@ -105,7 +105,7 @@ public abstract class AbstractArrayReader implements ArrayReader {
     public int size() { return length; }
 
     public int elementIndex(int index) {
-      if (index < 0 ||  length <= index) {
+      if (index < 0 || length <= index) {
         throw new IndexOutOfBoundsException("Index = " + index + ", length = " + length);
       }
       return startOffset + index;
