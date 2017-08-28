@@ -326,7 +326,7 @@ public class ColumnAccessors {
          -->
       <#if varWidth>
     private final int writeIndex(final int width) {
-      int writeOffset = offsetsWriter.targetOffset();
+      int writeOffset = offsetsWriter.currentStartOffset();
       if (writeOffset + width < capacity) {
         return writeOffset;
       }
@@ -359,7 +359,7 @@ public class ColumnAccessors {
                the new vector. -->
           overflowed();
       <#if varWidth>
-          writeOffset = offsetsWriter.targetOffset();
+          writeOffset = offsetsWriter.currentStartOffset();
       <#else>
           writeIndex = vectorIndex.vectorIndex();
       </#if>
@@ -490,7 +490,7 @@ public class ColumnAccessors {
     @Override
     public final void endWrite() {
       <#if varWidth>
-      vector.getBuffer().writerIndex(offsetsWriter.targetOffset());
+      vector.getBuffer().writerIndex(offsetsWriter.currentStartOffset());
       offsetsWriter.endWrite();
       <#else>
       <#-- Done this way to avoid another drill buf access in value set path.

@@ -138,8 +138,8 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   public void startRow() {
     // Skip calls for performance: they do nothing for
     // scalar writers -- the only kind supported here.
-//    isSetWriter.startValue();
-//    baseWriter.startValue();
+//    isSetWriter.startRow();
+    baseWriter.startRow();
   }
 
   @Override

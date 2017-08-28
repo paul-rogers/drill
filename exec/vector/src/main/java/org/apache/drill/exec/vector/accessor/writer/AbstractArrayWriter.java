@@ -201,6 +201,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   private final OffsetVectorWriter offsetsWriter;
   private ColumnWriterIndex baseIndex;
   protected ArrayElementWriterIndex elementIndex;
+  protected int firstElementForRow;
 
   public AbstractArrayWriter(RepeatedValueVector vector, AbstractObjectWriter elementObjWriter) {
     this.elementObjWriter = elementObjWriter;
@@ -230,6 +231,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     elementIndex.reset();
     offsetsWriter.startWrite();
     elementObjWriter.startWrite();
+    firstElementForRow = 0;
   }
 
   @Override
@@ -241,6 +243,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
     offsetsWriter.startRow();
     elementObjWriter.startRow();
+    firstElementForRow = elementIndex.vectorIndex();
   }
 
   @Override
@@ -257,7 +260,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   @Override
   public void restartRow() {
     offsetsWriter.restartRow();
-    elementIndex.resetTo(offsetsWriter.targetOffset());
+    elementIndex.resetTo(firstElementForRow);
     elementObjWriter.restartRow();
   }
 
@@ -304,16 +307,16 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   }
 
   /**
-   * When handling overflow, we need to know the position, within
-   * the array column, of the first value for the current outer
-   * (say, row) value.
+   * Returns the index within the child vector of the first
+   * element for the current row. Used to determine the values that
+   * need moving when handling overflow. Updated at the start of
+   * each row.
    *
-   * @return the offset into the array of the first value for
-   * the outer value
+   * @return the index of the first element for the current row
    */
 
-  public int lastArrayOffset() {
-    return elementIndex.startOffset();
+  public int firstElementForRow() {
+    return firstElementForRow;
   }
 
   /**
