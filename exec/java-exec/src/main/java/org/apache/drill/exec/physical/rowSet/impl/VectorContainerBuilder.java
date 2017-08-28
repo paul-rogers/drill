@@ -17,16 +17,16 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
+import java.util.List;
+
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.rowSet.model.TupleModel.ColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel;
-import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapColumnModel;
+import org.apache.drill.exec.physical.rowSet.impl.ColumnState.BaseMapColumnState;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.MapVector;
@@ -164,7 +164,7 @@ public class VectorContainerBuilder {
       return;
     }
     outputSchemaVersion = targetVersion;
-    updateTuple(resultSetLoader.rootModel(), new ContainerProxy(schema, container));
+    updateTuple(resultSetLoader.rootState(), new ContainerProxy(schema, container));
     container.buildSchema(SelectionVectorMode.NONE);
   }
 
@@ -176,24 +176,24 @@ public class VectorContainerBuilder {
      return resultSetLoader.allocator();
   }
 
-  private void updateTuple(AbstractSingleTupleModel sourceModel, TupleProxy destProxy) {
+  private void updateTuple(TupleState sourceModel, TupleProxy destProxy) {
     int prevCount = destProxy.size();
-    int currentCount = sourceModel.size();
+    List<ColumnState> cols = sourceModel.columns();
+    int currentCount = cols.size();
 
     // Scan any existing maps for column additions
 
     for (int i = 0; i < prevCount; i++) {
-      ColumnModel colModel = sourceModel.column(i);
+      ColumnState colModel = cols.get(i);
       if (colModel.schema().isMap()) {
-        updateTuple((AbstractSingleTupleModel) colModel.mapModel(), destProxy.mapProxy(i));
+        updateTuple((TupleState) ((BaseMapColumnState) colModel).mapState(), destProxy.mapProxy(i));
       }
     }
 
     // Add new columns, which may be maps
 
     for (int i = prevCount; i < currentCount; i++) {
-      AbstractSingleColumnModel colModel = (AbstractSingleColumnModel) sourceModel.column(i);
-      ColumnState state = colModel.coordinator();
+      ColumnState state = cols.get(i);
 
       // If the column was added after the output schema version cutoff,
       // skip that column for now.
@@ -201,18 +201,18 @@ public class VectorContainerBuilder {
       if (state.addVersion > outputSchemaVersion) {
         break;
       }
-      if (colModel.schema().isMap()) {
-        buildMap(destProxy, (MapColumnModel) colModel);
+      if (state.schema().isMap()) {
+        buildMap(destProxy, (BaseMapColumnState) state);
       } else {
-        destProxy.add(colModel.vector());
-        destProxy.schema.addColumn(colModel.schema());
+        destProxy.add(state.vector());
+        destProxy.schema.addColumn(state.schema());
         assert destProxy.size() == destProxy.schema.size();
       }
     }
   }
 
   @SuppressWarnings("resource")
-  private void buildMap(TupleProxy parentTuple, MapColumnModel colModel) {
+  private void buildMap(TupleProxy parentTuple, BaseMapColumnState colModel) {
 
     // Creating the map vector will create its contained vectors if we
     // give it a materialized field with children. So, instead pass a clone
@@ -230,8 +230,8 @@ public class VectorContainerBuilder {
       // A repeated map shares an offset vector with the internal
       // repeated map.
 
-      RepeatedMapVector internalVector = (RepeatedMapVector) colModel.vector();
-      mapVector = new RepeatedMapVector(mapColSchema.schema(), internalVector.getOffsetVector(), null);
+      UInt4Vector offsets = (UInt4Vector) colModel.vector();
+      mapVector = new RepeatedMapVector(mapColSchema.schema(), offsets, null);
     } else {
       mapVector = new MapVector(mapColSchema.schema(), allocator(), null);
     }
@@ -244,7 +244,7 @@ public class VectorContainerBuilder {
 
     // Update the tuple, which will add the new columns in the map
 
-    updateTuple(colModel.mapModelImpl(), parentTuple.mapProxy(index));
+    updateTuple(colModel.mapState(), parentTuple.mapProxy(index));
   }
 
   public TupleMetadata schema() { return schema; }

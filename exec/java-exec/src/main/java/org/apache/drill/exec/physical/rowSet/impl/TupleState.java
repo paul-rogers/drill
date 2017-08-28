@@ -17,148 +17,188 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.drill.exec.expr.TypeHelper;
-import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.BuildStateVisitor;
-import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.UpdateCardinalityVisitor;
-import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel;
-import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.TupleCoordinator;
-import org.apache.drill.exec.physical.rowSet.model.single.AllocationVisitor;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.PrimitiveColumnModel;
+import org.apache.drill.exec.physical.rowSet.impl.ColumnState.BaseMapColumnState;
+import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapArrayColumnState;
+import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapColumnState;
+import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.TupleSchema.AbstractColumnMetadata;
-import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
 import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
 import org.apache.drill.exec.vector.accessor.writer.MapWriter;
 import org.apache.drill.exec.vector.accessor.writer.ObjectArrayWriter;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 
-public abstract class TupleState implements TupleCoordinator {
+public abstract class TupleState implements TupleWriterListener {
 
   public static class RowState extends TupleState {
 
-    @SuppressWarnings("unused")
-    private final SingleRowSetModel row;
+    /**
+     * The row-level writer for stepping through rows as they are written,
+     * and for accessing top-level columns.
+     */
 
-    public RowState(ResultSetLoaderImpl rsLoader, SingleRowSetModel row) {
+    private final RowSetLoaderImpl writer;
+
+    public RowState(ResultSetLoaderImpl rsLoader) {
       super(rsLoader);
-      this.row = row;
+      writer = new RowSetLoaderImpl(rsLoader, schema);
+      writer.bindListener(this);
     }
+
+    public RowSetLoaderImpl rootWriter() { return writer; }
+
+    @Override
+    public AbstractTupleWriter writer() { return writer; }
 
     @Override
     public int innerCardinality() { return resultSetLoader.targetRowCount();}
-
-    @Override
-    public void dump(HierarchicalFormatter format) {
-      format.startObject(this).endObject();
-    }
   }
 
   public static class MapState extends TupleState {
 
-    private final MapColumnModel mapColumn;
+    protected final AbstractMapVector mapVector;
+    protected final BaseMapColumnState mapColumnState;
     protected int outerCardinality;
 
-    public MapState(ResultSetLoaderImpl rsLoader, MapColumnModel mapColumn) {
+    public MapState(ResultSetLoaderImpl rsLoader,
+        BaseMapColumnState mapColumnState,
+        AbstractMapVector mapVector) {
       super(rsLoader);
-      this.mapColumn = mapColumn;
+      this.mapVector = mapVector;
+      this.mapColumnState = mapColumnState;
+      mapColumnState.writer().bindListener(this);
     }
 
-    public void setCardinality(int outerCardinality) {
+    @Override
+    protected void columnAdded(ColumnState colState) {
+      @SuppressWarnings("resource")
+      ValueVector vector = colState.vector();
+      if (vector != null) {
+        mapVector.putChild(vector.getField().getName(), vector);
+      }
+    }
+
+    @Override
+    public AbstractTupleWriter writer() {
+      AbstractObjectWriter objWriter = mapColumnState.writer();
+      TupleWriter tupleWriter;
+      if (objWriter.type() == ObjectType.ARRAY) {
+        tupleWriter = objWriter.array().tuple();
+      } else {
+        tupleWriter = objWriter.tuple();
+      }
+      return (AbstractTupleWriter) tupleWriter;
+    }
+
+    @Override
+    public void updateCardinality(int outerCardinality) {
       this.outerCardinality = outerCardinality;
+      super.updateCardinality(outerCardinality);
     }
 
     @Override
     public int innerCardinality() {
-      return outerCardinality * mapColumn.schema().expectedElementCount();
+      return outerCardinality * mapColumnState.schema().expectedElementCount();
     }
 
     @Override
     public void dump(HierarchicalFormatter format) {
       format
         .startObject(this)
-        .attribute("column", mapColumn.schema().name())
+        .attribute("column", mapColumnState.schema().name())
         .attribute("cardinality", outerCardinality)
         .endObject();
     }
   }
 
   protected final ResultSetLoaderImpl resultSetLoader;
+  protected final List<ColumnState> columns = new ArrayList<>();
+  protected final TupleSchema schema = new TupleSchema();
 
   protected TupleState(ResultSetLoaderImpl rsLoader) {
     this.resultSetLoader = rsLoader;
   }
 
-  @Override
-  public void columnAdded(AbstractSingleTupleModel tuple,
-      AbstractSingleColumnModel column) {
-
-    // Columns must be added via the writer.
-
-    assert false;
-  }
-
   public abstract int innerCardinality();
 
+  public List<ColumnState> columns() { return columns; }
+
+  public TupleMetadata schema() { return writer().schema(); }
+
+  public abstract AbstractTupleWriter writer();
+
   @Override
-  public ObjectWriter columnAdded(
-      AbstractSingleTupleModel tupleModel,
-      TupleWriter tupleWriter, ColumnMetadata columnSchema) {
+  public ObjectWriter addColumn(TupleWriter tupleWriter, MaterializedField column) {
+    return addColumn(tupleWriter, TupleSchema.fromField(column));
+  }
+
+  @Override
+  public ObjectWriter addColumn(TupleWriter tupleWriter, ColumnMetadata columnSchema) {
 
     // Verify name is not a (possibly case insensitive) duplicate.
 
-    TupleMetadata tupleSchema = tupleModel.schema();
+    TupleMetadata tupleSchema = schema();
     String colName = columnSchema.name();
     if (tupleSchema.column(colName) != null) {
       throw new IllegalArgumentException("Duplicate column: " + colName);
     }
 
-    if (columnSchema.isMap()) {
-      return buildMap(tupleModel, columnSchema);
-    } else {
-      return buildPrimitive(tupleModel, columnSchema);
-    }
+    return addColumn(columnSchema);
   }
 
+  private AbstractObjectWriter addColumn(ColumnMetadata columnSchema) {
+    ColumnState colState;
+    if (columnSchema.isMap()) {
+      colState = buildMap(columnSchema);
+    } else {
+      colState = buildPrimitive(columnSchema);
+    }
+    columns.add(colState);
+    columnAdded(colState);
+    colState.updateCardinality(innerCardinality());
+    colState.allocateVectors();
+    return colState.writer();
+  }
+
+  protected void columnAdded(ColumnState colState) { }
+
   @SuppressWarnings("resource")
-  private AbstractObjectWriter buildPrimitive(AbstractSingleTupleModel tupleModel,
-      ColumnMetadata columnSchema) {
+  private ColumnState buildPrimitive(ColumnMetadata columnSchema) {
 
     // Create the vector for the column.
 
     ValueVector vector = resultSetLoader.vectorCache().addOrGet(columnSchema.schema());
 
-    // Create the column writer and add it.
-
-    PrimitiveColumnModel colModel = new PrimitiveColumnModel(columnSchema, vector);
-    tupleModel.addColumnImpl(colModel);
-
     // Create the writer. Will be returned to the tuple writer.
 
-    AbstractObjectWriter colWriter = ColumnAccessorFactory.buildColumnWriter(vector);
+    AbstractObjectWriter colWriter = ColumnAccessorFactory.buildColumnWriter(columnSchema, vector);
 
-    // Bind the writer to the model.
-
-    colModel.bindWriter(colWriter);
-
-    prepareColumn(colModel);
-    return colWriter;
+    if (columnSchema.isArray()) {
+      return PrimitiveColumnState.newPrimitiveArray(resultSetLoader, vector, colWriter);
+//    } if (columnSchema.isNullable()) {
+//      return PrimitiveColumnState.newNullablePrimitive(resultSetLoader, vector, colWriter);
+    } else {
+      return PrimitiveColumnState.newPrimitive(resultSetLoader, vector, colWriter);
+    }
   }
 
   @SuppressWarnings("resource")
-  private AbstractObjectWriter buildMap(AbstractSingleTupleModel tupleModel,
-      ColumnMetadata columnSchema) {
+  private ColumnState buildMap(ColumnMetadata columnSchema) {
 
     // When dynamically adding columns, must add the (empty)
     // map by itself, then add columns to the map via separate
@@ -183,39 +223,105 @@ public abstract class TupleState implements TupleCoordinator {
 
     ((AbstractColumnMetadata) columnSchema).replaceField(mapVector.getField());
 
-    // Build the map model from a matching triple of schema, container and
-    // column models.
-
-    MapModel mapModel = new MapModel((TupleSchema) columnSchema.mapSchema(), mapVector);
-
-    // Create the map model with all the pieces.
-
-    MapColumnModel mapColModel = new MapColumnModel((MapColumnMetadata) columnSchema, mapVector, mapModel);
-    tupleModel.addColumnImpl(mapColModel);
-
     // Create the writer. Will be returned to the tuple writer.
 
     AbstractObjectWriter mapWriter = MapWriter.build(columnSchema, mapVector);
     if (columnSchema.isArray()) {
-      mapWriter = ObjectArrayWriter.build((RepeatedMapVector) mapVector, mapWriter);
+      mapWriter = ObjectArrayWriter.build(columnSchema, (RepeatedMapVector) mapVector, mapWriter);
     }
 
-    // Bind the writer to the model.
-
-    mapColModel.bindWriter(mapWriter);
-    mapModel.bindWriter(mapWriter);
-
-    prepareColumn(mapColModel);
-    return mapWriter;
+    if (columnSchema.isArray()) {
+      return new MapArrayColumnState(resultSetLoader, mapVector, mapWriter);
+    } else {
+      return new MapColumnState(resultSetLoader, mapVector, mapWriter);
+    }
   }
 
-  private void prepareColumn(AbstractSingleColumnModel colModel) {
+  public void buildSchema(TupleMetadata schema) {
+    for (int i = 0; i < schema.size(); i++) {
+      ColumnMetadata colSchema = schema.metadata(i);
+      AbstractObjectWriter colWriter;
+      if (colSchema.isMap()) {
+        ColumnMetadata emptyClone = colSchema.cloneEmpty();
+        colWriter = addColumn(emptyClone);
+        // TODO: Simplify
+        BaseMapColumnState mapColState = (BaseMapColumnState) columns.get(columns.size() - 1);
+        mapColState.mapState().buildSchema(colSchema.mapSchema());
+      } else {
+        colWriter = addColumn(colSchema);
+      }
+      writer().addColumnWriter(colWriter);
+    }
+  }
 
-    // Use visitors to build the state, define cardinality and allocate
-    // vectors.
+  public void updateCardinality(int cardinality) {
+    for (ColumnState colState : columns) {
+      colState.updateCardinality(cardinality);
+    }
+  }
 
-    colModel.visit(new BuildStateVisitor(resultSetLoader), null);
-    colModel.visit(new UpdateCardinalityVisitor(), innerCardinality());
-    colModel.visit(new AllocationVisitor(), innerCardinality());
+  /**
+   * A column within the row batch overflowed. Prepare to absorb the rest of the
+   * in-flight row by rolling values over to a new vector, saving the complete
+   * vector for later. This column could have a value for the overflow row, or
+   * for some previous row, depending on exactly when and where the overflow
+   * occurs.
+   *
+   * @param overflowIndex
+   *          the index of the row that caused the overflow, the values of which
+   *          should be copied to a new "look-ahead" vector
+   */
+
+  public void rollover() {
+    for (ColumnState colState : columns) {
+      colState.rollover();
+    }
+  }
+
+  /**
+   * Writing of a row batch is complete, and an overflow occurred. Prepare the
+   * vector for harvesting to send downstream. Set aside the look-ahead vector
+   * and put the full vector buffer back into the active vector.
+   */
+
+  public void harvestWithLookAhead() {
+    for (ColumnState colState : columns) {
+      colState.harvestWithLookAhead();
+    }
+  }
+
+  /**
+   * Start a new batch by shifting the overflow buffers back into the main
+   * write vectors and updating the writers.
+   */
+
+  public void startBatch() {
+    for (ColumnState colState : columns) {
+      colState.startBatch();
+    }
+  }
+
+  /**
+   * Clean up state (such as backup vectors) associated with the state
+   * for each vector.
+   */
+
+  public void close() {
+    for (ColumnState colState : columns) {
+      colState.close();
+    }
+  }
+
+  public void dump(HierarchicalFormatter format) {
+    format
+      .startObject(this)
+      .attributeArray("columns");
+    for (int i = 0; i < columns.size(); i++) {
+      format.element(i);
+      columns.get(i).dump(format);
+    }
+    format
+      .endArray()
+      .endObject();
   }
 }

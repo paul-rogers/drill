@@ -17,6 +17,9 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
+import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
+
 /**
  * Handles batch and overflow operation for a (possibly compound) vector.
  * <p>
@@ -29,11 +32,11 @@ package org.apache.drill.exec.physical.rowSet.impl;
  *   <li>Column coordinator (this class)</li>
  * </ul></li></ul>
  * The vector state coordinates events between the result set loader
- * on the one side and the model, writers and schema on the other.
+ * on the one side and the vectors, writers and schema on the other.
  * For example:
  * <pre><code>
- * Result Set       Vector       Tuple, Column
- *   Loader   <-->  State   <-->    Models
+ * Result Set       Vector
+ *   Loader   <-->  State   <-->    Vectors
  * </code></pre>
  * Events from the row set loader deal with allocation, roll-over,
  * harvesting completed batches and so on. Events from the writer,
@@ -57,14 +60,13 @@ public interface VectorState {
    * cardinality, then copy the overflow values from the main vector to the
    * look-ahead vector.
    *
-   * @param sourceStartIndex the position in the vector from which to move
    * @param cardinality the number of elements in the new vector. If this
    * vector is an array, then this is the number of arrays
    * @return the new next write position for the vector index associated
    * with the writer for this vector
    */
 
-  int rollOver(int sourceStartIndex, int cardinality);
+  void rollover(int cardinality);
 
   /**
    * A batch is being harvested after an overflow. Put the full batch
@@ -86,4 +88,13 @@ public interface VectorState {
    */
 
   void reset();
+
+  /**
+   * Underlying vector: the one presented to the consumer of the
+   * result set loader.
+   */
+
+  ValueVector vector();
+
+  void dump(HierarchicalFormatter format);
 }

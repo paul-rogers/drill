@@ -56,6 +56,8 @@ import org.apache.drill.exec.vector.accessor.TupleWriter;
 
 public interface RowSetLoader extends TupleWriter {
 
+  ResultSetLoader loader();
+
   /**
    * Write a row of values, given by Java objects. Object type must match
    * expected column type. Stops writing, and returns false, if any value causes
