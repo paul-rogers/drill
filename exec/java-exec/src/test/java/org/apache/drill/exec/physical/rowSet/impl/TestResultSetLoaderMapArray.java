@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import static org.junit.Assert.assertEquals;
@@ -13,6 +30,8 @@ import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.accessor.ScalarElementReader;
+import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
@@ -44,7 +63,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
           .add("d", MinorType.VARCHAR)
           .buildMap()
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
@@ -113,7 +132,15 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
     // Verify the second batch
 
     actual = fixture.wrap(rsLoader.harvest());
-    expected = fixture.rowSetBuilder(schema)
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addMapArray("m")
+          .add("c", MinorType.INT)
+          .add("d", MinorType.VARCHAR)
+          .addNullable("e", MinorType.VARCHAR)
+          .buildMap()
+        .buildSchema();
+    expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(40, new Object[] {
             new Object[] {410, "d4.1", null},
             new Object[] {420, "d4.2", null}})
@@ -127,6 +154,139 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
         .build();
     new RowSetComparison(expected).verifyAndClearAll(actual);
 
+    rsLoader.close();
+  }
+
+  @Test
+  public void testNestedArray() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addMapArray("m")
+          .add("c", MinorType.INT)
+          .addArray("d", MinorType.VARCHAR)
+          .buildMap()
+        .buildSchema();
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setSchema(schema)
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    RowSetLoader rootWriter = rsLoader.writer();
+
+    // Write a couple of rows with arrays within arrays.
+    // (And, of course, the Varchar is actually an array of
+    // bytes, so that's three array levels.)
+
+    rsLoader.startBatch();
+    rootWriter
+      .addRow(10, new Object[] {
+          new Object[] {110, new String[] {"d1.1.1", "d1.1.2"}},
+          new Object[] {120, new String[] {"d1.2.1", "d1.2.2"}}})
+      .addRow(20, new Object[] {})
+      .addRow(30, new Object[] {
+          new Object[] {310, new String[] {"d3.1.1", "d3.2.2"}},
+          new Object[] {320, new String[] {}},
+          new Object[] {330, new String[] {"d3.3.1", "d1.2.2"}}})
+      ;
+
+    // Verify the batch
+
+    RowSet actual = fixture.wrap(rsLoader.harvest());
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
+        .addRow(10, new Object[] {
+            new Object[] {110, new String[] {"d1.1.1", "d1.1.2"}},
+            new Object[] {120, new String[] {"d1.2.1", "d1.2.2"}}})
+        .addRow(20, new Object[] {})
+        .addRow(30, new Object[] {
+            new Object[] {310, new String[] {"d3.1.1", "d3.2.2"}},
+            new Object[] {320, new String[] {}},
+            new Object[] {330, new String[] {"d3.3.1", "d1.2.2"}}})
+        .build();
+    new RowSetComparison(expected).verifyAndClearAll(actual);
+
+    rsLoader.close();
+  }
+
+  /**
+   * Test a doubly-nested arrays of maps.
+   */
+
+
+  @Test
+  public void testDoubleNestedArray() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addMapArray("m1")
+          .add("b", MinorType.INT)
+          .addMapArray("m2")
+            .add("c", MinorType.INT)
+            .addArray("d", MinorType.VARCHAR)
+            .buildMap()
+          .buildMap()
+        .buildSchema();
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setSchema(schema)
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    RowSetLoader rootWriter = rsLoader.writer();
+    rsLoader.startBatch();
+
+    ScalarWriter aWriter = rootWriter.scalar("a");
+    ArrayWriter a1Writer = rootWriter.array("m1");
+    TupleWriter m1Writer = a1Writer.tuple();
+    ScalarWriter bWriter = m1Writer.scalar("b");
+    ArrayWriter a2Writer = m1Writer.array("m2");
+    TupleWriter m2Writer = a2Writer.tuple();
+    ScalarWriter cWriter = m2Writer.scalar("c");
+    ScalarWriter dWriter = m2Writer.array("d").scalar();
+
+    for (int i = 0; i < 5; i++) {
+      rootWriter.start();
+      aWriter.setInt(i);
+      for (int j = 0; j < 4; j++) {
+        int a1Key = i + 10 + j;
+        bWriter.setInt(a1Key);
+        for (int k = 0; k < 3; k++) {
+          int a2Key = a1Key * 10 + k;
+          cWriter.setInt(a2Key);
+          for (int l = 0; l < 2; l++) {
+            dWriter.setString("d-" + (a2Key * 10 + l));
+          }
+          a2Writer.save();
+        }
+        a1Writer.save();
+      }
+      rootWriter.save();
+    }
+
+    RowSet results = fixture.wrap(rsLoader.harvest());
+    RowSetReader reader = results.reader();
+
+    ScalarReader aReader = reader.scalar("a");
+    ArrayReader a1Reader = reader.array("m1");
+    TupleReader m1Reader = a1Reader.tuple();
+    ScalarReader bReader = m1Reader.scalar("b");
+    ArrayReader a2Reader = m1Reader.array("m2");
+    TupleReader m2Reader = a2Reader.tuple();
+    ScalarReader cReader = m2Reader.scalar("c");
+    ScalarElementReader dReader = m2Reader.elements("d");
+
+    for (int i = 0; i < 5; i++) {
+      reader.next();
+      assertEquals(i, aReader.getInt());
+      for (int j = 0; j < 4; j++) {
+        a1Reader.setPosn(j);
+        int a1Key = i + 10 + j;
+        assertEquals(a1Key, bReader.getInt());
+        for (int k = 0; k < 3; k++) {
+          a2Reader.setPosn(k);
+          int a2Key = a1Key * 10 + k;
+          assertEquals(a2Key, cReader.getInt());
+          for (int l = 0; l < 2; l++) {
+            assertEquals("d-" + (a2Key * 10 + l), dReader.getString(l));
+          }
+        }
+      }
+    }
     rsLoader.close();
   }
 
@@ -146,7 +306,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
           .add("c", MinorType.VARCHAR)
         .buildMap()
       .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();
@@ -205,11 +365,43 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
     result.clear();
     rsLoader.close();
   }
+
   /**
-   * Version of the {#link TestResultSetLoaderProtocol#testOverwriteRow()} test
-   * that uses nested columns inside an array of maps. To add more stress,
-   * the Varchar column itself is an array, so we have an array inside an
-   * array.
+   * Test that memory is released if the loader is closed with an active
+   * batch (that is, before the batch is harvested.)
    */
 
+  @Test
+  public void testCloseWithoutHarvest() {
+    TupleMetadata schema = new SchemaBuilder()
+        .addMapArray("m")
+          .add("a", MinorType.INT)
+          .add("b", MinorType.VARCHAR)
+          .buildMap()
+        .buildSchema();
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setSchema(schema)
+        .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    RowSetLoader rootWriter = rsLoader.writer();
+
+    ArrayWriter maWriter = rootWriter.array("m");
+    TupleWriter mWriter = maWriter.tuple();
+    rsLoader.startBatch();
+    for (int i = 0; i < 40; i++) {
+      rootWriter.start();
+      for (int j = 0; j < 3; j++) {
+        mWriter.scalar("a").setInt(i);
+        mWriter.scalar("b").setString("b-" + i);
+        maWriter.save();
+      }
+      rootWriter.save();
+    }
+
+    // Don't harvest the batch. Allocator will complain if the
+    // loader does not release memory.
+
+    rsLoader.close();
+  }
 }

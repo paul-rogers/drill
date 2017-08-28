@@ -17,6 +17,9 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
+import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
+
 /**
  * Do-nothing vector state for a map column which has no actual vector
  * associated with it.
@@ -25,8 +28,25 @@ package org.apache.drill.exec.physical.rowSet.impl;
 public class NullVectorState implements VectorState {
 
   @Override public void allocate(int cardinality) { }
-  @Override public int rollOver(int sourceStartIndex, int cardinality) { return 0; }
+  @Override public void rollover(int cardinality) { }
   @Override public void harvestWithLookAhead() { }
   @Override public void startBatchWithLookAhead() { }
   @Override public void reset() { }
+  @Override public ValueVector vector() { return null; }
+
+  public static class UnmanagedVectorState extends NullVectorState {
+    ValueVector vector;
+
+    public UnmanagedVectorState(ValueVector vector) {
+      this.vector = vector;
+    }
+
+    @Override
+    public ValueVector vector() { return vector; }
+  }
+
+  @Override
+  public void dump(HierarchicalFormatter format) {
+    format.startObject(this).endObject();
+  }
 }

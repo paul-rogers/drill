@@ -195,14 +195,6 @@ public interface ResultSetLoader {
   TupleMetadata harvestSchema();
 
   /**
-   * Clear the current, empty, in-flight batch to prepare for a new
-   * batch. Typically called when the last batch from a reader is
-   * empty, but another reader will continue the read.
-   */
-
-  void reset();
-
-  /**
    * Called after all rows are returned, whether because no more data is
    * available, or the caller wishes to cancel the current row batch
    * and complete.

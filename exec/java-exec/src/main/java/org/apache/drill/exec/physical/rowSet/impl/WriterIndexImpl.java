@@ -47,6 +47,9 @@ class WriterIndexImpl implements ColumnWriterIndex {
   @Override
   public int vectorIndex() { return rowIndex; }
 
+  @Override
+  public int rowStartIndex() { return rowIndex; }
+
   public boolean next() {
     if (++rowIndex < rsLoader.targetRowCount()) {
       return true;
@@ -67,22 +70,22 @@ class WriterIndexImpl implements ColumnWriterIndex {
 
   public boolean valid() { return rowIndex < rsLoader.targetRowCount(); }
 
-  public void reset(int index) {
-    assert index <= rowIndex;
-    rowIndex = index;
-  }
-
   @Override
-  public void resetTo(int newIndex) {
-    throw new IllegalStateException("The top level index should not be reset to a non-zero position");
+  public void rollover() {
+
+    // The top level index always rolls over to 0 --
+    // the first row position in the new vectors.
+
+    reset();
   }
 
-  public void reset() {
-    rowIndex = 0;
-  }
+  public void reset() { rowIndex = 0; }
 
   @Override
   public void nextElement() { }
+
+  @Override
+  public ColumnWriterIndex outerIndex() { return null; }
 
   @Override
   public String toString() {

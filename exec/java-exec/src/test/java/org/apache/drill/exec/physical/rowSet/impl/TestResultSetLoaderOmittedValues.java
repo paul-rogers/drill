@@ -57,7 +57,7 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
         .addNullable("e", MinorType.INT)
         .addArray("f", MinorType.VARCHAR)
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
@@ -179,7 +179,7 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
         // Column with some holes
         .addNullable("d", MinorType.VARCHAR)
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();
@@ -284,7 +284,7 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
         .add("a", MinorType.INT)
         .addNullable("b", MinorType.VARCHAR)
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();
@@ -336,7 +336,7 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
         .add("a", MinorType.INT)
         .addNullable("b", MinorType.VARCHAR)
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();
