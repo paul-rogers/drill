@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.Arrays;
 
@@ -89,6 +90,15 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     dWriter.setString("fred");
     eWriter.setString("pebbles");
     rootWriter.save();
+
+    // Try adding a duplicate column.
+
+    try {
+      mWriter.addColumn(SchemaBuilder.columnSchema("c", MinorType.INT, DataMode.OPTIONAL));
+      fail();
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
 
     // Write another using the test-time conveniences
 

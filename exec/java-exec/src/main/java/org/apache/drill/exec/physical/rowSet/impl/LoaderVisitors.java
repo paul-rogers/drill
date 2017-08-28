@@ -159,8 +159,12 @@ public class LoaderVisitors {
         Integer overflowIndex) {
       MapArrayColumnState colState = column.coordinator();
       colState.rollOver(overflowIndex);
-      int arrayStartOffset = colState.offsetAt(overflowIndex);
+      int arrayStartOffset = colState.firstElementIndex();
       return column.mapModelImpl().visitChildren(this, arrayStartOffset);
+    }
+
+    protected R visitPrimitiveArrayColumn(PrimitiveColumnModel column, A arg) {
+      return visitColumn(column, arg);
     }
 
     /**
@@ -257,7 +261,7 @@ public class LoaderVisitors {
    * for each vector.
    */
 
-  public static class ResetVisitor extends ModelVisitor<Void, Void> {
+  public static class CloseVisitor extends ModelVisitor<Void, Void> {
 
     public void apply(SingleRowSetModel rowModel) {
       rowModel.visit(this, null);
@@ -265,8 +269,8 @@ public class LoaderVisitors {
 
     @Override
     protected Void visitColumn(AbstractSingleColumnModel column, Void arg) {
-      PrimitiveColumnState state = column.coordinator();
-      state.reset();
+      ColumnState state = column.coordinator();
+      state.close();
       return null;
     }
   }

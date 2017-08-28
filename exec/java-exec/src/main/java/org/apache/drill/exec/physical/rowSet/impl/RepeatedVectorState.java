@@ -125,7 +125,7 @@ public class RepeatedVectorState implements VectorState {
     // n, then the offset at row n is the start position of data for
     // row n.
 
-    int dataStartIndex = offsetsState.offsetAt(sourceStartIndex);
+    int dataStartIndex = offsetsState.rowStartOffset();
 
     // Swap out the two vectors. The index presented to the caller
     // is that of the data vector: the next position in the data

@@ -24,6 +24,7 @@ import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VariableWidthVector;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
+import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriter;
 
 /**
  * Base class for a single vector. Handles the bulk of work for that vector.
@@ -88,13 +89,13 @@ public abstract class SingleVectorState implements VectorState {
       super(writer, mainVector);
     }
 
-    public int offsetAt(int sourceStartIndex) {
-      return ((UInt4Vector) mainVector).getAccessor().get(sourceStartIndex);
-    }
-
     @Override
     public void allocateVector(ValueVector toAlloc, int cardinality) {
       ((UInt4Vector) toAlloc).allocateNew(cardinality);
+    }
+
+    public int rowStartOffset() {
+      return ((OffsetVectorWriter) writer).rowStartOffset();
     }
 
     @Override
@@ -131,7 +132,7 @@ public abstract class SingleVectorState implements VectorState {
     }
   }
 
-  private final AbstractScalarWriter writer;
+  protected final AbstractScalarWriter writer;
   protected final ValueVector mainVector;
   protected ValueVector backupVector;
   private int fullVectorLastWritePosition;

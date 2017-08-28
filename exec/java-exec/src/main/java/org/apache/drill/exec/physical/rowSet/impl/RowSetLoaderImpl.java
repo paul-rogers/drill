@@ -22,7 +22,6 @@ import java.util.List;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
-import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter.State;
 
 /**
  * Implementation of the row set loader. Provides row-level operations, leaving the

@@ -26,7 +26,7 @@ import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.BuildStateVisitor;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.HarvestOverflowVisitor;
-import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.ResetVisitor;
+import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.CloseVisitor;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.RollOverVisitor;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.StartBatchVisitor;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.UpdateCardinalityVisitor;
@@ -732,27 +732,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   }
 
   @Override
-  public void reset() {
-    switch (state) {
-    case HARVESTED:
-    case START:
-      break;
-    case ACTIVE:
-    case OVERFLOW:
-    case FULL_BATCH:
-      new ResetVisitor().apply(rootModel);
-      state = State.HARVESTED;
-      break;
-    default:
-      throw new IllegalStateException("Unexpected state: " + state);
-    }
-  }
-
-  @Override
   public void close() {
     if (state == State.CLOSED) {
       return;
     }
+    new CloseVisitor().apply(rootModel);
     rootModel.close();
 
     // Do not close the vector cache; the caller owns that and

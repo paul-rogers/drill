@@ -508,7 +508,10 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
    * Again test the ability to omit values. This version omits the
    * <tt>start()</tt> call before each rewrite, testing the case that
    * the code keeps rewriting the same row values until if finds a
-   * set of values it likes.
+   * set of values it likes. Note that this version works only for
+   * top-level scalar values. If a row has an array, then the app
+   * must call <tt>start()</tt> to reset the array indexes back to
+   * the beginning positions for the row.
    */
 
   @Test
@@ -572,6 +575,38 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
     }
 
     result.clear();
+    rsLoader.close();
+  }
+
+  /**
+   * Test that memory is released if the loader is closed with an active
+   * batch (that is, before the batch is harvested.)
+   */
+
+  @Test
+  public void testCloseWithoutHarvest() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
+    ResultSetLoaderImpl.ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+        .setSchema(schema)
+        .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    RowSetLoader rootWriter = rsLoader.writer();
+
+    rsLoader.startBatch();
+    for (int i = 0; i < 100; i++) {
+      rootWriter.start();
+      rootWriter.scalar("a").setInt(i);
+      rootWriter.scalar("b").setString("b-" + i);
+      rootWriter.save();
+    }
+
+    // Don't harvest the batch. Allocator will complain if the
+    // loader does not release memory.
+
     rsLoader.close();
   }
 }

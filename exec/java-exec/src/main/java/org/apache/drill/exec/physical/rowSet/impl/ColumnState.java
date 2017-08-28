@@ -56,7 +56,6 @@ public abstract class ColumnState implements ColumnCoordinator {
 
   public static class MapArrayColumnState extends ColumnState {
 
-    @SuppressWarnings("unused")
     private final MapColumnModel columnModel;
     protected SingleVectorState offsetsState;
 
@@ -77,8 +76,16 @@ public abstract class ColumnState implements ColumnCoordinator {
       throw new IllegalStateException();
     }
 
-    public int offsetAt(int index) {
-      return ((OffsetVectorState) vectorState).offsetAt(index);
+    /**
+     * Returns the element index for the first element for the
+     * current row.
+     *
+     * @return element index for the first element of the current
+     * row
+     */
+
+    public int firstElementIndex() {
+      return ((AbstractArrayWriter) columnModel.writer().array()).firstElementForRow();
     }
   }
 
@@ -249,7 +256,7 @@ public abstract class ColumnState implements ColumnCoordinator {
 //    AllocationHelper.allocate(toAlloc, newLength, 0, 1);
 //  }
 
-  public void reset() {
+  public void close() {
     vectorState.reset();
   }
 }
