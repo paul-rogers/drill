@@ -20,9 +20,9 @@ package org.apache.drill.exec.vector.accessor.writer;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
@@ -104,7 +104,8 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
     private AbstractTupleWriter tupleWriter;
 
-    public TupleObjectWriter(AbstractTupleWriter tupleWriter) {
+    public TupleObjectWriter(ColumnMetadata schema, AbstractTupleWriter tupleWriter) {
+      super(schema);
       this.tupleWriter = tupleWriter;
     }
 
@@ -118,7 +119,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     public TupleWriter tuple() { return tupleWriter; }
 
     @Override
-    protected WriterEvents baseEvents() { return tupleWriter; }
+    public WriterEvents events() { return tupleWriter; }
 
     @Override
     public void bindListener(TupleWriterListener listener) {
@@ -187,7 +188,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     this.childIndex = childIndex;
 
     for (int i = 0; i < writers.size(); i++) {
-      writers.get(i).bindIndex(childIndex);
+      writers.get(i).events().bindIndex(childIndex);
     }
   }
 
@@ -195,6 +196,9 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   public void bindIndex(ColumnWriterIndex index) {
     bindIndex(index, index);
   }
+
+  @Override
+  public ColumnWriterIndex writerIndex() { return vectorIndex; }
 
   /**
    * Add a column writer to an existing tuple writer. Used for implementations
@@ -205,14 +209,14 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
    */
 
   public int addColumnWriter(AbstractObjectWriter colWriter) {
-    assert writers.size() + 1 == schema.size();
-    int colIndex = writers.size();
+    assert writers.size() == schema.size();
+    int colIndex = schema.addColumn(colWriter.schema());
     writers.add(colWriter);
-    colWriter.bindIndex(childIndex);
+    colWriter.events().bindIndex(childIndex);
     if (state != State.IDLE) {
-      colWriter.startWrite();
+      colWriter.events().startWrite();
       if (state == State.IN_ROW) {
-        colWriter.startRow();
+        colWriter.events().startRow();
       }
     }
     return colIndex;
@@ -247,7 +251,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     assert state == State.IDLE;
     state = State.IN_WRITE;
     for (int i = 0; i < writers.size();  i++) {
-      writers.get(i).startWrite();
+      writers.get(i).events().startWrite();
     }
   }
 
@@ -259,15 +263,15 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     assert state == State.IN_WRITE;
     state = State.IN_ROW;
     for (int i = 0; i < writers.size();  i++) {
-      writers.get(i).startRow();
+      writers.get(i).events().startRow();
     }
   }
 
   @Override
-  public void saveValue() {
+  public void endArrayValue() {
     assert state == State.IN_ROW;
     for (int i = 0; i < writers.size();  i++) {
-      writers.get(i).saveValue();
+      writers.get(i).events().endArrayValue();
     }
   }
 
@@ -284,7 +288,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
     assert state == State.IN_ROW;
     for (int i = 0; i < writers.size();  i++) {
-      writers.get(i).restartRow();
+      writers.get(i).events().restartRow();
     }
   }
 
@@ -292,16 +296,38 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   public void saveRow() {
     assert state == State.IN_ROW;
     for (int i = 0; i < writers.size();  i++) {
-      writers.get(i).saveRow();
+      writers.get(i).events().saveRow();
     }
     state = State.IN_WRITE;
+  }
+
+  @Override
+  public void preRollover() {
+
+    // Rollover can only happen while a row is in progress.
+
+    assert state == State.IN_ROW;
+    for (int i = 0; i < writers.size();  i++) {
+      writers.get(i).events().preRollover();
+    }
+  }
+
+  @Override
+  public void postRollover() {
+
+    // Rollover can only happen while a row is in progress.
+
+    assert state == State.IN_ROW;
+    for (int i = 0; i < writers.size();  i++) {
+      writers.get(i).events().postRollover();
+    }
   }
 
   @Override
   public void endWrite() {
     assert state != State.IDLE;
     for (int i = 0; i < writers.size();  i++) {
-      writers.get(i).endWrite();
+      writers.get(i).events().endWrite();
     }
     state = State.IDLE;
   }
@@ -346,8 +372,13 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   @Override
   public void setObject(Object value) {
     Object values[] = (Object[]) value;
-    int count = Math.min(values.length, schema().size());
-    for (int i = 0; i < count; i++) {
+    if (values.length != schema.size()) {
+      throw new IllegalArgumentException(
+          "Map has " + schema.size() +
+          " columns, but value array has " +
+          values.length + " values.");
+    }
+    for (int i = 0; i < values.length; i++) {
       set(i, values[i]);
     }
   }
@@ -412,6 +443,8 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
       format.element(i);
       writers.get(i).dump(format);
     }
-    format.endArray().endObject();
+    format
+      .endArray()
+      .endObject();
   }
 }

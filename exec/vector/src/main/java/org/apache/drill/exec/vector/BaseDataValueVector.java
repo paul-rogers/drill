@@ -101,6 +101,7 @@ public abstract class BaseDataValueVector extends BaseValueVector {
     // No state in an Accessor to reset
   }
 
+  @Override
   public void collectLedgers(Set<BufferLedger> ledgers) {
     BufferLedger ledger = data.getLedger();
     if (ledger != null) {

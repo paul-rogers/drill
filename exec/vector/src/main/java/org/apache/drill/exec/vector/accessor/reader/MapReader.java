@@ -17,7 +17,9 @@
  */
 package org.apache.drill.exec.vector.accessor.reader;
 
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import java.util.List;
+
+import org.apache.drill.exec.record.ColumnMetadata;
 
 /**
  * Reader for a Drill Map type. Maps are actually tuples, just like rows.
@@ -31,5 +33,11 @@ public class MapReader extends AbstractTupleReader {
 
   public static TupleObjectReader build(ColumnMetadata schema, AbstractObjectReader readers[]) {
     return new TupleObjectReader(new MapReader(schema, readers));
+  }
+
+  public static AbstractObjectReader build(ColumnMetadata metadata,
+      List<AbstractObjectReader> readers) {
+    AbstractObjectReader readerArray[] = new AbstractObjectReader[readers.size()];
+    return build(metadata, readers.toArray(readerArray));
   }
 }

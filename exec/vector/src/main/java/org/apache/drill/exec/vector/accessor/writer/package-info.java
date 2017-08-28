@@ -31,6 +31,7 @@
  * <li>By data (minor) type</li>
  * <li>By cardinality (mode)</li>
  * <li>By fixed or variable width</li>
+ * <li>By repeat levels</li>
  * </ul>
  * <p>
  * A repeated map, a list, a repeated list and any array (repeated) scalar all
@@ -47,6 +48,47 @@
  * uniformly.</li>
  * <li>All arrays (whether a list, a repeated list, a repeated map, or a
  * repeated scalar) are treated uniformly.</li>
+ * </ul>
+ *
+ * <h4>Repeat Levels</h4>
+ *
+ * JSON and Parquet can be understood as a series of one or more "repeat
+ * levels." First, let's identify the repeat levels above the batch
+ * level:
+ * <ul>
+ * <li>The top-most level is the "result set": the entire collection of
+ * rows that come from a file (or other data source.)</li>
+ * <li>Result sets are divided into batches: collections of up to 64K
+ * rows.</li>
+ * </ul>
+ *
+ * Then, within a batch:
+ * <ul>
+ * <li>Each batch is a collection or rows. A batch-level index points
+ * to the current row.</li>
+ * </ul>Scalar arrays introduce a repeat level: each row has 0, 1 or
+ * many elements in the array-valued column. An offset vector indexes
+ * to the first value for each row. Each scalar array has its own
+ * per-array index to point to the next write position.</li>
+ * <li>Map arrays introduce a repeat level for a group of columns
+ * (those that make up the map.) A single offset vector points to
+ * the common start position for the columns. A common index points
+ * to the common next write position.<li>
+ * <li>Lists also introduce a repeat level. (Details to be worked
+ * out.</li>
+ * </ul>
+ *
+ * For repeated vectors, one can think of the structure either top-down
+ * or bottom-up:
+ * <ul>
+ * <li>Top down: the row position points into an offset vector. The
+ * offset vector value points to either the data value, or into another
+ * offset vector.</li>
+ * <li>Bottom-up: values are appended to the end of the vector. Values
+ * are "pinched off" to form an array (for repeated maps) or for a row.
+ * In this view, indexes bubble upward. The inner-most last write position
+ * is written as the array end position in the enclosing offset vector.
+ * This may occur up several levels.</li>
  * </ul>
  *
  * <h4>Writer Data Model</h4>
