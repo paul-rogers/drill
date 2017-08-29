@@ -119,6 +119,7 @@ public class DrillRestServer extends ResourceConfig {
     @Inject
     WorkManager workManager;
 
+    @SuppressWarnings("resource")
     @Override
     public WebUserConnection provide() {
       final HttpSession session = request.getSession();
@@ -186,9 +187,10 @@ public class DrillRestServer extends ResourceConfig {
     @Inject
     WorkManager workManager;
 
+    @SuppressWarnings("resource")
     @Override
     public WebUserConnection provide() {
-      final HttpSession session = request.getSession();
+//      final HttpSession session = request.getSession();
       final DrillbitContext drillbitContext = workManager.getContext();
       final DrillConfig config = drillbitContext.getConfig();
 

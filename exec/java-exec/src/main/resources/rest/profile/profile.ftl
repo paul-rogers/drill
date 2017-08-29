@@ -20,6 +20,29 @@
         "operators" : ${model.getOperatorsJSON()}
     };
 </script>
+<style>
+/* Styles used for the Query Profile properties table. */
+/* Controls a poor-man's spacial layout using old-style tables. */
+.props-table {
+  border-collapse: collapse;
+}
+.props-table td.cell1 {
+  padding: 2pt;
+}
+.props-table td.cell2 {
+  padding: 2pt 2em 2pt 3pt;
+}
+.props-table td.cell3 {
+  padding: 2pt 1em 2pt 2em;
+  border-left: 1px solid gray;
+}
+.props-table td.indent {
+  padding-left: 3em;
+}
+.props-table td.cell4 {
+  padding: 2pt 0 2pt 3pt;
+}
+</style>
 </#macro>
 
 <#macro page_body>
@@ -103,13 +126,28 @@
 
   <div class="page-header"></div>
   <h3>Query Profile</h3>
-  <p>STATE: ${model.getProfile().getState().name()}</p>
-  <p>FOREMAN: ${model.getProfile().getForeman().getAddress()}</p>
-  <p>TOTAL FRAGMENTS: ${model.getProfile().getTotalFragments()}</p>
-  <p>DURATION: ${model.getProfileDuration()}</p>
-  <p style="text-indent:5em;">PLANNING: ${model.getPlanningDuration()}</p>
-  <p style="text-indent:5em;">QUEUED: ${model.getQueuedDuration()}</p>
-  <p style="text-indent:5em;">EXECUTION: ${model.getExecutionDuration()}</p>
+   <table class="props-table">
+    <tr><td class="cell1">State:</td>
+        <td class="cell2">${model.getProfile().getState().name()}</td>
+        <td class="cell3">Duration:</td>
+        <td class="cell4">${model.getProfileDuration()}</td></tr>
+    <tr><td class="cell1">Foreman:</td>
+        <td class="cell2">${model.getProfile().getForeman().getAddress()}</td>
+        <td class="cell3 indent">Planning:</td>
+        <td class="cell4">${model.getPlanningDuration()}</td></tr>
+    <tr><td class="cell1">Total Fragments:</td>
+        <td class="cell2">${model.getProfile().getTotalFragments()}</td>
+        <td class="cell3 indent">Queued:</td>
+        <td class="cell4">${model.getQueuedDuration()}</td></tr>
+    <tr><td class="cell1">Total Cost:</td>
+        <td class="cell2">${model.getProfile().getTotalCost()}</td>
+        <td class="cell3 indent">Execution:</td>
+        <td class="cell4">${model.getExecutionDuration()}</td></tr>
+    <tr><td class="cell1">Queue:</td>
+        <td class="cell2">${model.getProfile().getQueueName()}</td>
+        <td class="cell3">&nbsp;</td>
+        <td class="cell4">&nbsp;</td></tr>
+  </table>
 
   <#assign options = model.getOptions()>
   <#if (options?keys?size > 0)>

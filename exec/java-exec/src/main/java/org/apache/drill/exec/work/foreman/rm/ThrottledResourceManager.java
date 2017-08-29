@@ -275,8 +275,12 @@ public class ThrottledResourceManager extends AbstractResourceManager {
     }
 
     @Override
-    public boolean hasQueue() {
-      return true;
+    public boolean hasQueue() { return true; }
+
+
+    @Override
+    public String queueName() {
+      return lease == null ? null : lease.queueName();
     }
   }
 
@@ -292,7 +296,7 @@ public class ThrottledResourceManager extends AbstractResourceManager {
     return queue.getDefaultMemoryPerNode(cost);
   }
 
-  protected QueryQueue queue() { return queue; }
+  public QueryQueue queue() { return queue; }
 
   @Override
   public QueryPlanner newQueryPlanner(QueryContext queryContext) {

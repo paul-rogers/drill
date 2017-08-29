@@ -43,6 +43,8 @@ public class DynamicResourceManager implements ResourceManager {
     this.context = context;
     refreshRM();
   }
+  
+  public synchronized ResourceManager activeRM() { return activeRm; }
 
   @Override
   public long memoryPerNode() {
@@ -55,18 +57,18 @@ public class DynamicResourceManager implements ResourceManager {
   }
 
   @Override
-  public QueryPlanner newQueryPlanner(QueryContext queryContext) {
+  public synchronized QueryPlanner newQueryPlanner(QueryContext queryContext) {
     refreshRM();
     return activeRm.newQueryPlanner(queryContext);
   }
 
   @Override
-  public QueryResourceManager newExecRM(Foreman foreman) {
+  public synchronized QueryResourceManager newExecRM(Foreman foreman) {
     refreshRM();
     return activeRm.newExecRM(foreman);
   }
 
-  private synchronized void refreshRM() {
+  private void refreshRM() {
     long now = System.currentTimeMillis();
     if (lastUpdateTime + recheckDelayMs >= now) {
       return;
@@ -105,5 +107,4 @@ public class DynamicResourceManager implements ResourceManager {
     }
     activeRm = null;
   }
-
 }

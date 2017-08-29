@@ -90,6 +90,9 @@ public class DefaultResourceManager implements ResourceManager {
     public boolean hasQueue() {
       return false;
     }
+
+    @Override
+    public String queueName() { return null; }
   }
 
   BootStrapContext bootStrapContext;

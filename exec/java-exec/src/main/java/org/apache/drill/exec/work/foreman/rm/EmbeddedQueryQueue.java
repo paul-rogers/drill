@@ -82,6 +82,9 @@ public class EmbeddedQueryQueue implements QueryQueue {
     public void release() {
       EmbeddedQueryQueue.this.release(this);
     }
+
+    @Override
+    public String queueName() { return "local-queue"; }
   }
 
   private final int queueTimeoutMs;

@@ -56,6 +56,15 @@ public interface QueryResourceManager extends QueryPlanner {
   void admit() throws QueueTimeoutException, QueryQueueException;
 
   /**
+   * Returns the name of the queue (if any) on which the query was
+   * placed. Valid only after the query is admitted.
+   *
+   * @return queue name, or null if queuing is not enabled.
+   */
+
+  String queueName();
+
+  /**
    * Mark the query as completing, giving up its slot in the
    * cluster. Releases any lease that may be held for a system with queues.
    */

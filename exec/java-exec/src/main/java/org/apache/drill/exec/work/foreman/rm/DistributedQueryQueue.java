@@ -19,6 +19,8 @@ package org.apache.drill.exec.work.foreman.rm;
 
 import java.util.concurrent.TimeUnit;
 
+import javax.xml.bind.annotation.XmlRootElement;
+
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.coord.ClusterCoordinator;
 import org.apache.drill.exec.coord.DistributedSemaphore;
@@ -85,13 +87,38 @@ public class DistributedQueryQueue implements QueryQueue {
     }
 
     @Override
-    public long queryMemoryPerNode() {
-      return queryMemory;
-    }
+    public long queryMemoryPerNode() { return queryMemory; }
 
     @Override
     public void release() {
       DistributedQueryQueue.this.release(this);
+    }
+
+    @Override
+    public String queueName() { return queueName; }
+  }
+
+  /**
+   * Exposes a snapshot of internal state information for use in status
+   * reporting, such as in the UI.
+   */
+
+  @XmlRootElement
+  public static class ZKQueueInfo {
+    public final int smallQueueSize;
+    public final int largeQueueSize;
+    public final double queueThreshold;
+    public final long memoryPerNode;
+    public final long memoryPerSmallQuery;
+    public final long memoryPerLargeQuery;
+
+    public ZKQueueInfo(DistributedQueryQueue queue) {
+      smallQueueSize = queue.smallQueueSize;
+      largeQueueSize = queue.largeQueueSize;
+      queueThreshold = queue.queueThreshold;
+      memoryPerNode = queue.memoryPerNode;
+      memoryPerSmallQuery = queue.memoryPerSmallQuery;
+      memoryPerLargeQuery = queue.memoryPerLargeQuery;
     }
   }
 
@@ -157,22 +184,27 @@ public class DistributedQueryQueue implements QueryQueue {
   @SuppressWarnings("resource")
   @Override
   public QueueLease enqueue(QueryId queryId, double cost) throws QueryQueueException, QueueTimeoutException {
-    refreshConfig();
     final String queueName;
     DistributedLease lease = null;
     long queryMemory;
+    final DistributedSemaphore distributedSemaphore;
     try {
-      final DistributedSemaphore distributedSemaphore;
 
-      // get the appropriate semaphore
-      if (cost >= queueThreshold) {
-        distributedSemaphore = clusterCoordinator.getSemaphore("query.large", largeQueueSize);
-        queueName = "large";
-        queryMemory = memoryPerLargeQuery;
-      } else {
-        distributedSemaphore = clusterCoordinator.getSemaphore("query.small", smallQueueSize);
-        queueName = "small";
-        queryMemory = memoryPerSmallQuery;
+      // Only the refresh and queue computation is synchronized.
+
+      synchronized(this) {
+        refreshConfig();
+
+        // get the appropriate semaphore
+        if (cost >= queueThreshold) {
+          distributedSemaphore = clusterCoordinator.getSemaphore("query.large", largeQueueSize);
+          queueName = "large";
+          queryMemory = memoryPerLargeQuery;
+        } else {
+          distributedSemaphore = clusterCoordinator.getSemaphore("query.small", smallQueueSize);
+          queueName = "small";
+          queryMemory = memoryPerSmallQuery;
+        }
       }
       logger.debug("Query {} with cost {} placed into the {} queue.",
                    QueryIdHelper.getQueryId(queryId), cost, queueName);
@@ -192,7 +224,7 @@ public class DistributedQueryQueue implements QueryQueue {
     return new DistributedQueueLease(queryId, queueName, lease, queryMemory);
   }
 
-  private void refreshConfig() {
+  private synchronized void refreshConfig() {
     long now = System.currentTimeMillis();
     if (now < refreshTime) {
       return;
@@ -210,8 +242,11 @@ public class DistributedQueryQueue implements QueryQueue {
   }
 
   @Override
-  public boolean enabled() {
-    return true;
+  public boolean enabled() { return true; }
+
+  public synchronized ZKQueueInfo getInfo() {
+    refreshConfig();
+    return new ZKQueueInfo(this);
   }
 
   private void release(QueueLease lease) {

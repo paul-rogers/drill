@@ -365,6 +365,8 @@ public class SystemOptionManager extends BaseOptionManager implements OptionMana
 
   @Override
   public void close() throws Exception {
-    options.close();
+    if (options != null) {
+      options.close();
+    }
   }
 }

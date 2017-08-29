@@ -47,6 +47,8 @@ public interface QueryQueue {
      */
 
     void release();
+
+    String queueName();
   };
 
   /**

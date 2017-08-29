@@ -74,18 +74,57 @@
 
   <div class="row">
       <div class="col-md-12">
-        <h3>Encryption Info <span class="label label-primary"></span></h3>
+        <h3>Encryption</h3>
         <div class="table-responsive">
-          <table class="table table-hover">
+          <table class="table table-hover" style="width: auto;">
             <tbody>
                 <tr>
                   <td>Client to Bit Encryption:</td>
-                  <td>${model.isUserEncryptionEnabled()?string("enabled", "disabled")}</td>
+                  <td>${model.isUserEncryptionEnabled()?string("Enabled", "Disabled")}</td>
                 </tr>
                 <tr>
                   <td>Bit to Bit Encryption:</td>
-                  <td>${model.isBitEncryptionEnabled()?string("enabled", "disabled")}</td>
+                  <td>${model.isBitEncryptionEnabled()?string("Enabled", "Disabled")}</td>
                 </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+  </div>
+
+  <#assign queueInfo = model.queueInfo() />
+  <div class="row">
+      <div class="col-md-12">
+        <h3>Query Throtting</h3>
+        <div class="table-responsive">
+          <table class="table table-hover" style="width: auto;">
+            <tbody>
+               <tr>
+                  <td>Query Throttling:</td>
+                  <td>${queueInfo.isEnabled()?string("Enabled", "Disabled")}</td>
+                </tr>
+  <#if queueInfo.isEnabled() >
+                <tr>
+                  <td>Maximum Concurrent "Small" Queries:</td>
+                  <td>${queueInfo.smallQueueSize()}</td>
+                </tr>
+                <tr>
+                  <td>Small Query Memory:</td>
+                  <td>${queueInfo.smallQueueMemory()}</td>
+                </tr>
+                <tr>
+                  <td>Maximum Concurrent "Large" Queries:</td>
+                  <td>${queueInfo.largeQueueSize()}</td>
+                </tr>
+                <tr>
+                  <td>Large Query Memory:</td>
+                  <td>${queueInfo.largeQueueMemory()}</td>
+                </tr>
+                <tr>
+                  <td>Cost Threshhold for Large vs. Small Queries:</td>
+                  <td>${queueInfo.threshold()}</td>
+                </tr>
+  </#if>
             </tbody>
           </table>
         </div>

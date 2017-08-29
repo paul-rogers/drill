@@ -20,7 +20,6 @@ package org.apache.drill.exec.server.rest;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.servlets.MetricsServlet;
 import com.codahale.metrics.servlets.ThreadDumpServlet;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -129,6 +128,7 @@ public class WebServer implements AutoCloseable {
    * Start the web server including setup.
    * @throws Exception
    */
+  @SuppressWarnings("resource")
   public void start() throws Exception {
     if (embeddedJetty == null) {
       return;
@@ -232,6 +232,7 @@ public class WebServer implements AutoCloseable {
         }
 
         // Clear all the resources allocated for this session
+        @SuppressWarnings("resource")
         final WebSessionResources webSessionResources =
             (WebSessionResources) session.getAttribute(WebSessionResources.class.getSimpleName());
 
@@ -264,7 +265,7 @@ public class WebServer implements AutoCloseable {
    * Create an HTTPS connector for given jetty server instance. If the admin has specified keystore/truststore settings
    * they will be used else a self-signed certificate is generated and used.
    *
-   * @return Initialized {@link ServerConnector} for HTTPS connectios.
+   * @return Initialized {@link ServerConnector} for HTTPS connections.
    * @throws Exception
    */
   private ServerConnector createHttpsConnector() throws Exception {

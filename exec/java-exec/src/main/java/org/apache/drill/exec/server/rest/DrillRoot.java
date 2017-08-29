@@ -32,8 +32,15 @@ import com.google.common.collect.Sets;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
+import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.rest.DrillRestServer.UserAuthEnabled;
 import org.apache.drill.exec.work.WorkManager;
+import org.apache.drill.exec.work.foreman.rm.DistributedQueryQueue;
+import org.apache.drill.exec.work.foreman.rm.DistributedQueryQueue.ZKQueueInfo;
+import org.apache.drill.exec.work.foreman.rm.DynamicResourceManager;
+import org.apache.drill.exec.work.foreman.rm.QueryQueue;
+import org.apache.drill.exec.work.foreman.rm.ResourceManager;
+import org.apache.drill.exec.work.foreman.rm.ThrottledResourceManager;
 import org.glassfish.jersey.server.mvc.Viewable;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
@@ -53,6 +60,7 @@ public class DrillRoot {
     return ViewableWithPermissions.create(authEnabled.get(), "/rest/index.ftl", sc, getClusterInfoJSON());
   }
 
+  @SuppressWarnings("resource")
   @GET
   @Path("/cluster.json")
   @Produces(MediaType.APPLICATION_JSON)
@@ -60,10 +68,11 @@ public class DrillRoot {
     final Collection<DrillbitInfo> drillbits = Sets.newTreeSet();
     final Collection<String> mismatchedVersions = Sets.newTreeSet();
 
-    final DrillbitEndpoint currentDrillbit = work.getContext().getEndpoint();
+    final DrillbitContext dbContext = work.getContext();
+    final DrillbitEndpoint currentDrillbit = dbContext.getEndpoint();
     final String currentVersion = currentDrillbit.getVersion();
 
-    final DrillConfig config = work.getContext().getConfig();
+    final DrillConfig config = dbContext.getConfig();
     final boolean userEncryptionEnabled = config.getBoolean(ExecConstants.USER_ENCRYPTION_SASL_ENABLED);
     final boolean bitEncryptionEnabled = config.getBoolean(ExecConstants.BIT_ENCRYPTION_SASL_ENABLED);
 
@@ -77,8 +86,84 @@ public class DrillRoot {
       drillbits.add(drillbit);
     }
 
-    return new ClusterInfo(drillbits, currentVersion, mismatchedVersions,
-      userEncryptionEnabled, bitEncryptionEnabled);
+     return new ClusterInfo(drillbits, currentVersion, mismatchedVersions,
+      userEncryptionEnabled, bitEncryptionEnabled,
+      QueueInfo.build(dbContext.getResourceManager()));
+  }
+
+  /**
+   * Pretty-printing wrapper class around the ZK-based queue summary.
+   */
+
+  @XmlRootElement
+  public static class QueueInfo {
+    private final ZKQueueInfo zkQueueInfo;
+
+    public static QueueInfo build(ResourceManager rm) {
+
+      // Consider queues enabled only if the ZK-based queues are in use.
+
+      ThrottledResourceManager throttledRM = null;
+      if (rm != null && rm instanceof DynamicResourceManager) {
+        DynamicResourceManager dynamicRM = (DynamicResourceManager) rm;
+        rm = dynamicRM.activeRM();
+      }
+      if (rm != null && rm instanceof ThrottledResourceManager) {
+        throttledRM = (ThrottledResourceManager) rm;
+      }
+      if (throttledRM == null) {
+        return new QueueInfo(null);
+      }
+      QueryQueue queue = throttledRM.queue();
+      if (queue == null || !(queue instanceof DistributedQueryQueue)) {
+        return new QueueInfo(null);
+      }
+
+      return new QueueInfo(((DistributedQueryQueue) queue).getInfo());
+    }
+
+    @JsonCreator
+    public QueueInfo(ZKQueueInfo queueInfo) {
+      zkQueueInfo = queueInfo;
+    }
+
+    public boolean isEnabled() { return zkQueueInfo != null; }
+
+    public int smallQueueSize() {
+      return isEnabled() ? zkQueueInfo.smallQueueSize : 0;
+    }
+
+    public int largeQueueSize() {
+      return isEnabled() ? zkQueueInfo.largeQueueSize : 0;
+    }
+
+    public String threshold() {
+      return isEnabled()
+          ? Double.toString(zkQueueInfo.queueThreshold)
+          : "N/A";
+    }
+
+    public String smallQueueMemory() {
+      return isEnabled()
+          ? toBytes(zkQueueInfo.memoryPerSmallQuery)
+          : "N/A";
+    }
+
+    public String largeQueueMemory() {
+      return isEnabled()
+          ? toBytes(zkQueueInfo.memoryPerLargeQuery)
+          : "N/A";
+    }
+
+    private final long ONE_MB = 1024 * 1024;
+
+    private String toBytes(long memory) {
+      if (memory < 10 * ONE_MB) {
+        return String.format("%,d bytes", memory);
+      } else {
+        return String.format("%.0f", memory * 1.0D / ONE_MB);
+      }
+    }
   }
 
   @XmlRootElement
@@ -88,18 +173,21 @@ public class DrillRoot {
     private final Collection<String> mismatchedVersions;
     private final boolean userEncryptionEnabled;
     private final boolean bitEncryptionEnabled;
+    private final QueueInfo queueInfo;
 
     @JsonCreator
     public ClusterInfo(Collection<DrillbitInfo> drillbits,
                        String currentVersion,
                        Collection<String> mismatchedVersions,
                        boolean userEncryption,
-                       boolean bitEncryption) {
+                       boolean bitEncryption,
+                       QueueInfo queueInfo) {
       this.drillbits = Sets.newTreeSet(drillbits);
       this.currentVersion = currentVersion;
       this.mismatchedVersions = Sets.newTreeSet(mismatchedVersions);
       this.userEncryptionEnabled = userEncryption;
       this.bitEncryptionEnabled = bitEncryption;
+      this.queueInfo = queueInfo;
     }
 
     public Collection<DrillbitInfo> getDrillbits() {
@@ -117,6 +205,8 @@ public class DrillRoot {
     public boolean isUserEncryptionEnabled() { return userEncryptionEnabled; }
 
     public boolean isBitEncryptionEnabled() { return bitEncryptionEnabled; }
+
+    public QueueInfo queueInfo() { return queueInfo; }
   }
 
   public static class DrillbitInfo implements Comparable<DrillbitInfo> {
