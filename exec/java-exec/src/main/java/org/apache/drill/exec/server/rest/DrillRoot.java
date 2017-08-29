@@ -161,7 +161,7 @@ public class DrillRoot {
       if (memory < 10 * ONE_MB) {
         return String.format("%,d bytes", memory);
       } else {
-        return String.format("%.0f", memory * 1.0D / ONE_MB);
+        return String.format("%.0f MB", memory * 1.0D / ONE_MB);
       }
     }
   }
