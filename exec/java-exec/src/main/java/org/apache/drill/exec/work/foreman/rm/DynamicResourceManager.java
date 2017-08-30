@@ -43,7 +43,7 @@ public class DynamicResourceManager implements ResourceManager {
     this.context = context;
     refreshRM();
   }
-  
+
   public synchronized ResourceManager activeRM() { return activeRm; }
 
   @Override
