@@ -49,7 +49,7 @@ public interface ResourceManager {
    * @return a resource manager for the query
    */
 
-  QueryPlanner newQueryPlanner(QueryContext queryContext);
+  QueryResourceAllocator newQueryPlanner(QueryContext queryContext);
 
   /**
    * Create a resource manager to execute a query.

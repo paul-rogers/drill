@@ -17,16 +17,16 @@
  */
 package org.apache.drill.exec.server.options;
 
-import com.google.common.base.Predicate;
-import com.google.common.collect.Collections2;
+import java.util.Collection;
+import java.util.Map;
+
 import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.exec.rpc.user.UserSession;
 import org.apache.drill.exec.server.options.OptionValue.OptionType;
 
-import java.util.Collection;
-import java.util.Map;
+import com.google.common.base.Predicate;
+import com.google.common.collect.Collections2;
 
 /**
  * {@link OptionManager} that holds options within {@link org.apache.drill.exec.rpc.user.UserSession} context. Options

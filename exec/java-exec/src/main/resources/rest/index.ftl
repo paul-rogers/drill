@@ -107,22 +107,26 @@
                 <tr>
                   <td>Maximum Concurrent "Small" Queries:</td>
                   <td>${queueInfo.smallQueueSize()}</td>
+                 </tr>
+                 <tr>
+                  <td>Maximum Concurrent "Large" Queries:</td>
+                  <td>${queueInfo.largeQueueSize()}</td>
+                </tr>
+                  <tr>
+                  <td>Cost Threshhold for Large vs. Small Queries:</td>
+                  <td>${queueInfo.threshold()}</td>
+                </tr>
+                <tr>
+                  <td>Total Memory:</td>
+                  <td>${queueInfo.totalMemory()}</td>
                 </tr>
                 <tr>
                   <td>Small Query Memory:</td>
                   <td>${queueInfo.smallQueueMemory()}</td>
                 </tr>
                 <tr>
-                  <td>Maximum Concurrent "Large" Queries:</td>
-                  <td>${queueInfo.largeQueueSize()}</td>
-                </tr>
-                <tr>
                   <td>Large Query Memory:</td>
                   <td>${queueInfo.largeQueueMemory()}</td>
-                </tr>
-                <tr>
-                  <td>Cost Threshhold for Large vs. Small Queries:</td>
-                  <td>${queueInfo.threshold()}</td>
                 </tr>
   </#if>
             </tbody>

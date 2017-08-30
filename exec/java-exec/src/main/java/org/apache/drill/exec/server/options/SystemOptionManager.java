@@ -160,6 +160,7 @@ public class SystemOptionManager extends BaseOptionManager implements OptionMana
       ExecConstants.QUEUE_THRESHOLD_SIZE,
       ExecConstants.QUEUE_TIMEOUT,
       ExecConstants.SMALL_QUEUE_SIZE,
+      ExecConstants.QUEUE_MEMORY_RATIO,
       ExecConstants.MIN_HASH_TABLE_SIZE,
       ExecConstants.MAX_HASH_TABLE_SIZE,
       ExecConstants.EARLY_LIMIT0_OPT,
@@ -348,7 +349,6 @@ public class SystemOptionManager extends BaseOptionManager implements OptionMana
   public void populateDefaultValues() {
 
     // populate the options from the config
-    final Map<String, OptionValidator> tmp = new HashMap<>();
     for (OptionValidator validator: VALIDATORS.values()) {
       try {
          validator.loadDefault(bootConfig);

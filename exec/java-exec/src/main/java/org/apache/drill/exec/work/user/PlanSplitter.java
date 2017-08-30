@@ -37,7 +37,7 @@ import org.apache.drill.exec.rpc.UserClientConnection;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.util.Pointer;
 import org.apache.drill.exec.work.QueryWorkUnit;
-import org.apache.drill.exec.work.foreman.rm.QueryPlanner;
+import org.apache.drill.exec.work.foreman.rm.QueryResourceAllocator;
 
 import com.google.common.collect.Lists;
 
@@ -98,7 +98,7 @@ public class PlanSplitter {
       throw new IllegalStateException("Planning fragments supports only SQL or PHYSICAL QueryType");
     }
 
-    QueryPlanner planner = dContext.getResourceManager().newQueryPlanner(queryContext);
+    QueryResourceAllocator planner = dContext.getResourceManager().newQueryPlanner(queryContext);
     planner.visitAbstractPlan(plan);
 
     final PhysicalOperator rootOperator = plan.getSortedOperators(false).iterator().next();

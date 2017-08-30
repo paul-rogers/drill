@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -155,13 +155,19 @@ public class DrillRoot {
           : "N/A";
     }
 
+    public String totalMemory() {
+      return isEnabled()
+          ? toBytes(zkQueueInfo.memoryPerNode)
+          : "N/A";
+    }
+
     private final long ONE_MB = 1024 * 1024;
 
     private String toBytes(long memory) {
       if (memory < 10 * ONE_MB) {
         return String.format("%,d bytes", memory);
       } else {
-        return String.format("%.0f MB", memory * 1.0D / ONE_MB);
+        return String.format("%,.0f MB", memory * 1.0D / ONE_MB);
       }
     }
   }
@@ -229,9 +235,7 @@ public class DrillRoot {
       this.versionMatch = versionMatch;
     }
 
-    public String getAddress() {
-      return address;
-    }
+    public String getAddress() { return address; }
 
     public String getUserPort() { return userPort; }
 
@@ -239,26 +243,20 @@ public class DrillRoot {
 
     public String getDataPort() { return dataPort; }
 
-    public String getVersion() {
-      return version;
-    }
+    public String getVersion() { return version; }
 
-    public boolean isCurrent() {
-      return current;
-    }
+    public boolean isCurrent() { return current; }
 
-    public boolean isVersionMatch() {
-      return versionMatch;
-    }
+    public boolean isVersionMatch() { return versionMatch; }
 
     /**
-     * Method used to sort drillbits. Current drillbit goes first.
-     * Then drillbits with matching versions, after them drillbits with mismatching versions.
-     * Matching drillbits are sorted according address natural order,
-     * mismatching drillbits are sorted according version, address natural order.
+     * Method used to sort Drillbits. Current Drillbit goes first.
+     * Then Drillbits with matching versions, after them Drillbits with mismatching versions.
+     * Matching Drillbits are sorted according address natural order,
+     * mismatching Drillbits are sorted according version, address natural order.
      *
-     * @param drillbitToCompare drillbit to compare against
-     * @return -1 if drillbit should be before, 1 if after in list
+     * @param drillbitToCompare Drillbit to compare against
+     * @return -1 if Drillbit should be before, 1 if after in list
      */
     @Override
     public int compareTo(DrillbitInfo drillbitToCompare) {
@@ -279,5 +277,4 @@ public class DrillRoot {
       return this.versionMatch ? -1 : 1;
     }
   }
-
 }

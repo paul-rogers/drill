@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.server.rest;
 
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -77,6 +79,12 @@ public class StatusResources {
     for (OptionValue option : work.getContext().getOptionManager()) {
       options.add(new OptionWrapper(option.name, option.getValue(), option.type, option.kind));
     }
+    Collections.sort(options, new Comparator<OptionWrapper>() {
+      @Override
+      public int compare(OptionWrapper o1, OptionWrapper o2) {
+         return o1.name.compareTo(o2.name);
+      }
+    });
     return options;
   }
 

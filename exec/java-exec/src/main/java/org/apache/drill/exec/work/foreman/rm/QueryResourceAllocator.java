@@ -35,7 +35,7 @@ import org.apache.drill.exec.work.QueryWorkUnit;
  * the methods at known times; there are no concurrent calls.
  */
 
-public interface QueryPlanner {
+public interface QueryResourceAllocator {
 
   /**
    * Make any needed adjustments to the query plan before parallelization.

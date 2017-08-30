@@ -29,11 +29,10 @@ import org.apache.drill.exec.proto.UserBitShared.QueryId;
 import org.apache.drill.exec.proto.helper.QueryIdHelper;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.SystemOptionManager;
-import org.apache.drill.exec.work.foreman.ForemanSetupException;
 
 /**
  * Distributed query queue which uses a Zookeeper distributed semaphore to
- * control queueing across the cluster. The distributed queue is actually two
+ * control queuing across the cluster. The distributed queue is actually two
  * queues: one for "small" queries, another for "large" queries. Query size is
  * determined by the Planner's estimate of query cost.
  * <p>
@@ -132,6 +131,7 @@ public class DistributedQueryQueue implements QueryQueue {
   private long refreshTime;
   private long memoryPerSmallQuery;
   private long memoryPerLargeQuery;
+  private double largeToSmallRatio;
 
   public DistributedQueryQueue(DrillbitContext context) {
     optionManager = context.getOptionManager();
@@ -152,7 +152,6 @@ public class DistributedQueryQueue implements QueryQueue {
     // larger than small queries by a factor of
     // largeToSmallRatio.
 
-    double largeToSmallRatio = 4.0; // TODO: add config param.
     double totalUnits = largeToSmallRatio * largeQueueSize + smallQueueSize;
     double memoryUnit = memoryPerNode / totalUnits;
     memoryPerLargeQuery = Math.round(memoryUnit * largeToSmallRatio);
@@ -171,7 +170,7 @@ public class DistributedQueryQueue implements QueryQueue {
 
   /**
    * This limits the number of "small" and "large" queries that a Drill cluster will run
-   * simultaneously, if queueing is enabled. If the query is unable to run, this will block
+   * simultaneously, if queuing is enabled. If the query is unable to run, this will block
    * until it can. Beware that this is called under run(), and so will consume a Thread
    * while it waits for the required distributed semaphore.
    *
@@ -233,6 +232,7 @@ public class DistributedQueryQueue implements QueryQueue {
     queueTimeout = optionManager.getOption(ExecConstants.QUEUE_TIMEOUT);
     largeQueueSize = (int) optionManager.getOption(ExecConstants.LARGE_QUEUE_SIZE);
     smallQueueSize = (int) optionManager.getOption(ExecConstants.SMALL_QUEUE_SIZE);
+    largeToSmallRatio = optionManager.getOption(ExecConstants.QUEUE_MEMORY_RATIO);
     refreshTime = now + 5000;
     logger.debug("Configuration: small queue size = {}, large queue size = {}",
                   smallQueueSize, largeQueueSize);

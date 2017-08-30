@@ -19,13 +19,13 @@ package org.apache.drill.exec.server.options;
 
 import java.util.Set;
 
-import com.google.common.collect.Sets;
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.server.options.OptionValue.Kind;
-import org.apache.drill.exec.server.options.OptionValue.OptionType;
 import org.apache.drill.exec.server.options.OptionValue.OptionScope;
-import static com.google.common.base.Preconditions.checkArgument;
+import org.apache.drill.exec.server.options.OptionValue.OptionType;
+
+import com.google.common.collect.Sets;
 
 public class TypeValidators {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TypeValidators.class);
@@ -141,8 +141,10 @@ public class TypeValidators {
       super(name, Kind.BOOLEAN, isAdminOption);
     }
 
-    public void loadDefault(DrillConfig bootConfig){
-      OptionValue value = OptionValue.createBoolean(OptionType.SYSTEM, getOptionName(), bootConfig.getBoolean(getConfigProperty()), OptionScope.BOOT);
+    @Override
+    public void loadDefault(DrillConfig bootConfig) {
+      OptionValue value = OptionValue.createBoolean(OptionType.SYSTEM, getOptionName(),
+          bootConfig.getBoolean(getConfigProperty()), OptionScope.BOOT);
       setDefaultValue(value);
     }
   }
@@ -155,8 +157,10 @@ public class TypeValidators {
       super(name, Kind.STRING, isAdminOption);
     }
 
-    public void loadDefault(DrillConfig bootConfig){
-      OptionValue value = OptionValue.createString(OptionType.SYSTEM, getOptionName(), bootConfig.getString(getConfigProperty()), OptionScope.BOOT);
+    @Override
+    public void loadDefault(DrillConfig bootConfig) {
+      OptionValue value = OptionValue.createString(OptionType.SYSTEM, getOptionName(),
+          bootConfig.getString(getConfigProperty()), OptionScope.BOOT);
       setDefaultValue(value);
     }
   }
@@ -170,8 +174,10 @@ public class TypeValidators {
       super(name, Kind.LONG, isAdminOption);
     }
 
-    public void loadDefault(DrillConfig bootConfig){
-      OptionValue value = OptionValue.createLong(OptionType.SYSTEM, getOptionName(), bootConfig.getLong(getConfigProperty()), OptionScope.BOOT);
+    @Override
+    public void loadDefault(DrillConfig bootConfig) {
+      OptionValue value = OptionValue.createLong(OptionType.SYSTEM, getOptionName(),
+          bootConfig.getLong(getConfigProperty()), OptionScope.BOOT);
       setDefaultValue(value);
     }
   }
@@ -185,8 +191,10 @@ public class TypeValidators {
       super(name, Kind.DOUBLE, isAdminOption);
     }
 
-    public void loadDefault(DrillConfig bootConfig){
-      OptionValue value = OptionValue.createDouble(OptionType.SYSTEM, getOptionName(),bootConfig.getDouble(getConfigProperty()), OptionScope.BOOT);
+    @Override
+    public void loadDefault(DrillConfig bootConfig) {
+      OptionValue value = OptionValue.createDouble(OptionType.SYSTEM, getOptionName(),
+          bootConfig.getDouble(getConfigProperty()), OptionScope.BOOT);
       setDefaultValue(value);
     }
   }
@@ -251,6 +259,7 @@ public class TypeValidators {
       super(name, isAdminOption);
     }
 
+    @Override
     public void loadDefault(DrillConfig bootConfig) {
       OptionValue value = OptionValue.createLong(OptionType.SYSTEM, getOptionName(), bootConfig.getLong(getConfigProperty()), OptionScope.BOOT);
       setDefaultValue(value);

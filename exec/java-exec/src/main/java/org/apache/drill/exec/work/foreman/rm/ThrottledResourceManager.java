@@ -57,7 +57,7 @@ public class ThrottledResourceManager extends AbstractResourceManager {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ThrottledResourceManager.class);
 
-  public static class QueuedQueryPlanner implements QueryPlanner {
+  public static class QueuedResourceAllocator implements QueryResourceAllocator {
 
     protected final ThrottledResourceManager rm;
     protected QueryContext queryContext;
@@ -65,7 +65,7 @@ public class ThrottledResourceManager extends AbstractResourceManager {
     protected QueryWorkUnit work;
     protected double queryCost;
 
-    protected QueuedQueryPlanner(final ThrottledResourceManager rm, QueryContext queryContext) {
+    protected QueuedResourceAllocator(final ThrottledResourceManager rm, QueryContext queryContext) {
       this.rm = rm;
       this.queryContext = queryContext;
     }
@@ -90,11 +90,11 @@ public class ThrottledResourceManager extends AbstractResourceManager {
 
       // Group fragments by node.
 
-      Multimap<String,List<ExternalSort>> nodeMap = buildSortMap();
+      Multimap<String,List<PhysicalOperator>> nodeMap = buildBufferedOpMap();
 
       // Memory must be symmetric to avoid bottlenecks in which one node has
       // sorts (say) with less memory than another, causing skew in data arrival
-      // rates for downstream opeators.
+      // rates for downstream operators.
 
       int width = countBufferingOperators(nodeMap);
 
@@ -109,9 +109,9 @@ public class ThrottledResourceManager extends AbstractResourceManager {
     }
 
     private int countBufferingOperators(
-        Multimap<String, List<ExternalSort>> nodeMap) {
+        Multimap<String, List<PhysicalOperator>> nodeMap) {
       int width = 0;
-      for (List<ExternalSort> fragSorts : nodeMap.values()) {
+      for (List<PhysicalOperator> fragSorts : nodeMap.values()) {
         width = Math.max(width, fragSorts.size());
       }
       return width;
@@ -122,14 +122,14 @@ public class ThrottledResourceManager extends AbstractResourceManager {
      * shared the per-query memory equally across all the sorts.
      *
      * @param nodeAddr
-     * @param sorts
+     * @param bufferedOps
      * @param width
      */
 
-    private void planNodeMemory(String nodeAddr, Collection<List<ExternalSort>> sorts, int width) {
+    private void planNodeMemory(String nodeAddr, Collection<List<PhysicalOperator>> bufferedOps, int width) {
       int count = 0;
-      for (List<ExternalSort> fragSorts : sorts) {
-        count += fragSorts.size();
+      for (List<PhysicalOperator> fragOps : bufferedOps) {
+        count += fragOps.size();
       }
 
       // If no sorts, nothing to plan.
@@ -142,14 +142,14 @@ public class ThrottledResourceManager extends AbstractResourceManager {
       // sort on top of another: the case in which the two sorts share memory.
 
       long nodeMemory = queryMemoryPerNode();
-      long sortMemory = nodeMemory / width;
-      logger.debug("Query: {}, Node: {}, allocating {} bytes each for {} sort(s).",
+      long perOpMemory = nodeMemory / width;
+      logger.debug("Query: {}, Node: {}, allocating {} bytes each for {} buffered operator(s).",
                    QueryIdHelper.getQueryId(queryContext.getQueryId()),
                    nodeAddr,
-                   sortMemory, width);
+                   perOpMemory, width);
 
-      for (List<ExternalSort> fragSorts : sorts) {
-        for (ExternalSort sort : fragSorts) {
+      for (List<PhysicalOperator> fragOps : bufferedOps) {
+        for (PhysicalOperator op : fragOps) {
 
           // Limit the memory to the maximum in the plan. Doing so is
           // likely unnecessary, and perhaps harmful, because the pre-planned
@@ -157,8 +157,8 @@ public class ThrottledResourceManager extends AbstractResourceManager {
           // that even if 20 GB is available to the sort, it won't use more
           // than 10GB. This is probably more of a bug than a feature.
 
-          long alloc = Math.max(sortMemory, sort.getInitialAllocation());
-          sort.setMaxAllocation(alloc);
+          long alloc = Math.max(perOpMemory, op.getInitialAllocation());
+          op.setMaxAllocation(alloc);
         }
       }
     }
@@ -176,12 +176,12 @@ public class ThrottledResourceManager extends AbstractResourceManager {
      * @return
      */
 
-    private Multimap<String,List<ExternalSort>> buildSortMap() {
-      Multimap<String,List<ExternalSort>> map = ArrayListMultimap.create();
+    private Multimap<String,List<PhysicalOperator>> buildBufferedOpMap() {
+      Multimap<String,List<PhysicalOperator>> map = ArrayListMultimap.create();
       for (MinorFragmentDefn defn : work.getMinorFragmentDefns()) {
-        List<ExternalSort> sorts = getSorts(defn.root());
-        if (! sorts.isEmpty()) {
-          map.put(defn.fragment().getAssignment().getAddress(), sorts);
+        List<PhysicalOperator> bufferedOps = getBufferedOps(defn.root());
+        if (! bufferedOps.isEmpty()) {
+          map.put(defn.fragment().getAssignment().getAddress(), bufferedOps);
         }
       }
       return map;
@@ -191,20 +191,12 @@ public class ThrottledResourceManager extends AbstractResourceManager {
      * Searches a fragment operator tree to find sorts within that fragment.
      */
 
-    protected static class SortFinder extends AbstractPhysicalVisitor<Void, List<ExternalSort>, RuntimeException> {
+    protected static class BufferedOpFinder extends AbstractPhysicalVisitor<Void, List<PhysicalOperator>, RuntimeException> {
       @Override
-      public Void visitSort(Sort sort, List<ExternalSort> value) throws RuntimeException {
-        if (sort.getClass() == Sort.class) {
-          throw new RuntimeException("Classic in-memory sort is deprecated: use ExternalSort");
+      public Void visitOp(PhysicalOperator op, List<PhysicalOperator> value) throws RuntimeException {
+        if (op.isBufferedOperator()) {
+          value.add(op);
         }
-        if (sort instanceof ExternalSort) {
-          value.add((ExternalSort) sort);
-        }
-        return null;
-      }
-
-      @Override
-      public Void visitOp(PhysicalOperator op, List<ExternalSort> value) throws RuntimeException {
         visitChildren(op, value);
         return null;
       }
@@ -216,11 +208,11 @@ public class ThrottledResourceManager extends AbstractResourceManager {
      * @return
      */
 
-    private List<ExternalSort> getSorts(FragmentRoot root) {
-      List<ExternalSort> sorts = new ArrayList<>();
-      SortFinder finder = new SortFinder();
-      root.accept(finder, sorts);
-      return sorts;
+    private List<PhysicalOperator> getBufferedOps(FragmentRoot root) {
+      List<PhysicalOperator> bufferedOps = new ArrayList<>();
+      BufferedOpFinder finder = new BufferedOpFinder();
+      root.accept(finder, bufferedOps);
+      return bufferedOps;
     }
   }
 
@@ -232,7 +224,7 @@ public class ThrottledResourceManager extends AbstractResourceManager {
    * needed within this class.
    */
 
-  public static class QueuedQueryResourceManager extends QueuedQueryPlanner implements QueryResourceManager {
+  public static class QueuedQueryResourceManager extends QueuedResourceAllocator implements QueryResourceManager {
 
     private final Foreman foreman;
     private QueueLease lease;
@@ -299,8 +291,8 @@ public class ThrottledResourceManager extends AbstractResourceManager {
   public QueryQueue queue() { return queue; }
 
   @Override
-  public QueryPlanner newQueryPlanner(QueryContext queryContext) {
-    return new QueuedQueryPlanner(this, queryContext);
+  public QueryResourceAllocator newQueryPlanner(QueryContext queryContext) {
+    return new QueuedResourceAllocator(this, queryContext);
   }
 
   @Override

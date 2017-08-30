@@ -57,7 +57,7 @@ public class DynamicResourceManager implements ResourceManager {
   }
 
   @Override
-  public synchronized QueryPlanner newQueryPlanner(QueryContext queryContext) {
+  public synchronized QueryResourceAllocator newQueryPlanner(QueryContext queryContext) {
     refreshRM();
     return activeRm.newQueryPlanner(queryContext);
   }

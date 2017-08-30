@@ -87,7 +87,7 @@ public class Drillbit implements AutoCloseable {
     this(config, serviceSet, ClassPathScanner.fromPrescan(config));
   }
 
-  @SuppressWarnings({ "resource", "unchecked" })
+  @SuppressWarnings("resource")
   public Drillbit(
       final DrillConfig config,
       final RemoteServiceSet serviceSet,
@@ -105,7 +105,7 @@ public class Drillbit implements AutoCloseable {
       storeProvider = new CachingPersistentStoreProvider(new LocalPersistentStoreProvider(config));
     } else {
       coord = new ZKClusterCoordinator(config);
-      storeProvider = new PersistentStoreRegistry(this.coord, config).newPStoreProvider();
+      storeProvider = new PersistentStoreRegistry<ClusterCoordinator>(this.coord, config).newPStoreProvider();
       isDistributedMode = true;
     }
 

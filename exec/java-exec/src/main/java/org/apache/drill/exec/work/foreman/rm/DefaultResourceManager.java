@@ -34,13 +34,11 @@ import org.apache.drill.exec.work.foreman.Foreman;
 
 public class DefaultResourceManager implements ResourceManager {
 
-//  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DefaultResourceManager.class);
-
-  public static class DefaultQueryPlanner implements QueryPlanner {
+  public static class DefaultResourceAllocator implements QueryResourceAllocator {
 
     private QueryContext queryContext;
 
-    protected DefaultQueryPlanner(QueryContext queryContext) {
+    protected DefaultResourceAllocator(QueryContext queryContext) {
       this.queryContext = queryContext;
     }
 
@@ -56,10 +54,9 @@ public class DefaultResourceManager implements ResourceManager {
     @Override
     public void visitPhysicalPlan(QueryWorkUnit work) {
     }
-
   }
 
-  public static class DefaultQueryResourceManager extends DefaultQueryPlanner implements QueryResourceManager {
+  public static class DefaultQueryResourceManager extends DefaultResourceAllocator implements QueryResourceManager {
 
     @SuppressWarnings("unused")
     private final DefaultResourceManager rm;
@@ -87,9 +84,7 @@ public class DefaultResourceManager implements ResourceManager {
     }
 
     @Override
-    public boolean hasQueue() {
-      return false;
-    }
+    public boolean hasQueue() { return false; }
 
     @Override
     public String queueName() { return null; }
@@ -105,18 +100,14 @@ public class DefaultResourceManager implements ResourceManager {
   }
 
   @Override
-  public long memoryPerNode() {
-    return memoryPerNode;
-  }
+  public long memoryPerNode() { return memoryPerNode; }
 
   @Override
-  public int cpusPerNode() {
-    return cpusPerNode;
-  }
+  public int cpusPerNode() { return cpusPerNode; }
 
   @Override
-  public QueryPlanner newQueryPlanner(QueryContext queryContext) {
-    return new DefaultQueryPlanner(queryContext);
+  public QueryResourceAllocator newQueryPlanner(QueryContext queryContext) {
+    return new DefaultResourceAllocator(queryContext);
   }
 
   @Override

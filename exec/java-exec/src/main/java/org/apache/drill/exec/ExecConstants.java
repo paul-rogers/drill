@@ -386,10 +386,13 @@ public interface ExecConstants {
   BooleanValidator ENABLE_QUEUE = new BooleanValidator("exec.queue.enable");
   LongValidator LARGE_QUEUE_SIZE = new PositiveLongValidator("exec.queue.large", 1000);
   LongValidator SMALL_QUEUE_SIZE = new PositiveLongValidator("exec.queue.small", 100000);
-  LongValidator QUEUE_THRESHOLD_SIZE = new PositiveLongValidator("exec.queue.threshold",
-      Long.MAX_VALUE);
-  LongValidator QUEUE_TIMEOUT = new PositiveLongValidator("exec.queue.timeout_millis",
-      Long.MAX_VALUE);
+  LongValidator QUEUE_THRESHOLD_SIZE = new PositiveLongValidator("exec.queue.threshold", Long.MAX_VALUE);
+  LongValidator QUEUE_TIMEOUT = new PositiveLongValidator("exec.queue.timeout_millis", Long.MAX_VALUE);
+
+  // Ratio of memory for small queries vs. large queries.
+  // Each small query gets 1 unit, each large query gets QUEUE_MEMORY_RATIO units.
+
+  DoubleValidator QUEUE_MEMORY_RATIO = new RangeDoubleValidator("exec.queue.memory_ratio", 0.001, 1000);
 
   String ENABLE_VERBOSE_ERRORS_KEY = "exec.errors.verbose";
   OptionValidator ENABLE_VERBOSE_ERRORS = new BooleanValidator(ENABLE_VERBOSE_ERRORS_KEY);

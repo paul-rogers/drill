@@ -17,8 +17,6 @@
  ******************************************************************************/
 package org.apache.drill.exec.work.foreman.rm;
 
-import static org.junit.Assert.*;
-
 import java.util.ArrayList;
 import java.util.List;
 

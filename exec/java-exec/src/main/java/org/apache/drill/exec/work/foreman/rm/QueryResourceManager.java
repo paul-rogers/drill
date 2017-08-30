@@ -21,10 +21,10 @@ import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueryQueueException;
 import org.apache.drill.exec.work.foreman.rm.QueryQueue.QueueTimeoutException;
 
 /**
- * Extends a {@link QueryPlanner} to provide queueing support.
+ * Extends a {@link QueryResourceAllocator} to provide queueing support.
  */
 
-public interface QueryResourceManager extends QueryPlanner {
+public interface QueryResourceManager extends QueryResourceAllocator {
 
   /**
    * Hint that this resource manager queues. Allows the Foreman

@@ -289,16 +289,6 @@ public class SimpleParallelizer implements ParallelizationParameters {
         FragmentRoot root = (FragmentRoot) op;
 
 
-        // get options as JSON
-//        String plan;
-//        String optionsData;
-//        try {
-//          plan = reader.writeJson(root);
-//          optionsData = reader.writeJson(options);
-//        } catch (JsonProcessingException e) {
-//          throw new ForemanSetupException("Failure while trying to convert fragment into json.", e);
-//        }
-
         FragmentHandle handle = FragmentHandle //
             .newBuilder() //
             .setMajorFragmentId(wrapper.getMajorFragmentId()) //
@@ -308,14 +298,12 @@ public class SimpleParallelizer implements ParallelizationParameters {
 
         PlanFragment fragment = PlanFragment.newBuilder() //
             .setForeman(foremanNode) //
-//            .setFragmentJson(plan) //
             .setHandle(handle) //
             .setAssignment(wrapper.getAssignedEndpoint(minorFragmentId)) //
             .setLeafFragment(isLeafFragment) //
             .setContext(queryContextInfo)
             .setMemInitial(wrapper.getInitialAllocation())//
             .setMemMax(wrapper.getMaxAllocation())
-//            .setOptionsJson(optionsData)
             .setCredentials(session.getCredentials())
             .addAllCollector(CountRequiredFragments.getCollectors(root))
             .build();
@@ -339,6 +327,7 @@ public class SimpleParallelizer implements ParallelizationParameters {
   /**
    * Designed to setup initial values for arriving fragment accounting.
    */
+
   protected static class CountRequiredFragments extends AbstractPhysicalVisitor<Void, List<Collector>, RuntimeException> {
     private static final CountRequiredFragments INSTANCE = new CountRequiredFragments();
 
@@ -356,7 +345,6 @@ public class SimpleParallelizer implements ParallelizationParameters {
         list.add(ep.getId());
       }
 
-
       collectors.add(Collector.newBuilder()
         .setIsSpooling(receiver.isSpooling())
         .setOppositeMajorFragmentId(receiver.getOppositeMajorFragmentId())
@@ -373,6 +361,5 @@ public class SimpleParallelizer implements ParallelizationParameters {
       }
       return null;
     }
-
   }
 }

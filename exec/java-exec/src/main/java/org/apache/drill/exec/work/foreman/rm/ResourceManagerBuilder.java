@@ -18,11 +18,9 @@
 package org.apache.drill.exec.work.foreman.rm;
 
 import org.apache.drill.common.config.DrillConfig;
-import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.coord.ClusterCoordinator;
 import org.apache.drill.exec.coord.local.LocalClusterCoordinator;
 import org.apache.drill.exec.server.DrillbitContext;
-import org.apache.drill.exec.server.options.SystemOptionManager;
 
 /**
  * Builds the proper resource manager and queue implementation for the configured
