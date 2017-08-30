@@ -44,7 +44,10 @@ public class DynamicResourceManager implements ResourceManager {
     refreshRM();
   }
 
-  public synchronized ResourceManager activeRM() { return activeRm; }
+  public synchronized ResourceManager activeRM() {
+    refreshRM();
+    return activeRm;
+  }
 
   @Override
   public long memoryPerNode() {

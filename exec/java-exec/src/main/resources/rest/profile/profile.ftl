@@ -143,10 +143,14 @@
         <td class="cell2">${model.getProfile().getTotalCost()}</td>
         <td class="cell3 indent">Execution:</td>
         <td class="cell4">${model.getExecutionDuration()}</td></tr>
+    <#-- Queue name of blank or "-" means no queue. -->
+    <#assign queueName = model.getProfile().getQueueName() />
+    <#if queueName != "" && queueName != "-" >
     <tr><td class="cell1">Queue:</td>
-        <td class="cell2">${model.getProfile().getQueueName()}</td>
+        <td class="cell2">${queueName}</td>
         <td class="cell3">&nbsp;</td>
         <td class="cell4">&nbsp;</td></tr>
+    </#if>
   </table>
 
   <#assign options = model.getOptions()>

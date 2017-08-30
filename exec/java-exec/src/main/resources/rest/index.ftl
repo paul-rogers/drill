@@ -95,12 +95,12 @@
   <#assign queueInfo = model.queueInfo() />
   <div class="row">
       <div class="col-md-12">
-        <h3>Query Throtting</h3>
+        <h3>Query Throttling</h3>
         <div class="table-responsive">
           <table class="table table-hover" style="width: auto;">
             <tbody>
                <tr>
-                  <td>Query Throttling:</td>
+                  <td>Queue Status:</td>
                   <td>${queueInfo.isEnabled()?string("Enabled", "Disabled")}</td>
                 </tr>
   <#if queueInfo.isEnabled() >
@@ -121,11 +121,11 @@
                   <td>${queueInfo.totalMemory()}</td>
                 </tr>
                 <tr>
-                  <td>Small Query Memory:</td>
+                  <td>Memory per Small Query:</td>
                   <td>${queueInfo.smallQueueMemory()}</td>
                 </tr>
                 <tr>
-                  <td>Large Query Memory:</td>
+                  <td>Memory per Large Query:</td>
                   <td>${queueInfo.largeQueueMemory()}</td>
                 </tr>
   </#if>
