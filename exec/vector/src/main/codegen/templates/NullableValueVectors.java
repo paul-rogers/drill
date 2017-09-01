@@ -206,6 +206,7 @@ public final class ${className} extends BaseDataValueVector implements <#if type
     accessor.reset();
   }
 
+  @Override
   public void reset() {
     bits.zeroVector();
     mutator.reset();

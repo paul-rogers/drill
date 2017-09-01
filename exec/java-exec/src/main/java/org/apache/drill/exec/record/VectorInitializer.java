@@ -95,7 +95,7 @@ public class VectorInitializer {
       allocateVector(vector, recordCount, hint);
     }
 //    Set<BufferLedger> ledgers = new HashSet<>();
-//    vector.getLedgers(ledgers);
+//    vector.collectLedgers(ledgers);
 //    int size = 0;
 //    for (BufferLedger ledger : ledgers) {
 //      size += ledger.getAccountedSize();

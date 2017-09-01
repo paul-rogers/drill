@@ -59,10 +59,10 @@ public class RecordBatchSizer {
 
     /**
      * Assumed size from Drill metadata. Note that this information is
-     * 100% bogus. Do not use it.
+     * 100% bogus for variable-width columns. Do not use it for such
+     * columns.
      */
 
-    @Deprecated
     public int stdSize;
 
     /**
@@ -74,42 +74,39 @@ public class RecordBatchSizer {
     public final int estSize;
 
     /**
-     * Number of times the value here (possibly repeated) appears in
-     * the record batch.
+     * Number of occurrences of the value in the batch. This is trivial
+     * for top-level scalars: it is the record count. For a top-level
+     * repeated vector, this is the number of arrays, also the record
+     * count. For a value nested inside a repeated map, it is the
+     * total number of values across all maps, and may be less than,
+     * greater than (but unlikely) same as the row count.
      */
 
     public final int valueCount;
 
     /**
-     * The number of elements in the value vector. Consider two cases.
-     * A required or nullable vector has one element per row, so the
-     * <tt>entryCount</tt> is the same as the <tt>valueCount</tt> (which,
-     * in turn, is the same as the row count.) But, if this vector is an
-     * array, then the <tt>valueCount</tt> is the number of columns, while
-     * <tt>entryCount</tt> is the total number of elements in all the arrays
-     * that make up the columns, so <tt>entryCount</tt> will be different than
-     * the <tt>valueCount</tt> (normally larger, but possibly smaller if most
-     * arrays are empty.
-     * <p>
-     * Finally, the column may be part of another list. In this case, the above
-     * logic still applies, but the <tt>valueCount</tt> is the number of entries
-     * in the outer array, not the row count.
+     * Total number of elements for a repeated type, or 1 if this is
+     * a non-repeated type. That is, a batch of 100 rows may have an
+     * array with 10 elements per row. In this case, the element count
+     * is 1000.
      */
 
-    public int entryCount;
+    public final int elementCount;
+
     public int dataSize;
 
     /**
-     * The estimated, average number of elements. For a repeated type,
+     * The estimated, average number of elements per parent value.
+     * Always 1 for a non-repeated type. For a repeated type,
      * this is the average entries per array (per repeated element).
      */
 
-    public int estElementCount;
+    public final int estElementCountPerArray;
     public final boolean isVariableWidth;
 
-    public ColumnSize(ValueVector v, String prefix, int valueCount) {
+    public ColumnSize(ValueVector v, String prefix) {
       this.prefix = prefix;
-      this.valueCount = valueCount;
+      valueCount = v.getAccessor().getValueCount();
       metadata = v.getField();
       isVariableWidth = v instanceof VariableWidthVector;
 
@@ -117,10 +114,12 @@ public class RecordBatchSizer {
       // data stored in the vectors.
 
       if (v.getField().getDataMode() == DataMode.REPEATED) {
-        buildRepeated(v);
+        elementCount = buildRepeated(v);
+        estElementCountPerArray = roundUp(elementCount, valueCount);
+      } else {
+        elementCount = 1;
+        estElementCountPerArray = 1;
       }
-      estElementCount = 1;
-      entryCount = 1;
       switch (metadata.getType().getMinorType()) {
       case LIST:
         buildList(v);
@@ -137,14 +136,14 @@ public class RecordBatchSizer {
       estSize = roundUp(dataSize, valueCount);
     }
 
-    private void buildRepeated(ValueVector v) {
+    @SuppressWarnings("resource")
+    private int buildRepeated(ValueVector v) {
 
       // Repeated vectors are special: they have an associated offset vector
       // that changes the value count of the contained vectors.
 
-      @SuppressWarnings("resource")
       UInt4Vector offsetVector = ((RepeatedValueVector) v).getOffsetVector();
-      buildArray(offsetVector);
+      int childCount = offsetVector.getAccessor().get(valueCount);
       if (metadata.getType().getMinorType() == MinorType.MAP) {
 
         // For map, the only data associated with the map vector
@@ -152,18 +151,13 @@ public class RecordBatchSizer {
 
         dataSize = offsetVector.getPayloadByteCount(valueCount);
       }
+      return childCount;
     }
 
     private void buildList(ValueVector v) {
       @SuppressWarnings("resource")
       UInt4Vector offsetVector = ((RepeatedListVector) v).getOffsetVector();
-      buildArray(offsetVector);
       dataSize = offsetVector.getPayloadByteCount(valueCount);
-    }
-
-    private void buildArray(UInt4Vector offsetVector) {
-      entryCount = offsetVector.getAccessor().get(valueCount);
-      estElementCount = roundUp(entryCount, valueCount);
     }
 
     @Override
@@ -178,10 +172,10 @@ public class RecordBatchSizer {
           .append(", count: ")
           .append(valueCount);
       if (metadata.getDataMode() == DataMode.REPEATED) {
-        buf.append(", total entries: ")
-           .append(entryCount)
+        buf.append(", elements: ")
+           .append(elementCount)
            .append(", per-array: ")
-           .append(estElementCount);
+           .append(estElementCountPerArray);
       }
       buf .append(", std size: ")
           .append(stdSize)
@@ -196,7 +190,9 @@ public class RecordBatchSizer {
     /**
      * Add a single vector initializer to a collection for the entire batch.
      * Uses the observed column size information to predict the size needed
-     * when allocating a new vector for the same data.
+     * when allocating a new vector for the same data. Adds a hint only for
+     * variable-width or repeated types; no extra information is needed for
+     * fixed width, non-repeated columns.
      *
      * @param initializer the vector initializer to hold the hints
      * for this column
@@ -225,9 +221,9 @@ public class RecordBatchSizer {
         if (width > 0) {
           // Estimated width is width of entire column. Divide
           // by element count to get per-element size.
-          initializer.variableWidthArray(name, width / estElementCount, estElementCount);
+          initializer.variableWidthArray(name, width / estElementCountPerArray, estElementCountPerArray);
         } else {
-          initializer.fixedWidthArray(name, estElementCount);
+          initializer.fixedWidthArray(name, estElementCountPerArray);
         }
       }
       else if (width > 0) {
@@ -281,10 +277,13 @@ public class RecordBatchSizer {
   /**
    *  Maximum width of a column; used for memory estimation in case of Varchars
    */
+
   public int maxSize;
+
   /**
    *  Count the nullable columns; used for memory estimation
    */
+
   public int nullableCount;
 
   /**
@@ -303,7 +302,7 @@ public class RecordBatchSizer {
    * (basically, an iterator over the vectors in the batch) along with a
    * selection vector for those records. The selection vector is used to
    * pad the estimated row width with the extra two bytes needed per record.
-   * The selection vector memory is added ot the total memory consumed by
+   * The selection vector memory is added to the total memory consumed by
    * this batch.
    *
    * @param va iterator over the batch's vectors
@@ -313,7 +312,7 @@ public class RecordBatchSizer {
   public RecordBatchSizer(VectorAccessible va, SelectionVector2 sv2) {
     rowCount = va.getRecordCount();
     for (VectorWrapper<?> vw : va) {
-      measureColumn(vw.getValueVector(), "", rowCount);
+      measureColumn(vw.getValueVector(), "");
     }
 
     for (BufferLedger ledger : ledgers) {
@@ -364,9 +363,9 @@ public class RecordBatchSizer {
     return 64;
   }
 
-  private void measureColumn(ValueVector v, String prefix, int valueCount) {
+  private void measureColumn(ValueVector v, String prefix) {
 
-    ColumnSize colSize = new ColumnSize(v, prefix, valueCount);
+    ColumnSize colSize = new ColumnSize(v, prefix);
     columnSizes.add(colSize);
     stdRowWidth += colSize.stdSize;
     netBatchSize += colSize.dataSize;
@@ -380,10 +379,10 @@ public class RecordBatchSizer {
 
     switch (v.getField().getType().getMinorType()) {
     case MAP:
-      expandMap((AbstractMapVector) v, prefix + v.getField().getName() + ".", colSize.entryCount);
+      expandMap((AbstractMapVector) v, prefix + v.getField().getName() + ".");
       break;
     case LIST:
-      expandList((RepeatedListVector) v, prefix + v.getField().getName() + ".", colSize.entryCount);
+      expandList((RepeatedListVector) v, prefix + v.getField().getName() + ".");
       break;
     default:
       v.collectLedgers(ledgers);
@@ -395,9 +394,9 @@ public class RecordBatchSizer {
         // above change 8 to 4 after DRILL-5446 is fixed
   }
 
-  private void expandMap(AbstractMapVector mapVector, String prefix, int valueCount) {
+  private void expandMap(AbstractMapVector mapVector, String prefix) {
     for (ValueVector vector : mapVector) {
-      measureColumn(vector, prefix, valueCount);
+      measureColumn(vector, prefix);
     }
 
     // For a repeated map, we need the memory for the offset vector (only).
@@ -408,8 +407,8 @@ public class RecordBatchSizer {
     }
   }
 
-  private void expandList(RepeatedListVector vector, String prefix, int valueCount) {
-    measureColumn(vector.getDataVector(), prefix, valueCount);
+  private void expandList(RepeatedListVector vector, String prefix) {
+    measureColumn(vector.getDataVector(), prefix);
 
     // Determine memory for the offset vector (only).
 
@@ -472,7 +471,7 @@ public class RecordBatchSizer {
    * schema metadata. Use that metadata to create an instance of a class that
    * allocates memory for new vectors based on the observed size information.
    * The caller provides the row count; the size information here provides
-   * column widths, number of elements in each array, etc.
+   * column widths and the number of elements in each array.
    */
 
   public VectorInitializer buildVectorInitializer() {

@@ -261,8 +261,9 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
       } else {
         allocHelper.allocateBatch(outputContainer, targetRecordCount);
       }
-      logger.trace("Initial output batch allocation: {} bytes",
-                   holder.getAllocator().getAllocatedMemory() - start);
+      logger.trace("Initial output batch allocation: {} bytes, {} records",
+                   holder.getAllocator().getAllocatedMemory() - start,
+                   targetRecordCount);
       Stopwatch w = Stopwatch.createStarted();
       int count = holder.copier.next(targetRecordCount);
       if (count > 0) {
