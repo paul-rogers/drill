@@ -59,7 +59,7 @@ import org.junit.Test;
  * tuple : column *
  * column : scalar obj | array obj | tuple obj
  * scalar obj : scalar
- * arary obj : array writer
+ * array obj : array writer
  * array writer : element
  * element : column
  * tuple obj : tuple</code></pre>
