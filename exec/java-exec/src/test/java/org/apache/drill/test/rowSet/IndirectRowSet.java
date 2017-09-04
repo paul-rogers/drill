@@ -21,7 +21,7 @@ import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
 import org.apache.drill.exec.physical.rowSet.model.ReaderIndex;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel;
+import org.apache.drill.exec.physical.rowSet.model.SchemaInference;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
@@ -60,17 +60,17 @@ public class IndirectRowSet extends AbstractSingleRowSet {
 
   private final SelectionVector2 sv2;
 
-  private IndirectRowSet(BufferAllocator allocator, SingleRowSetModel storage, SelectionVector2 sv2) {
-    super(allocator, storage);
+  private IndirectRowSet(VectorContainer container, SelectionVector2 sv2) {
+    super(container, new SchemaInference().infer(container));
     this.sv2 = sv2;
   }
 
-  public static IndirectRowSet fromContainer(BufferAllocator allocator, VectorContainer container) {
-    return new IndirectRowSet(allocator, SingleRowSetModel.fromContainer(container), makeSv2(allocator, container));
+  public static IndirectRowSet fromContainer(VectorContainer container) {
+    return new IndirectRowSet(container, makeSv2(container.getAllocator(), container));
   }
 
-  public static IndirectRowSet fromSv2(BufferAllocator allocator, VectorContainer container, SelectionVector2 sv2) {
-    return new IndirectRowSet(allocator, SingleRowSetModel.fromContainer(container), sv2);
+  public static IndirectRowSet fromSv2(VectorContainer container, SelectionVector2 sv2) {
+    return new IndirectRowSet(container, sv2);
   }
 
   private static SelectionVector2 makeSv2(BufferAllocator allocator, VectorContainer container) {
@@ -89,7 +89,7 @@ public class IndirectRowSet extends AbstractSingleRowSet {
 
   public IndirectRowSet(DirectRowSet directRowSet) {
     super(directRowSet);
-    sv2 = makeSv2(allocator, container());
+    sv2 = makeSv2(allocator(), container());
   }
 
   @Override
@@ -122,10 +122,5 @@ public class IndirectRowSet extends AbstractSingleRowSet {
   public int size() {
     RecordBatchSizer sizer = new RecordBatchSizer(container(), sv2);
     return sizer.actualSize();
-  }
-
-  @Override
-  public RowSet merge(RowSet other) {
-    return IndirectRowSet.fromSv2(allocator, container().merge(other.container()), sv2);
   }
 }

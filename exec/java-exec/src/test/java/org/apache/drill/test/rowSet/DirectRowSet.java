@@ -19,8 +19,11 @@ package org.apache.drill.test.rowSet;
 
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.model.ReaderIndex;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel;
-import org.apache.drill.exec.physical.rowSet.model.single.WriterBuilderVisitor;
+import org.apache.drill.exec.physical.rowSet.model.SchemaInference;
+import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.MetadataRetrieval;
+import org.apache.drill.exec.physical.rowSet.model.single.BaseWriterBuilder;
+import org.apache.drill.exec.physical.rowSet.model.single.BuildVectorsFromMetadata;
+import org.apache.drill.exec.physical.rowSet.model.single.VectorAllocator;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.TupleMetadata;
@@ -58,19 +61,20 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
     public int batchIndex() { return 0; }
   }
 
-  public static class RowSetWriterBuilder extends WriterBuilderVisitor {
+  public static class RowSetWriterBuilder extends BaseWriterBuilder {
 
     public RowSetWriter buildWriter(DirectRowSet rowSet) {
-      SingleRowSetModel rowModel = rowSet.rowSetModelImpl();
       WriterIndexImpl index = new WriterIndexImpl();
-      RowSetWriterImpl writer = new RowSetWriterImpl(rowSet, rowModel.schema(), index, buildTuple(rowModel));
-      rowModel.bindWriter(writer);
+      TupleMetadata schema = rowSet.schema();
+      RowSetWriterImpl writer = new RowSetWriterImpl(rowSet, schema, index,
+          buildContainerChildren(rowSet.container(),
+          new MetadataRetrieval(schema)));
       return writer;
     }
   }
 
-  private DirectRowSet(BufferAllocator allocator, SingleRowSetModel storage) {
-    super(allocator, storage);
+  private DirectRowSet(VectorContainer container, TupleMetadata schema) {
+    super(container, schema);
   }
 
   public DirectRowSet(AbstractSingleRowSet from) {
@@ -82,15 +86,16 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
   }
 
   public static DirectRowSet fromSchema(BufferAllocator allocator, TupleMetadata schema) {
-    return new DirectRowSet(allocator, SingleRowSetModel.fromSchema(allocator, schema));
+    BuildVectorsFromMetadata builder = new BuildVectorsFromMetadata(allocator);
+    return new DirectRowSet(builder.build(schema), schema);
   }
 
-  public static DirectRowSet fromContainer(BufferAllocator allocator, VectorContainer container) {
-    return new DirectRowSet(allocator, SingleRowSetModel.fromContainer(container));
+  public static DirectRowSet fromContainer(VectorContainer container) {
+    return new DirectRowSet(container, new SchemaInference().infer(container));
   }
 
   public static DirectRowSet fromVectorAccessible(BufferAllocator allocator, VectorAccessible va) {
-    return fromContainer(allocator, toContainer(va, allocator));
+    return fromContainer(toContainer(va, allocator));
   }
 
   private static VectorContainer toContainer(VectorAccessible va, BufferAllocator allocator) {
@@ -102,7 +107,7 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
 
   @Override
   public void allocate(int rowCount) {
-    model.allocate(rowCount);
+    new VectorAllocator(container()).allocate(rowCount, schema());
   }
 
   @Override
@@ -140,9 +145,4 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
 
   @Override
   public SelectionVector2 getSv2() { return null; }
-
-  @Override
-  public RowSet merge(RowSet other) {
-    return fromContainer(allocator, container().merge(other.container()));
-  }
 }

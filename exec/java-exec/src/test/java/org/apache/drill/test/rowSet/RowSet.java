@@ -109,8 +109,6 @@ public interface RowSet {
 
   long size();
 
-  RowSet merge(RowSet other);
-
   BatchSchema batchSchema();
 
   /**

@@ -23,41 +23,17 @@ import static org.junit.Assert.assertNotEquals;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.vector.IntVector;
-import org.apache.drill.exec.vector.accessor.ColumnAccessors.IntColumnWriter;
-import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
+import org.apache.drill.exec.vector.VarCharVector;
+import org.apache.drill.exec.vector.accessor.ColumnAccessors.VarCharColumnWriter;
 import org.apache.drill.exec.vector.accessor.ValueType;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.apache.drill.test.rowSet.test.TestFixedWidthWriter.TestIndex;
 import org.junit.Test;
 
-/**
- * Test the int writer as a typical example of a fixed-width
- * writer. Exercises normal writing, writing after a (simulated)
- * overflow, and filling in empty values.
- */
+import com.google.common.base.Charsets;
 
-public class TestFixedWidthWriter extends SubOperatorTest {
-
-  public static class TestIndex implements ColumnWriterIndex {
-
-    public int index;
-
-    @Override
-    public int vectorIndex() { return index; }
-
-    @Override
-    public void nextElement() { }
-
-    @Override
-    public void rollover() { }
-
-    @Override
-    public int rowStartIndex() { return index; }
-
-    @Override
-    public ColumnWriterIndex outerIndex() { return null; }
-  }
+public class TestVariableWidthWriter extends SubOperatorTest {
 
   /**
    * Basic test to write a contiguous set of values, enough to cause
@@ -66,9 +42,9 @@ public class TestFixedWidthWriter extends SubOperatorTest {
 
   @Test
   public void testWrite() {
-    try (IntVector vector = allocVector(1000)) {
+    try (VarCharVector vector = allocVector(1000)) {
       TestIndex index = new TestIndex();
-      IntColumnWriter writer = makeWriter(vector, index);
+      VarCharColumnWriter writer = makeWriter(vector, index);
 
       writer.startWrite();
 
@@ -76,9 +52,10 @@ public class TestFixedWidthWriter extends SubOperatorTest {
       // Write enough that the vector is resized.
 
       long origAddr = vector.getBuffer().addr();
+      String base = "sample-value";
       for (int i = 0; i < 3000; i++) {
         index.index = i;
-        writer.setInt(i * 10);
+        writer.setString(base + i);
       }
       writer.endWrite();
 
@@ -89,24 +66,25 @@ public class TestFixedWidthWriter extends SubOperatorTest {
       // Verify values
 
       for (int i = 0; i < 3000; i++) {
-        assertEquals(i * 10, vector.getAccessor().get(i));
+        assertEquals(base + i, stringAt(vector, i));
       }
     }
   }
 
   @Test
   public void testRestartRow() {
-    try (IntVector vector = allocVector(1000)) {
+    try (VarCharVector vector = allocVector(1000)) {
       TestIndex index = new TestIndex();
-      IntColumnWriter writer = makeWriter(vector, index);
+      VarCharColumnWriter writer = makeWriter(vector, index);
       writer.startWrite();
 
       // Write rows, rewriting every other row.
 
+      String base = "sample-value";
       writer.startRow();
       index.index = 0;
       for (int i = 0; i < 50; i++) {
-        writer.setInt(i);
+        writer.setString(base + i);
         if (i % 2 == 0) {
           writer.saveRow();
           writer.startRow();
@@ -120,36 +98,33 @@ public class TestFixedWidthWriter extends SubOperatorTest {
       // Verify values
 
       for (int i = 0; i < 25; i++) {
-        assertEquals(2 * i, vector.getAccessor().get(i));
+        assertEquals(base + (2 * i), stringAt(vector, i));
       }
     }
   }
 
   /**
-   * Required, fixed-width vectors are back-filling with 0 to fill in missing
-   * values. While using zero is not strictly SQL compliant, it is better
-   * than failing. (The SQL solution would be to fill with nulls, but a
-   * required vector does not support nulls...)
+   * Filling empties in a variable-width row means carrying forward
+   * offsets (as tested elsewhere), leaving zero-length values.
    */
 
   @Test
   public void testFillEmpties() {
-    try (IntVector vector = allocVector(1000)) {
+    try (VarCharVector vector = allocVector(1000)) {
       TestIndex index = new TestIndex();
-      IntColumnWriter writer = makeWriter(vector, index);
+      VarCharColumnWriter writer = makeWriter(vector, index);
       writer.startWrite();
 
       // Write values, skipping four out of five positions,
       // forcing backfill.
       // The number of values is odd, forcing the writer to
       // back-fill at the end as well as between values.
-      // Keep the number of values below the allocation so
-      // that we know all values were initially garbage-filled.
 
+      String base = "sample-value";
       for (int i = 0; i < 501; i += 5) {
         index.index = i;
         writer.startRow();
-        writer.setInt(i);
+        writer.setString(base + i);
         writer.saveRow();
       }
       // At end, vector index defined to point one past the
@@ -162,8 +137,7 @@ public class TestFixedWidthWriter extends SubOperatorTest {
 
       for (int i = 0; i < 504; i++) {
         assertEquals("Mismatch on " + i,
-            (i%5) == 0 ? i : 0,
-            vector.getAccessor().get(i));
+            (i%5) == 0 ? base + i : "", stringAt(vector, i));
       }
     }
   }
@@ -174,17 +148,18 @@ public class TestFixedWidthWriter extends SubOperatorTest {
 
   @Test
   public void testRollover() {
-    try (IntVector vector = allocVector(1000)) {
+    try (VarCharVector vector = allocVector(1000)) {
       TestIndex index = new TestIndex();
-      IntColumnWriter writer = makeWriter(vector, index);
+      VarCharColumnWriter writer = makeWriter(vector, index);
       writer.startWrite();
 
       // Simulate doing an overflow of ten values.
 
+      String base = "sample-value";
       for (int i = 0; i < 10; i++) {
         index.index = i;
         writer.startRow();
-        writer.setInt(i);
+        writer.setString(base + i);
         writer.saveRow();
       }
 
@@ -192,7 +167,8 @@ public class TestFixedWidthWriter extends SubOperatorTest {
 
       index.index = 10;
       writer.startRow();
-      writer.setInt(10);
+      String overflowValue = base + 10;
+      writer.setString(overflowValue);
 
       // Overflow occurs
 
@@ -200,10 +176,14 @@ public class TestFixedWidthWriter extends SubOperatorTest {
 
       // Simulate rollover
 
-      for (int i = 0; i < 15; i++) {
-        vector.getMutator().set(i, 0xdeadbeef);
+      byte dummy[] = new byte[] { (byte) 0x55 };
+      for (int i = 0; i < 500; i++) {
+        vector.getMutator().setSafe(i, dummy);
       }
-      vector.getMutator().set(0, 10);
+      for (int i = 1; i < 15; i++) {
+        vector.getOffsetVector().getMutator().set(i, 0xdeadbeef);
+      }
+      vector.getMutator().setSafe(0, overflowValue.getBytes(Charsets.UTF_8));
 
       writer.postRollover();
       index.index = 0;
@@ -214,7 +194,7 @@ public class TestFixedWidthWriter extends SubOperatorTest {
       for (int i = 1; i < 5; i++) {
         index.index = i;
         writer.startRow();
-        writer.setInt(10 + i);
+        writer.setString(base + (i + 10));
         writer.saveRow();
       }
       writer.endWrite();
@@ -222,7 +202,7 @@ public class TestFixedWidthWriter extends SubOperatorTest {
       // Verify the results
 
       for (int i = 0; i < 5; i++) {
-        assertEquals(10 + i, vector.getAccessor().get(i));
+        assertEquals(base + (10 + i), stringAt(vector, i));
       }
     }
   }
@@ -235,18 +215,19 @@ public class TestFixedWidthWriter extends SubOperatorTest {
 
   @Test
   public void testRolloverWithEmpties() {
-    try (IntVector vector = allocVector(1000)) {
+    try (VarCharVector vector = allocVector(1000)) {
       TestIndex index = new TestIndex();
-      IntColumnWriter writer = makeWriter(vector, index);
+      VarCharColumnWriter writer = makeWriter(vector, index);
       writer.startWrite();
 
       // Simulate doing an overflow of 15 values,
       // of which 5 are empty.
 
+      String base = "sample-value";
       for (int i = 0; i < 10; i++) {
         index.index = i;
         writer.startRow();
-        writer.setInt(i);
+        writer.setString(base + i);
         writer.saveRow();
       }
 
@@ -268,17 +249,22 @@ public class TestFixedWidthWriter extends SubOperatorTest {
       // Verify the first "batch" results
 
       for (int i = 0; i < 10; i++) {
-        assertEquals(i, vector.getAccessor().get(i));
+        assertEquals(base + i, stringAt(vector, i));
       }
       for (int i = 10; i < 15; i++) {
-        assertEquals(0, vector.getAccessor().get(i));
+        assertEquals("", stringAt(vector, i));
       }
 
       // Simulate rollover
 
-      for (int i = 0; i < 20; i++) {
-        vector.getMutator().set(i, 0xdeadbeef);
+      byte dummy[] = new byte[] { (byte) 0x55 };
+      for (int i = 0; i < 500; i++) {
+        vector.getMutator().setSafe(i, dummy);
       }
+      for (int i = 1; i < 15; i++) {
+        vector.getOffsetVector().getMutator().set(i, 0xdeadbeef);
+      }
+      vector.getMutator().setSafe(0, new byte[] {});
 
       writer.postRollover();
       index.index = 0;
@@ -297,7 +283,7 @@ public class TestFixedWidthWriter extends SubOperatorTest {
       for (int i = 5; i < 10; i++) {
         index.index = i;
         writer.startRow();
-        writer.setInt(i + 20);
+        writer.setString(base + (i + 20));
         writer.saveRow();
       }
       writer.endWrite();
@@ -305,41 +291,42 @@ public class TestFixedWidthWriter extends SubOperatorTest {
       // Verify the results
 
       for (int i = 0; i < 5; i++) {
-        assertEquals(0, vector.getAccessor().get(i));
+        assertEquals("", stringAt(vector, i));
       }
       for (int i = 5; i < 10; i++) {
-        assertEquals(i + 20, vector.getAccessor().get(i));
+        assertEquals(base + (i + 20), stringAt(vector, i));
       }
     }
   }
+
 
   /**
    * Test the case in which a scalar vector is used in conjunction
    * with a nullable bits vector. The nullable vector will call the
    * <tt>skipNulls()</tt> method to avoid writing values for null
-   * entries. (Without the call, the scalar writer will fill the
-   * empty values with zeros.)
+   * entries. For variable-width, there is no difference between
+   * filling empties and skipping nulls: both result in zero-sized
+   * entries.
    */
 
   @Test
   public void testSkipNulls() {
-    try (IntVector vector = allocVector(1000)) {
+    try (VarCharVector vector = allocVector(1000)) {
       TestIndex index = new TestIndex();
-      IntColumnWriter writer = makeWriter(vector, index);
+      VarCharColumnWriter writer = makeWriter(vector, index);
       writer.startWrite();
 
       // Write values, skipping four out of five positions,
       // skipping nulls.
-      // The loop will cause the vector to double in size.
       // The number of values is odd, forcing the writer to
       // skip nulls at the end as well as between values.
 
-      long origAddr = vector.getBuffer().addr();
+      String base = "sample-value";
       for (int i = 0; i < 3000; i += 5) {
         index.index = i;
         writer.startRow();
         writer.skipNulls();
-        writer.setInt(i);
+        writer.setString(base + i);
         writer.saveRow();
       }
       index.index = 3003;
@@ -348,47 +335,33 @@ public class TestFixedWidthWriter extends SubOperatorTest {
       writer.saveRow();
       writer.endWrite();
 
-      // Should have been reallocated.
+      // Verify values. Skipping nulls should back-fill
+      // offsets, resulting in zero-length strings.
 
-      assertNotEquals(origAddr, vector.getBuffer().addr());
-
-      // Verify values. First 1000 were filled with known
-      // garbage values.
-
-      for (int i = 0; i < 1000; i++) {
+      for (int i = 0; i < 3000; i++) {
         assertEquals("Mismatch at " + i,
-            (i%5) == 0 ? i : 0xdeadbeef,
-            vector.getAccessor().get(i));
-      }
-
-      // Next values are filled with unknown values:
-      // whatever was left in the buffer allocated by Netty.
-
-      for (int i = 1005; i < 3000; i+= 5) {
-        assertEquals(i, vector.getAccessor().get(i));
+            (i%5) == 0 ? base + i : "", stringAt(vector, i));
       }
     }
   }
 
-  private IntVector allocVector(int size) {
+  private String stringAt(VarCharVector vector, int i) {
+    return new String(vector.getAccessor().get(i), Charsets.UTF_8);
+  }
+
+  private VarCharVector allocVector(int size) {
     MaterializedField field =
-        SchemaBuilder.columnSchema("x", MinorType.INT, DataMode.REQUIRED);
-    IntVector vector = new IntVector(field, fixture.allocator());
-    vector.allocateNew(size);
-
-    // Party on the bytes of the vector so we start dirty
-
-    for (int i = 0; i < size; i++) {
-      vector.getMutator().set(i, 0xdeadbeef);
-    }
+        SchemaBuilder.columnSchema("x", MinorType.VARCHAR, DataMode.REQUIRED);
+    VarCharVector vector = new VarCharVector(field, fixture.allocator());
+    vector.allocateNew(size * 10, size);
     return vector;
   }
 
-  private IntColumnWriter makeWriter(IntVector vector, TestIndex index) {
-    IntColumnWriter writer = new IntColumnWriter(vector);
+  private VarCharColumnWriter makeWriter(VarCharVector vector, TestIndex index) {
+    VarCharColumnWriter writer = new VarCharColumnWriter(vector);
     writer.bindIndex(index);
 
-    assertEquals(ValueType.INTEGER, writer.valueType());
+    assertEquals(ValueType.STRING, writer.valueType());
     return writer;
   }
 }
