@@ -21,8 +21,10 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.NullableIntVector;
 import org.apache.drill.exec.vector.RepeatedIntVector;
@@ -170,7 +172,13 @@ public class PerformanceTool {
     public void nextElement() { index++; }
 
     @Override
-    public void resetTo(int newIndex) { }
+    public void rollover() { }
+
+    @Override
+    public int rowStartIndex() { return index; }
+
+    @Override
+    public ColumnWriterIndex outerIndex() { return null; }
   }
 
   public static class RequiredWriterTester extends PerfTester {
@@ -229,21 +237,22 @@ public class PerformanceTool {
       try (RepeatedIntVector vector = new RepeatedIntVector(rowSchema.column(0), fixture.allocator());) {
         vector.allocateNew(4096, 5);
         IntColumnWriter colWriter = new IntColumnWriter(vector.getDataVector());
-        ArrayObjectWriter arrayWriter = ScalarArrayWriter.build(vector, colWriter);
+        ColumnMetadata colSchema = TupleSchema.fromField(vector.getField());
+        ArrayObjectWriter arrayWriter = ScalarArrayWriter.build(colSchema, vector, colWriter);
         TestWriterIndex index = new TestWriterIndex();
-        arrayWriter.bindIndex(index);
-        arrayWriter.startWrite();
+        arrayWriter.events().bindIndex(index);
+        arrayWriter.events().startWrite();
         timer.start();
         for ( ; index.index < ROW_COUNT / 5; index.index++) {
-          arrayWriter.startRow();
+          arrayWriter.events().startRow();
           colWriter.setInt(12341);
           colWriter.setInt(12342);
           colWriter.setInt(12343);
           colWriter.setInt(12344);
           colWriter.setInt(12345);
-          arrayWriter.saveValue();
+          arrayWriter.events().endArrayValue();
         }
-        arrayWriter.endWrite();
+        arrayWriter.events().endWrite();
         timer.stop();
       }
     }

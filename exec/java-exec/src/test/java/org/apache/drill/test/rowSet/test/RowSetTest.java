@@ -59,7 +59,7 @@ import org.junit.Test;
  * tuple : column *
  * column : scalar obj | array obj | tuple obj
  * scalar obj : scalar
- * arary obj : array writer
+ * array obj : array writer
  * array writer : element
  * element : column
  * tuple obj : tuple</code></pre>
@@ -509,7 +509,7 @@ public class RowSetTest extends SubOperatorTest {
 
     @SuppressWarnings("resource")
     RepeatedMapVector mapVector = (RepeatedMapVector) actual.container().getValueVector(1).getValueVector();
-    assertEquals(actual.rowCount(), mapVector.getAccessor().getValueCount());
+    assertEquals(6, mapVector.getAccessor().getValueCount());
 
     // Verify the readers and writers again using the testing tools.
 
@@ -528,7 +528,7 @@ public class RowSetTest extends SubOperatorTest {
    */
 
   @Test
-  public void TestTopFixedWidthArray() {
+  public void testTopFixedWidthArray() {
     BatchSchema batchSchema = new SchemaBuilder()
         .add("c", MinorType.INT)
         .addArray("a", MinorType.INT)
@@ -654,7 +654,7 @@ public class RowSetTest extends SubOperatorTest {
         count++;
       }
     } catch (IndexOutOfBoundsException e) {
-      assertTrue(e.getMessage().contains("overflow"));
+      assertTrue(e.getMessage().contains("Overflow"));
     }
     writer.done();
 

@@ -17,12 +17,12 @@
  */
 package org.apache.drill.test.rowSet;
 
-import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
 import org.apache.drill.exec.physical.rowSet.model.ReaderIndex;
-import org.apache.drill.exec.physical.rowSet.model.TupleModel.RowSetModel;
-import org.apache.drill.exec.physical.rowSet.model.single.ReaderBuilderVisitor;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel;
+import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.MetadataRetrieval;
+import org.apache.drill.exec.physical.rowSet.model.single.BaseReaderBuilder;
+import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 
 /**
@@ -31,30 +31,23 @@ import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 
 public abstract class AbstractSingleRowSet extends AbstractRowSet implements SingleRowSet {
 
-  public static class RowSetReaderBuilder extends ReaderBuilderVisitor {
+  public static class RowSetReaderBuilder extends BaseReaderBuilder {
 
     public RowSetReader buildReader(AbstractSingleRowSet rowSet, ReaderIndex rowIndex) {
-      SingleRowSetModel rowModel = rowSet.rowSetModelImpl();
-      return new RowSetReaderImpl(rowModel.schema(), rowIndex, buildTuple(rowModel));
+      TupleMetadata schema = rowSet.schema();
+      return new RowSetReaderImpl(schema, rowIndex,
+          buildContainerChildren(rowSet.container(),
+          new MetadataRetrieval(schema)));
     }
   }
 
-  protected final SingleRowSetModel model;
-
   public AbstractSingleRowSet(AbstractSingleRowSet rowSet) {
-    super(rowSet.allocator);
-    model = rowSet.model;
+    super(rowSet.container, rowSet.schema);
   }
 
-  public AbstractSingleRowSet(BufferAllocator allocator, SingleRowSetModel storage) {
-    super(allocator);
-    this.model = storage;
+  public AbstractSingleRowSet(VectorContainer container, TupleMetadata schema) {
+    super(container, schema);
   }
-
-  @Override
-  public RowSetModel rowSetModel() { return model; }
-
-  public SingleRowSetModel rowSetModelImpl() { return model; }
 
   @Override
   public int size() {
