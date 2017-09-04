@@ -20,6 +20,7 @@ package org.apache.drill.test.rowSet;
 import java.io.PrintStream;
 
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.TupleMetadata;
 
 /**
@@ -68,13 +69,23 @@ public class RowSetPrinter {
     }
     out.print(": ");
     TupleMetadata schema = reader.schema();
+    printTupleSchema(out, schema);
+    out.println();
+  }
+
+  private void printTupleSchema(PrintStream out, TupleMetadata schema) {
     for (int i = 0; i < schema.size(); i++) {
       if (i > 0) {
         out.print(", ");
       }
-      out.print(schema.column(i).getName());
+      ColumnMetadata colSchema = schema.metadata(i);
+      out.print(colSchema.name());
+      if (colSchema.isMap()) {
+        out.print("(");
+        printTupleSchema(out, colSchema.mapSchema());
+        out.print(")");
+      }
     }
-    out.println();
   }
 
   private void printHeader(PrintStream out, RowSetReader reader, SelectionVectorMode selectionMode) {
