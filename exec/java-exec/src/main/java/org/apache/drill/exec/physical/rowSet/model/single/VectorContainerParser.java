@@ -22,10 +22,6 @@ import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.model.TupleModel.ColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.PrimitiveColumnModel;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;

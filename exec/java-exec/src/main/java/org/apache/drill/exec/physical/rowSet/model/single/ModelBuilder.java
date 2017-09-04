@@ -25,10 +25,6 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.NullResultVectorCacheImpl;
 import org.apache.drill.exec.physical.rowSet.model.TupleModel.ColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.PrimitiveColumnModel;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
@@ -81,6 +77,27 @@ public class ModelBuilder {
 
     container.buildSchema(SelectionVectorMode.NONE);
     return new SingleRowSetModel(schema, container, columns);
+  }
+
+  /**
+   * Build a row set model given a metadata description of the row set.
+   *
+   * @param schema the metadata description
+   * @return a materialized row set model containing the vectors that
+   * implement the model
+   */
+
+  public LogicalRowSetModel buildLogicalModel(TupleMetadata schema) {
+    List<ColumnModel> columns = new ArrayList<>();
+    for (int i = 0; i < schema.size(); i++) {
+      AbstractSingleColumnModel colModel = buildColumn(schema.metadata(i));
+      columns.add(colModel);
+    }
+
+    // Build the row set from a matching triple of schema, container and
+    // column models.
+
+    return new LogicalRowSetModel(schema, vectorCache.allocator(), columns);
   }
 
   /**

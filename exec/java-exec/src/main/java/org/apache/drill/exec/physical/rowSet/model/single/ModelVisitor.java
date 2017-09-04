@@ -17,11 +17,6 @@
  */
 package org.apache.drill.exec.physical.rowSet.model.single;
 
-import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.PrimitiveColumnModel;
-
 /**
  * Visitor for the single batch model.
  *
@@ -32,6 +27,10 @@ import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.Prim
 public class ModelVisitor<R, A> {
 
     protected R visitRow(SingleRowSetModel row, A arg) {
+      return visitTuple(row, arg);
+    }
+
+    protected R visitLogicalRow(LogicalRowSetModel row, A arg) {
       return visitTuple(row, arg);
     }
 

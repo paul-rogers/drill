@@ -18,8 +18,6 @@
 package org.apache.drill.exec.physical.rowSet.model.single;
 
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.PrimitiveColumnModel;
 import org.apache.drill.exec.vector.AllocationHelper;
 
 /**

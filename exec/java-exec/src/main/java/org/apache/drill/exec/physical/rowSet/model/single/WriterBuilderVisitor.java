@@ -20,9 +20,6 @@ package org.apache.drill.exec.physical.rowSet.model.single;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.PrimitiveColumnModel;
 import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.MapWriter;
