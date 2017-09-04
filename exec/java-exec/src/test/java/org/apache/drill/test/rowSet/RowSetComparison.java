@@ -225,7 +225,7 @@ public class RowSetComparison {
   }
 
   private void verifyTuple(String label, TupleReader er, TupleReader ar) {
-    assertEquals(label, er.columnCount(), ar.columnCount());
+    assertEquals(label + " - tuple count", er.columnCount(), ar.columnCount());
     String prefix = label + ":";
     for (int i = 0; i < er.columnCount(); i++) {
       verifyColumn(prefix + i, er.column(i), ar.column(i));
@@ -233,7 +233,7 @@ public class RowSetComparison {
   }
 
   private void verifyScalar(String label, ScalarReader ec, ScalarReader ac) {
-    assertEquals(label, ec.valueType(), ac.valueType());
+    assertEquals(label + " - value type", ec.valueType(), ac.valueType());
     if (ec.isNull()) {
       assertTrue(label + " - column not null", ac.isNull());
       return;

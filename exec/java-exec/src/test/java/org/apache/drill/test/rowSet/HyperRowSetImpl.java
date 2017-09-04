@@ -17,11 +17,11 @@
  */
 package org.apache.drill.test.rowSet;
 
-import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.rowSet.model.TupleModel.RowSetModel;
-import org.apache.drill.exec.physical.rowSet.model.hyper.HyperRowSetModel;
-import org.apache.drill.exec.physical.rowSet.model.hyper.ReaderBuilderVisitor;
+import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.MetadataRetrieval;
+import org.apache.drill.exec.physical.rowSet.model.SchemaInference;
+import org.apache.drill.exec.physical.rowSet.model.hyper.BaseReaderBuilder;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.test.rowSet.RowSet.HyperRowSet;
@@ -39,11 +39,14 @@ import org.apache.drill.test.rowSet.RowSet.HyperRowSet;
 
 public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
 
-  public static class RowSetReaderBuilder extends ReaderBuilderVisitor {
+  public static class RowSetReaderBuilder extends BaseReaderBuilder {
 
-    public RowSetReader buildReader(HyperRowSetModel rowSetModel, SelectionVector4 sv4) {
+    public RowSetReader buildReader(HyperRowSet rowSet, SelectionVector4 sv4) {
+      TupleMetadata schema = rowSet.schema();
       HyperRowIndex rowIndex = new HyperRowIndex(sv4);
-      return new RowSetReaderImpl(rowSetModel.schema(), rowIndex, buildTuple(rowSetModel));
+      return new RowSetReaderImpl(schema, rowIndex,
+          buildContainerChildren(rowSet.container(),
+              new MetadataRetrieval(schema)));
     }
   }
 
@@ -51,12 +54,10 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
    * Selection vector that indexes into the hyper vectors.
    */
 
-  private HyperRowSetModel rowSetModel;
   private final SelectionVector4 sv4;
 
-  public HyperRowSetImpl(BufferAllocator allocator, VectorContainer container, SelectionVector4 sv4) {
-    super(allocator);
-    rowSetModel = HyperRowSetModel.fromContainer(container);
+  public HyperRowSetImpl(VectorContainer container, SelectionVector4 sv4) {
+    super(container, new SchemaInference().infer(container));
     this.sv4 = sv4;
   }
 
@@ -68,7 +69,7 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
 
   @Override
   public RowSetReader reader() {
-    return new RowSetReaderBuilder().buildReader(rowSetModel, sv4);
+    return new RowSetReaderBuilder().buildReader(this, sv4);
   }
 
   @Override
@@ -79,12 +80,4 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
 
   @Override
   public int rowCount() { return sv4.getCount(); }
-
-  @Override
-  public RowSet merge(RowSet other) {
-    return new HyperRowSetImpl(allocator, container().merge(other.container()), sv4);
-  }
-
-  @Override
-  public RowSetModel rowSetModel() { return rowSetModel; }
 }

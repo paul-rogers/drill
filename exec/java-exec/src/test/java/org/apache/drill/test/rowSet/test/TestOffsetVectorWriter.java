@@ -17,17 +17,18 @@
  */
 package org.apache.drill.test.rowSet.test;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.UInt4Vector;
-import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ValueType;
 import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriter;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.apache.drill.test.rowSet.test.TestFixedWidthWriter.TestIndex;
 import org.junit.Test;
 
 /**
@@ -43,20 +44,6 @@ import org.junit.Test;
 
 public class TestOffsetVectorWriter extends SubOperatorTest {
 
-  public static class TestIndex implements ColumnWriterIndex {
-
-    public int index;
-
-    @Override
-    public int vectorIndex() { return index; }
-
-    @Override
-    public void nextElement() { }
-
-    @Override
-    public void resetTo(int newIndex) { }
-  }
-
   /**
    * Basic test to write a contiguous set of offsets, enough to cause
    * the vector to double in size twice, then read back the values.
@@ -64,23 +51,10 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
 
   @Test
   public void testWrite() {
-    MaterializedField field =
-        SchemaBuilder.columnSchema("x", MinorType.UINT4, DataMode.REQUIRED);
-    try (UInt4Vector vector = new UInt4Vector(field, fixture.allocator())) {
-
-      // Party on the bytes of the vector so we start dirty
-
-      vector.allocateNew(1000);
-      for (int i = 0; i < 900; i++) {
-        vector.getMutator().set(i, 0xdeadbeef);
-      }
-      assertNotEquals(0, vector.getAccessor().get(0));
+    try (UInt4Vector vector = allocVector(1000)) {
 
       TestIndex index = new TestIndex();
-      OffsetVectorWriter writer = new OffsetVectorWriter(vector);
-      writer.bindIndex(index);
-
-      assertEquals(ValueType.INTEGER, writer.valueType());
+      OffsetVectorWriter writer = makeWriter(vector, index);
 
       // Start write sets initial position to 0.
 
@@ -94,9 +68,11 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
       long origAddr = vector.getBuffer().addr();
       for (int i = 0; i < 3000; i++) {
         index.index = i;
-        int startOffset = writer.currentStartOffset();
-        assertEquals(i * 10, startOffset);
-        writer.setOffset(startOffset + 10);
+        writer.startRow();
+        assertEquals(i * 10, writer.nextOffset());
+        writer.setNextOffset((i+1) * 10);
+        assertEquals((i+1) * 10, writer.nextOffset());
+        writer.saveRow();
       }
       writer.endWrite();
 
@@ -112,55 +88,41 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
     }
   }
 
-  /**
-   * The <tt>startWriteAt</tt> method is used during vector overflow to
-   * specify the position at which to start writing. This allows skipping
-   * over values copied from the overflowed vector.
-   */
-
   @Test
-  public void testStartWriteAt() {
-    MaterializedField field =
-        SchemaBuilder.columnSchema("x", MinorType.UINT4, DataMode.REQUIRED);
-    try (UInt4Vector vector = new UInt4Vector(field, fixture.allocator())) {
+  public void testRestartRow() {
+    try (UInt4Vector vector = allocVector(1000)) {
 
       TestIndex index = new TestIndex();
-      OffsetVectorWriter writer = new OffsetVectorWriter(vector);
-      writer.bindIndex(index);
+      OffsetVectorWriter writer = makeWriter(vector, index);
+      writer.startWrite();
 
-      // Party on the bytes of the vector so we start dirty
+      // Write rows, rewriting every other row.
 
-      vector.allocateNew(1000);
-      for (int i = 0; i < 900; i++) {
-        vector.getMutator().set(i, 0xdeadbeef);
-      }
-
-      // Simulate doing an overflow of three values.
-
-      vector.getMutator().set(1, 10);
-      vector.getMutator().set(2, 20);
-      vector.getMutator().set(3, 30);
-
-      // Start write. This will fill in position 0.
-
-      writer.startWriteAt(2);
-      assertEquals(30, writer.currentStartOffset());
-
-      // Simulate resuming with a few more values.
-
-      for (int i = 3; i < 10; i++) {
-        index.index = i;
-        writer.setOffset((i + 1) * 10);
+      writer.startRow();
+      index.index = 0;
+      for (int i = 0; i < 50; i++) {
+        if (i % 2 == 0) {
+          assertEquals(i == 0 ? 0 : (i - 1) * 10, writer.nextOffset());
+          writer.setNextOffset((i + 1) * 10);
+          writer.saveRow();
+          writer.startRow();
+          index.index++;
+        } else {
+          writer.setNextOffset((i + 1) * 10);
+          writer.restartRow();
+        }
       }
       writer.endWrite();
 
-      // Verify the results
+      // Verify values
 
-      for (int i = 0; i < 11; i++) {
-        assertEquals(i * 10, vector.getAccessor().get(i));
+      assertEquals(0, vector.getAccessor().get(0));
+      for (int i = 1; i < 25; i++) {
+        assertEquals((2 * i - 1) * 10, vector.getAccessor().get(i));
       }
     }
   }
+
 
   /**
    * Offset vectors have specific behavior when back-filling missing values:
@@ -171,25 +133,10 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
 
   @Test
   public void testFillEmpties() {
-    MaterializedField field =
-        SchemaBuilder.columnSchema("x", MinorType.UINT4, DataMode.REQUIRED);
-    try (UInt4Vector vector = new UInt4Vector(field, fixture.allocator())) {
-
-      // Party on the bytes of the vector so we start dirty
-
-      vector.allocateNew(1000);
-      for (int i = 0; i < 900; i++) {
-        vector.getMutator().set(i, 0xdeadbeef);
-      }
-
+    try (UInt4Vector vector = allocVector(1000)) {
       TestIndex index = new TestIndex();
-      OffsetVectorWriter writer = new OffsetVectorWriter(vector);
-      writer.bindIndex(index);
-
-      // Start write sets initial position to 0.
-
+      OffsetVectorWriter writer = makeWriter(vector, index);
       writer.startWrite();
-      assertEquals(0, vector.getAccessor().get(0));
 
       // Pretend to write offsets for values of width 10, but
       // skip four out of five values, forcing backfill.
@@ -200,9 +147,11 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
       long origAddr = vector.getBuffer().addr();
       for (int i = 5; i < 3001; i += 5) {
         index.index = i;
-        int startOffset = writer.currentStartOffset();
+        writer.startRow();
+        int startOffset = writer.nextOffset();
         assertEquals((i/5 - 1) * 10, startOffset);
-        writer.setOffset(startOffset + 10);
+        writer.setNextOffset(startOffset + 10);
+        writer.saveRow();
       }
       index.index = 3003;
       writer.endWrite();
@@ -217,5 +166,177 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
         assertEquals(((i-1)/5) * 10, vector.getAccessor().get(i));
       }
     }
+  }
+
+  /**
+   * The rollover method is used during vector overflow.
+   */
+
+  @Test
+  public void testRollover() {
+    try (UInt4Vector vector = allocVector(1000)) {
+      TestIndex index = new TestIndex();
+      OffsetVectorWriter writer = makeWriter(vector, index);
+      writer.startWrite();
+
+      // Simulate doing an overflow of ten values.
+
+      for (int i = 0; i < 10; i++) {
+        index.index = i;
+        writer.startRow();
+        writer.setNextOffset((i+1) * 10);
+        writer.saveRow();
+      }
+
+      // Overflow occurs after writing the 11th row
+
+      index.index = 10;
+      writer.startRow();
+      writer.setNextOffset(110);
+
+      // Overflow occurs
+
+      writer.preRollover();
+
+      // Simulate rollover
+
+      for (int i = 0; i < 15; i++) {
+        vector.getMutator().set(i, 0xdeadbeef);
+      }
+      vector.getMutator().set(1, 110);
+
+      // Post rollover, slot 0 should be initialized
+
+      writer.postRollover();
+      index.index = 0;
+      writer.saveRow();
+
+      // Simulate resuming with a few more values.
+
+      for (int i = 1; i < 5; i++) {
+        index.index = i;
+        writer.startRow();
+        writer.setNextOffset((i + 1) * 10);
+        writer.saveRow();
+      }
+      writer.endWrite();
+
+      // Verify the results
+
+      for (int i = 0; i < 6; i++) {
+        assertEquals(i * 10, vector.getAccessor().get(i));
+      }
+    }
+  }
+
+  /**
+   * Simulate the case in which the tail end of an overflow
+   * batch has empties. <tt>preRollover()</tt> should back-fill
+   * them with the next offset prior to rollover.
+   */
+
+  @Test
+  public void testRolloverWithEmpties() {
+    try (UInt4Vector vector = allocVector(1000)) {
+      TestIndex index = new TestIndex();
+      OffsetVectorWriter writer = makeWriter(vector, index);
+      writer.startWrite();
+
+      // Simulate doing an overflow of 15 values,
+      // of which 5 are empty.
+
+      for (int i = 0; i < 10; i++) {
+        index.index = i;
+        writer.startRow();
+        writer.setNextOffset((i+1) * 10);
+        writer.saveRow();
+      }
+
+      for (int i = 10; i < 15; i++) {
+        index.index = i;
+        writer.startRow();
+        writer.saveRow();
+      }
+
+      // Overflow occurs before writing the 16th row
+
+      index.index = 15;
+      writer.startRow();
+
+      // Overflow occurs. This should fill empty offsets.
+
+      writer.preRollover();
+
+      // Verify the first "batch" results
+
+      for (int i = 0; i < 11; i++) {
+        assertEquals(i * 10, vector.getAccessor().get(i));
+      }
+      for (int i = 11; i < 16; i++) {
+        assertEquals(100, vector.getAccessor().get(i));
+      }
+
+      // Simulate rollover
+
+      for (int i = 0; i < 20; i++) {
+        vector.getMutator().set(i, 0xdeadbeef);
+      }
+
+      // Post rollover, slot 0 should be initialized.
+
+      writer.postRollover();
+      index.index = 0;
+      writer.saveRow();
+
+      // Skip more values.
+
+      for (int i = 1; i < 5; i++) {
+        index.index = i;
+        writer.startRow();
+        writer.saveRow();
+      }
+
+      // Simulate resuming with a few more values.
+
+      for (int i = 5; i < 10; i++) {
+        index.index = i;
+        writer.startRow();
+        writer.setNextOffset((i + 1) * 10);
+        writer.saveRow();
+      }
+      writer.endWrite();
+
+      // Verify the results
+
+      for (int i = 0; i < 6; i++) {
+        assertEquals(0, vector.getAccessor().get(i));
+      }
+      for (int i = 6; i < 11; i++) {
+        assertEquals(i * 10, vector.getAccessor().get(i));
+      }
+    }
+  }
+
+  private UInt4Vector allocVector(int size) {
+    MaterializedField field = SchemaBuilder.columnSchema("x", MinorType.UINT4,
+        DataMode.REQUIRED);
+    UInt4Vector vector = new UInt4Vector(field, fixture.allocator());
+    vector.allocateNew(size);
+
+    // Party on the bytes of the vector so we start dirty
+
+    for (int i = 0; i < size; i++) {
+      vector.getMutator().set(i, 0xdeadbeef);
+    }
+    assertNotEquals(0, vector.getAccessor().get(0));
+    return vector;
+  }
+
+  private OffsetVectorWriter makeWriter(UInt4Vector vector, TestIndex index) {
+    OffsetVectorWriter writer = new OffsetVectorWriter(vector);
+    writer.bindIndex(index);
+
+    assertEquals(ValueType.INTEGER, writer.valueType());
+    return writer;
   }
 }
