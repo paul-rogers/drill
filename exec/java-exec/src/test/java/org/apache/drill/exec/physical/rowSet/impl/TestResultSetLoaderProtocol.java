@@ -31,7 +31,7 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel;
+import org.apache.drill.exec.physical.rowSet.model.single.LogicalRowSetModel;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
@@ -82,7 +82,7 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
 
     // Verify internal state
 
-    SingleRowSetModel rootModel = rsLoaderImpl.rootModel();
+    LogicalRowSetModel rootModel = rsLoaderImpl.rootModel();
     assertNotNull(rootModel);
     assertEquals(0, rootModel.size());
     assertSame(rsLoader.writer(), rootModel.writer());
@@ -462,7 +462,7 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
         .addNullable("b", MinorType.INT)
         .add("c", MinorType.VARCHAR)
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
@@ -524,7 +524,7 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();
@@ -589,7 +589,7 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();

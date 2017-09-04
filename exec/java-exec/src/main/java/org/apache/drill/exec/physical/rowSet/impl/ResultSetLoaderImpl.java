@@ -20,21 +20,21 @@ package org.apache.drill.exec.physical.rowSet.impl;
 import java.util.Collection;
 
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.BuildStateVisitor;
-import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.HarvestOverflowVisitor;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.CloseVisitor;
+import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.HarvestOverflowVisitor;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.RollOverVisitor;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.StartBatchVisitor;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.UpdateCardinalityVisitor;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel;
+import org.apache.drill.exec.physical.rowSet.model.single.LogicalRowSetModel;
 import org.apache.drill.exec.physical.rowSet.model.single.WriterBuilderVisitor;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.vector.BaseValueVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
@@ -53,7 +53,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     public final int vectorSizeLimit;
     public final int rowCountLimit;
     public final ResultVectorCache vectorCache;
-    public final Collection<String> projection;
+    public final Collection<SchemaPath> projection;
     public final TupleMetadata schema;
 
     public ResultSetOptions() {
@@ -82,110 +82,10 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     }
   }
 
-  /**
-   * Builder for the options for the row set loader. Reasonable defaults
-   * are provided for all options; use these options for test code or
-   * for clients that don't need special settings.
-   */
-
-  public static class OptionBuilder {
-    private int vectorSizeLimit;
-    private int rowCountLimit;
-    private Collection<String> projection;
-    private ResultVectorCache vectorCache;
-    private TupleMetadata schema;
-
-    public OptionBuilder() {
-      ResultSetOptions options = new ResultSetOptions();
-      vectorSizeLimit = options.vectorSizeLimit;
-      rowCountLimit = options.rowCountLimit;
-    }
-
-    /**
-     * Specify the maximum number of rows per batch. Defaults to
-     * {@link BaseValueVector#INITIAL_VALUE_ALLOCATION}. Batches end either
-     * when this limit is reached, or when a vector overflows, whichever
-     * occurs first. The limit is capped at
-     * {@link ValueVector#MAX_ROW_COUNT}.
-     *
-     * @param limit the row count limit
-     * @return this builder
-     */
-
-    public OptionBuilder setRowCountLimit(int limit) {
-      rowCountLimit = Math.max(1,
-          Math.min(limit, ValueVector.MAX_ROW_COUNT));
-      return this;
-    }
-
-    /**
-     * Record (batch) readers often read a subset of available table columns,
-     * but want to use a writer schema that includes all columns for ease of
-     * writing. (For example, a CSV reader must read all columns, even if the user
-     * wants a subset. The unwanted columns are simply discarded.)
-     * <p>
-     * This option provides a projection list, in the form of column names, for
-     * those columns which are to be projected. Only those columns will be
-     * backed by value vectors; non-projected columns will be backed by "null"
-     * writers that discard all values.
-     *
-     * @param projection the list of projected columns
-     * @return this builder
-     */
-
-    // TODO: Use SchemaPath in place of strings.
-
-    public OptionBuilder setProjection(Collection<String> projection) {
-      this.projection = projection;
-      return this;
-    }
-
-    /**
-     * Downstream operators require "vector persistence": the same vector
-     * must represent the same column in every batch. For the scan operator,
-     * which creates multiple readers, this can be a challenge. The vector
-     * cache provides a transparent mechanism to enable vector persistence
-     * by returning the same vector for a set of independent readers. By
-     * default, the code uses a "null" cache which creates a new vector on
-     * each request. If a true cache is needed, the caller must provide one
-     * here.
-     */
-
-    public OptionBuilder setVectorCache(ResultVectorCache vectorCache) {
-      this.vectorCache = vectorCache;
-      return this;
-    }
-
-    /**
-     * Clients can use the row set builder in several ways:
-     * <ul>
-     * <li>Provide the schema up front, when known, by using this method to
-     * provide the schema.</li>
-     * <li>Discover the schema on the fly, adding columns during the write
-     * operation. Leave this method unset to start with an empty schema.</li>
-     * <li>A combination of the above.</li>
-     * </ul>
-     * @param schema the initial schema for the loader
-     * @return this builder
-     */
-
-    public OptionBuilder setSchema(TupleMetadata schema) {
-      this.schema = schema;
-      return this;
-    }
-
-    // TODO: No setter for vector length yet: is hard-coded
-    // at present in the value vector.
-
-    public ResultSetOptions build() {
-      return new ResultSetOptions(this);
-    }
-  }
-
   public static class RowSetWriterBuilder extends WriterBuilderVisitor {
 
     public RowSetLoaderImpl buildWriter(ResultSetLoaderImpl rsLoader) {
-      SingleRowSetModel rootModel = rsLoader.rootModel();
+      LogicalRowSetModel rootModel = rsLoader.rootModel();
       RowSetLoaderImpl writer = new RowSetLoaderImpl(rsLoader, buildTuple(rootModel));
       rootModel.bindWriter(writer);
       return writer;
@@ -262,7 +162,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
    * by this loader.
    */
 
-  final SingleRowSetModel rootModel;
+  final LogicalRowSetModel rootModel;
 
   /**
    * Top-level writer index that steps through the rows as they are written.
@@ -375,14 +275,14 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       // No schema. Columns will be added incrementally as they
       // are discovered. Start with an empty model.
 
-      rootModel = new SingleRowSetModel(allocator);
+      rootModel = new LogicalRowSetModel(allocator);
     } else {
 
       // Schema provided. Populate a model (and create vectors) for the
       // provided schema. The schema can be extended later, but normally
       // won't be if known up front.
 
-      rootModel = SingleRowSetModel.fromSchema(allocator, options.schema);
+      rootModel = LogicalRowSetModel.fromSchema(allocator, options.schema);
     }
 
     // Define the writers. (May be only a root writer if no schema yet.)
@@ -761,7 +661,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
   public ResultVectorCache vectorCache() { return vectorCache; }
 
-  protected SingleRowSetModel rootModel() { return rootModel; }
+  protected LogicalRowSetModel rootModel() { return rootModel; }
 
   public void dump(HierarchicalFormatter format) {
     format

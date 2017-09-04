@@ -53,7 +53,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
   @Test
   public void testSizeLimit() {
-    ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
@@ -111,7 +111,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
   @Test
   public void testCloseWithOverflow() {
-    ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
@@ -150,7 +150,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
   @Test
   public void testOversizeArray() {
-    ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
@@ -186,7 +186,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
   @Test
   public void testSizeLimitOnArray() {
-    ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
@@ -288,7 +288,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
         .addArray("c", MinorType.INT)
         .addArray("d", MinorType.INT)
         .buildSchema();
-    ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();
@@ -493,7 +493,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .addArray("c", MinorType.INT)
         .buildSchema();
-    ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();

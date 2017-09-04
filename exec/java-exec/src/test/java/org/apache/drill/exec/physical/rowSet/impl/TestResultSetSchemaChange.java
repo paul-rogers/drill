@@ -164,7 +164,7 @@ public class TestResultSetSchemaChange extends SubOperatorTest {
 
   @Test
   public void testSchemaChangeWithOverflow() {
-    ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);

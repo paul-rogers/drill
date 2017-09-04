@@ -61,7 +61,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
           .add("d", MinorType.VARCHAR)
           .buildMap()
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
@@ -163,7 +163,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
           .add("c", MinorType.VARCHAR)
         .buildMap()
       .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();
@@ -236,7 +236,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
           .add("b", MinorType.VARCHAR)
           .buildMap()
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .build();

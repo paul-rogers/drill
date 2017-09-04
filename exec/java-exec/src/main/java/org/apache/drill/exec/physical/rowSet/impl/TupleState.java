@@ -20,14 +20,15 @@ package org.apache.drill.exec.physical.rowSet.impl;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.BuildStateVisitor;
 import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.UpdateCardinalityVisitor;
+import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleColumnModel;
 import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel;
-import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
 import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.TupleCoordinator;
 import org.apache.drill.exec.physical.rowSet.model.single.AllocationVisitor;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.PrimitiveColumnModel;
+import org.apache.drill.exec.physical.rowSet.model.single.LogicalRowSetModel;
+import org.apache.drill.exec.physical.rowSet.model.single.MapColumnModel;
+import org.apache.drill.exec.physical.rowSet.model.single.MapModel;
+import org.apache.drill.exec.physical.rowSet.model.single.PrimitiveColumnModel;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema;
@@ -36,6 +37,7 @@ import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
 import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
@@ -44,16 +46,16 @@ import org.apache.drill.exec.vector.accessor.writer.ObjectArrayWriter;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 
-public abstract class TupleState implements TupleCoordinator {
+public abstract class TupleState implements TupleCoordinator, TupleWriterListener {
 
   public static class RowState extends TupleState {
 
-    @SuppressWarnings("unused")
-    private final SingleRowSetModel row;
+    private final LogicalRowSetModel row;
 
-    public RowState(ResultSetLoaderImpl rsLoader, SingleRowSetModel row) {
+    public RowState(ResultSetLoaderImpl rsLoader, LogicalRowSetModel row) {
       super(rsLoader);
       this.row = row;
+      row.writer().bindListener(this);
     }
 
     @Override
@@ -62,6 +64,11 @@ public abstract class TupleState implements TupleCoordinator {
     @Override
     public void dump(HierarchicalFormatter format) {
       format.startObject(this).endObject();
+    }
+
+    @Override
+    protected AbstractSingleTupleModel tupleModel() {
+      return row;
     }
   }
 
@@ -73,6 +80,7 @@ public abstract class TupleState implements TupleCoordinator {
     public MapState(ResultSetLoaderImpl rsLoader, MapColumnModel mapColumn) {
       super(rsLoader);
       this.mapColumn = mapColumn;
+      mapColumn.mapModelImpl().writer().bindListener(this);
     }
 
     public void setCardinality(int outerCardinality) {
@@ -92,6 +100,11 @@ public abstract class TupleState implements TupleCoordinator {
         .attribute("cardinality", outerCardinality)
         .endObject();
     }
+
+    @Override
+    protected AbstractSingleTupleModel tupleModel() {
+      return mapColumn.mapModelImpl();
+    }
   }
 
   protected final ResultSetLoaderImpl resultSetLoader;
@@ -101,23 +114,18 @@ public abstract class TupleState implements TupleCoordinator {
   }
 
   @Override
-  public void columnAdded(AbstractSingleTupleModel tuple,
-      AbstractSingleColumnModel column) {
-
-    // Columns must be added via the writer.
-
-    assert false;
+  public ObjectWriter addColumn(TupleWriter tupleWriter, MaterializedField column) {
+    return addColumn(tupleWriter, TupleSchema.fromField(column));
   }
 
   public abstract int innerCardinality();
 
   @Override
-  public ObjectWriter columnAdded(
-      AbstractSingleTupleModel tupleModel,
-      TupleWriter tupleWriter, ColumnMetadata columnSchema) {
+  public ObjectWriter addColumn(TupleWriter tupleWriter, ColumnMetadata columnSchema) {
 
     // Verify name is not a (possibly case insensitive) duplicate.
 
+    AbstractSingleTupleModel tupleModel = tupleModel();
     TupleMetadata tupleSchema = tupleModel.schema();
     String colName = columnSchema.name();
     if (tupleSchema.column(colName) != null) {
@@ -130,6 +138,8 @@ public abstract class TupleState implements TupleCoordinator {
       return buildPrimitive(tupleModel, columnSchema);
     }
   }
+
+  protected abstract AbstractSingleTupleModel tupleModel();
 
   @SuppressWarnings("resource")
   private AbstractObjectWriter buildPrimitive(AbstractSingleTupleModel tupleModel,

@@ -322,7 +322,7 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
             .buildMap()
           .buildMap()
         .buildSchema();
-    ResultSetLoaderImpl.ResultSetOptions options = new ResultSetLoaderImpl.OptionBuilder()
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
         .setSchema(schema)
         .build();

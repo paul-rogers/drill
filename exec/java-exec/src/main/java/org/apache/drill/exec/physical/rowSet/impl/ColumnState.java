@@ -19,9 +19,9 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
-import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.ColumnCoordinator;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapColumnModel;
+import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleColumnModel.ColumnCoordinator;
+import org.apache.drill.exec.physical.rowSet.model.single.MapColumnModel;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 
@@ -40,18 +40,16 @@ public abstract class ColumnState implements ColumnCoordinator {
     }
 
     @Override
-    public void overflowed(AbstractSingleColumnModel model) {
-      // Should never occur: map columns can't overflow
-      // (only the content columns are subject to overflow.)
-
-      throw new IllegalStateException();
-    }
-
-    @Override
     public void startBatch() { }
 
     @Override
     public void rollOver(int sourceStartIndex) { }
+
+    @Override
+    public void dump(HierarchicalFormatter format) {
+      // TODO Auto-generated method stub
+
+    }
   }
 
   public static class MapArrayColumnState extends ColumnState {
@@ -67,15 +65,6 @@ public abstract class ColumnState implements ColumnCoordinator {
       this.columnModel = columnModel;
     }
 
-    @Override
-    public void overflowed(AbstractSingleColumnModel model) {
-
-      // Should never occur: map columns can't overflow
-      // (only the content columns are subject to overflow.)
-
-      throw new IllegalStateException();
-    }
-
     /**
      * Returns the element index for the first element for the
      * current row.
@@ -86,6 +75,12 @@ public abstract class ColumnState implements ColumnCoordinator {
 
     public int firstElementIndex() {
       return ((AbstractArrayWriter) columnModel.writer().array()).firstElementForRow();
+    }
+
+    @Override
+    public void dump(HierarchicalFormatter format) {
+      // TODO Auto-generated method stub
+
     }
   }
 
@@ -251,10 +246,6 @@ public abstract class ColumnState implements ColumnCoordinator {
       throw new IllegalStateException("Unexpected state: " + state);
     }
   }
-
-//  public void allocateOffsetVector(ValueVector toAlloc, int newLength) {
-//    AllocationHelper.allocate(toAlloc, newLength, 0, 1);
-//  }
 
   public void close() {
     vectorState.reset();

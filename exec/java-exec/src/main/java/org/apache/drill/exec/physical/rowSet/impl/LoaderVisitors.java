@@ -21,11 +21,11 @@ import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapArrayColumnStat
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.RowState;
-import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
+import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleColumnModel;
+import org.apache.drill.exec.physical.rowSet.model.single.LogicalRowSetModel;
+import org.apache.drill.exec.physical.rowSet.model.single.MapColumnModel;
 import org.apache.drill.exec.physical.rowSet.model.single.ModelVisitor;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.PrimitiveColumnModel;
+import org.apache.drill.exec.physical.rowSet.model.single.PrimitiveColumnModel;
 
 /**
  * Visitors used to touch each column in the vector hierarchy. For simplicity,
@@ -42,8 +42,7 @@ public class LoaderVisitors {
    * to each node in the vector model tree.
    */
 
-  public static class BuildStateVisitor
-      extends ModelVisitor<Void, Void> {
+  public static class BuildStateVisitor extends ModelVisitor<Void, Void> {
 
     private final ResultSetLoaderImpl rsLoader;
 
@@ -51,12 +50,12 @@ public class LoaderVisitors {
       this.rsLoader = rsLoader;
     }
 
-    public void apply(SingleRowSetModel rowModel) {
+    public void apply(LogicalRowSetModel rowModel) {
       rowModel.visit(this, null);
     }
 
     @Override
-    protected Void visitRow(SingleRowSetModel row, Void arg) {
+    protected Void visitLogicalRow(LogicalRowSetModel row, Void arg) {
       row.bindCoordinator(new RowState(rsLoader, row));
       row.visitChildren(this,  arg);
       return null;
@@ -98,7 +97,7 @@ public class LoaderVisitors {
 
   public static class UpdateCardinalityVisitor extends ModelVisitor<Void, Integer> {
 
-    public void apply(SingleRowSetModel rowModel, int rowCount) {
+    public void apply(LogicalRowSetModel rowModel, int rowCount) {
       rowModel.visit(this, rowCount);
     }
 
@@ -144,7 +143,7 @@ public class LoaderVisitors {
 
   public static class RollOverVisitor extends ModelVisitor<Void, Integer> {
 
-    public void apply(SingleRowSetModel rowModel, int overflowIndex) {
+    public void apply(LogicalRowSetModel rowModel, int overflowIndex) {
       rowModel.visit(this, overflowIndex);
     }
 
@@ -163,7 +162,8 @@ public class LoaderVisitors {
       return column.mapModelImpl().visitChildren(this, arrayStartOffset);
     }
 
-    protected R visitPrimitiveArrayColumn(PrimitiveColumnModel column, A arg) {
+    @Override
+    protected Void visitPrimitiveArrayColumn(PrimitiveColumnModel column, Integer arg) {
       return visitColumn(column, arg);
     }
 
@@ -191,7 +191,7 @@ public class LoaderVisitors {
 
   public static class HarvestOverflowVisitor extends ModelVisitor<Void, Void> {
 
-    public void apply(SingleRowSetModel rowModel) {
+    public void apply(LogicalRowSetModel rowModel) {
       rowModel.visit(this, null);
     }
 
@@ -226,7 +226,7 @@ public class LoaderVisitors {
 
   public static class StartBatchVisitor extends ModelVisitor<Void, Void> {
 
-    public void apply(SingleRowSetModel rowModel) {
+    public void apply(LogicalRowSetModel rowModel) {
       rowModel.visit(this, null);
     }
 
@@ -263,7 +263,7 @@ public class LoaderVisitors {
 
   public static class CloseVisitor extends ModelVisitor<Void, Void> {
 
-    public void apply(SingleRowSetModel rowModel) {
+    public void apply(LogicalRowSetModel rowModel) {
       rowModel.visit(this, null);
     }
 

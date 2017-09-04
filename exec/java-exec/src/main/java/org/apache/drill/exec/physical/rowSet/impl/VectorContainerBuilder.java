@@ -19,9 +19,9 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.model.TupleModel.ColumnModel;
+import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleColumnModel;
 import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel;
-import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleTupleModel.AbstractSingleColumnModel;
-import org.apache.drill.exec.physical.rowSet.model.single.SingleRowSetModel.MapColumnModel;
+import org.apache.drill.exec.physical.rowSet.model.single.MapColumnModel;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
