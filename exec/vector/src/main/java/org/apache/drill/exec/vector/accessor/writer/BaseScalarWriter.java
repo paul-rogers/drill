@@ -236,7 +236,7 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
 
   protected void overflowed() {
     if (listener == null) {
-      throw new UnsupportedOperationException("Overflow");
+      throw new IndexOutOfBoundsException("Overflow not supported");
     } else {
       listener.overflowed(this);
     }

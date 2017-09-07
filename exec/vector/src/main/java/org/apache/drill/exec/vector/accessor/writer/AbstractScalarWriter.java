@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
@@ -39,7 +40,8 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
 
     private AbstractScalarWriter scalarWriter;
 
-    public ScalarObjectWriter(AbstractScalarWriter scalarWriter) {
+    public ScalarObjectWriter(ColumnMetadata schema, AbstractScalarWriter scalarWriter) {
+      super(schema);
       this.scalarWriter = scalarWriter;
     }
 

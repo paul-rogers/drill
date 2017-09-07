@@ -20,7 +20,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayElementWriterIndex;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
@@ -84,7 +84,16 @@ public abstract class MapWriter extends AbstractTupleWriter {
     @Override
     public void endWrite() {
       super.endWrite();
-      mapVector.getMutator().setValueCount(vectorIndex.vectorIndex());
+
+      // Special form of set value count: used only for
+      // this class to avoid setting the value count of children.
+      // Setting these counts was already done. Doing it again
+      // will corrupt nullable vectors because the writers don't
+      // set the "lastSet" field of nullable vector accessors,
+      // and the initial value of -1 will cause all values to
+      // be overwritten.
+
+      mapVector.setMapValueCount(vectorIndex.vectorIndex());
     }
 
     @Override
@@ -145,12 +154,12 @@ public abstract class MapWriter extends AbstractTupleWriter {
 
   public static TupleObjectWriter buildMap(ColumnMetadata schema, MapVector vector,
                                         List<AbstractObjectWriter> writers) {
-    return new TupleObjectWriter(new SingleMapWriter(schema, vector, writers));
+    return new TupleObjectWriter(schema, new SingleMapWriter(schema, vector, writers));
   }
 
   public static TupleObjectWriter buildMapArray(ColumnMetadata schema, RepeatedMapVector vector,
                                         List<AbstractObjectWriter> writers) {
-    return new TupleObjectWriter(new ArrayMapWriter(schema, vector, writers));
+    return new TupleObjectWriter(schema, new ArrayMapWriter(schema, vector, writers));
   }
 
   public static TupleObjectWriter buildMapArray(ColumnMetadata schema, RepeatedMapVector vector) {

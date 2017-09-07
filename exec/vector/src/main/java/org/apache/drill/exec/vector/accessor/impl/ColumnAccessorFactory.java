@@ -23,6 +23,7 @@ import java.lang.reflect.InvocationTargetException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.NullableVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors;
@@ -60,7 +61,7 @@ public class ColumnAccessorFactory {
     ColumnAccessors.defineRequiredWriters(requiredWriters);
   }
 
-  public static AbstractObjectWriter buildColumnWriter(ValueVector vector) {
+  public static AbstractObjectWriter buildColumnWriter(ColumnMetadata schema, ValueVector vector) {
     MajorType major = vector.getField().getType();
     MinorType type = major.getMinorType();
     DataMode mode = major.getMode();
@@ -76,13 +77,13 @@ public class ColumnAccessorFactory {
       switch (mode) {
       case OPTIONAL:
         NullableVector nullableVector = (NullableVector) vector;
-        return NullableScalarWriter.build(nullableVector,
+        return NullableScalarWriter.build(schema, nullableVector,
                 newWriter(nullableVector.getValuesVector()));
       case REQUIRED:
-        return new ScalarObjectWriter(newWriter(vector));
+        return new ScalarObjectWriter(schema, newWriter(vector));
       case REPEATED:
         RepeatedValueVector repeatedVector = (RepeatedValueVector) vector;
-        return ScalarArrayWriter.build(repeatedVector,
+        return ScalarArrayWriter.build(schema, repeatedVector,
                 newWriter(repeatedVector.getDataVector()));
       default:
         throw new UnsupportedOperationException(mode.toString());

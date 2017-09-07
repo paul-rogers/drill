@@ -20,9 +20,9 @@ package org.apache.drill.exec.vector.accessor.writer;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
@@ -104,7 +104,8 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
     private AbstractTupleWriter tupleWriter;
 
-    public TupleObjectWriter(AbstractTupleWriter tupleWriter) {
+    public TupleObjectWriter(ColumnMetadata schema, AbstractTupleWriter tupleWriter) {
+      super(schema);
       this.tupleWriter = tupleWriter;
     }
 
@@ -205,8 +206,8 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
    */
 
   public int addColumnWriter(AbstractObjectWriter colWriter) {
-    assert writers.size() + 1 == schema.size();
-    int colIndex = writers.size();
+    assert writers.size() == schema.size();
+    int colIndex = schema.addColumn(colWriter.schema());
     writers.add(colWriter);
     colWriter.bindIndex(childIndex);
     if (state != State.IDLE) {
@@ -346,8 +347,13 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   @Override
   public void setObject(Object value) {
     Object values[] = (Object[]) value;
-    int count = Math.min(values.length, schema().size());
-    for (int i = 0; i < count; i++) {
+    if (values.length != schema.size()) {
+      throw new IllegalArgumentException(
+          "Map has " + schema.size() +
+          " columns, but value array has " +
+          values.length + " values.");
+    }
+    for (int i = 0; i < values.length; i++) {
       set(i, values[i]);
     }
   }

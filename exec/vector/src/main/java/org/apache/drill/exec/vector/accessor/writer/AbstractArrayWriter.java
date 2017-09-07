@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
@@ -97,7 +98,8 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
     private AbstractArrayWriter arrayWriter;
 
-    public ArrayObjectWriter(AbstractArrayWriter arrayWriter) {
+    public ArrayObjectWriter(ColumnMetadata schema, AbstractArrayWriter arrayWriter) {
+      super(schema);
       this.arrayWriter = arrayWriter;
     }
 

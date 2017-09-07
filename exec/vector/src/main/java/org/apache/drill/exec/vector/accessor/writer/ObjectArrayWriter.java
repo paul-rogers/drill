@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
@@ -108,8 +109,9 @@ public class ObjectArrayWriter extends AbstractArrayWriter {
     super(vector, elementWriter);
   }
 
-  public static ArrayObjectWriter build(RepeatedValueVector vector, AbstractObjectWriter elementWriter) {
-    return new ArrayObjectWriter(
+  public static ArrayObjectWriter build(ColumnMetadata schema,
+      RepeatedValueVector vector, AbstractObjectWriter elementWriter) {
+    return new ArrayObjectWriter(schema,
         new ObjectArrayWriter(vector, elementWriter));
   }
 

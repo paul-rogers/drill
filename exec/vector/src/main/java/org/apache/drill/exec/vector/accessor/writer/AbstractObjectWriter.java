@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
@@ -35,6 +36,15 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
  */
 
 public abstract class AbstractObjectWriter implements ObjectWriter, WriterEvents {
+
+  private ColumnMetadata schema;
+
+  public AbstractObjectWriter(ColumnMetadata schema) {
+    this.schema = schema;
+  }
+
+  @Override
+  public ColumnMetadata schema() { return schema; }
 
   @Override
   public ScalarWriter scalar() {

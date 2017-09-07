@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.NullableVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnWriter;
@@ -39,8 +40,9 @@ public class NullableScalarWriter extends AbstractScalarWriter {
     this.baseWriter = baseWriter;
   }
 
-  public static ScalarObjectWriter build(NullableVector nullableVector, BaseScalarWriter baseWriter) {
-    return new ScalarObjectWriter(
+  public static ScalarObjectWriter build(ColumnMetadata schema,
+      NullableVector nullableVector, BaseScalarWriter baseWriter) {
+    return new ScalarObjectWriter(schema,
         new NullableScalarWriter(nullableVector, baseWriter));
   }
 
