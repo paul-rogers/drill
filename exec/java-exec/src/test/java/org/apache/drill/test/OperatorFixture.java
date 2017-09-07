@@ -356,11 +356,11 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
   public RowSet wrap(VectorContainer container) {
     switch (container.getSchema().getSelectionVectorMode()) {
     case FOUR_BYTE:
-      return new HyperRowSetImpl(allocator(), container, container.getSelectionVector4());
+      return new HyperRowSetImpl(container, container.getSelectionVector4());
     case NONE:
-      return DirectRowSet.fromContainer(allocator(), container);
+      return DirectRowSet.fromContainer(container);
     case TWO_BYTE:
-      return IndirectRowSet.fromContainer(allocator(), container);
+      return IndirectRowSet.fromContainer(container);
     default:
       throw new IllegalStateException( "Unexpected selection mode" );
     }
