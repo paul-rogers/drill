@@ -19,9 +19,10 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.ValuesVectorState;
-import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleColumnModel;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
@@ -33,21 +34,21 @@ import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 public class RepeatedVectorState implements VectorState {
   private final ColumnMetadata schema;
   private final AbstractArrayWriter arrayWriter;
+  private final RepeatedValueVector vector;
   private final OffsetVectorState offsetsState;
   private final ValuesVectorState valuesState;
 
-  public RepeatedVectorState(AbstractSingleColumnModel columnModel) {
-    this.schema = columnModel.schema();
+  public RepeatedVectorState(AbstractObjectWriter writer, RepeatedValueVector vector) {
+    this.schema = writer.schema();
 
     // Get the repeated vector
 
-    @SuppressWarnings("resource")
-    RepeatedValueVector vector = (RepeatedValueVector) columnModel.vector();
+    this.vector = (RepeatedValueVector) vector;
 
     // Create the offsets state with the offset vector portion of the repeated
     // vector, and the offset writer portion of the array writer.
 
-    arrayWriter = (AbstractArrayWriter) columnModel.writer().array();
+    arrayWriter = (AbstractArrayWriter) writer.array();
     offsetsState = new OffsetVectorState(arrayWriter.offsetWriter(), vector.getOffsetVector());
 
     // Then, create the values state using the value (data) portion of the repeated
@@ -56,6 +57,9 @@ public class RepeatedVectorState implements VectorState {
     AbstractScalarWriter colWriter = (AbstractScalarWriter) arrayWriter.scalar();
     valuesState = new ValuesVectorState(schema, colWriter, vector.getDataVector());
   }
+
+  @Override
+  public ValueVector vector() { return vector; }
 
   @Override
   public void allocate(int cardinality) {

@@ -17,10 +17,10 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
-import java.util.List;
+import java.util.ArrayList;
 
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
-import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
+import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
 
 /**
@@ -34,8 +34,8 @@ public class RowSetLoaderImpl extends AbstractTupleWriter implements RowSetLoade
 
   private final ResultSetLoaderImpl rsLoader;
 
-  protected RowSetLoaderImpl(ResultSetLoaderImpl rsLoader, List<AbstractObjectWriter> writers) {
-    super(rsLoader.rootModel().schema(), writers);
+  protected RowSetLoaderImpl(ResultSetLoaderImpl rsLoader, TupleMetadata schema) {
+    super(schema, new ArrayList<>());
     this.rsLoader = rsLoader;
     bindIndex(rsLoader.writerIndex());
   }

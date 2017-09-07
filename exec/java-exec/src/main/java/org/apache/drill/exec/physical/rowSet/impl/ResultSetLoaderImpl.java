@@ -25,14 +25,7 @@ import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
-import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.BuildStateVisitor;
-import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.CloseVisitor;
-import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.HarvestOverflowVisitor;
-import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.RollOverVisitor;
-import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.StartBatchVisitor;
-import org.apache.drill.exec.physical.rowSet.impl.LoaderVisitors.UpdateCardinalityVisitor;
-import org.apache.drill.exec.physical.rowSet.model.single.LogicalRowSetModel;
-import org.apache.drill.exec.physical.rowSet.model.single.WriterBuilderVisitor;
+import org.apache.drill.exec.physical.rowSet.impl.TupleState.RowState;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
@@ -79,16 +72,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
         .attribute("rowCountLimit", rowCountLimit)
         .attribute("projection", projection)
         .endObject();
-    }
-  }
-
-  public static class RowSetWriterBuilder extends WriterBuilderVisitor {
-
-    public RowSetLoaderImpl buildWriter(ResultSetLoaderImpl rsLoader) {
-      LogicalRowSetModel rootModel = rsLoader.rootModel();
-      RowSetLoaderImpl writer = new RowSetLoaderImpl(rsLoader, buildTuple(rootModel));
-      rootModel.bindWriter(writer);
-      return writer;
     }
   }
 
@@ -162,7 +145,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
    * by this loader.
    */
 
-  final LogicalRowSetModel rootModel;
+  final RowState rootState;
 
   /**
    * Top-level writer index that steps through the rows as they are written.
@@ -270,37 +253,29 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
     // Build the row set model depending on whether a schema is provided.
 
-    if (options.schema == null) {
+    rootState = new RowState(this);
+    rootWriter = rootState.rootWriter();
 
-      // No schema. Columns will be added incrementally as they
-      // are discovered. Start with an empty model.
+    // If no schema, columns will be added incrementally as they
+    // are discovered. Start with an empty model.
 
-      rootModel = new LogicalRowSetModel(allocator);
-    } else {
+    if (options.schema != null) {
 
       // Schema provided. Populate a model (and create vectors) for the
       // provided schema. The schema can be extended later, but normally
       // won't be if known up front.
 
-      rootModel = LogicalRowSetModel.fromSchema(allocator, options.schema);
+      rootState.buildSchema(options.schema);
     }
-
-    // Define the writers. (May be only a root writer if no schema yet.)
-
-    rootWriter = new RowSetWriterBuilder().buildWriter(this);
-
-    // Create the loader state objects for each vector
-
-    new BuildStateVisitor(this).apply(rootModel);
 
     // Provide the expected cardinality for the structure created
     // thus far.
 
-    updateCardinality();
+//    updateCardinality();
   }
 
   private void updateCardinality() {
-    new UpdateCardinalityVisitor().apply(rootModel, targetRowCount());
+    rootState.updateCardinality(targetRowCount());
   }
 
   public ResultSetLoaderImpl(BufferAllocator allocator) {
@@ -340,7 +315,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     case HARVESTED:
     case START:
       updateCardinality();
-      new StartBatchVisitor().apply(rootModel);
+      rootState.startBatch();
 
       // The previous batch ended without overflow, so start
       // a new batch, and reset the write index to 0.
@@ -356,7 +331,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       // the last write position of each writer must be restored on
       // a column-by-column basis, which is done by the visitor.
 
-      new StartBatchVisitor().apply(rootModel);
+      rootState.startBatch();
 
       // Reset the writers to a new vector, but at a given position.
 
@@ -544,7 +519,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     }
     pendingRowCount = writerIndex.vectorIndex();
     updateCardinality();
-    new RollOverVisitor().apply(rootModel, pendingRowCount);
+    rootState.rollOver(pendingRowCount);
 
     // The writer index is reset back to 0. Because of the above roll-over
     // processing, some vectors may now already have values in the 0 slot.
@@ -610,7 +585,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   }
 
   private int harvestOverflowBatch() {
-    new HarvestOverflowVisitor().apply(rootModel);
+    rootState.harvestWithLookAhead();
     state = State.LOOK_AHEAD;
     return pendingRowCount;
   }
@@ -636,8 +611,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     if (state == State.CLOSED) {
       return;
     }
-    new CloseVisitor().apply(rootModel);
-    rootModel.close();
+    rootState.close();
+//    rootModel.close();
 
     // Do not close the vector cache; the caller owns that and
     // will, presumably, reuse those vectors for another writer.
@@ -660,8 +635,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   }
 
   public ResultVectorCache vectorCache() { return vectorCache; }
-
-  protected LogicalRowSetModel rootModel() { return rootModel; }
+  public RowState rootState() { return rootState; }
 
   public void dump(HierarchicalFormatter format) {
     format
@@ -677,6 +651,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       .attribute("targetRowCount", targetRowCount)
       ;
     format.attribute("root");
-    rootModel.dump(format);
+    rootState.dump(format);
   }
 }

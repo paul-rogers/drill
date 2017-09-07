@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
+import org.apache.drill.exec.vector.ValueVector;
+
 /**
  * Do-nothing vector state for a map column which has no actual vector
  * associated with it.
@@ -29,4 +31,16 @@ public class NullVectorState implements VectorState {
   @Override public void harvestWithLookAhead() { }
   @Override public void startBatchWithLookAhead() { }
   @Override public void reset() { }
+  @Override public ValueVector vector() { return null; }
+
+  public static class UnmanagedVectorState extends NullVectorState {
+    ValueVector vector;
+
+    public UnmanagedVectorState(ValueVector vector) {
+      this.vector = vector;
+    }
+
+    @Override
+    public ValueVector vector() { return vector; }
+  }
 }

@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
+import org.apache.drill.exec.vector.ValueVector;
+
 /**
  * Handles batch and overflow operation for a (possibly compound) vector.
  * <p>
@@ -86,4 +88,11 @@ public interface VectorState {
    */
 
   void reset();
+
+  /**
+   * Underlying vector: the one presented to the consumer of the
+   * result set loader.
+   */
+
+  ValueVector vector();
 }

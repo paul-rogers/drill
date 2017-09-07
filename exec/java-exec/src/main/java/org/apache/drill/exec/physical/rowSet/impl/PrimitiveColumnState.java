@@ -18,57 +18,51 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.ValuesVectorState;
-import org.apache.drill.exec.physical.rowSet.model.single.PrimitiveColumnModel;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
+import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
- * Represents a primitive (scalar) column: either a simple
- * scalar (optional or required), or an array of scalars
- * (repeated scalar.)
+ * Primitive (non-map) column state. Handles all three cardinalities.
+ * Column metadata is hosted on the writer.
  */
 
 public class PrimitiveColumnState extends ColumnState implements ColumnWriterListener {
 
-  protected final PrimitiveColumnModel columnModel;
-
   public PrimitiveColumnState(ResultSetLoaderImpl resultSetLoader,
-      PrimitiveColumnModel columnModel,
+      AbstractObjectWriter colWriter,
       VectorState vectorState) {
-    super(resultSetLoader, vectorState);
-    this.columnModel = columnModel;
-    columnModel.writer().bindListener(this);
+    super(resultSetLoader, colWriter, vectorState);
+    writer.bindListener(this);
   }
 
   public static PrimitiveColumnState newSimplePrimitive(
       ResultSetLoaderImpl resultSetLoader,
-      PrimitiveColumnModel columnModel) {
-    return new PrimitiveColumnState(resultSetLoader, columnModel,
+      ValueVector vector,
+      AbstractObjectWriter writer) {
+    return new PrimitiveColumnState(resultSetLoader, writer,
         new ValuesVectorState(
-            columnModel.schema(),
-            (AbstractScalarWriter) columnModel.writer().scalar(),
-            columnModel.vector()));
+            writer.schema(),
+            (AbstractScalarWriter) writer.scalar(),
+            vector));
   }
 
   public static PrimitiveColumnState newPrimitiveArray(
       ResultSetLoaderImpl resultSetLoader,
-      PrimitiveColumnModel columnModel) {
-    return new PrimitiveColumnState(resultSetLoader, columnModel,
-        new RepeatedVectorState(columnModel));
+      ValueVector vector,
+      AbstractObjectWriter writer) {
+    return new PrimitiveColumnState(resultSetLoader, writer,
+        new RepeatedVectorState(writer, (RepeatedValueVector) vector));
   }
 
   @Override
   public void overflowed(ScalarWriter writer) {
     resultSetLoader.overflowed();
   }
-
-  public ValueVector vector() { return columnModel.vector(); }
-
-  public ColumnMetadata schema() { return columnModel.schema(); }
 
   @Override
   public void dump(HierarchicalFormatter format) {

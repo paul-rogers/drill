@@ -31,7 +31,6 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
-import org.apache.drill.exec.physical.rowSet.model.single.LogicalRowSetModel;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
@@ -79,15 +78,6 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
     assertEquals(0, rsLoader.writer().rowCount());
     assertEquals(0, rsLoader.batchCount());
     assertEquals(0, rsLoader.totalRowCount());
-
-    // Verify internal state
-
-    LogicalRowSetModel rootModel = rsLoaderImpl.rootModel();
-    assertNotNull(rootModel);
-    assertEquals(0, rootModel.size());
-    assertSame(rsLoader.writer(), rootModel.writer());
-    assertNotNull(rootModel.coordinator());
-    assertSame(rootModel.schema(), rsLoader.writer().schema());
 
     // Failures due to wrong state (Start)
 
@@ -467,7 +457,6 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     RowSetLoader rootWriter = rsLoader.writer();
-    assertSame(schema, rootWriter.schema());
 
     rsLoader.startBatch();
     rootWriter

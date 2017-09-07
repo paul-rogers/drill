@@ -18,7 +18,7 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.exec.expr.TypeHelper;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.FixedWidthVector;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
@@ -54,7 +54,7 @@ public abstract class SingleVectorState implements VectorState {
 
         // Cap the allocated size to the maximum.
 
-        int size = Math.min(ValueVector.MAX_BUFFER_SIZE, cardinality * schema.expectedWidth());
+        int size = (int) Math.min(ValueVector.MAX_BUFFER_SIZE, (long) cardinality * schema.expectedWidth());
         ((VariableWidthVector) vector).allocateNew(size, cardinality);
       } else {
         ((FixedWidthVector) vector).allocateNew(cardinality);
@@ -142,6 +142,9 @@ public abstract class SingleVectorState implements VectorState {
     this.writer = writer;
     this.mainVector = mainVector;
   }
+
+  @Override
+  public ValueVector vector() { return mainVector; }
 
   @Override
   public void allocate(int cardinality) {
