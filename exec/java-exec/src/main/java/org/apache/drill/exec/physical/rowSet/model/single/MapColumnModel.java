@@ -18,8 +18,8 @@
 package org.apache.drill.exec.physical.rowSet.model.single;
 
 import org.apache.drill.exec.physical.rowSet.model.TupleModel;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;

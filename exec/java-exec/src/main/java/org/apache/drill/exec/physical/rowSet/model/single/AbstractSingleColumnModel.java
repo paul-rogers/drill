@@ -18,7 +18,7 @@
 package org.apache.drill.exec.physical.rowSet.model.single;
 
 import org.apache.drill.exec.physical.rowSet.model.BaseTupleModel.BaseColumnModel;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;

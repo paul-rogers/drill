@@ -26,9 +26,9 @@ import org.apache.drill.exec.physical.rowSet.model.hyper.AbstractHyperTupleModel
 import org.apache.drill.exec.physical.rowSet.model.hyper.HyperRowSetModel.MapColumnModel;
 import org.apache.drill.exec.physical.rowSet.model.hyper.HyperRowSetModel.MapModel;
 import org.apache.drill.exec.physical.rowSet.model.hyper.HyperRowSetModel.PrimitiveColumnModel;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.HyperVectorWrapper;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
 import org.apache.drill.exec.record.VectorContainer;

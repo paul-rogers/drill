@@ -21,8 +21,8 @@ import java.util.List;
 
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.model.BaseTupleModel;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.HyperVectorWrapper;
 import org.apache.drill.exec.record.TupleSchema;
 

@@ -29,7 +29,7 @@ import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.TupleSchema.AbstractColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
@@ -46,13 +46,15 @@ import org.apache.drill.exec.vector.complex.AbstractMapVector;
 public class ModelBuilder {
 
   private final ResultVectorCache vectorCache;
+  private final StructureBuilder structureBuilder;
 
   public ModelBuilder(BufferAllocator allocator) {
-    this.vectorCache = new NullResultVectorCacheImpl(allocator);
+    this(new NullResultVectorCacheImpl(allocator));
   }
 
   public ModelBuilder(ResultVectorCache vectorCache) {
     this.vectorCache = vectorCache;
+    structureBuilder = new BaseStructureBuilder(vectorCache);
   }
 
   /**
