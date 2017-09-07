@@ -17,10 +17,9 @@
  */
 package org.apache.drill.test.rowSet;
 
-import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.rowSet.model.TupleModel.RowSetModel;
 import org.apache.drill.exec.physical.rowSet.model.hyper.HyperRowSetModel;
 import org.apache.drill.exec.physical.rowSet.model.hyper.ReaderBuilderVisitor;
+import org.apache.drill.exec.physical.rowSet.model.single2.SchemaInference;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector4;
@@ -54,8 +53,8 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
   private HyperRowSetModel rowSetModel;
   private final SelectionVector4 sv4;
 
-  public HyperRowSetImpl(BufferAllocator allocator, VectorContainer container, SelectionVector4 sv4) {
-    super(allocator);
+  public HyperRowSetImpl(VectorContainer container, SelectionVector4 sv4) {
+    super(container, new SchemaInference().infer(container));
     rowSetModel = HyperRowSetModel.fromContainer(container);
     this.sv4 = sv4;
   }
@@ -79,12 +78,4 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
 
   @Override
   public int rowCount() { return sv4.getCount(); }
-
-  @Override
-  public RowSet merge(RowSet other) {
-    return new HyperRowSetImpl(allocator, container().merge(other.container()), sv4);
-  }
-
-  @Override
-  public RowSetModel rowSetModel() { return rowSetModel; }
 }

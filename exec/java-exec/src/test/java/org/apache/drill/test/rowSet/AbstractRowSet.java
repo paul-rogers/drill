@@ -17,18 +17,12 @@
  */
 package org.apache.drill.test.rowSet;
 
-import java.util.List;
-
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.rowSet.model.TupleModel.RowSetModel;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.record.TupleMetadata.ColumnMetadata;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.SchemaChangeCallBack;
-import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
-import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 
 /**
  * Basic implementation of a row set for both the single and multiple
@@ -37,114 +31,20 @@ import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 
 public abstract class AbstractRowSet implements RowSet {
 
-  /**
-   * Common interface to access a tuple backed by a vector container or a
-   * map vector.
-   */
-
-  public interface TupleStorage {
-    TupleMetadata tupleSchema();
-    int size();
-    AbstractRowSet.ColumnStorage storage(int index);
-    AbstractObjectReader[] readers();
-    List<AbstractObjectWriter> writers();
-    void allocate(BufferAllocator allocator, int rowCount);
-  }
-
-  /**
-   * Represents a column within a tuple, including the tuple metadata
-   * and column storage. A wrapper around a vector to include metadata
-   * and handle nested tuples.
-   */
-
-  public static abstract class ColumnStorage {
-    protected final ColumnMetadata schema;
-
-    public ColumnStorage(ColumnMetadata schema) {
-      this.schema = schema;
-    }
-
-    public ColumnMetadata columnSchema() { return schema; }
-    public abstract AbstractObjectReader reader();
-    public abstract AbstractObjectWriter writer();
-    public abstract void allocate(BufferAllocator allocator, int rowCount);
-  }
-
-
-  /**
-   * Wrapper around a map vector to provide both a column and tuple view of
-   * a single or repeated map.
-   */
-
-  public static abstract class BaseMapColumnStorage extends ColumnStorage implements TupleStorage {
-
-    protected final ColumnStorage columns[];
-
-    public BaseMapColumnStorage(ColumnMetadata schema, ColumnStorage columns[]) {
-      super(schema);
-      this.columns = columns;
-    }
-
-    @Override
-    public int size() { return schema.mapSchema().size(); }
-
-    @Override
-    public TupleMetadata tupleSchema() { return schema.mapSchema(); }
-
-    @Override
-    public ColumnStorage storage(int index) { return columns[index]; }
-  }
-
-  /**
-   * Wrapper around a vector container to map the vector container into the common
-   * tuple format.
-   */
-
-  public static abstract class BaseRowStorage implements TupleStorage {
-    private final TupleMetadata schema;
-    private final VectorContainer container;
-    private final ColumnStorage columns[];
-
-    public BaseRowStorage(TupleMetadata schema, VectorContainer container, ColumnStorage columns[]) {
-      this.schema = schema;
-      this.container = container;
-      this.columns = columns;
-    }
-
-    @Override
-    public int size() { return schema.size(); }
-
-    @Override
-    public TupleMetadata tupleSchema() { return schema; }
-
-    public VectorContainer container() { return container; }
-
-    @Override
-    public ColumnStorage storage(int index) { return columns[index]; }
-
-    protected static AbstractObjectReader[] readers(AbstractRowSet.TupleStorage storage) {
-      AbstractObjectReader[] readers = new AbstractObjectReader[storage.tupleSchema().size()];
-      for (int i = 0; i < readers.length; i++) {
-        readers[i] = storage.storage(i).reader();
-      }
-      return readers;
-    }
-  }
-
-  protected final BufferAllocator allocator;
   protected SchemaChangeCallBack callBack = new SchemaChangeCallBack();
+  protected VectorContainer container;
+  protected TupleMetadata schema;
 
-  public AbstractRowSet(BufferAllocator allocator) {
-    this.allocator = allocator;
+  public AbstractRowSet(VectorContainer container, TupleMetadata schema) {
+    this.container = container;
+    this.schema = schema;
   }
-
-  public abstract RowSetModel rowSetModel();
 
   @Override
   public VectorAccessible vectorAccessible() { return container(); }
 
   @Override
-  public VectorContainer container() { return rowSetModel().container(); }
+  public VectorContainer container() { return container; }
 
   @Override
   public int rowCount() { return container().getRecordCount(); }
@@ -157,10 +57,10 @@ public abstract class AbstractRowSet implements RowSet {
   }
 
   @Override
-  public TupleMetadata schema() { return rowSetModel().schema(); }
+  public TupleMetadata schema() { return schema; }
 
   @Override
-  public BufferAllocator allocator() { return allocator; }
+  public BufferAllocator allocator() { return container.getAllocator(); }
 
   @Override
   public void print() {

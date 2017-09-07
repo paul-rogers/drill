@@ -528,7 +528,7 @@ public class RowSetTest extends SubOperatorTest {
    */
 
   @Test
-  public void TestTopFixedWidthArray() {
+  public void testTopFixedWidthArray() {
     BatchSchema batchSchema = new SchemaBuilder()
         .add("c", MinorType.INT)
         .addArray("a", MinorType.INT)
@@ -654,7 +654,7 @@ public class RowSetTest extends SubOperatorTest {
         count++;
       }
     } catch (IndexOutOfBoundsException e) {
-      assertTrue(e.getMessage().contains("overflow"));
+      assertTrue(e.getMessage().contains("Overflow"));
     }
     writer.done();
 
