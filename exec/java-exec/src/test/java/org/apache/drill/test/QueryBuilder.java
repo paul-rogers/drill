@@ -339,7 +339,7 @@ public class QueryBuilder {
       dataBatch.release();
       VectorContainer container = loader.getContainer();
       container.setRecordCount(loader.getRecordCount());
-      return DirectRowSet.fromContainer(client.allocator(), container);
+      return DirectRowSet.fromContainer(container);
     } catch (SchemaChangeException e) {
       throw new IllegalStateException(e);
     }

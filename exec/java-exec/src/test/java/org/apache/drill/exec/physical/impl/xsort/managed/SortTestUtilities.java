@@ -103,7 +103,6 @@ public class SortTestUtilities {
       }
       int rowCount = outputRowCount();
       VectorContainer dest = new VectorContainer();
-      @SuppressWarnings("resource")
       BatchMerger merger = copier.startMerge(new BatchSchema(SelectionVectorMode.NONE, schema.toFieldList()),
                                              batches, dest, rowCount, null);
 
@@ -122,7 +121,7 @@ public class SortTestUtilities {
     protected void verifyResults(BatchMerger merger, VectorContainer dest) {
       for (RowSet expectedSet : expected) {
         assertTrue(merger.next());
-        RowSet rowSet = DirectRowSet.fromContainer(fixture.allocator(), dest);
+        RowSet rowSet = DirectRowSet.fromContainer(dest);
         new RowSetComparison(expectedSet)
               .verifyAndClearAll(rowSet);
       }

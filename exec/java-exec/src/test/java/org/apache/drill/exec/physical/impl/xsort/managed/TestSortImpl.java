@@ -190,11 +190,11 @@ public class TestSortImpl extends DrillTest {
 
   private static RowSet toRowSet(OperatorFixture fixture, SortResults results, VectorContainer dest) {
     if (results.getSv4() != null) {
-      return new HyperRowSetImpl(fixture.allocator(), dest, results.getSv4());
+      return new HyperRowSetImpl(dest, results.getSv4());
     } else if (results.getSv2() != null) {
-      return IndirectRowSet.fromSv2(fixture.allocator(), dest, results.getSv2());
+      return IndirectRowSet.fromSv2(dest, results.getSv2());
     } else {
-      return DirectRowSet.fromContainer(fixture.allocator(), dest);
+      return DirectRowSet.fromContainer(dest);
     }
   }
 
