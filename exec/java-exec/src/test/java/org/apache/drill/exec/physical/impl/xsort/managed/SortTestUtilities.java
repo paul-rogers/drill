@@ -121,7 +121,7 @@ public class SortTestUtilities {
     protected void verifyResults(BatchMerger merger, VectorContainer dest) {
       for (RowSet expectedSet : expected) {
         assertTrue(merger.next());
-        RowSet rowSet = DirectRowSet.fromContainer(fixture.allocator(), dest);
+        RowSet rowSet = DirectRowSet.fromContainer(dest);
         new RowSetComparison(expectedSet)
               .verifyAndClearAll(rowSet);
       }
