@@ -140,6 +140,7 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
             .message("Unexpected schema change - likely code error.")
             .build(logger);
     }
+    logger.debug("Copier setup complete");
   }
 
   public BufferAllocator getAllocator() { return context.getAllocator(); }

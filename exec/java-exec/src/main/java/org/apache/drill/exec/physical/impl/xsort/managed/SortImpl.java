@@ -408,7 +408,7 @@ public class SortImpl {
    */
 
   // Disabled temporarily
-  
+
   @SuppressWarnings("unused")
   private SortResults singleBatchResult() {
     List<InputBatch> batches = bufferedBatches.removeAll();
@@ -502,9 +502,11 @@ public class SortImpl {
           spilledRuns.size());
       switch (task.action) {
       case SPILL:
+        logger.debug("Consolidate: spill");
         spillFromMemory();
         break;
       case MERGE:
+        logger.debug("Consolidate: merge {} batches", task.count);
         mergeRuns(task.count);
         break;
       case NONE:

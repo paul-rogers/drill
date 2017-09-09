@@ -115,7 +115,7 @@ public class RecordBatchSizer {
 
       if (v.getField().getDataMode() == DataMode.REPEATED) {
         elementCount = buildRepeated(v);
-        estElementCountPerArray = roundUp(elementCount, valueCount);
+        estElementCountPerArray = safeDivide(elementCount, valueCount);
       } else {
         elementCount = 1;
         estElementCountPerArray = 1;
@@ -131,9 +131,9 @@ public class RecordBatchSizer {
         break;
       default:
         dataSize = v.getPayloadByteCount(valueCount);
-        stdSize = TypeHelper.getSize(metadata.getType());
+        stdSize = TypeHelper.getSize(metadata.getType()) * elementCount;
       }
-      estSize = roundUp(dataSize, valueCount);
+      estSize = safeDivide(dataSize, valueCount);
     }
 
     @SuppressWarnings("resource")
@@ -232,6 +232,8 @@ public class RecordBatchSizer {
     }
   }
 
+  public static final int MAX_VECTOR_SIZE = ValueVector.MAX_BUFFER_SIZE; // 16 MiB
+
   private List<ColumnSize> columnSizes = new ArrayList<>();
 
   /**
@@ -268,12 +270,6 @@ public class RecordBatchSizer {
 
   private int netBatchSize;
 
-  public RecordBatchSizer(RecordBatch batch) {
-    this(batch,
-         (batch.getSchema().getSelectionVectorMode() == BatchSchema.SelectionVectorMode.TWO_BYTE) ?
-         batch.getSelectionVector2() : null);
-  }
-
   /**
    *  Maximum width of a column; used for memory estimation in case of Varchars
    */
@@ -286,6 +282,12 @@ public class RecordBatchSizer {
 
   public int nullableCount;
 
+
+  public RecordBatchSizer(RecordBatch batch) {
+    this(batch,
+         (batch.getSchema().getSelectionVectorMode() == BatchSchema.SelectionVectorMode.TWO_BYTE) ?
+         batch.getSelectionVector2() : null);
+  }
   /**
    * Create empirical metadata for a record batch given a vector accessible
    * (basically, an iterator over the vectors in the batch.)
@@ -320,7 +322,7 @@ public class RecordBatchSizer {
     }
 
     if (rowCount > 0) {
-      grossRowWidth = roundUp(accountedMemorySize, rowCount);
+      grossRowWidth = safeDivide(accountedMemorySize, rowCount);
     }
 
     if (sv2 != null) {
@@ -333,9 +335,9 @@ public class RecordBatchSizer {
   }
 
   private void computeEstimates() {
-    grossRowWidth = roundUp(accountedMemorySize, rowCount);
-    netRowWidth = roundUp(netBatchSize, rowCount);
-    avgDensity = roundUp(netBatchSize * 100, accountedMemorySize);
+    grossRowWidth = safeDivide(accountedMemorySize, rowCount);
+    netRowWidth = safeDivide(netBatchSize, rowCount);
+    avgDensity = safeDivide(netBatchSize * 100L, accountedMemorySize);
   }
 
   public void applySv2() {
@@ -415,7 +417,7 @@ public class RecordBatchSizer {
     vector.collectLedgers(ledgers);
   }
 
-  public static int roundUp(int num, int denom) {
+  public static int safeDivide(long num, int denom) {
     if (denom == 0) {
       return 0;
     }
@@ -439,8 +441,6 @@ public class RecordBatchSizer {
   public int netSize() { return netBatchSize; }
   public int maxSize() { return maxSize; }
 
-  public static final int MAX_VECTOR_SIZE = 16 * 1024 * 1024; // 16 MiB
-
   @Override
   public String toString() {
     StringBuilder buf = new StringBuilder();
@@ -462,7 +462,7 @@ public class RecordBatchSizer {
     buf.append(netRowWidth);
     buf.append(", Density: ");
     buf.append(avgDensity);
-    buf.append("}");
+    buf.append("%}");
     return buf.toString();
   }
 
