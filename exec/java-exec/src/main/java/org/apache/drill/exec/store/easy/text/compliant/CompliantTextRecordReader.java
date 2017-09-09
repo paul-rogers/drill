@@ -45,7 +45,7 @@ import io.netty.buffer.DrillBuf;
 public class CompliantTextRecordReader extends AbstractRecordReader {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CompliantTextRecordReader.class);
 
-  private static final int MAX_RECORDS_PER_BATCH = 8096;
+  private static final int MAX_RECORDS_PER_BATCH = 1023; // Debug only - do not commit
   private static final int READ_BUFFER = 1024*1024;
   private static final int WHITE_SPACE_BUFFER = 64*1024;
   // When no named column is required, ask SCAN to return a DEFAULT column.

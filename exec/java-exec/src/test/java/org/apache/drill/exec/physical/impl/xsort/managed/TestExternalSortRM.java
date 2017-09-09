@@ -1437,15 +1437,15 @@ public class TestExternalSortRM extends DrillTest {
   public void testDrill5670() throws Exception {
     LogFixtureBuilder logBuilder = LogFixture.builder()
         .toConsole()
-        .logger("org.apache.drill.exec.physical.impl.xsort.managed", Level.DEBUG)
-        .logger("org.apache.drill.exec.vector", Level.TRACE)
+        .logger("org.apache.drill.exec.physical.impl.xsort.managed", Level.TRACE)
+//        .logger("org.apache.drill.exec.vector", Level.TRACE)
         ;
     FixtureBuilder builder = ClusterFixture.builder()
         .configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true)
         .maxParallelization(1)
         .sessionOption(PlannerSettings.EXCHANGE.getOptionName(), true)
         .sessionOption(PlannerSettings.HASHJOIN.getOptionName(), false)
-        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 3L * ONE_GB)
+        .sessionOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY, 482_344_960)
         .keepLocalFiles()
         .configProperty(ExecConstants.EXTERNAL_SORT_DISABLE_MANAGED, false)
         .sessionOption(PlannerSettings.ENABLE_DECIMAL_DATA_TYPE_KEY, true)
