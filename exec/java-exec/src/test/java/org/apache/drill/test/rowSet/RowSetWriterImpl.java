@@ -80,9 +80,12 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
     public final void nextElement() { }
 
     @Override
-    public void resetTo(int newIndex) {
-      throw new UnsupportedOperationException("Reset not supported in the row set writer.");
+    public void rollover() {
+      throw new UnsupportedOperationException("Rollover not supported in the row set writer.");
     }
+
+    @Override
+    public int rowStartIndex() { return rowIndex; }
 
     @Override
     public String toString() {
@@ -140,14 +143,6 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
     endWrite();
     rowSet.container().setRecordCount(writerIndex.vectorIndex());
     return rowSet;
-  }
-
-  @Override
-  public void startWriteAt(int index) {
-
-    // Used only with overflow, which is not supported here.
-
-    throw new UnsupportedOperationException();
   }
 
   @Override

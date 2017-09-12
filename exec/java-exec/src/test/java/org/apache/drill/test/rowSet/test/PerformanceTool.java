@@ -172,7 +172,10 @@ public class PerformanceTool {
     public void nextElement() { index++; }
 
     @Override
-    public void resetTo(int newIndex) { }
+    public void rollover() { }
+
+    @Override
+    public int rowStartIndex() { return index; }
   }
 
   public static class RequiredWriterTester extends PerfTester {
