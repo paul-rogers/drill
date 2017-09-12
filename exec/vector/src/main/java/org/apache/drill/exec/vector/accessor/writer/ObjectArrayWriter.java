@@ -117,13 +117,12 @@ public class ObjectArrayWriter extends AbstractArrayWriter {
 
   @Override
   public void bindIndex(ColumnWriterIndex index) {
-    elementIndex = new ArrayElementWriterIndex(index);
+    elementIndex = new ArrayElementWriterIndex();
     super.bindIndex(index);
   }
 
   @Override
   public void save() {
-    elementIndex.nextElement();
     saveValue();
 
     // The end value above is for the "outer" value: the array
@@ -131,6 +130,7 @@ public class ObjectArrayWriter extends AbstractArrayWriter {
     // the array elements.
 
     elementObjWriter.saveValue();
+    elementIndex.nextElement();
   }
 
   @Override
@@ -145,11 +145,6 @@ public class ObjectArrayWriter extends AbstractArrayWriter {
       elementObjWriter.set(values[i]);
       save();
     }
-  }
-
-  @Override
-  public void startWriteAt(int index) {
-    assert false;
   }
 
   @Override

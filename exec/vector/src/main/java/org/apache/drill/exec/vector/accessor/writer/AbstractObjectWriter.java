@@ -67,6 +67,9 @@ public abstract class AbstractObjectWriter implements ObjectWriter, WriterEvents
   public void bindIndex(ColumnWriterIndex index) { baseEvents().bindIndex(index); }
 
   @Override
+  public ColumnWriterIndex writerIndex() { return baseEvents().writerIndex(); }
+
+  @Override
   public void startWrite() { baseEvents().startWrite(); }
 
   @Override
@@ -85,7 +88,10 @@ public abstract class AbstractObjectWriter implements ObjectWriter, WriterEvents
   public void endWrite() { baseEvents().endWrite(); }
 
   @Override
-  public void startWriteAt(int index) { baseEvents().startWriteAt(index); }
+  public void preRollover() { baseEvents().preRollover(); }
+
+  @Override
+  public void postRollover() { baseEvents().postRollover(); }
 
   @Override
   public int lastWriteIndex() { return baseEvents().lastWriteIndex(); }

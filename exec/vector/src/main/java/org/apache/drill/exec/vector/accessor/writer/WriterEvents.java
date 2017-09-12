@@ -48,6 +48,8 @@ public interface WriterEvents {
 
   void bindIndex(ColumnWriterIndex index);
 
+  ColumnWriterIndex writerIndex();
+
   /**
    * Start a write (batch) operation. Performs any vector initialization
    * required at the start of a batch (especially for offset vectors.)
@@ -94,14 +96,21 @@ public interface WriterEvents {
   void endWrite();
 
   /**
-   * Start the writer with a new buffer and offset: used during vector
-   * overflow processing.
-   *
-   * @param index initial value for the last write position, which may
-   * reflect overflow values copied into the vector from a prior batch
+   * The vectors backing this vector are about to roll over. Finish
+   * the current batch up to, but not including, the current row.
    */
 
-  void startWriteAt(int index);
+  void preRollover();
+
+  /**
+   * The vectors backing this writer rolled over. This means that data
+   * for the current row has been rolled over into a new vector. Offsets
+   * and indexes should be shifted based on the understanding that data
+   * for the current row now resides at the start of a new vector instead
+   * of its previous location elsewhere in an old vector.
+   */
+
+  void postRollover();
 
   /**
    * Return the last write position in the vector. This may be the

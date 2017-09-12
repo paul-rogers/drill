@@ -150,13 +150,16 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
     }
 
     @Override
-    public void startRow() {  offsetsWriter.startRow(); }
+    public void bindIndex(final ColumnWriterIndex index) {
+      offsetsWriter.bindIndex(index);
+      super.bindIndex(index);
+    }
+
+    @Override
+    public void startRow() { offsetsWriter.startRow(); }
 
     @Override
     public void saveValue() { offsetsWriter.saveValue(); }
-
-    @Override
-    public int lastWriteIndex() { return offsetsWriter.lastWriteIndex(); }
 
     @Override
     public void skipNulls() { offsetsWriter.skipNulls(); }
@@ -165,12 +168,107 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
     public void restartRow() { offsetsWriter.restartRow(); }
 
     @Override
+    public int lastWriteIndex() { return offsetsWriter.lastWriteIndex(); }
+
+    @Override
+    public void preRollover() { offsetsWriter.preRollover(); }
+
+    @Override
+    public void postRollover() { offsetsWriter.postRollover(); }
+
+    @Override
     public void dump(HierarchicalFormatter format) {
       format.extend();
       super.dump(format);
       format.attribute("offsetsWriter");
       offsetsWriter.dump(format);
       format.endObject();
+    }
+  }
+
+  public static abstract class BaseFixedWidthWriter extends BaseScalarWriter {
+
+    /**
+     * The largest position to which the writer has written data. Used to allow
+     * "fill-empties" (AKA "back-fill") of missing values one each value write
+     * and at the end of a batch. Note that this is the position of the last
+     * write, not the next write position. Starts at -1 (no last write).
+     */
+
+    protected int lastWriteIndex;
+
+    @Override
+    public void startWrite() { lastWriteIndex = -1; }
+
+    @Override
+    public int lastWriteIndex() { return lastWriteIndex; }
+
+    @Override
+    public void skipNulls() {
+
+      // Pretend we've written up to the previous value.
+      // This will leave null values (as specified by the
+      // caller) unitialized.
+
+      lastWriteIndex = vectorIndex.vectorIndex() - 1;
+    }
+
+    @Override
+    public void restartRow() {
+      lastWriteIndex = Math.min(lastWriteIndex, vectorIndex.vectorIndex() - 1);
+    }
+
+    @Override
+    public final void preRollover() {
+      setValueCount(vectorIndex.rowStartIndex());
+    }
+
+    @Override
+    public void postRollover() {
+      assert vectorIndex.rowStartIndex() >= lastWriteIndex;
+      int newIndex = Math.max(lastWriteIndex - vectorIndex.rowStartIndex(), -1);
+      startWrite();
+      lastWriteIndex = newIndex;
+    }
+
+    @Override
+    public final void endWrite() {
+      setValueCount(vectorIndex.vectorIndex());
+    }
+
+    protected abstract void setValueCount(int valueCount);
+
+    protected final int writeIndex() {
+
+      // "Fast path" for the normal case of no fills, no overflow.
+      // This is the only bounds check we want to do for the entire
+      //set operation.
+
+      int writeIndex = vectorIndex.vectorIndex();
+      if (lastWriteIndex + 1 == writeIndex && writeIndex < capacity) {
+        lastWriteIndex = writeIndex;
+        return writeIndex;
+      }
+
+      // Either empties must be filed or the vector is full.
+
+      prepareWrite(writeIndex);
+
+      // Track the last write location for zero-fill use next time around.
+
+      lastWriteIndex = writeIndex;
+      return writeIndex;
+    }
+
+    protected abstract void prepareWrite(int writeIndex);
+
+    @Override
+    public void dump(HierarchicalFormatter format) {
+      format.extend();
+      super.dump(format);
+      format
+        .attribute("lastWriteIndex", lastWriteIndex)
+        .endObject();
     }
   }
 
@@ -189,15 +287,6 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
    */
 
   protected ColumnWriterListener listener;
-
-  /**
-   * The largest position to which the writer has written data. Used to allow
-   * "fill-empties" (AKA "back-fill") of missing values one each value write
-   * and at the end of a batch. Note that this is the position of the last
-   * write, not the next write position. Starts at -1 (no last write).
-   */
-
-  protected int lastWriteIndex;
 
   /**
    * Cached direct memory location of the start of data for the vector
@@ -220,18 +309,11 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
   }
 
   @Override
+  public ColumnWriterIndex writerIndex() { return vectorIndex; }
+
+  @Override
   public void bindListener(ColumnWriterListener listener) {
     this.listener = listener;
-  }
-
-  @Override
-  public void startWrite() { lastWriteIndex = -1; }
-
-  @Override
-  public int lastWriteIndex() { return lastWriteIndex; }
-
-  public void skipNulls() {
-    lastWriteIndex = vectorIndex.vectorIndex();
   }
 
   protected void overflowed() {
@@ -242,10 +324,7 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
     }
   }
 
-  @Override
-  public void restartRow() {
-    lastWriteIndex = Math.min(lastWriteIndex, vectorIndex.vectorIndex() - 1);
-  }
+  public abstract void skipNulls();
 
   @Override
   public void setNull() {
@@ -294,7 +373,6 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
     format
       .attribute("vectorIndex", vectorIndex)
       .attributeIdentity("listener", listener)
-      .attribute("lastWriteIndex", lastWriteIndex)
       .attribute("capacity", capacity)
       .endObject();
   }

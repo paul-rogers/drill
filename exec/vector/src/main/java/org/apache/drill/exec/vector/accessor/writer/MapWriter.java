@@ -22,7 +22,6 @@ import java.util.List;
 
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
-import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayElementWriterIndex;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.MapVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
@@ -46,14 +45,10 @@ public abstract class MapWriter extends AbstractTupleWriter {
       this.baseIndex = baseIndex;
     }
 
+    @Override public int rowStartIndex() { return baseIndex.rowStartIndex(); }
     @Override public int vectorIndex() { return baseIndex.vectorIndex(); }
     @Override public void nextElement() { }
-
-    @Override
-    public void resetTo(int newIndex) {
-      // TODO Auto-generated method stub
-      assert false;
-    }
+    @Override public void rollover() { }
 
     @Override
     public String toString() {
@@ -97,7 +92,7 @@ public abstract class MapWriter extends AbstractTupleWriter {
     }
 
     @Override
-    public void startWriteAt(int index) {
+    public void postRollover() {
       // TODO Auto-generated method stub
       assert false;
     }
@@ -135,13 +130,7 @@ public abstract class MapWriter extends AbstractTupleWriter {
     @Override
     public void endWrite() {
       super.endWrite();
-
-      // A bit of a hack. This writer sees the element index. But,
-      // the vector wants the base element count, provided by the
-      // parent index.
-
-      ColumnWriterIndex baseIndex = ((ArrayElementWriterIndex) vectorIndex).baseIndex();
-      mapVector.getMutator().setValueCount(baseIndex.vectorIndex());
+      mapVector.getMutator().setValueCount(vectorIndex.vectorIndex());
     }
   }
 
@@ -182,7 +171,7 @@ public abstract class MapWriter extends AbstractTupleWriter {
   }
 
   @Override
-  public void startWriteAt(int index) {
+  public void postRollover() {
     // TODO
     assert false;
   }

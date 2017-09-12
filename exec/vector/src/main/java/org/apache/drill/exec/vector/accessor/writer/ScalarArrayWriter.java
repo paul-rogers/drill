@@ -55,10 +55,6 @@ public class ScalarArrayWriter extends AbstractArrayWriter {
 
   public class ScalarElementWriterIndex extends ArrayElementWriterIndex {
 
-    public ScalarElementWriterIndex(ColumnWriterIndex baseIndex) {
-      super(baseIndex);
-    }
-
     @Override
     public void nextElement() {
 
@@ -68,7 +64,6 @@ public class ScalarArrayWriter extends AbstractArrayWriter {
       // value (row or containing array element).
 
       elementObjWriter.saveValue();
-//      saveValue();
       super.nextElement();
     }
   }
@@ -89,7 +84,7 @@ public class ScalarArrayWriter extends AbstractArrayWriter {
 
   @Override
   public void bindIndex(ColumnWriterIndex index) {
-    elementIndex = new ScalarElementWriterIndex(index);
+    elementIndex = new ScalarElementWriterIndex();
     super.bindIndex(index);
     elementWriter.bindIndex(elementIndex);
   }

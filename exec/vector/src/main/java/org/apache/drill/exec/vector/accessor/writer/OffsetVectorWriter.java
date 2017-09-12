@@ -129,26 +129,7 @@ public class OffsetVectorWriter extends BaseScalarWriter {
 
   private UInt4Vector vector;
 
-  /**
-   * Cached value of the start offset for the current value. Used
-   * primarily for variable-width columns to allow the column to be
-   * rewritten multiple times within the same row. The start offset
-   * value is updated with the end offset only when the value is
-   * committed in {@link @endValue()}.
-   * <p>
-   * For arrays, this value is the current start position of the
-   * array; the current array index is given by the vector index
-   * associated with the array. In general, the vector index will
-   * be ahead of the start offset; the two are synchronized again
-   * as a two-part process. First, the call to {@link #setOffset(int)}
-   * when the array value itself is saved stages the end offset in
-   * {@link #nextOffset}, then the call to {@link #saveValue()}
-   * rotates the end value into the start offset. This allows the
-   * arrays and variable-width columns to use the same offset
-   * writer class by following the same protocol.
-   */
-
-  private int currentStartOffset;
+  protected int lastWriteIndex;
 
   /**
    * Offset of the first value for the current row. Used during
@@ -175,6 +156,9 @@ public class OffsetVectorWriter extends BaseScalarWriter {
   public ValueVector vector() { return vector; }
 
   @Override
+  public int lastWriteIndex() { return lastWriteIndex; }
+
+  @Override
   public void startWrite() {
 
     // Special handling for first value. Alloc vector if needed.
@@ -182,7 +166,6 @@ public class OffsetVectorWriter extends BaseScalarWriter {
     // for row 0 starts at position 1, which is handled in
     // writeOffset() below.
 
-    currentStartOffset = 0;
     nextOffset = 0;
     lastWriteIndex = -1;
     rowStartOffset = 0;
@@ -191,16 +174,19 @@ public class OffsetVectorWriter extends BaseScalarWriter {
       vector.reallocRaw(ColumnAccessors.MIN_BUFFER_SIZE * VALUE_WIDTH);
       setAddr(vector.getBuffer());
     }
-    PlatformDependent.putInt(bufAddr, currentStartOffset);
+    PlatformDependent.putInt(bufAddr, nextOffset);
   }
 
   @Override
-  public void startWriteAt(int newIndex) {
+  public void preRollover() {
+    prepareWrite(vectorIndex.rowStartIndex() + 1);
+  }
+
+  @Override
+  public void postRollover() {
+    int newNext = nextOffset - rowStartOffset;
     startWrite();
-    lastWriteIndex = newIndex;
-    currentStartOffset = PlatformDependent.getInt(bufAddr + (lastWriteIndex + 1) * VALUE_WIDTH);
-    rowStartOffset = currentStartOffset;
-    nextOffset = currentStartOffset;
+    nextOffset = newNext;
   }
 
   private final void setAddr(final DrillBuf buf) {
@@ -208,18 +194,14 @@ public class OffsetVectorWriter extends BaseScalarWriter {
     capacity = buf.capacity() / VALUE_WIDTH;
   }
 
-  public int currentStartOffset() { return currentStartOffset; }
+  public int nextOffset() { return nextOffset; }
   public int rowStartOffset() { return rowStartOffset; }
 
   @Override
-  public ValueType valueType() {
-    return ValueType.INTEGER;
-  }
+  public ValueType valueType() { return ValueType.INTEGER; }
 
   @Override
-  public void startRow() {
-    rowStartOffset = currentStartOffset;
-  }
+  public void startRow() { rowStartOffset = nextOffset; }
 
   /**
    * Return the write offset, which is one greater than the index reported
@@ -229,13 +211,27 @@ public class OffsetVectorWriter extends BaseScalarWriter {
    * of the current data value
    */
 
-  private final int writeIndex() {
-    int valueIndex = vectorIndex.vectorIndex();
-    int writeIndex = valueIndex + 1;
-    if (lastWriteIndex + 1 == valueIndex && writeIndex < capacity) {
-      lastWriteIndex = valueIndex;
-      return writeIndex;
+  protected final int writeIndex() {
+    final int valueIndex = vectorIndex.vectorIndex();
+    final int writeIndex = valueIndex + 1;
+    if (lastWriteIndex + 1 < valueIndex || writeIndex >= capacity) {
+      prepareWrite(writeIndex);
     }
+    return writeIndex;
+  }
+
+  /**
+   * Prepare a write in which either the next write index is past the
+   * end of the buffer (and so the buffer must be resized), empties must
+   * be filled, or both. For an offset vector, empties are filled with
+   * the next offset value.
+   *
+   * @param writeIndex target write index. This is the position we wish
+   * to write, which is one greater than the current position given by
+   * the vector index
+   */
+
+  private final void prepareWrite(int writeIndex) {
     if (writeIndex >= capacity) {
       int size = (writeIndex + 1) * VALUE_WIDTH;
       if (size > ValueVector.MAX_BUFFER_SIZE) {
@@ -247,44 +243,29 @@ public class OffsetVectorWriter extends BaseScalarWriter {
         setAddr(vector.reallocRaw(BaseAllocator.nextPowerOfTwo(size)));
       }
     }
-    while (lastWriteIndex < valueIndex - 1) {
-      PlatformDependent.putInt(bufAddr + (++lastWriteIndex + 1) * VALUE_WIDTH, currentStartOffset);
+    while (lastWriteIndex < writeIndex - 2) {
+      PlatformDependent.putInt(bufAddr + (++lastWriteIndex + 1) * VALUE_WIDTH, nextOffset);
     }
-    lastWriteIndex = valueIndex;
-    return writeIndex;
   }
 
-  public final void setOffset(final int newOffset) {
+  public final void setNextOffset(final int newOffset) {
     final int writeIndex = writeIndex();
     PlatformDependent.putInt(bufAddr + writeIndex * VALUE_WIDTH, newOffset);
-
-    // Next offset is set aside for now. Allows rewriting the present
-    // value any number of times using the current offset.
-
     nextOffset = newOffset;
+    lastWriteIndex = writeIndex - 1;
   }
 
   @Override
   public void skipNulls() {
 
-    // To skip nulls, must carry forward the the last end offset.
-
-    setOffset(currentStartOffset);
+    // Nothing to do. Fill empties logic will fill in missing
+    // offsets.
   }
 
   @Override
   public void restartRow() {
-    super.restartRow();
     nextOffset = rowStartOffset;
-    currentStartOffset = rowStartOffset;
-  }
-
-  @Override
-  public final void saveValue() {
-
-    // Value is ending. Advance the offset to the next position.
-
-    currentStartOffset = nextOffset;
+    lastWriteIndex = Math.min(lastWriteIndex, vectorIndex.vectorIndex() - 1);
   }
 
   @Override
@@ -306,7 +287,7 @@ public class OffsetVectorWriter extends BaseScalarWriter {
     format.extend();
     super.dump(format);
     format
-      .attribute("currentStartOffset", currentStartOffset)
+      .attribute("lastWriteIndex", lastWriteIndex)
       .attribute("nextOffset", nextOffset)
       .endObject();
   }

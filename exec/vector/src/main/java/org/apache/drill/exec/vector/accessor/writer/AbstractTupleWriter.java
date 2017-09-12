@@ -197,6 +197,9 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     bindIndex(index, index);
   }
 
+  @Override
+  public ColumnWriterIndex writerIndex() { return vectorIndex; }
+
   /**
    * Add a column writer to an existing tuple writer. Used for implementations
    * that support "live" schema evolution: column discovery while writing.
@@ -294,6 +297,24 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     assert state == State.IN_ROW;
     for (int i = 0; i < writers.size();  i++) {
       writers.get(i).saveRow();
+    }
+    state = State.IN_WRITE;
+  }
+
+  @Override
+  public void preRollover() {
+    assert state == State.IN_ROW;
+    for (int i = 0; i < writers.size();  i++) {
+      writers.get(i).preRollover();
+    }
+    state = State.IN_WRITE;
+  }
+
+  @Override
+  public void postRollover() {
+    assert state == State.IN_ROW;
+    for (int i = 0; i < writers.size();  i++) {
+      writers.get(i).postRollover();
     }
     state = State.IN_WRITE;
   }
