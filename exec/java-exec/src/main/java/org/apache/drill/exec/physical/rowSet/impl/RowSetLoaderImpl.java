@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 import java.util.ArrayList;
 
+import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
@@ -39,6 +40,9 @@ public class RowSetLoaderImpl extends AbstractTupleWriter implements RowSetLoade
     this.rsLoader = rsLoader;
     bindIndex(rsLoader.writerIndex());
   }
+
+  @Override
+  public ResultSetLoader loader() { return rsLoader; }
 
   @Override
   public RowSetLoader addRow(Object...values) {
@@ -87,9 +91,6 @@ public class RowSetLoaderImpl extends AbstractTupleWriter implements RowSetLoade
 
   @Override
   public boolean isFull( ) { return rsLoader.isFull(); }
-
-  @Override
-  public void startWriteAt(int index) { }
 
   @Override
   public int rowCount() { return rsLoader.rowCount(); }

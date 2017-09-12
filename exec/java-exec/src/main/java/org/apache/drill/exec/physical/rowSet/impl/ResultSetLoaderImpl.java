@@ -115,6 +115,22 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
      * Current batch was harvested and its data is gone. However,
      * overflow occurred during that batch and the data exists
      * in the overflow vectors.
+     * <p>
+     * This state needs special consideration. The column writer
+     * structure maintains its state (offsets, etc.) from the OVERFLOW
+     * state, but the buffers currently in the vectors are from the
+     * complete batch. <b>No writes can be done in this state!</b>
+     * The writer state does not match the data in the buffers.
+     * The code here does what it can to catch this state. But, if
+     * some client tries to write to a column writer in this state,
+     * bad things will happen. Doing so is invalid (the write is outside
+     * of a batch), so this is not a terrible restriction.
+     * <p>
+     * Said another way, the current writer state is invalid with respect
+     * to the active buffers, but only if the writers try to act on the
+     * buffers. Since the writers won't do so, this temporary state is
+     * fine. The correct buffers are restored once a new batch is started
+     * and the state moves to ACTIVE.
      */
 
     LOOK_AHEAD,
@@ -126,7 +142,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     CLOSED
   }
 
-  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ResultSetLoaderImpl.class);
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ResultSetLoaderImpl.class);
 
   /**
    * Options provided to this loader.
@@ -265,13 +281,9 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       // provided schema. The schema can be extended later, but normally
       // won't be if known up front.
 
+      logger.debug("Schema: " + options.schema.toString());
       rootState.buildSchema(options.schema);
     }
-
-    // Provide the expected cardinality for the structure created
-    // thus far.
-
-//    updateCardinality();
   }
 
   private void updateCardinality() {
@@ -314,6 +326,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     switch (state) {
     case HARVESTED:
     case START:
+      logger.trace("Start batch");
       updateCardinality();
       rootState.startBatch();
 
@@ -331,11 +344,17 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       // the last write position of each writer must be restored on
       // a column-by-column basis, which is done by the visitor.
 
+      logger.trace("Start batch after overflow");
       rootState.startBatch();
 
-      // Reset the writers to a new vector, but at a given position.
+      // Note: no need to do anything with the writers; they were left
+      // pointing to the correct positions in the look-ahead batch.
+      // The above simply puts the look-ahead vectors back "under"
+      // the writers.
 
-      rootWriter.startWriteAt(writerIndex.vectorIndex());
+//      // Reset the writers to a new vector, but at a given position.
+//
+//      rootWriter.startWriteAt(writerIndex.vectorIndex());
       break;
 
     default:
@@ -492,6 +511,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   public int targetVectorSize() { return options.vectorSizeLimit; }
 
   protected void overflowed() {
+    logger.trace("Vector overflow");
 
     // If we see overflow when we are already handling overflow, it means
     // that a single value is too large to fit into an entire vector.
@@ -517,9 +537,26 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     if (state != State.ACTIVE) {
       throw new IllegalStateException("Unexpected state: " + state);
     }
+
+    // Preserve the number of rows in the now-complete batch.
+
     pendingRowCount = writerIndex.vectorIndex();
+
+    // Roll-over will allocate new vectors. Update with the latest
+    // array cardinality.
+
     updateCardinality();
-    rootState.rollOver(pendingRowCount);
+
+    // Roll over vector values.
+
+    rootState.rollover();
+
+    // Adjust writer state to match the new vector values. This is
+    // surprisingly easy if we not that the current row is shifted to
+    // the 0 position in the new vector, so we just shift all offsets
+    // downward by the current row position at each repeat level.
+
+    rootWriter.postRollover();
 
     // The writer index is reset back to 0. Because of the above roll-over
     // processing, some vectors may now already have values in the 0 slot.
@@ -538,7 +575,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     // We SHOULD NOT attempt to reset them top down here, else we'll lose
     // knowledge of the roll-over array values.
 
-    writerIndex.reset();
+    writerIndex.rollover();
 
     // Remember that overflow is in effect.
 
@@ -554,9 +591,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     case ACTIVE:
     case FULL_BATCH:
       rowCount = harvestNormalBatch();
+      logger.trace("Harvesting {} rows", rowCount);
       break;
     case OVERFLOW:
       rowCount = harvestOverflowBatch();
+      logger.trace("Harvesting {} rows after overflow", rowCount);
       break;
     default:
       throw new IllegalStateException("Unexpected state: " + state);
@@ -579,8 +618,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     // Wrap up the vectors: final fill-in, set value count, etc.
 
     rootWriter.endBatch();
-    state = State.HARVESTED;
     harvestSchemaVersion = activeSchemaVersion;
+    state = State.HARVESTED;
     return writerIndex.size();
   }
 
@@ -612,7 +651,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       return;
     }
     rootState.close();
-//    rootModel.close();
 
     // Do not close the vector cache; the caller owns that and
     // will, presumably, reuse those vectors for another writer.

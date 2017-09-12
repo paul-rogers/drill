@@ -23,6 +23,7 @@ import org.apache.drill.exec.vector.FixedWidthVector;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VariableWidthVector;
+import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
 import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriter;
 
@@ -63,11 +64,18 @@ public abstract class SingleVectorState implements VectorState {
 
     @Override
     protected int copyOverflow(int sourceStartIndex, int sourceEndIndex) {
+      int newIndex = 0;
+      ResultSetLoaderImpl.logger.trace("Vector {} of type {}: copy {} values from {} to {}",
+          mainVector.getField().toString(),
+          mainVector.getClass().getSimpleName(),
+          Math.max(0, sourceEndIndex - sourceStartIndex + 1),
+          sourceStartIndex, newIndex);
 
       // Copy overflow values from the full vector to the new
-      // look-ahead vector.
+      // look-ahead vector. Uses vector-level operations for convenience.
+      // These aren't very efficient, but overflow does not happen very
+      // often.
 
-      int newIndex = 0;
       for (int src = sourceStartIndex; src <= sourceEndIndex; src++, newIndex++) {
         mainVector.copyEntry(newIndex, backupVector, src);
       }
@@ -85,8 +93,12 @@ public abstract class SingleVectorState implements VectorState {
 
   public static class OffsetVectorState extends SingleVectorState {
 
-    public OffsetVectorState(AbstractScalarWriter writer, ValueVector mainVector) {
+    private final AbstractObjectWriter childWriter;
+
+    public OffsetVectorState(AbstractScalarWriter writer, ValueVector mainVector,
+        AbstractObjectWriter childWriter) {
       super(writer, mainVector);
+      this.childWriter = childWriter;
     }
 
     @Override
@@ -100,6 +112,10 @@ public abstract class SingleVectorState implements VectorState {
 
     @Override
     protected int copyOverflow(int sourceStartIndex, int sourceEndIndex) {
+
+      if (sourceStartIndex > sourceEndIndex) {
+        return 0;
+      }
 
       // Copy overflow values from the full vector to the new
       // look-ahead vector. Since this is an offset vector, values must
@@ -119,12 +135,16 @@ public abstract class SingleVectorState implements VectorState {
 
       UInt4Vector.Accessor sourceAccessor = ((UInt4Vector) backupVector).getAccessor();
       UInt4Vector.Mutator destMutator = ((UInt4Vector) mainVector).getMutator();
-      int offset = sourceAccessor.get(sourceStartIndex);
+      int offset = childWriter.writerIndex().rowStartIndex();
+      int newIndex = 0;
+      ResultSetLoaderImpl.logger.trace("Offset vector: copy {} values from {} to {} with offset {}",
+          Math.max(0, sourceEndIndex - sourceStartIndex + 1),
+          sourceStartIndex, newIndex, offset);
+      assert offset == sourceAccessor.get(sourceStartIndex);
 
       // Position zero is special and will be filled in by the writer
       // later.
 
-      int newIndex = 0;
       for (int src = sourceStartIndex; src <= sourceEndIndex; src++, newIndex++) {
         destMutator.set(newIndex + 1, sourceAccessor.get(src) - offset);
       }
@@ -135,8 +155,8 @@ public abstract class SingleVectorState implements VectorState {
   protected final AbstractScalarWriter writer;
   protected final ValueVector mainVector;
   protected ValueVector backupVector;
-  private int fullVectorLastWritePosition;
-  private int overflowVectorLastWritePosition;
+//  private int fullVectorLastWritePosition;
+//  private int overflowVectorLastWritePosition;
 
   public SingleVectorState(AbstractScalarWriter writer, ValueVector mainVector) {
     this.writer = writer;
@@ -167,7 +187,9 @@ public abstract class SingleVectorState implements VectorState {
    */
 
   @Override
-  public int rollOver(int sourceStartIndex, int cardinality) {
+  public int rollOver(int cardinality) {
+
+    int sourceStartIndex = writer.writerIndex().rowStartIndex();
 
     // Remember the last write index for the original vector.
     // This tells us the end of the set of values to move, while the
@@ -175,10 +197,10 @@ public abstract class SingleVectorState implements VectorState {
 
     int sourceEndIndex = writer.lastWriteIndex();
 
-    // The last write index for the "full" batch is capped at
-    // the value before overflow.
-
-    fullVectorLastWritePosition = Math.min(sourceEndIndex, sourceStartIndex - 1);
+//    // The last write index for the "full" batch is capped at
+//    // the value before overflow.
+//
+//    fullVectorLastWritePosition = Math.min(sourceEndIndex, sourceStartIndex - 1);
 
     // Switch buffers between the backup vector and the writer's output
     // vector. Done this way because writers are bound to vectors and
@@ -196,10 +218,10 @@ public abstract class SingleVectorState implements VectorState {
 
     int newIndex = copyOverflow(sourceStartIndex, sourceEndIndex);
 
-    // Tell the writer that it has a new buffer and that it should reset
-    // its last write index depending on whether data was copied or not.
-
-    writer.startWriteAt(newIndex - 1);
+//    // Tell the writer that it has a new buffer and that it should reset
+//    // its last write index depending on whether data was copied or not.
+//
+//    writer.startWriteAt(newIndex - 1);
 
     // At this point, the writer is positioned to write to the look-ahead
     // vector at the position after the copied values. The original vector
@@ -224,9 +246,9 @@ public abstract class SingleVectorState implements VectorState {
   @Override
   public void harvestWithLookAhead() {
     mainVector.exchange(backupVector);
-    overflowVectorLastWritePosition = writer.lastWriteIndex();
-    writer.startWriteAt(fullVectorLastWritePosition);
-    fullVectorLastWritePosition = -1;
+//    overflowVectorLastWritePosition = writer.lastWriteIndex();
+//    writer.startWriteAt(fullVectorLastWritePosition);
+//    fullVectorLastWritePosition = -1;
   }
 
   /**
@@ -239,8 +261,8 @@ public abstract class SingleVectorState implements VectorState {
   public void startBatchWithLookAhead() {
     mainVector.exchange(backupVector);
     backupVector.clear();
-    writer.startWriteAt(overflowVectorLastWritePosition);
-    overflowVectorLastWritePosition = -1;
+//    writer.startWriteAt(overflowVectorLastWritePosition);
+//    overflowVectorLastWritePosition = -1;
   }
 
   @Override
@@ -249,7 +271,7 @@ public abstract class SingleVectorState implements VectorState {
     if (backupVector != null) {
       backupVector.clear();
     }
-    overflowVectorLastWritePosition = -1;
-    fullVectorLastWritePosition = -1;
+//    overflowVectorLastWritePosition = -1;
+//    fullVectorLastWritePosition = -1;
   }
 }

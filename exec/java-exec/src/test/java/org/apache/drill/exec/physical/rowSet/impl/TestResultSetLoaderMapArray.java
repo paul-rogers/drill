@@ -130,7 +130,15 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
     // Verify the second batch
 
     actual = fixture.wrap(rsLoader.harvest());
-    expected = fixture.rowSetBuilder(schema)
+    TupleMetadata expectedSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addMapArray("m")
+          .add("c", MinorType.INT)
+          .add("d", MinorType.VARCHAR)
+          .addNullable("e", MinorType.VARCHAR)
+          .buildMap()
+        .buildSchema();
+    expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(40, new Object[] {
             new Object[] {410, "d4.1", null},
             new Object[] {420, "d4.2", null}})
@@ -141,6 +149,56 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
             new Object[] {610, "d6.1", "e6.1"},
             new Object[] {620, "d6.2", null},
             new Object[] {630, "d6.3", "e6.3"}})
+        .build();
+    new RowSetComparison(expected).verifyAndClearAll(actual);
+
+    rsLoader.close();
+  }
+
+
+  @Test
+  public void testNestedArray() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addMapArray("m")
+          .add("c", MinorType.INT)
+          .addArray("d", MinorType.VARCHAR)
+          .buildMap()
+        .buildSchema();
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setSchema(schema)
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    RowSetLoader rootWriter = rsLoader.writer();
+
+    // Write a couple of rows with arrays within arrays.
+    // (And, of course, the Varchar is actually an array of
+    // bytes, so that's three array levels.)
+
+    rsLoader.startBatch();
+    rootWriter
+      .addRow(10, new Object[] {
+          new Object[] {110, new String[] {"d1.1.1", "d1.1.2"}},
+          new Object[] {120, new String[] {"d1.2.1", "d1.2.2"}}})
+      .addRow(20, new Object[] {})
+      .addRow(30, new Object[] {
+          new Object[] {310, new String[] {"d3.1.1", "d3.2.2"}},
+          new Object[] {320, new String[] {}},
+          new Object[] {330, new String[] {"d3.3.1", "d1.2.2"}}})
+      ;
+
+    // Verify the batch
+
+    RowSet actual = fixture.wrap(rsLoader.harvest());
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
+        .addRow(10, new Object[] {
+            new Object[] {110, new String[] {"d1.1.1", "d1.1.2"}},
+            new Object[] {120, new String[] {"d1.2.1", "d1.2.2"}}})
+        .addRow(20, new Object[] {})
+        .addRow(30, new Object[] {
+            new Object[] {310, new String[] {"d3.1.1", "d3.2.2"}},
+            new Object[] {320, new String[] {}},
+            new Object[] {330, new String[] {"d3.3.1", "d1.2.2"}}})
         .build();
     new RowSetComparison(expected).verifyAndClearAll(actual);
 

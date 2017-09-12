@@ -59,14 +59,13 @@ public interface VectorState {
    * cardinality, then copy the overflow values from the main vector to the
    * look-ahead vector.
    *
-   * @param sourceStartIndex the position in the vector from which to move
    * @param cardinality the number of elements in the new vector. If this
    * vector is an array, then this is the number of arrays
    * @return the new next write position for the vector index associated
    * with the writer for this vector
    */
 
-  int rollOver(int sourceStartIndex, int cardinality);
+  int rollOver(int cardinality);
 
   /**
    * A batch is being harvested after an overflow. Put the full batch

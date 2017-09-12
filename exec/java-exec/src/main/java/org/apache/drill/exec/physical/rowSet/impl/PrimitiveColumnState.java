@@ -18,6 +18,7 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.ValuesVectorState;
+import org.apache.drill.exec.vector.NullableVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
@@ -40,7 +41,7 @@ public class PrimitiveColumnState extends ColumnState implements ColumnWriterLis
     writer.bindListener(this);
   }
 
-  public static PrimitiveColumnState newSimplePrimitive(
+  public static PrimitiveColumnState newPrimitive(
       ResultSetLoaderImpl resultSetLoader,
       ValueVector vector,
       AbstractObjectWriter writer) {
@@ -49,6 +50,16 @@ public class PrimitiveColumnState extends ColumnState implements ColumnWriterLis
             writer.schema(),
             (AbstractScalarWriter) writer.scalar(),
             vector));
+  }
+
+  public static PrimitiveColumnState newNullablePrimitive(
+      ResultSetLoaderImpl resultSetLoader,
+      ValueVector vector,
+      AbstractObjectWriter writer) {
+    return new PrimitiveColumnState(resultSetLoader, writer,
+        new NullableVectorState(
+            writer,
+            (NullableVector) vector));
   }
 
   public static PrimitiveColumnState newPrimitiveArray(

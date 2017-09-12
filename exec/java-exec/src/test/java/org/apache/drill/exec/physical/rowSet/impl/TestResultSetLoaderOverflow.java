@@ -540,4 +540,63 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     rsLoader.close();
   }
 
+  @Test
+  public void testOverflowWithNullables() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("n", MinorType.INT)
+        .addNullable("a", MinorType.VARCHAR)
+        .addNullable("b", MinorType.VARCHAR)
+        .addNullable("c", MinorType.VARCHAR)
+        .buildSchema();
+    ResultSetOptions options = new OptionBuilder()
+        .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
+        .setSchema(schema)
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    RowSetLoader rootWriter = rsLoader.writer();
+
+    rsLoader.startBatch();
+    byte value[] = new byte[512];
+    Arrays.fill(value, (byte) 'X');
+    int count = 0;
+    while (! rootWriter.isFull()) {
+      rootWriter.start();
+      rootWriter.scalar(0).setInt(count);
+      rootWriter.scalar(1).setNull();
+      rootWriter.scalar(2).setBytes(value, value.length);
+      rootWriter.scalar(3).setNull();
+      rootWriter.save();
+      count++;
+    }
+
+    // Result should exclude the overflow row
+
+    RowSet result = fixture.wrap(rsLoader.harvest());
+    assertEquals(count - 1, result.rowCount());
+
+    RowSetReader reader = result.reader();
+    while (reader.next()) {
+      assertEquals(reader.rowIndex(), reader.scalar(0).getInt());
+      assertTrue(reader.scalar(1).isNull());
+      assertTrue(Arrays.equals(value, reader.scalar(2).getBytes()));
+      assertTrue(reader.scalar(3).isNull());
+    }
+    result.clear();
+
+    // Next batch should start with the overflow row
+
+    rsLoader.startBatch();
+    result = fixture.wrap(rsLoader.harvest());
+    reader = result.reader();
+    assertEquals(1, result.rowCount());
+    assertTrue(reader.next());
+    assertEquals(count - 1, reader.scalar(0).getInt());
+    assertTrue(reader.scalar(1).isNull());
+    assertTrue(Arrays.equals(value, reader.scalar(2).getBytes()));
+    assertTrue(reader.scalar(3).isNull());
+    result.clear();
+
+    rsLoader.close();
+  }
+
 }

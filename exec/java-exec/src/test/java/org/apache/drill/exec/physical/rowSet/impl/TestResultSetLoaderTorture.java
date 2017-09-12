@@ -33,6 +33,8 @@ import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.test.LogFixture;
+import org.apache.drill.test.LogFixture.LogFixtureBuilder;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetReader;
@@ -40,6 +42,8 @@ import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
 import com.google.common.base.Charsets;
+
+import ch.qos.logback.classic.Level;
 
 /**
  * Runs a worst-case scenario test that combines aspects of all
@@ -105,6 +109,8 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
     int rowId = 0;
     int innerCount = 0;
     int writeRowCount = 0;
+    int startPrint = 149;
+    int endPrint = 149;
 
     public BatchWriter(TestSetup setup, RowSetLoader rootWriter) {
       this.setup = setup;
@@ -125,6 +131,7 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
 
       // Write until overflow
 
+      writeRowCount = rootWriter.rowCount();
       while (! rootWriter.isFull()) {
         writeRow();
         rowId++;
@@ -137,10 +144,11 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
       // Outer column
 
       rootWriter.scalar("n0").setInt(rowId);
+      print("n0", rowId);
 
       // Map 1: non-array
 
-      setInt(n1Writer, rowId, setup.n1Cycle);
+      setInt("n1", n1Writer, rowId, setup.n1Cycle);
 
       // Map2: an array.
 
@@ -154,6 +162,9 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
         rootWriter.save();
         writeRowCount++;
       }
+      if (rowId >= startPrint &&  rowId <= endPrint) {
+        System.out.println();
+      }
     }
 
     private void writeM2Array() {
@@ -161,21 +172,23 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
 
         // n2: usual int
 
-        setInt(n2Writer, innerCount, setup.n2Cycle);
+        setInt("n2." + i, n2Writer, innerCount, setup.n2Cycle);
 
         if (innerCount % setup.s2Cycle == 0) {
           // Skip
         } else if (innerCount % setup.s2Cycle % setup.nullCycle == 0) {
           s2Writer.setNull();
+          print("s2." + i, null);
         } else {
           s2Writer.setString("s2-" + innerCount);
+          print("s2." + i, "s2-" + innerCount);
         }
 
         // Map3: a non-repeated map
 
         // n2: usual int
 
-        setInt(n3Writer, innerCount, setup.n3Cycle);
+        setInt("n3." + i, n3Writer, innerCount, setup.n3Cycle);
 
         // s3: a repeated VarChar
 
@@ -183,21 +196,39 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
           for (int j = 0; j < setup.s3Count; j++) {
             s3Writer.setString(setup.s3Value + (innerCount * setup.s3Count + j));
           }
+          print("s3." + i, setup.s3Count + "x");
         }
         innerCount++;
         a2Writer.save();
       }
     }
 
-    public void setInt(ScalarWriter writer, int id, int cycle) {
-      if (id % cycle == 0) {
+    public void setInt(String label, ScalarWriter writer, int id, int cycle) {
+      int cycleIndex = id % cycle;
+      if (cycleIndex == 0) {
         // Skip
-      } else if (id % cycle % setup.nullCycle == 0) {
+      } else if (cycleIndex % setup.nullCycle == 0) {
         writer.setNull();
+        print(label, null);
       } else {
         writer.setInt(id * cycle);
+        print(label, id * cycle);
       }
     }
+
+    public void print(String label, Object value) {
+      if (rowId >= startPrint &&  rowId <= endPrint) {
+        System.out.print(label);
+        System.out.print(" = ");
+        System.out.print(value);
+        System.out.print(" ");
+      }
+    }
+  }
+
+  public static class ReadState {
+    int rowId = 0;
+    int innerCount = 0;
   }
 
   private static class BatchReader {
@@ -210,14 +241,12 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
     ScalarReader s2Reader;
     ScalarReader n3Reader;
     ScalarElementReader s3Reader;
-    int rowId = 0;
-    int innerCount = 0;
+    ReadState readState;
 
-    public BatchReader(TestSetup setup, RowSetReader reader, int startRowId, int startInnerCount) {
+    public BatchReader(TestSetup setup, RowSetReader reader, ReadState readState) {
       this.setup = setup;
       this.rootReader = reader;
-      rowId = startRowId;
-      innerCount = startInnerCount;
+      this.readState = readState;;
 
       TupleReader m1Reader = rootReader.tuple("m1");
       n1Reader = m1Reader.scalar("n1");
@@ -233,27 +262,31 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
     public void verify() {
       while (rootReader.next()) {
         verifyRow();
+        readState.rowId++;
       }
     }
 
     private void verifyRow() {
       // Skipped original row? Bump the row id.
 
-      if (rowId % setup.skipCycle == 0) {
-        rowId++;
+      if (readState.rowId % setup.skipCycle == 0) {
+        if (readState.rowId % setup.m2Cycle != 0) {
+          readState.innerCount += setup.m2Count;
+        }
+        readState.rowId++;
       }
 
       // Outer column
 
-      assertEquals(rowId, rootReader.scalar("n0").getInt());
+      assertEquals(readState.rowId, rootReader.scalar("n0").getInt());
 
       // Map 1: non-array
 
-      checkInt(n1Reader, rowId, setup.n1Cycle);
+      checkInt(n1Reader, readState.rowId, setup.n1Cycle);
 
       // Map2: an array.
 
-      if (rowId % setup.m2Cycle != 0) {
+      if (readState.rowId % setup.m2Cycle != 0) {
         verifyM2Array();
       }
     }
@@ -264,40 +297,40 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
 
         // n2: usual int
 
-        checkInt(n2Reader, innerCount, setup.n2Cycle);
+        checkInt(n2Reader, readState.innerCount, setup.n2Cycle);
 
-        if (innerCount % setup.s2Cycle == 0) {
+        if (readState.innerCount % setup.s2Cycle == 0) {
           // Skipped values should be null
           assertTrue(s2Reader.isNull());
-        } else if (innerCount % setup.s2Cycle % setup.nullCycle == 0) {
+        } else if (readState.innerCount % setup.s2Cycle % setup.nullCycle == 0) {
           assertTrue(s2Reader.isNull());
         } else {
-          assertEquals("s2-" + innerCount, s2Reader.getString());
+          assertEquals("s2-" + readState.innerCount, s2Reader.getString());
         }
 
         // Map3: a non-repeated map
 
         // n2: usual int
 
-        checkInt(n3Reader, innerCount, setup.n3Cycle);
+        checkInt(n3Reader, readState.innerCount, setup.n3Cycle);
 
         // s3: a repeated VarChar
 
-        if (innerCount % setup.s3Cycle == 0) {
+        if (readState.innerCount % setup.s3Cycle == 0) {
           assertEquals(0, s3Reader.size());
         } else {
           for (int j = 0; j < setup.s3Count; j++) {
-            assertEquals(setup.s3Value + (innerCount * setup.s3Count + j), s3Reader.getString(j));
+            assertEquals(setup.s3Value + (readState.innerCount * setup.s3Count + j), s3Reader.getString(j));
           }
         }
-        innerCount++;
+        readState.innerCount++;
       }
     }
 
     public void checkInt(ScalarReader reader, int id, int cycle) {
       if (id % cycle == 0) {
         // Skipped values should be null
-        assertTrue(reader.isNull());
+        assertTrue("id = " + id + " expected null for skipped", reader.isNull());
       } else if (id % cycle % setup.nullCycle == 0) {
         assertTrue(reader.isNull());
       } else {
@@ -308,6 +341,15 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
 
   @Test
   public void tortureTest() {
+    LogFixtureBuilder logBuilder = new LogFixtureBuilder()
+        .logger("org.apache.drill.exec.physical.rowSet", Level.TRACE)
+        ;
+    try (LogFixture logFixture = logBuilder.build()) {
+      doTortureTest();
+    }
+  }
+
+  private void doTortureTest() {
     TupleMetadata schema = new SchemaBuilder()
         .add("n0", MinorType.INT)
         .addMap("m1")
@@ -334,15 +376,18 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
 
     int totalRowCount = 0;
 
+    ReadState readState = new ReadState();
     for (int batchCount = 0; batchCount < 10; batchCount++) {
+      System.out.println("Batch " + batchCount);
       rsLoader.startBatch();
-      int startRowId = batchWriter.rowId;
-      int startInnerCount = batchWriter.innerCount;
       batchWriter.writeBatch();
 
       // Now the hard part. Verify the above batch.
 
       RowSet result = fixture.wrap(rsLoader.harvest());
+      if (batchCount == 1) {
+        result.print();
+      }
 
       // Should have overflowed, so writer holds an overflow row.
 
@@ -351,7 +396,7 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
       assertEquals(totalRowCount, rsLoader.totalRowCount());
       assertEquals(batchCount + 1, rsLoader.batchCount());
 
-      BatchReader reader = new BatchReader(setup, result.reader(), startRowId, startInnerCount);
+      BatchReader reader = new BatchReader(setup, result.reader(), readState);
       reader.verify();
       result.clear();
     }

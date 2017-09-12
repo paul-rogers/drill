@@ -45,6 +45,12 @@ public abstract class ColumnState implements ColumnCoordinator {
     }
 
     @Override
+    public void rollOver() {
+      super.rollOver();
+      mapState.rollover();
+    }
+
+    @Override
     public void startBatch() {
       super.startBatch();
       mapState.startBatch();
@@ -80,12 +86,6 @@ public abstract class ColumnState implements ColumnCoordinator {
     }
 
     @Override
-    public void rollOver(int overflowIndex) {
-      super.rollOver(overflowIndex);
-      mapState.rollOver(overflowIndex);
-    }
-
-    @Override
     public void dump(HierarchicalFormatter format) {
       // TODO Auto-generated method stub
     }
@@ -100,19 +100,8 @@ public abstract class ColumnState implements ColumnCoordinator {
       super(resultSetLoader, mapVector, writer,
           new OffsetVectorState(
               ((AbstractArrayWriter) writer.array()).offsetWriter(),
-              ((RepeatedMapVector) mapVector).getOffsetVector()));
-    }
-
-    /**
-     * Returns the element index for the first element for the
-     * current row.
-     *
-     * @return element index for the first element of the current
-     * row
-     */
-
-    public int firstElementIndex() {
-      return ((AbstractArrayWriter) writer().array()).firstElementForRow();
+              ((RepeatedMapVector) mapVector).getOffsetVector(),
+              (AbstractObjectWriter) writer.array().entry()));
     }
 
     @Override
@@ -122,11 +111,11 @@ public abstract class ColumnState implements ColumnCoordinator {
       mapState.updateCardinality(childCardinality);
     }
 
-    @Override
-    public void rollOver(int overflowIndex) {
-      super.rollOver(overflowIndex);
-      mapState.rollOver(firstElementIndex());
-    }
+//    @Override
+//    public void rollOver() {
+//      super.rollOver();
+//      ((AbstractObjectWriter) writer.array()).writerIndex().resetTo(0);
+//    }
 
     @Override
     public void dump(HierarchicalFormatter format) {
@@ -253,7 +242,7 @@ public abstract class ColumnState implements ColumnCoordinator {
    *          should be copied to a new "look-ahead" vector
    */
 
-  public void rollOver(int sourceStartIndex) {
+  public void rollOver() {
     assert state == State.NORMAL;
 
     // If the source index is 0, then we could not fit this one
@@ -265,7 +254,7 @@ public abstract class ColumnState implements ColumnCoordinator {
     // of thought to get right -- and, of course, completely defeats
     // the purpose of limiting vector size to avoid memory fragmentation...
 
-    if (sourceStartIndex == 0) {
+    if (writer.writerIndex().vectorIndex() == 0) {
       throw UserException
         .memoryError("A single column value is larger than the maximum allowed size of 16 MB")
         .build(logger);
@@ -273,7 +262,7 @@ public abstract class ColumnState implements ColumnCoordinator {
 
     // Otherwise, do the roll-over to a look-ahead vector.
 
-    vectorState.rollOver(sourceStartIndex, outerCardinality);
+    vectorState.rollOver(outerCardinality);
 
     // Remember that we did this overflow processing.
 

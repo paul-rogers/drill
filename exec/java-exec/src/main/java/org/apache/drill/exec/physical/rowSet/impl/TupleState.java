@@ -195,8 +195,10 @@ public abstract class TupleState implements TupleWriterListener {
 
     if (columnSchema.isArray()) {
       return PrimitiveColumnState.newPrimitiveArray(resultSetLoader, vector, colWriter);
+//    } if (columnSchema.isNullable()) {
+//      return PrimitiveColumnState.newNullablePrimitive(resultSetLoader, vector, colWriter);
     } else {
-      return PrimitiveColumnState.newSimplePrimitive(resultSetLoader, vector, colWriter);
+      return PrimitiveColumnState.newPrimitive(resultSetLoader, vector, colWriter);
     }
   }
 
@@ -275,9 +277,9 @@ public abstract class TupleState implements TupleWriterListener {
    *          should be copied to a new "look-ahead" vector
    */
 
-  public void rollOver(int overflowIndex) {
+  public void rollover() {
     for (ColumnState colModel : columns) {
-      colModel.rollOver(overflowIndex);
+      colModel.rollOver();
     }
   }
 

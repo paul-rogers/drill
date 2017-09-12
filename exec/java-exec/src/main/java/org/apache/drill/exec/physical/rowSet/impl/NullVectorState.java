@@ -27,7 +27,7 @@ import org.apache.drill.exec.vector.ValueVector;
 public class NullVectorState implements VectorState {
 
   @Override public void allocate(int cardinality) { }
-  @Override public int rollOver(int sourceStartIndex, int cardinality) { return 0; }
+  @Override public int rollOver(int cardinality) { return 0; }
   @Override public void harvestWithLookAhead() { }
   @Override public void startBatchWithLookAhead() { }
   @Override public void reset() { }

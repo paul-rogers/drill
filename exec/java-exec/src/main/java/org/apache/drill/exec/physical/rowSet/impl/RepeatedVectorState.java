@@ -43,19 +43,21 @@ public class RepeatedVectorState implements VectorState {
 
     // Get the repeated vector
 
-    this.vector = (RepeatedValueVector) vector;
+    this.vector = vector;
+
+    // Create the values state using the value (data) portion of the repeated
+    // vector, and the scalar (value) portion of the array writer.
+
+    arrayWriter = (AbstractArrayWriter) writer.array();
+    AbstractScalarWriter colWriter = (AbstractScalarWriter) arrayWriter.scalar();
+    valuesState = new ValuesVectorState(schema, colWriter, vector.getDataVector());
 
     // Create the offsets state with the offset vector portion of the repeated
     // vector, and the offset writer portion of the array writer.
 
-    arrayWriter = (AbstractArrayWriter) writer.array();
-    offsetsState = new OffsetVectorState(arrayWriter.offsetWriter(), vector.getOffsetVector());
-
-    // Then, create the values state using the value (data) portion of the repeated
-    // vector, and the scalar (value) portion of the array writer.
-
-    AbstractScalarWriter colWriter = (AbstractScalarWriter) arrayWriter.scalar();
-    valuesState = new ValuesVectorState(schema, colWriter, vector.getDataVector());
+    offsetsState = new OffsetVectorState(arrayWriter.offsetWriter(),
+        vector.getOffsetVector(),
+        (AbstractObjectWriter) arrayWriter.entry());
   }
 
   @Override
@@ -122,28 +124,21 @@ public class RepeatedVectorState implements VectorState {
    */
 
   @Override
-  public int rollOver(int sourceStartIndex, int cardinality) {
-
-    // Obtain the start of the data portion of the overflow. Do
-    // this BEFORE swapping out the offset vector. If we are at row
-    // n, then the offset at row n is the start position of data for
-    // row n.
-
-    int dataStartIndex = offsetsState.rowStartOffset();
+  public int rollOver(int cardinality) {
 
     // Swap out the two vectors. The index presented to the caller
     // is that of the data vector: the next position in the data
     // vector to be set into the data vector writer index.
 
-    int newIndex = valuesState.rollOver(dataStartIndex, childCardinality(cardinality));
-    offsetsState.rollOver(sourceStartIndex, cardinality);
+    int newIndex = valuesState.rollOver(childCardinality(cardinality));
+    offsetsState.rollOver(cardinality);
 
-    // The array introduces a new vector index level for the
-    // (one and only) child writer. Adjust that vector index to point to the
-    // next array write position. This position must reflect any array entries
-    // already written.
-
-    arrayWriter.resetElementIndex(newIndex);
+//    // The array introduces a new vector index level for the
+//    // (one and only) child writer. Adjust that vector index to point to the
+//    // next array write position. This position must reflect any array entries
+//    // already written.
+//
+//    arrayWriter.resetElementIndex(newIndex);
     return newIndex;
   }
 
