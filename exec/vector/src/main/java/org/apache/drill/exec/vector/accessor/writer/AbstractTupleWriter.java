@@ -303,20 +303,24 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
   @Override
   public void preRollover() {
+
+    // Rollover can only happen while a row is in progress.
+
     assert state == State.IN_ROW;
     for (int i = 0; i < writers.size();  i++) {
       writers.get(i).preRollover();
     }
-    state = State.IN_WRITE;
   }
 
   @Override
   public void postRollover() {
+
+    // Rollover can only happen while a row is in progress.
+
     assert state == State.IN_ROW;
     for (int i = 0; i < writers.size();  i++) {
       writers.get(i).postRollover();
     }
-    state = State.IN_WRITE;
   }
 
   @Override
@@ -439,6 +443,8 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
       format.element(i);
       writers.get(i).dump(format);
     }
-    format.endArray().endObject();
+    format
+      .endArray()
+      .endObject();
   }
 }

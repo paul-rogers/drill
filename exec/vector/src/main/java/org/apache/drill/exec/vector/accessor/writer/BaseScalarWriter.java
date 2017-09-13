@@ -174,9 +174,6 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
     public void preRollover() { offsetsWriter.preRollover(); }
 
     @Override
-    public void postRollover() { offsetsWriter.postRollover(); }
-
-    @Override
     public void dump(HierarchicalFormatter format) {
       format.extend();
       super.dump(format);
@@ -208,7 +205,7 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
 
       // Pretend we've written up to the previous value.
       // This will leave null values (as specified by the
-      // caller) unitialized.
+      // caller) unintialized.
 
       lastWriteIndex = vectorIndex.vectorIndex() - 1;
     }
@@ -225,7 +222,6 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
 
     @Override
     public void postRollover() {
-      assert vectorIndex.rowStartIndex() >= lastWriteIndex;
       int newIndex = Math.max(lastWriteIndex - vectorIndex.rowStartIndex(), -1);
       startWrite();
       lastWriteIndex = newIndex;
@@ -242,7 +238,7 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
 
       // "Fast path" for the normal case of no fills, no overflow.
       // This is the only bounds check we want to do for the entire
-      //set operation.
+      // set operation.
 
       int writeIndex = vectorIndex.vectorIndex();
       if (lastWriteIndex + 1 == writeIndex && writeIndex < capacity) {

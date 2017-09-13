@@ -170,9 +170,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     @Override
     public int rowStartIndex() { return rowStartOffset; }
 
-    public int arraySize() {
-      return offset - startOffset;
-    }
+    public int arraySize() { return offset - startOffset; }
 
     @Override
     public void nextElement() { offset++; }
@@ -229,9 +227,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   public ColumnWriterIndex writerIndex() { return baseIndex; }
 
   @Override
-  public int size() {
-    return elementIndex.arraySize();
-  }
+  public int size() { return elementIndex.arraySize(); }
 
   @Override
   public ObjectWriter entry() { return elementObjWriter; }
@@ -288,26 +284,6 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   }
 
   @Override
-  public ObjectType entryType() {
-    return elementObjWriter.type();
-  }
-
-  @Override
-  public ScalarWriter scalar() {
-    return elementObjWriter.scalar();
-  }
-
-  @Override
-  public TupleWriter tuple() {
-    return elementObjWriter.tuple();
-  }
-
-  @Override
-  public ArrayWriter array() {
-    return elementObjWriter.array();
-  }
-
-  @Override
   public void preRollover() {
     offsetsWriter.preRollover();
     elementObjWriter.preRollover();
@@ -325,8 +301,26 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   }
 
   @Override
-  public int lastWriteIndex() {
-    return baseIndex.vectorIndex();
+  public int lastWriteIndex() { return baseIndex.vectorIndex(); }
+
+  @Override
+  public ObjectType entryType() {
+    return elementObjWriter.type();
+  }
+
+  @Override
+  public ScalarWriter scalar() {
+    return elementObjWriter.scalar();
+  }
+
+  @Override
+  public TupleWriter tuple() {
+    return elementObjWriter.tuple();
+  }
+
+  @Override
+  public ArrayWriter array() {
+    return elementObjWriter.array();
   }
 
   /**

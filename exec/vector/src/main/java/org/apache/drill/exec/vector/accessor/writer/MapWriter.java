@@ -90,12 +90,6 @@ public abstract class MapWriter extends AbstractTupleWriter {
 
       mapVector.setMapValueCount(vectorIndex.vectorIndex());
     }
-
-    @Override
-    public void postRollover() {
-      // TODO Auto-generated method stub
-      assert false;
-    }
   }
 
   /**
@@ -168,11 +162,5 @@ public abstract class MapWriter extends AbstractTupleWriter {
   public static TupleObjectWriter build(ColumnMetadata schema, AbstractMapVector vector) {
     assert schema.mapSchema().size() == 0;
     return build(schema, vector, new ArrayList<AbstractObjectWriter>());
-  }
-
-  @Override
-  public void postRollover() {
-    // TODO
-    assert false;
   }
 }

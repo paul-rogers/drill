@@ -478,6 +478,12 @@ public class ColumnAccessors {
     }
 
     @Override
+    public void postRollover() {
+      setAddr(vector.getBuffer());
+      offsetsWriter.postRollover();
+    }
+
+    @Override
     public final void endWrite() {
       vector.getBuffer().writerIndex(offsetsWriter.nextOffset());
       offsetsWriter.endWrite();

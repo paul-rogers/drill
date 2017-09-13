@@ -177,18 +177,6 @@ public class OffsetVectorWriter extends BaseScalarWriter {
     PlatformDependent.putInt(bufAddr, nextOffset);
   }
 
-  @Override
-  public void preRollover() {
-    prepareWrite(vectorIndex.rowStartIndex() + 1);
-  }
-
-  @Override
-  public void postRollover() {
-    int newNext = nextOffset - rowStartOffset;
-    startWrite();
-    nextOffset = newNext;
-  }
-
   private final void setAddr(final DrillBuf buf) {
     bufAddr = buf.addr();
     capacity = buf.capacity() / VALUE_WIDTH;
@@ -266,6 +254,22 @@ public class OffsetVectorWriter extends BaseScalarWriter {
   public void restartRow() {
     nextOffset = rowStartOffset;
     lastWriteIndex = Math.min(lastWriteIndex, vectorIndex.vectorIndex() - 1);
+  }
+
+  @Override
+  public void preRollover() {
+    final int valueCount = vectorIndex.rowStartIndex();
+    prepareWrite(valueCount);
+    vector.getBuffer().writerIndex((valueCount + 1) * VALUE_WIDTH);
+  }
+
+  @Override
+  public void postRollover() {
+    final int newNext = nextOffset - rowStartOffset;
+    final int newLastWriteIndex = Math.max(lastWriteIndex - vectorIndex.rowStartIndex(), -1);
+    startWrite();
+    nextOffset = newNext;
+    lastWriteIndex = newLastWriteIndex;
   }
 
   @Override
