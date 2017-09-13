@@ -81,17 +81,15 @@ public class RepeatedVectorState implements VectorState {
    * <p>
    * Data structure:
    * <p><pre></code>
-   * PrimitiveColumnModel
-   * +- PrimitiveColumnState
-   * .  +- RepeatedVectorState (this class)
-   * .  .  +- OffsetVectorState
-   * .  .  .  +- OffsetVectorWriter (A)
-   * .  .  .  +- Offset vector (B)
-   * .  .  .  +- Backup (e.g. look-ahead) offset vector
-   * .  .  +- ValuesVectorState
-   * .  .  .  +- Scalar (element) writer (C)
-   * .  .  .  +- Data (elements) vector (D)
-   * .  .  .  +- Backup elements vector
+   * RepeatedVectorState (this class)
+   * +- OffsetVectorState
+   * .  +- OffsetVectorWriter (A)
+   * .  +- Offset vector (B)
+   * .  +- Backup (e.g. look-ahead) offset vector
+   * +- ValuesVectorState
+   * .  +- Scalar (element) writer (C)
+   * .  +- Data (elements) vector (D)
+   * .  +- Backup elements vector
    * +- Array Writer
    * .  +- ColumnWriterIndex (for array as a whole)
    * .  +- OffsetVectorWriter (A)
@@ -124,22 +122,14 @@ public class RepeatedVectorState implements VectorState {
    */
 
   @Override
-  public int rollOver(int cardinality) {
+  public void rollover(int cardinality) {
 
     // Swap out the two vectors. The index presented to the caller
     // is that of the data vector: the next position in the data
     // vector to be set into the data vector writer index.
 
-    int newIndex = valuesState.rollOver(childCardinality(cardinality));
-    offsetsState.rollOver(cardinality);
-
-//    // The array introduces a new vector index level for the
-//    // (one and only) child writer. Adjust that vector index to point to the
-//    // next array write position. This position must reflect any array entries
-//    // already written.
-//
-//    arrayWriter.resetElementIndex(newIndex);
-    return newIndex;
+    valuesState.rollover(childCardinality(cardinality));
+    offsetsState.rollover(cardinality);
   }
 
   @Override

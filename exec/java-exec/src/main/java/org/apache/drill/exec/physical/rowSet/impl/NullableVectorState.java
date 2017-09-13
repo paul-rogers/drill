@@ -62,9 +62,9 @@ public class NullableVectorState implements VectorState {
   }
 
   @Override
-  public int rollOver(int cardinality) {
-    bitsState.rollOver(cardinality);
-    return valuesState.rollOver(cardinality);
+  public void rollover(int cardinality) {
+    bitsState.rollover(cardinality);
+    valuesState.rollover(cardinality);
   }
 
   @Override

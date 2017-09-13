@@ -17,7 +17,9 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.Arrays;
 
@@ -232,6 +234,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     // Result should exclude the overflow row. Last row
     // should hold the last full array.
 
+//    VectorPrinter.printStrings((VarCharVector) ((VarCharColumnWriter) rootWriter.array(0).scalar()).vector(), 0, 5);
     RowSet result = fixture.wrap(rsLoader.harvest());
     assertEquals(expectedCount, result.rowCount());
     RowSetReader reader = result.reader();
@@ -249,9 +252,12 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     // array being written at the time of overflow.
 
     rsLoader.startBatch();
+//    VectorPrinter.printStrings((VarCharVector) ((VarCharColumnWriter) rootWriter.array(0).scalar()).vector(), 0, 5);
+//    ((ResultSetLoaderImpl) rsLoader).dump(new HierarchicalPrinter());
     assertEquals(1, rootWriter.rowCount());
     assertEquals(expectedCount + 1, rsLoader.totalRowCount());
     result = fixture.wrap(rsLoader.harvest());
+//    VectorPrinter.printStrings((VarCharVector) ((VarCharColumnWriter) rootWriter.array(0).scalar()).vector(), 0, 5);
     assertEquals(1, result.rowCount());
     reader = result.reader();
     reader.next();
@@ -598,5 +604,4 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
     rsLoader.close();
   }
-
 }

@@ -65,7 +65,7 @@ public interface VectorState {
    * with the writer for this vector
    */
 
-  int rollOver(int cardinality);
+  void rollover(int cardinality);
 
   /**
    * A batch is being harvested after an overflow. Put the full batch

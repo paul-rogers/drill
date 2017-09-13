@@ -261,6 +261,7 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
 
     public void verify() {
       while (rootReader.next()) {
+        System.out.println(readState.rowId);
         verifyRow();
         readState.rowId++;
       }
@@ -286,7 +287,9 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
 
       // Map2: an array.
 
-      if (readState.rowId % setup.m2Cycle != 0) {
+      if (readState.rowId % setup.m2Cycle == 0) {
+        assertEquals(0, a2Reader.size());
+      } else {
         verifyM2Array();
       }
     }

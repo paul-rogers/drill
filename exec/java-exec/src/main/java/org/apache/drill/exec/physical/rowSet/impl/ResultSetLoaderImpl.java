@@ -29,7 +29,10 @@ import org.apache.drill.exec.physical.rowSet.impl.TupleState.RowState;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.VarCharVector;
+import org.apache.drill.exec.vector.accessor.ColumnAccessors.VarCharColumnWriter;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
+import org.apache.drill.test.rowSet.test.VectorPrinter;
 
 /**
  * Implementation of the result set loader.
@@ -352,9 +355,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       // The above simply puts the look-ahead vectors back "under"
       // the writers.
 
-//      // Reset the writers to a new vector, but at a given position.
-//
-//      rootWriter.startWriteAt(writerIndex.vectorIndex());
       break;
 
     default:
@@ -547,6 +547,14 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
     updateCardinality();
 
+    // Wrap up the completed rows into a batch. Sets
+    // vector value counts. The rollover data still exists so
+    // it can be moved, but it is now past the recorded
+    // end of the vectors (though, obviously, not past the
+    // physical end.)
+
+    rootWriter.preRollover();
+
     // Roll over vector values.
 
     rootState.rollover();
@@ -570,10 +578,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     // the array values have been moved, offset vectors adjusted, the
     // element writer adjusted, so that v4 will be written to index 3
     // to produce (v1, v2, v3, v4, v5, ...) in the look-ahead vector.
-    //
-    // Note that resetting of writers and their indexes was done bottom-up.
-    // We SHOULD NOT attempt to reset them top down here, else we'll lose
-    // knowledge of the roll-over array values.
 
     writerIndex.rollover();
 
@@ -690,5 +694,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       ;
     format.attribute("root");
     rootState.dump(format);
+    format.attribute("rootWriter");
+    rootWriter.dump(format);
+    format.endObject();
   }
 }

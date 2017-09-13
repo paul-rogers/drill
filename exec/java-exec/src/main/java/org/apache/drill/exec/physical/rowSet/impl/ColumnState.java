@@ -111,12 +111,6 @@ public abstract class ColumnState implements ColumnCoordinator {
       mapState.updateCardinality(childCardinality);
     }
 
-//    @Override
-//    public void rollOver() {
-//      super.rollOver();
-//      ((AbstractObjectWriter) writer.array()).writerIndex().resetTo(0);
-//    }
-
     @Override
     public void dump(HierarchicalFormatter format) {
       // TODO Auto-generated method stub
@@ -262,7 +256,7 @@ public abstract class ColumnState implements ColumnCoordinator {
 
     // Otherwise, do the roll-over to a look-ahead vector.
 
-    vectorState.rollOver(outerCardinality);
+    vectorState.rollover(outerCardinality);
 
     // Remember that we did this overflow processing.
 

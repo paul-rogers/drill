@@ -476,39 +476,32 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
   }
 
   /**
-   * The writer protocol allows a client to write to a row
-   * any number of times before invoking <tt>save()</tt>.
-   * In this case, each new value simply overwrites the
-   * previous value. Here, we test the most basic case:
-   * a simple, flat tuple with no arrays. We use a very
-   * large Varchar that would, if overwrite were not working,
-   * cause vector overflow.
+   * The writer protocol allows a client to write to a row any number of times
+   * before invoking <tt>save()</tt>. In this case, each new value simply
+   * overwrites the previous value. Here, we test the most basic case: a simple,
+   * flat tuple with no arrays. We use a very large Varchar that would, if
+   * overwrite were not working, cause vector overflow.
    * <p>
-   * This version calls start at the beginning of each row,
-   * as if the prior row were filtered out and ignored.
+   * The ability to overwrite rows is seldom needed except in one future use
+   * case: writing a row, then applying a filter "in-place" to discard unwanted
+   * rows, without having to send the row downstream.
+   * <p>
+   * Because of this use case, specific rules apply when discarding row or
+   * overwriting values.
+   * <ul>
+   * <li>Values can be written once per row. Fixed-width columns actually allow
+   * multiple writes. But, because of the way variable-width columns work,
+   * multiple writes will cause undefined results.</li>
+   * <li>To overwrite a row, call <tt>start()</tt> without calling
+   * <tt>save()</tt> on the previous row. Doing so ignores data for the
+   * previous row and starts a new row in place of the old one.</li>
+   * </ul>
+   * Note that there is no explicit method to discard a row. Instead,
+   * the rule is that a row is not saved until <tt>save()</tt> is called.
    */
 
   @Test
   public void testOverwriteRow() {
-    doTestOverwriteRow(true);
-  }
-
-  /**
-   * Again test the ability to omit values. This version omits the
-   * <tt>start()</tt> call before each rewrite, testing the case that
-   * the code keeps rewriting the same row values until if finds a
-   * set of values it likes. Note that this version works only for
-   * top-level scalar values. If a row has an array, then the app
-   * must call <tt>start()</tt> to reset the array indexes back to
-   * the beginning positions for the row.
-   */
-
-  @Test
-  public void testOverwriteRowWithoutStart() {
-    doTestOverwriteRow(false);
-  }
-
-  private void doTestOverwriteRow(boolean withStart) {
     TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
@@ -533,21 +526,13 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
     Arrays.fill(value, (byte) 'X');
     int count = 0;
     rsLoader.startBatch();
-    if (! withStart) {
-      rootWriter.start();
-    }
     while (count < 100_000) {
-      if (withStart) {
-        rootWriter.start();
-      }
+      rootWriter.start();
       count++;
       aWriter.setInt(count);
       bWriter.setBytes(value, value.length);
       if (count % 100 == 0) {
         rootWriter.save();
-        if (! withStart) {
-          rootWriter.start();
-        }
       }
     }
 

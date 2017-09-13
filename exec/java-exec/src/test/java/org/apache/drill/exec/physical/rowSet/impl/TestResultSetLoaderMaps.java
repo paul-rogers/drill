@@ -752,22 +752,6 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
   @Test
   public void testOverwriteRow() {
-    doTestOverwriteRow(true);
-  }
-
-  /**
-   * Again test the ability to omit values. This version omits the
-   * <tt>start()</tt> call before each rewrite, testing the case that
-   * the code keeps rewriting the same row values until if finds a
-   * set of values it likes.
-   */
-
-  @Test
-  public void testOverwriteRowWithoutStart() {
-    doTestOverwriteRow(false);
-  }
-
-  private void doTestOverwriteRow(boolean withStart) {
     TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMap("m")
@@ -797,22 +781,14 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     Arrays.fill(value, (byte) 'X');
     int count = 0;
     rsLoader.startBatch();
-    if (! withStart) {
-      rootWriter.start();
-    }
     while (count < 100_000) {
-      if (withStart) {
-        rootWriter.start();
-      }
+      rootWriter.start();
       count++;
       aWriter.setInt(count);
       bWriter.setInt(count * 10);
       cWriter.setBytes(value, value.length);
       if (count % 100 == 0) {
         rootWriter.save();
-        if (! withStart) {
-          rootWriter.start();
-        }
       }
     }
 

@@ -67,11 +67,6 @@ public abstract class TupleState implements TupleWriterListener {
 
     @Override
     public int innerCardinality() { return resultSetLoader.targetRowCount();}
-
-    @Override
-    public void dump(HierarchicalFormatter format) {
-      format.startObject(this).endObject();
-    }
   }
 
   public static class MapState extends TupleState {
@@ -260,8 +255,8 @@ public abstract class TupleState implements TupleWriterListener {
   }
 
   public void updateCardinality(int cardinality) {
-    for (ColumnState colModel : columns) {
-      colModel.updateCardinality(cardinality);
+    for (ColumnState colState : columns) {
+      colState.updateCardinality(cardinality);
     }
   }
 
@@ -278,8 +273,8 @@ public abstract class TupleState implements TupleWriterListener {
    */
 
   public void rollover() {
-    for (ColumnState colModel : columns) {
-      colModel.rollOver();
+    for (ColumnState colState : columns) {
+      colState.rollOver();
     }
   }
 
@@ -290,8 +285,8 @@ public abstract class TupleState implements TupleWriterListener {
    */
 
   public void harvestWithLookAhead() {
-    for (ColumnState colModel : columns) {
-      colModel.harvestWithLookAhead();
+    for (ColumnState colState : columns) {
+      colState.harvestWithLookAhead();
     }
   }
 
@@ -301,8 +296,8 @@ public abstract class TupleState implements TupleWriterListener {
    */
 
   public void startBatch() {
-    for (ColumnState colModel : columns) {
-      colModel.startBatch();
+    for (ColumnState colState : columns) {
+      colState.startBatch();
     }
   }
 
@@ -312,10 +307,21 @@ public abstract class TupleState implements TupleWriterListener {
    */
 
   public void close() {
-    for (ColumnState colModel : columns) {
-      colModel.close();
+    for (ColumnState colState : columns) {
+      colState.close();
     }
   }
 
-  public abstract void dump(HierarchicalFormatter format);
+  public void dump(HierarchicalFormatter format) {
+    format
+      .startObject(this)
+      .attributeArray("columns");
+    for (int i = 0; i < columns.size(); i++) {
+      format.element(i);
+      columns.get(i).dump(format);
+    }
+    format
+      .endArray()
+      .endObject();
+  }
 }
