@@ -129,8 +129,8 @@ public class ObjectArrayWriter extends AbstractArrayWriter {
     // as a whole. Here, we end the value for the "inner" value:
     // the array elements.
 
-    elementObjWriter.saveValue();
-    elementIndex.nextElement();
+    elementObjWriter.events().saveValue();
+    elementIndex.next();
   }
 
   @Override

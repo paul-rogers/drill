@@ -115,7 +115,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     public ArrayWriter array() { return arrayWriter; }
 
     @Override
-    protected WriterEvents baseEvents() { return arrayWriter; }
+    public WriterEvents events() { return arrayWriter; }
 
     @Override
     public void bindListener(ColumnWriterListener listener) {
@@ -173,7 +173,9 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     public int arraySize() { return offset - startOffset; }
 
     @Override
-    public void nextElement() { offset++; }
+    public void nextElement() { }
+
+    public void next() { offset++; }
 
     public int valueStartOffset() { return startOffset; }
 
@@ -220,7 +222,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     assert elementIndex != null;
     baseIndex = index;
     offsetsWriter.bindIndex(index);
-    elementObjWriter.bindIndex(elementIndex);
+    elementObjWriter.events().bindIndex(elementIndex);
   }
 
   @Override
@@ -236,7 +238,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   public void startWrite() {
     elementIndex.reset();
     offsetsWriter.startWrite();
-    elementObjWriter.startWrite();
+    elementObjWriter.events().startWrite();
   }
 
   @Override
@@ -247,7 +249,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     // inner start will just be ignored.
 
     offsetsWriter.startRow();
-    elementObjWriter.startRow();
+    elementObjWriter.events().startRow();
     elementIndex.startRow();
   }
 
@@ -268,31 +270,31 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   public void restartRow() {
     offsetsWriter.restartRow();
     elementIndex.resetRow();
-    elementObjWriter.restartRow();
+    elementObjWriter.events().restartRow();
   }
 
   @Override
   public void saveRow() {
     offsetsWriter.saveRow();
-    elementObjWriter.saveRow();
+    elementObjWriter.events().saveRow();
   }
 
   @Override
   public void endWrite() {
     offsetsWriter.endWrite();
-    elementObjWriter.endWrite();
+    elementObjWriter.events().endWrite();
   }
 
   @Override
   public void preRollover() {
     offsetsWriter.preRollover();
-    elementObjWriter.preRollover();
+    elementObjWriter.events().preRollover();
   }
 
   @Override
   public void postRollover() {
     offsetsWriter.postRollover();
-    elementObjWriter.postRollover();
+    elementObjWriter.events().postRollover();
 
     // Reset the index after the vectors: the vectors
     // need the old row start index from the index.

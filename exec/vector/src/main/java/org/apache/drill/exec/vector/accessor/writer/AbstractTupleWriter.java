@@ -119,7 +119,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     public TupleWriter tuple() { return tupleWriter; }
 
     @Override
-    protected WriterEvents baseEvents() { return tupleWriter; }
+    public WriterEvents events() { return tupleWriter; }
 
     @Override
     public void bindListener(TupleWriterListener listener) {
@@ -188,7 +188,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     this.childIndex = childIndex;
 
     for (int i = 0; i < writers.size(); i++) {
-      writers.get(i).bindIndex(childIndex);
+      writers.get(i).events().bindIndex(childIndex);
     }
   }
 
@@ -212,11 +212,11 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     assert writers.size() == schema.size();
     int colIndex = schema.addColumn(colWriter.schema());
     writers.add(colWriter);
-    colWriter.bindIndex(childIndex);
+    colWriter.events().bindIndex(childIndex);
     if (state != State.IDLE) {
-      colWriter.startWrite();
+      colWriter.events().startWrite();
       if (state == State.IN_ROW) {
-        colWriter.startRow();
+        colWriter.events().startRow();
       }
     }
     return colIndex;
@@ -251,7 +251,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     assert state == State.IDLE;
     state = State.IN_WRITE;
     for (int i = 0; i < writers.size();  i++) {
-      writers.get(i).startWrite();
+      writers.get(i).events().startWrite();
     }
   }
 
@@ -263,7 +263,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     assert state == State.IN_WRITE;
     state = State.IN_ROW;
     for (int i = 0; i < writers.size();  i++) {
-      writers.get(i).startRow();
+      writers.get(i).events().startRow();
     }
   }
 
@@ -271,7 +271,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   public void saveValue() {
     assert state == State.IN_ROW;
     for (int i = 0; i < writers.size();  i++) {
-      writers.get(i).saveValue();
+      writers.get(i).events().saveValue();
     }
   }
 
@@ -288,7 +288,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
     assert state == State.IN_ROW;
     for (int i = 0; i < writers.size();  i++) {
-      writers.get(i).restartRow();
+      writers.get(i).events().restartRow();
     }
   }
 
@@ -296,7 +296,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   public void saveRow() {
     assert state == State.IN_ROW;
     for (int i = 0; i < writers.size();  i++) {
-      writers.get(i).saveRow();
+      writers.get(i).events().saveRow();
     }
     state = State.IN_WRITE;
   }
@@ -308,7 +308,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
     assert state == State.IN_ROW;
     for (int i = 0; i < writers.size();  i++) {
-      writers.get(i).preRollover();
+      writers.get(i).events().preRollover();
     }
   }
 
@@ -319,7 +319,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
     assert state == State.IN_ROW;
     for (int i = 0; i < writers.size();  i++) {
-      writers.get(i).postRollover();
+      writers.get(i).events().postRollover();
     }
   }
 
@@ -327,7 +327,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   public void endWrite() {
     assert state != State.IDLE;
     for (int i = 0; i < writers.size();  i++) {
-      writers.get(i).endWrite();
+      writers.get(i).events().endWrite();
     }
     state = State.IDLE;
   }

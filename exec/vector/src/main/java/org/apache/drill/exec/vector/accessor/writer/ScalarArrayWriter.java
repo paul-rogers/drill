@@ -63,8 +63,8 @@ public class ScalarArrayWriter extends AbstractArrayWriter {
       // is saved only in response to the save of the outer
       // value (row or containing array element).
 
-      elementObjWriter.saveValue();
-      super.nextElement();
+      elementObjWriter.events().saveValue();
+      next();
     }
   }
 
