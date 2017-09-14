@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.rowSet.model.single2;
+package org.apache.drill.exec.physical.rowSet.model.single;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,69 +23,66 @@ import java.util.List;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.rowSet.model.single2.MetadataProvider.VectorDescrip;
+import org.apache.drill.exec.physical.rowSet.model.single.MetadataProvider.VectorDescrip;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
-import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
-import org.apache.drill.exec.vector.accessor.writer.MapWriter;
-import org.apache.drill.exec.vector.accessor.writer.ObjectArrayWriter;
+import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
+import org.apache.drill.exec.vector.accessor.reader.MapReader;
+import org.apache.drill.exec.vector.accessor.reader.ObjectArrayReader;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.MapVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 
-/**
- * Build a set of writers for a single (non-hyper) vector container.
- */
+public abstract class BaseReaderBuilder {
 
-public abstract class BaseWriterBuilder {
-
-  protected List<AbstractObjectWriter> buildContainerChildren(VectorContainer container, MetadataProvider mdProvider) {
-    List<AbstractObjectWriter> writers = new ArrayList<>();
+  protected List<AbstractObjectReader> buildContainerChildren(
+      VectorContainer container, MetadataProvider mdProvider) {
+    List<AbstractObjectReader> writers = new ArrayList<>();
     for (int i = 0; i < container.getNumberOfColumns(); i++) {
       @SuppressWarnings("resource")
       ValueVector vector = container.getValueVector(i).getValueVector();
       VectorDescrip descrip = new VectorDescrip(mdProvider, i, vector);
-      writers.add(buildVectorWriter(vector, descrip));
+      writers.add(buildVectorReader(vector, descrip));
     }
     return writers;
   }
 
-  private AbstractObjectWriter buildVectorWriter(ValueVector vector, VectorDescrip descrip) {
+  private AbstractObjectReader buildVectorReader(ValueVector vector, VectorDescrip descrip) {
     MajorType type = vector.getField().getType();
     if (type.getMinorType() == MinorType.MAP) {
       if (type.getMode() == DataMode.REPEATED) {
-        return buildMapArrayWriter((RepeatedMapVector) vector, descrip);
+        return buildMapArrayReader((RepeatedMapVector) vector, descrip);
       } else {
-        return buildMapWriter((MapVector) vector, descrip);
+        return buildMapReader((MapVector) vector, descrip);
       }
     } else {
-      return buildPrimitiveWriter(vector, descrip);
+      return buildPrimitiveReader(vector, descrip);
     }
   }
 
-  private AbstractObjectWriter buildMapArrayWriter(RepeatedMapVector vector, VectorDescrip descrip) {
-    AbstractObjectWriter tupleWriter = MapWriter.buildMapArray(descrip.metadata, vector, buildMap(vector, descrip));
-    return ObjectArrayWriter.build(descrip.metadata, vector, tupleWriter);
+  private AbstractObjectReader buildMapArrayReader(RepeatedMapVector vector, VectorDescrip descrip) {
+    AbstractObjectReader mapReader = MapReader.build(descrip.metadata, buildMap(vector, descrip));
+    return ObjectArrayReader.build(vector, mapReader);
   }
 
-  private AbstractObjectWriter buildMapWriter(MapVector vector, VectorDescrip descrip) {
-    return MapWriter.build(descrip.metadata, vector, buildMap(vector, descrip));
+  private AbstractObjectReader buildMapReader(MapVector vector, VectorDescrip descrip) {
+    return MapReader.build(descrip.metadata, buildMap(vector, descrip));
   }
 
-  private AbstractObjectWriter buildPrimitiveWriter(ValueVector vector, VectorDescrip descrip) {
-    return ColumnAccessorFactory.buildColumnWriter(descrip.metadata, vector);
+  private AbstractObjectReader buildPrimitiveReader(ValueVector vector, VectorDescrip descrip) {
+    return ColumnAccessorFactory.buildColumnReader(vector);
   }
 
-  private List<AbstractObjectWriter> buildMap(AbstractMapVector vector, VectorDescrip descrip) {
-    List<AbstractObjectWriter> writers = new ArrayList<>();
+  private List<AbstractObjectReader> buildMap(AbstractMapVector vector, VectorDescrip descrip) {
+    List<AbstractObjectReader> readers = new ArrayList<>();
     MetadataProvider provider = descrip.parent.childProvider(descrip.metadata);
     int i = 0;
     for (ValueVector child : vector) {
       VectorDescrip childDescrip = new VectorDescrip(provider, i, child);
-      writers.add(buildVectorWriter(child, childDescrip));
+      readers.add(buildVectorReader(child, childDescrip));
       i++;
     }
-    return writers;
+    return readers;
   }
 }

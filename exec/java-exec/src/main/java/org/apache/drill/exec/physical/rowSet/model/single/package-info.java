@@ -15,12 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 /**
  * This set of classes models the structure of a batch consisting
  * of single vectors (as contrasted with a hyper batch.) Provides tools
  * or metdata-based construction, allocation, reading and writing of
  * the vectors.
+ * <p>
+ * The classes here walk the container/map/vector tree to apply
+ * operations.
  */
 
 package org.apache.drill.exec.physical.rowSet.model.single;

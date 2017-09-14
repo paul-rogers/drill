@@ -15,12 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.rowSet.model.single2;
+package org.apache.drill.exec.physical.rowSet.model.single;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.rowSet.model.single2.MetadataProvider.MetadataCreator;
-import org.apache.drill.exec.physical.rowSet.model.single2.MetadataProvider.VectorDescrip;
+import org.apache.drill.exec.physical.rowSet.model.single.MetadataProvider.MetadataCreator;
+import org.apache.drill.exec.physical.rowSet.model.single.MetadataProvider.VectorDescrip;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
