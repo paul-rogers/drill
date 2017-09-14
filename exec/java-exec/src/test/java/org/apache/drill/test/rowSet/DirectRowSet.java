@@ -19,11 +19,11 @@ package org.apache.drill.test.rowSet;
 
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.model.ReaderIndex;
-import org.apache.drill.exec.physical.rowSet.model.single2.BaseWriterBuilder;
-import org.apache.drill.exec.physical.rowSet.model.single2.BuildVectorsFromMetadata;
-import org.apache.drill.exec.physical.rowSet.model.single2.MetadataProvider.MetadataRetrieval;
-import org.apache.drill.exec.physical.rowSet.model.single2.SchemaInference;
-import org.apache.drill.exec.physical.rowSet.model.single2.VectorAllocator;
+import org.apache.drill.exec.physical.rowSet.model.single.BaseWriterBuilder;
+import org.apache.drill.exec.physical.rowSet.model.single.BuildVectorsFromMetadata;
+import org.apache.drill.exec.physical.rowSet.model.single.SchemaInference;
+import org.apache.drill.exec.physical.rowSet.model.single.VectorAllocator;
+import org.apache.drill.exec.physical.rowSet.model.single.MetadataProvider.MetadataRetrieval;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.TupleMetadata;

@@ -21,7 +21,7 @@ import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
 import org.apache.drill.exec.physical.rowSet.model.ReaderIndex;
-import org.apache.drill.exec.physical.rowSet.model.single2.SchemaInference;
+import org.apache.drill.exec.physical.rowSet.model.single.SchemaInference;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;

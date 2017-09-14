@@ -19,7 +19,7 @@ package org.apache.drill.test.rowSet;
 
 import org.apache.drill.exec.physical.rowSet.model.hyper.HyperRowSetModel;
 import org.apache.drill.exec.physical.rowSet.model.hyper.ReaderBuilderVisitor;
-import org.apache.drill.exec.physical.rowSet.model.single2.SchemaInference;
+import org.apache.drill.exec.physical.rowSet.model.single.SchemaInference;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector4;
