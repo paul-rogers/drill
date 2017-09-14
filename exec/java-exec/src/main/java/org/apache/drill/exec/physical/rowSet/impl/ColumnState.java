@@ -21,7 +21,6 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.physical.rowSet.impl.NullVectorState.UnmanagedVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapState;
-import org.apache.drill.exec.physical.rowSet.model.single.AbstractSingleColumnModel.ColumnCoordinator;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
@@ -30,7 +29,7 @@ import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 
-public abstract class ColumnState implements ColumnCoordinator {
+public abstract class ColumnState {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ColumnState.class);
 
@@ -45,8 +44,8 @@ public abstract class ColumnState implements ColumnCoordinator {
     }
 
     @Override
-    public void rollOver() {
-      super.rollOver();
+    public void rollover() {
+      super.rollover();
       mapState.rollover();
     }
 
@@ -84,16 +83,9 @@ public abstract class ColumnState implements ColumnCoordinator {
       super.updateCardinality(cardinality);
       mapState.updateCardinality(cardinality);
     }
-
-    @Override
-    public void dump(HierarchicalFormatter format) {
-      // TODO Auto-generated method stub
-    }
   }
 
   public static class MapArrayColumnState extends BaseMapColumnState {
-
-    protected SingleVectorState offsetsState;
 
     public MapArrayColumnState(ResultSetLoaderImpl resultSetLoader,
         AbstractMapVector mapVector, AbstractObjectWriter writer) {
@@ -109,12 +101,6 @@ public abstract class ColumnState implements ColumnCoordinator {
       super.updateCardinality(cardinality);
       int childCardinality = cardinality * schema().expectedElementCount();
       mapState.updateCardinality(childCardinality);
-    }
-
-    @Override
-    public void dump(HierarchicalFormatter format) {
-      // TODO Auto-generated method stub
-
     }
   }
 
@@ -236,7 +222,7 @@ public abstract class ColumnState implements ColumnCoordinator {
    *          should be copied to a new "look-ahead" vector
    */
 
-  public void rollOver() {
+  public void rollover() {
     assert state == State.NORMAL;
 
     // If the source index is 0, then we could not fit this one
@@ -248,7 +234,7 @@ public abstract class ColumnState implements ColumnCoordinator {
     // of thought to get right -- and, of course, completely defeats
     // the purpose of limiting vector size to avoid memory fragmentation...
 
-    if (writer.writerIndex().vectorIndex() == 0) {
+    if (writer.events().writerIndex().vectorIndex() == 0) {
       throw UserException
         .memoryError("A single column value is larger than the maximum allowed size of 16 MB")
         .build(logger);
@@ -303,5 +289,17 @@ public abstract class ColumnState implements ColumnCoordinator {
 
   public void updateCardinality(int cardinality) {
     outerCardinality = cardinality;
+  }
+
+  public void dump(HierarchicalFormatter format) {
+    format
+      .startObject(this)
+      .attribute("addVersion", addVersion)
+      .attribute("state", state)
+      .attributeIdentity("writer", writer)
+      .attribute("vectorState")
+      ;
+    vectorState.dump(format);
+    format.endObject();
   }
 }

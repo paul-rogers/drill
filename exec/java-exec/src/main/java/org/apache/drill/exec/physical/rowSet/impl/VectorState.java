@@ -18,6 +18,7 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
 /**
  * Handles batch and overflow operation for a (possibly compound) vector.
@@ -94,4 +95,6 @@ public interface VectorState {
    */
 
   ValueVector vector();
+
+  void dump(HierarchicalFormatter format);
 }

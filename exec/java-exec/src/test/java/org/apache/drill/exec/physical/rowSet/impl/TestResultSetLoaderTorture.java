@@ -261,7 +261,7 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
 
     public void verify() {
       while (rootReader.next()) {
-        System.out.println(readState.rowId);
+//        System.out.println(readState.rowId);
         verifyRow();
         readState.rowId++;
       }
@@ -404,5 +404,4 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
       result.clear();
     }
   }
-
 }

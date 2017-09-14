@@ -21,6 +21,7 @@ import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVector
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.ValuesVectorState;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
@@ -148,5 +149,21 @@ public class RepeatedVectorState implements VectorState {
   public void reset() {
     offsetsState.reset();
     valuesState.reset();
+  }
+
+  @Override
+  public void dump(HierarchicalFormatter format) {
+    format
+      .startObject(this)
+      .attribute("schema", schema)
+      .attributeIdentity("writer", arrayWriter)
+      .attributeIdentity("vector", vector)
+      .attribute("offsetsState");
+    offsetsState.dump(format);
+    format
+      .attribute("valuesState");
+    valuesState.dump(format);
+    format
+      .endObject();
   }
 }

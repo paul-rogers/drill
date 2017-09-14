@@ -22,6 +22,7 @@ import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.FixedWidthVector;
 import org.apache.drill.exec.vector.NullableVector;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
 import org.apache.drill.exec.vector.accessor.writer.NullableScalarWriter;
@@ -87,4 +88,20 @@ public class NullableVectorState implements VectorState {
 
   @Override
   public ValueVector vector() { return vector; }
+
+  @Override
+  public void dump(HierarchicalFormatter format) {
+    format
+      .startObject(this)
+      .attribute("schema", schema)
+      .attributeIdentity("writer", writer)
+      .attributeIdentity("vector", vector)
+      .attribute("bitsState");
+    bitsState.dump(format);
+    format
+      .attribute("valuesState");
+    valuesState.dump(format);
+    format
+      .endObject();
+  }
 }

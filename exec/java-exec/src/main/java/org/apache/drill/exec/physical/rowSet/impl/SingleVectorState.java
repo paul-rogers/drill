@@ -22,16 +22,17 @@ import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.FixedWidthVector;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.VarCharVector;
 import org.apache.drill.exec.vector.VariableWidthVector;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
 import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriter;
-import org.apache.drill.test.rowSet.test.VectorPrinter;
 
 /**
  * Base class for a single vector. Handles the bulk of work for that vector.
  * Subclasses are specialized for offset vectors or values vectors.
+ * (The "single vector" name contrasts with classes that manage compound
+ * vectors, such as a data and offsets vector.)
  */
 
 public abstract class SingleVectorState implements VectorState {
@@ -81,9 +82,6 @@ public abstract class SingleVectorState implements VectorState {
       for (int src = sourceStartIndex; src <= sourceEndIndex; src++, newIndex++) {
         mainVector.copyEntry(newIndex, backupVector, src);
       }
-//      if (mainVector instanceof VarCharVector) {
-//        VectorPrinter.printStrings((VarCharVector) mainVector, 0, newIndex);
-//      }
     }
   }
 
@@ -139,7 +137,7 @@ public abstract class SingleVectorState implements VectorState {
 
       UInt4Vector.Accessor sourceAccessor = ((UInt4Vector) backupVector).getAccessor();
       UInt4Vector.Mutator destMutator = ((UInt4Vector) mainVector).getMutator();
-      int offset = childWriter.writerIndex().rowStartIndex();
+      int offset = childWriter.events().writerIndex().rowStartIndex();
       int newIndex = 0;
       ResultSetLoaderImpl.logger.trace("Offset vector: copy {} values from {} to {} with offset {}",
           Math.max(0, sourceEndIndex - sourceStartIndex + 1),
@@ -152,7 +150,6 @@ public abstract class SingleVectorState implements VectorState {
       for (int src = sourceStartIndex; src <= sourceEndIndex; src++, newIndex++) {
         destMutator.set(newIndex + 1, sourceAccessor.get(src) - offset);
       }
-//      VectorPrinter.printOffsets((UInt4Vector) mainVector, 0, newIndex);
     }
   }
 
@@ -253,5 +250,15 @@ public abstract class SingleVectorState implements VectorState {
     if (backupVector != null) {
       backupVector.clear();
     }
+  }
+
+  @Override
+  public void dump(HierarchicalFormatter format) {
+    format
+      .startObject(this)
+      .attributeIdentity("writer", writer)
+      .attributeIdentity("mainVector", mainVector)
+      .attributeIdentity("backupVector", backupVector)
+      .endObject();
   }
 }

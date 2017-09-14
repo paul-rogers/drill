@@ -29,10 +29,8 @@ import org.apache.drill.exec.physical.rowSet.impl.TupleState.RowState;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.VarCharVector;
-import org.apache.drill.exec.vector.accessor.ColumnAccessors.VarCharColumnWriter;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
-import org.apache.drill.test.rowSet.test.VectorPrinter;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalPrinter;
 
 /**
  * Implementation of the result set loader.
@@ -546,6 +544,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     // array cardinality.
 
     updateCardinality();
+    
+    rootWriter.dump(new HierarchicalPrinter());
 
     // Wrap up the completed rows into a batch. Sets
     // vector value counts. The rollover data still exists so

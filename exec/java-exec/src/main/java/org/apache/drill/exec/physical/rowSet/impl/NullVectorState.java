@@ -18,6 +18,7 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
 /**
  * Do-nothing vector state for a map column which has no actual vector
@@ -42,5 +43,10 @@ public class NullVectorState implements VectorState {
 
     @Override
     public ValueVector vector() { return vector; }
+  }
+
+  @Override
+  public void dump(HierarchicalFormatter format) {
+    format.startObject(this).endObject();
   }
 }

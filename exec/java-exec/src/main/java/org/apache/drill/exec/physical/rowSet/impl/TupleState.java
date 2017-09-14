@@ -274,7 +274,7 @@ public abstract class TupleState implements TupleWriterListener {
 
   public void rollover() {
     for (ColumnState colState : columns) {
-      colState.rollOver();
+      colState.rollover();
     }
   }
 
