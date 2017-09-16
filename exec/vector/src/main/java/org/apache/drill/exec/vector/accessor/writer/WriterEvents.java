@@ -68,10 +68,12 @@ public interface WriterEvents {
    * End a value. Similar to {@link saveRow()}, but the save of a value
    * is conditional on saving the row. This version is primarily of use
    * in tuples nested inside arrays: it saves each tuple within the array,
-   * but conditionally on later saving (or restarting) the entire row.
+   * advancing to a new position in the array. The update of the array's
+   * offset vector based on the cumulative value saves is done when
+   * saving the row.
    */
 
-  void saveValue();
+  void endArrayValue();
 
   /**
    * During a writer to a row, rewind the the current index position to

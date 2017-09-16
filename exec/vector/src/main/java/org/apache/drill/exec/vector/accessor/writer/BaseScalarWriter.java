@@ -159,10 +159,7 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
     public void startRow() { offsetsWriter.startRow(); }
 
     @Override
-    public void saveValue() { offsetsWriter.saveValue(); }
-
-    @Override
-    public void skipNulls() { offsetsWriter.skipNulls(); }
+    public void skipNulls() { }
 
     @Override
     public void restartRow() { offsetsWriter.restartRow(); }
@@ -205,7 +202,7 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
 
       // Pretend we've written up to the previous value.
       // This will leave null values (as specified by the
-      // caller) unintialized.
+      // caller) uninitialized.
 
       lastWriteIndex = vectorIndex.vectorIndex() - 1;
     }

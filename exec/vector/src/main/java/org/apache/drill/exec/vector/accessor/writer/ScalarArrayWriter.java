@@ -56,16 +56,7 @@ public class ScalarArrayWriter extends AbstractArrayWriter {
   public class ScalarElementWriterIndex extends ArrayElementWriterIndex {
 
     @Override
-    public void nextElement() {
-
-      // Save the element and advance the index.
-      // But, don't save this value; the array value itself
-      // is saved only in response to the save of the outer
-      // value (row or containing array element).
-
-      elementObjWriter.events().saveValue();
-      next();
-    }
+    public void nextElement() { next(); }
   }
 
   private final BaseScalarWriter elementWriter;

@@ -123,13 +123,7 @@ public class ObjectArrayWriter extends AbstractArrayWriter {
 
   @Override
   public void save() {
-    saveValue();
-
-    // The end value above is for the "outer" value: the array
-    // as a whole. Here, we end the value for the "inner" value:
-    // the array elements.
-
-    elementObjWriter.events().saveValue();
+    elementObjWriter.events().endArrayValue();
     elementIndex.next();
   }
 

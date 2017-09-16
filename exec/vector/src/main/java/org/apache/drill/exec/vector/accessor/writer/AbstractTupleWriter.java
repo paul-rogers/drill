@@ -268,10 +268,10 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   }
 
   @Override
-  public void saveValue() {
+  public void endArrayValue() {
     assert state == State.IN_ROW;
     for (int i = 0; i < writers.size();  i++) {
-      writers.get(i).events().saveValue();
+      writers.get(i).events().endArrayValue();
     }
   }
 

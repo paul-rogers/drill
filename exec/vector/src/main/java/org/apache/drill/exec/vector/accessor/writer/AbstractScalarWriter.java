@@ -80,7 +80,7 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
   public void startRow() { }
 
   @Override
-  public void saveValue() { }
+  public void endArrayValue() { }
 
   @Override
   public void saveRow() { }

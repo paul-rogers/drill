@@ -64,4 +64,13 @@ public interface ColumnWriterIndex {
    */
 
   void rollover();
+
+  /**
+   * If this index represents a repeat level, return the index of the
+   * next higher repeat level.
+   *
+   * @return the outer repeat level index, if any
+   */
+
+  ColumnWriterIndex outerIndex();
 }

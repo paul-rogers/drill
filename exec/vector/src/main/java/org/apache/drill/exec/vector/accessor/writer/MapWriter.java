@@ -49,6 +49,9 @@ public abstract class MapWriter extends AbstractTupleWriter {
     @Override public int vectorIndex() { return baseIndex.vectorIndex(); }
     @Override public void nextElement() { }
     @Override public void rollover() { }
+    @Override public ColumnWriterIndex outerIndex() {
+      return baseIndex.outerIndex();
+    }
 
     @Override
     public String toString() {
@@ -101,6 +104,7 @@ public abstract class MapWriter extends AbstractTupleWriter {
    */
 
   private static class ArrayMapWriter extends MapWriter {
+    @SuppressWarnings("unused")
     private final RepeatedMapVector mapVector;
 
     private ArrayMapWriter(ColumnMetadata schema, RepeatedMapVector vector, List<AbstractObjectWriter> writers) {
@@ -111,20 +115,26 @@ public abstract class MapWriter extends AbstractTupleWriter {
     @Override
     public void bindIndex(ColumnWriterIndex index) {
 
-      // This is a repeated map, then the provided index is an array element
+      // This is a repeated map, so the provided index is an array element
       // index. Convert this to an index that will not increment the element
       // index on each write so that a map with three members, say, won't
       // increment the index for each member. Rather, the index must be
       // incremented at the array level.
 
-      final ColumnWriterIndex childIndex = new MemberWriterIndex(index);
-      bindIndex(index, childIndex);
+      bindIndex(index, new MemberWriterIndex(index));
     }
 
     @Override
     public void endWrite() {
       super.endWrite();
-      mapVector.getMutator().setValueCount(vectorIndex.vectorIndex());
+
+      // Do not call setValueCount on the map vector.
+      // Doing so will zero-fill the composite vectors because
+      // the internal map state does not track the writer state.
+      // Instead, the code in this structure has set the value
+      // count for each composite vector individually.
+
+//      mapVector.getMutator().setValueCount(vectorIndex.outerIndex().vectorIndex());
     }
   }
 
