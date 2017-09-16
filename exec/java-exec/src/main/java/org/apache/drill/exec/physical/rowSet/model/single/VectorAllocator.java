@@ -21,8 +21,9 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
-import org.apache.drill.exec.physical.rowSet.model.single.MetadataProvider.MetadataCreator;
-import org.apache.drill.exec.physical.rowSet.model.single.MetadataProvider.MetadataRetrieval;
+import org.apache.drill.exec.physical.rowSet.model.MetadataProvider;
+import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.MetadataCreator;
+import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.MetadataRetrieval;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
@@ -64,7 +65,7 @@ public class VectorAllocator {
     for (int i = 0; i < container.getNumberOfColumns(); i++) {
       @SuppressWarnings("resource")
       ValueVector vector = container.getValueVector(i).getValueVector();
-      allocateVector(vector, mdProvider.metadata(i, vector), rowCount, mdProvider);
+      allocateVector(vector, mdProvider.metadata(i, vector.getField()), rowCount, mdProvider);
     }
   }
 
@@ -104,7 +105,7 @@ public class VectorAllocator {
     assert mapSchema != null;
     int i = 0;
     for (ValueVector child : vector) {
-      allocateVector(child, mapProvider.metadata(i, child), valueCount, mapProvider);
+      allocateVector(child, mapProvider.metadata(i, child.getField()), valueCount, mapProvider);
       i++;
     }
   }

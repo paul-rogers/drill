@@ -23,7 +23,8 @@ import java.util.List;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.rowSet.model.single.MetadataProvider.VectorDescrip;
+import org.apache.drill.exec.physical.rowSet.model.MetadataProvider;
+import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescrip;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
@@ -45,7 +46,7 @@ public abstract class BaseWriterBuilder {
     for (int i = 0; i < container.getNumberOfColumns(); i++) {
       @SuppressWarnings("resource")
       ValueVector vector = container.getValueVector(i).getValueVector();
-      VectorDescrip descrip = new VectorDescrip(mdProvider, i, vector);
+      VectorDescrip descrip = new VectorDescrip(mdProvider, i, vector.getField());
       writers.add(buildVectorWriter(vector, descrip));
     }
     return writers;
@@ -82,7 +83,7 @@ public abstract class BaseWriterBuilder {
     MetadataProvider provider = descrip.parent.childProvider(descrip.metadata);
     int i = 0;
     for (ValueVector child : vector) {
-      VectorDescrip childDescrip = new VectorDescrip(provider, i, child);
+      VectorDescrip childDescrip = new VectorDescrip(provider, i, child.getField());
       writers.add(buildVectorWriter(child, childDescrip));
       i++;
     }

@@ -15,16 +15,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.rowSet.model.single;
+package org.apache.drill.exec.physical.rowSet.model;
 
-import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.rowSet.model.single.MetadataProvider.MetadataCreator;
-import org.apache.drill.exec.physical.rowSet.model.single.MetadataProvider.VectorDescrip;
+import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.MetadataCreator;
+import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescrip;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.complex.AbstractMapVector;
 
 /**
  * Produce a metadata schema from a vector container. Used when given a
@@ -36,25 +34,23 @@ public class SchemaInference {
   public TupleMetadata infer(VectorContainer container) {
     MetadataCreator mdProvider = new MetadataCreator();
     for (int i = 0; i < container.getNumberOfColumns(); i++) {
-      @SuppressWarnings("resource")
-      ValueVector vector = container.getValueVector(i).getValueVector();
-      VectorDescrip descrip = new VectorDescrip(mdProvider, i, vector);
-      inferVector(vector, descrip);
+      MaterializedField field = container.getValueVector(i).getField();
+      VectorDescrip descrip = new VectorDescrip(mdProvider, i, field);
+      inferVector(field, descrip);
     }
     return mdProvider.tuple();
   }
 
-  private void inferVector(ValueVector vector, VectorDescrip descrip) {
-    MajorType type = vector.getField().getType();
-    if (type.getMinorType() == MinorType.MAP) {
-      inferMapSchema((AbstractMapVector) vector, descrip);
+  private void inferVector(MaterializedField field, VectorDescrip descrip) {
+    if (field.getType().getMinorType() == MinorType.MAP) {
+      inferMapSchema(field, descrip);
     }
   }
 
-  private void inferMapSchema(AbstractMapVector vector, VectorDescrip descrip) {
+  private void inferMapSchema(MaterializedField field, VectorDescrip descrip) {
     MetadataProvider provider = descrip.parent.childProvider(descrip.metadata);
     int i = 0;
-    for (ValueVector child : vector) {
+    for (MaterializedField child : field.getChildren()) {
       VectorDescrip childDescrip = new VectorDescrip(provider, i, child);
       inferVector(child, childDescrip);
       i++;

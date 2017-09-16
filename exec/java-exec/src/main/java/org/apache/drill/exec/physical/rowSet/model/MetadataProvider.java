@@ -15,12 +15,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.rowSet.model.single;
+package org.apache.drill.exec.physical.rowSet.model;
 
 import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleSchema;
-import org.apache.drill.exec.vector.ValueVector;
 
 /**
  * Interface for retrieving and/or creating metadata given
@@ -28,7 +28,7 @@ import org.apache.drill.exec.vector.ValueVector;
  */
 
 public interface MetadataProvider {
-  ColumnMetadata metadata(int index, ValueVector vector);
+  ColumnMetadata metadata(int index, MaterializedField field);
   MetadataProvider childProvider(ColumnMetadata colMetadata);
   TupleMetadata tuple();
 
@@ -37,9 +37,9 @@ public interface MetadataProvider {
     public final ColumnMetadata metadata;
 
     public VectorDescrip(MetadataProvider provider, int index,
-        ValueVector vector) {
+        MaterializedField field) {
       parent = provider;
-      metadata = provider.metadata(index, vector);
+      metadata = provider.metadata(index, field);
     }
   }
 
@@ -56,8 +56,8 @@ public interface MetadataProvider {
     }
 
     @Override
-    public ColumnMetadata metadata(int index, ValueVector vector) {
-      return tuple.addView(vector.getField());
+    public ColumnMetadata metadata(int index, MaterializedField field) {
+      return tuple.addView(field);
     }
 
     @Override
@@ -78,7 +78,7 @@ public interface MetadataProvider {
     }
 
     @Override
-    public ColumnMetadata metadata(int index, ValueVector vector) {
+    public ColumnMetadata metadata(int index, MaterializedField field) {
       return tuple.metadata(index);
     }
 
