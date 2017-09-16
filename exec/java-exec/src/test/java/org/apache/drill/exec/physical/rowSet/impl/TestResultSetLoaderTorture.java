@@ -17,7 +17,8 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 
@@ -43,8 +44,6 @@ import org.junit.Test;
 
 import com.google.common.base.Charsets;
 
-import ch.qos.logback.classic.Level;
-
 /**
  * Runs a worst-case scenario test that combines aspects of all
  * previous tests. Run this test only <i>after</i> all other tests
@@ -60,7 +59,6 @@ import ch.qos.logback.classic.Level;
  * <li>Skipped rows.</li>
  * <li>Vector overflow deep in the structure.</li>
  * <li>Multiple batches.</li>
- * <li>Schema changes.</li>
  * </ul>
  * The proposition that this test asserts is that if this test passes,
  * then most clients will also work as they generally do not do all these
@@ -109,8 +107,9 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
     int rowId = 0;
     int innerCount = 0;
     int writeRowCount = 0;
-    int startPrint = 149;
-    int endPrint = 149;
+    int startPrint = -1;
+    int endPrint = -1;
+    boolean lastRowDiscarded;
 
     public BatchWriter(TestSetup setup, RowSetLoader rootWriter) {
       this.setup = setup;
@@ -132,10 +131,15 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
       // Write until overflow
 
       writeRowCount = rootWriter.rowCount();
+      //System.out.println("Start count: " + writeRowCount);
       while (! rootWriter.isFull()) {
+        lastRowDiscarded = false;
         writeRow();
         rowId++;
       }
+//      System.out.println("End of batch: rowId: " + rowId +
+//          ", count: " + writeRowCount +
+//          ", writer count:" + rootWriter.rowCount());
     }
 
     private void writeRow() {
@@ -161,6 +165,11 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
       if (rowId % setup.skipCycle != 0) {
         rootWriter.save();
         writeRowCount++;
+      } else {
+        lastRowDiscarded = true;
+//        System.out.println("Skip row ID: " + rowId +
+//            ", count: " + writeRowCount +
+//            ", row set: " + rootWriter.rowCount());
       }
       if (rowId >= startPrint &&  rowId <= endPrint) {
         System.out.println();
@@ -223,6 +232,11 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
         System.out.print(value);
         System.out.print(" ");
       }
+    }
+
+    public int rowCount() {
+      return writeRowCount -
+          (lastRowDiscarded ? 0 : 1);
     }
   }
 
@@ -345,7 +359,10 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
   @Test
   public void tortureTest() {
     LogFixtureBuilder logBuilder = new LogFixtureBuilder()
-        .logger("org.apache.drill.exec.physical.rowSet", Level.TRACE)
+
+        // Enable to get detailed tracing when things go wrong.
+
+//        .logger("org.apache.drill.exec.physical.rowSet", Level.TRACE)
         ;
     try (LogFixture logFixture = logBuilder.build()) {
       doTortureTest();
@@ -381,21 +398,19 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
 
     ReadState readState = new ReadState();
     for (int batchCount = 0; batchCount < 10; batchCount++) {
-      System.out.println("Batch " + batchCount);
       rsLoader.startBatch();
       batchWriter.writeBatch();
 
       // Now the hard part. Verify the above batch.
 
       RowSet result = fixture.wrap(rsLoader.harvest());
-      if (batchCount == 1) {
-        result.print();
-      }
 
-      // Should have overflowed, so writer holds an overflow row.
+      // Should have overflowed
 
-      assertEquals(batchWriter.writeRowCount - 1, result.rowCount());
-      totalRowCount += batchWriter.writeRowCount - 1;
+      int savedCount = batchWriter.rowCount();
+      assertEquals(savedCount, result.rowCount());
+
+      totalRowCount += savedCount;
       assertEquals(totalRowCount, rsLoader.totalRowCount());
       assertEquals(batchCount + 1, rsLoader.batchCount());
 
@@ -403,5 +418,31 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
       reader.verify();
       result.clear();
     }
+
+    // Last row overflow row
+
+    {
+      rsLoader.startBatch();
+
+      // Use this to visualize a string buffer. There is also a method
+      // to visualize offset vectors. These two are the most pesky vectors
+      // to get right.
+
+//      VectorPrinter.printStrings((VarCharVector) ((NullableVarCharVector) ((AbstractScalarWriter) batchWriter.s2Writer).vector()).getValuesVector(), 0, 8);
+      RowSet result = fixture.wrap(rsLoader.harvest());
+
+      // Use this here, or earlier, when things go amiss and you need
+      // to see what the actual results might be.
+
+//      result.print();
+
+      totalRowCount++;
+      assertEquals(totalRowCount, rsLoader.totalRowCount());
+
+      BatchReader reader = new BatchReader(setup, result.reader(), readState);
+      reader.verify();
+      result.clear();
+    }
+    rsLoader.close();
   }
 }

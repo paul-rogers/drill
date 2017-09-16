@@ -85,6 +85,9 @@ class WriterIndexImpl implements ColumnWriterIndex {
   public void nextElement() { }
 
   @Override
+  public ColumnWriterIndex outerIndex() { return null; }
+
+  @Override
   public String toString() {
     return new StringBuilder()
       .append("[")

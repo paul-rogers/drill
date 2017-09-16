@@ -119,6 +119,12 @@ public abstract class SingleVectorState implements VectorState {
         return;
       }
 
+      // This is an offset vector. The data to copy is one greater
+      // than the row index.
+
+      sourceStartIndex++;
+      sourceEndIndex++;
+
       // Copy overflow values from the full vector to the new
       // look-ahead vector. Since this is an offset vector, values must
       // be adjusted as they move across.
@@ -138,17 +144,17 @@ public abstract class SingleVectorState implements VectorState {
       UInt4Vector.Accessor sourceAccessor = ((UInt4Vector) backupVector).getAccessor();
       UInt4Vector.Mutator destMutator = ((UInt4Vector) mainVector).getMutator();
       int offset = childWriter.events().writerIndex().rowStartIndex();
-      int newIndex = 0;
+      int newIndex = 1;
       ResultSetLoaderImpl.logger.trace("Offset vector: copy {} values from {} to {} with offset {}",
           Math.max(0, sourceEndIndex - sourceStartIndex + 1),
           sourceStartIndex, newIndex, offset);
-      assert offset == sourceAccessor.get(sourceStartIndex);
+      assert offset == sourceAccessor.get(sourceStartIndex - 1);
 
       // Position zero is special and will be filled in by the writer
       // later.
 
       for (int src = sourceStartIndex; src <= sourceEndIndex; src++, newIndex++) {
-        destMutator.set(newIndex + 1, sourceAccessor.get(src) - offset);
+        destMutator.set(newIndex, sourceAccessor.get(src) - offset);
       }
     }
   }

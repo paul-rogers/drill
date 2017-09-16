@@ -30,6 +30,8 @@ import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.accessor.ScalarElementReader;
+import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
@@ -155,7 +157,6 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
     rsLoader.close();
   }
 
-
   @Test
   public void testNestedArray() {
     TupleMetadata schema = new SchemaBuilder()
@@ -202,6 +203,90 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
         .build();
     new RowSetComparison(expected).verifyAndClearAll(actual);
 
+    rsLoader.close();
+  }
+
+  /**
+   * Test a doubly-nested arrays of maps.
+   */
+
+
+  @Test
+  public void testDoubleNestedArray() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addMapArray("m1")
+          .add("b", MinorType.INT)
+          .addMapArray("m2")
+            .add("c", MinorType.INT)
+            .addArray("d", MinorType.VARCHAR)
+            .buildMap()
+          .buildMap()
+        .buildSchema();
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setSchema(schema)
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    RowSetLoader rootWriter = rsLoader.writer();
+    rsLoader.startBatch();
+
+    ScalarWriter aWriter = rootWriter.scalar("a");
+    ArrayWriter a1Writer = rootWriter.array("m1");
+    TupleWriter m1Writer = a1Writer.tuple();
+    ScalarWriter bWriter = m1Writer.scalar("b");
+    ArrayWriter a2Writer = m1Writer.array("m2");
+    TupleWriter m2Writer = a2Writer.tuple();
+    ScalarWriter cWriter = m2Writer.scalar("c");
+    ScalarWriter dWriter = m2Writer.array("d").scalar();
+
+    for (int i = 0; i < 5; i++) {
+      rootWriter.start();
+      aWriter.setInt(i);
+      for (int j = 0; j < 4; j++) {
+        int a1Key = i + 10 + j;
+        bWriter.setInt(a1Key);
+        for (int k = 0; k < 3; k++) {
+          int a2Key = a1Key * 10 + k;
+          cWriter.setInt(a2Key);
+          for (int l = 0; l < 2; l++) {
+            dWriter.setString("d-" + (a2Key * 10 + l));
+          }
+          a2Writer.save();
+        }
+        a1Writer.save();
+      }
+      rootWriter.save();
+    }
+
+    RowSet results = fixture.wrap(rsLoader.harvest());
+    RowSetReader reader = results.reader();
+
+    ScalarReader aReader = reader.scalar("a");
+    ArrayReader a1Reader = reader.array("m1");
+    TupleReader m1Reader = a1Reader.tuple();
+    ScalarReader bReader = m1Reader.scalar("b");
+    ArrayReader a2Reader = m1Reader.array("m2");
+    TupleReader m2Reader = a2Reader.tuple();
+    ScalarReader cReader = m2Reader.scalar("c");
+    ScalarElementReader dReader = m2Reader.elements("d");
+
+    for (int i = 0; i < 5; i++) {
+      reader.next();
+      assertEquals(i, aReader.getInt());
+      for (int j = 0; j < 4; j++) {
+        a1Reader.setPosn(j);
+        int a1Key = i + 10 + j;
+        assertEquals(a1Key, bReader.getInt());
+        for (int k = 0; k < 3; k++) {
+          a2Reader.setPosn(k);
+          int a2Key = a1Key * 10 + k;
+          assertEquals(a2Key, cReader.getInt());
+          for (int l = 0; l < 2; l++) {
+            assertEquals("d-" + (a2Key * 10 + l), dReader.getString(l));
+          }
+        }
+      }
+    }
     rsLoader.close();
   }
 

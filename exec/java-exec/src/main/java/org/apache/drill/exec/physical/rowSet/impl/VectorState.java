@@ -32,11 +32,11 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
  *   <li>Column coordinator (this class)</li>
  * </ul></li></ul>
  * The vector state coordinates events between the result set loader
- * on the one side and the model, writers and schema on the other.
+ * on the one side and the vectors, writers and schema on the other.
  * For example:
  * <pre><code>
- * Result Set       Vector       Tuple, Column
- *   Loader   <-->  State   <-->    Models
+ * Result Set       Vector
+ *   Loader   <-->  State   <-->    Vectors
  * </code></pre>
  * Events from the row set loader deal with allocation, roll-over,
  * harvesting completed batches and so on. Events from the writer,

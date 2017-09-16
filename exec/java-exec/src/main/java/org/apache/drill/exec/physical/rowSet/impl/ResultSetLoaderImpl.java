@@ -30,7 +30,6 @@ import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
-import org.apache.drill.exec.vector.accessor.impl.HierarchicalPrinter;
 
 /**
  * Implementation of the result set loader.
@@ -411,7 +410,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   protected void saveRow() {
     switch (state) {
     case ACTIVE:
-      rootWriter.saveValue();
+      rootWriter.endArrayValue();
       rootWriter.saveRow();
       if (! writerIndex.next()) {
         state = State.FULL_BATCH;
@@ -426,7 +425,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
       // End the value of the look-ahead row in the look-ahead vectors.
 
-      rootWriter.saveValue();
+      rootWriter.endArrayValue();
       rootWriter.saveRow();
 
       // Advance the writer index relative to the look-ahead batch.
@@ -544,8 +543,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     // array cardinality.
 
     updateCardinality();
-    
-    rootWriter.dump(new HierarchicalPrinter());
+
+//    rootWriter.dump(new HierarchicalPrinter());
 
     // Wrap up the completed rows into a batch. Sets
     // vector value counts. The rollover data still exists so
