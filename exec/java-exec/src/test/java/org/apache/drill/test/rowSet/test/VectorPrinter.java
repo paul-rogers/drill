@@ -23,6 +23,11 @@ import org.apache.drill.exec.vector.VarCharVector;
 
 import com.google.common.base.Charsets;
 
+/**
+ * Handy tool to visualize string and offset vectors for
+ * debugging.
+ */
+
 public class VectorPrinter {
 
   public static void printOffsets(UInt4Vector vector, int start, int length) {
@@ -33,7 +38,7 @@ public class VectorPrinter {
       }
       System.out.print(vector.getAccessor().get(i));
     }
-    System.out.print("] = ");
+    System.out.print("], addr = ");
     System.out.println(vector.getBuffer().addr());
   }
 

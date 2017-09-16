@@ -88,6 +88,9 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
     public int rowStartIndex() { return rowIndex; }
 
     @Override
+    public ColumnWriterIndex outerIndex() { return null; }
+
+    @Override
     public String toString() {
       return new StringBuilder()
         .append("[")
@@ -124,7 +127,7 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
 
   @Override
   public void save() {
-    saveValue();
+    endArrayValue();
     saveRow();
 
     // For convenience, start a new row after each save.

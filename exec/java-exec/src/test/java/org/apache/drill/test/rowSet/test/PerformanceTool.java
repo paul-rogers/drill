@@ -176,6 +176,9 @@ public class PerformanceTool {
 
     @Override
     public int rowStartIndex() { return index; }
+
+    @Override
+    public ColumnWriterIndex outerIndex() { return null; }
   }
 
   public static class RequiredWriterTester extends PerfTester {
@@ -237,19 +240,19 @@ public class PerformanceTool {
         ColumnMetadata colSchema = TupleSchema.fromField(vector.getField());
         ArrayObjectWriter arrayWriter = ScalarArrayWriter.build(colSchema, vector, colWriter);
         TestWriterIndex index = new TestWriterIndex();
-        arrayWriter.bindIndex(index);
-        arrayWriter.startWrite();
+        arrayWriter.events().bindIndex(index);
+        arrayWriter.events().startWrite();
         timer.start();
         for ( ; index.index < ROW_COUNT / 5; index.index++) {
-          arrayWriter.startRow();
+          arrayWriter.events().startRow();
           colWriter.setInt(12341);
           colWriter.setInt(12342);
           colWriter.setInt(12343);
           colWriter.setInt(12344);
           colWriter.setInt(12345);
-          arrayWriter.saveValue();
+          arrayWriter.events().endArrayValue();
         }
-        arrayWriter.endWrite();
+        arrayWriter.events().endWrite();
         timer.stop();
       }
     }

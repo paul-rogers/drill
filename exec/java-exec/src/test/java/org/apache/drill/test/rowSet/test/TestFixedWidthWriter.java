@@ -54,6 +54,9 @@ public class TestFixedWidthWriter extends SubOperatorTest {
 
     @Override
     public int rowStartIndex() { return index; }
+
+    @Override
+    public ColumnWriterIndex outerIndex() { return null; }
   }
 
   /**
