@@ -258,9 +258,9 @@ public class OffsetVectorWriter extends BaseScalarWriter {
 
   @Override
   public void preRollover() {
-    final int valueCount = vectorIndex.rowStartIndex();
+    final int valueCount = vectorIndex.rowStartIndex() + 1;
     prepareWrite(valueCount);
-    vector.getBuffer().writerIndex((valueCount + 1) * VALUE_WIDTH);
+    vector.getBuffer().writerIndex(valueCount * VALUE_WIDTH);
   }
 
   @Override

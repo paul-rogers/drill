@@ -665,7 +665,6 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
           .add("c", MinorType.VARCHAR)
           .buildMap()
         .buildSchema();
-    TupleMetadata origSchema = ((TupleSchema) schema).copy();
     ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
         .setSchema(schema)
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
@@ -707,11 +706,11 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     RowSet result = fixture.wrap(rsLoader.harvest());
 
     assertEquals(4, rsLoader.schemaVersion());
-    assertTrue(origSchema.isEquivalent(result.schema()));
-    BatchSchema expectedSchema = new BatchSchema(SelectionVectorMode.NONE, origSchema.toFieldList());
+    assertTrue(schema.isEquivalent(result.schema()));
+    BatchSchema expectedSchema = new BatchSchema(SelectionVectorMode.NONE, schema.toFieldList());
     assertTrue(expectedSchema.isEquivalent(result.batchSchema()));
 
-    // Use a reader to validate row-by-row. To large to create an expected
+    // Use a reader to validate row-by-row. Too large to create an expected
     // result set.
 
     RowSetReader reader = result.reader();
