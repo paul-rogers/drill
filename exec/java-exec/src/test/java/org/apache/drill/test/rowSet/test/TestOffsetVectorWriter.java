@@ -203,7 +203,11 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
       for (int i = 0; i < 15; i++) {
         vector.getMutator().set(i, 0xdeadbeef);
       }
-      vector.getMutator().set(1, 110);
+
+      // Simulate shifting the last value down (which changes
+      // the offset.)
+
+      vector.getMutator().set(1, 10);
 
       // Post rollover, slot 0 should be initialized
 
@@ -273,7 +277,7 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
         assertEquals(i * 10, vector.getAccessor().get(i));
       }
       for (int i = 11; i < 16; i++) {
-        assertEquals(100, vector.getAccessor().get(i));
+        assertEquals("i = " + i, 100, vector.getAccessor().get(i));
       }
 
       // Simulate rollover
@@ -301,7 +305,7 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
       for (int i = 5; i < 10; i++) {
         index.index = i;
         writer.startRow();
-        writer.setNextOffset((i + 1) * 10);
+        writer.setNextOffset((i - 4) * 10);
         writer.saveRow();
       }
       writer.endWrite();
@@ -312,7 +316,7 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
         assertEquals(0, vector.getAccessor().get(i));
       }
       for (int i = 6; i < 11; i++) {
-        assertEquals(i * 10, vector.getAccessor().get(i));
+        assertEquals((i - 5) * 10, vector.getAccessor().get(i));
       }
     }
   }

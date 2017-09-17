@@ -509,7 +509,7 @@ public class RowSetTest extends SubOperatorTest {
 
     @SuppressWarnings("resource")
     RepeatedMapVector mapVector = (RepeatedMapVector) actual.container().getValueVector(1).getValueVector();
-    assertEquals(6, mapVector.getAccessor().getValueCount());
+    assertEquals(3, mapVector.getAccessor().getValueCount());
 
     // Verify the readers and writers again using the testing tools.
 
