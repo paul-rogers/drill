@@ -239,8 +239,7 @@ public class TupleSchema implements TupleMetadata {
      * the children) of the materialized field provided. Use the hints
      * provided.
      *
-     * @param schema the schema to use (only the type portion, not the
-     * children)
+     * @param schema the schema to use
      * @param hints metadata hints for this column
      */
 

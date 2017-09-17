@@ -828,6 +828,7 @@ public abstract class BaseAllocator extends Accountant implements BufferAllocato
     }
   }
 
+  @Override
   public DrillBuf read(int length, InputStream in) throws IOException {
     DrillBuf buf = buffer(length);
     try {

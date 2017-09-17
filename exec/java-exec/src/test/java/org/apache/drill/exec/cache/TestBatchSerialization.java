@@ -17,8 +17,6 @@
  */
 package org.apache.drill.exec.cache;
 
-import static org.junit.Assert.assertTrue;
-
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -29,6 +27,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.cache.VectorSerializer.Reader;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.OperatorFixture;
@@ -127,9 +126,8 @@ public class TestBatchSerialization extends DrillTest {
 
     RowSet result;
     try (InputStream in = new BufferedInputStream(new FileInputStream(outFile))) {
-      result = fixture.wrap(
-        VectorSerializer.reader(fixture.allocator(), in)
-          .read());
+      Reader reader = VectorSerializer.reader(fixture.allocator(), in);
+      result = fixture.wrap(reader.read(), reader.sv2());
     }
 
     new RowSetComparison(expected)
