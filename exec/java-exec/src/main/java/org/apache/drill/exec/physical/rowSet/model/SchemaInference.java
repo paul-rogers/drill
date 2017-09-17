@@ -17,11 +17,14 @@
  */
 package org.apache.drill.exec.physical.rowSet.model;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.MetadataCreator;
-import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescrip;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.VectorContainer;
 
 /**
@@ -32,28 +35,27 @@ import org.apache.drill.exec.record.VectorContainer;
 public class SchemaInference {
 
   public TupleMetadata infer(VectorContainer container) {
-    MetadataCreator mdProvider = new MetadataCreator();
+    List<ColumnMetadata> columns = new ArrayList<>();
     for (int i = 0; i < container.getNumberOfColumns(); i++) {
       MaterializedField field = container.getValueVector(i).getField();
-      VectorDescrip descrip = new VectorDescrip(mdProvider, i, field);
-      inferVector(field, descrip);
+      columns.add(inferVector(field));
     }
-    return mdProvider.tuple();
+    return TupleSchema.fromColumns(columns);
   }
 
-  private void inferVector(MaterializedField field, VectorDescrip descrip) {
+  private ColumnMetadata inferVector(MaterializedField field) {
     if (field.getType().getMinorType() == MinorType.MAP) {
-      inferMapSchema(field, descrip);
+      return TupleSchema.newMap(field, inferMapSchema(field));
+    } else {
+      return TupleSchema.fromField(field);
     }
   }
 
-  private void inferMapSchema(MaterializedField field, VectorDescrip descrip) {
-    MetadataProvider provider = descrip.parent.childProvider(descrip.metadata);
-    int i = 0;
+  private TupleSchema inferMapSchema(MaterializedField field) {
+    List<ColumnMetadata> columns = new ArrayList<>();
     for (MaterializedField child : field.getChildren()) {
-      VectorDescrip childDescrip = new VectorDescrip(provider, i, child);
-      inferVector(child, childDescrip);
-      i++;
+      columns.add(inferVector(child));
     }
+    return TupleSchema.fromColumns(columns);
   }
 }

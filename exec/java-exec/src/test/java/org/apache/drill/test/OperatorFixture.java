@@ -42,11 +42,13 @@ import org.apache.drill.exec.ops.OperatorExecContext;
 import org.apache.drill.exec.ops.OperatorStatReceiver;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.server.options.BaseOptionSet;
 import org.apache.drill.exec.server.options.OptionDefinition;
+import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.server.options.OptionValidator;
 import org.apache.drill.exec.server.options.OptionValue;
@@ -360,9 +362,19 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     case NONE:
       return DirectRowSet.fromContainer(container);
     case TWO_BYTE:
-      return IndirectRowSet.fromContainer(container);
+      return IndirectRowSet.fromSv2(container, container.getSelectionVector2());
     default:
       throw new IllegalStateException( "Unexpected selection mode" );
+    }
+  }
+
+  public RowSet wrap(VectorContainer container, SelectionVector2 sv2) {
+    if (sv2 == null) {
+      assert container.getSchema().getSelectionVectorMode() == SelectionVectorMode.NONE;
+      return DirectRowSet.fromContainer(container);
+    } else {
+      assert container.getSchema().getSelectionVectorMode() == SelectionVectorMode.TWO_BYTE;
+      return IndirectRowSet.fromSv2(container, sv2);
     }
   }
 
