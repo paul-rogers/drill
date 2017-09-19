@@ -48,6 +48,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     public final ResultVectorCache vectorCache;
     public final Collection<SchemaPath> projection;
     public final TupleMetadata schema;
+    public final long maxBatchSize;
 
     public ResultSetOptions() {
       vectorSizeLimit = ValueVector.MAX_BUFFER_SIZE;
@@ -55,6 +56,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       projection = null;
       vectorCache = null;
       schema = null;
+      maxBatchSize = -1;
     }
 
     public ResultSetOptions(OptionBuilder builder) {
@@ -63,6 +65,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       this.projection = builder.projection;
       this.vectorCache = builder.vectorCache;
       this.schema = builder.schema;
+      this.maxBatchSize = builder.maxBatchSize;
     }
 
     public void dump(HierarchicalFormatter format) {
@@ -95,6 +98,13 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
      */
 
     OVERFLOW,
+
+    /**
+     * Temporary state to avoid batch-size related overflow while
+     * an overflow is in progress.
+     */
+
+    IN_OVERFLOW,
 
     /**
      * Batch is full due to reaching the row count limit
@@ -255,6 +265,12 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
   private int targetRowCount;
 
+  /**
+   * Total bytes allocated to the current batch.
+   */
+
+  protected int accumulatedBatchSize;
+
   public ResultSetLoaderImpl(BufferAllocator allocator, ResultSetOptions options) {
     this.allocator = allocator;
     this.options = options;
@@ -327,8 +343,10 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     case HARVESTED:
     case START:
       logger.trace("Start batch");
+      accumulatedBatchSize = 0;
       updateCardinality();
       rootState.startBatch();
+      checkInitialAllocation();
 
       // The previous batch ended without overflow, so start
       // a new batch, and reset the write index to 0.
@@ -534,6 +552,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     if (state != State.ACTIVE) {
       throw new IllegalStateException("Unexpected state: " + state);
     }
+    state = State.IN_OVERFLOW;
 
     // Preserve the number of rows in the now-complete batch.
 
@@ -556,6 +575,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
     // Roll over vector values.
 
+    accumulatedBatchSize = 0;
     rootState.rollover();
 
     // Adjust writer state to match the new vector values. This is
@@ -579,6 +599,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     // to produce (v1, v2, v3, v4, v5, ...) in the look-ahead vector.
 
     writerIndex.rollover();
+    checkInitialAllocation();
 
     // Remember that overflow is in effect.
 
@@ -677,6 +698,54 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
   public ResultVectorCache vectorCache() { return vectorCache; }
   public RowState rootState() { return rootState; }
+
+  /**
+   * Return whether a vector within the current batch can expand. Limits
+   * are enforce only if a limit was provided in the options.
+   *
+   * @param delta increase in vector size
+   * @return true if the vector can expand, false if an overflow
+   * event should occur
+   */
+
+  public boolean canExpand(int delta) {
+    accumulatedBatchSize += delta;
+    return state == State.IN_OVERFLOW ||
+           options.maxBatchSize <= 0 ||
+           accumulatedBatchSize <= options.maxBatchSize;
+  }
+
+  /**
+   * Accumulate the initial vector allocation sizes.
+   *
+   * @param allocationBytes number of bytes allocated to a vector
+   * in the batch setup step
+   */
+
+  public void tallyAllocations(int allocationBytes) {
+    accumulatedBatchSize += allocationBytes;
+  }
+
+  /**
+   * Log and check the initial vector allocation. If a batch size
+   * limit is set, warn if the initial allocation exceeds the limit.
+   * This will occur if the target row count is incorrect for the
+   * data size.
+   */
+
+  private void checkInitialAllocation() {
+    if (options.maxBatchSize < 0) {
+      logger.debug("Initial vector allocation: {}, no batch limit specified",
+          accumulatedBatchSize);
+    }
+    else if (accumulatedBatchSize > options.maxBatchSize) {
+      logger.warn("Initial vector allocation: {}, but batch size limit is: {}",
+          accumulatedBatchSize, options.maxBatchSize);
+    } else {
+      logger.debug("Initial vector allocation: {}, batch size limit: {}",
+          accumulatedBatchSize, options.maxBatchSize);
+    }
+  }
 
   public void dump(HierarchicalFormatter format) {
     format

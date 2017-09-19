@@ -94,6 +94,11 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
   }
 
   @Override
+  public int getAllocatedSize(){
+    return offsetVector.getAllocatedSize() + data.capacity();
+  }
+
+  @Override
   public int getBufferSizeFor(final int valueCount) {
     if (valueCount == 0) {
       return 0;

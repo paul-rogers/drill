@@ -166,8 +166,22 @@ public interface ValueVector extends Closeable, Iterable<ValueVector> {
 
   /**
    * Returns the number of bytes that is used by this vector instance.
+   * This is a bit of a misnomer. Returns the number of bytes used by
+   * data in this instance.
    */
   int getBufferSize();
+
+  /**
+   * Returns the total size of buffers allocated by this vector. Has
+   * meaning only when vectors are directly allocated and each vector
+   * has its own buffer. Does not have meaning for vectors deserialized
+   * from the network or disk in which multiple vectors share the
+   * same vector.
+   *
+   * @return allocated buffer size, in bytes
+   */
+
+  int getAllocatedSize();
 
   /**
    * Returns the number of bytes that is used by this vector if it holds the given number

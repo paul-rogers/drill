@@ -17,10 +17,8 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
-import org.apache.drill.exec.memory.BaseAllocator;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.ColumnAccessors;
 import org.apache.drill.exec.vector.accessor.ValueType;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
@@ -123,13 +121,11 @@ import io.netty.util.internal.PlatformDependent;
  * maps (arrays of multiple columns.)
  */
 
-public class OffsetVectorWriter extends BaseScalarWriter {
+public class OffsetVectorWriter extends AbstractFixedWidthWriter {
 
   private static final int VALUE_WIDTH = UInt4Vector.VALUE_WIDTH;
 
   private UInt4Vector vector;
-
-  protected int lastWriteIndex;
 
   /**
    * Offset of the first value for the current row. Used during
@@ -152,41 +148,44 @@ public class OffsetVectorWriter extends BaseScalarWriter {
     this.vector = vector;
   }
 
-  @Override
-  public ValueVector vector() { return vector; }
+  @Override public ValueVector vector() { return vector; }
+  @Override public int width() { return VALUE_WIDTH; }
 
   @Override
-  public int lastWriteIndex() { return lastWriteIndex; }
+  protected final void setAddr() {
+    final DrillBuf buf = vector.getBuffer();
+    bufAddr = buf.addr();
+    capacity = buf.capacity() / VALUE_WIDTH;
+  }
+
+  @Override
+  protected void realloc(int size) {
+    vector.reallocRaw(size);
+    setAddr();
+  }
+
+  @Override
+  public ValueType valueType() { return ValueType.INTEGER; }
 
   @Override
   public void startWrite() {
+    super.startWrite();
+    nextOffset = 0;
+    rowStartOffset = 0;
 
     // Special handling for first value. Alloc vector if needed.
     // Offset vectors require a 0 at position 0. The (end) offset
     // for row 0 starts at position 1, which is handled in
     // writeOffset() below.
 
-    nextOffset = 0;
-    lastWriteIndex = -1;
-    rowStartOffset = 0;
-    setAddr(vector.getBuffer());
-    if (capacity < ColumnAccessors.MIN_BUFFER_SIZE) {
-      vector.reallocRaw(ColumnAccessors.MIN_BUFFER_SIZE * VALUE_WIDTH);
-      setAddr(vector.getBuffer());
+    if (capacity * VALUE_WIDTH < MIN_BUFFER_SIZE) {
+      realloc(MIN_BUFFER_SIZE);
     }
-    PlatformDependent.putInt(bufAddr, nextOffset);
-  }
-
-  private final void setAddr(final DrillBuf buf) {
-    bufAddr = buf.addr();
-    capacity = buf.capacity() / VALUE_WIDTH;
+    PlatformDependent.putInt(bufAddr, 0);
   }
 
   public int nextOffset() { return nextOffset; }
   public int rowStartOffset() { return rowStartOffset; }
-
-  @Override
-  public ValueType valueType() { return ValueType.INTEGER; }
 
   @Override
   public void startRow() { rowStartOffset = nextOffset; }
@@ -200,38 +199,46 @@ public class OffsetVectorWriter extends BaseScalarWriter {
    */
 
   protected final int writeIndex() {
+
+    // "Fast path" for the normal case of no fills, no overflow.
+    // This is the only bounds check we want to do for the entire
+    // set operation.
+
+    // This is performance critical code; every operation counts.
+    // Please be thoughtful when changing the code.
+
     final int valueIndex = vectorIndex.vectorIndex();
-    final int writeIndex = valueIndex + 1;
+    int writeIndex = valueIndex + 1;
     if (lastWriteIndex + 1 < valueIndex || writeIndex >= capacity) {
-      prepareWrite(writeIndex);
+      writeIndex =  prepareWrite(writeIndex);
     }
+
+    // Track the last write location for zero-fill use next time around.
+
+    lastWriteIndex = writeIndex;
     return writeIndex;
   }
 
-  /**
-   * Prepare a write in which either the next write index is past the
-   * end of the buffer (and so the buffer must be resized), empties must
-   * be filled, or both. For an offset vector, empties are filled with
-   * the next offset value.
-   *
-   * @param writeIndex target write index. This is the position we wish
-   * to write, which is one greater than the current position given by
-   * the vector index
-   */
+  protected int prepareWrite(int writeIndex) {
 
-  private final void prepareWrite(int writeIndex) {
-    if (writeIndex >= capacity) {
-      int size = (writeIndex + 1) * VALUE_WIDTH;
-      if (size > ValueVector.MAX_BUFFER_SIZE) {
-        throw new IllegalStateException("Offset vectors should not overflow");
-      } else {
-        if (size < ColumnAccessors.MIN_BUFFER_SIZE) {
-          size = ColumnAccessors.MIN_BUFFER_SIZE;
-        }
-        setAddr(vector.reallocRaw(BaseAllocator.nextPowerOfTwo(size)));
-      }
-    }
-    while (lastWriteIndex < writeIndex - 2) {
+    // Either empties must be filed or the vector is full.
+
+    resize(writeIndex, true);
+
+    // Call to resize may cause rollover, so reset write index
+    // afterwards.
+
+    writeIndex = vectorIndex.vectorIndex() + 1;
+
+    // Fill empties to the write position.
+
+    fillEmpties(writeIndex);
+    return writeIndex;
+  }
+
+  @Override
+  protected final void fillEmpties(final int writeIndex) {
+    while (lastWriteIndex < writeIndex - 1) {
       PlatformDependent.putInt(bufAddr + (++lastWriteIndex + 1) * VALUE_WIDTH, nextOffset);
     }
   }
@@ -253,37 +260,31 @@ public class OffsetVectorWriter extends BaseScalarWriter {
   @Override
   public void restartRow() {
     nextOffset = rowStartOffset;
-    lastWriteIndex = Math.min(lastWriteIndex, vectorIndex.vectorIndex() - 1);
+    super.restartRow();
   }
 
   @Override
   public void preRollover() {
-    final int valueCount = vectorIndex.rowStartIndex() + 1;
-    prepareWrite(valueCount);
-    vector.getBuffer().writerIndex(valueCount * VALUE_WIDTH);
+    setValueCount(vectorIndex.rowStartIndex() + 1);
   }
 
   @Override
   public void postRollover() {
     final int newNext = nextOffset - rowStartOffset;
-    final int newLastWriteIndex = Math.max(lastWriteIndex - vectorIndex.rowStartIndex(), -1);
-    startWrite();
+    super.postRollover();
     nextOffset = newNext;
-    lastWriteIndex = newLastWriteIndex;
   }
 
   @Override
   public final void endWrite() {
-    final int finalIndex = writeIndex();
-    vector.getBuffer().writerIndex(finalIndex * VALUE_WIDTH);
+    setValueCount(vectorIndex.vectorIndex() + 1);
   }
 
   @Override
-  public void bindListener(ColumnWriterListener listener) {
-
-    // No listener for overflow vectors as they can't overflow.
-
-    throw new UnsupportedOperationException();
+  public void setValueCount(int valueCount) {
+    resize(valueCount, false);
+    fillEmpties(valueCount);
+    vector.getBuffer().writerIndex(valueCount * VALUE_WIDTH);
   }
 
   @Override

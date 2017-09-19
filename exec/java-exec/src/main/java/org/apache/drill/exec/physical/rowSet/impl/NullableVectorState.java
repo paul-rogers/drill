@@ -36,8 +36,9 @@ public class NullableVectorState implements VectorState {
     }
 
     @Override
-    public void allocateVector(ValueVector vector, int cardinality) {
+    public int allocateVector(ValueVector vector, int cardinality) {
       ((FixedWidthVector) vector).allocateNew(cardinality);
+      return vector.getBufferSize();
     }
   }
 
@@ -57,9 +58,9 @@ public class NullableVectorState implements VectorState {
   }
 
   @Override
-  public void allocate(int cardinality) {
-    bitsState.allocate(cardinality);
-    valuesState.allocate(cardinality);
+  public int allocate(int cardinality) {
+    return bitsState.allocate(cardinality) +
+           valuesState.allocate(cardinality);
   }
 
   @Override

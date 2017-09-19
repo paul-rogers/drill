@@ -279,6 +279,16 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
   }
 
   @Override
+  public int getAllocatedSize() {
+    int size = 0;
+
+    for (final ValueVector v : vectors.values()) {
+      size += v.getAllocatedSize();
+    }
+    return size;
+  }
+
+  @Override
   public void collectLedgers(Set<BufferLedger> ledgers) {
     for (final ValueVector v : vectors.values()) {
       v.collectLedgers(ledgers);
