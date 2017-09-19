@@ -54,14 +54,79 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
    */
 
   @Test
-  public void testSizeLimit() {
+  public void testVectorSizeLimit() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("s", MinorType.VARCHAR)
+        .buildSchema();
     ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
+        .setSchema(schema)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     RowSetLoader rootWriter = rsLoader.writer();
-    MaterializedField field = SchemaBuilder.columnSchema("s", MinorType.VARCHAR, DataMode.REQUIRED);
-    rootWriter.addColumn(field);
+
+    rsLoader.startBatch();
+    byte value[] = new byte[512];
+    Arrays.fill(value, (byte) 'X');
+    int count = 0;
+    while (! rootWriter.isFull()) {
+      rootWriter.start();
+      rootWriter.scalar(0).setBytes(value, value.length);
+      rootWriter.save();
+      count++;
+    }
+
+    // Number of rows should be driven by vector size.
+    // Our row count should include the overflow row
+
+    int expectedCount = ValueVector.MAX_BUFFER_SIZE / value.length;
+    assertEquals(expectedCount + 1, count);
+
+    // Loader's row count should include only "visible" rows
+
+    assertEquals(expectedCount, rootWriter.rowCount());
+
+    // Total count should include invisible and look-ahead rows.
+
+    assertEquals(expectedCount + 1, rsLoader.totalRowCount());
+
+    // Result should exclude the overflow row
+
+    RowSet result = fixture.wrap(rsLoader.harvest());
+    assertEquals(expectedCount, result.rowCount());
+    result.clear();
+
+    // Next batch should start with the overflow row
+
+    rsLoader.startBatch();
+    assertEquals(1, rootWriter.rowCount());
+    assertEquals(expectedCount + 1, rsLoader.totalRowCount());
+    result = fixture.wrap(rsLoader.harvest());
+    assertEquals(1, result.rowCount());
+    result.clear();
+
+    rsLoader.close();
+  }
+
+  /**
+   * Test that the writer detects a vector overflow. The offending column
+   * value should be moved to the next batch.
+   */
+
+  @Test
+  public void testBatchSizeLimit() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("s", MinorType.VARCHAR)
+        .buildSchema();
+    ResultSetOptions options = new OptionBuilder()
+        .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
+        .setSchema(schema)
+        .setBatchSizeLimit(
+            8 * 1024 * 1024 + // Data
+            2 * ValueVector.MAX_ROW_COUNT * 4) // Offsets, doubled because of +1
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    RowSetLoader rootWriter = rsLoader.writer();
 
     rsLoader.startBatch();
     byte value[] = new byte[512];
@@ -76,7 +141,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
     // Our row count should include the overflow row
 
-    int expectedCount = ValueVector.MAX_BUFFER_SIZE / value.length;
+    int expectedCount = 8 * 1024 * 1024 / value.length;
     assertEquals(expectedCount + 1, count);
 
     // Loader's row count should include only "visible" rows
@@ -113,13 +178,15 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
   @Test
   public void testCloseWithOverflow() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("s", MinorType.VARCHAR)
+        .buildSchema();
     ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
+        .setSchema(schema)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     RowSetLoader rootWriter = rsLoader.writer();
-    MaterializedField field = SchemaBuilder.columnSchema("s", MinorType.VARCHAR, DataMode.REQUIRED);
-    rootWriter.addColumn(field);
 
     rsLoader.startBatch();
     byte value[] = new byte[512];
@@ -152,13 +219,15 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
   @Test
   public void testOversizeArray() {
+    TupleMetadata schema = new SchemaBuilder()
+        .addArray("s", MinorType.VARCHAR)
+        .buildSchema();
     ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
+        .setSchema(schema)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     RowSetLoader rootWriter = rsLoader.writer();
-    MaterializedField field = SchemaBuilder.columnSchema("s", MinorType.VARCHAR, DataMode.REPEATED);
-    rootWriter.addColumn(field);
 
     // Create a single array as the column value in the first row. When
     // this overflows, an exception is thrown since overflow is not possible.
@@ -188,13 +257,15 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
   @Test
   public void testSizeLimitOnArray() {
+    TupleMetadata schema = new SchemaBuilder()
+        .addArray("s", MinorType.VARCHAR)
+        .buildSchema();
     ResultSetOptions options = new OptionBuilder()
         .setRowCountLimit(ValueVector.MAX_ROW_COUNT)
+        .setSchema(schema)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
     RowSetLoader rootWriter = rsLoader.writer();
-    MaterializedField field = SchemaBuilder.columnSchema("s", MinorType.VARCHAR, DataMode.REPEATED);
-    rootWriter.addColumn(field);
 
     // Fill batch with rows of with a single array, three values each. Tack on
     // a suffix to each so we can be sure the proper data is written and moved
@@ -234,7 +305,6 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     // Result should exclude the overflow row. Last row
     // should hold the last full array.
 
-//    VectorPrinter.printStrings((VarCharVector) ((VarCharColumnWriter) rootWriter.array(0).scalar()).vector(), 0, 5);
     RowSet result = fixture.wrap(rsLoader.harvest());
     assertEquals(expectedCount, result.rowCount());
     RowSetReader reader = result.reader();

@@ -27,7 +27,7 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
 public class NullVectorState implements VectorState {
 
-  @Override public void allocate(int cardinality) { }
+  @Override public int allocate(int cardinality) { return 0; }
   @Override public void rollover(int cardinality) { }
   @Override public void harvestWithLookAhead() { }
   @Override public void startBatchWithLookAhead() { }

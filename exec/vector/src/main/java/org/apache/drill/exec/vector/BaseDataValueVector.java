@@ -82,6 +82,11 @@ public abstract class BaseDataValueVector extends BaseValueVector {
     return data.writerIndex();
   }
 
+  @Override
+  public int getAllocatedSize() {
+    return data.capacity();
+  }
+
   public DrillBuf getBuffer() { return data; }
 
   /**

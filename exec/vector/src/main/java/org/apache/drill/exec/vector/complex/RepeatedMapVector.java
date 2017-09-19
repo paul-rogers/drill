@@ -98,9 +98,7 @@ public class RepeatedMapVector extends AbstractMapVector
   }
 
   @Override
-  public RepeatedMapReaderImpl getReader() {
-    return reader;
-  }
+  public RepeatedMapReaderImpl getReader() { return reader; }
 
   @Override
   public void allocateNew(int groupCount, int innerValueCount) {
@@ -139,6 +137,11 @@ public class RepeatedMapVector extends AbstractMapVector
       return 0;
     }
     return offsets.getBufferSize() + super.getBufferSize();
+  }
+
+  @Override
+  public int getAllocatedSize() {
+    return offsets.getAllocatedSize() + super.getAllocatedSize();
   }
 
   @Override
