@@ -52,7 +52,30 @@ public interface ScalarWriter {
    */
 
   public interface ColumnWriterListener {
+
+    /**
+     * Alert the listener that a vector has overflowed. Upon return,
+     * all writers must have a new set of buffers available, ready
+     * to accept the in-flight value that triggered the overflow.
+     *
+     * @param writer the writer that triggered the overflow
+     */
+
     void overflowed(ScalarWriter writer);
+
+    /**
+     * A writer wants to expand its vector. Allows the listener to
+     * either allow the growth, or trigger and overflow to limit
+     * batch size.
+     *
+     * @param writer the writer that wishes to grow its vector
+     * @param delta the amount by which the vector is to grow
+     * @return true if the vector can be grown, false if the writer
+     * should instead trigger an overflow by calling
+     * <tt>overflowed()</tt>
+     */
+
+    boolean canExpand(ScalarWriter writer, int delta);
   }
 
   void bindListener(ColumnWriterListener listener);

@@ -19,6 +19,7 @@ package org.apache.drill.test.rowSet.test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertTrue;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -26,6 +27,8 @@ import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.IntVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.IntColumnWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
+import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.ValueType;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
@@ -367,6 +370,53 @@ public class TestFixedWidthWriter extends SubOperatorTest {
       for (int i = 1005; i < 3000; i+= 5) {
         assertEquals(i, vector.getAccessor().get(i));
       }
+    }
+  }
+
+  /**
+   * Test resize monitoring. Add a listener to an int writer,
+   * capture each resize, and refuse a resize when the number
+   * of ints exceeds 8K values. This will trigger an overflow,
+   * which will throw an exception which we then check for.
+   */
+
+  @Test
+  public void testSizeLimit() {
+    try (IntVector vector = allocVector(1000)) {
+      TestIndex index = new TestIndex();
+      IntColumnWriter writer = makeWriter(vector, index);
+      writer.bindListener(new ColumnWriterListener() {
+        int totalAlloc = 4096;
+
+        @Override
+        public void overflowed(ScalarWriter writer) {
+          throw new IllegalStateException("overflow called");
+        }
+
+        @Override
+        public boolean canExpand(ScalarWriter writer, int delta) {
+//          System.out.println("Delta: " + delta);
+          totalAlloc += delta;
+          return totalAlloc < 16_384 * 4;
+        }
+      });
+      writer.startWrite();
+      try {
+        for (int i = 0; ; i++ ) {
+          index.index = i;
+          writer.startRow();
+          writer.setInt(i);
+          writer.saveRow();
+        }
+      }
+      catch(IllegalStateException e) {
+        assertTrue(e.getMessage().contains("overflow called"));
+      }
+
+      // Should have failed on 8192, which doubled vector
+      // to 16K, which was rejected.
+
+      assertEquals(8192, index.index);
     }
   }
 

@@ -133,13 +133,14 @@ import java.math.BigDecimal;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.memory.BaseAllocator;
 import org.apache.drill.exec.vector.*;
 import org.apache.drill.exec.util.DecimalUtility;
 import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
 import org.apache.drill.exec.vector.accessor.reader.BaseElementReader;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
 import org.apache.drill.exec.vector.accessor.writer.BaseScalarWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractFixedWidthWriter.BaseFixedWidthWriter;
+import org.apache.drill.exec.vector.accessor.writer.BaseVarWidthWriter;
 
 import com.google.common.base.Charsets;
 
@@ -166,8 +167,6 @@ import org.joda.time.Period;
 // This class is generated using freemarker and the ${.template_name} template.
 
 public class ColumnAccessors {
-
-  public static final int MIN_BUFFER_SIZE = 1024;
 
 <#list vv.types as type>
   <#list type.minor as minor>
@@ -223,9 +222,9 @@ public class ColumnAccessors {
 
       <#assign varWidth = drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary" />
       <#if varWidth>
-  public static class ${drillType}ColumnWriter extends BaseScalarWriter.BaseVarWidthWriter {
+  public static class ${drillType}ColumnWriter extends BaseVarWidthWriter {
       <#else>
-  public static class ${drillType}ColumnWriter extends BaseScalarWriter.BaseFixedWidthWriter {
+  public static class ${drillType}ColumnWriter extends BaseFixedWidthWriter {
         <#if drillType = "Decimal9" || drillType == "Decimal18" ||
              drillType == "Decimal28Sparse" || drillType == "Decimal38Sparse">
     private MajorType type;
@@ -246,35 +245,36 @@ public class ColumnAccessors {
       this.vector = (${drillType}Vector) vector;
     }
 
-    @Override
-    public ValueVector vector() { return vector; }
+    @Override public ValueVector vector() { return vector; }
 
+        <#-- All change of buffer comes through this function to allow capturing
+             the buffer address and capacity. Only two ways to set the buffer:
+             by binding to a vector in bindVector(), or by resizing the vector
+             in writeIndex(). -->
     @Override
-    public void startWrite() {
-      setAddr(vector.getBuffer());
-      <#if varWidth>
-      offsetsWriter.startWrite();
-      <#else>
-      <#-- lastWriteIndex unused for variable width vectors. -->
-      lastWriteIndex = -1;
-      </#if>
-    }
-
-    <#-- All change of buffer comes through this function to allow capturing
-         the buffer address and capacity. Only two ways to set the buffer:
-         by binding to a vector in bindVector(), or by resizing the vector
-         in writeIndex(). -->
-    private final void setAddr(final DrillBuf buf) {
+    protected final void setAddr() {
+      final DrillBuf buf = vector.getBuffer();
       bufAddr = buf.addr();
-      <#if varWidth>
+          <#if varWidth>
       capacity = buf.capacity();
-      <#else>
-      <#-- Turns out that keeping track of capacity as the count of
-           values simplifies the per-value code path. -->
+          <#else>
+          <#-- Turns out that keeping track of capacity as the count of
+               values simplifies the per-value code path. -->
       capacity = buf.capacity() / VALUE_WIDTH;
-      </#if>
+          </#if>
     }
 
+        <#-- reallocRaw() is type specific. -->
+    @Override
+    protected void realloc(int size) {
+      vector.reallocRaw(size);
+      setAddr();
+    }
+
+       <#if ! varWidth>
+    @Override public int width() { return VALUE_WIDTH; }
+
+      </#if>
     <@getType drillType label />
 
       <#if accessorType == "byte[]">
@@ -289,81 +289,9 @@ public class ColumnAccessors {
         <#assign putType = javaType />
         <#assign doCast = (cast == "set") />
       </#if>
-    <#-- This is performance critical code; every operation counts.
-         Please be thoughtful when changing the code.
-         Generated per class in the belief that the JVM will optimize the
-         code path for each value width. Also, the reallocRaw() and
-         setFoo() methods are type specific. (reallocRaw() could be virtual,
-         but the PlatformDependent.setFoo() cannot be.
-         This is a bit tricky. This method has side effects, by design.
-         The current vector buffer, and buffer address, will change in
-         this method when a vector grows or overflows. So, don't use this
-         method in inline calls of the form
-         vector.getBuffer().doSomething(writeIndex());
-         The buffer obtained by getBuffer() can be different than the current
-         buffer after writeIndex().
-         -->
-      <#if varWidth>
-    private final int writeIndex(final int width) {
-      int writeOffset = offsetsWriter.nextOffset();
-      if (writeOffset + width < capacity) {
-        return writeOffset;
-      }
-      <#-- Vector is full. -->
-      int size = writeOffset + width;
-      if (size > capacity) {
-        <#-- Two cases: grow this vector or allocate a new one. -->
-        if (size > ValueVector.MAX_BUFFER_SIZE) {
-          <#-- Allocate a new vector, or throw an exception if overflow is not supported.
-               If overflow is supported, the callback will call endWrite(), which will
-               fill empties, so no need to do that here. The call to endWrite() will
-               also set the final writer index for the current vector. Then, bindVector() will
-               be called to provide the new vector. The write index changes with
-               the new vector. -->
-          overflowed();
-          writeOffset = offsetsWriter.nextOffset();
-        } else {
-          <#-- Optimized form of reAlloc() which does not zero memory, does not do bounds
-               checks (since they were already done above) and which returns
-               the new buffer to save a method call. The write index and offset
-               remain unchanged. Since some vectors start off as 0 length, set a
-               minimum size to avoid silly thrashing on early rows. -->
-          if (size < MIN_BUFFER_SIZE) {
-            size = MIN_BUFFER_SIZE;
-          }
-          setAddr(vector.reallocRaw(BaseAllocator.nextPowerOfTwo(size)));
-        }
-      }
-      return writeOffset;
-    }
-      <#else>
+      <#if ! varWidth>
     @Override
-    protected final void prepareWrite(int writeIndex) {
-      <#-- Either empties must be filed or the vector is full. -->
-      if (writeIndex >= capacity) {
-        int size = (writeIndex + 1) * VALUE_WIDTH;
-        <#-- Two cases: grow this vector or allocate a new one. -->
-        if (size > ValueVector.MAX_BUFFER_SIZE) {
-          <#-- Allocate a new vector, or throw an exception if overflow is not supported.
-               If overflow is supported, the callback will call endWrite(), which will
-               fill empties, so no need to do that here. The call to endWrite() will
-               also set the final writer index for the current vector. Then, bindVector() will
-               be called to provide the new vector. The write index changes with
-               the new vector. -->
-          overflowed();
-          writeIndex = vectorIndex.vectorIndex();
-        } else {
-          <#-- Optimized form of reAlloc() which does not zero memory, does not do bounds
-               checks (since they were already done above) and which returns
-               the new buffer to save a method call. The write index and offset
-               remain unchanged. Since some vectors start off as 0 length, set a
-               minimum size to avoid silly thrashing on early rows. -->
-          if (size < MIN_BUFFER_SIZE) {
-            size = MIN_BUFFER_SIZE;
-          }
-          setAddr(vector.reallocRaw(BaseAllocator.nextPowerOfTwo(size)));
-        }
-      }
+    protected final void fillEmpties(final int writeIndex) {
       <#-- Fill empties. This is required because the allocated memory is not
            zero-filled. -->
       while (lastWriteIndex < writeIndex - 1) {
@@ -401,8 +329,8 @@ public class ColumnAccessors {
         </#if>
       }
     }
-    </#if>
 
+    </#if>
     @Override
     public final void set${label}(final ${accessorType} value${args}) {
       <#-- Must compute the write offset first; can't be inline because the
@@ -454,33 +382,26 @@ public class ColumnAccessors {
       </#if>
       vectorIndex.nextElement();
     }
-    <#if drillType == "VarChar">
 
+    <#if drillType == "VarChar">
     @Override
     public final void setString(String value) {
       final byte bytes[] = value.getBytes(Charsets.UTF_8);
       setBytes(bytes, bytes.length);
     }
     <#elseif drillType == "Var16Char">
-
     @Override
     public final void setString(String value) {
       final byte bytes[] = value.getBytes(Charsets.UTF_16);
       setBytes(bytes, bytes.length);
     }
-    </#if>
 
+    </#if>
     <#if varWidth>
     @Override
     public final void preRollover() {
       vector.getBuffer().writerIndex(offsetsWriter.rowStartOffset());
       offsetsWriter.preRollover();
-    }
-
-    @Override
-    public void postRollover() {
-      setAddr(vector.getBuffer());
-      offsetsWriter.postRollover();
     }
 
     @Override
@@ -492,14 +413,15 @@ public class ColumnAccessors {
     @Override
     public void setValueCount(int valueCount) {
       <#-- Done this way to avoid another drill buf access in value set path.
-      Though this calls writeOffset(), which handles vector overflow,
-      such overflow should never occur because here we are simply
-      finalizing a position already set. However, the vector size may
-      grow and the "missing" values may be zero-filled. Note that, in
-      odd cases, the call to writeOffset() might cause the vector to
-      resize (as part of filling empties), so grab the buffer AFTER
-      the call to writeOffset(). -->
-      prepareWrite(valueCount);
+          Though this calls writeOffset(), which handles vector overflow,
+          such overflow should never occur because here we are simply
+          finalizing a position already set. However, the vector size may
+          grow and the "missing" values may be zero-filled. Note that, in
+          odd cases, the call to writeOffset() might cause the vector to
+          resize (as part of filling empties), so grab the buffer AFTER
+          the call to writeOffset(). -->
+      resize(valueCount, false);
+      fillEmpties(valueCount);
       vector.getBuffer().writerIndex(valueCount * VALUE_WIDTH);
     }
     </#if>

@@ -173,7 +173,8 @@ public abstract class ColumnState {
 
   public void allocateVectors() {
     assert outerCardinality != 0;
-    vectorState.allocate(outerCardinality);
+    resultSetLoader.tallyAllocations(
+        vectorState.allocate(outerCardinality));
   }
 
   /**
@@ -185,7 +186,7 @@ public abstract class ColumnState {
   public void startBatch() {
     switch (state) {
     case NORMAL:
-      vectorState.allocate(outerCardinality);
+      resultSetLoader.tallyAllocations(vectorState.allocate(outerCardinality));
       break;
 
     case NEW_LOOK_AHEAD:
