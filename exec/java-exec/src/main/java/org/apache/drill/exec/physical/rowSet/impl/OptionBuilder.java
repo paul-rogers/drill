@@ -33,16 +33,18 @@ import org.apache.drill.exec.vector.ValueVector;
  */
 
 public class OptionBuilder {
-  int vectorSizeLimit;
-  int rowCountLimit;
-  Collection<SchemaPath> projection;
-  ResultVectorCache vectorCache;
-  TupleMetadata schema;
+  protected int vectorSizeLimit;
+  protected int rowCountLimit;
+  protected Collection<SchemaPath> projection;
+  protected ResultVectorCache vectorCache;
+  protected TupleMetadata schema;
+  protected long maxBatchSize;
 
   public OptionBuilder() {
     ResultSetOptions options = new ResultSetOptions();
     vectorSizeLimit = options.vectorSizeLimit;
     rowCountLimit = options.rowCountLimit;
+    maxBatchSize = options.maxBatchSize;
   }
 
   /**
@@ -59,6 +61,11 @@ public class OptionBuilder {
   public OptionBuilder setRowCountLimit(int limit) {
     rowCountLimit = Math.max(1,
         Math.min(limit, ValueVector.MAX_ROW_COUNT));
+    return this;
+  }
+
+  public OptionBuilder setBatchSizeLimit(int bytes) {
+    maxBatchSize = bytes;
     return this;
   }
 

@@ -65,9 +65,9 @@ public class RepeatedVectorState implements VectorState {
   public ValueVector vector() { return vector; }
 
   @Override
-  public void allocate(int cardinality) {
-    offsetsState.allocate(cardinality);
-    valuesState.allocate(childCardinality(cardinality));
+  public int allocate(int cardinality) {
+    return offsetsState.allocate(cardinality) +
+           valuesState.allocate(childCardinality(cardinality));
   }
 
   private int childCardinality(int cardinality) {

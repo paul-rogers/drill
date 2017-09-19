@@ -113,6 +113,9 @@ public class ZeroVector implements ValueVector {
   public int getBufferSize() { return 0; }
 
   @Override
+  public int getAllocatedSize() { return 0; }
+
+  @Override
   public int getBufferSizeFor(final int valueCount) { return 0; }
 
   @Override

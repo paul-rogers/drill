@@ -53,7 +53,7 @@ public abstract class SingleVectorState implements VectorState {
     }
 
     @Override
-    public void allocateVector(ValueVector vector, int cardinality) {
+    public int allocateVector(ValueVector vector, int cardinality) {
       if (schema.isVariableWidth()) {
 
         // Cap the allocated size to the maximum.
@@ -63,6 +63,7 @@ public abstract class SingleVectorState implements VectorState {
       } else {
         ((FixedWidthVector) vector).allocateNew(cardinality);
       }
+      return vector.getBufferSize();
     }
 
     @Override
@@ -104,8 +105,9 @@ public abstract class SingleVectorState implements VectorState {
     }
 
     @Override
-    public void allocateVector(ValueVector toAlloc, int cardinality) {
+    public int allocateVector(ValueVector toAlloc, int cardinality) {
       ((UInt4Vector) toAlloc).allocateNew(cardinality);
+      return toAlloc.getBufferSize();
     }
 
     public int rowStartOffset() {
@@ -156,6 +158,8 @@ public abstract class SingleVectorState implements VectorState {
       for (int src = sourceStartIndex; src <= sourceEndIndex; src++, newIndex++) {
         destMutator.set(newIndex, sourceAccessor.get(src) - offset);
       }
+//      VectorPrinter.printOffsets((UInt4Vector) backupVector, sourceStartIndex - 1, sourceEndIndex - sourceStartIndex + 3);
+//      VectorPrinter.printOffsets((UInt4Vector) mainVector, 0, newIndex);
     }
   }
 
@@ -172,11 +176,11 @@ public abstract class SingleVectorState implements VectorState {
   public ValueVector vector() { return mainVector; }
 
   @Override
-  public void allocate(int cardinality) {
-    allocateVector(mainVector, cardinality);
+  public int allocate(int cardinality) {
+    return allocateVector(mainVector, cardinality);
   }
 
-  protected abstract void allocateVector(ValueVector vector, int cardinality);
+  protected abstract int allocateVector(ValueVector vector, int cardinality);
 
   /**
    * A column within the row batch overflowed. Prepare to absorb the rest of

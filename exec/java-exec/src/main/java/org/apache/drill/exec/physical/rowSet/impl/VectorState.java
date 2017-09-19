@@ -51,9 +51,11 @@ public interface VectorState {
    * is an array, then the cardinality given is the number of arrays.
    * @param cardinality number of elements desired in the allocated
    * vector
+   *
+   * @return the number of bytes allocated
    */
 
-  void allocate(int cardinality);
+  int allocate(int cardinality);
 
   /**
    * A vector has overflowed. Create a new look-ahead vector of the given

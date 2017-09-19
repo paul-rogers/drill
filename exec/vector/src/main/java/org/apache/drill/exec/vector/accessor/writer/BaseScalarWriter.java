@@ -19,7 +19,6 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
-import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.joda.time.Period;
@@ -130,140 +129,7 @@ import org.joda.time.Period;
 
 public abstract class BaseScalarWriter extends AbstractScalarWriter {
 
-  /**
-   * Base class for variable-width (VarChar, VarBinary, etc.) writers.
-   * Handles the additional complexity that such writers work with
-   * both an offset vector and a data vector. The offset vector is
-   * written using a specialized offset vector writer. The last write
-   * index is defined as the the last write position in the offset
-   * vector; not the last write position in the variable-width
-   * vector.
-   * <p>
-   * Most and value events are forwarded to the offset vector.
-   */
-
-  public static abstract class BaseVarWidthWriter extends BaseScalarWriter {
-    protected final OffsetVectorWriter offsetsWriter;
-
-    public BaseVarWidthWriter(UInt4Vector offsetVector) {
-      offsetsWriter = new OffsetVectorWriter(offsetVector);
-    }
-
-    @Override
-    public void bindIndex(final ColumnWriterIndex index) {
-      offsetsWriter.bindIndex(index);
-      super.bindIndex(index);
-    }
-
-    @Override
-    public void startRow() { offsetsWriter.startRow(); }
-
-    @Override
-    public void skipNulls() { }
-
-    @Override
-    public void restartRow() { offsetsWriter.restartRow(); }
-
-    @Override
-    public int lastWriteIndex() { return offsetsWriter.lastWriteIndex(); }
-
-    @Override
-    public void preRollover() { offsetsWriter.preRollover(); }
-
-    @Override
-    public void dump(HierarchicalFormatter format) {
-      format.extend();
-      super.dump(format);
-      format.attribute("offsetsWriter");
-      offsetsWriter.dump(format);
-      format.endObject();
-    }
-  }
-
-  public static abstract class BaseFixedWidthWriter extends BaseScalarWriter {
-
-    /**
-     * The largest position to which the writer has written data. Used to allow
-     * "fill-empties" (AKA "back-fill") of missing values one each value write
-     * and at the end of a batch. Note that this is the position of the last
-     * write, not the next write position. Starts at -1 (no last write).
-     */
-
-    protected int lastWriteIndex;
-
-    @Override
-    public void startWrite() { lastWriteIndex = -1; }
-
-    @Override
-    public int lastWriteIndex() { return lastWriteIndex; }
-
-    @Override
-    public void skipNulls() {
-
-      // Pretend we've written up to the previous value.
-      // This will leave null values (as specified by the
-      // caller) uninitialized.
-
-      lastWriteIndex = vectorIndex.vectorIndex() - 1;
-    }
-
-    @Override
-    public void restartRow() {
-      lastWriteIndex = Math.min(lastWriteIndex, vectorIndex.vectorIndex() - 1);
-    }
-
-    @Override
-    public final void preRollover() {
-      setValueCount(vectorIndex.rowStartIndex());
-    }
-
-    @Override
-    public void postRollover() {
-      int newIndex = Math.max(lastWriteIndex - vectorIndex.rowStartIndex(), -1);
-      startWrite();
-      lastWriteIndex = newIndex;
-    }
-
-    @Override
-    public final void endWrite() {
-      setValueCount(vectorIndex.vectorIndex());
-    }
-
-    protected abstract void setValueCount(int valueCount);
-
-    protected final int writeIndex() {
-
-      // "Fast path" for the normal case of no fills, no overflow.
-      // This is the only bounds check we want to do for the entire
-      // set operation.
-
-      int writeIndex = vectorIndex.vectorIndex();
-      if (lastWriteIndex + 1 == writeIndex && writeIndex < capacity) {
-        lastWriteIndex = writeIndex;
-        return writeIndex;
-      }
-
-      // Either empties must be filed or the vector is full.
-
-      prepareWrite(writeIndex);
-
-      // Track the last write location for zero-fill use next time around.
-
-      lastWriteIndex = writeIndex;
-      return writeIndex;
-    }
-
-    protected abstract void prepareWrite(int writeIndex);
-
-    @Override
-    public void dump(HierarchicalFormatter format) {
-      format.extend();
-      super.dump(format);
-      format
-        .attribute("lastWriteIndex", lastWriteIndex)
-        .endObject();
-    }
-  }
+  public static final int MIN_BUFFER_SIZE = 256;
 
   /**
    * Indicates the position in the vector to write. Set via an object so that
@@ -308,6 +174,32 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
   public void bindListener(ColumnWriterListener listener) {
     this.listener = listener;
   }
+
+  protected abstract void setAddr();
+  protected abstract void realloc(int size);
+
+  /**
+   * The vector is about to grow. Give the listener a chance to
+   * veto the growth and opt for overflow instead.
+   *
+   * @param delta the new amount of memory to allocate
+   * @return true if the vector can be grown, false if an
+   * overflow should be triggered
+   */
+
+  protected boolean canExpand(int delta) {
+    if (listener == null) {
+      return true;
+    } else {
+      return listener.canExpand(this, delta);
+    }
+  }
+
+  /**
+   * Handle vector overflow. If this is an array, then there is a slim chance
+   * we may need to grow the vector immediately after overflow. Since a double
+   * overflow is not allowed, this recursive call won't continue forever.
+   */
 
   protected void overflowed() {
     if (listener == null) {

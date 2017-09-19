@@ -78,6 +78,10 @@ public class PrimitiveColumnState extends ColumnState implements ColumnWriterLis
   @Override
   public void dump(HierarchicalFormatter format) {
     // TODO Auto-generated method stub
+  }
 
+  @Override
+  public boolean canExpand(ScalarWriter writer, int delta) {
+    return resultSetLoader.canExpand(delta);
   }
 }
