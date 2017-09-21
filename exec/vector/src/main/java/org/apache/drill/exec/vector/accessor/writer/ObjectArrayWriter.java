@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
+import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArrayWriter;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
@@ -103,16 +104,10 @@ import org.apache.drill.exec.vector.complex.RepeatedValueVector;
  * maps then each vector can be in an of the scalar writer state.
  */
 
-public class ObjectArrayWriter extends AbstractArrayWriter {
+public class ObjectArrayWriter extends BaseArrayWriter {
 
-  private ObjectArrayWriter(RepeatedValueVector vector, AbstractObjectWriter elementWriter) {
+  protected ObjectArrayWriter(RepeatedValueVector vector, AbstractObjectWriter elementWriter) {
     super(vector, elementWriter);
-  }
-
-  public static ArrayObjectWriter build(ColumnMetadata schema,
-      RepeatedValueVector vector, AbstractObjectWriter elementWriter) {
-    return new ArrayObjectWriter(schema,
-        new ObjectArrayWriter(vector, elementWriter));
   }
 
   @Override

@@ -102,4 +102,12 @@ public interface ColumnMetadata {
    */
 
   ColumnMetadata cloneEmpty();
+
+  /**
+   * Reports whether, in this context, the column is projected outside
+   * of the context. (That is, whether the column is backed by an actual
+   * value vector.)
+   */
+
+  boolean isProjected();
 }

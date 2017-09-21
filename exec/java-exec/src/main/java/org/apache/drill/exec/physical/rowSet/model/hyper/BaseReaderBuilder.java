@@ -34,8 +34,8 @@ import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.impl.AccessorUtilities;
-import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
+import org.apache.drill.exec.vector.accessor.reader.ColumnReaderFactory;
 import org.apache.drill.exec.vector.accessor.reader.MapReader;
 import org.apache.drill.exec.vector.accessor.reader.ObjectArrayReader;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
@@ -130,7 +130,7 @@ public abstract class BaseReaderBuilder {
   }
 
   private AbstractObjectReader buildPrimitiveReader(VectorWrapper<?> vw, VectorDescrip descrip) {
-    return ColumnAccessorFactory.buildColumnReader(
+    return ColumnReaderFactory.buildColumnReader(
         vw.getField().getType(), new HyperVectorAccessor(vw));
   }
 

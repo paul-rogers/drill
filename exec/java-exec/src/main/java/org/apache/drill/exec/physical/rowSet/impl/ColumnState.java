@@ -38,9 +38,10 @@ public abstract class ColumnState {
 
     public BaseMapColumnState(ResultSetLoaderImpl resultSetLoader,
          AbstractMapVector mapVector,
-         AbstractObjectWriter writer, VectorState vectorState) {
+         AbstractObjectWriter writer, VectorState vectorState,
+         ProjectionSet projectionSet) {
       super(resultSetLoader, writer, vectorState);
-      mapState = new MapState(resultSetLoader, this, mapVector);
+      mapState = new MapState(resultSetLoader, this, mapVector, projectionSet);
     }
 
     @Override
@@ -73,9 +74,11 @@ public abstract class ColumnState {
   public static class MapColumnState extends BaseMapColumnState {
 
     public MapColumnState(ResultSetLoaderImpl resultSetLoader,
-        AbstractMapVector mapVector, AbstractObjectWriter writer) {
+        AbstractMapVector mapVector, AbstractObjectWriter writer,
+        ProjectionSet projectionSet) {
       super(resultSetLoader, mapVector, writer,
-          new UnmanagedVectorState(mapVector));
+          new UnmanagedVectorState(mapVector),
+          projectionSet);
     }
 
     @Override
@@ -88,12 +91,28 @@ public abstract class ColumnState {
   public static class MapArrayColumnState extends BaseMapColumnState {
 
     public MapArrayColumnState(ResultSetLoaderImpl resultSetLoader,
-        AbstractMapVector mapVector, AbstractObjectWriter writer) {
+        AbstractMapVector mapVector, AbstractObjectWriter writer,
+        VectorState vectorState,
+        ProjectionSet projectionSet) {
       super(resultSetLoader, mapVector, writer,
-          new OffsetVectorState(
-              ((AbstractArrayWriter) writer.array()).offsetWriter(),
-              ((RepeatedMapVector) mapVector).getOffsetVector(),
-              (AbstractObjectWriter) writer.array().entry()));
+          vectorState,
+          projectionSet);
+    }
+
+    public static MapArrayColumnState build(ResultSetLoaderImpl resultSetLoader,
+        AbstractMapVector mapVector, AbstractObjectWriter writer,
+        ProjectionSet projectionSet) {
+      VectorState vectorState;
+      if (mapVector == null) {
+        vectorState = new NullVectorState();
+      } else {
+        vectorState = new OffsetVectorState(
+            ((AbstractArrayWriter) writer.array()).offsetWriter(),
+            ((RepeatedMapVector) mapVector).getOffsetVector(),
+            (AbstractObjectWriter) writer.array().entry());
+      }
+      return new MapArrayColumnState(resultSetLoader,
+          mapVector, writer, vectorState, projectionSet);
     }
 
     @Override
@@ -235,7 +254,7 @@ public abstract class ColumnState {
     // of thought to get right -- and, of course, completely defeats
     // the purpose of limiting vector size to avoid memory fragmentation...
 
-    if (writer.events().writerIndex().vectorIndex() == 0) {
+    if (resultSetLoader.writerIndex().vectorIndex() == 0) {
       throw UserException
         .memoryError("A single column value is larger than the maximum allowed size of 16 MB")
         .build(logger);
