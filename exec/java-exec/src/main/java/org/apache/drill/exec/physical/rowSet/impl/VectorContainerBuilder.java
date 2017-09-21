@@ -184,28 +184,34 @@ public class VectorContainerBuilder {
     // Scan any existing maps for column additions
 
     for (int i = 0; i < prevCount; i++) {
-      ColumnState colModel = cols.get(i);
-      if (colModel.schema().isMap()) {
-        updateTuple((TupleState) ((BaseMapColumnState) colModel).mapState(), destProxy.mapProxy(i));
+      ColumnState colState = cols.get(i);
+      if (! colState.schema().isProjected()) {
+        continue;
+      }
+      if (colState.schema().isMap()) {
+        updateTuple((TupleState) ((BaseMapColumnState) colState).mapState(), destProxy.mapProxy(i));
       }
     }
 
     // Add new columns, which may be maps
 
     for (int i = prevCount; i < currentCount; i++) {
-      ColumnState state = cols.get(i);
+      ColumnState colState = cols.get(i);
+      if (! colState.schema().isProjected()) {
+        continue;
+      }
 
       // If the column was added after the output schema version cutoff,
       // skip that column for now.
 
-      if (state.addVersion > outputSchemaVersion) {
+      if (colState.addVersion > outputSchemaVersion) {
         break;
       }
-      if (state.schema().isMap()) {
-        buildMap(destProxy, (BaseMapColumnState) state);
+      if (colState.schema().isMap()) {
+        buildMap(destProxy, (BaseMapColumnState) colState);
       } else {
-        destProxy.add(state.vector());
-        destProxy.schema.addColumn(state.schema());
+        destProxy.add(colState.vector());
+        destProxy.schema.addColumn(colState.schema());
         assert destProxy.size() == destProxy.schema.size();
       }
     }

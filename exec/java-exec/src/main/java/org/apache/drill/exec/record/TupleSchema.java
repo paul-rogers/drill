@@ -53,6 +53,7 @@ public class TupleSchema implements TupleMetadata {
   public static abstract class AbstractColumnMetadata implements ColumnMetadata {
 
     protected MaterializedField schema;
+    protected boolean projected;
 
     /**
      * Predicted number of elements per array entry. Default is
@@ -133,13 +134,28 @@ public class TupleSchema implements TupleMetadata {
     @Override
     public int expectedElementCount() { return expectedElementCount; }
 
+    public void setProjected(boolean projected) {
+      this.projected = projected;
+    }
+
+    @Override
+    public boolean isProjected() { return projected; }
+
     @Override
     public String toString() {
-      return new StringBuilder()
+      StringBuilder buf = new StringBuilder()
           .append("[")
           .append(getClass().getSimpleName())
           .append(" ")
           .append(schema().toString())
+          .append(",")
+          .append(projected ? "" : "not ")
+          .append("projected");
+      if (isArray()) {
+        buf.append(", cardinality: ")
+           .append(expectedElementCount);
+      }
+      return buf
           .append("]")
           .toString();
     }

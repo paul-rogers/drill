@@ -22,6 +22,7 @@ import java.math.BigDecimal;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
+import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter.ScalarObjectWriter;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 import org.joda.time.Period;
@@ -45,7 +46,7 @@ import org.joda.time.Period;
  * subclasses are generated for each repeated value vector type.
  */
 
-public class ScalarArrayWriter extends AbstractArrayWriter {
+public class ScalarArrayWriter extends BaseArrayWriter {
 
   /**
    * For scalar arrays, incrementing the element index and
