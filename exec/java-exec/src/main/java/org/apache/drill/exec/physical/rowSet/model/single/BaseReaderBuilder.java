@@ -27,8 +27,8 @@ import org.apache.drill.exec.physical.rowSet.model.MetadataProvider;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescrip;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.impl.ColumnAccessorFactory;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
+import org.apache.drill.exec.vector.accessor.reader.ColumnReaderFactory;
 import org.apache.drill.exec.vector.accessor.reader.MapReader;
 import org.apache.drill.exec.vector.accessor.reader.ObjectArrayReader;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
@@ -72,7 +72,7 @@ public abstract class BaseReaderBuilder {
   }
 
   private AbstractObjectReader buildPrimitiveReader(ValueVector vector, VectorDescrip descrip) {
-    return ColumnAccessorFactory.buildColumnReader(vector);
+    return ColumnReaderFactory.buildColumnReader(vector);
   }
 
   private List<AbstractObjectReader> buildMap(AbstractMapVector vector, VectorDescrip descrip) {
