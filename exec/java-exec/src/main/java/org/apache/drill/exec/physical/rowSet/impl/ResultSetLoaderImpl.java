@@ -271,6 +271,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
   protected int accumulatedBatchSize;
 
+  protected final ProjectionSet projectionSet;
+
   public ResultSetLoaderImpl(BufferAllocator allocator, ResultSetOptions options) {
     this.allocator = allocator;
     this.options = options;
@@ -282,6 +284,10 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     } else {
       vectorCache = options.vectorCache;
     }
+
+    // If projection, build the projection map.
+
+    projectionSet = ProjectionSetImpl.parse(options.projection);
 
     // Build the row set model depending on whether a schema is provided.
 

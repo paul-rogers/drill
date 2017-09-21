@@ -45,29 +45,47 @@ public class PrimitiveColumnState extends ColumnState implements ColumnWriterLis
       ResultSetLoaderImpl resultSetLoader,
       ValueVector vector,
       AbstractObjectWriter writer) {
+    VectorState vectorState;
+    if (vector == null) {
+      vectorState = new NullVectorState();
+    } else {
+      vectorState = new ValuesVectorState(
+          writer.schema(),
+          (AbstractScalarWriter) writer.scalar(),
+          vector);
+    }
     return new PrimitiveColumnState(resultSetLoader, writer,
-        new ValuesVectorState(
-            writer.schema(),
-            (AbstractScalarWriter) writer.scalar(),
-            vector));
+        vectorState);
   }
 
   public static PrimitiveColumnState newNullablePrimitive(
       ResultSetLoaderImpl resultSetLoader,
       ValueVector vector,
       AbstractObjectWriter writer) {
+    VectorState vectorState;
+    if (vector == null) {
+      vectorState = new NullVectorState();
+    } else {
+      vectorState = new NullableVectorState(
+          writer,
+          (NullableVector) vector);
+    }
     return new PrimitiveColumnState(resultSetLoader, writer,
-        new NullableVectorState(
-            writer,
-            (NullableVector) vector));
+        vectorState);
   }
 
   public static PrimitiveColumnState newPrimitiveArray(
       ResultSetLoaderImpl resultSetLoader,
       ValueVector vector,
       AbstractObjectWriter writer) {
+    VectorState vectorState;
+    if (vector == null) {
+      vectorState = new NullVectorState();
+    } else {
+      vectorState = new RepeatedVectorState(writer, (RepeatedValueVector) vector);
+    }
     return new PrimitiveColumnState(resultSetLoader, writer,
-        new RepeatedVectorState(writer, (RepeatedValueVector) vector));
+        vectorState);
   }
 
   @Override

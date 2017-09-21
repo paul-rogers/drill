@@ -17,12 +17,10 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
-import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.MapVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 
@@ -71,10 +69,10 @@ public abstract class MapWriter extends AbstractTupleWriter {
    * columns are what is written.
    */
 
-  private static class SingleMapWriter extends MapWriter {
+  protected static class SingleMapWriter extends MapWriter {
     private final MapVector mapVector;
 
-    private SingleMapWriter(ColumnMetadata schema, MapVector vector, List<AbstractObjectWriter> writers) {
+    protected SingleMapWriter(ColumnMetadata schema, MapVector vector, List<AbstractObjectWriter> writers) {
       super(schema, writers);
       mapVector = vector;
     }
@@ -103,11 +101,11 @@ public abstract class MapWriter extends AbstractTupleWriter {
    * parent array writer is responsible for maintaining.
    */
 
-  private static class ArrayMapWriter extends MapWriter {
+  protected static class ArrayMapWriter extends MapWriter {
     @SuppressWarnings("unused")
     private final RepeatedMapVector mapVector;
 
-    private ArrayMapWriter(ColumnMetadata schema, RepeatedMapVector vector, List<AbstractObjectWriter> writers) {
+    protected ArrayMapWriter(ColumnMetadata schema, RepeatedMapVector vector, List<AbstractObjectWriter> writers) {
       super(schema, writers);
       mapVector = vector;
     }
@@ -138,39 +136,26 @@ public abstract class MapWriter extends AbstractTupleWriter {
     }
   }
 
-  protected final ColumnMetadata mapColumnSchema;
+  protected static class DummyMapWriter extends MapWriter {
 
-  private MapWriter(ColumnMetadata schema, List<AbstractObjectWriter> writers) {
-    super(schema.mapSchema(), writers);
-    mapColumnSchema = schema;
-  }
-
-  public static TupleObjectWriter buildMap(ColumnMetadata schema, MapVector vector,
-                                        List<AbstractObjectWriter> writers) {
-    return new TupleObjectWriter(schema, new SingleMapWriter(schema, vector, writers));
-  }
-
-  public static TupleObjectWriter buildMapArray(ColumnMetadata schema, RepeatedMapVector vector,
-                                        List<AbstractObjectWriter> writers) {
-    return new TupleObjectWriter(schema, new ArrayMapWriter(schema, vector, writers));
-  }
-
-  public static TupleObjectWriter buildMapArray(ColumnMetadata schema, RepeatedMapVector vector) {
-    assert schema.mapSchema().size() == 0;
-    return buildMapArray(schema, vector, new ArrayList<AbstractObjectWriter>());
-  }
-
-  public static TupleObjectWriter build(ColumnMetadata schema, AbstractMapVector vector,
-                                        List<AbstractObjectWriter> writers) {
-    if (schema.isArray()) {
-      return buildMapArray(schema, (RepeatedMapVector) vector, writers);
-    } else {
-      return buildMap(schema, (MapVector) vector, writers);
+    protected DummyMapWriter(ColumnMetadata schema,
+        List<AbstractObjectWriter> writers) {
+      super(schema, writers);
     }
   }
 
-  public static TupleObjectWriter build(ColumnMetadata schema, AbstractMapVector vector) {
-    assert schema.mapSchema().size() == 0;
-    return build(schema, vector, new ArrayList<AbstractObjectWriter>());
+  protected static class DummyArrayMapWriter extends MapWriter {
+
+    protected DummyArrayMapWriter(ColumnMetadata schema,
+        List<AbstractObjectWriter> writers) {
+      super(schema, writers);
+    }
+  }
+
+  protected final ColumnMetadata mapColumnSchema;
+
+  protected MapWriter(ColumnMetadata schema, List<AbstractObjectWriter> writers) {
+    super(schema.mapSchema(), writers);
+    mapColumnSchema = schema;
   }
 }
