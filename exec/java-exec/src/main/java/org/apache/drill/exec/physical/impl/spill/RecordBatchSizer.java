@@ -101,7 +101,7 @@ public class RecordBatchSizer {
      * this is the average entries per array (per repeated element).
      */
 
-    public final int estElementCountPerArray;
+    public final float estElementCountPerArray;
     public final boolean isVariableWidth;
 
     public ColumnSize(ValueVector v, String prefix) {
@@ -115,7 +115,7 @@ public class RecordBatchSizer {
 
       if (v.getField().getDataMode() == DataMode.REPEATED) {
         elementCount = buildRepeated(v);
-        estElementCountPerArray = safeDivide(elementCount, valueCount);
+        estElementCountPerArray = valueCount == 0 ? 0 : elementCount * 1.0f / valueCount;
       } else {
         elementCount = 1;
         estElementCountPerArray = 1;
@@ -428,6 +428,8 @@ public class RecordBatchSizer {
   public int stdRowWidth() { return stdRowWidth; }
   public int grossRowWidth() { return grossRowWidth; }
   public int netRowWidth() { return netRowWidth; }
+  public List<ColumnSize> columns() { return columnSizes; }
+
   /**
    * Compute the "real" width of the row, taking into account each varchar column size
    * (historically capped at 50, and rounded up to power of 2 to match drill buf allocation)

@@ -187,14 +187,26 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
   }
 
   /**
-   * Allocate new buffer with double capacity, and copy data into the new buffer. Replace vector's buffer with new buffer, and release old one
+   * Allocate new buffer with double capacity, and copy data into the new
+   * buffer. Replace vector's buffer with new buffer, and release old one
    *
-   * @throws org.apache.drill.exec.memory.OutOfMemoryException if it can't allocate the new buffer
+   * @throws org.apache.drill.exec.memory.OutOfMemoryException
+   *           if it can't allocate the new buffer
    */
+
   public void reAlloc() {
-    final long newAllocationSize = allocationSizeInBytes * 2L;
+
+    // Avoid an infinite loop if we try to double the size of
+    // a zero-length buffer. Instead, just allocate a 256 byte
+    // buffer if we start at 0.
+
+    final long newAllocationSize = allocationSizeInBytes == 0
+        ? 256
+        : allocationSizeInBytes * 2L;
+
     // TODO: Replace this with MAX_BUFFER_SIZE once all
     // code is aware of the maximum vector size.
+
     if (newAllocationSize > MAX_ALLOCATION_SIZE)  {
       throw new OversizedAllocationException("Unable to expand the buffer. Max allowed buffer size is reached.");
     }
