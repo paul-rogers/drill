@@ -22,7 +22,6 @@ import java.util.List;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.complex.MapVector;
-import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 
 /**
  * Writer for a Drill Map type. Maps are actually tuples, just like rows.
@@ -88,8 +87,13 @@ public abstract class MapWriter extends AbstractTupleWriter {
       // set the "lastSet" field of nullable vector accessors,
       // and the initial value of -1 will cause all values to
       // be overwritten.
+      //
+      // Note that the map vector can be null if there is no actual
+      // map vector represented by this writer.
 
-      mapVector.setMapValueCount(vectorIndex.vectorIndex());
+      if (mapVector != null) {
+        mapVector.setMapValueCount(vectorIndex.vectorIndex());
+      }
     }
   }
 
@@ -102,12 +106,9 @@ public abstract class MapWriter extends AbstractTupleWriter {
    */
 
   protected static class ArrayMapWriter extends MapWriter {
-    @SuppressWarnings("unused")
-    private final RepeatedMapVector mapVector;
 
-    protected ArrayMapWriter(ColumnMetadata schema, RepeatedMapVector vector, List<AbstractObjectWriter> writers) {
+    protected ArrayMapWriter(ColumnMetadata schema, List<AbstractObjectWriter> writers) {
       super(schema, writers);
-      mapVector = vector;
     }
 
     @Override
@@ -122,18 +123,11 @@ public abstract class MapWriter extends AbstractTupleWriter {
       bindIndex(index, new MemberWriterIndex(index));
     }
 
-    @Override
-    public void endWrite() {
-      super.endWrite();
-
-      // Do not call setValueCount on the map vector.
-      // Doing so will zero-fill the composite vectors because
-      // the internal map state does not track the writer state.
-      // Instead, the code in this structure has set the value
-      // count for each composite vector individually.
-
-//      mapVector.getMutator().setValueCount(vectorIndex.outerIndex().vectorIndex());
-    }
+    // In endWrite(), do not call setValueCount on the map vector.
+    // Doing so will zero-fill the composite vectors because
+    // the internal map state does not track the writer state.
+    // Instead, the code in this structure has set the value
+    // count for each composite vector individually.
   }
 
   protected static class DummyMapWriter extends MapWriter {

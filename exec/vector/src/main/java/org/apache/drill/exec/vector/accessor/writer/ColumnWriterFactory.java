@@ -26,6 +26,7 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.NullableVector;
+import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayObjectWriter;
@@ -127,30 +128,31 @@ public class ColumnWriterFactory {
   public static TupleObjectWriter buildMap(ColumnMetadata schema, MapVector vector,
                                         List<AbstractObjectWriter> writers) {
     MapWriter mapWriter;
-    if (vector == null) {
-      mapWriter = new DummyMapWriter(schema, writers);
-    } else {
+    if (schema.isProjected()) {
       mapWriter = new SingleMapWriter(schema, vector, writers);
+    } else {
+      mapWriter = new DummyMapWriter(schema, writers);
     }
     return new TupleObjectWriter(schema, mapWriter);
   }
 
-  public static ArrayObjectWriter buildMapArray(ColumnMetadata schema, RepeatedMapVector vector,
+  public static ArrayObjectWriter buildMapArray(ColumnMetadata schema,
+                                        UInt4Vector offsetVector,
                                         List<AbstractObjectWriter> writers) {
     MapWriter mapWriter;
-    if (vector == null) {
-      mapWriter = new DummyArrayMapWriter(schema, writers);
+    if (schema.isProjected()) {
+      mapWriter = new ArrayMapWriter(schema, writers);
     } else {
-      mapWriter = new ArrayMapWriter(schema, (RepeatedMapVector) vector, writers);
+      mapWriter = new DummyArrayMapWriter(schema, writers);
     }
     TupleObjectWriter mapArray = new TupleObjectWriter(schema, mapWriter);
     AbstractArrayWriter arrayWriter;
-    if (vector == null) {
-      arrayWriter = new DummyArrayWriter(mapArray);
-    } else {
+    if (schema.isProjected()) {
       arrayWriter = new ObjectArrayWriter(
-          (RepeatedValueVector) vector,
+          offsetVector,
           mapArray);
+    } else  {
+      arrayWriter = new DummyArrayWriter(mapArray);
     }
     return new ArrayObjectWriter(schema, arrayWriter);
   }
@@ -159,7 +161,9 @@ public class ColumnWriterFactory {
       AbstractMapVector vector,
       List<AbstractObjectWriter> writers) {
     if (schema.isArray()) {
-      return buildMapArray(schema, (RepeatedMapVector) vector, writers);
+      return buildMapArray(schema,
+          ((RepeatedMapVector) vector).getOffsetVector(),
+          writers);
     } else {
       return buildMap(schema, (MapVector) vector, writers);
     }

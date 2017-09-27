@@ -64,7 +64,8 @@ public class ScalarArrayWriter extends BaseArrayWriter {
 
   public ScalarArrayWriter(ColumnMetadata schema,
       RepeatedValueVector vector, BaseScalarWriter elementWriter) {
-    super(vector, new ScalarObjectWriter(schema, elementWriter));
+    super(vector.getOffsetVector(),
+        new ScalarObjectWriter(schema, elementWriter));
     this.elementWriter = elementWriter;
   }
 
