@@ -18,16 +18,16 @@
 package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
-import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
-import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
  * Writer for an array-valued column. This writer appends values: once a value
@@ -190,9 +190,9 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     private ColumnWriterIndex outerIndex;
     protected ArrayElementWriterIndex elementIndex;
 
-    public BaseArrayWriter(RepeatedValueVector vector, AbstractObjectWriter elementObjWriter) {
+    public BaseArrayWriter(UInt4Vector offsetVector, AbstractObjectWriter elementObjWriter) {
       super(elementObjWriter);
-      offsetsWriter = new OffsetVectorWriter(vector.getOffsetVector());
+      offsetsWriter = new OffsetVectorWriter(offsetVector);
     }
 
     @Override

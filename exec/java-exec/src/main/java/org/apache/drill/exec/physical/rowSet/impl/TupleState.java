@@ -20,7 +20,6 @@ package org.apache.drill.exec.physical.rowSet.impl;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.BaseMapColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapArrayColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapColumnState;
@@ -38,7 +37,6 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
-import org.apache.drill.exec.vector.complex.AbstractMapVector;
 
 public abstract class TupleState implements TupleWriterListener {
 
@@ -68,32 +66,15 @@ public abstract class TupleState implements TupleWriterListener {
 
   public static class MapState extends TupleState {
 
-    protected final AbstractMapVector mapVector;
     protected final BaseMapColumnState mapColumnState;
     protected int outerCardinality;
 
     public MapState(ResultSetLoaderImpl rsLoader,
         BaseMapColumnState mapColumnState,
-        AbstractMapVector mapVector,
         ProjectionSet projectionSet) {
       super(rsLoader, projectionSet);
-      this.mapVector = mapVector;
       this.mapColumnState = mapColumnState;
       mapColumnState.writer().bindListener(this);
-    }
-
-    @Override
-    protected void columnAdded(ColumnState colState) {
-      @SuppressWarnings("resource")
-      ValueVector vector = colState.vector();
-
-      // Can't materialize the child if the map itself is
-      // not materialized.
-
-      assert mapVector != null || vector == null;
-      if (vector != null) {
-        mapVector.putChild(vector.getField().getName(), vector);
-      }
     }
 
     @Override
@@ -218,7 +199,6 @@ public abstract class TupleState implements TupleWriterListener {
     }
   }
 
-  @SuppressWarnings("resource")
   private ColumnState buildMap(ColumnMetadata columnSchema) {
 
     // When dynamically adding columns, must add the (empty)
@@ -228,40 +208,17 @@ public abstract class TupleState implements TupleWriterListener {
     assert columnSchema.isMap();
     assert columnSchema.mapSchema().size() == 0;
 
-    AbstractMapVector mapVector = null;
-    if (columnSchema.isProjected()) {
-
-      // Don't get the map vector from the vector cache. Map vectors may
-      // have content that varies from batch to batch. Only the leaf
-      // vectors can be cached.
-
-      mapVector = (AbstractMapVector) TypeHelper.getNewVector(
-          columnSchema.schema(),
-          resultSetLoader.allocator(),
-          null);
-
-      // Creating the vector cloned the schema. Replace the
-      // field in the column metadata to match the one in the vector.
-      // Doing so is an implementation hack, so access a method on the
-      // implementation class.
-
-      ((AbstractColumnMetadata) columnSchema).replaceField(mapVector.getField());
-    } else {
-      // Map is not materialized. Map, and all its contained columns
-      // will be dummy writers.
-
-      mapVector = null;
-    }
-
     // Create the writer. Will be returned to the tuple writer.
-
-    AbstractObjectWriter mapWriter = ColumnWriterFactory.buildMapWriter(columnSchema, mapVector);
 
     ProjectionSet childProjection = projectionSet.mapProjection(columnSchema.name());
     if (columnSchema.isArray()) {
-      return MapArrayColumnState.build(resultSetLoader, mapVector, mapWriter, childProjection);
+      return MapArrayColumnState.build(resultSetLoader,
+          columnSchema,
+          childProjection);
     } else {
-      return new MapColumnState(resultSetLoader, mapVector, mapWriter, childProjection);
+      return new MapColumnState(resultSetLoader,
+          columnSchema,
+          childProjection);
     }
   }
 

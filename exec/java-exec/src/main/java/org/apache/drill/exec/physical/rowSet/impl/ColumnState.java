@@ -17,17 +17,19 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
+import java.util.ArrayList;
+
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.physical.rowSet.impl.NullVectorState.UnmanagedVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapState;
 import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
-import org.apache.drill.exec.vector.complex.AbstractMapVector;
-import org.apache.drill.exec.vector.complex.RepeatedMapVector;
+import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
+import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
 
 public abstract class ColumnState {
 
@@ -37,11 +39,10 @@ public abstract class ColumnState {
     protected final MapState mapState;
 
     public BaseMapColumnState(ResultSetLoaderImpl resultSetLoader,
-         AbstractMapVector mapVector,
          AbstractObjectWriter writer, VectorState vectorState,
          ProjectionSet projectionSet) {
       super(resultSetLoader, writer, vectorState);
-      mapState = new MapState(resultSetLoader, this, mapVector, projectionSet);
+      mapState = new MapState(resultSetLoader, this, projectionSet);
     }
 
     @Override
@@ -74,10 +75,12 @@ public abstract class ColumnState {
   public static class MapColumnState extends BaseMapColumnState {
 
     public MapColumnState(ResultSetLoaderImpl resultSetLoader,
-        AbstractMapVector mapVector, AbstractObjectWriter writer,
+        ColumnMetadata columnSchema,
         ProjectionSet projectionSet) {
-      super(resultSetLoader, mapVector, writer,
-          new UnmanagedVectorState(mapVector),
+      super(resultSetLoader,
+          ColumnWriterFactory.buildMap(columnSchema, null,
+              new ArrayList<AbstractObjectWriter>()),
+          new NullVectorState(),
           projectionSet);
     }
 
@@ -91,28 +94,42 @@ public abstract class ColumnState {
   public static class MapArrayColumnState extends BaseMapColumnState {
 
     public MapArrayColumnState(ResultSetLoaderImpl resultSetLoader,
-        AbstractMapVector mapVector, AbstractObjectWriter writer,
+        AbstractObjectWriter writer,
         VectorState vectorState,
         ProjectionSet projectionSet) {
-      super(resultSetLoader, mapVector, writer,
+      super(resultSetLoader, writer,
           vectorState,
           projectionSet);
     }
 
+    @SuppressWarnings("resource")
     public static MapArrayColumnState build(ResultSetLoaderImpl resultSetLoader,
-        AbstractMapVector mapVector, AbstractObjectWriter writer,
+        ColumnMetadata columnSchema,
         ProjectionSet projectionSet) {
-      VectorState vectorState;
-      if (mapVector == null) {
-        vectorState = new NullVectorState();
-      } else {
-        vectorState = new OffsetVectorState(
+
+      // Create the map's offset vector.
+
+      UInt4Vector offsetVector = new UInt4Vector(
+          BaseRepeatedValueVector.OFFSETS_FIELD,
+          resultSetLoader.allocator());
+
+      // Create the writer using the offset vector
+
+      AbstractObjectWriter writer = ColumnWriterFactory.buildMapArray(
+          columnSchema, offsetVector,
+          new ArrayList<AbstractObjectWriter>());
+
+      // Wrap the offset vector in a vector state
+
+      VectorState vectorState = new OffsetVectorState(
             ((AbstractArrayWriter) writer.array()).offsetWriter(),
-            ((RepeatedMapVector) mapVector).getOffsetVector(),
+            offsetVector,
             (AbstractObjectWriter) writer.array().entry());
-      }
+
+      // Assemble it all into the column state.
+
       return new MapArrayColumnState(resultSetLoader,
-          mapVector, writer, vectorState, projectionSet);
+                  writer, vectorState, projectionSet);
     }
 
     @Override
