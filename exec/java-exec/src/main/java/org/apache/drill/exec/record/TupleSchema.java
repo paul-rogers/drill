@@ -53,7 +53,7 @@ public class TupleSchema implements TupleMetadata {
   public static abstract class AbstractColumnMetadata implements ColumnMetadata {
 
     protected MaterializedField schema;
-    protected boolean projected;
+    protected boolean projected = true;
 
     /**
      * Predicted number of elements per array entry. Default is

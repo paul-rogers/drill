@@ -17,10 +17,9 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
-import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArrayWriter;
-import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
  * Writer for an array of either a map or another array. Here, the contents
@@ -106,8 +105,8 @@ import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 public class ObjectArrayWriter extends BaseArrayWriter {
 
-  protected ObjectArrayWriter(RepeatedValueVector vector, AbstractObjectWriter elementWriter) {
-    super(vector, elementWriter);
+  protected ObjectArrayWriter(UInt4Vector offsetVector, AbstractObjectWriter elementWriter) {
+    super(offsetVector, elementWriter);
   }
 
   @Override
