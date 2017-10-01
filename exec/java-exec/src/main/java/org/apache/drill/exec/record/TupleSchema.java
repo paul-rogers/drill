@@ -174,8 +174,9 @@ public class TupleSchema implements TupleMetadata {
 
     public PrimitiveColumnMetadata(MaterializedField schema) {
       super(schema);
-      expectedWidth = TypeHelper.getSize(majorType());
-      if (isVariableWidth()) {
+      if (type() == MinorType.NULL) {
+        expectedWidth = 0;
+      } else if (isVariableWidth()) {
 
         // The above getSize() method uses the deprecated getWidth()
         // method to get the expected VarChar size. If zero (which
@@ -187,8 +188,10 @@ public class TupleSchema implements TupleMetadata {
         } else {
           // TypeHelper includes the offset vector width
 
-          expectedWidth = expectedWidth - 4;
+          expectedWidth = TypeHelper.getSize(majorType()) - 4;
         }
+      } else {
+        expectedWidth = TypeHelper.getSize(majorType());
       }
     }
 
