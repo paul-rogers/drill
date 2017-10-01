@@ -32,7 +32,7 @@ import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.OperatorContext;
-import org.apache.drill.exec.ops.OperatorExecContext;
+import org.apache.drill.exec.ops.OperatorExecutionContext;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
@@ -97,7 +97,7 @@ public class ScanBatch implements CloseableRecordBatch {
     this.readers = readerList.iterator();
     this.implicitColumns = implicitColumnList.iterator();
     if (!readers.hasNext()) {
-      throw UserException.systemError(
+      throw UserException.internalError(
           new ExecutionSetupException("A scan batch must contain at least one reader."))
         .build(logger);
     }
@@ -111,7 +111,7 @@ public class ScanBatch implements CloseableRecordBatch {
       if (!verifyImplcitColumns(readerList.size(), implicitColumnList)) {
         Exception ex = new ExecutionSetupException("Either implicit column list does not have same cardinality as reader list, "
             + "or implicit columns are not same across all the record readers!");
-        throw UserException.systemError(ex)
+        throw UserException.internalError(ex)
             .addContext("Setup failed for", readerList.get(0).getClass().getSimpleName())
             .build(logger);
       }
@@ -211,11 +211,11 @@ public class ScanBatch implements CloseableRecordBatch {
           logger.error("Close failed for reader " + currentReaderClassName, e2);
         }
       }
-      throw UserException.systemError(e)
+      throw UserException.internalError(e)
           .addContext("Setup failed for", currentReaderClassName)
           .build(logger);
     } catch (Exception ex) {
-      throw UserException.systemError(ex).build(logger);
+      throw UserException.internalError(ex).build(logger);
     } finally {
       oContext.getStats().stopProcessing();
     }
@@ -255,7 +255,7 @@ public class ScanBatch implements CloseableRecordBatch {
       }
     } catch(SchemaChangeException e) {
       // No exception should be thrown here.
-      throw UserException.systemError(e)
+      throw UserException.internalError(e)
         .addContext("Failure while allocating implicit vectors")
         .build(logger);
     }
@@ -319,9 +319,9 @@ public class ScanBatch implements CloseableRecordBatch {
 
     private final VectorContainer container;
 
-    private final OperatorExecContext oContext;
+    private final OperatorExecutionContext oContext;
 
-    public Mutator(OperatorExecContext oContext, BufferAllocator allocator, VectorContainer container) {
+    public Mutator(OperatorExecutionContext oContext, BufferAllocator allocator, VectorContainer container) {
       this.oContext = oContext;
       this.allocator = allocator;
       this.container = container;
@@ -455,7 +455,6 @@ public class ScanBatch implements CloseableRecordBatch {
       }
     }
   }
-
 
   @Override
   public Iterator<VectorWrapper<?>> iterator() {
