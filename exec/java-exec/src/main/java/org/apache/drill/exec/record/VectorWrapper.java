@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -23,8 +23,6 @@ import org.apache.drill.exec.vector.ValueVector;
 
 
 public interface VectorWrapper<T extends ValueVector> {
-
-
 
   public Class<T> getVectorClass();
   public MaterializedField getField();

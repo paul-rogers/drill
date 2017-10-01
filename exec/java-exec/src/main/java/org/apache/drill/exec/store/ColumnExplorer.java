@@ -252,11 +252,11 @@ public class ColumnExplorer {
       this.name = name;
     }
 
+    public String optionName() { return name; }
+
     /**
      * Using file path calculates value for each implicit file column
      */
     public abstract String getValue(Path path);
-
   }
-
 }

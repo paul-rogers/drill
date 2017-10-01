@@ -58,7 +58,7 @@ public class SchemaPath extends LogicalExpressionBase {
   }
 
   public PathSegment getLastSegment() {
-    PathSegment s= rootSegment;
+    PathSegment s = rootSegment;
     while (s.getChild() != null) {
       s = s.getChild();
     }
@@ -70,7 +70,6 @@ public class SchemaPath extends LogicalExpressionBase {
     super(pos);
     this.rootSegment = new NameSegment(simpleName);
   }
-
 
   public NamePart getAsNamePart() {
     return getNamePart(rootSegment);
@@ -264,6 +263,7 @@ public class SchemaPath extends LogicalExpressionBase {
     return rootSegment.getPath();
   }
 
+  @SuppressWarnings("serial")
   public static class De extends StdDeserializer<SchemaPath> {
 
     public De() {
