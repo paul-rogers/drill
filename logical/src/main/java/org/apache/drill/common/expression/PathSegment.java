@@ -28,6 +28,7 @@ public abstract class PathSegment {
   }
 
   public abstract PathSegment cloneWithNewChild(PathSegment segment);
+
   @Override
   public abstract PathSegment clone();
 
@@ -122,7 +123,6 @@ public abstract class PathSegment {
       return seg;
     }
   }
-
 
   public static final class NameSegment extends PathSegment {
     private final String path;
