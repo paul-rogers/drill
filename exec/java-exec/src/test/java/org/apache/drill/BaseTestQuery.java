@@ -371,6 +371,11 @@ public class BaseTestQuery extends ExecTest {
     testNoResult(1, query, args);
   }
 
+  public static void resetSessionOption(String optionName) throws Exception {
+    testNoResult(String.format("ALTER SESSION RESET `%s`",
+        optionName));
+  }
+
   protected static void testNoResult(int interation, String query, Object... args) throws Exception {
     query = String.format(query, args);
     logger.debug("Running query:\n--------------\n" + query);

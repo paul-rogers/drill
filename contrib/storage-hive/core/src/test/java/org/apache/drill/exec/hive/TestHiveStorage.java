@@ -28,7 +28,6 @@ import org.apache.drill.common.exceptions.UserRemoteException;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.UserProtos;
-import org.apache.drill.test.OperatorFixture;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
 import org.joda.time.DateTime;
@@ -74,10 +73,8 @@ public class TestHiveStorage extends HiveTestBase {
           .baselineValues(200l)
           .go();
     } finally {
-      final OperatorFixture.TestOptionSet testOptionSet = new OperatorFixture.TestOptionSet();
-      test(String.format("alter session set `%s` = %s",
-          ExecConstants.HIVE_OPTIMIZE_SCAN_WITH_NATIVE_READERS,
-          Boolean.toString(testOptionSet.getDefault(ExecConstants.HIVE_OPTIMIZE_SCAN_WITH_NATIVE_READERS).bool_val)));
+      test(String.format("alter session reset `%s`",
+          ExecConstants.HIVE_OPTIMIZE_SCAN_WITH_NATIVE_READERS));
     }
   }
 
