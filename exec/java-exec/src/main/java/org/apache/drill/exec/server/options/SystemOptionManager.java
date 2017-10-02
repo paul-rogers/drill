@@ -17,8 +17,6 @@
  */
 package org.apache.drill.exec.server.options;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -38,6 +36,7 @@ import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.store.sys.PersistentStore;
 import org.apache.drill.exec.store.sys.PersistentStoreConfig;
 import org.apache.drill.exec.store.sys.PersistentStoreProvider;
+import org.apache.drill.exec.store.sys.store.provider.InMemoryStoreProvider;
 import org.apache.drill.exec.util.AssertionUtil;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -222,7 +221,6 @@ public class SystemOptionManager extends BaseOptionManager implements AutoClosea
 
   private final PersistentStoreProvider provider;
 
-  private final DrillConfig bootConfig;
   /**
    * Persistent store for options that have been changed from default.
    * NOTE: CRUD operations must use lowercase keys.
@@ -242,8 +240,21 @@ public class SystemOptionManager extends BaseOptionManager implements AutoClosea
     this.config = PersistentStoreConfig.newJacksonBuilder(lpPersistence.getMapper(), OptionValue.class)
           .name("sys.options")
           .build();
-    this.bootConfig = bootConfig;
     this.definitions = definitions;
+    this.defaults = populateDefaultValues(definitions, bootConfig);
+  }
+
+  /**
+   * Test-only, in-memory version of the system option manager.
+   *
+   * @param bootConfig Drill config
+   */
+
+  @VisibleForTesting
+  public SystemOptionManager(final DrillConfig bootConfig) {
+    this.provider = new InMemoryStoreProvider(100);
+    this.config = null;
+    this.definitions = SystemOptionManager.createDefaultOptionDefinitions();
     this.defaults = populateDefaultValues(definitions, bootConfig);
   }
 

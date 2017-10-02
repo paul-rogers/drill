@@ -18,10 +18,12 @@
 
 package org.apache.drill.exec.server.options;
 
+import org.apache.drill.exec.server.options.OptionValue.Kind;
+
 /**
- * A basic implementation of an {@link OptionSet}.
+ * A basic implementation of an {@link OptionsService}.
  */
-public abstract class BaseOptionSet implements OptionSet {
+public abstract class BaseOptionSet implements OptionsService {
   /**
    * Gets the current option value given a validator.
    *
@@ -53,5 +55,37 @@ public abstract class BaseOptionSet implements OptionSet {
   @Override
   public String getOption(TypeValidators.StringValidator validator) {
     return getOptionSafe(validator).string_val;
+  }
+
+  @Override
+  public boolean getBoolean(String name) {
+    return getByType(name, Kind.BOOLEAN).bool_val;
+  }
+
+  @Override
+  public long getLong(String name) {
+    return getByType(name, Kind.LONG).num_val;
+  }
+
+  @Override
+  public double getDouble(String name) {
+    return getByType(name, Kind.DOUBLE).float_val;
+  }
+
+  @Override
+  public String getString(String name) {
+    return getByType(name, Kind.STRING).string_val;
+  }
+
+  private OptionValue getByType(String name, Kind dataType) {
+    OptionValue value = getOption(name);
+    if (value == null) {
+      throw new IllegalArgumentException("Undefined option: " + name);
+    }
+    if (value.kind != dataType) {
+      throw new IllegalArgumentException("Option " + name + " is of data type " +
+                                         value.kind + " but was requested as " + dataType);
+    }
+    return value;
   }
 }

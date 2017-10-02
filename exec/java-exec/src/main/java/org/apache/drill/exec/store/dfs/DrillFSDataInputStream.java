@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,19 +17,19 @@
  */
 package org.apache.drill.exec.store.dfs;
 
-import org.apache.drill.exec.ops.OperatorStats;
+import java.io.FileDescriptor;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.util.EnumSet;
+
+import org.apache.drill.exec.ops.services.OperatorStatsService;
 import org.apache.hadoop.classification.InterfaceAudience.LimitedPrivate;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.PositionedReadable;
 import org.apache.hadoop.fs.ReadOption;
 import org.apache.hadoop.fs.Seekable;
 import org.apache.hadoop.io.ByteBufferPool;
-
-import java.io.FileDescriptor;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.util.EnumSet;
 
 
 /**
@@ -38,13 +38,14 @@ import java.util.EnumSet;
 public class DrillFSDataInputStream extends FSDataInputStream {
   private final FSDataInputStream underlyingIs;
   private final OpenFileTracker openFileTracker;
-  private final OperatorStats operatorStats;
+  private final OperatorStatsService operatorStats;
 
-  public DrillFSDataInputStream(FSDataInputStream in, OperatorStats operatorStats) throws IOException {
+  public DrillFSDataInputStream(FSDataInputStream in, OperatorStatsService operatorStats) throws IOException {
     this(in, operatorStats, null);
   }
 
-  public DrillFSDataInputStream(FSDataInputStream in, OperatorStats operatorStats,
+  @SuppressWarnings("resource")
+  public DrillFSDataInputStream(FSDataInputStream in, OperatorStatsService operatorStats,
       OpenFileTracker openFileTracker) throws IOException {
     super(new WrappedInputStream(in, operatorStats));
     underlyingIs = in;
@@ -193,9 +194,9 @@ public class DrillFSDataInputStream extends FSDataInputStream {
    */
   private static class WrappedInputStream extends InputStream implements Seekable, PositionedReadable {
     final FSDataInputStream is;
-    final OperatorStats operatorStats;
+    final OperatorStatsService operatorStats;
 
-    WrappedInputStream(FSDataInputStream is, OperatorStats operatorStats) {
+    WrappedInputStream(FSDataInputStream is, OperatorStatsService operatorStats) {
       this.is = is;
       this.operatorStats = operatorStats;
     }

@@ -72,8 +72,7 @@ public class TestLimitWithExchanges extends BaseTestQuery {
       final String[] expectedPlan5 = {"(?s)Limit\\(fetch=\\[1\\].*UnionExchange.*Limit\\(fetch=\\[1\\]\\).*Join"};
       testLimitHelper(sql5, expectedPlan5, excludedPlan, 1);
     } finally {
-      final OperatorFixture.TestOptionSet testOptionSet = new OperatorFixture.TestOptionSet();
-      test("alter session set `%s` = %s", ExecConstants.SLICE_TARGET, testOptionSet.getDefault(ExecConstants.SLICE_TARGET).getValue());
+      resetSessionOption(ExecConstants.SLICE_TARGET);
     }
   }
 
@@ -94,8 +93,7 @@ public class TestLimitWithExchanges extends BaseTestQuery {
 
       testLimitHelper(sql2, expectedPlan, excludedPlan2, 5);
     } finally {
-      final OperatorFixture.TestOptionSet testOptionSet = new OperatorFixture.TestOptionSet();
-      test("alter session set `planner.slice_target` = " + testOptionSet.getDefault(ExecConstants.SLICE_TARGET).getValue());
+      resetSessionOption(ExecConstants.SLICE_TARGET);
     }
   }
 
@@ -124,8 +122,7 @@ public class TestLimitWithExchanges extends BaseTestQuery {
       testLimitHelper(sql3, expectedPlan2, excludedPlan2, 10);
       testLimitHelper(sql4, expectedPlan2, excludedPlan2, 10);
     } finally {
-      final OperatorFixture.TestOptionSet testOptionSet = new OperatorFixture.TestOptionSet();
-      test("alter session set `planner.slice_target` = " + testOptionSet.getDefault(ExecConstants.SLICE_TARGET).getValue());
+      resetSessionOption(ExecConstants.SLICE_TARGET);
     }
   }
 

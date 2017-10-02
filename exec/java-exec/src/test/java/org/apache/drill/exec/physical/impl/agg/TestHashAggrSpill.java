@@ -26,7 +26,7 @@ import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.test.ClientFixture;
 import org.apache.drill.test.ClusterFixture;
-import org.apache.drill.test.FixtureBuilder;
+import org.apache.drill.test.ClusterFixtureBuilder;
 import org.apache.drill.test.LogFixture;
 import org.apache.drill.test.ProfileParser;
 import org.apache.drill.test.QueryBuilder;
@@ -89,7 +89,7 @@ public class TestHashAggrSpill {
             .logger("org.apache.drill.exec.physical.impl.aggregate", Level.DEBUG)
             ;
 
-        FixtureBuilder builder = ClusterFixture.builder()
+        ClusterFixtureBuilder builder = ClusterFixture.builder()
             .configProperty(ExecConstants.HASHAGG_MAX_MEMORY,74_000_000)
             .configProperty(ExecConstants.HASHAGG_NUM_PARTITIONS,16)
             .configProperty(ExecConstants.HASHAGG_MIN_BATCHES_PER_PARTITION,3)
@@ -122,7 +122,7 @@ public class TestHashAggrSpill {
             .logger("org.apache.drill.exec.cache", Level.INFO)
             ;
 
-        FixtureBuilder builder = ClusterFixture.builder()
+        ClusterFixtureBuilder builder = ClusterFixture.builder()
             .configProperty(ExecConstants.HASHAGG_MAX_MEMORY,58_000_000)
             .configProperty(ExecConstants.HASHAGG_NUM_PARTITIONS,16)
             .configProperty(ExecConstants.HASHAGG_MIN_BATCHES_PER_PARTITION,3)
@@ -154,7 +154,7 @@ public class TestHashAggrSpill {
             .logger("org.apache.drill.exec.physical.impl.aggregate", Level.DEBUG)
             ;
 
-        FixtureBuilder builder = ClusterFixture.builder()
+        ClusterFixtureBuilder builder = ClusterFixture.builder()
             .configProperty(ExecConstants.HASHAGG_MAX_MEMORY,74_000)
             .configProperty(ExecConstants.HASHAGG_NUM_PARTITIONS,4)
             .configProperty(ExecConstants.HASHAGG_MIN_BATCHES_PER_PARTITION,3)
@@ -188,7 +188,7 @@ public class TestHashAggrSpill {
             .logger("org.apache.drill.exec.physical.impl.aggregate", Level.DEBUG)
             ;
 
-        FixtureBuilder builder = ClusterFixture.builder()
+        ClusterFixtureBuilder builder = ClusterFixture.builder()
             .configProperty(ExecConstants.HASHAGG_MAX_MEMORY,74_000)
             .configProperty(ExecConstants.HASHAGG_NUM_PARTITIONS,4)
             .configProperty(ExecConstants.HASHAGG_MIN_BATCHES_PER_PARTITION,3)
