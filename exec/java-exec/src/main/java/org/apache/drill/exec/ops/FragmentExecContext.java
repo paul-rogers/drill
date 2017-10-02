@@ -17,16 +17,8 @@
  */
 package org.apache.drill.exec.ops;
 
-import java.io.IOException;
-import java.util.List;
-
-import org.apache.drill.common.config.DrillConfig;
-import org.apache.drill.exec.exception.ClassTransformationException;
-import org.apache.drill.exec.expr.ClassGenerator;
-import org.apache.drill.exec.expr.CodeGenerator;
-import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
-import org.apache.drill.exec.server.options.OptionSet;
-import org.apache.drill.exec.testing.ExecutionControls;
+import org.apache.drill.exec.ops.services.CodeGenService;
+import org.apache.drill.exec.ops.services.CoreExecService;
 
 /**
  * Services passed to fragments that deal only with execution details
@@ -38,94 +30,5 @@ import org.apache.drill.exec.testing.ExecutionControls;
  * of the entire Drill server, or using mocks for the global services.
  */
 
-public interface FragmentExecContext {
-  /**
-   * Returns the UDF registry.
-   * @return the UDF registry
-   */
-  FunctionImplementationRegistry getFunctionRegistry();
-  /**
-   * Returns a read-only version of the session options.
-   * @return the session options
-   */
-  OptionSet getOptionSet();
-
-  /**
-   * Generates code for a class given a {@link ClassGenerator},
-   * and returns a single instance of the generated class. (Note
-   * that the name is a misnomer, it would be better called
-   * <tt>getImplementationInstance</tt>.)
-   *
-   * @param cg the class generator
-   * @return an instance of the generated class
-   */
-
-  <T> T getImplementationClass(final ClassGenerator<T> cg)
-      throws ClassTransformationException, IOException;
-
-  /**
-   * Generates code for a class given a {@link CodeGenerator},
-   * and returns a single instance of the generated class. (Note
-   * that the name is a misnomer, it would be better called
-   * <tt>getImplementationInstance</tt>.)
-   *
-   * @param cg the code generator
-   * @return an instance of the generated class
-   */
-
-  <T> T getImplementationClass(final CodeGenerator<T> cg)
-      throws ClassTransformationException, IOException;
-
-  /**
-   * Generates code for a class given a {@link ClassGenerator}, and returns the
-   * specified number of instances of the generated class. (Note that the name
-   * is a misnomer, it would be better called
-   * <tt>getImplementationInstances</tt>.)
-   *
-   * @param cg
-   *          the class generator
-   * @return list of instances of the generated class
-   */
-
-  <T> List<T> getImplementationClass(final ClassGenerator<T> cg, final int instanceCount)
-      throws ClassTransformationException, IOException;
-
-  /**
-   * Generates code for a class given a {@link CodeGenerator}, and returns the
-   * specified number of instances of the generated class. (Note that the name
-   * is a misnomer, it would be better called
-   * <tt>getImplementationInstances</tt>.)
-   *
-   * @param cg
-   *          the code generator
-   * @return list of instances of the generated class
-   */
-
-  <T> List<T> getImplementationClass(final CodeGenerator<T> cg, final int instanceCount)
-      throws ClassTransformationException, IOException;
-
-  /**
-   * Determine if fragment execution has been interrupted.
-   * @return true if execution should continue, false if an interruption has
-   * occurred and fragment execution should halt
-   */
-
-  boolean shouldContinue();
-
-  /**
-   * Return the set of execution controls used to inject faults into running
-   * code for testing.
-   *
-   * @return the execution controls
-   */
-  ExecutionControls getExecutionControls();
-
-  /**
-   * Returns the Drill configuration for this run. Note that the config is
-   * global and immutable.
-   *
-   * @return the Drill configuration
-   */
-
-  DrillConfig getConfig();
+public interface FragmentExecContext extends CoreExecService, CodeGenService, BufferManager {
 }

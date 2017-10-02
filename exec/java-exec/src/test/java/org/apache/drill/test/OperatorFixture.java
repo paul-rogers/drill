@@ -32,28 +32,35 @@ import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.expr.ClassGenerator;
 import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
+import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.memory.RootAllocatorFactory;
 import org.apache.drill.exec.ops.AbstractOperatorExecContext;
+import org.apache.drill.exec.ops.BufferManager;
+import org.apache.drill.exec.ops.BufferManagerImpl;
 import org.apache.drill.exec.ops.FragmentExecContext;
 import org.apache.drill.exec.ops.MetricDef;
 import org.apache.drill.exec.ops.OperExecContext;
 import org.apache.drill.exec.ops.OperExecContextImpl;
 import org.apache.drill.exec.ops.OperatorExecContext;
-import org.apache.drill.exec.ops.OperatorStatReceiver;
+import org.apache.drill.exec.ops.services.AllocatorService;
+import org.apache.drill.exec.ops.services.CodeGenService;
+import org.apache.drill.exec.ops.services.CoreExecService;
+import org.apache.drill.exec.ops.services.ExecutionControlsService;
+import org.apache.drill.exec.ops.services.FragmentServices;
+import org.apache.drill.exec.ops.services.OperatorScopeService;
+import org.apache.drill.exec.ops.services.OperatorServices;
+import org.apache.drill.exec.ops.services.OperatorStatsService;
+import org.apache.drill.exec.ops.services.impl.CodeGenServiceImpl;
+import org.apache.drill.exec.ops.services.impl.ExecutionControlsServiceImpl;
+import org.apache.drill.exec.ops.services.impl.OperatorServicesLegacyImpl.AllocatorServicesShim;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.server.options.BaseOptionSet;
-import org.apache.drill.exec.server.options.OptionDefinition;
 import org.apache.drill.exec.record.selection.SelectionVector2;
-import org.apache.drill.exec.server.options.OptionSet;
-import org.apache.drill.exec.server.options.OptionValidator;
-import org.apache.drill.exec.server.options.OptionValue;
-import org.apache.drill.exec.server.options.OptionValue.AccessibleScopes;
-import org.apache.drill.exec.server.options.OptionValue.OptionScope;
+import org.apache.drill.exec.server.options.OptionsService;
 import org.apache.drill.exec.server.options.SystemOptionManager;
 import org.apache.drill.exec.testing.ExecutionControls;
 import org.apache.drill.test.ClusterFixtureBuilder.RuntimeOption;
@@ -63,6 +70,8 @@ import org.apache.drill.test.rowSet.IndirectRowSet;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
+
+import io.netty.buffer.DrillBuf;
 
 /**
  * Test fixture for operator and (especially) "sub-operator" tests.
@@ -130,72 +139,78 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
    * provide test-specific versions of various other services.
    */
 
-  public static class TestCodeGenContext implements FragmentExecContext {
+  public static class TestFragmentExecContext implements FragmentExecContext {
 
-    private final DrillConfig config;
-    private final OptionSet options;
-    private final CodeCompiler compiler;
-    private final FunctionImplementationRegistry functionRegistry;
-    private ExecutionControls controls;
+    private final TestFragmentServices services;
 
-    public TestCodeGenContext(DrillConfig config, OptionSet options) {
-      this.config = config;
-      this.options = options;
-      ScanResult classpathScan = ClassPathScanner.fromPrescan(config);
-      functionRegistry = new FunctionImplementationRegistry(config, classpathScan, options);
-      compiler = new CodeCompiler(config, options);
-    }
-
-    public void setExecutionControls(ExecutionControls controls) {
-      this.controls = controls;
+    public TestFragmentExecContext(TestFragmentServices services) {
+      this.services = services;
     }
 
     @Override
     public FunctionImplementationRegistry getFunctionRegistry() {
-      return functionRegistry;
+      return services.codeGen().getFunctionRegistry();
     }
 
     @Override
-    public OptionSet getOptionSet() {
-      return options;
+    public OptionsService getOptionSet() {
+      return services.core().getOptionSet();
     }
 
     @Override
     public <T> T getImplementationClass(final ClassGenerator<T> cg)
         throws ClassTransformationException, IOException {
-      return getImplementationClass(cg.getCodeGenerator());
+      return services.codeGen().getImplementationClass(cg);
     }
 
     @Override
     public <T> T getImplementationClass(final CodeGenerator<T> cg)
         throws ClassTransformationException, IOException {
-      return compiler.createInstance(cg);
+      return services.codeGen().getImplementationClass(cg);
     }
 
     @Override
     public <T> List<T> getImplementationClass(final ClassGenerator<T> cg, final int instanceCount) throws ClassTransformationException, IOException {
-      return getImplementationClass(cg.getCodeGenerator(), instanceCount);
+      return services.codeGen().getImplementationClass(cg, instanceCount);
     }
 
     @Override
     public <T> List<T> getImplementationClass(final CodeGenerator<T> cg, final int instanceCount) throws ClassTransformationException, IOException {
-      return compiler.createInstances(cg, instanceCount);
+      return services.codeGen().getImplementationClass(cg, instanceCount);
     }
 
     @Override
     public boolean shouldContinue() {
-      return true;
+      return services.core().shouldContinue();
     }
 
     @Override
     public ExecutionControls getExecutionControls() {
-      return controls;
+      return services.core().getExecutionControls();
     }
 
     @Override
     public DrillConfig getConfig() {
-      return config;
+      return services.core().getConfig();
     }
+
+    @Override
+    public DrillBuf replace(final DrillBuf old, final int newSize) {
+      return services.bufferManager().replace(old, newSize);
+    }
+
+    @Override
+    public DrillBuf getManagedBuffer() {
+      return services.bufferManager().getManagedBuffer();
+    }
+
+    @Override
+    public DrillBuf getManagedBuffer(final int size) {
+      return services.bufferManager().getManagedBuffer(size);
+    }
+
+    @Override
+    public void close() throws Exception { }
   }
 
   /**
@@ -204,7 +219,7 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
    * validating code in tests.
    */
 
-  public static class MockStats implements OperatorStatReceiver {
+  public static class MockStats implements OperatorStatsService {
 
     public Map<Integer, Double> stats = new HashMap<>();
 
@@ -244,6 +259,79 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     private void setStat(int metricId, double value) {
       stats.put(metricId, value);
     }
+
+    @Override
+    public void startWait() { }
+
+    @Override
+    public void stopWait() { }
+  }
+
+  public static class TestOperatorScopeServiceImpl implements OperatorScopeService {
+
+    private BufferAllocator allocator;
+    private PhysicalOperator pop;
+    private MockStats stats;
+
+    public TestOperatorScopeServiceImpl(BufferAllocator allocator, PhysicalOperator pop) {
+      this.allocator = allocator;
+      this.pop = pop;
+      this.stats = new MockStats();
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T extends PhysicalOperator> T getOperatorDefn() {
+      return (T) pop;
+    }
+
+    @Override
+    public BufferAllocator getAllocator() {
+      return allocator;
+    }
+
+    @Override
+    public OperatorStatsService getStats() {
+      return stats;
+    }
+  }
+
+  public static class TestOperatorServicesImpl implements OperatorServices {
+
+    private final FragmentServices fragmentServices;
+    private final ExecutionControlsService controlsService;
+    private final AllocatorService allocatorService;
+    private final OperatorScopeService scopeService;
+
+    public TestOperatorServicesImpl(FragmentServices fragmentServices, OperatorScopeService opScope) {
+      this.fragmentServices = fragmentServices;
+      this.scopeService = opScope;
+      controlsService = new ExecutionControlsServiceImpl(fragmentServices.core().getExecutionControls());
+      allocatorService = new AllocatorServicesShim(opScope.getAllocator(), fragmentServices.bufferManager());
+   }
+
+    @Override
+    public AllocatorService allocator() {
+      return allocatorService;
+    }
+
+    @Override
+    public FragmentServices fragment() {
+      return fragmentServices;
+    }
+
+    @Override
+    public ExecutionControlsService controls() {
+      return controlsService;
+    }
+
+    @Override
+    public OperatorScopeService operator() {
+      return scopeService;
+    }
+
+    @Override
+    public void close() { }
   }
 
   private final SystemOptionManager options;
@@ -277,6 +365,8 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
 
   @Override
   public void close() throws Exception {
+    fragmentServices.close();
+    context.close();
     allocator.close();
     options.close();
   }
@@ -339,5 +429,10 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
 
   public OperatorExecContext operatorContext(PhysicalOperator config) {
     return new AbstractOperatorExecContext(allocator(), config, context.getExecutionControls(), stats);
+  }
+
+  public OperatorServices operatorServices(PhysicalOperator config) {
+    OperatorScopeService scope = new TestOperatorScopeServiceImpl(allocator, config);
+    return new TestOperatorServicesImpl(fragmentServices, scope);
   }
 }
