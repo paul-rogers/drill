@@ -26,8 +26,9 @@ import org.apache.drill.exec.expr.ClassGenerator;
 import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.ops.services.OperatorStatsService;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
-import org.apache.drill.exec.server.options.OptionSet;
+import org.apache.drill.exec.server.options.OptionsService;
 import org.apache.drill.exec.testing.ControlsInjector;
 import org.apache.drill.exec.testing.ExecutionControls;
 
@@ -42,13 +43,13 @@ public class OperExecContextImpl implements OperExecContext {
   private PhysicalOperator operDefn;
   private ControlsInjector injector;
   private BufferAllocator allocator;
-  private OperatorStatReceiver stats;
+  private OperatorStatsService stats;
 
   public OperExecContextImpl(FragmentExecContext fragContext, OperatorContext opContext, PhysicalOperator opDefn, ControlsInjector injector) {
     this(fragContext, opContext.getAllocator(), opContext.getStats(), opDefn, injector);
   }
 
-  public OperExecContextImpl(FragmentExecContext fragContext, BufferAllocator allocator, OperatorStatReceiver stats, PhysicalOperator opDefn, ControlsInjector injector) {
+  public OperExecContextImpl(FragmentExecContext fragContext, BufferAllocator allocator, OperatorStatsService stats, PhysicalOperator opDefn, ControlsInjector injector) {
     this.fragmentContext = fragContext;
     this.operDefn = opDefn;
     this.injector = injector;
@@ -62,7 +63,7 @@ public class OperExecContextImpl implements OperExecContext {
   }
 
   @Override
-  public OptionSet getOptionSet() {
+  public OptionsService getOptionSet() {
     return fragmentContext.getOptionSet();
   }
 
@@ -106,7 +107,7 @@ public class OperExecContextImpl implements OperExecContext {
   }
 
   @Override
-  public OperatorStatReceiver getStats() {
+  public OperatorStatsService getStats() {
     return stats;
   }
 

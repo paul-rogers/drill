@@ -61,6 +61,4 @@ public interface BufferManager extends AutoCloseable {
    * @return A buffer
    */
   public DrillBuf getManagedBuffer(int size);
-
-  public void close();
 }

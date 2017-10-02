@@ -15,7 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.ops;
+package org.apache.drill.exec.ops.services;
+
+import org.apache.drill.exec.ops.MetricDef;
 
 /**
  * Interface for updating a statistic. Provides just the methods
@@ -24,7 +26,7 @@ package org.apache.drill.exec.ops;
  * version.
  */
 
-public interface OperatorStatReceiver {
+public interface OperatorStatsService {
 
   /**
    * Add a long value to the existing value. Creates the stat
@@ -67,4 +69,8 @@ public interface OperatorStatReceiver {
    */
 
   void setDoubleStat(MetricDef metric, double value);
+
+  void startWait();
+
+  void stopWait();
 }

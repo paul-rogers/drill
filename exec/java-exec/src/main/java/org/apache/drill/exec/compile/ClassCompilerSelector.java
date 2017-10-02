@@ -26,7 +26,7 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.compile.ClassTransformer.ClassNames;
 import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.server.options.OptionMetaData;
-import org.apache.drill.exec.server.options.OptionSet;
+import org.apache.drill.exec.server.options.OptionsService;
 import org.apache.drill.exec.server.options.OptionValidator;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.server.options.TypeValidators.BooleanValidator;
@@ -83,7 +83,7 @@ public class ClassCompilerSelector {
 
   public static final StringValidator JAVA_COMPILER_VALIDATOR = new StringValidator(JAVA_COMPILER_OPTION) {
     @Override
-    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionSet manager) {
+    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionsService manager) {
       super.validate(v, metaData, manager);
       try {
         CompilerPolicy.valueOf(v.string_val.toUpperCase());
@@ -102,7 +102,7 @@ public class ClassCompilerSelector {
   private final AbstractClassCompiler jdkClassCompiler;
   private final AbstractClassCompiler janinoClassCompiler;
 
-  public ClassCompilerSelector(ClassLoader classLoader, DrillConfig config, OptionSet sessionOptions) {
+  public ClassCompilerSelector(ClassLoader classLoader, DrillConfig config, OptionsService sessionOptions) {
     OptionValue value = sessionOptions.getOption(JAVA_COMPILER_OPTION);
     policy = CompilerPolicy.valueOf((value != null) ? value.string_val.toUpperCase() : config.getString(JAVA_COMPILER_CONFIG).toUpperCase());
 

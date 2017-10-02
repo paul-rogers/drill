@@ -28,7 +28,7 @@ import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.server.options.OptionMetaData;
-import org.apache.drill.exec.server.options.OptionSet;
+import org.apache.drill.exec.server.options.OptionsService;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.server.options.TypeValidators.TypeValidator;
 import org.apache.drill.exec.testing.InjectionSite.InjectionSiteKeyDeserializer;
@@ -95,7 +95,7 @@ public final class ExecutionControls {
     }
 
     @Override
-    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionSet manager) {
+    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionsService manager) {
       final String jsonString = v.string_val;
       try {
         validateControlsString(jsonString);

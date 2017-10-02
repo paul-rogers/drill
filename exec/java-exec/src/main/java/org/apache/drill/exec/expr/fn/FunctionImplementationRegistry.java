@@ -60,7 +60,7 @@ import org.apache.drill.exec.proto.UserBitShared.Jar;
 import org.apache.drill.exec.resolver.FunctionResolver;
 import org.apache.drill.exec.resolver.FunctionResolverFactory;
 import org.apache.drill.exec.server.options.OptionManager;
-import org.apache.drill.exec.server.options.OptionSet;
+import org.apache.drill.exec.server.options.OptionsService;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
@@ -84,7 +84,7 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
   private boolean deleteTmpDir = false;
   private File tmpDir;
   private List<PluggableFunctionRegistry> pluggableFuncRegistries = Lists.newArrayList();
-  private OptionSet optionManager;
+  private OptionsService optionManager;
   private final boolean useDynamicUdfs;
 
   @VisibleForTesting
@@ -137,7 +137,7 @@ public class FunctionImplementationRegistry implements FunctionLookupContext, Au
     this.localUdfDir = getLocalUdfDir(config);
   }
 
-  public FunctionImplementationRegistry(DrillConfig config, ScanResult classpathScan, OptionSet optionManager) {
+  public FunctionImplementationRegistry(DrillConfig config, ScanResult classpathScan, OptionsService optionManager) {
     this(config, classpathScan);
     this.optionManager = optionManager;
   }

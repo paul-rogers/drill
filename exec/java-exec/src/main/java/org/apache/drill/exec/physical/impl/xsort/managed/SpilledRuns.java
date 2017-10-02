@@ -23,13 +23,13 @@ import java.util.List;
 
 import org.apache.drill.common.AutoCloseables;
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.ops.OperExecContext;
+import org.apache.drill.exec.ops.services.OperatorServices;
 import org.apache.drill.exec.physical.impl.spill.SpillSet;
 import org.apache.drill.exec.physical.impl.xsort.managed.BatchGroup.SpilledRun;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortImpl.SortResults;
 import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.record.VectorInitializer;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.VectorInitializer;
 
 import com.google.common.collect.Lists;
 
@@ -56,9 +56,9 @@ public class SpilledRuns {
   private final PriorityQueueCopierWrapper copierHolder;
   private BatchSchema schema;
 
-  private final OperExecContext context;
+  private final OperatorServices context;
 
-  public SpilledRuns(OperExecContext opContext, SpillSet spillSet, PriorityQueueCopierWrapper copier) {
+  public SpilledRuns(OperatorServices opContext, SpillSet spillSet, PriorityQueueCopierWrapper copier) {
     this.context = opContext;
     this.spillSet = spillSet;
 //    copierHolder = new PriorityQueueCopierWrapper(opContext);
@@ -90,14 +90,14 @@ public class SpilledRuns {
   public void mergeAndSpill(List<BatchGroup> batchesToSpill, int spillBatchRowCount, VectorInitializer allocHelper) {
     spilledRuns.add(safeMergeAndSpill(batchesToSpill, spillBatchRowCount, allocHelper));
     logger.trace("Completed spill: memory = {}",
-        context.getAllocator().getAllocatedMemory());
+        context.allocator().allocator().getAllocatedMemory());
   }
 
   public void mergeRuns(int targetCount, long mergeMemoryPool,
                   int spillBatchRowCount, VectorInitializer allocHelper) {
 
-    long allocated = context.getAllocator().getAllocatedMemory();
-    mergeMemoryPool -= context.getAllocator().getAllocatedMemory();
+    long allocated = context.allocator().allocator().getAllocatedMemory();
+    mergeMemoryPool -= context.allocator().allocator().getAllocatedMemory();
     logger.trace("Merging {} on-disk runs, alloc. memory = {}, avail. memory = {}",
         targetCount, allocated, mergeMemoryPool);
 
@@ -160,7 +160,7 @@ public class SpilledRuns {
     try (AutoCloseable ignored = AutoCloseables.all(batchesToSpill);
          PriorityQueueCopierWrapper.BatchMerger merger = copierHolder.startMerge(schema, batchesToSpill,
                                          dest, spillBatchRowCount, allocHelper)) {
-      newGroup = new BatchGroup.SpilledRun(spillSet, outputFile, context.getAllocator());
+      newGroup = new BatchGroup.SpilledRun(spillSet, outputFile, context.allocator().allocator());
       logger.trace("Spilling {} batches, into spill batches of {} rows, to {}",
           batchesToSpill.size(), spillBatchRowCount, outputFile);
 
@@ -177,7 +177,7 @@ public class SpilledRuns {
 
         newGroup.addBatch(dest);
       }
-      context.injectChecked(ExternalSortBatch.INTERRUPTION_WHILE_SPILLING, IOException.class);
+      context.controls().injectChecked(ExternalSortBatch.INTERRUPTION_WHILE_SPILLING, IOException.class);
       newGroup.closeOutputStream();
       logger.trace("Spilled {} output batches, each of {} bytes, {} records, to {}",
                    merger.getBatchCount(), merger.getEstBatchSize(),
@@ -204,7 +204,7 @@ public class SpilledRuns {
     allBatches.addAll(spilledRuns);
     spilledRuns.clear();
     logger.debug("Starting merge phase. Runs = {}, Alloc. memory = {}",
-        allBatches.size(), context.getAllocator().getAllocatedMemory());
+        allBatches.size(), context.allocator().allocator().getAllocatedMemory());
     return copierHolder.startMerge(schema, allBatches, container, mergeRowCount, allocHelper);
   }
 

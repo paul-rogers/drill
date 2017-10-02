@@ -34,7 +34,7 @@ public class TypeValidators {
     }
 
     @Override
-    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionSet manager) {
+    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionsService manager) {
       super.validate(v, metaData, manager);
       if (v.num_val > max || v.num_val < 1) {
         throw UserException.validationError()
@@ -51,7 +51,7 @@ public class TypeValidators {
     }
 
     @Override
-    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionSet manager) {
+    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionsService manager) {
       super.validate(v, metaData, manager);
       if (!isPowerOfTwo(v.num_val)) {
         throw UserException.validationError()
@@ -76,7 +76,7 @@ public class TypeValidators {
     }
 
     @Override
-    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionSet manager) {
+    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionsService manager) {
       super.validate(v, metaData, manager);
       if (v.float_val > max || v.float_val < min) {
         throw UserException.validationError()
@@ -95,7 +95,7 @@ public class TypeValidators {
     }
 
     @Override
-    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionSet manager) {
+    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionsService manager) {
       super.validate(v, metaData, manager);
       OptionValue maxValue = manager.getOption(maxValidatorName);
       if (v.float_val > maxValue.float_val) {
@@ -116,7 +116,7 @@ public class TypeValidators {
     }
 
     @Override
-    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionSet manager) {
+    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionsService manager) {
       super.validate(v, metaData, manager);
       OptionValue minValue = manager.getOption(minValidatorName);
       if (v.float_val < minValue.float_val) {
@@ -163,7 +163,7 @@ public class TypeValidators {
     }
 
     @Override
-    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionSet manager) {
+    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionsService manager) {
       super.validate(v, metaData, manager);
       if (v.num_val > max || v.num_val < min) {
         throw UserException.validationError()
@@ -187,7 +187,7 @@ public class TypeValidators {
     }
 
     @Override
-    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionSet manager) {
+    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionsService manager) {
       super.validate(v, metaData, manager);
       if (!valuesSet.contains(v.string_val.toLowerCase())) {
         throw UserException.validationError()
@@ -230,7 +230,7 @@ public class TypeValidators {
     }
 
     @Override
-    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionSet manager) {
+    public void validate(final OptionValue v, final OptionMetaData metaData, final OptionsService manager) {
       if (v.kind != kind) {
         throw UserException.validationError()
             .message(String.format("Option %s must be of type %s but you tried to set to %s.", getOptionName(),

@@ -15,21 +15,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.ops;
-
-import org.apache.drill.exec.ops.services.ExecutionControlsService;
-import org.apache.drill.exec.ops.services.OperatorScopeService;
-import org.apache.drill.test.OperatorFixture;
-
 /**
- * Defines the set of services used by operator implementations. This
- * is a subset of the full {@link OperatorContext} which removes global
- * services such as network endpoints. Code written to this interface
- * can be easily unit tested using the {@link OperatorFixture} class.
- * Code that needs global services must be tested in the Drill server
- * as a whole, or using mocks for global services.
+ * Operators require a large variety of services. This package offers
+ * the services as a set of interfaces, then provides a wrapper interface
+ * that provides access to the collection of services.
+ * <p>
+ * The design here supports both "production" code (in which all services
+ * are available, and are tied to the server as a whole) and test
+ * environments in which services are mocked, or are implemented in a
+ * way that provides control over operator internals.
+ * <p>
+ * The implementation here replaces the previous design which evolved
+ * to offer a large number of functions in a single concrete class --
+ * a solution that works fine in production, but the resulting tight
+ * coupling made it very hard to unit test individual components.
  */
-
-@Deprecated
-public interface OperExecContext extends FragmentExecContext, ExecutionControlsService, OperatorScopeService {
-}
+package org.apache.drill.exec.ops.services;

@@ -20,6 +20,7 @@ package org.apache.drill.exec.ops;
 import java.util.Iterator;
 
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.ops.services.OperatorStatsService;
 import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.proto.UserBitShared.MetricValue;
 import org.apache.drill.exec.proto.UserBitShared.OperatorProfile;
@@ -33,7 +34,7 @@ import com.carrotsearch.hppc.cursors.IntLongCursor;
 import com.carrotsearch.hppc.procedures.IntDoubleProcedure;
 import com.carrotsearch.hppc.procedures.IntLongProcedure;
 
-public class OperatorStats implements OperatorStatReceiver {
+public class OperatorStats implements OperatorStatsService {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(OperatorStats.class);
 
   protected final int operatorId;
@@ -169,6 +170,7 @@ public class OperatorStats implements OperatorStatReceiver {
     inProcessing = false;
   }
 
+  @Override
   public synchronized void startWait() {
     assert !inWait : assertionError("starting waiting");
     stopProcessing();
@@ -176,6 +178,7 @@ public class OperatorStats implements OperatorStatReceiver {
     waitMark = System.nanoTime();
   }
 
+  @Override
   public synchronized void stopWait() {
     assert inWait : assertionError("stopping waiting");
     startProcessing();

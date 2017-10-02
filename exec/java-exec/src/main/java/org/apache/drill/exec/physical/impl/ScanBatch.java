@@ -30,9 +30,10 @@ import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.ops.BufferManager;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.OperatorContext;
-import org.apache.drill.exec.ops.OperatorExecutionContext;
+import org.apache.drill.exec.ops.OperatorExecContext;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
@@ -320,9 +321,9 @@ public class ScanBatch implements CloseableRecordBatch {
 
     private final VectorContainer container;
 
-    private final OperatorExecutionContext oContext;
+    private final BufferManager oContext;
 
-    public Mutator(OperatorExecutionContext oContext, BufferAllocator allocator, VectorContainer container) {
+    public Mutator(BufferManager oContext, BufferAllocator allocator, VectorContainer container) {
       this.oContext = oContext;
       this.allocator = allocator;
       this.container = container;

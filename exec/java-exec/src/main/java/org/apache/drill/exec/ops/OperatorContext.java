@@ -17,29 +17,33 @@
  */
 package org.apache.drill.exec.ops;
 
-import java.io.IOException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 
-import org.apache.drill.exec.store.dfs.DrillFileSystem;
-import org.apache.hadoop.conf.Configuration;
+import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.ops.services.FileSystemService;
+import org.apache.drill.exec.ops.services.OperatorServices;
+import org.apache.drill.exec.physical.base.PhysicalOperator;
+import org.apache.drill.exec.testing.ExecutionControls;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
-public interface OperatorContext extends OperatorExecContext {
+public interface OperatorContext extends BufferManager, FileSystemService {
 
+  BufferAllocator getAllocator();
+
+  ExecutionControls getExecutionControls();
+
+  <T extends PhysicalOperator> T getPopConfig();
   OperatorStats getStats();
+  OperatorServices asServices();
 
   ExecutorService getExecutor();
 
   ExecutorService getScanExecutor();
 
   ExecutorService getScanDecodeExecutor();
-
-  DrillFileSystem newFileSystem(Configuration conf) throws IOException;
-
-  DrillFileSystem newNonTrackingFileSystem(Configuration conf) throws IOException;
 
   /**
    * Run the callable as the given proxy user.
@@ -51,4 +55,7 @@ public interface OperatorContext extends OperatorExecContext {
    */
   <RESULT> ListenableFuture<RESULT> runCallableAs(UserGroupInformation proxyUgi,
                                                                   Callable<RESULT> callable);
- }
+
+  @Override
+  void close();
+}

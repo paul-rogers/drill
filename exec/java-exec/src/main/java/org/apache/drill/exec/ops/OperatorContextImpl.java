@@ -22,25 +22,37 @@ import java.security.PrivilegedExceptionAction;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 
-import org.apache.drill.common.exceptions.DrillRuntimeException;
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.exception.OutOfMemoryException;
+import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.ops.services.FileSystemService;
+import org.apache.drill.exec.ops.services.OperatorServices;
+import org.apache.drill.exec.ops.services.impl.FileSystemServiceImpl;
+import org.apache.drill.exec.ops.services.impl.OperatorServicesLegacyImpl;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
+import org.apache.drill.exec.testing.ExecutionControls;
 import org.apache.drill.exec.work.WorkManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
 
-import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 
-class OperatorContextImpl extends AbstractOperatorExecContext implements OperatorContext, AutoCloseable {
+import io.netty.buffer.DrillBuf;
+
+public class OperatorContextImpl implements OperatorContext, AutoCloseable {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(OperatorContextImpl.class);
 
+  private final FragmentContext context;
+  private final BufferAllocator allocator;
+  private final ExecutionControls executionControls;
+  private final PhysicalOperator popConfig;
+  private final BufferManager manager;
+  private final FileSystemService fileSystemService;
   private boolean closed = false;
   private final OperatorStats stats;
-  private DrillFileSystem fs;
   private final ExecutorService executor;
   private final ExecutorService scanExecutor;
   private final ExecutorService scanDecodeExecutor;
@@ -59,9 +71,13 @@ class OperatorContextImpl extends AbstractOperatorExecContext implements Operato
 
   public OperatorContextImpl(PhysicalOperator popConfig, FragmentContext context, OperatorStats stats)
       throws OutOfMemoryException {
-    super(context.getNewChildAllocator(popConfig.getClass().getSimpleName(),
-          popConfig.getOperatorId(), popConfig.getInitialAllocation(), popConfig.getMaxAllocation()),
-          popConfig, context.getExecutionControls(), stats);
+    this.context = context;
+    this.allocator = context.getNewChildAllocator(popConfig.getClass().getSimpleName(),
+        popConfig.getOperatorId(), popConfig.getInitialAllocation(), popConfig.getMaxAllocation());
+    this.popConfig = popConfig;
+    this.manager = new BufferManagerImpl(allocator);
+
+    executionControls = context.getExecutionControls();
     if (stats != null) {
       this.stats = stats;
     } else {
@@ -70,9 +86,61 @@ class OperatorContextImpl extends AbstractOperatorExecContext implements Operato
                            OperatorUtilities.getChildCount(popConfig));
       this.stats = context.getStats().newOperatorStats(def, allocator);
     }
+    fileSystemService = new FileSystemServiceImpl(this.stats);
     executor = context.getDrillbitContext().getExecutor();
     scanExecutor = context.getDrillbitContext().getScanExecutor();
     scanDecodeExecutor = context.getDrillbitContext().getScanDecodeExecutor();
+  }
+
+  public String name() {
+    return popConfig != null ? popConfig.getClass().getName() : "unknown";
+  }
+
+  @Override
+  @SuppressWarnings("unchecked")
+  public <T extends PhysicalOperator> T getPopConfig() {
+    return (T) popConfig;
+  }
+
+  @Override
+  public DrillBuf replace(DrillBuf old, int newSize) {
+    return manager.replace(old, newSize);
+  }
+
+  @Override
+  public DrillBuf getManagedBuffer() {
+    return manager.getManagedBuffer();
+  }
+
+  @Override
+  public DrillBuf getManagedBuffer(int size) {
+    return manager.getManagedBuffer(size);
+  }
+
+  @Override
+  public ExecutionControls getExecutionControls() {
+    return executionControls;
+  }
+
+  @Override
+  public BufferAllocator getAllocator() {
+    if (allocator == null) {
+      throw new UnsupportedOperationException("Operator context does not have an allocator");
+    }
+    return allocator;
+  }
+
+  @Override
+  public DrillFileSystem newFileSystem(Configuration conf) throws IOException {
+    return fileSystemService.newFileSystem(conf);
+  }
+
+  /**
+   * Creates a DrillFileSystem that does not automatically track operator stats.
+   */
+  @Override
+  public DrillFileSystem newNonTrackingFileSystem(Configuration conf) throws IOException {
+    return fileSystemService.newNonTrackingFileSystem(conf);
   }
 
   // Allow an operator to use the thread pool
@@ -104,17 +172,27 @@ class OperatorContextImpl extends AbstractOperatorExecContext implements Operato
     logger.debug("Closing context for {}", popConfig != null ? popConfig.getClass().getName() : null);
 
     closed = true;
+    Exception ex = null;
     try {
-      super.close();
-    } finally {
-      if (fs != null) {
-        try {
-          fs.close();
-          fs = null;
-        } catch (IOException e) {
-          throw new DrillRuntimeException(e);
-        }
+      manager.close();
+    } catch (Exception e) {
+      ex = e;
+    }
+    try {
+      if (allocator != null) {
+        allocator.close();
       }
+    } catch (Exception e) {
+      ex = ex == null ? e : ex;
+    }
+    fileSystemService.close();
+    if (ex != null) {
+      if (ex instanceof UserException) {
+        throw (UserException) ex;
+      }
+      throw UserException.internalError(ex)
+        .addContext("Failure closing operator exec context for " + name())
+        .build(logger);
     }
   }
 
@@ -153,20 +231,12 @@ class OperatorContextImpl extends AbstractOperatorExecContext implements Operato
     });
   }
 
-  @Override
-  public DrillFileSystem newFileSystem(Configuration conf) throws IOException {
-    Preconditions.checkState(fs == null, "Tried to create a second FileSystem. Can only be called once per OperatorContext");
-    fs = new DrillFileSystem(conf, getStats());
-    return fs;
-  }
+  private OperatorServices opServices;
 
-  /**
-   * Creates a DrillFileSystem that does not automatically track operator stats.
-   */
-  @Override
-  public DrillFileSystem newNonTrackingFileSystem(Configuration conf) throws IOException {
-    Preconditions.checkState(fs == null, "Tried to create a second FileSystem. Can only be called once per OperatorContext");
-    fs = new DrillFileSystem(conf, null);
-    return fs;
+  public OperatorServices asServices() {
+    if (opServices == null) {
+      opServices = new OperatorServicesLegacyImpl(context.asServices(), this);
+    }
+    return opServices;
   }
 }

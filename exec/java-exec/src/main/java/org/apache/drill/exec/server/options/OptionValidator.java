@@ -79,7 +79,7 @@ public abstract class OptionValidator {
    * @param manager the manager for accessing validation dependencies (options)
    * @throws UserException message to describe error with value, including range or list of expected values
    */
-  public abstract void validate(OptionValue value, OptionMetaData optionMetaData, OptionSet manager);
+  public abstract void validate(OptionValue value, OptionMetaData optionMetaData, OptionsService manager);
 
   /**
    * Gets the kind of this option value for this validator.

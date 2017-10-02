@@ -60,7 +60,7 @@ import com.sun.codemodel.JMod;
 import com.sun.codemodel.JTryBlock;
 import com.sun.codemodel.JType;
 import com.sun.codemodel.JVar;
-import org.apache.drill.exec.server.options.OptionSet;
+import org.apache.drill.exec.server.options.OptionsService;
 import org.objectweb.asm.Label;
 
 public class ClassGenerator<T>{
@@ -83,7 +83,7 @@ public class ClassGenerator<T>{
   public final JDefinedClass clazz;
 
   private final JCodeModel model;
-  private final OptionSet optionManager;
+  private final OptionsService optionManager;
 
   private ClassGenerator<T> innerClassGenerator;
   private LinkedList<SizedJBlock>[] blocks;
@@ -129,7 +129,7 @@ public class ClassGenerator<T>{
   @SuppressWarnings("unchecked")
   ClassGenerator(CodeGenerator<T> codeGenerator, MappingSet mappingSet, SignatureHolder signature,
                  EvaluationVisitor eval, JDefinedClass clazz, JCodeModel model,
-                 OptionSet optionManager) throws JClassAlreadyExistsException {
+                 OptionsService optionManager) throws JClassAlreadyExistsException {
     this.codeGenerator = codeGenerator;
     this.clazz = clazz;
     this.mappings = mappingSet;

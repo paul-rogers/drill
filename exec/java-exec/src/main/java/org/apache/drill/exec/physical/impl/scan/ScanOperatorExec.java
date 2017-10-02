@@ -26,13 +26,14 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.ops.FragmentContext;
+import org.apache.drill.exec.ops.services.OperatorServices;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.impl.ScanBatch;
+import org.apache.drill.exec.physical.impl.protocol.BatchAccessor;
+import org.apache.drill.exec.physical.impl.protocol.OperatorExec;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
-import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.BatchAccessor;
-import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExec;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
-import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.VectorContainerAccessor;
+import org.apache.drill.exec.physical.impl.protocol.VectorContainerAccessor;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
@@ -134,7 +135,7 @@ public class ScanOperatorExec implements OperatorExec {
     }
 
     @Override
-    public OperatorExecServices context() {
+    public OperatorServices context() {
       return readerState.scanOp.context;
     }
 
@@ -563,7 +564,7 @@ public class ScanOperatorExec implements OperatorExec {
   private final Iterator<RowBatchReader> readers;
   private final VectorContainerAccessor containerAccessor = new VectorContainerAccessor();
   private State state = State.START;
-  private OperatorExecServices context;
+  private OperatorServices context;
   private ScanProjector scanProjector;
   private int readerCount;
   private ReaderState readerState;
@@ -578,9 +579,9 @@ public class ScanOperatorExec implements OperatorExec {
   }
 
   @Override
-  public void bind(OperatorExecServices context) {
+  public void bind(OperatorServices context) {
     this.context = context;
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(context.getFragmentContext().getOptionSet());
+    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(context.fragment().core().getOptionSet());
     scanProjBuilder.useLegacyWildcardExpansion(builder.useLegacyWildcardExpansion);
     scanProjBuilder.setScanRootDir(builder.scanRootDir);
     scanProjBuilder.projectedCols(builder.projection);
@@ -591,7 +592,7 @@ public class ScanOperatorExec implements OperatorExec {
   public BatchAccessor batchAccessor() { return containerAccessor; }
 
   @VisibleForTesting
-  public OperatorExecServices context() { return context; }
+  public OperatorServices context() { return context; }
 
   public String userName() { return builder.userName; }
 

@@ -21,17 +21,17 @@ import java.io.IOException;
 import java.util.List;
 
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.ops.OperExecContext;
+import org.apache.drill.exec.ops.services.OperatorServices;
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
 import org.apache.drill.exec.physical.impl.xsort.MSortTemplate;
 import org.apache.drill.exec.physical.impl.xsort.managed.BatchGroup.InputBatch;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortMemoryManager.MergeTask;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
-import org.apache.drill.exec.record.VectorInitializer;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorAccessibleUtilities;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.VectorInitializer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
@@ -174,7 +174,7 @@ public class SortImpl {
   private final SortMetrics metrics;
   private final SortMemoryManager memManager;
   private VectorContainer outputBatch;
-  private OperExecContext context;
+  private OperatorServices context;
 
   /**
    * Memory allocator for this operator itself. Incoming batches are
@@ -192,15 +192,15 @@ public class SortImpl {
 
   private VectorInitializer allocHelper;
 
-  public SortImpl(OperExecContext opContext, SortConfig sortConfig,
+  public SortImpl(OperatorServices opContext, SortConfig sortConfig,
                   SpilledRuns spilledRuns, VectorContainer batch) {
     this.context = opContext;
     outputBatch = batch;
     this.spilledRuns = spilledRuns;
-    allocator = opContext.getAllocator();
+    allocator = opContext.allocator().allocator();
     config = sortConfig;
     memManager = new SortMemoryManager(config, allocator.getLimit());
-    metrics = new SortMetrics(opContext.getStats());
+    metrics = new SortMetrics(opContext.operator().getStats());
     bufferedBatches = new BufferedBatches(opContext);
 
     // Reset the allocator to allow a 10% safety margin. This is done because
@@ -407,6 +407,7 @@ public class SortImpl {
    * @return results iterator over the single input batch
    */
 
+  @SuppressWarnings("unused")
   private SortResults singleBatchResult() {
     List<InputBatch> batches = bufferedBatches.removeAll();
     return new SingleBatchResults(batches.get(0), outputBatch);

@@ -18,7 +18,7 @@
 package org.apache.drill.exec.physical.impl.scan;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.ops.OperatorExecutionContext;
+import org.apache.drill.exec.ops.OperatorExecContext;
 import org.apache.drill.exec.physical.impl.OutputMutator;
 import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.record.BatchSchema;
@@ -39,7 +39,7 @@ public class TestScanBatchWriters extends SubOperatorTest {
 
   @Test
   public void sanityTest() throws Exception {
-    OperatorExecutionContext oContext = fixture.operatorContext(null);
+    OperatorExecContext oContext = fixture.operatorContext(null);
 
     // Setup: normally done by ScanBatch
 

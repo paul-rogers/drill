@@ -35,7 +35,7 @@ import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadataCol
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.RequestedTableColumn;
 import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.WildcardColumn;
-import org.apache.drill.exec.server.options.OptionSet;
+import org.apache.drill.exec.server.options.OptionsService;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.store.ColumnExplorer.ImplicitFileColumns;
 import org.apache.drill.exec.vector.ValueVector;
@@ -259,7 +259,7 @@ public class ScanLevelProjection {
     protected boolean hasMetadata;
     protected int maxIndex;
 
-    public Builder(OptionSet optionManager) {
+    public Builder(OptionsService optionManager) {
       partitionDesignator = optionManager.getOption(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL_VALIDATOR);
       partitionPattern = Pattern.compile(partitionDesignator + "(\\d+)", Pattern.CASE_INSENSITIVE);
       for (ImplicitFileColumns e : ImplicitFileColumns.values()) {

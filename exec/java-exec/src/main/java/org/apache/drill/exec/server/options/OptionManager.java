@@ -42,7 +42,7 @@ import javax.validation.constraints.NotNull;
  * </ul>
  *
  */
-public interface OptionManager extends OptionSet, Iterable<OptionValue> {
+public interface OptionManager extends OptionsService, Iterable<OptionValue> {
 
   /**
    * Sets a boolean option on the {@link OptionManager}.

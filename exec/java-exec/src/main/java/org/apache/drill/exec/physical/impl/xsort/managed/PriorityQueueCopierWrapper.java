@@ -30,14 +30,14 @@ import org.apache.drill.exec.expr.ClassGenerator;
 import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.ops.OperExecContext;
+import org.apache.drill.exec.ops.services.OperatorServices;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortImpl.SortResults;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.VectorInitializer;
 import org.apache.drill.exec.record.VectorAccessible;
 import org.apache.drill.exec.record.VectorAccessibleUtilities;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.VectorInitializer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.record.selection.SelectionVector4;
@@ -66,7 +66,7 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
 
   private PriorityQueueCopier copier;
 
-  public PriorityQueueCopierWrapper(OperExecContext opContext) {
+  public PriorityQueueCopierWrapper(OperatorServices opContext) {
     super(opContext);
   }
 
@@ -80,7 +80,9 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
   private PriorityQueueCopier newCopier(VectorAccessible batch) {
     // Generate the copier code and obtain the resulting class
 
-    CodeGenerator<PriorityQueueCopier> cg = CodeGenerator.get(PriorityQueueCopier.TEMPLATE_DEFINITION, context.getFunctionRegistry(), context.getOptionSet());
+    CodeGenerator<PriorityQueueCopier> cg = CodeGenerator.get(PriorityQueueCopier.TEMPLATE_DEFINITION,
+        context.fragment().codeGen().getFunctionRegistry(),
+        context.fragment().core().getOptionSet());
     ClassGenerator<PriorityQueueCopier> g = cg.getRoot();
     cg.plainJavaCapable(true);
     // Uncomment out this line to debug the generated code.
@@ -130,11 +132,11 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
 
     for (VectorWrapper<?> i : batch) {
       @SuppressWarnings("resource")
-      ValueVector v = TypeHelper.getNewVector(i.getField(), context.getAllocator());
+      ValueVector v = TypeHelper.getNewVector(i.getField(), context.allocator().allocator());
       outputContainer.add(v);
     }
     try {
-      copier.setup(context.getAllocator(), batch, (List<BatchGroup>) batchGroupList, outputContainer);
+      copier.setup(context.allocator().allocator(), batch, (List<BatchGroup>) batchGroupList, outputContainer);
     } catch (SchemaChangeException e) {
       throw UserException.unsupportedError(e)
             .message("Unexpected schema change - likely code error.")
@@ -142,7 +144,7 @@ public class PriorityQueueCopierWrapper extends BaseSortWrapper {
     }
   }
 
-  public BufferAllocator getAllocator() { return context.getAllocator(); }
+  public BufferAllocator getAllocator() { return context.allocator().allocator(); }
 
   public void close() {
     if (copier == null) {

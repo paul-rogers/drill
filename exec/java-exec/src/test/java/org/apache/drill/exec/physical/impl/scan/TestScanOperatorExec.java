@@ -265,7 +265,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     public MockBatch(ScanOperatorExecBuilder builder) {
       scanOp = builder.build();
-      services = new OperatorExecServicesImpl(fixture.codeGenContext(), null, scanOp);
+      services = new OperatorExecServicesImpl(fixture.fragmentExecContext(), null, scanOp);
       scanOp.bind(services);
     }
 

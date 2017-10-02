@@ -21,7 +21,7 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.expr.ClassGenerator;
 import org.apache.drill.exec.expr.CodeGenerator;
-import org.apache.drill.exec.ops.OperExecContext;
+import org.apache.drill.exec.ops.services.OperatorServices;
 import org.apache.drill.exec.physical.config.ExternalSort;
 import org.apache.drill.exec.physical.impl.xsort.SingleBatchSorter;
 import org.apache.drill.exec.record.VectorAccessible;
@@ -47,7 +47,7 @@ public class SorterWrapper extends BaseSortWrapper {
 
   private SingleBatchSorter sorter;
 
-  public SorterWrapper(OperExecContext opContext) {
+  public SorterWrapper(OperatorServices opContext) {
     super(opContext);
   }
 
@@ -78,12 +78,12 @@ public class SorterWrapper extends BaseSortWrapper {
 
   private SingleBatchSorter newSorter(VectorAccessible batch) {
     CodeGenerator<SingleBatchSorter> cg = CodeGenerator.get(
-        SingleBatchSorter.TEMPLATE_DEFINITION, context.getFunctionRegistry(),
-        context.getOptionSet());
+        SingleBatchSorter.TEMPLATE_DEFINITION, context.fragment().codeGen().getFunctionRegistry(),
+        context.fragment().core().getOptionSet());
     ClassGenerator<SingleBatchSorter> g = cg.getRoot();
     cg.plainJavaCapable(true);
     // Uncomment out this line to debug the generated code.
-//    cg.saveCodeForDebugging(true);
+    cg.saveCodeForDebugging(true);
 
     generateComparisons(g, batch, logger);
     return getInstance(cg, logger);

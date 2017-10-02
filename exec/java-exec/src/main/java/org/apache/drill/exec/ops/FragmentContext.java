@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,9 +16,6 @@
  * limitations under the License.
  */
 package org.apache.drill.exec.ops;
-
-import com.google.common.base.Function;
-import io.netty.buffer.DrillBuf;
 
 import java.io.IOException;
 import java.util.List;
@@ -38,6 +35,12 @@ import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.drill.exec.expr.holders.ValueHolder;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.ops.services.CodeGenService;
+import org.apache.drill.exec.ops.services.FragmentServices;
+import org.apache.drill.exec.ops.services.OperatorServices;
+import org.apache.drill.exec.ops.services.impl.CodeGenServiceImpl;
+import org.apache.drill.exec.ops.services.impl.FragmentServicesLegacyImpl;
+import org.apache.drill.exec.ops.services.impl.OperatorServicesLegacyImpl;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.BitControl.PlanFragment;
@@ -47,13 +50,14 @@ import org.apache.drill.exec.proto.GeneralRPCProtos.Ack;
 import org.apache.drill.exec.proto.helper.QueryIdHelper;
 import org.apache.drill.exec.rpc.RpcException;
 import org.apache.drill.exec.rpc.RpcOutcomeListener;
-import org.apache.drill.exec.rpc.control.ControlTunnel;
 import org.apache.drill.exec.rpc.UserClientConnection;
+import org.apache.drill.exec.rpc.control.ControlTunnel;
+import org.apache.drill.exec.rpc.control.WorkEventBus;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.FragmentOptionManager;
 import org.apache.drill.exec.server.options.OptionList;
 import org.apache.drill.exec.server.options.OptionManager;
-import org.apache.drill.exec.server.options.OptionSet;
+import org.apache.drill.exec.server.options.OptionsService;
 import org.apache.drill.exec.store.PartitionExplorer;
 import org.apache.drill.exec.store.SchemaConfig;
 import org.apache.drill.exec.testing.ExecutionControls;
@@ -61,9 +65,12 @@ import org.apache.drill.exec.util.ImpersonationUtil;
 import org.apache.drill.exec.work.batch.IncomingBuffers;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+
+import io.netty.buffer.DrillBuf;
 
 /**
  * Contextual objects required for execution of a particular fragment.
@@ -72,13 +79,12 @@ public class FragmentContext implements AutoCloseable, UdfUtilities, FragmentExe
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FragmentContext.class);
 
   private final Map<DrillbitEndpoint, AccountingDataTunnel> tunnels = Maps.newHashMap();
-  private final List<OperatorContextImpl> contexts = Lists.newLinkedList();
+  private final List<AutoCloseable> contexts = Lists.newLinkedList();
 
   private final DrillbitContext context;
   private final UserClientConnection connection; // is null if this context is for non-root fragment
   private final QueryContext queryContext; // is null if this context is for non-root fragment
   private final FragmentStats stats;
-  private final FunctionImplementationRegistry funcRegistry;
   private final BufferAllocator allocator;
   private final PlanFragment fragment;
   private final ContextInformation contextInformation;
@@ -87,7 +93,7 @@ public class FragmentContext implements AutoCloseable, UdfUtilities, FragmentExe
   private final BufferManager bufferManager;
   private ExecutorState executorState;
   private final ExecutionControls executionControls;
-
+  private final CodeGenService codeGenService;
 
   private final SendingAccountor sendingAccountor = new SendingAccountor();
   private final Consumer<RpcException> exceptionConsumer = new Consumer<RpcException>() {
@@ -141,8 +147,8 @@ public class FragmentContext implements AutoCloseable, UdfUtilities, FragmentExe
     this.connection = connection;
     this.accountingUserConnection = new AccountingUserConnection(connection, sendingAccountor, statusHandler);
     this.fragment = fragment;
-    this.funcRegistry = funcRegistry;
     contextInformation = new ContextInformation(fragment.getCredentials(), fragment.getContext());
+    codeGenService = new CodeGenServiceImpl(funcRegistry, context.getCompiler());
 
     logger.debug("Getting initial memory allocation of {}", fragment.getMemInitial());
     logger.debug("Fragment max allocation: {}", fragment.getMemMax());
@@ -168,7 +174,7 @@ public class FragmentContext implements AutoCloseable, UdfUtilities, FragmentExe
           "frag:" + QueryIdHelper.getFragmentId(fragment.getHandle()),
           fragment.getMemInitial(),
           fragment.getMemMax());
-      Preconditions.checkNotNull(allocator, "Unable to acuqire allocator");
+      Preconditions.checkNotNull(allocator, "Unable to acquire allocator");
     } catch (final OutOfMemoryException e) {
       throw UserException.memoryError(e)
         .addContext("Fragment", getHandle().getMajorFragmentId() + ":" + getHandle().getMinorFragmentId())
@@ -196,7 +202,7 @@ public class FragmentContext implements AutoCloseable, UdfUtilities, FragmentExe
   }
 
   @Override
-  public OptionSet getOptionSet() {
+  public OptionsService getOptionSet() {
     return fragmentOptions;
   }
 
@@ -316,23 +322,23 @@ public class FragmentContext implements AutoCloseable, UdfUtilities, FragmentExe
   @Override
   public <T> T getImplementationClass(final ClassGenerator<T> cg)
       throws ClassTransformationException, IOException {
-    return getImplementationClass(cg.getCodeGenerator());
+    return codeGenService.getImplementationClass(cg);
   }
 
   @Override
   public <T> T getImplementationClass(final CodeGenerator<T> cg)
       throws ClassTransformationException, IOException {
-    return context.getCompiler().createInstance(cg);
+    return codeGenService.getImplementationClass(cg);
   }
 
   @Override
   public <T> List<T> getImplementationClass(final ClassGenerator<T> cg, final int instanceCount) throws ClassTransformationException, IOException {
-    return getImplementationClass(cg.getCodeGenerator(), instanceCount);
+    return codeGenService.getImplementationClass(cg, instanceCount);
   }
 
   @Override
   public <T> List<T> getImplementationClass(final CodeGenerator<T> cg, final int instanceCount) throws ClassTransformationException, IOException {
-    return context.getCompiler().createInstances(cg, instanceCount);
+    return codeGenService.getImplementationClass(cg, instanceCount);
   }
 
   public AccountingUserConnection getUserDataTunnel() {
@@ -385,7 +391,7 @@ public class FragmentContext implements AutoCloseable, UdfUtilities, FragmentExe
 
   @Override
   public FunctionImplementationRegistry getFunctionRegistry() {
-    return funcRegistry;
+    return codeGenService.getFunctionRegistry();
   }
 
   @Override
@@ -421,7 +427,7 @@ public class FragmentContext implements AutoCloseable, UdfUtilities, FragmentExe
     waitForSendComplete();
 
     // close operator context
-    for (OperatorContextImpl opContext : contexts) {
+    for (AutoCloseable opContext : contexts) {
       suppressingClose(opContext);
     }
 
@@ -440,6 +446,7 @@ public class FragmentContext implements AutoCloseable, UdfUtilities, FragmentExe
     }
   }
 
+  @Override
   public DrillBuf replace(final DrillBuf old, final int newSize) {
     return bufferManager.replace(old, newSize);
   }
@@ -449,6 +456,7 @@ public class FragmentContext implements AutoCloseable, UdfUtilities, FragmentExe
     return bufferManager.getManagedBuffer();
   }
 
+  @Override
   public DrillBuf getManagedBuffer(final int size) {
     return bufferManager.getManagedBuffer(size);
   }
@@ -486,6 +494,15 @@ public class FragmentContext implements AutoCloseable, UdfUtilities, FragmentExe
     sendingAccountor.waitForSendComplete();
   }
 
+  public WorkEventBus getWorkEventbus() {
+    return context.getWorkBus();
+  }
+
+  public boolean isBuffersDone() {
+    Preconditions.checkState(this.buffers != null, "Incoming Buffers is not set in this fragment context");
+    return buffers.isDone();
+  }
+
   public interface ExecutorState {
     /**
      * Whether execution should continue.
@@ -509,7 +526,27 @@ public class FragmentContext implements AutoCloseable, UdfUtilities, FragmentExe
     @VisibleForTesting
     @Deprecated
     public Throwable getFailureCause();
-
   }
 
+  // Adapters for service-based APIs
+
+  FragmentServicesLegacyImpl services;
+
+  public FragmentServices asServices() {
+    if (services == null) {
+      services = new FragmentServicesLegacyImpl(this);
+    }
+    return services;
+  }
+
+  @SuppressWarnings("resource")
+  public OperatorServices newOperatorServices(PhysicalOperator popConfig, OperatorStats stats) {
+    OperatorContext opContext;
+    if (stats == null) {
+      opContext = newOperatorContext(popConfig);
+    } else {
+      opContext = newOperatorContext(popConfig, stats);
+    }
+    return opContext.asServices();
+  }
 }

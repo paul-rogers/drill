@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
+import org.apache.drill.exec.ops.services.OperatorServices;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.hadoop.fs.Path;
@@ -48,7 +48,7 @@ import org.apache.hadoop.fs.Path;
 
 public interface SchemaNegotiator {
 
-  OperatorExecServices context();
+  OperatorServices context();
 
   String getUserName();
 

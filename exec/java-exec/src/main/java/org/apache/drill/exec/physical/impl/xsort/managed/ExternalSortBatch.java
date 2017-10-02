@@ -20,8 +20,7 @@ package org.apache.drill.exec.physical.impl.xsort.managed;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.MetricDef;
-import org.apache.drill.exec.ops.OperExecContext;
-import org.apache.drill.exec.ops.OperExecContextImpl;
+import org.apache.drill.exec.ops.services.OperatorServices;
 import org.apache.drill.exec.physical.config.ExternalSort;
 import org.apache.drill.exec.physical.impl.spill.SpillSet;
 import org.apache.drill.exec.physical.impl.validate.IteratorValidatorBatchIterator;
@@ -219,7 +218,8 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     SortConfig sortConfig = new SortConfig(context.getConfig());
     SpillSet spillSet = new SpillSet(context.getConfig(), context.getHandle(),
                                      popConfig, context.getIdentity());
-    OperExecContext opContext = new OperExecContextImpl(context, oContext, popConfig, injector);
+    OperatorServices opContext = oContext.asServices();
+    opContext.controls().setInjector(injector);
     PriorityQueueCopierWrapper copierHolder = new PriorityQueueCopierWrapper(opContext);
     SpilledRuns spilledRuns = new SpilledRuns(opContext, spillSet, copierHolder);
     sortImpl = new SortImpl(opContext, sortConfig, spilledRuns, container);

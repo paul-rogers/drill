@@ -32,11 +32,8 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.expr.TypeHelper;
-import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.BatchAccessor;
-import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.ContainerAndSv2Accessor;
-import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExec;
-import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.OperatorExecServices;
-import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch.VectorContainerAccessor;
+import org.apache.drill.exec.ops.services.OperatorServices;
+import org.apache.drill.exec.physical.impl.protocol.VectorContainerAccessor.ContainerAndSv2Accessor;
 import org.apache.drill.exec.proto.UserBitShared.NamePart;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
@@ -92,7 +89,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     }
 
     @Override
-    public void bind(OperatorExecServices context) { bindCalled = true; }
+    public void bind(OperatorServices context) { bindCalled = true; }
 
     @Override
     public BatchAccessor batchAccessor() {
@@ -137,7 +134,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
   }
 
   private OperatorRecordBatch makeOpBatch(MockOperatorExec opExec) {
-    return new OperatorRecordBatch(fixture.codeGenContext(), null, opExec);
+    return new OperatorRecordBatch(fixture.fragmentExecContext(), null, opExec);
   }
 
   /**
@@ -151,7 +148,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
     opExec.schemaChangeAt = 2;
     try (OperatorRecordBatch opBatch = makeOpBatch(opExec)) {
 
-      assertSame(fixture.codeGenContext(), opBatch.getExecContext());
+      assertSame(fixture.fragmentExecContext(), opBatch.getExecContext());
       assertNull(opBatch.getContext());
 
       // First call to next() builds schema
@@ -511,7 +508,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
         .withSv2()
         .build();
 
-    ContainerAndSv2Accessor accessor = new ContainerAndSv2Accessor();
+    VectorContainerAccessor.ContainerAndSv2Accessor accessor = new VectorContainerAccessor.ContainerAndSv2Accessor();
     accessor.setContainer(rs.container());
     accessor.setSelectionVector(rs.getSv2());
 
@@ -550,7 +547,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
   public void testWrappedExceptionOnBind() {
     MockOperatorExec opExec = new MockOperatorExec() {
       @Override
-      public void bind(OperatorExecServices context) {
+      public void bind(OperatorServices context) {
          throw new IllegalStateException(ERROR_MSG);
       }
     };
@@ -570,7 +567,7 @@ public class TestOperatorRecordBatch extends SubOperatorTest {
   public void testUserExceptionOnBind() {
     MockOperatorExec opExec = new MockOperatorExec() {
       @Override
-      public void bind(OperatorExecServices context) {
+      public void bind(OperatorServices context) {
          throw UserException.connectionError()
            .message(ERROR_MSG)
            .build(logger);

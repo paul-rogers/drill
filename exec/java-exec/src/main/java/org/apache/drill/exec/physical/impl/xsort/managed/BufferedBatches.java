@@ -24,7 +24,7 @@ import java.util.List;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.ops.OperExecContext;
+import org.apache.drill.exec.ops.services.OperatorServices;
 import org.apache.drill.exec.physical.impl.sort.RecordBatchData;
 import org.apache.drill.exec.physical.impl.xsort.managed.BatchGroup.InputBatch;
 import org.apache.drill.exec.record.BatchSchema;
@@ -55,9 +55,9 @@ public class BufferedBatches {
 
   private BatchSchema schema;
 
-  private final OperExecContext context;
+  private final OperatorServices context;
 
-  public BufferedBatches(OperExecContext opContext) {
+  public BufferedBatches(OperatorServices opContext) {
     context = opContext;
     sorterWrapper = new SorterWrapper(opContext);
   }
@@ -121,7 +121,7 @@ public class BufferedBatches {
     // the vectors to release memory since we won't do any
     // further processing with the empty batch.
 
-    VectorContainer convertedBatch = SchemaUtil.coerceContainer(incoming, schema, context.getAllocator());
+    VectorContainer convertedBatch = SchemaUtil.coerceContainer(incoming, schema, context.allocator().allocator());
     if (incoming.getRecordCount() == 0) {
       for (VectorWrapper<?> w : convertedBatch) {
         w.clear();
@@ -152,7 +152,7 @@ public class BufferedBatches {
    */
 
   private SelectionVector2 newSV2(VectorAccessible incoming) {
-    SelectionVector2 sv2 = new SelectionVector2(context.getAllocator());
+    SelectionVector2 sv2 = new SelectionVector2(context.allocator().allocator());
     if (!sv2.allocateNewSafe(incoming.getRecordCount())) {
       throw UserException.resourceError(new OutOfMemoryException("Unable to allocate sv2 buffer"))
             .build(logger);
@@ -166,7 +166,7 @@ public class BufferedBatches {
 
   @SuppressWarnings("resource")
   private void bufferBatch(VectorContainer convertedBatch, SelectionVector2 sv2, int netSize) {
-    BufferAllocator allocator = context.getAllocator();
+    BufferAllocator allocator = context.allocator().allocator();
     RecordBatchData rbd = new RecordBatchData(convertedBatch, allocator);
     try {
       rbd.setSv2(sv2);

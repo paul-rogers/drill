@@ -29,7 +29,7 @@ import org.apache.drill.common.util.FileUtils;
 import org.apache.drill.exec.compile.MergeAdapter.MergedClassResult;
 import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.expr.CodeGenerator;
-import org.apache.drill.exec.server.options.OptionSet;
+import org.apache.drill.exec.server.options.OptionsService;
 import org.apache.drill.exec.server.options.TypeValidators.EnumeratedStringValidator;
 import org.codehaus.commons.compiler.CompileException;
 import org.objectweb.asm.ClassReader;
@@ -56,7 +56,7 @@ public class ClassTransformer {
 
   private final ByteCodeLoader byteCodeLoader = new ByteCodeLoader();
   private final DrillConfig config;
-  private final OptionSet optionManager;
+  private final OptionsService optionManager;
 
   public final static String SCALAR_REPLACEMENT_OPTION =
       "org.apache.drill.exec.compile.ClassTransformer.scalar_replacement";
@@ -90,7 +90,7 @@ public class ClassTransformer {
     }
   }
 
-  public ClassTransformer(final DrillConfig config, final OptionSet optionManager) {
+  public ClassTransformer(final DrillConfig config, final OptionsService optionManager) {
     this.config = config;
     this.optionManager = optionManager;
   }

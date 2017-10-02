@@ -27,7 +27,7 @@ import org.apache.drill.common.util.DrillStringUtils;
 import org.apache.drill.exec.compile.ClassTransformer.ClassNames;
 import org.apache.drill.exec.exception.ClassTransformationException;
 import org.apache.drill.exec.expr.CodeGenerator;
-import org.apache.drill.exec.server.options.OptionSet;
+import org.apache.drill.exec.server.options.OptionsService;
 import org.codehaus.commons.compiler.CompileException;
 
 /**
@@ -83,10 +83,10 @@ public class ClassBuilder {
   public static final String CODE_DIR_OPTION = CodeCompiler.COMPILE_BASE + ".code_dir";
 
   private final DrillConfig config;
-  private final OptionSet options;
+  private final OptionsService options;
   private final File codeDir;
 
-  public ClassBuilder(DrillConfig config, OptionSet optionManager) {
+  public ClassBuilder(DrillConfig config, OptionsService optionManager) {
     this.config = config;
     options = optionManager;
 
