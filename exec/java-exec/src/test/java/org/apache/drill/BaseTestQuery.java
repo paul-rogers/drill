@@ -78,6 +78,7 @@ import java.util.regex.Pattern;
 
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.test.ClusterFixture;
 
 public class BaseTestQuery extends ExecTest {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(BaseTestQuery.class);
@@ -215,6 +216,7 @@ public class BaseTestQuery extends ExecTest {
       bits[i] = new Drillbit(config, serviceSet, classpathScan);
       bits[i].run();
 
+      @SuppressWarnings("resource")
       final StoragePluginRegistry pluginRegistry = bits[i].getContext().getStorage();
       TestUtilities.updateDfsTestTmpSchemaLocation(pluginRegistry, dfsTestTmpSchemaLocation);
       TestUtilities.makeDfsTmpSchemaImmutable(pluginRegistry);
@@ -377,8 +379,13 @@ public class BaseTestQuery extends ExecTest {
     testNoResult(1, query, args);
   }
 
+  public static void alterSession(String key, Object value) throws Exception {
+    String sql = "ALTER SESSION SET `" + key + "` = " + ClusterFixture.stringify(value);
+    test(sql);
+  }
+
   public static void resetSessionOption(String optionName) throws Exception {
-    testNoResult(String.format("ALTER SESSION RESET `%s`",
+    test(String.format("ALTER SESSION RESET `%s`",
         optionName));
   }
 
