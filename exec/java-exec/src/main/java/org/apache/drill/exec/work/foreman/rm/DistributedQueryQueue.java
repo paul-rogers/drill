@@ -211,7 +211,7 @@ public class DistributedQueryQueue implements QueryQueue {
    * while it waits for the required distributed semaphore.
    *
    * @param queryId query identifier
-   * @param totalCost the query plan
+   * @param cost the query plan
    * @throws QueryQueueException
    * @throws QueueTimeoutException
    */
@@ -252,9 +252,8 @@ public class DistributedQueryQueue implements QueryQueue {
     }
 
     if (lease == null) {
-      int timeoutSecs = (int) Math.round(configSet.queueTimeout/1000.0);
-      logger.warn("Queue timeout: {} after {} seconds.", queueName, timeoutSecs);
-      throw new QueueTimeoutException(queryId, queueName, timeoutSecs);
+      logger.warn("Queue timeout: {} after {} ms.", queueName, configSet.queueTimeout);
+      throw new QueueTimeoutException(queryId, queueName, configSet.queueTimeout);
     }
     return new DistributedQueueLease(queryId, queueName, lease, queryMemory);
   }

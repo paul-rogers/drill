@@ -88,7 +88,7 @@ public class EmbeddedQueryQueue implements QueryQueue {
     public String queueName() { return "local-queue"; }
   }
 
-  private final int queueTimeoutMs;
+  private final long queueTimeoutMs;
   private final int queueSize;
   private final Semaphore semaphore;
   private long memoryPerQuery;
