@@ -50,7 +50,7 @@ public abstract class AbstractSingleRowSet extends AbstractRowSet implements Sin
   }
 
   @Override
-  public int size() {
+  public long size() {
     RecordBatchSizer sizer = new RecordBatchSizer(container());
     return sizer.actualSize();
   }
