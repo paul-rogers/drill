@@ -61,9 +61,9 @@ public interface QueryQueue {
 
     private QueryId queryId;
     private String queueName;
-    private int timeoutMs;
+    private long timeoutMs;
 
-    public QueueTimeoutException(QueryId queryId, String queueName, int timeoutMs) {
+    public QueueTimeoutException(QueryId queryId, String queueName, long timeoutMs) {
       super( String.format(
           "Query timed out of the %s queue after %d ms.",
           queueName, timeoutMs ));
@@ -74,7 +74,7 @@ public interface QueryQueue {
 
     public QueryId queryId() { return queryId; }
     public String queueName() { return queueName; }
-    public int timeoutMs() { return timeoutMs; }
+    public long timeoutMs() { return timeoutMs; }
   }
 
   /**
