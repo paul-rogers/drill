@@ -18,16 +18,69 @@
 package org.apache.drill.exec.ops;
 
 import java.io.IOException;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 
+import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
+import org.apache.drill.exec.testing.ControlsInjector;
+import org.apache.drill.exec.testing.ExecutionControls;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.security.UserGroupInformation;
 
-import com.google.common.util.concurrent.ListenableFuture;
+import io.netty.buffer.DrillBuf;
 
-public interface OperatorContext extends OperatorExecContext {
+/**
+ * Per-operator services available for operator implementations.
+ * The services allow access to the operator definition, to the
+ * fragment context, and to per-operator services.
+ * <p>
+ * Use this interface in code to allow unit tests to provide
+ * test-time implementations of this context.
+ */
+
+public interface OperatorContext {
+
+  /**
+   * Return the physical operator definition created by the planner and passed
+   * into the Drillbit executing the query.
+   * @return the physical operator definition
+   */
+
+  <T extends PhysicalOperator> T getOperatorDefn();
+
+  /**
+   * Return the memory allocator for this operator.
+   *
+   * @return the per-operator memory allocator
+   */
+
+  BufferAllocator getAllocator();
+
+  FragmentContextInterface getFragmentContext();
+
+  DrillBuf replace(DrillBuf old, int newSize);
+
+  DrillBuf getManagedBuffer();
+
+  DrillBuf getManagedBuffer(int size);
+
+  ExecutionControls getExecutionControls();
+
+  /**
+   * A write-only interface to the Drill statistics mechanism. Allows
+   * operators to update statistics.
+   * @return operator statistics
+   */
+
+  OperatorStatReceiver getStatsWriter();
+
+  /**
+   * Full operator stats (for legacy code). Prefer
+   * <tt>getStatsWriter()</tt> to allow code to easily run in a
+   * test environment.
+   *
+   * @return operator statistics
+   */
 
   OperatorStats getStats();
 
@@ -41,14 +94,50 @@ public interface OperatorContext extends OperatorExecContext {
 
   DrillFileSystem newNonTrackingFileSystem(Configuration conf) throws IOException;
 
+//  /**
+//   * Run the callable as the given proxy user.
+//   *
+//   * @param proxyUgi proxy user group information
+//   * @param callable callable to run
+//   * @param <RESULT> result type
+//   * @return Future<RESULT> future with the result of calling the callable
+//   */
+//  <RESULT> ListenableFuture<RESULT> runCallableAs(UserGroupInformation proxyUgi,
+//                                                                  Callable<RESULT> callable);
+
+  void setInjector(ControlsInjector injector);
+
   /**
-   * Run the callable as the given proxy user.
-   *
-   * @param proxyUgi proxy user group information
-   * @param callable callable to run
-   * @param <RESULT> result type
-   * @return Future<RESULT> future with the result of calling the callable
+   * Returns the fault injection mechanism used to introduce faults at runtime
+   * for testing.
+   * @return the fault injector
    */
-  <RESULT> ListenableFuture<RESULT> runCallableAs(UserGroupInformation proxyUgi,
-                                                                  Callable<RESULT> callable);
- }
+
+  ControlsInjector getInjector();
+
+  /**
+   * Insert an unchecked fault (exception). Handles the details of checking if
+   * fault injection is enabled and this particular fault is selected.
+   * @param desc the description of the fault used to match a fault
+   * injection parameter to determine if the fault should be injected
+   * @throws RuntimeException an unchecked exception if the fault is enabled
+   */
+
+  void injectUnchecked(String desc);
+
+  /**
+   * Insert a checked fault (exception) of the given class. Handles the details
+   * of checking if fault injection is enabled and this particular fault is
+   * selected.
+   *
+   * @param desc the description of the fault used to match a fault
+   * injection parameter to determine if the fault should be injected
+   * @param exceptionClass the class of exeception to be thrown
+   * @throws T if the fault is enabled
+   */
+
+  <T extends Throwable> void injectChecked(String desc, Class<T> exceptionClass)
+      throws T;
+
+  void close();
+}
