@@ -17,8 +17,10 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import java.lang.reflect.Array;
+
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.UInt4Vector;
-import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArrayWriter;
 
 /**
@@ -39,7 +41,7 @@ import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArra
  * with a map, then we have a single offset vector pointing into a group of
  * arrays. Consider the simple case of a map of three scalars. Here, we have
  * a hybrid of the states discussed for the {@link BaseScalarWriter} and those
- * discussed for {@link OffsetVectorWriter}. That is, the offset vector
+ * discussed for {@link OffsetVectorWriterImpl}. That is, the offset vector
  * points into one map element. The individual elements can we Behind,
  * Written or Unwritten, depending on the specific actions taken by the
  * client.
@@ -105,14 +107,9 @@ import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArra
 
 public class ObjectArrayWriter extends BaseArrayWriter {
 
-  protected ObjectArrayWriter(UInt4Vector offsetVector, AbstractObjectWriter elementWriter) {
-    super(offsetVector, elementWriter);
-  }
-
-  @Override
-  public void bindIndex(ColumnWriterIndex index) {
+  protected ObjectArrayWriter(ColumnMetadata schema, UInt4Vector offsetVector, AbstractObjectWriter elementWriter) {
+    super(schema, offsetVector, elementWriter);
     elementIndex = new ArrayElementWriterIndex();
-    super.bindIndex(index);
   }
 
   @Override
@@ -122,22 +119,14 @@ public class ObjectArrayWriter extends BaseArrayWriter {
   }
 
   @Override
-  public void set(Object... values) {
-    setObject(values);
-  }
-
-  @Override
   public void setObject(Object array) {
-    Object values[] = (Object[]) array;
-    for (int i = 0; i < values.length; i++) {
-      elementObjWriter.set(values[i]);
+    int size = Array.getLength(array);
+    for (int i = 0; i < size; i++) {
+      Object value = Array.get(array, i);
+      if (value != null) {
+        elementObjWriter.setObject(value);
+      }
       save();
     }
-  }
-
-  @Override
-  public int lastWriteIndex() {
-    // Undefined for arrays
-    return 0;
   }
 }

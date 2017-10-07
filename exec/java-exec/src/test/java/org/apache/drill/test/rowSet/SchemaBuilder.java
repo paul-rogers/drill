@@ -22,11 +22,13 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
-import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.AbstractColumnMetadata;
+import org.apache.drill.exec.record.metadata.MapColumnMetadata;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.record.metadata.TupleSchema;
+import org.apache.drill.exec.record.metadata.VariantColumnMetadata;
+import org.apache.drill.exec.record.metadata.VariantSchema;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.record.TupleSchema;
-import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
 
 /**
  * Builder of a row set schema expressed as a list of materialized
@@ -41,12 +43,21 @@ import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
  *        .addMap("a")
  *          .addNullable("b", MinorType.VARCHAR)
  *          .add("d", MinorType.INT)
- *          .addMap("e")
+ *          .addMap("e") // or .addMapArray("e")
  *            .add("f", MinorType.VARCHAR)
  *            .buildMap()
  *          .add("g", MinorType.INT)
  *          .buildMap()
- *        .addArray("h", MinorType.BIGINT)
+ *        .addUnion("h") // or .addList("h")
+ *          .addType(MinorType.INT)
+ *          .addMap()
+ *            .add("h1", MinorType.INT)
+ *            .buildNested()
+ *          .addList()
+ *            .addType(MinorType.BIGINT)
+ *            .buildNested()
+ *          .build()
+ *        .addArray("i", MinorType.BIGINT)
  *        .build();
  * </code</pre>
  */
@@ -103,15 +114,24 @@ public class SchemaBuilder {
 
   public static class MapBuilder extends SchemaBuilder {
     private final SchemaBuilder parent;
+    private final UnionBuilder union;
     private final String memberName;
     private final DataMode mode;
 
     public MapBuilder(SchemaBuilder parent, String memberName, DataMode mode) {
       this.parent = parent;
+      union = null;
       this.memberName = memberName;
       // Optional maps not supported in Drill
       assert mode != DataMode.OPTIONAL;
       this.mode = mode;
+    }
+
+    public MapBuilder(UnionBuilder unionBuilder) {
+      parent = null;
+      union = unionBuilder;
+      memberName = MinorType.MAP.toString();
+      mode = DataMode.OPTIONAL;
     }
 
     @Override
@@ -119,22 +139,113 @@ public class SchemaBuilder {
       throw new IllegalStateException("Cannot build for a nested schema");
     }
 
+    private MapColumnMetadata buildCol() {
+      return new MapColumnMetadata(memberName, mode, schema);
+    }
+
     @Override
     public SchemaBuilder buildMap() {
+      if (parent == null) {
+        throw new IllegalStateException("Call buildNested() inside of a union");
+      }
+      parent.finish(buildCol());
+      return parent;
+    }
+
+    @Override
+    public UnionBuilder buildNested() {
       // TODO: Use the map schema directly rather than
       // rebuilding it as is done here.
 
-      MaterializedField col = columnSchema(memberName, MinorType.MAP, mode);
-      for (ColumnMetadata md : schema) {
-        col.addChild(md.schema());
+      if (union == null) {
+        throw new IllegalStateException("Call buildMap() inside of a tuple");
       }
-      parent.finishMap(TupleSchema.newMap(col, schema));
-      return parent;
+      union.finishMap(buildCol());
+      return union;
     }
 
     @Override
     public SchemaBuilder withSVMode(SelectionVectorMode svMode) {
       throw new IllegalStateException("Cannot set SVMode for a nested schema");
+    }
+  }
+
+  public static class UnionBuilder {
+    private final SchemaBuilder parentSchema;
+    private final UnionBuilder parentUnion;
+    private final String name;
+    private final DataMode mode;
+    private final VariantSchema union;
+
+    public UnionBuilder(SchemaBuilder schemaBuilder, String name,
+        DataMode mode) {
+      this.parentSchema = schemaBuilder;
+      parentUnion = null;
+      this.name = name;
+      this.mode = mode;
+      union = new VariantSchema();
+    }
+
+    public UnionBuilder(UnionBuilder unionBuilder, DataMode mode) {
+      parentSchema = null;
+      parentUnion = unionBuilder;
+      this.name = (mode == DataMode.REPEATED)
+          ? MinorType.LIST.name() : MinorType.UNION.name();
+      this.mode = mode;
+      union = new VariantSchema();
+    }
+
+    private void checkType(MinorType type) {
+      if (union.hasType(type)) {
+        throw new IllegalArgumentException("Duplicate type: " + type);
+      }
+    }
+
+    public UnionBuilder addType(MinorType type) {
+      checkType(type);
+      union.addType(type);
+      return this;
+    }
+
+    public MapBuilder addMap() {
+      checkType(MinorType.MAP);
+      return new MapBuilder(this);
+    }
+
+    protected void finishMap(MapColumnMetadata mapCol) {
+      union.addMap(mapCol);
+    }
+
+    protected void finishList(VariantColumnMetadata listCol) {
+      union.addList(listCol);
+    }
+
+    public UnionBuilder addList() {
+      checkType(MinorType.LIST);
+      return new UnionBuilder(this, DataMode.REPEATED);
+    }
+
+    private VariantColumnMetadata buildCol() {
+      MinorType dataType =
+          mode == DataMode.REPEATED
+          ? MinorType.LIST : MinorType.UNION;
+      return new VariantColumnMetadata(name, dataType, union);
+    }
+
+    public SchemaBuilder build() {
+      if (parentSchema == null) {
+        throw new IllegalStateException("Call buildNested() instead");
+      }
+      parentSchema.finish(buildCol());
+      return parentSchema;
+    }
+
+    public UnionBuilder buildNested() {
+      if (parentUnion == null) {
+        throw new IllegalStateException("Call build() instead");
+      }
+      parentUnion.finishList(buildCol());
+      return parentUnion;
     }
   }
 
@@ -219,12 +330,20 @@ public class SchemaBuilder {
    * @return a builder for the map
    */
 
-  public MapBuilder addMap(String pathName) {
-    return new MapBuilder(this, pathName, DataMode.REQUIRED);
+  public MapBuilder addMap(String name) {
+    return new MapBuilder(this, name, DataMode.REQUIRED);
   }
 
-  public MapBuilder addMapArray(String pathName) {
-    return new MapBuilder(this, pathName, DataMode.REPEATED);
+  public MapBuilder addMapArray(String name) {
+    return new MapBuilder(this, name, DataMode.REPEATED);
+  }
+
+  public UnionBuilder addUnion(String name) {
+    return new UnionBuilder(this, name, DataMode.OPTIONAL);
+  }
+
+  public UnionBuilder addList(String name) {
+    return new UnionBuilder(this, name, DataMode.REPEATED);
   }
 
   public SchemaBuilder withSVMode(SelectionVectorMode svMode) {
@@ -236,12 +355,16 @@ public class SchemaBuilder {
     return schema.toBatchSchema(svMode);
   }
 
-  void finishMap(MapColumnMetadata map) {
-    schema.add(map);
+  void finish(AbstractColumnMetadata col) {
+    schema.add(col);
   }
 
   public SchemaBuilder buildMap() {
     throw new IllegalStateException("Cannot build map for a top-level schema");
+  }
+
+  public UnionBuilder buildNested() {
+    throw new IllegalStateException("Not inside a union");
   }
 
   public TupleMetadata buildSchema() {

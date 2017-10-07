@@ -24,7 +24,7 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.ops.FragmentContext;
+import org.apache.drill.exec.ops.FragmentContextInterface;
 import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.store.dfs.easy.FileWork;
@@ -52,7 +52,7 @@ public class ColumnExplorer {
    * between actual table columns, partition columns and implicit file columns.
    * Also populates map with implicit columns names as keys and their values
    */
-  public ColumnExplorer(FragmentContext context, List<SchemaPath> columns) {
+  public ColumnExplorer(FragmentContextInterface context, List<SchemaPath> columns) {
     this(context.getOptions(), columns);
   }
 
@@ -62,7 +62,7 @@ public class ColumnExplorer {
    * Also populates map with implicit columns names as keys and their values
    */
   public ColumnExplorer(OptionManager optionManager, List<SchemaPath> columns) {
-    this.partitionDesignator = optionManager.getOption(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL).string_val;
+    this.partitionDesignator = optionManager.getString(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL);
     this.columns = columns;
     this.isStarQuery = columns != null && Utilities.isStarQuery(columns);
     this.selectedPartitionColumns = Lists.newArrayList();
@@ -94,8 +94,8 @@ public class ColumnExplorer {
    * @param column column
    * @return true if given column is partition, false otherwise
    */
-  public static boolean isPartitionColumn(OptionManager optionManager, SchemaPath column){
-    String partitionDesignator = optionManager.getOption(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL).string_val;
+  public static boolean isPartitionColumn(OptionManager optionManager, SchemaPath column) {
+    String partitionDesignator = optionManager.getString(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL);
     String path = column.getRootSegmentPath();
     return isPartitionColumn(partitionDesignator, path);
   }

@@ -19,28 +19,35 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
+import java.util.Iterator;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
-import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
-import org.apache.drill.exec.vector.accessor.ScalarElementReader;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetReader;
+
+import static org.apache.drill.test.rowSet.RowSetUtilities.mapArray;
+import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
+import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
@@ -55,6 +62,7 @@ import org.junit.Test;
 
 public class TestResultSetLoaderMapArray extends SubOperatorTest {
 
+  @SuppressWarnings("resource")
   @Test
   public void testBasics() {
     TupleMetadata schema = new SchemaBuilder()
@@ -72,39 +80,51 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
 
     // Verify structure and schema
 
-    TupleMetadata actualSchema = rootWriter.schema();
+    TupleMetadata actualSchema = rootWriter.tupleSchema();
     assertEquals(2, actualSchema.size());
     assertTrue(actualSchema.metadata(1).isArray());
     assertTrue(actualSchema.metadata(1).isMap());
     assertEquals(2, actualSchema.metadata("m").mapSchema().size());
     assertEquals(2, actualSchema.column("m").getChildren().size());
+    TupleWriter mapWriter = rootWriter.array("m").tuple();
+    assertSame(actualSchema.metadata("m").mapSchema(), mapWriter.schema().mapSchema());
+    assertSame(mapWriter.tupleSchema(), mapWriter.schema().mapSchema());
+    assertSame(mapWriter.tupleSchema().metadata(0), mapWriter.scalar(0).schema());
+    assertSame(mapWriter.tupleSchema().metadata(1), mapWriter.scalar(1).schema());
 
     // Write a couple of rows with arrays.
 
     rsLoader.startBatch();
     rootWriter
-      .addRow(10, new Object[] {
-          new Object[] {110, "d1.1"},
-          new Object[] {120, "d2.2"}})
-      .addRow(20, new Object[] {})
-      .addRow(30, new Object[] {
-          new Object[] {310, "d3.1"},
-          new Object[] {320, "d3.2"},
-          new Object[] {330, "d3.3"}})
+      .addRow(10, mapArray(
+          mapValue(110, "d1.1"),
+          mapValue(120, "d2.2")))
+      .addRow(20, mapArray())
+      .addRow(30, mapArray(
+          mapValue(310, "d3.1"),
+          mapValue(320, "d3.2"),
+          mapValue(330, "d3.3")))
       ;
 
     // Verify the first batch
 
     RowSet actual = fixture.wrap(rsLoader.harvest());
+    RepeatedMapVector mapVector = (RepeatedMapVector) actual.container().getValueVector(1).getValueVector();
+    MaterializedField mapField = mapVector.getField();
+    assertEquals(2, mapField.getChildren().size());
+    Iterator<MaterializedField> iter = mapField.getChildren().iterator();
+    assertTrue(mapWriter.scalar(0).schema().schema().isEquivalent(iter.next()));
+    assertTrue(mapWriter.scalar(1).schema().schema().isEquivalent(iter.next()));
+
     SingleRowSet expected = fixture.rowSetBuilder(schema)
-        .addRow(10, new Object[] {
-            new Object[] {110, "d1.1"},
-            new Object[] {120, "d2.2"}})
-        .addRow(20, new Object[] {})
-        .addRow(30, new Object[] {
-            new Object[] {310, "d3.1"},
-            new Object[] {320, "d3.2"},
-            new Object[] {330, "d3.3"}})
+        .addRow(10, mapArray(
+            mapValue(110, "d1.1"),
+            mapValue(120, "d2.2")))
+        .addRow(20, mapArray())
+        .addRow(30, mapArray(
+            mapValue(310, "d3.1"),
+            mapValue(320, "d3.2"),
+            mapValue(330, "d3.3")))
         .build();
     new RowSetComparison(expected).verifyAndClearAll(actual);
 
@@ -113,26 +133,29 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
 
     rsLoader.startBatch();
     rootWriter
-      .addRow(40, new Object[] {
-          new Object[] {410, "d4.1"},
-          new Object[] {420, "d4.2"}});
+      .addRow(40, mapArray(
+          mapValue(410, "d4.1"),
+          mapValue(420, "d4.2")));
 
-    TupleWriter mapWriter = rootWriter.array("m").tuple();
     mapWriter.addColumn(SchemaBuilder.columnSchema("e", MinorType.VARCHAR, DataMode.OPTIONAL));
 
     rootWriter
-      .addRow(50, new Object[] {
-          new Object[] {510, "d5.1", "e5.1"},
-          new Object[] {520, "d5.2", null}})
-      .addRow(60, new Object[] {
-          new Object[] {610, "d6.1", "e6.1"},
-          new Object[] {620, "d6.2", null},
-          new Object[] {630, "d6.3", "e6.3"}})
+      .addRow(50, mapArray(
+          mapValue(510, "d5.1", "e5.1"),
+          mapValue(520, "d5.2", null)))
+      .addRow(60, mapArray(
+          mapValue(610, "d6.1", "e6.1"),
+          mapValue(620, "d6.2", null),
+          mapValue(630, "d6.3", "e6.3")))
       ;
 
     // Verify the second batch
 
     actual = fixture.wrap(rsLoader.harvest());
+    mapVector = (RepeatedMapVector) actual.container().getValueVector(1).getValueVector();
+    mapField = mapVector.getField();
+    assertEquals(3, mapField.getChildren().size());
+
     TupleMetadata expectedSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addMapArray("m")
@@ -142,16 +165,16 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
           .buildMap()
         .buildSchema();
     expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(40, new Object[] {
-            new Object[] {410, "d4.1", null},
-            new Object[] {420, "d4.2", null}})
-        .addRow(50, new Object[] {
-            new Object[] {510, "d5.1", "e5.1"},
-            new Object[] {520, "d5.2", null}})
-        .addRow(60, new Object[] {
-            new Object[] {610, "d6.1", "e6.1"},
-            new Object[] {620, "d6.2", null},
-            new Object[] {630, "d6.3", "e6.3"}})
+        .addRow(40, mapArray(
+            mapValue(410, "d4.1", null),
+            mapValue(420, "d4.2", null)))
+        .addRow(50, mapArray(
+            mapValue(510, "d5.1", "e5.1"),
+            mapValue(520, "d5.2", null)))
+        .addRow(60, mapArray(
+            mapValue(610, "d6.1", "e6.1"),
+            mapValue(620, "d6.2", null),
+            mapValue(630, "d6.3", "e6.3")))
         .build();
     new RowSetComparison(expected).verifyAndClearAll(actual);
 
@@ -179,28 +202,28 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
 
     rsLoader.startBatch();
     rootWriter
-      .addRow(10, new Object[] {
-          new Object[] {110, new String[] {"d1.1.1", "d1.1.2"}},
-          new Object[] {120, new String[] {"d1.2.1", "d1.2.2"}}})
-      .addRow(20, new Object[] {})
-      .addRow(30, new Object[] {
-          new Object[] {310, new String[] {"d3.1.1", "d3.2.2"}},
-          new Object[] {320, new String[] {}},
-          new Object[] {330, new String[] {"d3.3.1", "d1.2.2"}}})
+      .addRow(10, mapArray(
+          mapValue(110, strArray("d1.1.1", "d1.1.2")),
+          mapValue(120, strArray("d1.2.1", "d1.2.2"))))
+      .addRow(20, mapArray())
+      .addRow(30, mapArray(
+          mapValue(310, strArray("d3.1.1", "d3.2.2")),
+          mapValue(320, strArray()),
+          mapValue(330, strArray("d3.3.1", "d1.2.2"))))
       ;
 
     // Verify the batch
 
     RowSet actual = fixture.wrap(rsLoader.harvest());
     SingleRowSet expected = fixture.rowSetBuilder(schema)
-        .addRow(10, new Object[] {
-            new Object[] {110, new String[] {"d1.1.1", "d1.1.2"}},
-            new Object[] {120, new String[] {"d1.2.1", "d1.2.2"}}})
-        .addRow(20, new Object[] {})
-        .addRow(30, new Object[] {
-            new Object[] {310, new String[] {"d3.1.1", "d3.2.2"}},
-            new Object[] {320, new String[] {}},
-            new Object[] {330, new String[] {"d3.3.1", "d1.2.2"}}})
+        .addRow(10, mapArray(
+            mapValue(110, strArray("d1.1.1", "d1.1.2")),
+            mapValue(120, strArray("d1.2.1", "d1.2.2"))))
+        .addRow(20, mapArray())
+        .addRow(30, mapArray(
+            mapValue(310, strArray("d3.1.1", "d3.2.2")),
+            mapValue(320, strArray()),
+            mapValue(330, strArray("d3.3.1", "d1.2.2"))))
         .build();
     new RowSetComparison(expected).verifyAndClearAll(actual);
 
@@ -268,21 +291,23 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
     ArrayReader a2Reader = m1Reader.array("m2");
     TupleReader m2Reader = a2Reader.tuple();
     ScalarReader cReader = m2Reader.scalar("c");
-    ScalarElementReader dReader = m2Reader.elements("d");
+    ArrayReader dArray = m2Reader.array("d");
+    ScalarReader dReader = dArray.scalar();
 
     for (int i = 0; i < 5; i++) {
-      reader.next();
+      assertTrue(reader.next());
       assertEquals(i, aReader.getInt());
       for (int j = 0; j < 4; j++) {
-        a1Reader.setPosn(j);
+        assertTrue(a1Reader.next());
         int a1Key = i + 10 + j;
         assertEquals(a1Key, bReader.getInt());
         for (int k = 0; k < 3; k++) {
-          a2Reader.setPosn(k);
+          assertTrue(a2Reader.next());
           int a2Key = a1Key * 10 + k;
           assertEquals(a2Key, cReader.getInt());
           for (int l = 0; l < 2; l++) {
-            assertEquals("d-" + (a2Key * 10 + l), dReader.getString(l));
+            assertTrue(dArray.next());
+            assertEquals("d-" + (a2Key * 10 + l), dReader.getString());
           }
         }
       }
@@ -355,7 +380,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
       assertEquals(rowId * 100, reader.scalar("a").getInt());
       assertEquals(10, maReader.size());
       for (int i = 0; i < 10; i++) {
-        maReader.setPosn(i);
+        assert(maReader.next());
         assertEquals(rowId * 1000 + i, mReader.scalar("b").getInt());
         assertTrue(Arrays.equals(value, mReader.scalar("c").getBytes()));
       }
@@ -424,7 +449,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
       }
       assertEquals(entryCount, maReader.size());
       for (int j = 0; j < entryCount; j++) {
-        maReader.setPosn(j);
+        assertTrue(maReader.next());
         if (j % entrySkip == 0) {
           assertTrue(mReader.scalar(0).isNull());
           assertTrue(mReader.scalar(1).isNull());

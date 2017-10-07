@@ -23,10 +23,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.metadata.AbstractColumnMetadata;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
+import org.apache.drill.exec.vector.accessor.writer.MapWriter;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
@@ -44,6 +47,9 @@ public class DummyWriterTest extends SubOperatorTest {
         List<AbstractObjectWriter> writers) {
       super(schema, writers);
     }
+
+    @Override
+    public ColumnMetadata schema() { return null; }
   }
 
   /**
@@ -124,13 +130,20 @@ public class DummyWriterTest extends SubOperatorTest {
         .buildSchema();
     List<AbstractObjectWriter> writers = new ArrayList<>();
 
+    // Mark schema as non-projected
+
+    ((AbstractColumnMetadata) schema.metadata("m1")).setProjected(false);
+    ((AbstractColumnMetadata) schema.metadata("m2")).setProjected(false);
+
+    // Create the writers
+
     {
       schema.metadata("m1").setProjected(false);
       TupleMetadata mapSchema = schema.metadata("m1").mapSchema();
       List<AbstractObjectWriter> members = new ArrayList<>();
       members.add(ColumnWriterFactory.buildColumnWriter(mapSchema.metadata("a"), null));
       members.add(ColumnWriterFactory.buildColumnWriter(mapSchema.metadata("b"), null));
-      writers.add(ColumnWriterFactory.buildMapWriter(schema.metadata("m1"), null, members));
+      writers.add(MapWriter.buildMapWriter(schema.metadata("m1"), null, members));
     }
 
     {
@@ -138,7 +151,7 @@ public class DummyWriterTest extends SubOperatorTest {
       TupleMetadata mapSchema = schema.metadata("m2").mapSchema();
       List<AbstractObjectWriter> members = new ArrayList<>();
       members.add(ColumnWriterFactory.buildColumnWriter(mapSchema.metadata("c"), null));
-      writers.add(ColumnWriterFactory.buildMapWriter(schema.metadata("m2"), null, members));
+      writers.add(MapWriter.buildMapWriter(schema.metadata("m2"), null, members));
     }
 
     AbstractTupleWriter rootWriter = new RootWriterFixture(schema, writers);

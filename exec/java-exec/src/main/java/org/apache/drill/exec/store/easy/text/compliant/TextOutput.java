@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,11 +17,16 @@
  */
 package org.apache.drill.exec.store.easy.text.compliant;
 
-/* Base class for producing output record batches while dealing with
- * Text files.
+
+/**
+ * Base class for producing output record batches while dealing with
+ * text files. Defines the interface called from text parsers to create
+ * the corresponding value vectors (record batch).
  */
+
 abstract class TextOutput {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TextOutput.class);
+
+  public abstract void startRecord();
 
   /**
    * Start processing a new field within a record.
@@ -46,15 +51,15 @@ abstract class TextOutput {
    * @param data
    */
   public void appendIgnoringWhitespace(byte data){
-    if(TextReader.isWhite(data)){
+    if (TextReader.isWhite(data)){
       // noop
-    }else{
+    } else {
       append(data);
     }
   }
 
   /**
-   * This function appends the byte to the output character data buffer
+   * Appends a byte to the output character data buffer
    * @param data  current byte read
    */
   public abstract void append(byte data);
@@ -70,18 +75,5 @@ abstract class TextOutput {
    */
   public abstract long getRecordCount();
 
-  /**
-   * Informs output to setup for new record batch.
-   */
-  public abstract void startBatch();
-
-  /**
-   * Does any final cleanup that is required for closing a batch.  Example might include closing the last field.
-   */
-  public abstract void finishBatch();
-
-  /**
-   * Helper method to check if the current record has any non-empty fields
-   */
-  public abstract boolean rowHasData();
+  public abstract boolean isFull();
 }

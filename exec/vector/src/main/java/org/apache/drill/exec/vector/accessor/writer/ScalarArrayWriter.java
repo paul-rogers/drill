@@ -19,9 +19,8 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
-import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
-import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter.ScalarObjectWriter;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
@@ -64,14 +63,14 @@ public class ScalarArrayWriter extends BaseArrayWriter {
 
   public ScalarArrayWriter(ColumnMetadata schema,
       RepeatedValueVector vector, BaseScalarWriter elementWriter) {
-    super(vector.getOffsetVector(),
-        new ScalarObjectWriter(schema, elementWriter));
+    super(schema, vector.getOffsetVector(),
+        new ScalarObjectWriter(elementWriter));
     this.elementWriter = elementWriter;
   }
 
   public static ArrayObjectWriter build(ColumnMetadata schema,
       RepeatedValueVector repeatedVector, BaseScalarWriter elementWriter) {
-    return new ArrayObjectWriter(schema,
+    return new ArrayObjectWriter(
         new ScalarArrayWriter(schema, repeatedVector, elementWriter));
   }
 
@@ -83,20 +82,10 @@ public class ScalarArrayWriter extends BaseArrayWriter {
   }
 
   @Override
-  public void bindListener(ColumnWriterListener listener) {
-    elementWriter.bindListener(listener);
-  }
-
-  @Override
   public void save() {
     // No-op: done when writing each scalar value
-  }
-
-  @Override
-  public void set(Object... values) {
-    for (Object value : values) {
-      entry().set(value);
-    }
+    // May be called, however, by code that also supports
+    // lists as a list does require an explicit save.
   }
 
   @Override
@@ -109,7 +98,9 @@ public class ScalarArrayWriter extends BaseArrayWriter {
     }
     String objClass = array.getClass().getName();
     if (! objClass.startsWith("[")) {
-      throw new IllegalArgumentException("Argument must be an array");
+      throw new IllegalArgumentException(
+          String.format("Argument must be an array. Column `%s`, value = %s",
+              schema.name(), array.toString()));
     }
 
     // Figure out type
@@ -125,39 +116,50 @@ public class ScalarArrayWriter extends BaseArrayWriter {
         setBytesArray((byte[][]) array);
         break;
       default:
-        throw new IllegalArgumentException( "Unknown Java array type: " + objClass );
+        throw new IllegalArgumentException(
+            String.format("Unknown Java array type: %s, for column `%s`",
+                objClass, schema.name()));
       }
       break;
+    case  'B':
+      setByteArray((byte[]) array);
+      break;
     case  'S':
-      setShortArray((short[]) array );
+      setShortArray((short[]) array);
       break;
     case  'I':
-      setIntArray((int[]) array );
+      setIntArray((int[]) array);
       break;
     case  'J':
-      setLongArray((long[]) array );
+      setLongArray((long[]) array);
       break;
     case  'F':
-      setFloatArray((float[]) array );
+      setFloatArray((float[]) array);
       break;
     case  'D':
-      setDoubleArray((double[]) array );
+      setDoubleArray((double[]) array);
       break;
     case  'Z':
-      setBooleanArray((boolean[]) array );
+      setBooleanArray((boolean[]) array);
       break;
     case 'L':
       int posn = objClass.indexOf(';');
 
       // If the array is of type Object, then we have no type info.
 
-      String memberClassName = objClass.substring( 2, posn );
+      String memberClassName = objClass.substring(2, posn);
       if (memberClassName.equals(String.class.getName())) {
-        setStringArray((String[]) array );
+        setStringArray((String[]) array);
       } else if (memberClassName.equals(Period.class.getName())) {
-        setPeriodArray((Period[]) array );
+        setPeriodArray((Period[]) array);
       } else if (memberClassName.equals(BigDecimal.class.getName())) {
-        setBigDecimalArray((BigDecimal[]) array );
+        setBigDecimalArray((BigDecimal[]) array);
+      } else if (memberClassName.equals(Integer.class.getName())) {
+        setIntObjectArray((Integer[]) array);
+      } else if (memberClassName.equals(Long.class.getName())) {
+        setLongObjectArray((Long[]) array);
+      } else if (memberClassName.equals(Double.class.getName())) {
+        setDoubleObjectArray((Double[]) array);
       } else {
         throw new IllegalArgumentException( "Unknown Java array type: " + memberClassName );
       }
@@ -179,6 +181,12 @@ public class ScalarArrayWriter extends BaseArrayWriter {
     }
   }
 
+  public void setByteArray(byte[] value) {
+    for (int i = 0; i < value.length; i++) {
+      elementWriter.setInt(value[i]);
+    }
+  }
+
   public void setShortArray(short[] value) {
     for (int i = 0; i < value.length; i++) {
       elementWriter.setInt(value[i]);
@@ -191,9 +199,31 @@ public class ScalarArrayWriter extends BaseArrayWriter {
     }
   }
 
+  public void setIntObjectArray(Integer[] value) {
+    for (int i = 0; i < value.length; i++) {
+      Integer element = value[i];
+      if (element == null) {
+        elementWriter.setNull();
+      } else {
+        elementWriter.setInt(element);
+      }
+    }
+  }
+
   public void setLongArray(long[] value) {
     for (int i = 0; i < value.length; i++) {
       elementWriter.setLong(value[i]);
+    }
+  }
+
+  public void setLongObjectArray(Long[] value) {
+    for (int i = 0; i < value.length; i++) {
+      Long element = value[i];
+      if (element == null) {
+        elementWriter.setNull();
+      } else {
+        elementWriter.setLong(element);
+      }
     }
   }
 
@@ -206,6 +236,17 @@ public class ScalarArrayWriter extends BaseArrayWriter {
   public void setDoubleArray(double[] value) {
     for (int i = 0; i < value.length; i++) {
       elementWriter.setDouble(value[i]);
+    }
+  }
+
+  public void setDoubleObjectArray(Double[] value) {
+    for (int i = 0; i < value.length; i++) {
+      Double element = value[i];
+      if (element == null) {
+        elementWriter.setNull();
+      } else {
+        elementWriter.setDouble(element);
+      }
     }
   }
 

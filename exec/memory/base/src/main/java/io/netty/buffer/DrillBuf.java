@@ -887,7 +887,7 @@ public final class DrillBuf extends AbstractByteBuf implements AutoCloseable {
   // the JVM if values are addressed out of bounds.
 
   /**
-   * Write an integer to the buffer at the given byte index, without
+   * Write an integer to the buffer at the given byte offset, without
    * bounds checks.
    *
    * @param offset byte (not int) offset of the location to write
@@ -899,7 +899,19 @@ public final class DrillBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * Write a long to the buffer at the given byte index, without
+   * Read an integer from the buffer at the given byte offset
+   * without bounds checks.
+   *
+   * @param offset byte (not int) offset of the location to read
+   * @return value at the requested offset
+   */
+
+  public int unsafeGetInt(int offset) {
+    return PlatformDependent.getInt(addr + offset);
+  }
+
+  /**
+   * Write a long to the buffer at the given byte offset, without
    * bounds checks.
    *
    * @param index byte (not long) offset of the location to write
@@ -911,7 +923,19 @@ public final class DrillBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * Write a short to the buffer at the given byte index, without
+   * Read a long from the buffer at the given byte offset
+   * without bounds checks.
+   *
+   * @param offset byte (not long) offset of the location to read
+   * @return value at the requested offset
+   */
+
+  public long unsafeGetLong(int offset) {
+    return PlatformDependent.getLong(addr + offset);
+  }
+
+  /**
+   * Write a short to the buffer at the given byte offset, without
    * bounds checks.
    *
    * @param offset byte (not short) offset of the location to write
@@ -923,7 +947,19 @@ public final class DrillBuf extends AbstractByteBuf implements AutoCloseable {
   }
 
   /**
-   * Write a byte to the buffer at the given byte index, without
+   * Read a short from the buffer at the given byte offset
+   * without bounds checks.
+   *
+   * @param offset byte (not short) offset of the location to read
+   * @return value at the requested offset
+   */
+
+  public short unsafeGetShort(int offset) {
+    return PlatformDependent.getShort(addr + offset);
+  }
+
+  /**
+   * Write a byte to the buffer at the given byte offset, without
    * bounds checks.
    *
    * @param offset byte offset of the location to write
@@ -932,6 +968,18 @@ public final class DrillBuf extends AbstractByteBuf implements AutoCloseable {
 
   public void unsafePutByte(int offset, byte value) {
     PlatformDependent.putByte(addr + offset, value);
+  }
+
+  /**
+   * Read a byte from the buffer at the given byte offset
+   * without bounds checks.
+   *
+   * @param offset byte offset of the location to read
+   * @return value at the requested offset
+   */
+
+  public byte unsafeGetByte(int offset) {
+    return PlatformDependent.getByte(addr + offset);
   }
 
   /**
@@ -947,5 +995,34 @@ public final class DrillBuf extends AbstractByteBuf implements AutoCloseable {
 
   public void unsafeCopyMemory(byte[] srce, int srcOffset, int destOffset, int length) {
     PlatformDependent.copyMemory(srce, srcOffset, addr + destOffset, length);
+  }
+
+  /**
+   * Copy a block of buffer memory to a heap buffer.
+   *
+   * @param srcOffset the offset into this buffer of the data to read
+   * @param dest a byte buffer to hold the data
+   * @param destOffset destination offset within the byte buffer
+   * @param length number of bytes to read
+   */
+
+  public void unsafeCopyMemory(int srcOffset, byte[] dest, int destOffset, int length) {
+    assert dest.length >= destOffset + length;
+    PlatformDependent.copyMemory(addr + srcOffset, dest, destOffset, length);
+  }
+
+  /**
+   * Convenience method to read buffer bytes into a newly allocated byte
+   * array.
+   *
+   * @param srcOffset the offset into this buffer of the data to read
+   * @param length number of bytes to read
+   * @return byte array with the requested bytes
+   */
+
+  public byte[] unsafeGetMemory(int srcOffset, int length) {
+    byte buf[] = new byte[length];
+    PlatformDependent.copyMemory(addr + srcOffset, buf, 0, length);
+    return buf;
   }
 }

@@ -300,13 +300,14 @@ public class QueryBuilder {
   }
 
   /**
-   * Run the query and return the first result set as a
+   * Run the query and return the first non-empty batch as a
    * {@link DirectRowSet} object that can be inspected directly
    * by the code using a {@link RowSetReader}.
    * <p>
-   * An enhancement is to provide a way to read a series of result
+   *
+   * @see {@link #rowSetIterator()} for a version that reads a series of
    * batches as row sets.
-   * @return a row set that represents the first batch returned from
+   * @return a row set that represents the first non-empty batch returned from
    * the query
    * @throws RpcException if anything goes wrong
    */
@@ -480,7 +481,6 @@ public class QueryBuilder {
 
   public long print() throws Exception {
     DrillConfig config = client.cluster().config( );
-
 
     boolean verbose = ! config.getBoolean(QueryTestUtil.TEST_QUERY_PRINTING_SILENT) ||
                       DrillTest.verbose();

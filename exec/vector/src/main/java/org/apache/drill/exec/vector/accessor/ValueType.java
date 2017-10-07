@@ -27,5 +27,5 @@ package org.apache.drill.exec.vector.accessor;
  */
 
 public enum ValueType {
-  INTEGER, LONG, DOUBLE, STRING, BYTES, DECIMAL, PERIOD
+  INTEGER, LONG, DOUBLE, STRING, BYTES, DECIMAL, PERIOD, NULL
 }

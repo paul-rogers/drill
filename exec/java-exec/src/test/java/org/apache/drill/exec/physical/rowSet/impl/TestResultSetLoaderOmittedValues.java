@@ -26,7 +26,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.test.SubOperatorTest;
@@ -36,6 +36,9 @@ import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetReader;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
+
+import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
+
 
 public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
 
@@ -139,21 +142,21 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .addNullable("c", MinorType.VARCHAR)
-        .add("3", MinorType.INT)
+        .add("d", MinorType.INT)
         .addNullable("e", MinorType.INT)
         .addArray("f", MinorType.VARCHAR)
         .build();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(  1, "b_1", "c_1",  10,  100, new String[] {"f_1-1",  "f_1-2"})
-        .addRow(  2, "b_2", "c_2",  20,  200, new String[] {"f_2-1",  "f_2-2"})
-        .addRow(  3, "b_3", null,   30, null, new String[] {"f_3-1",  "f_3-2"})
-        .addRow(  4, "b_4", null,   40, null, new String[] {"f_4-1",  "f_4-2"})
-        .addRow(  5, "",    "c_5",   0,  500, new String[] {})
-        .addRow(  6, "",    "c_6",   0,  600, new String[] {})
-        .addRow(  7, "b_7", "c_7",  70,  700, new String[] {"f_7-1",  "f_7-2"})
-        .addRow(  8, "b_8", "c_8",  80,  800, new String[] {"f_8-1",  "f_8-2"})
-        .addRow(  9, "",    null,    0, null, new String[] {})
-        .addRow( 10, "",    null,    0, null, new String[] {})
+        .addRow(  1, "b_1", "c_1",  10,  100, strArray("f_1-1",  "f_1-2"))
+        .addRow(  2, "b_2", "c_2",  20,  200, strArray("f_2-1",  "f_2-2"))
+        .addRow(  3, "b_3", null,   30, null, strArray("f_3-1",  "f_3-2"))
+        .addRow(  4, "b_4", null,   40, null, strArray("f_4-1",  "f_4-2"))
+        .addRow(  5, "",    "c_5",   0,  500, strArray())
+        .addRow(  6, "",    "c_6",   0,  600, strArray())
+        .addRow(  7, "b_7", "c_7",  70,  700, strArray("f_7-1",  "f_7-2"))
+        .addRow(  8, "b_8", "c_8",  80,  800, strArray("f_8-1",  "f_8-2"))
+        .addRow(  9, "",    null,    0, null, strArray())
+        .addRow( 10, "",    null,    0, null, strArray())
         .build();
 
     new RowSetComparison(expected)

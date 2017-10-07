@@ -17,19 +17,16 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
-import java.util.ArrayList;
-
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapState;
-import org.apache.drill.exec.record.ColumnMetadata;
-import org.apache.drill.exec.vector.UInt4Vector;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ObjectType;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
+import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
-import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
-import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
-import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
+import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
 
 /**
  * Represents the write-time state for a column including the writer and the (optional)
@@ -41,116 +38,211 @@ import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
  * <p>
  * Different columns need different kinds of vectors: a data vector, possibly an offset
  * vector, or even a non-existent vector. The {@link VectorState} class abstracts out
- * these diffrences.
+ * these differences.
  */
 
 public abstract class ColumnState {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ColumnState.class);
 
-  public static abstract class BaseMapColumnState extends ColumnState {
-    protected final MapState mapState;
+  /**
+   * Primitive (non-map) column state. Handles all three cardinalities.
+   * Column metadata is hosted on the writer.
+   */
 
-    public BaseMapColumnState(ResultSetLoaderImpl resultSetLoader,
-         AbstractObjectWriter writer, VectorState vectorState,
-         ProjectionSet projectionSet) {
-      super(resultSetLoader, writer, vectorState);
-      mapState = new MapState(resultSetLoader, this, projectionSet);
+  public static class PrimitiveColumnState extends ColumnState implements ColumnWriterListener {
+
+    public PrimitiveColumnState(LoaderInternals loader,
+        AbstractObjectWriter colWriter,
+        VectorState vectorState) {
+      super(loader, colWriter, vectorState);
+      ScalarWriter scalarWriter;
+      if (colWriter.type() == ObjectType.ARRAY) {
+        scalarWriter = writer.array().scalar();
+      } else {
+        scalarWriter = writer.scalar();
+      }
+      ((AbstractScalarWriter) scalarWriter).bindListener(this);
+    }
+
+    @Override
+    public boolean canExpand(ScalarWriter writer, int delta) {
+      return loader.canExpand(delta);
+    }
+
+    @Override
+    public void overflowed(ScalarWriter writer) {
+      loader.overflowed();
+    }
+
+    /**
+     * Get the output schema. For a primitive (non-structured) column,
+     * the output schema is the same as the internal schema.
+     */
+
+    @Override
+    public ColumnMetadata outputSchema() { return schema(); }
+
+    @Override
+    public void dump(HierarchicalFormatter format) {
+      // TODO Auto-generated method stub
+    }
+  }
+
+  public static abstract class BaseContainerColumnState extends ColumnState {
+
+    public BaseContainerColumnState(LoaderInternals loader,
+        AbstractObjectWriter writer, VectorState vectorState) {
+      super(loader, writer, vectorState);
+    }
+
+    public abstract ContainerState container();
+
+    @Override
+    public void updateCardinality(int cardinality) {
+      super.updateCardinality(cardinality);
+      container().updateCardinality();
+    }
+
+    @Override
+    public void startBatch(boolean schemaOnly) {
+      super.startBatch(schemaOnly);
+      container().startBatch(schemaOnly);
     }
 
     @Override
     public void rollover() {
       super.rollover();
-      mapState.rollover();
-    }
-
-    @Override
-    public void startBatch() {
-      super.startBatch();
-      mapState.startBatch();
+      container().rollover();
     }
 
     @Override
     public void harvestWithLookAhead() {
       super.harvestWithLookAhead();
-      mapState.harvestWithLookAhead();
+      container().harvestWithLookAhead();
     }
 
     @Override
     public void close() {
       super.close();
-      mapState.close();
+      container().close();
+    }
+  }
+
+  /**
+   * Represents a map column (either single or repeated). Includes maps that
+   * are top-level, nested within other maps, or nested inside a union.
+   * Schema management is a bit complex:
+   * <table border=1>
+   * <tr><th rowspan=2>Condition</th><th colspan=2>Action</th></tr>
+   * <tr><th>Outside of Union</th><th>Inside of Union<th></tr>
+   * <tr><td>Unprojected</td><td>N/A</td><td>Omitted from output</td></tr>
+   * <tr><td>Added in prior batch</td><td colspan=2>Included in output</td></tr>
+   * <tr><td>Added in present batch, before overflow</td>
+   *     <td colspan=2>Included in output</td></tr>
+   * <tr><td>Added in present batch, after overflow</td>
+   *     <td>Omitted from output this batch (added next batch)</td>
+   *     <td>Included in output</td></tr>
+   * </table>
+   * <p>
+   * The above rules say that, for maps in a union, the output schema
+   * is identical to the internal writer schema. But, for maps outside
+   * of union, the output schema is a subset of the internal schema with
+   * two types of omissions:
+   * <ul>
+   * <li>Unprojected columns</li>
+   * <li>Columns added after overflow</li>
+   * </ul
+   * <p>
+   * New columns can be added at any time for data readers that discover
+   * their schema as data is read (such as JSON). In this case, new columns
+   * always appear at the end of the map (remember, in Drill, a "map" is actually
+   * a structured: an ordered, named list of columns.) When looking for newly
+   * added columns, they will always be at the end.
+   */
+
+  public static class MapColumnState extends BaseContainerColumnState {
+    protected final MapState mapState;
+    protected boolean isVersioned;
+    protected final ColumnMetadata outputSchema;
+
+    public MapColumnState(MapState mapState,
+        AbstractObjectWriter writer,
+        VectorState vectorState,
+        boolean isVersioned) {
+      super(mapState.loader(), writer, vectorState);
+      this.mapState = mapState;
+      mapState.bindColumnState(this);
+      this.isVersioned = isVersioned;
+      if (isVersioned) {
+        outputSchema = schema().cloneEmpty();
+      } else {
+        outputSchema = schema();
+      }
+      mapState.bindOutputSchema(outputSchema.mapSchema());
     }
 
     public MapState mapState() { return mapState; }
-  }
-
-  public static class MapColumnState extends BaseMapColumnState {
-
-    public MapColumnState(ResultSetLoaderImpl resultSetLoader,
-        ColumnMetadata columnSchema,
-        ProjectionSet projectionSet) {
-      super(resultSetLoader,
-          ColumnWriterFactory.buildMap(columnSchema, null,
-              new ArrayList<AbstractObjectWriter>()),
-          new NullVectorState(),
-          projectionSet);
-    }
 
     @Override
-    public void updateCardinality(int cardinality) {
-      super.updateCardinality(cardinality);
-      mapState.updateCardinality(cardinality);
+    public ContainerState container() { return mapState; }
+
+    @Override
+    public boolean isProjected() {
+      return mapState.hasProjections();
     }
+
+    /**
+     * Indicate if this map is versioned. A versionable map has three attributes:
+     * <ol>
+     * <li>Columns can be unprojected. (Columns appear as writers for the client
+     * of the result set loader, but are not materialized and do not appear in
+     * the projected output container.</li>
+     * <li>Columns appear in the output only if added before the overflow row.</li>
+     * <li>As a result, the output schema is a subset of the internal input
+     * schema.</li>
+     * </ul>
+     * @return <tt>true</tt> if this map is versioned as described above
+     */
+
+    public boolean isVersioned() { return isVersioned; }
+
+    @Override
+    public ColumnMetadata outputSchema() { return outputSchema; }
   }
 
-  public static class MapArrayColumnState extends BaseMapColumnState {
+  /**
+   * Union or list (repeated union) column state.
+   */
 
-    public MapArrayColumnState(ResultSetLoaderImpl resultSetLoader,
+  public static class UnionColumnState extends BaseContainerColumnState {
+
+    private final ContainerState unionState;
+
+    public UnionColumnState(LoaderInternals loader,
         AbstractObjectWriter writer,
         VectorState vectorState,
-        ProjectionSet projectionSet) {
-      super(resultSetLoader, writer,
-          vectorState,
-          projectionSet);
-    }
-
-    @SuppressWarnings("resource")
-    public static MapArrayColumnState build(ResultSetLoaderImpl resultSetLoader,
-        ColumnMetadata columnSchema,
-        ProjectionSet projectionSet) {
-
-      // Create the map's offset vector.
-
-      UInt4Vector offsetVector = new UInt4Vector(
-          BaseRepeatedValueVector.OFFSETS_FIELD,
-          resultSetLoader.allocator());
-
-      // Create the writer using the offset vector
-
-      AbstractObjectWriter writer = ColumnWriterFactory.buildMapArray(
-          columnSchema, offsetVector,
-          new ArrayList<AbstractObjectWriter>());
-
-      // Wrap the offset vector in a vector state
-
-      VectorState vectorState = new OffsetVectorState(
-            ((AbstractArrayWriter) writer.array()).offsetWriter(),
-            offsetVector,
-            (AbstractObjectWriter) writer.array().entry());
-
-      // Assemble it all into the column state.
-
-      return new MapArrayColumnState(resultSetLoader,
-                  writer, vectorState, projectionSet);
+        ContainerState unionState) {
+      super(loader, writer, vectorState);
+      this.unionState = unionState;
+      unionState.bindColumnState(this);
     }
 
     @Override
-    public void updateCardinality(int cardinality) {
-      super.updateCardinality(cardinality);
-      int childCardinality = cardinality * schema().expectedElementCount();
-      mapState.updateCardinality(childCardinality);
+    public boolean isProjected() {
+      // Unions and lists are always projected
+      return true;
     }
+
+    /**
+     * Get the output schema. For a primitive (non-structured) column,
+     * the output schema is the same as the internal schema.
+     */
+    @Override
+    public ColumnMetadata outputSchema() { return schema(); }
+
+    @Override
+    public ContainerState container() { return unionState; }
   }
 
   /**
@@ -195,7 +287,7 @@ public abstract class ColumnState {
     NEW_LOOK_AHEAD
   }
 
-  protected final ResultSetLoaderImpl resultSetLoader;
+  protected final LoaderInternals loader;
   protected final int addVersion;
   protected final VectorState vectorState;
   protected State state;
@@ -210,27 +302,28 @@ public abstract class ColumnState {
    * vector.
    */
 
-  protected int outerCardinality;
+  protected int cardinality;
+  protected int outputIndex = -1;
 
-  public ColumnState(ResultSetLoaderImpl resultSetLoader,
+  public ColumnState(LoaderInternals loader,
       AbstractObjectWriter writer, VectorState vectorState) {
-    this.resultSetLoader = resultSetLoader;
+    this.loader = loader;
     this.vectorState = vectorState;
-    this.addVersion = resultSetLoader.bumpVersion();
-    state = resultSetLoader.hasOverflow() ?
+    this.addVersion = loader.bumpVersion();
+    state = loader.hasOverflow() ?
         State.NEW_LOOK_AHEAD : State.NORMAL;
     this.writer = writer;
   }
 
   public AbstractObjectWriter writer() { return writer; }
   public ColumnMetadata schema() { return writer.schema(); }
+  public VectorState vectorState() { return vectorState; }
 
-  public ValueVector vector() { return vectorState.vector(); }
+  public <T extends ValueVector> T vector() { return vectorState.vector(); }
 
   public void allocateVectors() {
-    assert outerCardinality != 0;
-    resultSetLoader.tallyAllocations(
-        vectorState.allocate(outerCardinality));
+    assert cardinality != 0;
+    loader.tallyAllocations(vectorState.allocate(cardinality));
   }
 
   /**
@@ -239,10 +332,12 @@ public abstract class ColumnState {
    * active vector so we start writing where we left off.
    */
 
-  public void startBatch() {
+  public void startBatch(boolean schemaOnly) {
     switch (state) {
     case NORMAL:
-      resultSetLoader.tallyAllocations(vectorState.allocate(outerCardinality));
+      if (! schemaOnly) {
+        allocateVectors();
+      }
       break;
 
     case NEW_LOOK_AHEAD:
@@ -287,7 +382,7 @@ public abstract class ColumnState {
     // of thought to get right -- and, of course, completely defeats
     // the purpose of limiting vector size to avoid memory fragmentation...
 
-    if (resultSetLoader.writerIndex().vectorIndex() == 0) {
+    if (loader.rowIndex() == 0) {
       throw UserException
         .memoryError("A single column value is larger than the maximum allowed size of 16 MB")
         .build(logger);
@@ -295,7 +390,7 @@ public abstract class ColumnState {
 
     // Otherwise, do the roll-over to a look-ahead vector.
 
-    vectorState.rollover(outerCardinality);
+    vectorState.rollover(cardinality);
 
     // Remember that we did this overflow processing.
 
@@ -336,12 +431,31 @@ public abstract class ColumnState {
     }
   }
 
-  public void close() {
-    vectorState.reset();
+  public boolean isProjected() {
+    return vectorState.isProjected();
   }
 
   public void updateCardinality(int cardinality) {
-    outerCardinality = cardinality;
+    this.cardinality = cardinality;
+  }
+
+  public int outerCardinality() { return cardinality; }
+
+  public int innerCardinality() {
+    ColumnMetadata schema = schema();
+    return schema.isArray()
+        ? cardinality * schema.expectedElementCount()
+        : cardinality;
+  }
+
+  public void buildOutput(TupleState tupleState) {
+    outputIndex = tupleState.addOutputColumn(vector(), outputSchema());
+  }
+
+  public abstract ColumnMetadata outputSchema();
+
+  public void close() {
+    vectorState.close();
   }
 
   public void dump(HierarchicalFormatter format) {
