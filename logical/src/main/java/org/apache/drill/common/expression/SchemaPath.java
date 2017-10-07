@@ -18,6 +18,7 @@
 package org.apache.drill.common.expression;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Iterator;
 
 import org.antlr.runtime.ANTLRStringStream;
@@ -38,7 +39,6 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterators;
 
 public class SchemaPath extends LogicalExpressionBase {
 
@@ -58,7 +58,7 @@ public class SchemaPath extends LogicalExpressionBase {
   }
 
   public PathSegment getLastSegment() {
-    PathSegment s= rootSegment;
+    PathSegment s = rootSegment;
     while (s.getChild() != null) {
       s = s.getChild();
     }
@@ -70,7 +70,6 @@ public class SchemaPath extends LogicalExpressionBase {
     super(pos);
     this.rootSegment = new NameSegment(simpleName);
   }
-
 
   public NamePart getAsNamePart() {
     return getNamePart(rootSegment);
@@ -243,7 +242,7 @@ public class SchemaPath extends LogicalExpressionBase {
 
   @Override
   public Iterator<LogicalExpression> iterator() {
-    return Iterators.emptyIterator();
+    return Collections.emptyIterator();
   }
 
   @Override
@@ -264,6 +263,7 @@ public class SchemaPath extends LogicalExpressionBase {
     return rootSegment.getPath();
   }
 
+  @SuppressWarnings("serial")
   public static class De extends StdDeserializer<SchemaPath> {
 
     public De() {

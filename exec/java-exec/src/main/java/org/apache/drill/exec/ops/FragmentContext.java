@@ -340,6 +340,7 @@ public class FragmentContext extends BaseFragmentContext implements AutoCloseabl
     return buffers;
   }
 
+  @Override
   public OperatorContext newOperatorContext(PhysicalOperator popConfig, OperatorStats stats)
       throws OutOfMemoryException {
     OperatorContextImpl context = new OperatorContextImpl(popConfig, this, stats);
@@ -347,6 +348,7 @@ public class FragmentContext extends BaseFragmentContext implements AutoCloseabl
     return context;
   }
 
+  @Override
   public OperatorContext newOperatorContext(PhysicalOperator popConfig)
       throws OutOfMemoryException {
     OperatorContextImpl context = new OperatorContextImpl(popConfig, this);
