@@ -36,7 +36,7 @@ public abstract class ProjectorTemplate implements Projector {
 
   private ImmutableList<TransferPair> transfers;
   private SelectionVector2 vector2;
-  private SelectionVector4 vector4;
+  protected SelectionVector4 vector4;
   private SelectionVectorMode svMode;
 
   public ProjectorTemplate() {
@@ -49,8 +49,7 @@ public abstract class ProjectorTemplate implements Projector {
       throw new UnsupportedOperationException();
 
     case TWO_BYTE:
-      final int count = recordCount;
-      for (int i = 0; i < count; i++, firstOutputIndex++) {
+      for (int i = 0; i < recordCount; i++, firstOutputIndex++) {
         try {
           doEval(vector2.getIndex(i), firstOutputIndex);
         } catch (SchemaChangeException e) {
@@ -60,9 +59,8 @@ public abstract class ProjectorTemplate implements Projector {
       return recordCount;
 
     case NONE:
-      final int countN = recordCount;
       int i;
-      for (i = startIndex; i < startIndex + countN; i++, firstOutputIndex++) {
+      for (i = startIndex; i < startIndex + recordCount; i++, firstOutputIndex++) {
         try {
           doEval(i, firstOutputIndex);
         } catch (SchemaChangeException e) {
@@ -96,6 +94,8 @@ public abstract class ProjectorTemplate implements Projector {
     case TWO_BYTE:
       this.vector2 = incoming.getSelectionVector2();
       break;
+    default:
+      break;
     }
     this.transfers = ImmutableList.copyOf(transfers);
     doSetup(context, incoming, outgoing);
@@ -108,5 +108,4 @@ public abstract class ProjectorTemplate implements Projector {
   public abstract void doEval(@Named("inIndex") int inIndex,
                               @Named("outIndex") int outIndex)
                        throws SchemaChangeException;
-
 }

@@ -37,6 +37,7 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.client.PrintingResultsListener;
 import org.apache.drill.exec.client.QuerySubmitter.Format;
 import org.apache.drill.exec.exception.SchemaChangeException;
+import org.apache.drill.exec.proto.BitControl.PlanFragment;
 import org.apache.drill.exec.proto.UserBitShared.QueryId;
 import org.apache.drill.exec.proto.UserBitShared.QueryResult.QueryState;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
@@ -217,6 +218,7 @@ public class QueryBuilder {
   private final ClientFixture client;
   private QueryType queryType;
   private String queryText;
+  private List<PlanFragment> planFragments;
 
   QueryBuilder(ClientFixture client) {
     this.client = client;
@@ -234,6 +236,19 @@ public class QueryBuilder {
 
   public QueryBuilder sql(String query, Object... args) {
     return sql(String.format(query, args));
+  }
+
+  /**
+   * Run a physical plan presented as a list of fragments.
+   *
+   * @param planFragments fragments that make up the plan
+   * @return this builder
+   */
+
+  public QueryBuilder plan(List<PlanFragment> planFragments) {
+    queryType = QueryType.EXECUTION;
+    this.planFragments = planFragments;
+    return this;
   }
 
   /**
@@ -258,6 +273,13 @@ public class QueryBuilder {
   public QueryBuilder physical(String plan) {
     return query(QueryType.PHYSICAL, plan);
   }
+
+  /**
+   * Run a query contained in a resource file.
+   *
+   * @param resource Name of the resource
+   * @return this builder
+   */
 
   public QueryBuilder sqlResource(String resource) {
     sql(ClusterFixture.loadResource(resource));
@@ -426,8 +448,16 @@ public class QueryBuilder {
 
   public void withListener(UserResultsListener listener) {
     Preconditions.checkNotNull(queryType, "Query not provided.");
-    Preconditions.checkNotNull(queryText, "Query not provided.");
-    client.client().runQuery(queryType, queryText, listener);
+    if (planFragments != null) {
+      try {
+        client.client().runQuery(QueryType.EXECUTION, planFragments, listener);
+      } catch(RpcException e) {
+        throw new IllegalStateException(e);
+      }
+    } else {
+      Preconditions.checkNotNull(queryText, "Query not provided.");
+      client.client().runQuery(queryType, queryText, listener);
+    }
   }
 
   /**
@@ -559,6 +589,11 @@ public class QueryBuilder {
     long end = System.currentTimeMillis();
     long elapsed = end - start;
     return new QuerySummary(queryId, recordCount, batchCount, elapsed, state);
+  }
+
+  public QueryResultSet resultSet() {
+    BufferingQueryEventListener listener = withEventListener();
+    return new QueryResultSet(listener, client.allocator());
   }
 
   /**

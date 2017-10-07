@@ -29,6 +29,7 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
+import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriterImpl;
 import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
 
 public abstract class ColumnState {
@@ -52,15 +53,20 @@ public abstract class ColumnState {
     }
 
     @Override
-    public void startBatch() {
-      super.startBatch();
-      mapState.startBatch();
+    public void startBatch(boolean schemaOnly) {
+      super.startBatch(schemaOnly);
+      mapState.startBatch(schemaOnly);
     }
 
     @Override
     public void harvestWithLookAhead() {
       super.harvestWithLookAhead();
       mapState.harvestWithLookAhead();
+    }
+
+    @Override
+    public boolean isProjected() {
+      return mapState.hasProjections();
     }
 
     @Override
@@ -109,9 +115,14 @@ public abstract class ColumnState {
 
       // Create the map's offset vector.
 
-      UInt4Vector offsetVector = new UInt4Vector(
+      UInt4Vector offsetVector;
+      if (columnSchema.isProjected()) {
+        offsetVector = new UInt4Vector(
           BaseRepeatedValueVector.OFFSETS_FIELD,
           resultSetLoader.allocator());
+      } else {
+        offsetVector = null;
+      }
 
       // Create the writer using the offset vector
 
@@ -121,10 +132,16 @@ public abstract class ColumnState {
 
       // Wrap the offset vector in a vector state
 
-      VectorState vectorState = new OffsetVectorState(
-            ((AbstractArrayWriter) writer.array()).offsetWriter(),
-            offsetVector,
-            (AbstractObjectWriter) writer.array().entry());
+       VectorState vectorState;
+       if (columnSchema.isProjected()) {
+         vectorState= new OffsetVectorState(
+          ((OffsetVectorWriterImpl)
+            ((AbstractArrayWriter) writer.array()).offsetWriter()),
+          offsetVector,
+          (AbstractObjectWriter) writer.array().entry());
+       } else {
+         vectorState = new NullVectorState();
+       }
 
       // Assemble it all into the column state.
 
@@ -219,10 +236,12 @@ public abstract class ColumnState {
    * active vector so we start writing where we left off.
    */
 
-  public void startBatch() {
+  public void startBatch(boolean schemaOnly) {
     switch (state) {
     case NORMAL:
-      resultSetLoader.tallyAllocations(vectorState.allocate(outerCardinality));
+      if (! schemaOnly) {
+        resultSetLoader.tallyAllocations(vectorState.allocate(outerCardinality));
+      }
       break;
 
     case NEW_LOOK_AHEAD:
@@ -318,6 +337,10 @@ public abstract class ColumnState {
     default:
       throw new IllegalStateException("Unexpected state: " + state);
     }
+  }
+
+  public boolean isProjected() {
+    return vectorState.isProjected();
   }
 
   public void close() {

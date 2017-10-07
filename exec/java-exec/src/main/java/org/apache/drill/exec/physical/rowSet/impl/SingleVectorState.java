@@ -27,6 +27,7 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
 import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriter;
+import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriterImpl;
 
 /**
  * Base class for a single vector. Handles the bulk of work for that vector.
@@ -63,7 +64,7 @@ public abstract class SingleVectorState implements VectorState {
       } else {
         ((FixedWidthVector) vector).allocateNew(cardinality);
       }
-      return vector.getBufferSize();
+      return vector.getAllocatedSize();
     }
 
     @Override
@@ -261,6 +262,9 @@ public abstract class SingleVectorState implements VectorState {
       backupVector.clear();
     }
   }
+
+  @Override
+  public boolean isProjected() { return true; }
 
   @Override
   public void dump(HierarchicalFormatter format) {

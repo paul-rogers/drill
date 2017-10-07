@@ -24,6 +24,7 @@ import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.TupleSchema.AbstractColumnMetadata;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
@@ -123,6 +124,13 @@ public class DummyWriterTest extends SubOperatorTest {
           .buildMap()
         .buildSchema();
     List<AbstractObjectWriter> writers = new ArrayList<>();
+
+    // Mark schema as non-projected
+
+    ((AbstractColumnMetadata) schema.metadata("m1")).setProjected(false);
+    ((AbstractColumnMetadata) schema.metadata("m2")).setProjected(false);
+
+    // Create the writers
 
     {
       TupleMetadata mapSchema = schema.metadata("m1").mapSchema();

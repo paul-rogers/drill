@@ -76,18 +76,23 @@ public class ProjectionSetImpl implements ProjectionSet {
   }
 
   /**
-   * Parse a projection list. The list should consist of a list of column
-   * names; any wildcards should have been processed by the caller. An
-   * empty or null list means everything is projected (that is, an
-   * empty list here is equivalent to a wildcard in the SELECT
-   * statement.)
+   * Parse a projection list. The list should consist of a list of column names;
+   * any wildcards should have been processed by the caller. An empty list means
+   * nothing is projected. A null list means everything is projected (that is, a
+   * null list here is equivalent to a wildcard in the SELECT statement.)
    *
    * @param projList
-   * @return
+   *          the list of projected columns, or null if no projection is to be
+   *          done
+   * @return a projection set that implements the specified projection
    */
+
   public static ProjectionSet parse(Collection<SchemaPath> projList) {
-    if (projList == null || projList.isEmpty()) {
+    if (projList == null) {
       return new NullProjectionSet(true);
+    }
+    if (projList.isEmpty()) {
+      return new NullProjectionSet(false);
     }
     ProjectionSetImpl projSet = new ProjectionSetImpl();
     for (SchemaPath col : projList) {

@@ -91,6 +91,9 @@ public class NullableVectorState implements VectorState {
   public ValueVector vector() { return vector; }
 
   @Override
+  public boolean isProjected() { return true; }
+
+  @Override
   public void dump(HierarchicalFormatter format) {
     format
       .startObject(this)

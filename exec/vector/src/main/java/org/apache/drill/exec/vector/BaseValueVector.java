@@ -17,18 +17,17 @@
  */
 package org.apache.drill.exec.vector;
 
-import io.netty.buffer.DrillBuf;
-
 import java.util.Collections;
 import java.util.Iterator;
-
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterators;
 
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.proto.UserBitShared.SerializedField;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TransferPair;
+
+import com.google.common.base.Preconditions;
+
+import io.netty.buffer.DrillBuf;
 
 public abstract class BaseValueVector implements ValueVector {
 //  private static final Logger logger = LoggerFactory.getLogger(BaseValueVector.class);

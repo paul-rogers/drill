@@ -129,8 +129,13 @@ public class ColumnWriterFactory {
                                         List<AbstractObjectWriter> writers) {
     MapWriter mapWriter;
     if (schema.isProjected()) {
+
+      // Vector is not required for a map writer; the map's columns
+      // are written, but not the (non-array) map.
+
       mapWriter = new SingleMapWriter(schema, vector, writers);
     } else {
+      assert vector == null;
       mapWriter = new DummyMapWriter(schema, writers);
     }
     return new TupleObjectWriter(schema, mapWriter);
@@ -141,8 +146,10 @@ public class ColumnWriterFactory {
                                         List<AbstractObjectWriter> writers) {
     MapWriter mapWriter;
     if (schema.isProjected()) {
+      assert offsetVector != null;
       mapWriter = new ArrayMapWriter(schema, writers);
     } else {
+      assert offsetVector == null;
       mapWriter = new DummyArrayMapWriter(schema, writers);
     }
     TupleObjectWriter mapArray = new TupleObjectWriter(schema, mapWriter);
@@ -161,8 +168,10 @@ public class ColumnWriterFactory {
       AbstractMapVector vector,
       List<AbstractObjectWriter> writers) {
     if (schema.isArray()) {
+      UInt4Vector offsetVector = vector == null ? null :
+            ((RepeatedMapVector) vector).getOffsetVector();
       return buildMapArray(schema,
-          ((RepeatedMapVector) vector).getOffsetVector(),
+          offsetVector,
           writers);
     } else {
       return buildMap(schema, (MapVector) vector, writers);

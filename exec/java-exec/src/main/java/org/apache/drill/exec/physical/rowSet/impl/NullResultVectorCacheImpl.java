@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
@@ -38,4 +39,10 @@ public class NullResultVectorCacheImpl implements ResultVectorCache {
   public ValueVector addOrGet(MaterializedField colSchema) {
     return TypeHelper.getNewVector(colSchema, allocator, null);
   }
+
+  @Override
+  public MajorType getType(String name) { return null; }
+
+  @Override
+  public boolean isPermissive() { return false; }
 }

@@ -31,7 +31,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
 @JsonTypeName("sort")
-public class Sort extends AbstractSingle{
+public class Sort extends AbstractSingle {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Sort.class);
 
   protected final List<Ordering> orderings;

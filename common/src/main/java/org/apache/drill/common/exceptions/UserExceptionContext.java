@@ -65,7 +65,7 @@ class UserExceptionContext {
    * @param value context value
    */
   void add(String context, String value) {
-    add(context + " " + value);
+    add(context + ": " + value);
   }
 
   /**
@@ -74,7 +74,7 @@ class UserExceptionContext {
    * @param value context value
    */
   void add(String context, long value) {
-    add(context + " " + value);
+    add(context + ": " + value);
   }
 
   /**
@@ -83,7 +83,7 @@ class UserExceptionContext {
    * @param value context value
    */
   void add(String context, double value) {
-    add(context + " " + value);
+    add(context + ": " + value);
   }
 
   /**
@@ -100,7 +100,7 @@ class UserExceptionContext {
    * @param value context value
    */
   void push(String context, String value) {
-    push(context + " " + value);
+    push(context + ": " + value);
   }
 
   /**
@@ -109,7 +109,7 @@ class UserExceptionContext {
    * @param value context value
    */
   void push(String context, long value) {
-    push(context + " " + value);
+    push(context + ": " + value);
   }
 
   /**
@@ -118,7 +118,7 @@ class UserExceptionContext {
    * @param value context value
    */
   void push(String context, double value) {
-    push(context + " " + value);
+    push(context + ": " + value);
   }
 
   String getErrorId() {

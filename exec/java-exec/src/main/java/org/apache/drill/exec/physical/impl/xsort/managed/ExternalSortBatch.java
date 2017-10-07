@@ -495,14 +495,6 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     } catch (RuntimeException e) {
       ex = (ex == null) ? e : ex;
     }
-    try {
-      if (sortImpl != null) {
-        sortImpl.close();
-        sortImpl = null;
-      }
-    } catch (RuntimeException e) {
-      ex = (ex == null) ? e : ex;
-    }
 
     // The call to super.close() clears out the output container.
     // Doing so requires the allocator here, so it must be closed
@@ -513,7 +505,20 @@ public class ExternalSortBatch extends AbstractRecordBatch<ExternalSort> {
     } catch (RuntimeException e) {
       ex = (ex == null) ? e : ex;
     }
-    // Note: allocator is closed by the FragmentManager
+
+    // The sort impl closes the context which closes the allocator.
+
+    try {
+      if (sortImpl != null) {
+        sortImpl.close();
+        sortImpl = null;
+      }
+    } catch (RuntimeException e) {
+      ex = (ex == null) ? e : ex;
+    }
+
+    // Handle any errors.
+
     if (ex != null) {
       throw ex;
     }

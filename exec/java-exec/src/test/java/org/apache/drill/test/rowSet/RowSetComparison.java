@@ -147,6 +147,9 @@ public class RowSetComparison {
    */
 
   public void verify(RowSet actual) {
+    assertTrue("Schemas don't match.\n" +
+        "Expected: " + expected.schema().toString() +
+        "\nActual: " + actual.schema(), expected.schema().isEquivalent(actual.schema()));
     int testLength = expected.rowCount() - offset;
     if (span > -1) {
       testLength = span;

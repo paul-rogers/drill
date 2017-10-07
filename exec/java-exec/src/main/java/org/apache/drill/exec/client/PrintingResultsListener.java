@@ -74,6 +74,7 @@ public class PrintingResultsListener implements UserResultsListener {
   @SuppressWarnings("resource")
   public void dataArrived(QueryDataBatch result, ConnectionThrottle throttle) {
     final QueryData header = result.getHeader();
+    @SuppressWarnings("resource")
     final DrillBuf data = result.getData();
 
     try {

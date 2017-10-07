@@ -139,7 +139,7 @@ public class TestResultSetLoaderOmittedValues extends SubOperatorTest {
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .addNullable("c", MinorType.VARCHAR)
-        .add("3", MinorType.INT)
+        .add("d", MinorType.INT)
         .addNullable("e", MinorType.INT)
         .addArray("f", MinorType.VARCHAR)
         .build();

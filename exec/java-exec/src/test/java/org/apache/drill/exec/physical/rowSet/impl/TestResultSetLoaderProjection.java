@@ -59,12 +59,12 @@ public class TestResultSetLoaderProjection extends SubOperatorTest {
       assertTrue(projSet.isProjected("foo"));
     }
 
-    // Empty list means everything is projected
+    // Empty list means nothing is projected
 
     {
       ProjectionSet projSet = ProjectionSetImpl.parse(new ArrayList<SchemaPath>());
       assertTrue(projSet instanceof NullProjectionSet);
-      assertTrue(projSet.isProjected("foo"));
+      assertFalse(projSet.isProjected("foo"));
     }
 
     // Simple non-map columns

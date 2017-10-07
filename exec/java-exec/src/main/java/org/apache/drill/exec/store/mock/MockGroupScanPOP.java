@@ -210,10 +210,7 @@ public class MockGroupScanPOP extends AbstractGroupScan {
       String name = m.group(1);
       String type = m.group(2);
       String length = m.group(3);
-      int width = 10;
-      if (!length.isEmpty()) {
-        width = Integer.parseInt(length);
-      }
+      int width = 0;
       MinorType minorType;
       switch (type) {
       case "i":
@@ -221,6 +218,10 @@ public class MockGroupScanPOP extends AbstractGroupScan {
         break;
       case "s":
         minorType = MinorType.VARCHAR;
+        width = 10;
+        if (!length.isEmpty()) {
+          width = Integer.parseInt(length);
+        }
         break;
       case "d":
         minorType = MinorType.FLOAT8;

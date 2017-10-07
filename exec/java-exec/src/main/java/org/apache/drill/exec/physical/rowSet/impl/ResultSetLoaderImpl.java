@@ -341,17 +341,49 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   }
 
   @Override
-  public int schemaVersion() { return harvestSchemaVersion; }
+  public int schemaVersion() {
+    switch (state) {
+    case ACTIVE:
+    case IN_OVERFLOW:
+    case OVERFLOW:
+    case FULL_BATCH:
+
+      // Write in progress: use current writer schema
+
+      return activeSchemaVersion;
+    case HARVESTED:
+    case LOOK_AHEAD:
+    case START:
+
+      // Batch is published. Use harvest schema.
+
+      return harvestSchemaVersion;
+    default:
+
+      // Not really in a position to give a schema
+      // version.
+
+      throw new IllegalStateException("Unexpected state: " + state);
+    }
+  }
 
   @Override
   public void startBatch() {
+    startBatch(false);
+  }
+
+  public void startEmptyBatch() {
+    startBatch(true);
+  }
+
+  public void startBatch(boolean schemaOnly) {
     switch (state) {
     case HARVESTED:
     case START:
       logger.trace("Start batch");
       accumulatedBatchSize = 0;
       updateCardinality();
-      rootState.startBatch();
+      rootState.startBatch(schemaOnly);
       checkInitialAllocation();
 
       // The previous batch ended without overflow, so start
@@ -369,7 +401,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       // a column-by-column basis, which is done by the visitor.
 
       logger.trace("Start batch after overflow");
-      rootState.startBatch();
+      rootState.startBatch(schemaOnly);
 
       // Note: no need to do anything with the writers; they were left
       // pointing to the correct positions in the look-ahead batch.
@@ -496,7 +528,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
   private boolean isBatchActive() {
     return state == State.ACTIVE || state == State.OVERFLOW ||
-           state == State.FULL_BATCH ;
+           state == State.FULL_BATCH;
   }
 
   /**
@@ -530,6 +562,25 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
   @Override
   public int targetVectorSize() { return options.vectorSizeLimit; }
+
+  @Override
+  public int skipRows(int requestedCount) {
+
+    // Can only skip rows when a batch is active.
+
+    if (state != State.ACTIVE) {
+      throw new IllegalStateException("No batch is active.");
+    }
+
+    // Skip as many rows as the vector limit allows.
+
+    return writerIndex.skipRows(requestedCount);
+  }
+
+  @Override
+  public boolean isProjectionEmpty() {
+    return ! rootState.hasProjections();
+  }
 
   protected void overflowed() {
     logger.trace("Vector overflow");
@@ -633,7 +684,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
     // Build the output container
 
-    VectorContainer container = outputContainer();
+    if (containerBuilder == null) {
+      containerBuilder = new VectorContainerBuilder(this);
+    }
+    containerBuilder.update(harvestSchemaVersion);
+    VectorContainer container = containerBuilder.container();
     container.setRecordCount(rowCount);
 
     // Finalize: update counts, set state.
@@ -657,17 +712,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     rootState.harvestWithLookAhead();
     state = State.LOOK_AHEAD;
     return pendingRowCount;
-  }
-
-  @Override
-  public VectorContainer outputContainer() {
-    // Build the output container.
-
-    if (containerBuilder == null) {
-      containerBuilder = new VectorContainerBuilder(this);
-    }
-    containerBuilder.update(harvestSchemaVersion);
-    return containerBuilder.container();
   }
 
   @Override

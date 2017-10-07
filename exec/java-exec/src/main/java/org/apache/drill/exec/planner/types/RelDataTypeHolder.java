@@ -90,8 +90,8 @@ public class RelDataTypeHolder {
     return (this == obj);
   }
 
-  private List<RelDataTypeField> getFieldList() {
-    return getFieldList(this.typeFactory);
-  }
+//  private List<RelDataTypeField> getFieldList() {
+//    return getFieldList(this.typeFactory);
+//  }
 
 }

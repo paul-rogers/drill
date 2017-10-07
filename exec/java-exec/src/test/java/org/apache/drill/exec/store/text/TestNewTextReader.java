@@ -61,7 +61,7 @@ public class TestNewTextReader extends BaseTestQuery {
       test("select max(columns[1]) as %s from cp.`textinput/input1.csv` where %s is not null", COL_NAME, COL_NAME);
       fail("Query should have failed");
     } catch(UserRemoteException ex) {
-      assertEquals(ErrorType.DATA_READ, ex.getErrorType());
+      assertEquals(ErrorType.VALIDATION, ex.getErrorType());
       assertTrue("Error message should contain " + COL_NAME, ex.getMessage().contains(COL_NAME));
     }
   }

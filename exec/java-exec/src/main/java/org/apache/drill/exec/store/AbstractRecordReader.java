@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -51,10 +51,11 @@ public abstract class AbstractRecordReader implements RecordReader {
 
   /**
    *
-   * @param projected : The column list to be returned from this RecordReader.
-   *                  1) empty column list: this is for skipAll query. It's up to each storage-plugin to
-   *                  choose different policy of handling skipAll query. By default, it will use * column.
-   *                  2) NULL : is NOT allowed. It requires the planner's rule, or GroupScan or ScanBatchCreator to handle NULL.
+   * @param projected : The column list to be returned from this RecordReader.<ol>
+   *                  <li>empty column list: this is for skipAll query. It's up to each storage-plugin to
+   *                  choose different policy of handling skipAll query. By default, it will use * column.</li>
+   *                  <li>NULL : is NOT allowed. It requires the planner's rule, or GroupScan or
+   *                  ScanBatchCreator to handle NULL.</li></ol>
    */
   protected final void setColumns(Collection<SchemaPath> projected) {
     Preconditions.checkNotNull(projected, Utilities.COL_NULL_ERROR);

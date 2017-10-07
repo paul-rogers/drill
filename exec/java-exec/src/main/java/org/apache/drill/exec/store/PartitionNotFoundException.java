@@ -1,4 +1,4 @@
-/*******************************************************************************
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,6 +17,7 @@
  ******************************************************************************/
 package org.apache.drill.exec.store;
 
+@SuppressWarnings("serial")
 public class PartitionNotFoundException extends Exception {
 
   public PartitionNotFoundException() { }

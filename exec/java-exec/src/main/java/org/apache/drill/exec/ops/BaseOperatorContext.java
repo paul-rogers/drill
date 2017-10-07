@@ -153,9 +153,7 @@ public abstract class BaseOperatorContext implements OperatorContext {
       ex = e;
     }
     try {
-      if (allocator != null) {
-        allocator.close();
-      }
+      allocator.close();
     } catch (RuntimeException e) {
       ex = ex == null ? e : ex;
     }
@@ -177,7 +175,7 @@ public abstract class BaseOperatorContext implements OperatorContext {
   @Override
   public DrillFileSystem newFileSystem(Configuration conf) throws IOException {
     Preconditions.checkState(fs == null, "Tried to create a second FileSystem. Can only be called once per OperatorContext");
-    fs = new DrillFileSystem(conf, getStatsWriter());
+    fs = new DrillFileSystem(conf, getStats());
     return fs;
   }
 
