@@ -29,6 +29,47 @@ import org.apache.drill.exec.physical.config.Trace;
 
 import com.google.common.collect.Lists;
 
+public class TraceInjector extends
+    AbstractPhysicalVisitor<PhysicalOperator, FragmentContext, ExecutionSetupException> {
+
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory
+      .getLogger(TraceInjector.class);
+
+  static int traceTagCount = 0;
+  RootExec root = null;
+
+  public static PhysicalOperator getExec(FragmentContext context,
+      FragmentRoot root) throws ExecutionSetupException {
+    TraceInjector tI = new TraceInjector();
+    PhysicalOperator newOp = root.accept(tI, context);
+
+    return newOp;
+  }
+
+  /**
+   * Traverse the physical plan and inject the trace operator after every
+   * operator.
+   *
+   * @param op
+   *          Physical operator under which the trace operator will be injected
+   * @param context
+   *          Fragment context
+   * @return same physical operator as passed in, but its child will be a trace
+   *         operator whose child will be the original child of this operator
+   * @throws ExecutionSetupException
+   */
+  @Override
+  public PhysicalOperator visitOp(PhysicalOperator op, FragmentContext context)
+      throws ExecutionSetupException {
+
+    List<PhysicalOperator> newChildren = Lists.newArrayList();
+    List<PhysicalOperator> list = null;
+    PhysicalOperator newOp = op;
+
+    /* Get the list of child operators */
+    for (PhysicalOperator child : op) {
+      newChildren.add(child.accept(this, context));
+    }
 
 public class TraceInjector extends AbstractPhysicalVisitor<PhysicalOperator, FragmentContext, ExecutionSetupException> {
 
@@ -77,6 +118,12 @@ public class TraceInjector extends AbstractPhysicalVisitor<PhysicalOperator, Fra
       Trace traceOp = new Trace(newChildren.get(i), traceTag);
       list.add(traceOp);
     }
+
+    /* Inject trace operator */
+    if (list.size() > 0) {
+      newOp = op.getNewWithChildren(list);
+    }
+    newOp.setOperatorId(op.getOperatorId());
 
     return newOp;
   }

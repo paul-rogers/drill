@@ -37,7 +37,8 @@ import java.util.zip.GZIPOutputStream;
 
 import org.apache.drill.test.BaseTestQuery;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.util.DrillFileUtils;
+import org.apache.drill.common.util.FileUtils;
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.record.RecordBatchLoader;
@@ -54,6 +55,7 @@ import com.google.common.base.Charsets;
 import com.google.common.io.Files;
 
 public class TestJsonReader extends BaseTestQuery {
+
   private static final boolean VERBOSE_DEBUG = false;
 
   @BeforeClass
@@ -266,12 +268,15 @@ public class TestJsonReader extends BaseTestQuery {
 
   @Test
   public void testAllTextMode() throws Exception {
-    test("alter system set `store.json.all_text_mode` = true");
-    String[] queries = {"select * from cp.`store/json/schema_change_int_to_string.json`"};
-    long[] rowCounts = {3};
-    String filename = "/store/json/schema_change_int_to_string.json";
-    runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
-    test("alter system set `store.json.all_text_mode` = false");
+    alterSession(ExecConstants.JSON_ALL_TEXT_MODE, true);
+    try {
+      String[] queries = {"select * from cp.`/store/json/schema_change_int_to_string.json`"};
+      long[] rowCounts = {3};
+      String filename = "/store/json/schema_change_int_to_string.json";
+      runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
+    } finally {
+      resetSessionOption(ExecConstants.JSON_ALL_TEXT_MODE);
+    }
   }
 
   @Test
@@ -292,30 +297,42 @@ public class TestJsonReader extends BaseTestQuery {
 
   @Test
   public void testNullWhereListExpected() throws Exception {
-    test("alter system set `store.json.all_text_mode` = true");
-    String[] queries = {"select * from cp.`store/json/null_where_list_expected.json`"};
-    long[] rowCounts = {3};
-    String filename = "/store/json/null_where_list_expected.json";
-    runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
-    test("alter system set `store.json.all_text_mode` = false");
+    alterSession(ExecConstants.JSON_ALL_TEXT_MODE, true);
+    try {
+      String[] queries = {"select * from cp.`/store/json/null_where_list_expected.json`"};
+      long[] rowCounts = {3};
+      String filename = "/store/json/null_where_list_expected.json";
+      runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
+    } finally {
+      resetSessionOption(ExecConstants.JSON_ALL_TEXT_MODE);
+    }
   }
 
   @Test
   public void testNullWhereMapExpected() throws Exception {
-    test("alter system set `store.json.all_text_mode` = true");
-    String[] queries = {"select * from cp.`store/json/null_where_map_expected.json`"};
-    long[] rowCounts = {3};
-    String filename = "/store/json/null_where_map_expected.json";
-    runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
-    test("alter system set `store.json.all_text_mode` = false");
+    alterSession(ExecConstants.JSON_ALL_TEXT_MODE, true);
+    try {
+      String[] queries = {"select * from cp.`/store/json/null_where_map_expected.json`"};
+      long[] rowCounts = {3};
+      String filename = "/store/json/null_where_map_expected.json";
+      runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
+    } finally {
+      resetSessionOption(ExecConstants.JSON_ALL_TEXT_MODE);
+    }
   }
 
   @Test
   public void ensureProjectionPushdown() throws Exception {
-    // Tests to make sure that we are correctly eliminating schema changing columns.  If completes, means that the projection pushdown was successful.
-    test("alter system set `store.json.all_text_mode` = false; "
-        + "select  t.field_1, t.field_3.inner_1, t.field_3.inner_2, t.field_4.inner_1 "
-        + "from cp.`store/json/schema_change_int_to_string.json` t");
+    // Tests to make sure that we are correctly eliminating schema changing columns.
+    // If completes, means that the projection pushdown was successful.
+
+    alterSession(ExecConstants.JSON_ALL_TEXT_MODE, false);
+    try {
+      test("select t.field_1, t.field_3.inner_1, t.field_3.inner_2, t.field_4.inner_1 "
+         + "from cp.`store/json/schema_change_int_to_string.json` t");
+    } finally {
+      resetSessionOption(ExecConstants.JSON_ALL_TEXT_MODE);
+    }
   }
 
   // The project pushdown rule is correctly adding the projected columns to the scan, however it is not removing
@@ -323,27 +340,31 @@ public class TestJsonReader extends BaseTestQuery {
   // ensure that the project is filtering out the correct data in the scan alone
   @Test
   public void testProjectPushdown() throws Exception {
-    String[] queries = {Files.toString(DrillFileUtils.getResourceAsFile("/store/json/project_pushdown_json_physical_plan.json"), Charsets.UTF_8)};
-    long[] rowCounts = {3};
-    String filename = "/store/json/schema_change_int_to_string.json";
-    test("alter system set `store.json.all_text_mode` = false");
-    runTestsOnFile(filename, UserBitShared.QueryType.PHYSICAL, queries, rowCounts);
+    alterSession(ExecConstants.JSON_ALL_TEXT_MODE, false);
+    try {
+      String[] queries = {Files.toString(FileUtils.getResourceAsFile("/store/json/project_pushdown_json_physical_plan.json"), Charsets.UTF_8)};
+      long[] rowCounts = {3};
+      String filename = "/store/json/schema_change_int_to_string.json";
+     runTestsOnFile(filename, UserBitShared.QueryType.PHYSICAL, queries, rowCounts);
 
-    List<QueryDataBatch> results = testPhysicalWithResults(queries[0]);
-    assertEquals(1, results.size());
-    // "`field_1`", "`field_3`.`inner_1`", "`field_3`.`inner_2`", "`field_4`.`inner_1`"
+      List<QueryDataBatch> results = testPhysicalWithResults(queries[0]);
+      assertEquals(1, results.size());
+      // "`field_1`", "`field_3`.`inner_1`", "`field_3`.`inner_2`", "`field_4`.`inner_1`"
 
-    RecordBatchLoader batchLoader = new RecordBatchLoader(getAllocator());
-    QueryDataBatch batch = results.get(0);
-    assertTrue(batchLoader.load(batch.getHeader().getDef(), batch.getData()));
+      RecordBatchLoader batchLoader = new RecordBatchLoader(getAllocator());
+      QueryDataBatch batch = results.get(0);
+      assertTrue(batchLoader.load(batch.getHeader().getDef(), batch.getData()));
 
-    // this used to be five.  It is now three.  This is because the plan doesn't have a project.
-    // Scanners are not responsible for projecting non-existent columns (as long as they project one column)
-    assertEquals(3, batchLoader.getSchema().getFieldCount());
-    testExistentColumns(batchLoader);
+      // this used to be five.  It is now three.  This is because the plan doesn't have a project.
+      // Scanners are not responsible for projecting non-existent columns (as long as they project one column)
+      assertEquals(3, batchLoader.getSchema().getFieldCount());
+      testExistentColumns(batchLoader);
 
-    batch.release();
-    batchLoader.clear();
+      batch.release();
+      batchLoader.clear();
+    } finally {
+      resetSessionOption(ExecConstants.JSON_ALL_TEXT_MODE);
+    }
   }
 
   @Test
@@ -482,36 +503,38 @@ public class TestJsonReader extends BaseTestQuery {
 
   @Test
   public void testSumWithTypeCase() throws Exception {
+    alterSession(ExecConstants.ENABLE_UNION_TYPE_KEY, true);
     try {
-      testBuilder()
-              .sqlQuery("select sum(cast(f1 as bigint)) sum_f1 from " +
-                "(select case when is_bigint(field1) then field1 " +
-                "when is_list(field1) then field1[0] when is_map(field1) then t.field1.inner1 end f1 " +
-                "from cp.`jsoninput/union/a.json` t)")
+      String query = "select sum(cast(f1 as bigint)) sum_f1 from " +
+              "(select case when is_bigint(field1) then field1 " +
+              "when is_list(field1) then field1[0] when is_map(field1) then t.field1.inner1 end f1 " +
+              "from cp.`jsoninput/union/a.json` t)";
+       testBuilder()
+              .sqlQuery(query)
               .ordered()
-              .optionSettingQueriesForTestQuery("alter session set `exec.enable_union_type` = true")
               .baselineColumns("sum_f1")
               .baselineValues(9L)
               .go();
     } finally {
-      testNoResult("alter session set `exec.enable_union_type` = false");
+      resetSessionOption(ExecConstants.ENABLE_UNION_TYPE_KEY);
     }
   }
 
   @Test
   public void testUnionExpressionMaterialization() throws Exception {
+    alterSession(ExecConstants.ENABLE_UNION_TYPE_KEY, true);
     try {
+      String query = "select a + b c from cp.`jsoninput/union/b.json`";
       testBuilder()
               .sqlQuery("select a + b c from cp.`jsoninput/union/b.json`")
               .ordered()
-              .optionSettingQueriesForTestQuery("alter session set `exec.enable_union_type` = true")
               .baselineColumns("c")
               .baselineValues(3L)
               .baselineValues(7.0)
               .baselineValues(11.0)
               .go();
     } finally {
-      testNoResult("alter session set `exec.enable_union_type` = false");
+      resetSessionOption(ExecConstants.ENABLE_UNION_TYPE_KEY);
     }
   }
 

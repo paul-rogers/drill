@@ -29,6 +29,7 @@ import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.accessor.VariantWriter;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
 /**
@@ -136,37 +137,6 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     }
   }
 
-  /**
-   * Tracks the write state of the tuple to allow applying the correct
-   * operations to newly-added columns to synchronize them with the rest
-   * of the tuple.
-   */
-
-  public enum State {
-    /**
-     * No write is in progress. Nothing need be done to newly-added
-     * writers.
-     */
-    IDLE,
-
-    /**
-     * <tt>startWrite()</tt> has been called to start a write operation
-     * (start a batch), but <tt>startValue()</tt> has not yet been called
-     * to start a row (or value within an array). <tt>startWrite()</tt> must
-     * be called on newly added columns.
-     */
-
-    IN_WRITE,
-
-    /**
-     * Both <tt>startWrite()</tt> and <tt>startValue()</tt> has been called on
-     * the tuple to prepare for writing values, and both must be called on
-     * newly-added vectors.
-     */
-
-    IN_ROW
-  }
-
   protected final TupleMetadata schema;
   protected final List<AbstractObjectWriter> writers;
   protected ColumnWriterIndex vectorIndex;
@@ -220,6 +190,11 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
       }
     }
     return colIndex;
+  }
+
+  @Override
+  public boolean isProjected(String columnName) {
+    return listener == null ? true : listener.isProjected(columnName);
   }
 
   @Override
@@ -411,6 +386,16 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   @Override
   public ArrayWriter array(String colName) {
     return column(colName).array();
+  }
+
+  @Override
+  public VariantWriter variant(int colIndex) {
+    return column(colIndex).variant();
+  }
+
+  @Override
+  public VariantWriter variant(String colName) {
+    return column(colName).variant();
   }
 
   @Override

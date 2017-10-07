@@ -63,7 +63,7 @@ public abstract class SingleVectorState implements VectorState {
       } else {
         ((FixedWidthVector) vector).allocateNew(cardinality);
       }
-      return vector.getBufferSize();
+      return vector.getAllocatedSize();
     }
 
     @Override
@@ -261,6 +261,9 @@ public abstract class SingleVectorState implements VectorState {
       backupVector.clear();
     }
   }
+
+  @Override
+  public boolean isProjected() { return true; }
 
   @Override
   public void dump(HierarchicalFormatter format) {

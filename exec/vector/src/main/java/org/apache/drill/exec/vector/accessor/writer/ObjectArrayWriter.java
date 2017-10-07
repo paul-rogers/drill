@@ -18,7 +18,6 @@
 package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.vector.UInt4Vector;
-import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArrayWriter;
 
 /**
@@ -39,7 +38,7 @@ import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArra
  * with a map, then we have a single offset vector pointing into a group of
  * arrays. Consider the simple case of a map of three scalars. Here, we have
  * a hybrid of the states discussed for the {@link BaseScalarWriter} and those
- * discussed for {@link OffsetVectorWriter}. That is, the offset vector
+ * discussed for {@link OffsetVectorWriterImpl}. That is, the offset vector
  * points into one map element. The individual elements can we Behind,
  * Written or Unwritten, depending on the specific actions taken by the
  * client.
@@ -107,12 +106,7 @@ public class ObjectArrayWriter extends BaseArrayWriter {
 
   protected ObjectArrayWriter(UInt4Vector offsetVector, AbstractObjectWriter elementWriter) {
     super(offsetVector, elementWriter);
-  }
-
-  @Override
-  public void bindIndex(ColumnWriterIndex index) {
     elementIndex = new ArrayElementWriterIndex();
-    super.bindIndex(index);
   }
 
   @Override

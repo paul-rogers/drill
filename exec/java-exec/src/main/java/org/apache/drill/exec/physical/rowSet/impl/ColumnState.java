@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.rowSet.impl;
 import java.util.ArrayList;
 
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapState;
 import org.apache.drill.exec.record.ColumnMetadata;
@@ -29,6 +30,7 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
+import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriterImpl;
 import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
 
 /**
@@ -52,10 +54,12 @@ public abstract class ColumnState {
     protected final MapState mapState;
 
     public BaseMapColumnState(ResultSetLoaderImpl resultSetLoader,
-         AbstractObjectWriter writer, VectorState vectorState,
+         ResultVectorCache vectorCache,
+         AbstractObjectWriter writer,
+         VectorState vectorState,
          ProjectionSet projectionSet) {
       super(resultSetLoader, writer, vectorState);
-      mapState = new MapState(resultSetLoader, this, projectionSet);
+      mapState = new MapState(resultSetLoader, vectorCache, this, projectionSet);
     }
 
     @Override
@@ -65,15 +69,20 @@ public abstract class ColumnState {
     }
 
     @Override
-    public void startBatch() {
-      super.startBatch();
-      mapState.startBatch();
+    public void startBatch(boolean schemaOnly) {
+      super.startBatch(schemaOnly);
+      mapState.startBatch(schemaOnly);
     }
 
     @Override
     public void harvestWithLookAhead() {
       super.harvestWithLookAhead();
       mapState.harvestWithLookAhead();
+    }
+
+    @Override
+    public boolean isProjected() {
+      return mapState.hasProjections();
     }
 
     @Override
@@ -88,9 +97,10 @@ public abstract class ColumnState {
   public static class MapColumnState extends BaseMapColumnState {
 
     public MapColumnState(ResultSetLoaderImpl resultSetLoader,
+        ResultVectorCache vectorCache,
         ColumnMetadata columnSchema,
         ProjectionSet projectionSet) {
-      super(resultSetLoader,
+      super(resultSetLoader, vectorCache,
           ColumnWriterFactory.buildMap(columnSchema, null,
               new ArrayList<AbstractObjectWriter>()),
           new NullVectorState(),
@@ -107,24 +117,31 @@ public abstract class ColumnState {
   public static class MapArrayColumnState extends BaseMapColumnState {
 
     public MapArrayColumnState(ResultSetLoaderImpl resultSetLoader,
+        ResultVectorCache vectorCache,
         AbstractObjectWriter writer,
         VectorState vectorState,
         ProjectionSet projectionSet) {
-      super(resultSetLoader, writer,
+      super(resultSetLoader, vectorCache, writer,
           vectorState,
           projectionSet);
     }
 
     @SuppressWarnings("resource")
     public static MapArrayColumnState build(ResultSetLoaderImpl resultSetLoader,
+        ResultVectorCache vectorCache,
         ColumnMetadata columnSchema,
         ProjectionSet projectionSet) {
 
       // Create the map's offset vector.
 
-      UInt4Vector offsetVector = new UInt4Vector(
+      UInt4Vector offsetVector;
+      if (columnSchema.isProjected()) {
+        offsetVector = new UInt4Vector(
           BaseRepeatedValueVector.OFFSETS_FIELD,
           resultSetLoader.allocator());
+      } else {
+        offsetVector = null;
+      }
 
       // Create the writer using the offset vector
 
@@ -134,14 +151,20 @@ public abstract class ColumnState {
 
       // Wrap the offset vector in a vector state
 
-      VectorState vectorState = new OffsetVectorState(
-            ((AbstractArrayWriter) writer.array()).offsetWriter(),
-            offsetVector,
-            (AbstractObjectWriter) writer.array().entry());
+       VectorState vectorState;
+       if (columnSchema.isProjected()) {
+         vectorState= new OffsetVectorState(
+          ((OffsetVectorWriterImpl)
+            ((AbstractArrayWriter) writer.array()).offsetWriter()),
+          offsetVector,
+          (AbstractObjectWriter) writer.array().entry());
+       } else {
+         vectorState = new NullVectorState();
+       }
 
       // Assemble it all into the column state.
 
-      return new MapArrayColumnState(resultSetLoader,
+      return new MapArrayColumnState(resultSetLoader, vectorCache,
                   writer, vectorState, projectionSet);
     }
 
@@ -239,10 +262,12 @@ public abstract class ColumnState {
    * active vector so we start writing where we left off.
    */
 
-  public void startBatch() {
+  public void startBatch(boolean schemaOnly) {
     switch (state) {
     case NORMAL:
-      resultSetLoader.tallyAllocations(vectorState.allocate(outerCardinality));
+      if (! schemaOnly) {
+        resultSetLoader.tallyAllocations(vectorState.allocate(outerCardinality));
+      }
       break;
 
     case NEW_LOOK_AHEAD:
@@ -334,6 +359,10 @@ public abstract class ColumnState {
     default:
       throw new IllegalStateException("Unexpected state: " + state);
     }
+  }
+
+  public boolean isProjected() {
+    return vectorState.isProjected();
   }
 
   public void close() {

@@ -59,10 +59,13 @@ public interface TupleWriter {
    * throws an exception.
    */
 
-  public interface TupleWriterListener {
+  interface TupleWriterListener {
+
     ObjectWriter addColumn(TupleWriter tuple, ColumnMetadata column);
 
     ObjectWriter addColumn(TupleWriter tuple, MaterializedField field);
+
+    boolean isProjected(String columnName);
   }
 
   /**
@@ -75,13 +78,27 @@ public interface TupleWriter {
    */
 
   @SuppressWarnings("serial")
-  public static class UndefinedColumnException extends RuntimeException {
+  class UndefinedColumnException extends RuntimeException {
     public UndefinedColumnException(String colName) {
       super("Undefined column: " + colName);
     }
   }
 
   void bindListener(TupleWriterListener listener);
+
+  /**
+   * Allows a client to "sniff" the projection set to determine if a
+   * field is projected. Some clients can omit steps if they know that
+   * a field is not needed. Others will simply create the column, allowing
+   * the implementation to create a dummy writer if the column is not
+   * projected.
+   *
+   * @param columnName name of an existing or new column
+   * @return <tt>true</tt> if the column is (or would be) projected,
+   * <tt>false</tt> if the column is not (or would not be) projected
+   */
+
+  boolean isProjected(String columnName);
 
   /**
    * Add a column to the tuple (row or map) that backs this writer. Support for
@@ -123,6 +140,10 @@ public interface TupleWriter {
   ArrayWriter array(int colIndex);
 
   ArrayWriter array(String colName);
+
+  VariantWriter variant(int colIndex);
+
+  VariantWriter variant(String colName);
 
   ObjectType type(int colIndex);
 

@@ -32,55 +32,10 @@ import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 public class ObjectArrayReader extends AbstractArrayReader {
 
   /**
-   * Index into the vector of elements for a repeated vector.
-   * Keeps track of the current offset in terms of value positions.
-   * This is a derived index. The base index points to an entry
-   * in the offset vector for the array. This inner index picks
-   * off elements within the range of offsets for that one entry.
-   * For example:<pre><code>
-   * [ ... 100 105 ...]
-   * </code></pre>In the above the value 100 might be at outer
-   * offset 5. The inner array will pick off the five values
-   * 100...104.
-   * <p>
-   * Because arrays allow random access on read, the inner offset
-   * is reset on each access to the array.
-   */
-
-  public static class ObjectElementReaderIndex extends BaseElementIndex implements ColumnReaderIndex {
-
-    private int posn;
-
-    public ObjectElementReaderIndex(ColumnReaderIndex base) {
-      super(base);
-    }
-
-    @Override
-    public int vectorIndex() {
-      return startOffset + posn;
-    }
-
-    public void set(int index) {
-      if (index < 0 ||  length <= index) {
-        throw new IndexOutOfBoundsException("Index = " + index + ", length = " + length);
-      }
-      posn = index;
-    }
-
-    public int posn() { return posn; }
-  }
-
-  /**
    * Reader for each element.
    */
 
   private final AbstractObjectReader elementReader;
-
-  /**
-   * Index used to access elements.
-   */
-
-  private ObjectElementReaderIndex objElementIndex;
 
   private ObjectArrayReader(RepeatedValueVector vector, AbstractObjectReader elementReader) {
     super(vector);
@@ -98,6 +53,12 @@ public class ObjectArrayReader extends AbstractArrayReader {
         new ObjectArrayReader(vector, elementReader));
   }
 
+  public static ArrayObjectReader buildTable(RepeatedValueVector vector,
+      AbstractObjectReader elementReader) {
+    return new ArrayObjectReader(
+            new ObjectArrayReader(vector, elementReader));
+  }
+
   public static AbstractObjectReader build(VectorAccessor vectorAccessor,
                                            AbstractObjectReader elementReader) {
     return new ArrayObjectReader(
@@ -107,9 +68,8 @@ public class ObjectArrayReader extends AbstractArrayReader {
   @Override
   public void bindIndex(ColumnReaderIndex index) {
     super.bindIndex(index);
-    objElementIndex = new ObjectElementReaderIndex(baseIndex);
-    elementIndex = objElementIndex;
-    elementReader.bindIndex(objElementIndex);
+    elementIndex = new ElementReaderIndex(baseIndex);
+    elementReader.bindIndex(elementIndex);
   }
 
   @Override
@@ -119,8 +79,17 @@ public class ObjectArrayReader extends AbstractArrayReader {
 
   @Override
   public void setPosn(int index) {
-    objElementIndex.set(index);
+    elementIndex.set(index);
     elementReader.reposition();
+  }
+
+  @Override
+  public boolean next() {
+    if (! elementIndex.next()) {
+      return false;
+    }
+    elementReader.reposition();
+    return true;
   }
 
   @Override
@@ -137,10 +106,14 @@ public class ObjectArrayReader extends AbstractArrayReader {
   @Override
   public Object getObject() {
     List<Object> array = new ArrayList<>();
-    for (int i = 0; i < objElementIndex.size(); i++) {
+    for (int i = 0; i < elementIndex.size(); i++) {
       array.add(entry(i).getObject());
     }
     return array;
+  }
+
+  public ColumnReaderIndex elementIndex() {
+    return elementIndex;
   }
 
   @Override

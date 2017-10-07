@@ -27,14 +27,22 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
  */
 
 public interface ColumnMetadata {
+
   enum StructureType {
-    PRIMITIVE, LIST, TUPLE
+    PRIMITIVE, LIST, TUPLE, VARIANT
   }
 
-  public static final int DEFAULT_ARRAY_SIZE = 10;
+  interface VariantMetadata {
+    boolean hasType(MinorType type);
+    ColumnMetadata member(MinorType type);
+    void replaceSchema(MaterializedField newSchema);
+  }
 
-  ColumnMetadata.StructureType structureType();
+  int DEFAULT_ARRAY_SIZE = 10;
+
+  StructureType structureType();
   TupleMetadata mapSchema();
+  VariantMetadata variantSchema();
   MaterializedField schema();
   String name();
   MajorType majorType();
@@ -45,6 +53,7 @@ public interface ColumnMetadata {
   boolean isVariableWidth();
   boolean isMap();
   boolean isList();
+  boolean isVariant();
 
   /**
    * Report whether one column is equivalent to another. Columns are equivalent

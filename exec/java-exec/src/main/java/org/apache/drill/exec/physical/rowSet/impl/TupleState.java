@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.rowSet.impl;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.BaseMapColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapArrayColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapColumnState;
@@ -28,6 +29,7 @@ import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.TupleSchema.AbstractColumnMetadata;
+import org.apache.drill.exec.record.TupleSchema.PrimitiveColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
@@ -69,8 +71,8 @@ public abstract class TupleState implements TupleWriterListener {
 
     private final RowSetLoaderImpl writer;
 
-    public RowState(ResultSetLoaderImpl rsLoader) {
-      super(rsLoader, rsLoader.projectionSet);
+    public RowState(ResultSetLoaderImpl rsLoader, ResultVectorCache vectorCache) {
+      super(rsLoader, vectorCache, rsLoader.projectionSet);
       writer = new RowSetLoaderImpl(rsLoader, schema);
       writer.bindListener(this);
     }
@@ -82,6 +84,8 @@ public abstract class TupleState implements TupleWriterListener {
 
     @Override
     public int innerCardinality() { return resultSetLoader.targetRowCount();}
+
+    public ResultVectorCache vectorCache() { return vectorCache; }
   }
 
   /**
@@ -98,9 +102,10 @@ public abstract class TupleState implements TupleWriterListener {
     protected int outerCardinality;
 
     public MapState(ResultSetLoaderImpl rsLoader,
+        ResultVectorCache vectorCache,
         BaseMapColumnState mapColumnState,
         ProjectionSet projectionSet) {
-      super(rsLoader, projectionSet);
+      super(rsLoader, vectorCache, projectionSet);
       this.mapColumnState = mapColumnState;
       mapColumnState.writer().bindListener(this);
     }
@@ -157,9 +162,17 @@ public abstract class TupleState implements TupleWriterListener {
   protected final TupleSchema schema = new TupleSchema();
   protected final ProjectionSet projectionSet;
 
-  protected TupleState(ResultSetLoaderImpl rsLoader, ProjectionSet projectionSet) {
+  /**
+   * Vector cache for this loader.
+   * @see {@link OptionBuilder#setVectorCache()}.
+   */
+
+  protected final ResultVectorCache vectorCache;
+
+  protected TupleState(ResultSetLoaderImpl rsLoader, ResultVectorCache vectorCache, ProjectionSet projectionSet) {
     this.resultSetLoader = rsLoader;
     this.projectionSet = projectionSet;
+    this.vectorCache = vectorCache;
   }
 
   public abstract int innerCardinality();
@@ -183,6 +196,11 @@ public abstract class TupleState implements TupleWriterListener {
   @Override
   public ObjectWriter addColumn(TupleWriter tupleWriter, MaterializedField column) {
     return addColumn(tupleWriter, TupleSchema.fromField(column));
+  }
+
+  @Override
+  public boolean isProjected(String columnName) {
+    return projectionSet.isProjected(columnName);
   }
 
   @Override
@@ -212,7 +230,7 @@ public abstract class TupleState implements TupleWriterListener {
     // Indicate projection in the metadata.
 
     ((AbstractColumnMetadata) columnSchema).setProjected(
-        projectionSet.isProjected(columnSchema.name()));
+        isProjected(columnSchema.name()));
 
     // Build the column
 
@@ -224,7 +242,9 @@ public abstract class TupleState implements TupleWriterListener {
     }
     columns.add(colState);
     colState.updateCardinality(innerCardinality());
-    colState.allocateVectors();
+    if (resultSetLoader.writeable()) {
+      colState.allocateVectors();
+    }
     return colState.writer();
   }
 
@@ -245,7 +265,14 @@ public abstract class TupleState implements TupleWriterListener {
 
       // Create the vector for the column.
 
-      vector = resultSetLoader.vectorCache().addOrGet(columnSchema.schema());
+      vector = vectorCache.addOrGet(columnSchema.schema());
+
+      // In permissive mode, the mode or precision of the vector may differ
+      // from that requested. Update the schema to match.
+
+      if (vectorCache.isPermissive() && ! vector.getField().isEquivalent(columnSchema.schema())) {
+        columnSchema = ((PrimitiveColumnMetadata) columnSchema).mergeWith(vector.getField());
+      }
     } else {
 
       // Column is not projected. No materialized backing for the column.
@@ -284,13 +311,16 @@ public abstract class TupleState implements TupleWriterListener {
 
     // Create the writer. Will be returned to the tuple writer.
 
-    ProjectionSet childProjection = projectionSet.mapProjection(columnSchema.name());
+    String colName = columnSchema.name();
+    ProjectionSet childProjection = projectionSet.mapProjection(colName);
     if (columnSchema.isArray()) {
       return MapArrayColumnState.build(resultSetLoader,
+          vectorCache.childCache(colName),
           columnSchema,
           childProjection);
     } else {
       return new MapColumnState(resultSetLoader,
+          vectorCache.childCache(colName),
           columnSchema,
           childProjection);
     }
@@ -356,10 +386,19 @@ public abstract class TupleState implements TupleWriterListener {
    * write vectors and updating the writers.
    */
 
-  public void startBatch() {
+  public void startBatch(boolean schemaOnly) {
     for (ColumnState colState : columns) {
-      colState.startBatch();
+      colState.startBatch(schemaOnly);
     }
+  }
+
+  public boolean hasProjections() {
+    for (ColumnState colState : columns) {
+      if (colState.isProjected()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

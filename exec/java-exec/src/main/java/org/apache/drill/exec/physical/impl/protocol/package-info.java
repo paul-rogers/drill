@@ -15,10 +15,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor.reader;
+/**
+ * Defines a revised implementation of the Drill RecordBatch protocol. This
+ * version separates concerns into specific classes, and creates as single
+ * "shim" class to implement the iterator protocol, deferring to specific
+ * classes as needed.
+ * <p>
+ * This version is an eventual successor to the original implementation which
+ * used the "kitchen sink" pattern to combine all functionality into s single,
+ * large record batch implementation.
+ */
 
-public interface ElementReaderIndex {
-  int batchIndex();
-  int size();
-  int vectorIndex(int posn);
-}
+package org.apache.drill.exec.physical.impl.protocol;

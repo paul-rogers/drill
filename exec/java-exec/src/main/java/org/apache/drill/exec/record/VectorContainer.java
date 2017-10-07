@@ -416,4 +416,30 @@ public class VectorContainer implements VectorAccessible {
     merged.schemaChanged = false;
     return merged;
   }
+
+  /**
+   * Exchange buffers between two identical vector containers.
+   * The schemas must be identical in both column schemas and
+   * order. That is, after this call, data is exchanged between
+   * the containers. Requires that both containers be owned
+   * by the same allocator.
+   *
+   * @param other the target container with buffers to swap
+   */
+
+  public void exchange(VectorContainer other) {
+    assert schema.isEquivalent(other.schema);
+    assert wrappers.size() == other.wrappers.size();
+    assert allocator != null  &&  allocator == other.allocator;
+    for (int i = 0; i < wrappers.size(); i++) {
+      wrappers.get(i).getValueVector().exchange(
+          other.wrappers.get(i).getValueVector());
+    }
+    int temp = recordCount;
+    recordCount = other.recordCount;
+    other.recordCount = temp;
+    boolean temp2 = schemaChanged;
+    schemaChanged = other.schemaChanged;
+    other.schemaChanged= temp2;
+  }
 }

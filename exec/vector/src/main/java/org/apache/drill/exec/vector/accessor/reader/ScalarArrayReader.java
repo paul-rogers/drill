@@ -57,9 +57,8 @@ public class ScalarArrayReader extends AbstractArrayReader {
   @Override
   public void bindIndex(ColumnReaderIndex index) {
     super.bindIndex(index);
-    FixedWidthElementReaderIndex fwElementIndex = new FixedWidthElementReaderIndex(baseIndex);
-    elementIndex = fwElementIndex;
-    elementReader.bindIndex(fwElementIndex);
+    elementIndex = new ElementReaderIndex(baseIndex);
+    elementReader.bindIndex(elementIndex);
   }
 
   @Override
@@ -75,6 +74,11 @@ public class ScalarArrayReader extends AbstractArrayReader {
   @Override
   public void setPosn(int index) {
     throw new IllegalStateException("setPosn() not supported for scalar arrays");
+  }
+
+  @Override
+  public boolean next() {
+    throw new IllegalStateException("next() not supported for scalar arrays");
   }
 
   @Override

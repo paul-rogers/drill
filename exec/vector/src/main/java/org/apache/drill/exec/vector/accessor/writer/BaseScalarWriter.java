@@ -226,37 +226,37 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
 
   @Override
   public void setInt(int value) {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("setInt");
   }
 
   @Override
   public void setLong(long value) {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("setLong");
   }
 
   @Override
   public void setDouble(double value) {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("setDouble");
   }
 
   @Override
   public void setString(String value) {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("setString");
   }
 
   @Override
   public void setBytes(byte[] value, int len) {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("setBytes");
   }
 
   @Override
   public void setDecimal(BigDecimal value) {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("setDecimal");
   }
 
   @Override
   public void setPeriod(Period value) {
-    throw new UnsupportedOperationException();
+    throw new UnsupportedOperationException("setPeriod");
   }
 
   @Override

@@ -46,6 +46,7 @@ public abstract class MapWriter extends AbstractTupleWriter {
     @Override public int vectorIndex() { return baseIndex.vectorIndex(); }
     @Override public void nextElement() { }
     @Override public void rollover() { }
+
     @Override public ColumnWriterIndex outerIndex() {
       return baseIndex.outerIndex();
     }
@@ -136,6 +137,9 @@ public abstract class MapWriter extends AbstractTupleWriter {
         List<AbstractObjectWriter> writers) {
       super(schema, writers);
     }
+
+    @Override
+    public boolean isProjected(String columnName) { return false; }
   }
 
   protected static class DummyArrayMapWriter extends MapWriter {
@@ -144,6 +148,9 @@ public abstract class MapWriter extends AbstractTupleWriter {
         List<AbstractObjectWriter> writers) {
       super(schema, writers);
     }
+
+    @Override
+    public boolean isProjected(String columnName) { return false; }
   }
 
   protected final ColumnMetadata mapColumnSchema;

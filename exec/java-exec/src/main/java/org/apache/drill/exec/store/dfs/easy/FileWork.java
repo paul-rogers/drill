@@ -17,9 +17,8 @@
  */
 package org.apache.drill.exec.store.dfs.easy;
 
-
 public interface FileWork {
-  public String getPath();
-  public long getStart();
-  public long getLength();
+  String getPath();
+  long getStart();
+  long getLength();
 }

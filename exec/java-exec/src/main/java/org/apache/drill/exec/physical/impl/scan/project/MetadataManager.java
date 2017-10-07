@@ -15,24 +15,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor.reader;
+package org.apache.drill.exec.physical.impl.scan.project;
 
-import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
-import org.apache.drill.exec.vector.accessor.reader.AbstractArrayReader.BaseElementIndex;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
+import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 
-/**
- * Index into the vector of elements for a repeated vector.
- * Keeps track of the current offset in terms of value positions.
- */
+public interface MetadataManager {
 
-public class FixedWidthElementReaderIndex extends BaseElementIndex implements ElementReaderIndex {
+  void bind(ResultVectorCache vectorCache);
 
-  public FixedWidthElementReaderIndex(ColumnReaderIndex base) {
-    super(base);
-  }
+  ScanProjectionParser projectionParser();
 
-  @Override
-  public int vectorIndex(int posn) {
-    return elementIndex(posn);
-  }
+  SchemaProjectionResolver resolver();
+
+  void define();
+
+  void load(int rowCount);
+
+  void endFile();
+
+  void close();
 }

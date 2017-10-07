@@ -1,3 +1,4 @@
+<#macro copyright>
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -16,9 +17,10 @@
  * limitations under the License.
  */
 
+// This class is generated using Freemarker and the ${.template_name} template.
+</#macro>
 <@pp.dropOutputFile />
 <@pp.changeOutputFile name="/org/apache/drill/exec/vector/accessor/ColumnAccessors.java" />
-<#include "/@includes/license.ftl" />
 <#macro getType drillType label>
     @Override
     public ValueType valueType() {
@@ -126,19 +128,18 @@
   </#list>
   }
 </#macro>
+<@copyright />
 
 package org.apache.drill.exec.vector.accessor;
 
 import java.math.BigDecimal;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.vector.*;
 import org.apache.drill.exec.util.DecimalUtility;
 import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
 import org.apache.drill.exec.vector.accessor.reader.BaseElementReader;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
-import org.apache.drill.exec.vector.accessor.writer.BaseScalarWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractFixedWidthWriter.BaseFixedWidthWriter;
 import org.apache.drill.exec.vector.accessor.writer.BaseVarWidthWriter;
 
@@ -160,8 +161,6 @@ import org.joda.time.Period;
  * time and must be retrieved for each row (since the vector differs row-by-
  * row.)
  */
-
-// This class is generated using freemarker and the ${.template_name} template.
 
 public class ColumnAccessors {
 
@@ -300,12 +299,12 @@ public class ColumnAccessors {
       <#elseif drillType == "IntervalDay">
       final int offset = ${putAddr};
       drillBuf.unsafePutInt(offset,     value.getDays());
-      drillBuf.unsafePutInt(offset + 4, periodToMillis(value));
+      drillBuf.unsafePutInt(offset + 4, ColumnAccessorUtils.periodToMillis(value));
       <#elseif drillType == "Interval">
       final int offset = ${putAddr};
       drillBuf.unsafePutInt(offset,     value.getYears() * 12 + value.getMonths());
       drillBuf.unsafePutInt(offset + 4, value.getDays());
-      drillBuf.unsafePutInt(offset + 8, periodToMillis(value));
+      drillBuf.unsafePutInt(offset + 8, ColumnAccessorUtils.periodToMillis(value));
       <#elseif drillType == "Float4">
       drillBuf.unsafePutInt(${putAddr}, Float.floatToRawIntBits((float) value));
       <#elseif drillType == "Float8">
@@ -335,6 +334,26 @@ public class ColumnAccessors {
     </#if>
   </#list>
 </#list>
+}
+<@pp.changeOutputFile name="/org/apache/drill/exec/vector/accessor/ColumnAccessorUtils.java" />
+<@copyright />
+
+package org.apache.drill.exec.vector.accessor;
+
+import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.vector.complex.UnionVector;
+import org.apache.drill.exec.vector.accessor.ColumnAccessors.*;
+import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
+import org.apache.drill.exec.vector.accessor.writer.BaseScalarWriter;
+import org.apache.drill.exec.vector.accessor.reader.BaseElementReader;
+import org.apache.drill.exec.vector.ValueVector;
+
+import org.joda.time.Period;
+
+public class ColumnAccessorUtils {
+  
+  private ColumnAccessorUtils() { }
+
   public static int periodToMillis(Period value) {
     return ((value.getHours() * 60 +
              value.getMinutes()) * 60 +
@@ -349,4 +368,24 @@ public class ColumnAccessors {
 <@build vv.types "Repeated" "Reader" />
 
 <@build vv.types "Required" "Writer" />
+
+  public static ValueVector getUnionMember(UnionVector unionVector, MinorType type) {
+    switch (type) {
+<#list vv.types as type>
+<#list type.minor as minor>
+  <#assign drillType=minor.class>
+    <#if drillType == "Decimal18" || drillType == "Decimal28Dense" ||
+         drillType == "Decimal38Dense" || drillType == "Decimal38Sparse" ||
+         drillType == "Decimal28Sparse" || drillType == "Decimal9">
+    // Union vector does not support ${drillType?upper_case}
+    <#else>
+    case ${drillType?upper_case}:
+      return unionVector.get${drillType}Vector();
+    </#if>
+</#list>
+</#list>
+    default:
+      throw new UnsupportedOperationException(type.toString());
+    }
+  }
 }

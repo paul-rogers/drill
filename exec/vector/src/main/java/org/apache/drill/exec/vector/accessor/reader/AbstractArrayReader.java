@@ -82,40 +82,103 @@ public abstract class AbstractArrayReader implements ArrayReader {
     }
   }
 
-  public static class BaseElementIndex {
-    private final ColumnReaderIndex base;
+  /**
+   * Index into the vector of elements for a repeated vector.
+   * Indexes elements relative to the array. That is, if an array
+   * has five elements, the index here tracks elements 0..4.
+   * The actual vector index is given as the start offset plus the
+   * offset into the array.
+   * <p>
+   * Indexes allow random or sequential access. Random access is more
+   * typical for scalar arrays, while sequential access can be more convenient
+   * for tuple arrays.
+   */
+
+  public static class ElementReaderIndex implements ColumnReaderIndex {
+    protected final ColumnReaderIndex base;
     protected int startOffset;
     protected int length;
+    protected int posn;
 
-    public BaseElementIndex(ColumnReaderIndex base) {
+    public ElementReaderIndex(ColumnReaderIndex base) {
       this.base = base;
     }
 
+    @Override
     public int batchIndex() {
       return base.batchIndex();
     }
+
+    /**
+     * Reposition this array index for a new array given the array start
+     * offset and length.
+     *
+     * @param startOffset first location within the array's
+     * offset vector
+     * @param length number of offset vector locations associated with this
+     * array
+     */
 
     public void reset(int startOffset, int length) {
       assert length >= 0;
       assert startOffset >= 0;
       this.startOffset = startOffset;
       this.length = length;
+      posn = -1;
     }
 
+    @Override
     public int size() { return length; }
 
-    public int elementIndex(int index) {
+    /**
+     * Given a 0-based index relative to the current array, return an absolute offset
+     * vector location for the array value.
+     *
+     * @param index 0-based index into the current array
+     * @return absolute offset vector location for the array value
+     */
+
+    public int vectorIndex(int index) {
       if (index < 0 || length <= index) {
         throw new IndexOutOfBoundsException("Index = " + index + ", length = " + length);
       }
       return startOffset + index;
+    }
+
+    @Override
+    public boolean next() {
+      if (++posn < length) {
+        return true;
+      }
+      posn = length;
+      return false;
+    }
+
+    /**
+     * Set the current iterator location to the given index offset.
+     *
+     * @param index 0-based index into the current array
+     */
+
+    public void set(int index) {
+      if (index < 0 ||  length <= index) {
+        throw new IndexOutOfBoundsException("Index = " + index + ", length = " + length);
+      }
+      posn = index;
+    }
+
+    public int posn() { return posn; }
+
+    @Override
+    public int vectorIndex() {
+      return vectorIndex(posn);
     }
   }
 
   private final Accessor accessor;
   private final VectorAccessor vectorAccessor;
   protected ColumnReaderIndex baseIndex;
-  protected BaseElementIndex elementIndex;
+  protected ElementReaderIndex elementIndex;
 
   public AbstractArrayReader(RepeatedValueVector vector) {
     accessor = vector.getOffsetVector().getAccessor();

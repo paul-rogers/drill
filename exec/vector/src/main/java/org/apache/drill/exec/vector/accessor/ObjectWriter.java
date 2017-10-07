@@ -88,6 +88,8 @@ public interface ObjectWriter {
 
   ArrayWriter array();
 
+  VariantWriter variant();
+
   /**
    * For debugging, set the object to the proper form of Java object as defined
    * by the underlying writer type.

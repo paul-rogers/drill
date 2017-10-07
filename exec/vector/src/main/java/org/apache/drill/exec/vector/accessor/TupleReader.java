@@ -25,8 +25,8 @@ import org.apache.drill.exec.record.TupleMetadata;
  * by name or column index (as defined in the tuple schema.)
  * Also provides two generic methods to get the value as a
  * Java object or as a string.
- * <p>
- * {@see TupleWriter}
+ *
+ * @see {@link TupleWriter}
  */
 
 public interface TupleReader {
@@ -48,6 +48,8 @@ public interface TupleReader {
   ArrayReader array(String colName);
   ScalarElementReader elements(int colIndex);
   ScalarElementReader elements(String colName);
+  VariantReader variant(int colIndex);
+  VariantReader variant(String colName);
 
   Object getObject();
   String getAsString();

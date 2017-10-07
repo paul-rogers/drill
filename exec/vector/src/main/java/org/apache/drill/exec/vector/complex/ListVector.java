@@ -46,17 +46,15 @@ import java.util.Set;
 
 public class ListVector extends BaseRepeatedValueVector {
 
-  private UInt4Vector offsets;
   private final UInt1Vector bits;
-  private Mutator mutator = new Mutator();
-  private Accessor accessor = new Accessor();
+  private final Mutator mutator = new Mutator();
+  private final Accessor accessor = new Accessor();
   private UnionListWriter writer;
   private UnionListReader reader;
 
   public ListVector(MaterializedField field, BufferAllocator allocator, CallBack callBack) {
     super(field, allocator);
     this.bits = new UInt1Vector(MaterializedField.create("$bits$", Types.required(MinorType.UINT1)), allocator);
-    offsets = getOffsetVector();
     this.field.addChild(getDataVector().getField());
     this.writer = new UnionListWriter(this);
     this.reader = new UnionListReader(this);
@@ -115,7 +113,7 @@ public class ListVector extends BaseRepeatedValueVector {
 
   private class TransferImpl implements TransferPair {
 
-    ListVector to;
+    private final ListVector to;
 
     public TransferImpl(MaterializedField field, BufferAllocator allocator) {
       to = new ListVector(field, allocator, null);
@@ -175,13 +173,13 @@ public class ListVector extends BaseRepeatedValueVector {
      */
     boolean success = false;
     try {
-      if (!offsets.allocateNewSafe()) {
+      if (! offsets.allocateNewSafe()) {
         return false;
       }
       success = vector.allocateNewSafe();
       success = success && bits.allocateNewSafe();
     } finally {
-      if (!success) {
+      if (! success) {
         clear();
       }
     }
@@ -219,8 +217,6 @@ public class ListVector extends BaseRepeatedValueVector {
 
   @Override
   public void clear() {
-    offsets.clear();
-    vector.clear();
     bits.clear();
     lastSet = 0;
     super.clear();
@@ -228,10 +224,13 @@ public class ListVector extends BaseRepeatedValueVector {
 
   @Override
   public DrillBuf[] getBuffers(boolean clear) {
-    final DrillBuf[] buffers = ObjectArrays.concat(offsets.getBuffers(false), ObjectArrays.concat(bits.getBuffers(false),
-            vector.getBuffers(false), DrillBuf.class), DrillBuf.class);
+    final DrillBuf[] buffers = ObjectArrays.concat(
+        offsets.getBuffers(false),
+        ObjectArrays.concat(bits.getBuffers(false),
+            vector.getBuffers(false), DrillBuf.class),
+        DrillBuf.class);
     if (clear) {
-      for (DrillBuf buffer:buffers) {
+      for (DrillBuf buffer : buffers) {
         buffer.retain();
       }
       clear();

@@ -73,7 +73,7 @@ public class RowSetPrinter {
     out.println();
   }
 
-  private void printTupleSchema(PrintStream out, TupleMetadata schema) {
+  public static void printTupleSchema(PrintStream out, TupleMetadata schema) {
     for (int i = 0; i < schema.size(); i++) {
       if (i > 0) {
         out.print(", ");

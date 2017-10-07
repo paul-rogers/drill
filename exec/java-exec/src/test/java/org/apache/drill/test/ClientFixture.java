@@ -28,6 +28,9 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
+import org.apache.drill.QueryTestUtil;
+import org.apache.drill.TestBuilder;
+import org.apache.drill.common.config.DrillProperties;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.client.DrillClient;
 import org.apache.drill.exec.memory.BufferAllocator;
@@ -100,6 +103,9 @@ public class ClientFixture implements AutoCloseable {
 
     if (cluster.usesZK()) {
       client = new DrillClient(cluster.config());
+    } else if (builder.clientProps != null  &&
+        builder.clientProps.containsKey(DrillProperties.DRILLBIT_CONNECTION)) {
+      client = new DrillClient(cluster.config(), cluster.serviceSet().getCoordinator(), true);
     } else {
       client = new DrillClient(cluster.config(), cluster.serviceSet().getCoordinator());
     }

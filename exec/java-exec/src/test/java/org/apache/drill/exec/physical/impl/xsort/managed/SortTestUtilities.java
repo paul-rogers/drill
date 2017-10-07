@@ -63,12 +63,10 @@ public class SortTestUtilities {
   }
 
   @SuppressWarnings("resource")
-  public static PriorityQueueCopierWrapper makeCopier(OperatorFixture fixture, String sortOrder, String nullOrder) {
+  public static Sort makeCopierConfig(String sortOrder, String nullOrder) {
     FieldReference expr = FieldReference.getWithQuotedRef("key");
     Ordering ordering = new Ordering(sortOrder, expr, nullOrder);
-    Sort popConfig = new Sort(null, Lists.newArrayList(ordering), false);
-    OperatorContext opContext = fixture.newOperatorContext(popConfig);
-    return new PriorityQueueCopierWrapper(opContext);
+    return new Sort(null, Lists.newArrayList(ordering), false);
   }
 
   public static class CopierTester {
@@ -91,24 +89,30 @@ public class SortTestUtilities {
     }
 
     public void run() throws Exception {
-      PriorityQueueCopierWrapper copier = makeCopier(fixture, sortOrder, nullOrder);
-      List<BatchGroup> batches = new ArrayList<>();
-      TupleMetadata schema = null;
-      for (SingleRowSet rowSet : rowSets) {
-        batches.add(new BatchGroup.InputBatch(rowSet.container(), rowSet.getSv2(),
-                    fixture.allocator(), rowSet.size()));
-        if (schema == null) {
-          schema = rowSet.schema();
+      Sort popConfig = SortTestUtilities.makeCopierConfig(sortOrder, nullOrder);
+      OperatorContext opContext = fixture.newOperatorContext(popConfig);
+      PriorityQueueCopierWrapper copier = new PriorityQueueCopierWrapper(opContext);
+      try {
+        List<BatchGroup> batches = new ArrayList<>();
+        TupleMetadata schema = null;
+        for (SingleRowSet rowSet : rowSets) {
+          batches.add(new BatchGroup.InputBatch(rowSet.container(), rowSet.getSv2(),
+                      fixture.allocator(), rowSet.size()));
+          if (schema == null) {
+            schema = rowSet.schema();
+          }
         }
-      }
-      int rowCount = outputRowCount();
-      VectorContainer dest = new VectorContainer();
-      BatchMerger merger = copier.startMerge(new BatchSchema(SelectionVectorMode.NONE, schema.toFieldList()),
-                                             batches, dest, rowCount, null);
+        int rowCount = outputRowCount();
+        VectorContainer dest = new VectorContainer();
+        BatchMerger merger = copier.startMerge(new BatchSchema(SelectionVectorMode.NONE, schema.toFieldList()),
+                                               batches, dest, rowCount, null);
 
-      verifyResults(merger, dest);
-      dest.clear();
-      merger.close();
+        verifyResults(merger, dest);
+        dest.clear();
+        merger.close();
+      } finally {
+        opContext.close();
+      }
     }
 
     public int outputRowCount() {

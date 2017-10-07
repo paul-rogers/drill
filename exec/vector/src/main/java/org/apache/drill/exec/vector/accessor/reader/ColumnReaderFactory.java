@@ -21,7 +21,7 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.ColumnAccessors;
+import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
@@ -39,9 +39,9 @@ public class ColumnReaderFactory {
   private static final Class<? extends BaseElementReader> elementReaders[] = new Class[typeCount];
 
   static {
-    ColumnAccessors.defineRequiredReaders(requiredReaders);
-    ColumnAccessors.defineNullableReaders(nullableReaders);
-    ColumnAccessors.defineArrayReaders(elementReaders);
+    ColumnAccessorUtils.defineRequiredReaders(requiredReaders);
+    ColumnAccessorUtils.defineNullableReaders(nullableReaders);
+    ColumnAccessorUtils.defineArrayReaders(elementReaders);
   }
 
   public static AbstractObjectReader buildColumnReader(ValueVector vector) {

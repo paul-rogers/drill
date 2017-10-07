@@ -165,7 +165,7 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   public void endArrayValue() {
     // Skip calls for performance: they do nothing for
     // scalar writers -- the only kind supported here.
-//    isSetWriter.saveValue();
+//    isSetWriter.endArrayValue();
     baseWriter.endArrayValue();
   }
 

@@ -21,7 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescrip;
 import org.apache.drill.exec.record.VectorContainer;
@@ -29,6 +28,7 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
+import org.apache.drill.exec.vector.complex.UnionVector;
 
 /**
  * Build a set of writers for a single (non-hyper) vector container.
@@ -49,11 +49,16 @@ public abstract class BaseWriterBuilder {
 
   private AbstractObjectWriter buildVectorWriter(ValueVector vector, VectorDescrip descrip) {
     MajorType type = vector.getField().getType();
-    if (type.getMinorType() == MinorType.MAP) {
+    switch (type.getMinorType()) {
+    case MAP:
       return ColumnWriterFactory.buildMapWriter(descrip.metadata,
           (AbstractMapVector) vector,
           buildMap((AbstractMapVector) vector, descrip));
-    } else {
+
+    case UNION:
+      return ColumnWriterFactory.buildVariantWriter(descrip.metadata,
+          (UnionVector) vector);
+    default:
       return ColumnWriterFactory.buildColumnWriter(descrip.metadata, vector);
     }
   }

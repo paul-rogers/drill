@@ -89,6 +89,15 @@ public interface ArrayReader {
   void setPosn(int index);
 
   /**
+   * Move forward one position.
+   *
+   * @return true if another position is available, false if
+   * the end of the array is reached
+   */
+
+  boolean next();
+
+  /**
    * Return the entire array as an <tt>List</tt> of objects.
    * Note, even if the array is scalar, the elements are still returned
    * as a list. This method is primarily for testing.

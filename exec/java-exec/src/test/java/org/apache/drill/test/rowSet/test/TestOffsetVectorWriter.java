@@ -28,7 +28,7 @@ import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.ValueType;
-import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriter;
+import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriterImpl;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.drill.test.rowSet.test.TestFixedWidthWriter.TestIndex;
@@ -57,7 +57,7 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
     try (UInt4Vector vector = allocVector(1000)) {
 
       TestIndex index = new TestIndex();
-      OffsetVectorWriter writer = makeWriter(vector, index);
+      OffsetVectorWriterImpl writer = makeWriter(vector, index);
 
       // Start write sets initial position to 0.
 
@@ -96,7 +96,7 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
     try (UInt4Vector vector = allocVector(1000)) {
 
       TestIndex index = new TestIndex();
-      OffsetVectorWriter writer = makeWriter(vector, index);
+      OffsetVectorWriterImpl writer = makeWriter(vector, index);
       writer.startWrite();
 
       // Write rows, rewriting every other row.
@@ -138,7 +138,7 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
   public void testFillEmpties() {
     try (UInt4Vector vector = allocVector(1000)) {
       TestIndex index = new TestIndex();
-      OffsetVectorWriter writer = makeWriter(vector, index);
+      OffsetVectorWriterImpl writer = makeWriter(vector, index);
       writer.startWrite();
 
       // Pretend to write offsets for values of width 10, but
@@ -179,7 +179,7 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
   public void testRollover() {
     try (UInt4Vector vector = allocVector(1000)) {
       TestIndex index = new TestIndex();
-      OffsetVectorWriter writer = makeWriter(vector, index);
+      OffsetVectorWriterImpl writer = makeWriter(vector, index);
       writer.startWrite();
 
       // Simulate doing an overflow of ten values.
@@ -246,7 +246,7 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
   public void testRolloverWithEmpties() {
     try (UInt4Vector vector = allocVector(1000)) {
       TestIndex index = new TestIndex();
-      OffsetVectorWriter writer = makeWriter(vector, index);
+      OffsetVectorWriterImpl writer = makeWriter(vector, index);
       writer.startWrite();
 
       // Simulate doing an overflow of 15 values,
@@ -277,7 +277,7 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
       // Verify the first "batch" results
 
       for (int i = 0; i < 11; i++) {
-        assertEquals(i * 10, vector.getAccessor().get(i));
+        assertEquals("i = " + i, i * 10, vector.getAccessor().get(i));
       }
       for (int i = 11; i < 16; i++) {
         assertEquals("i = " + i, 100, vector.getAccessor().get(i));
@@ -288,6 +288,10 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
       for (int i = 0; i < 20; i++) {
         vector.getMutator().set(i, 0xdeadbeef);
       }
+
+      // Simulate finishing the overflow row.
+
+      index.index++;
 
       // Post rollover, slot 0 should be initialized.
 
@@ -316,10 +320,10 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
       // Verify the results
 
       for (int i = 0; i < 6; i++) {
-        assertEquals(0, vector.getAccessor().get(i));
+        assertEquals("Index + " + i, 0, vector.getAccessor().get(i));
       }
       for (int i = 6; i < 11; i++) {
-        assertEquals((i - 5) * 10, vector.getAccessor().get(i));
+        assertEquals("Index + " + i, (i - 5) * 10, vector.getAccessor().get(i));
       }
     }
   }
@@ -335,7 +339,7 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
   public void testSizeLimit() {
     try (UInt4Vector vector = allocVector(1000)) {
       TestIndex index = new TestIndex();
-      OffsetVectorWriter writer = makeWriter(vector, index);
+      OffsetVectorWriterImpl writer = makeWriter(vector, index);
       writer.bindListener(new ColumnWriterListener() {
         int totalAlloc = 4096;
 
@@ -387,8 +391,8 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
     return vector;
   }
 
-  private OffsetVectorWriter makeWriter(UInt4Vector vector, TestIndex index) {
-    OffsetVectorWriter writer = new OffsetVectorWriter(vector);
+  private OffsetVectorWriterImpl makeWriter(UInt4Vector vector, TestIndex index) {
+    OffsetVectorWriterImpl writer = new OffsetVectorWriterImpl(vector);
     writer.bindIndex(index);
 
     assertEquals(ValueType.INTEGER, writer.valueType());

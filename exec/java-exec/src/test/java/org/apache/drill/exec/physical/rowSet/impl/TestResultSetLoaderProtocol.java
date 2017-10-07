@@ -78,6 +78,7 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
     assertEquals(0, rsLoader.writer().rowCount());
     assertEquals(0, rsLoader.batchCount());
     assertEquals(0, rsLoader.totalRowCount());
+    assertTrue(rsLoader.isProjectionEmpty());
 
     // Failures due to wrong state (Start)
 
@@ -96,6 +97,7 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
 
     MaterializedField fieldA = SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED);
     rootWriter.addColumn(fieldA);
+    assertFalse(rsLoader.isProjectionEmpty());
 
     assertEquals(1, schema.size());
     assertSame(fieldA, schema.column(0));

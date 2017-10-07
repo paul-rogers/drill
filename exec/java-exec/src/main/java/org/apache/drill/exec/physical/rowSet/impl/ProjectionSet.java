@@ -42,7 +42,7 @@ package org.apache.drill.exec.physical.rowSet.impl;
  * is unwanted (and can just receive a dummy writer.)
  */
 
-interface ProjectionSet {
+public interface ProjectionSet {
   boolean isProjected(String colName);
   ProjectionSet mapProjection(String colName);
 }

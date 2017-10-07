@@ -36,6 +36,7 @@ public class OptionBuilder {
   protected int vectorSizeLimit;
   protected int rowCountLimit;
   protected Collection<SchemaPath> projection;
+  protected ProjectionSet projectionSet;
   protected ResultVectorCache vectorCache;
   protected TupleMetadata schema;
   protected long maxBatchSize;
@@ -84,10 +85,13 @@ public class OptionBuilder {
    * @return this builder
    */
 
-  // TODO: Use SchemaPath in place of strings.
-
   public OptionBuilder setProjection(Collection<SchemaPath> projection) {
     this.projection = projection;
+    return this;
+  }
+
+  public OptionBuilder setProjectionSet(ProjectionSet projectionSet) {
+    this.projectionSet = projectionSet;
     return this;
   }
 

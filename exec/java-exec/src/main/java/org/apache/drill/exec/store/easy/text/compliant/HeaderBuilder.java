@@ -24,6 +24,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.drill.common.exceptions.UserException;
+import org.apache.hadoop.fs.Path;
+
 import com.google.common.base.Charsets;
 
 /**
@@ -43,6 +46,7 @@ import com.google.common.base.Charsets;
 // value vectors and direct memory for this task.
 
 public class HeaderBuilder extends TextOutput {
+  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(HeaderBuilder.class);
 
   /**
    * Maximum Drill symbol length, as enforced for headers.
@@ -67,25 +71,13 @@ public class HeaderBuilder extends TextOutput {
 
   public static final String ANONYMOUS_COLUMN_PREFIX = "column_";
 
-  /**
-   * Exception that reports header errors. Is an unchecked exception
-   * to avoid cluttering the normal field reader interface.
-   */
-  public static class HeaderError extends RuntimeException {
-
-    private static final long serialVersionUID = 1L;
-
-    public HeaderError(String msg) {
-      super(msg);
-    }
-
-    public HeaderError(int colIndex, String msg) {
-      super("Column " + (colIndex + 1) + ": " + msg);
-    }
-  }
-
+  public final Path filePath;
   public final List<String> headers = new ArrayList<>();
   public final ByteBuffer currentField = ByteBuffer.allocate(MAX_HEADER_LEN);
+
+  public HeaderBuilder(Path filePath) {
+    this.filePath = filePath;
+  }
 
   @Override
   public void startField(int index) {
@@ -204,14 +196,20 @@ public class HeaderBuilder extends TextOutput {
     try {
       currentField.put(data);
     } catch (BufferOverflowException e) {
-      throw new HeaderError(headers.size(), "Column exceeds maximum length of " + MAX_HEADER_LEN);
+      throw UserException.dataReadError()
+        .message("Column " + (headers.size() + 1) + ": Column exceeds maximum length of " + MAX_HEADER_LEN)
+        .addContext("File Path", filePath.toString())
+        .build(logger);
     }
   }
 
   @Override
   public void finishRecord() {
     if (headers.isEmpty()) {
-      throw new HeaderError("The file must define at least one header.");
+      throw UserException.dataReadError()
+          .message("The file must define at least one header.")
+          .addContext("File Path", filePath.toString())
+          .build(logger);
     }
 
     // Force headers to be unique.
@@ -249,18 +247,7 @@ public class HeaderBuilder extends TextOutput {
   }
 
   @Override
-  public long getRecordCount() { return 1; }
-
-  @Override
-  public void startBatch() { }
-
-  @Override
-  public void finishBatch() { }
-
-  @Override
-  public boolean rowHasData() {
-    return ! headers.isEmpty();
-  }
+  public void startRecord() { }
 
   public String[] getHeaders() {
 
@@ -271,4 +258,10 @@ public class HeaderBuilder extends TextOutput {
     return headers.toArray(array);
   }
 
+  // Not used.
+  @Override
+  public long getRecordCount() { return 0; }
+
+  @Override
+  public boolean isFull() { return false; }
 }

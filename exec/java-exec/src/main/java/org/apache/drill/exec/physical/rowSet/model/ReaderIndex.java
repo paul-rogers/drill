@@ -38,16 +38,17 @@ public abstract class ReaderIndex implements ColumnReaderIndex {
   public int position() { return rowIndex; }
   public void set(int index) { rowIndex = index; }
 
-  public boolean next() {
-    if (++rowIndex < rowCount ) {
-      return true;
-    } else {
-      rowIndex--;
-      return false;
-    }
-  }
-
+  @Override
   public int size() { return rowCount; }
+
+  @Override
+  public boolean next() {
+    if (++rowIndex < rowCount) {
+      return true;
+    }
+    rowIndex--;
+    return false;
+  }
 
   public boolean valid() { return rowIndex < rowCount; }
 }

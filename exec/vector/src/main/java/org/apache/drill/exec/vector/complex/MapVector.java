@@ -49,7 +49,6 @@ import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
 
 public class MapVector extends AbstractMapVector {
-  //private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(MapVector.class);
 
   public final static MajorType TYPE = Types.required(MinorType.MAP);
 
@@ -143,9 +142,6 @@ public class MapVector extends AbstractMapVector {
 
   @Override
   public DrillBuf[] getBuffers(boolean clear) {
-    //int expectedSize = getBufferSize();
-    //int actualSize   = super.getBufferSize();
-    //Preconditions.checkArgument(expectedSize == actualSize);
     return super.getBuffers(clear);
   }
 
@@ -309,13 +305,6 @@ public class MapVector extends AbstractMapVector {
   @Override
   public Mutator getMutator() {
     return mutator;
-  }
-
-  @Override
-  public void exchange(ValueVector other) {
-    // Exchange is used for look-ahead writers, but writers manage
-    // map member vectors directly.
-    throw new UnsupportedOperationException("Exchange() not supported for maps");
   }
 
   public class Accessor extends BaseValueVector.BaseAccessor {

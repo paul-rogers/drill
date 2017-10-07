@@ -28,6 +28,7 @@ import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarElementReader;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.TupleReader;
+import org.apache.drill.exec.vector.accessor.VariantReader;
 
 /**
  * Reader for a tuple (a row or a map.) Provides access to each
@@ -109,6 +110,16 @@ public abstract class AbstractTupleReader implements TupleReader {
   }
 
   @Override
+  public ObjectType type(int colIndex) {
+    return column(colIndex).type();
+  }
+
+  @Override
+  public ObjectType type(String colName) {
+    return column(colName).type();
+  }
+
+  @Override
   public ScalarReader scalar(int colIndex) {
     return column(colIndex).scalar();
   }
@@ -139,16 +150,6 @@ public abstract class AbstractTupleReader implements TupleReader {
   }
 
   @Override
-  public ObjectType type(int colIndex) {
-    return column(colIndex).type();
-  }
-
-  @Override
-  public ObjectType type(String colName) {
-    return column(colName).type();
-  }
-
-  @Override
   public ScalarElementReader elements(int colIndex) {
     return column(colIndex).elements();
   }
@@ -156,6 +157,16 @@ public abstract class AbstractTupleReader implements TupleReader {
   @Override
   public ScalarElementReader elements(String colName) {
     return column(colName).elements();
+  }
+
+  @Override
+  public VariantReader variant(int colIndex) {
+    return column(colIndex).variant();
+  }
+
+  @Override
+  public VariantReader variant(String colName) {
+    return column(colName).variant();
   }
 
   public void reposition() {

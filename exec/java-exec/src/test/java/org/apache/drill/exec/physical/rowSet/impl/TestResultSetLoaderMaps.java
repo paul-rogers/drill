@@ -18,6 +18,7 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -62,6 +63,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
         .setSchema(schema)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    assertFalse(rsLoader.isProjectionEmpty());
     RowSetLoader rootWriter = rsLoader.writer();
 
     // Verify structure and schema
@@ -805,6 +807,71 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     }
 
     result.clear();
+    rsLoader.close();
+  }
+
+  /**
+   * Verify that map name spaces (and implementations) are
+   * independent.
+   */
+
+  @Test
+  public void testNameSpace() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addMap("m")
+          .add("a", MinorType.INT)
+          .addMap("m")
+            .add("a", MinorType.INT)
+            .buildMap()
+          .buildMap()
+        .buildSchema();
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setSchema(schema)
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    assertFalse(rsLoader.isProjectionEmpty());
+    RowSetLoader rootWriter = rsLoader.writer();
+
+    rsLoader.startBatch();
+
+    // Write a row the way that clients will do.
+
+    ScalarWriter a1Writer = rootWriter.scalar("a");
+    TupleWriter m1Writer = rootWriter.tuple("m");
+    ScalarWriter a2Writer = m1Writer.scalar("a");
+    TupleWriter m2Writer = m1Writer.tuple("m");
+    ScalarWriter a3Writer = m2Writer.scalar("a");
+
+    rootWriter.start();
+    a1Writer.setInt(11);
+    a2Writer.setInt(12);
+    a3Writer.setInt(13);
+    rootWriter.save();
+
+    rootWriter.start();
+    a1Writer.setInt(21);
+    a2Writer.setInt(22);
+    a3Writer.setInt(23);
+    rootWriter.save();
+
+    // Try simplified test format
+
+    rootWriter.addRow(31,
+        new Object[] {32,
+            new Object[] {33}});
+
+    // Verify
+
+    RowSet actual = fixture.wrap(rsLoader.harvest());
+
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
+        .addRow(11, new Object[] {12, new Object[] {13}})
+        .addRow(21, new Object[] {22, new Object[] {23}})
+        .addRow(31, new Object[] {32, new Object[] {33}})
+        .build();
+
+    new RowSetComparison(expected).verifyAndClearAll(actual);
     rsLoader.close();
   }
 }

@@ -42,6 +42,7 @@ public interface ObjectReader {
   ScalarElementReader elements();
   TupleReader tuple();
   ArrayReader array();
+  VariantReader variant();
 
   /**
    * Return the value of the underlying data as a Java object.

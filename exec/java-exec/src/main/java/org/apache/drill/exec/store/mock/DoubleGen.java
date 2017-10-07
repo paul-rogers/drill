@@ -17,32 +17,17 @@
  */
 package org.apache.drill.exec.store.mock;
 
-import java.util.Random;
-
-import org.apache.drill.exec.vector.Float8Vector;
-import org.apache.drill.exec.vector.ValueVector;
-
 /**
  * Generates random field values uniformly distributed over
  * the range +-1 million, with any number of digits past
  * the decimal point.
  */
 
-public class DoubleGen implements FieldGen {
-
-  private final Random rand = new Random();
+public class DoubleGen extends AbstractFieldGen {
 
   @Override
-  public void setup(ColumnDef colDef) { }
-
-  private double value() {
-    return rand.nextDouble() * 2_000_000 - 1_000_000;
-  }
-
-  @Override
-  public void setValue(ValueVector v, int index) {
-    Float8Vector vector = (Float8Vector) v;
-    vector.getMutator().set(index, value());
+  public void setValue() {
+    colWriter.setDouble(rand.nextDouble() * 2_000_000 - 1_000_000);
   }
 
 }

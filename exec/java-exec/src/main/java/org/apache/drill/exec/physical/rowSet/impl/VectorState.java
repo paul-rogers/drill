@@ -98,5 +98,15 @@ public interface VectorState {
 
   ValueVector vector();
 
+  /**
+   * Report whether this column is projected (has materialized vectors),
+   * or is unprojected (has no materialized backing.)
+   *
+   * @return true if the column is projected to the output, false if
+   * not
+   */
+
+  boolean isProjected();
+
   void dump(HierarchicalFormatter format);
 }

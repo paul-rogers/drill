@@ -97,5 +97,4 @@ public class ResourceInputStream extends ByteArrayInputStream implements Seekabl
       throw new EOFException();
     }
   }
-
 }

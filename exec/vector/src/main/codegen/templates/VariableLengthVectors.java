@@ -50,7 +50,8 @@ package org.apache.drill.exec.vector;
  * variable, this width is used as a guess for certain calculations.</li>
  * <li>The equivalent Java primitive is '${minor.javaType!type.javaType}'<li>
  * </ul>
- * NB: this class is automatically generated from ${.template_name} and ValueVectorTypes.tdd using FreeMarker.
+ * NB: this class is automatically generated from <tt>${.template_name}</tt>
+ * and <tt>ValueVectorTypes.tdd</tt> using FreeMarker.
  */
 
 public final class ${minor.class}Vector extends BaseDataValueVector implements VariableWidthVector {

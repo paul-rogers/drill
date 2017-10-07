@@ -35,13 +35,24 @@ import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriter;
  */
 public class DummyArrayWriter extends AbstractArrayWriter {
 
-  public DummyArrayWriter(
-      AbstractObjectWriter elementWriter) {
-    super(elementWriter);
+  public static class DummyOffsetVectorWriter extends DummyScalarWriter implements OffsetVectorWriter {
+
+    @Override
+    public int rowStartOffset() { return 0; }
+
+    @Override
+    public int nextOffset() { return 0; }
+
+    @Override
+    public void setNextOffset(int vectorIndex) { }
   }
 
-  @Override
-  public int size() { return 0; }
+  public static final DummyOffsetVectorWriter offsetVectorWriter = new DummyOffsetVectorWriter();
+
+  public DummyArrayWriter(
+      AbstractObjectWriter elementWriter) {
+    super(elementWriter, offsetVectorWriter);
+  }
 
   @Override
   public void save() { }
@@ -51,12 +62,6 @@ public class DummyArrayWriter extends AbstractArrayWriter {
 
   @Override
   public void setObject(Object array) { }
-
-  @Override
-  public void bindIndex(ColumnWriterIndex index) { }
-
-  @Override
-  public ColumnWriterIndex writerIndex() { return null; }
 
   @Override
   public void startWrite() { }
@@ -92,5 +97,5 @@ public class DummyArrayWriter extends AbstractArrayWriter {
   public void bindListener(TupleWriterListener listener) { }
 
   @Override
-  public OffsetVectorWriter offsetWriter() { return null; }
+  public void bindIndex(ColumnWriterIndex index) { }
 }
