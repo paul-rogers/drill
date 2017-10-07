@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.common.scanner.ClassPathScanner;
@@ -57,6 +58,9 @@ import org.apache.drill.test.rowSet.IndirectRowSet;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
+import org.apache.hadoop.security.UserGroupInformation;
+
+import com.google.common.util.concurrent.ListenableFuture;
 
 /**
  * Test fixture for operator and (especially) "sub-operator" tests.
@@ -336,7 +340,7 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
         BufferAllocator allocator,
         PhysicalOperator config,
         OperatorStatReceiver stats) {
-      super(fragContext, allocator, config, stats);
+      super(fragContext, allocator, config);
       this.stats = stats;
     }
 
@@ -348,6 +352,12 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     @Override
     public OperatorStats getStats() {
       throw new UnsupportedOperationException("getStats() not supported for tests");
+    }
+
+    @Override
+    public <RESULT> ListenableFuture<RESULT> runCallableAs(
+        UserGroupInformation proxyUgi, Callable<RESULT> callable) {
+      throw new UnsupportedOperationException("Not yet");
     }
   }
 

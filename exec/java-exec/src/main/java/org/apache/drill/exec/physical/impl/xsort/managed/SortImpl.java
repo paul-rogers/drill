@@ -200,7 +200,7 @@ public class SortImpl {
     allocator = opContext.getAllocator();
     config = sortConfig;
     memManager = new SortMemoryManager(config, allocator.getLimit());
-    metrics = new SortMetrics(opContext.getStats());
+    metrics = new SortMetrics(opContext.getStatsWriter());
     bufferedBatches = new BufferedBatches(opContext);
 
     // Reset the allocator to allow a 10% safety margin. This is done because

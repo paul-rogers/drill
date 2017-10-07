@@ -18,6 +18,7 @@
 package org.apache.drill.exec.ops;
 
 import java.io.IOException;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 
 import org.apache.drill.exec.memory.BufferAllocator;
@@ -26,6 +27,9 @@ import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.testing.ControlsInjector;
 import org.apache.drill.exec.testing.ExecutionControls;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.security.UserGroupInformation;
+
+import com.google.common.util.concurrent.ListenableFuture;
 
 import io.netty.buffer.DrillBuf;
 
@@ -94,16 +98,16 @@ public interface OperatorContext {
 
   DrillFileSystem newNonTrackingFileSystem(Configuration conf) throws IOException;
 
-//  /**
-//   * Run the callable as the given proxy user.
-//   *
-//   * @param proxyUgi proxy user group information
-//   * @param callable callable to run
-//   * @param <RESULT> result type
-//   * @return Future<RESULT> future with the result of calling the callable
-//   */
-//  <RESULT> ListenableFuture<RESULT> runCallableAs(UserGroupInformation proxyUgi,
-//                                                                  Callable<RESULT> callable);
+  /**
+   * Run the callable as the given proxy user.
+   *
+   * @param proxyUgi proxy user group information
+   * @param callable callable to run
+   * @param <RESULT> result type
+   * @return Future<RESULT> future with the result of calling the callable
+   */
+  <RESULT> ListenableFuture<RESULT> runCallableAs(UserGroupInformation proxyUgi,
+                                                                  Callable<RESULT> callable);
 
   void setInjector(ControlsInjector injector);
 
