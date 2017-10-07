@@ -52,7 +52,7 @@ class OperatorContextImpl extends BaseOperatorContext implements OperatorContext
     super(context,
           context.getNewChildAllocator(popConfig.getClass().getSimpleName(),
               popConfig.getOperatorId(), popConfig.getInitialAllocation(), popConfig.getMaxAllocation()),
-          popConfig, stats);
+          popConfig);
     if (stats != null) {
       this.stats = stats;
     } else {
@@ -84,6 +84,12 @@ class OperatorContextImpl extends BaseOperatorContext implements OperatorContext
     return stats;
   }
 
+  @Override
+  public OperatorStatReceiver getStatsWriter() {
+    return stats;
+  }
+
+  @Override
   public <RESULT> ListenableFuture<RESULT> runCallableAs(final UserGroupInformation proxyUgi,
                                                          final Callable<RESULT> callable) {
     synchronized (this) {

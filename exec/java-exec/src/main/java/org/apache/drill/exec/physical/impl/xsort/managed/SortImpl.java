@@ -200,7 +200,7 @@ public class SortImpl {
     allocator = opContext.getAllocator();
     config = sortConfig;
     memManager = new SortMemoryManager(config, allocator.getLimit());
-    metrics = new SortMetrics(opContext.getStats());
+    metrics = new SortMetrics(opContext.getStatsWriter());
     bufferedBatches = new BufferedBatches(opContext);
 
     // Request leniency from the allocator. Leniency

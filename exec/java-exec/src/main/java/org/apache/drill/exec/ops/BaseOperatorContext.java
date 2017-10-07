@@ -47,18 +47,15 @@ public abstract class BaseOperatorContext implements OperatorContext {
   protected final BufferAllocator allocator;
   protected final PhysicalOperator popConfig;
   protected final BufferManager manager;
-  protected OperatorStatReceiver statsWriter;
   private DrillFileSystem fs;
   private ControlsInjector injector;
 
   public BaseOperatorContext(FragmentContextInterface context, BufferAllocator allocator,
-               PhysicalOperator popConfig,
-               OperatorStatReceiver stats) {
+               PhysicalOperator popConfig) {
     this.context = context;
     this.allocator = allocator;
     this.popConfig = popConfig;
     this.manager = new BufferManagerImpl(allocator);
-    statsWriter = stats;
   }
 
   @Override
@@ -172,13 +169,9 @@ public abstract class BaseOperatorContext implements OperatorContext {
         .addContext("Failed to close the Drill file system for " + getName())
         .build(logger);
     }
-    if (ex != null)
+    if (ex != null) {
       throw ex;
-  }
-
-  @Override
-  public OperatorStatReceiver getStatsWriter() {
-    return statsWriter;
+    }
   }
 
   @Override

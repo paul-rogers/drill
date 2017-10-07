@@ -75,6 +75,7 @@ public class BasicPhysicalOpUnitTest extends PhysicalOpUnitTestBase {
         .go();
   }
 
+  @SuppressWarnings("unchecked")
   @Test
   public void testSimpleHashJoin() {
     HashJoinPOP joinConf = new HashJoinPOP(null, null, Lists.newArrayList(joinCond("x", "EQUALS", "x1")), JoinRelType.LEFT);
@@ -100,6 +101,7 @@ public class BasicPhysicalOpUnitTest extends PhysicalOpUnitTestBase {
         .go();
   }
 
+  @SuppressWarnings("unchecked")
   @Test
   public void testSimpleMergeJoin() {
     MergeJoinPOP joinConf = new MergeJoinPOP(null, null, Lists.newArrayList(joinCond("x", "EQUALS", "x1")), JoinRelType.LEFT);
