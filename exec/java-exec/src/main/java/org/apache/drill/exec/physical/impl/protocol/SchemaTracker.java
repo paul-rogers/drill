@@ -78,8 +78,9 @@ public class SchemaTracker {
     // must be same instance.
 
     for (int i = 0; i < currentVectors.size(); i++) {
-      if (currentVectors.get(i) != newBatch.getValueVector(i).getValueVector())
+      if (currentVectors.get(i) != newBatch.getValueVector(i).getValueVector()) {
         return false;
+      }
     }
     return true;
   }
