@@ -136,15 +136,10 @@ public class EasyGroupScan extends AbstractFileGroupScan {
     this.endpointAffinities = AffinityCreator.getAffinityMap(chunks);
   }
 
-  public String getSelectionRoot() {
-    return selectionRoot;
-  }
+  public String getSelectionRoot() { return selectionRoot; }
 
   @Override
-  public int getMaxParallelizationWidth() {
-    return maxWidth;
-  }
-
+  public int getMaxParallelizationWidth() { return maxWidth; }
 
   @Override
   public ScanStats getScanStats(final PlannerSettings settings) {
@@ -152,9 +147,7 @@ public class EasyGroupScan extends AbstractFileGroupScan {
   }
 
   @Override
-  public boolean hasFiles() {
-    return true;
-  }
+  public boolean hasFiles() { return true; }
 
   @JsonProperty("files")
   @Override
@@ -163,15 +156,10 @@ public class EasyGroupScan extends AbstractFileGroupScan {
   }
 
   @JsonProperty("columns")
-  public List<SchemaPath> getColumns() {
-    return columns;
-  }
-
+  public List<SchemaPath> getColumns() { return columns; }
 
   @JsonIgnore
-  public FileSelection getFileSelection() {
-    return selection;
-  }
+  public FileSelection getFileSelection() { return selection; }
 
   @Override
   public void modifyFileSelection(FileSelection selection) {
@@ -183,7 +171,6 @@ public class EasyGroupScan extends AbstractFileGroupScan {
     assert children == null || children.isEmpty();
     return new EasyGroupScan(this);
   }
-
 
   @Override
   public List<EndpointAffinity> getOperatorAffinity() {
@@ -251,13 +238,11 @@ public class EasyGroupScan extends AbstractFileGroupScan {
   }
 
   @Override
-  public String getDigest() {
-    return toString();
-  }
+  public String getDigest() { return toString(); }
 
   @Override
   public GroupScan clone(List<SchemaPath> columns) {
-    if (!formatPlugin.supportsPushDown()) {
+    if (! formatPlugin.supportsPushDown()) {
       throw new IllegalStateException(String.format("%s doesn't support pushdown.", this.getClass().getSimpleName()));
     }
     EasyGroupScan newScan = new EasyGroupScan(this);
@@ -279,5 +264,4 @@ public class EasyGroupScan extends AbstractFileGroupScan {
   public boolean canPushdownProjects(List<SchemaPath> columns) {
     return formatPlugin.supportsPushDown();
   }
-
 }

@@ -42,9 +42,13 @@ import org.apache.drill.exec.vector.accessor.TupleWriter.UndefinedColumnExceptio
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.schema.SchemaBuilder;
+import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetReader;
 import org.apache.drill.test.rowSet.RowSetUtilities;
 import org.apache.drill.test.rowSet.schema.SchemaBuilder;
+import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
+
 import org.junit.Test;
 
 /**

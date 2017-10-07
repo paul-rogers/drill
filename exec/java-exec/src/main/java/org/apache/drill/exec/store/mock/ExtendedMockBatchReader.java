@@ -20,7 +20,7 @@ package org.apache.drill.exec.store.mock;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
@@ -30,12 +30,16 @@ import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.OutputMutator;
+import org.apache.drill.exec.physical.impl.ScanBatch;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
+import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
+import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.store.AbstractRecordReader;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.record.metadata.TupleSchema;
 import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
-import org.apache.drill.exec.vector.AllocationHelper;
-import org.apache.drill.exec.vector.ValueVector;
 
 /**
  * Extended form of the mock record reader that uses generator class
@@ -47,18 +51,15 @@ import org.apache.drill.exec.vector.ValueVector;
  * {@link ScanBatch} used to create this record reader.
  */
 
-public class ExtendedMockRecordReader extends AbstractRecordReader {
-
-  private ValueVector[] valueVectors;
-  private int batchRecordCount;
-  private int recordsRead;
+public class ExtendedMockBatchReader implements ManagedReader<SchemaNegotiator> {
 
   private final MockScanEntry config;
   private final ColumnDef fields[];
+  private ResultSetLoader loader;
+  private RowSetLoader writer;
 
-  public ExtendedMockRecordReader(MockScanEntry config) {
+  public ExtendedMockBatchReader(MockScanEntry config) {
     this.config = config;
-
     fields = buildColumnDefs();
   }
 
@@ -78,7 +79,7 @@ public class ExtendedMockRecordReader extends AbstractRecordReader {
         throw new IllegalArgumentException("Duplicate column name: " + col.name);
       }
       names.add(col.name);
-      int repeat = Math.min(1, col.getRepeatCount());
+      int repeat = Math.max(1, col.getRepeatCount());
       if (repeat == 1) {
         defs.add(new ColumnDef(col));
       } else {
@@ -92,65 +93,61 @@ public class ExtendedMockRecordReader extends AbstractRecordReader {
     return defArray;
   }
 
-  private int getEstimatedRecordSize() {
-    int size = 0;
+  @Override
+  public boolean open(SchemaNegotiator schemaNegotiator) {
+    TupleMetadata schema = new TupleSchema();
     for (int i = 0; i < fields.length; i++) {
-      size += fields[i].width;
+      final ColumnDef col = fields[i];
+      final MaterializedField field = MaterializedField.create(col.getName(),
+                                          col.getConfig().getMajorType());
+      schema.add(field);
     }
-    return size;
+    schemaNegotiator.setTableSchema(schema);
+
+    // Set the batch size. Ideally, we'd leave that to the framework based
+    // on the bytes per batch. But, several legacy tests depend on a known,
+    // fixed batch size of 10K, so encode that until we can change those
+    // tests. If the operator definition specifies a size, use that.
+
+    // TODO: Defer batch size to framework, update tests accordingly.
+
+    int batchSize = config.getBatchSize();
+    if (batchSize > 0) {
+      schemaNegotiator.setBatchSize(batchSize);
+    }
+
+    loader = schemaNegotiator.build();
+    writer = loader.writer();
+    for (int i = 0; i < fields.length; i++) {
+      fields[i].generator.setup(fields[i], writer.scalar(i));
+    }
+    return true;
   }
 
   @Override
-  public void setup(OperatorContext context, OutputMutator output) throws ExecutionSetupException {
-    try {
-      final int estimateRowSize = getEstimatedRecordSize();
-      valueVectors = new ValueVector[fields.length];
-      int batchSize = config.getBatchSize();
-      if (batchSize == 0) {
-        batchSize = 10 * 1024 * 1024;
-      }
-      batchRecordCount = Math.max(1, batchSize / estimateRowSize);
-      batchRecordCount = Math.min(batchRecordCount, Character.MAX_VALUE);
-
-      for (int i = 0; i < fields.length; i++) {
-        final ColumnDef col = fields[i];
-        final MajorType type = col.getConfig().getMajorType();
-        final MaterializedField field = MaterializedField.create(col.getName(), type);
-        final Class<? extends ValueVector> vvClass = TypeHelper.getValueVectorClass(field.getType().getMinorType(), field.getDataMode());
-        valueVectors[i] = output.addField(field, vvClass);
-      }
-    } catch (SchemaChangeException e) {
-      throw new ExecutionSetupException("Failure while setting up fields", e);
-    }
-  }
-
-  @Override
-  public int next() {
-    if (recordsRead >= this.config.getRecords()) {
-      return 0;
+  public boolean next() {
+    int rowCount = config.getRecords() - loader.totalRowCount();
+    if (rowCount <= 0) {
+      return false;
     }
 
-    final int recordSetSize = Math.min(batchRecordCount, this.config.getRecords() - recordsRead);
-    recordsRead += recordSetSize;
-    for (int i = 0; i < recordSetSize; i++) {
-      int j = 0;
-      for (final ValueVector v : valueVectors) {
-        fields[j++].generator.setValue(v, i);
+    Random rand = new Random();
+    for (int i = 0; i < rowCount; i++) {
+      if (writer.isFull()) {
+        break;
       }
+      writer.start();
+      for (int j = 0; j < fields.length; j++) {
+        if (fields[j].nullable && rand.nextInt(100) < fields[j].nullablePercent) {
+          writer.scalar(j).setNull();
+        } else {
+          fields[j].generator.setValue();
+        }
+      }
+      writer.save();
     }
 
-    return recordSetSize;
-  }
-
-  @Override
-  public void allocate(Map<String, ValueVector> vectorMap) throws OutOfMemoryException {
-    try {
-      for (final ValueVector v : vectorMap.values()) {
-        AllocationHelper.allocate(v, Character.MAX_VALUE, 50, 10);
-      }
-    } catch (NullPointerException e) {
-      throw new OutOfMemoryException();
-    }
+    return true;
   }
 
   @Override

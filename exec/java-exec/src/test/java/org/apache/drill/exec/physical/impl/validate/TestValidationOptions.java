@@ -20,7 +20,7 @@ package org.apache.drill.exec.physical.impl.validate;
 import static org.junit.Assert.assertFalse;
 
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.store.easy.text.compliant.CompliantTextRecordReader;
+import org.apache.drill.exec.store.easy.text.compliant.CompliantTextBatchReader;
 import org.apache.drill.test.BaseDirTestWatcher;
 import org.apache.drill.test.ClientFixture;
 import org.apache.drill.test.ClusterFixture;
@@ -49,7 +49,7 @@ public class TestValidationOptions extends DrillTest {
         .toConsole()
         .logger(BatchValidator.class, Level.TRACE)
         .logger(IteratorValidatorCreator.class, Level.TRACE)
-        .logger(CompliantTextRecordReader.class, Level.TRACE)
+        .logger(CompliantTextBatchReader.class, Level.TRACE)
         .build();
   }
 

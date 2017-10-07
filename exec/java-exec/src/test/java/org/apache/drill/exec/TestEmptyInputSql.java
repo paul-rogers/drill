@@ -17,7 +17,9 @@
  */
 package org.apache.drill.exec;
 
-import com.google.common.collect.Lists;
+import java.nio.file.Paths;
+import java.util.List;
+
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.test.BaseTestQuery;
@@ -30,8 +32,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
 
-import java.nio.file.Paths;
-import java.util.List;
+import com.google.common.collect.Lists;
 
 @Category(UnlikelyTest.class)
 public class TestEmptyInputSql extends BaseTestQuery {

@@ -15,10 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor.reader;
+package org.apache.drill.exec.physical.impl.scan.project;
 
-public interface ElementReaderIndex {
-  int batchIndex();
-  int size();
-  int vectorIndex(int posn);
+import org.apache.drill.exec.vector.ValueVector;
+
+/**
+ * Generic mechanism for retrieving vectors from a source tuple when
+ * projecting columns to the output tuple. Works around the fact that
+ * vector containers and maps are both tuples, but have very different
+ * interfaces. Also allows other classes to act as "proxies" for a
+ * source tuple.
+ */
+
+public interface VectorSource {
+  ValueVector vector(int index);
 }

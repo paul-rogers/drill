@@ -17,8 +17,6 @@
  */
 package org.apache.drill.exec.vector.complex;
 
-import io.netty.buffer.DrillBuf;
-
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -47,6 +45,8 @@ import org.apache.drill.exec.vector.complex.reader.FieldReader;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Ordering;
 import com.google.common.primitives.Ints;
+
+import io.netty.buffer.DrillBuf;
 
 public class MapVector extends AbstractMapVector {
 

@@ -27,6 +27,7 @@ import org.apache.drill.common.exceptions.DrillRuntimeException;
  * {@link RecordBatch#next() iteration}.</p>
  *
  */
+@SuppressWarnings("serial")
 public class OversizedAllocationException extends DrillRuntimeException {
   private static final long serialVersionUID = 1L;
 

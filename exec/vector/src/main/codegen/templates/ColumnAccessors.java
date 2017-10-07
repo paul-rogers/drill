@@ -303,12 +303,12 @@ public class ColumnAccessors {
       <#-- Hard to optimize this case. Just use the available tools. -->
       DecimalUtility.getSparseFromBigDecimal(value, drillBuf,
           ${putOffset},
-          type.getScale(), 6);
+          type.getScale(), type.getPrecision(), 6);
       <#elseif drillType == "Decimal28Sparse">
       <#-- Hard to optimize this case. Just use the available tools. -->
       DecimalUtility.getSparseFromBigDecimal(value, drillBuf,
           ${putOffset},
-          type.getScale(), 5);
+          type.getScale(), type.getPrecision(), 5);
       <#elseif drillType == "IntervalYear">
       drillBuf.setInt(${putOffset},
           value.getYears() * 12 + value.getMonths());

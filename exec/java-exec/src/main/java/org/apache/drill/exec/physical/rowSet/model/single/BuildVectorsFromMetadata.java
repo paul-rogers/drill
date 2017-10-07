@@ -18,14 +18,19 @@
 package org.apache.drill.exec.physical.rowSet.model.single;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.record.metadata.VariantMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
+import org.apache.drill.exec.vector.complex.ListVector;
+import org.apache.drill.exec.vector.complex.RepeatedListVector;
+import org.apache.drill.exec.vector.complex.UnionVector;
 
 /**
  * Build (materialize) as set of vectors based on a provided
@@ -57,9 +62,27 @@ public class BuildVectorsFromMetadata {
     switch (metadata.structureType()) {
     case TUPLE:
       return buildMap(metadata);
+    case VARIANT:
+      if (metadata.isArray()) {
+        return builList(metadata);
+      } else {
+        return buildUnion(metadata);
+      }
+    case MULTI_ARRAY:
+      return buildRepeatedList(metadata);
     default:
       return TypeHelper.getNewVector(metadata.schema(), allocator, null);
     }
+  }
+
+  private ValueVector buildRepeatedList(ColumnMetadata metadata) {
+    RepeatedListVector listVector = new RepeatedListVector(metadata.emptySchema(), allocator, null);
+    if (metadata.childSchema() != null) {
+      @SuppressWarnings("resource")
+      ValueVector child = buildVector(metadata.childSchema());
+      listVector.setChildVector(child);
+    }
+    return listVector;
   }
 
   /**
@@ -100,5 +123,58 @@ public class BuildVectorsFromMetadata {
       }
       mapVector.putChild(childSchema.name(), buildVector(childSchema));
     }
+  }
+
+  private ValueVector buildUnion(ColumnMetadata metadata) {
+    ValueVector vector = TypeHelper.getNewVector(metadata.emptySchema(), allocator, null);
+    populateUnion((UnionVector) vector, metadata.variantSchema());
+    return vector;
+  }
+
+  private void populateUnion(UnionVector unionVector,
+      VariantMetadata variantSchema) {
+    for (MinorType type : variantSchema.types()) {
+      @SuppressWarnings("resource")
+      ValueVector childVector = unionVector.getMember(type);
+      switch (type) {
+      case LIST:
+        populateList((ListVector) childVector,
+            variantSchema.member(MinorType.LIST).variantSchema());
+        break;
+      case MAP:
+
+        // Force the map to require nullable or repeated types.
+        // Not perfect; does not extend down to maps within maps.
+        // Since this code is used in testing, not adding that complexity
+        // for now.
+
+        populateMap((AbstractMapVector) childVector,
+            variantSchema.member(MinorType.MAP).mapSchema(),
+            true);
+        break;
+      default:
+        // Nothing additional needed
+      }
+    }
+  }
+
+  private ValueVector builList(ColumnMetadata metadata) {
+    ValueVector vector = TypeHelper.getNewVector(metadata.emptySchema(), allocator, null);
+    populateList((ListVector) vector, metadata.variantSchema());
+    return vector;
+  }
+
+  private void populateList(ListVector vector, VariantMetadata variantSchema) {
+    if (variantSchema.size() == 0) {
+      return;
+    } else if (variantSchema.size() == 1) {
+      ColumnMetadata subtype = variantSchema.listSubtype();
+      @SuppressWarnings("resource")
+      ValueVector childVector = buildVector(subtype);
+      vector.setChildVector(childVector);
+    } else {
+      populateUnion(vector.promoteToUnion(), variantSchema);
+    }
+>>>>>>> Next batch of vector accessor work
   }
 }

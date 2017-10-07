@@ -17,15 +17,12 @@
  */
 package org.apache.drill.test.rowSet;
 
-import com.google.common.collect.Sets;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
-
-import java.util.Set;
 
 /**
  * Fluent builder to quickly build up an row set (record batch)
@@ -43,7 +40,6 @@ public final class RowSetBuilder {
   private DirectRowSet rowSet;
   private RowSetWriter writer;
   private boolean withSv2;
-  private Set<Integer> skipIndices = Sets.newHashSet();
 
   /**
    * Creates a {@link RowSetBuilder}. Since {@link BatchSchema} does not handle complex types well, this has been deprecated in favor of the other constructors.
@@ -57,7 +53,7 @@ public final class RowSetBuilder {
   }
 
   public RowSetBuilder(BufferAllocator allocator, TupleMetadata schema) {
-    this(allocator, schema, 10);
+    this(allocator, schema, 30);
   }
 
   public RowSetBuilder(BufferAllocator allocator, TupleMetadata schema, int capacity) {
@@ -68,31 +64,27 @@ public final class RowSetBuilder {
   public TupleWriter writer() { return writer; }
 
   /**
-   * Add a new row using column values passed as variable-length arguments. Expects
-   * map values to be flattened. a schema of (a:int, b:map(c:varchar)) would be>
-   * set as <br><tt>add(10, "foo");</tt><br> Values of arrays can be expressed as a Java
-   * array. A schema of (a:int, b:int[]) can be set as<br>
+   * Add a new row using column values passed as variable-length arguments.
+   * Expects map values to be flattened. a schema of (a:int, b:map(c:varchar))
+   * would be> set as <br>
+   * <tt>add(10, "foo");</tt><br>
+   * Values of arrays can be expressed as a Java array. A schema of (a:int,
+   * b:int[]) can be set as<br>
    * <tt>add(10, new int[] {100, 200});</tt><br>
-   * @param values column values in column index order
+   *
+   * @param values
+   *          column values in column index order
+   *
    * @return this builder
-   * @throws IllegalStateException if the batch, or any vector in the batch,
-   * becomes full. This method is designed to be used in tests where we will
-   * seldom create a full vector of data.
+   *
+   * @throws IllegalStateException
+   *           if the batch, or any vector in the batch, becomes full. This
+   *           method is designed to be used in tests where we will seldom
+   *           create a full vector of data.
    */
 
   public RowSetBuilder addRow(Object...values) {
     writer.addRow(values);
-    return this;
-  }
-
-  public RowSetBuilder addSelection(boolean selected, Object...values) {
-    final int index = writer.rowIndex();
-    writer.addRow(values);
-
-    if (!selected) {
-      skipIndices.add(index);
-    }
-
     return this;
   }
 
@@ -127,10 +119,6 @@ public final class RowSetBuilder {
     return addRow(new Object[] { value });
   }
 
-  public RowSetBuilder addSingleCol(boolean selected, Object value) {
-    return addSelection(selected, new Object[] { value });
-  }
-
   /**
    * Build the row set with a selection vector 2. The SV2 is
    * initialized to have a 1:1 index to the rows: SV2 0 points
@@ -147,7 +135,7 @@ public final class RowSetBuilder {
   public SingleRowSet build() {
     SingleRowSet result = writer.done();
     if (withSv2) {
-      return rowSet.toIndirect(skipIndices);
+      return result.toIndirect();
     }
     return result;
   }

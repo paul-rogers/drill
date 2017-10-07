@@ -17,33 +17,83 @@
  */
 package org.apache.drill.exec.store.mock;
 
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.ops.ExecutorFragmentContext;
+import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.impl.BatchCreator;
 import org.apache.drill.exec.physical.impl.ScanBatch;
+import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
+import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
+import org.apache.drill.exec.physical.impl.scan.framework.BasicScanFramework;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
+import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
+import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.store.RecordReader;
-
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
+import org.apache.drill.exec.vector.ValueVector;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 
 public class MockScanBatchCreator implements BatchCreator<MockSubScanPOP> {
+
   @Override
-  public ScanBatch getBatch(ExecutorFragmentContext context, MockSubScanPOP config, List<RecordBatch> children)
+  public CloseableRecordBatch getBatch(ExecutorFragmentContext context, MockSubScanPOP config, List<RecordBatch> children)
       throws ExecutionSetupException {
     Preconditions.checkArgument(children.isEmpty());
     final List<MockScanEntry> entries = config.getReadEntries();
-    final List<RecordReader> readers = new LinkedList<>();
-    for(final MockTableDef.MockScanEntry e : entries) {
-      if ( e.isExtended( ) ) {
-        readers.add(new ExtendedMockRecordReader(e));
-      } else {
-        readers.add(new MockRecordReader(context, e));
-      }
+    MockScanEntry first = entries.get(0);
+    if (first.isExtended()) {
+      // Extended mode: use the revised, size-aware scan operator
+
+      return extendedMockScan(context, config, entries);
+    } else {
+      return legacyMockScan(context, config, entries);
+    }
+  }
+
+  private CloseableRecordBatch extendedMockScan(FragmentContext context,
+      MockSubScanPOP config, List<MockScanEntry> entries) {
+    List<SchemaPath> projList = new ArrayList<>();
+    projList.add(SchemaPath.STAR_COLUMN);
+
+    final List<ManagedReader<SchemaNegotiator>> readers = Lists.newArrayList();
+    for (final MockTableDef.MockScanEntry e : entries) {
+      readers.add(new ExtendedMockBatchReader(e));
+    }
+
+    // Set the scan to allow the maximum row count, allowing
+    // each reader to adjust the batch size smaller if desired.
+
+    BasicScanFramework framework = new BasicScanFramework(projList, readers.iterator());
+    framework.setMaxRowCount(ValueVector.MAX_ROW_COUNT);
+
+    // Limit the batch size to 10 MB, or whatever the operator definition
+    // specified.
+
+    int batchSizeBytes = 10 * 1024 * 1024;
+    MockTableDef.MockScanEntry first = entries.get(0);
+    if (first.getBatchSize() > 0) {
+      batchSizeBytes = first.getBatchSize();
+    }
+    framework.setMaxBatchByteCount(batchSizeBytes);
+
+    return new OperatorRecordBatch(
+         context, config,
+         new ScanOperatorExec(framework));
+  }
+
+  private CloseableRecordBatch legacyMockScan(FragmentContext context,
+      MockSubScanPOP config,
+      List<MockScanEntry> entries) throws ExecutionSetupException {
+    final List<RecordReader> readers = Lists.newArrayList();
+    for (final MockTableDef.MockScanEntry e : entries) {
+      readers.add(new MockRecordReader(context, e));
     }
     return new ScanBatch(config, context, readers);
   }

@@ -26,9 +26,9 @@ public class GenericSV2CopierTest extends AbstractGenericCopierTest {
   public RowSet createSrcRowSet(RootAllocator allocator) {
     return new RowSetBuilder(allocator, createTestSchema(BatchSchema.SelectionVectorMode.TWO_BYTE))
       .addRow(row1())
-      .addSelection(false, row4())
+//      .addSelection(false, row4())
       .addRow(row2())
-      .addSelection(false, row5())
+//      .addSelection(false, row5())
       .addRow(row3())
       .withSv2()
       .build();

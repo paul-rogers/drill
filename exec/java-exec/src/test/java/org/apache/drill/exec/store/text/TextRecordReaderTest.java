@@ -34,10 +34,17 @@ import org.junit.Test;
 import com.google.common.base.Charsets;
 import com.google.common.io.Files;
 
+/**
+ * Test the text record reader. Note: although this test was
+ * originally written for the old-style record reader, it now
+ * tests the new-style text record batch reader.
+ */
+
 public class TextRecordReaderTest extends PopUnitTestBase {
 
   @Test
   public void testFullExecution() throws Exception {
+    @SuppressWarnings("resource")
     RemoteServiceSet serviceSet = RemoteServiceSet.getLocalServiceSet();
 
     try(Drillbit bit1 = new Drillbit(CONFIG, serviceSet);
