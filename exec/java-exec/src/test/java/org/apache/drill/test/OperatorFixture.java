@@ -28,6 +28,7 @@ import org.apache.drill.common.scanner.ClassPathScanner;
 import org.apache.drill.common.scanner.persistence.ScanResult;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.compile.CodeCompiler;
+import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.memory.RootAllocatorFactory;
@@ -135,11 +136,13 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     private final CodeCompiler compiler;
     private ExecutionControls controls;
     private final BufferManagerImpl bufferManager;
+    private final BufferAllocator allocator;
 
     public TestFragmentContext(DrillConfig config, OptionSet options, BufferAllocator allocator) {
       super(newFunctionRegistry(config, options));
       this.config = config;
       this.options = options;
+      this.allocator = allocator;
       compiler = new CodeCompiler(config, options);
       bufferManager = new BufferManagerImpl(allocator);
     }
@@ -187,6 +190,24 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     @Override
     protected BufferManager getBufferManager() {
       return bufferManager;
+    }
+
+    @SuppressWarnings("resource")
+    @Override
+    public OperatorContext newOperatorContext(PhysicalOperator popConfig,
+        OperatorStats stats) throws OutOfMemoryException {
+      BufferAllocator childAllocator = allocator.newChildAllocator(
+          "test:" + popConfig.getClass().getSimpleName(),
+          popConfig.getInitialAllocation(),
+          popConfig.getMaxAllocation()
+          );
+      return new TestOperatorContext(this, childAllocator, popConfig, stats);
+    }
+
+    @Override
+    public OperatorContext newOperatorContext(PhysicalOperator popConfig)
+        throws OutOfMemoryException {
+      return newOperatorContext(popConfig, null);
     }
   }
 
@@ -242,7 +263,7 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     public void startWait() { }
 
     @Override
-    public void stopWait() {  }
+    public void stopWait() { }
   }
 
   private final SystemOptionManager options;
@@ -272,7 +293,7 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
   }
 
   public SystemOptionManager options() { return options; }
-  public FragmentContextInterface fragmentExecContext() { return context; }
+  public FragmentContextInterface fragmentContext() { return context; }
 
   @Override
   public void close() throws Exception {
