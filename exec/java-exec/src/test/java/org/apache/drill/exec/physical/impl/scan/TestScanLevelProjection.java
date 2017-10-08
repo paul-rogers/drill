@@ -208,6 +208,10 @@ public class TestScanLevelProjection extends SubOperatorTest {
     assertEquals(ColumnType.COLUMNS_ARRAY, scanProj.outputCols().get(0).columnType());
   }
 
+  /**
+   * Test including file metadata (AKA "implicit columns") in the project
+   * list.
+   */
 
   @Test
   public void testFileMetadataColumnSelection() {
@@ -306,6 +310,12 @@ public class TestScanLevelProjection extends SubOperatorTest {
     assertEquals(DataMode.OPTIONAL, ((ScanOutputColumn.TypedColumn) (scanProj.outputCols().get(0))).type().getMode());
   }
 
+  /**
+   * Can't explicitly list file metadata columns with a wildcard in
+   * "legacy" mode: that is, when the wildcard already includes partition
+   * and file metadata columns.
+   */
+
   @Test
   public void testErrorWildcardLegacyAndFileMetaata() {
     ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
@@ -321,6 +331,10 @@ public class TestScanLevelProjection extends SubOperatorTest {
     }
   }
 
+  /**
+   * Can't include both a wildcard and a column name.
+   */
+
   @Test
   public void testErrorWildcardAndColumns() {
     ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
@@ -333,6 +347,26 @@ public class TestScanLevelProjection extends SubOperatorTest {
       // Expected
     }
   }
+
+  /**
+   * Can't include both a column name and a wildcard.
+   */
+  @Test
+  public void testErrorColumnAndWildcard() {
+    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
+
+    builder.projectedCols(projectList("a", ScanLevelProjection.WILDCARD));
+    try {
+      builder.build();
+      fail();
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
+  }
+
+  /**
+   * Can't include both a wildcard and a partition column.
+   */
 
   @Test
   public void testErrorWildcardLegacyAndPartition() {
@@ -349,18 +383,12 @@ public class TestScanLevelProjection extends SubOperatorTest {
     }
   }
 
-  @Test
-  public void testErrorColumnAndWildcard() {
-    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
-
-    builder.projectedCols(projectList("a", ScanLevelProjection.WILDCARD));
-    try {
-      builder.build();
-      fail();
-    } catch (IllegalArgumentException e) {
-      // Expected
-    }
-  }
+  /**
+   * Can't include a wildcard twice.
+   * <p>
+   * Note: Drill actually allows this, but the work should be done
+   * in the project operator; scan should see at most one wildcard.
+   */
 
   @Test
   public void testErrorTwoWildcards() {
@@ -375,6 +403,13 @@ public class TestScanLevelProjection extends SubOperatorTest {
     }
   }
 
+  /**
+   * The `columns` column is special; can't include both `columns` and
+   * a named column in the same project.
+   * <p>
+   * TODO: This should only be true for text readers, make this an option.
+   */
+
   @Test
   public void testErrorColumnsArrayAndColumn() {
     ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
@@ -387,6 +422,10 @@ public class TestScanLevelProjection extends SubOperatorTest {
       // Expected
     }
   }
+
+  /**
+   * Exclude a column and `columns` (reversed order of previous test).
+   */
 
   @Test
   public void testErrorColumnAndColumnsArray() {
@@ -401,6 +440,10 @@ public class TestScanLevelProjection extends SubOperatorTest {
     }
   }
 
+  /**
+   * Can't request `columns` twice.
+   */
+
   @Test
   public void testErrorTwoColumnsArray() {
     ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
@@ -414,6 +457,11 @@ public class TestScanLevelProjection extends SubOperatorTest {
     }
   }
 
+  /**
+   * Can't project partition columns if the file path is not rooted in the
+   * base path.
+   */
+
   @Test
   public void testErrorInvalidPath() {
     Path path = new Path("hdfs:///w/x/y/z.csv");
@@ -424,6 +472,11 @@ public class TestScanLevelProjection extends SubOperatorTest {
       // Expected
     }
   }
+
+  /**
+   * Can't project partition columns if the file is above the
+   * base path.
+   */
 
   @Test
   public void testErrorShortPath() {
