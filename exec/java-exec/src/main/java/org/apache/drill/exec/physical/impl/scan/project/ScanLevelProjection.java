@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan;
+package org.apache.drill.exec.physical.impl.scan.project;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,11 +30,13 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ColumnsArrayColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.RequestedTableColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.WildcardColumn;
+import org.apache.drill.exec.physical.impl.scan.FileLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnsArrayColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.FileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.PartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.RequestedTableColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.WildcardColumn;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.server.options.OptionValue;
 import org.apache.drill.exec.store.ColumnExplorer.ImplicitFileColumns;
@@ -206,6 +208,178 @@ public class ScanLevelProjection {
     }
   }
 
+  public static class NullColumnProjection extends ScanOutputColumn {
+
+    public NullColumnProjection(RequestedColumn inCol) {
+      super(inCol);
+    }
+
+    @Override
+    public ColumnType columnType() {
+      // TODO Auto-generated method stub
+      return null;
+    }
+
+    @Override
+    protected void visit(int index, Visitor visitor) {
+      // TODO Auto-generated method stub
+
+    }
+  }
+
+  public interface ScanProjectionParser {
+    void bind(ScanProjectionBuilder builder);
+    boolean parse(RequestedColumn inCol);
+    void validate();
+    void validateColumn(ScanOutputColumn col);
+    void build();
+  }
+
+  public static class ColumnsArrayParser implements ScanProjectionParser {
+
+    // Config
+
+    private MajorType columnsArrayType;
+
+    // Internals
+
+    private ScanProjectionBuilder builder;
+
+    // Output
+
+    protected ColumnsArrayColumn columnsArrayCol;
+    protected List<Integer> columnsIndexes;
+    protected int maxIndex;
+
+    private ColumnsArrayProjection projection;
+
+    public void columnsArrayType(MinorType type) {
+      columnsArrayType = MajorType.newBuilder()
+          .setMinorType(type)
+          .setMode(DataMode.REPEATED)
+          .build();
+    }
+
+    @Override
+    public void bind(ScanProjectionBuilder builder) {
+      this.builder = builder;
+    }
+
+    @Override
+    public boolean parse(RequestedColumn inCol) {
+      if (! inCol.name().equalsIgnoreCase(COLUMNS_ARRAY_NAME)) {
+        return false;
+      }
+
+      // Special `columns` array column.
+
+      mapColumnsArrayColumn(inCol);
+      return true;
+    }
+
+    private void mapColumnsArrayColumn(RequestedColumn inCol) {
+
+      if (inCol.isArray()) {
+        mapColumnsArrayElement(inCol);
+        return;
+      }
+
+      // Query contains a reference to the "columns" generic
+      // columns array. The query can refer to this column only once
+      // (in non-indexed form.)
+
+      if (columnsArrayCol != null) {
+        throw new IllegalArgumentException("Duplicate columns[] column");
+      }
+      if (columnsIndexes != null) {
+        throw new IllegalArgumentException("Cannot refer to both columns and columns[i]");
+      }
+      addColumnsArrayColumn(inCol);
+    }
+
+    private void addColumnsArrayColumn(RequestedColumn inCol) {
+      builder.setProjectionType(ProjectionType.COLUMNS_ARRAY);
+      columnsArrayCol = ColumnsArrayColumn.fromSelect(inCol, columnsArrayType());
+      inCol.resolution = columnsArrayCol;
+      builder.addProjectedColumn(columnsArrayCol);
+    }
+
+    public MajorType columnsArrayType() {
+      if (columnsArrayType == null) {
+        columnsArrayType = MajorType.newBuilder()
+            .setMinorType(MinorType.VARCHAR)
+            .setMode(DataMode.REPEATED)
+            .build();
+      }
+      return columnsArrayType;
+    }
+
+    private void mapColumnsArrayElement(RequestedColumn inCol) {
+      // Add the "columns" column, if not already present.
+      // The project list past this point will contain just the
+      // "columns" entry rather than the series of
+      // columns[1], columns[2], etc. items that appear in the original
+      // project list.
+
+      if (columnsArrayCol == null) {
+
+        // Check if "columns" already appeared without an index.
+
+        if (columnsIndexes == null) {
+          throw new IllegalArgumentException("Cannot refer to both columns and columns[i]");
+        }
+        addColumnsArrayColumn(inCol);
+        columnsIndexes = new ArrayList<>();
+      }
+      int index = inCol.arrayIndex();
+      if (index < 0  ||  index > ValueVector.MAX_ROW_COUNT) {
+        throw new IllegalArgumentException("columns[" + index + "] out of bounds");
+      }
+      columnsIndexes.add(index);
+      maxIndex = Math.max(maxIndex, index);
+    }
+
+    @Override
+    public void validate() {
+      if (builder.hasWildcard() && columnsArrayCol != null) {
+        throw new IllegalArgumentException("Cannot select columns[] and `*` together");
+      }
+    }
+
+    @Override
+    public void validateColumn(ScanOutputColumn col) {
+      if (columnsArrayCol != null && col.columnType() == ColumnType.TABLE) {
+        throw new IllegalArgumentException("Cannot select columns[] and other table columns: " + col.name());
+      }
+    }
+
+    public static class ColumnsArrayProjection {
+      private final boolean columnsIndexes[];
+      private final MajorType columnsArrayType;
+
+      public ColumnsArrayProjection(ColumnsArrayParser builder) {
+        columnsArrayType = builder.columnsArrayType;
+        if (builder.columnsIndexes == null) {
+          columnsIndexes = null;
+        } else {
+          columnsIndexes = new boolean[builder.maxIndex];
+          for (int i = 0; i < builder.columnsIndexes.size(); i++) {
+            columnsIndexes[builder.columnsIndexes.get(i)] = true;
+          }
+        }
+      }
+
+      public boolean[] columnsArrayIndexes() { return columnsIndexes; }
+
+      public MajorType columnsArrayType() { return columnsArrayType; }
+    }
+
+    @Override
+    public void build() {
+      projection = new ColumnsArrayProjection(this);
+    }
+  }
+
   /**
    * Fluent builder for the projection mapping. Accepts the inputs needed to
    * plan a projection, builds the mappings, and constructs the projection
@@ -216,7 +390,7 @@ public class ScanLevelProjection {
    * source, which are metadata, and so on.
    */
 
-  public static class Builder {
+  public static class ScanProjectionBuilder {
 
     // Config
 
@@ -225,25 +399,22 @@ public class ScanLevelProjection {
     private List<FileMetadataColumnDefn> implicitColDefns = new ArrayList<>();;
     private Map<String, FileMetadataColumnDefn> fileMetadataColIndex = CaseInsensitiveMap.newHashMap();
     private boolean useLegacyWildcardExpansion = true;
-    private MajorType columnsArrayType;
 
     // Input
 
     protected String scanRootDir;
     protected List<RequestedColumn> projectionList = new ArrayList<>();
+    protected List<ScanProjectionParser> parsers = new ArrayList<>();
 
     // Output
 
     protected List<ScanOutputColumn> outputCols = new ArrayList<>();
     protected List<String> tableColNames = new ArrayList<>();
-    protected ColumnsArrayColumn columnsArrayCol;
     protected ProjectionType projectionType;
     protected RequestedColumn wildcardColumn;
-    protected List<Integer> columnsIndexes;
     protected boolean hasMetadata;
-    protected int maxIndex;
 
-    public Builder(OptionSet optionManager) {
+    public ScanProjectionBuilder(OptionSet optionManager) {
       partitionDesignator = optionManager.getOption(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL_VALIDATOR);
       partitionPattern = Pattern.compile(partitionDesignator + "(\\d+)", Pattern.CASE_INSENSITIVE);
       for (ImplicitFileColumns e : ImplicitFileColumns.values()) {
@@ -256,12 +427,17 @@ public class ScanLevelProjection {
       }
     }
 
+    public void addParser(ScanProjectionParser parser) {
+      parsers.add(parser);
+      parser.bind(this);
+    }
+
     /**
      * Indicate a SELECT * query.
      *
      * @return this builder
      */
-    public Builder projectAll() {
+    public ScanProjectionBuilder projectAll() {
       return projectedCols(Lists.newArrayList(new SchemaPath[] {SchemaPath.getSimplePath(WILDCARD)}));
     }
 
@@ -275,7 +451,7 @@ public class ScanLevelProjection {
      * @return this builder
      */
 
-    public Builder useLegacyWildcardExpansion(boolean flag) {
+    public ScanProjectionBuilder useLegacyWildcardExpansion(boolean flag) {
       useLegacyWildcardExpansion = flag;
       return this;
     }
@@ -288,7 +464,7 @@ public class ScanLevelProjection {
      * @param queryCols list of columns in the SELECT list in SELECT list order
      * @return this builder
      */
-    public Builder projectedCols(List<SchemaPath> queryCols) {
+    public ScanProjectionBuilder projectedCols(List<SchemaPath> queryCols) {
       assert this.projectionList.isEmpty();
       this.projectionList = new ArrayList<>();
       for (SchemaPath col : queryCols) {
@@ -301,13 +477,6 @@ public class ScanLevelProjection {
     public void requestColumns(List<RequestedColumn> queryCols) {
       assert this.projectionList.isEmpty();
       this.projectionList.addAll(queryCols);
-    }
-
-    public void columnsArrayType(MinorType type) {
-      columnsArrayType = MajorType.newBuilder()
-          .setMinorType(type)
-          .setMode(DataMode.REPEATED)
-          .build();
     }
 
     public void setScanRootDir(String rootDir) {
@@ -325,6 +494,9 @@ public class ScanLevelProjection {
         mapColumn(inCol);
       }
       verify();
+      for (ScanProjectionParser parser : parsers) {
+        parser.build();
+      }
       return new ScanLevelProjection(this);
     }
 
@@ -344,6 +516,11 @@ public class ScanLevelProjection {
      */
 
     private void mapColumn(RequestedColumn inCol) {
+      for (ScanProjectionParser parser : parsers) {
+        if (parser.parse(inCol)) {
+          return;
+        }
+      }
       if (inCol.isWildcard()) {
 
         // Star column: this is a SELECT * query.
@@ -375,14 +552,6 @@ public class ScanLevelProjection {
         return;
       }
 
-      if (inCol.name().equalsIgnoreCase(COLUMNS_ARRAY_NAME)) {
-
-        // Special `columns` array column.
-
-        mapColumnsArrayColumn(inCol);
-        return;
-      }
-
       // This is a desired table column.
 
       RequestedTableColumn tableCol = RequestedTableColumn.fromSelect(inCol);
@@ -391,9 +560,17 @@ public class ScanLevelProjection {
       tableColNames.add(tableCol.name());
     }
 
+    public void setProjectionType(ProjectionType type) {
+      projectionType = type;
+    }
+
+    public void addProjectedColumn(ScanOutputColumn outCol) {
+      outputCols.add(outCol);
+    }
+
     private void mapWildcardColumn(RequestedColumn inCol) {
       if (wildcardColumn != null) {
-        throw new IllegalArgumentException("Duplicate * entry in select list");
+        throw new IllegalArgumentException("Duplicate * entry in project list");
       }
       projectionType = ProjectionType.WILDCARD;
       wildcardColumn = inCol;
@@ -414,70 +591,18 @@ public class ScanLevelProjection {
       outputCols.add(inCol.resolution);
     }
 
-    private void mapColumnsArrayColumn(RequestedColumn inCol) {
-
-      if (inCol.isArray()) {
-        mapColumnsArrayElement(inCol);
-        return;
-      }
-
-      // Query contains a reference to the "columns" generic
-      // columns array. The query can refer to this column only once
-      // (in non-indexed form.)
-
-      if (columnsArrayCol != null) {
-        throw new IllegalArgumentException("Duplicate columns[] column");
-      }
-      if (columnsIndexes != null) {
-        throw new IllegalArgumentException("Cannot refer to both columns and columns[i]");
-      }
-      addColumnsArrayColumn(inCol);
-    }
-
-    private void addColumnsArrayColumn(RequestedColumn inCol) {
-      projectionType = ProjectionType.COLUMNS_ARRAY;
-      columnsArrayCol = ColumnsArrayColumn.fromSelect(inCol, columnsArrayType());
-      outputCols.add(columnsArrayCol);
-      inCol.resolution = columnsArrayCol;
-    }
-
-    private void mapColumnsArrayElement(RequestedColumn inCol) {
-      // Add the "columns" column, if not already present.
-      // The project list past this point will contain just the
-      // "columns" entry rather than the series of
-      // columns[1], columns[2], etc. items that appear in the original
-      // project list.
-
-      if (columnsArrayCol == null) {
-
-        // Check if "columns" already appeared without an index.
-
-        if (columnsIndexes == null) {
-          throw new IllegalArgumentException("Cannot refer to both columns and columns[i]");
-        }
-        addColumnsArrayColumn(inCol);
-        columnsIndexes = new ArrayList<>();
-      }
-      int index = inCol.arrayIndex();
-      if (index < 0  ||  index > ValueVector.MAX_ROW_COUNT) {
-        throw new IllegalArgumentException("columns[" + index + "] out of bounds");
-      }
-      columnsIndexes.add(index);
-      maxIndex = Math.max(maxIndex, index);
-    }
-
     private void verify() {
-      if (wildcardColumn != null && columnsArrayCol != null) {
-        throw new IllegalArgumentException("Cannot select columns[] and `*` together");
+      for (ScanProjectionParser parser : parsers) {
+        parser.validate();
       }
       for (ScanOutputColumn outCol : outputCols) {
+        for (ScanProjectionParser parser : parsers) {
+          parser.validateColumn(outCol);
+        }
         switch (outCol.columnType()) {
         case TABLE:
           if (wildcardColumn != null) {
             throw new IllegalArgumentException("Cannot select table columns and `*` together");
-          }
-          if (columnsArrayCol != null) {
-            throw new IllegalArgumentException("Cannot select columns[] and other table columns: " + outCol.name());
           }
           break;
         case FILE_METADATA:
@@ -496,14 +621,8 @@ public class ScanLevelProjection {
       }
     }
 
-    public MajorType columnsArrayType() {
-      if (columnsArrayType == null) {
-        columnsArrayType = MajorType.newBuilder()
-            .setMinorType(MinorType.VARCHAR)
-            .setMode(DataMode.REPEATED)
-            .build();
-      }
-      return columnsArrayType;
+    public boolean hasWildcard() {
+      return wildcardColumn != null;
     }
   }
 
@@ -579,10 +698,8 @@ public class ScanLevelProjection {
   private final List<RequestedColumn> requestedCols;
   private final List<ScanOutputColumn> outputCols;
   private final List<String> tableColNames;
-  private final MajorType columnsArrayType;
-  private final boolean columnsIndexes[];
 
-  public ScanLevelProjection(Builder builder) {
+  public ScanLevelProjection(ScanProjectionBuilder builder) {
     partitionDesignator = builder.partitionDesignator;
     fileMetadataColDefns = builder.implicitColDefns;
     projectType = builder.projectionType;
@@ -592,15 +709,6 @@ public class ScanLevelProjection {
     requestedCols = builder.projectionList;
     outputCols = builder.outputCols;
     tableColNames = builder.tableColNames;
-    columnsArrayType = builder.columnsArrayType;
-    if (builder.columnsIndexes == null) {
-      columnsIndexes = null;
-    } else {
-      columnsIndexes = new boolean[builder.maxIndex];
-      for (int i = 0; i < builder.columnsIndexes.size(); i++) {
-        columnsIndexes[builder.columnsIndexes.get(i)] = true;
-      }
-    }
   }
 
   /**
@@ -636,8 +744,6 @@ public class ScanLevelProjection {
 
   public List<FileMetadataColumnDefn> fileMetadataColDefns() { return fileMetadataColDefns; }
 
-  public boolean[] columnsArrayIndexes() { return columnsIndexes; }
-
   public String partitionName(int partition) {
     return partitionDesignator + partition;
   }
@@ -659,8 +765,6 @@ public class ScanLevelProjection {
         .setMode(DataMode.OPTIONAL)
         .build();
   }
-
-  public MajorType columnsArrayType() { return columnsArrayType; }
 
   public FileLevelProjection resolve(Path filePath) {
     return resolve(fileMetadata(filePath));

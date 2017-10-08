@@ -20,12 +20,14 @@ package org.apache.drill.exec.physical.impl.scan;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.FileMetadata;
-import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.FileMetadataColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.FileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.WildcardColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.FileMetadataColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.FileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.MetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.PartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.WildcardColumn;
 import org.apache.drill.exec.record.TupleMetadata;
 
 import com.google.common.annotations.VisibleForTesting;

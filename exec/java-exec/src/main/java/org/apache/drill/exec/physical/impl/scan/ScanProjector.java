@@ -26,9 +26,10 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.scan.RowBatchMerger.Builder;
-import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.ProjectionType;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.NullColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionType;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.MetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.NullColumn;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.OptionBuilder;
@@ -583,9 +584,9 @@ public class ScanProjector {
     return makeTableLoader(tableSchema, ValueVector.MAX_ROW_COUNT);
   }
 
-  public boolean[] columnsArrayProjectionMap() {
-    return projectionDefn.scanProjection().columnsArrayIndexes();
-  }
+//  public boolean[] columnsArrayProjectionMap() {
+//    return projectionDefn.scanProjection().columnsArrayIndexes();
+//  }
 
   /**
    * The implicit (file metadata) and partition (directory metadata)

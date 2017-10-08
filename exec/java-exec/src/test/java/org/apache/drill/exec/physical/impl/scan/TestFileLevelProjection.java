@@ -24,9 +24,11 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.FileMetadataColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ColumnType;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.FileMetadataColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.MetadataColumn;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
@@ -44,9 +46,9 @@ public class TestFileLevelProjection extends SubOperatorTest {
 
   @Test
   public void testWithMetadata() {
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("filename", "a", "dir0"));
+    scanProjBuilder.projectedCols(ScanTestUtils.projectList("filename", "a", "dir0"));
     scanProjBuilder.setScanRootDir("hdfs:///w");
     ScanLevelProjection scanProj = scanProjBuilder.build();
 
@@ -77,9 +79,9 @@ public class TestFileLevelProjection extends SubOperatorTest {
 
   @Test
   public void testWithoutMetadata() {
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("a"));
+    scanProjBuilder.projectedCols(ScanTestUtils.projectList("a"));
     scanProjBuilder.setScanRootDir("hdfs:///w");
     ScanLevelProjection scanProj = scanProjBuilder.build();
 
@@ -128,7 +130,7 @@ public class TestFileLevelProjection extends SubOperatorTest {
 
   @Test
   public void testLegacyWildcard() {
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(true);
     scanProjBuilder.projectAll();
     scanProjBuilder.setScanRootDir("hdfs:///w");
@@ -159,9 +161,9 @@ public class TestFileLevelProjection extends SubOperatorTest {
 
   @Test
   public void testFileMetadata() {
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(true);
-    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("a", "fqn",
+    scanProjBuilder.projectedCols(ScanTestUtils.projectList("a", "fqn",
         "filEPath", // Sic, to test case sensitivity
         "filename", "suffix"));
     scanProjBuilder.setScanRootDir("hdfs:///w");
@@ -191,9 +193,9 @@ public class TestFileLevelProjection extends SubOperatorTest {
 
   @Test
   public void testPartitionColumnTwoDigits() {
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.setScanRootDir("hdfs:///x");
-    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("dir11"));
+    scanProjBuilder.projectedCols(ScanTestUtils.projectList("dir11"));
     ScanLevelProjection scanProj = scanProjBuilder.build();
     assertEquals("dir11", scanProj.outputCols().get(0).name());
 

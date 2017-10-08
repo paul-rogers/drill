@@ -23,15 +23,14 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ColumnType;
-import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.FileMetadata;
-import org.apache.drill.exec.physical.impl.scan.ScanLevelProjection.ProjectionType;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnsArrayParser;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionType;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
@@ -43,14 +42,6 @@ import org.junit.Test;
 
 public class TestScanLevelProjection extends SubOperatorTest {
 
-  static List<SchemaPath> projectList(String... names) {
-    List<SchemaPath> selected = new ArrayList<>();
-    for (String name: names) {
-      selected.add(SchemaPath.getSimplePath(name));
-    }
-    return selected;
-  }
-
   /**
    * Basic test: select a set of columns (a, b, c) when the
    * data source has an early schema of (a, c, d). (a, c) are
@@ -59,11 +50,11 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
   @Test
   public void testBasics() {
-    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
 
     // Simulate SELECT a, b, c ...
 
-    builder.projectedCols(projectList("a", "b", "c"));
+    builder.projectedCols(ScanTestUtils.projectList("a", "b", "c"));
 
     // Build the projection plan and verify
 
@@ -112,7 +103,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
   @Test
   public void testProjectAll() {
-    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     builder.useLegacyWildcardExpansion(false);
 
     // Simulate SELECT * ...
@@ -147,12 +138,12 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
   @Test
   public void testWildcard() {
-    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     builder.useLegacyWildcardExpansion(false);
 
     // Simulate SELECT * ...
 
-    builder.projectedCols(projectList(ScanLevelProjection.WILDCARD));
+    builder.projectedCols(ScanTestUtils.projectList(ScanLevelProjection.WILDCARD));
 
     ScanLevelProjection scanProj = builder.build();
     assertTrue(scanProj.isProjectAll());
@@ -172,42 +163,6 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     assertEquals(ColumnType.WILDCARD, scanProj.outputCols().get(0).columnType());
   }
-
-  /**
-   * Test the special "columns" column that asks to return all columns
-   * as an array. No need for early schema. This case is special: it actually
-   * creates the one and only table column to match the desired output column.
-   */
-
-  @Test
-  public void testColumnsArray() {
-    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
-
-    // Simulate SELECT columns ...
-
-    builder.projectedCols(projectList("columns"));
-
-    // Build the planner and verify
-
-    ScanLevelProjection scanProj = builder.build();
-    assertFalse(scanProj.isProjectAll());
-    assertEquals(ProjectionType.COLUMNS_ARRAY, scanProj.projectType());
-    assertEquals(1, scanProj.requestedCols().size());
-    assertTrue(scanProj.tableColNames().isEmpty());
-
-    assertEquals(1, scanProj.outputCols().size());
-    assertEquals("columns", scanProj.outputCols().get(0).name());
-
-    // Verify bindings
-
-    assertSame(scanProj.outputCols().get(0), scanProj.requestedCols().get(0).resolution());
-    assertSame(scanProj.outputCols().get(0).source(), scanProj.requestedCols().get(0));
-
-    // Verify column type
-
-    assertEquals(ColumnType.COLUMNS_ARRAY, scanProj.outputCols().get(0).columnType());
-  }
-
   /**
    * Test including file metadata (AKA "implicit columns") in the project
    * list.
@@ -215,11 +170,11 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
   @Test
   public void testFileMetadataColumnSelection() {
-    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
 
     // Simulate SELECT a, b, c ...
 
-    builder.projectedCols(projectList("a", "fqn",
+    builder.projectedCols(ScanTestUtils.projectList("a", "fqn",
                                  "filEPath", // Sic, to test case sensitivity
                                  "filename", "suffix"));
 
@@ -248,44 +203,15 @@ public class TestScanLevelProjection extends SubOperatorTest {
     assertEquals(ColumnType.TABLE, scanProj.outputCols().get(0).columnType());
     assertEquals(ColumnType.FILE_METADATA, scanProj.outputCols().get(1).columnType());
   }
-
-  /**
-   * The `columns` column is special: can't be used with other column names.
-   * Make sure that the rule <i>does not</i> apply to implicit columns.
-   */
-
-  @Test
-  public void testMetadataColumnsWithColumnsArray() {
-    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
-
-    builder.projectedCols(projectList("filename", "columns", "suffix"));
-
-    ScanLevelProjection scanProj = builder.build();
-    assertFalse(scanProj.isProjectAll());
-    assertEquals(ProjectionType.COLUMNS_ARRAY, scanProj.projectType());
-
-    assertEquals(3, scanProj.outputCols().size());
-
-    assertEquals("filename", scanProj.outputCols().get(0).name());
-    assertEquals("columns", scanProj.outputCols().get(1).name());
-    assertEquals("suffix", scanProj.outputCols().get(2).name());
-
-    // Verify column type
-
-    assertEquals(ColumnType.FILE_METADATA, scanProj.outputCols().get(0).columnType());
-    assertEquals(ColumnType.COLUMNS_ARRAY, scanProj.outputCols().get(1).columnType());
-    assertEquals(ColumnType.FILE_METADATA, scanProj.outputCols().get(2).columnType());
-  }
-
   /**
    * Verify that partition columns, in any case, work.
    */
 
   @Test
   public void testPartitionColumnSelection() {
-    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
 
-    builder.projectedCols(projectList("dir2", "DIR1", "dir0", "a"));
+    builder.projectedCols(ScanTestUtils.projectList("dir2", "DIR1", "dir0", "a"));
 
     ScanLevelProjection scanProj = builder.build();
 
@@ -318,10 +244,10 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
   @Test
   public void testErrorWildcardLegacyAndFileMetaata() {
-    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     builder.useLegacyWildcardExpansion(true);
 
-    builder.projectedCols(projectList("filename", ScanLevelProjection.WILDCARD));
+    builder.projectedCols(ScanTestUtils.projectList("filename", ScanLevelProjection.WILDCARD));
 
     try {
       builder.build();
@@ -337,9 +263,9 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
   @Test
   public void testErrorWildcardAndColumns() {
-    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
 
-    builder.projectedCols(projectList(ScanLevelProjection.WILDCARD, "a"));
+    builder.projectedCols(ScanTestUtils.projectList(ScanLevelProjection.WILDCARD, "a"));
     try {
       builder.build();
       fail();
@@ -353,9 +279,9 @@ public class TestScanLevelProjection extends SubOperatorTest {
    */
   @Test
   public void testErrorColumnAndWildcard() {
-    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
 
-    builder.projectedCols(projectList("a", ScanLevelProjection.WILDCARD));
+    builder.projectedCols(ScanTestUtils.projectList("a", ScanLevelProjection.WILDCARD));
     try {
       builder.build();
       fail();
@@ -370,10 +296,10 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
   @Test
   public void testErrorWildcardLegacyAndPartition() {
-    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     builder.useLegacyWildcardExpansion(true);
 
-    builder.projectedCols(projectList(ScanLevelProjection.WILDCARD, "dir8"));
+    builder.projectedCols(ScanTestUtils.projectList(ScanLevelProjection.WILDCARD, "dir8"));
 
     try {
       builder.build();
@@ -392,9 +318,9 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
   @Test
   public void testErrorTwoWildcards() {
-    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
 
-    builder.projectedCols(projectList(ScanLevelProjection.WILDCARD, ScanLevelProjection.WILDCARD));
+    builder.projectedCols(ScanTestUtils.projectList(ScanLevelProjection.WILDCARD, ScanLevelProjection.WILDCARD));
     try {
       builder.build();
       fail();
@@ -402,61 +328,6 @@ public class TestScanLevelProjection extends SubOperatorTest {
       // Expected
     }
   }
-
-  /**
-   * The `columns` column is special; can't include both `columns` and
-   * a named column in the same project.
-   * <p>
-   * TODO: This should only be true for text readers, make this an option.
-   */
-
-  @Test
-  public void testErrorColumnsArrayAndColumn() {
-    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
-
-    builder.projectedCols(projectList("columns", "a"));
-    try {
-      builder.build();
-      fail();
-    } catch (IllegalArgumentException e) {
-      // Expected
-    }
-  }
-
-  /**
-   * Exclude a column and `columns` (reversed order of previous test).
-   */
-
-  @Test
-  public void testErrorColumnAndColumnsArray() {
-    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
-
-    builder.projectedCols(projectList("a", "columns"));
-    try {
-      builder.build();
-      fail();
-    } catch (IllegalArgumentException e) {
-      // Expected
-    }
-  }
-
-  /**
-   * Can't request `columns` twice.
-   */
-
-  @Test
-  public void testErrorTwoColumnsArray() {
-    ScanLevelProjection.Builder builder = new ScanLevelProjection.Builder(fixture.options());
-
-    builder.projectedCols(projectList("columns", "columns"));
-    try {
-      builder.build();
-      fail();
-    } catch (IllegalArgumentException e) {
-      // Expected
-    }
-  }
-
   /**
    * Can't project partition columns if the file path is not rooted in the
    * base path.

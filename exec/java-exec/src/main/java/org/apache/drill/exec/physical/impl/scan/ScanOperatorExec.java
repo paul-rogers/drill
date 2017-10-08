@@ -33,6 +33,7 @@ import org.apache.drill.exec.physical.impl.protocol.BatchAccessor;
 import org.apache.drill.exec.physical.impl.protocol.OperatorExec;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
 import org.apache.drill.exec.physical.impl.protocol.VectorContainerAccessor;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
@@ -148,10 +149,10 @@ public class ScanOperatorExec implements OperatorExec {
       batchSize = maxRecordsPerBatch;
     }
 
-    @Override
-    public boolean[] columnsArrayProjectionMap() {
-      return readerState.scanOp.scanProjector.columnsArrayProjectionMap();
-    }
+//    @Override
+//    public boolean[] columnsArrayProjectionMap() {
+//      return readerState.scanOp.scanProjector.columnsArrayProjectionMap();
+//    }
   }
 
   /**
@@ -580,7 +581,7 @@ public class ScanOperatorExec implements OperatorExec {
   @Override
   public void bind(OperatorContext context) {
     this.context = context;
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(context.getFragmentContext().getOptionSet());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(context.getFragmentContext().getOptionSet());
     scanProjBuilder.useLegacyWildcardExpansion(builder.useLegacyWildcardExpansion);
     scanProjBuilder.setScanRootDir(builder.scanRootDir);
     scanProjBuilder.projectedCols(builder.projection);

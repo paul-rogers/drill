@@ -23,10 +23,12 @@ import java.util.Map;
 
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.NullColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ProjectedColumn;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.RequestedTableColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.NullColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.PartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ProjectedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.RequestedTableColumn;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
@@ -294,17 +296,17 @@ public abstract class ProjectionLifecycle {
   public int schemaVersion() { return schemaVersion; }
 
   @VisibleForTesting
-  public static ProjectionLifecycle newDiscreteLifecycle(ScanLevelProjection.Builder builder) {
+  public static ProjectionLifecycle newDiscreteLifecycle(ScanLevelProjection.ScanProjectionBuilder builder) {
     return new DiscreteProjectionLifecycle(builder.build());
   }
 
   @VisibleForTesting
-  public static ProjectionLifecycle newContinuousLifecycle(ScanLevelProjection.Builder builder) {
+  public static ProjectionLifecycle newContinuousLifecycle(ScanLevelProjection.ScanProjectionBuilder builder) {
     return new ContinuousProjectionLifecycle(builder.build());
   }
 
   @VisibleForTesting
-  public static ProjectionLifecycle newLifecycle(ScanLevelProjection.Builder builder) {
+  public static ProjectionLifecycle newLifecycle(ScanLevelProjection.ScanProjectionBuilder builder) {
     return newLifecycle(builder.build());
   }
 

@@ -93,5 +93,5 @@ public interface SchemaNegotiator {
 
   ResultSetLoader build();
 
-  boolean[] columnsArrayProjectionMap();
+//  boolean[] columnsArrayProjectionMap();
 }

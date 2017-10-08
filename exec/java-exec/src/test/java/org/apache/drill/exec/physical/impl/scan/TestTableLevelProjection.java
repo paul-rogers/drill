@@ -24,7 +24,8 @@ import static org.junit.Assert.fail;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ColumnType;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
@@ -39,10 +40,10 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
   @Test
   public void testWildcardNew() {
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
     scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("filename", "*", "dir0"));
+    scanProjBuilder.projectedCols(ScanTestUtils.projectList("filename", "*", "dir0"));
     ScanLevelProjection scanProj = scanProjBuilder.build();
 
     FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
@@ -97,10 +98,10 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
   @Test
   public void testWildcardLegacy() {
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(true);
     scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("*"));
+    scanProjBuilder.projectedCols(ScanTestUtils.projectList("*"));
     ScanLevelProjection scanProj = scanProjBuilder.build();
 
     FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
@@ -151,9 +152,9 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
   @Test
   public void testColumnsArray() {
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("filename", "columns", "dir0"));
+    scanProjBuilder.projectedCols(ScanTestUtils.projectList("filename", "columns", "dir0"));
     scanProjBuilder.setScanRootDir("hdfs:///w");
     ScanLevelProjection scanProj = scanProjBuilder.build();
 
@@ -200,9 +201,9 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
   @Test
   public void testColumnsArrayIncompatible() {
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("filename", "columns", "dir0"));
+    scanProjBuilder.projectedCols(ScanTestUtils.projectList("filename", "columns", "dir0"));
     scanProjBuilder.setScanRootDir("hdfs:///w");
     ScanLevelProjection scanProj = scanProjBuilder.build();
 
@@ -229,12 +230,12 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
   @Test
   public void testFullList() {
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.setScanRootDir("hdfs:///w");
 
     // Simulate SELECT c, b, a ...
 
-    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("c", "b", "a"));
+    scanProjBuilder.projectedCols(ScanTestUtils.projectList("c", "b", "a"));
     ScanLevelProjection scanProj = scanProjBuilder.build();
 
     FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
@@ -285,12 +286,12 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
   @Test
   public void testMissing() {
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.setScanRootDir("hdfs:///w");
 
     // Simulate SELECT c, b, a ...
 
-    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("c", "v", "b", "w"));
+    scanProjBuilder.projectedCols(ScanTestUtils.projectList("c", "v", "b", "w"));
     ScanLevelProjection scanProj = scanProjBuilder.build();
 
     FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
@@ -343,12 +344,12 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
   @Test
   public void testSubset() {
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.setScanRootDir("hdfs:///w");
 
     // Simulate SELECT c, a ...
 
-    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("c", "a"));
+    scanProjBuilder.projectedCols(ScanTestUtils.projectList("c", "a"));
     ScanLevelProjection scanProj = scanProjBuilder.build();
 
     FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));

@@ -24,8 +24,10 @@ import static org.junit.Assert.assertTrue;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.ColumnType;
-import org.apache.drill.exec.physical.impl.scan.ScanOutputColumn.MetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.MetadataColumn;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
@@ -42,10 +44,10 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
   @Test
   public void testDiscrete() {
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(true);
     scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectedCols(TestScanLevelProjection.projectList("filename", "a", "b"));
+    scanProjBuilder.projectedCols(ScanTestUtils.projectList("filename", "a", "b"));
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newDiscreteLifecycle(scanProjBuilder);
 
     {
@@ -147,7 +149,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
     scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
@@ -181,7 +183,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
     scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
@@ -214,7 +216,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .addNullable("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
     scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
@@ -249,7 +251,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
     scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
@@ -284,7 +286,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("B", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
     scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
@@ -317,7 +319,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .addNullable("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
     scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
@@ -351,7 +353,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
     scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
@@ -386,7 +388,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .addNullable("a", MinorType.INT)
         .buildSchema();
 
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(false);
     scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
@@ -416,7 +418,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(true);
     scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
@@ -449,7 +451,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(true);
     scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
@@ -481,7 +483,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.Builder scanProjBuilder = new ScanLevelProjection.Builder(fixture.options());
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
     scanProjBuilder.useLegacyWildcardExpansion(true);
     scanProjBuilder.setScanRootDir("hdfs:///w");
     scanProjBuilder.projectAll();
