@@ -23,8 +23,11 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.util.List;
+
+import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.exec.physical.impl.scan.project.ColumnsArrayParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnsArrayParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionType;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;
 import org.apache.drill.test.SubOperatorTest;
@@ -40,19 +43,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
 
   @Test
   public void testColumnsArray() {
-    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-
-    // Add columns parser
-
-    builder.addParser(new ColumnsArrayParser());
-
-    // Simulate SELECT columns ...
-
-    builder.projectedCols(ScanTestUtils.projectList("columns"));
-
-    // Build the planner and verify
-
-    ScanLevelProjection scanProj = builder.build();
+    ScanLevelProjection scanProj = buildProj(ScanTestUtils.projectList("columns"));
     assertFalse(scanProj.isProjectAll());
     assertEquals(ProjectionType.COLUMNS_ARRAY, scanProj.projectType());
     assertEquals(1, scanProj.requestedCols().size());
@@ -71,6 +62,21 @@ public class TestColumnsArrayParser extends SubOperatorTest {
     assertEquals(ColumnType.COLUMNS_ARRAY, scanProj.outputCols().get(0).columnType());
   }
 
+  private ScanLevelProjection buildProj(List<SchemaPath> projCols) {
+    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
+
+    // Add columns parser
+
+    builder.addParser(new ColumnsArrayParser());
+
+    // Simulate SELECT columns ...
+
+    builder.projectedCols(projCols);
+
+    // Build the planner and verify
+
+    return builder.build();
+  }
 
   /**
    * The `columns` column is special: can't be used with other column names.
@@ -79,15 +85,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
 
   @Test
   public void testMetadataColumnsWithColumnsArray() {
-    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-
-    // Add columns parser
-
-    builder.addParser(new ColumnsArrayParser());
-
-    builder.projectedCols(ScanTestUtils.projectList("filename", "columns", "suffix"));
-
-    ScanLevelProjection scanProj = builder.build();
+    ScanLevelProjection scanProj = buildProj(ScanTestUtils.projectList("filename", "columns", "suffix"));
     assertFalse(scanProj.isProjectAll());
     assertEquals(ProjectionType.COLUMNS_ARRAY, scanProj.projectType());
 
@@ -114,15 +112,8 @@ public class TestColumnsArrayParser extends SubOperatorTest {
 
   @Test
   public void testErrorColumnsArrayAndColumn() {
-    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-
-    // Add columns parser
-
-    builder.addParser(new ColumnsArrayParser());
-
-    builder.projectedCols(ScanTestUtils.projectList("columns", "a"));
     try {
-      builder.build();
+      buildProj(ScanTestUtils.projectList("columns", "a"));
       fail();
     } catch (IllegalArgumentException e) {
       // Expected
@@ -135,15 +126,8 @@ public class TestColumnsArrayParser extends SubOperatorTest {
 
   @Test
   public void testErrorColumnAndColumnsArray() {
-    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-
-    // Add columns parser
-
-    builder.addParser(new ColumnsArrayParser());
-
-    builder.projectedCols(ScanTestUtils.projectList("a", "columns"));
     try {
-      builder.build();
+      buildProj(ScanTestUtils.projectList("a", "columns"));
       fail();
     } catch (IllegalArgumentException e) {
       // Expected
@@ -156,19 +140,13 @@ public class TestColumnsArrayParser extends SubOperatorTest {
 
   @Test
   public void testErrorTwoColumnsArray() {
-    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-
-    // Add columns parser
-
-    builder.addParser(new ColumnsArrayParser());
-
-    builder.projectedCols(ScanTestUtils.projectList("columns", "columns"));
     try {
-      builder.build();
+      buildProj(ScanTestUtils.projectList("columns", "columns"));
       fail();
     } catch (IllegalArgumentException e) {
       // Expected
     }
   }
 
+  // TODO: Test Columns element projection
 }
