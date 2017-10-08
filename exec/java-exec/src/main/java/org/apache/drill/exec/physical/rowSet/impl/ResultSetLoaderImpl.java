@@ -341,7 +341,31 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   }
 
   @Override
-  public int schemaVersion() { return harvestSchemaVersion; }
+  public int schemaVersion() {
+    switch (state) {
+    case ACTIVE:
+    case IN_OVERFLOW:
+    case OVERFLOW:
+    case FULL_BATCH:
+
+      // Write in progress: use current writer schema
+
+      return activeSchemaVersion;
+    case HARVESTED:
+    case LOOK_AHEAD:
+    case START:
+
+      // Batch is published. Use harvest schema.
+
+      return harvestSchemaVersion;
+    default:
+
+      // Not really in a position to give a schema
+      // version.
+
+      throw new IllegalStateException("Unexpected state: " + state);
+    }
+  }
 
   @Override
   public void startBatch() {
