@@ -382,7 +382,13 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     }
   }
 
-  public OperatorContext operatorContext(PhysicalOperator config) {
-    return new TestOperatorContext(context, allocator(), config, stats);
+  @SuppressWarnings("resource")
+  public OperatorContext operatorContext(PhysicalOperator popConfig) {
+    BufferAllocator childAllocator = allocator.newChildAllocator(
+        "test:" + popConfig.getClass().getSimpleName(),
+        popConfig.getInitialAllocation(),
+        popConfig.getMaxAllocation()
+        );
+    return new TestOperatorContext(context, childAllocator, popConfig, stats);
   }
 }

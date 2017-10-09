@@ -716,8 +716,8 @@ public class ScanProjector {
    */
 
   public void publish() {
-    schemaDriver.endOfBatch();
     VectorContainer tableContainer = tableLoader.harvest();
+    schemaDriver.endOfBatch();
     int rowCount = tableContainer.getRecordCount();
     if (metadataColumnLoader != null) {
       metadataColumnLoader.load(rowCount);

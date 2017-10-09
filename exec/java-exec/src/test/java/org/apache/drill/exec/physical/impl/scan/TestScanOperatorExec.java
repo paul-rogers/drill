@@ -32,6 +32,8 @@ import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.base.AbstractSubScan;
 import org.apache.drill.exec.physical.base.Scan;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ScanOperatorExecBuilder;
+import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
@@ -61,13 +63,14 @@ public class TestScanOperatorExec extends SubOperatorTest {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestScanOperatorExec.class);
 
   private static final String MOCK_FILE_NAME = "foo.csv";
-  private static final String MOCK_FILE_PATH = "hdfs:/w/x/y";
+  private static final String MOCK_FILE_PATH = "/w/x/y";
   private static final String MOCK_FILE_FQN = MOCK_FILE_PATH + "/" + MOCK_FILE_NAME;
+  private static final String MOCK_FILE_SYSTEM_NAME = "hdfs:" + MOCK_FILE_FQN;
   private static final String MOCK_ROOT_PATH = "hdfs:///w";
   private static final String MOCK_SUFFIX = "csv";
   private static final String MOCK_DIR0 = "x";
   private static final String MOCK_DIR1 = "y";
-  private static final String STAR = "*";
+  private static final String STAR = ScanLevelProjection.WILDCARD;
   private static final String[] SELECT_STAR = new String[] { STAR };
 
   /**
@@ -85,7 +88,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     public int batchCount;
     public int batchLimit;
     protected ResultSetLoader tableLoader;
-    protected Path filePath = new Path(MOCK_FILE_FQN);
+    protected Path filePath = new Path(MOCK_FILE_SYSTEM_NAME);
 
     public BaseMockBatchReader setFilePath(String filePath) {
       this.filePath = new Path(filePath);
@@ -504,12 +507,12 @@ public class TestScanOperatorExec extends SubOperatorTest {
     TupleMetadata expectedSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
         .addNullable("b", MinorType.VARCHAR, 10)
-        .add("fqn", MinorType.VARCHAR)
-        .add("filepath", MinorType.VARCHAR)
-        .add("filename", MinorType.VARCHAR)
-        .add("suffix", MinorType.VARCHAR)
-        .addNullable("dir0", MinorType.VARCHAR)
-        .addNullable("dir1", MinorType.VARCHAR)
+        .add(FileMetadataColumnsParser.FULLY_QUALIFIED_NAME_COL, MinorType.VARCHAR)
+        .add(FileMetadataColumnsParser.FILE_PATH_COL, MinorType.VARCHAR)
+        .add(FileMetadataColumnsParser.FILE_NAME_COL, MinorType.VARCHAR)
+        .add(FileMetadataColumnsParser.SUFFIX_COL, MinorType.VARCHAR)
+        .addNullable(FileMetadataColumnsParser.partitionColName(0), MinorType.VARCHAR)
+        .addNullable(FileMetadataColumnsParser.partitionColName(1), MinorType.VARCHAR)
         .buildSchema();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(30, "fred", MOCK_FILE_FQN, MOCK_FILE_PATH, MOCK_FILE_NAME, MOCK_SUFFIX, MOCK_DIR0, MOCK_DIR1)
@@ -694,6 +697,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
    */
 
   @Test
+  // TODO
   @Ignore("Needs late schema - not yet")
   public void testNonEmptyFirstBatch() {
     SingleRowSet expected = makeExpected();
@@ -1510,8 +1514,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertEquals(1, scan.batchAccessor().schemaVersion());
 
     SingleRowSet expected = fixture.rowSetBuilder(scan.batchAccessor().getSchema())
-        .addSingleCol(111)
-        .addSingleCol(121)
+        .addRow(111, null)
+        .addRow(121, null)
         .build();
     new RowSetComparison(expected)
         .verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
