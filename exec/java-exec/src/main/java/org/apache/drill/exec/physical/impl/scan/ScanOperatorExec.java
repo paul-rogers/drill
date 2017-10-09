@@ -36,6 +36,8 @@ import org.apache.drill.exec.physical.impl.protocol.VectorContainerAccessor;
 import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser;
 import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
+import org.apache.drill.exec.physical.impl.scan.project.ScanProjector;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
@@ -583,7 +585,7 @@ public class ScanOperatorExec implements OperatorExec {
   @Override
   public void bind(OperatorContext context) {
     this.context = context;
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder();
+    ScanProjectionBuilder scanProjBuilder = new ScanProjectionBuilder();
     FileMetadataColumnsParser parser = new FileMetadataColumnsParser(context.getFragmentContext().getOptionSet());
     parser.useLegacyWildcardExpansion(builder.useLegacyWildcardExpansion);
     parser.setScanRootDir(builder.scanRootDir);

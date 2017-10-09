@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan;
+package org.apache.drill.exec.physical.impl.scan.project;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,12 +23,8 @@ import java.util.Map;
 
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser;
 import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionBuilder;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.NullColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ProjectedColumn;

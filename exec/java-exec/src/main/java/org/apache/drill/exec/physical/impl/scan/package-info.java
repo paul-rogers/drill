@@ -172,3 +172,5 @@
  */
 
 package org.apache.drill.exec.physical.impl.scan;
+
+import org.apache.drill.exec.physical.impl.scan.project.ScanProjector;

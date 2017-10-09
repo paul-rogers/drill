@@ -22,11 +22,12 @@ import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.project.ColumnsArrayParser;
+import org.apache.drill.exec.physical.impl.scan.project.FileLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionBuilder;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
@@ -44,7 +45,7 @@ public class ScanTestUtils {
     public FileMetadataProjection metadataProj;
 
     public ProjectionFixture() {
-      scanBuilder = new ScanLevelProjection.ScanProjectionBuilder();
+      scanBuilder = new ScanProjectionBuilder();
     }
 
     public ProjectionFixture withFileParser(OptionSet options) {

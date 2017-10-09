@@ -26,6 +26,7 @@ import static org.junit.Assert.fail;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionType;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;
+import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
 import org.apache.drill.test.SubOperatorTest;
 import org.junit.Test;
 
@@ -44,7 +45,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
   @Test
   public void testBasics() {
-    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder();
+    ScanProjectionBuilder builder = new ScanProjectionBuilder();
 
     // Simulate SELECT a, b, c ...
 
@@ -95,7 +96,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
   @Test
   public void testProjectAll() {
-    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder();
+    ScanProjectionBuilder builder = new ScanProjectionBuilder();
 
     // Simulate SELECT * ...
 
@@ -128,7 +129,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
   @Test
   public void testWildcard() {
-    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder();
+    ScanProjectionBuilder builder = new ScanProjectionBuilder();
 
     // Simulate SELECT * ...
 
@@ -159,7 +160,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
   @Test
   public void testErrorWildcardAndColumns() {
-    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder();
+    ScanProjectionBuilder builder = new ScanProjectionBuilder();
 
     builder.projectedCols(ScanTestUtils.projectList(ScanLevelProjection.WILDCARD, "a"));
     try {
@@ -175,7 +176,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
    */
   @Test
   public void testErrorColumnAndWildcard() {
-    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder();
+    ScanProjectionBuilder builder = new ScanProjectionBuilder();
 
     builder.projectedCols(ScanTestUtils.projectList("a", ScanLevelProjection.WILDCARD));
     try {
@@ -194,7 +195,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
   @Test
   public void testErrorTwoWildcards() {
-    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder();
+    ScanProjectionBuilder builder = new ScanProjectionBuilder();
 
     builder.projectedCols(ScanTestUtils.projectList(ScanLevelProjection.WILDCARD, ScanLevelProjection.WILDCARD));
     try {

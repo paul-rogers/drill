@@ -23,7 +23,6 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.RequestedColumn;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleSchema;
@@ -426,6 +425,19 @@ public abstract class ScanOutputColumn {
     }
 
     protected void visitColumn(int index, ScanOutputColumn col) { }
+  }
+
+  public static class NullColumnProjection extends ScanOutputColumn {
+
+    public NullColumnProjection(RequestedColumn inCol) {
+      super(inCol);
+    }
+
+    @Override
+    public ColumnType columnType() { return null; }
+
+    @Override
+    protected void visit(int index, Visitor visitor) { }
   }
 
   protected final RequestedColumn inCol;
