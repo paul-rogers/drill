@@ -24,7 +24,7 @@ import static org.junit.Assert.assertTrue;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.MetadataColumn;
@@ -44,11 +44,13 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
   @Test
   public void testDiscrete() {
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(true);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("filename", "a", "b"));
-    ProjectionLifecycle lifecycle = ProjectionLifecycle.newDiscreteLifecycle(scanProjBuilder);
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options())
+        .projectedCols("filename", "a", "b");
+    projFixture.metdataParser.useLegacyWildcardExpansion(true);
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
+    ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
     {
       // Define a file a.csv
@@ -149,11 +151,13 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectAll();
-    ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options());
+    projFixture.scanBuilder.projectAll();
+    projFixture.metdataParser.useLegacyWildcardExpansion(false);
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
+    ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
@@ -183,11 +187,13 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectAll();
-    ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options());
+    projFixture.scanBuilder.projectAll();
+    projFixture.metdataParser.useLegacyWildcardExpansion(false);
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
+    ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
@@ -216,11 +222,13 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .addNullable("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectAll();
-    ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options());
+    projFixture.scanBuilder.projectAll();
+    projFixture.metdataParser.useLegacyWildcardExpansion(false);
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
+    ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
@@ -251,11 +259,13 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectAll();
-    ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options());
+    projFixture.scanBuilder.projectAll();
+    projFixture.metdataParser.useLegacyWildcardExpansion(false);
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
+    ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
@@ -286,11 +296,13 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("B", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectAll();
-    ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options());
+    projFixture.scanBuilder.projectAll();
+    projFixture.metdataParser.useLegacyWildcardExpansion(false);
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
+    ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
@@ -319,11 +331,13 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .addNullable("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectAll();
-    ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options());
+    projFixture.scanBuilder.projectAll();
+    projFixture.metdataParser.useLegacyWildcardExpansion(false);
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
+    ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
@@ -353,11 +367,13 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectAll();
-    ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options());
+    projFixture.scanBuilder.projectAll();
+    projFixture.metdataParser.useLegacyWildcardExpansion(false);
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
+    ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
@@ -388,11 +404,13 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .addNullable("a", MinorType.INT)
         .buildSchema();
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectAll();
-    ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options());
+    projFixture.scanBuilder.projectAll();
+    projFixture.metdataParser.useLegacyWildcardExpansion(false);
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
+    ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
@@ -418,13 +436,15 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(true);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectAll();
-    ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options());
+    projFixture.scanBuilder.projectAll();
+    projFixture.metdataParser.useLegacyWildcardExpansion(true);
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
+    ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
-    TupleMetadata expectedSchema = TestFileLevelProjection.expandMetadata(lifecycle.scanProjection(), tableSchema, 2);
+    TupleMetadata expectedSchema = projFixture.expandMetadata(tableSchema, 2);
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
       lifecycle.startSchema(tableSchema);
@@ -451,13 +471,15 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(true);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectAll();
-    ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options());
+    projFixture.scanBuilder.projectAll();
+    projFixture.metdataParser.useLegacyWildcardExpansion(true);
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
+    ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
-    TupleMetadata expectedSchema = TestFileLevelProjection.expandMetadata(lifecycle.scanProjection(), tableSchema, 2);
+    TupleMetadata expectedSchema = projFixture.expandMetadata(tableSchema, 2);
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
       lifecycle.startSchema(tableSchema);
@@ -483,23 +505,25 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .add("b", MinorType.VARCHAR)
         .buildSchema();
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(true);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectAll();
-    ProjectionLifecycle lifecycle = ProjectionLifecycle.newContinuousLifecycle(scanProjBuilder);
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options());
+    projFixture.scanBuilder.projectAll();
+    projFixture.metdataParser.useLegacyWildcardExpansion(true);
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
+    ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
     {
       lifecycle.startFile(new Path("hdfs:///w/x/a.csv"));
       lifecycle.startSchema(tableSchema);
-      TupleMetadata expectedSchema = TestFileLevelProjection.expandMetadata(lifecycle.scanProjection(), tableSchema, 1);
+      TupleMetadata expectedSchema = projFixture.expandMetadata(tableSchema, 1);
       assertTrue(lifecycle.outputSchema().isEquivalent(expectedSchema));
     }
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(2, lifecycle.schemaVersion());
-      TupleMetadata expectedSchema = TestFileLevelProjection.expandMetadata(lifecycle.scanProjection(), tableSchema, 2);
+      TupleMetadata expectedSchema = projFixture.expandMetadata(tableSchema, 2);
       assertTrue(lifecycle.outputSchema().isEquivalent(expectedSchema));
      }
   }

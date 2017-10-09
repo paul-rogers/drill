@@ -29,9 +29,11 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.protocol.SchemaTracker;
 import org.apache.drill.exec.physical.impl.scan.ScanProjector.MetadataColumnLoader;
 import org.apache.drill.exec.physical.impl.scan.ScanProjector.NullColumnLoader;
+import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
+import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser;
+import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.FileMetadata;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.RequestedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.FileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.MetadataColumn;
@@ -72,11 +74,13 @@ public class TestScanProjector extends SubOperatorTest {
 
     FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
     List<MetadataColumn> defns = new ArrayList<>();
-    FileMetadataColumnDefn iDefn = new FileMetadataColumnDefn("suffix", ImplicitFileColumns.SUFFIX);
-    FileMetadataColumn iCol = FileMetadataColumn.resolved(buildSelectCol("suffix"), iDefn, fileInfo);
+    FileMetadataColumnDefn iDefn = new FileMetadataColumnDefn(
+        FileMetadataColumnsParser.SUFFIX_COL, ImplicitFileColumns.SUFFIX);
+    FileMetadataColumn iCol = FileMetadataColumn.resolved(
+        buildSelectCol(FileMetadataColumnsParser.SUFFIX_COL), iDefn, fileInfo);
     defns.add(iCol);
 
-    PartitionColumn pCol = PartitionColumn.resolved(buildSelectCol("dir1"), 1, fileInfo);
+    PartitionColumn pCol = PartitionColumn.resolved(buildSelectCol(FileMetadataColumnsParser.partitionColName(1)), 1, fileInfo);
     defns.add(pCol);
 
     ResultVectorCacheImpl cache = new ResultVectorCacheImpl(fixture.allocator());
@@ -89,8 +93,8 @@ public class TestScanProjector extends SubOperatorTest {
     // Verify
 
     BatchSchema expectedSchema = new SchemaBuilder()
-        .addNullable("suffix", MinorType.VARCHAR)
-        .addNullable("dir0", MinorType.VARCHAR)
+        .addNullable(FileMetadataColumnsParser.SUFFIX_COL, MinorType.VARCHAR)
+        .addNullable(FileMetadataColumnsParser.partitionColName(0), MinorType.VARCHAR)
         .build();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow("csv", "y")
@@ -159,6 +163,26 @@ public class TestScanProjector extends SubOperatorTest {
     staticLoader.close();
   }
 
+  private ProjectionFixture buildFixture(String... cols) {
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options())
+        .projectedCols(cols);
+    projFixture.metdataParser.useLegacyWildcardExpansion(false);
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
+    return projFixture;
+  }
+
+  private ScanProjector buildProjector(String... cols) {
+    ProjectionFixture projFixture = buildFixture(cols);
+    return new ScanProjector(fixture.allocator(), projFixture.scanProj, projFixture.metadataProj, null);
+  }
+
+  private ScanProjector buildProjectorWithNulls(MajorType nullType, String... cols) {
+    ProjectionFixture projFixture = buildFixture(cols);
+    return new ScanProjector(fixture.allocator(), projFixture.scanProj, projFixture.metadataProj, nullType);
+  }
+
   /**
    * Test SELECT * from an early-schema table of (a, b)
    */
@@ -168,13 +192,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT * ...
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectAll();
-    ScanLevelProjection querySelPlan = scanProjBuilder.build();
-
-    ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
+    ScanProjector projector = buildProjector(ScanLevelProjection.WILDCARD);
 
     // ... FROM file
 
@@ -198,7 +216,6 @@ public class TestScanProjector extends SubOperatorTest {
     RowSetLoader writer = loader.writer();
 
     // Should be a direct writer, no projection
-//    assertTrue(writer instanceof TupleLoaderImpl);
     for (int i = 0; i < 2; i++) {
       writer.start();
       writer.scalar(0).setInt((i+1));
@@ -229,13 +246,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT a, b ...
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("a", "b"));
-    ScanLevelProjection querySelPlan = scanProjBuilder.build();
-
-    ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
+    ScanProjector projector = buildProjector("a", "b");
 
     // ... FROM file
 
@@ -259,7 +270,6 @@ public class TestScanProjector extends SubOperatorTest {
 
     // Should be a direct writer, no projection
     RowSetLoader writer = loader.writer();
-//    assertTrue(writer instanceof TupleLoaderImpl);
     for (int i = 0; i < 2; i++) {
       writer.start();
       writer.scalar(0).setInt((i+1));
@@ -288,15 +298,9 @@ public class TestScanProjector extends SubOperatorTest {
   @Test
   public void testEarlySchemaSelectAllReorder() {
 
-    // SELECT a, b ...
+    // SELECT b, a ...
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("b", "a"));
-    ScanLevelProjection querySelPlan = scanProjBuilder.build();
-
-    ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
+    ScanProjector projector = buildProjector("b", "a");
 
     // ... FROM file
 
@@ -320,7 +324,6 @@ public class TestScanProjector extends SubOperatorTest {
 
     // Should be a direct writer, no projection
     RowSetLoader writer = loader.writer();
-//    assertTrue(writer instanceof TupleLoaderImpl);
     for (int i = 0; i < 2; i++) {
       writer.start();
       writer.scalar(0).setInt((i+1));
@@ -356,13 +359,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT a, b, c ...
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("a", "b", "c"));
-    ScanLevelProjection querySelPlan = scanProjBuilder.build();
-
-    ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
+    ScanProjector projector = buildProjector("a", "b", "c");
 
     // ... FROM file
 
@@ -386,7 +383,6 @@ public class TestScanProjector extends SubOperatorTest {
 
     // Should be a direct writer, no projection
     RowSetLoader writer = loader.writer();
-//    assertTrue(writer instanceof TupleLoaderImpl);
     for (int i = 0; i < 2; i++) {
       writer.start();
       writer.scalar(0).setInt((i+1));
@@ -421,21 +417,16 @@ public class TestScanProjector extends SubOperatorTest {
   @Test
   public void testEarlySchemaSelectExtraCustomType() {
 
-    // SELECT a, b, c ...
-
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("a", "b", "c"));
-    ScanLevelProjection querySelPlan = scanProjBuilder.build();
-
     // Null columns of type VARCHAR
 
     MajorType nullType = MajorType.newBuilder()
         .setMinorType(MinorType.VARCHAR)
         .setMode(DataMode.OPTIONAL)
         .build();
-    ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, nullType);
+
+    // SELECT a, b, c ...
+
+    ScanProjector projector = buildProjectorWithNulls(nullType, "a", "b", "c");
 
     // ... FROM file
 
@@ -458,7 +449,6 @@ public class TestScanProjector extends SubOperatorTest {
     loader.startBatch();
 
     RowSetLoader writer = loader.writer();
-//    assertTrue(writer instanceof TupleLoaderImpl);
     for (int i = 0; i < 2; i++) {
       writer.start();
       writer.scalar(0).setInt((i+1));
@@ -494,13 +484,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT a ...
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("a"));
-    ScanLevelProjection querySelPlan = scanProjBuilder.build();
-
-     ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
+    ScanProjector projector = buildProjector("a");
 
     // ... FROM file
 
@@ -556,21 +540,16 @@ public class TestScanProjector extends SubOperatorTest {
   @Test
   public void testEarlySchemaSelectAllAndMetadata() {
 
-    // SELECT a, b, dir0, suffix ...
-
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("a", "b", "dir0", "suffix"));
-    ScanLevelProjection querySelPlan = scanProjBuilder.build();
-
     // Null columns of type VARCHAR
 
     MajorType nullType = MajorType.newBuilder()
         .setMinorType(MinorType.VARCHAR)
         .setMode(DataMode.OPTIONAL)
         .build();
-    ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, nullType);
+
+    // SELECT a, b, dir0, suffix ...
+
+    ScanProjector projector = buildProjectorWithNulls(nullType, "a", "b", "dir0", "suffix");
 
     // ... FROM file
 
@@ -594,7 +573,6 @@ public class TestScanProjector extends SubOperatorTest {
 
     // Should be a direct writer, no projection
     RowSetLoader writer = loader.writer();
-//    assertTrue(writer instanceof TupleLoaderImpl);
     for (int i = 0; i < 2; i++) {
       writer.start();
       writer.scalar(0).setInt((i+1));
@@ -633,13 +611,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT c ...
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("c"));
-    ScanLevelProjection querySelPlan = scanProjBuilder.build();
-
-     ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
+    ScanProjector projector = buildProjector("c");
 
     // ... FROM file
 
@@ -696,13 +668,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT dir0, b, suffix, c ...
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("dir0", "b", "suffix", "c"));
-    ScanLevelProjection querySelPlan = scanProjBuilder.build();
-
-     ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
+    ScanProjector projector = buildProjector("dir0", "b", "suffix", "c");
 
     // ... FROM file
 
@@ -777,13 +743,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT a, b ...
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("a", "b"));
-    ScanLevelProjection querySelPlan = scanProjBuilder.build();
-
-     ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
+    ScanProjector projector = buildProjector("a", "b");
 
     // file schema (a, b)
 
@@ -888,13 +848,7 @@ public class TestScanProjector extends SubOperatorTest {
   @Test
   public void testColumnReordering() {
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("a", "b", "c"));
-    ScanLevelProjection querySelPlan = scanProjBuilder.build();
-
-    ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
+    ScanProjector projector = buildProjector("a", "b", "c");
 
     TupleMetadata schema1 = new SchemaBuilder()
         .add("a", MinorType.INT)
@@ -1014,13 +968,7 @@ public class TestScanProjector extends SubOperatorTest {
   @Test
   public void testWildcardSmoothing() {
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectAll();
-    ScanLevelProjection querySelPlan = scanProjBuilder.build();
-
-    ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
+    ScanProjector projector = buildProjector(ScanLevelProjection.WILDCARD);
 
     TupleMetadata firstSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
@@ -1148,15 +1096,11 @@ public class TestScanProjector extends SubOperatorTest {
   @Test
   public void testMetadataMulti() {
 
-    // SELECT a, b ...
+    // SELECT dir0, filename, b ...
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("dir0", "filename", "b"));
-    ScanLevelProjection querySelPlan = scanProjBuilder.build();
-
-    ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
+    ScanProjector projector = buildProjector(
+        FileMetadataColumnsParser.partitionColName(0),
+        FileMetadataColumnsParser.FILE_NAME_COL, "b");
 
     // file schema (a, b)
 
@@ -1231,13 +1175,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT * ...
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectAll();
-    ScanLevelProjection querySelPlan = scanProjBuilder.build();
-
-    ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
+    ScanProjector projector = buildProjector(ScanLevelProjection.WILDCARD);
 
     // ... FROM file
 
@@ -1294,13 +1232,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT a, c ...
 
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("a", "c"));
-    ScanLevelProjection querySelPlan = scanProjBuilder.build();
-
-     ScanProjector projector = new ScanProjector(fixture.allocator(), querySelPlan, null);
+    ScanProjector projector = buildProjector("a", "c");
 
     // ... FROM file
 

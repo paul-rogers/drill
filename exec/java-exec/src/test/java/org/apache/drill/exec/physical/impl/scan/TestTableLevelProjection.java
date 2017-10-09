@@ -24,12 +24,14 @@ import static org.junit.Assert.fail;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
+import org.apache.drill.exec.physical.impl.scan.project.ColumnsArrayParser;
+import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
-import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
 public class TestTableLevelProjection extends SubOperatorTest {
@@ -40,13 +42,17 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
   @Test
   public void testWildcardNew() {
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("filename", "*", "dir0"));
-    ScanLevelProjection scanProj = scanProjBuilder.build();
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options())
+        .projectedCols(
+            FileMetadataColumnsParser.FILE_NAME_COL,
+            ScanLevelProjection.WILDCARD,
+            FileMetadataColumnsParser.partitionColName(0));
+    projFixture.metdataParser.useLegacyWildcardExpansion(false);
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
 
-    FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
+    FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
     assertEquals(3, fileProj.output().size());
     assertTrue(fileProj.hasMetadata());
 
@@ -98,13 +104,14 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
   @Test
   public void testWildcardLegacy() {
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(true);
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("*"));
-    ScanLevelProjection scanProj = scanProjBuilder.build();
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options())
+        .projectedCols(ScanLevelProjection.WILDCARD);
+    projFixture.metdataParser.useLegacyWildcardExpansion(true);
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
 
-    FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
+    FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
     assertEquals(7, fileProj.output().size());
     assertTrue(fileProj.hasMetadata());
 
@@ -118,7 +125,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
     assertEquals(9, tableProj.output().size());
     assertFalse(tableProj.hasNullColumns());
 
-    TupleMetadata expectedSchema = TestFileLevelProjection.expandMetadata(scanProj, tableSchema, 2);
+    TupleMetadata expectedSchema = projFixture.expandMetadata(tableSchema, 2);
 
     assertTrue(tableProj.outputSchema().isEquivalent(expectedSchema));
 
@@ -152,13 +159,18 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
   @Test
   public void testColumnsArray() {
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("filename", "columns", "dir0"));
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    ScanLevelProjection scanProj = scanProjBuilder.build();
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options())
+        .withColumnsArrayParser()
+        .projectedCols(
+            FileMetadataColumnsParser.FILE_NAME_COL,
+            ColumnsArrayParser.COLUMNS_COL,
+            FileMetadataColumnsParser.partitionColName(0));
+    projFixture.metdataParser.useLegacyWildcardExpansion(false);
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
 
-    FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
+    FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
 
     TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
@@ -201,13 +213,18 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
   @Test
   public void testColumnsArrayIncompatible() {
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.useLegacyWildcardExpansion(false);
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("filename", "columns", "dir0"));
-    scanProjBuilder.setScanRootDir("hdfs:///w");
-    ScanLevelProjection scanProj = scanProjBuilder.build();
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options())
+        .withColumnsArrayParser()
+        .projectedCols(
+            FileMetadataColumnsParser.FILE_NAME_COL,
+            ColumnsArrayParser.COLUMNS_COL,
+            FileMetadataColumnsParser.partitionColName(0));
+    projFixture.metdataParser.useLegacyWildcardExpansion(false);
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
 
-    FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
+    FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
 
     TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
@@ -230,15 +247,15 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
   @Test
   public void testFullList() {
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.setScanRootDir("hdfs:///w");
 
     // Simulate SELECT c, b, a ...
 
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("c", "b", "a"));
-    ScanLevelProjection scanProj = scanProjBuilder.build();
-
-    FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options())
+        .projectedCols("c", "b", "a");
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
+    FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
 
     // Simulate a data source, with early schema, of (a, b, c)
 
@@ -286,15 +303,16 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
   @Test
   public void testMissing() {
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.setScanRootDir("hdfs:///w");
 
-    // Simulate SELECT c, b, a ...
+    // Simulate SELECT c, v, b, w ...
 
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("c", "v", "b", "w"));
-    ScanLevelProjection scanProj = scanProjBuilder.build();
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options())
+        .projectedCols("c", "v", "b", "w");
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
 
-    FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
+    FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
 
     // Simulate a data source, with early schema, of (a, b, c)
 
@@ -344,15 +362,16 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
   @Test
   public void testSubset() {
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-    scanProjBuilder.setScanRootDir("hdfs:///w");
 
     // Simulate SELECT c, a ...
 
-    scanProjBuilder.projectedCols(ScanTestUtils.projectList("c", "a"));
-    ScanLevelProjection scanProj = scanProjBuilder.build();
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options())
+        .projectedCols("c", "a");
+    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.build();
 
-    FileLevelProjection fileProj = scanProj.resolve(new Path("hdfs:///w/x/y/z.csv"));
+    FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
 
     // Simulate a data source, with early schema, of (a, b, c)
 

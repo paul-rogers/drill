@@ -20,10 +20,11 @@ package org.apache.drill.exec.physical.impl.scan;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.FileMetadata;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.FileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.MetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.PartitionColumn;
@@ -48,13 +49,13 @@ public class FileLevelProjection {
    */
 
   private static class FileSchemaBuilder extends ScanOutputColumn.Visitor {
-    private ScanLevelProjection scanProj;
-    private FileMetadata fileInfo;
-    private List<ScanOutputColumn> outputCols = new ArrayList<>();
-    private List<MetadataColumn> metadataColumns = new ArrayList<>();
+    private final FileMetadataProjection metadataProj;
+    private final FileMetadata fileInfo;
+    private final List<ScanOutputColumn> outputCols = new ArrayList<>();
+    private final List<MetadataColumn> metadataColumns = new ArrayList<>();
 
-    public FileSchemaBuilder(ScanLevelProjection plan, List<ScanOutputColumn> inputCols, FileMetadata fileInfo) {
-      this.scanProj = plan;
+    public FileSchemaBuilder(FileMetadataProjection metadataProj, List<ScanOutputColumn> inputCols, FileMetadata fileInfo) {
+      this.metadataProj = metadataProj;
       this.fileInfo = fileInfo;
       visit(inputCols);
     }
@@ -81,7 +82,7 @@ public class FileLevelProjection {
       // Skip wildcard expansion if not legacy or if the data source
       // does not provide file information.
 
-      if (! scanProj.useLegacyWildcardPartition() || ! fileInfo.isSet()) {
+      if (! metadataProj.useLegacyWildcardPartition() || ! fileInfo.isSet()) {
         return;
       }
 
@@ -92,13 +93,13 @@ public class FileLevelProjection {
       // return this data as an array at some point.
       // Append this after the *, keeping the * for later expansion.
 
-      for (FileMetadataColumnDefn iCol : scanProj.fileMetadataColDefns()) {
+      for (FileMetadataColumnDefn iCol : metadataProj.fileMetadataColDefns()) {
         addMetadataColumn(FileMetadataColumn.fromWildcard(col.source(),
             iCol, fileInfo));
       }
       for (int i = 0; i < fileInfo.dirPathLength(); i++) {
         addMetadataColumn(PartitionColumn.fromWildcard(col.source(),
-            scanProj.partitionName(i), i, fileInfo));
+            metadataProj.partitionName(i), i, fileInfo));
       }
     }
 
@@ -113,11 +114,12 @@ public class FileLevelProjection {
   private final List<MetadataColumn> metadataColumns;
   private final boolean isReresolution;
 
-  private FileLevelProjection(ScanLevelProjection scanProjDefn, FileMetadata fileInfo) {
-    this(scanProjDefn, scanProjDefn.outputCols(), fileInfo);
+  private FileLevelProjection(ScanLevelProjection scanProjDefn, FileMetadataProjection metadataProj, FileMetadata fileInfo) {
+    this(scanProjDefn, metadataProj, scanProjDefn.outputCols(), fileInfo);
   }
 
   private FileLevelProjection(ScanLevelProjection scanProjDefn,
+      FileMetadataProjection metadataProj,
       List<ScanOutputColumn> inputCols, FileMetadata fileInfo) {
     this.scanProjection = scanProjDefn;
     isReresolution = inputCols != scanProjDefn.outputCols();
@@ -125,8 +127,8 @@ public class FileLevelProjection {
     // If the projection plan has file or partition metadata
     // columns, rewrite them with actual file information.
 
-    if (scanProjDefn.hasMetadata()) {
-      FileSchemaBuilder builder = new FileSchemaBuilder(scanProjDefn, inputCols, fileInfo);
+    if (metadataProj.hasMetadata()) {
+      FileSchemaBuilder builder = new FileSchemaBuilder(metadataProj, inputCols, fileInfo);
       outputCols = builder.outputCols;
       metadataColumns = builder.metadataColumns;
     } else {
@@ -166,13 +168,17 @@ public class FileLevelProjection {
   }
 
   public static FileLevelProjection fromResolution(
-      ScanLevelProjection scanProj, FileMetadata fileMetadata) {
-    return new FileLevelProjection(scanProj, fileMetadata);
+      ScanLevelProjection scanProj,
+      FileMetadataProjection metadataProj,
+      FileMetadata fileMetadata) {
+    return new FileLevelProjection(scanProj, metadataProj, fileMetadata);
   }
 
   public static FileLevelProjection fromReresolution(
-      ScanLevelProjection scanProj, List<ScanOutputColumn> generatedSelect,
+      ScanLevelProjection scanProj,
+      FileMetadataProjection metadataProj,
+      List<ScanOutputColumn> generatedSelect,
       FileMetadata fileInfo) {
-    return new FileLevelProjection(scanProj, generatedSelect, fileInfo);
+    return new FileLevelProjection(scanProj, metadataProj, generatedSelect, fileInfo);
   }
 }

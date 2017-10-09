@@ -20,7 +20,9 @@ package org.apache.drill.exec.physical.impl.scan.project;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.FileMetadataColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.RequestedColumn;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
@@ -170,18 +172,18 @@ public abstract class ScanOutputColumn {
     }
 
     public static MetadataColumn fromWildcard(RequestedColumn inCol,
-        FileMetadataColumnDefn defn, ScanLevelProjection.FileMetadata fileInfo) {
+        FileMetadataColumnDefn defn, FileMetadata fileInfo) {
       return new FileMetadataColumn(inCol, defn.colName(), defn,
           valueOf(defn, fileInfo));
     }
 
     public static FileMetadataColumn resolved(RequestedColumn inCol,
-        FileMetadataColumnDefn defn, ScanLevelProjection.FileMetadata fileInfo) {
+        FileMetadataColumnDefn defn, FileMetadata fileInfo) {
       return new FileMetadataColumn(inCol, inCol.name(), defn,
           valueOf(defn, fileInfo));
     }
 
-    private static String valueOf(FileMetadataColumnDefn defn, ScanLevelProjection.FileMetadata fileInfo) {
+    private static String valueOf(FileMetadataColumnDefn defn, FileMetadata fileInfo) {
       return defn.defn.getValue(fileInfo.filePath());
     }
 
@@ -209,7 +211,7 @@ public abstract class ScanOutputColumn {
       visitor.visitFileInfoColumn(index, this);
     }
 
-    public FileMetadataColumn cloneWithValue(ScanLevelProjection.FileMetadata fileInfo) {
+    public FileMetadataColumn cloneWithValue(FileMetadata fileInfo) {
       return new FileMetadataColumn(inCol, name(), defn, valueOf(defn, fileInfo));
     }
 
@@ -244,19 +246,19 @@ public abstract class ScanOutputColumn {
     }
 
     public static MetadataColumn fromWildcard(RequestedColumn inCol, String name,
-        int partition, ScanLevelProjection.FileMetadata fileInfo) {
+        int partition, FileMetadata fileInfo) {
       return new PartitionColumn(inCol, name, dataType(), partition,
           fileInfo.partition(partition));
     }
 
     public static PartitionColumn resolved(RequestedColumn inCol, int partition,
-        ScanLevelProjection.FileMetadata fileInfo) {
+        FileMetadata fileInfo) {
       return new PartitionColumn(inCol, inCol.name(), dataType(), partition,
           fileInfo.partition(partition));
     }
 
     private static MajorType dataType() {
-      return ScanLevelProjection.partitionColType();
+      return FileMetadataProjection.partitionColType();
     }
 
     @Override
@@ -276,7 +278,7 @@ public abstract class ScanOutputColumn {
       visitor.visitPartitionColumn(index, this);
     }
 
-    public PartitionColumn cloneWithValue(ScanLevelProjection.FileMetadata fileInfo) {
+    public PartitionColumn cloneWithValue(FileMetadata fileInfo) {
       return new PartitionColumn(inCol, name(), type(),
           partition, fileInfo.partition(partition));
     }

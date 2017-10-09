@@ -23,9 +23,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import java.util.List;
-
-import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
 import org.apache.drill.exec.physical.impl.scan.project.ColumnsArrayParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionType;
@@ -35,6 +33,22 @@ import org.junit.Test;
 
 public class TestColumnsArrayParser extends SubOperatorTest {
 
+  private ScanLevelProjection buildProj(String... queryCols) {
+    return new ProjectionFixture()
+
+        // Add columns parser
+
+        .withColumnsArrayParser()
+
+        // Simulate SELECT columns ...
+
+        .projectedCols(queryCols)
+
+        // Build the planner and verify
+
+        .build();
+  }
+
   /**
    * Test the special "columns" column that asks to return all columns
    * as an array. No need for early schema. This case is special: it actually
@@ -43,7 +57,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
 
   @Test
   public void testColumnsArray() {
-    ScanLevelProjection scanProj = buildProj(ScanTestUtils.projectList("columns"));
+    ScanLevelProjection scanProj = buildProj(ColumnsArrayParser.COLUMNS_COL);
     assertFalse(scanProj.isProjectAll());
     assertEquals(ProjectionType.COLUMNS_ARRAY, scanProj.projectType());
     assertEquals(1, scanProj.requestedCols().size());
@@ -62,47 +76,6 @@ public class TestColumnsArrayParser extends SubOperatorTest {
     assertEquals(ColumnType.COLUMNS_ARRAY, scanProj.outputCols().get(0).columnType());
   }
 
-  private ScanLevelProjection buildProj(List<SchemaPath> projCols) {
-    ScanLevelProjection.ScanProjectionBuilder builder = new ScanLevelProjection.ScanProjectionBuilder(fixture.options());
-
-    // Add columns parser
-
-    builder.addParser(new ColumnsArrayParser());
-
-    // Simulate SELECT columns ...
-
-    builder.projectedCols(projCols);
-
-    // Build the planner and verify
-
-    return builder.build();
-  }
-
-  /**
-   * The `columns` column is special: can't be used with other column names.
-   * Make sure that the rule <i>does not</i> apply to implicit columns.
-   */
-
-  @Test
-  public void testMetadataColumnsWithColumnsArray() {
-    ScanLevelProjection scanProj = buildProj(ScanTestUtils.projectList("filename", "columns", "suffix"));
-    assertFalse(scanProj.isProjectAll());
-    assertEquals(ProjectionType.COLUMNS_ARRAY, scanProj.projectType());
-
-    assertEquals(3, scanProj.outputCols().size());
-
-    assertEquals("filename", scanProj.outputCols().get(0).name());
-    assertEquals("columns", scanProj.outputCols().get(1).name());
-    assertEquals("suffix", scanProj.outputCols().get(2).name());
-
-    // Verify column type
-
-    assertEquals(ColumnType.FILE_METADATA, scanProj.outputCols().get(0).columnType());
-    assertEquals(ColumnType.COLUMNS_ARRAY, scanProj.outputCols().get(1).columnType());
-    assertEquals(ColumnType.FILE_METADATA, scanProj.outputCols().get(2).columnType());
-  }
-
-
   /**
    * The `columns` column is special; can't include both `columns` and
    * a named column in the same project.
@@ -113,7 +86,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
   @Test
   public void testErrorColumnsArrayAndColumn() {
     try {
-      buildProj(ScanTestUtils.projectList("columns", "a"));
+      buildProj(ColumnsArrayParser.COLUMNS_COL, "a");
       fail();
     } catch (IllegalArgumentException e) {
       // Expected
@@ -127,7 +100,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
   @Test
   public void testErrorColumnAndColumnsArray() {
     try {
-      buildProj(ScanTestUtils.projectList("a", "columns"));
+      buildProj("a", ColumnsArrayParser.COLUMNS_COL);
       fail();
     } catch (IllegalArgumentException e) {
       // Expected
@@ -141,7 +114,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
   @Test
   public void testErrorTwoColumnsArray() {
     try {
-      buildProj(ScanTestUtils.projectList("columns", "columns"));
+      buildProj(ColumnsArrayParser.COLUMNS_COL, ColumnsArrayParser.COLUMNS_COL);
       fail();
     } catch (IllegalArgumentException e) {
       // Expected

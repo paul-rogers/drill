@@ -33,6 +33,8 @@ import org.apache.drill.exec.physical.impl.protocol.BatchAccessor;
 import org.apache.drill.exec.physical.impl.protocol.OperatorExec;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
 import org.apache.drill.exec.physical.impl.protocol.VectorContainerAccessor;
+import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser;
+import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.TupleMetadata;
@@ -581,11 +583,15 @@ public class ScanOperatorExec implements OperatorExec {
   @Override
   public void bind(OperatorContext context) {
     this.context = context;
-    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder(context.getFragmentContext().getOptionSet());
-    scanProjBuilder.useLegacyWildcardExpansion(builder.useLegacyWildcardExpansion);
-    scanProjBuilder.setScanRootDir(builder.scanRootDir);
+    ScanLevelProjection.ScanProjectionBuilder scanProjBuilder = new ScanLevelProjection.ScanProjectionBuilder();
+    FileMetadataColumnsParser parser = new FileMetadataColumnsParser(context.getFragmentContext().getOptionSet());
+    parser.useLegacyWildcardExpansion(builder.useLegacyWildcardExpansion);
+    parser.setScanRootDir(builder.scanRootDir);
+    scanProjBuilder.addParser(parser);
     scanProjBuilder.projectedCols(builder.projection);
-    scanProjector = new ScanProjector(context.getAllocator(), scanProjBuilder.build(), builder.nullType);
+    ScanLevelProjection scanProj = scanProjBuilder.build();
+    FileMetadataProjection metadataPlan = parser.getProjection();
+    scanProjector = new ScanProjector(context.getAllocator(), scanProj, metadataPlan, builder.nullType);
   }
 
   @Override

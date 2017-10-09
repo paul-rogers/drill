@@ -33,6 +33,29 @@ import org.apache.drill.exec.vector.ValueVector;
 
 public class ColumnsArrayParser implements ScanProjectionParser {
 
+  public static final String COLUMNS_COL = "columns";
+
+  public static class ColumnsArrayProjection {
+    private final boolean columnsIndexes[];
+    private final MajorType columnsArrayType;
+
+    public ColumnsArrayProjection(ColumnsArrayParser builder) {
+      columnsArrayType = builder.columnsArrayType;
+      if (builder.columnsIndexes == null) {
+        columnsIndexes = null;
+      } else {
+        columnsIndexes = new boolean[builder.maxIndex];
+        for (int i = 0; i < builder.columnsIndexes.size(); i++) {
+          columnsIndexes[builder.columnsIndexes.get(i)] = true;
+        }
+      }
+    }
+
+    public boolean[] columnsArrayIndexes() { return columnsIndexes; }
+
+    public MajorType columnsArrayType() { return columnsArrayType; }
+  }
+
   // Config
 
   private MajorType columnsArrayType;
@@ -47,7 +70,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
   protected List<Integer> columnsIndexes;
   protected int maxIndex;
 
-  private ColumnsArrayParser.ColumnsArrayProjection projection;
+  private ColumnsArrayProjection projection;
 
   public void columnsArrayType(MinorType type) {
     columnsArrayType = MajorType.newBuilder()
@@ -63,7 +86,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
 
   @Override
   public boolean parse(RequestedColumn inCol) {
-    if (! inCol.name().equalsIgnoreCase(ScanLevelProjection.COLUMNS_ARRAY_NAME)) {
+    if (! inCol.name().equalsIgnoreCase(COLUMNS_COL)) {
       return false;
     }
 
@@ -147,27 +170,6 @@ public class ColumnsArrayParser implements ScanProjectionParser {
     if (columnsArrayCol != null && col.columnType() == ColumnType.TABLE) {
       throw new IllegalArgumentException("Cannot select columns[] and other table columns: " + col.name());
     }
-  }
-
-  public static class ColumnsArrayProjection {
-    private final boolean columnsIndexes[];
-    private final MajorType columnsArrayType;
-
-    public ColumnsArrayProjection(ColumnsArrayParser builder) {
-      columnsArrayType = builder.columnsArrayType;
-      if (builder.columnsIndexes == null) {
-        columnsIndexes = null;
-      } else {
-        columnsIndexes = new boolean[builder.maxIndex];
-        for (int i = 0; i < builder.columnsIndexes.size(); i++) {
-          columnsIndexes[builder.columnsIndexes.get(i)] = true;
-        }
-      }
-    }
-
-    public boolean[] columnsArrayIndexes() { return columnsIndexes; }
-
-    public MajorType columnsArrayType() { return columnsArrayType; }
   }
 
   @Override

@@ -19,26 +19,13 @@ package org.apache.drill.exec.physical.impl.scan.project;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.physical.impl.scan.FileLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.FileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.RequestedTableColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.WildcardColumn;
-import org.apache.drill.exec.server.options.OptionSet;
-import org.apache.drill.exec.server.options.OptionValue;
-import org.apache.drill.exec.store.ColumnExplorer.ImplicitFileColumns;
-import org.apache.hadoop.fs.Path;
 
 import com.google.common.collect.Lists;
 
@@ -94,7 +81,6 @@ public class ScanLevelProjection {
   public enum ProjectionType { WILDCARD, COLUMNS_ARRAY, LIST }
 
   public static final String WILDCARD = "*";
-  public static final String COLUMNS_ARRAY_NAME = "columns";
 
   /**
    * Definition of a column from the SELECT list. This is
@@ -142,7 +128,7 @@ public class ScanLevelProjection {
     public boolean isWildcard() { return name().equals(WILDCARD); }
 
     public boolean isColumnsArray() {
-      return name().equalsIgnoreCase(COLUMNS_ARRAY_NAME);
+      return name().equalsIgnoreCase(ColumnsArrayParser.COLUMNS_COL);
     }
 
     public boolean isArray() {
@@ -166,42 +152,6 @@ public class ScanLevelProjection {
       }
       buf.append("]");
       return buf.toString();
-    }
-  }
-
-  /**
-   * Definition of a file metadata (AKA "implicit") column for this query.
-   * Provides the static definition, along
-   * with the name set for the implicit column in the session options for the query.
-   */
-
-  public static class FileMetadataColumnDefn {
-    public final ImplicitFileColumns defn;
-    public final String colName;
-
-    public FileMetadataColumnDefn(String colName, ImplicitFileColumns defn) {
-      this.colName = colName;
-      this.defn = defn;
-    }
-
-    @Override
-    public String toString() {
-      StringBuilder buf = new StringBuilder()
-        .append("[FileInfoColumnDefn name=\"")
-        .append(colName)
-        .append("\", defn=")
-        .append(defn)
-        .append("]");
-      return buf.toString();
-    }
-
-    public String colName() { return colName; }
-
-    public MajorType dataType() {
-      return MajorType.newBuilder()
-          .setMinorType(MinorType.VARCHAR)
-          .setMode(DataMode.REQUIRED)
-          .build();
     }
   }
 
@@ -244,17 +194,8 @@ public class ScanLevelProjection {
 
   public static class ScanProjectionBuilder {
 
-    // Config
-
-    private final String partitionDesignator;
-    private final Pattern partitionPattern;
-    private List<FileMetadataColumnDefn> implicitColDefns = new ArrayList<>();;
-    private Map<String, FileMetadataColumnDefn> fileMetadataColIndex = CaseInsensitiveMap.newHashMap();
-    private boolean useLegacyWildcardExpansion = true;
-
     // Input
 
-    protected String scanRootDir;
     protected List<RequestedColumn> projectionList = new ArrayList<>();
     protected List<ScanProjectionParser> parsers = new ArrayList<>();
 
@@ -264,20 +205,8 @@ public class ScanLevelProjection {
     protected List<String> tableColNames = new ArrayList<>();
     protected ProjectionType projectionType;
     protected RequestedColumn wildcardColumn;
-    protected boolean hasMetadata;
 
-    public ScanProjectionBuilder(OptionSet optionManager) {
-      partitionDesignator = optionManager.getOption(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL_VALIDATOR);
-      partitionPattern = Pattern.compile(partitionDesignator + "(\\d+)", Pattern.CASE_INSENSITIVE);
-      for (ImplicitFileColumns e : ImplicitFileColumns.values()) {
-        OptionValue optionValue = optionManager.getOption(e.optionName());
-        if (optionValue != null) {
-          FileMetadataColumnDefn defn = new FileMetadataColumnDefn(optionValue.string_val, e);
-          implicitColDefns.add(defn);
-          fileMetadataColIndex.put(defn.colName, defn);
-        }
-      }
-    }
+    public ScanProjectionBuilder() {}
 
     public void addParser(ScanProjectionParser parser) {
       parsers.add(parser);
@@ -291,21 +220,6 @@ public class ScanLevelProjection {
      */
     public ScanProjectionBuilder projectAll() {
       return projectedCols(Lists.newArrayList(new SchemaPath[] {SchemaPath.getSimplePath(WILDCARD)}));
-    }
-
-    /**
-     * Specifies whether to plan based on the legacy meaning of "*". See
-     * <a href="https://issues.apache.org/jira/browse/DRILL-5542">DRILL-5542</a>.
-     * If true, then the star column <i>includes</i> implicit and partition
-     * columns. If false, then star matches <i>only</i> table columns.
-     * @param flag true to use the legacy plan, false to use the revised
-     * semantics
-     * @return this builder
-     */
-
-    public ScanProjectionBuilder useLegacyWildcardExpansion(boolean flag) {
-      useLegacyWildcardExpansion = flag;
-      return this;
     }
 
     /**
@@ -329,10 +243,6 @@ public class ScanLevelProjection {
     public void requestColumns(List<RequestedColumn> queryCols) {
       assert this.projectionList.isEmpty();
       this.projectionList.addAll(queryCols);
-    }
-
-    public void setScanRootDir(String rootDir) {
-      this.scanRootDir = rootDir;
     }
 
     /**
@@ -380,30 +290,6 @@ public class ScanLevelProjection {
         mapWildcardColumn(inCol);
         return;
       }
-      Matcher m = partitionPattern.matcher(inCol.name());
-      if (m.matches()) {
-
-        // Partition column
-
-        PartitionColumn outCol = PartitionColumn.fromSelect(inCol, Integer.parseInt(m.group(1)));
-        inCol.resolution = outCol;
-        outputCols.add(outCol);
-        hasMetadata = true;
-        return;
-      }
-
-      FileMetadataColumnDefn iCol = fileMetadataColIndex.get(inCol.name());
-      if (iCol != null) {
-
-        // File metadata (implicit) column
-
-        FileMetadataColumn outCol = FileMetadataColumn.fromSelect(inCol, iCol);
-        inCol.resolution = outCol;
-        outputCols.add(outCol);
-        hasMetadata = true;
-        return;
-      }
-
       // This is a desired table column.
 
       RequestedTableColumn tableCol = RequestedTableColumn.fromSelect(inCol);
@@ -431,15 +317,6 @@ public class ScanLevelProjection {
       // in later with actual table columns.
 
       inCol.resolution = WildcardColumn.fromSelect(inCol);
-      if (useLegacyWildcardExpansion) {
-
-        // Old-style wildcard handling inserts all metadata coluns in
-        // the scanner, removes them in Project.
-        // Fill in the file metadata columns. Can do here because the
-        // set is constant across all files.
-
-        hasMetadata = true;
-      }
       outputCols.add(inCol.resolution);
     }
 
@@ -453,18 +330,8 @@ public class ScanLevelProjection {
         }
         switch (outCol.columnType()) {
         case TABLE:
-          if (wildcardColumn != null) {
+          if (hasWildcard()) {
             throw new IllegalArgumentException("Cannot select table columns and `*` together");
-          }
-          break;
-        case FILE_METADATA:
-          if (wildcardColumn != null  &&  useLegacyWildcardExpansion) {
-            throw new IllegalArgumentException("Cannot select file metadata columns and `*` together");
-          }
-          break;
-        case PARTITION:
-          if (wildcardColumn != null  &&  useLegacyWildcardExpansion) {
-            throw new IllegalArgumentException("Cannot select partitions and `*` together");
           }
           break;
         default:
@@ -478,87 +345,14 @@ public class ScanLevelProjection {
     }
   }
 
-  /**
-   * Specify the file name and optional selection root. If the selection root
-   * is provided, then partitions are defined as the portion of the file name
-   * that is not also part of the selection root. That is, if selection root is
-   * /a/b and the file path is /a/b/c/d.csv, then dir0 is c.
-   */
-
-  public static class FileMetadata {
-
-    private final Path filePath;
-    private final String[] dirPath;
-
-    public FileMetadata(Path filePath, String selectionRoot) {
-      this.filePath = filePath;
-
-      // If the data source is not a file, no file metadata is available.
-
-      if (selectionRoot == null || filePath == null) {
-        dirPath = null;
-        return;
-      }
-
-      // Result of splitting /x/y is ["", "x", "y"], so ignore first.
-
-      String[] r = Path.getPathWithoutSchemeAndAuthority(new Path(selectionRoot)).toString().split("/");
-
-      // Result of splitting "/x/y/z.csv" is ["", "x", "y", "z.csv"], so ignore first and last
-
-      String[] p = Path.getPathWithoutSchemeAndAuthority(filePath).toString().split("/");
-
-      if (p.length - 1 < r.length) {
-        throw new IllegalArgumentException("Selection root of \"" + selectionRoot +
-                                        "\" is shorter than file path of \"" + filePath.toString() + "\"");
-      }
-      for (int i = 1; i < r.length; i++) {
-        if (! r[i].equals(p[i])) {
-          throw new IllegalArgumentException("Selection root of \"" + selectionRoot +
-              "\" is not a leading path of \"" + filePath.toString() + "\"");
-        }
-      }
-      dirPath = ArrayUtils.subarray(p, r.length, p.length - 1);
-    }
-
-    public FileMetadata(Path fileName, Path rootDir) {
-      this(fileName, rootDir == null ? null : rootDir.toString());
-    }
-
-    public Path filePath() { return filePath; }
-
-    public String partition(int index) {
-      if (dirPath == null ||  dirPath.length <= index) {
-        return null;
-      }
-      return dirPath[index];
-    }
-
-    public int dirPathLength() {
-      return dirPath == null ? 0 : dirPath.length;
-    }
-
-    public boolean isSet() { return filePath != null; }
-  }
-
-  private final String partitionDesignator;
-  private final List<FileMetadataColumnDefn> fileMetadataColDefns;
   private final ProjectionType projectType;
-  private final boolean hasMetadata;
-  private final boolean useLegacyWildcardExpansion;
-  private final String scanRootDir;
   private final List<RequestedColumn> requestedCols;
   private final List<ScanOutputColumn> outputCols;
   private final List<String> tableColNames;
 
   public ScanLevelProjection(ScanProjectionBuilder builder) {
-    partitionDesignator = builder.partitionDesignator;
-    fileMetadataColDefns = builder.implicitColDefns;
     projectType = builder.projectionType;
-    hasMetadata = builder.hasMetadata;
-    useLegacyWildcardExpansion = builder.useLegacyWildcardExpansion;
-    scanRootDir = builder.scanRootDir;
-    requestedCols = builder.projectionList;
+     requestedCols = builder.projectionList;
     outputCols = builder.outputCols;
     tableColNames = builder.tableColNames;
   }
@@ -579,8 +373,6 @@ public class ScanLevelProjection {
 
   public List<RequestedColumn> requestedCols() { return requestedCols; }
 
-  public boolean hasMetadata() { return hasMetadata; }
-
   /**
    * The entire set of output columns, in output order. Output order is
    * that specified in the SELECT (for an explicit list of columns) or
@@ -590,39 +382,12 @@ public class ScanLevelProjection {
 
   public List<ScanOutputColumn> outputCols() { return outputCols; }
 
-  public boolean useLegacyWildcardPartition() { return useLegacyWildcardExpansion; }
-
   public List<String> tableColNames() { return tableColNames; }
-
-  public List<FileMetadataColumnDefn> fileMetadataColDefns() { return fileMetadataColDefns; }
-
-  public String partitionName(int partition) {
-    return partitionDesignator + partition;
-  }
-
-  public FileMetadata fileMetadata(Path filePath) {
-    return new FileMetadata(filePath, scanRootDir);
-  }
-
-  public static MajorType partitionColType() {
-    return MajorType.newBuilder()
-          .setMinorType(MinorType.VARCHAR)
-          .setMode(DataMode.OPTIONAL)
-          .build();
-  }
 
   public static MajorType nullType() {
     return MajorType.newBuilder()
         .setMinorType(MinorType.NULL)
         .setMode(DataMode.OPTIONAL)
         .build();
-  }
-
-  public FileLevelProjection resolve(Path filePath) {
-    return resolve(fileMetadata(filePath));
-  }
-
-  public FileLevelProjection resolve(FileMetadata fileInfo) {
-    return FileLevelProjection.fromResolution(this, fileInfo);
   }
 }

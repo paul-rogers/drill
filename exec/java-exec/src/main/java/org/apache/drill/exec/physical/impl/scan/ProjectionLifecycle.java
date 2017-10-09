@@ -23,7 +23,11 @@ import java.util.Map;
 
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser;
+import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.NullColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.PartitionColumn;
@@ -110,13 +114,13 @@ public abstract class ProjectionLifecycle {
 
   public static class DiscreteProjectionLifecycle extends ProjectionLifecycle {
 
-    DiscreteProjectionLifecycle(ScanLevelProjection queryPlan) {
-      super(queryPlan);
+    DiscreteProjectionLifecycle(ScanLevelProjection queryPlan, FileMetadataProjection metadataPlan) {
+      super(queryPlan, metadataPlan);
     }
 
     @Override
     public void startFile(Path filePath) {
-      fileProjDefn = scanProjDefn.resolve(filePath);
+      fileProjDefn = metadataPlan.resolve(scanProjDefn, filePath);
       tableProjDefn = null;
       schemaVersion++;
     }
@@ -172,17 +176,17 @@ public abstract class ProjectionLifecycle {
   public static class ContinuousProjectionLifecycle extends ProjectionLifecycle {
 
     private PriorSchema priorSchema;
-    private ScanLevelProjection.FileMetadata fileInfo;
+    private FileMetadata fileInfo;
 
-    private ContinuousProjectionLifecycle(ScanLevelProjection queryPlan) {
-      super(queryPlan);
+    private ContinuousProjectionLifecycle(ScanLevelProjection queryPlan, FileMetadataProjection metadataPlan) {
+      super(queryPlan, metadataPlan);
     }
 
     @Override
     public void startFile(Path filePath) {
-      fileInfo = scanProjDefn.fileMetadata(filePath);
+      fileInfo = metadataPlan.fileMetadata(filePath);
       if (priorSchema != null && isCompatible(fileInfo)) {
-        fileProjDefn = FileLevelProjection.fromReresolution(scanProjDefn, priorSchema.generatedSelect, fileInfo);
+        fileProjDefn = FileLevelProjection.fromReresolution(scanProjDefn, metadataPlan, priorSchema.generatedSelect, fileInfo);
       } else {
         resetFileSchema();
       }
@@ -190,16 +194,16 @@ public abstract class ProjectionLifecycle {
 
     private void resetFileSchema() {
       priorSchema = null;
-      fileProjDefn = scanProjDefn.resolve(fileInfo);
+      fileProjDefn = metadataPlan.resolve(scanProjDefn, fileInfo);
       schemaVersion++;
     }
 
-    private boolean isCompatible(ScanLevelProjection.FileMetadata fileInfo) {
+    private boolean isCompatible(FileMetadata fileInfo) {
 
       // Can't smooth over the schema if we need more partition columns
       // than the prior plan.
 
-      if (! scanProjDefn.useLegacyWildcardPartition()) {
+      if (! metadataPlan.useLegacyWildcardPartition()) {
         return true;
       }
       return priorSchema.partitionCount >= fileInfo.dirPathLength();
@@ -267,6 +271,7 @@ public abstract class ProjectionLifecycle {
    */
 
   protected final ScanLevelProjection scanProjDefn;
+  protected final FileMetadataProjection metadataPlan;
 
   /**
    * Rewritten projection definition with file or partition metadata
@@ -283,8 +288,9 @@ public abstract class ProjectionLifecycle {
 
   protected int schemaVersion;
 
-  private ProjectionLifecycle(ScanLevelProjection queryPlan) {
+  private ProjectionLifecycle(ScanLevelProjection queryPlan, FileMetadataProjection metadataPlan) {
     scanProjDefn = queryPlan;
+    this.metadataPlan = metadataPlan;
   }
 
   public abstract void startFile(Path filePath);
@@ -296,25 +302,31 @@ public abstract class ProjectionLifecycle {
   public int schemaVersion() { return schemaVersion; }
 
   @VisibleForTesting
-  public static ProjectionLifecycle newDiscreteLifecycle(ScanLevelProjection.ScanProjectionBuilder builder) {
-    return new DiscreteProjectionLifecycle(builder.build());
+  public static ProjectionLifecycle newDiscreteLifecycle(ScanProjectionBuilder builder, FileMetadataColumnsParser metadataParser) {
+    ScanLevelProjection scanProj = builder.build();
+    FileMetadataProjection metadataPlan = metadataParser.getProjection();
+    return new DiscreteProjectionLifecycle(scanProj, metadataPlan);
   }
 
   @VisibleForTesting
-  public static ProjectionLifecycle newContinuousLifecycle(ScanLevelProjection.ScanProjectionBuilder builder) {
-    return new ContinuousProjectionLifecycle(builder.build());
+  public static ProjectionLifecycle newContinuousLifecycle(ScanProjectionBuilder builder, FileMetadataColumnsParser metadataParser) {
+    ScanLevelProjection scanProj = builder.build();
+    FileMetadataProjection metadataPlan = metadataParser.getProjection();
+    return new ContinuousProjectionLifecycle(scanProj, metadataPlan);
   }
 
   @VisibleForTesting
-  public static ProjectionLifecycle newLifecycle(ScanLevelProjection.ScanProjectionBuilder builder) {
-    return newLifecycle(builder.build());
+  public static ProjectionLifecycle newLifecycle(ScanProjectionBuilder builder, FileMetadataColumnsParser metadataParser) {
+    ScanLevelProjection scanProj = builder.build();
+    FileMetadataProjection metadataPlan = metadataParser.getProjection();
+    return newLifecycle(scanProj, metadataPlan);
   }
 
-  public static ProjectionLifecycle newLifecycle(ScanLevelProjection scanProj) {
+  public static ProjectionLifecycle newLifecycle(ScanLevelProjection scanProj, FileMetadataProjection metadataPlan) {
     if (scanProj.isProjectAll()) {
-      return new ContinuousProjectionLifecycle(scanProj);
+      return new ContinuousProjectionLifecycle(scanProj, metadataPlan);
     } else {
-      return new DiscreteProjectionLifecycle(scanProj);
+      return new DiscreteProjectionLifecycle(scanProj, metadataPlan);
     }
   }
 
