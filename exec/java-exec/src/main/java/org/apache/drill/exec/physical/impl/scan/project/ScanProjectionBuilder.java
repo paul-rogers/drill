@@ -41,7 +41,7 @@ public class ScanProjectionBuilder {
 
   // Input
 
-  protected List<RequestedColumn> projectionList = new ArrayList<>();
+  protected List<SchemaPath> projectionList = new ArrayList<>();
   protected List<ScanProjectionParser> parsers = new ArrayList<>();
 
   // Output
@@ -49,7 +49,7 @@ public class ScanProjectionBuilder {
   protected List<ScanOutputColumn> outputCols = new ArrayList<>();
   protected List<String> tableColNames = new ArrayList<>();
   protected ProjectionType projectionType;
-  protected RequestedColumn wildcardColumn;
+  protected SchemaPath wildcardColumn;
 
   public ScanProjectionBuilder() {}
 
@@ -64,7 +64,7 @@ public class ScanProjectionBuilder {
    * @return this builder
    */
   public ScanProjectionBuilder projectAll() {
-    return projectedCols(Lists.newArrayList(new SchemaPath[] {SchemaPath.getSimplePath(ScanLevelProjection.WILDCARD)}));
+    return projectedCols(Lists.newArrayList(new SchemaPath[] {SchemaPath.getSimplePath(SchemaPath.WILDCARD)}));
   }
 
   /**
@@ -76,18 +76,14 @@ public class ScanProjectionBuilder {
    * @return this builder
    */
   public ScanProjectionBuilder projectedCols(List<SchemaPath> queryCols) {
-    assert this.projectionList.isEmpty();
-    this.projectionList = new ArrayList<>();
-    for (SchemaPath col : queryCols) {
-      RequestedColumn sCol = new RequestedColumn(col);
-      this.projectionList.add(sCol);
-    }
+    assert projectionList.isEmpty();
+    projectionList.addAll(queryCols);
     return this;
   }
 
-  public void requestColumns(List<RequestedColumn> queryCols) {
-    assert this.projectionList.isEmpty();
-    this.projectionList.addAll(queryCols);
+  public void requestColumns(List<SchemaPath> queryCols) {
+    assert projectionList.isEmpty();
+    projectionList.addAll(queryCols);
   }
 
   /**
@@ -97,7 +93,7 @@ public class ScanProjectionBuilder {
 
   public ScanLevelProjection build() {
     projectionType = ProjectionType.LIST;
-    for (RequestedColumn inCol : projectionList) {
+    for (SchemaPath inCol : projectionList) {
       mapColumn(inCol);
     }
     verify();
@@ -122,7 +118,7 @@ public class ScanProjectionBuilder {
    * @param inCol the SELECT column
    */
 
-  private void mapColumn(RequestedColumn inCol) {
+  private void mapColumn(SchemaPath inCol) {
 
     // Give the extensions first crack at each column.
     // Some may want to "sniff" a column, even if they
@@ -144,7 +140,6 @@ public class ScanProjectionBuilder {
     // This is a desired table column.
 
     RequestedTableColumn tableCol = RequestedTableColumn.fromSelect(inCol);
-    inCol.resolution = tableCol;
     outputCols.add(tableCol);
     tableColNames.add(tableCol.name());
   }
@@ -157,7 +152,7 @@ public class ScanProjectionBuilder {
     outputCols.add(outCol);
   }
 
-  private void mapWildcardColumn(RequestedColumn inCol) {
+  private void mapWildcardColumn(SchemaPath inCol) {
     if (wildcardColumn != null) {
       throw new IllegalArgumentException("Duplicate * entry in project list");
     }
@@ -167,8 +162,7 @@ public class ScanProjectionBuilder {
     // Put the wildcard column into the projection list as a placeholder to be filled
     // in later with actual table columns.
 
-    inCol.resolution = WildcardColumn.fromSelect(inCol);
-    outputCols.add(inCol.resolution);
+    outputCols.add(WildcardColumn.fromSelect(inCol));
   }
 
   private void verify() {

@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.scan.project;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -82,8 +83,8 @@ public class ColumnsArrayParser implements ScanProjectionParser {
   }
 
   @Override
-  public boolean parse(RequestedColumn inCol) {
-    if (! inCol.name().equalsIgnoreCase(COLUMNS_COL)) {
+  public boolean parse(SchemaPath inCol) {
+    if (! inCol.nameEquals(COLUMNS_COL)) {
       return false;
     }
 
@@ -93,7 +94,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
     return true;
   }
 
-  private void mapColumnsArrayColumn(RequestedColumn inCol) {
+  private void mapColumnsArrayColumn(SchemaPath inCol) {
 
     if (inCol.isArray()) {
       mapColumnsArrayElement(inCol);
@@ -113,10 +114,9 @@ public class ColumnsArrayParser implements ScanProjectionParser {
     addColumnsArrayColumn(inCol);
   }
 
-  private void addColumnsArrayColumn(RequestedColumn inCol) {
+  private void addColumnsArrayColumn(SchemaPath inCol) {
     builder.setProjectionType(ProjectionType.COLUMNS_ARRAY);
     columnsArrayCol = ColumnsArrayColumn.fromSelect(inCol, columnsArrayType());
-    inCol.resolution = columnsArrayCol;
     builder.addProjectedColumn(columnsArrayCol);
   }
 
@@ -130,7 +130,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
     return columnsArrayType;
   }
 
-  private void mapColumnsArrayElement(RequestedColumn inCol) {
+  private void mapColumnsArrayElement(SchemaPath inCol) {
     // Add the "columns" column, if not already present.
     // The project list past this point will contain just the
     // "columns" entry rather than the series of
@@ -147,7 +147,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
       addColumnsArrayColumn(inCol);
       columnsIndexes = new ArrayList<>();
     }
-    int index = inCol.arrayIndex();
+    int index = inCol.getRootSegment().getChild().getArraySegment().getIndex();
     if (index < 0  ||  index > ValueVector.MAX_ROW_COUNT) {
       throw new IllegalArgumentException("columns[" + index + "] out of bounds");
     }

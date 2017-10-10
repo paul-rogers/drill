@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.impl.scan.project;
 
 import java.util.List;
 
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
@@ -77,7 +78,7 @@ public class ScanLevelProjection {
   public static final String WILDCARD = "*";
 
   private final ProjectionType projectType;
-  private final List<RequestedColumn> requestedCols;
+  private final List<SchemaPath> requestedCols;
   private final List<ScanOutputColumn> outputCols;
   private final List<String> tableColNames;
 
@@ -102,7 +103,7 @@ public class ScanLevelProjection {
    * @return the SELECT list columns, in SELECT list order
    */
 
-  public List<RequestedColumn> requestedCols() { return requestedCols; }
+  public List<SchemaPath> requestedCols() { return requestedCols; }
 
   /**
    * The entire set of output columns, in output order. Output order is

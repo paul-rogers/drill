@@ -24,6 +24,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
@@ -102,7 +103,7 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
 
     // Verify bindings
 
-    assertSame(scanProj.outputCols().get(1), scanProj.requestedCols().get(1).resolution());
+//    assertSame(scanProj.outputCols().get(1), scanProj.requestedCols().get(1).resolution());
     assertSame(scanProj.outputCols().get(1).source(), scanProj.requestedCols().get(1));
 
     // Verify column type
@@ -139,7 +140,7 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
 
     // Verify bindings
 
-    assertSame(scanProj.outputCols().get(1), scanProj.requestedCols().get(1).resolution());
+//    assertSame(scanProj.outputCols().get(1), scanProj.requestedCols().get(1).resolution());
     assertSame(scanProj.outputCols().get(1).source(), scanProj.requestedCols().get(1));
 
     // Verify column type
@@ -167,7 +168,7 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
   public void testErrorWildcardLegacyAndFileMetaata() {
     try {
       buildProj(FileMetadataColumnsParser.FILE_NAME_COL,
-                ScanLevelProjection.WILDCARD);
+          SchemaPath.WILDCARD);
       fail();
     } catch (IllegalArgumentException e) {
       // expected
@@ -181,7 +182,7 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
   @Test
   public void testErrorWildcardLegacyAndPartition() {
     try {
-      buildProj(ScanLevelProjection.WILDCARD,
+      buildProj(SchemaPath.WILDCARD,
           FileMetadataColumnsParser.partitionColName(8));
       fail();
     } catch (IllegalArgumentException e) {

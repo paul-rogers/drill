@@ -68,7 +68,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
 
     // Verify bindings
 
-    assertSame(scanProj.outputCols().get(0), scanProj.requestedCols().get(0).resolution());
+//    assertSame(scanProj.outputCols().get(0), scanProj.requestedCols().get(0).resolution());
     assertSame(scanProj.outputCols().get(0).source(), scanProj.requestedCols().get(0));
 
     // Verify column type

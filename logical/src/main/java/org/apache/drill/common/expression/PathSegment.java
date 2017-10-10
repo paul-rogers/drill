@@ -183,6 +183,11 @@ public abstract class PathSegment {
       return path.equalsIgnoreCase(other.path);
     }
 
+    public boolean nameEquals(String name) {
+      return path == null && name == null ||
+             path != null && path.equalsIgnoreCase(name);
+    }
+
     @Override
     public NameSegment clone() {
       NameSegment s = new NameSegment(this.path);

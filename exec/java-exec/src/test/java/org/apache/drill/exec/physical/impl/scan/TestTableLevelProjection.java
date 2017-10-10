@@ -23,14 +23,14 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
 import org.apache.drill.exec.physical.impl.scan.project.ColumnsArrayParser;
 import org.apache.drill.exec.physical.impl.scan.project.FileLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;
+import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
@@ -48,7 +48,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
         .withFileParser(fixture.options())
         .projectedCols(
             FileMetadataColumnsParser.FILE_NAME_COL,
-            ScanLevelProjection.WILDCARD,
+            SchemaPath.WILDCARD,
             FileMetadataColumnsParser.partitionColName(0));
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
     projFixture.metdataParser.setScanRootDir("hdfs:///w");
@@ -108,7 +108,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
   public void testWildcardLegacy() {
     ProjectionFixture projFixture = new ProjectionFixture()
         .withFileParser(fixture.options())
-        .projectedCols(ScanLevelProjection.WILDCARD);
+        .projectedCols(SchemaPath.WILDCARD);
     projFixture.metdataParser.useLegacyWildcardExpansion(true);
     projFixture.metdataParser.setScanRootDir("hdfs:///w");
     projFixture.build();

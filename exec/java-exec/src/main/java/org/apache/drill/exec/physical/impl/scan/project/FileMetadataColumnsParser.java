@@ -25,6 +25,7 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.directory.api.util.Strings;
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
@@ -254,26 +255,24 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
   }
 
   @Override
-  public boolean parse(RequestedColumn inCol) {
-    Matcher m = partitionPattern.matcher(inCol.name());
+  public boolean parse(SchemaPath inCol) {
+    Matcher m = partitionPattern.matcher(inCol.rootName());
     if (m.matches()) {
 
       // Partition column
 
       PartitionColumn outCol = PartitionColumn.fromSelect(inCol, Integer.parseInt(m.group(1)));
-      inCol.resolution = outCol;
       builder.addProjectedColumn(outCol);
       hasMetadata = true;
       return true;
     }
 
-    FileMetadataColumnsParser.FileMetadataColumnDefn iCol = fileMetadataColIndex.get(inCol.name());
+    FileMetadataColumnsParser.FileMetadataColumnDefn iCol = fileMetadataColIndex.get(inCol.rootName());
     if (iCol != null) {
 
       // File metadata (implicit) column
 
       FileMetadataColumn outCol = FileMetadataColumn.fromSelect(inCol, iCol);
-      inCol.resolution = outCol;
       builder.addProjectedColumn(outCol);
       hasMetadata = true;
       return true;

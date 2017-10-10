@@ -26,6 +26,7 @@ import static org.junit.Assert.fail;
 import java.util.Arrays;
 
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ops.OperatorContext;
@@ -33,7 +34,6 @@ import org.apache.drill.exec.physical.base.AbstractSubScan;
 import org.apache.drill.exec.physical.base.Scan;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ScanOperatorExecBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
@@ -70,7 +70,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
   private static final String MOCK_SUFFIX = "csv";
   private static final String MOCK_DIR0 = "x";
   private static final String MOCK_DIR1 = "y";
-  private static final String STAR = ScanLevelProjection.WILDCARD;
+  private static final String STAR = SchemaPath.WILDCARD;
   private static final String[] SELECT_STAR = new String[] { STAR };
 
   /**

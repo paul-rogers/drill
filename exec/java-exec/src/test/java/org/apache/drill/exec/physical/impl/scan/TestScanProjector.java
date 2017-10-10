@@ -17,7 +17,11 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,14 +35,12 @@ import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
 import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser;
 import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.project.RequestedColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanProjector;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.FileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.MetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.NullColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.RequestedTableColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanProjector;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjector.MetadataColumnLoader;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjector.NullColumnLoader;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
@@ -58,8 +60,8 @@ import org.junit.Test;
 
 public class TestScanProjector extends SubOperatorTest {
 
-  public RequestedColumn buildSelectCol(String name) {
-    return new RequestedColumn(SchemaPath.getSimplePath(name));
+  public SchemaPath buildSelectCol(String name) {
+    return SchemaPath.getSimplePath(name);
   }
 
   /**
@@ -193,7 +195,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT * ...
 
-    ScanProjector projector = buildProjector(ScanLevelProjection.WILDCARD);
+    ScanProjector projector = buildProjector(SchemaPath.WILDCARD);
 
     // ... FROM file
 
@@ -969,7 +971,7 @@ public class TestScanProjector extends SubOperatorTest {
   @Test
   public void testWildcardSmoothing() {
 
-    ScanProjector projector = buildProjector(ScanLevelProjection.WILDCARD);
+    ScanProjector projector = buildProjector(SchemaPath.WILDCARD);
 
     TupleMetadata firstSchema = new SchemaBuilder()
         .add("a", MinorType.INT)
@@ -1176,7 +1178,7 @@ public class TestScanProjector extends SubOperatorTest {
 
     // SELECT * ...
 
-    ScanProjector projector = buildProjector(ScanLevelProjection.WILDCARD);
+    ScanProjector projector = buildProjector(SchemaPath.WILDCARD);
 
     // ... FROM file
 

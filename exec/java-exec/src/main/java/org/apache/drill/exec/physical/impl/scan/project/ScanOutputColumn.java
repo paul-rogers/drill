@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.impl.scan.project;
 
 import java.util.List;
 
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataColumnDefn;
@@ -40,11 +41,11 @@ public abstract class ScanOutputColumn {
 
   public static class WildcardColumn extends ScanOutputColumn {
 
-    private WildcardColumn(RequestedColumn inCol) {
-      super(inCol, inCol.name());
+    private WildcardColumn(SchemaPath inCol) {
+      super(inCol, inCol.rootName());
     }
 
-    public static ScanOutputColumn fromSelect(RequestedColumn inCol) {
+    public static ScanOutputColumn fromSelect(SchemaPath inCol) {
       return new WildcardColumn(inCol);
     }
 
@@ -61,7 +62,7 @@ public abstract class ScanOutputColumn {
 
     private final MajorType type;
 
-    protected TypedColumn(RequestedColumn inCol, String name, MajorType type) {
+    protected TypedColumn(SchemaPath inCol, String name, MajorType type) {
       super(inCol, name);
       this.type = type;
     }
@@ -81,12 +82,12 @@ public abstract class ScanOutputColumn {
 
   public static class RequestedTableColumn extends TypedColumn {
 
-    private RequestedTableColumn(RequestedColumn inCol, String name, MajorType type) {
+    private RequestedTableColumn(SchemaPath inCol, String name, MajorType type) {
       super(inCol, name, type);
     }
 
-    public static RequestedTableColumn fromSelect(RequestedColumn inCol) {
-      return new RequestedTableColumn(inCol, inCol.name(), ScanLevelProjection.nullType());
+    public static RequestedTableColumn fromSelect(SchemaPath inCol) {
+      return new RequestedTableColumn(inCol, inCol.rootName(), ScanLevelProjection.nullType());
     }
 
     public static RequestedTableColumn fromUnresolution(TypedColumn resolved) {
@@ -110,12 +111,12 @@ public abstract class ScanOutputColumn {
 
   public static class ColumnsArrayColumn extends TypedColumn {
 
-    private ColumnsArrayColumn(RequestedColumn inCol, String name, MajorType type) {
+    private ColumnsArrayColumn(SchemaPath inCol, String name, MajorType type) {
       super(inCol, name, type);
     }
 
-    public static ColumnsArrayColumn fromSelect(RequestedColumn inCol, MajorType dataType) {
-      return new ColumnsArrayColumn(inCol, inCol.name(), dataType);
+    public static ColumnsArrayColumn fromSelect(SchemaPath inCol, MajorType dataType) {
+      return new ColumnsArrayColumn(inCol, inCol.rootName(), dataType);
     }
 
     @Override
@@ -136,7 +137,7 @@ public abstract class ScanOutputColumn {
 
     public final String value;
 
-    protected MetadataColumn(RequestedColumn inCol, String name, MajorType type, String value) {
+    protected MetadataColumn(SchemaPath inCol, String name, MajorType type, String value) {
       super(inCol, name, type);
       this.value = value;
     }
@@ -161,24 +162,24 @@ public abstract class ScanOutputColumn {
 
     private final FileMetadataColumnDefn defn;
 
-    private FileMetadataColumn(RequestedColumn inCol, String name, FileMetadataColumnDefn defn, String value) {
+    private FileMetadataColumn(SchemaPath inCol, String name, FileMetadataColumnDefn defn, String value) {
       super(inCol, name, defn.dataType(), value);
       this.defn = defn;
     }
 
-    public static FileMetadataColumn fromSelect(RequestedColumn inCol, FileMetadataColumnDefn defn) {
-      return new FileMetadataColumn(inCol, inCol.name(), defn, null);
+    public static FileMetadataColumn fromSelect(SchemaPath inCol, FileMetadataColumnDefn defn) {
+      return new FileMetadataColumn(inCol, inCol.rootName(), defn, null);
     }
 
-    public static MetadataColumn fromWildcard(RequestedColumn inCol,
+    public static MetadataColumn fromWildcard(SchemaPath inCol,
         FileMetadataColumnDefn defn, FileMetadata fileInfo) {
       return new FileMetadataColumn(inCol, defn.colName(), defn,
           valueOf(defn, fileInfo));
     }
 
-    public static FileMetadataColumn resolved(RequestedColumn inCol,
+    public static FileMetadataColumn resolved(SchemaPath inCol,
         FileMetadataColumnDefn defn, FileMetadata fileInfo) {
-      return new FileMetadataColumn(inCol, inCol.name(), defn,
+      return new FileMetadataColumn(inCol, inCol.rootName(), defn,
           valueOf(defn, fileInfo));
     }
 
@@ -235,24 +236,24 @@ public abstract class ScanOutputColumn {
   public static class PartitionColumn extends MetadataColumn {
     private final int partition;
 
-    private PartitionColumn(RequestedColumn inCol, String name, MajorType dataType, int partition, String value) {
+    private PartitionColumn(SchemaPath inCol, String name, MajorType dataType, int partition, String value) {
       super(inCol, name, dataType, value);
       this.partition = partition;
     }
 
-    public static PartitionColumn fromSelect(RequestedColumn inCol, int partition) {
-      return new PartitionColumn(inCol, inCol.name(), dataType(), partition, null);
+    public static PartitionColumn fromSelect(SchemaPath inCol, int partition) {
+      return new PartitionColumn(inCol, inCol.rootName(), dataType(), partition, null);
     }
 
-    public static MetadataColumn fromWildcard(RequestedColumn inCol, String name,
+    public static MetadataColumn fromWildcard(SchemaPath inCol, String name,
         int partition, FileMetadata fileInfo) {
       return new PartitionColumn(inCol, name, dataType(), partition,
           fileInfo.partition(partition));
     }
 
-    public static PartitionColumn resolved(RequestedColumn inCol, int partition,
+    public static PartitionColumn resolved(SchemaPath inCol, int partition,
         FileMetadata fileInfo) {
-      return new PartitionColumn(inCol, inCol.name(), dataType(), partition,
+      return new PartitionColumn(inCol, inCol.rootName(), dataType(), partition,
           fileInfo.partition(partition));
     }
 
@@ -295,7 +296,7 @@ public abstract class ScanOutputColumn {
 
   public static class NullColumn extends TypedColumn {
 
-    private NullColumn(RequestedColumn inCol, String name, MajorType type) {
+    private NullColumn(SchemaPath inCol, String name, MajorType type) {
       super(inCol, name, type);
     }
 
@@ -328,7 +329,7 @@ public abstract class ScanOutputColumn {
     private final int columnIndex;
     private MaterializedField schema;
 
-    private ProjectedColumn(RequestedColumn inCol, String name,
+    private ProjectedColumn(SchemaPath inCol, String name,
         int columnIndex, MaterializedField schema) {
       super(inCol, name, schema.getType());
       this.schema = schema;
@@ -348,8 +349,8 @@ public abstract class ScanOutputColumn {
     }
 
     public static ProjectedColumn fromColumnsArray(ColumnsArrayColumn col) {
-      return new ProjectedColumn(col.source(), col.inCol.name(), 0,
-          MaterializedField.create(col.inCol.name(), col.type()));
+      return new ProjectedColumn(col.source(), col.inCol.rootName(), 0,
+          MaterializedField.create(col.inCol.rootName(), col.type()));
     }
 
     @Override
@@ -429,7 +430,7 @@ public abstract class ScanOutputColumn {
 
   public static class NullColumnProjection extends ScanOutputColumn {
 
-    public NullColumnProjection(RequestedColumn inCol) {
+    public NullColumnProjection(SchemaPath inCol) {
       super(inCol);
     }
 
@@ -440,21 +441,21 @@ public abstract class ScanOutputColumn {
     protected void visit(int index, Visitor visitor) { }
   }
 
-  protected final RequestedColumn inCol;
+  protected final SchemaPath inCol;
   protected final String name;
 
-  public ScanOutputColumn(RequestedColumn inCol) {
+  public ScanOutputColumn(SchemaPath inCol) {
     this(inCol, null);
   }
 
-  public ScanOutputColumn(RequestedColumn inCol, String name) {
+  public ScanOutputColumn(SchemaPath inCol, String name) {
     this.inCol = inCol;
     this.name = name;
   }
 
   public abstract ScanOutputColumn.ColumnType columnType();
   public String name() { return name; }
-  public RequestedColumn source() { return inCol; }
+  public SchemaPath source() { return inCol; }
   public MajorType type() { return ScanLevelProjection.nullType(); }
   public ScanOutputColumn unresolve() { return this; }
 

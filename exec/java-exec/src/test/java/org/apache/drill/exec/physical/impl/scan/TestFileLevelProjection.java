@@ -23,6 +23,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
 import org.apache.drill.exec.physical.impl.scan.project.FileLevelProjection;
@@ -124,7 +125,7 @@ public class TestFileLevelProjection extends SubOperatorTest {
     assertEquals(7, fileProj.output().size());
 
     TupleMetadata expectedSchema = new SchemaBuilder()
-        .addNullable(ScanLevelProjection.WILDCARD, MinorType.NULL)
+        .addNullable(SchemaPath.WILDCARD, MinorType.NULL)
         .buildSchema();
     expectedSchema = projFixture.expandMetadata(expectedSchema, 2);
     assertTrue(fileProj.outputSchema().isEquivalent(expectedSchema));

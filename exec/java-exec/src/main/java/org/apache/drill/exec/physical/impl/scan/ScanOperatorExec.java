@@ -510,7 +510,7 @@ public class ScanOperatorExec implements OperatorExec {
 
     @VisibleForTesting
     public ScanOperatorExecBuilder projectAll() {
-      return addProjection(ScanLevelProjection.WILDCARD);
+      return addProjection(SchemaPath.WILDCARD);
     }
 
     public ScanOperatorExecBuilder addProjection(String colName) {

@@ -23,6 +23,7 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionType;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;
@@ -58,9 +59,9 @@ public class TestScanLevelProjection extends SubOperatorTest {
     assertEquals(ProjectionType.LIST, scanProj.projectType());
 
     assertEquals(3, scanProj.requestedCols().size());
-    assertEquals("a", scanProj.requestedCols().get(0).name());
-    assertEquals("b", scanProj.requestedCols().get(1).name());
-    assertEquals("c", scanProj.requestedCols().get(2).name());
+    assertEquals("a", scanProj.requestedCols().get(0).rootName());
+    assertEquals("b", scanProj.requestedCols().get(1).rootName());
+    assertEquals("c", scanProj.requestedCols().get(2).rootName());
 
     assertEquals(3, scanProj.outputCols().size());
     assertEquals("a", scanProj.outputCols().get(0).name());
@@ -68,10 +69,6 @@ public class TestScanLevelProjection extends SubOperatorTest {
     assertEquals("c", scanProj.outputCols().get(2).name());
 
     // Verify bindings
-
-    assertSame(scanProj.outputCols().get(0), scanProj.requestedCols().get(0).resolution());
-    assertSame(scanProj.outputCols().get(1), scanProj.requestedCols().get(1).resolution());
-    assertSame(scanProj.outputCols().get(2), scanProj.requestedCols().get(2).resolution());
 
     assertSame(scanProj.outputCols().get(0).source(), scanProj.requestedCols().get(0));
     assertSame(scanProj.outputCols().get(1).source(), scanProj.requestedCols().get(1));
@@ -111,11 +108,10 @@ public class TestScanLevelProjection extends SubOperatorTest {
     assertTrue(scanProj.requestedCols().get(0).isWildcard());
 
     assertEquals(1, scanProj.outputCols().size());
-    assertEquals(ScanLevelProjection.WILDCARD, scanProj.outputCols().get(0).name());
+    assertEquals(SchemaPath.WILDCARD, scanProj.outputCols().get(0).name());
 
     // Verify bindings
 
-    assertSame(scanProj.outputCols().get(0), scanProj.requestedCols().get(0).resolution());
     assertSame(scanProj.outputCols().get(0).source(), scanProj.requestedCols().get(0));
 
     // Verify column type
@@ -133,7 +129,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     // Simulate SELECT * ...
 
-    builder.projectedCols(ScanTestUtils.projectList(ScanLevelProjection.WILDCARD));
+    builder.projectedCols(ScanTestUtils.projectList(SchemaPath.WILDCARD));
 
     ScanLevelProjection scanProj = builder.build();
     assertTrue(scanProj.isProjectAll());
@@ -142,11 +138,10 @@ public class TestScanLevelProjection extends SubOperatorTest {
     assertTrue(scanProj.requestedCols().get(0).isWildcard());
 
     assertEquals(1, scanProj.outputCols().size());
-    assertEquals(ScanLevelProjection.WILDCARD, scanProj.outputCols().get(0).name());
+    assertEquals(SchemaPath.WILDCARD, scanProj.outputCols().get(0).name());
 
     // Verify bindings
 
-    assertSame(scanProj.outputCols().get(0), scanProj.requestedCols().get(0).resolution());
     assertSame(scanProj.outputCols().get(0).source(), scanProj.requestedCols().get(0));
 
     // Verify column type
@@ -162,7 +157,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
   public void testErrorWildcardAndColumns() {
     ScanProjectionBuilder builder = new ScanProjectionBuilder();
 
-    builder.projectedCols(ScanTestUtils.projectList(ScanLevelProjection.WILDCARD, "a"));
+    builder.projectedCols(ScanTestUtils.projectList(SchemaPath.WILDCARD, "a"));
     try {
       builder.build();
       fail();
@@ -178,7 +173,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
   public void testErrorColumnAndWildcard() {
     ScanProjectionBuilder builder = new ScanProjectionBuilder();
 
-    builder.projectedCols(ScanTestUtils.projectList("a", ScanLevelProjection.WILDCARD));
+    builder.projectedCols(ScanTestUtils.projectList("a", SchemaPath.WILDCARD));
     try {
       builder.build();
       fail();
@@ -197,7 +192,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
   public void testErrorTwoWildcards() {
     ScanProjectionBuilder builder = new ScanProjectionBuilder();
 
-    builder.projectedCols(ScanTestUtils.projectList(ScanLevelProjection.WILDCARD, ScanLevelProjection.WILDCARD));
+    builder.projectedCols(ScanTestUtils.projectList(SchemaPath.WILDCARD, SchemaPath.WILDCARD));
     try {
       builder.build();
       fail();
