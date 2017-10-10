@@ -23,8 +23,10 @@ import java.util.Map;
 
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadata;
-import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataProjection;
+import org.apache.drill.exec.physical.impl.scan.metadata.FileLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.metadata.FileMetadataColumnsParser;
+import org.apache.drill.exec.physical.impl.scan.metadata.FileMetadataColumnsParser.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.metadata.FileMetadataColumnsParser.FileMetadataProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.NullColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ProjectedColumn;

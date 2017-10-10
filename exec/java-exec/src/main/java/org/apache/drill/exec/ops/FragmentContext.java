@@ -382,6 +382,7 @@ public class FragmentContext extends BaseFragmentContext implements AutoCloseabl
     return executionControls;
   }
 
+  @Override
   public String getQueryUserName() {
     return fragment.getCredentials().getUserName();
   }

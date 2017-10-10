@@ -182,7 +182,7 @@ public class ScanProjectionBuilder {
       switch (outCol.columnType()) {
       case TABLE:
         if (hasWildcard()) {
-          throw new IllegalArgumentException("Cannot select table columns and `*` together");
+          throw new IllegalArgumentException("Cannot select table columns and * together");
         }
         break;
       default:

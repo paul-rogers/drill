@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.impl.scan;
 
 import org.apache.drill.exec.ops.OperatorContext;
-import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.hadoop.fs.Path;
 
@@ -46,7 +45,7 @@ import org.apache.hadoop.fs.Path;
  * efficiency.
  */
 
-public interface SchemaNegotiator {
+public interface SchemaNegotiator extends ReaderSchema {
 
   OperatorContext context();
 
@@ -91,7 +90,5 @@ public interface SchemaNegotiator {
    * schema order
    */
 
-  ResultSetLoader build();
-
-//  boolean[] columnsArrayProjectionMap();
+  void build();
 }

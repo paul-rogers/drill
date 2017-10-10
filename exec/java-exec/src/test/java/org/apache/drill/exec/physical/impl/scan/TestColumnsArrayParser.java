@@ -24,7 +24,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
-import org.apache.drill.exec.physical.impl.scan.project.ColumnsArrayParser;
+import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionType;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;

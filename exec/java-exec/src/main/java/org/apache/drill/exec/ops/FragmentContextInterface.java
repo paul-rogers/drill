@@ -154,4 +154,6 @@ public interface FragmentContextInterface {
   OperatorContext newOperatorContext(PhysicalOperator popConfig)
       throws OutOfMemoryException;
 
+  String getQueryUserName();
+
 }

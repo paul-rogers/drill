@@ -26,7 +26,7 @@ import static org.junit.Assert.assertTrue;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
-import org.apache.drill.exec.physical.impl.scan.project.FileLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.metadata.FileLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;

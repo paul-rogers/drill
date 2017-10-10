@@ -47,7 +47,7 @@ public interface RowBatchReader {
    * better than the scan operator can by guessing at the cause
    */
 
-  boolean open(SchemaNegotiator schemaNegotiator);
+  ReaderSchema open();
 
   /**
    * Read the next batch. Reading continues until either EOF,

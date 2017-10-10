@@ -33,7 +33,9 @@ import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.base.AbstractSubScan;
 import org.apache.drill.exec.physical.base.Scan;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec.ScanOperatorExecBuilder;
-import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser;
+import org.apache.drill.exec.physical.impl.scan.metadata.FileMetadataColumnsParser;
+import org.apache.drill.exec.physical.impl.scan.project.Exp.LegacyManager;
+import org.apache.drill.exec.physical.impl.scan.project.Exp.LegacyManagerBuilder;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
@@ -89,6 +91,12 @@ public class TestScanOperatorExec extends SubOperatorTest {
     public int batchLimit;
     protected ResultSetLoader tableLoader;
     protected Path filePath = new Path(MOCK_FILE_SYSTEM_NAME);
+    protected SchemaNegotiatorImpl schemaNegotiator;
+    protected LegacyManager manager;
+
+    public BaseMockBatchReader(LegacyManager manager) {
+      this.manager = manager;
+    }
 
     public BaseMockBatchReader setFilePath(String filePath) {
       this.filePath = new Path(filePath);
@@ -132,17 +140,24 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   private static class MockLateSchemaReader extends BaseMockBatchReader {
 
+    public MockLateSchemaReader(LegacyManager manager) {
+      super(manager);
+    }
+
     public boolean returnDataOnFirst;
 
     @Override
-    public boolean open(SchemaNegotiator schemaNegotiator) {
+    public ReaderSchema open() {
+
+      schemaNegotiator = manager.newReader();
 
       // No schema or file, just build the table loader.
 
       buildFilePath(schemaNegotiator);
-      tableLoader = schemaNegotiator.build();
+      schemaNegotiator.build();
+      tableLoader = schemaNegotiator.loader();
       openCalled = true;
-      return true;
+      return schemaNegotiator;
     }
 
     @Override
@@ -174,10 +189,14 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   private static class MockNullEarlySchemaReader extends BaseMockBatchReader {
 
+    public MockNullEarlySchemaReader(LegacyManager manager) {
+      super(manager);
+    }
+
     @Override
-    public boolean open(SchemaNegotiator schemaNegotiator) {
+    public ReaderSchema open() {
       openCalled = true;
-      return false;
+      return null;
     }
 
     @Override
@@ -188,8 +207,14 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   private static class MockEarlySchemaReader extends BaseMockBatchReader {
 
+    public MockEarlySchemaReader(LegacyManager manager) {
+      super(manager);
+    }
+
     @Override
-    public boolean open(SchemaNegotiator schemaNegotiator) {
+    public ReaderSchema open() {
+
+      schemaNegotiator = manager.newReader();
       openCalled = true;
       buildFilePath(schemaNegotiator);
       TupleMetadata schema = new SchemaBuilder()
@@ -197,8 +222,9 @@ public class TestScanOperatorExec extends SubOperatorTest {
           .addNullable("b", MinorType.VARCHAR, 10)
           .buildSchema();
       schemaNegotiator.setTableSchema(schema);
-      this.tableLoader = schemaNegotiator.build();
-      return true;
+      schemaNegotiator.build();
+      this.tableLoader = schemaNegotiator.loader();
+      return schemaNegotiator;
     }
 
     @Override
@@ -215,8 +241,14 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   private static class MockEarlySchemaReader2 extends MockEarlySchemaReader {
 
+    public MockEarlySchemaReader2(LegacyManager manager) {
+      super(manager);
+    }
+
     @Override
-    public boolean open(SchemaNegotiator schemaNegotiator) {
+    public ReaderSchema open() {
+
+      schemaNegotiator = manager.newReader();
       openCalled = true;
       buildFilePath(schemaNegotiator);
       TupleMetadata schema = new SchemaBuilder()
@@ -224,8 +256,9 @@ public class TestScanOperatorExec extends SubOperatorTest {
           .addNullable("b", MinorType.VARCHAR, 10)
           .buildSchema();
       schemaNegotiator.setTableSchema(schema);
-      this.tableLoader = schemaNegotiator.build();
-      return true;
+      schemaNegotiator.build();
+      tableLoader = schemaNegotiator.loader();
+      return schemaNegotiator;
     }
 
     @Override
@@ -294,7 +327,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create a mock reader, return two batches: one schema-only, another with data.
 
-    MockLateSchemaReader reader = new MockLateSchemaReader();
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .useLegacyWildcardExpansion(false)
+        .build();
+    MockLateSchemaReader reader = new MockLateSchemaReader(schemaManager);
     reader.batchLimit = 2;
     reader.returnDataOnFirst = false;
 
@@ -302,8 +339,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
-        .setProjection(SELECT_STAR)
-        .useLegacyWildcardExpansion(false)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -349,7 +385,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create a mock reader, return two batches: one schema-only, another with data.
 
-    MockLateSchemaReader reader = new MockLateSchemaReader();
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .useLegacyWildcardExpansion(false)
+        .build();
+    MockLateSchemaReader reader = new MockLateSchemaReader(schemaManager);
     reader.batchLimit = 2;
     reader.returnDataOnFirst = false;
     reader.filePath = null;
@@ -358,7 +398,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
-        .setProjection(SELECT_STAR)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -399,7 +439,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create a mock reader, return two batches: one schema-only, another with data.
 
-    MockLateSchemaReader reader = new MockLateSchemaReader();
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .useLegacyWildcardExpansion(false)
+        .build();
+    MockLateSchemaReader reader = new MockLateSchemaReader(schemaManager);
     reader.batchLimit = 0;
     reader.returnDataOnFirst = false;
 
@@ -407,8 +451,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
-        .setProjection(SELECT_STAR)
-        .useLegacyWildcardExpansion(false)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -429,7 +472,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create a mock reader, return two batches: one schema-only, another with data.
 
-    MockLateSchemaReader reader = new MockLateSchemaReader();
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .useLegacyWildcardExpansion(false)
+        .build();
+    MockLateSchemaReader reader = new MockLateSchemaReader(schemaManager);
     reader.batchLimit = 1;
     reader.returnDataOnFirst = true;
 
@@ -437,8 +484,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
-        .setProjection(SELECT_STAR)
-        .useLegacyWildcardExpansion(false)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -477,7 +523,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create a mock reader, return two batches: one schema-only, another with data.
 
-    MockLateSchemaReader reader = new MockLateSchemaReader();
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .setSelectionRoot(MOCK_ROOT_PATH)
+        .build();
+    MockLateSchemaReader reader = new MockLateSchemaReader(schemaManager);
     reader.batchLimit = 2;
     reader.returnDataOnFirst = false;
 
@@ -485,8 +535,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
-        .setProjection(SELECT_STAR)
-        .setSelectionRoot(MOCK_ROOT_PATH)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -540,15 +589,18 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create a mock reader, return two batches: one schema-only, another with data.
 
-    MockEarlySchemaReader reader = new MockEarlySchemaReader();
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .projectAll()
+        .useLegacyWildcardExpansion(false)
+        .build();
+    MockEarlySchemaReader reader = new MockEarlySchemaReader(schemaManager);
     reader.batchLimit = 1;
 
     // Create the scan operator
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
-        .projectAll()
-        .useLegacyWildcardExpansion(false)
+        .setSchemaManager(schemaManager)
         );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -591,14 +643,17 @@ public class TestScanOperatorExec extends SubOperatorTest {
   @Test
   public void testMetadataColumns() {
 
-    MockEarlySchemaReader reader = new MockEarlySchemaReader();
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(new String[] {"a", "b", "filename", "suffix"})
+        .build();
+    MockEarlySchemaReader reader = new MockEarlySchemaReader(schemaManager);
     reader.batchLimit = 1;
 
     // Select table and implicit columns.
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
-        .setProjection(new String[] {"a", "b", "filename", "suffix"})
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -644,15 +699,18 @@ public class TestScanOperatorExec extends SubOperatorTest {
   @Test
   public void testFullProject() { // Stopped here
 
-    MockEarlySchemaReader reader = new MockEarlySchemaReader();
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setSelectionRoot(MOCK_ROOT_PATH)
+        .setProjection(new String[] {"dir0", "b", "filename", "c", "suffix"})
+        .build();
+    MockEarlySchemaReader reader = new MockEarlySchemaReader(schemaManager);
     reader.batchLimit = 1;
 
     // Select table and implicit columns.
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
-        .setSelectionRoot(MOCK_ROOT_PATH)
-        .setProjection(new String[] {"dir0", "b", "filename", "c", "suffix"})
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -703,13 +761,16 @@ public class TestScanOperatorExec extends SubOperatorTest {
     SingleRowSet expected = makeExpected();
     RowSetComparison verifier = new RowSetComparison(expected);
 
-    MockLateSchemaReader reader = new MockLateSchemaReader();
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .build();
+    MockLateSchemaReader reader = new MockLateSchemaReader(schemaManager);
     reader.batchLimit = 2;
     reader.returnDataOnFirst = true;
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
-        .setProjection(SELECT_STAR)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -751,11 +812,14 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testEOFOnSchema() {
-    MockNullEarlySchemaReader reader = new MockNullEarlySchemaReader();
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .build();
+    MockNullEarlySchemaReader reader = new MockNullEarlySchemaReader(schemaManager);
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
-        .setProjection(SELECT_STAR)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -770,12 +834,15 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testEOFOnFirstBatch() {
-    MockEarlySchemaReader reader = new MockEarlySchemaReader();
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .build();
+    MockEarlySchemaReader reader = new MockEarlySchemaReader(schemaManager);
     reader.batchLimit = 0;
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
-        .setProjection(SELECT_STAR)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
     assertTrue(scan.buildSchema());
@@ -796,12 +863,15 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testMultipleReaders() {
-    MockNullEarlySchemaReader nullReader = new MockNullEarlySchemaReader();
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .build();
+    MockNullEarlySchemaReader nullReader = new MockNullEarlySchemaReader(schemaManager);
 
-    MockEarlySchemaReader reader1 = new MockEarlySchemaReader();
+    MockEarlySchemaReader reader1 = new MockEarlySchemaReader(schemaManager);
     reader1.batchLimit = 2;
 
-    MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
+    MockEarlySchemaReader reader2 = new MockEarlySchemaReader(schemaManager);
     reader2.batchLimit = 2;
     reader2.startIndex = 100;
 
@@ -809,7 +879,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
         .addReader(nullReader)
         .addReader(reader1)
         .addReader(reader2)
-        .setProjection(SELECT_STAR)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -867,15 +937,18 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testSchemaChange() {
-    MockEarlySchemaReader reader1 = new MockEarlySchemaReader();
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .build();
+    MockEarlySchemaReader reader1 = new MockEarlySchemaReader(schemaManager);
     reader1.batchLimit = 2;
-    MockEarlySchemaReader reader2 = new MockEarlySchemaReader2();
+    MockEarlySchemaReader reader2 = new MockEarlySchemaReader2(schemaManager);
     reader2.batchLimit = 2;
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader1)
         .addReader(reader2)
-        .setProjection(SELECT_STAR)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -939,15 +1012,18 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testMultiEOFOnFirstBatch() {
-    MockEarlySchemaReader reader1 = new MockEarlySchemaReader();
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .build();
+    MockEarlySchemaReader reader1 = new MockEarlySchemaReader(schemaManager);
     reader1.batchLimit = 0;
-    MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
+    MockEarlySchemaReader reader2 = new MockEarlySchemaReader(schemaManager);
     reader2.batchLimit = 0;
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader1)
         .addReader(reader2)
-        .setProjection(SELECT_STAR)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -966,9 +1042,12 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testExceptionOnOpen() {
-    MockEarlySchemaReader reader = new MockEarlySchemaReader() {
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .build();
+    MockEarlySchemaReader reader = new MockEarlySchemaReader(schemaManager) {
       @Override
-      public boolean open(SchemaNegotiator schemaNegotiator) {
+      public ReaderSchema open() {
         openCalled = true;
         throw new IllegalStateException(ERROR_MSG);
       }
@@ -978,7 +1057,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
-        .setProjection(SELECT_STAR)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -998,9 +1077,12 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testUserExceptionOnOpen() {
-    MockEarlySchemaReader reader = new MockEarlySchemaReader() {
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .build();
+    MockEarlySchemaReader reader = new MockEarlySchemaReader(schemaManager) {
       @Override
-      public boolean open(SchemaNegotiator schemaNegotiator) {
+      public ReaderSchema open() {
         openCalled = true;
         throw UserException.dataReadError()
             .addContext(ERROR_MSG)
@@ -1012,7 +1094,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
-        .setProjection(SELECT_STAR)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -1032,7 +1114,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testExceptionOnFirstNext() {
-    MockEarlySchemaReader reader = new MockEarlySchemaReader() {
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .build();
+    MockEarlySchemaReader reader = new MockEarlySchemaReader(schemaManager) {
       @Override
       public boolean next() {
         super.next(); // Load some data
@@ -1043,7 +1128,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
-        .setProjection(SELECT_STAR)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
     scan.buildSchema();
@@ -1064,7 +1149,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testUserExceptionOnFirstNext() {
-    MockEarlySchemaReader reader = new MockEarlySchemaReader() {
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .build();
+    MockEarlySchemaReader reader = new MockEarlySchemaReader(schemaManager) {
       @Override
       public boolean next() {
         super.next(); // Load some data
@@ -1077,7 +1165,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
-         .setProjection(SELECT_STAR)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -1108,7 +1196,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testExceptionOnSecondNext() {
-    MockEarlySchemaReader reader = new MockEarlySchemaReader() {
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .build();
+    MockEarlySchemaReader reader = new MockEarlySchemaReader(schemaManager) {
       @Override
       public boolean next() {
         if (batchCount == 1) {
@@ -1122,7 +1213,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
-         .setProjection(SELECT_STAR)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -1151,7 +1242,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testUserExceptionOnSecondNext() {
-    MockEarlySchemaReader reader = new MockEarlySchemaReader() {
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .build();
+    MockEarlySchemaReader reader = new MockEarlySchemaReader(schemaManager) {
       @Override
       public boolean next() {
         if (batchCount == 1) {
@@ -1167,7 +1261,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader)
-         .setProjection(SELECT_STAR)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -1196,7 +1290,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testExceptionOnClose() {
-    MockEarlySchemaReader reader1 = new MockEarlySchemaReader() {
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .build();
+    MockEarlySchemaReader reader1 = new MockEarlySchemaReader(schemaManager) {
       @Override
       public void close() {
         super.close();
@@ -1205,13 +1302,13 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader1.batchLimit = 2;
 
-    MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
+    MockEarlySchemaReader reader2 = new MockEarlySchemaReader(schemaManager);
     reader2.batchLimit = 2;
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader1)
         .addReader(reader2)
-        .setProjection(SELECT_STAR)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -1241,7 +1338,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testUserExceptionOnClose() {
-    MockEarlySchemaReader reader1 = new MockEarlySchemaReader() {
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setProjection(SELECT_STAR)
+        .build();
+    MockEarlySchemaReader reader1 = new MockEarlySchemaReader(schemaManager) {
       @Override
       public void close() {
         super.close();
@@ -1252,13 +1352,13 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader1.batchLimit = 2;
 
-    MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
+    MockEarlySchemaReader reader2 = new MockEarlySchemaReader(schemaManager);
     reader2.batchLimit = 2;
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader1)
         .addReader(reader2)
-        .setProjection(SELECT_STAR)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -1295,22 +1395,25 @@ public class TestScanOperatorExec extends SubOperatorTest {
     private final String value;
     public int rowCount;
 
-    public OverflowReader() {
+    public OverflowReader(LegacyManager schemaManager) {
+      super(schemaManager);
       char buf[] = new char[512];
       Arrays.fill(buf, 'x');
       value = new String(buf);
     }
 
     @Override
-    public boolean open(SchemaNegotiator schemaNegotiator) {
+    public ReaderSchema open() {
+      schemaNegotiator = manager.newReader();
       openCalled = true;
       TupleMetadata schema = new SchemaBuilder()
           .add("a", MinorType.VARCHAR)
           .buildSchema();
       schemaNegotiator.setTableSchema(schema);
       buildFilePath(schemaNegotiator);
-      this.tableLoader = schemaNegotiator.build();
-      return true;
+      schemaNegotiator.build();
+      tableLoader = schemaNegotiator.loader();
+      return schemaNegotiator;
     }
 
     @Override
@@ -1344,18 +1447,21 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   @Test
   public void testMultipleReadersWithOverflow() {
-    OverflowReader reader1 = new OverflowReader();
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setSelectionRoot(MOCK_ROOT_PATH)
+        .useLegacyWildcardExpansion(false)
+        .setProjection(SELECT_STAR)
+        .build();
+    OverflowReader reader1 = new OverflowReader(schemaManager);
     reader1.batchLimit = 2;
     reader1.filePath = new Path("hdfs:///w/x/y/a.csv");
-    MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
+    MockEarlySchemaReader reader2 = new MockEarlySchemaReader(schemaManager);
     reader2.batchLimit = 2;
 
     MockBatch mockBatch = new MockBatch(new ScanOperatorExecBuilder()
         .addReader(reader1)
         .addReader(reader2)
-        .setSelectionRoot(MOCK_ROOT_PATH)
-        .useLegacyWildcardExpansion(false)
-        .setProjection(SELECT_STAR)
+        .setSchemaManager(schemaManager)
          );
     ScanOperatorExec scan = mockBatch.scanOp;
 
@@ -1416,16 +1522,22 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   private static class MockOneColEarlySchemaReader extends BaseMockBatchReader {
 
+    public MockOneColEarlySchemaReader(LegacyManager manager) {
+      super(manager);
+    }
+
     @Override
-    public boolean open(SchemaNegotiator schemaNegotiator) {
+    public ReaderSchema open() {
+      schemaNegotiator = manager.newReader();
       openCalled = true;
       buildFilePath(schemaNegotiator);
       TupleMetadata schema = new SchemaBuilder()
           .add("a", MinorType.INT)
           .buildSchema();
       schemaNegotiator.setTableSchema(schema);
-      this.tableLoader = schemaNegotiator.build();
-      return true;
+      schemaNegotiator.build();
+      tableLoader = schemaNegotiator.loader();
+      return schemaNegotiator;
     }
 
     @Override
@@ -1468,19 +1580,24 @@ public class TestScanOperatorExec extends SubOperatorTest {
   @Test
   public void testSchemaSmoothing() {
 
+    LegacyManager schemaManager = new LegacyManagerBuilder()
+        .setSelectionRoot(MOCK_ROOT_PATH)
+        .setProjection(new String[]{"a", "b"})
+        .build();
+
     // Reader returns (a, b)
-    MockEarlySchemaReader reader1 = new MockEarlySchemaReader();
+    MockEarlySchemaReader reader1 = new MockEarlySchemaReader(schemaManager);
     reader1.batchLimit = 1;
     reader1.setFilePath("hdfs:///w/x/y/a.csv");
 
     // Reader returns (a)
-    MockOneColEarlySchemaReader reader2 = new MockOneColEarlySchemaReader();
+    MockOneColEarlySchemaReader reader2 = new MockOneColEarlySchemaReader(schemaManager);
     reader2.batchLimit = 1;
     reader2.setFilePath("hdfs:///w/x/y/b.csv");
     reader2.startIndex = 100;
 
     // Reader returns (a, b)
-    MockEarlySchemaReader reader3 = new MockEarlySchemaReader();
+    MockEarlySchemaReader reader3 = new MockEarlySchemaReader(schemaManager);
     reader3.batchLimit = 1;
     reader3.startIndex = 200;
     reader3.setFilePath("hdfs:///w/x/y/c.csv");
@@ -1489,9 +1606,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
         .addReader(reader1)
         .addReader(reader2)
         .addReader(reader3)
-        .setSelectionRoot(MOCK_ROOT_PATH)
-        .setProjection(new String[]{"a", "b"})
-         );
+        .setSchemaManager(schemaManager)
+        );
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Schema based on (a, b)

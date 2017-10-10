@@ -21,13 +21,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.physical.impl.scan.project.ColumnsArrayParser;
-import org.apache.drill.exec.physical.impl.scan.project.FileLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser;
+import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayParser;
+import org.apache.drill.exec.physical.impl.scan.metadata.FileLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.metadata.FileMetadataColumnsParser;
+import org.apache.drill.exec.physical.impl.scan.metadata.FileMetadataColumnsParser.FileMetadataColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.metadata.FileMetadataColumnsParser.FileMetadataProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
-import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataProjection;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;

@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan.project;
+package org.apache.drill.exec.physical.impl.scan.columns;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,6 +24,9 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
+import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionType;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnsArrayColumn;

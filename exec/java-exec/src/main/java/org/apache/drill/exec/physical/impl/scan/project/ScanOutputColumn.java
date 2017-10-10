@@ -21,9 +21,9 @@ import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadata;
-import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.project.FileMetadataColumnsParser.FileMetadataProjection;
+import org.apache.drill.exec.physical.impl.scan.metadata.FileMetadataColumnsParser.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.metadata.FileMetadataColumnsParser.FileMetadataColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.metadata.FileMetadataColumnsParser.FileMetadataProjection;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleSchema;
@@ -38,6 +38,43 @@ import com.google.common.annotations.VisibleForTesting;
 
 public abstract class ScanOutputColumn {
   public enum ColumnType { TABLE, FILE_METADATA, PARTITION, COLUMNS_ARRAY, WILDCARD, PROJECTED, NULL }
+
+  public interface ColumnSemantics {
+
+  }
+
+  public static class RevisedScanColumn extends ScanOutputColumn {
+    private final MajorType type;
+    private final ColumnSemantics semantics;
+
+    protected RevisedScanColumn(SchemaPath inCol, String name, MajorType type, ColumnSemantics semantics) {
+      super(inCol, name);
+      this.type = type;
+      this.semantics = semantics;
+    }
+
+    protected RevisedScanColumn(SchemaPath inCol, String name, ColumnSemantics semantics) {
+      this(inCol, name, null, semantics);
+    }
+
+    @Override
+    public MajorType type() { return type; }
+
+    @SuppressWarnings("unchecked")
+    public <T extends ColumnSemantics> T semantics() { return (T) semantics; }
+
+    @Override
+    public ColumnType columnType() {
+      // TODO Auto-generated method stub
+      return null;
+    }
+
+    @Override
+    protected void visit(int index, Visitor visitor) {
+      // TODO Auto-generated method stub
+
+    }
+  }
 
   public static class WildcardColumn extends ScanOutputColumn {
 
@@ -125,6 +162,46 @@ public abstract class ScanOutputColumn {
     @Override
     protected void visit(int index, Visitor visitor) {
       visitor.visitColumnsArray(index, this);
+    }
+  }
+
+  public abstract static class ImplicitColumn<T> extends TypedColumn {
+    private final T defn;
+    protected ImplicitColumn(SchemaPath inCol, String name, MajorType type, T defn) {
+      super(inCol, name, type);
+      this.defn = defn;
+    }
+
+    public T definition() { return defn; }
+
+    public boolean isKindOf(Class<? extends Object> defnClass) {
+      return defnClass.isInstance(defn);
+    }
+  }
+
+  public static class MetadataExtension {
+    public final String value;
+
+    public MetadataExtension(String value) {
+      this.value = value;
+    }
+  }
+
+  public static class FileMetadataExtension extends MetadataExtension {
+    private final FileMetadataColumnDefn defn;
+
+    public FileMetadataExtension(FileMetadataColumnDefn defn, String value) {
+      super(value);
+      this.defn = defn;
+    }
+  }
+
+  public static class PartitionExtension extends MetadataExtension {
+    private final int partition;
+
+    public PartitionExtension(int partition, String value) {
+      super(value);
+      this.partition = partition;
     }
   }
 
@@ -443,6 +520,7 @@ public abstract class ScanOutputColumn {
 
   protected final SchemaPath inCol;
   protected final String name;
+  protected Object extension;
 
   public ScanOutputColumn(SchemaPath inCol) {
     this(inCol, null);
@@ -453,6 +531,17 @@ public abstract class ScanOutputColumn {
     this.name = name;
   }
 
+  public void setExtension(Object extn) {
+    this.extension = extn;
+  }
+
+  @SuppressWarnings("unchecked")
+  public <T> T extension() { return (T) extension; }
+
+  public boolean kindOf(Class<? extends ScanOutputColumn> type) {
+    return type.isInstance(this);
+  }
+
   public abstract ScanOutputColumn.ColumnType columnType();
   public String name() { return name; }
   public SchemaPath source() { return inCol; }
@@ -461,7 +550,6 @@ public abstract class ScanOutputColumn {
 
   protected void buildString(StringBuilder buf) { }
   protected abstract void visit(int index, ScanOutputColumn.Visitor visitor);
-
 
   @Override
   public String toString() {

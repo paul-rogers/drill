@@ -209,6 +209,12 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
         throws OutOfMemoryException {
       return newOperatorContext(popConfig, null);
     }
+
+    @Override
+    public String getQueryUserName() {
+      // TODO Auto-generated method stub
+      return "fred";
+    }
   }
 
   /**
