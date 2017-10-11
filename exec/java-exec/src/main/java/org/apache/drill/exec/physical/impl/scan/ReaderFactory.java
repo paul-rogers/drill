@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.impl.scan;
 
 import org.apache.drill.exec.ops.OperatorContext;
-import org.apache.drill.exec.record.VectorContainer;
 
 /**
  * Scan-level interface to the reader's schema manager.
@@ -29,7 +28,7 @@ import org.apache.drill.exec.record.VectorContainer;
  * livecycle events.
  */
 
-public interface ScanSchema {
+public interface ReaderFactory {
 
   /**
    * Build the scan-level schema from the physical operator select list.
@@ -42,22 +41,9 @@ public interface ScanSchema {
    * @param context the operator context for the scan operator
    */
 
-  void build(OperatorContext context);
+  void bind(OperatorContext context);
 
-  /**
-   * Reports whether this type of reader supports early schema (the schema
-   * is known at the time that the reader is opened) or late schema (the
-   * schema is inferred on each read.)
-   *
-   * @return true if the schema is known at open time
-   */
-
-  boolean isEarlySchema();
-
-  // TODO: Combine these.
-
-  void publish();
-  VectorContainer output();
+  RowBatchReader nextReader();
 
   /**
    * Called when the scan operator itself is closed. Indicates that no more

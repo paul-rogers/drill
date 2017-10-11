@@ -729,7 +729,7 @@ public class ScanProjector {
   }
 
   public VectorContainer output() {
-    return output.getOutput();
+    return output == null ? null : output.getOutput();
   }
 
   public void close() {

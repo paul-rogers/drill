@@ -34,7 +34,8 @@ class ReaderState {
   private final RowBatchReader reader;
   private State state = State.START;
   private VectorContainer lookahead;
-  private ReaderSchema readerSchema;
+  private int schemaVersion = -1;
+//  private ReaderSchema readerSchema;
 
   public ReaderState(ScanOperatorExec scanOp, RowBatchReader reader) {
     this.scanOp = scanOp;
@@ -59,18 +60,7 @@ class ReaderState {
       // Handle this by immediately moving to EOF. The scanner will quietly
       // pass over this reader and move onto the next, if any.
 
-      readerSchema = reader.open();
-      if (readerSchema == null) {
-
-        // If we had a soft failure, then there should be no schema.
-        // The reader should not have negotiated one. Not a huge
-        // problem, but something is out of whack.
-
-//        assert readerSchema.loader() == null;
-//        if (readerSchema.loader() != null) {
-//          logger.warn("Reader " + reader.getClass().getSimpleName() +
-//              " returned false from open, but negotiated a schema.");
-//        }
+      if (! reader.open()) {
         state = State.EOF;
         return false;
       }
@@ -87,16 +77,6 @@ class ReaderState {
     }
 
     state = State.ACTIVE;
-
-    // Storage plugins are extensible: a novice developer may not
-    // have known to create the table loader. Fail in this case.
-
-    if (readerSchema.loader() == null) {
-      throw UserException.executionError( // TODO: Test this path
-          new IllegalStateException("Reader " + reader.getClass().getSimpleName() +
-              " failed to create a table loader"))
-        .build(logger);
-    }
     return true;
   }
 
@@ -142,12 +122,15 @@ class ReaderState {
    */
   protected boolean buildSchema() {
 
-    if (scanOp.manager.isEarlySchema()) {
+    VectorContainer container = reader.output();
+
+    if (container != null) {
 
       // Bind the output container to the output of the scan operator.
       // This returns an empty batch with the schema filled in.
 
-      scanOp.containerAccessor.setContainer(scanOp.manager.output());
+      scanOp.containerAccessor.setContainer(container);
+      schemaVersion = reader.schemaVersion();
       return true;
     }
 
@@ -200,23 +183,13 @@ class ReaderState {
 
   private boolean readBatch() {
 
-    // Prepare for the batch.
-
-    readerSchema.loader().startBatch();
-
     // Try to read a batch. This may fail. If so, clean up the
     // mess.
 
     try {
       if (! reader.next()) {
         state = State.EOF;
-
-        // If the reader has no more rows, the table loader may still have
-        // a lookahead row.
-
-        if ( readerSchema.loader().writer().rowCount() == 0) {
-          return false;
-        }
+        return false;
       }
     } catch (UserException e) {
       throw e;
@@ -226,19 +199,14 @@ class ReaderState {
         .build(logger);
     }
 
-    // Have a batch. Prepare it for return.
-
-    // Add implicit columns, if any.
-    // Identify the output container and its schema version.
-
-    scanOp.manager.publish();
-
     // Late schema readers may change their schema between batches.
     // Early schema changes only on the first batch of the next
     // reader.
 
-    if (! scanOp.manager.isEarlySchema() || readerSchema.loader().batchCount() == 1) {
-      scanOp.containerAccessor.setContainer(scanOp.manager.output());
+    int newVersion = reader.schemaVersion();
+    if (newVersion > schemaVersion) {
+      scanOp.containerAccessor.setContainer(reader.output());
+      schemaVersion = newVersion;
     }
     return true;
   }
@@ -263,15 +231,6 @@ class ReaderState {
         .addContext("Close failed for reader", reader.getClass().getSimpleName())
         .build(logger);
     } finally {
-
-      try {
-        if (readerSchema != null) {
-          readerSchema.close();
-          readerSchema = null;
-        }
-      } catch (Throwable t) {
-        logger.warn("Exception while closing table loader", t);
-      }
 
       // Will not throw exceptions
 

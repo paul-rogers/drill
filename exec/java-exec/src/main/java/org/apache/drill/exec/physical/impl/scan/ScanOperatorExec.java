@@ -17,19 +17,12 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.OperatorContext;
-import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.physical.impl.protocol.BatchAccessor;
 import org.apache.drill.exec.physical.impl.protocol.OperatorExec;
-import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
 import org.apache.drill.exec.physical.impl.protocol.VectorContainerAccessor;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -74,92 +67,25 @@ import com.google.common.annotations.VisibleForTesting;
 
 public class ScanOperatorExec implements OperatorExec {
 
-  public static class ScanOperatorExecBuilder {
-    protected Iterator<RowBatchReader> readerIter;
-    protected List<RowBatchReader> readers;
-    protected String userName;
-    protected ScanSchema manager;
-
-    public ScanOperatorExecBuilder setReaderIterator(Iterator<RowBatchReader> readerIter) {
-      this.readerIter = readerIter;
-      return this;
-    }
-
-    public ScanOperatorExecBuilder addReader(RowBatchReader reader) {
-      assert readerIter == null;
-      if (readers == null) {
-        readers = new ArrayList<>();
-      }
-      readers.add(reader);
-      return this;
-    }
-
-    public ScanOperatorExecBuilder addReaders(List<RowBatchReader> readerList) {
-      assert readerIter == null;
-      if (readers == null) {
-        readers = new ArrayList<>();
-      }
-      readers.addAll(readerList);
-      return this;
-    }
-
-     public ScanOperatorExec build() {
-      if (readers == null && readerIter == null) {
-        throw new IllegalArgumentException("No readers provided");
-      }
-      if (manager == null) {
-        throw new IllegalStateException("Schema manager is missing");
-      }
-      return new ScanOperatorExec(this, manager);
-    }
-
-    public OperatorRecordBatch buildRecordBatch(FragmentContext context, PhysicalOperator config) {
-      return new OperatorRecordBatch(context, config, build());
-    }
-
-    protected Iterator<RowBatchReader> readers() {
-      return (readerIter != null)? readerIter : readers.iterator();
-    }
-
-    public ScanOperatorExecBuilder setUserName(String userName) {
-      this.userName = userName;
-      return this;
-    }
-
-    public ScanOperatorExecBuilder setSchemaManager(
-        ScanSchema schemaManager) {
-      this.manager = schemaManager;
-      return this;
-    }
-  }
-
   private enum State { START, READER, END, FAILED, CLOSED }
 
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ScanOperatorExec.class);
 
-  private final ScanOperatorExecBuilder builder;
-  protected final ScanSchema manager;
-  private final Iterator<RowBatchReader> readers;
+  private final ReaderFactory factory;
   protected final VectorContainerAccessor containerAccessor = new VectorContainerAccessor();
   private State state = State.START;
   protected OperatorContext context;
   private int readerCount;
   private ReaderState readerState;
 
-  public ScanOperatorExec(ScanOperatorExecBuilder builder, ScanSchema manager) {
-    this.builder = builder;
-    this.readers = builder.readers();
-    this.manager = manager;
-  }
-
-  public static ScanOperatorExecBuilder builder() {
-    return new ScanOperatorExecBuilder();
+  public ScanOperatorExec(ReaderFactory factory) {
+    this.factory = factory;
   }
 
   @Override
   public void bind(OperatorContext context) {
     this.context = context;
-    manager.build(context);
+    factory.bind(context);
   }
 
   @Override
@@ -167,8 +93,6 @@ public class ScanOperatorExec implements OperatorExec {
 
   @VisibleForTesting
   public OperatorContext context() { return context; }
-
-  public String userName() { return builder.userName; }
 
   @Override
   public boolean buildSchema() {
@@ -267,11 +191,11 @@ public class ScanOperatorExec implements OperatorExec {
 
     // Get the next reader, if any.
 
-    if (! readers.hasNext()) {
+    RowBatchReader reader = factory.nextReader();
+    if (reader == null) {
       containerAccessor.setContainer(null);
       return false;
     }
-    RowBatchReader reader = readers.next();
     readerCount++;
 
     // Open the reader. This can fail.
@@ -331,7 +255,7 @@ public class ScanOperatorExec implements OperatorExec {
         closeReader();
       }
     } finally {
-      manager.close();
+      factory.close();
       state = State.CLOSED;
     }
   }

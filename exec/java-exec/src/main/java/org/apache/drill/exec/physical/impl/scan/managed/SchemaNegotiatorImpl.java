@@ -15,10 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan;
+package org.apache.drill.exec.physical.impl.scan.managed;
 
 import org.apache.drill.exec.ops.OperatorContext;
-import org.apache.drill.exec.physical.impl.scan.project.Exp.LegacyManager;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
@@ -53,21 +52,22 @@ import org.apache.hadoop.fs.Path;
 public class SchemaNegotiatorImpl implements SchemaNegotiator {
 
   private final OperatorContext context;
+  private final RowBatchReaderShim shim;
+
   public TupleMetadata tableSchema;
   public Path filePath;
   public int batchSize = ValueVector.MAX_ROW_COUNT;
-  private final LegacyManager manager;
-  private ResultSetLoader tableLoader;
+//  private ResultSetLoader tableLoader;
 
-  public SchemaNegotiatorImpl(OperatorContext context, LegacyManager manager) {
+  public SchemaNegotiatorImpl(OperatorContext context, RowBatchReaderShim shim) {
     this.context = context;
-    this.manager = manager;
+    this.shim = shim;
   }
 
-  @Override
-  public String getUserName() {
-    return context.getFragmentContext().getQueryUserName();
-  }
+//  @Override
+//  public String getUserName() {
+//    return context.getFragmentContext().getQueryUserName();
+//  }
 
   @Override
   public void setFilePath(Path filePath) {
@@ -85,17 +85,17 @@ public class SchemaNegotiatorImpl implements SchemaNegotiator {
    */
 
   @Override
-  public void build() {
+  public ResultSetLoader build() {
 
     // Build and return the result set loader to be used by the reader.
 
-    tableLoader = manager.buildSchema(this);
+    return shim.build(this);
   }
 
-  @Override
-  public ResultSetLoader loader() {
-    return tableLoader;
-  }
+//  @Override
+//  public ResultSetLoader loader() {
+//    return tableLoader;
+//  }
 
   @Override
   public OperatorContext context() {
@@ -112,11 +112,11 @@ public class SchemaNegotiatorImpl implements SchemaNegotiator {
     batchSize = maxRecordsPerBatch;
   }
 
-  @Override
-  public void close() {
-    if (tableLoader != null) {
-      tableLoader.close();
-      tableLoader = null;
-    }
-  }
+//  @Override
+//  public void close() {
+//    if (tableLoader != null) {
+//      tableLoader.close();
+//      tableLoader = null;
+//    }
+//  }
 }

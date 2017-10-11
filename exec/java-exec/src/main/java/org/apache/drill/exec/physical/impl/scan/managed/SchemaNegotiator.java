@@ -15,9 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan;
+package org.apache.drill.exec.physical.impl.scan.managed;
 
 import org.apache.drill.exec.ops.OperatorContext;
+import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.hadoop.fs.Path;
 
@@ -45,11 +46,9 @@ import org.apache.hadoop.fs.Path;
  * efficiency.
  */
 
-public interface SchemaNegotiator extends ReaderSchema {
+public interface SchemaNegotiator {
 
   OperatorContext context();
-
-  String getUserName();
 
   /**
    * Specify the type of table schema. Required only in the obscure
@@ -90,5 +89,5 @@ public interface SchemaNegotiator extends ReaderSchema {
    * schema order
    */
 
-  void build();
+  ResultSetLoader build();
 }

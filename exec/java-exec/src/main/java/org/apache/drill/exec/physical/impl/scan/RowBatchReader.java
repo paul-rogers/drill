@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.store.RecordReader;
 
 /**
@@ -47,7 +48,7 @@ public interface RowBatchReader {
    * better than the scan operator can by guessing at the cause
    */
 
-  ReaderSchema open();
+  boolean open();
 
   /**
    * Read the next batch. Reading continues until either EOF,
@@ -60,6 +61,9 @@ public interface RowBatchReader {
    */
 
   boolean next();
+
+  int schemaVersion();
+  VectorContainer output();
 
   /**
    * Release resources. Called just after a failure, when the scanner
