@@ -388,14 +388,17 @@ public class ScanProjector {
       setupProjection(options);
       // Create the table loader
 
+      setupSchema(options);
       tableLoader = new ResultSetLoaderImpl(allocator, options.build());
-      setupSchema();
+      setupProjection();
       return tableLoader;
     }
 
     protected abstract void setupProjection(OptionBuilder options);
 
-    protected void setupSchema() {}
+    protected void setupSchema(OptionBuilder options) { }
+
+    protected void setupProjection() { }
 
     public void endOfBatch() { }
   }
@@ -432,15 +435,16 @@ public class ScanProjector {
     }
 
     @Override
-    protected void setupSchema() {
+    protected void setupSchema(OptionBuilder options) {
 
       // We know the table schema. Preload it into the
       // result set loader.
 
-      RowSetLoader rowSet = tableLoader.writer();
-      for (int i = 0; i < tableSchema.size(); i++) {
-        rowSet.addColumn(tableSchema.column(i));
-      }
+      options.setSchema(tableSchema);
+    }
+
+    @Override
+    protected void setupProjection() {
       planProjection();
 
       // Set the output container to zero rows. Required so that we can

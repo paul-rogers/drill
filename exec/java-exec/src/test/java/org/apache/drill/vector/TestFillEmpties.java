@@ -38,7 +38,6 @@ public class TestFillEmpties extends SubOperatorTest {
 
   @Test
   public void testNullableVarChar() {
-    @SuppressWarnings("resource")
     NullableVarCharVector vector = new NullableVarCharVector(SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.OPTIONAL), fixture.allocator());
     vector.allocateNew( );
 
@@ -58,7 +57,6 @@ public class TestFillEmpties extends SubOperatorTest {
 
   @Test
   public void testVarChar() {
-    @SuppressWarnings("resource")
     VarCharVector vector = new VarCharVector(SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED), fixture.allocator());
     vector.allocateNew( );
 
@@ -82,7 +80,6 @@ public class TestFillEmpties extends SubOperatorTest {
 
   @Test
   public void testInt() {
-    @SuppressWarnings("resource")
     IntVector vector = new IntVector(SchemaBuilder.columnSchema("a", MinorType.INT, DataMode.REQUIRED), fixture.allocator());
     vector.allocateNew( );
 
@@ -99,7 +96,6 @@ public class TestFillEmpties extends SubOperatorTest {
 
   @Test
   public void testRepeatedVarChar() {
-    @SuppressWarnings("resource")
     RepeatedVarCharVector vector = new RepeatedVarCharVector(SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REPEATED), fixture.allocator());
     vector.allocateNew( );
 

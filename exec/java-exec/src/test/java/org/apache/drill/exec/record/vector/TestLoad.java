@@ -46,6 +46,7 @@ import com.google.common.collect.Lists;
 public class TestLoad extends ExecTest {
   private final DrillConfig drillConfig = DrillConfig.create();
 
+  @SuppressWarnings("resource")
   @Test
   public void testLoadValueVector() throws Exception {
     final BufferAllocator allocator = RootAllocatorFactory.newRoot(drillConfig);

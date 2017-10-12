@@ -165,7 +165,9 @@ public abstract class TupleState implements TupleWriterListener {
     columns.add(colState);
     columnAdded(colState);
     colState.updateCardinality(innerCardinality());
-    colState.allocateVectors();
+    if (resultSetLoader.writeable()) {
+      colState.allocateVectors();
+    }
     return colState.writer();
   }
 

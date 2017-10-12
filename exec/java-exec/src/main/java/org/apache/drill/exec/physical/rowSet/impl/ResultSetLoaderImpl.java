@@ -520,7 +520,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
   private boolean isBatchActive() {
     return state == State.ACTIVE || state == State.OVERFLOW ||
-           state == State.FULL_BATCH ;
+           state == State.FULL_BATCH;
   }
 
   /**
