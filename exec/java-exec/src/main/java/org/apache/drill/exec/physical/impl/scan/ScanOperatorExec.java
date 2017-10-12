@@ -31,24 +31,42 @@ import com.google.common.annotations.VisibleForTesting;
  * Implementation of the revised scan operator that uses a mutator aware of
  * batch sizes. This is the successor to {@link ScanBatch} and should be used
  * by all new scan implementations.
- * <p>
+ *
+ * <h4>Scanner Framework</h4>
+ *
  * Acts as an adapter between the operator protocol and the row reader
- * protocol. Provides the row set mutator used to construct record batches.
+ * protocol.
  * <p>
- * Provides the option to continue a schema from one batch to the next.
- * This can reduce spurious schema changes in formats, such as JSON, with
- * varying fields. It is not, however, a complete solution as the outcome
- * still depends on the order of file scans and the division of files across
- * readers.
- * <p>
- * Provides the option to infer the schema from the first batch. The "quick path"
- * to obtain the schema will read one batch, then use that schema as the returned
- * schema, returning the full batch in the next call to <tt>next()</tt>.
+ * The scan operator itself is simply a framework for handling a set of readers;
+ * it knows nothing other than the interfaces of the components it works with;
+ * delegating all knowledge of schemas, projection, reading and the like to
+ * implementations of those interfaces. Because that work is complex, a set
+ * of frameworks exist to handle most common use cases, but a specialized reader
+ * can create a framework or reader from scratch.
  * <p>
  * Error handling in this class is minimal: the enclosing record batch iterator
  * is responsible for handling exceptions. Error handling relies on the fact
  * that the iterator will call <tt>close()</tt> regardless of which exceptions
  * are thrown.
+ *
+ * <h4>Protocol</h4>
+ *
+ * The scanner works directly with two other interfaces
+ * <p>
+ * The {@link ReaderFactory} implementation provides the set of readers to
+ * use. This class can simply maintain a list, or can create the reader on
+ * demand.
+ * <p>
+ * More subtly, the factory also handles projection issues and manages vectors
+ * across subsequent readers. A number of factories are available for the most
+ * common cases. Extend these to implement a version specific to a data source.
+ * <p>
+ * The {@link RowBatchReader} is a surprisingly minimal interface that
+ * nonetheless captures the essence of reading a result set as a set of batches.
+ * The factory implementations mentioned above implement this interface to provide
+ * commonly-used services, the most important of which is access to a
+ * {#link ResultSetLoader} to write values into value vectors.
+ *
  * <h4>Schema Versions</h4>
  * Readers may change schemas from time to time. To track such changes,
  * this implementation tracks a batch schema version, maintained by comparing

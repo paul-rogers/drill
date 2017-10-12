@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.scan;
 import static org.junit.Assert.*;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;

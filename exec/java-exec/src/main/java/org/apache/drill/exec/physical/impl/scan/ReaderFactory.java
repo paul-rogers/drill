@@ -20,8 +20,11 @@ package org.apache.drill.exec.physical.impl.scan;
 import org.apache.drill.exec.ops.OperatorContext;
 
 /**
- * Scan-level interface to the reader's schema manager.
- * The schema manager translates from the select list provided
+ * Interface to the set of readers, and reader schema, that the
+ * scan operator manages. The reader factory creates and returns
+ * the readers to use for the scan, as determined by the specific
+ * physical plan. The reader factory also
+ * translates from the select list provided
  * in the physical plan to the actual columns returned from the
  * scan operator. The translation is reader-specific; this
  * interface allows the scan operator to trigger various

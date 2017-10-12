@@ -23,11 +23,17 @@ import org.apache.drill.exec.record.VectorContainer;
 /**
  * Manages a row batch reader through its lifecycle. Created when the reader
  * is opened, discarded when the reader is closed. Encapsulates state that
- * follows the life of the reader.
+ * follows the life of the reader. This moves common scanner state out of
+ * each reader in order to make the reader as simple as possible.
+ * <p>
+ * This class is private to the scan operator and is not meant to be used,
+ * or even visible, outside of that operator itself. Instead, all reader-specific
+ * functionality should be in the {@link RowBatchReader} subclass.
  */
 
 class ReaderState {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ReaderState.class);
+
   private enum State { START, LOOK_AHEAD, ACTIVE, EOF, CLOSED };
 
   final ScanOperatorExec scanOp;
@@ -35,7 +41,6 @@ class ReaderState {
   private State state = State.START;
   private VectorContainer lookahead;
   private int schemaVersion = -1;
-//  private ReaderSchema readerSchema;
 
   public ReaderState(ScanOperatorExec scanOp, RowBatchReader reader) {
     this.scanOp = scanOp;
@@ -201,7 +206,9 @@ class ReaderState {
 
     // Late schema readers may change their schema between batches.
     // Early schema changes only on the first batch of the next
-    // reader.
+    // reader. (This is not a hard and fast rule, only a definition:
+    // a reader that starts with a schema, but later changes it, has
+    // morphed from an early- to late-schema reader.)
 
     int newVersion = reader.schemaVersion();
     if (newVersion > schemaVersion) {
@@ -212,7 +219,8 @@ class ReaderState {
   }
 
   /**
-   * Close the current reader.
+   * Close the current reader. The hard part is handling the possible
+   * error conditions, and cleaning up despite those errors.
    */
 
   void close() {
