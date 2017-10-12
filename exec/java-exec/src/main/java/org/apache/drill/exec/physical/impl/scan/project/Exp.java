@@ -17,17 +17,18 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project;
 
+import org.apache.drill.exec.physical.impl.scan.managed.SchemaNegotiator;
+
 public class Exp {
 
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Exp.class);
 
-  public static class ProjectionLifecycle2 {
+  public interface ReaderLifecycle {
 
-    public void startScan() { }
-    public void startReader() { }
-    public void startSchema() { }
-    public void endReader() { }
-    public void endScan() { }
+    SchemaNegotiator start();
+    void startBatch();
+    void endBatch();
+    void endReader();
   }
 
 //  public interface SchemaManager extends ScanSchema {

@@ -23,7 +23,9 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
@@ -32,11 +34,11 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.base.AbstractSubScan;
 import org.apache.drill.exec.physical.base.Scan;
-import org.apache.drill.exec.physical.impl.scan.managed.LegacyReaderFactory;
-import org.apache.drill.exec.physical.impl.scan.managed.LegacyReaderFactory.LegacyManagerBuilder;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser;
+import org.apache.drill.exec.physical.impl.scan.file.FileScanLifecycle;
+import org.apache.drill.exec.physical.impl.scan.file.FileScanLifecycle.FileScanConfig;
 import org.apache.drill.exec.physical.impl.scan.managed.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.managed.SchemaNegotiator;
-import org.apache.drill.exec.physical.impl.scan.metadata.FileMetadataColumnsParser;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
@@ -50,6 +52,8 @@ import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.hadoop.fs.Path;
 import org.junit.Ignore;
 import org.junit.Test;
+
+import com.google.common.annotations.VisibleForTesting;
 
 /**
  * Test of the scan operator framework. Here the focus is on the
@@ -75,6 +79,50 @@ public class TestScanOperatorExec extends SubOperatorTest {
   private static final String MOCK_DIR1 = "y";
   private static final String STAR = SchemaPath.WILDCARD;
   private static final String[] SELECT_STAR = new String[] { STAR };
+
+  public static class LegacyManagerBuilder extends FileScanLifecycle.FileScanConfig {
+
+    public void setSelectionRoot(String rootPath) {
+      setSelectionRoot(new Path(rootPath));
+    }
+
+    @VisibleForTesting
+    public void projectAll() {
+      List<SchemaPath> cols = new ArrayList<>();
+      cols.add(SchemaPath.STAR_COLUMN);
+      setProjection(cols);
+    }
+
+    public void setProjection(String colName) {
+      List<SchemaPath> cols = new ArrayList<>();
+      cols.add(SchemaPath.getSimplePath(colName));
+      setProjection(cols);
+    }
+
+    @VisibleForTesting
+    public void setProjection(String[] projection) {
+      List<SchemaPath> cols = new ArrayList<>();
+      for (String col : projection) {
+        cols.add(SchemaPath.getSimplePath(col));
+      }
+      setProjection(cols);
+    }
+
+    public LegacyReaderFactory build() {
+      if (projection.isEmpty()) {
+        logger.warn("No projection list specified: assuming SELECT *");
+        projectAll();
+      }
+      return new LegacyReaderFactory(this);
+    }
+  }
+
+  public static class LegacyReaderFactory extends FileScanLifecycle {
+
+    public LegacyReaderFactory(LegacyManagerBuilder builder) {
+      super(builder);
+    }
+  }
 
   /**
    * Base class for the "mock" readers used in this test. The mock readers
@@ -272,7 +320,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     private OperatorContext services;
     public ScanOperatorExec scanOp;
 
-    public MockBatch(LegacyReaderFactory.LegacyManagerBuilder builder) {
+    public MockBatch(LegacyManagerBuilder builder) {
       scanOp = new ScanOperatorExec(builder.build());
       Scan scanConfig = new AbstractSubScan("bob") {
 
@@ -304,11 +352,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create the scan operator
 
-    MockBatch mockBatch = new MockBatch(new LegacyReaderFactory.LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .useLegacyWildcardExpansion(false)
-        .addReader(reader)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.useLegacyWildcardExpansion(false);
+    builder.addReader(reader);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Standard startup
@@ -360,11 +408,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create the scan operator
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .useLegacyWildcardExpansion(false)
-        .addReader(reader)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.useLegacyWildcardExpansion(false);
+    builder.addReader(reader);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Standard startup
@@ -410,11 +458,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create the scan operator
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .useLegacyWildcardExpansion(false)
-        .addReader(reader)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.useLegacyWildcardExpansion(false);
+    builder.addReader(reader);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Standard startup
@@ -440,11 +488,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create the scan operator
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .useLegacyWildcardExpansion(false)
-        .addReader(reader)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.useLegacyWildcardExpansion(false);
+    builder.addReader(reader);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Standard startup
@@ -488,11 +536,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create the scan operator
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .setSelectionRoot(MOCK_ROOT_PATH)
-        .addReader(reader)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.setSelectionRoot(MOCK_ROOT_PATH);
+    builder.addReader(reader);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Standard startup
@@ -550,11 +598,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create the scan operator
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .projectAll()
-        .useLegacyWildcardExpansion(false)
-        .addReader(reader)
-        );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.useLegacyWildcardExpansion(false);
+    builder.addReader(reader);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     SingleRowSet expected = makeExpected();
@@ -601,10 +649,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Select table and implicit columns.
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(new String[] {"a", "b", "filename", "suffix"})
-        .addReader(reader)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.setProjection(new String[] {"a", "b", "filename", "suffix"});
+    builder.addReader(reader);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Expect data and implicit columns
@@ -647,18 +695,18 @@ public class TestScanOperatorExec extends SubOperatorTest {
    * that the components are wired up correctly.
    */
   @Test
-  public void testFullProject() { // Stopped here
+  public void testFullProject() {
 
     MockEarlySchemaReader reader = new MockEarlySchemaReader();
     reader.batchLimit = 1;
 
     // Select table and implicit columns.
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setSelectionRoot(MOCK_ROOT_PATH)
-        .setProjection(new String[] {"dir0", "b", "filename", "c", "suffix"})
-        .addReader(reader)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.setSelectionRoot(MOCK_ROOT_PATH);
+    builder.setProjection(new String[] {"dir0", "b", "filename", "c", "suffix"});
+    builder.addReader(reader);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Expect data and implicit columns
@@ -712,10 +760,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader.batchLimit = 2;
     reader.returnDataOnFirst = true;
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .addReader(reader)
-        );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.addReader(reader);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // First batch. The reader returns a non-empty batch. The scan
@@ -758,10 +806,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
   public void testEOFOnSchema() {
     MockNullEarlySchemaReader reader = new MockNullEarlySchemaReader();
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .addReader(reader)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.addReader(reader);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // EOF
@@ -778,10 +826,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader = new MockEarlySchemaReader();
     reader.batchLimit = 0;
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .addReader(reader)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.addReader(reader);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
     assertTrue(scan.buildSchema());
 
@@ -810,12 +858,12 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader2.batchLimit = 2;
     reader2.startIndex = 100;
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .addReader(nullReader)
-        .addReader(reader1)
-        .addReader(reader2)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.addReader(nullReader);
+    builder.addReader(reader1);
+    builder.addReader(reader2);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // First batch, schema only.
@@ -877,12 +925,12 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader2();
     reader2.batchLimit = 2;
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .useLegacyWildcardExpansion(false)
-        .addReader(reader1)
-        .addReader(reader2)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.useLegacyWildcardExpansion(false);
+    builder.addReader(reader1);
+    builder.addReader(reader2);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Build schema
@@ -950,11 +998,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
     reader2.batchLimit = 0;
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .addReader(reader1)
-        .addReader(reader2)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.addReader(reader1);
+    builder.addReader(reader2);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // EOF
@@ -982,10 +1030,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 0;
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .addReader(reader)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.addReader(reader);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     try {
@@ -1016,10 +1064,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .addReader(reader)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.addReader(reader);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     try {
@@ -1047,10 +1095,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .addReader(reader)
-          );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.addReader(reader);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
     scan.buildSchema();
 
@@ -1081,10 +1129,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .addReader(reader)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.addReader(reader);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     assertTrue(scan.buildSchema());
@@ -1126,10 +1174,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .addReader(reader)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.addReader(reader);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Schema
@@ -1171,10 +1219,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .addReader(reader)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.addReader(reader);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Schema
@@ -1214,11 +1262,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
     reader2.batchLimit = 2;
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .addReader(reader1)
-        .addReader(reader2)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.addReader(reader1);
+    builder.addReader(reader2);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     assertTrue(scan.buildSchema());
@@ -1261,11 +1309,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
     reader2.batchLimit = 2;
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setProjection(SELECT_STAR)
-        .addReader(reader1)
-        .addReader(reader2)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.addReader(reader1);
+    builder.addReader(reader2);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     assertTrue(scan.buildSchema());
@@ -1356,13 +1404,13 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
     reader2.batchLimit = 2;
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setSelectionRoot(MOCK_ROOT_PATH)
-        .useLegacyWildcardExpansion(false)
-        .setProjection(SELECT_STAR)
-        .addReader(reader1)
-        .addReader(reader2)
-         );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.projectAll();
+    builder.setSelectionRoot(MOCK_ROOT_PATH);
+    builder.useLegacyWildcardExpansion(false);
+    builder.addReader(reader1);
+    builder.addReader(reader2);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     assertTrue(scan.buildSchema());
@@ -1491,13 +1539,13 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader3.startIndex = 200;
     reader3.setFilePath("hdfs:///w/x/y/c.csv");
 
-    MockBatch mockBatch = new MockBatch(new LegacyManagerBuilder()
-        .setSelectionRoot(MOCK_ROOT_PATH)
-        .setProjection(new String[]{"a", "b"})
-        .addReader(reader1)
-        .addReader(reader2)
-        .addReader(reader3)
-        );
+    LegacyManagerBuilder builder = new LegacyManagerBuilder();
+    builder.setSelectionRoot(MOCK_ROOT_PATH);
+    builder.setProjection(new String[]{"a", "b"});
+    builder.addReader(reader1);
+    builder.addReader(reader2);
+    builder.addReader(reader3);
+    MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
 
     // Schema based on (a, b)

@@ -15,10 +15,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/**
- * Handles optional file metadata columns: implicit columns and
- * partition columns. Not all data sources are files, and so not
- * all support these columns
- */
+package org.apache.drill.exec.physical.impl.scan.managed;
 
-package org.apache.drill.exec.physical.impl.scan.metadata;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+
+public class BasicScanLifecycle extends AbstractScanLifecycle {
+
+  private AbstractScanLifecycle.BasicScanConfig basicConfig;
+
+  public BasicScanLifecycle(AbstractScanLifecycle.BasicScanConfig config) {
+    this.basicConfig = config;
+  }
+
+  @Override
+  protected AbstractScanLifecycle.BasicScanConfig scanConfig() { return basicConfig; }
+
+  @Override
+  protected void buildProjector(ScanLevelProjection scanProj) {}
+}

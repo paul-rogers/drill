@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan.metadata;
+package org.apache.drill.exec.physical.impl.scan.file;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -154,7 +154,7 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
     private final String partitionDesignator;
     private final boolean hasMetadata;
     private final boolean useLegacyWildcardExpansion;
-    private final String scanRootDir;
+    private final Path scanRootDir;
     private final List<FileMetadataColumnsParser.FileMetadataColumnDefn> fileMetadataColDefns;
 
     public FileMetadataProjection(FileMetadataColumnsParser builder) {
@@ -197,7 +197,7 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
 
   // Input
 
-  private String scanRootDir;
+  private Path scanRootDir;
 
   // Config
 
@@ -248,8 +248,8 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
     return this;
   }
 
-  public FileMetadataColumnsParser setScanRootDir(String rootDir) {
-    this.scanRootDir = rootDir;
+  public FileMetadataColumnsParser setScanRootDir(Path rootDir) {
+    scanRootDir = rootDir;
     return this;
   }
 

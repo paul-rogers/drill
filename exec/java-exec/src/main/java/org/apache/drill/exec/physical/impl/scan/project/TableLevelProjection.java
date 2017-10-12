@@ -26,7 +26,7 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.metadata.FileLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionType;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnsArrayColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.FileMetadataColumn;

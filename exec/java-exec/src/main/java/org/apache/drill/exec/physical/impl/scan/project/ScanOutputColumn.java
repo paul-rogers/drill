@@ -21,12 +21,13 @@ import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.exec.physical.impl.scan.metadata.FileMetadataColumnsParser.FileMetadata;
-import org.apache.drill.exec.physical.impl.scan.metadata.FileMetadataColumnsParser.FileMetadataColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.metadata.FileMetadataColumnsParser.FileMetadataProjection;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadataColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadataProjection;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleSchema;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -39,47 +40,53 @@ import com.google.common.annotations.VisibleForTesting;
 public abstract class ScanOutputColumn {
   public enum ColumnType { TABLE, FILE_METADATA, PARTITION, COLUMNS_ARRAY, WILDCARD, PROJECTED, NULL }
 
-  public interface ColumnSemantics {
+//  public interface ColumnSemantics {
+//
+//  }
+//
+//  public static class RevisedScanColumn extends ScanOutputColumn {
+//    private final MajorType type;
+//    private final ColumnSemantics semantics;
+//
+//    protected RevisedScanColumn(SchemaPath inCol, String name, MajorType type, ColumnSemantics semantics) {
+//      super(inCol, name);
+//      this.type = type;
+//      this.semantics = semantics;
+//    }
+//
+//    protected RevisedScanColumn(SchemaPath inCol, String name, ColumnSemantics semantics) {
+//      this(inCol, name, null, semantics);
+//    }
+//
+//    @Override
+//    public MajorType type() { return type; }
+//
+//    @SuppressWarnings("unchecked")
+//    public <T extends ColumnSemantics> T semantics() { return (T) semantics; }
+//
+//    @Override
+//    public ColumnType columnType() {
+//      // TODO Auto-generated method stub
+//      return null;
+//    }
+//
+//    @Override
+//    protected void visit(int index, Visitor visitor) {
+//      // TODO Auto-generated method stub
+//
+//    }
+//  }
 
-  }
-
-  public static class RevisedScanColumn extends ScanOutputColumn {
-    private final MajorType type;
-    private final ColumnSemantics semantics;
-
-    protected RevisedScanColumn(SchemaPath inCol, String name, MajorType type, ColumnSemantics semantics) {
-      super(inCol, name);
-      this.type = type;
-      this.semantics = semantics;
-    }
-
-    protected RevisedScanColumn(SchemaPath inCol, String name, ColumnSemantics semantics) {
-      this(inCol, name, null, semantics);
-    }
-
-    @Override
-    public MajorType type() { return type; }
-
-    @SuppressWarnings("unchecked")
-    public <T extends ColumnSemantics> T semantics() { return (T) semantics; }
-
-    @Override
-    public ColumnType columnType() {
-      // TODO Auto-generated method stub
-      return null;
-    }
-
-    @Override
-    protected void visit(int index, Visitor visitor) {
-      // TODO Auto-generated method stub
-
-    }
-  }
+  /**
+   * Represents an unexpanded wildcard. At most one wildcard can appear in
+   * the projection list. Usually, only the wildcard can appear. The wildcard
+   * must be expanded during the projection rewrite process.
+   */
 
   public static class WildcardColumn extends ScanOutputColumn {
 
     private WildcardColumn(SchemaPath inCol) {
-      super(inCol, inCol.rootName());
+      super(inCol, inCol.rootName(), null);
     }
 
     public static ScanOutputColumn fromSelect(SchemaPath inCol) {
@@ -95,18 +102,18 @@ public abstract class ScanOutputColumn {
     }
   }
 
-  public static abstract class TypedColumn extends ScanOutputColumn {
-
-    private final MajorType type;
-
-    protected TypedColumn(SchemaPath inCol, String name, MajorType type) {
-      super(inCol, name);
-      this.type = type;
-    }
-
-    @Override
-    public MajorType type() { return type; }
-  }
+//  public static abstract class TypedColumn extends ScanOutputColumn {
+//
+//    private final MajorType type;
+//
+//    protected TypedColumn(SchemaPath inCol, String name, MajorType type) {
+//      super(inCol, name);
+//      this.type = type;
+//    }
+//
+//    @Override
+//    public MajorType type() { return type; }
+//  }
 
   /**
    * Represents a desire to use a table column independent of the actual
@@ -117,7 +124,7 @@ public abstract class ScanOutputColumn {
    * appearance in the prior schema.
    */
 
-  public static class RequestedTableColumn extends TypedColumn {
+  public static class RequestedTableColumn extends ScanOutputColumn {
 
     private RequestedTableColumn(SchemaPath inCol, String name, MajorType type) {
       super(inCol, name, type);
@@ -127,7 +134,7 @@ public abstract class ScanOutputColumn {
       return new RequestedTableColumn(inCol, inCol.rootName(), ScanLevelProjection.nullType());
     }
 
-    public static RequestedTableColumn fromUnresolution(TypedColumn resolved) {
+    public static RequestedTableColumn fromUnresolution(ScanOutputColumn resolved) {
       return new RequestedTableColumn(resolved.source(), resolved.name(), resolved.type());
     }
 
@@ -146,7 +153,7 @@ public abstract class ScanOutputColumn {
    * list.
    */
 
-  public static class ColumnsArrayColumn extends TypedColumn {
+  public static class ColumnsArrayColumn extends ScanOutputColumn {
 
     private ColumnsArrayColumn(SchemaPath inCol, String name, MajorType type) {
       super(inCol, name, type);
@@ -165,7 +172,7 @@ public abstract class ScanOutputColumn {
     }
   }
 
-  public abstract static class ImplicitColumn<T> extends TypedColumn {
+  public abstract static class ImplicitColumn<T> extends ScanOutputColumn {
     private final T defn;
     protected ImplicitColumn(SchemaPath inCol, String name, MajorType type, T defn) {
       super(inCol, name, type);
@@ -205,12 +212,39 @@ public abstract class ScanOutputColumn {
     }
   }
 
+  public abstract static class ConstantColumn extends ScanOutputColumn {
+
+    public final Object value;
+
+    protected ConstantColumn(SchemaPath inCol, String name, MajorType type, Object value) {
+      super(inCol, name, type);
+      this.value = value;
+    }
+
+    @Override
+    protected void buildString(StringBuilder buf) {
+      buf.append(", value=");
+      if (value == null) {
+        buf.append("null");
+      } else if (value instanceof String) {
+        buf.append("\"");
+        buf.append(value);
+        buf.append("\"");
+      } else {
+        buf.append(value.toString());
+      }
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T extends Object> T value() { return (T) value; }
+  }
+
   /**
    * Base class for the various static (implicit) columns. Holds the
    * value of the column.
    */
 
-  public abstract static class MetadataColumn extends TypedColumn {
+  public abstract static class MetadataColumn extends ScanOutputColumn {
 
     public final String value;
 
@@ -371,7 +405,7 @@ public abstract class ScanOutputColumn {
    * table column, and so has a null value.
    */
 
-  public static class NullColumn extends TypedColumn {
+  public static class NullColumn extends ScanOutputColumn {
 
     private NullColumn(SchemaPath inCol, String name, MajorType type) {
       super(inCol, name, type);
@@ -401,7 +435,7 @@ public abstract class ScanOutputColumn {
    * Represents a table column projected to the output.
    */
 
-  public static class ProjectedColumn extends TypedColumn {
+  public static class ProjectedColumn extends ScanOutputColumn {
 
     private final int columnIndex;
     private MaterializedField schema;
@@ -518,34 +552,56 @@ public abstract class ScanOutputColumn {
     protected void visit(int index, Visitor visitor) { }
   }
 
+  /**
+   * The original physical plan column to which this output column
+   * maps. In some cases, multiple output columns map map the to the
+   * same "input" (to the projection process) column.
+   */
+
   protected final SchemaPath inCol;
+
+  /**
+   * Column name. Output columns describe top-level columns in
+   * the project list; so the name here is the root name. If the
+   * column represents a map, then the name is the name of the map
+   * itself.
+   */
+
   protected final String name;
-  protected Object extension;
+
+  /**
+   * Column data type, if appropriate and known.
+   */
+
+  private final MajorType type;
+
+//  protected Object extension;
 
   public ScanOutputColumn(SchemaPath inCol) {
-    this(inCol, null);
+    this(inCol, inCol.rootName(), null);
   }
 
-  public ScanOutputColumn(SchemaPath inCol, String name) {
+  public ScanOutputColumn(SchemaPath inCol, String name, MajorType type) {
     this.inCol = inCol;
     this.name = name;
+    this.type = type;
   }
 
-  public void setExtension(Object extn) {
-    this.extension = extn;
-  }
+//  public void setExtension(Object extn) {
+//    this.extension = extn;
+//  }
 
-  @SuppressWarnings("unchecked")
-  public <T> T extension() { return (T) extension; }
+//  @SuppressWarnings("unchecked")
+//  public <T> T extension() { return (T) extension; }
 
-  public boolean kindOf(Class<? extends ScanOutputColumn> type) {
-    return type.isInstance(this);
-  }
+//  public boolean kindOf(Class<? extends ScanOutputColumn> type) {
+//    return type.isInstance(this);
+//  }
 
   public abstract ScanOutputColumn.ColumnType columnType();
   public String name() { return name; }
   public SchemaPath source() { return inCol; }
-  public MajorType type() { return ScanLevelProjection.nullType(); }
+  public MajorType type() { return type; }
   public ScanOutputColumn unresolve() { return this; }
 
   protected void buildString(StringBuilder buf) { }

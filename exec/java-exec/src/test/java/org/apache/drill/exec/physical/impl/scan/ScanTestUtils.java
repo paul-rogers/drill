@@ -22,10 +22,10 @@ import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayParser;
-import org.apache.drill.exec.physical.impl.scan.metadata.FileLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.metadata.FileMetadataColumnsParser;
-import org.apache.drill.exec.physical.impl.scan.metadata.FileMetadataColumnsParser.FileMetadataColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.metadata.FileMetadataColumnsParser.FileMetadataProjection;
+import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadataColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadataProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
 import org.apache.drill.exec.record.ColumnMetadata;

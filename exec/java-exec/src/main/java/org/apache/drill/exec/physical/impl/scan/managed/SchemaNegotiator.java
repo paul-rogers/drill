@@ -23,27 +23,36 @@ import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.hadoop.fs.Path;
 
 /**
- * Negotiate the select and table schemas with the scan operator. Depending
- * on the design of the storage plugin, the selection list may be something that
- * the scan operator understands, or that the record reader understands. If the
- * storage plugin; the <tt>addSelectColumn()</tt> methods are not needed. But,
- * if the record reader defines the select list, call the various
- * <tt>addSelectColumn()</tt> methods to specify the select. All methods are
- * equivalent, though processing can be saved if the reader knows the column
- * type.
+ * Negotiates the table schema with the scanner framework and provides
+ * context information for the reader. In a typical scan, the physical
+ * plan provides the project list: the set of columns that the query
+ * expects. Readers provide a table schema: the set of columns actually
+ * available. The scan framework combines the two lists to determine
+ * the available table columns that must be read, along with any additional
+ * to be added. Additional columns can be file metadata (if the storage
+ * plugin requests them), or can be null columns added for projected
+ * columns that don't actually exist in the table.
  * <p>
- * All readers must announce the table schema. This can be done at open time
- * for an "early schema" reader. But, if the schema is not known at open
- * time, then the reader is a "late schema" reader and schema will be
- * discovered, and adjusted, on each batch.
+ * The reader provides the table schema in one of two ways:
+ * <ul>
+ * <li>If the reader is of "early schema" type, then the reader calls
+ * {@link #setTableSchema(TupleMetadata)} to provide that schema.</li>
+ * <li>If the reader is of "late schema" type, then the reader discovers
+ * the schema as the data is read, calling the
+ * {@link RowSetLoader#addColumn()} method to add each column as it is
+ * discovered.
+ * <p>
+ * Either way, the project list from the physical plan determines which
+ * table columns are materialized and which are not. Readers are provided
+ * for all table columns for readers that must read sequentially, but
+ * only the materialized columns are written to value vectors.
  * <p>
  * Regardless of the schema type, the result of building the schema is a
- * result set loader used to prepare batches for use in the query. If the
- * select list contains a subset of columns from the table, then the result
- * set loader will return null when the reader asks for the column loader for
- * that column. The null value tells the reader to skip that column. The reader
- * can use that information to avoid reading the data, if possible, for
- * efficiency.
+ * result set loader used to prepare batches for use in the query. The reader
+ * can simply read all columns, allowing the framework to discard unwanted
+ * values. Or for efficiency, the reader can check the column metadata to
+ * determine if a column is projected, and if not, then don't even read
+ * the column from the input source.
  */
 
 public interface SchemaNegotiator {
