@@ -31,6 +31,20 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanProjector;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.VectorContainer;
 
+/**
+ * Provides the row set mutator used to construct record batches.
+ * <p>
+ * Provides the option to continue a schema from one batch to the next.
+ * This can reduce spurious schema changes in formats, such as JSON, with
+ * varying fields. It is not, however, a complete solution as the outcome
+ * still depends on the order of file scans and the division of files across
+ * readers.
+ * <p>
+ * Provides the option to infer the schema from the first batch. The "quick path"
+ * to obtain the schema will read one batch, then use that schema as the returned
+ * schema, returning the full batch in the next call to <tt>next()</tt>.
+ */
+
 public abstract class AbstractScanLifecycle implements ReaderFactory {
 
   /**
