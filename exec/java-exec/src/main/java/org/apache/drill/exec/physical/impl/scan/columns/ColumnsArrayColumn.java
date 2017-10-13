@@ -15,14 +15,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan.project;
+package org.apache.drill.exec.physical.impl.scan.columns;
 
-import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
 
-public interface ScanProjectionParser {
-  void bind(ScanProjectionBuilder builder);
-  boolean parse(SchemaPath inCol);
-  void validate();
-  void validateColumn(ColumnProjection col);
-  void build();
+public class ColumnsArrayColumn extends ResolvedColumn {
+
+  public static final int ID = 20;
+
+  public ColumnsArrayColumn(String name, MajorType type) {
+    super(name, type);
+  }
+
+  @Override
+  public int nodeType() { return ID; }
 }

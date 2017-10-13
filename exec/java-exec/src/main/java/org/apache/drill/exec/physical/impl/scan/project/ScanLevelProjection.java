@@ -23,6 +23,7 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.project.Exp.UnresolvedProjection;
 
 /**
  * Parses and analyzes the projection list passed to the scanner. The
@@ -71,22 +72,18 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
  * evolved
  */
 
-public class ScanLevelProjection {
+public class ScanLevelProjection implements UnresolvedProjection {
 
-  public enum ProjectionType { WILDCARD, COLUMNS_ARRAY, LIST }
-
-  public static final String WILDCARD = "*";
-
-  private final ProjectionType projectType;
   private final List<SchemaPath> requestedCols;
-  private final List<ScanOutputColumn> outputCols;
-  private final List<String> tableColNames;
+  private final List<ColumnProjection> outputCols;
+//  private final List<String> tableColNames;
+  public final boolean hasWildcard;
 
   public ScanLevelProjection(ScanProjectionBuilder builder) {
-    projectType = builder.projectionType;
+    hasWildcard = builder.hasWildcard;
     requestedCols = builder.projectionList;
     outputCols = builder.outputCols;
-    tableColNames = builder.tableColNames;
+//    tableColNames = builder.tableColNames;
   }
 
   /**
@@ -94,9 +91,8 @@ public class ScanLevelProjection {
    * @return true if this is a SELECT * query
    */
 
-  public boolean isProjectAll() { return projectType == ProjectionType.WILDCARD; }
-
-  public ProjectionType projectType() { return projectType; }
+  @Override
+  public boolean isProjectAll() { return hasWildcard; }
 
   /**
    * Return the set of columns from the SELECT list
@@ -112,9 +108,10 @@ public class ScanLevelProjection {
    * @return the set of output columns in output order
    */
 
-  public List<ScanOutputColumn> outputCols() { return outputCols; }
+  @Override
+  public List<ColumnProjection> outputCols() { return outputCols; }
 
-  public List<String> tableColNames() { return tableColNames; }
+//  public List<String> tableColNames() { return tableColNames; }
 
   public static MajorType nullType() {
     return MajorType.newBuilder()

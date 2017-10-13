@@ -21,9 +21,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionType;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.RequestedTableColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.WildcardColumn;
 
 import com.google.common.collect.Lists;
 
@@ -46,9 +43,9 @@ public class ScanProjectionBuilder {
 
   // Output
 
-  protected List<ScanOutputColumn> outputCols = new ArrayList<>();
+  protected List<ColumnProjection> outputCols = new ArrayList<>();
   protected List<String> tableColNames = new ArrayList<>();
-  protected ProjectionType projectionType;
+  protected boolean hasWildcard;
   protected SchemaPath wildcardColumn;
 
   public ScanProjectionBuilder() {}
@@ -64,7 +61,8 @@ public class ScanProjectionBuilder {
    * @return this builder
    */
   public ScanProjectionBuilder projectAll() {
-    return projectedCols(Lists.newArrayList(new SchemaPath[] {SchemaPath.getSimplePath(SchemaPath.WILDCARD)}));
+    return projectedCols(Lists.newArrayList(
+        new SchemaPath[] {SchemaPath.getSimplePath(SchemaPath.WILDCARD)}));
   }
 
   /**
@@ -92,7 +90,6 @@ public class ScanProjectionBuilder {
    */
 
   public ScanLevelProjection build() {
-    projectionType = ProjectionType.LIST;
     for (SchemaPath inCol : projectionList) {
       mapColumn(inCol);
     }
@@ -139,16 +136,12 @@ public class ScanProjectionBuilder {
 
     // This is a desired table column.
 
-    RequestedTableColumn tableCol = RequestedTableColumn.fromSelect(inCol);
+    UnresolvedColumn tableCol = new UnresolvedColumn(inCol, UnresolvedColumn.UNRESOLVED);
     outputCols.add(tableCol);
     tableColNames.add(tableCol.name());
   }
 
-  public void setProjectionType(ProjectionType type) {
-    projectionType = type;
-  }
-
-  public void addProjectedColumn(ScanOutputColumn outCol) {
+  public void addProjectedColumn(ColumnProjection outCol) {
     outputCols.add(outCol);
   }
 
@@ -156,13 +149,13 @@ public class ScanProjectionBuilder {
     if (wildcardColumn != null) {
       throw new IllegalArgumentException("Duplicate * entry in project list");
     }
-    projectionType = ProjectionType.WILDCARD;
+    hasWildcard = true;
     wildcardColumn = inCol;
 
     // Put the wildcard column into the projection list as a placeholder to be filled
     // in later with actual table columns.
 
-    outputCols.add(WildcardColumn.fromSelect(inCol));
+    outputCols.add(new UnresolvedColumn(inCol, UnresolvedColumn.WILDCARD));
   }
 
   private void verify() {
@@ -175,12 +168,12 @@ public class ScanProjectionBuilder {
 
     // Validate column-by-column.
 
-    for (ScanOutputColumn outCol : outputCols) {
+    for (ColumnProjection outCol : outputCols) {
       for (ScanProjectionParser parser : parsers) {
         parser.validateColumn(outCol);
       }
-      switch (outCol.columnType()) {
-      case TABLE:
+      switch (outCol.nodeType()) {
+      case UnresolvedColumn.UNRESOLVED:
         if (hasWildcard()) {
           throw new IllegalArgumentException("Cannot select table columns and * together");
         }

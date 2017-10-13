@@ -15,14 +15,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan.project;
+package org.apache.drill.exec.physical.impl.scan.file;
 
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadataColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedFileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
 
-public interface ScanProjectionParser {
-  void bind(ScanProjectionBuilder builder);
-  boolean parse(SchemaPath inCol);
-  void validate();
-  void validateColumn(ColumnProjection col);
-  void build();
+public class UnresolvedFileMetadataColumn extends UnresolvedColumn {
+
+  public static final int ID = 11;
+
+  private final FileMetadataColumnDefn defn;
+
+  UnresolvedFileMetadataColumn(SchemaPath inCol, FileMetadataColumnDefn defn) {
+    super(inCol, ID);
+    this.defn = defn;
+  }
+
+  public ResolvedFileMetadataColumn resolve(FileMetadata fileInfo) {
+    return new ResolvedFileMetadataColumn(name(), defn, fileInfo);
+  }
 }

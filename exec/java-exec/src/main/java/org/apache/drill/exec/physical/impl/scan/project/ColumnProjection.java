@@ -17,12 +17,8 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project;
 
-import org.apache.drill.common.expression.SchemaPath;
-
-public interface ScanProjectionParser {
-  void bind(ScanProjectionBuilder builder);
-  boolean parse(SchemaPath inCol);
-  void validate();
-  void validateColumn(ColumnProjection col);
-  void build();
+public interface ColumnProjection {
+  String name();
+  boolean resolved();
+  int nodeType();
 }

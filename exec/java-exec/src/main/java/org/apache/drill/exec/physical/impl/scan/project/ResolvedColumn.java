@@ -17,12 +17,28 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project;
 
-import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.exec.record.MaterializedField;
 
-public interface ScanProjectionParser {
-  void bind(ScanProjectionBuilder builder);
-  boolean parse(SchemaPath inCol);
-  void validate();
-  void validateColumn(ColumnProjection col);
-  void build();
+public abstract class ResolvedColumn implements ColumnProjection {
+
+  private MaterializedField schema;
+
+  public ResolvedColumn(String name, MajorType type) {
+    schema = MaterializedField.create(name, type);
+  }
+
+  public ResolvedColumn(MaterializedField schema) {
+    this.schema = schema;
+  }
+
+  @Override
+  public String name() { return schema.getName(); }
+
+  @Override
+  public boolean resolved() { return true; }
+
+  public MajorType type() { return schema.getType(); }
+
+  public MaterializedField schema() { return schema; }
 }

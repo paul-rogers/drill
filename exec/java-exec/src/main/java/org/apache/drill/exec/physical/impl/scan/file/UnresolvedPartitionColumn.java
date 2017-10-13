@@ -15,14 +15,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan.project;
+package org.apache.drill.exec.physical.impl.scan.file;
 
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedPartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
 
-public interface ScanProjectionParser {
-  void bind(ScanProjectionBuilder builder);
-  boolean parse(SchemaPath inCol);
-  void validate();
-  void validateColumn(ColumnProjection col);
-  void build();
+public class UnresolvedPartitionColumn extends UnresolvedColumn {
+
+  public static final int ID = 10;
+
+  protected final int partition;
+
+  public UnresolvedPartitionColumn(SchemaPath inCol, int partition) {
+    super(inCol, ID);
+    this.partition = partition;
+  }
+
+  public int partition() { return partition; }
+
+  public ResolvedPartitionColumn resolve(FileMetadata fileInfo) {
+    return new ResolvedPartitionColumn(name(),
+        partition, fileInfo);
+  }
 }

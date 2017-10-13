@@ -17,6 +17,9 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project;
 
+import java.util.List;
+
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.physical.impl.scan.managed.SchemaNegotiator;
 
 public class Exp {
@@ -29,6 +32,43 @@ public class Exp {
     void startBatch();
     void endBatch();
     void endReader();
+  }
+
+  public interface UnresolvedProjection {
+    boolean isProjectAll();
+    List<ColumnProjection> outputCols();
+  }
+
+  public interface ResolvedProjection {
+    List<ResolvedColumn> outputCols();
+  }
+
+  public static class ResolvedColumn {
+
+    /**
+     * Column name. Output columns describe top-level columns in
+     * the project list; so the name here is the root name. If the
+     * column represents a map, then the name is the name of the map
+     * itself.
+     */
+
+    protected final String name;
+
+    /**
+     * Column data type.
+     */
+
+    private final MajorType type;
+
+//    protected Object extension;
+
+     public ResolvedColumn(String name, MajorType type) {
+      this.name = name;
+      this.type = type;
+    }
+
+     public String name() { return name; }
+     public MajorType type() { return type; }
   }
 
 //  public interface SchemaManager extends ScanSchema {

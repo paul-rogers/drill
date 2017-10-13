@@ -27,10 +27,10 @@ import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadataProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.NullColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ProjectedColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.RequestedTableColumn;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn.NullColumn;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn.PartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn.ProjectedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn.RequestedTableColumn;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
@@ -56,22 +56,22 @@ import com.google.common.annotations.VisibleForTesting;
 public abstract class ProjectionLifecycle {
 
   public static class PriorSchema {
-    private final List<ScanOutputColumn> generatedSelect;
+    private final List<UnresolvedColumn> generatedSelect;
     private final Map<String, RequestedTableColumn> expectedSchema;
     private final int partitionCount;
 
     public PriorSchema(Map<String, RequestedTableColumn> expectedSchema,
-        List<ScanOutputColumn> generatedSelect, int partitionCount) {
+        List<UnresolvedColumn> generatedSelect, int partitionCount) {
       this.expectedSchema = expectedSchema;
       this.generatedSelect = generatedSelect;
       this.partitionCount = partitionCount;
     }
   }
 
-  public static class GenericSchemaBuilder extends ScanOutputColumn.Visitor {
+  public static class GenericSchemaBuilder extends UnresolvedColumn.Visitor {
 
     protected Map<String, RequestedTableColumn> inferredSchema = CaseInsensitiveMap.newHashMap();
-    protected List<ScanOutputColumn> genericCols = new ArrayList<>();
+    protected List<UnresolvedColumn> genericCols = new ArrayList<>();
     private int maxPartition = -1;
 
     public PriorSchema unresolvedSchema() {
@@ -99,7 +99,7 @@ public abstract class ProjectionLifecycle {
     }
 
     @Override
-    protected void visitColumn(int index, ScanOutputColumn col) {
+    protected void visitColumn(int index, UnresolvedColumn col) {
       genericCols.add(col.unresolve());
     }
   }

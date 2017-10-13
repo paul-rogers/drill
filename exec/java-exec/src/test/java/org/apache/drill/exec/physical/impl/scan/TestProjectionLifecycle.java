@@ -49,7 +49,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .withFileParser(fixture.options())
         .projectedCols("filename", "a", "b");
     projFixture.metdataParser.useLegacyWildcardExpansion(true);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
@@ -60,7 +60,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
       // Verify
 
-      List<ScanOutputColumn> fileSchema = lifecycle.fileProjection().output();
+      List<ScanOutputColumn> fileSchema = lifecycle.fileProjection().outputCols();
       assertEquals("filename", fileSchema.get(0).name());
       assertEquals("a.csv", ((MetadataColumn) fileSchema.get(0)).value());
       assertEquals(ColumnType.TABLE, fileSchema.get(1).columnType());
@@ -98,7 +98,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       // Verify
 
       assertNull(lifecycle.tableProjection());
-      List<ScanOutputColumn> fileSchema = lifecycle.fileProjection().output();
+      List<ScanOutputColumn> fileSchema = lifecycle.fileProjection().outputCols();
       assertEquals(3, fileSchema.size());
       assertEquals("filename", fileSchema.get(0).name());
       assertEquals("b.csv", ((MetadataColumn) fileSchema.get(0)).value());
@@ -156,7 +156,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .withFileParser(fixture.options());
     projFixture.scanBuilder.projectAll();
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
@@ -192,7 +192,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .withFileParser(fixture.options());
     projFixture.scanBuilder.projectAll();
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
@@ -227,7 +227,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .withFileParser(fixture.options());
     projFixture.scanBuilder.projectAll();
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
@@ -264,7 +264,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .withFileParser(fixture.options());
     projFixture.scanBuilder.projectAll();
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
@@ -301,7 +301,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .withFileParser(fixture.options());
     projFixture.scanBuilder.projectAll();
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
@@ -336,7 +336,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .withFileParser(fixture.options());
     projFixture.scanBuilder.projectAll();
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
@@ -372,7 +372,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .withFileParser(fixture.options());
     projFixture.scanBuilder.projectAll();
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
@@ -409,7 +409,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .withFileParser(fixture.options());
     projFixture.scanBuilder.projectAll();
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
@@ -441,7 +441,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .withFileParser(fixture.options());
     projFixture.scanBuilder.projectAll();
     projFixture.metdataParser.useLegacyWildcardExpansion(true);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
@@ -476,7 +476,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .withFileParser(fixture.options());
     projFixture.scanBuilder.projectAll();
     projFixture.metdataParser.useLegacyWildcardExpansion(true);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 
@@ -510,7 +510,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
         .withFileParser(fixture.options());
     projFixture.scanBuilder.projectAll();
     projFixture.metdataParser.useLegacyWildcardExpansion(true);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
     ProjectionLifecycle lifecycle = ProjectionLifecycle.newLifecycle(projFixture.scanProj, projFixture.metadataProj);
 

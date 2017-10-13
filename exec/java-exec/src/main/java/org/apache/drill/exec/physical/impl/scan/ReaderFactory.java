@@ -28,7 +28,7 @@ import org.apache.drill.exec.ops.OperatorContext;
  * in the physical plan to the actual columns returned from the
  * scan operator. The translation is reader-specific; this
  * interface allows the scan operator to trigger various
- * livecycle events.
+ * lifecycle events.
  */
 
 public interface ReaderFactory {

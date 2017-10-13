@@ -27,16 +27,12 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.directory.api.util.Strings;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.map.CaseInsensitiveMap;
-import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ExecConstants;
+import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionParser;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.FileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.PartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.store.ColumnExplorer.ImplicitFileColumns;
 import org.apache.hadoop.fs.Path;
@@ -78,13 +74,6 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
     }
 
     public String colName() { return colName; }
-
-    public MajorType dataType() {
-      return MajorType.newBuilder()
-          .setMinorType(MinorType.VARCHAR)
-          .setMode(DataMode.REQUIRED)
-          .build();
-    }
   }
 
   /**
@@ -179,13 +168,6 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
       return new FileMetadata(filePath, scanRootDir);
     }
 
-    public static MajorType partitionColType() {
-      return MajorType.newBuilder()
-            .setMinorType(MinorType.VARCHAR)
-            .setMode(DataMode.OPTIONAL)
-            .build();
-    }
-
     public FileLevelProjection resolve(ScanLevelProjection scanProj, Path filePath) {
       return resolve(scanProj, fileMetadata(filePath));
     }
@@ -265,7 +247,8 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
 
       // Partition column
 
-      PartitionColumn outCol = PartitionColumn.fromSelect(inCol, Integer.parseInt(m.group(1)));
+      UnresolvedColumn outCol = new UnresolvedPartitionColumn(inCol,
+          Integer.parseInt(m.group(1)));
       builder.addProjectedColumn(outCol);
       hasMetadata = true;
       return true;
@@ -276,7 +259,7 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
 
       // File metadata (implicit) column
 
-      FileMetadataColumn outCol = FileMetadataColumn.fromSelect(inCol, iCol);
+      UnresolvedColumn outCol = new UnresolvedFileMetadataColumn(inCol, iCol);
       builder.addProjectedColumn(outCol);
       hasMetadata = true;
       return true;
@@ -301,20 +284,15 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
   public void validate() { }
 
   @Override
-  public void validateColumn(ScanOutputColumn outCol) {
-    switch (outCol.columnType()) {
-    case FILE_METADATA:
+  public void validateColumn(ColumnProjection outCol) {
+    if (outCol.nodeType() == UnresolvedFileMetadataColumn.ID) {
       if (builder.hasWildcard()  &&  useLegacyWildcardExpansion) {
         throw new IllegalArgumentException("Cannot select file metadata columns and `*` together");
       }
-      break;
-    case PARTITION:
+    } else if (outCol.nodeType() == UnresolvedPartitionColumn.ID) {
       if (builder.hasWildcard()  &&  useLegacyWildcardExpansion) {
         throw new IllegalArgumentException("Cannot select partitions and `*` together");
       }
-      break;
-    default:
-      break;
     }
   }
 

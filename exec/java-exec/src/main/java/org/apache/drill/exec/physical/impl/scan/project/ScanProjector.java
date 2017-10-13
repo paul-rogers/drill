@@ -26,10 +26,8 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadataProjection;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Builder;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionType;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.MetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.NullColumn;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.OptionBuilder;
@@ -195,10 +193,10 @@ public class ScanProjector {
 
   public static class MetadataColumnLoader extends StaticColumnLoader {
     private final String values[];
-    private final List<MetadataColumn> metadataCols;
+    private final List<ResolvedMetadataColumn> metadataCols;
 
     public MetadataColumnLoader(BufferAllocator allocator,
-        List<MetadataColumn> defns, ResultVectorCacheImpl vectorCache) {
+        List<ResolvedMetadataColumn> defns, ResultVectorCacheImpl vectorCache) {
       super(allocator, vectorCache);
 
       // Populate the loader schema from that provided.
@@ -208,7 +206,7 @@ public class ScanProjector {
       RowSetLoader schema = loader.writer();
       values = new String[defns.size()];
       for (int i = 0; i < defns.size(); i++) {
-        MetadataColumn defn  = defns.get(i);
+        ResolvedMetadataColumn defn  = defns.get(i);
         values[i] = defn.value();
         schema.addColumn(defn.schema());
       }
@@ -238,7 +236,7 @@ public class ScanProjector {
       }
     }
 
-    public List<MetadataColumn> columns() { return metadataCols; }
+    public List<ResolvedMetadataColumn> columns() { return metadataCols; }
   }
 
   /**

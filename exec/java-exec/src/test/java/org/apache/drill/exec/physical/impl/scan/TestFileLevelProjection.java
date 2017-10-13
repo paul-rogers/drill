@@ -34,6 +34,7 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.Metadat
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
 public class TestFileLevelProjection extends SubOperatorTest {
@@ -59,26 +60,26 @@ public class TestFileLevelProjection extends SubOperatorTest {
   public void testWithMetadata() {
     ProjectionFixture projFixture = buildProj("filename", "a", "dir0");
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     ScanLevelProjection scanProj = projFixture.build();
 
     FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
     assertTrue(fileProj.hasMetadata());
     assertSame(scanProj, fileProj.scanProjection());
-    assertEquals(3, fileProj.output().size());
+    assertEquals(3, fileProj.outputCols().size());
 
-    assertEquals(ColumnType.FILE_METADATA, fileProj.output().get(0).columnType());
-    assertEquals("filename", fileProj.output().get(0).name());
-    assertEquals("z.csv", ((ScanOutputColumn.MetadataColumn) fileProj.output().get(0)).value());
-    assertEquals(ColumnType.TABLE, fileProj.output().get(1).columnType());
-    assertEquals("a", fileProj.output().get(1).name());
-    assertEquals(ColumnType.PARTITION, fileProj.output().get(2).columnType());
-    assertEquals("dir0", fileProj.output().get(2).name());
-    assertEquals("x", ((ScanOutputColumn.MetadataColumn) fileProj.output().get(2)).value());
+    assertEquals(ColumnType.FILE_METADATA, fileProj.outputCols().get(0).columnType());
+    assertEquals("filename", fileProj.outputCols().get(0).name());
+    assertEquals("z.csv", ((ScanOutputColumn.MetadataColumn) fileProj.outputCols().get(0)).value());
+    assertEquals(ColumnType.TABLE, fileProj.outputCols().get(1).columnType());
+    assertEquals("a", fileProj.outputCols().get(1).name());
+    assertEquals(ColumnType.PARTITION, fileProj.outputCols().get(2).columnType());
+    assertEquals("dir0", fileProj.outputCols().get(2).name());
+    assertEquals("x", ((ScanOutputColumn.MetadataColumn) fileProj.outputCols().get(2)).value());
 
     assertEquals(2, fileProj.metadataColumns().size());
-    assertSame(fileProj.output().get(0), fileProj.metadataColumns().get(0));
-    assertSame(fileProj.output().get(2), fileProj.metadataColumns().get(1));
+    assertSame(fileProj.outputCols().get(0), fileProj.metadataColumns().get(0));
+    assertSame(fileProj.outputCols().get(2), fileProj.metadataColumns().get(1));
   }
 
   /**
@@ -91,15 +92,15 @@ public class TestFileLevelProjection extends SubOperatorTest {
   public void testWithoutMetadata() {
     ProjectionFixture projFixture = buildProj("a");
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
 
     FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
     assertFalse(fileProj.hasMetadata());
-    assertEquals(1, fileProj.output().size());
+    assertEquals(1, fileProj.outputCols().size());
 
-    assertEquals(ColumnType.TABLE, fileProj.output().get(0).columnType());
-    assertEquals("a", fileProj.output().get(0).name());
+    assertEquals(ColumnType.TABLE, fileProj.outputCols().get(0).columnType());
+    assertEquals("a", fileProj.outputCols().get(0).name());
 
     // Not guaranteed to be null. Actually, if hasMetadata() is false,
     // don't even look at the metadata information.
@@ -116,13 +117,13 @@ public class TestFileLevelProjection extends SubOperatorTest {
   public void testLegacyWildcard() {
     ProjectionFixture projFixture = buildProjAll();
     projFixture.metdataParser.useLegacyWildcardExpansion(true);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
 
     FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
 
     assertTrue(fileProj.hasMetadata());
-    assertEquals(7, fileProj.output().size());
+    assertEquals(7, fileProj.outputCols().size());
 
     TupleMetadata expectedSchema = new SchemaBuilder()
         .addNullable(SchemaPath.WILDCARD, MinorType.NULL)
@@ -130,12 +131,12 @@ public class TestFileLevelProjection extends SubOperatorTest {
     expectedSchema = projFixture.expandMetadata(expectedSchema, 2);
     assertTrue(fileProj.outputSchema().isEquivalent(expectedSchema));
 
-    assertEquals("/w/x/y/z.csv", ((MetadataColumn) fileProj.output().get(1)).value());
-    assertEquals("/w/x/y", ((MetadataColumn) fileProj.output().get(2)).value());
-    assertEquals("z.csv", ((MetadataColumn) fileProj.output().get(3)).value());
-    assertEquals("csv", ((MetadataColumn) fileProj.output().get(4)).value());
-    assertEquals("x", ((MetadataColumn) fileProj.output().get(5)).value());
-    assertEquals("y", ((MetadataColumn) fileProj.output().get(6)).value());
+    assertEquals("/w/x/y/z.csv", ((MetadataColumn) fileProj.outputCols().get(1)).value());
+    assertEquals("/w/x/y", ((MetadataColumn) fileProj.outputCols().get(2)).value());
+    assertEquals("z.csv", ((MetadataColumn) fileProj.outputCols().get(3)).value());
+    assertEquals("csv", ((MetadataColumn) fileProj.outputCols().get(4)).value());
+    assertEquals("x", ((MetadataColumn) fileProj.outputCols().get(5)).value());
+    assertEquals("y", ((MetadataColumn) fileProj.outputCols().get(6)).value());
   }
 
   /**
@@ -148,22 +149,22 @@ public class TestFileLevelProjection extends SubOperatorTest {
         "filEPath", // Sic, to test case sensitivity
         "filename", "suffix");
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
     FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
 
     assertTrue(fileProj.hasMetadata());
-    assertEquals(5, fileProj.output().size());
+    assertEquals(5, fileProj.outputCols().size());
 
-    assertEquals("fqn", fileProj.output().get(1).name());
-    assertEquals("filEPath", fileProj.output().get(2).name());
-    assertEquals("filename", fileProj.output().get(3).name());
-    assertEquals("suffix", fileProj.output().get(4).name());
+    assertEquals("fqn", fileProj.outputCols().get(1).name());
+    assertEquals("filEPath", fileProj.outputCols().get(2).name());
+    assertEquals("filename", fileProj.outputCols().get(3).name());
+    assertEquals("suffix", fileProj.outputCols().get(4).name());
 
-    assertEquals("/w/x/y/z.csv", ((MetadataColumn) fileProj.output().get(1)).value());
-    assertEquals("/w/x/y", ((MetadataColumn) fileProj.output().get(2)).value());
-    assertEquals("z.csv", ((MetadataColumn) fileProj.output().get(3)).value());
-    assertEquals("csv", ((MetadataColumn) fileProj.output().get(4)).value());
+    assertEquals("/w/x/y/z.csv", ((MetadataColumn) fileProj.outputCols().get(1)).value());
+    assertEquals("/w/x/y", ((MetadataColumn) fileProj.outputCols().get(2)).value());
+    assertEquals("z.csv", ((MetadataColumn) fileProj.outputCols().get(3)).value());
+    assertEquals("csv", ((MetadataColumn) fileProj.outputCols().get(4)).value());
   }
 
   /**
@@ -176,11 +177,11 @@ public class TestFileLevelProjection extends SubOperatorTest {
   public void testPartitionColumnTwoDigits() {
     ProjectionFixture projFixture = buildProj("dir11");
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir("hdfs:///x");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///x"));
     projFixture.build();
 
     FileLevelProjection fileProj = projFixture.resolve("hdfs:///x/0/1/2/3/4/5/6/7/8/9/10/d11/z.csv");
-    assertEquals("d11", ((MetadataColumn) fileProj.output().get(0)).value());
+    assertEquals("d11", ((MetadataColumn) fileProj.outputCols().get(0)).value());
   }
 
   // TODO: Test more partition cols in select than are available dirs

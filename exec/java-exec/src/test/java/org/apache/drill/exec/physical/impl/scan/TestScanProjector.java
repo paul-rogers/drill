@@ -171,7 +171,7 @@ public class TestScanProjector extends SubOperatorTest {
         .withFileParser(fixture.options())
         .projectedCols(cols);
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
     return projFixture;
   }

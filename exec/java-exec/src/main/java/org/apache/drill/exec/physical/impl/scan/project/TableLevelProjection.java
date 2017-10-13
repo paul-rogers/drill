@@ -279,7 +279,7 @@ public class TableLevelProjection {
 
     case LIST:
       TableSchemaProjection schemaProj = new TableSchemaProjection(tableSchema);
-      schemaProj.visit(fileProj.output());
+      schemaProj.visit(fileProj.outputCols());
       nullCols = schemaProj.nullCols;
       nullProjectionMap = schemaProj.nullProjectionMap;
       baseBuilder = schemaProj;
@@ -289,7 +289,7 @@ public class TableLevelProjection {
 
     case WILDCARD:
       WildcardExpander expander = new WildcardExpander(tableSchema);
-      expander.visit(fileProj.output());
+      expander.visit(fileProj.outputCols());
       nullCols = null;
       nullProjectionMap = null;
       baseBuilder = expander;
@@ -298,9 +298,9 @@ public class TableLevelProjection {
     // SELECT columns
 
     case COLUMNS_ARRAY:
-      validateColumnsArray(fileProj.output());
+      validateColumnsArray(fileProj.outputCols());
       ColumnsArrayProjection colArrayProj = new ColumnsArrayProjection(tableSchema);
-      colArrayProj.visit(fileProj.output());
+      colArrayProj.visit(fileProj.outputCols());
       nullCols = null;
       nullProjectionMap = null;
       baseBuilder = colArrayProj;

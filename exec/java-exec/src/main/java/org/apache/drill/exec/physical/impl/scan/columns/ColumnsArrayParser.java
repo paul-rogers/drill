@@ -24,42 +24,17 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionParser;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionType;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnsArrayColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
 import org.apache.drill.exec.vector.ValueVector;
 
 public class ColumnsArrayParser implements ScanProjectionParser {
 
-  public static final String COLUMNS_COL = "columns";
-
-  public static class ColumnsArrayProjection {
-    private final boolean columnsIndexes[];
-    private final MajorType columnsArrayType;
-
-    public ColumnsArrayProjection(ColumnsArrayParser builder) {
-      columnsArrayType = builder.columnsArrayType;
-      if (builder.columnsIndexes == null) {
-        columnsIndexes = null;
-      } else {
-        columnsIndexes = new boolean[builder.maxIndex];
-        for (int i = 0; i < builder.columnsIndexes.size(); i++) {
-          columnsIndexes[builder.columnsIndexes.get(i)] = true;
-        }
-      }
-    }
-
-    public boolean[] columnsArrayIndexes() { return columnsIndexes; }
-
-    public MajorType columnsArrayType() { return columnsArrayType; }
-  }
-
   // Config
 
-  private MajorType columnsArrayType;
+  MajorType columnsArrayType;
 
   // Internals
 
@@ -87,7 +62,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
 
   @Override
   public boolean parse(SchemaPath inCol) {
-    if (! inCol.nameEquals(COLUMNS_COL)) {
+    if (! inCol.nameEquals(ColumnsArrayProjection.COLUMNS_COL)) {
       return false;
     }
 
@@ -118,8 +93,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
   }
 
   private void addColumnsArrayColumn(SchemaPath inCol) {
-    builder.setProjectionType(ProjectionType.COLUMNS_ARRAY);
-    columnsArrayCol = ColumnsArrayColumn.fromSelect(inCol, columnsArrayType());
+    columnsArrayCol = new ColumnsArrayColumn(inCol.rootName(), columnsArrayType());
     builder.addProjectedColumn(columnsArrayCol);
   }
 
@@ -166,8 +140,8 @@ public class ColumnsArrayParser implements ScanProjectionParser {
   }
 
   @Override
-  public void validateColumn(ScanOutputColumn col) {
-    if (columnsArrayCol != null && col.columnType() == ColumnType.TABLE) {
+  public void validateColumn(ColumnProjection col) {
+    if (columnsArrayCol != null && col.nodeType() == UnresolvedColumn.UNRESOLVED) {
       throw new IllegalArgumentException("Cannot select columns[] and other table columns: " + col.name());
     }
   }

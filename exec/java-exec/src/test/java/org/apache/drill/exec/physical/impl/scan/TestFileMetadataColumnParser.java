@@ -98,8 +98,8 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
     assertEquals(FileMetadataColumnsParser.FILE_NAME_COL, scanProj.outputCols().get(3).name());
     assertEquals(FileMetadataColumnsParser.SUFFIX_COL, scanProj.outputCols().get(4).name());
 
-    assertEquals(MinorType.VARCHAR, ((ScanOutputColumn.TypedColumn) (scanProj.outputCols().get(1))).type().getMinorType());
-    assertEquals(DataMode.REQUIRED, ((ScanOutputColumn.TypedColumn) (scanProj.outputCols().get(1))).type().getMode());
+    assertEquals(MinorType.VARCHAR, scanProj.outputCols().get(1).type().getMinorType());
+    assertEquals(DataMode.REQUIRED, scanProj.outputCols().get(1).type().getMode());
 
     // Verify bindings
 
@@ -149,8 +149,8 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
 
     // Verify data type
 
-    assertEquals(MinorType.VARCHAR, ((ScanOutputColumn.TypedColumn) (scanProj.outputCols().get(0))).type().getMinorType());
-    assertEquals(DataMode.OPTIONAL, ((ScanOutputColumn.TypedColumn) (scanProj.outputCols().get(0))).type().getMode());
+    assertEquals(MinorType.VARCHAR, scanProj.outputCols().get(0).type().getMinorType());
+    assertEquals(DataMode.OPTIONAL, scanProj.outputCols().get(0).type().getMode());
 
     FileMetadataProjection metadataProj = projFixture.metadataProj;
     assertNotNull(metadataProj);

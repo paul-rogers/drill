@@ -20,15 +20,20 @@ package org.apache.drill.exec.physical.impl.scan.file;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadataProjection;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedFileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedPartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
+import org.apache.drill.exec.physical.impl.scan.project.Exp.UnresolvedProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.FileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.MetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.WildcardColumn;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn.MetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection;
 import org.apache.drill.exec.record.TupleMetadata;
 
@@ -40,7 +45,7 @@ import com.google.common.annotations.VisibleForTesting;
  * produce the final, fully-resolved projection list.
  */
 
-public class FileLevelProjection {
+public class FileLevelProjection implements UnresolvedProjection {
 
   /**
    * Given an unresolved projection list, possibly with placeholder metadata
@@ -49,36 +54,48 @@ public class FileLevelProjection {
    * columns are constant for an entire file.)
    */
 
-  private static class FileSchemaBuilder extends ScanOutputColumn.Visitor {
+  private static class FileSchemaBuilder {
     private final FileMetadataProjection metadataProj;
     private final FileMetadata fileInfo;
-    private final List<ScanOutputColumn> outputCols = new ArrayList<>();
-    private final List<MetadataColumn> metadataColumns = new ArrayList<>();
+    private final List<ColumnProjection> outputCols = new ArrayList<>();
+    private final List<ResolvedMetadataColumn> metadataColumns = new ArrayList<>();
 
-    public FileSchemaBuilder(FileMetadataProjection metadataProj, List<ScanOutputColumn> inputCols, FileMetadata fileInfo) {
+    public FileSchemaBuilder(FileMetadataProjection metadataProj, List<ColumnProjection> inputCols, FileMetadata fileInfo) {
       this.metadataProj = metadataProj;
       this.fileInfo = fileInfo;
-      visit(inputCols);
+      for (int i = 0; i < inputCols.size(); i++) {
+        translate(i, inputCols.get(i));
+      }
     }
 
-    @Override
-    protected void visitPartitionColumn(int index, PartitionColumn col) {
-      addMetadataColumn(col.cloneWithValue(fileInfo));
+    private void translate(int index, ColumnProjection col) {
+      switch (col.nodeType()) {
+      case UnresolvedColumn.WILDCARD:
+        outputCols.add(col);
+        expandWildcard();
+        break;
+
+      case UnresolvedPartitionColumn.ID:
+        addMetadataColumn(((UnresolvedPartitionColumn) col).resolve(fileInfo));
+       break;
+
+      case UnresolvedFileMetadataColumn.ID:
+        addMetadataColumn(((UnresolvedFileMetadataColumn) col).resolve(fileInfo));
+        break;
+
+        // Fall through
+
+      default:
+        outputCols.add(col);
+      }
     }
 
-    @Override
-    protected void visitFileInfoColumn(int index, FileMetadataColumn col) {
-      addMetadataColumn(col.cloneWithValue(fileInfo));
-    }
-
-    private void addMetadataColumn(MetadataColumn col) {
+    private void addMetadataColumn(ResolvedMetadataColumn col) {
       outputCols.add(col);
       metadataColumns.add(col);
     }
 
-    @Override
-    protected void visitWildcard(int index, WildcardColumn col) {
-      visitColumn(index, col);
+    protected void expandWildcard() {
 
       // Skip wildcard expansion if not legacy or if the data source
       // does not provide file information.
@@ -95,33 +112,29 @@ public class FileLevelProjection {
       // Append this after the *, keeping the * for later expansion.
 
       for (FileMetadataColumnDefn iCol : metadataProj.fileMetadataColDefns()) {
-        addMetadataColumn(FileMetadataColumn.fromWildcard(col.source(),
-            iCol, fileInfo));
+        addMetadataColumn(new ResolvedFileMetadataColumn(
+            iCol.colName(), iCol, fileInfo));
       }
       for (int i = 0; i < fileInfo.dirPathLength(); i++) {
-        addMetadataColumn(PartitionColumn.fromWildcard(col.source(),
+        addMetadataColumn(new ResolvedPartitionColumn(
             metadataProj.partitionName(i), i, fileInfo));
       }
     }
-
-    @Override
-    protected void visitColumn(int index, ScanOutputColumn col) {
-      outputCols.add(col);
-    }
   }
 
-  private final ScanLevelProjection scanProjection;
-  private final List<ScanOutputColumn> outputCols;
-  private final List<MetadataColumn> metadataColumns;
+  private final UnresolvedProjection scanProjection;
+  private final List<ColumnProjection> outputCols;
+  private final List<ResolvedMetadataColumn> metadataColumns;
   private final boolean isReresolution;
 
   private FileLevelProjection(ScanLevelProjection scanProjDefn, FileMetadataProjection metadataProj, FileMetadata fileInfo) {
     this(scanProjDefn, metadataProj, scanProjDefn.outputCols(), fileInfo);
   }
 
-  private FileLevelProjection(ScanLevelProjection scanProjDefn,
+  private FileLevelProjection(UnresolvedProjection scanProjDefn,
       FileMetadataProjection metadataProj,
-      List<ScanOutputColumn> inputCols, FileMetadata fileInfo) {
+      List<ColumnProjection> inputCols,
+      FileMetadata fileInfo) {
     this.scanProjection = scanProjDefn;
     isReresolution = inputCols != scanProjDefn.outputCols();
 
@@ -142,10 +155,15 @@ public class FileLevelProjection {
     }
   }
 
-  public ScanLevelProjection scanProjection() { return scanProjection; }
-  public List<ScanOutputColumn> output() { return outputCols; }
+  @Override
+  public List<ColumnProjection> outputCols() { return outputCols; }
+
+  public UnresolvedProjection scanProjection() { return scanProjection; }
   public boolean hasMetadata() { return metadataColumns != null && ! metadataColumns.isEmpty(); }
-  public List<MetadataColumn> metadataColumns() { return metadataColumns; }
+  public List<ResolvedMetadataColumn> metadataColumns() { return metadataColumns; }
+
+  @Override
+  public boolean isProjectAll() { return scanProjection.isProjectAll(); }
 
   /**
    * Create a fully-resolved projection plan given a file plan and a table
@@ -163,10 +181,10 @@ public class FileLevelProjection {
     }
   }
 
-  @VisibleForTesting
-  public TupleMetadata outputSchema() {
-    return ScanOutputColumn.schema(output());
-  }
+//  @VisibleForTesting
+//  public TupleMetadata outputSchema() {
+//    return UnresolvedColumn.schema(output());
+//  }
 
   public static FileLevelProjection fromResolution(
       ScanLevelProjection scanProj,
@@ -178,7 +196,7 @@ public class FileLevelProjection {
   public static FileLevelProjection fromReresolution(
       ScanLevelProjection scanProj,
       FileMetadataProjection metadataProj,
-      List<ScanOutputColumn> generatedSelect,
+      List<UnresolvedColumn> generatedSelect,
       FileMetadata fileInfo) {
     return new FileLevelProjection(scanProj, metadataProj, generatedSelect, fileInfo);
   }

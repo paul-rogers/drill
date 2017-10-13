@@ -79,10 +79,9 @@ public class ScanTestUtils {
       return metadataProj.resolve(scanProj, new Path(path));
     }
 
-
     /**
      * Mimic legacy wildcard expansion of metadata columns. Is not a full
-     * emulation because this version only works if the wildcard were at the end
+     * emulation because this version only works if the wildcard was at the end
      * of the list (or alone.)
      * @param scanProj scan projection definition (provides the partition column names)
      * @param base the table part of the expansion

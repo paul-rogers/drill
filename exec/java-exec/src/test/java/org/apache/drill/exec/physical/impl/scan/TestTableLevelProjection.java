@@ -34,6 +34,7 @@ import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
 public class TestTableLevelProjection extends SubOperatorTest {
@@ -51,11 +52,11 @@ public class TestTableLevelProjection extends SubOperatorTest {
             SchemaPath.WILDCARD,
             FileMetadataColumnsParser.partitionColName(0));
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
 
     FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
-    assertEquals(3, fileProj.output().size());
+    assertEquals(3, fileProj.outputCols().size());
     assertTrue(fileProj.hasMetadata());
 
     TupleMetadata tableSchema = new SchemaBuilder()
@@ -110,11 +111,11 @@ public class TestTableLevelProjection extends SubOperatorTest {
         .withFileParser(fixture.options())
         .projectedCols(SchemaPath.WILDCARD);
     projFixture.metdataParser.useLegacyWildcardExpansion(true);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
 
     FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
-    assertEquals(7, fileProj.output().size());
+    assertEquals(7, fileProj.outputCols().size());
     assertTrue(fileProj.hasMetadata());
 
     TupleMetadata tableSchema = new SchemaBuilder()
@@ -169,7 +170,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
             ColumnsArrayParser.COLUMNS_COL,
             FileMetadataColumnsParser.partitionColName(0));
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
 
     FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
@@ -223,7 +224,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
             ColumnsArrayParser.COLUMNS_COL,
             FileMetadataColumnsParser.partitionColName(0));
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
 
     FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
@@ -255,7 +256,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
     ProjectionFixture projFixture = new ProjectionFixture()
         .withFileParser(fixture.options())
         .projectedCols("c", "b", "a");
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
     FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
 
@@ -311,7 +312,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
     ProjectionFixture projFixture = new ProjectionFixture()
         .withFileParser(fixture.options())
         .projectedCols("c", "v", "b", "w");
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
 
     FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
@@ -370,7 +371,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
     ProjectionFixture projFixture = new ProjectionFixture()
         .withFileParser(fixture.options())
         .projectedCols("c", "a");
-    projFixture.metdataParser.setScanRootDir("hdfs:///w");
+    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
 
     FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
