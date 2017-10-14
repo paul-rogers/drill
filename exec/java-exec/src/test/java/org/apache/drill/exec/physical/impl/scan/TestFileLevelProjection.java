@@ -33,7 +33,6 @@ import org.apache.drill.exec.physical.impl.scan.file.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedFileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedPartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.file.UnresolvedFileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;

@@ -95,8 +95,9 @@ public class ScanTestUtils {
 
         // Temporary
 
-        assert metadataProj != null;
-        metadataProj.bind(colArrayProj);
+        if (metadataProj != null) {
+          metadataProj.bind(colArrayProj);
+        }
       }
       return scanProj;
     }

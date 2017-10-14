@@ -26,14 +26,12 @@ import static org.junit.Assert.fail;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataProjection;
 import org.apache.drill.exec.physical.impl.scan.file.UnresolvedFileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.UnresolvedPartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
 import org.apache.drill.test.SubOperatorTest;
-import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
 public class TestFileMetadataColumnParser extends SubOperatorTest {
