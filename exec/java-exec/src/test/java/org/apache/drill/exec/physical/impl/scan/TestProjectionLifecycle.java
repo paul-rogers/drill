@@ -25,7 +25,7 @@ import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
-import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedFileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedFileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.NullColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ProjectedColumn;

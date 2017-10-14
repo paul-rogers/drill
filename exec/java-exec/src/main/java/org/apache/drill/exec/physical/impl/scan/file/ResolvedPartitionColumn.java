@@ -18,23 +18,37 @@
 package org.apache.drill.exec.physical.impl.scan.file;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ConstantColumn;
 
-public class UnresolvedPartitionColumn extends UnresolvedColumn {
+public class ResolvedPartitionColumn extends ConstantColumn {
 
-  public static final int ID = 10;
+  public static final int ID = 16;
 
   protected final int partition;
 
-  public UnresolvedPartitionColumn(SchemaPath inCol, int partition) {
-    super(inCol, ID);
+  public ResolvedPartitionColumn(String name, SchemaPath source, int partition, FileMetadata fileInfo) {
+    super(name, dataType(), source, fileInfo.partition(partition));
     this.partition = partition;
   }
 
   public int partition() { return partition; }
 
-  public ResolvedPartitionColumn resolve(FileMetadata fileInfo) {
-    return new ResolvedPartitionColumn(name(), source(),
-        partition, fileInfo);
+  @Override
+  public int nodeType() { return ID; }
+
+  public static MajorType dataType() {
+    return MajorType.newBuilder()
+          .setMinorType(MinorType.VARCHAR)
+          .setMode(DataMode.OPTIONAL)
+          .build();
+  }
+
+  @Override
+  public ColumnProjection unresolve() {
+    return new UnresolvedPartitionColumn(source(), partition);
   }
 }

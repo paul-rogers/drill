@@ -24,7 +24,6 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataProjection;
-import org.apache.drill.exec.physical.impl.scan.file.MetadataColumnLoader;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Builder;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.OptionBuilder;
@@ -296,7 +295,7 @@ public class ScanProjector {
    * Creates the metadata (file and directory) columns, if needed.
    */
 
-  private MetadataColumnLoader metadataColumnLoader;
+  private ConstantColumnLoader metadataColumnLoader;
 
   /**
    * Creates null columns if needed.
@@ -365,8 +364,8 @@ public class ScanProjector {
     if (! projectionDefn.fileProjection().hasMetadata()) {
       return;
     }
-    metadataColumnLoader = new MetadataColumnLoader(allocator,
-        projectionDefn.fileProjection().metadataColumns(), vectorCache);
+    metadataColumnLoader = new ConstantColumnLoader(vectorCache,
+        projectionDefn.fileProjection().metadataColumns());
   }
 
   /**

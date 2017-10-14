@@ -18,20 +18,26 @@
 package org.apache.drill.exec.physical.impl.scan.file;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ConstantColumn;
 
-public class UnresolvedFileMetadataColumn extends UnresolvedColumn {
+public class ResolvedFileMetadataColumn extends ConstantColumn {
 
-  public static final int ID = 11;
+  public static final int ID = 15;
 
   private final FileMetadataColumnDefn defn;
 
-  UnresolvedFileMetadataColumn(SchemaPath inCol, FileMetadataColumnDefn defn) {
-    super(inCol, ID);
+  public ResolvedFileMetadataColumn(String name, SchemaPath source, FileMetadataColumnDefn defn,
+      FileMetadata fileInfo) {
+    super(name, defn.dataType(), source, defn.defn.getValue(fileInfo.filePath()));
     this.defn = defn;
   }
 
-  public ResolvedFileMetadataColumn resolve(FileMetadata fileInfo) {
-    return new ResolvedFileMetadataColumn(name(), source(), defn, fileInfo);
+  @Override
+  public int nodeType() { return ID; }
+
+  @Override
+  public ColumnProjection unresolve() {
+    return new UnresolvedFileMetadataColumn(source(), defn);
   }
 }

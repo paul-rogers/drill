@@ -30,7 +30,7 @@ import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataProjection;
-import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedPartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedPartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;

@@ -15,12 +15,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan.file;
+package org.apache.drill.exec.physical.impl.scan.project;
 
 import java.util.List;
 
-import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.impl.scan.project.StaticColumnLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
@@ -33,22 +31,22 @@ import org.apache.drill.exec.vector.accessor.TupleWriter;
  * that value into each row.
  */
 
-public class MetadataColumnLoader extends StaticColumnLoader {
+public class ConstantColumnLoader extends StaticColumnLoader {
   private final String values[];
-  private final List<ResolvedMetadataColumn> metadataCols;
+  private final List<ConstantColumn> constantCols;
 
-  public MetadataColumnLoader(BufferAllocator allocator,
-      List<ResolvedMetadataColumn> defns, ResultVectorCacheImpl vectorCache) {
+  public ConstantColumnLoader(ResultVectorCacheImpl vectorCache,
+      List<ConstantColumn> defns) {
     super(vectorCache);
 
     // Populate the loader schema from that provided.
     // Cache values for faster access.
 
-    metadataCols = defns;
+    constantCols = defns;
     RowSetLoader schema = loader.writer();
     values = new String[defns.size()];
     for (int i = 0; i < defns.size(); i++) {
-      ResolvedMetadataColumn defn  = defns.get(i);
+      ConstantColumn defn  = defns.get(i);
       values[i] = defn.value();
       schema.addColumn(defn.schema());
     }
@@ -78,5 +76,5 @@ public class MetadataColumnLoader extends StaticColumnLoader {
     }
   }
 
-  public List<ResolvedMetadataColumn> columns() { return metadataCols; }
+  public List<ConstantColumn> columns() { return constantCols; }
 }

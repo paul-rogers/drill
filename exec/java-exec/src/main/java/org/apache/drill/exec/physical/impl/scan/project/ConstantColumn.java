@@ -15,23 +15,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan.file;
+package org.apache.drill.exec.physical.impl.scan.project;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
+import org.apache.drill.common.types.TypeProtos.MajorType;
 
-public class UnresolvedFileMetadataColumn extends UnresolvedColumn {
+public abstract class ConstantColumn extends ResolvedColumn {
 
-  public static final int ID = 11;
+  private final String value;
 
-  private final FileMetadataColumnDefn defn;
-
-  UnresolvedFileMetadataColumn(SchemaPath inCol, FileMetadataColumnDefn defn) {
-    super(inCol, ID);
-    this.defn = defn;
+  public ConstantColumn(String name, MajorType type, SchemaPath source, String value) {
+    super(name, type, source);
+    this.value = value;
   }
 
-  public ResolvedFileMetadataColumn resolve(FileMetadata fileInfo) {
-    return new ResolvedFileMetadataColumn(name(), source(), defn, fileInfo);
-  }
+  public String value() { return value; }
 }

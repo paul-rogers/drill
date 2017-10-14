@@ -29,9 +29,8 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayColumn;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayProjection;
 import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedFileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedPartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedFileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedPartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.Exp.UnresolvedProjection;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
@@ -103,7 +102,7 @@ public class TableLevelProjection {
       switch (col.nodeType()) {
       case ResolvedFileMetadataColumn.ID:
       case ResolvedPartitionColumn.ID:
-        addMetadataColumn((ResolvedMetadataColumn) col);
+        addMetadataColumn((ConstantColumn) col);
         break;
       case ProjectedColumn.ID:
         addTableColumn((ProjectedColumn) col);
@@ -118,7 +117,7 @@ public class TableLevelProjection {
       outputCols.add((ResolvedColumn) col);
     }
 
-    private void addMetadataColumn(ResolvedMetadataColumn col) {
+    private void addMetadataColumn(ConstantColumn col) {
       metadataProjection[metadataColumnCount++] = outputCols.size();
       outputCols.add(col);
     }

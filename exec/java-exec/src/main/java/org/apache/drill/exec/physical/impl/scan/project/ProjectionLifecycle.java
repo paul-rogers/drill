@@ -28,7 +28,7 @@ import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataProjection;
-import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedPartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedPartitionColumn;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;

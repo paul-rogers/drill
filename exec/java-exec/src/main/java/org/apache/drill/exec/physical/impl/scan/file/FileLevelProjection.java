@@ -22,9 +22,8 @@ import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayProjection;
-import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedFileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedPartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ConstantColumn;
 import org.apache.drill.exec.physical.impl.scan.project.Exp.UnresolvedProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection;
@@ -50,7 +49,7 @@ public class FileLevelProjection implements UnresolvedProjection {
     private final FileMetadataProjection metadataProj;
     private final FileMetadata fileInfo;
     private final List<ColumnProjection> outputCols = new ArrayList<>();
-    private final List<ResolvedMetadataColumn> metadataColumns = new ArrayList<>();
+    private final List<ConstantColumn> metadataColumns = new ArrayList<>();
 
     public FileSchemaBuilder(FileMetadataProjection metadataProj, List<ColumnProjection> inputCols, FileMetadata fileInfo) {
       this.metadataProj = metadataProj;
@@ -80,7 +79,7 @@ public class FileLevelProjection implements UnresolvedProjection {
       }
     }
 
-    private void addMetadataColumn(ResolvedMetadataColumn col) {
+    private void addMetadataColumn(ConstantColumn col) {
       outputCols.add(col);
       metadataColumns.add(col);
     }
@@ -115,7 +114,7 @@ public class FileLevelProjection implements UnresolvedProjection {
   private final UnresolvedProjection scanProjection;
   private final FileMetadataProjection metadataProj;
   private final List<ColumnProjection> outputCols;
-  private final List<ResolvedMetadataColumn> metadataColumns;
+  private final List<ConstantColumn> metadataColumns;
   private final boolean isReresolution;
 
   private FileLevelProjection(ScanLevelProjection scanProjDefn, FileMetadataProjection metadataProj, FileMetadata fileInfo) {
@@ -152,7 +151,7 @@ public class FileLevelProjection implements UnresolvedProjection {
 
   public UnresolvedProjection scanProjection() { return scanProjection; }
   public boolean hasMetadata() { return metadataColumns != null && ! metadataColumns.isEmpty(); }
-  public List<ResolvedMetadataColumn> metadataColumns() { return metadataColumns; }
+  public List<ConstantColumn> metadataColumns() { return metadataColumns; }
 
   @Override
   public boolean projectAll() { return scanProjection.projectAll(); }

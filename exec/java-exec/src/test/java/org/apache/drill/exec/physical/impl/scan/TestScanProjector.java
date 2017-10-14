@@ -20,11 +20,7 @@ package org.apache.drill.exec.physical.impl.scan;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
-
-import java.util.ArrayList;
-import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
@@ -32,23 +28,11 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.protocol.SchemaTracker;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadata;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.file.MetadataColumnLoader;
-import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedFileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedPartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.project.NullColumn;
-import org.apache.drill.exec.physical.impl.scan.project.NullColumnLoader;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjector;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
-import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.store.ColumnExplorer.ImplicitFileColumns;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
@@ -57,55 +41,6 @@ import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
 public class TestScanProjector extends SubOperatorTest {
-
-  /**
-   * Test the static column loader using one column of each type.
-   * The null column is of type int, but the associated value is of
-   * type string. This is a bit odd, but works out because we detect that
-   * the string value is null and call setNull on the writer, and avoid
-   * using the actual data.
-   */
-
-  @Test
-  public void testStaticColumnLoader() {
-
-    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), new Path("hdfs:///w"));
-    List<ResolvedMetadataColumn> defns = new ArrayList<>();
-    FileMetadataColumnDefn iDefn = new FileMetadataColumnDefn(
-        ScanTestUtils.SUFFIX_COL, ImplicitFileColumns.SUFFIX);
-    ResolvedFileMetadataColumn iCol = new ResolvedFileMetadataColumn(ScanTestUtils.SUFFIX_COL,
-        SchemaPath.getSimplePath(ScanTestUtils.SUFFIX_COL),
-        iDefn, fileInfo);
-    defns.add(iCol);
-
-    String partColName = ScanTestUtils.partitionColName(1);
-    ResolvedPartitionColumn pCol = new ResolvedPartitionColumn(partColName,
-        SchemaPath.getSimplePath(partColName), 1, fileInfo);
-    defns.add(pCol);
-
-    ResultVectorCacheImpl cache = new ResultVectorCacheImpl(fixture.allocator());
-    MetadataColumnLoader staticLoader = new MetadataColumnLoader(fixture.allocator(), defns, cache);
-
-    // Create a batch
-
-    staticLoader.load(2);
-
-    // Verify
-
-    BatchSchema expectedSchema = new SchemaBuilder()
-        .addNullable(ScanTestUtils.SUFFIX_COL, MinorType.VARCHAR)
-        .addNullable(partColName, MinorType.VARCHAR)
-        .build();
-    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow("csv", "y")
-        .addRow("csv", "y")
-        .build();
-
-    new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(staticLoader.output()));
-    staticLoader.close();
-  }
-
   private ProjectionFixture buildFixture(String... cols) {
     ProjectionFixture projFixture = new ProjectionFixture()
         .withFileParser(fixture.options())
