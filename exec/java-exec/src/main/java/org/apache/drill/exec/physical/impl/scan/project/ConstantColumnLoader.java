@@ -19,8 +19,9 @@ package org.apache.drill.exec.physical.impl.scan.project;
 
 import java.util.List;
 
+import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
-import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 
 /**
@@ -32,21 +33,29 @@ import org.apache.drill.exec.vector.accessor.TupleWriter;
  */
 
 public class ConstantColumnLoader extends StaticColumnLoader {
-  private final String values[];
-  private final List<ConstantColumn> constantCols;
 
-  public ConstantColumnLoader(ResultVectorCacheImpl vectorCache,
-      List<ConstantColumn> defns) {
+  public interface ConstantColumnSpec {
+    String name();
+    MaterializedField schema();
+    String value();
+  }
+
+  private final String values[];
+  private final List<? extends ConstantColumnSpec> constantCols;
+
+  public ConstantColumnLoader(ResultVectorCache vectorCache,
+      List<? extends ConstantColumnSpec> defns) {
     super(vectorCache);
 
     // Populate the loader schema from that provided.
     // Cache values for faster access.
+    // TODO: Rewrite to specify schema up front
 
     constantCols = defns;
     RowSetLoader schema = loader.writer();
     values = new String[defns.size()];
     for (int i = 0; i < defns.size(); i++) {
-      ConstantColumn defn  = defns.get(i);
+      ConstantColumnSpec defn  = defns.get(i);
       values[i] = defn.value();
       schema.addColumn(defn.schema());
     }
@@ -76,5 +85,5 @@ public class ConstantColumnLoader extends StaticColumnLoader {
     }
   }
 
-  public List<ConstantColumn> columns() { return constantCols; }
+  public List<? extends ConstantColumnSpec> columns() { return constantCols; }
 }

@@ -58,6 +58,11 @@ import org.apache.drill.exec.vector.accessor.TupleWriter;
 
 public class NullColumnLoader extends StaticColumnLoader {
 
+  public interface NullColumnSpec {
+    String name();
+    MajorType type();
+  }
+
   public static final MajorType DEFAULT_NULL_TYPE = MajorType.newBuilder()
       .setMinorType(MinorType.INT)
       .setMode(DataMode.OPTIONAL)
@@ -66,7 +71,7 @@ public class NullColumnLoader extends StaticColumnLoader {
   private final MajorType nullType;
   private final boolean isArray[];
 
-  public NullColumnLoader(ResultVectorCache vectorCache, List<NullColumn> defns,
+  public NullColumnLoader(ResultVectorCache vectorCache, List<? extends NullColumnSpec> defns,
       MajorType nullType) {
     super(vectorCache);
 
@@ -83,7 +88,7 @@ public class NullColumnLoader extends StaticColumnLoader {
     RowSetLoader schema = loader.writer();
     isArray = new boolean[defns.size()];
     for (int i = 0; i < defns.size(); i++) {
-      NullColumn defn = defns.get(i);
+      NullColumnSpec defn = defns.get(i);
       MaterializedField colSchema = selectType(defn);
       isArray[i] = colSchema.getDataMode() == DataMode.REPEATED;
       schema.addColumn(colSchema);
@@ -97,7 +102,7 @@ public class NullColumnLoader extends StaticColumnLoader {
    * @return type of the empty column that implements the definition
    */
 
-  private MaterializedField selectType(NullColumn defn) {
+  private MaterializedField selectType(NullColumnSpec defn) {
 
     // Prefer the type of any previous occurrence of
     // this column.

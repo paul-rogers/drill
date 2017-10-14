@@ -19,8 +19,9 @@ package org.apache.drill.exec.physical.impl.scan.project;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.exec.physical.impl.scan.project.ConstantColumnLoader.ConstantColumnSpec;
 
-public abstract class ConstantColumn extends ResolvedColumn {
+public abstract class ConstantColumn extends ResolvedColumn implements ConstantColumnSpec {
 
   private final String value;
 
@@ -29,5 +30,6 @@ public abstract class ConstantColumn extends ResolvedColumn {
     this.value = value;
   }
 
+  @Override
   public String value() { return value; }
 }

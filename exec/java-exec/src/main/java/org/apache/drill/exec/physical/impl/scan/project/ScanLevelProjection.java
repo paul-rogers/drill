@@ -76,14 +76,12 @@ public class ScanLevelProjection implements UnresolvedProjection {
 
   private final List<SchemaPath> requestedCols;
   private final List<ColumnProjection> outputCols;
-//  private final List<String> tableColNames;
   public final boolean hasWildcard;
 
   public ScanLevelProjection(ScanProjectionBuilder builder) {
     hasWildcard = builder.hasWildcard;
     requestedCols = builder.projectionList;
     outputCols = builder.outputCols;
-//    tableColNames = builder.tableColNames;
   }
 
   /**
@@ -110,8 +108,6 @@ public class ScanLevelProjection implements UnresolvedProjection {
 
   @Override
   public List<ColumnProjection> outputCols() { return outputCols; }
-
-//  public List<String> tableColNames() { return tableColNames; }
 
   @Override
   public MajorType nullType() {
