@@ -17,19 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project;
 
-import java.util.List;
-
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadata;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadataColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadataProjection;
-import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.record.TupleSchema;
-import org.apache.drill.exec.vector.accessor.ScalarWriter;
-
-import com.google.common.annotations.VisibleForTesting;
 
 /**
  * Represents a column in the output rows (record batch, result set) from
@@ -202,77 +190,77 @@ public class UnresolvedColumn implements ColumnProjection {
 //    }
 //  }
 
-  public static class SpecialColumn extends UnresolvedColumn {
-
-  }
-  public static class FileMetadataExtension extends MetadataExtension {
-    private final FileMetadataColumnDefn defn;
-
-    public FileMetadataExtension(FileMetadataColumnDefn defn, String value) {
-      super(value);
-      this.defn = defn;
-    }
-  }
-
-  public static class PartitionExtension extends MetadataExtension {
-    private final int partition;
-
-    public PartitionExtension(int partition, String value) {
-      super(value);
-      this.partition = partition;
-    }
-  }
-
-  public abstract static class ConstantColumn extends UnresolvedColumn {
-
-    public final Object value;
-
-    protected ConstantColumn(SchemaPath inCol, String name, MajorType type, Object value) {
-      super(inCol, name, type);
-      this.value = value;
-    }
-
-    @Override
-    protected void buildString(StringBuilder buf) {
-      buf.append(", value=");
-      if (value == null) {
-        buf.append("null");
-      } else if (value instanceof String) {
-        buf.append("\"");
-        buf.append(value);
-        buf.append("\"");
-      } else {
-        buf.append(value.toString());
-      }
-    }
-
-    @SuppressWarnings("unchecked")
-    public <T extends Object> T value() { return (T) value; }
-  }
-
-  /**
-   * Base class for the various static (implicit) columns. Holds the
-   * value of the column.
-   */
-
-  public abstract static class MetadataColumn extends UnresolvedColumn {
-
-    public final String value;
-
-    protected MetadataColumn(SchemaPath inCol, String name, MajorType type, String value) {
-      super(inCol, name, type);
-      this.value = value;
-    }
-
-    @Override
-    protected void buildString(StringBuilder buf) {
-      buf.append(", value=")
-         .append(value == null ? "null" :
-                 "\"" + value + "\"");
-    }
-
-    public String value() { return value; }
-  }
+//  public static class SpecialColumn extends UnresolvedColumn {
+//
+//  }
+//  public static class FileMetadataExtension extends MetadataExtension {
+//    private final FileMetadataColumnDefn defn;
+//
+//    public FileMetadataExtension(FileMetadataColumnDefn defn, String value) {
+//      super(value);
+//      this.defn = defn;
+//    }
+//  }
+//
+//  public static class PartitionExtension extends MetadataExtension {
+//    private final int partition;
+//
+//    public PartitionExtension(int partition, String value) {
+//      super(value);
+//      this.partition = partition;
+//    }
+//  }
+//
+//  public abstract static class ConstantColumn extends UnresolvedColumn {
+//
+//    public final Object value;
+//
+//    protected ConstantColumn(SchemaPath inCol, String name, MajorType type, Object value) {
+//      super(inCol, name, type);
+//      this.value = value;
+//    }
+//
+//    @Override
+//    protected void buildString(StringBuilder buf) {
+//      buf.append(", value=");
+//      if (value == null) {
+//        buf.append("null");
+//      } else if (value instanceof String) {
+//        buf.append("\"");
+//        buf.append(value);
+//        buf.append("\"");
+//      } else {
+//        buf.append(value.toString());
+//      }
+//    }
+//
+//    @SuppressWarnings("unchecked")
+//    public <T extends Object> T value() { return (T) value; }
+//  }
+//
+//  /**
+//   * Base class for the various static (implicit) columns. Holds the
+//   * value of the column.
+//   */
+//
+//  public abstract static class MetadataColumn extends UnresolvedColumn {
+//
+//    public final String value;
+//
+//    protected MetadataColumn(SchemaPath inCol, String name, MajorType type, String value) {
+//      super(inCol, name, type);
+//      this.value = value;
+//    }
+//
+//    @Override
+//    protected void buildString(StringBuilder buf) {
+//      buf.append(", value=")
+//         .append(value == null ? "null" :
+//                 "\"" + value + "\"");
+//    }
+//
+//    public String value() { return value; }
+//  }
 
 //  /**
 //   * Represents an output column created from an implicit column. Since
@@ -411,96 +399,7 @@ public class UnresolvedColumn implements ColumnProjection {
 //    }
 //  }
 
-  /**
-   * Represents a selected column which does not match a
-   * table column, and so has a null value.
-   */
 
-  public static class NullColumn extends UnresolvedColumn {
-
-    private NullColumn(SchemaPath inCol, String name, MajorType type) {
-      super(inCol, name, type);
-    }
-
-    public static NullColumn fromResolution(RequestedTableColumn tableCol) {
-      return new NullColumn(tableCol.source(), tableCol.name(), tableCol.type());
-    }
-
-    @Override
-    public ColumnType columnType() {
-      return ColumnType.NULL;
-    }
-
-    @Override
-    protected void visit(int index, Visitor visitor) {
-      visitor.visitNullColumn(index, this);
-    }
-
-    @Override
-    public RequestedTableColumn unresolve() {
-      return RequestedTableColumn.fromUnresolution(this);
-    }
-  }
-
-  /**
-   * Represents a table column projected to the output.
-   */
-
-  public static class ProjectedColumn extends UnresolvedColumn {
-
-    private final int columnIndex;
-    private MaterializedField schema;
-
-    private ProjectedColumn(SchemaPath inCol, String name,
-        int columnIndex, MaterializedField schema) {
-      super(inCol, name, schema.getType());
-      this.schema = schema;
-      this.columnIndex = columnIndex;
-    }
-
-    public static ProjectedColumn fromWildcard(WildcardColumn col,
-        int columnIndex, MaterializedField column) {
-      return new ProjectedColumn(col.source(), column.getName(),
-          columnIndex, column);
-    }
-
-    public static ProjectedColumn fromResolution(RequestedTableColumn col,
-        int columnIndex, MaterializedField column) {
-      return new ProjectedColumn(col.source(), col.name(),
-          columnIndex, column);
-    }
-
-    public static ProjectedColumn fromColumnsArray(ColumnsArrayColumn col) {
-      return new ProjectedColumn(col.source(), col.inCol.rootName(), 0,
-          MaterializedField.create(col.inCol.rootName(), col.type()));
-    }
-
-    @Override
-    public ColumnType columnType() {
-      return ColumnType.PROJECTED;
-    }
-
-    public int columnIndex() { return columnIndex; }
-
-    @Override
-    public MaterializedField schema() { return schema; }
-
-    @Override
-    protected void buildString(StringBuilder buf) {
-      buf.append(", index=")
-         .append(columnIndex);
-    }
-
-    @Override
-    protected void visit(int index, Visitor visitor) {
-      visitor.visitProjection(index, this);
-    }
-
-    @Override
-    public RequestedTableColumn unresolve() {
-      return RequestedTableColumn.fromUnresolution(this);
-    }
-  }
 
 //  /**
 //   * Visit each output column via a typed method to allow clean processing
@@ -550,18 +449,18 @@ public class UnresolvedColumn implements ColumnProjection {
 //    protected void visitColumn(int index, UnresolvedColumn col) { }
 //  }
 
-  public static class NullColumnProjection extends UnresolvedColumn {
-
-    public NullColumnProjection(SchemaPath inCol) {
-      super(inCol);
-    }
-
-    @Override
-    public ColumnType columnType() { return null; }
-
-    @Override
-    protected void visit(int index, Visitor visitor) { }
-  }
+//  public static class NullColumnProjection extends UnresolvedColumn {
+//
+//    public NullColumnProjection(SchemaPath inCol) {
+//      super(inCol);
+//    }
+//
+//    @Override
+//    public ColumnType columnType() { return null; }
+//
+//    @Override
+//    protected void visit(int index, Visitor visitor) { }
+//  }
 
   /**
    * The original physical plan column to which this output column
@@ -620,9 +519,14 @@ public class UnresolvedColumn implements ColumnProjection {
 //         .append("]");
 //    }
     buildString(buf);
-    buf.append("]");
+    buf.append(", id=")
+      .append(nodeType())
+      .append("]");
     return buf.toString();
   }
+
+  @Override
+  public boolean resolved() { return false; }
 
 //  @VisibleForTesting
 //  public MaterializedField schema() {

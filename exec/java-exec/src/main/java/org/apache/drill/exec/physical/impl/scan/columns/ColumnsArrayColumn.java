@@ -17,17 +17,24 @@
  */
 package org.apache.drill.exec.physical.impl.scan.columns;
 
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
 
 public class ColumnsArrayColumn extends ResolvedColumn {
 
   public static final int ID = 20;
 
-  public ColumnsArrayColumn(String name, MajorType type) {
-    super(name, type);
+  public ColumnsArrayColumn(SchemaPath source, MajorType type) {
+    super(source.rootName(), type, source);
   }
 
   @Override
   public int nodeType() { return ID; }
+
+  @Override
+  public ColumnProjection unresolve() {
+    throw new UnsupportedOperationException();
+  }
 }

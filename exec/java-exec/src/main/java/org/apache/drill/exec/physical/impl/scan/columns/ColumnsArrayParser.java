@@ -93,7 +93,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
   }
 
   private void addColumnsArrayColumn(SchemaPath inCol) {
-    columnsArrayCol = new ColumnsArrayColumn(inCol.rootName(), columnsArrayType());
+    columnsArrayCol = new ColumnsArrayColumn(inCol, columnsArrayType());
     builder.addProjectedColumn(columnsArrayCol);
   }
 
@@ -150,4 +150,6 @@ public class ColumnsArrayParser implements ScanProjectionParser {
   public void build() {
     projection = new ColumnsArrayProjection(this);
   }
+
+  public ColumnsArrayProjection getProjection() { return projection; }
 }

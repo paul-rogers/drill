@@ -25,7 +25,7 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadataProjection;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataProjection;
 import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Builder;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
@@ -423,7 +423,7 @@ public class ScanProjector {
       // table columns. (If we want all columns, either because of *
       // or we selected them all, then no need to add filtering.)
 
-      if (! projectionDefn.scanProjection().isProjectAll()) {
+      if (! projectionDefn.scanProjection().projectAll()) {
         List<SchemaPath> projection = projectionDefn.tableProjection().projectedTableColumns();
         if (projection.size() < tableSchema.size()) {
           options.setProjection(projection);
@@ -474,13 +474,15 @@ public class ScanProjector {
       // built on the fly, we need to set up the selection ahead of time and
       // can't optimize for the "selected all the columns" case.
 
-      if (projectionDefn.scanProjection().projectType() == ProjectionType.LIST) {
+      if (! projectionDefn.scanProjection().projectAll()) {
         // Temporary: convert names to paths. Need to handle full paths
         // throughout.
 
         List<SchemaPath> paths = new ArrayList<>();
-        for (String colName : projectionDefn.scanProjection().tableColNames()) {
-          paths.add(SchemaPath.getSimplePath(colName));
+        for (ColumnProjection col : projectionDefn.scanProjection().outputCols()) {
+          if (col.nodeType() == UnresolvedColumn.UNRESOLVED) {
+            paths.add(((UnresolvedColumn) col).source());
+          }
         }
         options.setProjection(paths);
       }

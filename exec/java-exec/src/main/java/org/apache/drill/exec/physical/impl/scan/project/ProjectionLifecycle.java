@@ -24,13 +24,11 @@ import java.util.Map;
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadata;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadataProjection;
-import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn.NullColumn;
-import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn.ProjectedColumn;
-import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn.RequestedTableColumn;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataProjection;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedPartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection.TypedColumn;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
@@ -56,50 +54,69 @@ import com.google.common.annotations.VisibleForTesting;
 public abstract class ProjectionLifecycle {
 
   public static class PriorSchema {
-    private final List<UnresolvedColumn> generatedSelect;
-    private final Map<String, RequestedTableColumn> expectedSchema;
+    private final List<ColumnProjection> generatedSelect;
+    private final Map<String, ColumnProjection> expectedSchema;
     private final int partitionCount;
 
-    public PriorSchema(Map<String, RequestedTableColumn> expectedSchema,
-        List<UnresolvedColumn> generatedSelect, int partitionCount) {
+    public PriorSchema(Map<String, ColumnProjection> expectedSchema,
+        List<ColumnProjection> generatedSelect, int partitionCount) {
       this.expectedSchema = expectedSchema;
       this.generatedSelect = generatedSelect;
       this.partitionCount = partitionCount;
     }
   }
 
-  public static class GenericSchemaBuilder extends UnresolvedColumn.Visitor {
+  public static class GenericSchemaBuilder {
 
-    protected Map<String, RequestedTableColumn> inferredSchema = CaseInsensitiveMap.newHashMap();
-    protected List<UnresolvedColumn> genericCols = new ArrayList<>();
+    protected Map<String, ColumnProjection> inferredSchema = CaseInsensitiveMap.newHashMap();
+    protected List<ColumnProjection> genericCols = new ArrayList<>();
     private int maxPartition = -1;
 
     public PriorSchema unresolvedSchema() {
       return new PriorSchema(inferredSchema, genericCols, maxPartition + 1);
     }
 
-    @Override
-    public void visitProjection(int index, ProjectedColumn col) {
-      RequestedTableColumn tableCol = col.unresolve();
+    public void visit(List<ResolvedColumn> list) {
+      for (ResolvedColumn col : list) {
+        visitProjection(col);
+      }
+    }
+
+    private void visitProjection(ResolvedColumn col) {
+      switch(col.nodeType()) {
+      case NullColumn.ID:
+        visitNullColumn((NullColumn) col);
+        break;
+      case ResolvedPartitionColumn.ID:
+        visitPartitionColumn((ResolvedPartitionColumn) col);
+        break;
+      case ProjectedColumn.ID:
+        visitTableColumn(col);
+        break;
+      default:
+        visitColumn(col);
+      }
+    }
+
+    protected void visitColumn(ColumnProjection col) {
+      assert col.resolved();
+      genericCols.add(((ResolvedColumn) col).unresolve());
+    }
+
+    public void visitTableColumn(ResolvedColumn col) {
+      ColumnProjection tableCol = col.unresolve();
       genericCols.add(tableCol);
       inferredSchema.put(tableCol.name(), tableCol);
     }
 
-    @Override
-    public void visitNullColumn(int index, NullColumn col) {
-      RequestedTableColumn tableCol = col.unresolve();
+    public void visitNullColumn(TypedColumn col) {
+      ColumnProjection tableCol = col.unresolve();
       genericCols.add(tableCol);
       inferredSchema.put(tableCol.name(), tableCol);
     }
 
-    @Override
-    protected void visitPartitionColumn(int index, PartitionColumn col) {
+    protected void visitPartitionColumn(ResolvedPartitionColumn col) {
       maxPartition  = Math.max(maxPartition, col.partition());
-      visitColumn(index, col);
-    }
-
-    @Override
-    protected void visitColumn(int index, UnresolvedColumn col) {
       genericCols.add(col.unresolve());
     }
   }
@@ -227,7 +244,7 @@ public abstract class ProjectionLifecycle {
         return false;
       }
       for (ColumnMetadata newCol : newSchema) {
-        RequestedTableColumn priorCol = priorSchema.expectedSchema.get(newCol.name());
+        ColumnProjection priorCol = priorSchema.expectedSchema.get(newCol.name());
 
         // New field in this table; can't preserve schema
 
@@ -237,16 +254,17 @@ public abstract class ProjectionLifecycle {
 
         // Can't preserve schema if column types differ.
 
-        if (! priorCol.type().equals(newCol.majorType())) {
+        assert priorCol instanceof TypedColumn;
+        if (! ((TypedColumn) priorCol).type().equals(newCol.majorType())) {
           return false;
         }
       }
 
       // Can't preserve schema if missing columns are required.
 
-      for (RequestedTableColumn priorCol : priorSchema.expectedSchema.values()) {
+      for (ColumnProjection priorCol : priorSchema.expectedSchema.values()) {
         MaterializedField col = newSchema.column(priorCol.name());
-        if (col == null  &&  priorCol.type().getMode() == DataMode.REQUIRED) {
+        if (col == null  &&  ((TypedColumn) priorCol).type().getMode() == DataMode.REQUIRED) {
           return false;
         }
       }
@@ -296,7 +314,7 @@ public abstract class ProjectionLifecycle {
   public ScanLevelProjection scanProjection() { return scanProjDefn; }
   public FileLevelProjection fileProjection() { return fileProjDefn; }
   public TableLevelProjection tableProjection() { return tableProjDefn; }
-  public TupleMetadata outputSchema() { return tableProjDefn.outputSchema(); }
+//  public TupleMetadata outputSchema() { return tableProjDefn.outputSchema(); }
   public int schemaVersion() { return schemaVersion; }
 
   @VisibleForTesting
@@ -321,7 +339,7 @@ public abstract class ProjectionLifecycle {
   }
 
   public static ProjectionLifecycle newLifecycle(ScanLevelProjection scanProj, FileMetadataProjection metadataPlan) {
-    if (scanProj.isProjectAll()) {
+    if (scanProj.projectAll()) {
       return new ContinuousProjectionLifecycle(scanProj, metadataPlan);
     } else {
       return new DiscreteProjectionLifecycle(scanProj, metadataPlan);

@@ -25,17 +25,13 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
-import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayParser;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadata;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadataProjection;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataProjection;
+import org.apache.drill.exec.physical.impl.scan.file.UnresolvedFileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.file.UnresolvedPartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionType;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
@@ -60,8 +56,7 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
     // Build the projection plan and verify
 
     ScanLevelProjection scanProj = projFixture.scanProj;
-    assertFalse(scanProj.isProjectAll());
-    assertEquals(ProjectionType.LIST, scanProj.projectType());
+    assertFalse(scanProj.projectAll());
 
     FileMetadataProjection metadataProj = projFixture.metadataProj;
     assertNotNull(metadataProj);
@@ -81,35 +76,34 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
 
     ProjectionFixture projFixture = buildProj(
         "a",
-        FileMetadataColumnsParser.FULLY_QUALIFIED_NAME_COL,
+        ScanTestUtils.FULLY_QUALIFIED_NAME_COL,
         "filEPath", // Sic, to test case sensitivity
-        FileMetadataColumnsParser.FILE_NAME_COL,
-        FileMetadataColumnsParser.SUFFIX_COL);
+        ScanTestUtils.FILE_NAME_COL,
+        ScanTestUtils.SUFFIX_COL);
 
     ScanLevelProjection scanProj = projFixture.scanProj;
-    assertFalse(scanProj.isProjectAll());
+    assertFalse(scanProj.projectAll());
     assertEquals(5, scanProj.requestedCols().size());
 
     assertEquals(5, scanProj.outputCols().size());
 
     assertEquals("a", scanProj.outputCols().get(0).name());
-    assertEquals(FileMetadataColumnsParser.FULLY_QUALIFIED_NAME_COL, scanProj.outputCols().get(1).name());
+    assertEquals(ScanTestUtils.FULLY_QUALIFIED_NAME_COL, scanProj.outputCols().get(1).name());
     assertEquals("filEPath", scanProj.outputCols().get(2).name());
-    assertEquals(FileMetadataColumnsParser.FILE_NAME_COL, scanProj.outputCols().get(3).name());
-    assertEquals(FileMetadataColumnsParser.SUFFIX_COL, scanProj.outputCols().get(4).name());
-
-    assertEquals(MinorType.VARCHAR, scanProj.outputCols().get(1).type().getMinorType());
-    assertEquals(DataMode.REQUIRED, scanProj.outputCols().get(1).type().getMode());
+    assertEquals(ScanTestUtils.FILE_NAME_COL, scanProj.outputCols().get(3).name());
+    assertEquals(ScanTestUtils.SUFFIX_COL, scanProj.outputCols().get(4).name());
 
     // Verify bindings
 
-//    assertSame(scanProj.outputCols().get(1), scanProj.requestedCols().get(1).resolution());
     assertSame(scanProj.outputCols().get(1).source(), scanProj.requestedCols().get(1));
 
     // Verify column type
 
-    assertEquals(ColumnType.TABLE, scanProj.outputCols().get(0).columnType());
-    assertEquals(ColumnType.FILE_METADATA, scanProj.outputCols().get(1).columnType());
+    assertEquals(UnresolvedColumn.UNRESOLVED, scanProj.outputCols().get(0).nodeType());
+    assertEquals(UnresolvedFileMetadataColumn.ID, scanProj.outputCols().get(1).nodeType());
+    assertEquals(UnresolvedFileMetadataColumn.ID, scanProj.outputCols().get(2).nodeType());
+    assertEquals(UnresolvedFileMetadataColumn.ID, scanProj.outputCols().get(3).nodeType());
+    assertEquals(UnresolvedFileMetadataColumn.ID, scanProj.outputCols().get(4).nodeType());
 
     FileMetadataProjection metadataProj = projFixture.metadataProj;
     assertNotNull(metadataProj);
@@ -124,9 +118,9 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
   @Test
   public void testPartitionColumnSelection() {
 
-    String dir0 = FileMetadataColumnsParser.partitionColName(0);
+    String dir0 = ScanTestUtils.partitionColName(0);
     String dir1 = "DIR1"; // Sic: case insensitivity
-    String dir2 = FileMetadataColumnsParser.partitionColName(2);
+    String dir2 = ScanTestUtils.partitionColName(2);
     ProjectionFixture projFixture = buildProj(
         dir2, dir1, dir0, "a");
 
@@ -140,17 +134,14 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
 
     // Verify bindings
 
-//    assertSame(scanProj.outputCols().get(1), scanProj.requestedCols().get(1).resolution());
+    assertSame(scanProj.outputCols().get(0).source(), scanProj.requestedCols().get(0));
     assertSame(scanProj.outputCols().get(1).source(), scanProj.requestedCols().get(1));
+    assertSame(scanProj.outputCols().get(2).source(), scanProj.requestedCols().get(2));
+    assertSame(scanProj.outputCols().get(3).source(), scanProj.requestedCols().get(3));
 
     // Verify column type
 
-    assertEquals(ColumnType.PARTITION, scanProj.outputCols().get(0).columnType());
-
-    // Verify data type
-
-    assertEquals(MinorType.VARCHAR, scanProj.outputCols().get(0).type().getMinorType());
-    assertEquals(DataMode.OPTIONAL, scanProj.outputCols().get(0).type().getMode());
+    assertEquals(UnresolvedPartitionColumn.ID, scanProj.outputCols().get(0).nodeType());
 
     FileMetadataProjection metadataProj = projFixture.metadataProj;
     assertNotNull(metadataProj);
@@ -167,7 +158,7 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
   @Test
   public void testErrorWildcardLegacyAndFileMetaata() {
     try {
-      buildProj(FileMetadataColumnsParser.FILE_NAME_COL,
+      buildProj(ScanTestUtils.FILE_NAME_COL,
           SchemaPath.WILDCARD);
       fail();
     } catch (IllegalArgumentException e) {
@@ -183,75 +174,10 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
   public void testErrorWildcardLegacyAndPartition() {
     try {
       buildProj(SchemaPath.WILDCARD,
-          FileMetadataColumnsParser.partitionColName(8));
+          ScanTestUtils.partitionColName(8));
       fail();
     } catch (IllegalArgumentException e) {
       // expected
     }
-  }
-
-  /**
-   * Can't project partition columns if the file path is not rooted in the
-   * base path.
-   */
-
-  @Test
-  public void testErrorInvalidPath() {
-    Path path = new Path("hdfs:///w/x/y/z.csv");
-    try {
-      new FileMetadata(path, "hdfs:///bad");
-      fail();
-    } catch (IllegalArgumentException e) {
-      // Expected
-    }
-  }
-
-  /**
-   * Can't project partition columns if the file is above the
-   * base path.
-   */
-
-  @Test
-  public void testErrorShortPath() {
-    Path path = new Path("hdfs:///w/z.csv");
-    try {
-      new FileMetadata(path, "hdfs:///w/x/y");
-    } catch (IllegalArgumentException e) {
-      // Expected
-    }
-  }
-
-  /**
-   * The `columns` column is special: can't be used with other column names.
-   * Make sure that the rule <i>does not</i> apply to implicit columns.
-   */
-
-  @Test
-  public void testMetadataColumnsWithColumnsArray() {
-    ProjectionFixture projFixture = new ProjectionFixture()
-        .withFileParser(fixture.options())
-        .withColumnsArrayParser();
-    projFixture.scanBuilder.projectedCols(ScanTestUtils.projectList(
-        FileMetadataColumnsParser.FILE_NAME_COL,
-        ColumnsArrayParser.COLUMNS_COL,
-        FileMetadataColumnsParser.SUFFIX_COL));
-    projFixture.build();
-
-    ScanLevelProjection scanProj = projFixture.scanProj;
-
-    assertFalse(scanProj.isProjectAll());
-    assertEquals(ProjectionType.COLUMNS_ARRAY, scanProj.projectType());
-
-    assertEquals(3, scanProj.outputCols().size());
-
-    assertEquals(FileMetadataColumnsParser.FILE_NAME_COL, scanProj.outputCols().get(0).name());
-    assertEquals(ColumnsArrayParser.COLUMNS_COL, scanProj.outputCols().get(1).name());
-    assertEquals(FileMetadataColumnsParser.SUFFIX_COL, scanProj.outputCols().get(2).name());
-
-    // Verify column type
-
-    assertEquals(ColumnType.FILE_METADATA, scanProj.outputCols().get(0).columnType());
-    assertEquals(ColumnType.COLUMNS_ARRAY, scanProj.outputCols().get(1).columnType());
-    assertEquals(ColumnType.FILE_METADATA, scanProj.outputCols().get(2).columnType());
   }
 }

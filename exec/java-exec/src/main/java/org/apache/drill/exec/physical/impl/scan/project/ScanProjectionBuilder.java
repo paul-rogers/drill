@@ -44,9 +44,9 @@ public class ScanProjectionBuilder {
   // Output
 
   protected List<ColumnProjection> outputCols = new ArrayList<>();
-  protected List<String> tableColNames = new ArrayList<>();
+//  protected List<String> tableColNames = new ArrayList<>();
   protected boolean hasWildcard;
-  protected SchemaPath wildcardColumn;
+//  protected SchemaPath wildcardColumn;
 
   public ScanProjectionBuilder() {}
 
@@ -138,7 +138,7 @@ public class ScanProjectionBuilder {
 
     UnresolvedColumn tableCol = new UnresolvedColumn(inCol, UnresolvedColumn.UNRESOLVED);
     outputCols.add(tableCol);
-    tableColNames.add(tableCol.name());
+//    tableColNames.add(tableCol.name());
   }
 
   public void addProjectedColumn(ColumnProjection outCol) {
@@ -146,11 +146,11 @@ public class ScanProjectionBuilder {
   }
 
   private void mapWildcardColumn(SchemaPath inCol) {
-    if (wildcardColumn != null) {
+    if (hasWildcard) {
       throw new IllegalArgumentException("Duplicate * entry in project list");
     }
     hasWildcard = true;
-    wildcardColumn = inCol;
+//    wildcardColumn = inCol;
 
     // Put the wildcard column into the projection list as a placeholder to be filled
     // in later with actual table columns.
@@ -184,7 +184,5 @@ public class ScanProjectionBuilder {
     }
   }
 
-  public boolean hasWildcard() {
-    return wildcardColumn != null;
-  }
+  public boolean hasWildcard() { return hasWildcard; }
 }

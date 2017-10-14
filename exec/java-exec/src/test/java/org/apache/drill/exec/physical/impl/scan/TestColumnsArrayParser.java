@@ -20,14 +20,13 @@ package org.apache.drill.exec.physical.impl.scan;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
-import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayParser;
+import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayColumn;
+import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayProjection;
+import org.apache.drill.exec.physical.impl.scan.file.UnresolvedFileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionType;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;
 import org.apache.drill.test.SubOperatorTest;
 import org.junit.Test;
 
@@ -57,23 +56,41 @@ public class TestColumnsArrayParser extends SubOperatorTest {
 
   @Test
   public void testColumnsArray() {
-    ScanLevelProjection scanProj = buildProj(ColumnsArrayParser.COLUMNS_COL);
-    assertFalse(scanProj.isProjectAll());
-    assertEquals(ProjectionType.COLUMNS_ARRAY, scanProj.projectType());
+    ScanLevelProjection scanProj = buildProj(ColumnsArrayProjection.COLUMNS_COL);
+    assertFalse(scanProj.projectAll());
     assertEquals(1, scanProj.requestedCols().size());
-    assertTrue(scanProj.tableColNames().isEmpty());
 
     assertEquals(1, scanProj.outputCols().size());
-    assertEquals("columns", scanProj.outputCols().get(0).name());
+    assertEquals(ColumnsArrayProjection.COLUMNS_COL, scanProj.outputCols().get(0).name());
 
     // Verify bindings
 
-//    assertSame(scanProj.outputCols().get(0), scanProj.requestedCols().get(0).resolution());
     assertSame(scanProj.outputCols().get(0).source(), scanProj.requestedCols().get(0));
 
     // Verify column type
 
-    assertEquals(ColumnType.COLUMNS_ARRAY, scanProj.outputCols().get(0).columnType());
+    assertEquals(ColumnsArrayColumn.ID, scanProj.outputCols().get(0).nodeType());
+  }
+
+  @Test
+  public void testColumnsArrayCaseInsensitive() {
+
+    // Sic: case variation of standard name
+
+    ScanLevelProjection scanProj = buildProj("Columns");
+    assertFalse(scanProj.projectAll());
+    assertEquals(1, scanProj.requestedCols().size());
+
+    assertEquals(1, scanProj.outputCols().size());
+    assertEquals("Columns", scanProj.outputCols().get(0).name());
+
+    // Verify bindings
+
+    assertSame(scanProj.outputCols().get(0).source(), scanProj.requestedCols().get(0));
+
+    // Verify column type
+
+    assertEquals(ColumnsArrayColumn.ID, scanProj.outputCols().get(0).nodeType());
   }
 
   /**
@@ -86,7 +103,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
   @Test
   public void testErrorColumnsArrayAndColumn() {
     try {
-      buildProj(ColumnsArrayParser.COLUMNS_COL, "a");
+      buildProj(ColumnsArrayProjection.COLUMNS_COL, "a");
       fail();
     } catch (IllegalArgumentException e) {
       // Expected
@@ -100,7 +117,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
   @Test
   public void testErrorColumnAndColumnsArray() {
     try {
-      buildProj("a", ColumnsArrayParser.COLUMNS_COL);
+      buildProj("a", ColumnsArrayProjection.COLUMNS_COL);
       fail();
     } catch (IllegalArgumentException e) {
       // Expected
@@ -114,12 +131,44 @@ public class TestColumnsArrayParser extends SubOperatorTest {
   @Test
   public void testErrorTwoColumnsArray() {
     try {
-      buildProj(ColumnsArrayParser.COLUMNS_COL, ColumnsArrayParser.COLUMNS_COL);
+      buildProj(ColumnsArrayProjection.COLUMNS_COL, ColumnsArrayProjection.COLUMNS_COL);
       fail();
     } catch (IllegalArgumentException e) {
       // Expected
     }
   }
 
+  /**
+   * The `columns` column is special: can't be used with other column names.
+   * Make sure that the rule <i>does not</i> apply to implicit columns.
+   */
+
+  @Test
+  public void testMetadataColumnsWithColumnsArray() {
+    ProjectionFixture projFixture = new ProjectionFixture()
+        .withFileParser(fixture.options())
+        .withColumnsArrayParser();
+    projFixture.scanBuilder.projectedCols(ScanTestUtils.projectList(
+        ScanTestUtils.FILE_NAME_COL,
+        ColumnsArrayProjection.COLUMNS_COL,
+        ScanTestUtils.SUFFIX_COL));
+    projFixture.build();
+
+    ScanLevelProjection scanProj = projFixture.scanProj;
+
+    assertFalse(scanProj.projectAll());
+
+    assertEquals(3, scanProj.outputCols().size());
+
+    assertEquals(ScanTestUtils.FILE_NAME_COL, scanProj.outputCols().get(0).name());
+    assertEquals(ColumnsArrayProjection.COLUMNS_COL, scanProj.outputCols().get(1).name());
+    assertEquals(ScanTestUtils.SUFFIX_COL, scanProj.outputCols().get(2).name());
+
+    // Verify column type
+
+    assertEquals(UnresolvedFileMetadataColumn.ID, scanProj.outputCols().get(0).nodeType());
+    assertEquals(ColumnsArrayColumn.ID, scanProj.outputCols().get(1).nodeType());
+    assertEquals(UnresolvedFileMetadataColumn.ID, scanProj.outputCols().get(2).nodeType());
+  }
   // TODO: Test Columns element projection
 }

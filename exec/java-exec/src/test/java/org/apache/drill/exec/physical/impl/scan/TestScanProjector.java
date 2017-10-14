@@ -32,14 +32,12 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.protocol.SchemaTracker;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadata;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadataColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.FileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.MetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.NullColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.RequestedTableColumn;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadata;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedFileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedPartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.project.NullColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjector;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjector.MetadataColumnLoader;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjector.NullColumnLoader;
@@ -60,10 +58,6 @@ import org.junit.Test;
 
 public class TestScanProjector extends SubOperatorTest {
 
-  public SchemaPath buildSelectCol(String name) {
-    return SchemaPath.getSimplePath(name);
-  }
-
   /**
    * Test the static column loader using one column of each type.
    * The null column is of type int, but the associated value is of
@@ -75,15 +69,18 @@ public class TestScanProjector extends SubOperatorTest {
   @Test
   public void testStaticColumnLoader() {
 
-    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), "hdfs:///w");
-    List<MetadataColumn> defns = new ArrayList<>();
+    FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), new Path("hdfs:///w"));
+    List<ResolvedMetadataColumn> defns = new ArrayList<>();
     FileMetadataColumnDefn iDefn = new FileMetadataColumnDefn(
-        FileMetadataColumnsParser.SUFFIX_COL, ImplicitFileColumns.SUFFIX);
-    FileMetadataColumn iCol = FileMetadataColumn.resolved(
-        buildSelectCol(FileMetadataColumnsParser.SUFFIX_COL), iDefn, fileInfo);
+        ScanTestUtils.SUFFIX_COL, ImplicitFileColumns.SUFFIX);
+    ResolvedFileMetadataColumn iCol = new ResolvedFileMetadataColumn(ScanTestUtils.SUFFIX_COL,
+        SchemaPath.getSimplePath(ScanTestUtils.SUFFIX_COL),
+        iDefn, fileInfo);
     defns.add(iCol);
 
-    PartitionColumn pCol = PartitionColumn.resolved(buildSelectCol(FileMetadataColumnsParser.partitionColName(1)), 1, fileInfo);
+    String partColName = ScanTestUtils.partitionColName(1);
+    ResolvedPartitionColumn pCol = new ResolvedPartitionColumn(partColName,
+        SchemaPath.getSimplePath(partColName), 1, fileInfo);
     defns.add(pCol);
 
     ResultVectorCacheImpl cache = new ResultVectorCacheImpl(fixture.allocator());
@@ -96,8 +93,8 @@ public class TestScanProjector extends SubOperatorTest {
     // Verify
 
     BatchSchema expectedSchema = new SchemaBuilder()
-        .addNullable(FileMetadataColumnsParser.SUFFIX_COL, MinorType.VARCHAR)
-        .addNullable(FileMetadataColumnsParser.partitionColName(0), MinorType.VARCHAR)
+        .addNullable(ScanTestUtils.SUFFIX_COL, MinorType.VARCHAR)
+        .addNullable(partColName, MinorType.VARCHAR)
         .build();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow("csv", "y")
@@ -109,8 +106,13 @@ public class TestScanProjector extends SubOperatorTest {
     staticLoader.close();
   }
 
+  private NullColumn makeNullCol(String name, MajorType nullType) {
+    return new NullColumn(name, nullType,
+        SchemaPath.getSimplePath(name));
+  }
+
   private NullColumn makeNullCol(String name) {
-    return NullColumn.fromResolution(RequestedTableColumn.fromSelect(buildSelectCol(name)));
+    return makeNullCol(name, null);
   }
 
   @SuppressWarnings("resource")
@@ -1102,8 +1104,8 @@ public class TestScanProjector extends SubOperatorTest {
     // SELECT dir0, filename, b ...
 
     ScanProjector projector = buildProjector(
-        FileMetadataColumnsParser.partitionColName(0),
-        FileMetadataColumnsParser.FILE_NAME_COL, "b");
+        ScanTestUtils.partitionColName(0),
+        ScanTestUtils.FILE_NAME_COL, "b");
 
     // file schema (a, b)
 

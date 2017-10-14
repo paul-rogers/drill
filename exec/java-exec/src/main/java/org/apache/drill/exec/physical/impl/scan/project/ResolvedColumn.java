@@ -41,4 +41,6 @@ public abstract class ResolvedColumn implements ColumnProjection {
   public MajorType type() { return schema.getType(); }
 
   public MaterializedField schema() { return schema; }
+
+  public abstract ColumnProjection unresolve();
 }

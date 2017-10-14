@@ -26,10 +26,11 @@ import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
-import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayParser;
+import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayProjection;
 import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedFileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedPartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ProjectedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
@@ -48,9 +49,9 @@ public class TestTableLevelProjection extends SubOperatorTest {
     ProjectionFixture projFixture = new ProjectionFixture()
         .withFileParser(fixture.options())
         .projectedCols(
-            FileMetadataColumnsParser.FILE_NAME_COL,
+            ScanTestUtils.FILE_NAME_COL,
             SchemaPath.WILDCARD,
-            FileMetadataColumnsParser.partitionColName(0));
+            ScanTestUtils.partitionColName(0));
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
     projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
@@ -76,13 +77,13 @@ public class TestTableLevelProjection extends SubOperatorTest {
         .addNullable("dir0", MinorType.VARCHAR)
         .buildSchema();
 
-    assertTrue(tableProj.outputSchema().isEquivalent(expectedSchema));
+    assertTrue(ScanTestUtils.schema(tableProj.output()).isEquivalent(expectedSchema));
 
-    assertEquals(ColumnType.FILE_METADATA, tableProj.output().get(0).columnType());
-    assertEquals(ColumnType.PROJECTED, tableProj.output().get(1).columnType());
-    assertEquals(ColumnType.PROJECTED, tableProj.output().get(2).columnType());
-    assertEquals(ColumnType.PROJECTED, tableProj.output().get(3).columnType());
-    assertEquals(ColumnType.PARTITION, tableProj.output().get(4).columnType());
+    assertEquals(ResolvedFileMetadataColumn.ID, tableProj.output().get(0).nodeType());
+    assertEquals(ProjectedColumn.ID, tableProj.output().get(1).nodeType());
+    assertEquals(ProjectedColumn.ID, tableProj.output().get(2).nodeType());
+    assertEquals(ProjectedColumn.ID, tableProj.output().get(3).nodeType());
+    assertEquals(ResolvedPartitionColumn.ID, tableProj.output().get(4).nodeType());
 
     boolean selMap[] = tableProj.projectionMap();
     assertEquals(3, selMap.length);
@@ -130,7 +131,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
     TupleMetadata expectedSchema = projFixture.expandMetadata(tableSchema, 2);
 
-    assertTrue(tableProj.outputSchema().isEquivalent(expectedSchema));
+    assertTrue(ScanTestUtils.schema(tableProj.output()).isEquivalent(expectedSchema));
 
     boolean selMap[] = tableProj.projectionMap();
     assertEquals(3, selMap.length);
@@ -166,9 +167,9 @@ public class TestTableLevelProjection extends SubOperatorTest {
         .withFileParser(fixture.options())
         .withColumnsArrayParser()
         .projectedCols(
-            FileMetadataColumnsParser.FILE_NAME_COL,
-            ColumnsArrayParser.COLUMNS_COL,
-            FileMetadataColumnsParser.partitionColName(0));
+            ScanTestUtils.FILE_NAME_COL,
+            ColumnsArrayProjection.COLUMNS_COL,
+            ScanTestUtils.partitionColName(0));
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
     projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
@@ -190,14 +191,14 @@ public class TestTableLevelProjection extends SubOperatorTest {
         .addNullable("dir0", MinorType.VARCHAR)
         .buildSchema();
 
-    assertTrue(tableProj.outputSchema().isEquivalent(expectedSchema));
+    assertTrue(ScanTestUtils.schema(tableProj.output()).isEquivalent(expectedSchema));
 
-    assertEquals(ColumnType.FILE_METADATA, tableProj.output().get(0).columnType());
+    assertEquals(ResolvedFileMetadataColumn.ID, tableProj.output().get(0).nodeType());
 
     // The columns array is now an actual table column.
 
-    assertEquals(ColumnType.PROJECTED, tableProj.output().get(1).columnType());
-    assertEquals(ColumnType.PARTITION, tableProj.output().get(2).columnType());
+    assertEquals(ProjectedColumn.ID, tableProj.output().get(1).nodeType());
+    assertEquals(ResolvedPartitionColumn.ID, tableProj.output().get(2).nodeType());
 
     boolean selMap[] = tableProj.projectionMap();
     assertTrue(selMap[0]);
@@ -220,9 +221,9 @@ public class TestTableLevelProjection extends SubOperatorTest {
         .withFileParser(fixture.options())
         .withColumnsArrayParser()
         .projectedCols(
-            FileMetadataColumnsParser.FILE_NAME_COL,
-            ColumnsArrayParser.COLUMNS_COL,
-            FileMetadataColumnsParser.partitionColName(0));
+            ScanTestUtils.FILE_NAME_COL,
+            ColumnsArrayProjection.COLUMNS_COL,
+            ScanTestUtils.partitionColName(0));
     projFixture.metdataParser.useLegacyWildcardExpansion(false);
     projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
@@ -277,10 +278,10 @@ public class TestTableLevelProjection extends SubOperatorTest {
         .add("a", MinorType.VARCHAR)
         .buildSchema();
 
-    assertTrue(tableProj.outputSchema().isEquivalent(expectedSchema));
-    assertEquals(ColumnType.PROJECTED, tableProj.output().get(0).columnType());
-    assertEquals(ColumnType.PROJECTED, tableProj.output().get(1).columnType());
-    assertEquals(ColumnType.PROJECTED, tableProj.output().get(2).columnType());
+    assertTrue(ScanTestUtils.schema(tableProj.output()).isEquivalent(expectedSchema));
+    assertEquals(ProjectedColumn.ID, tableProj.output().get(0).nodeType());
+    assertEquals(ProjectedColumn.ID, tableProj.output().get(1).nodeType());
+    assertEquals(ProjectedColumn.ID, tableProj.output().get(2).nodeType());
 
     boolean selMap[] = tableProj.projectionMap();
     assertEquals(3, selMap.length);
@@ -335,7 +336,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
         .addNullable("w", MinorType.NULL)
         .buildSchema();
 
-    assertTrue(tableProj.outputSchema().isEquivalent(expectedSchema));
+    assertTrue(ScanTestUtils.schema(tableProj.output()).isEquivalent(expectedSchema));
 
     boolean selMap[] = tableProj.projectionMap();
     assertEquals(3, selMap.length);
@@ -392,7 +393,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
         .add("a", MinorType.VARCHAR)
         .buildSchema();
 
-    assertTrue(tableProj.outputSchema().isEquivalent(expectedSchema));
+    assertTrue(ScanTestUtils.schema(tableProj.output()).isEquivalent(expectedSchema));
 
     boolean selMap[] = tableProj.projectionMap();
     assertEquals(3, selMap.length);

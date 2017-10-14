@@ -25,10 +25,14 @@ import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedFileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection.TypedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.NullColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ProjectedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ProjectionLifecycle;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.MetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
@@ -47,7 +51,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
   public void testDiscrete() {
     ProjectionFixture projFixture = new ProjectionFixture()
         .withFileParser(fixture.options())
-        .projectedCols("filename", "a", "b");
+        .projectedCols(ScanTestUtils.FILE_NAME_COL, "a", "b");
     projFixture.metdataParser.useLegacyWildcardExpansion(true);
     projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
@@ -60,10 +64,10 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
       // Verify
 
-      List<ScanOutputColumn> fileSchema = lifecycle.fileProjection().outputCols();
-      assertEquals("filename", fileSchema.get(0).name());
-      assertEquals("a.csv", ((MetadataColumn) fileSchema.get(0)).value());
-      assertEquals(ColumnType.TABLE, fileSchema.get(1).columnType());
+      List<ColumnProjection> fileSchema = lifecycle.fileProjection().outputCols();
+      assertEquals(ScanTestUtils.FILE_NAME_COL, fileSchema.get(0).name());
+      assertEquals("a.csv", ((ResolvedFileMetadataColumn) fileSchema.get(0)).value());
+      assertEquals(UnresolvedColumn.UNRESOLVED, fileSchema.get(1).nodeType());
 
       // Build the output schema from the (a, b) table schema
 
@@ -81,14 +85,14 @@ public class TestProjectionLifecycle extends SubOperatorTest {
           .add("a", MinorType.INT)
           .addNullable("b", MinorType.VARCHAR, 10)
           .buildSchema();
-      assertTrue(lifecycle.outputSchema().isEquivalent(expectedSchema));
 
       // Verify
 
-      List<ScanOutputColumn> tableSchema = lifecycle.tableProjection().output();
-      assertEquals("filename", tableSchema.get(0).name());
-      assertEquals("a.csv", ((MetadataColumn) tableSchema.get(0)).value());
-      assertEquals(ColumnType.PROJECTED, tableSchema.get(1).columnType());
+      List<ResolvedColumn> tableSchema = lifecycle.tableProjection().output();
+      assertTrue(ScanTestUtils.schema(tableSchema).isEquivalent(expectedSchema));
+      assertEquals(ScanTestUtils.FILE_NAME_COL, tableSchema.get(0).name());
+      assertEquals("a.csv", ((ResolvedFileMetadataColumn) tableSchema.get(0)).value());
+      assertEquals(TypedColumn.PROJECTED, tableSchema.get(1).nodeType());
     }
     {
       // Define a file b.csv
@@ -98,12 +102,12 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       // Verify
 
       assertNull(lifecycle.tableProjection());
-      List<ScanOutputColumn> fileSchema = lifecycle.fileProjection().outputCols();
+      List<ColumnProjection> fileSchema = lifecycle.fileProjection().outputCols();
       assertEquals(3, fileSchema.size());
-      assertEquals("filename", fileSchema.get(0).name());
-      assertEquals("b.csv", ((MetadataColumn) fileSchema.get(0)).value());
-      assertEquals(ColumnType.TABLE, fileSchema.get(1).columnType());
-      assertEquals(ColumnType.TABLE, fileSchema.get(2).columnType());
+      assertEquals(ScanTestUtils.FILE_NAME_COL, fileSchema.get(0).name());
+      assertEquals("b.csv", ((ResolvedFileMetadataColumn) fileSchema.get(0)).value());
+      assertEquals(ColumnProjection.UNRESOLVED, fileSchema.get(1).nodeType());
+      assertEquals(ColumnProjection.UNRESOLVED, fileSchema.get(2).nodeType());
 
       // Build the output schema from the (a) table schema
 
@@ -116,23 +120,23 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       // Verify the full output schema
       // Since this mode is "discrete", we don't remember the type
       // of the missing column. (Instead, it is filled in at the
-      // vector level as part of vector persistance.)
+      // vector level as part of vector persistence.)
 
       TupleMetadata expectedSchema = new SchemaBuilder()
           .add("filename", MinorType.VARCHAR)
           .add("a", MinorType.INT)
           .addNullable("b", MinorType.NULL)
           .buildSchema();
-      assertTrue(lifecycle.outputSchema().isEquivalent(expectedSchema));
 
       // Verify
 
-      List<ScanOutputColumn> tableSchema = lifecycle.tableProjection().output();
+      List<ResolvedColumn> tableSchema = lifecycle.tableProjection().output();
+      assertTrue(ScanTestUtils.schema(tableSchema).isEquivalent(expectedSchema));
       assertEquals(3, tableSchema.size());
-      assertEquals("filename", tableSchema.get(0).name());
-      assertEquals("b.csv", ((MetadataColumn) tableSchema.get(0)).value());
-      assertEquals(ColumnType.PROJECTED, tableSchema.get(1).columnType());
-      assertEquals(ColumnType.NULL, tableSchema.get(2).columnType());
+      assertEquals(ScanTestUtils.FILE_NAME_COL, tableSchema.get(0).name());
+      assertEquals("b.csv", ((ResolvedFileMetadataColumn) tableSchema.get(0)).value());
+      assertEquals(TypedColumn.PROJECTED, tableSchema.get(1).nodeType());
+      assertEquals(TypedColumn.NULL, tableSchema.get(2).nodeType());
     }
   }
 
@@ -164,13 +168,13 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
       lifecycle.startSchema(priorSchema);
       assertEquals(1, lifecycle.schemaVersion());
-      assertTrue(lifecycle.outputSchema().isEquivalent(priorSchema));
+      assertTrue(ScanTestUtils.schema(lifecycle.tableProjection().output()).isEquivalent(priorSchema));
     }
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(2, lifecycle.schemaVersion());
-      assertTrue(lifecycle.outputSchema().isEquivalent(tableSchema));
+      assertTrue(ScanTestUtils.schema(lifecycle.tableProjection().output()).isEquivalent(tableSchema));
     }
   }
 
@@ -204,7 +208,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(2, lifecycle.schemaVersion());
-      assertTrue(lifecycle.outputSchema().isEquivalent(tableSchema));
+      assertTrue(ScanTestUtils.schema(lifecycle.tableProjection().output()).isEquivalent(tableSchema));
     }
   }
 
@@ -239,7 +243,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(2, lifecycle.schemaVersion());
-      assertTrue(lifecycle.outputSchema().isEquivalent(tableSchema));
+      assertTrue(ScanTestUtils.schema(lifecycle.tableProjection().output()).isEquivalent(tableSchema));
     }
   }
 
@@ -276,8 +280,8 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(1, lifecycle.schemaVersion());
-      assertTrue(lifecycle.outputSchema().isEquivalent(tableSchema));
-      assertTrue(lifecycle.outputSchema().isEquivalent(priorSchema));
+      assertTrue(ScanTestUtils.schema(lifecycle.tableProjection().output()).isEquivalent(tableSchema));
+      assertTrue(ScanTestUtils.schema(lifecycle.tableProjection().output()).isEquivalent(priorSchema));
     }
   }
 
@@ -313,7 +317,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(1, lifecycle.schemaVersion());
-      assertTrue(lifecycle.outputSchema().isEquivalent(priorSchema));
+      assertTrue(ScanTestUtils.schema(lifecycle.tableProjection().output()).isEquivalent(priorSchema));
     }
   }
 
@@ -348,7 +352,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(2, lifecycle.schemaVersion());
-      assertTrue(lifecycle.outputSchema().isEquivalent(tableSchema));
+      assertTrue(ScanTestUtils.schema(lifecycle.tableProjection().output()).isEquivalent(tableSchema));
     }
   }
 
@@ -384,7 +388,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(1, lifecycle.schemaVersion());
-      assertTrue(lifecycle.outputSchema().isEquivalent(priorSchema));
+      assertTrue(ScanTestUtils.schema(lifecycle.tableProjection().output()).isEquivalent(priorSchema));
     }
   }
 
@@ -421,7 +425,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(1, lifecycle.schemaVersion());
-      assertTrue(lifecycle.outputSchema().isEquivalent(priorSchema));
+      assertTrue(ScanTestUtils.schema(lifecycle.tableProjection().output()).isEquivalent(priorSchema));
     }
   }
 
@@ -449,13 +453,13 @@ public class TestProjectionLifecycle extends SubOperatorTest {
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
       lifecycle.startSchema(tableSchema);
-      assertTrue(lifecycle.outputSchema().isEquivalent(expectedSchema));
+      assertTrue(ScanTestUtils.schema(lifecycle.tableProjection().output()).isEquivalent(expectedSchema));
     }
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(1, lifecycle.schemaVersion());
-      assertTrue(lifecycle.outputSchema().isEquivalent(expectedSchema));
+      assertTrue(ScanTestUtils.schema(lifecycle.tableProjection().output()).isEquivalent(expectedSchema));
      }
   }
 
@@ -484,13 +488,13 @@ public class TestProjectionLifecycle extends SubOperatorTest {
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/a.csv"));
       lifecycle.startSchema(tableSchema);
-      assertTrue(lifecycle.outputSchema().isEquivalent(expectedSchema));
+      assertTrue(ScanTestUtils.schema(lifecycle.tableProjection().output()).isEquivalent(expectedSchema));
     }
     {
       lifecycle.startFile(new Path("hdfs:///w/x/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(1, lifecycle.schemaVersion());
-      assertTrue(lifecycle.outputSchema().isEquivalent(expectedSchema));
+      assertTrue(ScanTestUtils.schema(lifecycle.tableProjection().output()).isEquivalent(expectedSchema));
      }
   }
 
@@ -518,14 +522,14 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       lifecycle.startFile(new Path("hdfs:///w/x/a.csv"));
       lifecycle.startSchema(tableSchema);
       TupleMetadata expectedSchema = projFixture.expandMetadata(tableSchema, 1);
-      assertTrue(lifecycle.outputSchema().isEquivalent(expectedSchema));
+      assertTrue(ScanTestUtils.schema(lifecycle.tableProjection().output()).isEquivalent(expectedSchema));
     }
     {
       lifecycle.startFile(new Path("hdfs:///w/x/y/b.csv"));
       lifecycle.startSchema(tableSchema);
       assertEquals(2, lifecycle.schemaVersion());
       TupleMetadata expectedSchema = projFixture.expandMetadata(tableSchema, 2);
-      assertTrue(lifecycle.outputSchema().isEquivalent(expectedSchema));
+      assertTrue(ScanTestUtils.schema(lifecycle.tableProjection().output()).isEquivalent(expectedSchema));
      }
   }
 }

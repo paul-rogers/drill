@@ -25,9 +25,8 @@ import static org.junit.Assert.fail;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionType;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnType;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
 import org.apache.drill.test.SubOperatorTest;
 import org.junit.Test;
 
@@ -55,8 +54,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
     // Build the projection plan and verify
 
     ScanLevelProjection scanProj = builder.build();
-    assertFalse(scanProj.isProjectAll());
-    assertEquals(ProjectionType.LIST, scanProj.projectType());
+    assertFalse(scanProj.projectAll());
 
     assertEquals(3, scanProj.requestedCols().size());
     assertEquals("a", scanProj.requestedCols().get(0).rootName());
@@ -76,14 +74,14 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     // Verify column type
 
-    assertEquals(ColumnType.TABLE, scanProj.outputCols().get(0).columnType());
+    assertEquals(UnresolvedColumn.UNRESOLVED, scanProj.outputCols().get(0).nodeType());
 
     // Table column selection
 
-    assertEquals(3, scanProj.tableColNames().size());
-    assertEquals("a", scanProj.tableColNames().get(0));
-    assertEquals("b", scanProj.tableColNames().get(1));
-    assertEquals("c", scanProj.tableColNames().get(2));
+    assertEquals(3, scanProj.outputCols().size());
+    assertEquals("a", scanProj.outputCols().get(0).name());
+    assertEquals("b", scanProj.outputCols().get(1).name());
+    assertEquals("c", scanProj.outputCols().get(2).name());
   }
 
   /**
@@ -100,9 +98,8 @@ public class TestScanLevelProjection extends SubOperatorTest {
     builder.projectAll();
 
     ScanLevelProjection scanProj = builder.build();
-    assertTrue(scanProj.isProjectAll());
-    assertEquals(ProjectionType.WILDCARD, scanProj.projectType());
-    assertTrue(scanProj.tableColNames().isEmpty());
+    assertTrue(scanProj.projectAll());
+//    assertTrue(scanProj.tableColNames().isEmpty());
 
     assertEquals(1, scanProj.requestedCols().size());
     assertTrue(scanProj.requestedCols().get(0).isWildcard());
@@ -116,7 +113,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     // Verify column type
 
-    assertEquals(ColumnType.WILDCARD, scanProj.outputCols().get(0).columnType());
+    assertEquals(UnresolvedColumn.WILDCARD, scanProj.outputCols().get(0).nodeType());
   }
 
   /**
@@ -132,8 +129,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
     builder.projectedCols(ScanTestUtils.projectList(SchemaPath.WILDCARD));
 
     ScanLevelProjection scanProj = builder.build();
-    assertTrue(scanProj.isProjectAll());
-    assertEquals(ProjectionType.WILDCARD, scanProj.projectType());
+    assertTrue(scanProj.projectAll());
     assertEquals(1, scanProj.requestedCols().size());
     assertTrue(scanProj.requestedCols().get(0).isWildcard());
 
@@ -146,7 +142,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     // Verify column type
 
-    assertEquals(ColumnType.WILDCARD, scanProj.outputCols().get(0).columnType());
+    assertEquals(UnresolvedColumn.WILDCARD, scanProj.outputCols().get(0).nodeType());
   }
 
   /**

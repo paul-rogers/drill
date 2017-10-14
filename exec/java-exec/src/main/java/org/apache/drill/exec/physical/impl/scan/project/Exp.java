@@ -35,41 +35,42 @@ public class Exp {
   }
 
   public interface UnresolvedProjection {
-    boolean isProjectAll();
+    boolean projectAll();
     List<ColumnProjection> outputCols();
+    MajorType nullType();
   }
 
   public interface ResolvedProjection {
     List<ResolvedColumn> outputCols();
   }
-
-  public static class ResolvedColumn {
-
-    /**
-     * Column name. Output columns describe top-level columns in
-     * the project list; so the name here is the root name. If the
-     * column represents a map, then the name is the name of the map
-     * itself.
-     */
-
-    protected final String name;
-
-    /**
-     * Column data type.
-     */
-
-    private final MajorType type;
-
-//    protected Object extension;
-
-     public ResolvedColumn(String name, MajorType type) {
-      this.name = name;
-      this.type = type;
-    }
-
-     public String name() { return name; }
-     public MajorType type() { return type; }
-  }
+//
+//  public static class ResolvedColumn {
+//
+//    /**
+//     * Column name. Output columns describe top-level columns in
+//     * the project list; so the name here is the root name. If the
+//     * column represents a map, then the name is the name of the map
+//     * itself.
+//     */
+//
+//    protected final String name;
+//
+//    /**
+//     * Column data type.
+//     */
+//
+//    private final MajorType type;
+//
+////    protected Object extension;
+//
+//     public ResolvedColumn(String name, MajorType type) {
+//      this.name = name;
+//      this.type = type;
+//    }
+//
+//     public String name() { return name; }
+//     public MajorType type() { return type; }
+//  }
 
 //  public interface SchemaManager extends ScanSchema {
 //    void bind(VectorContainer container);

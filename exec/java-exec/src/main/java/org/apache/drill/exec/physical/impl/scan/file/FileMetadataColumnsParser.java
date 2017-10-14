@@ -23,13 +23,11 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.commons.lang3.ArrayUtils;
 import org.apache.directory.api.util.Strings;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
@@ -39,155 +37,17 @@ import org.apache.hadoop.fs.Path;
 
 public class FileMetadataColumnsParser implements ScanProjectionParser {
 
-  // Default file metadata column names; primarily for testing.
-
-  public static final String FILE_NAME_COL = "filename";
-  public static final String FULLY_QUALIFIED_NAME_COL = "fqn";
-  public static final String FILE_PATH_COL = "filepath";
-  public static final String SUFFIX_COL = "suffix";
-  public static final String PARTITION_COL = "dir";
-
-  /**
-   * Definition of a file metadata (AKA "implicit") column for this query.
-   * Provides the static definition, along
-   * with the name set for the implicit column in the session options for the query.
-   */
-
-  public static class FileMetadataColumnDefn {
-    public final ImplicitFileColumns defn;
-    public final String colName;
-
-    public FileMetadataColumnDefn(String colName, ImplicitFileColumns defn) {
-      this.colName = colName;
-      this.defn = defn;
-    }
-
-    @Override
-    public String toString() {
-      StringBuilder buf = new StringBuilder()
-        .append("[FileInfoColumnDefn name=\"")
-        .append(colName)
-        .append("\", defn=")
-        .append(defn)
-        .append("]");
-      return buf.toString();
-    }
-
-    public String colName() { return colName; }
-  }
-
-  /**
-   * Specify the file name and optional selection root. If the selection root
-   * is provided, then partitions are defined as the portion of the file name
-   * that is not also part of the selection root. That is, if selection root is
-   * /a/b and the file path is /a/b/c/d.csv, then dir0 is c.
-   */
-
-  public static class FileMetadata {
-
-    private final Path filePath;
-    private final String[] dirPath;
-
-    public FileMetadata(Path filePath, String selectionRoot) {
-      this.filePath = filePath;
-
-      // If the data source is not a file, no file metadata is available.
-
-      if (selectionRoot == null || filePath == null) {
-        dirPath = null;
-        return;
-      }
-
-      // Result of splitting /x/y is ["", "x", "y"], so ignore first.
-
-      String[] r = Path.getPathWithoutSchemeAndAuthority(new Path(selectionRoot)).toString().split("/");
-
-      // Result of splitting "/x/y/z.csv" is ["", "x", "y", "z.csv"], so ignore first and last
-
-      String[] p = Path.getPathWithoutSchemeAndAuthority(filePath).toString().split("/");
-
-      if (p.length - 1 < r.length) {
-        throw new IllegalArgumentException("Selection root of \"" + selectionRoot +
-                                        "\" is shorter than file path of \"" + filePath.toString() + "\"");
-      }
-      for (int i = 1; i < r.length; i++) {
-        if (! r[i].equals(p[i])) {
-          throw new IllegalArgumentException("Selection root of \"" + selectionRoot +
-              "\" is not a leading path of \"" + filePath.toString() + "\"");
-        }
-      }
-      dirPath = ArrayUtils.subarray(p, r.length, p.length - 1);
-    }
-
-    public FileMetadata(Path fileName, Path rootDir) {
-      this(fileName, rootDir == null ? null : rootDir.toString());
-    }
-
-    public Path filePath() { return filePath; }
-
-    public String partition(int index) {
-      if (dirPath == null ||  dirPath.length <= index) {
-        return null;
-      }
-      return dirPath[index];
-    }
-
-    public int dirPathLength() {
-      return dirPath == null ? 0 : dirPath.length;
-    }
-
-    public boolean isSet() { return filePath != null; }
-  }
-
-  public static class FileMetadataProjection {
-    private final String partitionDesignator;
-    private final boolean hasMetadata;
-    private final boolean useLegacyWildcardExpansion;
-    private final Path scanRootDir;
-    private final List<FileMetadataColumnsParser.FileMetadataColumnDefn> fileMetadataColDefns;
-
-    public FileMetadataProjection(FileMetadataColumnsParser builder) {
-      partitionDesignator = builder.partitionDesignator;
-      fileMetadataColDefns = builder.implicitColDefns;
-      hasMetadata = builder.hasMetadata;
-      useLegacyWildcardExpansion = builder.useLegacyWildcardExpansion;
-      scanRootDir = builder.scanRootDir;
-    }
-
-    public boolean hasMetadata() { return hasMetadata; }
-
-    public boolean useLegacyWildcardPartition() { return useLegacyWildcardExpansion; }
-
-    public List<FileMetadataColumnsParser.FileMetadataColumnDefn> fileMetadataColDefns() { return fileMetadataColDefns; }
-
-    public String partitionName(int partition) {
-      return partitionDesignator + partition;
-    }
-
-    public FileMetadataColumnsParser.FileMetadata fileMetadata(Path filePath) {
-      return new FileMetadata(filePath, scanRootDir);
-    }
-
-    public FileLevelProjection resolve(ScanLevelProjection scanProj, Path filePath) {
-      return resolve(scanProj, fileMetadata(filePath));
-    }
-
-    public FileLevelProjection resolve(ScanLevelProjection scanProj, FileMetadataColumnsParser.FileMetadata fileInfo) {
-      return FileLevelProjection.fromResolution(scanProj, this, fileInfo);
-    }
-  }
-
   // Input
 
-  private Path scanRootDir;
+  Path scanRootDir;
 
   // Config
 
-  private final String partitionDesignator;
+  final String partitionDesignator;
   private final Pattern partitionPattern;
-  private List<FileMetadataColumnsParser.FileMetadataColumnDefn> implicitColDefns = new ArrayList<>();;
-  private Map<String, FileMetadataColumnsParser.FileMetadataColumnDefn> fileMetadataColIndex = CaseInsensitiveMap.newHashMap();
-  private boolean useLegacyWildcardExpansion = true;
+  List<FileMetadataColumnDefn> implicitColDefns = new ArrayList<>();;
+  private Map<String, FileMetadataColumnDefn> fileMetadataColIndex = CaseInsensitiveMap.newHashMap();
+  boolean useLegacyWildcardExpansion = true;
 
   // Internal
 
@@ -195,8 +55,8 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
 
   // Output
 
-  private boolean hasMetadata;
-  private FileMetadataColumnsParser.FileMetadataProjection projection;
+  boolean hasMetadata;
+  private FileMetadataProjection projection;
 
   public FileMetadataColumnsParser(OptionSet optionManager) {
     partitionDesignator = optionManager.getString(ExecConstants.FILESYSTEM_PARTITION_COLUMN_LABEL);
@@ -204,15 +64,11 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
     for (ImplicitFileColumns e : ImplicitFileColumns.values()) {
       String colName = optionManager.getString(e.optionName());
       if (! Strings.isEmpty(colName)) {
-        FileMetadataColumnsParser.FileMetadataColumnDefn defn = new FileMetadataColumnDefn(colName, e);
+        FileMetadataColumnDefn defn = new FileMetadataColumnDefn(colName, e);
         implicitColDefns.add(defn);
         fileMetadataColIndex.put(defn.colName, defn);
       }
     }
-  }
-
-  public static String partitionColName(int partition) {
-    return PARTITION_COL + partition;
   }
 
   /**
@@ -248,13 +104,13 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
       // Partition column
 
       UnresolvedColumn outCol = new UnresolvedPartitionColumn(inCol,
-          Integer.parseInt(m.group(1)));
+          Integer.parseInt(m.group(1)), null);
       builder.addProjectedColumn(outCol);
       hasMetadata = true;
       return true;
     }
 
-    FileMetadataColumnsParser.FileMetadataColumnDefn iCol = fileMetadataColIndex.get(inCol.rootName());
+    FileMetadataColumnDefn iCol = fileMetadataColIndex.get(inCol.rootName());
     if (iCol != null) {
 
       // File metadata (implicit) column
@@ -301,7 +157,7 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
     projection = new FileMetadataProjection(this);
   }
 
-  public FileMetadataColumnsParser.FileMetadataProjection getProjection() {
+  public FileMetadataProjection getProjection() {
     return projection;
   }
 }

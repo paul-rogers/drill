@@ -562,7 +562,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
         .addNullable("b", MinorType.VARCHAR, 10)
         .add(FileMetadataColumnsParser.FULLY_QUALIFIED_NAME_COL, MinorType.VARCHAR)
         .add(FileMetadataColumnsParser.FILE_PATH_COL, MinorType.VARCHAR)
-        .add(FileMetadataColumnsParser.FILE_NAME_COL, MinorType.VARCHAR)
+        .add(ScanTestUtils.FILE_NAME_COL, MinorType.VARCHAR)
         .add(FileMetadataColumnsParser.SUFFIX_COL, MinorType.VARCHAR)
         .addNullable(FileMetadataColumnsParser.partitionColName(0), MinorType.VARCHAR)
         .addNullable(FileMetadataColumnsParser.partitionColName(1), MinorType.VARCHAR)

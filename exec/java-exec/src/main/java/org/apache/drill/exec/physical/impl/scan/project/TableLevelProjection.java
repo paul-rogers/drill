@@ -26,20 +26,16 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayColumn;
+import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayProjection;
 import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionType;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ColumnsArrayColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.FileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.MetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.NullColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.ProjectedColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.RequestedTableColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanOutputColumn.WildcardColumn;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedFileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedPartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection.TypedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.Exp.UnresolvedProjection;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
-
-import com.google.common.annotations.VisibleForTesting;
 
 /**
  * Computes the full output schema given a table (or batch)
@@ -82,10 +78,10 @@ public class TableLevelProjection {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TableLevelProjection.class);
 
-  private static class BaseTableColumnVisitor extends ScanOutputColumn.Visitor {
+  private static class BaseTableColumnVisitor {
 
     protected TupleMetadata tableSchema;
-    protected List<ScanOutputColumn> outputCols = new ArrayList<>();
+    protected List<TypedColumn> outputCols = new ArrayList<>();
     protected boolean columnIsProjected[];
     protected int logicalToPhysicalMap[];
     protected int projectionMap[];
@@ -97,29 +93,34 @@ public class TableLevelProjection {
       this.tableSchema = tableSchema;
     }
 
-    @Override
-    public void visit(List<ScanOutputColumn> cols) {
+    public void visit(List<ColumnProjection> cols) {
       metadataProjection = new int[cols.size()];
-      super.visit(cols);
+      for (ColumnProjection col : cols) {
+        visitProjection(col);
+      }
     }
 
-    @Override
-    protected void visitPartitionColumn(int index, PartitionColumn col) {
-      addMetadataColumn(col);
+    protected void visitProjection(ColumnProjection col) {
+      switch (col.nodeType()) {
+      case ResolvedFileMetadataColumn.ID:
+      case ResolvedPartitionColumn.ID:
+        addMetadataColumn((ResolvedMetadataColumn) col);
+        break;
+      case ProjectedColumn.ID:
+        addTableColumn((ProjectedColumn) col);
+        break;
+      default:
+        visitColumn(col);
+      }
     }
 
-    @Override
-    protected void visitFileInfoColumn(int index, FileMetadataColumn col) {
-      addMetadataColumn(col);
+    protected void visitColumn(ColumnProjection col) {
+      assert col.resolved();
+      outputCols.add((ResolvedColumn) col);
     }
 
-    private void addMetadataColumn(MetadataColumn col) {
+    private void addMetadataColumn(ResolvedMetadataColumn col) {
       metadataProjection[metadataColumnCount++] = outputCols.size();
-      outputCols.add(col);
-    }
-
-    @Override
-    protected void visitColumn(int index, ScanOutputColumn col) {
       outputCols.add(col);
     }
 
@@ -157,10 +158,17 @@ public class TableLevelProjection {
     }
 
     @Override
-    protected void visitWildcard(int index, WildcardColumn col) {
+    protected void visitColumn(ColumnProjection col) {
+      if (col.nodeType() == UnresolvedColumn.WILDCARD) {
+        visitWildcard((UnresolvedColumn) col);
+      } else {
+        super.visitColumn(col);
+      }
+    }
+
+    protected void visitWildcard(UnresolvedColumn col) {
       for (int i = 0; i < tableSchema.size(); i++) {
-        addTableColumn(ProjectedColumn.fromWildcard(col,
-            i, tableSchema.column(i)));
+        addTableColumn(new ProjectedColumn(tableSchema.column(i), i));
       }
     }
   }
@@ -174,11 +182,13 @@ public class TableLevelProjection {
 
   public static class TableSchemaProjection extends BaseTableColumnVisitor {
 
+    private final MajorType nullType;
     protected List<NullColumn> nullCols = new ArrayList<>();
     protected int nullProjectionMap[];
 
-    public TableSchemaProjection(TupleMetadata tableSchema) {
+    public TableSchemaProjection(TupleMetadata tableSchema, MajorType nullType) {
       super(tableSchema);
+      this.nullType = nullType;
       columnIsProjected = new boolean[tableSchema.size()];
       logicalToPhysicalMap = new int[tableSchema.size()];
       Arrays.fill(logicalToPhysicalMap, -1);
@@ -187,7 +197,7 @@ public class TableLevelProjection {
     }
 
     @Override
-    public void visit(List<ScanOutputColumn> input) {
+    public void visit(List<ColumnProjection> input) {
       nullProjectionMap = new int[input.size()];
       super.visit(input);
 
@@ -201,18 +211,37 @@ public class TableLevelProjection {
     }
 
     @Override
-    protected void visitTableColumn(int index, RequestedTableColumn col) {
+    protected void visitColumn(ColumnProjection col) {
+      switch (col.nodeType()) {
+      case ColumnProjection.UNRESOLVED:
+      case ColumnProjection.CONTINUED:
+        visitTableColumn(col);
+        break;
+      default:
+        super.visitColumn(col);
+      }
+    }
+
+    protected void visitTableColumn(ColumnProjection col) {
       int tableColIndex = tableSchema.index(col.name());
       if (tableColIndex == -1) {
-        NullColumn nullCol = NullColumn.fromResolution(col);
-        nullProjectionMap[nullCols.size()] = outputCols.size();
-        outputCols.add(nullCol);
-        nullCols.add(nullCol);
-      } else {
-        addTableColumn(
-            ProjectedColumn.fromResolution(col, tableColIndex,
-                tableSchema.column(tableColIndex)));
+        visitNullColumn(col);
+       } else {
+        addTableColumn(new ProjectedColumn(tableSchema.column(tableColIndex), tableColIndex));
       }
+    }
+
+    private void visitNullColumn(ColumnProjection col) {
+      MajorType colType;
+      if (col.nodeType() == ColumnProjection.CONTINUED) {
+        colType = ((TypedColumn) col).type();
+      } else {
+        colType = nullType;
+      }
+      NullColumn nullCol = new NullColumn(col.name(), colType, col);
+      nullProjectionMap[nullCols.size()] = outputCols.size();
+      outputCols.add(nullCol);
+      nullCols.add(nullCol);
     }
   }
 
@@ -221,24 +250,36 @@ public class TableLevelProjection {
    * appears in the table loader.) The list may also contain metadata columns.
    */
 
-  public static class ColumnsArrayProjection extends BaseTableColumnVisitor {
+  public static class ColumnsArrayProjector extends BaseTableColumnVisitor {
 
-    public ColumnsArrayProjection(TupleMetadata tableSchema) {
+    private MajorType columnsArrayType;
+
+    public ColumnsArrayProjector(TupleMetadata tableSchema, MajorType columnsArrayType) {
       super(tableSchema);
       columnIsProjected = new boolean[] { true };
       logicalToPhysicalMap = new int[] { 0 };
       projectionMap = new int[1];
+      this.columnsArrayType = columnsArrayType;
    }
 
     @Override
-    protected void visitColumnsArray(int index, ColumnsArrayColumn col) {
-      addTableColumn(ProjectedColumn.fromColumnsArray(col));
+    protected void visitColumn(ColumnProjection col) {
+      if (col.nodeType() == ColumnsArrayColumn.ID) {
+
+        // Add the "columns" column as the one (and only)
+        // table column, at position 0.
+
+        addTableColumn(new ProjectedColumn(col.name(),
+            columnsArrayType, 0));
+      } else {
+        super.visitColumn(col);
+      }
     }
   }
 
   private final FileLevelProjection fileProjection;
   private final TupleMetadata tableSchema;
-  private final List<ScanOutputColumn> outputCols;
+  private final List<ResolvedColumn> outputCols;
 
   /**
    * Map, in table schema order, indicating which columns are selected.
@@ -266,49 +307,49 @@ public class TableLevelProjection {
   private final int metadataProjectionMap[];
   private final List<NullColumn> nullCols;
 
-  private TableLevelProjection(FileLevelProjection fileProj,
-                    TupleMetadata tableSchema, boolean reresolve) {
+  // Temporary: to move
+
+  private final ColumnsArrayProjection colArrayProj;
+
+  public TableLevelProjection(FileLevelProjection fileProj,
+      TupleMetadata tableSchema, boolean reresolve) {
     fileProjection = fileProj;
+    this.colArrayProj = fileProj.columnsArrayProjection();
     this.tableSchema = tableSchema;
     BaseTableColumnVisitor baseBuilder;
-    ProjectionType projType = reresolve ? ProjectionType.LIST
-                                        : fileProj.scanProjection().projectType();
-    switch (projType) {
+    if (colArrayProj != null  && colArrayProj.hasColumnsArray()) {
 
-    // SELECT a, b, c
+      // SELECT columns
 
-    case LIST:
-      TableSchemaProjection schemaProj = new TableSchemaProjection(tableSchema);
-      schemaProj.visit(fileProj.outputCols());
-      nullCols = schemaProj.nullCols;
-      nullProjectionMap = schemaProj.nullProjectionMap;
-      baseBuilder = schemaProj;
-      break;
+      validateColumnsArray(fileProj.outputCols());
+      ColumnsArrayProjector builder = new ColumnsArrayProjector(tableSchema, colArrayProj.columnsArrayType());
+      builder.visit(fileProj.outputCols());
+      nullCols = null;
+      nullProjectionMap = null;
+      baseBuilder = builder;
 
-    // SELECT *
+    } else if (!reresolve && fileProj.scanProjection().projectAll()) {
 
-    case WILDCARD:
+      // SELECT *
+
       WildcardExpander expander = new WildcardExpander(tableSchema);
       expander.visit(fileProj.outputCols());
       nullCols = null;
       nullProjectionMap = null;
       baseBuilder = expander;
-      break;
 
-    // SELECT columns
+    } else {
 
-    case COLUMNS_ARRAY:
-      validateColumnsArray(fileProj.outputCols());
-      ColumnsArrayProjection colArrayProj = new ColumnsArrayProjection(tableSchema);
-      colArrayProj.visit(fileProj.outputCols());
-      nullCols = null;
-      nullProjectionMap = null;
-      baseBuilder = colArrayProj;
-      break;
-    default:
-      throw new IllegalStateException("Unexpected selection type: " +
-                fileProj.scanProjection().projectType());
+      // SELECT a, b, c
+
+      TableSchemaProjection schemaProj = new TableSchemaProjection(tableSchema,
+          fileProj.scanProjection().nullType());
+      schemaProj.visit(fileProj.outputCols());
+      nullCols = schemaProj.nullCols;
+      nullProjectionMap = schemaProj.nullProjectionMap;
+      baseBuilder = schemaProj;
     }
+
     outputCols = baseBuilder.outputCols;
     projectionMap = baseBuilder.columnIsProjected;
     logicalToPhysicalMap = baseBuilder.logicalToPhysicalMap;
@@ -316,9 +357,9 @@ public class TableLevelProjection {
     metadataProjectionMap = baseBuilder.metadataProjection;
   }
 
-  public ScanLevelProjection scanProjection() { return fileProjection.scanProjection(); }
+  public UnresolvedProjection scanProjection() { return fileProjection.scanProjection(); }
   public FileLevelProjection fileProjection() { return fileProjection; }
-  public List<ScanOutputColumn> output() { return outputCols; }
+  public List<ResolvedColumn> output() { return outputCols; }
   public boolean[] projectionMap() { return projectionMap; }
   public int[] logicalToPhysicalMap() { return logicalToPhysicalMap; }
   public int[] tableColumnProjectionMap() { return tableColumnProjectionMap; }
@@ -344,12 +385,12 @@ public class TableLevelProjection {
     return projection;
   }
 
-  @VisibleForTesting
-  public TupleMetadata outputSchema() {
-    return ScanOutputColumn.schema(output());
-  }
+//  @VisibleForTesting
+//  public TupleMetadata outputSchema() {
+//    return ScanOutputColumn.schema(output());
+//  }
 
-  private void validateColumnsArray(List<ScanOutputColumn> input) {
+  private void validateColumnsArray(List<ColumnProjection> input) {
 
     // All columns must be required Varchar: the type of the array elements
 
@@ -370,30 +411,32 @@ public class TableLevelProjection {
     return type.getMinorType() == MinorType.VARCHAR;
   }
 
-  /**
-   * Resolve a file-level projection definition by resolving each table-column
-   * reference and/or expanding a wildcard.
-   *
-   * @param fileProj the file-level projection definition
-   * @param tableSchema the current table (or batch) schema
-   * @return the fully resolved table-level projection
-   */
-
-  public static TableLevelProjection fromResolution(
-      FileLevelProjection fileProj, TupleMetadata tableSchema) {
-    return new TableLevelProjection(fileProj, tableSchema, false);
-  }
-
-  /**
-   * Re-resolve a projection created by "unresolving" a prior wildcard
-   * projection. This is a special case: we resolve as if the original projection
-   * were of the form SELECT a, b, c, but we use the names of the
-   * @param fileProj
-   * @param tableSchema
-   * @return
-   */
-  public static TableLevelProjection fromReresolution(
-      FileLevelProjection fileProj, TupleMetadata tableSchema) {
-    return new TableLevelProjection(fileProj, tableSchema, true);
-  }
+//  /**
+//   * Resolve a file-level projection definition by resolving each table-column
+//   * reference and/or expanding a wildcard.
+//   *
+//   * @param fileProj the file-level projection definition
+//   * @param tableSchema the current table (or batch) schema
+//   * @return the fully resolved table-level projection
+//   */
+//
+//  public static TableLevelProjection fromResolution(
+//      FileLevelProjection fileProj,
+//      TupleMetadata tableSchema) {
+//    return new TableLevelProjection(fileProj, tableSchema, false);
+//  }
+//
+//  /**
+//   * Re-resolve a projection created by "unresolving" a prior wildcard
+//   * projection. This is a special case: we resolve as if the original projection
+//   * were of the form SELECT a, b, c, but we use the names of the
+//   * @param fileProj
+//   * @param tableSchema
+//   * @return
+//   */
+//  public static TableLevelProjection fromReresolution(
+//      FileLevelProjection fileProj,
+//      TupleMetadata tableSchema) {
+//    return new TableLevelProjection(fileProj, tableSchema, true);
+//  }
 }

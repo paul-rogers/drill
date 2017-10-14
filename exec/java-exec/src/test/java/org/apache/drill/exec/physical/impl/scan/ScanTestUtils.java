@@ -21,11 +21,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayParser;
+import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayProjection;
 import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadataColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadataProjection;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataProjection;
+import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedPartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
 import org.apache.drill.exec.record.ColumnMetadata;
@@ -37,12 +44,22 @@ import org.apache.hadoop.fs.Path;
 
 public class ScanTestUtils {
 
+  // Default file metadata column names; primarily for testing.
+
+  public static final String FILE_NAME_COL = "filename";
+  public static final String FULLY_QUALIFIED_NAME_COL = "fqn";
+  public static final String FILE_PATH_COL = "filepath";
+  public static final String SUFFIX_COL = "suffix";
+  public static final String PARTITION_COL = "dir";
+
   public static class ProjectionFixture {
 
     public final ScanProjectionBuilder scanBuilder;
     public FileMetadataColumnsParser metdataParser;
     public ScanLevelProjection scanProj;
     public FileMetadataProjection metadataProj;
+    private ColumnsArrayParser colArrayParser;
+    private ColumnsArrayProjection colArrayProj;
 
     public ProjectionFixture() {
       scanBuilder = new ScanProjectionBuilder();
@@ -55,7 +72,8 @@ public class ScanTestUtils {
     }
 
     public ProjectionFixture withColumnsArrayParser() {
-      scanBuilder.addParser(new ColumnsArrayParser());
+      colArrayParser = new ColumnsArrayParser();
+      scanBuilder.addParser(colArrayParser);
       return this;
     }
 
@@ -72,11 +90,23 @@ public class ScanTestUtils {
       if (metdataParser != null) {
         metadataProj = metdataParser.getProjection();
       }
+      if (colArrayParser != null) {
+        colArrayProj = colArrayParser.getProjection();
+
+        // Temporary
+
+        assert metadataProj != null;
+        metadataProj.bind(colArrayProj);
+      }
       return scanProj;
     }
 
+    public FileLevelProjection resolve(Path path) {
+      return metadataProj.resolve(scanProj, path);
+    }
+
     public FileLevelProjection resolve(String path) {
-      return metadataProj.resolve(scanProj, new Path(path));
+      return resolve(new Path(path));
     }
 
     /**
@@ -99,7 +129,7 @@ public class ScanTestUtils {
       }
       for (int i = 0; i < dirCount; i++) {
         metadataSchema.add(MaterializedField.create(metadataProj.partitionName(i),
-            FileMetadataProjection.partitionColType()));
+            ResolvedPartitionColumn.dataType()));
       }
       return metadataSchema;
     }
@@ -113,4 +143,23 @@ public class ScanTestUtils {
     return selected;
   }
 
+  public static String partitionColName(int partition) {
+    return PARTITION_COL + partition;
+  }
+
+  public static TupleMetadata schema(List<? extends ColumnProjection> output) {
+    TupleMetadata schema = new TupleSchema();
+    for (ColumnProjection col : output) {
+      if (col.resolved()) {
+        schema.add(((ResolvedColumn) col).schema());
+      } else {
+        schema.add(MaterializedField.create(col.name(),
+            MajorType.newBuilder()
+            .setMinorType(MinorType.NULL)
+            .setMode(DataMode.OPTIONAL)
+            .build()));
+      }
+    }
+    return schema;
+  }
 }

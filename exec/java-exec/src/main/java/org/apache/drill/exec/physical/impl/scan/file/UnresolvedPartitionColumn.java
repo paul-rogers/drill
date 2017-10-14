@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.impl.scan.file;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedPartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
 
@@ -26,17 +25,25 @@ public class UnresolvedPartitionColumn extends UnresolvedColumn {
 
   public static final int ID = 10;
 
-  protected final int partition;
+  private final int partition;
+  private final String generatedName;
 
-  public UnresolvedPartitionColumn(SchemaPath inCol, int partition) {
+  public UnresolvedPartitionColumn(SchemaPath inCol, int partition, String generatedName) {
     super(inCol, ID);
     this.partition = partition;
+    this.generatedName = generatedName;
   }
 
   public int partition() { return partition; }
 
   public ResolvedPartitionColumn resolve(FileMetadata fileInfo) {
-    return new ResolvedPartitionColumn(name(),
-        partition, fileInfo);
+    String resolvedName = inCol.isWildcard() ? generatedName : inCol.rootName();
+    return new ResolvedPartitionColumn(resolvedName, this, partition, fileInfo);
+  }
+
+  @Override
+  protected void buildString(StringBuilder buf) {
+    buf.append(", partition=")
+       .append(partition);
   }
 }

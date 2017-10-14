@@ -20,32 +20,31 @@ package org.apache.drill.exec.physical.impl.scan.file;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadata;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser.FileMetadataColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
 
 public abstract class ResolvedMetadataColumn extends ResolvedColumn {
 
   public static class ResolvedFileMetadataColumn extends ResolvedMetadataColumn {
 
-    public static final int ID = 16;
+    public static final int ID = 15;
 
     private final FileMetadataColumnDefn defn;
 
-    public ResolvedFileMetadataColumn(String name, FileMetadataColumnDefn defn,
+    public ResolvedFileMetadataColumn(String name, UnresolvedColumn source, FileMetadataColumnDefn defn,
         FileMetadata fileInfo) {
-      super(name, dataType(), defn.defn.getValue(fileInfo.filePath()));
+      super(name, defn.dataType(), source,
+          defn.defn.getValue(fileInfo.filePath()));
       this.defn = defn;
     }
 
     @Override
     public int nodeType() { return ID; }
 
-    public static MajorType dataType() {
-      return MajorType.newBuilder()
-          .setMinorType(MinorType.VARCHAR)
-          .setMode(DataMode.REQUIRED)
-          .build();
+    @Override
+    public ColumnProjection unresolve() {
+      return new UnresolvedFileMetadataColumn(source().source(), defn);
     }
   }
 
@@ -60,16 +59,20 @@ public abstract class ResolvedMetadataColumn extends ResolvedColumn {
       this.partition = partition;
     }
 
-    public int partition() { return partition; }
-
     @Override
     public int nodeType() { return ID; }
+    public int partition() { return partition; }
 
     public static MajorType dataType() {
       return MajorType.newBuilder()
             .setMinorType(MinorType.VARCHAR)
             .setMode(DataMode.OPTIONAL)
             .build();
+    }
+
+    @Override
+    public ColumnProjection unresolve() {
+      return new UnresolvedPartitionColumn(source().source(), partition, name());
     }
   }
 

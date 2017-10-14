@@ -92,7 +92,7 @@ public class ScanLevelProjection implements UnresolvedProjection {
    */
 
   @Override
-  public boolean isProjectAll() { return hasWildcard; }
+  public boolean projectAll() { return hasWildcard; }
 
   /**
    * Return the set of columns from the SELECT list
@@ -113,7 +113,8 @@ public class ScanLevelProjection implements UnresolvedProjection {
 
 //  public List<String> tableColNames() { return tableColNames; }
 
-  public static MajorType nullType() {
+  @Override
+  public MajorType nullType() {
     return MajorType.newBuilder()
         .setMinorType(MinorType.NULL)
         .setMode(DataMode.OPTIONAL)
