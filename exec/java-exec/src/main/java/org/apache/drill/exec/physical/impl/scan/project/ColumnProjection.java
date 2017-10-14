@@ -17,74 +17,11 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project;
 
-import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.common.expression.SchemaPath;
 
 public interface ColumnProjection {
-
-  public static final int WILDCARD = 1;
-  public static final int UNRESOLVED = 2;
-  public static final int NULL = 5;
-  public static final int PROJECTED = 6;
-  public static final int CONTINUED = 7;
-
   String name();
+  SchemaPath source();
   boolean resolved();
   int nodeType();
-
-  public static abstract class BaseProjection implements ColumnProjection {
-
-    private int id;
-    private boolean resolved;
-
-    public BaseProjection(int id, boolean resolved) {
-      this.id = id;
-      this.resolved = resolved;
-    }
-
-    @Override
-    public boolean resolved() { return resolved; }
-
-    @Override
-    public int nodeType() { return id; }
-  }
-
-  public class NamedColumn extends BaseProjection {
-
-    private final String name;
-
-    public NamedColumn(String name, int id, boolean resolved) {
-      super(id, resolved);
-      this.name = name;
-    }
-
-    @Override
-    public String name() { return name; }
-  }
-
-  public class TypedColumn extends BaseProjection {
-
-    private final MaterializedField schema;
-
-    public TypedColumn(String name, MajorType type, int id, boolean resolved) {
-      this(MaterializedField.create(name, type), id, resolved);
-    }
-
-    public TypedColumn(MaterializedField schema, int id, boolean resolved) {
-      super(id, resolved);
-      this.schema = schema;
-    }
-
-    @Override
-    public String name() { return schema.getName(); }
-
-    public MajorType type() { return schema.getType(); }
-
-    public MaterializedField schema() { return schema; }
-
-    public static TypedColumn newContinued(MaterializedField schema) {
-      return new TypedColumn(schema, TypedColumn.CONTINUED, false);
-    }
-  }
-
 }

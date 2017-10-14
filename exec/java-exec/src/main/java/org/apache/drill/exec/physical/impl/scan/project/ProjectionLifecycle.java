@@ -23,12 +23,12 @@ import java.util.Map;
 
 import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayProjection;
 import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataProjection;
 import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedPartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection.TypedColumn;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
@@ -109,7 +109,7 @@ public abstract class ProjectionLifecycle {
       inferredSchema.put(tableCol.name(), tableCol);
     }
 
-    public void visitNullColumn(TypedColumn col) {
+    public void visitNullColumn(NullColumn col) {
       ColumnProjection tableCol = col.unresolve();
       genericCols.add(tableCol);
       inferredSchema.put(tableCol.name(), tableCol);
@@ -254,8 +254,8 @@ public abstract class ProjectionLifecycle {
 
         // Can't preserve schema if column types differ.
 
-        assert priorCol instanceof TypedColumn;
-        if (! ((TypedColumn) priorCol).type().equals(newCol.majorType())) {
+        assert priorCol instanceof ContinuedColumn;
+        if (! ((ContinuedColumn) priorCol).type().equals(newCol.majorType())) {
           return false;
         }
       }
@@ -264,7 +264,7 @@ public abstract class ProjectionLifecycle {
 
       for (ColumnProjection priorCol : priorSchema.expectedSchema.values()) {
         MaterializedField col = newSchema.column(priorCol.name());
-        if (col == null  &&  ((TypedColumn) priorCol).type().getMode() == DataMode.REQUIRED) {
+        if (col == null  &&  ((ContinuedColumn) priorCol).type().getMode() == DataMode.REQUIRED) {
           return false;
         }
       }

@@ -25,25 +25,17 @@ public class UnresolvedPartitionColumn extends UnresolvedColumn {
 
   public static final int ID = 10;
 
-  private final int partition;
-  private final String generatedName;
+  protected final int partition;
 
-  public UnresolvedPartitionColumn(SchemaPath inCol, int partition, String generatedName) {
+  public UnresolvedPartitionColumn(SchemaPath inCol, int partition) {
     super(inCol, ID);
     this.partition = partition;
-    this.generatedName = generatedName;
   }
 
   public int partition() { return partition; }
 
   public ResolvedPartitionColumn resolve(FileMetadata fileInfo) {
-    String resolvedName = inCol.isWildcard() ? generatedName : inCol.rootName();
-    return new ResolvedPartitionColumn(resolvedName, this, partition, fileInfo);
-  }
-
-  @Override
-  protected void buildString(StringBuilder buf) {
-    buf.append(", partition=")
-       .append(partition);
+    return new ResolvedPartitionColumn(name(), source(),
+        partition, fileInfo);
   }
 }

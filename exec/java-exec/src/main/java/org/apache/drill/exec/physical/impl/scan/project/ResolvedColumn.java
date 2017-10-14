@@ -17,19 +17,23 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project;
 
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.record.MaterializedField;
 
 public abstract class ResolvedColumn implements ColumnProjection {
 
   private MaterializedField schema;
+  private final SchemaPath source;
 
-  public ResolvedColumn(String name, MajorType type) {
+  public ResolvedColumn(String name, MajorType type, SchemaPath source) {
     schema = MaterializedField.create(name, type);
+    this.source = source;
   }
 
-  public ResolvedColumn(MaterializedField schema) {
+  public ResolvedColumn(MaterializedField schema, SchemaPath source) {
     this.schema = schema;
+    this.source = source;
   }
 
   @Override
@@ -43,4 +47,6 @@ public abstract class ResolvedColumn implements ColumnProjection {
   public MaterializedField schema() { return schema; }
 
   public abstract ColumnProjection unresolve();
+
+  public SchemaPath source() { return source; }
 }

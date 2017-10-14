@@ -17,12 +17,12 @@
  */
 package org.apache.drill.exec.physical.impl.scan.file;
 
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
-import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
 
 public abstract class ResolvedMetadataColumn extends ResolvedColumn {
 
@@ -32,10 +32,9 @@ public abstract class ResolvedMetadataColumn extends ResolvedColumn {
 
     private final FileMetadataColumnDefn defn;
 
-    public ResolvedFileMetadataColumn(String name, UnresolvedColumn source, FileMetadataColumnDefn defn,
+    public ResolvedFileMetadataColumn(String name, SchemaPath source, FileMetadataColumnDefn defn,
         FileMetadata fileInfo) {
-      super(name, defn.dataType(), source,
-          defn.defn.getValue(fileInfo.filePath()));
+      super(name, defn.dataType(), source, defn.defn.getValue(fileInfo.filePath()));
       this.defn = defn;
     }
 
@@ -44,7 +43,7 @@ public abstract class ResolvedMetadataColumn extends ResolvedColumn {
 
     @Override
     public ColumnProjection unresolve() {
-      return new UnresolvedFileMetadataColumn(source().source(), defn);
+      return new UnresolvedFileMetadataColumn(source(), defn);
     }
   }
 
@@ -54,14 +53,15 @@ public abstract class ResolvedMetadataColumn extends ResolvedColumn {
 
     protected final int partition;
 
-    public ResolvedPartitionColumn(String name, int partition, FileMetadata fileInfo) {
-      super(name, dataType(), fileInfo.partition(partition));
+    public ResolvedPartitionColumn(String name, SchemaPath source, int partition, FileMetadata fileInfo) {
+      super(name, dataType(), source, fileInfo.partition(partition));
       this.partition = partition;
     }
 
+    public int partition() { return partition; }
+
     @Override
     public int nodeType() { return ID; }
-    public int partition() { return partition; }
 
     public static MajorType dataType() {
       return MajorType.newBuilder()
@@ -72,14 +72,14 @@ public abstract class ResolvedMetadataColumn extends ResolvedColumn {
 
     @Override
     public ColumnProjection unresolve() {
-      return new UnresolvedPartitionColumn(source().source(), partition, name());
+      return new UnresolvedPartitionColumn(source(), partition);
     }
   }
 
   private final String value;
 
-  public ResolvedMetadataColumn(String name, MajorType type, String value) {
-    super(name, type);
+  public ResolvedMetadataColumn(String name, MajorType type, SchemaPath source, String value) {
+    super(name, type, source);
     this.value = value;
   }
 

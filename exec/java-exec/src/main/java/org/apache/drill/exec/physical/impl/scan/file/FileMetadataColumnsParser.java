@@ -104,7 +104,7 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
       // Partition column
 
       UnresolvedColumn outCol = new UnresolvedPartitionColumn(inCol,
-          Integer.parseInt(m.group(1)), null);
+          Integer.parseInt(m.group(1)));
       builder.addProjectedColumn(outCol);
       hasMetadata = true;
       return true;

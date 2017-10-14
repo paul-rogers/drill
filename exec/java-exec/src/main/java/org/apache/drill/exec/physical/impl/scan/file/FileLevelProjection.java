@@ -103,11 +103,11 @@ public class FileLevelProjection implements UnresolvedProjection {
 
       for (FileMetadataColumnDefn iCol : metadataProj.fileMetadataColDefns()) {
         addMetadataColumn(new ResolvedFileMetadataColumn(
-            iCol.colName(), col, iCol, fileInfo));
+            iCol.colName(), col.source(), iCol, fileInfo));
       }
       for (int i = 0; i < fileInfo.dirPathLength(); i++) {
         addMetadataColumn(new ResolvedPartitionColumn(
-            metadataProj.partitionName(i), col, i, fileInfo));
+            metadataProj.partitionName(i), col.source(), i, fileInfo));
       }
     }
   }

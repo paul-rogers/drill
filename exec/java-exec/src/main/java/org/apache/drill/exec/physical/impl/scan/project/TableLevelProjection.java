@@ -32,7 +32,6 @@ import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedFileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedPartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection.TypedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.Exp.UnresolvedProjection;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
@@ -81,7 +80,7 @@ public class TableLevelProjection {
   private static class BaseTableColumnVisitor {
 
     protected TupleMetadata tableSchema;
-    protected List<TypedColumn> outputCols = new ArrayList<>();
+    protected List<ResolvedColumn> outputCols = new ArrayList<>();
     protected boolean columnIsProjected[];
     protected int logicalToPhysicalMap[];
     protected int projectionMap[];
@@ -168,7 +167,7 @@ public class TableLevelProjection {
 
     protected void visitWildcard(UnresolvedColumn col) {
       for (int i = 0; i < tableSchema.size(); i++) {
-        addTableColumn(new ProjectedColumn(tableSchema.column(i), i));
+        addTableColumn(new ProjectedColumn(tableSchema.column(i), col.source(), i));
       }
     }
   }
@@ -213,8 +212,8 @@ public class TableLevelProjection {
     @Override
     protected void visitColumn(ColumnProjection col) {
       switch (col.nodeType()) {
-      case ColumnProjection.UNRESOLVED:
-      case ColumnProjection.CONTINUED:
+      case UnresolvedColumn.UNRESOLVED:
+      case ContinuedColumn.ID:
         visitTableColumn(col);
         break;
       default:
@@ -227,18 +226,18 @@ public class TableLevelProjection {
       if (tableColIndex == -1) {
         visitNullColumn(col);
        } else {
-        addTableColumn(new ProjectedColumn(tableSchema.column(tableColIndex), tableColIndex));
+        addTableColumn(new ProjectedColumn(tableSchema.column(tableColIndex), col.source(), tableColIndex));
       }
     }
 
     private void visitNullColumn(ColumnProjection col) {
       MajorType colType;
-      if (col.nodeType() == ColumnProjection.CONTINUED) {
-        colType = ((TypedColumn) col).type();
+      if (col.nodeType() == ContinuedColumn.ID) {
+        colType = ((ContinuedColumn) col).type();
       } else {
         colType = nullType;
       }
-      NullColumn nullCol = new NullColumn(col.name(), colType, col);
+      NullColumn nullCol = new NullColumn(col.name(), colType, col.source());
       nullProjectionMap[nullCols.size()] = outputCols.size();
       outputCols.add(nullCol);
       nullCols.add(nullCol);
@@ -270,7 +269,7 @@ public class TableLevelProjection {
         // table column, at position 0.
 
         addTableColumn(new ProjectedColumn(col.name(),
-            columnsArrayType, 0));
+            columnsArrayType, col.source(), 0));
       } else {
         super.visitColumn(col);
       }

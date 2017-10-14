@@ -27,7 +27,6 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
 import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedFileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection.TypedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.NullColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ProjectedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ProjectionLifecycle;
@@ -92,7 +91,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       assertTrue(ScanTestUtils.schema(tableSchema).isEquivalent(expectedSchema));
       assertEquals(ScanTestUtils.FILE_NAME_COL, tableSchema.get(0).name());
       assertEquals("a.csv", ((ResolvedFileMetadataColumn) tableSchema.get(0)).value());
-      assertEquals(TypedColumn.PROJECTED, tableSchema.get(1).nodeType());
+      assertEquals(ProjectedColumn.ID, tableSchema.get(1).nodeType());
     }
     {
       // Define a file b.csv
@@ -106,8 +105,8 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       assertEquals(3, fileSchema.size());
       assertEquals(ScanTestUtils.FILE_NAME_COL, fileSchema.get(0).name());
       assertEquals("b.csv", ((ResolvedFileMetadataColumn) fileSchema.get(0)).value());
-      assertEquals(ColumnProjection.UNRESOLVED, fileSchema.get(1).nodeType());
-      assertEquals(ColumnProjection.UNRESOLVED, fileSchema.get(2).nodeType());
+      assertEquals(UnresolvedColumn.UNRESOLVED, fileSchema.get(1).nodeType());
+      assertEquals(UnresolvedColumn.UNRESOLVED, fileSchema.get(2).nodeType());
 
       // Build the output schema from the (a) table schema
 
@@ -135,8 +134,8 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       assertEquals(3, tableSchema.size());
       assertEquals(ScanTestUtils.FILE_NAME_COL, tableSchema.get(0).name());
       assertEquals("b.csv", ((ResolvedFileMetadataColumn) tableSchema.get(0)).value());
-      assertEquals(TypedColumn.PROJECTED, tableSchema.get(1).nodeType());
-      assertEquals(TypedColumn.NULL, tableSchema.get(2).nodeType());
+      assertEquals(ProjectedColumn.ID, tableSchema.get(1).nodeType());
+      assertEquals(NullColumn.ID, tableSchema.get(2).nodeType());
     }
   }
 
