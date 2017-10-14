@@ -34,13 +34,13 @@ import org.apache.drill.exec.physical.impl.protocol.SchemaTracker;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnDefn;
+import org.apache.drill.exec.physical.impl.scan.file.MetadataColumnLoader;
 import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedFileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.ResolvedMetadataColumn.ResolvedPartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.NullColumn;
+import org.apache.drill.exec.physical.impl.scan.project.NullColumnLoader;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjector;
-import org.apache.drill.exec.physical.impl.scan.project.ScanProjector.MetadataColumnLoader;
-import org.apache.drill.exec.physical.impl.scan.project.ScanProjector.NullColumnLoader;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
@@ -103,68 +103,6 @@ public class TestScanProjector extends SubOperatorTest {
 
     new RowSetComparison(expected)
         .verifyAndClearAll(fixture.wrap(staticLoader.output()));
-    staticLoader.close();
-  }
-
-  private NullColumn makeNullCol(String name, MajorType nullType) {
-    return new NullColumn(name, nullType,
-        SchemaPath.getSimplePath(name));
-  }
-
-  private NullColumn makeNullCol(String name) {
-    return makeNullCol(name, null);
-  }
-
-  @SuppressWarnings("resource")
-  @Test
-  public void testNullColumnLoader() {
-
-    List<NullColumn> defns = new ArrayList<>();
-    defns.add(makeNullCol("req"));
-    defns.add(makeNullCol("opt"));
-    defns.add(makeNullCol("rep"));
-    defns.add(makeNullCol("unk"));
-
-    // Populate the cache with a column of each mode.
-
-    ResultVectorCacheImpl cache = new ResultVectorCacheImpl(fixture.allocator());
-    cache.addOrGet(SchemaBuilder.columnSchema("req", MinorType.FLOAT8, DataMode.REQUIRED));
-    ValueVector opt = cache.addOrGet(SchemaBuilder.columnSchema("opt", MinorType.FLOAT8, DataMode.OPTIONAL));
-    ValueVector rep = cache.addOrGet(SchemaBuilder.columnSchema("rep", MinorType.FLOAT8, DataMode.REPEATED));
-
-    // Use nullable Varchar for unknown null columns.
-
-    MajorType nullType = MajorType.newBuilder()
-        .setMinorType(MinorType.VARCHAR)
-        .setMode(DataMode.OPTIONAL)
-        .build();
-    NullColumnLoader staticLoader = new NullColumnLoader(fixture.allocator(), defns, cache, nullType);
-
-    // Create a batch
-
-    staticLoader.load(2);
-
-    // Verify vectors are reused
-
-    VectorContainer output = staticLoader.output();
-    assertSame(opt, output.getValueVector(1).getValueVector());
-    assertSame(rep, output.getValueVector(2).getValueVector());
-
-    // Verify values and types
-
-    BatchSchema expectedSchema = new SchemaBuilder()
-        .addNullable("req", MinorType.FLOAT8)
-        .addNullable("opt", MinorType.FLOAT8)
-        .addArray("rep", MinorType.FLOAT8)
-        .addNullable("unk", MinorType.VARCHAR)
-        .build();
-    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(null, null, new int[] { }, null)
-        .addRow(null, null, new int[] { }, null)
-        .build();
-
-    new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(output));
     staticLoader.close();
   }
 
