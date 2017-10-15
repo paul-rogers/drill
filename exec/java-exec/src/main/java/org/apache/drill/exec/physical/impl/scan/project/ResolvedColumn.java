@@ -48,5 +48,6 @@ public abstract class ResolvedColumn implements ColumnProjection {
 
   public abstract ColumnProjection unresolve();
 
+  @Override
   public SchemaPath source() { return source; }
 }

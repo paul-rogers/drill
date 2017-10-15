@@ -118,24 +118,49 @@ public class RowBatchMerger {
     }
   }
 
+  public static class ProjectionSet {
+
+    private VectorContainer source;
+    private List<Projection> projections = new ArrayList<>();
+
+    public ProjectionSet(VectorContainer source) {
+      this.source = source;
+    }
+
+    public void addDirectProjection(int fromIndex, int toIndex) {
+      projections.add(new Projection(source, true, fromIndex, toIndex));
+    }
+
+    public void addExchangeProjection(int fromIndex, int toIndex) {
+      projections.add(new Projection(source, false, fromIndex, toIndex));
+    }
+  }
+
   /**
    * Builds up the set of projections.
    */
 
   public static class Builder {
 
-    private List<Projection> projections = new ArrayList<>();
+    private List<ProjectionSet> projectionSets = new ArrayList<>();
     private ResultVectorCache vectorCache;
 
-    public Builder addDirectProjection(VectorContainer batch, int fromIndex, int toIndex) {
-      projections.add(new Projection(batch, true, fromIndex, toIndex));
+    public Builder addProjectionSet(ProjectionSet projSet) {
+      if (projSet != null) {
+        projectionSets.add(projSet);
+      }
       return this;
     }
 
-    public Builder addExchangeProjection(VectorContainer batch, int fromIndex, int toIndex) {
-      projections.add(new Projection(batch, false, fromIndex, toIndex));
-      return this;
-    }
+//    public Builder addDirectProjection(VectorContainer batch, int fromIndex, int toIndex) {
+//      projections.add(new Projection(batch, true, fromIndex, toIndex));
+//      return this;
+//    }
+//
+//    public Builder addExchangeProjection(VectorContainer batch, int fromIndex, int toIndex) {
+//      projections.add(new Projection(batch, false, fromIndex, toIndex));
+//      return this;
+//    }
 
     public Builder vectorCache(ResultVectorCache vectorCache) {
       this.vectorCache = vectorCache;
@@ -147,6 +172,10 @@ public class RowBatchMerger {
     }
 
     public RowBatchMerger build(VectorContainer output) {
+      List<Projection> projections = new ArrayList<>();
+      for (ProjectionSet projSet : projectionSets) {
+        projections.addAll(projSet.projections);
+      }
       Collections.sort(projections, new Comparator<Projection>() {
 
         @Override

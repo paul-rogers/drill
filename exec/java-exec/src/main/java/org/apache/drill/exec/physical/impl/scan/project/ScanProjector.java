@@ -17,17 +17,11 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataProjection;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Builder;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
-import org.apache.drill.exec.physical.rowSet.impl.OptionBuilder;
-import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
@@ -130,137 +124,7 @@ import org.apache.hadoop.fs.Path;
 
 public class ScanProjector {
 
-  /**
-   * Handles schema mapping differences between early and late schema
-   * tables.
-   */
-
-  private abstract class TableSchemaDriver {
-
-    public ResultSetLoader makeTableLoader(int batchSize) {
-      if (projectionDefn.fileProjection() == null) {
-        throw new IllegalStateException("Must start file before setting table schema");
-      }
-
-      OptionBuilder options = new OptionBuilder();
-      options.setRowCountLimit(batchSize);
-      setupProjection(options);
-      // Create the table loader
-
-      setupSchema(options);
-      tableLoader = new ResultSetLoaderImpl(allocator, options.build());
-      setupProjection();
-      return tableLoader;
-    }
-
-    protected abstract void setupProjection(OptionBuilder options);
-
-    protected void setupSchema(OptionBuilder options) { }
-
-    protected void setupProjection() { }
-
-    public void endOfBatch() { }
-  }
-
-  /**
-   * Handle schema mapping for early-schema tables: the schema is
-   * known before the first batch is read and stays constant for the
-   * entire table. The schema can be used to populate the batch
-   * loader.
-   */
-
-  private class EarlySchemaDriver extends TableSchemaDriver {
-
-    private final TupleMetadata tableSchema;
-
-    public EarlySchemaDriver(TupleMetadata tableSchema) {
-      this.tableSchema = tableSchema;
-    }
-
-    @Override
-    protected void setupProjection(OptionBuilder options) {
-      projectionDefn.startSchema(tableSchema);
-
-      // Set up a selection list if available and is a subset of
-      // table columns. (If we want all columns, either because of *
-      // or we selected them all, then no need to add filtering.)
-
-      if (! projectionDefn.scanProjection().projectAll()) {
-        List<SchemaPath> projection = projectionDefn.tableProjection().projectedTableColumns();
-        if (projection.size() < tableSchema.size()) {
-          options.setProjection(projection);
-        }
-      }
-    }
-
-    @Override
-    protected void setupSchema(OptionBuilder options) {
-
-      // We know the table schema. Preload it into the
-      // result set loader.
-
-      options.setSchema(tableSchema);
-    }
-
-    @Override
-    protected void setupProjection() {
-      planProjection();
-
-      // Set the output container to zero rows. Required so that we can
-      // send the schema downstream in the form of an empty batch.
-
-      output.getOutput().setRecordCount(0);
-    }
-  }
-
-  /**
-   * Handle schema mapping for a late-schema table. The schema is not
-   * known until the first batch is read, and may change after any
-   * batch. All we know up front is the list of columns (if any)
-   * that the query projects. But, we don't know their types.
-   */
-
-  private class LateSchemaDriver extends TableSchemaDriver {
-
-    /**
-     * Tracks the schema version last seen from the table loader. Used to detect
-     * when the reader changes the table loader schema.
-     */
-
-    private int prevTableSchemaVersion = -1;
-
-    @Override
-    protected void setupProjection(OptionBuilder options) {
-
-      // Set up a selection list if available. Since the actual columns are
-      // built on the fly, we need to set up the selection ahead of time and
-      // can't optimize for the "selected all the columns" case.
-
-      if (! projectionDefn.scanProjection().projectAll()) {
-        // Temporary: convert names to paths. Need to handle full paths
-        // throughout.
-
-        List<SchemaPath> paths = new ArrayList<>();
-        for (ColumnProjection col : projectionDefn.scanProjection().outputCols()) {
-          if (col.nodeType() == UnresolvedColumn.UNRESOLVED) {
-            paths.add(((UnresolvedColumn) col).source());
-          }
-        }
-        options.setProjection(paths);
-      }
-    }
-
-    @Override
-    public void endOfBatch() {
-      if (prevTableSchemaVersion < tableLoader.schemaVersion()) {
-        projectionDefn.startSchema(tableLoader.writer().schema());
-        planProjection();
-        prevTableSchemaVersion = tableLoader.schemaVersion();
-      }
-    }
-  }
-
-  private final BufferAllocator allocator;
+  final BufferAllocator allocator;
 
   /**
    * Cache used to preserve the same vectors from one output batch to the
@@ -273,35 +137,21 @@ public class ScanProjector {
 
   private final ResultVectorCacheImpl vectorCache;
 
-  /**
-   * The reader-specified null type if other than the default.
-   */
-
-  private final MajorType nullType;
-
-  private final ProjectionLifecycle projectionDefn;
+  final ProjectionLifecycle projectionDefn;
 
   private TableSchemaDriver schemaDriver;
-
-  /**
-   * The vector writer created here, and used by the reader. If the table is
-   * early-schema, the schema is populated here. If late schema, the schema
-   * is populated by the reader as the schema is discovered.
-   */
-
-  private ResultSetLoader tableLoader;
 
   /**
    * Creates the metadata (file and directory) columns, if needed.
    */
 
-  private ConstantColumnLoader metadataColumnLoader;
+  private MetadataColumnManager metadataColumnManager;
 
   /**
    * Creates null columns if needed.
    */
 
-  private NullColumnLoader nullColumnLoader;
+  private NullColumnManager nullColumnManager;
 
   /**
    * Assembles the table, metadata and null columns into the final output
@@ -310,13 +160,14 @@ public class ScanProjector {
    * that occur across readers.
    */
 
-  private RowBatchMerger output;
+  RowBatchMerger output;
 
   public ScanProjector(BufferAllocator allocator, ScanLevelProjection scanProj, FileMetadataProjection metadataProj, MajorType nullType) {
     this.allocator = allocator;
     this.projectionDefn = ProjectionLifecycle.newLifecycle(scanProj, metadataProj);
-    this.nullType = nullType;
     vectorCache = new ResultVectorCacheImpl(allocator);
+    nullColumnManager = new NullColumnManager(vectorCache, nullType);
+    metadataColumnManager = new MetadataColumnManager(vectorCache);
   }
 
   public void startFile(Path filePath) {
@@ -335,12 +186,16 @@ public class ScanProjector {
 
   public ResultSetLoader makeTableLoader(TupleMetadata tableSchema, int batchSize) {
 
+    if (projectionDefn.fileProjection() == null) {
+      throw new IllegalStateException("Must start file before setting table schema");
+    }
+
     // Optional form for late schema: pass a null table schema.
 
     if (tableSchema == null) {
-      schemaDriver = new LateSchemaDriver();
+      schemaDriver = new LateSchemaDriver(this);
     } else {
-      schemaDriver = new EarlySchemaDriver(tableSchema);
+      schemaDriver = new EarlySchemaDriver(this, tableSchema);
     }
 
     return schemaDriver.makeTableLoader(batchSize);
@@ -357,11 +212,7 @@ public class ScanProjector {
    */
 
   private void buildMetadataColumns() {
-    if (! projectionDefn.fileProjection().hasMetadata()) {
-      return;
-    }
-    metadataColumnLoader = new ConstantColumnLoader(vectorCache,
-        projectionDefn.fileProjection().metadataColumns());
+    metadataColumnManager.buildColumns(projectionDefn.fileProjection());
   }
 
   /**
@@ -370,7 +221,7 @@ public class ScanProjector {
    * available.
    */
 
-  private void planProjection() {
+  void planProjection() {
     RowBatchMerger.Builder builder = new RowBatchMerger.Builder()
         .vectorCache(vectorCache);
     buildNullColumns(builder);
@@ -391,21 +242,7 @@ public class ScanProjector {
    */
 
   private void buildNullColumns(Builder builder) {
-    TableLevelProjection tableProj = projectionDefn.tableProjection();
-    if (! tableProj.hasNullColumns()) {
-      return;
-    }
-
-    nullColumnLoader = new NullColumnLoader(vectorCache, tableProj.nullColumns(), nullType);
-
-    // Map null columns from the null column loader schema into the output
-    // schema.
-
-    VectorContainer nullsContainer = nullColumnLoader.output();
-    for (int i = 0; i < tableProj.nullColumns().size(); i++) {
-      int projIndex = tableProj.nullProjectionMap()[i];
-      builder.addDirectProjection(nullsContainer, i, projIndex);
-    }
+    builder.addProjectionSet(nullColumnManager.buildProjection(projectionDefn));
   }
 
   /**
@@ -416,37 +253,7 @@ public class ScanProjector {
 
   private void mapTableColumns(Builder builder) {
 
-    // Projection of table columns is from the abbreviated table
-    // schema after removing unprojected columns.
-    // The table columns may be projected, so we want to get the
-    // vector index of the table column. Non-projected table columns
-    // don't have a vector, so can't use the table column index directly.
-
-    TableLevelProjection tableProj = projectionDefn.tableProjection();
-    VectorContainer tableContainer = tableLoader.outputContainer();
-    TupleMetadata tableSchema = tableLoader.writer().schema();
-    int tableColCount = tableSchema.size();
-    for (int i = 0; i < tableColCount; i++) {
-
-      // Skip unprojected table columns
-
-      if (! tableProj.projectionMap()[i]) {
-        continue;
-      }
-
-      // Get the output schema position for the column
-
-      int projIndex = tableProj.tableColumnProjectionMap()[i];
-
-      // Get the physical vector index for the column (reflects
-      // column reordering and removing unprojected columns.)
-
-      int tableVectorIndex = tableProj.logicalToPhysicalMap()[i];
-
-      // Project from physical table loader schema to output schema
-
-      builder.addExchangeProjection(tableContainer, tableVectorIndex, projIndex );
-    }
+    builder.addProjectionSet(schemaDriver.mapTableColumns(projectionDefn.tableProjection()));
   }
 
   /**
@@ -460,14 +267,7 @@ public class ScanProjector {
 
     // Project static columns into their output schema locations
 
-    if (metadataColumnLoader == null) {
-      return;
-    }
-    VectorContainer metadataContainer = metadataColumnLoader.output();
-    int metadataMap[] = projectionDefn.tableProjection().metadataProjection();
-    for (int i = 0; i < metadataContainer.getNumberOfColumns(); i++) {
-      builder.addDirectProjection(metadataContainer, i, metadataMap[i]);
-    }
+    builder.addProjectionSet(metadataColumnManager.mapMetadataColumns(projectionDefn));
   }
 
   /**
@@ -477,15 +277,9 @@ public class ScanProjector {
    */
 
   public void publish() {
-    VectorContainer tableContainer = tableLoader.harvest();
-    schemaDriver.endOfBatch();
-    int rowCount = tableContainer.getRecordCount();
-    if (metadataColumnLoader != null) {
-      metadataColumnLoader.load(rowCount);
-    }
-    if (nullColumnLoader != null) {
-      nullColumnLoader.load(rowCount);
-    }
+    int rowCount = schemaDriver.endOfBatch();
+    metadataColumnManager.load(rowCount);
+    nullColumnManager.load(rowCount);
     output.project(rowCount);
   }
 
@@ -494,10 +288,7 @@ public class ScanProjector {
   }
 
   public void close() {
-    if (metadataColumnLoader != null) {
-      metadataColumnLoader.close();
-      metadataColumnLoader = null;
-    }
+    metadataColumnManager.close();
     closeTable();
     if (output != null) {
       output.close();
@@ -507,9 +298,6 @@ public class ScanProjector {
   }
 
   private void closeTable() {
-    if (nullColumnLoader != null) {
-      nullColumnLoader.close();
-      nullColumnLoader = null;
-    }
+    nullColumnManager.close();
   }
 }

@@ -17,15 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project;
 
-import java.util.List;
-
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.record.TupleSchema;
-import org.apache.drill.exec.vector.accessor.ScalarWriter;
-
-import com.google.common.annotations.VisibleForTesting;
 
 /**
  * Represents a column in the output rows (record batch, result set) from
