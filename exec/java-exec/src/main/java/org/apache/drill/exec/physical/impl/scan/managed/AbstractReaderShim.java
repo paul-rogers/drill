@@ -28,15 +28,15 @@ import org.apache.drill.exec.record.VectorContainer;
  * read by the actual row batch reader.
  */
 
-public class RowBatchReaderShim implements RowBatchReader {
+public abstract class AbstractReaderShim<T extends SchemaNegotiator> implements RowBatchReader {
 
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(RowBatchReaderShim.class);
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractReaderShim.class);
 
-  private final AbstractScanLifecycle manager;
-  private final ManagedReader reader;
-  private ResultSetLoader tableLoader;
+  protected final AbstractScanFramework<T> manager;
+  protected final ManagedReader<T> reader;
+  protected ResultSetLoader tableLoader;
 
-  public RowBatchReaderShim(AbstractScanLifecycle manager, ManagedReader reader) {
+  public AbstractReaderShim(AbstractScanFramework<T> manager, ManagedReader<T> reader) {
     this.manager = manager;
     this.reader = reader;
   }
@@ -46,8 +46,7 @@ public class RowBatchReaderShim implements RowBatchReader {
 
     // Build and return the result set loader to be used by the reader.
 
-    SchemaNegotiator schemaNegotiator = new SchemaNegotiatorImpl(manager.context(), this);
-    if (! reader.open(schemaNegotiator)) {
+    if (! openReader()) {
 
       // If we had a soft failure, then there should be no schema.
       // The reader should not have negotiated one. Not a huge
@@ -73,10 +72,7 @@ public class RowBatchReaderShim implements RowBatchReader {
     return true;
   }
 
-  public ResultSetLoader build(SchemaNegotiatorImpl schemaNegotiator) {
-    tableLoader = manager.startFile(schemaNegotiator);
-    return tableLoader;
-  }
+  protected abstract boolean openReader();
 
   @Override
   public boolean next() {
@@ -104,13 +100,13 @@ public class RowBatchReaderShim implements RowBatchReader {
     // Add implicit columns, if any.
     // Identify the output container and its schema version.
 
-    manager.publish();
+    manager.projector().publish();
     return true;
   }
 
   @Override
   public VectorContainer output() {
-    return manager.output();
+    return manager.projector().output();
   }
 
   @Override
@@ -137,5 +133,11 @@ public class RowBatchReaderShim implements RowBatchReader {
   @Override
   public int schemaVersion() {
     return tableLoader.schemaVersion();
+  }
+
+  public ResultSetLoader build(AbstractSchemaNegotiatorImpl schemaNegotiator) {
+    tableLoader = manager.projector().makeTableLoader(schemaNegotiator.tableSchema,
+        schemaNegotiator.batchSize);
+    return tableLoader;
   }
 }

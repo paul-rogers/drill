@@ -54,7 +54,7 @@ import org.apache.drill.exec.store.RecordReader;
  * detailed information about the source of the problem.
  */
 
-public interface ManagedReader {
+public interface ManagedReader<T extends SchemaNegotiator> {
 
   /**
    * Setup the record reader. Called just before the first call
@@ -74,7 +74,7 @@ public interface ManagedReader {
    * better than the scan operator can by guessing at the cause
    */
 
-  boolean open(SchemaNegotiator negotiator);
+  boolean open(T negotiator);
 
   /**
    * Read the next batch. Reading continues until either EOF,

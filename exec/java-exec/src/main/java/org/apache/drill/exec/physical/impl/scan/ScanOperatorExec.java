@@ -53,7 +53,7 @@ import com.google.common.annotations.VisibleForTesting;
  *
  * The scanner works directly with two other interfaces
  * <p>
- * The {@link ReaderFactory} implementation provides the set of readers to
+ * The {@link ScanOperatorEvents} implementation provides the set of readers to
  * use. This class can simply maintain a list, or can create the reader on
  * demand.
  * <p>
@@ -89,14 +89,14 @@ public class ScanOperatorExec implements OperatorExec {
 
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ScanOperatorExec.class);
 
-  private final ReaderFactory factory;
+  private final ScanOperatorEvents factory;
   protected final VectorContainerAccessor containerAccessor = new VectorContainerAccessor();
   private State state = State.START;
   protected OperatorContext context;
   private int readerCount;
   private ReaderState readerState;
 
-  public ScanOperatorExec(ReaderFactory factory) {
+  public ScanOperatorExec(ScanOperatorEvents factory) {
     this.factory = factory;
   }
 

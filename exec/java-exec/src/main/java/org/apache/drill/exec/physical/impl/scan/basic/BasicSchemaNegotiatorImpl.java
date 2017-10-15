@@ -15,13 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan.managed;
+package org.apache.drill.exec.physical.impl.scan.basic;
 
 import org.apache.drill.exec.ops.OperatorContext;
+import org.apache.drill.exec.physical.impl.scan.managed.AbstractSchemaNegotiatorImpl;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
-import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.vector.ValueVector;
-import org.apache.hadoop.fs.Path;
 
 /**
  * Implementation of the schema negotiation between scan operator and
@@ -49,23 +47,13 @@ import org.apache.hadoop.fs.Path;
  * is nullable or an array.)
  */
 
-public class SchemaNegotiatorImpl implements SchemaNegotiator {
+public class BasicSchemaNegotiatorImpl extends AbstractSchemaNegotiatorImpl {
 
-  private final OperatorContext context;
-  private final RowBatchReaderShim shim;
+  private final BasicReaderShim shim;
 
-  public TupleMetadata tableSchema;
-  public Path filePath;
-  public int batchSize = ValueVector.MAX_ROW_COUNT;
-
-  public SchemaNegotiatorImpl(OperatorContext context, RowBatchReaderShim shim) {
-    this.context = context;
+  public BasicSchemaNegotiatorImpl(OperatorContext context, BasicReaderShim shim) {
+    super(context);
     this.shim = shim;
-  }
-
-  @Override
-  public void setFilePath(Path filePath) {
-    this.filePath = filePath;
   }
 
   /**
@@ -84,20 +72,5 @@ public class SchemaNegotiatorImpl implements SchemaNegotiator {
     // Build and return the result set loader to be used by the reader.
 
     return shim.build(this);
-  }
-
-  @Override
-  public OperatorContext context() {
-    return context;
-  }
-
-  @Override
-  public void setTableSchema(TupleMetadata schema) {
-    tableSchema = schema;
-  }
-
-  @Override
-  public void setBatchSize(int maxRecordsPerBatch) {
-    batchSize = maxRecordsPerBatch;
   }
 }

@@ -19,8 +19,8 @@ package org.apache.drill.exec.physical.impl.scan.managed;
 
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.hadoop.fs.Path;
 
 /**
  * Negotiates the table schema with the scanner framework and provides
@@ -68,14 +68,6 @@ public interface SchemaNegotiator {
    */
 
   void setTableSchema(TupleMetadata schema);
-
-  /**
-   * Specify the file path, if any, for the file to be read.
-   * Used to populate implicit columns.
-   * @param filePath Hadoop file path for the file
-   */
-
-  void setFilePath(Path filePath);
 
   /**
    * Set the preferred batch size (which may be overridden by the

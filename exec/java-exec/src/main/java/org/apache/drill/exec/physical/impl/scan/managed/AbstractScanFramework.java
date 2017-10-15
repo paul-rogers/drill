@@ -23,13 +23,10 @@ import java.util.List;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.ops.OperatorContext;
-import org.apache.drill.exec.physical.impl.scan.ReaderFactory;
-import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
+import org.apache.drill.exec.physical.impl.scan.ScanOperatorEvents;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjector;
-import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
-import org.apache.drill.exec.record.VectorContainer;
 
 /**
  * Provides the row set mutator used to construct record batches.
@@ -45,7 +42,7 @@ import org.apache.drill.exec.record.VectorContainer;
  * schema, returning the full batch in the next call to <tt>next()</tt>.
  */
 
-public abstract class AbstractScanLifecycle implements ReaderFactory {
+public abstract class AbstractScanFramework<T extends SchemaNegotiator> implements ScanOperatorEvents {
 
   /**
    * Extensible configuration for a scan.
@@ -54,10 +51,9 @@ public abstract class AbstractScanLifecycle implements ReaderFactory {
    * subclasses exist.
    */
 
-  public static class BasicScanConfig {
+  public static class AbstractScanConfig<T extends SchemaNegotiator> {
     protected List<SchemaPath> projection = new ArrayList<>();
     protected MajorType nullType;
-    protected List<ManagedReader> readers = new ArrayList<>();
 
     /**
      * Specify the type to use for projected columns that do not
@@ -72,65 +68,31 @@ public abstract class AbstractScanLifecycle implements ReaderFactory {
       this.projection = projection;
     }
 
-    public void addReader(ManagedReader reader) {
-      readers.add(reader);
+    public MajorType nullType() {
+      return nullType;
     }
   }
 
-  protected ScanProjector scanProjector;
   protected OperatorContext context;
-  private int readerIndex = -1;
 
   @Override
   public void bind(OperatorContext context) {
     this.context = context;
     ScanProjectionBuilder scanProjBuilder = new ScanProjectionBuilder();
-    AbstractScanLifecycle.BasicScanConfig scanConfig = scanConfig();
+    AbstractScanConfig<T> scanConfig = scanConfig();
     scanProjBuilder.projectedCols(scanConfig.projection);
     defineParsers(scanProjBuilder);
     ScanLevelProjection scanProj = scanProjBuilder.build();
     buildProjector(scanProj);
   }
 
-  protected abstract AbstractScanLifecycle.BasicScanConfig scanConfig();
+  protected abstract AbstractScanConfig<T> scanConfig();
 
   protected void defineParsers(ScanProjectionBuilder scanProjBuilder) { }
 
   protected abstract void buildProjector(ScanLevelProjection scanProj);
 
-  @Override
-  public RowBatchReader nextReader() {
-    AbstractScanLifecycle.BasicScanConfig scanConfig = scanConfig();
-    readerIndex++;
-    if (readerIndex >= scanConfig.readers.size()) {
-      readerIndex = scanConfig.readers.size();
-      return null;
-    }
-    return new RowBatchReaderShim(this, scanConfig.readers.get(readerIndex));
-  }
-
   public OperatorContext context() { return context; }
 
-  public ResultSetLoader startFile(SchemaNegotiatorImpl schemaNegotiator) {
-    scanProjector.startFile(schemaNegotiator.filePath);
-    ResultSetLoader tableLoader = scanProjector.makeTableLoader(schemaNegotiator.tableSchema,
-        schemaNegotiator.batchSize);
-    return tableLoader;
-  }
-
-  public void publish() {
-    scanProjector.publish();
-  }
-
-  public VectorContainer output() {
-    return scanProjector.output();
-  }
-
-  @Override
-  public void close() {
-    if (scanProjector != null) {
-      scanProjector.close();
-      scanProjector = null;
-    }
-  }
+  public abstract ScanProjector projector();
 }

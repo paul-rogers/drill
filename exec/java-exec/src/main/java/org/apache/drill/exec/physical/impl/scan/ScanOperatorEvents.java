@@ -31,7 +31,7 @@ import org.apache.drill.exec.ops.OperatorContext;
  * lifecycle events.
  */
 
-public interface ReaderFactory {
+public interface ScanOperatorEvents {
 
   /**
    * Build the scan-level schema from the physical operator select list.

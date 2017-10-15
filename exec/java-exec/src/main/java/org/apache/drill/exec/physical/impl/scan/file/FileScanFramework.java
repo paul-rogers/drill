@@ -17,16 +17,20 @@
  */
 package org.apache.drill.exec.physical.impl.scan.file;
 
-import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.exec.physical.impl.scan.managed.AbstractScanLifecycle;
+import java.util.Iterator;
+
+import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
+import org.apache.drill.exec.physical.impl.scan.managed.AbstractScanFramework;
+import org.apache.drill.exec.physical.impl.scan.managed.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjector;
 import org.apache.hadoop.fs.Path;
 
-public class FileScanLifecycle extends AbstractScanLifecycle {
+public class FileScanFramework extends AbstractScanFramework<FileSchemaNegotiator> {
 
-  public static class FileScanConfig extends AbstractScanLifecycle.BasicScanConfig {
+  public static class FileScanConfig extends AbstractScanConfig<FileSchemaNegotiator> {
+    protected Iterator<ManagedReader<FileSchemaNegotiator>> readerFactory;
     protected Path scanRootDir;
     protected boolean useLegacyWildcardExpansion = true;
 
@@ -44,28 +48,27 @@ public class FileScanLifecycle extends AbstractScanLifecycle {
       useLegacyWildcardExpansion = flag;
     }
 
-    // Temporary
-
-    protected MajorType nullType() {
-      return nullType;
+    public void setReaderFactory(Iterator<ManagedReader<FileSchemaNegotiator>> readerFactory) {
+      this.readerFactory = readerFactory;
     }
   }
 
-  private FileScanConfig fileConfig;
+  private FileScanConfig scanConfig;
   private FileMetadataColumnsParser parser;
+  private ScanProjector scanProjector;
 
-  public FileScanLifecycle(FileScanLifecycle.FileScanConfig fileConfig) {
-    this.fileConfig = fileConfig;
+  public FileScanFramework(FileScanFramework.FileScanConfig fileConfig) {
+    this.scanConfig = fileConfig;
   }
 
   @Override
-  protected AbstractScanLifecycle.BasicScanConfig scanConfig() { return fileConfig; }
+  protected AbstractScanConfig<FileSchemaNegotiator> scanConfig() { return scanConfig; }
 
   @Override
   protected void defineParsers(ScanProjectionBuilder scanProjBuilder) {
     parser = new FileMetadataColumnsParser(context.getFragmentContext().getOptionSet());
-    parser.useLegacyWildcardExpansion(fileConfig.useLegacyWildcardExpansion);
-    parser.setScanRootDir(fileConfig.scanRootDir);
+    parser.useLegacyWildcardExpansion(scanConfig.useLegacyWildcardExpansion);
+    parser.setScanRootDir(scanConfig.scanRootDir);
     scanProjBuilder.addParser(parser);
   }
 
@@ -73,6 +76,28 @@ public class FileScanLifecycle extends AbstractScanLifecycle {
   @Override
   protected void buildProjector(ScanLevelProjection scanProj) {
     FileMetadataProjection metadataPlan = parser.getProjection();
-    scanProjector = new ScanProjector(context.getAllocator(), scanProj, metadataPlan, fileConfig.nullType());
+    scanProjector = new ScanProjector(context.getAllocator(), scanProj, metadataPlan, scanConfig.nullType());
+  }
+
+  @Override
+  public RowBatchReader nextReader() {
+    if (! scanConfig.readerFactory.hasNext()) {
+      return null;
+    }
+    ManagedReader<FileSchemaNegotiator> reader = scanConfig.readerFactory.next();
+    return new FileReaderShim(this, reader);
+  }
+
+  @Override
+  public ScanProjector projector() {
+    return scanProjector;
+  }
+
+  @Override
+  public void close() {
+    if (scanProjector != null) {
+      scanProjector.close();
+      scanProjector = null;
+    }
   }
 }

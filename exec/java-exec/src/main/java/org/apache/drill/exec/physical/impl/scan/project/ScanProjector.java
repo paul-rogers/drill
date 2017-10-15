@@ -350,10 +350,6 @@ public class ScanProjector {
     return makeTableLoader(tableSchema, ValueVector.MAX_ROW_COUNT);
   }
 
-//  public boolean[] columnsArrayProjectionMap() {
-//    return projectionDefn.scanProjection().columnsArrayIndexes();
-//  }
-
   /**
    * The implicit (file metadata) and partition (directory metadata)
    * columns are static: they are the same across

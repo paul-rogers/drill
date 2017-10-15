@@ -34,9 +34,8 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.base.AbstractSubScan;
 import org.apache.drill.exec.physical.base.Scan;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser;
-import org.apache.drill.exec.physical.impl.scan.file.FileScanLifecycle;
-import org.apache.drill.exec.physical.impl.scan.file.FileScanLifecycle.FileScanConfig;
+import org.apache.drill.exec.physical.impl.scan.basic.BasicScanFramework;
+import org.apache.drill.exec.physical.impl.scan.basic.BasicScanFramework.BasicScanConfig;
 import org.apache.drill.exec.physical.impl.scan.managed.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.managed.SchemaNegotiator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
@@ -49,7 +48,6 @@ import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.SchemaBuilder;
-import org.apache.hadoop.fs.Path;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -69,34 +67,24 @@ import com.google.common.annotations.VisibleForTesting;
 public class TestScanOperatorExec extends SubOperatorTest {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestScanOperatorExec.class);
 
-  private static final String MOCK_FILE_NAME = "foo.csv";
-  private static final String MOCK_FILE_PATH = "/w/x/y";
-  private static final String MOCK_FILE_FQN = MOCK_FILE_PATH + "/" + MOCK_FILE_NAME;
-  private static final String MOCK_FILE_SYSTEM_NAME = "hdfs:" + MOCK_FILE_FQN;
-  private static final String MOCK_ROOT_PATH = "hdfs:///w";
-  private static final String MOCK_SUFFIX = "csv";
-  private static final String MOCK_DIR0 = "x";
-  private static final String MOCK_DIR1 = "y";
   private static final String STAR = SchemaPath.WILDCARD;
-  private static final String[] SELECT_STAR = new String[] { STAR };
 
-  public static class LegacyManagerBuilder extends FileScanLifecycle.FileScanConfig {
+  public static class LegacyManagerBuilder {
 
-    public void setSelectionRoot(String rootPath) {
-      setSelectionRoot(new Path(rootPath));
-    }
+    public BasicScanConfig scanConfig = new BasicScanConfig();
+    private List<ManagedReader<SchemaNegotiator>> readers = new ArrayList<>();
 
     @VisibleForTesting
     public void projectAll() {
       List<SchemaPath> cols = new ArrayList<>();
       cols.add(SchemaPath.STAR_COLUMN);
-      setProjection(cols);
+      scanConfig.setProjection(cols);
     }
 
     public void setProjection(String colName) {
       List<SchemaPath> cols = new ArrayList<>();
       cols.add(SchemaPath.getSimplePath(colName));
-      setProjection(cols);
+      scanConfig.setProjection(cols);
     }
 
     @VisibleForTesting
@@ -105,22 +93,16 @@ public class TestScanOperatorExec extends SubOperatorTest {
       for (String col : projection) {
         cols.add(SchemaPath.getSimplePath(col));
       }
-      setProjection(cols);
+      scanConfig.setProjection(cols);
     }
 
-    public LegacyReaderFactory build() {
-      if (projection.isEmpty()) {
-        logger.warn("No projection list specified: assuming SELECT *");
-        projectAll();
-      }
-      return new LegacyReaderFactory(this);
+    public BasicScanFramework build() {
+      scanConfig.setReaderFactory(readers.iterator());
+      return new BasicScanFramework(scanConfig);
     }
-  }
 
-  public static class LegacyReaderFactory extends FileScanLifecycle {
-
-    public LegacyReaderFactory(LegacyManagerBuilder builder) {
-      super(builder);
+    public void addReader(BaseMockBatchReader reader) {
+      readers.add(reader);
     }
   }
 
@@ -132,25 +114,13 @@ public class TestScanOperatorExec extends SubOperatorTest {
    * were actually called.
    */
 
-  private static abstract class BaseMockBatchReader implements ManagedReader {
+  private static abstract class BaseMockBatchReader implements ManagedReader<SchemaNegotiator> {
     public boolean openCalled;
     public boolean closeCalled;
     public int startIndex;
     public int batchCount;
     public int batchLimit;
     protected ResultSetLoader tableLoader;
-    protected Path filePath = new Path(MOCK_FILE_SYSTEM_NAME);
-
-    public BaseMockBatchReader setFilePath(String filePath) {
-      this.filePath = new Path(filePath);
-      return this;
-    }
-
-    protected void buildFilePath(SchemaNegotiator schemaNegotiator) {
-      if (filePath != null) {
-        schemaNegotiator.setFilePath(filePath);
-      }
-    }
 
     protected void makeBatch() {
       RowSetLoader writer = tableLoader.writer();
@@ -190,7 +160,6 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
       // No schema or file, just build the table loader.
 
-      buildFilePath(schemaNegotiator);
       tableLoader = schemaNegotiator.build();
       openCalled = true;
       return true;
@@ -242,7 +211,6 @@ public class TestScanOperatorExec extends SubOperatorTest {
     @Override
     public boolean open(SchemaNegotiator schemaNegotiator) {
       openCalled = true;
-      buildFilePath(schemaNegotiator);
       TupleMetadata schema = new SchemaBuilder()
           .add("a", MinorType.INT)
           .addNullable("b", MinorType.VARCHAR, 10)
@@ -269,7 +237,6 @@ public class TestScanOperatorExec extends SubOperatorTest {
     @Override
     public boolean open(SchemaNegotiator schemaNegotiator) {
       openCalled = true;
-      buildFilePath(schemaNegotiator);
       TupleMetadata schema = new SchemaBuilder()
           .add("a", MinorType.VARCHAR)
           .addNullable("b", MinorType.VARCHAR, 10)
@@ -354,7 +321,6 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     LegacyManagerBuilder builder = new LegacyManagerBuilder();
     builder.projectAll();
-    builder.useLegacyWildcardExpansion(false);
     builder.addReader(reader);
     MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
@@ -404,13 +370,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockLateSchemaReader reader = new MockLateSchemaReader();
     reader.batchLimit = 2;
     reader.returnDataOnFirst = false;
-    reader.filePath = null;
 
     // Create the scan operator
 
     LegacyManagerBuilder builder = new LegacyManagerBuilder();
     builder.projectAll();
-    builder.useLegacyWildcardExpansion(false);
     builder.addReader(reader);
     MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
@@ -460,7 +424,6 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     LegacyManagerBuilder builder = new LegacyManagerBuilder();
     builder.projectAll();
-    builder.useLegacyWildcardExpansion(false);
     builder.addReader(reader);
     MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
@@ -490,7 +453,6 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     LegacyManagerBuilder builder = new LegacyManagerBuilder();
     builder.projectAll();
-    builder.useLegacyWildcardExpansion(false);
     builder.addReader(reader);
     MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
@@ -524,70 +486,6 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     mockBatch.close();
   }
-
-  @Test
-  public void testLateSchemaFileWildcards() {
-
-    // Create a mock reader, return two batches: one schema-only, another with data.
-
-    MockLateSchemaReader reader = new MockLateSchemaReader();
-    reader.batchLimit = 2;
-    reader.returnDataOnFirst = false;
-
-    // Create the scan operator
-
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.setSelectionRoot(MOCK_ROOT_PATH);
-    builder.addReader(reader);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
-
-    // Standard startup
-
-    assertFalse(reader.openCalled);
-
-    // First batch: build schema. The reader helps: it returns an
-    // empty first batch.
-
-    assertTrue(scan.buildSchema());
-    assertTrue(reader.openCalled);
-    assertEquals(1, reader.batchCount);
-    assertEquals(0, scan.batchAccessor().getRowCount());
-
-    // Create the expected result.
-
-    TupleMetadata expectedSchema = new SchemaBuilder()
-        .add("a", MinorType.INT)
-        .addNullable("b", MinorType.VARCHAR, 10)
-        .add(FileMetadataColumnsParser.FULLY_QUALIFIED_NAME_COL, MinorType.VARCHAR)
-        .add(FileMetadataColumnsParser.FILE_PATH_COL, MinorType.VARCHAR)
-        .add(ScanTestUtils.FILE_NAME_COL, MinorType.VARCHAR)
-        .add(FileMetadataColumnsParser.SUFFIX_COL, MinorType.VARCHAR)
-        .addNullable(FileMetadataColumnsParser.partitionColName(0), MinorType.VARCHAR)
-        .addNullable(FileMetadataColumnsParser.partitionColName(1), MinorType.VARCHAR)
-        .buildSchema();
-    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(30, "fred", MOCK_FILE_FQN, MOCK_FILE_PATH, MOCK_FILE_NAME, MOCK_SUFFIX, MOCK_DIR0, MOCK_DIR1)
-        .addRow(40, "wilma", MOCK_FILE_FQN, MOCK_FILE_PATH, MOCK_FILE_NAME, MOCK_SUFFIX, MOCK_DIR0, MOCK_DIR1)
-        .build();
-    RowSetComparison verifier = new RowSetComparison(expected);
-    assertEquals(expected.batchSchema(), scan.batchAccessor().getSchema());
-
-    // Next call, return with data.
-
-    assertTrue(scan.next());
-    verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
-
-    // EOF
-
-    assertFalse(scan.next());
-    assertTrue(reader.closeCalled);
-    assertEquals(0, scan.batchAccessor().getRowCount());
-
-    mockBatch.close();
-  }
-
   @Test
   public void testEarlySchemaLifecycle() {
 
@@ -600,7 +498,6 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     LegacyManagerBuilder builder = new LegacyManagerBuilder();
     builder.projectAll();
-    builder.useLegacyWildcardExpansion(false);
     builder.addReader(reader);
     MockBatch mockBatch = new MockBatch(builder);
     ScanOperatorExec scan = mockBatch.scanOp;
@@ -634,114 +531,6 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     mockBatch.close();
   }
-
-  /**
-   * Basic sanity test of a couple of implicit columns, along
-   * with all table columns in table order. Full testing of implicit
-   * columns is done on lower-level components.
-   */
-
-  @Test
-  public void testMetadataColumns() {
-
-    MockEarlySchemaReader reader = new MockEarlySchemaReader();
-    reader.batchLimit = 1;
-
-    // Select table and implicit columns.
-
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.setProjection(new String[] {"a", "b", "filename", "suffix"});
-    builder.addReader(reader);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
-
-    // Expect data and implicit columns
-
-    BatchSchema expectedSchema = new SchemaBuilder()
-        .add("a", MinorType.INT)
-        .addNullable("b", MinorType.VARCHAR, 10)
-        .add("filename", MinorType.VARCHAR)
-        .add("suffix", MinorType.VARCHAR)
-        .build();
-    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(10, "fred", MOCK_FILE_NAME, MOCK_SUFFIX)
-        .addRow(20, "wilma", MOCK_FILE_NAME, MOCK_SUFFIX)
-        .build();
-    RowSetComparison verifier = new RowSetComparison(expected);
-
-    // Schema should include implicit columns.
-
-    assertTrue(scan.buildSchema());
-    assertEquals(expectedSchema, scan.batchAccessor().getSchema());
-    scan.batchAccessor().release();
-
-    // Read one batch, should contain implicit columns
-
-    assertTrue(scan.next());
-    verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
-
-    // EOF
-
-    assertFalse(scan.next());
-    assertEquals(0, scan.batchAccessor().getRowCount());
-    mockBatch.close();
-  }
-
-  /**
-   * Exercise the major project operations: subset of table
-   * columns, implicit, partition, missing columns, and output
-   * order (and positions) different than table. These cases
-   * are more fully test on lower level components; here we verify
-   * that the components are wired up correctly.
-   */
-  @Test
-  public void testFullProject() {
-
-    MockEarlySchemaReader reader = new MockEarlySchemaReader();
-    reader.batchLimit = 1;
-
-    // Select table and implicit columns.
-
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.setSelectionRoot(MOCK_ROOT_PATH);
-    builder.setProjection(new String[] {"dir0", "b", "filename", "c", "suffix"});
-    builder.addReader(reader);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
-
-    // Expect data and implicit columns
-
-    BatchSchema expectedSchema = new SchemaBuilder()
-        .addNullable("dir0", MinorType.VARCHAR)
-        .addNullable("b", MinorType.VARCHAR, 10)
-        .add("filename", MinorType.VARCHAR)
-        .addNullable("c", MinorType.INT)
-        .add("suffix", MinorType.VARCHAR)
-        .build();
-    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(MOCK_DIR0, "fred", MOCK_FILE_NAME, null, MOCK_SUFFIX)
-        .addRow(MOCK_DIR0, "wilma", MOCK_FILE_NAME, null, MOCK_SUFFIX)
-        .build();
-    RowSetComparison verifier = new RowSetComparison(expected);
-
-    // Schema should include implicit columns.
-
-    assertTrue(scan.buildSchema());
-    assertEquals(expectedSchema, scan.batchAccessor().getSchema());
-    scan.batchAccessor().release();
-
-    // Read one batch, should contain implicit columns
-
-    assertTrue(scan.next());
-    verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
-
-    // EOF
-
-    assertFalse(scan.next());
-    assertEquals(0, scan.batchAccessor().getRowCount());
-    mockBatch.close();
-  }
-
   /**
    * Test the case where the reader does not play the "first batch contains
    * only schema" game, and instead returns data. The Scan operator will
@@ -927,7 +716,6 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     LegacyManagerBuilder builder = new LegacyManagerBuilder();
     builder.projectAll();
-    builder.useLegacyWildcardExpansion(false);
     builder.addReader(reader1);
     builder.addReader(reader2);
     MockBatch mockBatch = new MockBatch(builder);
@@ -1362,7 +1150,6 @@ public class TestScanOperatorExec extends SubOperatorTest {
           .add("a", MinorType.VARCHAR)
           .buildSchema();
       schemaNegotiator.setTableSchema(schema);
-      buildFilePath(schemaNegotiator);
       tableLoader = schemaNegotiator.build();
       return true;
     }
@@ -1400,14 +1187,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
   public void testMultipleReadersWithOverflow() {
     OverflowReader reader1 = new OverflowReader();
     reader1.batchLimit = 2;
-    reader1.filePath = new Path("hdfs:///w/x/y/a.csv");
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
     reader2.batchLimit = 2;
 
     LegacyManagerBuilder builder = new LegacyManagerBuilder();
     builder.projectAll();
-    builder.setSelectionRoot(MOCK_ROOT_PATH);
-    builder.useLegacyWildcardExpansion(false);
     builder.addReader(reader1);
     builder.addReader(reader2);
     MockBatch mockBatch = new MockBatch(builder);
@@ -1473,7 +1257,6 @@ public class TestScanOperatorExec extends SubOperatorTest {
     @Override
     public boolean open(SchemaNegotiator schemaNegotiator) {
       openCalled = true;
-      buildFilePath(schemaNegotiator);
       TupleMetadata schema = new SchemaBuilder()
           .add("a", MinorType.INT)
           .buildSchema();
@@ -1525,22 +1308,18 @@ public class TestScanOperatorExec extends SubOperatorTest {
     // Reader returns (a, b)
     MockEarlySchemaReader reader1 = new MockEarlySchemaReader();
     reader1.batchLimit = 1;
-    reader1.setFilePath("hdfs:///w/x/y/a.csv");
 
     // Reader returns (a)
     MockOneColEarlySchemaReader reader2 = new MockOneColEarlySchemaReader();
     reader2.batchLimit = 1;
-    reader2.setFilePath("hdfs:///w/x/y/b.csv");
     reader2.startIndex = 100;
 
     // Reader returns (a, b)
     MockEarlySchemaReader reader3 = new MockEarlySchemaReader();
     reader3.batchLimit = 1;
     reader3.startIndex = 200;
-    reader3.setFilePath("hdfs:///w/x/y/c.csv");
 
     LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.setSelectionRoot(MOCK_ROOT_PATH);
     builder.setProjection(new String[]{"a", "b"});
     builder.addReader(reader1);
     builder.addReader(reader2);

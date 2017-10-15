@@ -15,21 +15,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan.managed;
+package org.apache.drill.exec.physical.impl.scan.file;
 
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.managed.SchemaNegotiator;
+import org.apache.hadoop.fs.Path;
 
-public class BasicScanLifecycle extends AbstractScanLifecycle {
+public interface FileSchemaNegotiator extends SchemaNegotiator {
 
-  private AbstractScanLifecycle.BasicScanConfig basicConfig;
+  /**
+   * Specify the file path, if any, for the file to be read.
+   * Used to populate implicit columns.
+   * @param filePath Hadoop file path for the file
+   */
 
-  public BasicScanLifecycle(AbstractScanLifecycle.BasicScanConfig config) {
-    this.basicConfig = config;
-  }
-
-  @Override
-  protected AbstractScanLifecycle.BasicScanConfig scanConfig() { return basicConfig; }
-
-  @Override
-  protected void buildProjector(ScanLevelProjection scanProj) {}
+  void setFilePath(Path filePath);
 }
