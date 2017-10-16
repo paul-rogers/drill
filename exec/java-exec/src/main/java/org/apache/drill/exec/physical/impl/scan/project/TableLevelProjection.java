@@ -8,6 +8,7 @@ import org.apache.drill.exec.physical.impl.scan.project.NullColumnLoader.NullCol
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Projection;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 
