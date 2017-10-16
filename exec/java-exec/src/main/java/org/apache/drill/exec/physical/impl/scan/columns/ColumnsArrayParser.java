@@ -25,8 +25,8 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
-import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionParser;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
 import org.apache.drill.exec.vector.ValueVector;
 
@@ -38,7 +38,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
 
   // Internals
 
-  private ScanProjectionBuilder builder;
+  private ScanLevelProjection builder;
 
   // Output
 
@@ -56,7 +56,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
   }
 
   @Override
-  public void bind(ScanProjectionBuilder builder) {
+  public void bind(ScanLevelProjection builder) {
     this.builder = builder;
   }
 

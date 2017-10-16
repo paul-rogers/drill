@@ -17,19 +17,24 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.project.Exp.UnresolvedProjection;
 
 /**
  * Parses and analyzes the projection list passed to the scanner. The
  * projection list is per scan, independent of any tables that the
  * scanner might scan. The projection list is then used as input to the
  * per-table projection planning.
+ * <p>
+ * Accepts the inputs needed to
+ * plan a projection, builds the mappings, and constructs the projection
+ * mapping object.
+ * <p>
+ * Builds the per-scan projection plan given a set of projected columns.
+ * Determines the output schema, which columns to project from the data
+ * source, which are metadata, and so on.
  * <p>
  * An annoying aspect of SQL is that the projection list (the list of
  * columns to appear in the output) is specified after the SELECT keyword.
@@ -72,32 +77,185 @@ import org.apache.drill.exec.physical.impl.scan.project.Exp.UnresolvedProjection
  * evolved
  */
 
-public class ScanLevelProjection implements UnresolvedProjection {
+public class ScanLevelProjection {
 
-  private final List<SchemaPath> requestedCols;
-  private final List<ColumnProjection> outputCols;
-  public final boolean hasWildcard;
-
-  public ScanLevelProjection(ScanProjectionBuilder builder) {
-    hasWildcard = builder.hasWildcard;
-    requestedCols = builder.projectionList;
-    outputCols = builder.outputCols;
+  public interface ColumnProjection {
+    String name();
+  //  SchemaPath source();
+  //  boolean resolved();
+    int nodeType();
   }
 
   /**
-   * Return whether this is a SELECT * query
-   * @return true if this is a SELECT * query
+   * Interface for add-on parsers, avoids the need to create
+   * a single, tightly-coupled parser for all types of columns.
+   * The main parser handles wildcards and assumes the rest of
+   * the columns are table columns. The add-on parser can tag
+   * columns as special, such as to hold metadata.
    */
 
-  @Override
-  public boolean projectAll() { return hasWildcard; }
+  public interface ScanProjectionParser {
+    void bind(ScanLevelProjection builder);
+    boolean parse(SchemaPath inCol);
+    void validate();
+    void validateColumn(ColumnProjection col);
+    void build();
+  }
 
+  public class UnresolvedColumn implements ColumnProjection {
+
+    public static final int WILDCARD = 1;
+    public static final int UNRESOLVED = 2;
+
+    /**
+     * The original physical plan column to which this output column
+     * maps. In some cases, multiple output columns map map the to the
+     * same "input" (to the projection process) column.
+     */
+
+    private final SchemaPath inCol;
+    private final int id;
+
+    public UnresolvedColumn(SchemaPath inCol, int id) {
+      this.inCol = inCol;
+      this.id = id;
+    }
+
+    @Override
+    public int nodeType() { return id; }
+
+    @Override
+    public String name() { return inCol.rootName(); }
+
+    public SchemaPath source() { return inCol; }
+  }
+
+  // Input
+
+  protected final List<SchemaPath> projectionList;
+
+  // Configuration
+
+  protected List<ScanProjectionParser> parsers;
+
+  // Output
+
+  protected List<ColumnProjection> outputCols = new ArrayList<>();
+  protected boolean hasWildcard;
+
+  /**
+   * Specify the set of columns in the SELECT list. Since the column list
+   * comes from the query planner, assumes that the planner has checked
+   * the list for syntax and uniqueness.
+   *
+   * @param queryCols list of columns in the SELECT list in SELECT list order
+   * @return this builder
+   */
+  public ScanLevelProjection(List<SchemaPath> projectionList,
+      List<ScanProjectionParser> parsers) {
+    this.projectionList = projectionList;
+    this.parsers = parsers;
+    for (ScanProjectionParser parser : parsers) {
+      parser.bind(this);
+    }
+    for (SchemaPath inCol : projectionList) {
+      mapColumn(inCol);
+    }
+    verify();
+    for (ScanProjectionParser parser : parsers) {
+      parser.build();
+    }
+  }
+
+  /**
+   * Map the column into one of five categories.
+   * <ol>
+   * <li>Star column (to designate SELECT *)</li>
+   * <li>Partition file column (dir0, dir1, etc.)</li>
+   * <li>Implicit column (fqn, filepath, filename, suffix)</li>
+   * <li>Special <tt>columns</tt> column which holds all columns as
+   * an array.</li>
+   * <li>Table column. The actual match against the table schema
+   * is done later.</li>
+   * </ol>
+   *
+   * @param inCol the SELECT column
+   */
+
+  private void mapColumn(SchemaPath inCol) {
+
+    // Give the extensions first crack at each column.
+    // Some may want to "sniff" a column, even if they
+    // don't fully handle it.
+
+    for (ScanProjectionParser parser : parsers) {
+      if (parser.parse(inCol)) {
+        return;
+      }
+    }
+    if (inCol.isWildcard()) {
+
+      // Star column: this is a SELECT * query.
+
+      mapWildcardColumn(inCol);
+      return;
+    }
+
+    // This is a desired table column.
+
+    UnresolvedColumn tableCol = new UnresolvedColumn(inCol, UnresolvedColumn.UNRESOLVED);
+    outputCols.add(tableCol);
+//    tableColNames.add(tableCol.name());
+  }
+
+  public void addProjectedColumn(ColumnProjection outCol) {
+    outputCols.add(outCol);
+  }
+
+  private void mapWildcardColumn(SchemaPath inCol) {
+    if (hasWildcard) {
+      throw new IllegalArgumentException("Duplicate * entry in project list");
+    }
+    hasWildcard = true;
+//    wildcardColumn = inCol;
+
+    // Put the wildcard column into the projection list as a placeholder to be filled
+    // in later with actual table columns.
+
+    outputCols.add(new UnresolvedColumn(inCol, UnresolvedColumn.WILDCARD));
+  }
+
+  private void verify() {
+
+    // Let parsers do overall validation.
+
+    for (ScanProjectionParser parser : parsers) {
+      parser.validate();
+    }
+
+    // Validate column-by-column.
+
+    for (ColumnProjection outCol : outputCols) {
+      for (ScanProjectionParser parser : parsers) {
+        parser.validateColumn(outCol);
+      }
+      switch (outCol.nodeType()) {
+      case UnresolvedColumn.UNRESOLVED:
+        if (hasWildcard()) {
+          throw new IllegalArgumentException("Cannot select table columns and * together");
+        }
+        break;
+      default:
+        break;
+      }
+    }
+  }
   /**
    * Return the set of columns from the SELECT list
    * @return the SELECT list columns, in SELECT list order
    */
 
-  public List<SchemaPath> requestedCols() { return requestedCols; }
+  public List<SchemaPath> requestedCols() { return projectionList; }
 
   /**
    * The entire set of output columns, in output order. Output order is
@@ -106,14 +264,15 @@ public class ScanLevelProjection implements UnresolvedProjection {
    * @return the set of output columns in output order
    */
 
-  @Override
   public List<ColumnProjection> outputCols() { return outputCols; }
 
-  @Override
-  public MajorType nullType() {
-    return MajorType.newBuilder()
-        .setMinorType(MinorType.NULL)
-        .setMode(DataMode.OPTIONAL)
-        .build();
-  }
+  public boolean hasWildcard() { return hasWildcard; }
+
+  /**
+   * Return whether this is a SELECT * query
+   * @return true if this is a SELECT * query
+   */
+
+  public boolean projectAll() { return hasWildcard; }
+
 }

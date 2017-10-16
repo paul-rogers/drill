@@ -18,232 +18,75 @@
 package org.apache.drill.exec.physical.impl.scan;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.assertSame;
 
-import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.expression.SchemaPath;
+import java.util.List;
+
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
-import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayProjection;
-import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.file.ResolvedFileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.file.ResolvedPartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ProjectedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
 import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection.ExplicitTableProjection;
+import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection.ResolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection.WildcardTableProjection;
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
-import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
 public class TestTableLevelProjection extends SubOperatorTest {
 
-  /**
-   * Resolve a selection list using SELECT *.
-   */
+  public static class DummySource implements VectorSource {
 
-  @Test
-  public void testWildcardNew() {
-    ProjectionFixture projFixture = new ProjectionFixture()
-        .withFileParser(fixture.options())
-        .projectedCols(
-            ScanTestUtils.FILE_NAME_COL,
-            SchemaPath.WILDCARD,
-            ScanTestUtils.partitionColName(0));
-    projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
-    projFixture.build();
+    @Override
+    public ValueVector getVector(int fromIndex) {
+      // Not a real source!
+      throw new UnsupportedOperationException();
+    }
 
-    FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
-    assertEquals(3, fileProj.outputCols().size());
-    assertTrue(fileProj.hasMetadata());
-
-    TupleMetadata tableSchema = new SchemaBuilder()
-        .add("a", MinorType.VARCHAR)
-        .addNullable("c", MinorType.INT)
-        .addArray("d", MinorType.FLOAT8)
-        .buildSchema();
-
-    TableLevelProjection tableProj = fileProj.resolve(tableSchema);
-    assertFalse(tableProj.hasNullColumns());
-
-    TupleMetadata expectedSchema = new SchemaBuilder()
-        .add("filename", MinorType.VARCHAR)
-        .add("a", MinorType.VARCHAR)
-        .addNullable("c", MinorType.INT)
-        .addArray("d", MinorType.FLOAT8)
-        .addNullable("dir0", MinorType.VARCHAR)
-        .buildSchema();
-
-    assertTrue(ScanTestUtils.schema(tableProj.output()).isEquivalent(expectedSchema));
-
-    assertEquals(ResolvedFileMetadataColumn.ID, tableProj.output().get(0).nodeType());
-    assertEquals(ProjectedColumn.ID, tableProj.output().get(1).nodeType());
-    assertEquals(ProjectedColumn.ID, tableProj.output().get(2).nodeType());
-    assertEquals(ProjectedColumn.ID, tableProj.output().get(3).nodeType());
-    assertEquals(ResolvedPartitionColumn.ID, tableProj.output().get(4).nodeType());
-
-    boolean selMap[] = tableProj.projectionMap();
-    assertEquals(3, selMap.length);
-    assertTrue(selMap[0]);
-    assertTrue(selMap[1]);
-    assertTrue(selMap[2]);
-
-    int lToPMap[] = tableProj.logicalToPhysicalMap();
-    assertEquals(0, lToPMap[0]);
-    assertEquals(1, lToPMap[1]);
-    assertEquals(2, lToPMap[2]);
-
-    int projMap[] = tableProj.tableColumnProjectionMap();
-    assertEquals(1, projMap[0]);
-    assertEquals(2, projMap[1]);
-    assertEquals(3, projMap[2]);
-
-    int mdProj[] = tableProj.metadataProjection();
-    assertEquals(0, mdProj[0]);
-    assertEquals(4, mdProj[1]);
-  }
-
-  @Test
-  public void testWildcardLegacy() {
-    ProjectionFixture projFixture = new ProjectionFixture()
-        .withFileParser(fixture.options())
-        .projectedCols(SchemaPath.WILDCARD);
-    projFixture.metdataParser.useLegacyWildcardExpansion(true);
-    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
-    projFixture.build();
-
-    FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
-    assertEquals(7, fileProj.outputCols().size());
-    assertTrue(fileProj.hasMetadata());
-
-    TupleMetadata tableSchema = new SchemaBuilder()
-        .add("a", MinorType.VARCHAR)
-        .addNullable("c", MinorType.INT)
-        .addArray("d", MinorType.FLOAT8)
-        .buildSchema();
-
-    TableLevelProjection tableProj = fileProj.resolve(tableSchema);
-    assertEquals(9, tableProj.output().size());
-    assertFalse(tableProj.hasNullColumns());
-
-    TupleMetadata expectedSchema = projFixture.expandMetadata(tableSchema, 2);
-
-    assertTrue(ScanTestUtils.schema(tableProj.output()).isEquivalent(expectedSchema));
-
-    boolean selMap[] = tableProj.projectionMap();
-    assertEquals(3, selMap.length);
-    assertTrue(selMap[0]);
-    assertTrue(selMap[1]);
-    assertTrue(selMap[2]);
-
-    int lToPMap[] = tableProj.logicalToPhysicalMap();
-    assertEquals(0, lToPMap[0]);
-    assertEquals(1, lToPMap[1]);
-    assertEquals(2, lToPMap[2]);
-
-    int projMap[] = tableProj.tableColumnProjectionMap();
-    assertEquals(0, projMap[0]);
-    assertEquals(1, projMap[1]);
-    assertEquals(2, projMap[2]);
-
-    int mdProj[] = tableProj.metadataProjection();
-    int mdCount = fileProj.metadataColumns().size();
-    for (int i = 0; i < mdCount; i++) {
-      assertEquals(i + 3, mdProj[i]);
+    @Override
+    public BatchSchema getSchema() {
+      // Not a real source!
+      throw new UnsupportedOperationException();
     }
   }
 
-  /**
-   * Test columns array. The table must be able to support it by having all
-   * Varchar columns.
-   */
-
   @Test
-  public void testColumnsArray() {
+  public void testWildcard() {
     ProjectionFixture projFixture = new ProjectionFixture()
-        .withFileParser(fixture.options())
-        .withColumnsArrayParser()
-        .projectedCols(
-            ScanTestUtils.FILE_NAME_COL,
-            ColumnsArrayProjection.COLUMNS_COL,
-            ScanTestUtils.partitionColName(0));
-    projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
+        .projectAll();
     projFixture.build();
 
-    FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
-
-    TupleMetadata tableSchema = new SchemaBuilder()
-        .add("a", MinorType.VARCHAR)
-        .add("c", MinorType.VARCHAR)
-        .add("d", MinorType.VARCHAR)
-        .buildSchema();
-
-    TableLevelProjection tableProj = fileProj.resolve(tableSchema);
-    assertFalse(tableProj.hasNullColumns());
-
-    TupleMetadata expectedSchema = new SchemaBuilder()
-        .add("filename", MinorType.VARCHAR)
-        .addArray("columns", MinorType.VARCHAR)
-        .addNullable("dir0", MinorType.VARCHAR)
-        .buildSchema();
-
-    assertTrue(ScanTestUtils.schema(tableProj.output()).isEquivalent(expectedSchema));
-
-    assertEquals(ResolvedFileMetadataColumn.ID, tableProj.output().get(0).nodeType());
-
-    // The columns array is now an actual table column.
-
-    assertEquals(ProjectedColumn.ID, tableProj.output().get(1).nodeType());
-    assertEquals(ResolvedPartitionColumn.ID, tableProj.output().get(2).nodeType());
-
-    boolean selMap[] = tableProj.projectionMap();
-    assertTrue(selMap[0]);
-
-    int lToPMap[] = tableProj.logicalToPhysicalMap();
-    assertEquals(0, lToPMap[0]);
-
-    int projMap[] = tableProj.tableColumnProjectionMap();
-    assertEquals(1, projMap[0]);
-  }
-
-  /**
-   * Test attempting to use the columns array with an early schema with
-   * column types not compatible with a varchar array.
-   */
-
-  @Test
-  public void testColumnsArrayIncompatible() {
-    ProjectionFixture projFixture = new ProjectionFixture()
-        .withFileParser(fixture.options())
-        .withColumnsArrayParser()
-        .projectedCols(
-            ScanTestUtils.FILE_NAME_COL,
-            ColumnsArrayProjection.COLUMNS_COL,
-            ScanTestUtils.partitionColName(0));
-    projFixture.metdataParser.useLegacyWildcardExpansion(false);
-    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
-    projFixture.build();
-
-    FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
+    ReaderLevelProjection fileProj = projFixture.resolveReader();
+    assertEquals(1, fileProj.output().size());
 
     TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
         .addNullable("c", MinorType.INT)
-        .add("d", MinorType.FLOAT8)
+        .addArray("d", MinorType.FLOAT8)
         .buildSchema();
 
-    try {
-      fileProj.resolve(tableSchema);
-      fail();
-    } catch (UserException e) {
-      // Expected
-    }
-  }
+    DummySource fileSource = new DummySource();
+    TableLevelProjection tableProj = new WildcardTableProjection(fileProj, tableSchema, fileSource);
+    assertEquals(3, tableProj.columns().size());
 
+    List<ResolvedColumn> columns = tableProj.columns();
+    assertEquals("a", columns.get(0).name());
+    assertEquals(0, columns.get(0).projection().sourceIndex());
+    assertEquals(0, columns.get(0).projection().destIndex());
+    assertSame(fileSource, columns.get(0).projection().source());
+    assertEquals("c", columns.get(1).name());
+    assertEquals(1, columns.get(1).projection().sourceIndex());
+    assertEquals(1, columns.get(1).projection().destIndex());
+    assertSame(fileSource, columns.get(1).projection().source());
+    assertEquals("d", columns.get(2).name());
+    assertEquals(2, columns.get(2).projection().sourceIndex());
+    assertEquals(2, columns.get(2).projection().destIndex());
+    assertSame(fileSource, columns.get(2).projection().source());
+  }
   /**
    * Test SELECT list with columns defined in a order and with
    * name case different than the early-schema table.
@@ -255,11 +98,11 @@ public class TestTableLevelProjection extends SubOperatorTest {
     // Simulate SELECT c, b, a ...
 
     ProjectionFixture projFixture = new ProjectionFixture()
-        .withFileParser(fixture.options())
         .projectedCols("c", "b", "a");
-    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
-    FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
+
+    ReaderLevelProjection fileProj = projFixture.resolveReader();
+    assertEquals(3, fileProj.output().size());
 
     // Simulate a data source, with early schema, of (a, b, c)
 
@@ -269,36 +112,26 @@ public class TestTableLevelProjection extends SubOperatorTest {
         .add("C", MinorType.VARCHAR)
         .buildSchema();
 
-    TableLevelProjection tableProj = fileProj.resolve(tableSchema);
-    assertFalse(tableProj.hasNullColumns());
+    DummySource fileSource = new DummySource();
+    DummySource nullSource = new DummySource();
+    TableLevelProjection tableProj = new ExplicitTableProjection(fileProj, tableSchema, fileSource, nullSource);
+    assertEquals(3, tableProj.columns().size());
 
-    TupleMetadata expectedSchema = new SchemaBuilder()
-        .add("c", MinorType.VARCHAR)
-        .add("b", MinorType.VARCHAR)
-        .add("a", MinorType.VARCHAR)
-        .buildSchema();
+    List<ResolvedColumn> columns = tableProj.columns();
+    assertEquals("c", columns.get(0).name());
+    assertEquals(2, columns.get(0).projection().sourceIndex());
+    assertEquals(0, columns.get(0).projection().destIndex());
+    assertSame(fileSource, columns.get(0).projection().source());
 
-    assertTrue(ScanTestUtils.schema(tableProj.output()).isEquivalent(expectedSchema));
-    assertEquals(ProjectedColumn.ID, tableProj.output().get(0).nodeType());
-    assertEquals(ProjectedColumn.ID, tableProj.output().get(1).nodeType());
-    assertEquals(ProjectedColumn.ID, tableProj.output().get(2).nodeType());
+    assertEquals("b", columns.get(1).name());
+    assertEquals(1, columns.get(1).projection().sourceIndex());
+    assertEquals(1, columns.get(1).projection().destIndex());
+    assertSame(fileSource, columns.get(1).projection().source());
 
-    boolean selMap[] = tableProj.projectionMap();
-    assertEquals(3, selMap.length);
-    assertTrue(selMap[0]);
-    assertTrue(selMap[1]);
-    assertTrue(selMap[2]);
-
-    int ltoPMap[] = tableProj.logicalToPhysicalMap();
-    assertEquals(3, ltoPMap.length);
-    assertEquals(0, ltoPMap[0]);
-    assertEquals(1, ltoPMap[1]);
-    assertEquals(2, ltoPMap[2]);
-
-    int projMap[] = tableProj.tableColumnProjectionMap();
-    assertEquals(2, projMap[0]);
-    assertEquals(1, projMap[1]);
-    assertEquals(0, projMap[2]);
+    assertEquals("a", columns.get(2).name());
+    assertEquals(0, columns.get(2).projection().sourceIndex());
+    assertEquals(2, columns.get(2).projection().destIndex());
+    assertSame(fileSource, columns.get(2).projection().source());
   }
 
   /**
@@ -311,12 +144,11 @@ public class TestTableLevelProjection extends SubOperatorTest {
     // Simulate SELECT c, v, b, w ...
 
     ProjectionFixture projFixture = new ProjectionFixture()
-        .withFileParser(fixture.options())
         .projectedCols("c", "v", "b", "w");
-    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
 
-    FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
+    ReaderLevelProjection fileProj = projFixture.resolveReader();
+    assertEquals(4, fileProj.output().size());
 
     // Simulate a data source, with early schema, of (a, b, c)
 
@@ -326,9 +158,12 @@ public class TestTableLevelProjection extends SubOperatorTest {
         .add("C", MinorType.VARCHAR)
         .buildSchema();
 
-    TableLevelProjection tableProj = fileProj.resolve(tableSchema);
-    assertTrue(tableProj.hasNullColumns());
+    DummySource fileSource = new DummySource();
+    DummySource nullSource = new DummySource();
+    TableLevelProjection tableProj = new ExplicitTableProjection(fileProj, tableSchema, fileSource, nullSource);
+    assertEquals(4, tableProj.columns().size());
 
+    @SuppressWarnings("unused")
     TupleMetadata expectedSchema = new SchemaBuilder()
         .add("c", MinorType.VARCHAR)
         .addNullable("v", MinorType.NULL)
@@ -336,32 +171,26 @@ public class TestTableLevelProjection extends SubOperatorTest {
         .addNullable("w", MinorType.NULL)
         .buildSchema();
 
-    assertTrue(ScanTestUtils.schema(tableProj.output()).isEquivalent(expectedSchema));
+    List<ResolvedColumn> columns = tableProj.columns();
+    assertEquals("c", columns.get(0).name());
+    assertEquals(2, columns.get(0).projection().sourceIndex());
+    assertEquals(0, columns.get(0).projection().destIndex());
+    assertSame(fileSource, columns.get(0).projection().source());
 
-    boolean selMap[] = tableProj.projectionMap();
-    assertEquals(3, selMap.length);
-    assertFalse(selMap[0]);
-    assertTrue(selMap[1]);
-    assertTrue(selMap[2]);
+    assertEquals("v", columns.get(1).name());
+    assertEquals(0, columns.get(1).projection().sourceIndex());
+    assertEquals(1, columns.get(1).projection().destIndex());
+    assertSame(nullSource, columns.get(1).projection().source());
 
-    int ltoPMap[] = tableProj.logicalToPhysicalMap();
-    assertEquals(3, ltoPMap.length);
-    assertEquals(-1, ltoPMap[0]);
-    assertEquals(0, ltoPMap[1]);
-    assertEquals(1, ltoPMap[2]);
+    assertEquals("b", columns.get(2).name());
+    assertEquals(1, columns.get(2).projection().sourceIndex());
+    assertEquals(2, columns.get(2).projection().destIndex());
+    assertSame(fileSource, columns.get(2).projection().source());
 
-    int projMap[] = tableProj.tableColumnProjectionMap();
-    assertEquals(-1, projMap[0]);
-    assertEquals(2, projMap[1]);
-    assertEquals(0, projMap[2]);
-
-    assertEquals(2, tableProj.nullColumns().size());
-    assertEquals("v", tableProj.nullColumns().get(0).name());
-    assertEquals("w", tableProj.nullColumns().get(1).name());
-
-    int nullProjMap[] = tableProj.nullProjectionMap();
-    assertEquals(1, nullProjMap[0]);
-    assertEquals(3, nullProjMap[1]);
+    assertEquals("w", columns.get(3).name());
+    assertEquals(1, columns.get(3).projection().sourceIndex());
+    assertEquals(3, columns.get(3).projection().destIndex());
+    assertSame(nullSource, columns.get(3).projection().source());
   }
 
   @Test
@@ -370,12 +199,11 @@ public class TestTableLevelProjection extends SubOperatorTest {
     // Simulate SELECT c, a ...
 
     ProjectionFixture projFixture = new ProjectionFixture()
-        .withFileParser(fixture.options())
         .projectedCols("c", "a");
-    projFixture.metdataParser.setScanRootDir(new Path("hdfs:///w"));
     projFixture.build();
 
-    FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
+    ReaderLevelProjection fileProj = projFixture.resolveReader();
+    assertEquals(2, fileProj.output().size());
 
     // Simulate a data source, with early schema, of (a, b, c)
 
@@ -385,32 +213,27 @@ public class TestTableLevelProjection extends SubOperatorTest {
         .add("C", MinorType.VARCHAR)
         .buildSchema();
 
-    TableLevelProjection tableProj = fileProj.resolve(tableSchema);
-    assertFalse(tableProj.hasNullColumns());
+    DummySource fileSource = new DummySource();
+    DummySource nullSource = new DummySource();
+    TableLevelProjection tableProj = new ExplicitTableProjection(fileProj, tableSchema, fileSource, nullSource);
+    assertEquals(2, tableProj.columns().size());
 
+    @SuppressWarnings("unused")
     TupleMetadata expectedSchema = new SchemaBuilder()
         .add("c", MinorType.VARCHAR)
         .add("a", MinorType.VARCHAR)
         .buildSchema();
 
-    assertTrue(ScanTestUtils.schema(tableProj.output()).isEquivalent(expectedSchema));
+    List<ResolvedColumn> columns = tableProj.columns();
+    assertEquals("c", columns.get(0).name());
+    assertEquals(2, columns.get(0).projection().sourceIndex());
+    assertEquals(0, columns.get(0).projection().destIndex());
+    assertSame(fileSource, columns.get(0).projection().source());
 
-    boolean selMap[] = tableProj.projectionMap();
-    assertEquals(3, selMap.length);
-    assertTrue(selMap[0]);
-    assertFalse(selMap[1]);
-    assertTrue(selMap[2]);
-
-    int lToPMap[] = tableProj.logicalToPhysicalMap();
-    assertEquals(3, lToPMap.length);
-    assertEquals(0, lToPMap[0]);
-    assertEquals(-1, lToPMap[1]);
-    assertEquals(1, lToPMap[2]);
-
-    int projMap[] = tableProj.tableColumnProjectionMap();
-    assertEquals(1, projMap[0]);
-    assertEquals(-1, projMap[1]);
-    assertEquals(0, projMap[2]);
+    assertEquals("a", columns.get(1).name());
+    assertEquals(0, columns.get(1).projection().sourceIndex());
+    assertEquals(1, columns.get(1).projection().destIndex());
+    assertSame(fileSource, columns.get(1).projection().source());
   }
 
   // TODO: Custom columns array type

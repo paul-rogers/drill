@@ -18,11 +18,13 @@
 package org.apache.drill.exec.physical.impl.scan.project;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.ProjectionSet;
+import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
 import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.vector.ValueVector;
 
-public class NullColumnManager {
+public class NullColumnManager implements VectorSource {
 
 
   /**
@@ -76,6 +78,18 @@ public class NullColumnManager {
       nullColumnLoader.close();
       nullColumnLoader = null;
     }
+  }
+
+  @Override
+  public ValueVector getVector(int fromIndex) {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public BatchSchema getSchema() {
+    // TODO Auto-generated method stub
+    return null;
   }
 
 }

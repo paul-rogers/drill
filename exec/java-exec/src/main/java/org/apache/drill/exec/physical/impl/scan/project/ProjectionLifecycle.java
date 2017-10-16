@@ -26,7 +26,6 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataProjection;
 import org.apache.drill.exec.physical.impl.scan.file.ResolvedPartitionColumn;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
@@ -128,7 +127,7 @@ public abstract class ProjectionLifecycle {
 
   public static class DiscreteProjectionLifecycle extends ProjectionLifecycle {
 
-    DiscreteProjectionLifecycle(ScanLevelProjection queryPlan, FileMetadataProjection metadataPlan) {
+    DiscreteProjectionLifecycle(ScanLevelProjection queryPlan, ReaderLevelProjection metadataPlan) {
       super(queryPlan, metadataPlan);
     }
 
@@ -141,7 +140,7 @@ public abstract class ProjectionLifecycle {
 
     @Override
     public void startSchema(TupleMetadata tableSchema) {
-      tableProjDefn = fileProjDefn.resolve(tableSchema);
+      tableProjDefn = fileProjDefn.resolveFile(tableSchema);
     }
   }
 
@@ -192,7 +191,7 @@ public abstract class ProjectionLifecycle {
     private PriorSchema priorSchema;
     private FileMetadata fileInfo;
 
-    private ContinuousProjectionLifecycle(ScanLevelProjection queryPlan, FileMetadataProjection metadataPlan) {
+    private ContinuousProjectionLifecycle(ScanLevelProjection queryPlan, ReaderLevelProjection metadataPlan) {
       super(queryPlan, metadataPlan);
     }
 
@@ -228,7 +227,7 @@ public abstract class ProjectionLifecycle {
       if (priorSchema != null && ! isCompatible(tableSchema)) {
         resetFileSchema();
       }
-      tableProjDefn = fileProjDefn.resolve(tableSchema);
+      tableProjDefn = fileProjDefn.resolveFile(tableSchema);
       unresolveProjection();
     }
 
@@ -286,7 +285,7 @@ public abstract class ProjectionLifecycle {
    */
 
   protected final ScanLevelProjection scanProjDefn;
-  protected final FileMetadataProjection metadataPlan;
+  protected final ReaderLevelProjection metadataPlan;
 
   /**
    * Rewritten projection definition with file or partition metadata
@@ -303,7 +302,7 @@ public abstract class ProjectionLifecycle {
 
   protected int schemaVersion;
 
-  private ProjectionLifecycle(ScanLevelProjection queryPlan, FileMetadataProjection metadataPlan) {
+  private ProjectionLifecycle(ScanLevelProjection queryPlan, ReaderLevelProjection metadataPlan) {
     scanProjDefn = queryPlan;
     this.metadataPlan = metadataPlan;
   }
@@ -317,27 +316,24 @@ public abstract class ProjectionLifecycle {
   public int schemaVersion() { return schemaVersion; }
 
   @VisibleForTesting
-  public static ProjectionLifecycle newDiscreteLifecycle(ScanProjectionBuilder builder, FileMetadataColumnsParser metadataParser) {
-    ScanLevelProjection scanProj = builder.build();
-    FileMetadataProjection metadataPlan = metadataParser.getProjection();
+  public static ProjectionLifecycle newDiscreteLifecycle(ScanLevelProjection scanProj, FileMetadataColumnsParser metadataParser) {
+    ReaderLevelProjection metadataPlan = metadataParser.getProjection();
     return new DiscreteProjectionLifecycle(scanProj, metadataPlan);
   }
 
   @VisibleForTesting
-  public static ProjectionLifecycle newContinuousLifecycle(ScanProjectionBuilder builder, FileMetadataColumnsParser metadataParser) {
-    ScanLevelProjection scanProj = builder.build();
-    FileMetadataProjection metadataPlan = metadataParser.getProjection();
+  public static ProjectionLifecycle newContinuousLifecycle(ScanLevelProjection scanProj, FileMetadataColumnsParser metadataParser) {
+    ReaderLevelProjection metadataPlan = metadataParser.getProjection();
     return new ContinuousProjectionLifecycle(scanProj, metadataPlan);
   }
 
   @VisibleForTesting
-  public static ProjectionLifecycle newLifecycle(ScanProjectionBuilder builder, FileMetadataColumnsParser metadataParser) {
-    ScanLevelProjection scanProj = builder.build();
-    FileMetadataProjection metadataPlan = metadataParser.getProjection();
+  public static ProjectionLifecycle newLifecycle(ScanLevelProjection scanProj, FileMetadataColumnsParser metadataParser) {
+    ReaderLevelProjection metadataPlan = metadataParser.getProjection();
     return newLifecycle(scanProj, metadataPlan);
   }
 
-  public static ProjectionLifecycle newLifecycle(ScanLevelProjection scanProj, FileMetadataProjection metadataPlan) {
+  public static ProjectionLifecycle newLifecycle(ScanLevelProjection scanProj, ReaderLevelProjection metadataPlan) {
     if (scanProj.projectAll()) {
       return new ContinuousProjectionLifecycle(scanProj, metadataPlan);
     } else {

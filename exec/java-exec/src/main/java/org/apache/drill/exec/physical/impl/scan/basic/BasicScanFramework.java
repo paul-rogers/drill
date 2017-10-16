@@ -18,7 +18,10 @@
 package org.apache.drill.exec.physical.impl.scan.basic;
 
 import java.util.Iterator;
+import java.util.List;
 
+import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataProjection;
@@ -26,7 +29,7 @@ import org.apache.drill.exec.physical.impl.scan.managed.AbstractScanFramework;
 import org.apache.drill.exec.physical.impl.scan.managed.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.managed.SchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjector;
 
 public class BasicScanFramework extends AbstractScanFramework<SchemaNegotiator> {
@@ -54,15 +57,12 @@ public class BasicScanFramework extends AbstractScanFramework<SchemaNegotiator> 
 
   private FileMetadataColumnsParser parser;
   @Override
-  protected void defineParsers(ScanProjectionBuilder scanProjBuilder) {
+  public void bind(OperatorContext context) {
+    super.bind(context);
     parser = new FileMetadataColumnsParser(context.getFragmentContext().getOptionSet());
     parser.useLegacyWildcardExpansion(false);
     parser.setScanRootDir(null);
-    scanProjBuilder.addParser(parser);
-  }
-
-  @Override
-  protected void buildProjector(ScanLevelProjection scanProj) {
+    ScanLevelProjection scanProj = new ScanLevelProjection(scanConfig.projection(), parser);
     FileMetadataProjection metadataPlan = parser.getProjection();
     scanProjector = new ScanProjector(context.getAllocator(), scanProj, metadataPlan, scanConfig.nullType());
   }

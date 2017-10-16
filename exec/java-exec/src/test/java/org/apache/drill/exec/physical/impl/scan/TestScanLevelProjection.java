@@ -25,10 +25,11 @@ import static org.junit.Assert.fail;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
-import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
 import org.apache.drill.test.SubOperatorTest;
 import org.junit.Test;
+
+import jersey.repackaged.com.google.common.collect.Lists;
 
 /**
  * Test the level of projection done at the level of the scan as a whole;
@@ -45,15 +46,13 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
   @Test
   public void testBasics() {
-    ScanProjectionBuilder builder = new ScanProjectionBuilder();
 
     // Simulate SELECT a, b, c ...
-
-    builder.projectedCols(ScanTestUtils.projectList("a", "b", "c"));
-
     // Build the projection plan and verify
 
-    ScanLevelProjection scanProj = builder.build();
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectList("a", "b", "c"),
+        Lists.newArrayList());
     assertFalse(scanProj.projectAll());
 
     assertEquals(3, scanProj.requestedCols().size());
@@ -66,15 +65,15 @@ public class TestScanLevelProjection extends SubOperatorTest {
     assertEquals("b", scanProj.outputCols().get(1).name());
     assertEquals("c", scanProj.outputCols().get(2).name());
 
-    // Verify bindings
-
-    assertSame(scanProj.outputCols().get(0).source(), scanProj.requestedCols().get(0));
-    assertSame(scanProj.outputCols().get(1).source(), scanProj.requestedCols().get(1));
-    assertSame(scanProj.outputCols().get(2).source(), scanProj.requestedCols().get(2));
-
     // Verify column type
 
     assertEquals(UnresolvedColumn.UNRESOLVED, scanProj.outputCols().get(0).nodeType());
+
+    // Verify bindings
+
+    assertSame(((UnresolvedColumn) scanProj.outputCols().get(0)).source(), scanProj.requestedCols().get(0));
+    assertSame(((UnresolvedColumn) scanProj.outputCols().get(1)).source(), scanProj.requestedCols().get(1));
+    assertSame(((UnresolvedColumn) scanProj.outputCols().get(2)).source(), scanProj.requestedCols().get(2));
 
     // Table column selection
 
@@ -85,50 +84,14 @@ public class TestScanLevelProjection extends SubOperatorTest {
   }
 
   /**
-   * Simulate a SELECT * query: selects all data source columns in the order
-   * defined by the data source.
-   */
-
-  @Test
-  public void testProjectAll() {
-    ScanProjectionBuilder builder = new ScanProjectionBuilder();
-
-    // Simulate SELECT * ...
-
-    builder.projectAll();
-
-    ScanLevelProjection scanProj = builder.build();
-    assertTrue(scanProj.projectAll());
-//    assertTrue(scanProj.tableColNames().isEmpty());
-
-    assertEquals(1, scanProj.requestedCols().size());
-    assertTrue(scanProj.requestedCols().get(0).isWildcard());
-
-    assertEquals(1, scanProj.outputCols().size());
-    assertEquals(SchemaPath.WILDCARD, scanProj.outputCols().get(0).name());
-
-    // Verify bindings
-
-    assertSame(scanProj.outputCols().get(0).source(), scanProj.requestedCols().get(0));
-
-    // Verify column type
-
-    assertEquals(UnresolvedColumn.WILDCARD, scanProj.outputCols().get(0).nodeType());
-  }
-
-  /**
    * Simulate a SELECT * query by passing "*" as a column name.
    */
 
   @Test
   public void testWildcard() {
-    ScanProjectionBuilder builder = new ScanProjectionBuilder();
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectAll(), Lists.newArrayList());
 
-    // Simulate SELECT * ...
-
-    builder.projectedCols(ScanTestUtils.projectList(SchemaPath.WILDCARD));
-
-    ScanLevelProjection scanProj = builder.build();
     assertTrue(scanProj.projectAll());
     assertEquals(1, scanProj.requestedCols().size());
     assertTrue(scanProj.requestedCols().get(0).isWildcard());
@@ -138,7 +101,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     // Verify bindings
 
-    assertSame(scanProj.outputCols().get(0).source(), scanProj.requestedCols().get(0));
+    assertSame(((UnresolvedColumn) scanProj.outputCols().get(0)).source(), scanProj.requestedCols().get(0));
 
     // Verify column type
 
@@ -151,11 +114,10 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
   @Test
   public void testErrorWildcardAndColumns() {
-    ScanProjectionBuilder builder = new ScanProjectionBuilder();
-
-    builder.projectedCols(ScanTestUtils.projectList(SchemaPath.WILDCARD, "a"));
     try {
-      builder.build();
+      new ScanLevelProjection(
+          ScanTestUtils.projectList(SchemaPath.WILDCARD, "a"),
+          Lists.newArrayList());
       fail();
     } catch (IllegalArgumentException e) {
       // Expected
@@ -167,11 +129,10 @@ public class TestScanLevelProjection extends SubOperatorTest {
    */
   @Test
   public void testErrorColumnAndWildcard() {
-    ScanProjectionBuilder builder = new ScanProjectionBuilder();
-
-    builder.projectedCols(ScanTestUtils.projectList("a", SchemaPath.WILDCARD));
     try {
-      builder.build();
+      new ScanLevelProjection(
+          ScanTestUtils.projectList("a", SchemaPath.WILDCARD),
+          Lists.newArrayList());
       fail();
     } catch (IllegalArgumentException e) {
       // Expected
@@ -186,11 +147,10 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
   @Test
   public void testErrorTwoWildcards() {
-    ScanProjectionBuilder builder = new ScanProjectionBuilder();
-
-    builder.projectedCols(ScanTestUtils.projectList(SchemaPath.WILDCARD, SchemaPath.WILDCARD));
     try {
-      builder.build();
+      new ScanLevelProjection(
+          ScanTestUtils.projectList(SchemaPath.WILDCARD, SchemaPath.WILDCARD),
+          Lists.newArrayList());
       fail();
     } catch (IllegalArgumentException e) {
       // Expected

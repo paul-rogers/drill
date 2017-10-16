@@ -21,26 +21,24 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayParser;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayProjection;
 import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnsParser;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataProjection;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
 import org.apache.drill.exec.physical.impl.scan.file.ResolvedPartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ResolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.NullReaderProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.hadoop.fs.Path;
+
+import com.google.common.collect.Lists;
 
 public class ScanTestUtils {
 
@@ -54,60 +52,87 @@ public class ScanTestUtils {
 
   public static class ProjectionFixture {
 
-    public final ScanProjectionBuilder scanBuilder;
-    public FileMetadataColumnsParser metdataParser;
+    public List<SchemaPath> projection = new ArrayList<>();
     public ScanLevelProjection scanProj;
-    public FileMetadataProjection metadataProj;
+    public boolean useFileManager;
+    public OptionSet options;
+    public boolean useLegacyWildcardExpansion;
+    public Path rootDir;
+    public FileMetadataManager metadataProj;
     private ColumnsArrayParser colArrayParser;
     private ColumnsArrayProjection colArrayProj;
 
     public ProjectionFixture() {
-      scanBuilder = new ScanProjectionBuilder();
     }
 
-    public ProjectionFixture withFileParser(OptionSet options) {
-      metdataParser = new FileMetadataColumnsParser(options);
-      scanBuilder.addParser(metdataParser);
+    public ProjectionFixture withFileManager(OptionSet options) {
+       this.options = options;
+      useFileManager = true;
+      return this;
+    }
+
+    public ProjectionFixture useLegacyWildcardExpansion(boolean flag) {
+      useLegacyWildcardExpansion = flag;
+      return this;
+
+    }
+
+    public ProjectionFixture setScanRootDir(Path path) {
+      rootDir = path;
       return this;
     }
 
     public ProjectionFixture withColumnsArrayParser() {
       colArrayParser = new ColumnsArrayParser();
-      scanBuilder.addParser(colArrayParser);
       return this;
     }
 
     public ProjectionFixture projectedCols(String... cols) {
-      scanBuilder.projectedCols(projectList(cols));
+      projection = projectList(cols);
+      return this;
+    }
+
+    public ProjectionFixture projectAll() {
+      projection = ScanTestUtils.projectAll();
       return this;
     }
 
     public ScanLevelProjection build() {
 
+      if (useFileManager) {
+        metadataProj = new FileMetadataManager(options, useLegacyWildcardExpansion, rootDir);
+      }
+
       // Build the planner and verify
 
-      scanProj = scanBuilder.build();
-      if (metdataParser != null) {
-        metadataProj = metdataParser.getProjection();
+      List<ScanProjectionParser> parsers = new ArrayList<>();
+      if (metadataProj != null) {
+        parsers.add(metadataProj.projectionParser());
       }
+      if (colArrayParser != null) {
+        parsers.add(colArrayParser);
+      }
+
+      scanProj = new ScanLevelProjection(projection, parsers);
       if (colArrayParser != null) {
         colArrayProj = colArrayParser.getProjection();
 
-        // Temporary
-
-        if (metadataProj != null) {
-          metadataProj.bind(colArrayProj);
-        }
+//        // Temporary
+//
+//        if (metadataProj != null) {
+//          metadataProj.bind(colArrayProj);
+//        }
       }
       return scanProj;
     }
 
-    public FileLevelProjection resolve(Path path) {
-      return metadataProj.resolve(scanProj, path);
+    public ReaderLevelProjection resolveFile(Path path) {
+      metadataProj.startFile(path);
+      return metadataProj.resolve(scanProj);
     }
 
-    public FileLevelProjection resolve(String path) {
-      return resolve(new Path(path));
+    public ReaderLevelProjection resolve(String path) {
+      return resolveFile(new Path(path));
     }
 
     /**
@@ -134,6 +159,10 @@ public class ScanTestUtils {
       }
       return metadataSchema;
     }
+
+    public ReaderLevelProjection resolveReader() {
+      return new NullReaderProjection(scanProj);
+    }
   }
 
   static List<SchemaPath> projectList(String... names) {
@@ -144,23 +173,28 @@ public class ScanTestUtils {
     return selected;
   }
 
+  public static List<SchemaPath> projectAll() {
+    return Lists.newArrayList(
+        new SchemaPath[] {SchemaPath.getSimplePath(SchemaPath.WILDCARD)});
+  }
+
   public static String partitionColName(int partition) {
     return PARTITION_COL + partition;
   }
 
-  public static TupleMetadata schema(List<? extends ColumnProjection> output) {
-    TupleMetadata schema = new TupleSchema();
-    for (ColumnProjection col : output) {
-      if (col.resolved()) {
-        schema.add(((ResolvedColumn) col).schema());
-      } else {
-        schema.add(MaterializedField.create(col.name(),
-            MajorType.newBuilder()
-            .setMinorType(MinorType.NULL)
-            .setMode(DataMode.OPTIONAL)
-            .build()));
-      }
-    }
-    return schema;
-  }
+//  public static TupleMetadata schema(List<? extends ColumnProjection> output) {
+//    TupleMetadata schema = new TupleSchema();
+//    for (ColumnProjection col : output) {
+//      if (col.resolved()) {
+//        schema.add(((ResolvedColumn) col).schema());
+//      } else {
+//        schema.add(MaterializedField.create(col.name(),
+//            MajorType.newBuilder()
+//            .setMinorType(MinorType.NULL)
+//            .setMode(DataMode.OPTIONAL)
+//            .build()));
+//      }
+//    }
+//    return schema;
+//  }
 }

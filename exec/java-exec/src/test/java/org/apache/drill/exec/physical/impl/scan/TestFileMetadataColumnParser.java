@@ -26,11 +26,11 @@ import static org.junit.Assert.fail;
 
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataProjection;
-import org.apache.drill.exec.physical.impl.scan.file.UnresolvedFileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.file.UnresolvedPartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.FileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
 import org.apache.drill.test.SubOperatorTest;
 import org.junit.Test;
 
@@ -38,7 +38,8 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
 
   private ProjectionFixture buildProj(String... queryCols) {
     ProjectionFixture proj = new ProjectionFixture()
-        .withFileParser(fixture.options())
+        .withFileManager(fixture.options())
+        .useLegacyWildcardExpansion(true)
         .projectedCols(queryCols);
     proj.build();
     return proj;
@@ -56,7 +57,7 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
     ScanLevelProjection scanProj = projFixture.scanProj;
     assertFalse(scanProj.projectAll());
 
-    FileMetadataProjection metadataProj = projFixture.metadataProj;
+    FileMetadataManager metadataProj = projFixture.metadataProj;
     assertNotNull(metadataProj);
     assertFalse(metadataProj.hasMetadata());
     assertTrue(metadataProj.useLegacyWildcardPartition());
@@ -91,19 +92,15 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
     assertEquals(ScanTestUtils.FILE_NAME_COL, scanProj.outputCols().get(3).name());
     assertEquals(ScanTestUtils.SUFFIX_COL, scanProj.outputCols().get(4).name());
 
-    // Verify bindings
-
-    assertSame(scanProj.outputCols().get(1).source(), scanProj.requestedCols().get(1));
-
     // Verify column type
 
     assertEquals(UnresolvedColumn.UNRESOLVED, scanProj.outputCols().get(0).nodeType());
-    assertEquals(UnresolvedFileMetadataColumn.ID, scanProj.outputCols().get(1).nodeType());
-    assertEquals(UnresolvedFileMetadataColumn.ID, scanProj.outputCols().get(2).nodeType());
-    assertEquals(UnresolvedFileMetadataColumn.ID, scanProj.outputCols().get(3).nodeType());
-    assertEquals(UnresolvedFileMetadataColumn.ID, scanProj.outputCols().get(4).nodeType());
+    assertEquals(FileMetadataColumn.ID, scanProj.outputCols().get(1).nodeType());
+    assertEquals(FileMetadataColumn.ID, scanProj.outputCols().get(2).nodeType());
+    assertEquals(FileMetadataColumn.ID, scanProj.outputCols().get(3).nodeType());
+    assertEquals(FileMetadataColumn.ID, scanProj.outputCols().get(4).nodeType());
 
-    FileMetadataProjection metadataProj = projFixture.metadataProj;
+    FileMetadataManager metadataProj = projFixture.metadataProj;
     assertNotNull(metadataProj);
     assertTrue(metadataProj.hasMetadata());
     assertTrue(metadataProj.useLegacyWildcardPartition());
@@ -117,7 +114,9 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
   public void testPartitionColumnSelection() {
 
     String dir0 = ScanTestUtils.partitionColName(0);
-    String dir1 = "DIR1"; // Sic: case insensitivity
+    // Sic: case insensitivity, but name in project list
+    // is preferred over "natural" name.
+    String dir1 = "DIR1";
     String dir2 = ScanTestUtils.partitionColName(2);
     ProjectionFixture projFixture = buildProj(
         dir2, dir1, dir0, "a");
@@ -130,18 +129,11 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
     assertEquals(dir0, scanProj.outputCols().get(2).name());
     assertEquals("a", scanProj.outputCols().get(3).name());
 
-    // Verify bindings
-
-    assertSame(scanProj.outputCols().get(0).source(), scanProj.requestedCols().get(0));
-    assertSame(scanProj.outputCols().get(1).source(), scanProj.requestedCols().get(1));
-    assertSame(scanProj.outputCols().get(2).source(), scanProj.requestedCols().get(2));
-    assertSame(scanProj.outputCols().get(3).source(), scanProj.requestedCols().get(3));
-
     // Verify column type
 
-    assertEquals(UnresolvedPartitionColumn.ID, scanProj.outputCols().get(0).nodeType());
+    assertEquals(PartitionColumn.ID, scanProj.outputCols().get(0).nodeType());
 
-    FileMetadataProjection metadataProj = projFixture.metadataProj;
+    FileMetadataManager metadataProj = projFixture.metadataProj;
     assertNotNull(metadataProj);
     assertTrue(metadataProj.hasMetadata());
     assertTrue(metadataProj.useLegacyWildcardPartition());

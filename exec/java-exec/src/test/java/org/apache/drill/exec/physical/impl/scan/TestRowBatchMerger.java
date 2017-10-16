@@ -17,11 +17,19 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger;
+import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Projection;
+import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
+import org.apache.drill.exec.physical.rowSet.impl.NullResultVectorCacheImpl;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -29,32 +37,62 @@ import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
+import com.google.common.collect.Lists;
+
 /**
  * Test the row batch merger by merging two batches.
  */
 
 public class TestRowBatchMerger extends SubOperatorTest {
 
-  private SingleRowSet makeFirst() {
+  public static class RowSetSource implements VectorSource {
+
+    private SingleRowSet rowSet;
+
+    public RowSetSource(SingleRowSet rowSet) {
+      this.rowSet = rowSet;
+    }
+
+    @Override
+    public ValueVector getVector(int fromIndex) {
+      return rowSet.container().getValueVector(fromIndex).getValueVector();
+    }
+
+    @Override
+    public BatchSchema getSchema() {
+      return rowSet.container().getSchema();
+    }
+
+    public RowSet rowSet() { return rowSet; }
+
+    public void clear() {
+      rowSet.clear();
+    }
+  }
+
+
+  private RowSetSource makeFirst() {
     BatchSchema firstSchema = new SchemaBuilder()
         .add("d", MinorType.VARCHAR)
         .add("a", MinorType.INT)
         .build();
-    return fixture.rowSetBuilder(firstSchema)
-        .addRow("barney", 10)
-        .addRow("wilma", 20)
-        .build();
+    return new RowSetSource(
+        fixture.rowSetBuilder(firstSchema)
+          .addRow("barney", 10)
+          .addRow("wilma", 20)
+          .build());
   }
 
-  private SingleRowSet makeSecond() {
+  private RowSetSource makeSecond() {
     BatchSchema secondSchema = new SchemaBuilder()
         .add("b", MinorType.INT)
         .add("c", MinorType.VARCHAR)
         .build();
-    return fixture.rowSetBuilder(secondSchema)
-        .addRow(1, "foo.csv")
-        .addRow(2, "foo.csv")
-        .build();
+    return new RowSetSource(
+        fixture.rowSetBuilder(secondSchema)
+          .addRow(1, "foo.csv")
+          .addRow(2, "foo.csv")
+          .build());
   }
 
   /**
@@ -67,31 +105,38 @@ public class TestRowBatchMerger extends SubOperatorTest {
 
     // Create the first batch
 
-    SingleRowSet first = makeFirst();
+    RowSetSource first = makeFirst();
 
     // Create the second batch
 
-    SingleRowSet second = makeSecond();
+    RowSetSource second = makeSecond();
 
-    RowBatchMerger merger = new RowBatchMerger.Builder()
-        .addExchangeProjection(first.container(), 0, 3)
-        .addExchangeProjection(first.container(), 1, 0)
-        .addExchangeProjection(second.container(), 0, 1)
-        .addExchangeProjection(second.container(), 1, 2)
-        .build(fixture.allocator());
+    VectorContainer output = new VectorContainer(fixture.allocator());
+
+    List<Projection> projections = Lists.newArrayList(
+      new Projection(first, false, 0, 3),
+      new Projection(first, false, 1, 0),
+      new Projection(second, false, 0, 1),
+      new Projection(second, false, 1, 2)
+      );
+    RowBatchMerger merger = new RowBatchMerger(output, projections);
+    merger.buildOutput(new NullResultVectorCacheImpl(fixture.allocator()));
 
     // Do the merge
 
-    merger.project(first.rowCount());
+    merger.project(first.rowSet().rowCount());
     RowSet result = fixture.wrap(merger.getOutput());
 
     // Since the merge was an exchange, source columns
     // should have been cleared.
 
-    assertEquals(0, first.container().getValueVector(0).getValueVector().getValueCapacity());
-    assertEquals(0, first.container().getValueVector(1).getValueVector().getValueCapacity());
-    assertEquals(0, second.container().getValueVector(0).getValueVector().getValueCapacity());
-    assertEquals(0, second.container().getValueVector(1).getValueVector().getValueCapacity());
+    VectorContainer firstContainer = first.rowSet().container();
+    assertEquals(0, firstContainer.getValueVector(0).getValueVector().getValueCapacity());
+    assertEquals(0, firstContainer.getValueVector(1).getValueVector().getValueCapacity());
+
+    VectorContainer secondContainer = first.rowSet().container();
+    assertEquals(0, secondContainer.getValueVector(0).getValueVector().getValueCapacity());
+    assertEquals(0, secondContainer.getValueVector(1).getValueVector().getValueCapacity());
 
     // Verify
 
@@ -119,33 +164,40 @@ public class TestRowBatchMerger extends SubOperatorTest {
 
     // Create the first batch
 
-    SingleRowSet first = makeFirst();
+    RowSetSource first = makeFirst();
 
     // Create the second batch
 
-    SingleRowSet second = makeSecond();
+    RowSetSource second = makeSecond();
+
+    VectorContainer output = new VectorContainer(fixture.allocator());
 
     // Merge: direct for first batch, exchange for second
 
-    RowBatchMerger merger = new RowBatchMerger.Builder()
-        .addDirectProjection(  first.container(),  0, 3)
-        .addDirectProjection(  first.container(),  1, 0)
-        .addExchangeProjection(second.container(), 0, 1)
-        .addExchangeProjection(second.container(), 1, 2)
-        .build(fixture.allocator());
+    List<Projection> projections = Lists.newArrayList(
+      new Projection(first, true, 0, 3),
+      new Projection(first, true, 1, 0),
+      new Projection(second, false, 0, 1),
+      new Projection(second, false, 1, 2)
+      );
+    RowBatchMerger merger = new RowBatchMerger(output, projections);
+    merger.buildOutput(new NullResultVectorCacheImpl(fixture.allocator()));
 
     // Do the merge
 
-    merger.project(first.rowCount());
+    merger.project(first.rowSet().rowCount());
     RowSet result = fixture.wrap(merger.getOutput());
 
-    // Since the merge was an exchange, source columns
-    // should have been cleared.
+    // The direct columns should be the same in input and output,
+    // exchange columns should be cleared.
 
-    assertTrue(0 < first.container().getValueVector(0).getValueVector().getValueCapacity());
-    assertTrue(0 < first.container().getValueVector(1).getValueVector().getValueCapacity());
-    assertEquals(0, second.container().getValueVector(0).getValueVector().getValueCapacity());
-    assertEquals(0, second.container().getValueVector(1).getValueVector().getValueCapacity());
+    VectorContainer firstContainer = first.rowSet().container();
+    assertTrue(0 < firstContainer.getValueVector(0).getValueVector().getValueCapacity());
+    assertTrue(0 < firstContainer.getValueVector(1).getValueVector().getValueCapacity());
+
+    VectorContainer secondContainer = second.rowSet().container();
+    assertEquals(0, secondContainer.getValueVector(0).getValueVector().getValueCapacity());
+    assertEquals(0, secondContainer.getValueVector(1).getValueVector().getValueCapacity());
 
     // Verify
 

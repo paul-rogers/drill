@@ -25,7 +25,7 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorEvents;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjector;
 
 /**
@@ -71,6 +71,10 @@ public abstract class AbstractScanFramework<T extends SchemaNegotiator> implemen
     public MajorType nullType() {
       return nullType;
     }
+
+    public List<SchemaPath> projection() {
+      return projection;
+    }
   }
 
   protected OperatorContext context;
@@ -78,19 +82,9 @@ public abstract class AbstractScanFramework<T extends SchemaNegotiator> implemen
   @Override
   public void bind(OperatorContext context) {
     this.context = context;
-    ScanProjectionBuilder scanProjBuilder = new ScanProjectionBuilder();
-    AbstractScanConfig<T> scanConfig = scanConfig();
-    scanProjBuilder.projectedCols(scanConfig.projection);
-    defineParsers(scanProjBuilder);
-    ScanLevelProjection scanProj = scanProjBuilder.build();
-    buildProjector(scanProj);
   }
 
   protected abstract AbstractScanConfig<T> scanConfig();
-
-  protected void defineParsers(ScanProjectionBuilder scanProjBuilder) { }
-
-  protected abstract void buildProjector(ScanLevelProjection scanProj);
 
   public OperatorContext context() { return context; }
 

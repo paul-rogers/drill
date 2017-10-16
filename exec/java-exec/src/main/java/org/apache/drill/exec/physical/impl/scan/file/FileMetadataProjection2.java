@@ -23,7 +23,7 @@ import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.hadoop.fs.Path;
 
-public class FileMetadataProjection {
+public class FileMetadataProjection2 {
   private final String partitionDesignator;
   private final boolean hasMetadata;
   private final boolean useLegacyWildcardExpansion;
@@ -41,12 +41,6 @@ public class FileMetadataProjection {
   public boolean hasMetadata() { return hasMetadata; }
 
   public boolean useLegacyWildcardPartition() { return useLegacyWildcardExpansion; }
-
-  public List<FileMetadataColumnDefn> fileMetadataColDefns() { return fileMetadataColDefns; }
-
-  public String partitionName(int partition) {
-    return partitionDesignator + partition;
-  }
 
   public FileMetadata fileMetadata(Path filePath) {
     return new FileMetadata(filePath, scanRootDir);

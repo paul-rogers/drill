@@ -19,7 +19,6 @@ package org.apache.drill.exec.physical.impl.scan.project;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataProjection;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Builder;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
@@ -162,7 +161,7 @@ public class ScanProjector {
 
   RowBatchMerger output;
 
-  public ScanProjector(BufferAllocator allocator, ScanLevelProjection scanProj, FileMetadataProjection metadataProj, MajorType nullType) {
+  public ScanProjector(BufferAllocator allocator, ScanLevelProjection scanProj, MetadataManager metadataProj, MajorType nullType) {
     this.allocator = allocator;
     this.projectionDefn = ProjectionLifecycle.newLifecycle(scanProj, metadataProj);
     vectorCache = new ResultVectorCacheImpl(allocator);

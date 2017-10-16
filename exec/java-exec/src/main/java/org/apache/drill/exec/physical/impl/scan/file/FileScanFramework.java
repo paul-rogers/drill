@@ -19,13 +19,15 @@ package org.apache.drill.exec.physical.impl.scan.file;
 
 import java.util.Iterator;
 
+import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
 import org.apache.drill.exec.physical.impl.scan.managed.AbstractScanFramework;
 import org.apache.drill.exec.physical.impl.scan.managed.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanProjectionBuilder;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjector;
 import org.apache.hadoop.fs.Path;
+
+import jersey.repackaged.com.google.common.collect.Lists;
 
 public class FileScanFramework extends AbstractScanFramework<FileSchemaNegotiator> {
 
@@ -54,10 +56,10 @@ public class FileScanFramework extends AbstractScanFramework<FileSchemaNegotiato
   }
 
   private FileScanConfig scanConfig;
-  private FileMetadataColumnsParser parser;
+  private FileMetadataManager metadataManager;
   private ScanProjector scanProjector;
 
-  public FileScanFramework(FileScanFramework.FileScanConfig fileConfig) {
+  public FileScanFramework(FileScanConfig fileConfig) {
     this.scanConfig = fileConfig;
   }
 
@@ -65,18 +67,16 @@ public class FileScanFramework extends AbstractScanFramework<FileSchemaNegotiato
   protected AbstractScanConfig<FileSchemaNegotiator> scanConfig() { return scanConfig; }
 
   @Override
-  protected void defineParsers(ScanProjectionBuilder scanProjBuilder) {
-    parser = new FileMetadataColumnsParser(context.getFragmentContext().getOptionSet());
-    parser.useLegacyWildcardExpansion(scanConfig.useLegacyWildcardExpansion);
-    parser.setScanRootDir(scanConfig.scanRootDir);
-    scanProjBuilder.addParser(parser);
-  }
-
-  // TODO: Temporary
-  @Override
-  protected void buildProjector(ScanLevelProjection scanProj) {
-    FileMetadataProjection metadataPlan = parser.getProjection();
-    scanProjector = new ScanProjector(context.getAllocator(), scanProj, metadataPlan, scanConfig.nullType());
+  public void bind(OperatorContext context) {
+    super.bind(context);
+    metadataManager = new FileMetadataManager(
+        context.getFragmentContext().getOptionSet(),
+        scanConfig.useLegacyWildcardExpansion,
+        scanConfig.scanRootDir);
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        scanConfig.projection(),
+        Lists.newArrayList(metadataManager.projectionParser()));
+    scanProjector = new ScanProjector(context.getAllocator(), scanProj, metadataManager, scanConfig.nullType());
   }
 
   @Override

@@ -26,8 +26,7 @@ public class FileSchemaNegotiatorImpl extends AbstractSchemaNegotiatorImpl
     implements FileSchemaNegotiator {
 
   private final FileReaderShim shim;
-  public Path filePath;
-
+  protected Path filePath;
 
   public FileSchemaNegotiatorImpl(OperatorContext context, FileReaderShim shim) {
     super(context);
