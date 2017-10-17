@@ -21,21 +21,39 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.Scan
 import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection.TableProjectionResolver;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 
-public interface MetadataManager {
+/**
+ * Do-nothing implementation of the metadata manager. Allows the
+ * metadata manager to be optional without needing an if-statement
+ * on every access.
+ */
 
-  void bind(ResultVectorCache vectorCache);
+public class NoOpMetadataManager implements MetadataManager {
 
-  ScanProjectionParser projectionParser();
+  @Override
+  public void bind(ResultVectorCache vectorCache) { }
 
-  ReaderLevelProjection resolve(ScanLevelProjection scanProj);
+  @Override
+  public ScanProjectionParser projectionParser() { return null; }
 
-  TableProjectionResolver resolver();
+  @Override
+  public ReaderLevelProjection resolve(ScanLevelProjection scanProj) {
+    return new NoOpReaderProjection(scanProj);
+  }
 
-  void define();
+  @Override
+  public TableProjectionResolver resolver() {
+    throw new UnsupportedOperationException();
+  }
 
-  void load(int rowCount);
+  @Override
+  public void define() { }
 
-  void endFile();
+  @Override
+  public void load(int rowCount) { }
 
-  void close();
+  @Override
+  public void endFile() { }
+
+  @Override
+  public void close() { }
 }

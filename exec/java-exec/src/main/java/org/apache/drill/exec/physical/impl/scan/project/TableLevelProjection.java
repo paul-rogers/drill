@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.drill.exec.physical.impl.scan.project;
 
 import java.util.ArrayList;
@@ -57,7 +74,9 @@ public class TableLevelProjection {
   }
 
   public interface TableProjectionResolver {
-    ResolvedColumn resolve(ColumnProjection col);
+    boolean resolveColumn(ColumnProjection col, List<ResolvedColumn> output);
+
+    void reset();
   }
 
   public static class ResolvedTableColumn implements ResolvedColumn {
@@ -85,8 +104,9 @@ public class TableLevelProjection {
 
     public WildcardTableProjection(ReaderLevelProjection fileProj,
         TupleMetadata tableSchema,
-        VectorSource tableSource) {
-      super(tableSchema, tableSource);
+        VectorSource tableSource,
+        List<TableProjectionResolver> resolvers) {
+      super(tableSchema, tableSource, resolvers);
       for (ColumnProjection col : fileProj.output()) {
         if (col.nodeType() == UnresolvedColumn.WILDCARD) {
           for (int i = 0; i < tableSchema.size(); i++) {
@@ -125,14 +145,16 @@ public class TableLevelProjection {
   }
 
   public static class ExplicitTableProjection extends TableLevelProjection {
+
     protected List<NullColumnSpec> nullCols = new ArrayList<>();
     protected VectorSource nullSource;
 
     public ExplicitTableProjection(ReaderLevelProjection fileProj,
         TupleMetadata tableSchema,
         VectorSource tableSource,
-        VectorSource nullSource) {
-      super(tableSchema, tableSource);
+        VectorSource nullSource,
+        List<TableProjectionResolver> resolvers) {
+      super(tableSchema, tableSource, resolvers);
       this.nullSource = nullSource;
       for (ColumnProjection col : fileProj.output()) {
         if (col.nodeType() == UnresolvedColumn.UNRESOLVED) {
@@ -165,6 +187,8 @@ public class TableLevelProjection {
       output.add(nullCol);
       nullCols.add(nullCol);
     }
+
+    public List<NullColumnSpec> nullCols() { return nullCols; }
   }
 
   protected TupleMetadata tableSchema;
@@ -174,16 +198,23 @@ public class TableLevelProjection {
 
   protected TableLevelProjection(
         TupleMetadata tableSchema,
-        VectorSource tableSource) {
+        VectorSource tableSource,
+        List<TableProjectionResolver> resolvers) {
+    if (resolvers == null) {
+      resolvers = new ArrayList<>();
+    }
     this.tableSchema = tableSchema;
     this.tableSource = tableSource;
+    this.resolvers = resolvers;
+    for (TableProjectionResolver resolver : resolvers) {
+      resolver.reset();
+    }
   }
 
   protected void resolveSpecial(ColumnProjection col) {
     for (TableProjectionResolver resolver : resolvers) {
-      ResolvedColumn resolved = resolver.resolve(col);
-      if (resolved != null) {
-        output.add(resolved);
+      if (resolver.resolveColumn(col, output)) {
+        return;
       }
     }
     throw new IllegalStateException("No resolver for column: " + col.nodeType());

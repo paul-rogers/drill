@@ -17,15 +17,23 @@
  */
 package org.apache.drill.exec.physical.impl.scan.project;
 
+import java.util.List;
+
 import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.exec.physical.impl.scan.project.NullColumnLoader.NullColumnSpec;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
 import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 
-public class NullColumnManager implements VectorSource {
+/**
+ * Manages null columns by creating a null column loader for each
+ * set of non-empty null columns. This class acts as a scan-wide
+ * facade around the per-schema null column loader.
+ */
 
+public class NullColumnManager implements VectorSource {
 
   /**
    * Creates null columns if needed.
@@ -33,6 +41,7 @@ public class NullColumnManager implements VectorSource {
 
   private NullColumnLoader nullColumnLoader;
   private final ResultVectorCacheImpl vectorCache;
+  private VectorContainer outputContainer;
 
   /**
    * The reader-specified null type if other than the default.
@@ -46,30 +55,20 @@ public class NullColumnManager implements VectorSource {
     this.nullType = nullType;
   }
 
-  public ProjectionSet buildProjection(ProjectionLifecycle projectionDefn) {
+  public void define(List<NullColumnSpec> nullCols) {
     close();
-    TableLevelProjection tableProj = projectionDefn.tableProjection();
-    if (! tableProj.hasNullColumns()) {
-      return null;
+
+    // If no null columns for this schema, no need to create
+    // the loader.
+
+    if (! nullCols.isEmpty()) {
+      nullColumnLoader = new NullColumnLoader(vectorCache, nullCols, nullType);
     }
-
-    nullColumnLoader = new NullColumnLoader(vectorCache, tableProj.nullColumns(), nullType);
-
-    // Map null columns from the null column loader schema into the output
-    // schema.
-
-    VectorContainer nullsContainer = nullColumnLoader.output();
-    ProjectionSet projSet = new ProjectionSet(nullsContainer);
-    for (int i = 0; i < tableProj.nullColumns().size(); i++) {
-      int projIndex = tableProj.nullProjectionMap()[i];
-      projSet.addDirectProjection(i, projIndex);
-    }
-    return projSet;
   }
 
   public void load(int rowCount) {
     if (nullColumnLoader != null) {
-      nullColumnLoader.load(rowCount);
+      outputContainer = nullColumnLoader.load(rowCount);
     }
   }
 
@@ -78,18 +77,14 @@ public class NullColumnManager implements VectorSource {
       nullColumnLoader.close();
       nullColumnLoader = null;
     }
+    if (outputContainer != null) {
+      outputContainer.zeroVectors();
+      outputContainer = null;
+    }
   }
 
   @Override
-  public ValueVector getVector(int fromIndex) {
-    // TODO Auto-generated method stub
-    return null;
+  public VectorContainer container() {
+    return outputContainer;
   }
-
-  @Override
-  public BatchSchema getSchema() {
-    // TODO Auto-generated method stub
-    return null;
-  }
-
 }

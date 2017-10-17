@@ -21,7 +21,17 @@ import java.util.List;
 
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
 
-public interface ReaderLevelProjection {
+public class NoOpReaderProjection implements ReaderLevelProjection {
 
-  List<ColumnProjection> output();
+  private final ScanLevelProjection scanProj;
+
+  public NoOpReaderProjection(ScanLevelProjection scanProj) {
+    this.scanProj = scanProj;
+  }
+
+  @Override
+  public List<ColumnProjection> output() {
+    return scanProj.outputCols();
+  }
+
 }

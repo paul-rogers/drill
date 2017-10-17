@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package org.apache.drill.exec.physical.impl.scan.file;
 
 import java.util.ArrayList;
@@ -13,18 +30,24 @@ import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.physical.impl.scan.project.MetadataManager;
 import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ConstantColumnLoader;
 import org.apache.drill.exec.physical.impl.scan.project.ConstantColumnLoader.ConstantColumnSpec;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Projection;
+import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection.TableProjectionResolver;
+import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
+import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.store.ColumnExplorer.ImplicitFileColumns;
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.hadoop.fs.Path;
 
-public class FileMetadataManager implements MetadataManager {
+public class FileMetadataManager implements MetadataManager, TableProjectionResolver, VectorSource {
 
   public static abstract class MetadataColumn implements ResolvedColumn, ConstantColumnSpec, ColumnProjection {
 
@@ -168,6 +191,13 @@ public class FileMetadataManager implements MetadataManager {
   protected boolean useLegacyWildcardExpansion = true;
   private final FileMetadataColumnsParser parser;
 
+  // Internal state
+
+  private ResultVectorCache vectorCache;
+  private List<MetadataColumn> metadataColumns = new ArrayList<>();
+  private ConstantColumnLoader loader;
+  private VectorContainer outputContainer;
+
   /**
    * Specifies whether to plan based on the legacy meaning of "*". See
    * <a href="https://issues.apache.org/jira/browse/DRILL-5542">DRILL-5542</a>.
@@ -177,6 +207,7 @@ public class FileMetadataManager implements MetadataManager {
    * semantics
    * @return this builder
    */
+
   public FileMetadataManager(OptionSet optionManager,
       boolean useLegacyWildcardExpansion,
       Path rootDir) {
@@ -196,6 +227,11 @@ public class FileMetadataManager implements MetadataManager {
   }
 
   @Override
+  public void bind(ResultVectorCache vectorCache) {
+    this.vectorCache = vectorCache;
+  }
+
+  @Override
   public ScanProjectionParser projectionParser() {
     return parser;
   }
@@ -203,10 +239,6 @@ public class FileMetadataManager implements MetadataManager {
   public FileMetadata fileMetadata(Path filePath) {
     return new FileMetadata(filePath, scanRootDir);
   }
-
-//  public FileLevelProjection resolve(ScanLevelProjection scanProj, Path filePath) {
-//    return FileLevelProjection.fromResolution(scanProj, this, fileMetadata(filePath));
-//  }
 
   public boolean useLegacyWildcardPartition() { return useLegacyWildcardExpansion; }
 
@@ -224,12 +256,71 @@ public class FileMetadataManager implements MetadataManager {
 
   @Override
   public ReaderLevelProjection resolve(ScanLevelProjection scanProj) {
+    if (currentFile == null) {
+      throw new IllegalStateException("Must start the file before doing table-level resolution");
+    }
     return new FileLevelProjection(scanProj, this, currentFile);
   }
 
   @Override
   public TableProjectionResolver resolver() {
-    // TODO Auto-generated method stub
-    return null;
+    return this;
+  }
+
+  @Override
+  public void define() {
+    assert loader == null;
+    if (metadataColumns.isEmpty()) {
+      return;
+    }
+    loader = new ConstantColumnLoader(vectorCache, metadataColumns);
+  }
+
+  @Override
+  public void load(int rowCount) {
+    if (loader == null) {
+      return;
+    }
+    outputContainer = loader.load(rowCount);
+  }
+
+  @Override
+  public void close() {
+    reset();
+  }
+
+  @Override
+  public void reset() {
+    metadataColumns.clear();
+    if (loader != null) {
+      loader.close();
+      loader = null;
+    }
+  }
+
+  @Override
+  public void endFile() {
+    reset();
+    currentFile = null;
+  }
+
+  @Override
+  public boolean resolveColumn(ColumnProjection col, List<ResolvedColumn> output) {
+    switch (col.nodeType()) {
+    case FileMetadataColumn.ID:
+    case PartitionColumn.ID:
+      MetadataColumn projectedColumn = ((MetadataColumn) col).project(
+          new Projection(this, true, metadataColumns.size(), output.size()));
+      metadataColumns.add(projectedColumn);
+      output.add(projectedColumn);
+      return true;
+    default:
+      return false;
+    }
+  }
+
+  @Override
+  public VectorContainer container() {
+    return outputContainer;
   }
 }

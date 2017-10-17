@@ -27,7 +27,7 @@ import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
 import org.apache.drill.exec.physical.impl.scan.file.ResolvedPartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.project.NullReaderProjection;
+import org.apache.drill.exec.physical.impl.scan.project.NoOpReaderProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
@@ -161,7 +161,7 @@ public class ScanTestUtils {
     }
 
     public ReaderLevelProjection resolveReader() {
-      return new NullReaderProjection(scanProj);
+      return new NoOpReaderProjection(scanProj);
     }
   }
 

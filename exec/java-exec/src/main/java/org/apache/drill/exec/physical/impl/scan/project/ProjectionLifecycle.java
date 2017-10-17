@@ -133,7 +133,7 @@ public abstract class ProjectionLifecycle {
 
     @Override
     public void startFile(Path filePath) {
-      fileProjDefn = metadataPlan.resolve(scanProjDefn, filePath);
+      fileProjDefn = metadataPlan.resolveColumn(scanProjDefn, filePath);
       tableProjDefn = null;
       schemaVersion++;
     }
@@ -207,7 +207,7 @@ public abstract class ProjectionLifecycle {
 
     private void resetFileSchema() {
       priorSchema = null;
-      fileProjDefn = metadataPlan.resolve(scanProjDefn, fileInfo);
+      fileProjDefn = metadataPlan.resolveColumn(scanProjDefn, fileInfo);
       schemaVersion++;
     }
 

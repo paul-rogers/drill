@@ -51,9 +51,7 @@ import org.apache.drill.exec.vector.ValueVector;
 public class RowBatchMerger {
 
   public interface VectorSource {
-    ValueVector getVector(int fromIndex);
-
-    BatchSchema getSchema();
+    VectorContainer container();
   }
 
   /**
@@ -94,6 +92,7 @@ public class RowBatchMerger {
     }
 
     public void makeToVector(VectorContainer output, ResultVectorCache vectorCache) {
+      BatchSchema inputSchema = batch.container().getSchema();
       if (direct) {
 
         // Direct: the output vector is the input vector
@@ -104,13 +103,13 @@ public class RowBatchMerger {
 
         // No vector cache. Create an output vector.
 
-        toVector = output.addOrGet(batch.getSchema().getColumn(fromIndex));
+        toVector = output.addOrGet(inputSchema.getColumn(fromIndex));
       } else {
 
         // Vector cache, retrieve an existing vector from
         // the cache.
 
-        toVector = vectorCache.addOrGet(batch.getSchema().getColumn(fromIndex));
+        toVector = vectorCache.addOrGet(inputSchema.getColumn(fromIndex));
         output.add(toVector);
       }
     }
@@ -159,7 +158,7 @@ public class RowBatchMerger {
 
     for (int i = 0; i < projections.length; i++) {
       Projection proj = projections[i];
-      proj.setFromVector(proj.batch.getVector(proj.fromIndex) );
+      proj.setFromVector(proj.batch.container().getValueVector(proj.fromIndex).getValueVector());
       proj.makeToVector(output, vectorCache);
     }
     output.buildSchema(SelectionVectorMode.NONE);

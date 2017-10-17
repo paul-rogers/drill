@@ -50,7 +50,7 @@ public abstract class StaticColumnLoader {
    * row count in the batch returned by the reader
    */
 
-  public void load(int rowCount) {
+  public VectorContainer load(int rowCount) {
     loader.startBatch();
     RowSetLoader writer = loader.writer();
     for (int i = 0; i < rowCount; i++) {
@@ -58,14 +58,10 @@ public abstract class StaticColumnLoader {
       loadRow(writer);
       writer.save();
     }
-    loader.harvest();
+    return loader.harvest();
   }
 
   protected abstract void loadRow(TupleWriter writer);
-
-  public VectorContainer output() {
-    return loader.outputContainer();
-  }
 
   public void close() {
     loader.close();
