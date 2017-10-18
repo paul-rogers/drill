@@ -156,11 +156,11 @@ public class ScanSchemaOrchestrator {
 
     public ReaderSchemaOrchestrator(ScanSchemaOrchestrator scanOrchestrator) {
       readerProjection = scanOrchestrator.metadataManager.resolve(scanOrchestrator.scanProj);
-      readerBatchSize = scanOrchestrator.scanBathSize;
+      readerBatchSize = scanOrchestrator.scanBatchRecordLimit;
     }
 
     public void setBatchSize(int size) {
-      readerBatchSize = Math.min(size, scanBathSize);
+      readerBatchSize = Math.min(size, scanBatchRecordLimit);
     }
 
     public ResultSetLoader makeResultSetLoader(TupleMetadata tableSchema) {
@@ -187,7 +187,6 @@ public class ScanSchemaOrchestrator {
 
       // Create the table loader
 
-
       tableLoader = new ResultSetLoaderImpl(allocator, options.build());
 
       // If a schema is given, create a zero-row batch to announce the
@@ -200,16 +199,6 @@ public class ScanSchemaOrchestrator {
 
       return tableLoader;
     }
-
-//    public ResultSetLoader makeTableLoader(TupleMetadata tableSchema) {
-//      if (tableSchema == null) {
-//        tableOrchestrator = new LateSchemaOrchestrator(this);
-//      } else {
-//        tableOrchestrator = new EarlySchemaOrchestrator(this, tableSchema);
-//      }
-//
-//      return tableOrchestrator.makeTableLoader(batchSize);
-//    }
 
     public void startBatch() {
       tableLoader.startBatch();
@@ -306,9 +295,19 @@ public class ScanSchemaOrchestrator {
 
       TupleMetadata tableSchema = tableLoader.harvestSchema();
       if (scanProj.hasWildcard()) {
+
+        // Query contains a wildcard. The schema-level projection includes
+        // all columns provided by the reader.
+
         tableProjection = new WildcardTableProjection(readerProjection,
             tableSchema, this, tableResolvers);
       } else {
+
+        // Explicit projection: include only those columns actually
+        // requested by the query, which may mean filling in null
+        // columns for projected columns that don't actually exist
+        // in the table.
+
         ExplicitTableProjection explicitProjection =
             new ExplicitTableProjection(readerProjection,
                 tableSchema, this,
@@ -342,43 +341,20 @@ public class ScanSchemaOrchestrator {
     }
   }
 
-//  public static class EarlySchemaOrchestrator extends TableSchemaOrchestrator {
-//
-//  }
-//
-//  public static class LateSchemaOrchestrator {
-//
-//  }
-
-//  public static class TableSchemaOrchestrator {
-//
-//    ScanSchemaOrchestrator scanOrchestrator;
-//    ReaderSchemaOrchestrator readerOrchestrator;
-//    TableLevelProjection tableProjection;
-//    VectorSource tableSource;
-//    NullColumnManager nullColumnManager;
-//
-//    public TableSchemaOrchestrator(ReaderSchemaOrchestrator) {
-//
-//    }
-//
-//    public void start() {
-//      List<TableProjectionResolver> resolvers = new ArrayList<>();
-//      if (scanOrchestrator.supportsMetadata) {
-//        resolvers.add(scanOrchestrator.metadataManager.resolver());
-//      }
-//    }
-//
-//    public void endBatch() {
-//
-//    }
-//  }
-
   // Inputs
+
+  /**
+   * Projection list provided by the physical plan.
+   */
 
   protected List<SchemaPath> projection;
 
   // Configuration
+
+  /**
+   * Custom null type, if provided by the operator. If
+   * not set, the null type is the Drill default.
+   */
 
   protected MajorType nullType;
 
@@ -388,7 +364,15 @@ public class ScanSchemaOrchestrator {
 
   protected MetadataManager metadataManager;
   private final BufferAllocator allocator;
-  protected int scanBathSize = ValueVector.MAX_ROW_COUNT;
+  protected int scanBatchRecordLimit = ValueVector.MAX_ROW_COUNT;
+
+  /**
+   * List of resolvers used to resolve projection columns for each
+   * new schema. Allows operators to introduce custom functionality
+   * as a plug-in rather than by copying code or subclassing this
+   * mechanism.
+   */
+
   List<TableProjectionResolver> tableResolvers = new ArrayList<>();
 
   // Internal state
@@ -443,17 +427,18 @@ public class ScanSchemaOrchestrator {
    * per batch for this scan. Readers can adjust this, but the adjustment is capped
    * at the value specified here
    *
-   * @param batchSize maximum records per batch
+   * @param scanBatchSize maximum records per batch
    */
 
-  public void setBatchSize(int batchSize) {
-    batchSize = Math.max(1,
-        Math.min(batchSize, ValueVector.MAX_ROW_COUNT));
+  public void setBatchRecordLimit(int batchRecordLimit) {
+    scanBatchRecordLimit = Math.max(1,
+        Math.min(batchRecordLimit, ValueVector.MAX_ROW_COUNT));
   }
 
   /**
    * Specify the type to use for null columns in place of the standard
-   * nullable int.
+   * nullable int. This type is used for all missing columns. (Readers
+   * that need per-column control need a different mechanism.)
    *
    * @param nullType
    */
@@ -468,19 +453,37 @@ public class ScanSchemaOrchestrator {
   public void build(List<SchemaPath> projection) {
     this.projection = projection;
 
-    // Bind metadata manager parser to scan projector
+    // If no metadata manager was provided, create a mock
+    // version just to keep code simple.
 
     if (metadataManager == null) {
       metadataManager = new NoOpMetadataManager();
     }
+
+    // Bind metadata manager parser to scan projector.
+    // A "real" (non-mock) metadata manager will provide
+    // a projection parser. Use this to tell us that this
+    // setup supports metadata.
+
     List<ScanProjectionParser> parsers = new ArrayList<>();
     ScanProjectionParser parser = metadataManager.projectionParser();
     if (parser != null) {
       supportsMetadata = true;
       parsers.add(parser);
     }
+
+    // Some add-one (such as for the text reader "columns"
+    // column) has a custom parser. Add those.
+
     addParsers(parsers);
+
+    // Parse the projection list.
+
     scanProj = new ScanLevelProjection(projection, parsers);
+
+    // If this is a wildcard query, we'll need a null column manager
+    // to fill in missing columns.
+
     if (! scanProj.hasWildcard()) {
       nullColumnManager = new NullColumnManager(vectorCache, nullType);
     }
@@ -498,7 +501,7 @@ public class ScanSchemaOrchestrator {
     return outputContainer;
   }
 
-  private void closeReader() {
+  public void closeReader() {
     if (currentReader != null) {
       currentReader.close();
       currentReader = null;

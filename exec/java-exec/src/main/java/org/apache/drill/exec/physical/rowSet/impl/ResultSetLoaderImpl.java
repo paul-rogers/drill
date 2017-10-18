@@ -657,7 +657,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
     // Build the output container
 
-    VectorContainer container = outputContainer();
+    if (containerBuilder == null) {
+      containerBuilder = new VectorContainerBuilder(this);
+    }
+    containerBuilder.update(harvestSchemaVersion);
+    VectorContainer container = containerBuilder.container();
     container.setRecordCount(rowCount);
 
     // Finalize: update counts, set state.
@@ -681,17 +685,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     rootState.harvestWithLookAhead();
     state = State.LOOK_AHEAD;
     return pendingRowCount;
-  }
-
-  @Override
-  public VectorContainer outputContainer() {
-    // Build the output container.
-
-    if (containerBuilder == null) {
-      containerBuilder = new VectorContainerBuilder(this);
-    }
-    containerBuilder.update(harvestSchemaVersion);
-    return containerBuilder.container();
   }
 
   @Override
