@@ -29,7 +29,6 @@ import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSou
 import org.apache.drill.exec.physical.rowSet.impl.NullResultVectorCacheImpl;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -40,7 +39,12 @@ import org.junit.Test;
 import com.google.common.collect.Lists;
 
 /**
- * Test the row batch merger by merging two batches.
+ * Test the row batch merger by merging two batches. Tests both the
+ * "direct" and "exchange" cases. Direct means that the output container
+ * contains the source vector directly: they are the same vectors.
+ * Exchange means we have two vectors, but we swap the underlying
+ * Drillbufs to effectively shift data from source to destination
+ * vector.
  */
 
 public class TestRowBatchMerger extends SubOperatorTest {
@@ -54,13 +58,8 @@ public class TestRowBatchMerger extends SubOperatorTest {
     }
 
     @Override
-    public ValueVector getVector(int fromIndex) {
-      return rowSet.container().getValueVector(fromIndex).getValueVector();
-    }
-
-    @Override
-    public BatchSchema getSchema() {
-      return rowSet.container().getSchema();
+    public VectorContainer container() {
+      return rowSet.container();
     }
 
     public RowSet rowSet() { return rowSet; }

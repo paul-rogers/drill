@@ -27,27 +27,25 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.physical.impl.scan.project.MetadataManager;
-import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ConstantColumnLoader;
 import org.apache.drill.exec.physical.impl.scan.project.ConstantColumnLoader.ConstantColumnSpec;
+import org.apache.drill.exec.physical.impl.scan.project.MetadataManager;
+import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Projection;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
-import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection.ResolvedColumn;
-import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection.TableProjectionResolver;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
-import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.store.ColumnExplorer.ImplicitFileColumns;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.hadoop.fs.Path;
 
-public class FileMetadataManager implements MetadataManager, TableProjectionResolver, VectorSource {
+public class FileMetadataManager implements MetadataManager, SchemaProjectionResolver, VectorSource {
 
   public static abstract class MetadataColumn implements ResolvedColumn, ConstantColumnSpec, ColumnProjection {
 
@@ -263,7 +261,7 @@ public class FileMetadataManager implements MetadataManager, TableProjectionReso
   }
 
   @Override
-  public TableProjectionResolver resolver() {
+  public SchemaProjectionResolver resolver() {
     return this;
   }
 

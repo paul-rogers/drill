@@ -906,4 +906,59 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     scanner.close();
   }
+
+  /**
+   * Resolve a selection list using SELECT *.
+   */
+
+  @Test
+  public void testWildcardWithMetadata() {
+    ScanSchemaOrchestrator scanner = new ScanSchemaOrchestrator(fixture.allocator());
+    FileMetadataManager metadataManager = new FileMetadataManager(
+        fixture.options(), true, new Path("hdfs:///w"));
+    scanner.withMetadata(metadataManager);
+
+    // SELECT * ...
+
+    scanner.build(ScanTestUtils.projectAll());
+
+    // ... FROM file
+
+    metadataManager.startFile(new Path("hdfs:///w/x/y/z.csv"));
+    ReaderSchemaOrchestrator reader = scanner.startReader();
+
+    // file schema (a, b)
+
+    TupleMetadata tableSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
+    ResultSetLoader loader = reader.makeResultSetLoader(tableSchema);
+    reader.container().zeroVectors();
+
+    // Create a batch of data.
+
+    reader.startBatch();
+    loader.writer()
+      .addRow(1, "fred")
+      .addRow(2, "wilma");
+    reader.endBatch();
+
+    // Verify
+
+    TupleMetadata expectedSchema = ScanTestUtils.expandMetadata(tableSchema, metadataManager, 2);
+
+    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(1, "fred", "/w/x/y/z.csv", "/w/x/y", "z.csv", "csv", "x", "y")
+        .addRow(2, "wilma", "/w/x/y/z.csv", "/w/x/y", "z.csv", "csv", "x", "y")
+        .build();
+
+    new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(scanner.output()));
+
+    scanner.close();
+  }
+
+  // TODO: Start with early schema, but add columns
+
 }

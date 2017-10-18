@@ -30,7 +30,7 @@ import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.file.ResolvedFileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.ResolvedPartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ProjectedColumn;
-import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
@@ -66,7 +66,7 @@ public class TestColumnsArray extends SubOperatorTest {
         .add("d", MinorType.VARCHAR)
         .buildSchema();
 
-    TableLevelProjection tableProj = fileProj.resolveFile(tableSchema);
+    SchemaLevelProjection tableProj = fileProj.resolveFile(tableSchema);
     assertFalse(tableProj.hasNullColumns());
 
     TupleMetadata expectedSchema = new SchemaBuilder()

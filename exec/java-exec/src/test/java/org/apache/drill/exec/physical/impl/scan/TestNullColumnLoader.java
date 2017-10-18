@@ -17,17 +17,16 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertSame;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.project.NullColumn;
 import org.apache.drill.exec.physical.impl.scan.project.NullColumnLoader;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.NullProjectedColumn;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.NullResultVectorCacheImpl;
 import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
@@ -35,19 +34,22 @@ import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.test.SubOperatorTest;
+import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.SchemaBuilder;
-import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.junit.Test;
 
 public class TestNullColumnLoader extends SubOperatorTest {
 
-  private NullColumn makeNullCol(String name, MajorType nullType) {
-    return new NullColumn(name, nullType,
-        SchemaPath.getSimplePath(name));
+  private NullProjectedColumn makeNullCol(String name, MajorType nullType) {
+
+    // For this test, we don't need the projection, so just
+    // set it to null.
+
+    return new NullProjectedColumn(name, nullType, null);
   }
 
-  private NullColumn makeNullCol(String name) {
+  private NullProjectedColumn makeNullCol(String name) {
     return makeNullCol(name, null);
   }
 
@@ -60,7 +62,7 @@ public class TestNullColumnLoader extends SubOperatorTest {
   @Test
   public void testBasics() {
 
-    List<NullColumn> defns = new ArrayList<>();
+    List<NullProjectedColumn> defns = new ArrayList<>();
     defns.add(makeNullCol("unspecified", null));
     defns.add(makeNullCol("nullType", MajorType.newBuilder()
         .setMinorType(MinorType.NULL)
@@ -84,8 +86,7 @@ public class TestNullColumnLoader extends SubOperatorTest {
 
     // Create a batch
 
-    staticLoader.load(2);
-    VectorContainer output = staticLoader.output();
+    VectorContainer output = staticLoader.load(2);
 
     // Verify values and types
 
@@ -109,7 +110,7 @@ public class TestNullColumnLoader extends SubOperatorTest {
   @Test
   public void testCustomNullType() {
 
-    List<NullColumn> defns = new ArrayList<>();
+    List<NullProjectedColumn> defns = new ArrayList<>();
     defns.add(makeNullCol("unspecified", null));
     defns.add(makeNullCol("nullType", MajorType.newBuilder()
         .setMinorType(MinorType.NULL)
@@ -131,8 +132,7 @@ public class TestNullColumnLoader extends SubOperatorTest {
 
     // Create a batch
 
-    staticLoader.load(2);
-    VectorContainer output = staticLoader.output();
+    VectorContainer output = staticLoader.load(2);
 
     // Verify values and types
 
@@ -155,7 +155,7 @@ public class TestNullColumnLoader extends SubOperatorTest {
   @Test
   public void testCachedTypes() {
 
-    List<NullColumn> defns = new ArrayList<>();
+    List<NullProjectedColumn> defns = new ArrayList<>();
     defns.add(makeNullCol("req"));
     defns.add(makeNullCol("opt"));
     defns.add(makeNullCol("rep"));
@@ -178,11 +178,10 @@ public class TestNullColumnLoader extends SubOperatorTest {
 
     // Create a batch
 
-    staticLoader.load(2);
+    VectorContainer output = staticLoader.load(2);
 
     // Verify vectors are reused
 
-    VectorContainer output = staticLoader.output();
     assertSame(opt, output.getValueVector(1).getValueVector());
     assertSame(rep, output.getValueVector(2).getValueVector());
 

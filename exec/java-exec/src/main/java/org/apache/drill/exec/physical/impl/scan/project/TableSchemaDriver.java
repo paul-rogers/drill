@@ -77,7 +77,7 @@ public abstract class TableSchemaDriver {
     return tableLoader;
   }
 
-  public ProjectionSet mapTableColumns(TableLevelProjection tableProj) {
+  public ProjectionSet mapTableColumns(SchemaLevelProjection tableProj) {
 
     // Projection of table columns is from the abbreviated table
     // schema after removing unprojected columns.

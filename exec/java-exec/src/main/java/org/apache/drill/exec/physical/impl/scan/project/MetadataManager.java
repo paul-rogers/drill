@@ -18,7 +18,7 @@
 package org.apache.drill.exec.physical.impl.scan.project;
 
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
-import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection.TableProjectionResolver;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 
 public interface MetadataManager {
@@ -29,7 +29,7 @@ public interface MetadataManager {
 
   ReaderLevelProjection resolve(ScanLevelProjection scanProj);
 
-  TableProjectionResolver resolver();
+  SchemaProjectionResolver resolver();
 
   void define();
 

@@ -82,8 +82,8 @@ public abstract class ProjectionLifecycle {
 
     private void visitProjection(ResolvedColumn col) {
       switch(col.nodeType()) {
-      case NullColumn.ID:
-        visitNullColumn((NullColumn) col);
+      case NullProjectedColumn.ID:
+        visitNullColumn((NullProjectedColumn) col);
         break;
       case ResolvedPartitionColumn.ID:
         visitPartitionColumn((ResolvedPartitionColumn) col);
@@ -107,7 +107,7 @@ public abstract class ProjectionLifecycle {
       inferredSchema.put(tableCol.name(), tableCol);
     }
 
-    public void visitNullColumn(NullColumn col) {
+    public void visitNullColumn(NullProjectedColumn col) {
       ColumnProjection tableCol = col.unresolve();
       genericCols.add(tableCol);
       inferredSchema.put(tableCol.name(), tableCol);
@@ -293,7 +293,7 @@ public abstract class ProjectionLifecycle {
    */
 
   protected FileLevelProjection fileProjDefn;
-  protected TableLevelProjection tableProjDefn;
+  protected SchemaLevelProjection tableProjDefn;
 
   /**
    * Tracks the schema version last seen from the table loader. Used to detect
@@ -311,7 +311,7 @@ public abstract class ProjectionLifecycle {
   public abstract void startSchema(TupleMetadata newSchema);
   public ScanLevelProjection scanProjection() { return scanProjDefn; }
   public FileLevelProjection fileProjection() { return fileProjDefn; }
-  public TableLevelProjection tableProjection() { return tableProjDefn; }
+  public SchemaLevelProjection tableProjection() { return tableProjDefn; }
 //  public TupleMetadata outputSchema() { return tableProjDefn.outputSchema(); }
   public int schemaVersion() { return schemaVersion; }
 

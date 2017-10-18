@@ -66,18 +66,40 @@ import org.apache.drill.exec.record.TupleMetadata;
  * evolved
  */
 
-public class TableLevelProjection {
+public class SchemaLevelProjection {
+
+  /**
+   * Schema-level projection is customizable. Implement this interface, and
+   * add an instance to the scan orchestrator, to perform custom mappings
+   * from unresolved columns (perhaps of an extension-specified type) to
+   * final projected columns. The metadata manager, for example, implements
+   * this interface to map metadata columns.
+   */
+  
+  public interface SchemaProjectionResolver {
+    boolean resolveColumn(ColumnProjection col, List<ResolvedColumn> output);
+
+    void reset();
+  }
+
+  /**
+   * A resolved column has a name, and a specification for how to project
+   * data from a source vector to a vector in the final output container.
+   */
 
   public interface ResolvedColumn {
     String name();
     Projection projection();
   }
 
-  public interface TableProjectionResolver {
-    boolean resolveColumn(ColumnProjection col, List<ResolvedColumn> output);
-
-    void reset();
-  }
+  /**
+   * Column that matches one provided by the table. Provides the data type
+   * of that column and information to project from the result set loader
+   * output container to the scan output container. (Note that the result
+   * set loader container is, itself, a projection from the actual table
+   * schema to the desired set of columns; but in the order specified
+   * by the table.)
+   */
 
   public static class ResolvedTableColumn implements ResolvedColumn {
 
@@ -100,12 +122,19 @@ public class TableLevelProjection {
     public Projection projection() { return projection; }
   }
 
-  public static class WildcardTableProjection extends TableLevelProjection {
+  /**
+   * Perform a wildcard projection. In this case, the query wants all
+   * columns in the source table, so the table drives the final projection.
+   * Since we include only those columns in the table, there is no need
+   * to create null columns. Example: SELECT *
+   */
 
-    public WildcardTableProjection(ReaderLevelProjection fileProj,
+  public static class WildcardSchemaProjection extends SchemaLevelProjection {
+
+    public WildcardSchemaProjection(ReaderLevelProjection fileProj,
         TupleMetadata tableSchema,
         VectorSource tableSource,
-        List<TableProjectionResolver> resolvers) {
+        List<SchemaProjectionResolver> resolvers) {
       super(tableSchema, tableSource, resolvers);
       for (ColumnProjection col : fileProj.output()) {
         if (col.nodeType() == UnresolvedColumn.WILDCARD) {
@@ -122,13 +151,19 @@ public class TableLevelProjection {
     }
   }
 
-  public static class NullColumn implements ResolvedColumn, NullColumnSpec {
+  /**
+   * Projected column that serves as both a resolved column (provides projection
+   * mapping) and a null column spec (provides the information needed to create
+   * the required null vectors.)
+   */
+
+  public static class NullProjectedColumn implements ResolvedColumn, NullColumnSpec {
 
     private final String name;
     private final MajorType type;
     private final Projection projection;
 
-    public NullColumn(String name, MajorType type, Projection projection) {
+    public NullProjectedColumn(String name, MajorType type, Projection projection) {
       this.name = name;
       this.type = type;
       this.projection = projection;
@@ -144,16 +179,29 @@ public class TableLevelProjection {
     public Projection projection() { return projection; }
   }
 
-  public static class ExplicitTableProjection extends TableLevelProjection {
+  /**
+   * Perform a schema projection for the case of an explicit list of
+   * projected columns. Example: SELECT a, b, c.
+   * <p>
+   * An explicit projection starts with the requested set of columns,
+   * then looks in the table schema to find matches. That is, it is
+   * driven by the query itself.
+   * <p>
+   * An explicit projection may include columns that do not exist in
+   * the source schema. In this case, we fill in null columns for
+   * unmatched projections.
+   */
+
+  public static class ExplicitSchemaProjection extends SchemaLevelProjection {
 
     protected List<NullColumnSpec> nullCols = new ArrayList<>();
     protected VectorSource nullSource;
 
-    public ExplicitTableProjection(ReaderLevelProjection fileProj,
+    public ExplicitSchemaProjection(ReaderLevelProjection fileProj,
         TupleMetadata tableSchema,
         VectorSource tableSource,
         VectorSource nullSource,
-        List<TableProjectionResolver> resolvers) {
+        List<SchemaProjectionResolver> resolvers) {
       super(tableSchema, tableSource, resolvers);
       this.nullSource = nullSource;
       for (ColumnProjection col : fileProj.output()) {
@@ -182,7 +230,7 @@ public class TableLevelProjection {
       } else {
         colType = null;
       }
-      NullColumn nullCol = new NullColumn(col.name(), colType,
+      NullProjectedColumn nullCol = new NullProjectedColumn(col.name(), colType,
           new Projection(nullSource, true, nullCols.size(), outputIndex()));
       output.add(nullCol);
       nullCols.add(nullCol);
@@ -194,25 +242,25 @@ public class TableLevelProjection {
   protected TupleMetadata tableSchema;
   protected VectorSource tableSource;
   protected List<ResolvedColumn> output = new ArrayList<>();
-  protected List<TableProjectionResolver> resolvers;
+  protected List<SchemaProjectionResolver> resolvers;
 
-  protected TableLevelProjection(
+  protected SchemaLevelProjection(
         TupleMetadata tableSchema,
         VectorSource tableSource,
-        List<TableProjectionResolver> resolvers) {
+        List<SchemaProjectionResolver> resolvers) {
     if (resolvers == null) {
       resolvers = new ArrayList<>();
     }
     this.tableSchema = tableSchema;
     this.tableSource = tableSource;
     this.resolvers = resolvers;
-    for (TableProjectionResolver resolver : resolvers) {
+    for (SchemaProjectionResolver resolver : resolvers) {
       resolver.reset();
     }
   }
 
   protected void resolveSpecial(ColumnProjection col) {
-    for (TableProjectionResolver resolver : resolvers) {
+    for (SchemaProjectionResolver resolver : resolvers) {
       if (resolver.resolveColumn(col, output)) {
         return;
       }

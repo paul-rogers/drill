@@ -23,10 +23,9 @@ import java.util.List;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayParser;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayProjection;
-import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
-import org.apache.drill.exec.physical.impl.scan.file.ResolvedPartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.NoOpReaderProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
@@ -146,23 +145,37 @@ public class ScanTestUtils {
      */
 
     public TupleMetadata expandMetadata(TupleMetadata base, int dirCount) {
-      TupleMetadata metadataSchema = new TupleSchema();
-      for (ColumnMetadata col : base) {
-        metadataSchema.addColumn(col);
-      }
-      for (FileMetadataColumnDefn fileColDefn : metadataProj.fileMetadataColDefns()) {
-        metadataSchema.add(MaterializedField.create(fileColDefn.colName(), fileColDefn.dataType()));
-      }
-      for (int i = 0; i < dirCount; i++) {
-        metadataSchema.add(MaterializedField.create(metadataProj.partitionName(i),
-            ResolvedPartitionColumn.dataType()));
-      }
-      return metadataSchema;
+      return ScanTestUtils.expandMetadata(base, metadataProj, dirCount);
     }
 
     public ReaderLevelProjection resolveReader() {
       return new NoOpReaderProjection(scanProj);
     }
+  }
+
+  /**
+   * Mimic legacy wildcard expansion of metadata columns. Is not a full
+   * emulation because this version only works if the wildcard was at the end
+   * of the list (or alone.)
+   * @param scanProj scan projection definition (provides the partition column names)
+   * @param base the table part of the expansion
+   * @param dirCount number of partition directories
+   * @return schema with the metadata columns appended to the table columns
+   */
+
+  public static TupleMetadata expandMetadata(TupleMetadata base, FileMetadataManager metadataProj, int dirCount) {
+    TupleMetadata metadataSchema = new TupleSchema();
+    for (ColumnMetadata col : base) {
+      metadataSchema.addColumn(col);
+    }
+    for (FileMetadataColumnDefn fileColDefn : metadataProj.fileMetadataColDefns()) {
+      metadataSchema.add(MaterializedField.create(fileColDefn.colName(), fileColDefn.dataType()));
+    }
+    for (int i = 0; i < dirCount; i++) {
+      metadataSchema.add(MaterializedField.create(metadataProj.partitionName(i),
+          PartitionColumn.dataType()));
+    }
+    return metadataSchema;
   }
 
   static List<SchemaPath> projectList(String... names) {

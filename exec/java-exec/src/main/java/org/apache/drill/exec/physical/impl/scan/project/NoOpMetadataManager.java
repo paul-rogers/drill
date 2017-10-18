@@ -18,7 +18,7 @@
 package org.apache.drill.exec.physical.impl.scan.project;
 
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
-import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection.TableProjectionResolver;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 
 /**
@@ -41,7 +41,7 @@ public class NoOpMetadataManager implements MetadataManager {
   }
 
   @Override
-  public TableProjectionResolver resolver() {
+  public SchemaProjectionResolver resolver() {
     throw new UnsupportedOperationException();
   }
 

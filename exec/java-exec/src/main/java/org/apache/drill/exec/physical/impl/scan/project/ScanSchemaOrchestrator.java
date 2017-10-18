@@ -28,10 +28,10 @@ import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSou
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
-import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection.ExplicitTableProjection;
-import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection.ResolvedColumn;
-import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection.TableProjectionResolver;
-import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection.WildcardTableProjection;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ExplicitSchemaProjection;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.WildcardSchemaProjection;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.impl.OptionBuilder;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
@@ -142,7 +142,7 @@ public class ScanSchemaOrchestrator {
     private int readerBatchSize;
     private ResultSetLoaderImpl tableLoader;
     private int prevTableSchemaVersion = -1;
-    private TableLevelProjection tableProjection;
+    private SchemaLevelProjection tableProjection;
 
     /**
      * Assembles the table, metadata and null columns into the final output
@@ -299,7 +299,7 @@ public class ScanSchemaOrchestrator {
         // Query contains a wildcard. The schema-level projection includes
         // all columns provided by the reader.
 
-        tableProjection = new WildcardTableProjection(readerProjection,
+        tableProjection = new WildcardSchemaProjection(readerProjection,
             tableSchema, this, tableResolvers);
       } else {
 
@@ -308,8 +308,8 @@ public class ScanSchemaOrchestrator {
         // columns for projected columns that don't actually exist
         // in the table.
 
-        ExplicitTableProjection explicitProjection =
-            new ExplicitTableProjection(readerProjection,
+        ExplicitSchemaProjection explicitProjection =
+            new ExplicitSchemaProjection(readerProjection,
                 tableSchema, this,
                 nullColumnManager, tableResolvers);
         nullColumnManager.define(explicitProjection.nullCols());
@@ -373,7 +373,7 @@ public class ScanSchemaOrchestrator {
    * mechanism.
    */
 
-  List<TableProjectionResolver> tableResolvers = new ArrayList<>();
+  List<SchemaProjectionResolver> tableResolvers = new ArrayList<>();
 
   // Internal state
 

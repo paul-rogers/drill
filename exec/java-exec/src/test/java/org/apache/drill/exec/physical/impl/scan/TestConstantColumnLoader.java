@@ -20,19 +20,18 @@ package org.apache.drill.exec.physical.impl.scan;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadata;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnDefn;
-import org.apache.drill.exec.physical.impl.scan.file.ResolvedFileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.file.ResolvedPartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ConstantColumn;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.FileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ConstantColumnLoader;
+import org.apache.drill.exec.physical.impl.scan.project.ConstantColumnLoader.ConstantColumnSpec;
 import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.store.ColumnExplorer.ImplicitFileColumns;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -43,18 +42,26 @@ import org.junit.Test;
 
 public class TestConstantColumnLoader extends SubOperatorTest {
 
-  private static class DummyColumn extends ConstantColumn {
+  private static class DummyColumn implements ConstantColumnSpec {
 
-    public DummyColumn(String name, MajorType type, SchemaPath source,
-        String value) {
-      super(name, type, source, value);
+    private String name;
+    private MaterializedField schema;
+    private String value;
+
+    public DummyColumn(String name, MajorType type, String value) {
+      this.name = name;
+      this.schema = MaterializedField.create(name, type);
+      this.value = value;
     }
 
     @Override
-    public int nodeType() { return 100; }
+    public String name() { return name; }
 
     @Override
-    public ColumnProjection unresolve() { return null; }
+    public MaterializedField schema() { return schema; }
+
+    @Override
+    public String value() { return value; }
   }
 
   /**
@@ -77,11 +84,11 @@ public class TestConstantColumnLoader extends SubOperatorTest {
         .setMode(DataMode.OPTIONAL)
         .build();
 
-    List<ConstantColumn> defns = new ArrayList<>();
+    List<ConstantColumnSpec> defns = new ArrayList<>();
     defns.add(
-        new DummyColumn("a", aType, SchemaPath.getSimplePath("a"), "a-value" ));
+        new DummyColumn("a", aType, "a-value" ));
     defns.add(
-        new DummyColumn("b", bType, SchemaPath.getSimplePath("b"), "b-value" ));
+        new DummyColumn("b", bType, "b-value" ));
 
     ResultVectorCacheImpl cache = new ResultVectorCacheImpl(fixture.allocator());
     ConstantColumnLoader staticLoader = new ConstantColumnLoader(cache, defns);
@@ -102,7 +109,7 @@ public class TestConstantColumnLoader extends SubOperatorTest {
         .build();
 
     new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(staticLoader.output()));
+        .verifyAndClearAll(fixture.wrap(staticLoader.load(2)));
     staticLoader.close();
   }
 
@@ -110,17 +117,15 @@ public class TestConstantColumnLoader extends SubOperatorTest {
   public void testFileMetadata() {
 
     FileMetadata fileInfo = new FileMetadata(new Path("hdfs:///w/x/y/z.csv"), new Path("hdfs:///w"));
-    List<ConstantColumn> defns = new ArrayList<>();
+    List<ConstantColumnSpec> defns = new ArrayList<>();
     FileMetadataColumnDefn iDefn = new FileMetadataColumnDefn(
         ScanTestUtils.SUFFIX_COL, ImplicitFileColumns.SUFFIX);
-    ResolvedFileMetadataColumn iCol = new ResolvedFileMetadataColumn(ScanTestUtils.SUFFIX_COL,
-        SchemaPath.getSimplePath(ScanTestUtils.SUFFIX_COL),
+    FileMetadataColumn iCol = new FileMetadataColumn(ScanTestUtils.SUFFIX_COL,
         iDefn, fileInfo);
     defns.add(iCol);
 
     String partColName = ScanTestUtils.partitionColName(1);
-    ResolvedPartitionColumn pCol = new ResolvedPartitionColumn(partColName,
-        SchemaPath.getSimplePath(partColName), 1, fileInfo);
+    PartitionColumn pCol = new PartitionColumn(partColName, 1, fileInfo);
     defns.add(pCol);
 
     ResultVectorCacheImpl cache = new ResultVectorCacheImpl(fixture.allocator());
@@ -142,7 +147,7 @@ public class TestConstantColumnLoader extends SubOperatorTest {
         .build();
 
     new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(staticLoader.output()));
+        .verifyAndClearAll(fixture.wrap(staticLoader.load(2)));
     staticLoader.close();
   }
 }

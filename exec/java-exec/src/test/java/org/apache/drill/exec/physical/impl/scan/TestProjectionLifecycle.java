@@ -135,7 +135,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       assertEquals(ScanTestUtils.FILE_NAME_COL, tableSchema.get(0).name());
       assertEquals("b.csv", ((ResolvedFileMetadataColumn) tableSchema.get(0)).value());
       assertEquals(ProjectedColumn.ID, tableSchema.get(1).nodeType());
-      assertEquals(NullColumn.ID, tableSchema.get(2).nodeType());
+      assertEquals(NullProjectedColumn.ID, tableSchema.get(2).nodeType());
     }
   }
 

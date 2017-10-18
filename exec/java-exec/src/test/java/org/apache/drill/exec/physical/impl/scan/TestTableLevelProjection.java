@@ -26,10 +26,10 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
 import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
-import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection.ExplicitTableProjection;
-import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection.ResolvedColumn;
-import org.apache.drill.exec.physical.impl.scan.project.TableLevelProjection.WildcardTableProjection;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ExplicitSchemaProjection;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.WildcardSchemaProjection;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
@@ -70,7 +70,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
         .buildSchema();
 
     DummySource fileSource = new DummySource();
-    TableLevelProjection tableProj = new WildcardTableProjection(fileProj, tableSchema, fileSource);
+    SchemaLevelProjection tableProj = new WildcardSchemaProjection(fileProj, tableSchema, fileSource);
     assertEquals(3, tableProj.columns().size());
 
     List<ResolvedColumn> columns = tableProj.columns();
@@ -114,7 +114,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
     DummySource fileSource = new DummySource();
     DummySource nullSource = new DummySource();
-    TableLevelProjection tableProj = new ExplicitTableProjection(fileProj, tableSchema, fileSource, nullSource);
+    SchemaLevelProjection tableProj = new ExplicitSchemaProjection(fileProj, tableSchema, fileSource, nullSource);
     assertEquals(3, tableProj.columns().size());
 
     List<ResolvedColumn> columns = tableProj.columns();
@@ -160,7 +160,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
     DummySource fileSource = new DummySource();
     DummySource nullSource = new DummySource();
-    TableLevelProjection tableProj = new ExplicitTableProjection(fileProj, tableSchema, fileSource, nullSource);
+    SchemaLevelProjection tableProj = new ExplicitSchemaProjection(fileProj, tableSchema, fileSource, nullSource);
     assertEquals(4, tableProj.columns().size());
 
     @SuppressWarnings("unused")
@@ -215,7 +215,7 @@ public class TestTableLevelProjection extends SubOperatorTest {
 
     DummySource fileSource = new DummySource();
     DummySource nullSource = new DummySource();
-    TableLevelProjection tableProj = new ExplicitTableProjection(fileProj, tableSchema, fileSource, nullSource);
+    SchemaLevelProjection tableProj = new ExplicitSchemaProjection(fileProj, tableSchema, fileSource, nullSource);
     assertEquals(2, tableProj.columns().size());
 
     @SuppressWarnings("unused")
