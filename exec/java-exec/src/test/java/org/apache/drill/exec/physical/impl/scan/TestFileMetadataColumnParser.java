@@ -83,21 +83,21 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
     assertFalse(scanProj.projectAll());
     assertEquals(5, scanProj.requestedCols().size());
 
-    assertEquals(5, scanProj.outputCols().size());
+    assertEquals(5, scanProj.columns().size());
 
-    assertEquals("a", scanProj.outputCols().get(0).name());
-    assertEquals(ScanTestUtils.FULLY_QUALIFIED_NAME_COL, scanProj.outputCols().get(1).name());
-    assertEquals("filEPath", scanProj.outputCols().get(2).name());
-    assertEquals(ScanTestUtils.FILE_NAME_COL, scanProj.outputCols().get(3).name());
-    assertEquals(ScanTestUtils.SUFFIX_COL, scanProj.outputCols().get(4).name());
+    assertEquals("a", scanProj.columns().get(0).name());
+    assertEquals(ScanTestUtils.FULLY_QUALIFIED_NAME_COL, scanProj.columns().get(1).name());
+    assertEquals("filEPath", scanProj.columns().get(2).name());
+    assertEquals(ScanTestUtils.FILE_NAME_COL, scanProj.columns().get(3).name());
+    assertEquals(ScanTestUtils.SUFFIX_COL, scanProj.columns().get(4).name());
 
     // Verify column type
 
-    assertEquals(UnresolvedColumn.UNRESOLVED, scanProj.outputCols().get(0).nodeType());
-    assertEquals(FileMetadataColumn.ID, scanProj.outputCols().get(1).nodeType());
-    assertEquals(FileMetadataColumn.ID, scanProj.outputCols().get(2).nodeType());
-    assertEquals(FileMetadataColumn.ID, scanProj.outputCols().get(3).nodeType());
-    assertEquals(FileMetadataColumn.ID, scanProj.outputCols().get(4).nodeType());
+    assertEquals(UnresolvedColumn.UNRESOLVED, scanProj.columns().get(0).nodeType());
+    assertEquals(FileMetadataColumn.ID, scanProj.columns().get(1).nodeType());
+    assertEquals(FileMetadataColumn.ID, scanProj.columns().get(2).nodeType());
+    assertEquals(FileMetadataColumn.ID, scanProj.columns().get(3).nodeType());
+    assertEquals(FileMetadataColumn.ID, scanProj.columns().get(4).nodeType());
 
     FileMetadataManager metadataProj = projFixture.metadataProj;
     assertNotNull(metadataProj);
@@ -122,15 +122,15 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
 
     ScanLevelProjection scanProj = projFixture.scanProj;
 
-    assertEquals(4, scanProj.outputCols().size());
-    assertEquals(dir2, scanProj.outputCols().get(0).name());
-    assertEquals(dir1, scanProj.outputCols().get(1).name());
-    assertEquals(dir0, scanProj.outputCols().get(2).name());
-    assertEquals("a", scanProj.outputCols().get(3).name());
+    assertEquals(4, scanProj.columns().size());
+    assertEquals(dir2, scanProj.columns().get(0).name());
+    assertEquals(dir1, scanProj.columns().get(1).name());
+    assertEquals(dir0, scanProj.columns().get(2).name());
+    assertEquals("a", scanProj.columns().get(3).name());
 
     // Verify column type
 
-    assertEquals(PartitionColumn.ID, scanProj.outputCols().get(0).nodeType());
+    assertEquals(PartitionColumn.ID, scanProj.columns().get(0).nodeType());
 
     FileMetadataManager metadataProj = projFixture.metadataProj;
     assertNotNull(metadataProj);

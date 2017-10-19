@@ -23,9 +23,7 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.physical.impl.scan.project.NullColumnLoader.NullColumnSpec;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
 import org.apache.drill.exec.physical.rowSet.impl.ResultVectorCacheImpl;
-import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.vector.ValueVector;
 
 /**
  * Manages null columns by creating a null column loader for each

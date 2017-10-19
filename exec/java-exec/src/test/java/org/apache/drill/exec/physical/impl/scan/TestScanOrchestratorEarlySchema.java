@@ -32,7 +32,6 @@ import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
-import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.SchemaBuilder;
@@ -932,12 +931,13 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
   @Test
   public void testWildcardWithMetadata() {
-    ScanSchemaOrchestrator scanner = new ScanSchemaOrchestrator(fixture.allocator());
     Path filePath = new Path("hdfs:///w/x/y/z.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
         fixture.options(), true,
         new Path("hdfs:///w"),
         Lists.newArrayList(filePath));
+
+    ScanSchemaOrchestrator scanner = new ScanSchemaOrchestrator(fixture.allocator());
     scanner.withMetadata(metadataManager);
 
     // SELECT * ...

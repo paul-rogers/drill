@@ -27,15 +27,11 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ExecConstants;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.FileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ConstantColumnLoader;
 import org.apache.drill.exec.physical.impl.scan.project.ConstantColumnLoader.ConstantColumnSpec;
 import org.apache.drill.exec.physical.impl.scan.project.MetadataManager;
-import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Projection;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedColumn;
@@ -46,6 +42,8 @@ import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.store.ColumnExplorer.ImplicitFileColumns;
 import org.apache.hadoop.fs.Path;
+
+import com.google.common.annotations.VisibleForTesting;
 
 public class FileMetadataManager implements MetadataManager, SchemaProjectionResolver, VectorSource {
 
@@ -74,8 +72,6 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
     public Projection projection() { return projection; }
 
     public abstract MetadataColumn resolve(FileMetadata fileInfo, Projection projection);
-
-    public abstract MetadataColumn project(Projection projection);
   }
 
   public static class FileMetadataColumn extends MetadataColumn {
@@ -110,12 +106,6 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
       this.defn = defn;
     }
 
-    public FileMetadataColumn(String name, FileMetadataColumnDefn defn,
-        String value, Projection projection) {
-      super(name, defn.dataType(), value, projection);
-      this.defn = defn;
-    }
-
     @Override
     public int nodeType() { return ID; }
 
@@ -125,11 +115,6 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
     public MetadataColumn resolve(FileMetadata fileInfo, Projection projection) {
       return new FileMetadataColumn(name(), defn, fileInfo, projection);
     }
-
-    @Override
-    public MetadataColumn project(Projection projection) {
-      return new FileMetadataColumn(name(), defn, value(), projection);
-    }
   }
 
   public static class PartitionColumn extends MetadataColumn {
@@ -138,20 +123,14 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
 
     protected final int partition;
 
-    public PartitionColumn(String name, int partition,
-        FileMetadata fileInfo, Projection projection) {
-      super(name, dataType(), fileInfo.partition(partition), projection);
-      this.partition = partition;
-    }
-
     public PartitionColumn(String name, int partition) {
       super(name, dataType(), null, null);
       this.partition = partition;
     }
 
     public PartitionColumn(String name, int partition,
-        String value, Projection projection) {
-      super(name, dataType(), value, projection);
+        FileMetadata fileInfo, Projection projection) {
+      super(name, dataType(), fileInfo.partition(partition), projection);
       this.partition = partition;
     }
 
@@ -163,11 +142,6 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
     @Override
     public MetadataColumn resolve(FileMetadata fileInfo, Projection projection) {
       return new PartitionColumn(name(), partition, fileInfo, projection);
-    }
-
-    @Override
-    public MetadataColumn project(Projection projection) {
-      return new PartitionColumn(name(), partition, value(), projection);
     }
 
     public static MajorType dataType() {
@@ -248,9 +222,7 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
   }
 
   @Override
-  public ScanProjectionParser projectionParser() {
-    return parser;
-  }
+  public ScanProjectionParser projectionParser() { return parser; }
 
   public FileMetadata fileMetadata(Path filePath) {
     return new FileMetadata(filePath, scanRootDir);
@@ -271,17 +243,7 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
   }
 
   @Override
-  public ReaderLevelProjection resolve(ScanLevelProjection scanProj) {
-    if (currentFile == null) {
-      throw new IllegalStateException("Must start the file before doing table-level resolution");
-    }
-    return new FileLevelProjection(scanProj, this, currentFile);
-  }
-
-  @Override
-  public SchemaProjectionResolver resolver() {
-    return this;
-  }
+  public SchemaProjectionResolver resolver() { return this; }
 
   @Override
   public void define() {
@@ -354,11 +316,10 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
   }
 
   @Override
-  public VectorContainer container() {
-    return outputContainer;
-  }
+  public VectorContainer container() { return outputContainer; }
 
-  public int partitionCount() {
-    return partitionCount;
-  }
+  public int partitionCount() { return partitionCount; }
+
+  @VisibleForTesting
+  public List<MetadataColumn> metadataColumns() { return metadataColumns; }
 }

@@ -36,11 +36,6 @@ public class NoOpMetadataManager implements MetadataManager {
   public ScanProjectionParser projectionParser() { return null; }
 
   @Override
-  public ReaderLevelProjection resolve(ScanLevelProjection scanProj) {
-    return new NoOpReaderProjection(scanProj);
-  }
-
-  @Override
   public SchemaProjectionResolver resolver() {
     throw new UnsupportedOperationException();
   }

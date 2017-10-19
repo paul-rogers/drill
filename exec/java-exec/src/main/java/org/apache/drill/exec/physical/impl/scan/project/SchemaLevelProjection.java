@@ -90,6 +90,7 @@ public class SchemaLevelProjection {
   public interface ResolvedColumn {
     String name();
     Projection projection();
+    MaterializedField schema();
   }
 
   /**
@@ -120,6 +121,9 @@ public class SchemaLevelProjection {
 
     @Override
     public Projection projection() { return projection; }
+
+    @Override
+    public MaterializedField schema() { return schema; }
   }
 
   /**
@@ -136,7 +140,7 @@ public class SchemaLevelProjection {
         VectorSource tableSource,
         List<SchemaProjectionResolver> resolvers) {
       super(tableSchema, tableSource, resolvers);
-      for (ColumnProjection col : scanProj.outputCols()) {
+      for (ColumnProjection col : scanProj.columns()) {
         if (col.nodeType() == UnresolvedColumn.WILDCARD) {
           for (int i = 0; i < tableSchema.size(); i++) {
             MaterializedField colSchema = tableSchema.column(i);
@@ -177,6 +181,11 @@ public class SchemaLevelProjection {
 
     @Override
     public Projection projection() { return projection; }
+
+    @Override
+    public MaterializedField schema() {
+      return MaterializedField.create(name, type);
+    }
   }
 
   /**
@@ -204,7 +213,7 @@ public class SchemaLevelProjection {
         List<SchemaProjectionResolver> resolvers) {
       super(tableSchema, tableSource, resolvers);
       this.nullSource = nullSource;
-      for (ColumnProjection col : scanProj.outputCols()) {
+      for (ColumnProjection col : scanProj.columns()) {
         if (col.nodeType() == UnresolvedColumn.UNRESOLVED) {
           resolveColumn(col);
         } else {

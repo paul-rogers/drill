@@ -60,27 +60,27 @@ public class TestScanLevelProjection extends SubOperatorTest {
     assertEquals("b", scanProj.requestedCols().get(1).rootName());
     assertEquals("c", scanProj.requestedCols().get(2).rootName());
 
-    assertEquals(3, scanProj.outputCols().size());
-    assertEquals("a", scanProj.outputCols().get(0).name());
-    assertEquals("b", scanProj.outputCols().get(1).name());
-    assertEquals("c", scanProj.outputCols().get(2).name());
+    assertEquals(3, scanProj.columns().size());
+    assertEquals("a", scanProj.columns().get(0).name());
+    assertEquals("b", scanProj.columns().get(1).name());
+    assertEquals("c", scanProj.columns().get(2).name());
 
     // Verify column type
 
-    assertEquals(UnresolvedColumn.UNRESOLVED, scanProj.outputCols().get(0).nodeType());
+    assertEquals(UnresolvedColumn.UNRESOLVED, scanProj.columns().get(0).nodeType());
 
     // Verify bindings
 
-    assertSame(((UnresolvedColumn) scanProj.outputCols().get(0)).source(), scanProj.requestedCols().get(0));
-    assertSame(((UnresolvedColumn) scanProj.outputCols().get(1)).source(), scanProj.requestedCols().get(1));
-    assertSame(((UnresolvedColumn) scanProj.outputCols().get(2)).source(), scanProj.requestedCols().get(2));
+    assertSame(((UnresolvedColumn) scanProj.columns().get(0)).source(), scanProj.requestedCols().get(0));
+    assertSame(((UnresolvedColumn) scanProj.columns().get(1)).source(), scanProj.requestedCols().get(1));
+    assertSame(((UnresolvedColumn) scanProj.columns().get(2)).source(), scanProj.requestedCols().get(2));
 
     // Table column selection
 
-    assertEquals(3, scanProj.outputCols().size());
-    assertEquals("a", scanProj.outputCols().get(0).name());
-    assertEquals("b", scanProj.outputCols().get(1).name());
-    assertEquals("c", scanProj.outputCols().get(2).name());
+    assertEquals(3, scanProj.columns().size());
+    assertEquals("a", scanProj.columns().get(0).name());
+    assertEquals("b", scanProj.columns().get(1).name());
+    assertEquals("c", scanProj.columns().get(2).name());
   }
 
   /**
@@ -96,16 +96,16 @@ public class TestScanLevelProjection extends SubOperatorTest {
     assertEquals(1, scanProj.requestedCols().size());
     assertTrue(scanProj.requestedCols().get(0).isWildcard());
 
-    assertEquals(1, scanProj.outputCols().size());
-    assertEquals(SchemaPath.WILDCARD, scanProj.outputCols().get(0).name());
+    assertEquals(1, scanProj.columns().size());
+    assertEquals(SchemaPath.WILDCARD, scanProj.columns().get(0).name());
 
     // Verify bindings
 
-    assertSame(((UnresolvedColumn) scanProj.outputCols().get(0)).source(), scanProj.requestedCols().get(0));
+    assertSame(((UnresolvedColumn) scanProj.columns().get(0)).source(), scanProj.requestedCols().get(0));
 
     // Verify column type
 
-    assertEquals(UnresolvedColumn.WILDCARD, scanProj.outputCols().get(0).nodeType());
+    assertEquals(UnresolvedColumn.WILDCARD, scanProj.columns().get(0).nodeType());
   }
 
   /**

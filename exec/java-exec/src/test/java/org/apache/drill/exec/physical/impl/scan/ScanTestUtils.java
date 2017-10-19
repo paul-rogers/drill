@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayParser;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayProjection;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnDefn;
@@ -28,12 +30,15 @@ import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.NoOpReaderProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedColumn;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleSchema;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.hadoop.fs.Path;
 
@@ -147,9 +152,14 @@ public class ScanTestUtils {
     public TupleMetadata expandMetadata(TupleMetadata base, int dirCount) {
       return ScanTestUtils.expandMetadata(base, metadataProj, dirCount);
     }
+  }
 
-    public ReaderLevelProjection resolveReader() {
-      return new NoOpReaderProjection(scanProj);
+  public static class DummySource implements VectorSource {
+
+    @Override
+    public VectorContainer container() {
+      // Not a real source!
+      throw new UnsupportedOperationException();
     }
   }
 
@@ -195,19 +205,11 @@ public class ScanTestUtils {
     return PARTITION_COL + partition;
   }
 
-//  public static TupleMetadata schema(List<? extends ColumnProjection> output) {
-//    TupleMetadata schema = new TupleSchema();
-//    for (ColumnProjection col : output) {
-//      if (col.resolved()) {
-//        schema.add(((ResolvedColumn) col).schema());
-//      } else {
-//        schema.add(MaterializedField.create(col.name(),
-//            MajorType.newBuilder()
-//            .setMinorType(MinorType.NULL)
-//            .setMode(DataMode.OPTIONAL)
-//            .build()));
-//      }
-//    }
-//    return schema;
-//  }
+  public static TupleMetadata schema(List<ResolvedColumn> output) {
+    TupleMetadata schema = new TupleSchema();
+    for (ResolvedColumn col : output) {
+      schema.add(col.schema());
+    }
+    return schema;
+  }
 }

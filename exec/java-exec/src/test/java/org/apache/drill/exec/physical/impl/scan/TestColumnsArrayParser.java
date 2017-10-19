@@ -60,16 +60,16 @@ public class TestColumnsArrayParser extends SubOperatorTest {
     assertFalse(scanProj.projectAll());
     assertEquals(1, scanProj.requestedCols().size());
 
-    assertEquals(1, scanProj.outputCols().size());
-    assertEquals(ColumnsArrayProjection.COLUMNS_COL, scanProj.outputCols().get(0).name());
+    assertEquals(1, scanProj.columns().size());
+    assertEquals(ColumnsArrayProjection.COLUMNS_COL, scanProj.columns().get(0).name());
 
     // Verify bindings
 
-    assertSame(scanProj.outputCols().get(0).source(), scanProj.requestedCols().get(0));
+    assertSame(scanProj.columns().get(0).source(), scanProj.requestedCols().get(0));
 
     // Verify column type
 
-    assertEquals(ColumnsArrayColumn.ID, scanProj.outputCols().get(0).nodeType());
+    assertEquals(ColumnsArrayColumn.ID, scanProj.columns().get(0).nodeType());
   }
 
   @Test
@@ -81,16 +81,16 @@ public class TestColumnsArrayParser extends SubOperatorTest {
     assertFalse(scanProj.projectAll());
     assertEquals(1, scanProj.requestedCols().size());
 
-    assertEquals(1, scanProj.outputCols().size());
-    assertEquals("Columns", scanProj.outputCols().get(0).name());
+    assertEquals(1, scanProj.columns().size());
+    assertEquals("Columns", scanProj.columns().get(0).name());
 
     // Verify bindings
 
-    assertSame(scanProj.outputCols().get(0).source(), scanProj.requestedCols().get(0));
+    assertSame(scanProj.columns().get(0).source(), scanProj.requestedCols().get(0));
 
     // Verify column type
 
-    assertEquals(ColumnsArrayColumn.ID, scanProj.outputCols().get(0).nodeType());
+    assertEquals(ColumnsArrayColumn.ID, scanProj.columns().get(0).nodeType());
   }
 
   /**
@@ -158,17 +158,17 @@ public class TestColumnsArrayParser extends SubOperatorTest {
 
     assertFalse(scanProj.projectAll());
 
-    assertEquals(3, scanProj.outputCols().size());
+    assertEquals(3, scanProj.columns().size());
 
-    assertEquals(ScanTestUtils.FILE_NAME_COL, scanProj.outputCols().get(0).name());
-    assertEquals(ColumnsArrayProjection.COLUMNS_COL, scanProj.outputCols().get(1).name());
-    assertEquals(ScanTestUtils.SUFFIX_COL, scanProj.outputCols().get(2).name());
+    assertEquals(ScanTestUtils.FILE_NAME_COL, scanProj.columns().get(0).name());
+    assertEquals(ColumnsArrayProjection.COLUMNS_COL, scanProj.columns().get(1).name());
+    assertEquals(ScanTestUtils.SUFFIX_COL, scanProj.columns().get(2).name());
 
     // Verify column type
 
-    assertEquals(UnresolvedFileMetadataColumn.ID, scanProj.outputCols().get(0).nodeType());
-    assertEquals(ColumnsArrayColumn.ID, scanProj.outputCols().get(1).nodeType());
-    assertEquals(UnresolvedFileMetadataColumn.ID, scanProj.outputCols().get(2).nodeType());
+    assertEquals(UnresolvedFileMetadataColumn.ID, scanProj.columns().get(0).nodeType());
+    assertEquals(ColumnsArrayColumn.ID, scanProj.columns().get(1).nodeType());
+    assertEquals(UnresolvedFileMetadataColumn.ID, scanProj.columns().get(2).nodeType());
   }
   // TODO: Test Columns element projection
 }

@@ -27,8 +27,6 @@ public interface MetadataManager {
 
   ScanProjectionParser projectionParser();
 
-  ReaderLevelProjection resolve(ScanLevelProjection scanProj);
-
   SchemaProjectionResolver resolver();
 
   void define();

@@ -121,11 +121,11 @@ public class TestConstantColumnLoader extends SubOperatorTest {
     FileMetadataColumnDefn iDefn = new FileMetadataColumnDefn(
         ScanTestUtils.SUFFIX_COL, ImplicitFileColumns.SUFFIX);
     FileMetadataColumn iCol = new FileMetadataColumn(ScanTestUtils.SUFFIX_COL,
-        iDefn, fileInfo);
+        iDefn, fileInfo, null);
     defns.add(iCol);
 
     String partColName = ScanTestUtils.partitionColName(1);
-    PartitionColumn pCol = new PartitionColumn(partColName, 1, fileInfo);
+    PartitionColumn pCol = new PartitionColumn(partColName, 1, fileInfo, null);
     defns.add(pCol);
 
     ResultVectorCacheImpl cache = new ResultVectorCacheImpl(fixture.allocator());

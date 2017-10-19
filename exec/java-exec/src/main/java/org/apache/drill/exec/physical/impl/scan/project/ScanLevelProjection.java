@@ -267,7 +267,7 @@ public class ScanLevelProjection {
    * @return the set of output columns in output order
    */
 
-  public List<ColumnProjection> outputCols() { return outputCols; }
+  public List<ColumnProjection> columns() { return outputCols; }
 
   public boolean hasWildcard() { return hasWildcard; }
 

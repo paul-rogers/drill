@@ -174,7 +174,7 @@ public class ScanSchemaOrchestrator {
 
       if (! scanProj.projectAll()) {
         List<SchemaPath> projectedCols = new ArrayList<>();
-        for (ColumnProjection col : scanProj.outputCols()) {
+        for (ColumnProjection col : scanProj.columns()) {
           if (col.nodeType() == UnresolvedColumn.UNRESOLVED) {
             projectedCols.add(((UnresolvedColumn) col).source());
           }

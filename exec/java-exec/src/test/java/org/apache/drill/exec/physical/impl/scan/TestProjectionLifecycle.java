@@ -63,7 +63,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
 
       // Verify
 
-      List<ColumnProjection> fileSchema = lifecycle.fileProjection().outputCols();
+      List<ColumnProjection> fileSchema = lifecycle.fileProjection().columns();
       assertEquals(ScanTestUtils.FILE_NAME_COL, fileSchema.get(0).name());
       assertEquals("a.csv", ((ResolvedFileMetadataColumn) fileSchema.get(0)).value());
       assertEquals(UnresolvedColumn.UNRESOLVED, fileSchema.get(1).nodeType());
@@ -101,7 +101,7 @@ public class TestProjectionLifecycle extends SubOperatorTest {
       // Verify
 
       assertNull(lifecycle.tableProjection());
-      List<ColumnProjection> fileSchema = lifecycle.fileProjection().outputCols();
+      List<ColumnProjection> fileSchema = lifecycle.fileProjection().columns();
       assertEquals(3, fileSchema.size());
       assertEquals(ScanTestUtils.FILE_NAME_COL, fileSchema.get(0).name());
       assertEquals("b.csv", ((ResolvedFileMetadataColumn) fileSchema.get(0)).value());
