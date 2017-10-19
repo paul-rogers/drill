@@ -27,6 +27,8 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ExecConstants;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.FileMetadataColumn;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ConstantColumnLoader;
 import org.apache.drill.exec.physical.impl.scan.project.ConstantColumnLoader.ConstantColumnSpec;
 import org.apache.drill.exec.physical.impl.scan.project.MetadataManager;
@@ -71,7 +73,7 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
     @Override
     public Projection projection() { return projection; }
 
-    public abstract MetadataColumn resolve(FileMetadata fileInfo);
+    public abstract MetadataColumn resolve(FileMetadata fileInfo, Projection projection);
 
     public abstract MetadataColumn project(Projection projection);
   }
@@ -91,8 +93,8 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
      * @param projection
      */
     public FileMetadataColumn(String name, FileMetadataColumnDefn defn,
-        FileMetadata fileInfo) {
-      super(name, defn.dataType(), defn.defn.getValue(fileInfo.filePath()), null);
+        FileMetadata fileInfo, Projection projection) {
+      super(name, defn.dataType(), defn.defn.getValue(fileInfo.filePath()), projection);
       this.defn = defn;
     }
 
@@ -120,8 +122,8 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
     public FileMetadataColumnDefn defn() { return defn; }
 
     @Override
-    public MetadataColumn resolve(FileMetadata fileInfo) {
-      return new FileMetadataColumn(name(), defn, fileInfo);
+    public MetadataColumn resolve(FileMetadata fileInfo, Projection projection) {
+      return new FileMetadataColumn(name(), defn, fileInfo, projection);
     }
 
     @Override
@@ -137,8 +139,8 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
     protected final int partition;
 
     public PartitionColumn(String name, int partition,
-        FileMetadata fileInfo) {
-      super(name, dataType(), fileInfo.partition(partition), null);
+        FileMetadata fileInfo, Projection projection) {
+      super(name, dataType(), fileInfo.partition(partition), projection);
       this.partition = partition;
     }
 
@@ -159,8 +161,8 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
     public int nodeType() { return ID; }
 
     @Override
-    public MetadataColumn resolve(FileMetadata fileInfo) {
-      return new PartitionColumn(name(), partition, fileInfo);
+    public MetadataColumn resolve(FileMetadata fileInfo, Projection projection) {
+      return new PartitionColumn(name(), partition, fileInfo, projection);
     }
 
     @Override
@@ -192,9 +194,10 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
   // Internal state
 
   private ResultVectorCache vectorCache;
-  private List<MetadataColumn> metadataColumns = new ArrayList<>();
+  private final List<MetadataColumn> metadataColumns = new ArrayList<>();
   private ConstantColumnLoader loader;
   private VectorContainer outputContainer;
+  private final int partitionCount;
 
   /**
    * Specifies whether to plan based on the legacy meaning of "*". See
@@ -208,7 +211,7 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
 
   public FileMetadataManager(OptionSet optionManager,
       boolean useLegacyWildcardExpansion,
-      Path rootDir) {
+      Path rootDir, List<Path> files) {
     this.useLegacyWildcardExpansion = useLegacyWildcardExpansion;
     scanRootDir = rootDir;
 
@@ -222,6 +225,21 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
       }
     }
     parser = new FileMetadataColumnsParser(this);
+
+    if (scanRootDir != null  &&  files != null) {
+      partitionCount = computeMaxPartition(files);
+    } else {
+      partitionCount = 0;
+    }
+  }
+
+  private int computeMaxPartition(List<Path> files) {
+    int maxLen = 0;
+    for (Path filePath : files) {
+      FileMetadata info = fileMetadata(filePath);
+      maxLen = Math.max(maxLen, info.dirPathLength());
+    }
+    return maxLen;
   }
 
   @Override
@@ -305,20 +323,42 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
   @Override
   public boolean resolveColumn(ColumnProjection col, List<ResolvedColumn> output) {
     switch (col.nodeType()) {
-    case FileMetadataColumn.ID:
+
     case PartitionColumn.ID:
-      MetadataColumn projectedColumn = ((MetadataColumn) col).project(
-          new Projection(this, true, metadataColumns.size(), output.size()));
-      metadataColumns.add(projectedColumn);
-      output.add(projectedColumn);
-      return true;
+    case FileMetadataColumn.ID:
+      break;
+
     default:
       return false;
     }
+
+    Projection projection = new Projection(this, true, metadataColumns.size(), output.size());
+    MetadataColumn outputCol;
+
+    switch (col.nodeType()) {
+    case PartitionColumn.ID:
+      outputCol = ((PartitionColumn) col).resolve(currentFile, projection);
+      break;
+
+    case FileMetadataColumn.ID:
+      outputCol = ((FileMetadataColumn) col).resolve(currentFile, projection);
+      break;
+
+    default:
+      throw new IllegalStateException("Should never get here");
+    }
+
+    output.add(outputCol);
+    metadataColumns.add(outputCol);
+    return true;
   }
 
   @Override
   public VectorContainer container() {
     return outputContainer;
+  }
+
+  public int partitionCount() {
+    return partitionCount;
   }
 }

@@ -75,7 +75,7 @@ public class SchemaLevelProjection {
    * final projected columns. The metadata manager, for example, implements
    * this interface to map metadata columns.
    */
-  
+
   public interface SchemaProjectionResolver {
     boolean resolveColumn(ColumnProjection col, List<ResolvedColumn> output);
 
@@ -131,12 +131,12 @@ public class SchemaLevelProjection {
 
   public static class WildcardSchemaProjection extends SchemaLevelProjection {
 
-    public WildcardSchemaProjection(ReaderLevelProjection fileProj,
+    public WildcardSchemaProjection(ScanLevelProjection scanProj,
         TupleMetadata tableSchema,
         VectorSource tableSource,
         List<SchemaProjectionResolver> resolvers) {
       super(tableSchema, tableSource, resolvers);
-      for (ColumnProjection col : fileProj.output()) {
+      for (ColumnProjection col : scanProj.outputCols()) {
         if (col.nodeType() == UnresolvedColumn.WILDCARD) {
           for (int i = 0; i < tableSchema.size(); i++) {
             MaterializedField colSchema = tableSchema.column(i);
@@ -197,14 +197,14 @@ public class SchemaLevelProjection {
     protected List<NullColumnSpec> nullCols = new ArrayList<>();
     protected VectorSource nullSource;
 
-    public ExplicitSchemaProjection(ReaderLevelProjection fileProj,
+    public ExplicitSchemaProjection(ScanLevelProjection scanProj,
         TupleMetadata tableSchema,
         VectorSource tableSource,
         VectorSource nullSource,
         List<SchemaProjectionResolver> resolvers) {
       super(tableSchema, tableSource, resolvers);
       this.nullSource = nullSource;
-      for (ColumnProjection col : fileProj.output()) {
+      for (ColumnProjection col : scanProj.outputCols()) {
         if (col.nodeType() == UnresolvedColumn.UNRESOLVED) {
           resolveColumn(col);
         } else {

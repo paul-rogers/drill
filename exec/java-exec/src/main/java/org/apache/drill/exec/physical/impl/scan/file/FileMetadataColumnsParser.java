@@ -53,6 +53,9 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
   public boolean parse(SchemaPath inCol) {
     Matcher m = partitionPattern.matcher(inCol.rootName());
     if (m.matches()) {
+      if (builder.hasWildcard()) {
+        wildcardAndMetadataError();
+      }
 
       // Partition column
 
@@ -65,6 +68,9 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
 
     FileMetadataColumnDefn iCol = metadataManager.fileMetadataColIndex.get(inCol.rootName());
     if (iCol != null) {
+      if (builder.hasWildcard()) {
+        wildcardAndMetadataError();
+      }
 
       // File metadata (implicit) column
 
@@ -72,36 +78,55 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
       hasMetadata = true;
       return true;
     }
-    if (inCol.isWildcard() && metadataManager.useLegacyWildcardExpansion) {
+    if (inCol.isWildcard()) {
+      if (hasMetadata) {
+        wildcardAndMetadataError();
+      }
+      if (metadataManager.useLegacyWildcardExpansion) {
 
-      // Star column: this is a SELECT * query.
+        // Star column: this is a SELECT * query.
 
-      // Old-style wildcard handling inserts all metadata columns in
-      // the scanner, removes them in Project.
-      // Fill in the file metadata columns. Can do here because the
-      // set is constant across all files.
+        // Old-style wildcard handling inserts all metadata columns in
+        // the scanner, removes them in Project.
+        // Fill in the file metadata columns. Can do here because the
+        // set is constant across all files.
 
-      hasMetadata = true;
+        expandWildcard();
+        hasMetadata = true;
 
-      // Don't consider this a match.
+        // Don't consider this a match.
+      }
     }
     return false;
+  }
+
+  protected void expandWildcard() {
+
+    // Legacy wildcard expansion: include the file metadata and
+    // file partitions for this file.
+    // This is a disadvantage for a * query: files at different directory
+    // levels will have different numbers of columns. Would be better to
+    // return this data as an array at some point.
+    // Append this after the *, keeping the * for later expansion.
+
+    for (FileMetadataColumnDefn iCol : metadataManager.fileMetadataColDefns()) {
+      builder.addProjectedColumn(new FileMetadataColumn(
+          iCol.colName(), iCol));
+    }
+    for (int i = 0; i < metadataManager.partitionCount(); i++) {
+      builder.addProjectedColumn(new PartitionColumn(
+          metadataManager.partitionName(i), i));
+    }
   }
 
   @Override
   public void validate() { }
 
   @Override
-  public void validateColumn(ColumnProjection outCol) {
-    if (outCol.nodeType() == FileMetadataColumn.ID) {
-      if (builder.hasWildcard()  &&  metadataManager.useLegacyWildcardExpansion) {
-        throw new IllegalArgumentException("Cannot select file metadata columns and `*` together");
-      }
-    } else if (outCol.nodeType() == PartitionColumn.ID) {
-      if (builder.hasWildcard()  &&  metadataManager.useLegacyWildcardExpansion) {
-        throw new IllegalArgumentException("Cannot select partitions and `*` together");
-      }
-    }
+  public void validateColumn(ColumnProjection outCol) { }
+
+  private void wildcardAndMetadataError() {
+    throw new IllegalArgumentException("Cannot select file metadata columns and `*` together");
   }
 
   @Override

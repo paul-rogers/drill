@@ -159,7 +159,7 @@ public abstract class ProjectionLifecycle {
    * This can all be boiled down to a simpler rule:
    * <ul>
    * <li>Schema persistence is possible if the output schema
-   * from a prior schema can be reused for the current schema</i>
+   * from a prior schema can be reused for the current schema</li>
    * <li>Else, a hard schema change occurs and a new output
    * schema is derived from the new table schema.</li>
    * </ul>

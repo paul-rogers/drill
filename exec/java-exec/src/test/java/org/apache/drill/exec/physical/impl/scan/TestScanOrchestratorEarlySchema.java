@@ -32,11 +32,14 @@ import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
+import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
+
+import jersey.repackaged.com.google.common.collect.Lists;
 
 /**
  * Test the early-schema support of the scan orchestrator. "Early schema"
@@ -602,8 +605,11 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
   @Test
   public void testSelectNone() {
     ScanSchemaOrchestrator scanner = new ScanSchemaOrchestrator(fixture.allocator());
+    Path filePath = new Path("hdfs:///w/x/y/z.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
-        fixture.options(), false, new Path("hdfs:///w"));
+        fixture.options(), true,
+        new Path("hdfs:///w"),
+        Lists.newArrayList(filePath));
     scanner.withMetadata(metadataManager);
 
     // SELECT c ...
@@ -612,7 +618,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     // ... FROM file
 
-    metadataManager.startFile(new Path("hdfs:///w/x/y/z.csv"));
+    metadataManager.startFile(filePath);
     ReaderSchemaOrchestrator reader = scanner.startReader();
 
     // file schema (a, b)
@@ -680,8 +686,11 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     ScanSchemaOrchestrator scanner = new ScanSchemaOrchestrator(fixture.allocator());
     scanner.setNullType(nullType);
+    Path filePath = new Path("hdfs:///w/x/y/z.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
-        fixture.options(), false, new Path("hdfs:///w"));
+        fixture.options(), true,
+        new Path("hdfs:///w"),
+        Lists.newArrayList(filePath));
     scanner.withMetadata(metadataManager);
 
     // SELECT a, b, dir0, suffix ...
@@ -690,7 +699,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     // ... FROM file
 
-    metadataManager.startFile(new Path("hdfs:///w/x/y/z.csv"));
+    metadataManager.startFile(filePath);
     ReaderSchemaOrchestrator reader = scanner.startReader();
 
     // file schema (a, b)
@@ -752,8 +761,11 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
   @Test
   public void testMixture() {
     ScanSchemaOrchestrator scanner = new ScanSchemaOrchestrator(fixture.allocator());
+    Path filePath = new Path("hdfs:///w/x/y/z.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
-        fixture.options(), false, new Path("hdfs:///w"));
+        fixture.options(), true,
+        new Path("hdfs:///w"),
+        Lists.newArrayList(filePath));
     scanner.withMetadata(metadataManager);
 
     // SELECT dir0, b, suffix, c ...
@@ -762,7 +774,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     // ... FROM file
 
-    metadataManager.startFile(new Path("hdfs:///w/x/y/z.csv"));
+    metadataManager.startFile(filePath);
     ReaderSchemaOrchestrator reader = scanner.startReader();
 
     // file schema (a, b)
@@ -825,15 +837,21 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
   @Test
   public void testMetadataMulti() {
     ScanSchemaOrchestrator scanner = new ScanSchemaOrchestrator(fixture.allocator());
+    Path filePathA = new Path("hdfs:///w/x/y/a.csv");
+    Path filePathB = new Path("hdfs:///w/x/b.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
-        fixture.options(), false, new Path("hdfs:///w"));
+        fixture.options(), true,
+        new Path("hdfs:///w"),
+        Lists.newArrayList(filePathA, filePathB));
     scanner.withMetadata(metadataManager);
 
-    // SELECT dir0, filename, b ...
+    // SELECT dir0, dir1, filename, b ...
 
     scanner.build(ScanTestUtils.projectList(
         ScanTestUtils.partitionColName(0),
-        ScanTestUtils.FILE_NAME_COL, "b"));
+        ScanTestUtils.partitionColName(1),
+        ScanTestUtils.FILE_NAME_COL,
+        "b"));
 
     // file schema (a, b)
 
@@ -842,8 +860,9 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
         .addNullable("b", MinorType.VARCHAR, 10)
         .buildSchema();
     BatchSchema expectedSchema = new SchemaBuilder()
-        .addNullable("dir0", MinorType.VARCHAR)
-        .addNullable("filename", MinorType.VARCHAR)
+        .addNullable(ScanTestUtils.partitionColName(0), MinorType.VARCHAR)
+        .addNullable(ScanTestUtils.partitionColName(1), MinorType.VARCHAR)
+        .add(ScanTestUtils.FILE_NAME_COL, MinorType.VARCHAR)
         .addNullable("b", MinorType.VARCHAR, 10)
         .build();
 
@@ -852,7 +871,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
     {
       // ... FROM file a.csv
 
-      metadataManager.startFile(new Path("hdfs:///w/x/y/a.csv"));
+      metadataManager.startFile(filePathA);
 
       ReaderSchemaOrchestrator reader = scanner.startReader();
       ResultSetLoader loader = reader.makeResultSetLoader(tableSchema);
@@ -867,8 +886,8 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
       schemaVersion = tracker.schemaVersion();
 
       SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-          .addRow("x", "a.csv", "fred")
-          .addRow("x", "a.csv", "wilma")
+          .addRow("x", "y", "a.csv", "fred")
+          .addRow("x", "y", "a.csv", "wilma")
           .build();
       new RowSetComparison(expected)
         .verifyAndClearAll(fixture.wrap(scanner.output()));
@@ -881,7 +900,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
     {
       // ... FROM file b.csv
 
-      metadataManager.startFile(new Path("hdfs:///w/x/y/b.csv"));
+      metadataManager.startFile(filePathB);
       ReaderSchemaOrchestrator reader = scanner.startReader();
       ResultSetLoader loader = reader.makeResultSetLoader(tableSchema);
 
@@ -895,8 +914,8 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
       assertEquals(schemaVersion, tracker.schemaVersion());
 
       SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-          .addRow("x", "b.csv", "bambam")
-          .addRow("x", "b.csv", "betty")
+          .addRow("x", null, "b.csv", "bambam")
+          .addRow("x", null, "b.csv", "betty")
           .build();
       new RowSetComparison(expected)
         .verifyAndClearAll(fixture.wrap(scanner.output()));
@@ -914,8 +933,11 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
   @Test
   public void testWildcardWithMetadata() {
     ScanSchemaOrchestrator scanner = new ScanSchemaOrchestrator(fixture.allocator());
+    Path filePath = new Path("hdfs:///w/x/y/z.csv");
     FileMetadataManager metadataManager = new FileMetadataManager(
-        fixture.options(), true, new Path("hdfs:///w"));
+        fixture.options(), true,
+        new Path("hdfs:///w"),
+        Lists.newArrayList(filePath));
     scanner.withMetadata(metadataManager);
 
     // SELECT * ...
@@ -924,7 +946,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     // ... FROM file
 
-    metadataManager.startFile(new Path("hdfs:///w/x/y/z.csv"));
+    metadataManager.startFile(filePath);
     ReaderSchemaOrchestrator reader = scanner.startReader();
 
     // file schema (a, b)

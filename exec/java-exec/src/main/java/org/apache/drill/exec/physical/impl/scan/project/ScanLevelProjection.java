@@ -81,8 +81,6 @@ public class ScanLevelProjection {
 
   public interface ColumnProjection {
     String name();
-  //  SchemaPath source();
-  //  boolean resolved();
     int nodeType();
   }
 
@@ -184,6 +182,32 @@ public class ScanLevelProjection {
 
   private void mapColumn(SchemaPath inCol) {
 
+    // Wildcard is special: add it, then let parsers add any custom
+    // columns that are needed. The order is important: we want custom
+    // columsn to follow table columns.
+
+    if (inCol.isWildcard()) {
+
+      // Star column: this is a SELECT * query.
+
+      if (hasWildcard) {
+        throw new IllegalArgumentException("Duplicate * entry in project list");
+      }
+
+      // Put the wildcard column into the projection list as a placeholder to be filled
+      // in later with actual table columns.
+
+      outputCols.add(new UnresolvedColumn(inCol, UnresolvedColumn.WILDCARD));
+
+      // Parsers can "sniff" but not consume the wildcard.
+
+      for (ScanProjectionParser parser : parsers) {
+        parser.parse(inCol);
+      }
+      hasWildcard = true;
+      return;
+    }
+
     // Give the extensions first crack at each column.
     // Some may want to "sniff" a column, even if they
     // don't fully handle it.
@@ -193,36 +217,15 @@ public class ScanLevelProjection {
         return;
       }
     }
-    if (inCol.isWildcard()) {
-
-      // Star column: this is a SELECT * query.
-
-      mapWildcardColumn(inCol);
-      return;
-    }
 
     // This is a desired table column.
 
     UnresolvedColumn tableCol = new UnresolvedColumn(inCol, UnresolvedColumn.UNRESOLVED);
     outputCols.add(tableCol);
-//    tableColNames.add(tableCol.name());
   }
 
   public void addProjectedColumn(ColumnProjection outCol) {
     outputCols.add(outCol);
-  }
-
-  private void mapWildcardColumn(SchemaPath inCol) {
-    if (hasWildcard) {
-      throw new IllegalArgumentException("Duplicate * entry in project list");
-    }
-    hasWildcard = true;
-//    wildcardColumn = inCol;
-
-    // Put the wildcard column into the projection list as a placeholder to be filled
-    // in later with actual table columns.
-
-    outputCols.add(new UnresolvedColumn(inCol, UnresolvedColumn.WILDCARD));
   }
 
   private void verify() {

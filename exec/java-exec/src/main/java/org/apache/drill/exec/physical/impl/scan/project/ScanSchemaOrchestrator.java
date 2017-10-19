@@ -138,7 +138,6 @@ public class ScanSchemaOrchestrator {
 
   public class ReaderSchemaOrchestrator implements VectorSource {
 
-    private ReaderLevelProjection readerProjection;
     private int readerBatchSize;
     private ResultSetLoaderImpl tableLoader;
     private int prevTableSchemaVersion = -1;
@@ -155,7 +154,6 @@ public class ScanSchemaOrchestrator {
     private VectorContainer tableContainer;
 
     public ReaderSchemaOrchestrator(ScanSchemaOrchestrator scanOrchestrator) {
-      readerProjection = scanOrchestrator.metadataManager.resolve(scanOrchestrator.scanProj);
       readerBatchSize = scanOrchestrator.scanBatchRecordLimit;
     }
 
@@ -176,7 +174,7 @@ public class ScanSchemaOrchestrator {
 
       if (! scanProj.projectAll()) {
         List<SchemaPath> projectedCols = new ArrayList<>();
-        for (ColumnProjection col : readerProjection.output()) {
+        for (ColumnProjection col : scanProj.outputCols()) {
           if (col.nodeType() == UnresolvedColumn.UNRESOLVED) {
             projectedCols.add(((UnresolvedColumn) col).source());
           }
@@ -299,7 +297,7 @@ public class ScanSchemaOrchestrator {
         // Query contains a wildcard. The schema-level projection includes
         // all columns provided by the reader.
 
-        tableProjection = new WildcardSchemaProjection(readerProjection,
+        tableProjection = new WildcardSchemaProjection(scanProj,
             tableSchema, this, tableResolvers);
       } else {
 
@@ -309,7 +307,7 @@ public class ScanSchemaOrchestrator {
         // in the table.
 
         ExplicitSchemaProjection explicitProjection =
-            new ExplicitSchemaProjection(readerProjection,
+            new ExplicitSchemaProjection(scanProj,
                 tableSchema, this,
                 nullColumnManager, tableResolvers);
         nullColumnManager.define(explicitProjection.nullCols());
