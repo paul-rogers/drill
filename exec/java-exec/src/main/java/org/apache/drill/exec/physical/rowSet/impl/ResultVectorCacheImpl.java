@@ -18,13 +18,14 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.drill.common.map.CaseInsensitiveMap;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.ValueVector;
@@ -98,7 +99,7 @@ public class ResultVectorCacheImpl implements ResultVectorCache {
   }
 
   private final BufferAllocator allocator;
-  private final Map<String, VectorState> vectors = new HashMap<>();
+  private final Map<String, VectorState> vectors = CaseInsensitiveMap.newHashMap();
 
   public ResultVectorCacheImpl(BufferAllocator allocator) {
     this.allocator = allocator;
@@ -169,6 +170,7 @@ public class ResultVectorCacheImpl implements ResultVectorCache {
     return vs.vector;
   }
 
+  @Override
   public MajorType getType(String name) {
     VectorState vs = vectors.get(name);
     if (vs == null || vs.vector == null) {

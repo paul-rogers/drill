@@ -87,8 +87,7 @@ public class SchemaLevelProjection {
    * data from a source vector to a vector in the final output container.
    */
 
-  public interface ResolvedColumn {
-    String name();
+  public interface ResolvedColumn extends ColumnProjection {
     Projection projection();
     MaterializedField schema();
   }
@@ -103,6 +102,8 @@ public class SchemaLevelProjection {
    */
 
   public static class ResolvedTableColumn implements ResolvedColumn {
+
+    public static final int ID = 3;
 
     public final String projectedName;
     public final MaterializedField schema;
@@ -124,6 +125,9 @@ public class SchemaLevelProjection {
 
     @Override
     public MaterializedField schema() { return schema; }
+
+    @Override
+    public int nodeType() { return ID; }
   }
 
   /**
@@ -163,6 +167,8 @@ public class SchemaLevelProjection {
 
   public static class NullProjectedColumn implements ResolvedColumn, NullColumnSpec {
 
+    public static final int ID = 4;
+
     private final String name;
     private final MajorType type;
     private final Projection projection;
@@ -186,6 +192,9 @@ public class SchemaLevelProjection {
     public MaterializedField schema() {
       return MaterializedField.create(name, type);
     }
+
+    @Override
+    public int nodeType() { return ID; }
   }
 
   /**
@@ -213,6 +222,7 @@ public class SchemaLevelProjection {
         List<SchemaProjectionResolver> resolvers) {
       super(tableSchema, tableSource, resolvers);
       this.nullSource = nullSource;
+
       for (ColumnProjection col : scanProj.columns()) {
         if (col.nodeType() == UnresolvedColumn.UNRESOLVED) {
           resolveColumn(col);
@@ -233,19 +243,14 @@ public class SchemaLevelProjection {
     }
 
     private void resolveNullColumn(ColumnProjection col) {
-      MajorType colType;
-      if (col.nodeType() == ContinuedColumn.ID) {
-        colType = ((ContinuedColumn) col).type();
-      } else {
-        colType = null;
-      }
-      NullProjectedColumn nullCol = new NullProjectedColumn(col.name(), colType,
+      NullProjectedColumn nullCol = new NullProjectedColumn(col.name(), null,
           new Projection(nullSource, true, nullCols.size(), outputIndex()));
       output.add(nullCol);
       nullCols.add(nullCol);
     }
 
-    public List<NullColumnSpec> nullCols() { return nullCols; }
+    @Override
+    public List<NullColumnSpec> nullColumns() { return nullCols; }
   }
 
   protected TupleMetadata tableSchema;
@@ -280,4 +285,5 @@ public class SchemaLevelProjection {
   protected int outputIndex() { return output.size(); }
 
   public List<ResolvedColumn> columns() { return output; }
+  public List<NullColumnSpec> nullColumns() { return null; }
 }

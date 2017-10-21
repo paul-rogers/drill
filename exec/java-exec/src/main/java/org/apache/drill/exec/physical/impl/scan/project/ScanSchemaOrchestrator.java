@@ -47,7 +47,9 @@ import org.apache.drill.exec.vector.ValueVector;
  * problem: that the scan operator must present the same set of vectors
  * to downstream operators despite the fact that the scan operator hosts
  * a series of readers, each of which builds its own result set.
- * <p>
+ *
+ * <h4>Publishing the Final Result Set<h4>
+ *
  * This class "publishes" a vector container that has the final, projected
  * form of a scan. The projected schema include:
  * <ul>
@@ -58,8 +60,10 @@ import org.apache.drill.exec.vector.ValueVector;
  * </ul>
  * The order of columns is that set by the select list (or, by the reader for
  * a <tt>SELECT *</tt> query.
- * <p>
- * The mapping handle a variety of cases:
+ *
+ * <h4>Schema Handling</h4>
+ *
+ * The mapping handles a variety of cases:
  * <ul>
  * <li>An early-schema table (one in which we know the schema and
  * the schema remains constant for the whole table.</li>
@@ -71,7 +75,9 @@ import org.apache.drill.exec.vector.ValueVector;
  * <li>Late schema with explicit select list (we want only certain
  * columns when they happen to appear in the input.)</li></ul></li>
  * </ul>
- * <p>
+ *
+ * <h4>Implementation Overview</h4>
+ *
  * Major tasks of this class include:
  * <ul>
  * <li>Project table columns (change position and or name).</li>
@@ -94,7 +100,9 @@ import org.apache.drill.exec.vector.ValueVector;
  * <li>Fill in implicit or partition columns</li>
  * </ul>
  * Creates and returns the batch merger that does the projection.
- * <p>
+ *
+ * <h4>Projection</h4>
+ *
  * To visualize this, assume we have numbered table columns, lettered
  * implicit, null or partition columns:<pre><code>
  * [ 1 | 2 | 3 | 4 ]    Table columns in table order
@@ -161,7 +169,7 @@ public class ScanSchemaOrchestrator {
       readerBatchSize = Math.min(size, scanBatchRecordLimit);
     }
 
-    public ResultSetLoader makeResultSetLoader(TupleMetadata tableSchema) {
+    public ResultSetLoader makeTableLoader(TupleMetadata tableSchema) {
       OptionBuilder options = new OptionBuilder();
       options.setRowCountLimit(readerBatchSize);
 
@@ -286,39 +294,52 @@ public class ScanSchemaOrchestrator {
 
     private void reviseOutputProjection() {
 
-      // To refine
-
       // Do the table-schema level projection; the final matching
       // of projected columns to available columns.
 
       TupleMetadata tableSchema = tableLoader.harvestSchema();
-      if (scanProj.hasWildcard()) {
-
-        // Query contains a wildcard. The schema-level projection includes
-        // all columns provided by the reader.
-
-        tableProjection = new WildcardSchemaProjection(scanProj,
-            tableSchema, this, tableResolvers);
+      if (schemaSmoother != null) {
+        doSmoothedProjection(tableSchema);
+      } else if (scanProj.hasWildcard()) {
+        doWildcardProjection(tableSchema);
       } else {
-
-        // Explicit projection: include only those columns actually
-        // requested by the query, which may mean filling in null
-        // columns for projected columns that don't actually exist
-        // in the table.
-
-        ExplicitSchemaProjection explicitProjection =
-            new ExplicitSchemaProjection(scanProj,
-                tableSchema, this,
-                nullColumnManager, tableResolvers);
-        nullColumnManager.define(explicitProjection.nullCols());
-        tableProjection = explicitProjection;
+        doExplicitProjection(tableSchema);
       }
-
-//      scanProjector.projectionDefn.startSchema(tableLoader.writer().schema());
-//      scanProjector.planProjection();
 
       metadataManager.define();
       prevTableSchemaVersion = tableLoader.schemaVersion();
+    }
+
+    private void doSmoothedProjection(TupleMetadata tableSchema) {
+      tableProjection = schemaSmoother.resolve(tableSchema, this);
+      nullColumnManager.define(tableProjection.nullColumns());
+    }
+
+    /**
+     * Query contains a wildcard. The schema-level projection includes
+     * all columns provided by the reader.
+     */
+
+    private void doWildcardProjection(TupleMetadata tableSchema) {
+      tableProjection = new WildcardSchemaProjection(scanProj,
+          tableSchema, this, tableResolvers);
+    }
+
+    /**
+     * Explicit projection: include only those columns actually
+     * requested by the query, which may mean filling in null
+     * columns for projected columns that don't actually exist
+     * in the table.
+     *
+     * @param tableSchema newly arrived schema
+     */
+
+    private void doExplicitProjection(TupleMetadata tableSchema) {
+      tableProjection =
+          new ExplicitSchemaProjection(scanProj,
+              tableSchema, this,
+              nullColumnManager, tableResolvers);
+      nullColumnManager.define(tableProjection.nullColumns());
     }
 
     @Override
@@ -373,6 +394,8 @@ public class ScanSchemaOrchestrator {
 
   List<SchemaProjectionResolver> tableResolvers = new ArrayList<>();
 
+  private boolean useSchemaSmoothing;
+
   // Internal state
 
   /**
@@ -388,6 +411,7 @@ public class ScanSchemaOrchestrator {
   protected ScanLevelProjection scanProj;
   protected boolean supportsMetadata;
   private ReaderSchemaOrchestrator currentReader;
+  protected SchemaSmoother schemaSmoother;
 
   /**
    * Creates null columns if needed.
@@ -448,6 +472,17 @@ public class ScanSchemaOrchestrator {
     this.nullType = nullType;
   }
 
+  /**
+   * Enable schema smoothing: introduces an addition level of schema
+   * resolution each time a schema changes from a reader.
+   *
+   * @param flag true to enable schema smoothing, false to disable
+   */
+
+  public void enableSchemaSmoothing(boolean flag) {
+    useSchemaSmoothing = flag;
+  }
+
   public void build(List<SchemaPath> projection) {
     this.projection = projection;
 
@@ -482,8 +517,11 @@ public class ScanSchemaOrchestrator {
     // If this is a wildcard query, we'll need a null column manager
     // to fill in missing columns.
 
-    if (! scanProj.hasWildcard()) {
+    if (! scanProj.hasWildcard() || useSchemaSmoothing) {
       nullColumnManager = new NullColumnManager(vectorCache, nullType);
+    }
+    if (scanProj.hasWildcard() && useSchemaSmoothing) {
+      schemaSmoother = new SchemaSmoother(scanProj, nullColumnManager, tableResolvers);
     }
   }
 

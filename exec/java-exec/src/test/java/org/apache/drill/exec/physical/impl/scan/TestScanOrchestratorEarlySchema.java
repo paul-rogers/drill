@@ -20,17 +20,23 @@ package org.apache.drill.exec.physical.impl.scan;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.protocol.SchemaTracker;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.ReaderSchemaOrchestrator;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ExplicitSchemaProjection;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
@@ -76,7 +82,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     // Create the table loader
 
-    ResultSetLoader loader = reader.makeResultSetLoader(tableSchema);
+    ResultSetLoader loader = reader.makeTableLoader(tableSchema);
 
     // Schema provided, so an empty batch is available to
     // send downstream.
@@ -165,7 +171,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     // Create the table loader
 
-    ResultSetLoader loader = reader.makeResultSetLoader(tableSchema);
+    ResultSetLoader loader = reader.makeTableLoader(tableSchema);
 
     // Verify empty batch.
 
@@ -226,7 +232,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     // Create the table loader
 
-    ResultSetLoader loader = reader.makeResultSetLoader(tableSchema);
+    ResultSetLoader loader = reader.makeTableLoader(tableSchema);
 
     // Verify empty batch.
 
@@ -292,7 +298,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     // Create the table loader
 
-    ResultSetLoader loader = reader.makeResultSetLoader(tableSchema);
+    ResultSetLoader loader = reader.makeTableLoader(tableSchema);
 
     // Verify empty batch
 
@@ -367,7 +373,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     // Create the table loader
 
-    ResultSetLoader loader = reader.makeResultSetLoader(tableSchema);
+    ResultSetLoader loader = reader.makeTableLoader(tableSchema);
 
     // Verify empty batch
 
@@ -433,7 +439,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     // Create the table loader
 
-    ResultSetLoader loader = reader.makeResultSetLoader(tableSchema);
+    ResultSetLoader loader = reader.makeTableLoader(tableSchema);
 
     // Verify that unprojected column is unprojected in the
     // table loader.
@@ -502,7 +508,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     // Create the table loader
 
-    reader.makeResultSetLoader(tableSchema);
+    reader.makeTableLoader(tableSchema);
 
     // Schema provided, so an empty batch is available to
     // send downstream.
@@ -560,7 +566,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     // Create the table loader
 
-    reader.makeResultSetLoader(tableSchema);
+    reader.makeTableLoader(tableSchema);
 
     // Verify initial empty batch.
 
@@ -629,7 +635,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     // Create the table loader
 
-    ResultSetLoader loader = reader.makeResultSetLoader(tableSchema);
+    ResultSetLoader loader = reader.makeTableLoader(tableSchema);
 
     // Verify empty batch.
 
@@ -710,7 +716,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     // Create the table loader
 
-    ResultSetLoader loader = reader.makeResultSetLoader(tableSchema);
+    ResultSetLoader loader = reader.makeTableLoader(tableSchema);
 
     // Verify empty batch.
 
@@ -785,7 +791,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     // Create the table loader
 
-    ResultSetLoader loader = reader.makeResultSetLoader(tableSchema);
+    ResultSetLoader loader = reader.makeTableLoader(tableSchema);
 
     // Verify empty batch.
 
@@ -873,7 +879,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
       metadataManager.startFile(filePathA);
 
       ReaderSchemaOrchestrator reader = scanner.startReader();
-      ResultSetLoader loader = reader.makeResultSetLoader(tableSchema);
+      ResultSetLoader loader = reader.makeTableLoader(tableSchema);
 
       reader.startBatch();
       loader.writer()
@@ -901,7 +907,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
       metadataManager.startFile(filePathB);
       ReaderSchemaOrchestrator reader = scanner.startReader();
-      ResultSetLoader loader = reader.makeResultSetLoader(tableSchema);
+      ResultSetLoader loader = reader.makeTableLoader(tableSchema);
 
       reader.startBatch();
       loader.writer()
@@ -955,7 +961,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
         .add("a", MinorType.INT)
         .add("b", MinorType.VARCHAR)
         .buildSchema();
-    ResultSetLoader loader = reader.makeResultSetLoader(tableSchema);
+    ResultSetLoader loader = reader.makeTableLoader(tableSchema);
     reader.container().zeroVectors();
 
     // Create a batch of data.
@@ -977,6 +983,342 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     new RowSetComparison(expected)
         .verifyAndClearAll(fixture.wrap(scanner.output()));
+
+    scanner.close();
+  }
+
+  /**
+   * The projection mechanism provides "type smoothing": null
+   * columns prefer the type of previously-seen non-null columns.
+   *
+   * <code><pre>
+   * SELECT a, b ...
+   *
+   * Table 1: (a: BIGINT, b: VARCHAR)
+   * Table 2: (a: BIGINT)
+   * Table 3: (b: VARCHAR)
+   * </pre></code>
+   * The result in all cases should be
+   * <tt>(a : BIGINT, b: VARCHAR)</tt>
+   */
+
+  @Test
+  public void testTypeSmoothingExplicit() {
+    ScanSchemaOrchestrator scanner = new ScanSchemaOrchestrator(fixture.allocator());
+    TupleMetadata table1Schema = new SchemaBuilder()
+        .add("A", MinorType.BIGINT)
+        .addNullable("B", MinorType.VARCHAR)
+        .addArray("C", MinorType.INT)
+        .buildSchema();
+    BatchSchema resultSchema = new BatchSchema(SelectionVectorMode.NONE, table1Schema.toFieldList());
+    SchemaTracker tracker = new SchemaTracker();
+
+    // SELECT * ...
+
+    scanner.build(ScanTestUtils.projectList("a", "b", "c"));
+
+    int schemaVersion;
+    {
+      // ... FROM table1(a, b, c)
+
+      ReaderSchemaOrchestrator reader = scanner.startReader();
+      reader.makeTableLoader(table1Schema);
+      VectorContainer output = scanner.output();
+      tracker.trackSchema(output);
+      schemaVersion = tracker.schemaVersion();
+      assertTrue(resultSchema.isEquivalent(output.getSchema()));
+      scanner.closeReader();
+    }
+
+    {
+      // ... FROM table1(a, c)
+      //
+      // B is dropped. But, it is nullable, so the vector cache
+      // can supply the proper type to ensure continuity.
+
+      TupleMetadata table2Schema = new SchemaBuilder()
+          .add("A", MinorType.BIGINT)
+          .addArray("C", MinorType.INT)
+          .buildSchema();
+      ReaderSchemaOrchestrator reader = scanner.startReader();
+      reader.makeTableLoader(table2Schema);
+      VectorContainer output = scanner.output();
+      tracker.trackSchema(output);
+      assertEquals(schemaVersion, tracker.schemaVersion());
+      assertTrue(resultSchema.isEquivalent(output.getSchema()));
+      scanner.closeReader();
+    }
+
+    {
+      // ... FROM table1(a, b)
+      //
+      // C is dropped. But, it is an array, which uses zero-elements
+      // to indicate null, so the vector cache can fill in the type.
+
+      TupleMetadata table3Schema = new SchemaBuilder()
+          .add("A", MinorType.BIGINT)
+          .addNullable("B", MinorType.VARCHAR)
+          .buildSchema();
+      ReaderSchemaOrchestrator reader = scanner.startReader();
+      reader.makeTableLoader(table3Schema);
+      VectorContainer output = scanner.output();
+      tracker.trackSchema(output);
+      assertEquals(schemaVersion, tracker.schemaVersion());
+      assertTrue(resultSchema.isEquivalent(output.getSchema()));
+      scanner.closeReader();
+    }
+
+    {
+      // ... FROM table1(b, c)
+      //
+      // This version carries over a non-nullable BIGINT, but that
+      // can't become a null column, so nullable BIGINT is substituted,
+      // result in a schema change.
+
+      TupleMetadata table2Schema = new SchemaBuilder()
+          .addNullable("B", MinorType.VARCHAR)
+          .addArray("C", MinorType.INT)
+          .buildSchema();
+      ReaderSchemaOrchestrator reader = scanner.startReader();
+      reader.makeTableLoader(table2Schema);
+      VectorContainer output = scanner.output();
+      tracker.trackSchema(output);
+      assertEquals(MinorType.BIGINT, output.getSchema().getColumn(0).getType().getMinorType());
+      assertEquals(DataMode.OPTIONAL, output.getSchema().getColumn(0).getType().getMode());
+      assertTrue(schemaVersion < tracker.schemaVersion());
+      scanner.closeReader();
+    }
+
+    scanner.close();
+  }
+
+  /**
+   * Test the ability of the scan projector to "smooth" out schema changes
+   * by reusing the type from a previous reader, if known. That is,
+   * given three readers:<br>
+   * (a, b)<br>
+   * (b)<br>
+   * (a, b)<br>
+   * Then the type of column a should be preserved for the second reader that
+   * does not include a. This works if a is nullable. If so, a's type will
+   * be used for the empty column, rather than the usual nullable int.
+   * <p>
+   * Detailed testing of type matching for "missing" columns is done
+   * in {@link #testNullColumnLoader()}.
+   * <p>
+   * As a side effect, makes sure that two identical tables (in this case,
+   * separated by a different table) results in no schema change.
+   */
+
+  @Test
+  public void testTypeSmoothing() {
+    ScanSchemaOrchestrator projector = new ScanSchemaOrchestrator(fixture.allocator());
+
+    // SELECT a, b ...
+
+    projector.build(ScanTestUtils.projectList("a", "b"));
+
+    // file schema (a, b)
+
+    TupleMetadata twoColSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addNullable("b", MinorType.VARCHAR, 10)
+        .buildSchema();
+
+    SchemaTracker tracker = new SchemaTracker();
+    int schemaVersion;
+    {
+      // ... FROM table 1
+
+      ReaderSchemaOrchestrator reader = projector.startReader();
+      ResultSetLoader loader = reader.makeTableLoader(twoColSchema);
+
+      // Projection of (a, b) to (a, b)
+
+      reader.startBatch();
+      loader.writer()
+          .addRow(10, "fred")
+          .addRow(20, "wilma");
+      reader.endBatch();
+
+      tracker.trackSchema(projector.output());
+      schemaVersion = tracker.schemaVersion();
+
+      SingleRowSet expected = fixture.rowSetBuilder(twoColSchema)
+          .addRow(10, "fred")
+          .addRow(20, "wilma")
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+    }
+    {
+      // ... FROM table 2
+
+      ReaderSchemaOrchestrator reader = projector.startReader();
+
+      // File schema (a)
+
+      TupleMetadata oneColSchema = new SchemaBuilder()
+          .add("a", MinorType.INT)
+          .buildSchema();
+
+      // Projection of (a) to (a, b), reusing b from above.
+
+      ResultSetLoader loader = reader.makeTableLoader(oneColSchema);
+
+      reader.startBatch();
+      loader.writer()
+          .addRow(30)
+          .addRow(40);
+      reader.endBatch();
+
+      tracker.trackSchema(projector.output());
+      assertEquals(schemaVersion, tracker.schemaVersion());
+
+      SingleRowSet expected = fixture.rowSetBuilder(twoColSchema)
+          .addRow(30, null)
+          .addRow(40, null)
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+    }
+    {
+      // ... FROM table 3
+
+      ReaderSchemaOrchestrator reader = projector.startReader();
+
+      // Projection of (a, b), to (a, b), reusing b yet again
+
+      ResultSetLoader loader = reader.makeTableLoader(twoColSchema);
+
+      reader.startBatch();
+      loader.writer()
+          .addRow(50, "dino")
+          .addRow(60, "barney");
+      reader.endBatch();
+
+      tracker.trackSchema(projector.output());
+      assertEquals(schemaVersion, tracker.schemaVersion());
+
+      SingleRowSet expected = fixture.rowSetBuilder(twoColSchema)
+          .addRow(50, "dino")
+          .addRow(60, "barney")
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(projector.output()));
+    }
+
+    projector.close();
+  }
+
+  /**
+   * Verify that different table column orders are projected into the
+   * SELECT order, preserving vectors, so no schema change for column
+   * reordering.
+   */
+
+  @Test
+  public void testColumnReordering() {
+
+    ScanSchemaOrchestrator scanner = new ScanSchemaOrchestrator(fixture.allocator());
+    scanner.enableSchemaSmoothing(true);
+    scanner.build(ScanTestUtils.projectList("a", "b", "c"));
+
+    TupleMetadata schema1 = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addNullable("b", MinorType.VARCHAR, 10)
+        .add("c", MinorType.BIGINT)
+        .buildSchema();
+    TupleMetadata schema2 = new SchemaBuilder()
+        .add("c", MinorType.BIGINT)
+        .add("a", MinorType.INT)
+        .addNullable("b", MinorType.VARCHAR, 10)
+        .buildSchema();
+    TupleMetadata schema3 = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("c", MinorType.BIGINT)
+        .addNullable("b", MinorType.VARCHAR, 10)
+        .buildSchema();
+
+    SchemaTracker tracker = new SchemaTracker();
+    int schemaVersion;
+    {
+      // ... FROM table 1
+
+      ReaderSchemaOrchestrator reader = scanner.startReader();
+
+      // Projection of (a, b, c) to (a, b, c)
+
+      ResultSetLoader loader = reader.makeTableLoader(schema1);
+
+      reader.startBatch();
+      loader.writer()
+          .addRow(10, "fred", 110L)
+          .addRow(20, "wilma", 110L);
+      reader.endBatch();
+
+      tracker.trackSchema(scanner.output());
+      schemaVersion = tracker.schemaVersion();
+
+      SingleRowSet expected = fixture.rowSetBuilder(schema1)
+          .addRow(10, "fred", 110L)
+          .addRow(20, "wilma", 110L)
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(scanner.output()));
+
+      scanner.closeReader();
+    }
+    {
+      // ... FROM table 2
+
+      ReaderSchemaOrchestrator reader = scanner.startReader();
+
+      // Projection of (c, a, b) to (a, b, c)
+
+      ResultSetLoader loader = reader.makeTableLoader(schema2);
+
+      reader.startBatch();
+      loader.writer()
+          .addRow(330L, 30, "bambam")
+          .addRow(440L, 40, "betty");
+      reader.endBatch();
+
+      tracker.trackSchema(scanner.output());
+      assertEquals(schemaVersion, tracker.schemaVersion());
+
+      SingleRowSet expected = fixture.rowSetBuilder(schema1)
+          .addRow(30, "bambam", 330L)
+          .addRow(40, "betty", 440L)
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(scanner.output()));
+    }
+    {
+      // ... FROM table 3
+
+      ReaderSchemaOrchestrator reader = scanner.startReader();
+
+      // Projection of (a, c, b) to (a, b, c)
+
+      ResultSetLoader loader = reader.makeTableLoader(schema3);
+
+      reader.startBatch();
+      loader.writer()
+          .addRow(50, 550L, "dino")
+          .addRow(60, 660L, "barney");
+      reader.endBatch();
+
+      tracker.trackSchema(scanner.output());
+      assertEquals(schemaVersion, tracker.schemaVersion());
+
+      SingleRowSet expected = fixture.rowSetBuilder(schema1)
+          .addRow(50, "dino", 550L)
+          .addRow(60, "barney", 660L)
+          .build();
+      new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(scanner.output()));
+    }
 
     scanner.close();
   }

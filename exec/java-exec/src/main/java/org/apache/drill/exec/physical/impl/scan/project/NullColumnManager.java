@@ -59,7 +59,7 @@ public class NullColumnManager implements VectorSource {
     // If no null columns for this schema, no need to create
     // the loader.
 
-    if (! nullCols.isEmpty()) {
+    if (nullCols != null && ! nullCols.isEmpty()) {
       nullColumnLoader = new NullColumnLoader(vectorCache, nullCols, nullType);
     }
   }

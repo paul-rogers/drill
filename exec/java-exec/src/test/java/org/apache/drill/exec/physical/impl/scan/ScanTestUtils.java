@@ -21,26 +21,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayParser;
-import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayProjection;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.PartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.project.NoOpReaderProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ReaderLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedColumn;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.server.options.OptionSet;
-import org.apache.hadoop.fs.Path;
 
 import com.google.common.collect.Lists;
 
@@ -53,106 +43,6 @@ public class ScanTestUtils {
   public static final String FILE_PATH_COL = "filepath";
   public static final String SUFFIX_COL = "suffix";
   public static final String PARTITION_COL = "dir";
-
-  public static class ProjectionFixture {
-
-    public List<SchemaPath> projection = new ArrayList<>();
-    public ScanLevelProjection scanProj;
-    public boolean useFileManager;
-    public OptionSet options;
-    public boolean useLegacyWildcardExpansion;
-    public Path rootDir;
-    public FileMetadataManager metadataProj;
-    private ColumnsArrayParser colArrayParser;
-    private ColumnsArrayProjection colArrayProj;
-
-    public ProjectionFixture() {
-    }
-
-    public ProjectionFixture withFileManager(OptionSet options) {
-       this.options = options;
-      useFileManager = true;
-      return this;
-    }
-
-    public ProjectionFixture useLegacyWildcardExpansion(boolean flag) {
-      useLegacyWildcardExpansion = flag;
-      return this;
-
-    }
-
-    public ProjectionFixture setScanRootDir(Path path) {
-      rootDir = path;
-      return this;
-    }
-
-    public ProjectionFixture withColumnsArrayParser() {
-      colArrayParser = new ColumnsArrayParser();
-      return this;
-    }
-
-    public ProjectionFixture projectedCols(String... cols) {
-      projection = projectList(cols);
-      return this;
-    }
-
-    public ProjectionFixture projectAll() {
-      projection = ScanTestUtils.projectAll();
-      return this;
-    }
-
-    public ScanLevelProjection build() {
-
-      if (useFileManager) {
-        metadataProj = new FileMetadataManager(options, useLegacyWildcardExpansion, rootDir);
-      }
-
-      // Build the planner and verify
-
-      List<ScanProjectionParser> parsers = new ArrayList<>();
-      if (metadataProj != null) {
-        parsers.add(metadataProj.projectionParser());
-      }
-      if (colArrayParser != null) {
-        parsers.add(colArrayParser);
-      }
-
-      scanProj = new ScanLevelProjection(projection, parsers);
-      if (colArrayParser != null) {
-        colArrayProj = colArrayParser.getProjection();
-
-//        // Temporary
-//
-//        if (metadataProj != null) {
-//          metadataProj.bind(colArrayProj);
-//        }
-      }
-      return scanProj;
-    }
-
-    public ReaderLevelProjection resolveFile(Path path) {
-      metadataProj.startFile(path);
-      return metadataProj.resolve(scanProj);
-    }
-
-    public ReaderLevelProjection resolve(String path) {
-      return resolveFile(new Path(path));
-    }
-
-    /**
-     * Mimic legacy wildcard expansion of metadata columns. Is not a full
-     * emulation because this version only works if the wildcard was at the end
-     * of the list (or alone.)
-     * @param scanProj scan projection definition (provides the partition column names)
-     * @param base the table part of the expansion
-     * @param dirCount number of partition directories
-     * @return schema with the metadata columns appended to the table columns
-     */
-
-    public TupleMetadata expandMetadata(TupleMetadata base, int dirCount) {
-      return ScanTestUtils.expandMetadata(base, metadataProj, dirCount);
-    }
-  }
 
   public static class DummySource implements VectorSource {
 
