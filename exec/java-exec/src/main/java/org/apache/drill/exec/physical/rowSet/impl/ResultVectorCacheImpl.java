@@ -89,20 +89,43 @@ public class ResultVectorCacheImpl implements ResultVectorCache {
       this.name = name;
     }
 
-    public boolean satisfies(MaterializedField colSchema) {
+    public boolean satisfies(MaterializedField colSchema, boolean permissive) {
       if (vector == null) {
         return false;
       }
       MaterializedField vectorSchema = vector.getField();
-      return vectorSchema.getType().equals(colSchema.getType());
+      if (permissive) {
+        return colSchema.isPromotableTo(vectorSchema, true);
+      } else {
+        return vectorSchema.getType().equals(colSchema.getType());
+      }
     }
   }
 
   private final BufferAllocator allocator;
+
+  /**
+   * Permissive mode loosens the rules for finding a match.
+   * <ul>
+   * <li>A request for a non-nullable vector matches a nullable
+   * vector in the cache.</li>
+   * <li>A request for a smaller precision Varchar matches a
+   * larger precision Varchar in the cache.</li>
+   * </ul>
+   * When not in permissive mode, an exact match is required.
+   */
+
+  private final boolean permissiveMode;
   private final Map<String, VectorState> vectors = CaseInsensitiveMap.newHashMap();
 
   public ResultVectorCacheImpl(BufferAllocator allocator) {
     this.allocator = allocator;
+    permissiveMode = false;
+  }
+
+  public ResultVectorCacheImpl(BufferAllocator allocator, boolean permissiveMode) {
+    this.allocator = allocator;
+    this.permissiveMode = permissiveMode;
   }
 
   @Override
@@ -147,7 +170,7 @@ public class ResultVectorCacheImpl implements ResultVectorCache {
 
     // If the vector is found, and is of the right type, reuse it.
 
-    if (vs != null && vs.satisfies(colSchema)) {
+    if (vs != null && vs.satisfies(colSchema, permissiveMode)) {
       return vs.vector;
     }
 
@@ -185,4 +208,7 @@ public class ResultVectorCacheImpl implements ResultVectorCache {
     }
     vectors.clear();
   }
+
+  @Override
+  public boolean isPermissive() { return permissiveMode; }
 }

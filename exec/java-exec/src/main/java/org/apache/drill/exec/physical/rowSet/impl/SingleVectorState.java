@@ -63,7 +63,7 @@ public abstract class SingleVectorState implements VectorState {
       } else {
         ((FixedWidthVector) vector).allocateNew(cardinality);
       }
-      return vector.getBufferSize();
+      return vector.getAllocatedSize();
     }
 
     @Override

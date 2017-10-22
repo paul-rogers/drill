@@ -148,9 +148,7 @@ public class SchemaLevelProjection {
         if (col.nodeType() == UnresolvedColumn.WILDCARD) {
           for (int i = 0; i < tableSchema.size(); i++) {
             MaterializedField colSchema = tableSchema.column(i);
-            output.add(new ResolvedTableColumn(colSchema.getName(),
-                colSchema,
-                new Projection(tableSource, false, i, outputIndex())));
+            resolveTableColumn(colSchema.getName(), colSchema, i);
           }
         } else {
           resolveSpecial(col);
@@ -236,9 +234,8 @@ public class SchemaLevelProjection {
       int tableColIndex = tableSchema.index(col.name());
       if (tableColIndex == -1) {
         resolveNullColumn(col);
-       } else {
-         output.add(new ResolvedTableColumn(col.name(), tableSchema.column(tableColIndex),
-             new Projection(tableSource, false, tableColIndex, outputIndex())));
+      } else {
+        resolveTableColumn(col.name(), tableSchema.column(tableColIndex), tableColIndex);
       }
     }
 
@@ -271,6 +268,11 @@ public class SchemaLevelProjection {
     for (SchemaProjectionResolver resolver : resolvers) {
       resolver.reset();
     }
+  }
+
+  protected void resolveTableColumn(String colName, MaterializedField col, int tableColIndex) {
+    output.add(new ResolvedTableColumn(colName, col,
+        new Projection(tableSource, true, tableColIndex, outputIndex())));
   }
 
   protected void resolveSpecial(ColumnProjection col) {

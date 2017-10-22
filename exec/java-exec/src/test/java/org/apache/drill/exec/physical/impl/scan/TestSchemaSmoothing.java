@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.impl.scan;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -26,8 +25,6 @@ import static org.junit.Assert.fail;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.protocol.SchemaTracker;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
@@ -40,7 +37,6 @@ import org.apache.drill.exec.physical.impl.scan.project.SchemaSmoother;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaSmoother.IncompatibleSchemaException;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaSmoother.SmoothingProjection;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
-import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -50,77 +46,16 @@ import org.junit.Test;
 
 import com.google.common.collect.Lists;
 
+/**
+ * Tests schema smoothing at the schema projection level.
+ * This level handles reusing prior types when filling null
+ * values. But, because no actual vectors are involved, it
+ * does not handle the schema chosen for a table ahead of
+ * time, only the schema as it is merged with prior schema to
+ * detect missing columns.
+ */
+
 public class TestSchemaSmoothing extends SubOperatorTest {
-
-  @Test
-  public void testIsPromotable() {
-
-    MaterializedField required = MaterializedField.create("a",
-        MajorType.newBuilder()
-          .setMinorType(MinorType.INT)
-          .setMode(DataMode.REQUIRED)
-          .build());
-
-    // Type is promotable to itself
-
-    assertTrue(required.isPromotableTo(required, true));
-    assertTrue(required.isPromotableTo(required, false));
-
-    // Require is promotable to null
-
-    MaterializedField nullable = MaterializedField.create("a",
-        MajorType.newBuilder()
-          .setMinorType(MinorType.INT)
-          .setMode(DataMode.OPTIONAL)
-          .build());
-
-    assertTrue(required.isPromotableTo(nullable, true));
-    assertFalse(required.isPromotableTo(nullable, false));
-
-    // Nullable not promotable to required
-
-    assertFalse(nullable.isPromotableTo(required, true));
-
-    // Arrays cannot be promoted to/from other types
-
-    MaterializedField repeated = MaterializedField.create("a",
-        MajorType.newBuilder()
-          .setMinorType(MinorType.INT)
-          .setMode(DataMode.REPEATED)
-          .build());
-
-    assertFalse(required.isPromotableTo(repeated, true));
-    assertFalse(nullable.isPromotableTo(repeated, true));
-    assertFalse(repeated.isPromotableTo(required, true));
-    assertFalse(repeated.isPromotableTo(nullable, true));
-
-    // Narrower precision promotable to wider
-
-    MaterializedField narrow = MaterializedField.create("a",
-        MajorType.newBuilder()
-          .setMinorType(MinorType.VARCHAR)
-          .setMode(DataMode.REQUIRED)
-          .setPrecision(10)
-          .build());
-    MaterializedField wide = MaterializedField.create("a",
-        MajorType.newBuilder()
-          .setMinorType(MinorType.VARCHAR)
-          .setMode(DataMode.REQUIRED)
-          .setPrecision(20)
-          .build());
-    MaterializedField unset = MaterializedField.create("a",
-        MajorType.newBuilder()
-          .setMinorType(MinorType.VARCHAR)
-          .setMode(DataMode.REQUIRED)
-          .build());
-
-    assertTrue(narrow.isPromotableTo(wide, false));
-    assertTrue(unset.isPromotableTo(narrow, false));
-    assertTrue(unset.isPromotableTo(wide, false));
-    assertFalse(wide.isPromotableTo(narrow, false));
-    assertFalse(narrow.isPromotableTo(unset, false));
-  }
-
   @Test
   public void testSmoothingProjection() {
     ScanLevelProjection scanProj = new ScanLevelProjection(

@@ -369,13 +369,21 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
   @Override
   public void startBatch() {
+    startBatch(false);
+  }
+
+  public void startEmptyBatch() {
+    startBatch(true);
+  }
+
+  public void startBatch(boolean schemaOnly) {
     switch (state) {
     case HARVESTED:
     case START:
       logger.trace("Start batch");
       accumulatedBatchSize = 0;
       updateCardinality();
-      rootState.startBatch();
+      rootState.startBatch(schemaOnly);
       checkInitialAllocation();
 
       // The previous batch ended without overflow, so start
@@ -393,7 +401,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       // a column-by-column basis, which is done by the visitor.
 
       logger.trace("Start batch after overflow");
-      rootState.startBatch();
+      rootState.startBatch(schemaOnly);
 
       // Note: no need to do anything with the writers; they were left
       // pointing to the correct positions in the look-ahead batch.

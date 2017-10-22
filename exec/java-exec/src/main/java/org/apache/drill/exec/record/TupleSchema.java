@@ -232,6 +232,14 @@ public class TupleSchema implements TupleMetadata {
     public ColumnMetadata cloneEmpty() {
       return new PrimitiveColumnMetadata(this);
     }
+
+    public ColumnMetadata mergeWith(MaterializedField field) {
+      PrimitiveColumnMetadata merged = new PrimitiveColumnMetadata(field);
+      merged.setExpectedElementCount(expectedElementCount);
+      merged.setExpectedWidth(Math.max(expectedWidth, field.getPrecision()));
+      merged.setProjected(projected);
+      return merged;
+    }
   }
 
   /**

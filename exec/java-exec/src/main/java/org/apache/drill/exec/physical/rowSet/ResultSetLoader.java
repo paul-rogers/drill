@@ -135,33 +135,6 @@ public interface ResultSetLoader {
 
   ResultSetLoader setRow(Object...values);
 
-//  /**
-//   * Return the output container, primarily to obtain the schema
-//   * and set of vectors. Depending on when this is called, the
-//   * data may or may not be populated: call
-//   * {@link #harvest()} to obtain the container for a batch.
-//   * <p>
-//   * This method is useful when the schema is known and fixed.
-//   * After declaring the schema, call this method to get the container
-//   * that holds the vectors for use in planning projection, etc.
-//   * <p>
-//   * If the result set schema changes, then a call to this method will
-//   * return the latest schema. But, if the schema changes during the
-//   * overflow row, then this method will not see those changes until
-//   * after harvesting the current batch. (This avoid the appearance
-//   * of phantom columns in the output since the new column won't
-//   * appear until the next batch.)
-//   * <p>
-//   * Never count on the data in the container; it may be empty, half
-//   * written, or inconsistent. Always call
-//   * {@link #harvest()} to obtain the container for a batch.
-//   *
-//   * @return the output container including schema and value
-//   * vectors
-//   */
-//
-//  VectorContainer outputContainer();
-
   /**
    * Harvest the current row batch, and reset the mutator
    * to the start of the next row batch (which may already contain

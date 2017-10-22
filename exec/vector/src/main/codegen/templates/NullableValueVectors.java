@@ -128,6 +128,11 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   }
 
   @Override
+  public int getAllocatedSize(){
+    return bits.getAllocatedSize() + values.getAllocatedSize();
+  }
+
+  @Override
   public DrillBuf getBuffer() {
     return values.getBuffer();
   }

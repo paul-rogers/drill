@@ -42,4 +42,7 @@ public class NullResultVectorCacheImpl implements ResultVectorCache {
 
   @Override
   public MajorType getType(String name) { return null; }
+
+  @Override
+  public boolean isPermissive() { return false; }
 }

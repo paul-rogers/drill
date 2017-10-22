@@ -172,6 +172,7 @@ public class ScanSchemaOrchestrator {
     public ResultSetLoader makeTableLoader(TupleMetadata tableSchema) {
       OptionBuilder options = new OptionBuilder();
       options.setRowCountLimit(readerBatchSize);
+      options.setVectorCache(vectorCache);
 
       // Set up a selection list if available and is a subset of
       // table columns. (Only needed for non-wildcard queries.)
@@ -196,10 +197,10 @@ public class ScanSchemaOrchestrator {
       tableLoader = new ResultSetLoaderImpl(allocator, options.build());
 
       // If a schema is given, create a zero-row batch to announce the
-      // schema downstream downstream in the form of an empty batch.
+      // schema downstream in the form of an empty batch.
 
       if (tableSchema != null) {
-        tableLoader.startBatch();
+        tableLoader.startEmptyBatch();
         endBatch();
       }
 
@@ -217,13 +218,6 @@ public class ScanSchemaOrchestrator {
      */
 
     public void endBatch() {
-
-      // Paranoid: downstream should have consumed the vectors,
-      // but clear anyway to avoid a memory leak.
-
-      if (outputContainer != null) {
-        outputContainer.zeroVectors();
-      }
 
       // Get the batch results in a container.
 
@@ -252,7 +246,7 @@ public class ScanSchemaOrchestrator {
       // Combine metadata, nulls and batch data to form the final
       // output container.
 
-      batchMerger.project(tableContainer.getRecordCount());
+      batchMerger.project(rowCount);
     }
 
     private void prepareMerger() {
@@ -407,7 +401,7 @@ public class ScanSchemaOrchestrator {
    * vectors rather than vector instances, this cache can be deprecated.
    */
 
-  protected final ResultVectorCacheImpl vectorCache;
+  protected ResultVectorCacheImpl vectorCache;
   protected ScanLevelProjection scanProj;
   protected boolean supportsMetadata;
   private ReaderSchemaOrchestrator currentReader;
@@ -425,7 +419,6 @@ public class ScanSchemaOrchestrator {
 
   public ScanSchemaOrchestrator(BufferAllocator allocator) {
     this.allocator = allocator;
-    vectorCache = new ResultVectorCacheImpl(allocator);
   }
 
   /**
@@ -485,6 +478,7 @@ public class ScanSchemaOrchestrator {
 
   public void build(List<SchemaPath> projection) {
     this.projection = projection;
+    vectorCache = new ResultVectorCacheImpl(allocator, useSchemaSmoothing);
 
     // If no metadata manager was provided, create a mock
     // version just to keep code simple.

@@ -52,9 +52,9 @@ public abstract class ColumnState {
     }
 
     @Override
-    public void startBatch() {
-      super.startBatch();
-      mapState.startBatch();
+    public void startBatch(boolean schemaOnly) {
+      super.startBatch(schemaOnly);
+      mapState.startBatch(schemaOnly);
     }
 
     @Override
@@ -219,10 +219,12 @@ public abstract class ColumnState {
    * active vector so we start writing where we left off.
    */
 
-  public void startBatch() {
+  public void startBatch(boolean schemaOnly) {
     switch (state) {
     case NORMAL:
-      resultSetLoader.tallyAllocations(vectorState.allocate(outerCardinality));
+      if (! schemaOnly) {
+        resultSetLoader.tallyAllocations(vectorState.allocate(outerCardinality));
+      }
       break;
 
     case NEW_LOOK_AHEAD:

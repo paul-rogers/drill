@@ -32,4 +32,5 @@ public interface ResultVectorCache {
   BufferAllocator allocator();
   ValueVector addOrGet(MaterializedField colSchema);
   MajorType getType(String name);
+  boolean isPermissive();
 }

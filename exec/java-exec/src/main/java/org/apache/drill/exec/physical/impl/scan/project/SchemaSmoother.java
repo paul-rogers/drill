@@ -125,6 +125,16 @@ public class SchemaSmoother {
       }
     }
 
+    /**
+     * Resolve a prior column against the current table schema. Resolves to
+     * a table column, a null column, or throws an exception if the
+     * schemas are incompatible
+     *
+     * @param priorCol a column from the prior schema
+     * @throws IncompatibleSchemaException if the prior column exists in
+     * the current table schema, but with an incompatible type
+     */
+
     private void resolveColumn(ResolvedColumn priorCol) throws IncompatibleSchemaException {
       int tableColIndex = tableSchema.index(priorCol.name());
       if (tableColIndex == -1) {
@@ -136,10 +146,19 @@ public class SchemaSmoother {
       if (! tableCol.isPromotableTo(priorField, false)) {
         throw new IncompatibleSchemaException();
       }
-      output.add(new ResolvedTableColumn(priorCol.name(), priorField,
-         new Projection(tableSource, false, tableColIndex, outputIndex())));
+      resolveTableColumn(priorCol.name(), priorField, tableColIndex);
       rewrittenFields.add(priorField);
     }
+
+    /**
+     * A prior schema column does not exist in the present table column schema.
+     * Create a null column with the same type as the prior column, as long as
+     * the prior column was not required.
+     *
+     * @param priorCol the prior column to project to a null column
+     * @throws IncompatibleSchemaException if the prior column was required
+     * and thus cannot be null-filled
+     */
 
     private void resolveNullColumn(ResolvedColumn priorCol) throws IncompatibleSchemaException {
       if (priorCol.schema().getType().getMode() == DataMode.REQUIRED) {
@@ -181,7 +200,8 @@ public class SchemaSmoother {
 
     if (priorSchema != null) {
       try {
-        SmoothingProjection smoother = new SmoothingProjection(scanProj, tableSchema, tableSource, nullSource, resolvers, priorSchema);
+        SmoothingProjection smoother = new SmoothingProjection(scanProj, tableSchema,
+            tableSource, nullSource, resolvers, priorSchema);
         priorSchema = smoother.columns();
         return smoother;
       } catch (IncompatibleSchemaException e) {
