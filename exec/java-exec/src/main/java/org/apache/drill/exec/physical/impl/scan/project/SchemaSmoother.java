@@ -181,6 +181,7 @@ public class SchemaSmoother {
   private final VectorSource nullSource;
   private final List<SchemaProjectionResolver> resolvers;
   private List<ResolvedColumn> priorSchema;
+  private int schemaVersion = 0;
 
   public SchemaSmoother(ScanLevelProjection scanProj,
       VectorSource nullSource,
@@ -217,6 +218,9 @@ public class SchemaSmoother {
     SchemaLevelProjection schemaProj = new WildcardSchemaProjection(scanProj,
         tableSchema, tableSource, resolvers);
     priorSchema = schemaProj.columns();
+    schemaVersion++;
     return schemaProj;
   }
+
+  public int schemaVersion() { return schemaVersion; }
 }

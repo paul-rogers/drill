@@ -353,7 +353,7 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
 
     scanner.build(ScanTestUtils.projectList("a", "b", "c"));
 
-    // ... FROM tab;e
+    // ... FROM table ...
 
     ReaderSchemaOrchestrator reader = scanner.startReader();
 

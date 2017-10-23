@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.PartitionColumn;
@@ -98,7 +100,21 @@ public class ScanTestUtils {
   public static TupleMetadata schema(List<ResolvedColumn> output) {
     TupleMetadata schema = new TupleSchema();
     for (ResolvedColumn col : output) {
-      schema.add(col.schema());
+      MaterializedField field = col.schema();
+      if (field.getType().getMinorType() == null) {
+
+        // Convert from internal format of null columns (unset type)
+        // to a usable form (explicit minor type of NULL.)
+
+        field = MaterializedField.create(field.getName(),
+            MajorType.newBuilder()
+              .setMinorType(MinorType.NULL)
+              .setMode(field.getType().getMode())
+              .setPrecision(field.getType().getPrecision())
+              .setScale(field.getType().getScale())
+              .build());
+      }
+      schema.add(field);
     }
     return schema;
   }

@@ -67,8 +67,6 @@ import com.google.common.annotations.VisibleForTesting;
 public class TestScanOperatorExec extends SubOperatorTest {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestScanOperatorExec.class);
 
-  private static final String STAR = SchemaPath.WILDCARD;
-
   public static class LegacyManagerBuilder {
 
     public BasicScanConfig scanConfig = new BasicScanConfig();

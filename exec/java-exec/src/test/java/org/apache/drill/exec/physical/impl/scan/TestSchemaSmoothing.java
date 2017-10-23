@@ -27,11 +27,16 @@ import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.protocol.SchemaTracker;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.FileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.ReaderSchemaOrchestrator;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ExplicitSchemaProjection;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.NullProjectedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedTableColumn;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.WildcardSchemaProjection;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaSmoother;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaSmoother.IncompatibleSchemaException;
@@ -40,6 +45,7 @@ import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.hadoop.fs.Path;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
@@ -53,9 +59,113 @@ import com.google.common.collect.Lists;
  * does not handle the schema chosen for a table ahead of
  * time, only the schema as it is merged with prior schema to
  * detect missing columns.
+ * <p>
+ * Focuses on the <tt>SmoothingProjection</tt> class itself.
  */
 
 public class TestSchemaSmoothing extends SubOperatorTest {
+
+  /**
+   * Sanity test for the simple, discrete case. The purpose of
+   * discrete is just to run the basic lifecycle in a way that
+   * is compatible with the schema-persistence version.
+   */
+
+  @Test
+  public void testDiscrete() {
+
+    // Set up the file metadata manager
+
+    Path filePathA = new Path("hdfs:///w/x/y/a.csv");
+    Path filePathB = new Path("hdfs:///w/x/y/b.csv");
+    FileMetadataManager metadataManager = new FileMetadataManager(
+        fixture.options(), true,
+        new Path("hdfs:///w"),
+        Lists.newArrayList(filePathA, filePathB));
+
+    // Set up the scan level projection
+
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectList(ScanTestUtils.FILE_NAME_COL, "a", "b"),
+        Lists.newArrayList(metadataManager.projectionParser()));
+
+    // Define the schema smoother
+
+    ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
+
+    {
+      // Define a file a.csv
+
+      metadataManager.startFile(filePathA);
+
+      // Build the output schema from the (a, b) table schema
+
+      TupleMetadata twoColSchema = new SchemaBuilder()
+          .add("a", MinorType.INT)
+          .addNullable("b", MinorType.VARCHAR, 10)
+          .buildSchema();
+      SchemaLevelProjection schemaProj = new ExplicitSchemaProjection(
+          scanProj, twoColSchema, dummySource, dummySource,
+          Lists.newArrayList(metadataManager));
+
+      // Verify the full output schema
+
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .add("filename", MinorType.VARCHAR)
+          .add("a", MinorType.INT)
+          .addNullable("b", MinorType.VARCHAR, 10)
+          .buildSchema();
+
+      // Verify
+
+      List<ResolvedColumn> tableSchema = schemaProj.columns();
+      assertTrue(ScanTestUtils.schema(tableSchema).isEquivalent(expectedSchema));
+      assertEquals(ScanTestUtils.FILE_NAME_COL, tableSchema.get(0).name());
+      assertEquals("a.csv", ((FileMetadataColumn) tableSchema.get(0)).value());
+      assertEquals(ResolvedTableColumn.ID, tableSchema.get(1).nodeType());
+    }
+    {
+      // Define a file b.csv
+
+      metadataManager.startFile(filePathB);
+
+      // Build the output schema from the (a) table schema
+
+      TupleMetadata oneColSchema = new SchemaBuilder()
+          .add("a", MinorType.INT)
+          .buildSchema();
+      SchemaLevelProjection schemaProj = new ExplicitSchemaProjection(
+          scanProj, oneColSchema, dummySource, dummySource,
+          Lists.newArrayList(metadataManager));
+
+      // Verify the full output schema
+      // Since this mode is "discrete", we don't remember the type
+      // of the missing column. (Instead, it is filled in at the
+      // vector level as part of vector persistence.)
+
+      TupleMetadata expectedSchema = new SchemaBuilder()
+          .add("filename", MinorType.VARCHAR)
+          .add("a", MinorType.INT)
+          .addNullable("b", MinorType.NULL)
+          .buildSchema();
+
+      // Verify
+
+      List<ResolvedColumn> tableSchema = schemaProj.columns();
+      assertTrue(ScanTestUtils.schema(tableSchema).isEquivalent(expectedSchema));
+      assertEquals(3, tableSchema.size());
+      assertEquals(ScanTestUtils.FILE_NAME_COL, tableSchema.get(0).name());
+      assertEquals("b.csv", ((FileMetadataColumn) tableSchema.get(0)).value());
+      assertEquals(ResolvedTableColumn.ID, tableSchema.get(1).nodeType());
+      assertEquals(NullProjectedColumn.ID, tableSchema.get(2).nodeType());
+    }
+  }
+
+  /**
+   * Low-level test of the smoothing projection, including the exceptions
+   * it throws when things are not going its way.
+   */
+
   @Test
   public void testSmoothingProjection() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
@@ -78,7 +188,7 @@ public class TestSchemaSmoothing extends SubOperatorTest {
       priorSchema = schemaProj.columns();
     }
 
-    // Table 2: (a: nullable bigint, c), column ommitted, original schema preserved
+    // Table 2: (a: nullable bigint, c), column omitted, original schema preserved
 
     TupleMetadata schema2 = new SchemaBuilder()
         .addNullable("a", MinorType.BIGINT)
@@ -156,6 +266,389 @@ public class TestSchemaSmoothing extends SubOperatorTest {
       // Expected
     }
   }
+
+  /**
+   * Case in which the table schema is a superset of the prior
+   * schema. Discard prior schema. Turn off auto expansion of
+   * metadata for a simpler test.
+   */
+
+  @Test
+  public void testSmaller() {
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectAll(), Lists.newArrayList());
+
+    ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
+    SchemaSmoother smoother = new SchemaSmoother(scanProj, dummySource, new ArrayList<>());
+
+    TupleMetadata priorSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .buildSchema();
+    TupleMetadata tableSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
+
+    {
+      SchemaLevelProjection schemaProj = smoother.resolve(priorSchema, dummySource);
+      assertEquals(1, smoother.schemaVersion());
+      assertTrue(ScanTestUtils.schema(schemaProj.columns()).isEquivalent(priorSchema));
+    }
+    {
+      SchemaLevelProjection schemaProj = smoother.resolve(tableSchema, dummySource);
+      assertEquals(2, smoother.schemaVersion());
+      assertTrue(ScanTestUtils.schema(schemaProj.columns()).isEquivalent(tableSchema));
+    }
+  }
+
+  /**
+   * Case in which the table schema and prior are disjoint
+   * sets. Discard the prior schema.
+   */
+
+  @Test
+  public void testDisjoint() {
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectAll(), Lists.newArrayList());
+
+    ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
+    SchemaSmoother smoother = new SchemaSmoother(scanProj, dummySource, new ArrayList<>());
+
+    TupleMetadata priorSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .buildSchema();
+    TupleMetadata tableSchema = new SchemaBuilder()
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
+
+    smoother.resolve(priorSchema, dummySource);
+    SchemaLevelProjection schemaProj = smoother.resolve(tableSchema, dummySource);
+    assertEquals(2, smoother.schemaVersion());
+    assertTrue(ScanTestUtils.schema(schemaProj.columns()).isEquivalent(tableSchema));
+  }
+
+  /**
+   * Column names match, but types differ. Discard the prior schema.
+   */
+
+  @Test
+  public void testDifferentTypes() {
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectAll(), Lists.newArrayList());
+
+    ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
+    SchemaSmoother smoother = new SchemaSmoother(scanProj, dummySource, new ArrayList<>());
+
+    TupleMetadata priorSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
+    TupleMetadata tableSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addNullable("b", MinorType.VARCHAR)
+        .buildSchema();
+
+    smoother.resolve(priorSchema, dummySource);
+    SchemaLevelProjection schemaProj = smoother.resolve(tableSchema, dummySource);
+    assertEquals(2, smoother.schemaVersion());
+    assertTrue(ScanTestUtils.schema(schemaProj.columns()).isEquivalent(tableSchema));
+  }
+
+  /**
+   * The prior and table schemas are identical. Preserve the prior
+   * schema (though, the output is no different than if we discarded
+   * the prior schema...)
+   */
+
+  @Test
+  public void testSameSchemas() {
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectAll(), Lists.newArrayList());
+
+    ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
+    SchemaSmoother smoother = new SchemaSmoother(scanProj, dummySource, new ArrayList<>());
+
+    TupleMetadata priorSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
+    TupleMetadata tableSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
+
+    smoother.resolve(priorSchema, dummySource);
+    SchemaLevelProjection schemaProj = smoother.resolve(tableSchema, dummySource);
+    assertEquals(1, smoother.schemaVersion());
+    TupleMetadata actualSchema = ScanTestUtils.schema(schemaProj.columns());
+    assertTrue(actualSchema.isEquivalent(tableSchema));
+    assertTrue(actualSchema.isEquivalent(priorSchema));
+  }
+
+  /**
+   * The prior and table schemas are identical, but the cases of names differ.
+   * Preserve the case of the first schema.
+   */
+
+  @Test
+  public void testDifferentCase() {
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectAll(), Lists.newArrayList());
+
+    ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
+    SchemaSmoother smoother = new SchemaSmoother(scanProj, dummySource, new ArrayList<>());
+
+    TupleMetadata priorSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
+    TupleMetadata tableSchema = new SchemaBuilder()
+        .add("A", MinorType.INT)
+        .add("B", MinorType.VARCHAR)
+        .buildSchema();
+
+    smoother.resolve(priorSchema, dummySource);
+    SchemaLevelProjection schemaProj = smoother.resolve(tableSchema, dummySource);
+    assertEquals(1, smoother.schemaVersion());
+    assertTrue(ScanTestUtils.schema(schemaProj.columns()).isEquivalent(priorSchema));
+  }
+
+  /**
+   * Can't preserve the prior schema if it had required columns
+   * where the new schema has no columns.
+   */
+
+  @Test
+  public void testRequired() {
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectAll(), Lists.newArrayList());
+
+    ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
+    SchemaSmoother smoother = new SchemaSmoother(scanProj, dummySource, new ArrayList<>());
+
+    TupleMetadata priorSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addNullable("b", MinorType.VARCHAR)
+        .buildSchema();
+    TupleMetadata tableSchema = new SchemaBuilder()
+        .addNullable("b", MinorType.VARCHAR)
+        .buildSchema();
+
+    smoother.resolve(priorSchema, dummySource);
+    SchemaLevelProjection schemaProj = smoother.resolve(tableSchema, dummySource);
+    assertEquals(2, smoother.schemaVersion());
+    assertTrue(ScanTestUtils.schema(schemaProj.columns()).isEquivalent(tableSchema));
+  }
+
+  /**
+   * Preserve the prior schema if table is a subset and missing columns
+   * are nullable or repeated.
+   */
+
+  @Test
+  public void testMissingNullableColumns() {
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectAll(), Lists.newArrayList());
+
+    ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
+    SchemaSmoother smoother = new SchemaSmoother(scanProj, dummySource, new ArrayList<>());
+
+    TupleMetadata priorSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .addArray("c", MinorType.BIGINT)
+        .buildSchema();
+    TupleMetadata tableSchema = new SchemaBuilder()
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
+
+    smoother.resolve(priorSchema, dummySource);
+    SchemaLevelProjection schemaProj = smoother.resolve(tableSchema, dummySource);
+    assertEquals(1, smoother.schemaVersion());
+    assertTrue(ScanTestUtils.schema(schemaProj.columns()).isEquivalent(priorSchema));
+  }
+
+  /**
+   * Preserve the prior schema if table is a subset. Map the table
+   * columns to the output using the prior schema ordering.
+   */
+
+  @Test
+  public void testReordering() {
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectAll(), Lists.newArrayList());
+
+    ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
+    SchemaSmoother smoother = new SchemaSmoother(scanProj, dummySource, new ArrayList<>());
+
+    TupleMetadata priorSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .addArray("c", MinorType.BIGINT)
+        .buildSchema();
+    TupleMetadata tableSchema = new SchemaBuilder()
+        .add("b", MinorType.VARCHAR)
+        .addNullable("a", MinorType.INT)
+        .buildSchema();
+
+    smoother.resolve(priorSchema, dummySource);
+    SchemaLevelProjection schemaProj = smoother.resolve(tableSchema, dummySource);
+    assertEquals(1, smoother.schemaVersion());
+    assertTrue(ScanTestUtils.schema(schemaProj.columns()).isEquivalent(priorSchema));
+  }
+
+  /**
+   * If using the legacy wildcard expansion, reuse schema if partition paths
+   * are the same length.
+   */
+
+  @Test
+  public void testSamePartitionLength() {
+
+    // Set up the file metadata manager
+
+    Path filePathA = new Path("hdfs:///w/x/y/a.csv");
+    Path filePathB = new Path("hdfs:///w/x/y/b.csv");
+    FileMetadataManager metadataManager = new FileMetadataManager(
+        fixture.options(), true,
+        new Path("hdfs:///w"),
+        Lists.newArrayList(filePathA, filePathB));
+
+    // Set up the scan level projection
+
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectAll(),
+        Lists.newArrayList(metadataManager.projectionParser()));
+
+    // Define the schema smoother
+
+    ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
+    SchemaSmoother smoother = new SchemaSmoother(scanProj, dummySource,
+        Lists.newArrayList(metadataManager));
+
+    TupleMetadata tableSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
+
+    TupleMetadata expectedSchema = ScanTestUtils.expandMetadata(tableSchema, metadataManager, 2);
+    {
+      metadataManager.startFile(filePathA);
+      SchemaLevelProjection schemaProj = smoother.resolve(tableSchema, dummySource);
+      assertEquals(1, smoother.schemaVersion());
+      assertTrue(ScanTestUtils.schema(schemaProj.columns()).isEquivalent(expectedSchema));
+    }
+    {
+      metadataManager.startFile(filePathB);
+      SchemaLevelProjection schemaProj = smoother.resolve(tableSchema, dummySource);
+      assertEquals(1, smoother.schemaVersion());
+      assertTrue(ScanTestUtils.schema(schemaProj.columns()).isEquivalent(expectedSchema));
+    }
+  }
+
+  /**
+   * If using the legacy wildcard expansion, reuse schema if the new partition path
+   * is shorter than the previous. (Unneeded partitions will be set to null by the
+   * scan projector.)
+   */
+
+  @Test
+  public void testShorterPartitionLength() {
+
+    // Set up the file metadata manager
+
+    Path filePathA = new Path("hdfs:///w/x/y/a.csv");
+    Path filePathB = new Path("hdfs:///w/x/b.csv");
+    FileMetadataManager metadataManager = new FileMetadataManager(
+        fixture.options(), true,
+        new Path("hdfs:///w"),
+        Lists.newArrayList(filePathA, filePathB));
+
+    // Set up the scan level projection
+
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectAll(),
+        Lists.newArrayList(metadataManager.projectionParser()));
+
+    // Define the schema smoother
+
+    ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
+    SchemaSmoother smoother = new SchemaSmoother(scanProj, dummySource,
+        Lists.newArrayList(metadataManager));
+
+    TupleMetadata tableSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
+
+    TupleMetadata expectedSchema = ScanTestUtils.expandMetadata(tableSchema, metadataManager, 2);
+    {
+      metadataManager.startFile(filePathA);
+      SchemaLevelProjection schemaProj = smoother.resolve(tableSchema, dummySource);
+      assertEquals(1, smoother.schemaVersion());
+      assertTrue(ScanTestUtils.schema(schemaProj.columns()).isEquivalent(expectedSchema));
+    }
+    {
+      metadataManager.startFile(filePathB);
+      SchemaLevelProjection schemaProj = smoother.resolve(tableSchema, dummySource);
+      assertEquals(1, smoother.schemaVersion());
+      assertTrue(ScanTestUtils.schema(schemaProj.columns()).isEquivalent(expectedSchema));
+    }
+  }
+
+  /**
+   * If using the legacy wildcard expansion, we are able to use the same
+   * schema even if the new partition path is longer than the previous.
+   * Because all file names are provided up front.
+   */
+
+  @Test
+  public void testLongerPartitionLength() {
+
+    // Set up the file metadata manager
+
+    Path filePathA = new Path("hdfs:///w/x/a.csv");
+    Path filePathB = new Path("hdfs:///w/x/y/b.csv");
+    FileMetadataManager metadataManager = new FileMetadataManager(
+        fixture.options(), true,
+        new Path("hdfs:///w"),
+        Lists.newArrayList(filePathA, filePathB));
+
+    // Set up the scan level projection
+
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectAll(),
+        Lists.newArrayList(metadataManager.projectionParser()));
+
+    // Define the schema smoother
+
+    ScanTestUtils.DummySource dummySource = new ScanTestUtils.DummySource();
+    SchemaSmoother smoother = new SchemaSmoother(scanProj, dummySource,
+        Lists.newArrayList(metadataManager));
+
+    TupleMetadata tableSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
+
+    TupleMetadata expectedSchema = ScanTestUtils.expandMetadata(tableSchema, metadataManager, 2);
+    {
+      metadataManager.startFile(filePathA);
+      SchemaLevelProjection schemaProj = smoother.resolve(tableSchema, dummySource);
+      assertEquals(1, smoother.schemaVersion());
+      assertTrue(ScanTestUtils.schema(schemaProj.columns()).isEquivalent(expectedSchema));
+    }
+    {
+      metadataManager.startFile(filePathB);
+      SchemaLevelProjection schemaProj = smoother.resolve(tableSchema, dummySource);
+      assertEquals(1, smoother.schemaVersion());
+      assertTrue(ScanTestUtils.schema(schemaProj.columns()).isEquivalent(expectedSchema));
+    }
+  }
+
+  /**
+   * Integrated test across multiple schemas at the batch level.
+   */
 
   @Test
   public void testSmoothableSchemaBatches() {
