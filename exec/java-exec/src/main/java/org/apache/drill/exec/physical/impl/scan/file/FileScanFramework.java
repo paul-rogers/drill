@@ -17,24 +17,36 @@
  */
 package org.apache.drill.exec.physical.impl.scan.file;
 
+import java.util.ArrayList;
 import java.util.Iterator;
+import java.util.List;
 
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
+import org.apache.drill.exec.physical.impl.scan.file.FileBatchReader.FileSchemaNegotiator;
+import org.apache.drill.exec.physical.impl.scan.framework.AbstractReaderShim;
 import org.apache.drill.exec.physical.impl.scan.framework.AbstractScanFramework;
+import org.apache.drill.exec.physical.impl.scan.framework.AbstractSchemaNegotiatorImpl;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanProjector;
+import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.hadoop.fs.Path;
 
-import jersey.repackaged.com.google.common.collect.Lists;
+/**
+ * Scan framework for a file that implements metadata columns (AKA "implicit"
+ * columns and partition columns.)
+ */
 
 public class FileScanFramework extends AbstractScanFramework<FileSchemaNegotiator> {
 
+  /**
+   * Configuration of the scan framework.
+   */
+
   public static class FileScanConfig extends AbstractScanConfig<FileSchemaNegotiator> {
-    protected Iterator<ManagedReader<FileSchemaNegotiator>> readerFactory;
+    protected Iterator<FileBatchReader> readerFactory;
     protected Path scanRootDir;
     protected boolean useLegacyWildcardExpansion = true;
+    protected List<Path> filePaths = new ArrayList<>();
 
     /**
      * Specify the selection root for a directory scan, if any.
@@ -50,14 +62,66 @@ public class FileScanFramework extends AbstractScanFramework<FileSchemaNegotiato
       useLegacyWildcardExpansion = flag;
     }
 
-    public void setReaderFactory(Iterator<ManagedReader<FileSchemaNegotiator>> readerFactory) {
+    public void addFile(Path file) {
+      filePaths.add(file);
+    }
+
+    public void setReaderFactory(Iterator<FileBatchReader> readerFactory) {
       this.readerFactory = readerFactory;
+    }
+  }
+
+  /**
+   * Implementation of the file-level schema negotiator.
+   */
+
+  public static class FileSchemaNegotiatorImpl extends AbstractSchemaNegotiatorImpl
+      implements FileSchemaNegotiator {
+
+    private final FileReaderShim shim;
+    protected Path filePath;
+
+    public FileSchemaNegotiatorImpl(OperatorContext context, FileReaderShim shim) {
+      super(context);
+      this.shim = shim;
+    }
+
+    @Override
+    public void setFilePath(Path filePath) {
+      this.filePath = filePath;
+    }
+
+    @Override
+    public ResultSetLoader build() {
+      return shim.build(this);
+    }
+  }
+
+  /**
+   * Implementation of the reader-level framework.
+   */
+
+  public static class FileReaderShim extends AbstractReaderShim<FileSchemaNegotiator> {
+
+    public FileReaderShim(AbstractScanFramework<FileSchemaNegotiator> manager,
+        ManagedReader<FileSchemaNegotiator> reader) {
+      super(manager, reader);
+    }
+
+    @Override
+    protected boolean openReader() {
+      FileSchemaNegotiator schemaNegotiator = new FileSchemaNegotiatorImpl(manager.context(), this);
+      return reader.open(schemaNegotiator);
+    }
+
+    public ResultSetLoader build(FileSchemaNegotiatorImpl schemaNegotiator) {
+      ((FileScanFramework) manager).metadataManager.startFile(schemaNegotiator.filePath);
+      return super.build(schemaNegotiator);
     }
   }
 
   private FileScanConfig scanConfig;
   private FileMetadataManager metadataManager;
-  private ScanProjector scanProjector;
 
   public FileScanFramework(FileScanConfig fileConfig) {
     this.scanConfig = fileConfig;
@@ -69,14 +133,14 @@ public class FileScanFramework extends AbstractScanFramework<FileSchemaNegotiato
   @Override
   public void bind(OperatorContext context) {
     super.bind(context);
+    configure(scanConfig);
     metadataManager = new FileMetadataManager(
         context.getFragmentContext().getOptionSet(),
         scanConfig.useLegacyWildcardExpansion,
-        scanConfig.scanRootDir);
-    ScanLevelProjection scanProj = new ScanLevelProjection(
-        scanConfig.projection(),
-        Lists.newArrayList(metadataManager.projectionParser()));
-    scanProjector = new ScanProjector(context.getAllocator(), scanProj, metadataManager, scanConfig.nullType());
+        scanConfig.scanRootDir,
+        scanConfig.filePaths);
+    scanProjector.withMetadata(metadataManager);
+    buildProjection(scanConfig);
   }
 
   @Override
@@ -84,20 +148,7 @@ public class FileScanFramework extends AbstractScanFramework<FileSchemaNegotiato
     if (! scanConfig.readerFactory.hasNext()) {
       return null;
     }
-    ManagedReader<FileSchemaNegotiator> reader = scanConfig.readerFactory.next();
+    FileBatchReader reader = scanConfig.readerFactory.next();
     return new FileReaderShim(this, reader);
-  }
-
-  @Override
-  public ScanProjector projector() {
-    return scanProjector;
-  }
-
-  @Override
-  public void close() {
-    if (scanProjector != null) {
-      scanProjector.close();
-      scanProjector = null;
-    }
   }
 }

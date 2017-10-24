@@ -17,29 +17,20 @@
  */
 package org.apache.drill.exec.physical.impl.scan.file;
 
-import org.apache.drill.exec.ops.OperatorContext;
-import org.apache.drill.exec.physical.impl.scan.framework.AbstractSchemaNegotiatorImpl;
-import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
+import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.hadoop.fs.Path;
 
-public class FileSchemaNegotiatorImpl extends AbstractSchemaNegotiatorImpl
-    implements FileSchemaNegotiator {
+public interface FileBatchReader extends ManagedReader<FileBatchReader.FileSchemaNegotiator> {
 
-  private final FileReaderShim shim;
-  protected Path filePath;
+  public interface FileSchemaNegotiator extends SchemaNegotiator {
 
-  public FileSchemaNegotiatorImpl(OperatorContext context, FileReaderShim shim) {
-    super(context);
-    this.shim = shim;
-  }
+    /**
+     * Specify the file path, if any, for the file to be read.
+     * Used to populate implicit columns.
+     * @param filePath Hadoop file path for the file
+     */
 
-  @Override
-  public void setFilePath(Path filePath) {
-    this.filePath = filePath;
-  }
-
-  @Override
-  public ResultSetLoader build() {
-    return shim.build(this);
+    void setFilePath(Path filePath);
   }
 }

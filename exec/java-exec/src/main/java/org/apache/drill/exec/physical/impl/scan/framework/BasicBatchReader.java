@@ -15,18 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan.file;
+package org.apache.drill.exec.physical.impl.scan.framework;
 
-import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
-import org.apache.hadoop.fs.Path;
+public interface BasicBatchReader extends ManagedReader<SchemaNegotiator> {
 
-public interface FileSchemaNegotiator extends SchemaNegotiator {
-
-  /**
-   * Specify the file path, if any, for the file to be read.
-   * Used to populate implicit columns.
-   * @param filePath Hadoop file path for the file
-   */
-
-  void setFilePath(Path filePath);
 }

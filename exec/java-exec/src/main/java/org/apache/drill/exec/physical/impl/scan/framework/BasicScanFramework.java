@@ -32,10 +32,10 @@ public class BasicScanFramework extends AbstractScanFramework<SchemaNegotiator> 
 
   public static class BasicScanConfig extends AbstractScanConfig<SchemaNegotiator> {
 
-    protected Iterator<? extends ManagedReader<SchemaNegotiator>> readerFactory;
+    protected Iterator<BasicBatchReader> readerFactory;
 
-    public void setReaderFactory(Iterator<? extends ManagedReader<SchemaNegotiator>> readerFactory) {
-      this.readerFactory = readerFactory;
+    public void setReaderFactory(Iterator<BasicBatchReader> iterator) {
+      this.readerFactory = iterator;
     }
   }
 
@@ -118,24 +118,8 @@ public class BasicScanFramework extends AbstractScanFramework<SchemaNegotiator> 
   @Override
   public void bind(OperatorContext context) {
     super.bind(context);
-
-    // Pass along config options if set.
-
-    if (scanConfig.maxBatchRowCount() > 0) {
-      scanProjector.setBatchRecordLimit(scanConfig.maxBatchRowCount());
-    }
-    if (scanConfig.maxBatchByteCount() > 0) {
-      scanProjector.setBatchByteLimit(scanConfig.maxBatchByteCount());
-    }
-    if (scanConfig.nullType() != null) {
-      scanProjector.setNullType(scanConfig.nullType());
-    }
-
-    // The minimum option is the projection list, which must be set
-    // if only to SELECT *.
-
-    assert scanConfig.projection() != null  &&  ! scanConfig.projection().isEmpty();
-    scanProjector.build(scanConfig.projection());
+    configure(scanConfig);
+    buildProjection(scanConfig);
   }
 
   @Override
@@ -143,7 +127,7 @@ public class BasicScanFramework extends AbstractScanFramework<SchemaNegotiator> 
     if (! scanConfig.readerFactory.hasNext()) {
       return null;
     }
-    ManagedReader<SchemaNegotiator> reader = scanConfig.readerFactory.next();
+    BasicBatchReader reader = scanConfig.readerFactory.next();
     return new BasicReaderShim(this, reader);
   }
 }

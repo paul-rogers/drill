@@ -99,6 +99,30 @@ public abstract class AbstractScanFramework<T extends SchemaNegotiator> implemen
     return scanProjector;
   }
 
+  protected void configure(AbstractScanConfig<T> scanConfig) {
+
+    // Pass along config options if set.
+
+    if (scanConfig.maxBatchRowCount() > 0) {
+      scanProjector.setBatchRecordLimit(scanConfig.maxBatchRowCount());
+    }
+    if (scanConfig.maxBatchByteCount() > 0) {
+      scanProjector.setBatchByteLimit(scanConfig.maxBatchByteCount());
+    }
+    if (scanConfig.nullType() != null) {
+      scanProjector.setNullType(scanConfig.nullType());
+    }
+  }
+
+  protected void buildProjection(AbstractScanConfig<T> scanConfig) {
+
+    // The minimum option is the projection list, which must be set
+    // if only to SELECT *.
+
+    assert scanConfig.projection() != null  &&  ! scanConfig.projection().isEmpty();
+    scanProjector.build(scanConfig.projection());
+  }
+
   @Override
   public void close() {
     if (scanProjector != null) {

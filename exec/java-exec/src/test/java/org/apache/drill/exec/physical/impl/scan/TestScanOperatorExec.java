@@ -34,9 +34,10 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.base.AbstractSubScan;
 import org.apache.drill.exec.physical.base.Scan;
+import org.apache.drill.exec.physical.impl.scan.framework.AbstractScanFramework.AbstractScanConfig;
+import org.apache.drill.exec.physical.impl.scan.framework.BasicBatchReader;
 import org.apache.drill.exec.physical.impl.scan.framework.BasicScanFramework;
 import org.apache.drill.exec.physical.impl.scan.framework.BasicScanFramework.BasicScanConfig;
-import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
@@ -73,7 +74,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
    * were actually called.
    */
 
-  private static abstract class BaseMockBatchReader implements ManagedReader<SchemaNegotiator> {
+  private static abstract class BaseMockBatchReader implements BasicBatchReader {
     public boolean openCalled;
     public boolean closeCalled;
     public int startIndex;
@@ -250,23 +251,16 @@ public class TestScanOperatorExec extends SubOperatorTest {
         .verifyAndClearAll(fixture.wrap(output));
   }
 
-  /**
-   * Fixture to handle the boiler-plate needed to set up the components that make
-   * up a scan. (In real code, this is all done via the scan batch creator.)
-   */
-
-  public static class ScanOpFixture {
-
-    public BasicScanConfig scanConfig = new BasicScanConfig();
-    private List<ManagedReader<SchemaNegotiator>> readers = new ArrayList<>();
-    public BasicScanFramework framework;
+  public abstract static class AbstractScanOpFixture {
     private OperatorContext context;
     public ScanOperatorExec scanOp;
+
+    public abstract AbstractScanConfig<? extends SchemaNegotiator> scanConfig();
 
     public void projectAll() {
       List<SchemaPath> cols = new ArrayList<>();
       cols.add(SchemaPath.STAR_COLUMN);
-      scanConfig.setProjection(cols);
+      scanConfig().setProjection(cols);
     }
 
     public void setProjection(String[] projection) {
@@ -274,16 +268,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
       for (String col : projection) {
         cols.add(SchemaPath.getSimplePath(col));
       }
-      scanConfig.setProjection(cols);
+      scanConfig().setProjection(cols);
     }
 
-    public void addReader(BaseMockBatchReader reader) {
-      readers.add(reader);
-    }
-
-    public ScanOperatorExec build() {
-      scanConfig.setReaderFactory(readers.iterator());
-      framework = new BasicScanFramework(scanConfig);
+    protected ScanOperatorExec buildScanOp(ScanOperatorEvents framework) {
       scanOp = new ScanOperatorExec(framework);
       Scan scanConfig = new AbstractSubScan("bob") {
 
@@ -307,6 +295,33 @@ public class TestScanOperatorExec extends SubOperatorTest {
   }
 
   /**
+   * Fixture to handle the boiler-plate needed to set up the components that make
+   * up a scan. (In real code, this is all done via the scan batch creator.)
+   */
+
+  public static class BasicScanOpFixture extends AbstractScanOpFixture {
+
+    public final BasicScanConfig scanConfig = new BasicScanConfig();
+    public final List<BasicBatchReader> readers = new ArrayList<>();
+    public BasicScanFramework framework;
+
+    public void addReader(BasicBatchReader reader) {
+      readers.add(reader);
+    }
+
+    public ScanOperatorExec build() {
+      scanConfig.setReaderFactory(readers.iterator());
+      framework = new BasicScanFramework(scanConfig);
+      return buildScanOp(framework);
+    }
+
+    @Override
+    public AbstractScanConfig<? extends SchemaNegotiator> scanConfig() {
+      return scanConfig;
+    }
+  }
+
+  /**
    * Most basic test of a reader that discovers its schema as it goes along.
    * The purpose is to validate the most basic life-cycle steps before trying
    * more complex variations.
@@ -323,7 +338,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create the scan operator
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader);
     ScanOperatorExec scan = scanFixture.build();
@@ -376,7 +391,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create the scan operator
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader);
     ScanOperatorExec scan = scanFixture.build();
@@ -424,7 +439,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create the scan operator
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader);
     ScanOperatorExec scan = scanFixture.build();
@@ -452,7 +467,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create the scan operator
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader);
     ScanOperatorExec scan = scanFixture.build();
@@ -497,7 +512,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create the scan operator
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader);
     ScanOperatorExec scan = scanFixture.build();
@@ -547,7 +562,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader.batchLimit = 2;
     reader.returnDataOnFirst = true;
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader);
     ScanOperatorExec scan = scanFixture.build();
@@ -594,7 +609,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
   public void testEOFOnSchema() {
     MockNullEarlySchemaReader reader = new MockNullEarlySchemaReader();
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader);
     ScanOperatorExec scan = scanFixture.build();
@@ -613,7 +628,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader = new MockEarlySchemaReader();
     reader.batchLimit = 0;
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader);
     ScanOperatorExec scan = scanFixture.build();
@@ -644,7 +659,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader2.batchLimit = 2;
     reader2.startIndex = 100;
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(nullReader);
     scanFixture.addReader(reader1);
@@ -710,7 +725,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader2();
     reader2.batchLimit = 2;
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader1);
     scanFixture.addReader(reader2);
@@ -781,7 +796,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
     reader2.batchLimit = 0;
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader1);
     scanFixture.addReader(reader2);
@@ -816,7 +831,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 0;
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader);
     ScanOperatorExec scan = scanFixture.build();
@@ -853,7 +868,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader);
     ScanOperatorExec scan = scanFixture.build();
@@ -883,7 +898,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader);
     ScanOperatorExec scan = scanFixture.build();
@@ -917,7 +932,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader);
     ScanOperatorExec scan = scanFixture.build();
@@ -961,7 +976,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader);
     ScanOperatorExec scan = scanFixture.build();
@@ -1005,7 +1020,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader);
     ScanOperatorExec scan = scanFixture.build();
@@ -1047,7 +1062,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
     reader2.batchLimit = 2;
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader1);
     scanFixture.addReader(reader2);
@@ -1092,7 +1107,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
     reader2.batchLimit = 2;
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader1);
     scanFixture.addReader(reader2);
@@ -1184,7 +1199,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
     reader2.batchLimit = 2;
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader1);
     scanFixture.addReader(reader2);
@@ -1317,7 +1332,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader3.batchLimit = 1;
     reader3.startIndex = 200;
 
-    ScanOpFixture scanFixture = new ScanOpFixture();
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
     scanFixture.setProjection(new String[]{"a", "b"});
     scanFixture.addReader(reader1);
     scanFixture.addReader(reader2);
