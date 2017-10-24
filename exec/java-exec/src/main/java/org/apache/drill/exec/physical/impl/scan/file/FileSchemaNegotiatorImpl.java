@@ -18,7 +18,7 @@
 package org.apache.drill.exec.physical.impl.scan.file;
 
 import org.apache.drill.exec.ops.OperatorContext;
-import org.apache.drill.exec.physical.impl.scan.managed.AbstractSchemaNegotiatorImpl;
+import org.apache.drill.exec.physical.impl.scan.framework.AbstractSchemaNegotiatorImpl;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.hadoop.fs.Path;
 

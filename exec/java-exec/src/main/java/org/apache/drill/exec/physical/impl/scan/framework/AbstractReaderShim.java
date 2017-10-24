@@ -15,10 +15,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan.managed;
+package org.apache.drill.exec.physical.impl.scan.framework;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
+import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.ReaderSchemaOrchestrator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.VectorContainer;
 
@@ -34,11 +35,13 @@ public abstract class AbstractReaderShim<T extends SchemaNegotiator> implements 
 
   protected final AbstractScanFramework<T> manager;
   protected final ManagedReader<T> reader;
+  protected final ReaderSchemaOrchestrator readerOrchestrator;
   protected ResultSetLoader tableLoader;
 
   public AbstractReaderShim(AbstractScanFramework<T> manager, ManagedReader<T> reader) {
     this.manager = manager;
     this.reader = reader;
+    readerOrchestrator = manager.projector().startReader();
   }
 
   @Override
@@ -78,10 +81,10 @@ public abstract class AbstractReaderShim<T extends SchemaNegotiator> implements 
   public boolean next() {
 
     // Prepare for the batch.
-    // TODO: A bit wasteful to allocate vectors is the reader
+    // TODO: A bit wasteful to allocate vectors if the reader
     // knows it has no more data.
 
-    tableLoader.startBatch();
+    readerOrchestrator.startBatch();
 
     // Read the batch.
 
@@ -100,7 +103,7 @@ public abstract class AbstractReaderShim<T extends SchemaNegotiator> implements 
     // Add implicit columns, if any.
     // Identify the output container and its schema version.
 
-    manager.projector().publish();
+    readerOrchestrator.endBatch();
     return true;
   }
 
@@ -136,8 +139,8 @@ public abstract class AbstractReaderShim<T extends SchemaNegotiator> implements 
   }
 
   public ResultSetLoader build(AbstractSchemaNegotiatorImpl schemaNegotiator) {
-    tableLoader = manager.projector().makeTableLoader(schemaNegotiator.tableSchema,
-        schemaNegotiator.batchSize);
+    readerOrchestrator.setBatchSize(schemaNegotiator.batchSize);
+    tableLoader = readerOrchestrator.makeTableLoader(schemaNegotiator.tableSchema);
     return tableLoader;
   }
 }

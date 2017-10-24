@@ -158,4 +158,4 @@
  * if the original SELECT had a wildcard.) Fortunately, this is just involves
  * moving around pointers to vectors; no actual data is moved during projection.
  */
-package org.apache.drill.exec.physical.impl.scan.managed;
+package org.apache.drill.exec.physical.impl.scan.framework;

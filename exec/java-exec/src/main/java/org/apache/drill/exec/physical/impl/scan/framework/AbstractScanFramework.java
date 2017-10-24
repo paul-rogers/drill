@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.physical.impl.scan.managed;
+package org.apache.drill.exec.physical.impl.scan.framework;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,9 +24,7 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorEvents;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanProjector;
+import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
 
 /**
  * Provides the row set mutator used to construct record batches.
@@ -54,6 +52,8 @@ public abstract class AbstractScanFramework<T extends SchemaNegotiator> implemen
   public static class AbstractScanConfig<T extends SchemaNegotiator> {
     protected List<SchemaPath> projection = new ArrayList<>();
     protected MajorType nullType;
+    protected int maxBatchRowCount;
+    protected int maxBatchByteCount;
 
     /**
      * Specify the type to use for projected columns that do not
@@ -68,25 +68,42 @@ public abstract class AbstractScanFramework<T extends SchemaNegotiator> implemen
       this.projection = projection;
     }
 
-    public MajorType nullType() {
-      return nullType;
+    public void setMaxRowCount(int rowCount) {
+      maxBatchRowCount = rowCount;
     }
 
-    public List<SchemaPath> projection() {
-      return projection;
+    public void setMaxBatchByteCount(int byteCount) {
+      maxBatchByteCount = byteCount;
     }
+
+    public MajorType nullType() { return nullType; }
+    public List<SchemaPath> projection() { return projection; }
+    public int maxBatchRowCount() { return maxBatchRowCount; }
+    public int maxBatchByteCount() { return maxBatchByteCount; }
   }
 
   protected OperatorContext context;
+  protected ScanSchemaOrchestrator scanProjector;
 
   @Override
   public void bind(OperatorContext context) {
     this.context = context;
-  }
+    scanProjector = new ScanSchemaOrchestrator(context.getAllocator());
+   }
 
   protected abstract AbstractScanConfig<T> scanConfig();
 
   public OperatorContext context() { return context; }
 
-  public abstract ScanProjector projector();
+  public ScanSchemaOrchestrator projector() {
+    return scanProjector;
+  }
+
+  @Override
+  public void close() {
+    if (scanProjector != null) {
+      scanProjector.close();
+      scanProjector = null;
+    }
+  }
 }

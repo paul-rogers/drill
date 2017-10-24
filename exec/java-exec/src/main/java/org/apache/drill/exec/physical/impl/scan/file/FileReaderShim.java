@@ -17,9 +17,9 @@
  */
 package org.apache.drill.exec.physical.impl.scan.file;
 
-import org.apache.drill.exec.physical.impl.scan.managed.AbstractReaderShim;
-import org.apache.drill.exec.physical.impl.scan.managed.AbstractScanFramework;
-import org.apache.drill.exec.physical.impl.scan.managed.ManagedReader;
+import org.apache.drill.exec.physical.impl.scan.framework.AbstractReaderShim;
+import org.apache.drill.exec.physical.impl.scan.framework.AbstractScanFramework;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 
 public class FileReaderShim extends AbstractReaderShim<FileSchemaNegotiator> {

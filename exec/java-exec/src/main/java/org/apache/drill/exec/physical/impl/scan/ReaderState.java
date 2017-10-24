@@ -49,7 +49,7 @@ class ReaderState {
 
   /**
    * Open the next available reader, if any, preparing both the
-   * reader and row set mutator.
+   * reader and table loader.
    * @return true if another reader is active, false if no more
    * readers are available
    */

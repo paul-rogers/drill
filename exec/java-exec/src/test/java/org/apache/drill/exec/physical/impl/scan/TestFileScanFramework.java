@@ -26,8 +26,8 @@ import org.apache.drill.exec.physical.impl.scan.TestScanOperatorExec.LegacyManag
 import org.apache.drill.exec.physical.impl.scan.TestScanOperatorExec.MockBatch;
 import org.apache.drill.exec.physical.impl.scan.TestScanOperatorExec.MockEarlySchemaReader;
 import org.apache.drill.exec.physical.impl.scan.TestScanOperatorExec.MockLateSchemaReader;
-import org.apache.drill.exec.physical.impl.scan.managed.ManagedReader;
-import org.apache.drill.exec.physical.impl.scan.managed.SchemaNegotiator;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
+import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.BatchSchema;

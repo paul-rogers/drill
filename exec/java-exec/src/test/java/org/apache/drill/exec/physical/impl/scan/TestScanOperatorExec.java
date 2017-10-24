@@ -34,10 +34,11 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.base.AbstractSubScan;
 import org.apache.drill.exec.physical.base.Scan;
-import org.apache.drill.exec.physical.impl.scan.basic.BasicScanFramework;
-import org.apache.drill.exec.physical.impl.scan.basic.BasicScanFramework.BasicScanConfig;
-import org.apache.drill.exec.physical.impl.scan.managed.ManagedReader;
-import org.apache.drill.exec.physical.impl.scan.managed.SchemaNegotiator;
+import org.apache.drill.exec.physical.impl.scan.framework.BasicScanFramework;
+import org.apache.drill.exec.physical.impl.scan.framework.BasicScanFramework.BasicScanConfig;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
+import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
+import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
@@ -48,10 +49,7 @@ import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.SchemaBuilder;
-import org.junit.Ignore;
 import org.junit.Test;
-
-import com.google.common.annotations.VisibleForTesting;
 
 /**
  * Test of the scan operator framework. Here the focus is on the
@@ -66,43 +64,6 @@ import com.google.common.annotations.VisibleForTesting;
 
 public class TestScanOperatorExec extends SubOperatorTest {
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestScanOperatorExec.class);
-
-  public static class LegacyManagerBuilder {
-
-    public BasicScanConfig scanConfig = new BasicScanConfig();
-    private List<ManagedReader<SchemaNegotiator>> readers = new ArrayList<>();
-
-    @VisibleForTesting
-    public void projectAll() {
-      List<SchemaPath> cols = new ArrayList<>();
-      cols.add(SchemaPath.STAR_COLUMN);
-      scanConfig.setProjection(cols);
-    }
-
-    public void setProjection(String colName) {
-      List<SchemaPath> cols = new ArrayList<>();
-      cols.add(SchemaPath.getSimplePath(colName));
-      scanConfig.setProjection(cols);
-    }
-
-    @VisibleForTesting
-    public void setProjection(String[] projection) {
-      List<SchemaPath> cols = new ArrayList<>();
-      for (String col : projection) {
-        cols.add(SchemaPath.getSimplePath(col));
-      }
-      scanConfig.setProjection(cols);
-    }
-
-    public BasicScanFramework build() {
-      scanConfig.setReaderFactory(readers.iterator());
-      return new BasicScanFramework(scanConfig);
-    }
-
-    public void addReader(BaseMockBatchReader reader) {
-      readers.add(reader);
-    }
-  }
 
   /**
    * Base class for the "mock" readers used in this test. The mock readers
@@ -190,6 +151,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
     }
   }
 
+  /**
+   * Mock reader that returns no schema and no records.
+   */
+
   private static class MockNullEarlySchemaReader extends BaseMockBatchReader {
 
     @Override
@@ -203,6 +168,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
       return false;
     }
   }
+
+  /**
+   * Mock reader that pretends to have a schema at open time
+   * like an HBase or JDBC reader.
+   */
 
   private static class MockEarlySchemaReader extends BaseMockBatchReader {
 
@@ -280,31 +250,67 @@ public class TestScanOperatorExec extends SubOperatorTest {
         .verifyAndClearAll(fixture.wrap(output));
   }
 
-  private static class MockBatch {
+  /**
+   * Fixture to handle the boiler-plate needed to set up the components that make
+   * up a scan. (In real code, this is all done via the scan batch creator.)
+   */
 
-    private OperatorContext services;
+  public static class ScanOpFixture {
+
+    public BasicScanConfig scanConfig = new BasicScanConfig();
+    private List<ManagedReader<SchemaNegotiator>> readers = new ArrayList<>();
+    public BasicScanFramework framework;
+    private OperatorContext context;
     public ScanOperatorExec scanOp;
 
-    public MockBatch(LegacyManagerBuilder builder) {
-      scanOp = new ScanOperatorExec(builder.build());
+    public void projectAll() {
+      List<SchemaPath> cols = new ArrayList<>();
+      cols.add(SchemaPath.STAR_COLUMN);
+      scanConfig.setProjection(cols);
+    }
+
+    public void setProjection(String[] projection) {
+      List<SchemaPath> cols = new ArrayList<>();
+      for (String col : projection) {
+        cols.add(SchemaPath.getSimplePath(col));
+      }
+      scanConfig.setProjection(cols);
+    }
+
+    public void addReader(BaseMockBatchReader reader) {
+      readers.add(reader);
+    }
+
+    public ScanOperatorExec build() {
+      scanConfig.setReaderFactory(readers.iterator());
+      framework = new BasicScanFramework(scanConfig);
+      scanOp = new ScanOperatorExec(framework);
       Scan scanConfig = new AbstractSubScan("bob") {
 
         @Override
         public int getOperatorType() {
           return 0;
-        } };
-      services = fixture.operatorContext(scanConfig);
-      scanOp.bind(services);
+        }
+      };
+      context = fixture.operatorContext(scanConfig);
+      scanOp.bind(context);
+      return scanOp;
     }
 
     public void close() {
       try {
         scanOp.close();
       } finally {
-        services.close();
+        context.close();
       }
     }
   }
+
+  /**
+   * Most basic test of a reader that discovers its schema as it goes along.
+   * The purpose is to validate the most basic life-cycle steps before trying
+   * more complex variations.
+   */
 
   @Test
   public void testLateSchemaLifecycle() {
@@ -317,11 +323,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create the scan operator
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader);
+    ScanOperatorExec scan = scanFixture.build();
 
     // Standard startup
 
@@ -352,7 +357,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(reader.closeCalled);
     assertEquals(0, scan.batchAccessor().getRowCount());
 
-    mockBatch.close();
+    scanFixture.close();
   }
 
   /**
@@ -371,11 +376,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create the scan operator
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader);
+    ScanOperatorExec scan = scanFixture.build();
 
     // Standard startup
 
@@ -406,7 +410,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(reader.closeCalled);
     assertEquals(0, scan.batchAccessor().getRowCount());
 
-    mockBatch.close();
+    scanFixture.close();
   }
 
   @Test
@@ -420,11 +424,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create the scan operator
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader);
+    ScanOperatorExec scan = scanFixture.build();
 
     // Standard startup
 
@@ -435,7 +438,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertFalse(scan.buildSchema());
     assertTrue(reader.openCalled);
     assertTrue(reader.closeCalled);
-    mockBatch.close();
+    scanFixture.close();
   }
 
   @Test
@@ -449,11 +452,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create the scan operator
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader);
+    ScanOperatorExec scan = scanFixture.build();
 
     // Standard startup
 
@@ -482,8 +484,9 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(reader.closeCalled);
     assertEquals(0, scan.batchAccessor().getRowCount());
 
-    mockBatch.close();
+    scanFixture.close();
   }
+
   @Test
   public void testEarlySchemaLifecycle() {
 
@@ -494,11 +497,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Create the scan operator
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader);
+    ScanOperatorExec scan = scanFixture.build();
 
     SingleRowSet expected = makeExpected();
     RowSetComparison verifier = new RowSetComparison(expected);
@@ -523,12 +525,13 @@ public class TestScanOperatorExec extends SubOperatorTest {
     // Next again: no-op
 
     assertFalse(scan.next());
-    mockBatch.close();
+    scanFixture.close();
 
     // Close again: no-op
 
-    mockBatch.close();
+    scan.close();
   }
+
   /**
    * Test the case where the reader does not play the "first batch contains
    * only schema" game, and instead returns data. The Scan operator will
@@ -537,21 +540,17 @@ public class TestScanOperatorExec extends SubOperatorTest {
    */
 
   @Test
-  // TODO
-  @Ignore("Needs late schema - not yet")
   public void testNonEmptyFirstBatch() {
     SingleRowSet expected = makeExpected();
-    RowSetComparison verifier = new RowSetComparison(expected);
 
     MockLateSchemaReader reader = new MockLateSchemaReader();
     reader.batchLimit = 2;
     reader.returnDataOnFirst = true;
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader);
+    ScanOperatorExec scan = scanFixture.build();
 
     // First batch. The reader returns a non-empty batch. The scan
     // operator strips off the schema and returns just that.
@@ -567,13 +566,15 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     assertTrue(scan.next());
     assertEquals(1, reader.batchCount);
-    verifier.verifyAndClear(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+    new RowSetComparison(expected)
+      .verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
 
     // Third batch, normal case.
 
     assertTrue(scan.next());
     assertEquals(2, reader.batchCount);
-    verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+    new RowSetComparison(makeExpected(20))
+      .verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
 
     // EOF
 
@@ -581,7 +582,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(reader.closeCalled);
     assertEquals(0, scan.batchAccessor().getRowCount());
 
-    mockBatch.close();
+    scanFixture.close();
   }
 
   /**
@@ -593,11 +594,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
   public void testEOFOnSchema() {
     MockNullEarlySchemaReader reader = new MockNullEarlySchemaReader();
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader);
+    ScanOperatorExec scan = scanFixture.build();
 
     // EOF
 
@@ -605,7 +605,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(reader.closeCalled);
     assertEquals(0, scan.batchAccessor().getRowCount());
 
-    mockBatch.close();
+    scanFixture.close();
   }
 
   @Test
@@ -613,11 +613,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader = new MockEarlySchemaReader();
     reader.batchLimit = 0;
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader);
+    ScanOperatorExec scan = scanFixture.build();
     assertTrue(scan.buildSchema());
 
     // EOF
@@ -626,7 +625,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(reader.closeCalled);
     assertEquals(0, scan.batchAccessor().getRowCount());
 
-    mockBatch.close();
+    scanFixture.close();
   }
 
   /**
@@ -645,13 +644,12 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader2.batchLimit = 2;
     reader2.startIndex = 100;
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(nullReader);
-    builder.addReader(reader1);
-    builder.addReader(reader2);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(nullReader);
+    scanFixture.addReader(reader1);
+    scanFixture.addReader(reader2);
+    ScanOperatorExec scan = scanFixture.build();
 
     // First batch, schema only.
 
@@ -698,7 +696,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(reader2.closeCalled);
     assertEquals(0, scan.batchAccessor().getRowCount());
 
-    mockBatch.close();
+    scanFixture.close();
   }
 
   /**
@@ -712,12 +710,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader2();
     reader2.batchLimit = 2;
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader1);
-    builder.addReader(reader2);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader1);
+    scanFixture.addReader(reader2);
+    ScanOperatorExec scan = scanFixture.build();
 
     // Build schema
 
@@ -770,7 +767,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(reader2.closeCalled);
     assertEquals(0, scan.batchAccessor().getRowCount());
 
-    mockBatch.close();
+    scanFixture.close();
   }
 
   /**
@@ -784,12 +781,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
     reader2.batchLimit = 0;
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader1);
-    builder.addReader(reader2);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader1);
+    scanFixture.addReader(reader2);
+    ScanOperatorExec scan = scanFixture.build();
 
     // EOF
 
@@ -799,13 +795,17 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(reader2.closeCalled);
     assertEquals(0, scan.batchAccessor().getRowCount());
 
-    mockBatch.close();
+    scanFixture.close();
   }
 
   public final String ERROR_MSG = "My Bad!";
 
   @Test
   public void testExceptionOnOpen() {
+
+    // Reader which fails on open with a known error message
+    // using an exception other than UserException.
+
     MockEarlySchemaReader reader = new MockEarlySchemaReader() {
       @Override
       public boolean open(SchemaNegotiator schemaNegotiator) {
@@ -816,11 +816,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 0;
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader);
+    ScanOperatorExec scan = scanFixture.build();
 
     try {
       scan.buildSchema();
@@ -832,12 +831,16 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(reader.openCalled);
 
     assertEquals(0, scan.batchAccessor().getRowCount());
-    mockBatch.close();
+    scanFixture.close();
     assertTrue(reader.closeCalled);
   }
 
   @Test
   public void testUserExceptionOnOpen() {
+
+    // Reader which fails on open with a known error message
+    // using a UserException.
+
     MockEarlySchemaReader reader = new MockEarlySchemaReader() {
       @Override
       public boolean open(SchemaNegotiator schemaNegotiator) {
@@ -850,11 +853,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader);
+    ScanOperatorExec scan = scanFixture.build();
 
     try {
       scan.buildSchema();
@@ -866,7 +868,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(reader.openCalled);
 
     assertEquals(0, scan.batchAccessor().getRowCount());
-    mockBatch.close();
+    scanFixture.close();
     assertTrue(reader.closeCalled);
   }
 
@@ -881,12 +883,12 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
-    scan.buildSchema();
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader);
+    ScanOperatorExec scan = scanFixture.build();
+
+    assertTrue(scan.buildSchema());
 
     try {
       scan.next();
@@ -898,7 +900,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(reader.openCalled);
 
     assertEquals(0, scan.batchAccessor().getRowCount());
-    mockBatch.close();
+    scanFixture.close();
     assertTrue(reader.closeCalled);
   }
 
@@ -915,11 +917,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader);
+    ScanOperatorExec scan = scanFixture.build();
 
     assertTrue(scan.buildSchema());
 
@@ -935,7 +936,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(reader.openCalled);
 
     assertEquals(0, scan.batchAccessor().getRowCount());
-    mockBatch.close();
+    scanFixture.close();
     assertTrue(reader.closeCalled);
   }
 
@@ -960,11 +961,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader);
+    ScanOperatorExec scan = scanFixture.build();
 
     // Schema
 
@@ -985,7 +985,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
       assertTrue(e.getCause() instanceof IllegalStateException);
     }
 
-    mockBatch.close();
+    scanFixture.close();
     assertTrue(reader.closeCalled);
   }
 
@@ -1005,11 +1005,10 @@ public class TestScanOperatorExec extends SubOperatorTest {
     };
     reader.batchLimit = 2;
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader);
+    ScanOperatorExec scan = scanFixture.build();
 
     // Schema
 
@@ -1030,7 +1029,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
       assertNull(e.getCause());
     }
 
-    mockBatch.close();
+    scanFixture.close();
     assertTrue(reader.closeCalled);
   }
 
@@ -1048,12 +1047,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
     reader2.batchLimit = 2;
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader1);
-    builder.addReader(reader2);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader1);
+    scanFixture.addReader(reader2);
+    ScanOperatorExec scan = scanFixture.build();
 
     assertTrue(scan.buildSchema());
 
@@ -1075,9 +1073,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(reader1.closeCalled);
     assertFalse(reader2.openCalled);
 
-    mockBatch.close();
+    scanFixture.close();
   }
-
 
   @Test
   public void testUserExceptionOnClose() {
@@ -1095,12 +1092,11 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
     reader2.batchLimit = 2;
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader1);
-    builder.addReader(reader2);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader1);
+    scanFixture.addReader(reader2);
+    ScanOperatorExec scan = scanFixture.build();
 
     assertTrue(scan.buildSchema());
 
@@ -1122,7 +1118,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(reader1.closeCalled);
     assertFalse(reader2.openCalled);
 
-    mockBatch.close();
+    scanFixture.close();
   }
 
   /**
@@ -1188,19 +1184,23 @@ public class TestScanOperatorExec extends SubOperatorTest {
     MockEarlySchemaReader reader2 = new MockEarlySchemaReader();
     reader2.batchLimit = 2;
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.projectAll();
-    builder.addReader(reader1);
-    builder.addReader(reader2);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader1);
+    scanFixture.addReader(reader2);
+
+    // Want overflow, set size and row counts at their limits.
+
+    scanFixture.scanConfig.setMaxBatchByteCount(ScanSchemaOrchestrator.MAX_BATCH_BYTE_SIZE);
+    scanFixture.scanConfig.setMaxRowCount(ScanSchemaOrchestrator.MAX_BATCH_ROW_COUNT);
+    ScanOperatorExec scan = scanFixture.build();
 
     assertTrue(scan.buildSchema());
     assertEquals(1, scan.batchAccessor().schemaVersion());
     scan.batchAccessor().release();
 
     // Second batch. Should be 1 less than the reader's row
-    // count because the mutator has its own one-row lookahead batch.
+    // count because the loader has its own one-row lookahead batch.
 
     assertTrue(scan.next());
     assertEquals(1, reader1.batchCount);
@@ -1247,7 +1247,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     assertFalse(scan.next());
     assertEquals(0, scan.batchAccessor().getRowCount());
-    mockBatch.close();
+    scanFixture.close();
   }
 
   private static class MockOneColEarlySchemaReader extends BaseMockBatchReader {
@@ -1317,13 +1317,12 @@ public class TestScanOperatorExec extends SubOperatorTest {
     reader3.batchLimit = 1;
     reader3.startIndex = 200;
 
-    LegacyManagerBuilder builder = new LegacyManagerBuilder();
-    builder.setProjection(new String[]{"a", "b"});
-    builder.addReader(reader1);
-    builder.addReader(reader2);
-    builder.addReader(reader3);
-    MockBatch mockBatch = new MockBatch(builder);
-    ScanOperatorExec scan = mockBatch.scanOp;
+    ScanOpFixture scanFixture = new ScanOpFixture();
+    scanFixture.setProjection(new String[]{"a", "b"});
+    scanFixture.addReader(reader1);
+    scanFixture.addReader(reader2);
+    scanFixture.addReader(reader3);
+    ScanOperatorExec scan = scanFixture.build();
 
     // Schema based on (a, b)
 
@@ -1359,10 +1358,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
     verifyBatch(200, scan.batchAccessor().getOutgoingContainer());
 
     assertFalse(scan.next());
-    mockBatch.close();
+    scanFixture.close();
   }
-
-  // Early schema without file info
 
   // TODO: Schema change in late reader
 }

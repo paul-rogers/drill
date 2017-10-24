@@ -21,8 +21,8 @@ import java.util.Iterator;
 
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
-import org.apache.drill.exec.physical.impl.scan.managed.AbstractScanFramework;
-import org.apache.drill.exec.physical.impl.scan.managed.ManagedReader;
+import org.apache.drill.exec.physical.impl.scan.framework.AbstractScanFramework;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanProjector;
 import org.apache.hadoop.fs.Path;

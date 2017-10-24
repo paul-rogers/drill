@@ -144,6 +144,12 @@ import org.apache.drill.exec.vector.ValueVector;
 
 public class ScanSchemaOrchestrator {
 
+  public static final int MIN_BATCH_BYTE_SIZE = 256 * 1024;
+  public static final int MAX_BATCH_BYTE_SIZE = Integer.MAX_VALUE;
+  public static final int DEFAULT_BATCH_ROW_COUNT = 4096;
+  public static final int DEFAULT_BATCH_BYTE_COUNT = ValueVector.MAX_BUFFER_SIZE;
+  public static final int MAX_BATCH_ROW_COUNT = ValueVector.MAX_ROW_COUNT;
+
   public class ReaderSchemaOrchestrator implements VectorSource {
 
     private int readerBatchSize;
@@ -173,6 +179,7 @@ public class ScanSchemaOrchestrator {
       OptionBuilder options = new OptionBuilder();
       options.setRowCountLimit(readerBatchSize);
       options.setVectorCache(vectorCache);
+      options.setBatchSizeLimit(scanBatchByteLimit);
 
       // Set up a selection list if available and is a subset of
       // table columns. (Only needed for non-wildcard queries.)
@@ -369,7 +376,8 @@ public class ScanSchemaOrchestrator {
 
   private MetadataManager metadataManager;
   private final BufferAllocator allocator;
-  private int scanBatchRecordLimit = ValueVector.MAX_ROW_COUNT;
+  private int scanBatchRecordLimit = DEFAULT_BATCH_ROW_COUNT;
+  private int scanBatchByteLimit = DEFAULT_BATCH_BYTE_COUNT;
   private final List<ScanProjectionParser> parsers = new ArrayList<>();
 
   /**
@@ -439,6 +447,11 @@ public class ScanSchemaOrchestrator {
   public void setBatchRecordLimit(int batchRecordLimit) {
     scanBatchRecordLimit = Math.max(1,
         Math.min(batchRecordLimit, ValueVector.MAX_ROW_COUNT));
+  }
+
+  public void setBatchByteLimit(int byteLimit) {
+    scanBatchByteLimit = Math.max(MIN_BATCH_BYTE_SIZE,
+        Math.min(byteLimit, MAX_BATCH_BYTE_SIZE));
   }
 
   /**

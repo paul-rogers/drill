@@ -51,15 +51,15 @@ public class TestScanOrchestratorLateSchema extends SubOperatorTest {
 
   @Test
   public void testLateSchemaWildcard() {
-    ScanSchemaOrchestrator projector = new ScanSchemaOrchestrator(fixture.allocator());
+    ScanSchemaOrchestrator orchestrator = new ScanSchemaOrchestrator(fixture.allocator());
 
     // SELECT * ...
 
-    projector.build(ScanTestUtils.projectAll());
+    orchestrator.build(ScanTestUtils.projectAll());
 
     // ... FROM table
 
-    ReaderSchemaOrchestrator reader = projector.startReader();
+    ReaderSchemaOrchestrator reader = orchestrator.startReader();
 
     // Create the table loader
 
@@ -95,9 +95,9 @@ public class TestScanOrchestratorLateSchema extends SubOperatorTest {
         .build();
 
     new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(projector.output()));
+        .verifyAndClearAll(fixture.wrap(orchestrator.output()));
 
-    projector.close();
+    orchestrator.close();
   }
 
   /**
@@ -106,15 +106,15 @@ public class TestScanOrchestratorLateSchema extends SubOperatorTest {
 
   @Test
   public void testLateSchemaSelectDisjoint() {
-    ScanSchemaOrchestrator projector = new ScanSchemaOrchestrator(fixture.allocator());
+    ScanSchemaOrchestrator orchestrator = new ScanSchemaOrchestrator(fixture.allocator());
 
     // SELECT a, c ...
 
-    projector.build(ScanTestUtils.projectList("a", "c"));
+    orchestrator.build(ScanTestUtils.projectList("a", "c"));
 
     // ... FROM file
 
-    ReaderSchemaOrchestrator reader = projector.startReader();
+    ReaderSchemaOrchestrator reader = orchestrator.startReader();
 
     // Create the table loader
 
@@ -146,9 +146,10 @@ public class TestScanOrchestratorLateSchema extends SubOperatorTest {
         .build();
 
     new RowSetComparison(expected)
-        .verifyAndClearAll(fixture.wrap(projector.output()));
+        .verifyAndClearAll(fixture.wrap(orchestrator.output()));
 
-    projector.close();
+    orchestrator.close();
   }
+
   // TODO: Type persistence across late schema changes
 }

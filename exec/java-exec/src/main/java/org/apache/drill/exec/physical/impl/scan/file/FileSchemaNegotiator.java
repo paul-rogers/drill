@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.physical.impl.scan.file;
 
-import org.apache.drill.exec.physical.impl.scan.managed.SchemaNegotiator;
+import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.hadoop.fs.Path;
 
 public interface FileSchemaNegotiator extends SchemaNegotiator {
