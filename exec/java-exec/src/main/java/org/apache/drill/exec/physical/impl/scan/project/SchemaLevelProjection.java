@@ -77,9 +77,8 @@ public class SchemaLevelProjection {
    */
 
   public interface SchemaProjectionResolver {
-    boolean resolveColumn(ColumnProjection col, List<ResolvedColumn> output);
-
-    void reset();
+    void bind(SchemaLevelProjection projection);
+    boolean resolveColumn(ColumnProjection col);
   }
 
   /**
@@ -128,6 +127,9 @@ public class SchemaLevelProjection {
 
     @Override
     public int nodeType() { return ID; }
+
+    @Override
+    public boolean isTableProjection() { return true; }
   }
 
   /**
@@ -193,6 +195,9 @@ public class SchemaLevelProjection {
 
     @Override
     public int nodeType() { return ID; }
+
+    @Override
+    public boolean isTableProjection() { return false; }
   }
 
   /**
@@ -242,7 +247,7 @@ public class SchemaLevelProjection {
     private void resolveNullColumn(ColumnProjection col) {
       NullProjectedColumn nullCol = new NullProjectedColumn(col.name(), null,
           new Projection(nullSource, true, nullCols.size(), outputIndex()));
-      output.add(nullCol);
+      addOutputColumn(nullCol);
       nullCols.add(nullCol);
     }
 
@@ -266,26 +271,34 @@ public class SchemaLevelProjection {
     this.tableSource = tableSource;
     this.resolvers = resolvers;
     for (SchemaProjectionResolver resolver : resolvers) {
-      resolver.reset();
+      resolver.bind(this);
     }
   }
 
   protected void resolveTableColumn(String colName, MaterializedField col, int tableColIndex) {
-    output.add(new ResolvedTableColumn(colName, col,
-        new Projection(tableSource, true, tableColIndex, outputIndex())));
+    addOutputColumn(new ResolvedTableColumn(colName, col,
+        tableProjection(tableColIndex)));
+  }
+
+  public void addOutputColumn(ResolvedColumn col) {
+    output.add(col);
+  }
+
+  public Projection tableProjection(int tableColIndex) {
+    return new Projection(tableSource, true, tableColIndex, outputIndex());
   }
 
   protected void resolveSpecial(ColumnProjection col) {
     for (SchemaProjectionResolver resolver : resolvers) {
-      if (resolver.resolveColumn(col, output)) {
+      if (resolver.resolveColumn(col)) {
         return;
       }
     }
     throw new IllegalStateException("No resolver for column: " + col.nodeType());
   }
 
-  protected int outputIndex() { return output.size(); }
-
+  public int outputIndex() { return output.size(); }
+  public TupleMetadata tableSchema() { return tableSchema; }
   public List<ResolvedColumn> columns() { return output; }
   public List<NullColumnSpec> nullColumns() { return null; }
 }

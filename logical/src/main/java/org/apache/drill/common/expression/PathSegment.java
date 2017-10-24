@@ -137,24 +137,16 @@ public abstract class PathSegment {
       this.path = n.toString();
     }
 
-    public String getPath() {
-      return path;
-    }
+    public String getPath() { return path; }
 
     @Override
-    public boolean isArray() {
-      return false;
-    }
+    public boolean isArray() { return false; }
 
     @Override
-    public boolean isNamed() {
-      return true;
-    }
+    public boolean isNamed() { return true; }
 
     @Override
-    public NameSegment getNameSegment() {
-      return this;
-    }
+    public NameSegment getNameSegment() { return this; }
 
     @Override
     public String toString() {
@@ -207,7 +199,6 @@ public abstract class PathSegment {
       }
       return s;
     }
-
   }
 
   public NameSegment getNameSegment() {
@@ -289,6 +280,7 @@ public abstract class PathSegment {
    * @param otherSeg - path segment to check if it is contained below this one.
    * @return - is this a match
    */
+  
   public boolean contains(PathSegment otherSeg) {
     if (this == otherSeg) {
       return true;
@@ -314,7 +306,5 @@ public abstract class PathSegment {
     } else {
       return child.contains(otherSeg.child);
     }
-
   }
-
 }

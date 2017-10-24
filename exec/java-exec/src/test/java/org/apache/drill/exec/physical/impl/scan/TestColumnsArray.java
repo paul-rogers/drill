@@ -17,83 +17,131 @@
  */
 package org.apache.drill.exec.physical.impl.scan;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
-import org.apache.drill.common.exceptions.UserException;
+import java.util.List;
+
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
-import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayProjection;
-import org.apache.drill.exec.physical.impl.scan.file.FileLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.file.ResolvedFileMetadataColumn;
-import org.apache.drill.exec.physical.impl.scan.file.ResolvedPartitionColumn;
-import org.apache.drill.exec.physical.impl.scan.project.ProjectedColumn;
-import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayManager;
+import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
+import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
+import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator.ReaderSchemaOrchestrator;
+import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.test.SubOperatorTest;
+import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
+
+import com.google.common.collect.Lists;
 
 public class TestColumnsArray extends SubOperatorTest {
 
 
   /**
-   * Test columns array. The table must be able to support it by having all
-   * Varchar columns.
+   * Test columns array. The table must be able to support it by having a
+   * matching column.
    */
 
   @Test
   public void testColumnsArray() {
-    ProjectionFixture projFixture = new ProjectionFixture()
-        .withFileParser(fixture.options())
-        .withColumnsArrayParser()
-        .projectedCols(
-            ScanTestUtils.FILE_NAME_COL,
-            ColumnsArrayProjection.COLUMNS_COL,
-            ScanTestUtils.partitionColName(0));
-    projFixture.metadataParser.useLegacyWildcardExpansion(false);
-    projFixture.metadataParser.setScanRootDir(new Path("hdfs:///w"));
-    projFixture.build();
 
-    FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
+    // Set up the file metadata manager
+
+    Path filePath = new Path("hdfs:///w/x/y/z.csv");
+    FileMetadataManager metadataManager = new FileMetadataManager(
+        fixture.options(), true,
+        new Path("hdfs:///w"),
+        Lists.newArrayList(filePath));
+
+    // ...and the columns array manager
+
+    ColumnsArrayManager colsManager = new ColumnsArrayManager();
+
+    // Configure the schema orchestrator
+
+    ScanSchemaOrchestrator scanner = new ScanSchemaOrchestrator(fixture.allocator());
+    scanner.withMetadata(metadataManager);
+    scanner.addParser(colsManager.projectionParser());
+    scanner.addResolver(colsManager.resolver());
+
+    // SELECT filename, columns, dir0 ...
+
+    scanner.build(ScanTestUtils.projectList(ScanTestUtils.FILE_NAME_COL,
+        ColumnsArrayManager.COLUMNS_COL,
+        ScanTestUtils.partitionColName(0)));
+
+    // FROM z.csv
+
+    metadataManager.startFile(filePath);
+    ReaderSchemaOrchestrator reader = scanner.startReader();
+
+    // Table schema (columns: VARCHAR[])
 
     TupleMetadata tableSchema = new SchemaBuilder()
-        .add("a", MinorType.VARCHAR)
-        .add("c", MinorType.VARCHAR)
-        .add("d", MinorType.VARCHAR)
+        .addArray(ColumnsArrayManager.COLUMNS_COL, MinorType.VARCHAR)
         .buildSchema();
 
-    SchemaLevelProjection tableProj = fileProj.resolveFile(tableSchema);
-    assertFalse(tableProj.hasNullColumns());
+    ResultSetLoader loader = reader.makeTableLoader(tableSchema);
+
+    // Verify empty batch.
 
     TupleMetadata expectedSchema = new SchemaBuilder()
         .add("filename", MinorType.VARCHAR)
         .addArray("columns", MinorType.VARCHAR)
         .addNullable("dir0", MinorType.VARCHAR)
         .buildSchema();
+    {
+      SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+         .build();
 
-    assertTrue(ScanTestUtils.schema(tableProj.output()).isEquivalent(expectedSchema));
+      assertNotNull(scanner.output());
+      new RowSetComparison(expected)
+         .verifyAndClearAll(fixture.wrap(scanner.output()));
+    }
 
-    assertEquals(ResolvedFileMetadataColumn.ID, tableProj.output().get(0).nodeType());
+    // Create a batch of data.
 
-    // The columns array is now an actual table column.
+    reader.startBatch();
+    loader.writer()
+      .addRow(new Object[] {new String[] {"fred", "flintstone"}})
+      .addRow(new Object[] {new String[] {"barney", "rubble"}});
+    reader.endBatch();
 
-    assertEquals(ProjectedColumn.ID, tableProj.output().get(1).nodeType());
-    assertEquals(ResolvedPartitionColumn.ID, tableProj.output().get(2).nodeType());
+    // Verify
 
-    boolean selMap[] = tableProj.projectionMap();
-    assertTrue(selMap[0]);
+    {
+      SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow("z.csv", new String[] {"fred", "flintstone"}, "x")
+        .addRow("z.csv", new String[] {"barney", "rubble"}, "x")
+        .build();
 
-    int lToPMap[] = tableProj.logicalToPhysicalMap();
-    assertEquals(0, lToPMap[0]);
+      new RowSetComparison(expected)
+          .verifyAndClearAll(fixture.wrap(scanner.output()));
+    }
 
-    int projMap[] = tableProj.tableColumnProjectionMap();
-    assertEquals(1, projMap[0]);
+    scanner.close();
   }
 
+  private ScanSchemaOrchestrator buildScan(List<SchemaPath> cols) {
+
+    // Set up the columns array manager
+
+    ColumnsArrayManager colsManager = new ColumnsArrayManager();
+
+    // Configure the schema orchestrator
+
+    ScanSchemaOrchestrator scanner = new ScanSchemaOrchestrator(fixture.allocator());
+    scanner.addParser(colsManager.projectionParser());
+    scanner.addResolver(colsManager.resolver());
+
+    scanner.build(cols);
+    return scanner;
+  }
 
   /**
    * Test attempting to use the columns array with an early schema with
@@ -101,30 +149,54 @@ public class TestColumnsArray extends SubOperatorTest {
    */
 
   @Test
-  public void testColumnsArrayIncompatible() {
-    ProjectionFixture projFixture = new ProjectionFixture()
-        .withFileParser(fixture.options())
-        .withColumnsArrayParser()
-        .projectedCols(
-            ScanTestUtils.FILE_NAME_COL,
-            ColumnsArrayProjection.COLUMNS_COL,
-            ScanTestUtils.partitionColName(0));
-    projFixture.metadataParser.useLegacyWildcardExpansion(false);
-    projFixture.metadataParser.setScanRootDir(new Path("hdfs:///w"));
-    projFixture.build();
-
-    FileLevelProjection fileProj = projFixture.resolve("hdfs:///w/x/y/z.csv");
+  public void testMissingColumnsColumn() {
+    ScanSchemaOrchestrator scanner = buildScan(
+        ScanTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL));
 
     TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
-        .addNullable("c", MinorType.INT)
-        .add("d", MinorType.FLOAT8)
         .buildSchema();
 
     try {
-      fileProj.resolveFile(tableSchema);
+      ReaderSchemaOrchestrator reader = scanner.startReader();
+      reader.makeTableLoader(tableSchema);
       fail();
-    } catch (UserException e) {
+    } catch (IllegalStateException e) {
+      // Expected
+    }
+
+    scanner.close();
+  }
+
+  @Test
+  public void testNotRepeated() {
+    ScanSchemaOrchestrator scanner = buildScan(
+        ScanTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL));
+
+    TupleMetadata tableSchema = new SchemaBuilder()
+        .add(ColumnsArrayManager.COLUMNS_COL, MinorType.VARCHAR)
+        .buildSchema();
+
+    try {
+      ReaderSchemaOrchestrator reader = scanner.startReader();
+      reader.makeTableLoader(tableSchema);
+      fail();
+    } catch (IllegalStateException e) {
+      // Expected
+    }
+
+    scanner.close();
+  }
+
+  @Test
+  public void testElementsAndArray() {
+    try {
+    buildScan(
+        Lists.newArrayList(
+          SchemaPath.getSimplePath(ColumnsArrayManager.COLUMNS_COL),
+          SchemaPath.parseFromString(ColumnsArrayManager.COLUMNS_COL + "[1]")));
+      fail();
+    } catch (IllegalArgumentException e) {
       // Expected
     }
   }

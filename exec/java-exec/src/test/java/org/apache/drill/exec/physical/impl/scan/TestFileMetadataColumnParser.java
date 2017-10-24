@@ -19,47 +19,43 @@ package org.apache.drill.exec.physical.impl.scan;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.physical.impl.scan.ScanTestUtils.ProjectionFixture;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.FileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
 import org.apache.drill.test.SubOperatorTest;
+import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
-public class TestFileMetadataColumnParser extends SubOperatorTest {
+import com.google.common.collect.Lists;
 
-  private ProjectionFixture buildProj(String... queryCols) {
-    ProjectionFixture proj = new ProjectionFixture()
-        .withFileManager(fixture.options())
-        .useLegacyWildcardExpansion(true)
-        .projectedCols(queryCols);
-    proj.build();
-    return proj;
-  }
+public class TestFileMetadataColumnParser extends SubOperatorTest {
 
   @Test
   public void testBasics() {
 
+    Path filePath = new Path("hdfs:///w/x/y/z.csv");
+    FileMetadataManager metadataManager = new FileMetadataManager(
+        fixture.options(), true,
+        new Path("hdfs:///w"),
+        Lists.newArrayList(filePath));
+
     // Simulate SELECT a, b, c ...
 
-    ProjectionFixture projFixture = buildProj("a", "b", "c");
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectList("a", "b", "c"),
+        Lists.newArrayList(metadataManager.projectionParser()));
 
-    // Build the projection plan and verify
+    // Verify
 
-    ScanLevelProjection scanProj = projFixture.scanProj;
     assertFalse(scanProj.projectAll());
-
-    FileMetadataManager metadataProj = projFixture.metadataProj;
-    assertNotNull(metadataProj);
-    assertFalse(metadataProj.hasMetadata());
-    assertTrue(metadataProj.useLegacyWildcardPartition());
+    assertFalse(metadataManager.hasMetadata());
+    assertTrue(metadataManager.useLegacyWildcardPartition());
   }
 
   /**
@@ -70,16 +66,22 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
   @Test
   public void testFileMetadataColumnSelection() {
 
-    // Simulate SELECT a, b, c ...
+    Path filePath = new Path("hdfs:///w/x/y/z.csv");
+    FileMetadataManager metadataManager = new FileMetadataManager(
+        fixture.options(), true,
+        new Path("hdfs:///w"),
+        Lists.newArrayList(filePath));
 
-    ProjectionFixture projFixture = buildProj(
-        "a",
-        ScanTestUtils.FULLY_QUALIFIED_NAME_COL,
-        "filEPath", // Sic, to test case sensitivity
-        ScanTestUtils.FILE_NAME_COL,
-        ScanTestUtils.SUFFIX_COL);
+    // Simulate SELECT a, fqn, filEPath, filename, suffix ...
 
-    ScanLevelProjection scanProj = projFixture.scanProj;
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectList("a",
+            ScanTestUtils.FULLY_QUALIFIED_NAME_COL,
+            "filEPath", // Sic, to test case sensitivity
+            ScanTestUtils.FILE_NAME_COL,
+            ScanTestUtils.SUFFIX_COL),
+        Lists.newArrayList(metadataManager.projectionParser()));
+
     assertFalse(scanProj.projectAll());
     assertEquals(5, scanProj.requestedCols().size());
 
@@ -99,10 +101,7 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
     assertEquals(FileMetadataColumn.ID, scanProj.columns().get(3).nodeType());
     assertEquals(FileMetadataColumn.ID, scanProj.columns().get(4).nodeType());
 
-    FileMetadataManager metadataProj = projFixture.metadataProj;
-    assertNotNull(metadataProj);
-    assertTrue(metadataProj.hasMetadata());
-    assertTrue(metadataProj.useLegacyWildcardPartition());
+    assertTrue(metadataManager.hasMetadata());
   }
 
   /**
@@ -112,15 +111,20 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
   @Test
   public void testPartitionColumnSelection() {
 
+    Path filePath = new Path("hdfs:///w/x/y/z.csv");
+    FileMetadataManager metadataManager = new FileMetadataManager(
+        fixture.options(), true,
+        new Path("hdfs:///w"),
+        Lists.newArrayList(filePath));
+
     String dir0 = ScanTestUtils.partitionColName(0);
     // Sic: case insensitivity, but name in project list
     // is preferred over "natural" name.
     String dir1 = "DIR1";
     String dir2 = ScanTestUtils.partitionColName(2);
-    ProjectionFixture projFixture = buildProj(
-        dir2, dir1, dir0, "a");
-
-    ScanLevelProjection scanProj = projFixture.scanProj;
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectList(dir2, dir1, dir0, "a"),
+        Lists.newArrayList(metadataManager.projectionParser()));
 
     assertEquals(4, scanProj.columns().size());
     assertEquals(dir2, scanProj.columns().get(0).name());
@@ -131,11 +135,6 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
     // Verify column type
 
     assertEquals(PartitionColumn.ID, scanProj.columns().get(0).nodeType());
-
-    FileMetadataManager metadataProj = projFixture.metadataProj;
-    assertNotNull(metadataProj);
-    assertTrue(metadataProj.hasMetadata());
-    assertTrue(metadataProj.useLegacyWildcardPartition());
   }
 
   /**
@@ -146,9 +145,18 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
 
   @Test
   public void testErrorWildcardLegacyAndFileMetaata() {
+
+    Path filePath = new Path("hdfs:///w/x/y/z.csv");
+    FileMetadataManager metadataManager = new FileMetadataManager(
+        fixture.options(), true,
+        new Path("hdfs:///w"),
+        Lists.newArrayList(filePath));
+
     try {
-      buildProj(ScanTestUtils.FILE_NAME_COL,
-          SchemaPath.WILDCARD);
+      new ScanLevelProjection(
+          ScanTestUtils.projectList(ScanTestUtils.FILE_NAME_COL,
+              SchemaPath.WILDCARD),
+          Lists.newArrayList(metadataManager.projectionParser()));
       fail();
     } catch (IllegalArgumentException e) {
       // expected
@@ -161,9 +169,18 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
 
   @Test
   public void testErrorWildcardLegacyAndPartition() {
+
+    Path filePath = new Path("hdfs:///w/x/y/z.csv");
+    FileMetadataManager metadataManager = new FileMetadataManager(
+        fixture.options(), true,
+        new Path("hdfs:///w"),
+        Lists.newArrayList(filePath));
+
     try {
-      buildProj(SchemaPath.WILDCARD,
-          ScanTestUtils.partitionColName(8));
+      new ScanLevelProjection(
+          ScanTestUtils.projectList(SchemaPath.WILDCARD,
+              ScanTestUtils.partitionColName(8)),
+          Lists.newArrayList(metadataManager.projectionParser()));
       fail();
     } catch (IllegalArgumentException e) {
       // expected

@@ -82,6 +82,7 @@ public class ScanLevelProjection {
   public interface ColumnProjection {
     String name();
     int nodeType();
+    boolean isTableProjection();
   }
 
   /**
@@ -100,7 +101,7 @@ public class ScanLevelProjection {
     void build();
   }
 
-  public class UnresolvedColumn implements ColumnProjection {
+  public static class UnresolvedColumn implements ColumnProjection {
 
     public static final int WILDCARD = 1;
     public static final int UNRESOLVED = 2;
@@ -126,6 +127,11 @@ public class ScanLevelProjection {
     public String name() { return inCol.rootName(); }
 
     public SchemaPath source() { return inCol; }
+
+    @Override
+    public boolean isTableProjection() {
+      return id == UNRESOLVED;
+    }
   }
 
   // Input

@@ -138,7 +138,7 @@ public class TestConstantColumnLoader extends SubOperatorTest {
     // Verify
 
     BatchSchema expectedSchema = new SchemaBuilder()
-        .addNullable(ScanTestUtils.SUFFIX_COL, MinorType.VARCHAR)
+        .add(ScanTestUtils.SUFFIX_COL, MinorType.VARCHAR)
         .addNullable(partColName, MinorType.VARCHAR)
         .build();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)

@@ -182,7 +182,14 @@ public class SchemaPath extends LogicalExpressionBase {
    */
 
   public boolean isArray() {
-    return ! isSimplePath();
+    PathSegment seg = rootSegment;
+    while (seg != null) {
+      if (seg.isArray()) {
+        return true;
+      }
+      seg = seg.getChild();
+    }
+    return false;
   }
 
   /**

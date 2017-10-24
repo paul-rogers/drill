@@ -21,39 +21,26 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.physical.impl.scan.project.UnresolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayManager.UnresolvedColumnsArrayColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
-import org.apache.drill.exec.physical.impl.scan.project.ColumnProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
 import org.apache.drill.exec.vector.ValueVector;
 
 public class ColumnsArrayParser implements ScanProjectionParser {
 
-  // Config
-
-  MajorType columnsArrayType;
-
   // Internals
 
   private ScanLevelProjection builder;
+  private List<Integer> columnsIndexes;
+  private int maxIndex;
 
   // Output
 
-  protected ColumnsArrayColumn columnsArrayCol;
-  protected List<Integer> columnsIndexes;
-  protected int maxIndex;
+  private UnresolvedColumnsArrayColumn columnsArrayCol;
 
-  private ColumnsArrayProjection projection;
-
-  public void columnsArrayType(MinorType type) {
-    columnsArrayType = MajorType.newBuilder()
-        .setMinorType(type)
-        .setMode(DataMode.REPEATED)
-        .build();
-  }
+  public ColumnsArrayParser() { }
 
   @Override
   public void bind(ScanLevelProjection builder) {
@@ -62,7 +49,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
 
   @Override
   public boolean parse(SchemaPath inCol) {
-    if (! inCol.nameEquals(ColumnsArrayProjection.COLUMNS_COL)) {
+    if (! inCol.nameEquals(ColumnsArrayManager.COLUMNS_COL)) {
       return false;
     }
 
@@ -83,31 +70,22 @@ public class ColumnsArrayParser implements ScanProjectionParser {
     // columns array. The query can refer to this column only once
     // (in non-indexed form.)
 
-    if (columnsArrayCol != null) {
-      throw new IllegalArgumentException("Duplicate columns[] column");
-    }
     if (columnsIndexes != null) {
       throw new IllegalArgumentException("Cannot refer to both columns and columns[i]");
+    }
+    if (columnsArrayCol != null) {
+      throw new IllegalArgumentException("Duplicate columns[] column");
     }
     addColumnsArrayColumn(inCol);
   }
 
   private void addColumnsArrayColumn(SchemaPath inCol) {
-    columnsArrayCol = new ColumnsArrayColumn(inCol, columnsArrayType());
+    columnsArrayCol = new UnresolvedColumnsArrayColumn(inCol);
     builder.addProjectedColumn(columnsArrayCol);
   }
 
-  public MajorType columnsArrayType() {
-    if (columnsArrayType == null) {
-      columnsArrayType = MajorType.newBuilder()
-          .setMinorType(MinorType.VARCHAR)
-          .setMode(DataMode.REPEATED)
-          .build();
-    }
-    return columnsArrayType;
-  }
-
   private void mapColumnsArrayElement(SchemaPath inCol) {
+
     // Add the "columns" column, if not already present.
     // The project list past this point will contain just the
     // "columns" entry rather than the series of
@@ -115,13 +93,14 @@ public class ColumnsArrayParser implements ScanProjectionParser {
     // project list.
 
     if (columnsArrayCol == null) {
+      addColumnsArrayColumn(SchemaPath.getSimplePath(inCol.rootName()));
 
       // Check if "columns" already appeared without an index.
 
-      if (columnsIndexes == null) {
-        throw new IllegalArgumentException("Cannot refer to both columns and columns[i]");
-      }
-      addColumnsArrayColumn(inCol);
+    } else if (columnsIndexes == null) {
+      throw new IllegalArgumentException("Cannot refer to both columns and columns[i]");
+    }
+    if (columnsIndexes == null) {
       columnsIndexes = new ArrayList<>();
     }
     int index = inCol.getRootSegment().getChild().getArraySegment().getIndex();
@@ -148,8 +127,15 @@ public class ColumnsArrayParser implements ScanProjectionParser {
 
   @Override
   public void build() {
-    projection = new ColumnsArrayProjection(this);
+    if (columnsIndexes == null) {
+      return;
+    }
+    boolean indexes[] = new boolean[maxIndex + 1];
+    for (Integer index : columnsIndexes) {
+      indexes[index] = true;
+    }
+    columnsArrayCol.setIndexes(indexes);
   }
 
-  public ColumnsArrayProjection getProjection() { return projection; }
+  public UnresolvedColumnsArrayColumn columnsArrayCol() { return columnsArrayCol; }
 }

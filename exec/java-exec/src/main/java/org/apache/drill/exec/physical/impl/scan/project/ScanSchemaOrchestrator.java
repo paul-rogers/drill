@@ -184,7 +184,7 @@ public class ScanSchemaOrchestrator {
       if (! scanProj.projectAll()) {
         List<SchemaPath> projectedCols = new ArrayList<>();
         for (ColumnProjection col : scanProj.columns()) {
-          if (col.nodeType() == UnresolvedColumn.UNRESOLVED) {
+          if (col.isTableProjection()) {
             projectedCols.add(((UnresolvedColumn) col).source());
           }
         }
@@ -316,7 +316,7 @@ public class ScanSchemaOrchestrator {
 
     private void doWildcardProjection(TupleMetadata tableSchema) {
       tableProjection = new WildcardSchemaProjection(scanProj,
-          tableSchema, this, tableResolvers);
+          tableSchema, this, schemaResolvers);
     }
 
     /**
@@ -332,7 +332,7 @@ public class ScanSchemaOrchestrator {
       tableProjection =
           new ExplicitSchemaProjection(scanProj,
               tableSchema, this,
-              nullColumnManager, tableResolvers);
+              nullColumnManager, schemaResolvers);
       nullColumnManager.define(tableProjection.nullColumns());
     }
 
@@ -354,14 +354,6 @@ public class ScanSchemaOrchestrator {
     }
   }
 
-  // Inputs
-
-  /**
-   * Projection list provided by the physical plan.
-   */
-
-  protected List<SchemaPath> projection;
-
   // Configuration
 
   /**
@@ -369,15 +361,16 @@ public class ScanSchemaOrchestrator {
    * not set, the null type is the Drill default.
    */
 
-  protected MajorType nullType;
+  private MajorType nullType;
 
   /**
    * Creates the metadata (file and directory) columns, if needed.
    */
 
-  protected MetadataManager metadataManager;
+  private MetadataManager metadataManager;
   private final BufferAllocator allocator;
-  protected int scanBatchRecordLimit = ValueVector.MAX_ROW_COUNT;
+  private int scanBatchRecordLimit = ValueVector.MAX_ROW_COUNT;
+  private final List<ScanProjectionParser> parsers = new ArrayList<>();
 
   /**
    * List of resolvers used to resolve projection columns for each
@@ -386,7 +379,7 @@ public class ScanSchemaOrchestrator {
    * mechanism.
    */
 
-  List<SchemaProjectionResolver> tableResolvers = new ArrayList<>();
+  List<SchemaProjectionResolver> schemaResolvers = new ArrayList<>();
 
   private boolean useSchemaSmoothing;
 
@@ -401,11 +394,10 @@ public class ScanSchemaOrchestrator {
    * vectors rather than vector instances, this cache can be deprecated.
    */
 
-  protected ResultVectorCacheImpl vectorCache;
-  protected ScanLevelProjection scanProj;
-  protected boolean supportsMetadata;
+  private ResultVectorCacheImpl vectorCache;
+  private ScanLevelProjection scanProj;
   private ReaderSchemaOrchestrator currentReader;
-  protected SchemaSmoother schemaSmoother;
+  private SchemaSmoother schemaSmoother;
 
   /**
    * Creates null columns if needed.
@@ -415,7 +407,7 @@ public class ScanSchemaOrchestrator {
 
   // Output
 
-  public VectorContainer outputContainer;
+  private VectorContainer outputContainer;
 
   public ScanSchemaOrchestrator(BufferAllocator allocator) {
     this.allocator = allocator;
@@ -433,8 +425,7 @@ public class ScanSchemaOrchestrator {
 
   public void withMetadata(MetadataManager metadataMgr) {
     metadataManager = metadataMgr;
-    metadataManager.bind(vectorCache);
-    tableResolvers.add(metadataManager.resolver());
+    schemaResolvers.add(metadataManager.resolver());
   }
 
   /**
@@ -477,7 +468,6 @@ public class ScanSchemaOrchestrator {
   }
 
   public void build(List<SchemaPath> projection) {
-    this.projection = projection;
     vectorCache = new ResultVectorCacheImpl(allocator, useSchemaSmoothing);
 
     // If no metadata manager was provided, create a mock
@@ -486,23 +476,17 @@ public class ScanSchemaOrchestrator {
     if (metadataManager == null) {
       metadataManager = new NoOpMetadataManager();
     }
+    metadataManager.bind(vectorCache);
 
     // Bind metadata manager parser to scan projector.
     // A "real" (non-mock) metadata manager will provide
     // a projection parser. Use this to tell us that this
     // setup supports metadata.
 
-    List<ScanProjectionParser> parsers = new ArrayList<>();
     ScanProjectionParser parser = metadataManager.projectionParser();
     if (parser != null) {
-      supportsMetadata = true;
       parsers.add(parser);
     }
-
-    // Some add-one (such as for the text reader "columns"
-    // column) has a custom parser. Add those.
-
-    addParsers(parsers);
 
     // Parse the projection list.
 
@@ -515,11 +499,17 @@ public class ScanSchemaOrchestrator {
       nullColumnManager = new NullColumnManager(vectorCache, nullType);
     }
     if (scanProj.hasWildcard() && useSchemaSmoothing) {
-      schemaSmoother = new SchemaSmoother(scanProj, nullColumnManager, tableResolvers);
+      schemaSmoother = new SchemaSmoother(scanProj, nullColumnManager, schemaResolvers);
     }
   }
 
-  private void addParsers(List<ScanProjectionParser> parsers) { }
+  public void addParser(ScanProjectionParser parser) {
+    parsers.add(parser);
+  }
+
+  public void addResolver(SchemaProjectionResolver resolver) {
+    schemaResolvers.add(resolver);
+  }
 
   public ReaderSchemaOrchestrator startReader() {
     closeReader();

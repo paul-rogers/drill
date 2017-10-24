@@ -34,6 +34,7 @@ import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Projectio
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
@@ -47,7 +48,7 @@ import com.google.common.annotations.VisibleForTesting;
 
 public class FileMetadataManager implements MetadataManager, SchemaProjectionResolver, VectorSource {
 
-  public static abstract class MetadataColumn implements ResolvedColumn, ConstantColumnSpec, ColumnProjection {
+  public static abstract class MetadataColumn implements ResolvedColumn, ConstantColumnSpec {
 
     public final MaterializedField schema;
     public final Projection projection;
@@ -72,6 +73,9 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
     public Projection projection() { return projection; }
 
     public abstract MetadataColumn resolve(FileMetadata fileInfo, Projection projection);
+
+    @Override
+    public boolean isTableProjection() { return false; }
   }
 
   public static class FileMetadataColumn extends MetadataColumn {
@@ -172,6 +176,7 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
   private ConstantColumnLoader loader;
   private VectorContainer outputContainer;
   private final int partitionCount;
+  private SchemaLevelProjection schemaProj;
 
   /**
    * Specifies whether to plan based on the legacy meaning of "*". See
@@ -264,26 +269,27 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
 
   @Override
   public void close() {
-    reset();
+    bind((SchemaLevelProjection) null);
   }
 
   @Override
-  public void reset() {
+  public void bind(SchemaLevelProjection schemaProj) {
     metadataColumns.clear();
     if (loader != null) {
       loader.close();
       loader = null;
     }
+    this.schemaProj = schemaProj;
   }
 
   @Override
   public void endFile() {
-    reset();
+    bind((SchemaLevelProjection) null);
     currentFile = null;
   }
 
   @Override
-  public boolean resolveColumn(ColumnProjection col, List<ResolvedColumn> output) {
+  public boolean resolveColumn(ColumnProjection col) {
     switch (col.nodeType()) {
 
     case PartitionColumn.ID:
@@ -294,7 +300,7 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
       return false;
     }
 
-    Projection projection = new Projection(this, true, metadataColumns.size(), output.size());
+    Projection projection = new Projection(this, true, metadataColumns.size(), schemaProj.outputIndex());
     MetadataColumn outputCol;
 
     switch (col.nodeType()) {
@@ -310,7 +316,7 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
       throw new IllegalStateException("Should never get here");
     }
 
-    output.add(outputCol);
+    schemaProj.addOutputColumn(outputCol);
     metadataColumns.add(outputCol);
     return true;
   }
