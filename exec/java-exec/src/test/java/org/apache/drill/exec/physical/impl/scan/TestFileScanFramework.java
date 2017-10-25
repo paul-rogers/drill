@@ -44,6 +44,10 @@ import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.hadoop.fs.Path;
 import org.junit.Test;
 
+/**
+ * Tests the file metadata extensions to the file operator framework.
+ */
+
 public class TestFileScanFramework extends SubOperatorTest {
 
   private static final String MOCK_FILE_NAME = "foo.csv";

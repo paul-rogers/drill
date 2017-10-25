@@ -19,6 +19,8 @@ package org.apache.drill.exec.physical.impl.scan;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ops.OperatorContext;
+import org.apache.drill.exec.physical.base.AbstractSubScan;
+import org.apache.drill.exec.physical.base.Scan;
 import org.apache.drill.exec.physical.impl.OutputMutator;
 import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.record.BatchSchema;
@@ -37,14 +39,21 @@ import io.netty.buffer.DrillBuf;
 
 /**
  * Test of the "legacy" scan batch writers to ensure that the revised
- * set follows the same semantics as the orginal set.
+ * set follows the same semantics as the original set.
  */
 
 public class TestScanBatchWriters extends SubOperatorTest {
 
   @Test
   public void sanityTest() throws Exception {
-    OperatorContext oContext = fixture.operatorContext(null);
+    Scan scanConfig = new AbstractSubScan("bob") {
+
+      @Override
+      public int getOperatorType() {
+        return 0;
+      }
+    };
+    OperatorContext oContext = fixture.operatorContext(scanConfig);
 
     // Setup: normally done by ScanBatch
 
@@ -96,8 +105,8 @@ public class TestScanBatchWriters extends SubOperatorTest {
         // Expected
 
         BatchSchema schema = new SchemaBuilder()
-            .add("a", MinorType.INT)
-            .add("b", MinorType.VARCHAR)
+            .addNullable("a", MinorType.INT)
+            .addNullable("b", MinorType.VARCHAR)
             .addArray("c", MinorType.INT)
             .build();
         RowSet expected = fixture.rowSetBuilder(schema)
