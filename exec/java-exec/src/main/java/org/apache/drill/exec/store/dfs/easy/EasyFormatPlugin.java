@@ -79,6 +79,16 @@ import com.google.common.collect.Maps;
 
 public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements FormatPlugin {
 
+  public static class EasyFormatConfig {
+    public boolean readable = true;
+    public boolean writable = false;
+    public boolean blockSplittable = false;
+    public boolean compressible = false;
+    public List<String> extensions;
+    public String defaultName;
+    public ScannerVersion scannerVersion = ScannerVersion.ORIGINAL;
+  }
+
   protected enum ScannerVersion {
 
     /**
@@ -117,6 +127,16 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
       boolean compressible, List<String> extensions, String defaultName) {
     this(name, context, fsConf, storageConfig, formatConfig, readable, writable, blockSplittable,
         compressible, extensions, defaultName, ScannerVersion.ORIGINAL);
+  }
+
+  protected EasyFormatPlugin(String name, DrillbitContext context, Configuration fsConf,
+      StoragePluginConfig storageConfig, T formatConfig, EasyFormatConfig config) {
+    this(name, context, fsConf,
+        storageConfig, formatConfig,
+        config.readable, config.writable,
+        config.blockSplittable,
+        config.compressible, config.extensions, config.defaultName,
+        config.scannerVersion);
   }
 
   protected EasyFormatPlugin(String name, DrillbitContext context, Configuration fsConf,
