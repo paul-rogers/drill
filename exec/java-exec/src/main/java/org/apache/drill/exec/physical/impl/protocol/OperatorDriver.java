@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.impl.protocol;
 
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.record.RecordBatch.IterOutcome;
 
@@ -34,13 +33,13 @@ public class OperatorDriver {
 
 
   private OperatorDriver.State state = State.START;
-  private final OperatorContext opServices;
+  private final OperatorContext opContext;
   private final OperatorExec operatorExec;
   private final BatchAccessor batchAccessor;
   private int schemaVersion;
 
   public OperatorDriver(OperatorContext opServicees, OperatorExec opExec) {
-    this.opServices = opServicees;
+    this.opContext = opServicees;
     this.operatorExec = opExec;
     batchAccessor = operatorExec.batchAccessor();
   }
@@ -164,7 +163,7 @@ public class OperatorDriver {
         .addContext("Exception thrown from", getOperatorLabel())
         .build(OperatorRecordBatch.logger);
     } finally {
-      opServices.close();
+      opContext.close();
       state = State.CLOSED;
     }
   }
@@ -174,6 +173,6 @@ public class OperatorDriver {
   }
 
   public OperatorContext getOperatorContext() {
-    return opServices;
+    return opContext;
   }
 }

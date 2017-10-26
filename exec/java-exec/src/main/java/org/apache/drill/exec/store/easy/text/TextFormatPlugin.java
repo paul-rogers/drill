@@ -31,6 +31,7 @@ import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import org.apache.drill.exec.physical.base.ScanStats;
 import org.apache.drill.exec.physical.base.ScanStats.GroupScanProperty;
+import org.apache.drill.exec.physical.impl.scan.file.FileBatchReader;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.ExecProtos.FragmentHandle;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
@@ -66,31 +67,46 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
   private final static String DEFAULT_NAME = "text";
 
   public TextFormatPlugin(String name, DrillbitContext context, Configuration fsConf, StoragePluginConfig storageConfig) {
-    super(name, context, fsConf, storageConfig, new TextFormatConfig(), true, false, true, true,
-        Collections.<String>emptyList(), DEFAULT_NAME);
+     this(name, context, fsConf, storageConfig, new TextFormatConfig());
   }
 
   public TextFormatPlugin(String name, DrillbitContext context, Configuration fsConf, StoragePluginConfig config,
       TextFormatConfig formatPluginConfig) {
-    super(name, context, fsConf, config, formatPluginConfig, true, false, true, true,
-        formatPluginConfig.getExtensions(), DEFAULT_NAME);
+    super(name, context, fsConf, config, formatPluginConfig, easyConfig());
   }
 
+  private static EasyFormatConfig easyConfig() {
+    EasyFormatConfig config = new EasyFormatConfig();
+    config.readable = true;
+    config.writable = false;
+    config.blockSplittable = true;
+    config.compressible = true;
+    config.extensions = Collections.<String>emptyList();
+    config.defaultName = DEFAULT_NAME;
+    return config;
+  }
+
+//  @Override
+//  public RecordReader getRecordReader(FragmentContext context, DrillFileSystem dfs, FileWork fileWork,
+//      List<SchemaPath> columns, String userName) throws ExecutionSetupException {
+//    Path path = dfs.makeQualified(new Path(fileWork.getPath()));
+//    FileSplit split = new FileSplit(path, fileWork.getStart(), fileWork.getLength(), new String[]{""});
+//
+//    if (context.getOptions().getOption(ExecConstants.ENABLE_NEW_TEXT_READER_KEY).bool_val == true) {
+//      TextParsingSettings settings = new TextParsingSettings();
+//      settings.set((TextFormatConfig)formatConfig);
+//      return new CompliantTextRecordReader(split, dfs, context, settings, columns);
+//    } else {
+//      char delim = ((TextFormatConfig)formatConfig).getFieldDelimiter();
+//      return new DrillTextRecordReader(split, dfs.getConf(), context, delim, columns);
+//    }
+//  }
 
   @Override
-  public RecordReader getRecordReader(FragmentContext context, DrillFileSystem dfs, FileWork fileWork,
-      List<SchemaPath> columns, String userName) throws ExecutionSetupException {
-    Path path = dfs.makeQualified(new Path(fileWork.getPath()));
-    FileSplit split = new FileSplit(path, fileWork.getStart(), fileWork.getLength(), new String[]{""});
-
-    if (context.getOptions().getOption(ExecConstants.ENABLE_NEW_TEXT_READER_KEY).bool_val == true) {
-      TextParsingSettings settings = new TextParsingSettings();
-      settings.set((TextFormatConfig)formatConfig);
-      return new CompliantTextRecordReader(split, dfs, context, settings, columns);
-    } else {
-      char delim = ((TextFormatConfig)formatConfig).getFieldDelimiter();
-      return new DrillTextRecordReader(split, dfs.getConf(), context, delim, columns);
-    }
+  public FileBatchReader makeBatchReader(DrillFileSystem dfs, FileSplit split) throws ExecutionSetupException {
+    TextParsingSettings settings = new TextParsingSettings();
+    settings.set((TextFormatConfig) formatConfig);
+    return new CompliantTextRecordReader(split, dfs, settings);
   }
 
   @Override
@@ -248,9 +264,6 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
       }
       return true;
     }
-
-
-
   }
 
   @Override

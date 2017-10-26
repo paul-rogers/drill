@@ -58,10 +58,70 @@ import org.apache.drill.exec.ops.OperatorContext;
  */
 
 public interface OperatorExec {
+
+  /**
+   * Bind this operator to the context. The context provides access
+   * to per-operator, per-fragment and per-Drillbit services.
+   * Also provides access to the operator definition (AKA "pop
+   * config") for this operator.
+   *
+   * @param context operator context
+   */
+
   public void bind(OperatorContext context);
+
+  /**
+   * Provides a generic access mechanism to the batch's output data.
+   * This method is called after a successful return from
+   * {@link #buildSchema()} and {@link #next()}. The batch itself
+   * can be held in a standard {@link VectorContainer}, or in some
+   * other structure more convenient for this operator.
+   *
+   * @return the access for the batch's output container
+   */
+
   BatchAccessor batchAccessor();
+
+  /**
+   * Retrieves the schema of the batch before the first actual batch
+   * of data. The schema is returned via an empty batch (no rows,
+   * only schema) from {@link #batchAccessor()}.
+   *
+   * @return true if a schema is available, false if the operator
+   * reached EOF before a schema was found
+   */
+
   boolean buildSchema();
+
+  /**
+   * Retrieves the next batch of data. The data is returned via
+   * the {@link #batchAccessor()} method.
+   *
+   * @return true if another batch of data is available, false if
+   * EOF was reached and no more data is available
+   */
+
   boolean next();
+
+  /**
+   * Alerts the operator that the query was cancelled. Generally
+   * optional, but allows the operator to realize that a cancellation
+   * was requested.
+   */
+
   void cancel();
+
+  /**
+   * Close the operator by releasing all resources that the operator
+   * held. Called after {@link #cancel()} and after {@link #batchAccessor()}
+   * or {@link #next()} returns false.
+   * <p>
+   * Note that there may be a significant delay between the last call to
+   * <tt>next()</tt> and the call to <tt>close()</tt> during which
+   * downstream operators do their work. A tidy operator will release
+   * resources immediately after EOF to avoid holding onto memory or other
+   * resources that could be used by downstream operators.
+   */
+
   void close();
 }

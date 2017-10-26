@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -26,22 +26,23 @@ import org.apache.drill.common.exceptions.UserException;
 import com.univocity.parsers.common.TextParsingException;
 import com.univocity.parsers.csv.CsvParserSettings;
 
-/*******************************************************************************
+/*-*****************************************************************************
  * Portions Copyright 2014 uniVocity Software Pty Ltd
- ******************************************************************************/
+ *-****************************************************************************/
 
 /**
  * A byte-based Text parser implementation. Builds heavily upon the uniVocity parsers. Customized for UTF8 parsing and
  * DrillBuf support.
  */
-final class TextReader {
+public final class TextReader {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TextReader.class);
 
   private static final byte NULL_BYTE = (byte) '\0';
 
+  public static final int MAXIMUM_NUMBER_COLUMNS = 64 * 1024;
+
   private final TextParsingContext context;
 
-  private final long recordsToRead;
   private final TextParsingSettings settings;
 
   private final TextInput input;
@@ -78,8 +79,6 @@ final class TextReader {
     this.workBuf = workBuf;
     this.settings = settings;
 
-    this.recordsToRead = settings.getNumberOfRecordsToRead() == -1 ? Long.MAX_VALUE : settings.getNumberOfRecordsToRead();
-
     this.ignoreTrailingWhitespace = settings.isIgnoreTrailingWhitespaces();
     this.ignoreLeadingWhitespace = settings.isIgnoreLeadingWhitespaces();
     this.parseUnescapedQuotes = settings.isParseUnescapedQuotes();
@@ -91,12 +90,9 @@ final class TextReader {
 
     this.input = input;
     this.output = output;
-
   }
 
-  public TextOutput getOutput(){
-    return output;
-  }
+  public TextOutput getOutput() { return output; }
 
   /* Check if the given byte is a white space. As per the univocity text reader
    * any ASCII <= ' ' is considered a white space. However since byte in JAVA is signed
@@ -107,13 +103,9 @@ final class TextReader {
   }
 
   // Inform the output interface to indicate we are starting a new record batch
-  public void resetForNextBatch(){
-    output.startBatch();
-  }
+  public void resetForNextBatch() { }
 
-  public long getPos(){
-    return input.getPos();
-  }
+  public long getPos() { return input.getPos(); }
 
   /**
    * Function encapsulates parsing an entire record, delegates parsing of the
@@ -127,18 +119,16 @@ final class TextReader {
     final byte newLine = this.newLine;
     final TextInput input = this.input;
 
-    input.mark();
-
     fieldIndex = 0;
     if (isWhite(ch) && ignoreLeadingWhitespace) {
       skipWhitespace();
     }
 
     int fieldsWritten = 0;
-    try{
+    try {
       boolean earlyTerm = false;
       while (ch != newLine) {
-        earlyTerm = !parseField();
+        earlyTerm = ! parseField();
         fieldsWritten++;
         if (ch != newLine) {
           ch = input.nextChar();
@@ -148,18 +138,17 @@ final class TextReader {
             break;
           }
         }
-        if(earlyTerm){
-          if(ch != newLine){
+        if (earlyTerm) {
+          if (ch != newLine) {
             input.skipLines(1);
           }
           break;
         }
       }
-    }catch(StreamFinishedPseudoException e){
+    } catch(StreamFinishedPseudoException e) {
       // if we've written part of a field or all of a field, we should send this row.
-      if(fieldsWritten == 0 && !output.rowHasData()){
-        throw e;
-      }
+      output.finishRecord();
+      throw e;
     }
 
     output.finishRecord();
@@ -174,16 +163,22 @@ final class TextReader {
   private void parseValueIgnore() throws IOException {
     final byte newLine = this.newLine;
     final byte delimiter = this.delimiter;
-    final TextOutput output = this.output;
     final TextInput input = this.input;
 
     byte ch = this.ch;
     while (ch != delimiter && ch != newLine) {
-      output.appendIgnoringWhitespace(ch);
-//      fieldSize++;
+      appendIgnoringWhitespace(ch);
       ch = input.nextChar();
     }
     this.ch = ch;
+  }
+
+  public void appendIgnoringWhitespace(byte data){
+    if (isWhite(data)){
+      // noop
+    } else {
+      output.append(data);
+    }
   }
 
   /**
@@ -260,15 +255,15 @@ final class TextReader {
       ch = input.nextCharNoNewLineCheck();
     }
 
-    // Handles whitespaces after quoted value:
-    // Whitespaces are ignored (i.e., ch <= ' ') if they are not used as delimiters (i.e., ch != ' ')
+    // Handles whitespace after quoted value:
+    // Whitespace are ignored (i.e., ch <= ' ') if they are not used as delimiters (i.e., ch != ' ')
     // For example, in tab-separated files (TSV files), '\t' is used as delimiter and should not be ignored
-    // Content after whitespaces may be parsed if 'parseUnescapedQuotes' is enabled.
+    // Content after whitespace may be parsed if 'parseUnescapedQuotes' is enabled.
     if (ch != newLine && ch <= ' ' && ch != delimiter) {
       final DrillBuf workBuf = this.workBuf;
       workBuf.resetWriterIndex();
       do {
-        // saves whitespaces after value
+        // saves whitespace after value
         workBuf.writeByte(ch);
         ch = input.nextChar();
         // found a new line, go to next record.
@@ -324,7 +319,6 @@ final class TextReader {
 
       return output.endField();
     }
-
   }
 
   /**
@@ -358,7 +352,7 @@ final class TextReader {
    */
   public final boolean parseNext() throws IOException {
     try {
-      while (!context.stopped) {
+      while (! context.stopped) {
         ch = input.nextChar();
         if (ch == comment) {
           input.skipLines(1);
@@ -372,14 +366,13 @@ final class TextReader {
         throw new TextParsingException(context, "Cannot use newline character within quoted string");
       }
 
-      if(success){
-        if (recordsToRead > 0 && context.currentRecord() >= recordsToRead) {
-          context.stop();
-        }
-        return true;
-      }else{
+      if (! success) {
         return false;
       }
+      if (! context.isFull()) {
+        context.stop();
+      }
+      return true;
 
     } catch (StreamFinishedPseudoException ex) {
       stopParsing();
@@ -427,11 +420,13 @@ final class TextReader {
     }
 
     if (ex instanceof ArrayIndexOutOfBoundsException) {
+      // Not clear this exception is still thrown...
+
       ex = UserException
           .dataReadError(ex)
           .message(
               "Drill failed to read your text file.  Drill supports up to %d columns in a text file.  Your file appears to have more than that.",
-              RepeatedVarCharOutput.MAXIMUM_NUMBER_COLUMNS)
+              MAXIMUM_NUMBER_COLUMNS)
           .build(logger);
     }
 
@@ -474,7 +469,6 @@ final class TextReader {
             + " null characters ('\0') on parsed content. This may indicate the data is corrupt or its encoding is invalid. Parsed content:\n\t"
             + tmp;
       }
-
     }
 
     throw new TextParsingException(context, message, ex);
@@ -485,8 +479,6 @@ final class TextReader {
    * interface to wrap up the batch
    */
   public void finishBatch(){
-    output.finishBatch();
-//    System.out.println(String.format("line %d, cnt %d", input.getLineCount(), output.getRecordCount()));
   }
 
   /**
@@ -497,5 +489,4 @@ final class TextReader {
   public void close() throws IOException{
     input.close();
   }
-
 }
