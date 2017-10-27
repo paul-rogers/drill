@@ -48,7 +48,41 @@ public class TestColumnsArrayParser extends SubOperatorTest {
   public void testColumnsArray() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
         ScanTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL),
-        Lists.newArrayList(new ColumnsArrayParser()));
+        Lists.newArrayList(new ColumnsArrayParser(false)));
+
+    assertFalse(scanProj.projectAll());
+    assertEquals(1, scanProj.requestedCols().size());
+
+    assertEquals(1, scanProj.columns().size());
+    assertEquals(ColumnsArrayManager.COLUMNS_COL, scanProj.columns().get(0).name());
+
+    // Verify column type
+
+    assertEquals(UnresolvedColumnsArrayColumn.ID, scanProj.columns().get(0).nodeType());
+  }
+
+  @Test
+  public void testRequiredColumnsArray() {
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL),
+        Lists.newArrayList(new ColumnsArrayParser(true)));
+
+    assertFalse(scanProj.projectAll());
+    assertEquals(1, scanProj.requestedCols().size());
+
+    assertEquals(1, scanProj.columns().size());
+    assertEquals(ColumnsArrayManager.COLUMNS_COL, scanProj.columns().get(0).name());
+
+    // Verify column type
+
+    assertEquals(UnresolvedColumnsArrayColumn.ID, scanProj.columns().get(0).nodeType());
+  }
+
+  @Test
+  public void testRequiredWildcard() {
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectAll(),
+        Lists.newArrayList(new ColumnsArrayParser(true)));
 
     assertFalse(scanProj.projectAll());
     assertEquals(1, scanProj.requestedCols().size());
@@ -68,7 +102,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
         ScanTestUtils.projectList("Columns"),
-        Lists.newArrayList(new ColumnsArrayParser()));
+        Lists.newArrayList(new ColumnsArrayParser(false)));
 
     assertFalse(scanProj.projectAll());
     assertEquals(1, scanProj.requestedCols().size());
@@ -88,7 +122,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
         Lists.newArrayList(
             SchemaPath.parseFromString(ColumnsArrayManager.COLUMNS_COL + "[3]"),
             SchemaPath.parseFromString(ColumnsArrayManager.COLUMNS_COL + "[1]")),
-        Lists.newArrayList(new ColumnsArrayParser()));
+        Lists.newArrayList(new ColumnsArrayParser(false)));
 
     assertFalse(scanProj.projectAll());
     assertEquals(2, scanProj.requestedCols().size());
@@ -121,7 +155,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
     try {
       new ScanLevelProjection(
           ScanTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL, "a"),
-          Lists.newArrayList(new ColumnsArrayParser()));
+          Lists.newArrayList(new ColumnsArrayParser(false)));
       fail();
     } catch (IllegalArgumentException e) {
       // Expected
@@ -137,7 +171,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
     try {
       new ScanLevelProjection(
           ScanTestUtils.projectList("a", ColumnsArrayManager.COLUMNS_COL),
-          Lists.newArrayList(new ColumnsArrayParser()));
+          Lists.newArrayList(new ColumnsArrayParser(false)));
       fail();
     } catch (IllegalArgumentException e) {
       // Expected
@@ -153,7 +187,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
     try {
       new ScanLevelProjection(
           ScanTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL, ColumnsArrayManager.COLUMNS_COL),
-          Lists.newArrayList(new ColumnsArrayParser()));
+          Lists.newArrayList(new ColumnsArrayParser(false)));
       fail();
     } catch (IllegalArgumentException e) {
       // Expected
@@ -167,7 +201,19 @@ public class TestColumnsArrayParser extends SubOperatorTest {
           Lists.newArrayList(
             SchemaPath.getSimplePath(ColumnsArrayManager.COLUMNS_COL),
             SchemaPath.parseFromString(ColumnsArrayManager.COLUMNS_COL + "[1]")),
-          Lists.newArrayList(new ColumnsArrayParser()));
+          Lists.newArrayList(new ColumnsArrayParser(false)));
+      fail();
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
+  }
+
+  @Test
+  public void testErrorRequiredAndExtra() {
+    try {
+      new ScanLevelProjection(
+          ScanTestUtils.projectList("a"),
+          Lists.newArrayList(new ColumnsArrayParser(true)));
       fail();
     } catch (IllegalArgumentException e) {
       // Expected
@@ -191,7 +237,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
         ScanTestUtils.projectList(ScanTestUtils.FILE_NAME_COL,
             ColumnsArrayManager.COLUMNS_COL,
             ScanTestUtils.SUFFIX_COL),
-        Lists.newArrayList(new ColumnsArrayParser(),
+        Lists.newArrayList(new ColumnsArrayParser(false),
             metadataManager.projectionParser()));
 
     assertFalse(scanProj.projectAll());

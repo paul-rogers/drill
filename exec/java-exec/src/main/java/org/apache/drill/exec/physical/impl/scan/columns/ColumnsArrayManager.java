@@ -129,8 +129,8 @@ public class ColumnsArrayManager implements SchemaProjectionResolver {
 
   public static final String COLUMNS_COL = "columns";
 
-  public ColumnsArrayManager() {
-    parser = new ColumnsArrayParser();
+  public ColumnsArrayManager(boolean requireColumnsArray) {
+    parser = new ColumnsArrayParser(requireColumnsArray);
   }
 
   public ScanProjectionParser projectionParser() { return parser; }
@@ -146,7 +146,7 @@ public class ColumnsArrayManager implements SchemaProjectionResolver {
     // one column of the proper name and type.
 
     TupleMetadata tableSchema = schemaProj.tableSchema();
-    if (tableSchema.size() != 1) {
+    if (hasColumnsArrayColumn() && tableSchema.size() != 1) {
       throw new IllegalStateException("Table schema must have exactly one column.");
     }
   }

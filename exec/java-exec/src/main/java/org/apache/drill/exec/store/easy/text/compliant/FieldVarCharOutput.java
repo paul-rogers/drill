@@ -45,7 +45,7 @@ class FieldVarCharOutput extends BaseFieldOutput {
 
     TupleMetadata schema = writer.schema();
     int end = schema.size() - 1;
-    while (end >= 0 & schema.metadata(end).isProjected()) {
+    while (end >= 0 && ! schema.metadata(end).isProjected()) {
       end--;
     }
     if (end == -1) {
@@ -58,10 +58,8 @@ class FieldVarCharOutput extends BaseFieldOutput {
   public boolean endField() {
     super.endField();
 
-    ScalarWriter colLoader = writer.scalar(currentFieldIndex);
-    if (colLoader != null) {
-      colLoader.setBytes(fieldBytes, currentDataPointer);
-    }
+    writer.scalar(currentFieldIndex)
+      .setBytes(fieldBytes, currentDataPointer);
 
     return currentFieldIndex < maxField;
   }

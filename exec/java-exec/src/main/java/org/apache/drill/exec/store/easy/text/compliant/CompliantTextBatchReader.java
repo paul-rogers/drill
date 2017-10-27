@@ -141,7 +141,6 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
       reader.start();
 
       return true;
-
     } catch (IOException e) {
       throw UserException.dataReadError(e).addContext("File Path", split.getPath().toString()).build(logger);
     }
@@ -166,7 +165,7 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
     // setup Input using InputStream
     // we should read file header irrespective of split given given to this reader
     InputStream hStream = dfs.openPossiblyCompressedStream(split.getPath());
-    TextInput hInput = new TextInput(settings,  hStream, readBuffer, 0, split.getLength());
+    TextInput hInput = new TextInput(settings, hStream, readBuffer, 0, split.getLength());
 
     // setup Reader using Input and Output
     this.reader = new TextReader(settings, hInput, hOutput, whitespaceBuffer);
@@ -197,8 +196,8 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
   public boolean next() {
     reader.resetForNextBatch();
 
-    try{
-      while(! writer.isFull() && reader.parseNext()){
+    try {
+      while (! writer.isFull() && reader.parseNext()) {
         ;
       }
       reader.finishBatch();

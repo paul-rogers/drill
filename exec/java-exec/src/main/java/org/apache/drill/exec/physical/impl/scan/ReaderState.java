@@ -74,10 +74,16 @@ class ReaderState {
     // we must close it on close() later.
 
     } catch (UserException e) {
+
+      // Throw user exceptions as-is
+
       throw e;
     } catch (Throwable t) {
+
+      // Wrap all others in a user exception.
+
       throw UserException.executionError(t)
-        .addContext("Open failed for reader", reader.getClass().getSimpleName())
+        .addContext("Open failed for reader", reader.name())
         .build(logger);
     }
 
@@ -200,7 +206,7 @@ class ReaderState {
       throw e;
     } catch (Throwable t) {
       throw UserException.executionError(t)
-        .addContext("Read failed for reader", reader.getClass().getSimpleName())
+        .addContext("Read failed for reader", reader.name())
         .build(logger);
     }
 
@@ -236,7 +242,7 @@ class ReaderState {
       throw e;
     } catch (Throwable t) {
       throw UserException.executionError(t)
-        .addContext("Close failed for reader", reader.getClass().getSimpleName())
+        .addContext("Close failed for reader", reader.name())
         .build(logger);
     } finally {
 

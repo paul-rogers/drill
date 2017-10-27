@@ -68,15 +68,16 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
       implements FileReaderCreator {
   private final static String DEFAULT_NAME = "text";
 
-  public static class TextScanBatchCreator
-        extends ScanFrameworkCreator<ColumnsSchemaNegotiator> {
+  public static class TextScanBatchCreator extends ScanFrameworkCreator {
 
     private final FileReaderCreator readerCreator;
+    private final TextFormatPlugin textPlugin;
 
-    public TextScanBatchCreator(EasyFormatPlugin<? extends FormatPluginConfig> plugin,
+    public TextScanBatchCreator(TextFormatPlugin plugin,
         FileReaderCreator readerCreator) {
       super(plugin);
       this.readerCreator = readerCreator;
+      textPlugin = plugin;
     }
 
     @Override
@@ -87,8 +88,14 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
               scan.getWorkUnits(),
               plugin.easyConfig().fsConf,
               readerCreator);
-      framework.setSelectionRoot(new Path(scan.getSelectionRoot()));
-      framework.useLegacyWildcardExpansion(true);
+
+      // If this format has no headers, or wants to skip them,
+      // then we must use the columns column to hold the data.
+
+      TextFormatConfig textConfig = textPlugin.getConfig();
+      framework.requireColumnsArray(
+          ! textConfig.isHeaderExtractionEnabled() ||
+          textConfig.skipFirstLine);
       return framework;
     }
   }

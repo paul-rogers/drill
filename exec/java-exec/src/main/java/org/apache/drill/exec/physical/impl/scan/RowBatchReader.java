@@ -86,6 +86,14 @@ import org.apache.drill.exec.store.RecordReader;
 public interface RowBatchReader {
 
   /**
+   * Name used when reporting errors. Can simply be the class name.
+   *
+   * @return display name for errors
+   */
+
+  String name();
+
+  /**
    * Setup the record reader. Called just before the first call
    * to <tt>next()</tt>. Allocate resources here, not in the constructor.
    * Example: open files, allocate buffers, etc.

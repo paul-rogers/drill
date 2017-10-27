@@ -39,6 +39,7 @@ import org.apache.drill.exec.physical.impl.WriterRecordBatch;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
 import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
+import org.apache.drill.exec.physical.impl.scan.file.BaseFileScanFramework;
 import org.apache.drill.exec.physical.impl.scan.file.BaseFileScanFramework.FileSchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileReaderCreator;
@@ -190,7 +191,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
    * vector and batch sizes. Use this for new format plugins.
    */
 
-  public abstract static class ScanFrameworkCreator<T extends SchemaNegotiator>
+  public abstract static class ScanFrameworkCreator
       implements ScanBatchCreator {
 
     protected EasyFormatPlugin<? extends FormatPluginConfig> plugin;
@@ -216,10 +217,13 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
       // Assemble the scan operator and its wrapper.
 
       try {
+        BaseFileScanFramework<?> framework = buildFramework(scan);
+        framework.setSelectionRoot(new Path(scan.getSelectionRoot()));
+        framework.useLegacyWildcardExpansion(true);
         return new OperatorRecordBatch(
             context, scan,
             new ScanOperatorExec(
-                buildFramework(scan)));
+                framework));
       } catch (UserException e) {
         // Rethrow user exceptions directly
         throw e;
@@ -229,7 +233,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
       }
     }
 
-    protected abstract AbstractScanFramework<T> buildFramework(
+    protected abstract BaseFileScanFramework<?> buildFramework(
         EasySubScan scan) throws ExecutionSetupException;
   }
 
@@ -239,8 +243,7 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
    * column, say) will require a specialized implementation.
    */
 
-  public abstract static class FileScanFrameworkCreator
-      extends ScanFrameworkCreator<FileSchemaNegotiator> {
+  public abstract static class FileScanFrameworkCreator extends ScanFrameworkCreator {
 
     private final FileReaderCreator readerCreator;
 
@@ -259,8 +262,6 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
               scan.getWorkUnits(),
               plugin.easyConfig().fsConf,
               readerCreator);
-      framework.setSelectionRoot(new Path(scan.getSelectionRoot()));
-      framework.useLegacyWildcardExpansion(true);
       return framework;
     }
   }

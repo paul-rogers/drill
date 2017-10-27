@@ -81,6 +81,7 @@ public class ColumnsScanFramework extends BaseFileScanFramework<ColumnsScanFrame
   }
 
   private final FileReaderCreator readerCreator;
+  private boolean requireColumnsArray;
   protected ColumnsArrayManager columnsArrayManager;
 
   public ColumnsScanFramework(List<SchemaPath> projection,
@@ -91,10 +92,14 @@ public class ColumnsScanFramework extends BaseFileScanFramework<ColumnsScanFrame
     this.readerCreator = readerCreator;
   }
 
+  public void requireColumnsArray(boolean flag) {
+    requireColumnsArray = flag;
+  }
+
   @Override
   protected void configure() {
     super.configure();
-    columnsArrayManager = new ColumnsArrayManager();
+    columnsArrayManager = new ColumnsArrayManager(requireColumnsArray);
     scanProjector.addParser(columnsArrayManager.projectionParser());
     scanProjector.addResolver(columnsArrayManager.resolver());
   }

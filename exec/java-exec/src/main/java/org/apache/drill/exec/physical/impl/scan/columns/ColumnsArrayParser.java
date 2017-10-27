@@ -28,7 +28,29 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.Scan
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
 import org.apache.drill.exec.vector.ValueVector;
 
+/**
+ * Parses the `columns` array. Doing so is surprisingly complex.
+ * <ul>
+ * <li>Depending on what is known about the input file, the `columns`
+ * array may be required or optional.</li>
+ * <li>If the columns array is required, then the wildcard (`*`)
+ * expands to `columns`.</li>
+ * <li>If the columns array appears, then no other table columns
+ * can appear.</li>
+ * <li>If the columns array appears, then the wildcard cannot also
+ * appear, unless that wildcard expanded to be `columns` as
+ * described above.</li>
+ * <li>The query can select specific elements such as `columns`[2].
+ * In this case, only array elements can appear, not the unindexed
+ * `columns` column.</li>
+ * </ul>
+ */
+
 public class ColumnsArrayParser implements ScanProjectionParser {
+
+  // Config
+
+  private final boolean requireColumnsArray;
 
   // Internals
 
@@ -40,7 +62,9 @@ public class ColumnsArrayParser implements ScanProjectionParser {
 
   private UnresolvedColumnsArrayColumn columnsArrayCol;
 
-  public ColumnsArrayParser() { }
+  public ColumnsArrayParser(boolean requireColumnsArray) {
+    this.requireColumnsArray = requireColumnsArray;
+  }
 
   @Override
   public void bind(ScanLevelProjection builder) {
@@ -49,6 +73,10 @@ public class ColumnsArrayParser implements ScanProjectionParser {
 
   @Override
   public boolean parse(SchemaPath inCol) {
+    if (requireColumnsArray && inCol.isWildcard()) {
+      expandWildcard();
+      return true;
+    }
     if (! inCol.nameEquals(ColumnsArrayManager.COLUMNS_COL)) {
       return false;
     }
@@ -57,6 +85,19 @@ public class ColumnsArrayParser implements ScanProjectionParser {
 
     mapColumnsArrayColumn(inCol);
     return true;
+  }
+
+  /**
+   * Query contained SELECT *, and we know that the reader supports only
+   * the `columns` array; go ahead and expand the wildcard to the only
+   * possible column.
+   */
+
+  private void expandWildcard() {
+    if (columnsArrayCol != null) {
+      throw new IllegalArgumentException("Cannot select columns[] and `*` together");
+    }
+    addColumnsArrayColumn(SchemaPath.getSimplePath(ColumnsArrayManager.COLUMNS_COL));
   }
 
   private void mapColumnsArrayColumn(SchemaPath inCol) {
@@ -120,8 +161,13 @@ public class ColumnsArrayParser implements ScanProjectionParser {
 
   @Override
   public void validateColumn(ColumnProjection col) {
-    if (columnsArrayCol != null && col.nodeType() == UnresolvedColumn.UNRESOLVED) {
-      throw new IllegalArgumentException("Cannot select columns[] and other table columns: " + col.name());
+    if (col.nodeType() == UnresolvedColumn.UNRESOLVED) {
+      if (columnsArrayCol != null) {
+        throw new IllegalArgumentException("Cannot select columns[] and other table columns: " + col.name());
+      }
+      if (requireColumnsArray) {
+        throw new IllegalArgumentException("Only `columns` column is allowed. Found: " + col.name());
+      }
     }
   }
 

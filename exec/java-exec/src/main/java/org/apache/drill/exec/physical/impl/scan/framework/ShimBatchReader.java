@@ -45,6 +45,11 @@ public class ShimBatchReader<T extends SchemaNegotiator> implements RowBatchRead
   }
 
   @Override
+  public String name() {
+    return reader.getClass().getSimpleName();
+  }
+
+  @Override
   public boolean open() {
 
     // Build and return the result set loader to be used by the reader.

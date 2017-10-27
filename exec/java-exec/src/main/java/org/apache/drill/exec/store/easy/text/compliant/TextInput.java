@@ -131,20 +131,19 @@ final class TextInput {
    */
   final void start() throws IOException {
     lineCount = 0;
-    if(startPos > 0){
+    if (startPos > 0) {
       seekable.seek(startPos);
     }
 
     updateBuffer();
     if (length > 0) {
-      if(startPos > 0 || settings.isSkipFirstLine()){
+      if (startPos > 0 || settings.isSkipFirstLine()) {
 
         // move to next full record.
         skipLines(1);
       }
     }
   }
-
 
   /**
    * Helper method to get the most recent characters consumed since the last record started.
@@ -165,9 +164,9 @@ final class TextInput {
    * @throws IOException
    */
   private void read() throws IOException {
-    if(bufferReadable){
+    if (bufferReadable) {
 
-      if(remByte != -1){
+      if (remByte != -1) {
         for (int i = 0; i <= remByte; i++) {
           underlyingBuffer.put(lineSeparator[i]);
         }
@@ -178,12 +177,12 @@ final class TextInput {
     }else{
 
       byte[] b = new byte[underlyingBuffer.capacity()];
-      if(remByte != -1){
+      if (remByte != -1) {
         int remBytesNum = remByte + 1;
         System.arraycopy(lineSeparator, 0, b, 0, remBytesNum);
         length = input.read(b, remBytesNum, b.length - remBytesNum);
         remByte = -1;
-      }else{
+      } else {
         length = input.read(b);
       }
       underlyingBuffer.put(b);
@@ -198,7 +197,7 @@ final class TextInput {
     streamPos = seekable.getPos();
     underlyingBuffer.clear();
 
-    if(endFound){
+    if (endFound) {
       length = -1;
       return;
     }
@@ -206,7 +205,7 @@ final class TextInput {
     read();
 
     // check our data read allowance.
-    if(streamPos + length >= this.endPos){
+    if (streamPos + length >= this.endPos) {
       updateLengthBasedOnConstraint();
     }
 
@@ -215,7 +214,6 @@ final class TextInput {
 
     buffer.writerIndex(underlyingBuffer.limit());
     buffer.readerIndex(underlyingBuffer.position());
-
   }
 
   /**
@@ -255,27 +253,27 @@ final class TextInput {
     byte byteChar = nextCharNoNewLineCheck();
     int bufferPtrTemp = bufferPtr - 1;
     if (byteChar == lineSeparator[0]) {
-       for (int i = 1; i < lineSeparator.length; i++, bufferPtrTemp++) {
-         if (lineSeparator[i] != buffer.getByte(bufferPtrTemp)) {
-           return byteChar;
-         }
-       }
+      for (int i = 1; i < lineSeparator.length; i++, bufferPtrTemp++) {
+        if (lineSeparator[i] != buffer.getByte(bufferPtrTemp)) {
+          return byteChar;
+        }
+      }
 
-        lineCount++;
-        byteChar = normalizedLineSeparator;
+      lineCount++;
+      byteChar = normalizedLineSeparator;
 
-        // we don't need to update buffer position if line separator is one byte long
-        if (lineSeparator.length > 1) {
-          bufferPtr += (lineSeparator.length - 1);
-          if (bufferPtr >= length) {
-            if (length != -1) {
-              updateBuffer();
-            } else {
-              throw StreamFinishedPseudoException.INSTANCE;
-            }
+      // we don't need to update buffer position if line separator is one byte long
+      if (lineSeparator.length > 1) {
+        bufferPtr += (lineSeparator.length - 1);
+        if (bufferPtr >= length) {
+          if (length != -1) {
+            updateBuffer();
+          } else {
+            throw StreamFinishedPseudoException.INSTANCE;
           }
         }
       }
+    }
 
     return byteChar;
   }
@@ -308,7 +306,6 @@ final class TextInput {
     }
 
     bufferPtr++;
-
     return byteChar;
   }
 
@@ -316,9 +313,7 @@ final class TextInput {
    * Number of lines read since the start of this split.
    * @return
    */
-  public final long lineCount() {
-    return lineCount;
-  }
+  public final long lineCount() { return lineCount; }
 
   /**
    * Skip forward the number of line delimiters.  If you are in the middle of a line,
@@ -348,9 +343,7 @@ final class TextInput {
     return charCount + bufferPtr;
   }
 
-  public long getLineCount() {
-    return lineCount;
-  }
+  public long getLineCount() {  return lineCount; }
 
   public void close() throws IOException{
     input.close();

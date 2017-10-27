@@ -124,6 +124,7 @@ public final class TextReader {
       skipWhitespace();
     }
 
+    output.startRecord();
     int fieldsWritten = 0;
     try {
       boolean earlyTerm = false;
@@ -145,13 +146,9 @@ public final class TextReader {
           break;
         }
       }
-    } catch(StreamFinishedPseudoException e) {
-      // if we've written part of a field or all of a field, we should send this row.
+    } finally {
       output.finishRecord();
-      throw e;
     }
-
-    output.finishRecord();
     return true;
   }
 
@@ -173,10 +170,8 @@ public final class TextReader {
     this.ch = ch;
   }
 
-  public void appendIgnoringWhitespace(byte data){
-    if (isWhite(data)){
-      // noop
-    } else {
+  public void appendIgnoringWhitespace(byte data) {
+    if (! isWhite(data)) {
       output.append(data);
     }
   }
@@ -344,7 +339,6 @@ public final class TextReader {
     input.start();
   }
 
-
   /**
    * Parses the next record from the input. Will skip the line if its a comment,
    * this is required when the file contains headers
@@ -369,7 +363,7 @@ public final class TextReader {
       if (! success) {
         return false;
       }
-      if (! context.isFull()) {
+      if (context.isFull()) {
         context.stop();
       }
       return true;
@@ -386,9 +380,7 @@ public final class TextReader {
     }
   }
 
-  private void stopParsing(){
-
-  }
+  private void stopParsing() { }
 
   private String displayLineSeparators(String str, boolean addNewLine) {
     if (addNewLine) {

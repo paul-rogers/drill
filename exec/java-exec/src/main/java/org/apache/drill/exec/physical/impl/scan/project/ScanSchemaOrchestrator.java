@@ -172,7 +172,9 @@ public class ScanSchemaOrchestrator {
     }
 
     public void setBatchSize(int size) {
-      readerBatchSize = Math.min(size, scanBatchRecordLimit);
+      if (size > 0) {
+        readerBatchSize = Math.min(size, scanBatchRecordLimit);
+      }
     }
 
     public ResultSetLoader makeTableLoader(TupleMetadata tableSchema) {

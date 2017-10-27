@@ -145,6 +145,7 @@ public class ScanLevelProjection {
   // Output
 
   protected List<ColumnProjection> outputCols = new ArrayList<>();
+  protected boolean sawWildcard;
   protected boolean hasWildcard;
 
   /**
@@ -196,21 +197,33 @@ public class ScanLevelProjection {
 
       // Star column: this is a SELECT * query.
 
-      if (hasWildcard) {
+      if (sawWildcard) {
         throw new IllegalArgumentException("Duplicate * entry in project list");
       }
 
-      // Put the wildcard column into the projection list as a placeholder to be filled
-      // in later with actual table columns.
+      // Remember the wildcard position, if we need to insert it.
+      // Ensures that the main wildcard expansion occurs before add-on
+      // columns.
 
-      outputCols.add(new UnresolvedColumn(inCol, UnresolvedColumn.WILDCARD));
+      int wildcardPosn = outputCols.size();
 
-      // Parsers can "sniff" but not consume the wildcard.
+      // Parsers can consume the wildcard.
 
       for (ScanProjectionParser parser : parsers) {
-        parser.parse(inCol);
+        if (parser.parse(inCol)) {
+          wildcardPosn = -1;
+          break;
+        }
       }
-      hasWildcard = true;
+      sawWildcard = true;
+
+      // If not consumed, put the wildcard column into the projection list as a
+      // placeholder to be filled in later with actual table columns.
+
+      if (wildcardPosn != -1) {
+        outputCols.add(wildcardPosn, new UnresolvedColumn(inCol, UnresolvedColumn.WILDCARD));
+        hasWildcard = true;
+      }
       return;
     }
 
