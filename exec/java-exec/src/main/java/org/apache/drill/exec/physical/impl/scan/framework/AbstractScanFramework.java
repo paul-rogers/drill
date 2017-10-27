@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.physical.impl.scan.framework;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.expression.SchemaPath;
@@ -42,56 +41,42 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
 
 public abstract class AbstractScanFramework<T extends SchemaNegotiator> implements ScanOperatorEvents {
 
-  /**
-   * Extensible configuration for a scan.
-   * <p>
-   * Note: does not use the fluent style because many
-   * subclasses exist.
-   */
-
-  public static class AbstractScanConfig<T extends SchemaNegotiator> {
-    protected List<SchemaPath> projection = new ArrayList<>();
-    protected MajorType nullType;
-    protected int maxBatchRowCount;
-    protected int maxBatchByteCount;
-
-    /**
-     * Specify the type to use for projected columns that do not
-     * match any data source columns. Defaults to nullable int.
-     */
-
-    public void setNullType(MajorType type) {
-      this.nullType = type;
-    }
-
-    public void setProjection(List<SchemaPath> projection) {
-      this.projection = projection;
-    }
-
-    public void setMaxRowCount(int rowCount) {
-      maxBatchRowCount = rowCount;
-    }
-
-    public void setMaxBatchByteCount(int byteCount) {
-      maxBatchByteCount = byteCount;
-    }
-
-    public MajorType nullType() { return nullType; }
-    public List<SchemaPath> projection() { return projection; }
-    public int maxBatchRowCount() { return maxBatchRowCount; }
-    public int maxBatchByteCount() { return maxBatchByteCount; }
-  }
-
+  protected final List<SchemaPath> projection;
+  protected MajorType nullType;
+  protected int maxBatchRowCount;
+  protected int maxBatchByteCount;
   protected OperatorContext context;
   protected ScanSchemaOrchestrator scanProjector;
+
+  public AbstractScanFramework(List<SchemaPath> projection) {
+    this.projection = projection;
+  }
+
+  /**
+   * Specify the type to use for projected columns that do not
+   * match any data source columns. Defaults to nullable int.
+   */
+
+  public void setNullType(MajorType type) {
+    this.nullType = type;
+  }
+
+  public void setMaxRowCount(int rowCount) {
+    maxBatchRowCount = rowCount;
+  }
+
+  public void setMaxBatchByteCount(int byteCount) {
+    maxBatchByteCount = byteCount;
+  }
 
   @Override
   public void bind(OperatorContext context) {
     this.context = context;
     scanProjector = new ScanSchemaOrchestrator(context.getAllocator());
-   }
-
-  protected abstract AbstractScanConfig<T> scanConfig();
+    configure();
+    assert projection != null  &&  ! projection.isEmpty();
+    scanProjector.build(projection);
+  }
 
   public OperatorContext context() { return context; }
 
@@ -99,29 +84,22 @@ public abstract class AbstractScanFramework<T extends SchemaNegotiator> implemen
     return scanProjector;
   }
 
-  protected void configure(AbstractScanConfig<T> scanConfig) {
+  protected void configure() {
 
     // Pass along config options if set.
 
-    if (scanConfig.maxBatchRowCount() > 0) {
-      scanProjector.setBatchRecordLimit(scanConfig.maxBatchRowCount());
+    if (maxBatchRowCount > 0) {
+      scanProjector.setBatchRecordLimit(maxBatchRowCount);
     }
-    if (scanConfig.maxBatchByteCount() > 0) {
-      scanProjector.setBatchByteLimit(scanConfig.maxBatchByteCount());
+    if (maxBatchByteCount > 0) {
+      scanProjector.setBatchByteLimit(maxBatchByteCount);
     }
-    if (scanConfig.nullType() != null) {
-      scanProjector.setNullType(scanConfig.nullType());
+    if (nullType != null) {
+      scanProjector.setNullType(nullType);
     }
   }
 
-  protected void buildProjection(AbstractScanConfig<T> scanConfig) {
-
-    // The minimum option is the projection list, which must be set
-    // if only to SELECT *.
-
-    assert scanConfig.projection() != null  &&  ! scanConfig.projection().isEmpty();
-    scanProjector.build(scanConfig.projection());
-  }
+  public abstract boolean openReader(ShimBatchReader<T> shim, ManagedReader<T> reader);
 
   @Override
   public void close() {

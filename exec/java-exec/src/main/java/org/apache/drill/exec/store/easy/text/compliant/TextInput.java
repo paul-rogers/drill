@@ -190,7 +190,6 @@ final class TextInput {
     }
   }
 
-
   /**
    * Read more data into the buffer.  Will also manage split end conditions.
    * @throws IOException

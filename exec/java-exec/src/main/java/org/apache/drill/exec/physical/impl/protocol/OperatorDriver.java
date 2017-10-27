@@ -57,7 +57,7 @@ public class OperatorDriver {
       case RUN:
         return doNext();
        default:
-        OperatorRecordBatch.logger.debug("Extra call to next() in state " + state + ": " + getOperatorLabel());
+        OperatorRecordBatch.logger.debug("Extra call to next() in state " + state + ": " + operatorLabel());
         return IterOutcome.NONE;
       }
     } catch (UserException e) {
@@ -68,7 +68,7 @@ public class OperatorDriver {
       cancelSilently();
       state = State.FAILED;
       throw UserException.executionError(t)
-        .addContext("Exception thrown from", getOperatorLabel())
+        .addContext("Exception thrown from", operatorLabel())
         .build(OperatorRecordBatch.logger);
     }
   }
@@ -142,11 +142,11 @@ public class OperatorDriver {
       }
     } catch (Throwable t) {
       // Ignore; we're already in a bad state.
-      OperatorRecordBatch.logger.error("Exception thrown from cancel() for " + getOperatorLabel(), t);
+      OperatorRecordBatch.logger.error("Exception thrown from cancel() for " + operatorLabel(), t);
     }
   }
 
-  private String getOperatorLabel() {
+  private String operatorLabel() {
     return operatorExec.getClass().getCanonicalName();
   }
 
@@ -160,7 +160,7 @@ public class OperatorDriver {
       throw e;
     } catch (Throwable t) {
       throw UserException.executionError(t)
-        .addContext("Exception thrown from", getOperatorLabel())
+        .addContext("Exception thrown from", operatorLabel())
         .build(OperatorRecordBatch.logger);
     } finally {
       opContext.close();
@@ -172,7 +172,7 @@ public class OperatorDriver {
     return batchAccessor;
   }
 
-  public OperatorContext getOperatorContext() {
+  public OperatorContext operatorContext() {
     return opContext;
   }
 }

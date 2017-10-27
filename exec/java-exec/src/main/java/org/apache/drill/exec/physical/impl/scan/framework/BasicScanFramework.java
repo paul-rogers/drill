@@ -18,116 +18,41 @@
 package org.apache.drill.exec.physical.impl.scan.framework;
 
 import java.util.Iterator;
+import java.util.List;
 
-import org.apache.drill.exec.ops.OperatorContext;
+import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.RowBatchReader;
-import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 
 /**
  * Basic scan framework for simple non-file readers. Includes only
- * schema negotiation, but no implicit columns.
+ * schema negotiation, but no implicit columns. Readers are assumed
+ * to be created ahead of time and passed into the framework
+ * in the constructor.
  */
 
 public class BasicScanFramework extends AbstractScanFramework<SchemaNegotiator> {
 
-  public static class BasicScanConfig extends AbstractScanConfig<SchemaNegotiator> {
+  private Iterator<ManagedReader<SchemaNegotiator>> iterator;
 
-    protected Iterator<BasicBatchReader> readerFactory;
-
-    public void setReaderFactory(Iterator<BasicBatchReader> iterator) {
-      this.readerFactory = iterator;
-    }
-  }
-
-  /**
-   * Implementation of the schema negotiation between scan operator and
-   * batch reader. Anticipates that the select list (and/or the list of
-   * predefined fields (implicit, partition) might be set by the scanner.
-   * For now, all readers have their own implementation of the select
-   * set.
-   * <p>
-   * Handles both early- and late-schema readers. Early-schema readers
-   * provide a table schema, late-schema readers do not.
-   * <p>
-   * If the reader (or, later, the scanner) has a SELECT list, then that
-   * select list is pushed down into the result set loader created for
-   * the reader.
-   * <p>
-   * Also handles parsing out various column types, filling in null
-   * columns and (via the vector cache), minimizing changes across
-   * readers. In the worst case, a reader might have a column "c" in
-   * one file, might skip "c" in the second file, and "c" may appear again
-   * in a third file. This negotiator, along with the scan projection
-   * and vector cache, "smoothes out" schema changes by preserving the vector
-   * for "c" across all three files. In the first and third files "c" is
-   * a vector written by the reader, in the second, it is a null column
-   * filled in by the scan projector (assuming, of course, that "c"
-   * is nullable or an array.)
-   */
-
-  public static class BasicSchemaNegotiatorImpl extends AbstractSchemaNegotiatorImpl {
-
-    private final BasicReaderShim shim;
-
-    public BasicSchemaNegotiatorImpl(OperatorContext context, BasicReaderShim shim) {
-      super(context);
-      this.shim = shim;
-    }
-
-    /**
-     * Callback from the schema negotiator to build the schema from information from
-     * both the table and scan operator. Returns the result set loader to be used
-     * by the reader to write to the table's value vectors.
-     *
-     * @param schemaNegotiator builder given to the reader to provide it's
-     * schema information
-     * @return the result set loader to be used by the reader
-     */
-
-    @Override
-    public ResultSetLoader build() {
-
-      // Build and return the result set loader to be used by the reader.
-
-      return shim.build(this);
-    }
-  }
-
-  public static class BasicReaderShim extends AbstractReaderShim<SchemaNegotiator> {
-
-    public BasicReaderShim(BasicScanFramework framework, ManagedReader<SchemaNegotiator> reader) {
-      super(framework, reader);
-    }
-
-    @Override
-    protected boolean openReader() {
-      SchemaNegotiator schemaNegotiator = new BasicSchemaNegotiatorImpl(manager.context(), this);
-      return reader.open(schemaNegotiator);
-    }
-  }
-
-  private BasicScanConfig scanConfig;
-
-  public BasicScanFramework(BasicScanConfig config) {
-    this.scanConfig = config;
-  }
-
-  @Override
-  protected AbstractScanConfig<SchemaNegotiator> scanConfig() { return scanConfig; }
-
-  @Override
-  public void bind(OperatorContext context) {
-    super.bind(context);
-    configure(scanConfig);
-    buildProjection(scanConfig);
+  public BasicScanFramework(List<SchemaPath> projection,
+      Iterator<ManagedReader<SchemaNegotiator>> iterator) {
+    super(projection);
+    this.iterator = iterator;
   }
 
   @Override
   public RowBatchReader nextReader() {
-    if (! scanConfig.readerFactory.hasNext()) {
+    if (! iterator.hasNext()) {
       return null;
     }
-    BasicBatchReader reader = scanConfig.readerFactory.next();
-    return new BasicReaderShim(this, reader);
+    ManagedReader<SchemaNegotiator> reader = iterator.next();
+    return new ShimBatchReader<SchemaNegotiator>(this, reader);
+  }
+
+  @Override
+  public boolean openReader(ShimBatchReader<SchemaNegotiator> shim,
+      ManagedReader<SchemaNegotiator> reader) {
+    SchemaNegotiatorImpl schemaNegotiator = new SchemaNegotiatorImpl(context, shim);
+    return reader.open(schemaNegotiator);
   }
 }

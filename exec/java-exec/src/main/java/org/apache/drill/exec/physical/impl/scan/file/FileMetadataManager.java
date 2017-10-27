@@ -183,8 +183,18 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
    * <a href="https://issues.apache.org/jira/browse/DRILL-5542">DRILL-5542</a>.
    * If true, then the star column <i>includes</i> implicit and partition
    * columns. If false, then star matches <i>only</i> table columns.
-   * @param flag true to use the legacy plan, false to use the revised
+   *
+   * @param optionManager access to the options for this query; used
+   * too look up custom names for the metadata columns
+   * @param useLegacyWildcardExpansion true to use the legacy plan, false to use the revised
    * semantics
+   * @param rootDir when scanning multiple files, the root directory for
+   * the file set. Unfortunately, the planner is ambiguous on this one; if the
+   * query is against a single file, then this variable holds the name of that
+   * one file, rather than a directory
+   * @param files the set of files to scan. Used to compute the maximum partition
+   * depth across all readers in this fragment
+   *
    * @return this builder
    */
 
@@ -205,10 +215,22 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
     }
     parser = new FileMetadataColumnsParser(this);
 
-    if (scanRootDir != null  &&  files != null) {
-      partitionCount = computeMaxPartition(files);
-    } else {
+    // The files and root dir are optional.
+
+    if (scanRootDir == null || files == null) {
       partitionCount = 0;
+
+    // Special case in which the file is the same as the
+    // root directory (occurs for a query with only one file.)
+
+    } else if (files.size() == 1 && scanRootDir.equals(files.get(0))) {
+      scanRootDir = null;
+      partitionCount = 0;
+    } else {
+
+      // Compute the partitions.
+
+      partitionCount = computeMaxPartition(files);
     }
   }
 

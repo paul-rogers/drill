@@ -22,26 +22,32 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
+import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.TestScanOperatorExec.AbstractScanOpFixture;
+import org.apache.drill.exec.physical.impl.scan.file.BaseFileScanFramework;
+import org.apache.drill.exec.physical.impl.scan.file.BaseFileScanFramework.FileSchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework;
-import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileScanConfig;
-import org.apache.drill.exec.physical.impl.scan.file.FileBatchReader;
-import org.apache.drill.exec.physical.impl.scan.framework.AbstractScanFramework.AbstractScanConfig;
-import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
+import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileReaderCreator;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.store.dfs.DrillFileSystem;
+import org.apache.drill.exec.store.dfs.easy.FileWork;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.SchemaBuilder;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.mapred.FileSplit;
 import org.junit.Test;
 
 /**
@@ -53,40 +59,90 @@ public class TestFileScanFramework extends SubOperatorTest {
   private static final String MOCK_FILE_NAME = "foo.csv";
   private static final String MOCK_FILE_PATH = "/w/x/y";
   private static final String MOCK_FILE_FQN = MOCK_FILE_PATH + "/" + MOCK_FILE_NAME;
-  private static final String MOCK_FILE_SYSTEM_NAME = "hdfs:" + MOCK_FILE_FQN;
-  private static final Path MOCK_ROOT_PATH = new Path("hdfs:///w");
+  private static final String MOCK_FILE_SYSTEM_NAME = "file:" + MOCK_FILE_FQN;
+  private static final Path MOCK_ROOT_PATH = new Path("file:/w");
   private static final String MOCK_SUFFIX = "csv";
   private static final String MOCK_DIR0 = "x";
   private static final String MOCK_DIR1 = "y";
 
-  public static class FileScanOpFixture extends AbstractScanOpFixture {
+  /**
+   * For schema-based testing, we only need the file path
+   * from the file work
+   */
 
-    public final FileScanConfig scanConfig = new FileScanConfig();
-    public final List<FileBatchReader> readers = new ArrayList<>();
-    public FileScanFramework framework;
+  public static class DummyFileWork implements FileWork {
 
-    public FileScanOpFixture() {
-      scanConfig.setSelectionRoot(MOCK_ROOT_PATH);
-    }
+    private final Path path;
 
-    public void addReader(FileBatchReader reader) {
-      readers.add(reader);
-    }
-
-    public void addPath(Path filePath) {
-      scanConfig.addFile(filePath);
-    }
-
-    public ScanOperatorExec build() {
-      scanConfig.setReaderFactory(readers.iterator());
-      framework = new FileScanFramework(scanConfig);
-      return buildScanOp(framework);
+    public DummyFileWork(Path path) {
+      this.path = path;
     }
 
     @Override
-    public AbstractScanConfig<? extends SchemaNegotiator> scanConfig() {
-      return scanConfig;
+    public String getPath() { return path.toString(); }
+
+    @Override
+    public long getStart() { return 0; }
+
+    @Override
+    public long getLength() { return 0; }
+  }
+
+  /**
+   * Fixture class to assemble all the knick-knacks that make up a
+   * file scan framework. The parts have a form unique to testing
+   * since we are not actually doing real scans.
+   */
+
+  public abstract static class BaseFileScanOpFixture extends AbstractScanOpFixture {
+
+    protected Path selectionRoot = MOCK_ROOT_PATH;
+    protected List<FileWork> files = new ArrayList<>();
+    protected Configuration fsConfig = new Configuration();
+
+    public ScanOperatorExec build() {
+      BaseFileScanFramework<?> framework = buildFramework();
+      configure(framework);
+      configureFileScan(framework);
+      return buildScanOp(framework);
     }
+
+    protected abstract BaseFileScanFramework<?> buildFramework();
+
+    private void configureFileScan(BaseFileScanFramework<?> framework) {
+      framework.setSelectionRoot(selectionRoot);
+    }
+  }
+
+  public static class FileScanOpFixture extends BaseFileScanOpFixture implements FileReaderCreator {
+
+    protected final List<MockFileReader> readers = new ArrayList<>();
+    protected Iterator<MockFileReader> readerIter;
+
+    public void addReader(MockFileReader reader) {
+      readers.add(reader);
+      files.add(new DummyFileWork(reader.filePath()));
+    }
+
+    @Override
+    protected BaseFileScanFramework<?> buildFramework() {
+      readerIter = readers.iterator();
+      return new FileScanFramework(projection, files, fsConfig, this);
+    }
+
+    @Override
+    public ManagedReader<FileSchemaNegotiator> makeBatchReader(
+        DrillFileSystem dfs,
+        FileSplit split) throws ExecutionSetupException {
+      if (! readerIter.hasNext()) {
+        return null;
+      }
+      return readerIter.next();
+    }
+  }
+
+  private interface MockFileReader extends ManagedReader<FileSchemaNegotiator> {
+    Path filePath();
   }
 
   /**
@@ -97,7 +153,7 @@ public class TestFileScanFramework extends SubOperatorTest {
    * were actually called.
    */
 
-  private static abstract class BaseMockBatchReader implements FileBatchReader {
+  private static abstract class BaseMockBatchReader implements MockFileReader {
     public boolean openCalled;
     public boolean closeCalled;
     public int startIndex;
@@ -106,11 +162,8 @@ public class TestFileScanFramework extends SubOperatorTest {
     protected ResultSetLoader tableLoader;
     protected Path filePath = new Path(MOCK_FILE_SYSTEM_NAME);
 
-    protected void buildFilePath(FileSchemaNegotiator schemaNegotiator) {
-      if (filePath != null) {
-        schemaNegotiator.setFilePath(filePath);
-      }
-    }
+    @Override
+    public Path filePath() { return filePath; }
 
     protected void makeBatch() {
       RowSetLoader writer = tableLoader.writer();
@@ -150,7 +203,6 @@ public class TestFileScanFramework extends SubOperatorTest {
 
       // No schema or file, just build the table loader.
 
-      buildFilePath(schemaNegotiator);
       tableLoader = schemaNegotiator.build();
       openCalled = true;
       return true;
@@ -188,7 +240,6 @@ public class TestFileScanFramework extends SubOperatorTest {
     @Override
     public boolean open(FileSchemaNegotiator schemaNegotiator) {
       openCalled = true;
-      buildFilePath(schemaNegotiator);
       TupleMetadata schema = new SchemaBuilder()
           .add("a", MinorType.INT)
           .addNullable("b", MinorType.VARCHAR, 10)
@@ -224,7 +275,6 @@ public class TestFileScanFramework extends SubOperatorTest {
     FileScanOpFixture scanFixture = new FileScanOpFixture();
     scanFixture.projectAll();
     scanFixture.addReader(reader);
-    scanFixture.addPath(reader.filePath);
     ScanOperatorExec scan = scanFixture.build();
 
     // Standard startup
@@ -289,7 +339,6 @@ public class TestFileScanFramework extends SubOperatorTest {
     FileScanOpFixture scanFixture = new FileScanOpFixture();
     scanFixture.setProjection(new String[] {"a", "b", "filename", "suffix"});
     scanFixture.addReader(reader);
-    scanFixture.addPath(reader.filePath);
     ScanOperatorExec scan = scanFixture.build();
 
     // Expect data and implicit columns
@@ -342,7 +391,6 @@ public class TestFileScanFramework extends SubOperatorTest {
     FileScanOpFixture scanFixture = new FileScanOpFixture();
     scanFixture.setProjection(new String[] {"dir0", "b", "filename", "c", "suffix"});
     scanFixture.addReader(reader);
-    scanFixture.addPath(reader.filePath);
     ScanOperatorExec scan = scanFixture.build();
 
     // Expect data and implicit columns

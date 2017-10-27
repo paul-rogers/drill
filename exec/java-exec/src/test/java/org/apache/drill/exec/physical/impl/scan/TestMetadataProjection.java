@@ -357,4 +357,5 @@ public class TestMetadataProjection extends SubOperatorTest {
 
   // TODO: Test more partition cols in select than are available dirs
   // TODO: Test customizing partition name, implicit col names.
+  // TODO: Test a single-file scan in which the root dir is the same as the one and only file.
 }

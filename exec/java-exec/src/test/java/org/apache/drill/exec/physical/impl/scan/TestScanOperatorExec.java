@@ -34,10 +34,9 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.base.AbstractSubScan;
 import org.apache.drill.exec.physical.base.Scan;
-import org.apache.drill.exec.physical.impl.scan.framework.AbstractScanFramework.AbstractScanConfig;
-import org.apache.drill.exec.physical.impl.scan.framework.BasicBatchReader;
+import org.apache.drill.exec.physical.impl.scan.framework.AbstractScanFramework;
 import org.apache.drill.exec.physical.impl.scan.framework.BasicScanFramework;
-import org.apache.drill.exec.physical.impl.scan.framework.BasicScanFramework.BasicScanConfig;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
@@ -74,7 +73,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
    * were actually called.
    */
 
-  private static abstract class BaseMockBatchReader implements BasicBatchReader {
+  private static abstract class BaseMockBatchReader implements ManagedReader<SchemaNegotiator> {
     public boolean openCalled;
     public boolean closeCalled;
     public int startIndex;
@@ -253,22 +252,38 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   public abstract static class AbstractScanOpFixture {
     private OperatorContext context;
+    protected List<SchemaPath> projection;
     public ScanOperatorExec scanOp;
-
-    public abstract AbstractScanConfig<? extends SchemaNegotiator> scanConfig();
+    private int batchByteCount;
+    private int maxRowCount;
 
     public void projectAll() {
-      List<SchemaPath> cols = new ArrayList<>();
-      cols.add(SchemaPath.STAR_COLUMN);
-      scanConfig().setProjection(cols);
+      projection = new ArrayList<>();
+      projection.add(SchemaPath.STAR_COLUMN);
     }
 
-    public void setProjection(String[] projection) {
-      List<SchemaPath> cols = new ArrayList<>();
-      for (String col : projection) {
-        cols.add(SchemaPath.getSimplePath(col));
+    public void setProjection(String[] projCols) {
+      projection = new ArrayList<>();
+      for (String col : projCols) {
+        projection.add(SchemaPath.getSimplePath(col));
       }
-      scanConfig().setProjection(cols);
+    }
+
+    public void setProjection(List<SchemaPath> cols) {
+      projection = cols;
+    }
+
+    public void setMaxBatchByteCount(int byteCount) {
+      batchByteCount = byteCount;
+    }
+
+    public void setMaxRowCount(int rowCount) {
+      maxRowCount = rowCount;
+    }
+
+    protected void configure(AbstractScanFramework<?> framework) {
+      framework.setMaxBatchByteCount(batchByteCount);
+      framework.setMaxRowCount(maxRowCount);
     }
 
     protected ScanOperatorExec buildScanOp(ScanOperatorEvents framework) {
@@ -301,23 +316,17 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
   public static class BasicScanOpFixture extends AbstractScanOpFixture {
 
-    public final BasicScanConfig scanConfig = new BasicScanConfig();
-    public final List<BasicBatchReader> readers = new ArrayList<>();
+    public final List<ManagedReader<SchemaNegotiator>> readers = new ArrayList<>();
     public BasicScanFramework framework;
 
-    public void addReader(BasicBatchReader reader) {
+    public void addReader(ManagedReader<SchemaNegotiator> reader) {
       readers.add(reader);
     }
 
     public ScanOperatorExec build() {
-      scanConfig.setReaderFactory(readers.iterator());
-      framework = new BasicScanFramework(scanConfig);
+      framework = new BasicScanFramework(projection, readers.iterator());
+      configure(framework);
       return buildScanOp(framework);
-    }
-
-    @Override
-    public AbstractScanConfig<? extends SchemaNegotiator> scanConfig() {
-      return scanConfig;
     }
   }
 
@@ -1206,8 +1215,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
 
     // Want overflow, set size and row counts at their limits.
 
-    scanFixture.scanConfig.setMaxBatchByteCount(ScanSchemaOrchestrator.MAX_BATCH_BYTE_SIZE);
-    scanFixture.scanConfig.setMaxRowCount(ScanSchemaOrchestrator.MAX_BATCH_ROW_COUNT);
+    scanFixture.setMaxBatchByteCount(ScanSchemaOrchestrator.MAX_BATCH_BYTE_SIZE);
+    scanFixture.setMaxRowCount(ScanSchemaOrchestrator.MAX_BATCH_ROW_COUNT);
     ScanOperatorExec scan = scanFixture.build();
 
     assertTrue(scan.buildSchema());

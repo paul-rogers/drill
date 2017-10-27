@@ -19,40 +19,29 @@ package org.apache.drill.exec.store.easy.text.compliant;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.List;
-
-import javax.annotation.Nullable;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.exception.SchemaChangeException;
-import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.OperatorContext;
-import org.apache.drill.exec.physical.impl.OutputMutator;
-import org.apache.drill.exec.physical.impl.scan.file.FileBatchReader;
-import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.physical.impl.scan.columns.ColumnsScanFramework.ColumnsSchemaNegotiator;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleSchema;
-import org.apache.drill.exec.store.AbstractRecordReader;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.hadoop.mapred.FileSplit;
 
-import com.google.common.base.Predicate;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.univocity.parsers.common.TextParsingException;
 
 import io.netty.buffer.DrillBuf;
 
 // New text reader, complies with the RFC 4180 standard for text/csv files
-public class CompliantTextRecordReader implements FileBatchReader {
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CompliantTextRecordReader.class);
+public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNegotiator> {
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CompliantTextBatchReader.class);
 
   private static final int MAX_RECORDS_PER_BATCH = 8096;
   private static final int READ_BUFFER = 1024*1024;
@@ -72,7 +61,7 @@ public class CompliantTextRecordReader implements FileBatchReader {
 
   private RowSetLoader writer;
 
-  public CompliantTextRecordReader(FileSplit split, DrillFileSystem dfs, TextParsingSettings settings) {
+  public CompliantTextBatchReader(FileSplit split, DrillFileSystem dfs, TextParsingSettings settings) {
     this.split = split;
     this.settings = settings;
     this.dfs = dfs;
@@ -89,7 +78,7 @@ public class CompliantTextRecordReader implements FileBatchReader {
 
   @SuppressWarnings("resource")
   @Override
-  public boolean open(FileSchemaNegotiator schemaNegotiator) {
+  public boolean open(ColumnsSchemaNegotiator schemaNegotiator) {
     OperatorContext context = schemaNegotiator.context();
 
     // Note: DO NOT use managed buffers here. They remain in existence
@@ -139,7 +128,7 @@ public class CompliantTextRecordReader implements FileBatchReader {
               .setMode(DataMode.REPEATED)
               .build()));
         writer = schemaNegotiator.build().writer();
-        output = new RepeatedVarCharOutput(writer, schemaNegotiator.columnsArrayProjectionMap());
+        output = new RepeatedVarCharOutput(writer, schemaNegotiator.projectedIndexes());
       }
 
       // setup Input using InputStream
@@ -172,7 +161,7 @@ public class CompliantTextRecordReader implements FileBatchReader {
     // don't skip header in case skipFirstLine is set true
     settings.setSkipFirstLine(false);
 
-    HeaderBuilder hOutput = new HeaderBuilder();
+    HeaderBuilder hOutput = new HeaderBuilder(split.getPath());
 
     // setup Input using InputStream
     // we should read file header irrespective of split given given to this reader

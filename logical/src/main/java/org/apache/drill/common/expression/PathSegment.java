@@ -280,7 +280,7 @@ public abstract class PathSegment {
    * @param otherSeg - path segment to check if it is contained below this one.
    * @return - is this a match
    */
-  
+
   public boolean contains(PathSegment otherSeg) {
     if (this == otherSeg) {
       return true;

@@ -29,16 +29,16 @@ import org.apache.drill.exec.record.VectorContainer;
  * read by the actual row batch reader.
  */
 
-public abstract class AbstractReaderShim<T extends SchemaNegotiator> implements RowBatchReader {
+public class ShimBatchReader<T extends SchemaNegotiator> implements RowBatchReader {
 
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractReaderShim.class);
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ShimBatchReader.class);
 
   protected final AbstractScanFramework<T> manager;
   protected final ManagedReader<T> reader;
   protected final ReaderSchemaOrchestrator readerOrchestrator;
   protected ResultSetLoader tableLoader;
 
-  public AbstractReaderShim(AbstractScanFramework<T> manager, ManagedReader<T> reader) {
+  public ShimBatchReader(AbstractScanFramework<T> manager, ManagedReader<T> reader) {
     this.manager = manager;
     this.reader = reader;
     readerOrchestrator = manager.projector().startReader();
@@ -49,7 +49,7 @@ public abstract class AbstractReaderShim<T extends SchemaNegotiator> implements 
 
     // Build and return the result set loader to be used by the reader.
 
-    if (! openReader()) {
+    if (! manager.openReader(this, reader)) {
 
       // If we had a soft failure, then there should be no schema.
       // The reader should not have negotiated one. Not a huge
@@ -74,8 +74,6 @@ public abstract class AbstractReaderShim<T extends SchemaNegotiator> implements 
     }
     return true;
   }
-
-  protected abstract boolean openReader();
 
   @Override
   public boolean next() {
@@ -138,7 +136,7 @@ public abstract class AbstractReaderShim<T extends SchemaNegotiator> implements 
     return tableLoader.schemaVersion();
   }
 
-  public ResultSetLoader build(AbstractSchemaNegotiatorImpl schemaNegotiator) {
+  public ResultSetLoader build(SchemaNegotiatorImpl schemaNegotiator) {
     readerOrchestrator.setBatchSize(schemaNegotiator.batchSize);
     tableLoader = readerOrchestrator.makeTableLoader(schemaNegotiator.tableSchema);
     return tableLoader;

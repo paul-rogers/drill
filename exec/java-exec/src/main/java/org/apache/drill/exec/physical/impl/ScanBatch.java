@@ -484,7 +484,7 @@ public class ScanBatch implements CloseableRecordBatch {
   /**
    * Verify list of implicit column values is valid input:
    *   - Either implicit column list is empty;
-   *   - Or implicit column list has same sie as reader list, and the key set is same across all the readers.
+   *   - Or implicit column list has same size as reader list, and the key set is same across all the readers.
    * @param numReaders
    * @param implicitColumnList
    * @return return true if

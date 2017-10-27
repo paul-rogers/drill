@@ -181,4 +181,8 @@ public class ColumnsArrayManager implements SchemaProjectionResolver {
     UnresolvedColumnsArrayColumn columnsArrayCol = parser.columnsArrayCol();
     return columnsArrayCol == null ? null : columnsArrayCol.selectedIndexes();
   }
+
+  public boolean hasColumnsArrayColumn() {
+    return parser.columnsArrayCol() != null;
+  }
 }

@@ -31,24 +31,25 @@ import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
 import org.apache.drill.exec.physical.base.ScanStats;
 import org.apache.drill.exec.physical.base.ScanStats.GroupScanProperty;
-import org.apache.drill.exec.physical.impl.scan.file.FileBatchReader;
+import org.apache.drill.exec.physical.impl.scan.columns.ColumnsScanFramework;
+import org.apache.drill.exec.physical.impl.scan.columns.ColumnsScanFramework.ColumnsSchemaNegotiator;
+import org.apache.drill.exec.physical.impl.scan.columns.ColumnsScanFramework.FileReaderCreator;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.planner.physical.PlannerSettings;
 import org.apache.drill.exec.proto.ExecProtos.FragmentHandle;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.server.DrillbitContext;
-import org.apache.drill.exec.store.RecordReader;
 import org.apache.drill.exec.store.RecordWriter;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.FileSelection;
 import org.apache.drill.exec.store.dfs.FileSystemConfig;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
 import org.apache.drill.exec.store.dfs.easy.EasyGroupScan;
+import org.apache.drill.exec.store.dfs.easy.EasySubScan;
 import org.apache.drill.exec.store.dfs.easy.EasyWriter;
-import org.apache.drill.exec.store.dfs.easy.FileWork;
-import org.apache.drill.exec.store.easy.text.compliant.CompliantTextRecordReader;
+import org.apache.drill.exec.store.easy.text.compliant.CompliantTextBatchReader;
 import org.apache.drill.exec.store.easy.text.compliant.TextParsingSettings;
 import org.apache.drill.exec.store.schedule.CompleteFileWork;
-import org.apache.drill.exec.store.text.DrillTextRecordReader;
 import org.apache.drill.exec.store.text.DrillTextRecordWriter;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -63,8 +64,34 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
-public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextFormatConfig> {
+public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextFormatConfig>
+      implements FileReaderCreator {
   private final static String DEFAULT_NAME = "text";
+
+  public static class TextScanBatchCreator
+        extends ScanFrameworkCreator<ColumnsSchemaNegotiator> {
+
+    private final FileReaderCreator readerCreator;
+
+    public TextScanBatchCreator(EasyFormatPlugin<? extends FormatPluginConfig> plugin,
+        FileReaderCreator readerCreator) {
+      super(plugin);
+      this.readerCreator = readerCreator;
+    }
+
+    @Override
+    protected ColumnsScanFramework buildFramework(
+        EasySubScan scan) throws ExecutionSetupException {
+      ColumnsScanFramework framework = new ColumnsScanFramework(
+              scan.getColumns(),
+              scan.getWorkUnits(),
+              plugin.easyConfig().fsConf,
+              readerCreator);
+      framework.setSelectionRoot(new Path(scan.getSelectionRoot()));
+      framework.useLegacyWildcardExpansion(true);
+      return framework;
+    }
+  }
 
   public TextFormatPlugin(String name, DrillbitContext context, Configuration fsConf, StoragePluginConfig storageConfig) {
      this(name, context, fsConf, storageConfig, new TextFormatConfig());
@@ -72,41 +99,24 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
 
   public TextFormatPlugin(String name, DrillbitContext context, Configuration fsConf, StoragePluginConfig config,
       TextFormatConfig formatPluginConfig) {
-    super(name, context, fsConf, config, formatPluginConfig, easyConfig());
+    super(name, easyConfig(fsConf), context, config, formatPluginConfig);
   }
 
-  private static EasyFormatConfig easyConfig() {
+  private static EasyFormatConfig easyConfig(Configuration fsConf) {
     EasyFormatConfig config = new EasyFormatConfig();
     config.readable = true;
     config.writable = false;
     config.blockSplittable = true;
     config.compressible = true;
     config.extensions = Collections.<String>emptyList();
+    config.fsConf = fsConf;
     config.defaultName = DEFAULT_NAME;
     return config;
   }
 
-//  @Override
-//  public RecordReader getRecordReader(FragmentContext context, DrillFileSystem dfs, FileWork fileWork,
-//      List<SchemaPath> columns, String userName) throws ExecutionSetupException {
-//    Path path = dfs.makeQualified(new Path(fileWork.getPath()));
-//    FileSplit split = new FileSplit(path, fileWork.getStart(), fileWork.getLength(), new String[]{""});
-//
-//    if (context.getOptions().getOption(ExecConstants.ENABLE_NEW_TEXT_READER_KEY).bool_val == true) {
-//      TextParsingSettings settings = new TextParsingSettings();
-//      settings.set((TextFormatConfig)formatConfig);
-//      return new CompliantTextRecordReader(split, dfs, context, settings, columns);
-//    } else {
-//      char delim = ((TextFormatConfig)formatConfig).getFieldDelimiter();
-//      return new DrillTextRecordReader(split, dfs.getConf(), context, delim, columns);
-//    }
-//  }
-
   @Override
-  public FileBatchReader makeBatchReader(DrillFileSystem dfs, FileSplit split) throws ExecutionSetupException {
-    TextParsingSettings settings = new TextParsingSettings();
-    settings.set((TextFormatConfig) formatConfig);
-    return new CompliantTextRecordReader(split, dfs, settings);
+  protected ScanBatchCreator scanBatchCreator() {
+    return new TextScanBatchCreator(this, this);
   }
 
   @Override
@@ -159,29 +169,17 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
     public boolean skipFirstLine = false;
     public boolean extractHeader = false;
 
-    public List<String> getExtensions() {
-      return extensions;
-    }
+    public List<String> getExtensions() { return extensions; }
 
-    public char getQuote() {
-      return quote;
-    }
+    public char getQuote() { return quote; }
 
-    public char getEscape() {
-      return escape;
-    }
+    public char getEscape() { return escape; }
 
-    public char getComment() {
-      return comment;
-    }
+    public char getComment() { return comment; }
 
-    public String getLineDelimiter() {
-      return lineDelimiter;
-    }
+    public String getLineDelimiter() { return lineDelimiter; }
 
-    public char getFieldDelimiter() {
-      return fieldDelimiter;
-    }
+    public char getFieldDelimiter() { return fieldDelimiter; }
 
     @JsonIgnore
     public boolean isHeaderExtractionEnabled() {
@@ -199,9 +197,7 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
       this.fieldDelimiter = delimiter;
     }
 
-    public boolean isSkipFirstLine() {
-      return skipFirstLine;
-    }
+    public boolean isSkipFirstLine() { return skipFirstLine; }
 
     @Override
     public int hashCode() {
@@ -277,8 +273,14 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
   }
 
   @Override
-  public boolean supportsPushDown() {
-    return true;
-  }
+  public boolean supportsPushDown() { return true; }
 
+  @Override
+  public ManagedReader<ColumnsSchemaNegotiator> makeBatchReader(
+      DrillFileSystem dfs,
+      FileSplit split) throws ExecutionSetupException {
+    TextParsingSettings settings = new TextParsingSettings();
+    settings.set((TextFormatConfig) getConfig());
+    return new CompliantTextBatchReader(split, dfs, settings);
+  }
 }

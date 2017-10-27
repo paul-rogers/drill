@@ -58,24 +58,28 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
   private final BatchAccessor batchAccessor;
 
   public OperatorRecordBatch(FragmentContextInterface context, PhysicalOperator config, OperatorExec opExec) {
-    OperatorContext services = context.newOperatorContext(config);
+    OperatorContext opContext = context.newOperatorContext(config);
+    opContext.getStats().startProcessing();
 
     // Chicken-and-egg binding: the two objects must know about each other. Pass the
     // context to the operator exec via a bind method.
 
     try {
-      opExec.bind(services);
+      opExec.bind(opContext);
+      driver = new OperatorDriver(opContext, opExec);
+      batchAccessor = opExec.batchAccessor();
     } catch (UserException e) {
-      services.close();
+      opContext.close();
       throw e;
     } catch (Throwable t) {
-      services.close();
+      opContext.close();
       throw UserException.executionError(t)
         .addContext("Exception thrown from", opExec.getClass().getSimpleName() + ".bind()")
         .build(logger);
     }
-    driver = new OperatorDriver(services, opExec);
-    batchAccessor = opExec.batchAccessor();
+    finally {
+      opContext.getStats().stopProcessing();
+    }
   }
 
   @Override
@@ -97,7 +101,7 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
    */
 
   public FragmentContextInterface fragmentContext() {
-    return driver.getOperatorContext().getFragmentContext();
+    return driver.operatorContext().getFragmentContext();
   }
 
   @Override
@@ -148,7 +152,12 @@ public class OperatorRecordBatch implements CloseableRecordBatch {
 
   @Override
   public IterOutcome next() {
-    return driver.next();
+    try {
+      driver.operatorContext().getStats().startProcessing();
+      return driver.next();
+    } finally {
+      driver.operatorContext().getStats().stopProcessing();
+    }
   }
 
   @Override
