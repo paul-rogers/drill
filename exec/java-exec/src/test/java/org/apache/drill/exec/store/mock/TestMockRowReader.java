@@ -32,9 +32,9 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.protocol.BatchAccessor;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
-import org.apache.drill.exec.physical.impl.scan.framework.BasicBatchReader;
 import org.apache.drill.exec.physical.impl.scan.framework.BasicScanFramework;
-import org.apache.drill.exec.physical.impl.scan.framework.BasicScanFramework.BasicScanConfig;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
+import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.test.SubOperatorTest;
@@ -50,13 +50,10 @@ public class TestMockRowReader extends SubOperatorTest {
     private OperatorContext services;
     public ScanOperatorExec scanOp;
 
-    public MockBatch(MockSubScanPOP config, List<BasicBatchReader> readers) {
-      BasicScanConfig scanConfig = new BasicScanConfig();
+    public MockBatch(MockSubScanPOP config, List<ManagedReader<SchemaNegotiator>> readers) {
       List<SchemaPath> projList = new ArrayList<>();
       projList.add(SchemaPath.STAR_COLUMN);
-      scanConfig.setProjection(projList);
-      scanConfig.setReaderFactory(readers.iterator());
-      BasicScanFramework framework = new BasicScanFramework(scanConfig);
+      BasicScanFramework framework = new BasicScanFramework(projList, readers.iterator());
       scanOp = new ScanOperatorExec(framework);
       services = fixture.operatorContext(config);
       scanOp.bind(services);
@@ -85,8 +82,9 @@ public class TestMockRowReader extends SubOperatorTest {
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, null, null, cols);
     MockSubScanPOP config = new MockSubScanPOP("dummy", true, Lists.newArrayList(entry));
 
-    BasicBatchReader reader = new ExtendedMockBatchReader(entry);
-    List<BasicBatchReader> readers = Lists.newArrayList(reader);
+    ManagedReader<SchemaNegotiator> reader = new ExtendedMockBatchReader(entry);
+    @SuppressWarnings("unchecked")
+    List<ManagedReader<SchemaNegotiator>> readers = Lists.newArrayList(reader);
 
     // Create options and the scan operator
 
@@ -134,8 +132,9 @@ public class TestMockRowReader extends SubOperatorTest {
     };
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, null, null, cols);
     MockSubScanPOP config = new MockSubScanPOP("dummy", true, Lists.newArrayList(entry));
-    BasicBatchReader reader = new ExtendedMockBatchReader(entry);
-    List<BasicBatchReader> readers = Lists.newArrayList(reader);
+    ManagedReader<SchemaNegotiator> reader = new ExtendedMockBatchReader(entry);
+    @SuppressWarnings("unchecked")
+    List<ManagedReader<SchemaNegotiator>> readers = Lists.newArrayList(reader);
 
     // Create options and the scan operator
 
@@ -180,8 +179,9 @@ public class TestMockRowReader extends SubOperatorTest {
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, null, null, cols);
     MockSubScanPOP config = new MockSubScanPOP("dummy", true, Lists.newArrayList(entry));
 
-    BasicBatchReader reader = new ExtendedMockBatchReader(entry);
-    List<BasicBatchReader> readers = Lists.newArrayList(reader);
+    ManagedReader<SchemaNegotiator> reader = new ExtendedMockBatchReader(entry);
+    @SuppressWarnings("unchecked")
+    List<ManagedReader<SchemaNegotiator>> readers = Lists.newArrayList(reader);
 
     // Create options and the scan operator
 
@@ -229,8 +229,9 @@ public class TestMockRowReader extends SubOperatorTest {
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, batchSize, null, cols);
     MockSubScanPOP config = new MockSubScanPOP("dummy", true, Lists.newArrayList(entry));
 
-    BasicBatchReader reader = new ExtendedMockBatchReader(entry);
-    List<BasicBatchReader> readers = Lists.newArrayList(reader);
+    ManagedReader<SchemaNegotiator> reader = new ExtendedMockBatchReader(entry);
+    @SuppressWarnings("unchecked")
+    List<ManagedReader<SchemaNegotiator>> readers = Lists.newArrayList(reader);
 
     // Create options and the scan operator
 
@@ -273,8 +274,9 @@ public class TestMockRowReader extends SubOperatorTest {
     MockTableDef.MockScanEntry entry = new MockTableDef.MockScanEntry(rowCount, true, null, null, cols);
     MockSubScanPOP config = new MockSubScanPOP("dummy", true, Lists.newArrayList(entry));
 
-    BasicBatchReader reader = new ExtendedMockBatchReader(entry);
-    List<BasicBatchReader> readers = Lists.newArrayList(reader);
+    ManagedReader<SchemaNegotiator> reader = new ExtendedMockBatchReader(entry);
+    @SuppressWarnings("unchecked")
+    List<ManagedReader<SchemaNegotiator>> readers = Lists.newArrayList(reader);
 
     // Create options and the scan operator
 

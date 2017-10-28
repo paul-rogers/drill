@@ -106,8 +106,9 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
       if (settings.isHeaderExtractionEnabled()){
         //extract header and use that to setup a set of VarCharVectors
         String [] fieldNames = extractHeader();
-        if (fieldNames == null)
+        if (fieldNames == null) {
           return false;
+        }
         TupleMetadata schema = new TupleSchema();
         for (String colName : fieldNames) {
           schema.add(MaterializedField.create(colName,

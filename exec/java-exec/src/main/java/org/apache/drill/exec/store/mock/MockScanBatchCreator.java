@@ -27,9 +27,9 @@ import org.apache.drill.exec.physical.impl.BatchCreator;
 import org.apache.drill.exec.physical.impl.ScanBatch;
 import org.apache.drill.exec.physical.impl.protocol.OperatorRecordBatch;
 import org.apache.drill.exec.physical.impl.scan.ScanOperatorExec;
-import org.apache.drill.exec.physical.impl.scan.framework.BasicBatchReader;
 import org.apache.drill.exec.physical.impl.scan.framework.BasicScanFramework;
-import org.apache.drill.exec.physical.impl.scan.framework.BasicScanFramework.BasicScanConfig;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
+import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.store.RecordReader;
@@ -57,21 +57,18 @@ public class MockScanBatchCreator implements BatchCreator<MockSubScanPOP> {
 
   private CloseableRecordBatch extendedMockScan(FragmentContext context,
       MockSubScanPOP config, List<MockScanEntry> entries) {
-    BasicScanConfig scanConfig = new BasicScanConfig();
     List<SchemaPath> projList = new ArrayList<>();
     projList.add(SchemaPath.STAR_COLUMN);
-    scanConfig.setProjection(projList);
 
-    final List<BasicBatchReader> readers = Lists.newArrayList();
+    final List<ManagedReader<SchemaNegotiator>> readers = Lists.newArrayList();
     for (final MockTableDef.MockScanEntry e : entries) {
       readers.add(new ExtendedMockBatchReader(e));
     }
-    scanConfig.setReaderFactory(readers.iterator());
 
     return new OperatorRecordBatch(
          context, config,
          new ScanOperatorExec(
-             new BasicScanFramework(scanConfig)));
+             new BasicScanFramework(projList, readers.iterator())));
   }
 
   private CloseableRecordBatch legacyMockScan(FragmentContext context,

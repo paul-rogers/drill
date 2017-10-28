@@ -40,7 +40,8 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
   @Test
   public void testWildcard() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(), Lists.newArrayList());
+        ScanTestUtils.projectAll(),
+        ScanTestUtils.parsers());
     assertEquals(1, scanProj.columns().size());
 
     TupleMetadata tableSchema = new SchemaBuilder()
@@ -51,7 +52,8 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
 
     ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
     SchemaLevelProjection schemaProj = new WildcardSchemaProjection(
-        scanProj, tableSchema, fileSource, Lists.newArrayList());
+        scanProj, tableSchema, fileSource,
+        ScanTestUtils.resolvers());
     assertEquals(3, schemaProj.columns().size());
 
     List<ResolvedColumn> columns = schemaProj.columns();
@@ -80,7 +82,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
         ScanTestUtils.projectList("c", "b", "a"),
-        Lists.newArrayList());
+        ScanTestUtils.parsers());
     assertEquals(3, scanProj.columns().size());
 
     // Simulate a data source, with early schema, of (a, b, c)
@@ -94,7 +96,8 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
     ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
     ScanTestUtils.DummySource nullSource = new ScanTestUtils.DummySource();
     SchemaLevelProjection schemaProj = new ExplicitSchemaProjection(
-        scanProj, tableSchema, fileSource, nullSource, Lists.newArrayList());
+        scanProj, tableSchema, fileSource, nullSource,
+        ScanTestUtils.resolvers());
     assertEquals(3, schemaProj.columns().size());
 
     List<ResolvedColumn> columns = schemaProj.columns();
@@ -125,7 +128,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
         ScanTestUtils.projectList("c", "v", "b", "w"),
-        Lists.newArrayList());
+        ScanTestUtils.parsers());
     assertEquals(4, scanProj.columns().size());
 
     // Simulate a data source, with early schema, of (a, b, c)
@@ -139,7 +142,8 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
     ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
     ScanTestUtils.DummySource nullSource = new ScanTestUtils.DummySource();
     SchemaLevelProjection schemaProj = new ExplicitSchemaProjection(
-        scanProj, tableSchema, fileSource, nullSource, Lists.newArrayList());
+        scanProj, tableSchema, fileSource, nullSource,
+        ScanTestUtils.resolvers());
     assertEquals(4, schemaProj.columns().size());
 
     @SuppressWarnings("unused")
@@ -179,7 +183,7 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
         ScanTestUtils.projectList("c", "a"),
-        Lists.newArrayList());
+        ScanTestUtils.parsers());
     assertEquals(2, scanProj.columns().size());
 
     // Simulate a data source, with early schema, of (a, b, c)
@@ -193,7 +197,8 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
     ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
     ScanTestUtils.DummySource nullSource = new ScanTestUtils.DummySource();
     SchemaLevelProjection schemaProj = new ExplicitSchemaProjection(
-        scanProj, tableSchema, fileSource, nullSource, Lists.newArrayList());
+        scanProj, tableSchema, fileSource, nullSource,
+        ScanTestUtils.resolvers());
     assertEquals(2, schemaProj.columns().size());
 
     @SuppressWarnings("unused")
@@ -213,6 +218,4 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
     assertEquals(1, columns.get(1).projection().destIndex());
     assertSame(fileSource, columns.get(1).projection().source());
   }
-
-  // TODO: Custom columns array type
 }

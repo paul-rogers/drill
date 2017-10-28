@@ -24,7 +24,7 @@ import java.util.Random;
 import java.util.Set;
 
 import org.apache.drill.exec.physical.impl.ScanBatch;
-import org.apache.drill.exec.physical.impl.scan.framework.BasicBatchReader;
+import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
@@ -45,7 +45,7 @@ import org.apache.drill.exec.vector.ValueVector;
  * {@link ScanBatch} used to create this record reader.
  */
 
-public class ExtendedMockBatchReader implements BasicBatchReader {
+public class ExtendedMockBatchReader implements ManagedReader<SchemaNegotiator> {
 
   private final MockScanEntry config;
   private final ColumnDef fields[];

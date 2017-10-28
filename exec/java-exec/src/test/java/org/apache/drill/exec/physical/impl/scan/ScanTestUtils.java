@@ -28,7 +28,9 @@ import org.apache.drill.exec.physical.impl.scan.file.FileMetadataColumnDefn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedColumn;
+import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
@@ -54,6 +56,20 @@ public class ScanTestUtils {
       // Not a real source!
       throw new UnsupportedOperationException();
     }
+  }
+
+  /**
+   * Type-safe way to define a list of parsers.
+   * @param parsers
+   * @return
+   */
+
+  public static List<ScanProjectionParser> parsers(ScanProjectionParser... parsers) {
+    return Lists.newArrayList(parsers);
+  }
+
+  public static List<SchemaProjectionResolver> resolvers(SchemaProjectionResolver... resolvers) {
+    return Lists.newArrayList(resolvers);
   }
 
   /**

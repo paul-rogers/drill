@@ -166,7 +166,7 @@ public class TestMetadataProjection extends SubOperatorTest {
             ScanTestUtils.FILE_NAME_COL,
             "a",
             ScanTestUtils.partitionColName(0)),
-        Lists.newArrayList(metadataManager.projectionParser()));
+        ScanTestUtils.parsers(metadataManager.projectionParser()));
     assertEquals(3, scanProj.columns().size());
 
     // Scan-level projection: defines the columns
@@ -201,7 +201,7 @@ public class TestMetadataProjection extends SubOperatorTest {
     ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
     SchemaLevelProjection schemaProj = new ExplicitSchemaProjection(
         scanProj, tableSchema, fileSource, fileSource,
-        Lists.newArrayList(metadataManager));
+        ScanTestUtils.resolvers(metadataManager));
     assertEquals(3, schemaProj.columns().size());
 
     {
@@ -250,7 +250,7 @@ public class TestMetadataProjection extends SubOperatorTest {
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
         ScanTestUtils.projectAll(),
-        Lists.newArrayList(metadataManager.projectionParser()));
+        ScanTestUtils.parsers(metadataManager.projectionParser()));
     assertEquals(7, scanProj.columns().size());
 
     // Schema-level preparation for a file
@@ -262,7 +262,7 @@ public class TestMetadataProjection extends SubOperatorTest {
     ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
     SchemaLevelProjection schemaProj = new WildcardSchemaProjection(
         scanProj, tableSchema, fileSource,
-        Lists.newArrayList(metadataManager));
+        ScanTestUtils.resolvers(metadataManager));
 
     // Verify resulting schema
 
@@ -298,7 +298,7 @@ public class TestMetadataProjection extends SubOperatorTest {
           "filEPath", // Sic, to test case sensitivity
           ScanTestUtils.FILE_NAME_COL,
           ScanTestUtils.SUFFIX_COL),
-        Lists.newArrayList(metadataManager.projectionParser()));
+        ScanTestUtils.parsers(metadataManager.projectionParser()));
     assertEquals(5, scanProj.columns().size());
 
     assertEquals(ScanTestUtils.FULLY_QUALIFIED_NAME_COL, scanProj.columns().get(1).name());
@@ -316,7 +316,7 @@ public class TestMetadataProjection extends SubOperatorTest {
     ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
     SchemaLevelProjection schemaProj = new ExplicitSchemaProjection(
         scanProj, tableSchema, fileSource, fileSource,
-        Lists.newArrayList(metadataManager));
+        ScanTestUtils.resolvers(metadataManager));
 
     assertEquals("/w/x/y/z.csv", ((MetadataColumn) schemaProj.columns().get(1)).value());
     assertEquals("/w/x/y", ((MetadataColumn) schemaProj.columns().get(2)).value());
@@ -340,7 +340,7 @@ public class TestMetadataProjection extends SubOperatorTest {
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
         ScanTestUtils.projectList("dir11"),
-        Lists.newArrayList(metadataManager.projectionParser()));
+        ScanTestUtils.parsers(metadataManager.projectionParser()));
 
     TupleMetadata tableSchema = new SchemaBuilder()
         .add("a", MinorType.VARCHAR)
@@ -350,7 +350,7 @@ public class TestMetadataProjection extends SubOperatorTest {
     ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
     SchemaLevelProjection schemaProj = new ExplicitSchemaProjection(
         scanProj, tableSchema, fileSource, fileSource,
-        Lists.newArrayList(metadataManager));
+        ScanTestUtils.resolvers(metadataManager));
 
     assertEquals("d11", ((MetadataColumn) schemaProj.columns().get(0)).value());
   }

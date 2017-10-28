@@ -197,7 +197,7 @@ public class HeaderBuilder extends TextOutput {
       currentField.put(data);
     } catch (BufferOverflowException e) {
       throw UserException.dataReadError()
-        .addContext("Column " + (headers.size() + 1) + ": Column exceeds maximum length of " + MAX_HEADER_LEN)
+        .message("Column " + (headers.size() + 1) + ": Column exceeds maximum length of " + MAX_HEADER_LEN)
         .addContext("File Path", filePath.toString())
         .build(logger);
     }
@@ -207,7 +207,7 @@ public class HeaderBuilder extends TextOutput {
   public void finishRecord() {
     if (headers.isEmpty()) {
       throw UserException.dataReadError()
-          .addContext("The file must define at least one header.")
+          .message("The file must define at least one header.")
           .addContext("File Path", filePath.toString())
           .build(logger);
     }

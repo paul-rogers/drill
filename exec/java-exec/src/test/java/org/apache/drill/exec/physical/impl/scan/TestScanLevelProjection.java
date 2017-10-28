@@ -29,8 +29,6 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.Unre
 import org.apache.drill.test.SubOperatorTest;
 import org.junit.Test;
 
-import jersey.repackaged.com.google.common.collect.Lists;
-
 /**
  * Test the level of projection done at the level of the scan as a whole;
  * before knowledge of table "implicit" columns or the specific table schema.
@@ -52,7 +50,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     ScanLevelProjection scanProj = new ScanLevelProjection(
         ScanTestUtils.projectList("a", "b", "c"),
-        Lists.newArrayList());
+        ScanTestUtils.parsers());
     assertFalse(scanProj.projectAll());
 
     assertEquals(3, scanProj.requestedCols().size());
@@ -90,7 +88,8 @@ public class TestScanLevelProjection extends SubOperatorTest {
   @Test
   public void testWildcard() {
     ScanLevelProjection scanProj = new ScanLevelProjection(
-        ScanTestUtils.projectAll(), Lists.newArrayList());
+        ScanTestUtils.projectAll(),
+        ScanTestUtils.parsers());
 
     assertTrue(scanProj.projectAll());
     assertEquals(1, scanProj.requestedCols().size());
@@ -117,7 +116,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
     try {
       new ScanLevelProjection(
           ScanTestUtils.projectList(SchemaPath.WILDCARD, "a"),
-          Lists.newArrayList());
+          ScanTestUtils.parsers());
       fail();
     } catch (IllegalArgumentException e) {
       // Expected
@@ -132,7 +131,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
     try {
       new ScanLevelProjection(
           ScanTestUtils.projectList("a", SchemaPath.WILDCARD),
-          Lists.newArrayList());
+          ScanTestUtils.parsers());
       fail();
     } catch (IllegalArgumentException e) {
       // Expected
@@ -150,7 +149,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
     try {
       new ScanLevelProjection(
           ScanTestUtils.projectList(SchemaPath.WILDCARD, SchemaPath.WILDCARD),
-          Lists.newArrayList());
+          ScanTestUtils.parsers());
       fail();
     } catch (IllegalArgumentException e) {
       // Expected

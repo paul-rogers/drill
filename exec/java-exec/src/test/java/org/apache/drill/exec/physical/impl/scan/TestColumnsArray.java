@@ -41,7 +41,6 @@ import com.google.common.collect.Lists;
 
 public class TestColumnsArray extends SubOperatorTest {
 
-
   /**
    * Test columns array. The table must be able to support it by having a
    * matching column.
@@ -60,7 +59,7 @@ public class TestColumnsArray extends SubOperatorTest {
 
     // ...and the columns array manager
 
-    ColumnsArrayManager colsManager = new ColumnsArrayManager();
+    ColumnsArrayManager colsManager = new ColumnsArrayManager(false);
 
     // Configure the schema orchestrator
 
@@ -131,7 +130,7 @@ public class TestColumnsArray extends SubOperatorTest {
 
     // Set up the columns array manager
 
-    ColumnsArrayManager colsManager = new ColumnsArrayManager();
+    ColumnsArrayManager colsManager = new ColumnsArrayManager(false);
 
     // Configure the schema orchestrator
 
