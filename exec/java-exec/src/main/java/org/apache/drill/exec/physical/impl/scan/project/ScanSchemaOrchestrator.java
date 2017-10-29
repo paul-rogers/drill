@@ -47,6 +47,16 @@ import org.apache.drill.exec.vector.ValueVector;
  * problem: that the scan operator must present the same set of vectors
  * to downstream operators despite the fact that the scan operator hosts
  * a series of readers, each of which builds its own result set.
+ * <p>
+ * Provides the option to continue a schema from one batch to the next.
+ * This can reduce spurious schema changes in formats, such as JSON, with
+ * varying fields. It is not, however, a complete solution as the outcome
+ * still depends on the order of file scans and the division of files across
+ * readers.
+ * <p>
+ * Provides the option to infer the schema from the first batch. The "quick path"
+ * to obtain the schema will read one batch, then use that schema as the returned
+ * schema, returning the full batch in the next call to <tt>next()</tt>.
  *
  * <h4>Publishing the Final Result Set<h4>
  *
@@ -351,15 +361,29 @@ public class ScanSchemaOrchestrator {
     }
 
     public void close() {
-      if (tableLoader != null) {
-        tableLoader.close();
-        tableLoader = null;
+      RuntimeException ex = null;
+      try {
+        if (tableLoader != null) {
+          tableLoader.close();
+          tableLoader = null;
+        }
       }
-      if (batchMerger != null) {
-        batchMerger.close();
-        batchMerger = null;
+      catch (RuntimeException e) {
+        ex = e;
+      }
+      try {
+        if (batchMerger != null) {
+          batchMerger.close();
+          batchMerger = null;
+        }
+      }
+      catch (RuntimeException e) {
+        ex = ex == null ? e : ex;
       }
       metadataManager.endFile();
+      if (ex != null) {
+        throw ex;
+      }
     }
   }
 

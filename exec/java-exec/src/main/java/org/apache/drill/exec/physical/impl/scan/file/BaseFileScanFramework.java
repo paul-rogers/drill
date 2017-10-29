@@ -39,6 +39,10 @@ import org.apache.hadoop.mapred.FileSplit;
 /**
  * Scan framework for a file that implements metadata columns (AKA "implicit"
  * columns and partition columns.)
+ * <p>
+ * Framework iterators over file descriptions, creating readers at the
+ * moment they are needed. This allows simpler logic because, at the point of
+ * reader creation, we have a file system, context and so on.
  */
 
 public abstract class BaseFileScanFramework<T extends BaseFileScanFramework.FileSchemaNegotiator>
@@ -116,7 +120,7 @@ public abstract class BaseFileScanFramework<T extends BaseFileScanFramework.File
         useLegacyWildcardExpansion,
         scanRootDir,
         paths);
-    scanProjector.withMetadata(metadataManager);
+    scanOrchestrator.withMetadata(metadataManager);
   }
 
   @Override

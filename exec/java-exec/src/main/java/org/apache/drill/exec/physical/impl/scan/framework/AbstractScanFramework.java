@@ -26,17 +26,20 @@ import org.apache.drill.exec.physical.impl.scan.ScanOperatorEvents;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
 
 /**
- * Provides the row set mutator used to construct record batches.
+ * Basic scan framework for a "managed" reader which uses the scan schema
+ * mechanisms encapsulated in the scan schema orchestrator. Handles binding
+ * scan events to the scan orchestrator so that the scan schema is evolved
+ * as the scan progresses. Subclasses are responsible for creating the actual
+ * reader, which requires a framework-specific schema negotiator to be passed
+ * to the reader.
  * <p>
- * Provides the option to continue a schema from one batch to the next.
- * This can reduce spurious schema changes in formats, such as JSON, with
- * varying fields. It is not, however, a complete solution as the outcome
- * still depends on the order of file scans and the division of files across
- * readers.
- * <p>
- * Provides the option to infer the schema from the first batch. The "quick path"
- * to obtain the schema will read one batch, then use that schema as the returned
- * schema, returning the full batch in the next call to <tt>next()</tt>.
+ * This framework is a bridge between operator logic and the scan projection
+ * internals. It gathers scan-specific options, then sets
+ * then on the scan orchestrator at the right time. By abstracting out this
+ * plumbing, a scan batch creator simply chooses the proper framework, passes
+ * config options, and implements the matching "managed reader". All details
+ * of setup, projection, and so on are handled by the framework and the components
+ * that the framework builds upon.
  */
 
 public abstract class AbstractScanFramework<T extends SchemaNegotiator> implements ScanOperatorEvents {
@@ -46,7 +49,7 @@ public abstract class AbstractScanFramework<T extends SchemaNegotiator> implemen
   protected int maxBatchRowCount;
   protected int maxBatchByteCount;
   protected OperatorContext context;
-  protected ScanSchemaOrchestrator scanProjector;
+  protected ScanSchemaOrchestrator scanOrchestrator;
 
   public AbstractScanFramework(List<SchemaPath> projection) {
     this.projection = projection;
@@ -72,16 +75,16 @@ public abstract class AbstractScanFramework<T extends SchemaNegotiator> implemen
   @Override
   public void bind(OperatorContext context) {
     this.context = context;
-    scanProjector = new ScanSchemaOrchestrator(context.getAllocator());
+    scanOrchestrator = new ScanSchemaOrchestrator(context.getAllocator());
     configure();
     assert projection != null  &&  ! projection.isEmpty();
-    scanProjector.build(projection);
+    scanOrchestrator.build(projection);
   }
 
   public OperatorContext context() { return context; }
 
-  public ScanSchemaOrchestrator projector() {
-    return scanProjector;
+  public ScanSchemaOrchestrator scanOrchestrator() {
+    return scanOrchestrator;
   }
 
   protected void configure() {
@@ -89,13 +92,13 @@ public abstract class AbstractScanFramework<T extends SchemaNegotiator> implemen
     // Pass along config options if set.
 
     if (maxBatchRowCount > 0) {
-      scanProjector.setBatchRecordLimit(maxBatchRowCount);
+      scanOrchestrator.setBatchRecordLimit(maxBatchRowCount);
     }
     if (maxBatchByteCount > 0) {
-      scanProjector.setBatchByteLimit(maxBatchByteCount);
+      scanOrchestrator.setBatchByteLimit(maxBatchByteCount);
     }
     if (nullType != null) {
-      scanProjector.setNullType(nullType);
+      scanOrchestrator.setNullType(nullType);
     }
   }
 
@@ -103,9 +106,9 @@ public abstract class AbstractScanFramework<T extends SchemaNegotiator> implemen
 
   @Override
   public void close() {
-    if (scanProjector != null) {
-      scanProjector.close();
-      scanProjector = null;
+    if (scanOrchestrator != null) {
+      scanOrchestrator.close();
+      scanOrchestrator = null;
     }
   }
 }

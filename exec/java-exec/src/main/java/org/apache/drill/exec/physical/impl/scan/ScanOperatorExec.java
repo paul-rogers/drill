@@ -227,7 +227,6 @@ public class ScanOperatorExec implements OperatorExec {
    */
 
   private void closeReader() {
-
     try {
       readerState.close();
     } finally {

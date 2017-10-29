@@ -53,7 +53,6 @@ import org.apache.drill.exec.store.schedule.CompleteFileWork;
 import org.apache.drill.exec.store.text.DrillTextRecordWriter;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.FileSplit;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -106,16 +105,16 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
 
   public TextFormatPlugin(String name, DrillbitContext context, Configuration fsConf, StoragePluginConfig config,
       TextFormatConfig formatPluginConfig) {
-    super(name, easyConfig(fsConf), context, config, formatPluginConfig);
+    super(name, easyConfig(fsConf, formatPluginConfig), context, config, formatPluginConfig);
   }
 
-  private static EasyFormatConfig easyConfig(Configuration fsConf) {
+  private static EasyFormatConfig easyConfig(Configuration fsConf, TextFormatConfig pluginConfig) {
     EasyFormatConfig config = new EasyFormatConfig();
     config.readable = true;
     config.writable = false;
     config.blockSplittable = true;
     config.compressible = true;
-    config.extensions = Collections.<String>emptyList();
+    config.extensions = pluginConfig.getExtensions();
     config.fsConf = fsConf;
     config.defaultName = DEFAULT_NAME;
     return config;

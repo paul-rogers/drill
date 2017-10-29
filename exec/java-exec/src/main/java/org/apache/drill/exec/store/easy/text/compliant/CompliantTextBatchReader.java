@@ -26,6 +26,7 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ops.OperatorContext;
+import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayManager;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsScanFramework.ColumnsSchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
@@ -39,7 +40,9 @@ import com.univocity.parsers.common.TextParsingException;
 
 import io.netty.buffer.DrillBuf;
 
-// New text reader, complies with the RFC 4180 standard for text/csv files
+/**
+ * New text reader, complies with the RFC 4180 standard for text/csv files
+ */
 public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNegotiator> {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(CompliantTextBatchReader.class);
 
@@ -123,11 +126,12 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
       } else {
         //simply use RepeatedVarCharVector
         TupleMetadata schema = new TupleSchema();
-        schema.add(MaterializedField.create("columns",
+        schema.add(MaterializedField.create(ColumnsArrayManager.COLUMNS_COL,
             MajorType.newBuilder()
               .setMinorType(MinorType.VARCHAR)
               .setMode(DataMode.REPEATED)
               .build()));
+        schemaNegotiator.setTableSchema(schema);
         writer = schemaNegotiator.build().writer();
         output = new RepeatedVarCharOutput(writer, schemaNegotiator.projectedIndexes());
       }

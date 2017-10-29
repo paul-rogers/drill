@@ -100,8 +100,8 @@ public class ColumnsScanFramework extends BaseFileScanFramework<ColumnsScanFrame
   protected void configure() {
     super.configure();
     columnsArrayManager = new ColumnsArrayManager(requireColumnsArray);
-    scanProjector.addParser(columnsArrayManager.projectionParser());
-    scanProjector.addResolver(columnsArrayManager.resolver());
+    scanOrchestrator.addParser(columnsArrayManager.projectionParser());
+    scanOrchestrator.addResolver(columnsArrayManager.resolver());
   }
 
   @Override

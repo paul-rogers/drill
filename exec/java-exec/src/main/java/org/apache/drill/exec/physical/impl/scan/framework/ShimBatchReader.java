@@ -27,6 +27,8 @@ import org.apache.drill.exec.record.VectorContainer;
  * Represents a layer of row batch reader that works with a
  * result set loader and schema manager to structure the data
  * read by the actual row batch reader.
+ * <p>
+ * Provides the row set mutator used to construct record batches.
  */
 
 public class ShimBatchReader<T extends SchemaNegotiator> implements RowBatchReader {
@@ -41,7 +43,7 @@ public class ShimBatchReader<T extends SchemaNegotiator> implements RowBatchRead
   public ShimBatchReader(AbstractScanFramework<T> manager, ManagedReader<T> reader) {
     this.manager = manager;
     this.reader = reader;
-    readerOrchestrator = manager.projector().startReader();
+    readerOrchestrator = manager.scanOrchestrator().startReader();
   }
 
   @Override
@@ -112,25 +114,33 @@ public class ShimBatchReader<T extends SchemaNegotiator> implements RowBatchRead
 
   @Override
   public VectorContainer output() {
-    return manager.projector().output();
+    return manager.scanOrchestrator().output();
   }
 
   @Override
   public void close() {
+
+    // Track exceptions and keep closing
+
     RuntimeException ex = null;
     try {
+
+      // Close the actual reader
+
       reader.close();
     } catch (RuntimeException e) {
       ex = e;
     }
-    try {
-      if (tableLoader != null) {
-        tableLoader.close();
-        tableLoader = null;
-      }
-    } catch (RuntimeException e) {
-      ex = ex == null ? e : ex;
-    }
+
+    // Inform the scan orchestrator that the reader is closed.
+    // The scan orcestrator closes the reader orchestrator which
+    // closes the table loader, so we don't close the table loader
+    // here.
+
+    manager.scanOrchestrator().closeReader();
+
+    // Throw any exceptions.
+
     if (ex != null) {
       throw ex;
     }
