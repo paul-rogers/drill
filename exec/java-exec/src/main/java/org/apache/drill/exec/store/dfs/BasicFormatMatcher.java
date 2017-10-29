@@ -68,9 +68,7 @@ public class BasicFormatMatcher extends FormatMatcher{
   }
 
   @Override
-  public boolean supportDirectoryReads() {
-    return false;
-  }
+  public boolean supportDirectoryReads() { return false; }
 
   @Override
   public DrillTable isReadable(DrillFileSystem fs,
@@ -88,43 +86,50 @@ public class BasicFormatMatcher extends FormatMatcher{
     return null;
   }
 
-  /*
-   * Function returns true if the file extension matches the pattern
+  /**
+   * Returns true if the file extension matches the pattern.
    */
   @Override
   public boolean isFileReadable(DrillFileSystem fs, FileStatus status) throws IOException {
-  CompressionCodec codec = null;
-    if (compressible) {
-      codec = codecFactory.getCodec(status.getPath());
-    }
-    String fileName = status.getPath().toString();
-    String fileNameHacked = null;
-    if (codec != null) {
-        fileNameHacked = fileName.substring(0, fileName.lastIndexOf('.'));
+    if (patterns.isEmpty()) {
+      logger.debug("No suffix patterns defined for format plugin {}", plugin.getName());
+      return false;
     }
 
-    // Check for a matching pattern for compressed and uncompressed file name
+    // Check the original file name for a match
+
+    String fileName = status.getPath().toString();
+    if (hasPatternMatch(fileName)) {
+      return true;
+    }
+
+    // If compressible, check the base file name for a match.
+    // That is: foo.csv.gz --> foo.csv and will math "csv".
+
+    if (compressible && codecFactory.getCodec(status.getPath()) != null) {
+      if (hasPatternMatch(fileName.substring(0, fileName.lastIndexOf('.')))) {
+        return true;
+      }
+    }
+
+    return matcher.matches(fs, status);
+  }
+
+  /**
+   * Check for a matching pattern for file name.
+   */
+  private boolean hasPatternMatch(String fileName) {
     for (Pattern p : patterns) {
       if (p.matcher(fileName).matches()) {
         return true;
       }
-      if (fileNameHacked != null  &&  p.matcher(fileNameHacked).matches()) {
-        return true;
-      }
-    }
-
-    if (matcher.matches(fs, status)) {
-      return true;
     }
     return false;
   }
 
   @Override
   @JsonIgnore
-  public FormatPlugin getFormatPlugin() {
-    return plugin;
-  }
-
+  public FormatPlugin getFormatPlugin() { return plugin; }
 
   private class MagicStringMatcher {
 
