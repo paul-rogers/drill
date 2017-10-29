@@ -26,13 +26,18 @@ import java.io.Reader;
 import java.io.StringReader;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
 
 import org.apache.drill.QueryTestUtil;
 import org.apache.drill.TestBuilder;
+import org.apache.drill.common.config.DrillProperties;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.client.DrillClient;
 import org.apache.drill.exec.memory.BufferAllocator;
+import org.apache.drill.exec.proto.UserBitShared.QueryType;
+import org.apache.drill.exec.proto.UserProtos.QueryPlanFragments;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.rpc.DrillRpcFuture;
 import org.apache.drill.exec.rpc.RpcException;
 import org.apache.drill.exec.rpc.user.QueryDataBatch;
 import org.apache.drill.exec.testing.Controls;
@@ -98,6 +103,9 @@ public class ClientFixture implements AutoCloseable {
 
     if (cluster.usesZK()) {
       client = new DrillClient(cluster.config());
+    } else if (builder.clientProps != null  &&
+        builder.clientProps.containsKey(DrillProperties.DRILLBIT_CONNECTION)) {
+      client = new DrillClient(cluster.config(), cluster.serviceSet().getCoordinator(), true);
     } else {
       client = new DrillClient(cluster.config(), cluster.serviceSet().getCoordinator());
     }
@@ -186,6 +194,25 @@ public class ClientFixture implements AutoCloseable {
       }
       queryBuilder().sql(trimmedQuery).print();
     }
+  }
+
+  /**
+   * Plan a query without execution.
+   * @throws ExecutionException
+   * @throws InterruptedException
+   */
+
+  public QueryPlanFragments planQuery(QueryType type, String query, boolean isSplitPlan) {
+    DrillRpcFuture<QueryPlanFragments> queryFragmentsFutures = client.planQuery(type, query, isSplitPlan);
+    try {
+      return queryFragmentsFutures.get();
+    } catch (InterruptedException | ExecutionException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  public QueryPlanFragments planQuery(String sql) {
+    return planQuery(QueryType.SQL, sql, false);
   }
 
   @Override

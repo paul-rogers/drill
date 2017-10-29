@@ -110,7 +110,7 @@ public class DrillClient implements Closeable, ConnectionThrottle {
   private UserClient client;
   private DrillProperties properties;
   private volatile ClusterCoordinator clusterCoordinator;
-  private volatile boolean connected = false;
+  private volatile boolean connected;
   private final BufferAllocator allocator;
   private int reconnectTimes;
   private int reconnectDelay;
