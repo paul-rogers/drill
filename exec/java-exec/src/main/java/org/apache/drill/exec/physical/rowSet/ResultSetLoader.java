@@ -113,6 +113,16 @@ public interface ResultSetLoader {
    */
 
   RowSetLoader writer();
+
+  /**
+   * Reports whether the loader is in a writable state. The writable state
+   * occurs only when a batch has been started, and before that batch
+   * becomes full.
+   *
+   * @return true if the client can add a row to the loader, false if
+   * not
+   */
+
   boolean writeable();
 
   /**
@@ -134,6 +144,25 @@ public interface ResultSetLoader {
    */
 
   ResultSetLoader setRow(Object...values);
+
+  /**
+   * Requests to skip the given number of rows. Returns the number of rows
+   * actually skipped (which is limited by batch count.)
+   * <p>
+   * Used in <tt>SELECT COUNT(*)</tt> style queries when the downstream
+   * operators want just record count, but no actual rows.
+   * <p>
+   * Legal only when the loader contains no projected columns. (Though,
+   * to make code easier on the client, the schema may contain any number
+   * of unprojected columns.)
+   *
+   * @param requestedCount the number of rows to skip
+   * @return the actual number of rows skipped, which may be less. If
+   * less, the client should call this method for multiple batches
+   * until the requested count is reached
+   */
+
+  int skipRows(int requestedCount);
 
   /**
    * Harvest the current row batch, and reset the mutator

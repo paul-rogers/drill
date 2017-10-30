@@ -556,6 +556,10 @@ public class ScanSchemaOrchestrator {
     return currentReader;
   }
 
+  public boolean isProjectNone() {
+    return scanProj.projectNone();
+  }
+
   public VectorContainer output() {
     return outputContainer;
   }

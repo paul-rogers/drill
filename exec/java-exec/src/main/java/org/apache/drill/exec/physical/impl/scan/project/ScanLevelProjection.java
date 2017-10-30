@@ -55,6 +55,9 @@ import org.apache.drill.common.expression.SchemaPath;
  * case-insensitive name. The output row uses the names from the SELECT list,
  * but types from the data source. Columns appear in the row in the order
  * specified by the SELECT.</li>
+ * <li<tt>SELECT ...</tt>: SELECT nothing, occurs in <tt>SELECT COUNT(*)</tt>
+ * type queries. The provided projection list contains no (table) columns, though
+ * it may contain metadata columns.</li>
  * </ul>
  * Names in the SELECT list can reference any of five distinct types of output
  * columns:
@@ -147,6 +150,7 @@ public class ScanLevelProjection {
   protected List<ColumnProjection> outputCols = new ArrayList<>();
   protected boolean sawWildcard;
   protected boolean hasWildcard;
+  protected boolean emptyProjection = true;
 
   /**
    * Specify the set of columns in the SELECT list. Since the column list
@@ -215,6 +219,7 @@ public class ScanLevelProjection {
     if (wildcardPosn != -1) {
       outputCols.add(wildcardPosn, new UnresolvedColumn(inCol, UnresolvedColumn.WILDCARD));
       hasWildcard = true;
+      emptyProjection = false;
     }
   }
 
@@ -247,11 +252,16 @@ public class ScanLevelProjection {
 
     // This is a desired table column.
 
-    UnresolvedColumn tableCol = new UnresolvedColumn(inCol, UnresolvedColumn.UNRESOLVED);
-    outputCols.add(tableCol);
+    addTableColumn(
+        new UnresolvedColumn(inCol, UnresolvedColumn.UNRESOLVED));
   }
 
-  public void addProjectedColumn(ColumnProjection outCol) {
+  public void addTableColumn(ColumnProjection outCol) {
+    outputCols.add(outCol);
+    emptyProjection = false;
+  }
+
+  public void addMetadataColumn(ColumnProjection outCol) {
     outputCols.add(outCol);
   }
 
@@ -304,5 +314,18 @@ public class ScanLevelProjection {
    */
 
   public boolean projectAll() { return hasWildcard; }
+
+  /**
+   * Returns true if the projection list is empty. This usually
+   * indicates a <tt>SELECT COUNT(*)</tt> query (though the scan
+   * operator does not have the context to know that an empty
+   * list does, in fact, imply a count-only query...)
+   *
+   * @return true if no table columns are projected, false
+   * if at least one column is projected (or the query contained
+   * the wildcard)
+   */
+
+  public boolean projectNone() { return emptyProjection; }
 
 }

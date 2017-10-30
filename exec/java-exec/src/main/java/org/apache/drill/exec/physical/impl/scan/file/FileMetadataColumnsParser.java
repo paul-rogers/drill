@@ -59,9 +59,10 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
 
       // Partition column
 
-      builder.addProjectedColumn(new PartitionColumn(
-          inCol.rootName(),
-          Integer.parseInt(m.group(1))));
+      builder.addMetadataColumn(
+          new PartitionColumn(
+            inCol.rootName(),
+            Integer.parseInt(m.group(1))));
       hasMetadata = true;
       return true;
     }
@@ -74,7 +75,7 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
 
       // File metadata (implicit) column
 
-      builder.addProjectedColumn(new FileMetadataColumn(inCol.rootName(), iCol));
+      builder.addMetadataColumn(new FileMetadataColumn(inCol.rootName(), iCol));
       hasMetadata = true;
       return true;
     }
@@ -110,11 +111,11 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
     // Append this after the *, keeping the * for later expansion.
 
     for (FileMetadataColumnDefn iCol : metadataManager.fileMetadataColDefns()) {
-      builder.addProjectedColumn(new FileMetadataColumn(
+      builder.addMetadataColumn(new FileMetadataColumn(
           iCol.colName(), iCol));
     }
     for (int i = 0; i < metadataManager.partitionCount(); i++) {
-      builder.addProjectedColumn(new PartitionColumn(
+      builder.addMetadataColumn(new PartitionColumn(
           metadataManager.partitionName(i), i));
     }
   }

@@ -122,7 +122,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
 
   private void addColumnsArrayColumn(SchemaPath inCol) {
     columnsArrayCol = new UnresolvedColumnsArrayColumn(inCol);
-    builder.addProjectedColumn(columnsArrayCol);
+    builder.addTableColumn(columnsArrayCol);
   }
 
   private void mapColumnsArrayElement(SchemaPath inCol) {

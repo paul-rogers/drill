@@ -52,6 +52,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
         ScanTestUtils.projectList("a", "b", "c"),
         ScanTestUtils.parsers());
     assertFalse(scanProj.projectAll());
+    assertFalse(scanProj.projectNone());
 
     assertEquals(3, scanProj.requestedCols().size());
     assertEquals("a", scanProj.requestedCols().get(0).rootName());
@@ -92,6 +93,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
         ScanTestUtils.parsers());
 
     assertTrue(scanProj.projectAll());
+    assertFalse(scanProj.projectNone());
     assertEquals(1, scanProj.requestedCols().size());
     assertTrue(scanProj.requestedCols().get(0).isWildcard());
 
@@ -105,6 +107,22 @@ public class TestScanLevelProjection extends SubOperatorTest {
     // Verify column type
 
     assertEquals(UnresolvedColumn.WILDCARD, scanProj.columns().get(0).nodeType());
+  }
+
+  /**
+   * Test an empty projection which occurs in a
+   * SELECT COUNT(*) query.
+   */
+
+  @Test
+  public void testEmptyProjection() {
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectList(),
+        ScanTestUtils.parsers());
+
+    assertFalse(scanProj.projectAll());
+    assertTrue(scanProj.projectNone());
+    assertEquals(0, scanProj.requestedCols().size());
   }
 
   /**
