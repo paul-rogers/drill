@@ -24,6 +24,8 @@ import java.util.List;
 
 import org.apache.drill.common.logical.data.Order.Ordering;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.ops.OperatorContext;
+import org.apache.drill.exec.physical.config.Sort;
 import org.apache.drill.exec.physical.impl.xsort.managed.PriorityQueueCopierWrapper.BatchMerger;
 import org.apache.drill.exec.physical.impl.xsort.managed.SortTestUtilities.CopierTester;
 import org.apache.drill.exec.record.BatchSchema;
@@ -52,7 +54,9 @@ public class TestCopier extends SubOperatorTest {
   public void testEmptyInput() throws Exception {
     BatchSchema schema = SortTestUtilities.nonNullSchema();
     List<BatchGroup> batches = new ArrayList<>();
-    PriorityQueueCopierWrapper copier = SortTestUtilities.makeCopier(fixture, Ordering.ORDER_ASC, Ordering.NULLS_UNSPECIFIED);
+    Sort popConfig = SortTestUtilities.makeCopierConfig(Ordering.ORDER_ASC, Ordering.NULLS_UNSPECIFIED);
+    OperatorContext opContext = fixture.newOperatorContext(popConfig);
+    PriorityQueueCopierWrapper copier = new PriorityQueueCopierWrapper(opContext);
     VectorContainer dest = new VectorContainer();
     try {
       // TODO: Create a vector allocator to pass as last parameter so
@@ -60,11 +64,13 @@ public class TestCopier extends SubOperatorTest {
       // code. Only nuisance is that we don't have the required metadata
       // readily at hand here...
 
-      @SuppressWarnings({ "resource", "unused" })
+      @SuppressWarnings({"resource", "unused"})
       BatchMerger merger = copier.startMerge(schema, batches, dest, 10, null);
       fail();
     } catch (AssertionError e) {
       // Expected
+    } finally {
+      opContext.close();
     }
   }
 

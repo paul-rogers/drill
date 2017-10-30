@@ -540,6 +540,11 @@ public class SortImpl {
     } catch (RuntimeException e) {
       ex = ex == null ? e : ex;
     }
+    try {
+      context.close();
+    } catch (RuntimeException e) {
+      ex = ex == null ? e : ex;
+    }
     if (ex != null) {
       throw ex;
     }

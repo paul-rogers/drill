@@ -389,7 +389,7 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
   }
 
   @SuppressWarnings("resource")
-  public OperatorContext operatorContext(PhysicalOperator popConfig) {
+  public OperatorContext newOperatorContext(PhysicalOperator popConfig) {
     BufferAllocator childAllocator = allocator.newChildAllocator(
         "test:" + popConfig.getClass().getSimpleName(),
         popConfig.getInitialAllocation(),
