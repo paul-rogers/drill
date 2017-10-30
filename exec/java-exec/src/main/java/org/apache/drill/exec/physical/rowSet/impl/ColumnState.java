@@ -64,6 +64,11 @@ public abstract class ColumnState {
     }
 
     @Override
+    public boolean isProjected() {
+      return mapState.hasProjections();
+    }
+
+    @Override
     public void close() {
       super.close();
       mapState.close();
@@ -320,6 +325,10 @@ public abstract class ColumnState {
     default:
       throw new IllegalStateException("Unexpected state: " + state);
     }
+  }
+
+  public boolean isProjected() {
+    return vectorState.isProjected();
   }
 
   public void close() {

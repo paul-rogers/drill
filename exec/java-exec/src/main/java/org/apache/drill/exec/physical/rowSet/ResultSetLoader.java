@@ -152,17 +152,38 @@ public interface ResultSetLoader {
    * Used in <tt>SELECT COUNT(*)</tt> style queries when the downstream
    * operators want just record count, but no actual rows.
    * <p>
-   * Legal only when the loader contains no projected columns. (Though,
-   * to make code easier on the client, the schema may contain any number
-   * of unprojected columns.)
+   * Legal only when the loader contains no projected columns. (Though, to make
+   * code easier on the client, the schema may contain any number of unprojected
+   * columns.)
    *
-   * @param requestedCount the number of rows to skip
-   * @return the actual number of rows skipped, which may be less. If
-   * less, the client should call this method for multiple batches
-   * until the requested count is reached
+   * @param requestedCount
+   *          the number of rows to skip
+   * @return the actual number of rows skipped, which may be less than the
+   *         requested amount. If less, the client should call this method for
+   *         multiple batches until the requested count is reached
    */
 
   int skipRows(int requestedCount);
+
+  /**
+   * Reports if this is an empty projection such as occurs in a
+   * <tt>SELECT COUNT(*)</tt> query. If the projection is empty, then
+   * the downstream needs only the row count set in each batch, but no
+   * actual vectors will be created. In this case, the client can do
+   * the work to populate rows (the data will be discarded), or can call
+   * {@link #skipRows(int)} to skip over the number of rows that would
+   * have been read if any data had been projected.
+   * <p>
+   * Note that the empty schema case can also occur if the project list
+   * from the <tt>SELECT</tt> clause is disjoint from the table schema.
+   * For example, <tt>SELECT a, b</tt> from a table with schema
+   * <tt>(c, d)</tt>.
+   *
+   * @return true if no columns are actually projected, false if at
+   * least one column is projected
+   */
+
+  boolean isProjectionEmpty();
 
   /**
    * Harvest the current row batch, and reset the mutator

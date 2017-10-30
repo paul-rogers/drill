@@ -152,6 +152,9 @@ public class RepeatedVectorState implements VectorState {
   }
 
   @Override
+  public boolean isProjected() { return true; }
+
+  @Override
   public void dump(HierarchicalFormatter format) {
     format
       .startObject(this)

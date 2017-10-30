@@ -33,6 +33,7 @@ public class NullVectorState implements VectorState {
   @Override public void startBatchWithLookAhead() { }
   @Override public void reset() { }
   @Override public ValueVector vector() { return null; }
+  @Override public boolean isProjected() { return false; }
 
   public static class UnmanagedVectorState extends NullVectorState {
     ValueVector vector;

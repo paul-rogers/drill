@@ -563,6 +563,31 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   @Override
   public int targetVectorSize() { return options.vectorSizeLimit; }
 
+  @Override
+  public int skipRows(int requestedCount) {
+
+    // Can only skip rows when a batch is active.
+
+    if (state != State.ACTIVE) {
+      throw new IllegalStateException("No batch is active.");
+    }
+
+    // Can only skip rows if no columns are projected.
+
+    if (rootState.hasProjections()) {
+      throw new IllegalStateException("Cannot skip rows with a non-empty schema");
+    }
+
+    // Skip as many rows as the vector limit allows.
+
+    return writerIndex.skipRows(requestedCount);
+  }
+
+  @Override
+  public boolean isProjectionEmpty() {
+    return ! rootState.hasProjections();
+  }
+
   protected void overflowed() {
     logger.trace("Vector overflow");
 

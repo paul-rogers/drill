@@ -299,6 +299,15 @@ public abstract class TupleState implements TupleWriterListener {
     }
   }
 
+  public boolean hasProjections() {
+    for (ColumnState colState : columns) {
+      if (colState.isProjected()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /**
    * Clean up state (such as backup vectors) associated with the state
    * for each vector.
