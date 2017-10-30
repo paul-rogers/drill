@@ -120,7 +120,7 @@ public final class TextReader {
     final TextInput input = this.input;
 
     fieldIndex = 0;
-    if (isWhite(ch) && ignoreLeadingWhitespace) {
+    if (ignoreLeadingWhitespace && isWhite(ch)) {
       skipWhitespace();
     }
 
@@ -145,6 +145,11 @@ public final class TextReader {
           }
           break;
         }
+      }
+    } catch (StreamFinishedPseudoException e) {
+      // if we've written part of a field or all of a field, we should send this row.
+      if (fieldsWritten == 0) {
+        throw e;
       }
     } finally {
       output.finishRecord();
@@ -202,7 +207,7 @@ public final class TextReader {
   private void parseValue() throws IOException {
     if (ignoreTrailingWhitespace) {
       parseValueIgnore();
-    }else{
+    } else {
       parseValueAll();
     }
   }
@@ -360,13 +365,7 @@ public final class TextReader {
         throw new TextParsingException(context, "Cannot use newline character within quoted string");
       }
 
-      if (! success) {
-        return false;
-      }
-      if (context.isFull()) {
-        context.stop();
-      }
-      return true;
+      return success;
 
     } catch (StreamFinishedPseudoException ex) {
       stopParsing();

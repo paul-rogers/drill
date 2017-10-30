@@ -53,14 +53,14 @@ public class TestScanBatchWriters extends SubOperatorTest {
         return 0;
       }
     };
-    OperatorContext oContext = fixture.operatorContext(scanConfig);
+    OperatorContext opContext = fixture.newOperatorContext(scanConfig);
 
     // Setup: normally done by ScanBatch
 
     VectorContainer container = new VectorContainer(fixture.allocator());
-    OutputMutator output = new ScanBatch.Mutator(oContext, fixture.allocator(), container);
+    OutputMutator output = new ScanBatch.Mutator(opContext, fixture.allocator(), container);
     @SuppressWarnings("resource")
-    DrillBuf buffer = oContext.getManagedBuffer();
+    DrillBuf buffer = opContext.getManagedBuffer();
 
     // One-time setup
 
@@ -117,8 +117,8 @@ public class TestScanBatchWriters extends SubOperatorTest {
         new RowSetComparison(expected)
           .verifyAndClearAll(rowSet);
       }
+    } finally {
+      opContext.close();
     }
-
-    oContext.close();
   }
 }

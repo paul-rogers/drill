@@ -204,9 +204,9 @@ public class TestImplicitFileColumns extends BaseTestQuery {
     final String query1 = String.format("select * from dfs_test.`%s` ", rootEmpty);
 
     final BatchSchema expectedSchema = new SchemaBuilder()
+        .addArray("columns", TypeProtos.MinorType.VARCHAR)
         .addNullable("dir0", TypeProtos.MinorType.VARCHAR)
         .addNullable("dir1", TypeProtos.MinorType.VARCHAR)
-        .addArray("columns", TypeProtos.MinorType.VARCHAR)
         .build();
 
     testBuilder()
@@ -215,5 +215,4 @@ public class TestImplicitFileColumns extends BaseTestQuery {
         .build()
         .run();
   }
-
 }

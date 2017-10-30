@@ -291,22 +291,22 @@ public class FileMetadataManager implements MetadataManager, SchemaProjectionRes
 
   @Override
   public void close() {
-    bind((SchemaLevelProjection) null);
-  }
-
-  @Override
-  public void bind(SchemaLevelProjection schemaProj) {
     metadataColumns.clear();
     if (loader != null) {
       loader.close();
       loader = null;
     }
+    this.schemaProj = null;
+  }
+
+  @Override
+  public void bind(SchemaLevelProjection schemaProj) {
+    close();
     this.schemaProj = schemaProj;
   }
 
   @Override
   public void endFile() {
-    bind((SchemaLevelProjection) null);
     currentFile = null;
   }
 

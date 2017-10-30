@@ -251,7 +251,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
   }
 
   public abstract static class AbstractScanOpFixture {
-    private OperatorContext context;
+    private OperatorContext opContext;
     protected List<SchemaPath> projection;
     public ScanOperatorExec scanOp;
     private int batchByteCount;
@@ -295,8 +295,8 @@ public class TestScanOperatorExec extends SubOperatorTest {
           return 0;
         }
       };
-      context = fixture.operatorContext(scanConfig);
-      scanOp.bind(context);
+      opContext = fixture.newOperatorContext(scanConfig);
+      scanOp.bind(opContext);
       return scanOp;
     }
 
@@ -304,7 +304,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
       try {
         scanOp.close();
       } finally {
-        context.close();
+        opContext.close();
       }
     }
   }

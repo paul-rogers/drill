@@ -113,6 +113,24 @@ public class NullColumnLoader extends StaticColumnLoader {
 
     if (type == null) {
       type = defn.type();
+
+    } else if (type.getMode() == DataMode.REQUIRED) {
+
+      // Type was found in the vector cache.
+      // Map required to optional. Will cause a schema change.
+      // But do this only if the type is other than the default
+      // null type.
+      // This convoluted logic is needed because the text readers
+      // use a required type as their null type, but other readers
+      // use an actual nullable type as the null type.
+
+      if (type.getMinorType() != nullType.getMinorType() &&
+          type.getMode() != nullType.getMode()) {
+        type = MajorType.newBuilder()
+              .setMinorType(type.getMinorType())
+              .setMode(DataMode.OPTIONAL)
+              .build();
+      }
     }
 
     // Else, use the specified null type.
@@ -126,15 +144,6 @@ public class NullColumnLoader extends StaticColumnLoader {
 
     if (type.getMinorType() == MinorType.NULL) {
       type = nullType;
-    }
-
-    // Map required to optional. Will cause a schema change.
-
-    if (type.getMode() == DataMode.REQUIRED) {
-      type = MajorType.newBuilder()
-            .setMinorType(type.getMinorType())
-            .setMode(DataMode.OPTIONAL)
-            .build();
     }
     return MaterializedField.create(defn.name(), type);
   }

@@ -18,7 +18,6 @@
 package org.apache.drill.exec.store.easy.text;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -26,6 +25,9 @@ import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.FormatPluginConfig;
 import org.apache.drill.common.logical.StoragePluginConfig;
+import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.physical.base.AbstractGroupScan;
@@ -91,10 +93,21 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
       // If this format has no headers, or wants to skip them,
       // then we must use the columns column to hold the data.
 
-      TextFormatConfig textConfig = textPlugin.getConfig();
       framework.requireColumnsArray(
-          ! textConfig.isHeaderExtractionEnabled() ||
-          textConfig.skipFirstLine);
+          ! textPlugin.getConfig().isHeaderExtractionEnabled());
+
+      // Text files handle nulls in an unusual way. Missing columns
+      // are set to required Varchar and filled with blanks. Yes, this
+      // means that the SQL statement or code cannot differentiate missing
+      // columns from empty columns, but that is how CSV and other text
+      // files have been defined within Drill.
+
+      framework.setNullType(
+          MajorType.newBuilder()
+            .setMinorType(MinorType.VARCHAR)
+            .setMode(DataMode.REQUIRED)
+            .build());
+
       return framework;
     }
   }

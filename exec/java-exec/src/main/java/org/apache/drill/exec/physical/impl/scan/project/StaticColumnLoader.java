@@ -51,13 +51,14 @@ public abstract class StaticColumnLoader {
    */
 
   public VectorContainer load(int rowCount) {
+
+    // This implementation seems overly simple: it relies on the
+    // "fill-empties" logic for each vector type to fill nullable
+    // vectors with nulls, required vectors with blanks or zeros,
+    // and array vectors with empty arrays. If you suspect this
+    // method is broken, verify that the fill-empties logic works.
+
     loader.startBatch();
-    RowSetLoader writer = loader.writer();
-    for (int i = 0; i < rowCount; i++) {
-      writer.start();
-      loadRow(writer);
-      writer.save();
-    }
     return loader.harvest();
   }
 

@@ -84,7 +84,17 @@ public abstract class BaseFileScanFramework<T extends BaseFileScanFramework.File
 
   public void setSelectionRoot(Path rootPath) {
     this.scanRootDir = rootPath;
-   }
+  }
+
+  /**
+   * For historical reasons, Drill adds all metadata columns for a wildcard
+   * query. The project operator then drops those that are not needed. This
+   * flag disables that behavior if newer versions of Drill don't need the
+   * "create-then-delete" behavior.
+   *
+   * @param flag true to use the old-style expansion, false to not include
+   * metadata columns when expanding the wildcard column
+   */
 
   public void useLegacyWildcardExpansion(boolean flag) {
     useLegacyWildcardExpansion = flag;
@@ -92,11 +102,9 @@ public abstract class BaseFileScanFramework<T extends BaseFileScanFramework.File
 
   @Override
   protected void configure() {
+    super.configure();
 
     // And the Drill file system.
-    // TODO: Move this into the scan framework, made available via
-    // the schema negotiator. No reason for this to be in the context as
-    // not all scanner need a file system.
 
     try {
       dfs = context.newFileSystem(fsConfig);
@@ -106,6 +114,10 @@ public abstract class BaseFileScanFramework<T extends BaseFileScanFramework.File
         .build(logger);
     }
 
+    // Prepare the list of files. We need the list of paths up
+    // front to compute the maximum partition. Then, we need to
+    // iterate over the splits to create readers on demand.
+
     List<Path> paths = new ArrayList<>();
     for(FileWork work : files) {
       Path path = dfs.makeQualified(new Path(work.getPath()));
@@ -114,6 +126,9 @@ public abstract class BaseFileScanFramework<T extends BaseFileScanFramework.File
       spilts.add(split);
     }
     splitIter = spilts.iterator();
+
+    // Create the metadata manager to handle file metadata columns
+    // (so-called implicit columns and partition columns.)
 
     metadataManager = new FileMetadataManager(
         context.getFragmentContext().getOptionSet(),
@@ -125,12 +140,23 @@ public abstract class BaseFileScanFramework<T extends BaseFileScanFramework.File
 
   @Override
   public RowBatchReader nextReader() {
+
+    // Create a reader on demand for the next split.
+
     if (! splitIter.hasNext()) {
       return null;
     }
     FileSplit split = splitIter.next();
+
+    // Alert the framework that a new file is starting.
+
     startFile(split);
     try {
+
+      // Create a per-framework reader wrapped in a standard
+      // "shim" reader. Allows app-specific readers to be very focused;
+      // the shim handles standard boilerplate.
+
       return new ShimBatchReader<T>(this, newReader(split));
     } catch (ExecutionSetupException e) {
       throw UserException.executionError(e)
@@ -142,6 +168,10 @@ public abstract class BaseFileScanFramework<T extends BaseFileScanFramework.File
   protected abstract ManagedReader<T> newReader(FileSplit split) throws ExecutionSetupException;
 
   protected void startFile(FileSplit split) {
+
+    // Tell the metadata manager about the current file so it can
+    // populate the metadata columns, if requested.
+
     metadataManager.startFile(split.getPath());
   }
 }

@@ -47,7 +47,7 @@ public class TestMockRowReader extends SubOperatorTest {
 
   private class MockBatch {
 
-    private OperatorContext services;
+    private OperatorContext opContext;
     public ScanOperatorExec scanOp;
 
     public MockBatch(MockSubScanPOP config, List<ManagedReader<SchemaNegotiator>> readers) {
@@ -55,15 +55,15 @@ public class TestMockRowReader extends SubOperatorTest {
       projList.add(SchemaPath.STAR_COLUMN);
       BasicScanFramework framework = new BasicScanFramework(projList, readers.iterator());
       scanOp = new ScanOperatorExec(framework);
-      services = fixture.operatorContext(config);
-      scanOp.bind(services);
+      opContext = fixture.newOperatorContext(config);
+      scanOp.bind(opContext);
     }
 
     public void close() {
       try {
         scanOp.close();
       } finally {
-        services.close();
+        opContext.close();
       }
     }
   }

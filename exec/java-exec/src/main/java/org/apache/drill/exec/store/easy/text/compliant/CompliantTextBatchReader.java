@@ -79,7 +79,6 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
    * @throws ExecutionSetupException
    */
 
-  @SuppressWarnings("resource")
   @Override
   public boolean open(ColumnsSchemaNegotiator schemaNegotiator) {
     OperatorContext context = schemaNegotiator.context();
@@ -101,54 +100,85 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
 
     // setup Output, Input, and Reader
     try {
-      TextOutput output = null;
-      TextInput input = null;
-      InputStream stream = null;
+      TextOutput output;
 
-      // setup Output using OutputMutator
-      if (settings.isHeaderExtractionEnabled()){
-        //extract header and use that to setup a set of VarCharVectors
-        String [] fieldNames = extractHeader();
-        if (fieldNames == null) {
-          return false;
-        }
-        TupleMetadata schema = new TupleSchema();
-        for (String colName : fieldNames) {
-          schema.add(MaterializedField.create(colName,
-              MajorType.newBuilder()
-                .setMinorType(MinorType.VARCHAR)
-                .setMode(DataMode.REQUIRED)
-                .build()));
-        }
-        schemaNegotiator.setTableSchema(schema);
-        writer = schemaNegotiator.build().writer();
-        output = new FieldVarCharOutput(writer);
+      if (settings.isHeaderExtractionEnabled()) {
+        output = openWithHeaders(schemaNegotiator);
       } else {
-        //simply use RepeatedVarCharVector
-        TupleMetadata schema = new TupleSchema();
-        schema.add(MaterializedField.create(ColumnsArrayManager.COLUMNS_COL,
-            MajorType.newBuilder()
-              .setMinorType(MinorType.VARCHAR)
-              .setMode(DataMode.REPEATED)
-              .build()));
-        schemaNegotiator.setTableSchema(schema);
-        writer = schemaNegotiator.build().writer();
-        output = new RepeatedVarCharOutput(writer, schemaNegotiator.projectedIndexes());
+        output = openWithoutHeaders(schemaNegotiator);
       }
-
-      // setup Input using InputStream
-      logger.trace("Opening file {}", split.getPath());
-      stream = dfs.openPossiblyCompressedStream(split.getPath());
-      input = new TextInput(settings, stream, readBuffer, split.getStart(), split.getStart() + split.getLength());
-
-      // setup Reader using Input and Output
-      reader = new TextReader(settings, input, output, whitespaceBuffer);
-      reader.start();
-
+      if (output == null) {
+        return false;
+      }
+      openReader(output);
       return true;
     } catch (IOException e) {
       throw UserException.dataReadError(e).addContext("File Path", split.getPath().toString()).build(logger);
     }
+  }
+
+  /**
+   * Extract header and use that to setup a set of VarCharVectors
+   *
+   * @param schemaNegotiator
+   * @return
+   * @throws IOException
+   */
+
+  private TextOutput openWithHeaders(ColumnsSchemaNegotiator schemaNegotiator) throws IOException {
+    String [] fieldNames = extractHeader();
+    if (fieldNames == null) {
+      return null;
+    }
+    TupleMetadata schema = new TupleSchema();
+    for (String colName : fieldNames) {
+      schema.add(MaterializedField.create(colName,
+          MajorType.newBuilder()
+            .setMinorType(MinorType.VARCHAR)
+            .setMode(DataMode.REQUIRED)
+            .build()));
+    }
+    schemaNegotiator.setTableSchema(schema);
+    writer = schemaNegotiator.build().writer();
+    return new FieldVarCharOutput(writer);
+  }
+
+  /**
+   * Simply use RepeatedVarCharVector
+   *
+   * @param schemaNegotiator
+   * @return
+   */
+
+  private TextOutput openWithoutHeaders(
+      ColumnsSchemaNegotiator schemaNegotiator) {
+    TupleMetadata schema = new TupleSchema();
+    schema.add(MaterializedField.create(ColumnsArrayManager.COLUMNS_COL,
+        MajorType.newBuilder()
+          .setMinorType(MinorType.VARCHAR)
+          .setMode(DataMode.REPEATED)
+          .build()));
+    schemaNegotiator.setTableSchema(schema);
+    writer = schemaNegotiator.build().writer();
+    return new RepeatedVarCharOutput(writer, schemaNegotiator.projectedIndexes());
+  }
+
+  /**
+   * Setup Input using InputStream
+   *
+   * @param output
+   * @throws IOException
+   */
+
+  private void openReader(TextOutput output) throws IOException {
+    logger.trace("Opening file {}", split.getPath());
+    @SuppressWarnings("resource")
+    InputStream stream = dfs.openPossiblyCompressedStream(split.getPath());
+    TextInput input = new TextInput(settings, stream, readBuffer, split.getStart(), split.getStart() + split.getLength());
+
+    // setup Reader using Input and Output
+    reader = new TextReader(settings, input, output, whitespaceBuffer);
+    reader.start();
   }
 
   /**

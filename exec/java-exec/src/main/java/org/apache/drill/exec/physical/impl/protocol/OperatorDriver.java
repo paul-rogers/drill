@@ -31,8 +31,13 @@ import org.apache.drill.exec.record.RecordBatch.IterOutcome;
 public class OperatorDriver {
   public enum State { START, SCHEMA, RUN, END, FAILED, CLOSED }
 
-
   private OperatorDriver.State state = State.START;
+
+  /**
+   * Operator context. The driver "owns" the context and is responsible
+   * for closing it.
+   */
+
   private final OperatorContext opContext;
   private final OperatorExec operatorExec;
   private final BatchAccessor batchAccessor;

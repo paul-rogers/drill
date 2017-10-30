@@ -164,11 +164,57 @@ public class ScanLevelProjection {
       parser.bind(this);
     }
     for (SchemaPath inCol : projectionList) {
-      mapColumn(inCol);
+      if (inCol.isWildcard()) {
+        mapWildcard(inCol);
+      } else {
+        mapColumn(inCol);
+      }
     }
     verify();
     for (ScanProjectionParser parser : parsers) {
       parser.build();
+    }
+  }
+
+  /**
+   * Wildcard is special: add it, then let parsers add any custom
+   * columns that are needed. The order is important: we want custom
+   * columsn to follow table columns.
+   */
+
+  private void mapWildcard(SchemaPath inCol) {
+
+    // Wildcard column: this is a SELECT * query.
+
+    if (sawWildcard) {
+      throw new IllegalArgumentException("Duplicate * entry in project list");
+    }
+
+    // Remember the wildcard position, if we need to insert it.
+    // Ensures that the main wildcard expansion occurs before add-on
+    // columns.
+
+    int wildcardPosn = outputCols.size();
+
+    // Parsers can consume the wildcard. But, all parsers must
+    // have visibility to the wildcard column.
+
+    for (ScanProjectionParser parser : parsers) {
+      if (parser.parse(inCol)) {
+        wildcardPosn = -1;
+      }
+    }
+
+    // Set this flag only after the parser checks.
+
+    sawWildcard = true;
+
+    // If not consumed, put the wildcard column into the projection list as a
+    // placeholder to be filled in later with actual table columns.
+
+    if (wildcardPosn != -1) {
+      outputCols.add(wildcardPosn, new UnresolvedColumn(inCol, UnresolvedColumn.WILDCARD));
+      hasWildcard = true;
     }
   }
 
@@ -188,44 +234,6 @@ public class ScanLevelProjection {
    */
 
   private void mapColumn(SchemaPath inCol) {
-
-    // Wildcard is special: add it, then let parsers add any custom
-    // columns that are needed. The order is important: we want custom
-    // columsn to follow table columns.
-
-    if (inCol.isWildcard()) {
-
-      // Star column: this is a SELECT * query.
-
-      if (sawWildcard) {
-        throw new IllegalArgumentException("Duplicate * entry in project list");
-      }
-
-      // Remember the wildcard position, if we need to insert it.
-      // Ensures that the main wildcard expansion occurs before add-on
-      // columns.
-
-      int wildcardPosn = outputCols.size();
-
-      // Parsers can consume the wildcard.
-
-      for (ScanProjectionParser parser : parsers) {
-        if (parser.parse(inCol)) {
-          wildcardPosn = -1;
-          break;
-        }
-      }
-      sawWildcard = true;
-
-      // If not consumed, put the wildcard column into the projection list as a
-      // placeholder to be filled in later with actual table columns.
-
-      if (wildcardPosn != -1) {
-        outputCols.add(wildcardPosn, new UnresolvedColumn(inCol, UnresolvedColumn.WILDCARD));
-        hasWildcard = true;
-      }
-      return;
-    }
 
     // Give the extensions first crack at each column.
     // Some may want to "sniff" a column, even if they

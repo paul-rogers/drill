@@ -33,8 +33,6 @@ import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
-import com.google.common.collect.Lists;
-
 public class TestSchemaLevelProjection extends SubOperatorTest {
 
   @Test
