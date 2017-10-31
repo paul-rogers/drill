@@ -216,4 +216,34 @@ public class TestSchemaLevelProjection extends SubOperatorTest {
     assertEquals(1, columns.get(1).projection().destIndex());
     assertSame(fileSource, columns.get(1).projection().source());
   }
+
+  @Test
+  public void testDisjoint() {
+
+    // Simulate SELECT c, a ...
+
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectList("b"),
+        ScanTestUtils.parsers());
+    assertEquals(1, scanProj.columns().size());
+
+    // Simulate a data source, with early schema, of (a)
+
+    TupleMetadata tableSchema = new SchemaBuilder()
+        .add("A", MinorType.VARCHAR)
+        .buildSchema();
+
+    ScanTestUtils.DummySource fileSource = new ScanTestUtils.DummySource();
+    ScanTestUtils.DummySource nullSource = new ScanTestUtils.DummySource();
+    SchemaLevelProjection schemaProj = new ExplicitSchemaProjection(
+        scanProj, tableSchema, fileSource, nullSource,
+        ScanTestUtils.resolvers());
+    assertEquals(1, schemaProj.columns().size());
+
+    List<ResolvedColumn> columns = schemaProj.columns();
+    assertEquals("b", columns.get(0).name());
+    assertEquals(0, columns.get(0).projection().sourceIndex());
+    assertEquals(0, columns.get(0).projection().destIndex());
+    assertSame(nullSource, columns.get(0).projection().source());
+  }
 }

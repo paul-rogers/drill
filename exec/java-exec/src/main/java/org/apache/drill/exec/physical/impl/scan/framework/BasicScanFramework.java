@@ -52,7 +52,7 @@ public class BasicScanFramework extends AbstractScanFramework<SchemaNegotiator> 
   @Override
   public boolean openReader(ShimBatchReader<SchemaNegotiator> shim,
       ManagedReader<SchemaNegotiator> reader) {
-    SchemaNegotiatorImpl schemaNegotiator = new SchemaNegotiatorImpl(context, shim);
+    SchemaNegotiatorImpl schemaNegotiator = new SchemaNegotiatorImpl(this, shim);
     return reader.open(schemaNegotiator);
   }
 }

@@ -476,6 +476,94 @@ public class TestScanOrchestratorEarlySchema extends SubOperatorTest {
     scanner.close();
   }
 
+  /**
+   * Test SELECT - FROM table(a, b)
+   */
+
+  @Test
+  public void testEarlySchemaSelectNone() {
+    ScanSchemaOrchestrator scanner = new ScanSchemaOrchestrator(fixture.allocator());
+
+    // SELECT ...
+    // (Like SELECT COUNT(*) ...
+
+    scanner.build(ScanTestUtils.projectList());
+
+    // ... FROM table
+
+    ReaderSchemaOrchestrator reader = scanner.startReader();
+
+    // file schema (a, b)
+
+    TupleMetadata tableSchema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .add("b", MinorType.VARCHAR)
+        .buildSchema();
+
+    // Create the table loader
+
+    ResultSetLoader loader = reader.makeTableLoader(tableSchema);
+
+    // Verify that unprojected column is unprojected in the
+    // table loader.
+
+    assertTrue(loader.isProjectionEmpty());
+    assertFalse(loader.writer().column("a").schema().isProjected());
+    assertFalse(loader.writer().column("b").schema().isProjected());
+
+    // Verify empty batch.
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .build();
+    {
+      // Expect an empty schema
+
+      SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+          .build();
+
+      assertNotNull(scanner.output());
+      new RowSetComparison(expected)
+          .verifyAndClearAll(fixture.wrap(scanner.output()));
+    }
+
+    // Create a batch of data.
+
+    reader.startBatch();
+    loader.writer()
+      .addRow(1, "fred")
+      .addRow(2, "wilma");
+    reader.endBatch();
+
+    // Verify
+
+    {
+      // Two rows, no data.
+
+      SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow()
+        .addRow()
+        .build();
+
+      new RowSetComparison(expected)
+          .verifyAndClearAll(fixture.wrap(scanner.output()));
+    }
+
+    // Fast path to fill in empty rows
+
+    reader.startBatch();
+    loader.skipRows(10);
+    reader.endBatch();
+
+    // Verify
+
+    {
+      VectorContainer output = scanner.output();
+      assertEquals(10, output.getRecordCount());
+      output.zeroVectors();
+    }
+
+    scanner.close();
+  }
 
   /**
    * Test SELECT * from an early-schema table of () (that is,

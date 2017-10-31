@@ -91,4 +91,19 @@ public interface SchemaNegotiator {
    */
 
   ResultSetLoader build();
+
+  /**
+   * Report whether the projection list is empty, as occurs in two
+   * cases:
+   * <ul>
+   * <li><tt>SELECT COUNT(*) ...</tt> -- empty project.</ul>
+   * <li><tt>SELECT a, b FROM table(c d)</tt> -- disjoint project.</li>
+   * </ul>
+   * @return true if no columns are projected, and the client can
+   * make use of {@link ResultSetLoader#skipRows(int)} to indicate the
+   * row count, false if at least one column is projected and so
+   * data must be written using the loader
+   */
+
+  boolean isProjectionEmpty();
 }

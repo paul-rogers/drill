@@ -21,7 +21,6 @@ import java.util.List;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.scan.file.BaseFileScanFramework.FileSchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.impl.scan.framework.SchemaNegotiatorImpl;
@@ -46,8 +45,8 @@ public class FileScanFramework extends BaseFileScanFramework<FileSchemaNegotiato
   public static class FileSchemaNegotiatorImpl extends SchemaNegotiatorImpl
       implements FileSchemaNegotiator {
 
-    public FileSchemaNegotiatorImpl(OperatorContext context, ShimBatchReader<? extends FileSchemaNegotiator> shim) {
-      super(context, shim);
+    public FileSchemaNegotiatorImpl(BaseFileScanFramework<?> framework, ShimBatchReader<? extends FileSchemaNegotiator> shim) {
+      super(framework, shim);
     }
   }
 
@@ -69,6 +68,6 @@ public class FileScanFramework extends BaseFileScanFramework<FileSchemaNegotiato
   @Override
   public boolean openReader(ShimBatchReader<FileSchemaNegotiator> shim, ManagedReader<FileSchemaNegotiator> reader) {
     return reader.open(
-        new FileSchemaNegotiatorImpl(context, shim));
+        new FileSchemaNegotiatorImpl(this, shim));
   }
 }

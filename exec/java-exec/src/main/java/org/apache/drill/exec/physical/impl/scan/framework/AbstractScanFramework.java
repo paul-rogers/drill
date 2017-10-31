@@ -77,7 +77,7 @@ public abstract class AbstractScanFramework<T extends SchemaNegotiator> implemen
     this.context = context;
     scanOrchestrator = new ScanSchemaOrchestrator(context.getAllocator());
     configure();
-    assert projection != null  &&  ! projection.isEmpty();
+    assert projection != null;
     scanOrchestrator.build(projection);
   }
 

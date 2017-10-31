@@ -133,12 +133,62 @@ public class TestResultSetLoaderEmptySchema extends SubOperatorTest {
 
   @Test
   public void testEmptyMapProjection() {
+    List<SchemaPath> selection = Lists.newArrayList();
+    TupleMetadata schema = new SchemaBuilder()
+        .addMap("map")
+          .add("a", MinorType.INT)
+          .add("b", MinorType.INT)
+          .buildMap()
+        .buildSchema();
+    ResultSetOptions options = new OptionBuilder()
+        .setProjection(selection)
+        .setSchema(schema)
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
 
+    assertTrue(rsLoader.isProjectionEmpty());
+
+    // Sanity test to verify row skipping with maps
+
+    int rowCount = 5000;
+    rsLoader.startBatch();
+    int skipped = rsLoader.skipRows(rowCount);
+    assertEquals(skipped, rowCount);
+
+    VectorContainer output = rsLoader.harvest();
+    assertEquals(rowCount, output.getRecordCount());
+    assertEquals(0, output.getNumberOfColumns());
+    output.zeroVectors();
+
+    rsLoader.close();
   }
+
+
+  /**
+   * Test disjoint projection, but with maps. Project top-level columns
+   * a, b, when those columns actually appear in a map which is not
+   * projected.
+   */
 
   @Test
-  public void testNonEmptyMapProjection() {
+  public void testDisjointMapProjection() {
+    List<SchemaPath> selection = Lists.newArrayList(
+        SchemaPath.getSimplePath("a"),
+        SchemaPath.getSimplePath("b"));
+    TupleMetadata schema = new SchemaBuilder()
+        .addMap("map")
+          .add("a", MinorType.INT)
+          .add("b", MinorType.INT)
+          .buildMap()
+        .buildSchema();
+    ResultSetOptions options = new OptionBuilder()
+        .setProjection(selection)
+        .setSchema(schema)
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
 
+    assertTrue(rsLoader.isProjectionEmpty());
+
+    rsLoader.close();
   }
-
 }

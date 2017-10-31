@@ -65,7 +65,7 @@ public class ColumnsScanFramework extends BaseFileScanFramework<ColumnsScanFrame
 
     public ColumnsSchemaNegotiatorImpl(ColumnsScanFramework framework,
         ShimBatchReader<ColumnsSchemaNegotiator> shim) {
-      super(framework.context(), shim);
+      super(framework, shim);
       this.framework = framework;
     }
 

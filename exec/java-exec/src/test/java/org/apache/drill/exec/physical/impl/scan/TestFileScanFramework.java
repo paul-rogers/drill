@@ -380,6 +380,7 @@ public class TestFileScanFramework extends SubOperatorTest {
    * are more fully test on lower level components; here we verify
    * that the components are wired up correctly.
    */
+
   @Test
   public void testFullProject() {
 
@@ -405,6 +406,47 @@ public class TestFileScanFramework extends SubOperatorTest {
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(MOCK_DIR0, "fred", MOCK_FILE_NAME, null, MOCK_SUFFIX)
         .addRow(MOCK_DIR0, "wilma", MOCK_FILE_NAME, null, MOCK_SUFFIX)
+        .build();
+    RowSetComparison verifier = new RowSetComparison(expected);
+
+    // Schema should include implicit columns.
+
+    assertTrue(scan.buildSchema());
+    assertEquals(expectedSchema, scan.batchAccessor().getSchema());
+    scan.batchAccessor().release();
+
+    // Read one batch, should contain implicit columns
+
+    assertTrue(scan.next());
+    verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+
+    // EOF
+
+    assertFalse(scan.next());
+    assertEquals(0, scan.batchAccessor().getRowCount());
+    scanFixture.close();
+  }
+
+  @Test
+  public void testEmptyProject() {
+
+    MockEarlySchemaReader reader = new MockEarlySchemaReader();
+    reader.batchLimit = 1;
+
+    // Select no columns
+
+    FileScanOpFixture scanFixture = new FileScanOpFixture();
+    scanFixture.setProjection(new String[] {});
+    scanFixture.addReader(reader);
+    ScanOperatorExec scan = scanFixture.build();
+
+    // Expect data and implicit columns
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .build();
+    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow()
+        .addRow()
         .build();
     RowSetComparison verifier = new RowSetComparison(expected);
 

@@ -20,7 +20,6 @@ package org.apache.drill.exec.store.easy.text.compliant;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.vector.accessor.ScalarWriter;
 
 /**
  * Class is responsible for generating record batches for text file inputs. We generate
@@ -47,9 +46,6 @@ class FieldVarCharOutput extends BaseFieldOutput {
     int end = schema.size() - 1;
     while (end >= 0 && ! schema.metadata(end).isProjected()) {
       end--;
-    }
-    if (end == -1) {
-      throw new IllegalStateException("No columns selected");
     }
     maxField = end;
   }

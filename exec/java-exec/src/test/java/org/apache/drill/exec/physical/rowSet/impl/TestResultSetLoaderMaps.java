@@ -18,6 +18,7 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -62,6 +63,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
         .setSchema(schema)
         .build();
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    assertFalse(rsLoader.isProjectionEmpty());
     RowSetLoader rootWriter = rsLoader.writer();
 
     // Verify structure and schema

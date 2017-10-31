@@ -127,6 +127,7 @@ public final class TextReader {
     output.startRecord();
     int fieldsWritten = 0;
     try {
+      @SuppressWarnings("unused")
       boolean earlyTerm = false;
       while (ch != newLine) {
         earlyTerm = ! parseField();
@@ -139,12 +140,15 @@ public final class TextReader {
             break;
           }
         }
-        if (earlyTerm) {
-          if (ch != newLine) {
-            input.skipLines(1);
-          }
-          break;
-        }
+
+        // Disabling early termination. See DRILL-5914
+
+//        if (earlyTerm) {
+//          if (ch != newLine) {
+//            input.skipLines(1);
+//          }
+//          break;
+//        }
       }
     } catch (StreamFinishedPseudoException e) {
       // if we've written part of a field or all of a field, we should send this row.
