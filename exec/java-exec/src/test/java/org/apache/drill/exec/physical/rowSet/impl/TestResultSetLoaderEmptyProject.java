@@ -29,12 +29,14 @@ import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.test.SubOperatorTest;
+import org.apache.drill.test.rowSet.RowSetBuilder;
+import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
 import com.google.common.collect.Lists;
 
-public class TestResultSetLoaderEmptySchema extends SubOperatorTest {
+public class TestResultSetLoaderEmptyProject extends SubOperatorTest {
 
   /**
    * Verify that empty projection works: allows skipping rows and
@@ -118,7 +120,7 @@ public class TestResultSetLoaderEmptySchema extends SubOperatorTest {
   }
 
   /**
-   * Verify that skip rows is disallowed if the the projection is non-empty.
+   * Verify that skip rows works even if the the projection is non-empty.
    */
 
   @Test
@@ -128,7 +130,7 @@ public class TestResultSetLoaderEmptySchema extends SubOperatorTest {
         SchemaPath.getSimplePath("b"));
     TupleMetadata schema = new SchemaBuilder()
         .add("a", MinorType.INT)
-        .add("d", MinorType.INT)
+        .add("b", MinorType.INT)
         .buildSchema();
     ResultSetOptions options = new OptionBuilder()
         .setProjection(selection)
@@ -137,13 +139,22 @@ public class TestResultSetLoaderEmptySchema extends SubOperatorTest {
     ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
 
     assertFalse(rsLoader.isProjectionEmpty());
+
+    // Skip 10 rows. Columns are of required types, so are filled
+    // with zeros.
+
     rsLoader.startBatch();
-    try {
-      rsLoader.skipRows(10);
-      fail();
-    } catch (IllegalStateException e) {
-      // Expected
+    int rowCount = 10;
+    rsLoader.skipRows(rowCount);
+
+    // Verify
+
+    RowSetBuilder builder = fixture.rowSetBuilder(schema);
+    for (int i = 0; i < rowCount; i++) {
+      builder.addRow(0, 0);
     }
+    new RowSetComparison(builder.build())
+        .verifyAndClearAll(fixture.wrap(rsLoader.harvest()));
 
     rsLoader.close();
   }

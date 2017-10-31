@@ -284,7 +284,7 @@ public class OperatorStats {
   public void addLongStat(MetricDef metric, long value){
     longMetrics.putOrAdd(metric.metricId(), value, value);
   }
-  
+
   @VisibleForTesting
   public long getLongStat(MetricDef metric) {
     return longMetrics.get(metric.metricId());
@@ -302,7 +302,7 @@ public class OperatorStats {
   public void addDoubleStat(MetricDef metric, double value){
     doubleMetrics.putOrAdd(metric.metricId(), value, value);
   }
-  
+
   @VisibleForTesting
   public double getDoubleStat(MetricDef metric) {
     return doubleMetrics.get(metric.metricId());
