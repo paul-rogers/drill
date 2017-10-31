@@ -18,9 +18,7 @@
 package org.apache.drill.test;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Callable;
 
 import org.apache.drill.common.config.DrillConfig;
@@ -37,9 +35,7 @@ import org.apache.drill.exec.ops.BaseOperatorContext;
 import org.apache.drill.exec.ops.BufferManager;
 import org.apache.drill.exec.ops.BufferManagerImpl;
 import org.apache.drill.exec.ops.FragmentContextInterface;
-import org.apache.drill.exec.ops.MetricDef;
 import org.apache.drill.exec.ops.OperatorContext;
-import org.apache.drill.exec.ops.OperatorStatReceiver;
 import org.apache.drill.exec.ops.OperatorStats;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.record.BatchSchema;
@@ -201,7 +197,7 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
           popConfig.getInitialAllocation(),
           popConfig.getMaxAllocation()
           );
-      return new TestOperatorContext(this, childAllocator, popConfig, stats);
+      return new TestOperatorContext(this, childAllocator, popConfig);
     }
 
     @Override
@@ -217,64 +213,8 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     }
   }
 
-  /**
-   * Implements a write-only version of the stats collector for use by operators,
-   * then provides simplified test-time accessors to get the stats values when
-   * validating code in tests.
-   */
-
-  public static class MockStats implements OperatorStatReceiver {
-
-    public Map<Integer, Double> stats = new HashMap<>();
-
-    @Override
-    public void addLongStat(MetricDef metric, long value) {
-      setStat(metric, getStat(metric) + value);
-    }
-
-    @Override
-    public void addDoubleStat(MetricDef metric, double value) {
-      setStat(metric, getStat(metric) + value);
-    }
-
-    @Override
-    public void setLongStat(MetricDef metric, long value) {
-      setStat(metric, value);
-    }
-
-    @Override
-    public void setDoubleStat(MetricDef metric, double value) {
-      setStat(metric, value);
-    }
-
-    public double getStat(MetricDef metric) {
-      return getStat(metric.metricId());
-    }
-
-    private double getStat(int metricId) {
-      Double value = stats.get(metricId);
-      return value == null ? 0 : value;
-    }
-
-    private void setStat(MetricDef metric, double value) {
-      setStat(metric.metricId(), value);
-    }
-
-    private void setStat(int metricId, double value) {
-      stats.put(metricId, value);
-    }
-
-    // Timing stats not supported for test.
-    @Override
-    public void startWait() { }
-
-    @Override
-    public void stopWait() { }
-  }
-
   private final SystemOptionManager options;
   private final TestFragmentContext context;
-  private final OperatorStatReceiver stats;
 
   protected OperatorFixture(OperatorFixtureBuilder builder) {
     config = builder.configBuilder().build();
@@ -289,7 +229,6 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
       applySystemOptions(builder.systemOptions);
     }
     context = new TestFragmentContext(config, options, allocator);
-    stats = new MockStats();
    }
 
   private void applySystemOptions(List<RuntimeOption> systemOptions) {
@@ -361,25 +300,17 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
 
   public static class TestOperatorContext extends BaseOperatorContext {
 
-    private final OperatorStatReceiver stats;
+    private final OperatorStats stats;
 
     public TestOperatorContext(FragmentContextInterface fragContext,
         BufferAllocator allocator,
-        PhysicalOperator config,
-        OperatorStatReceiver stats) {
+        PhysicalOperator config) {
       super(fragContext, allocator, config);
-      this.stats = stats;
+      stats = new OperatorStats(100, 101, 0, allocator);
     }
 
     @Override
-    public OperatorStatReceiver getStatsWriter() {
-      return stats;
-    }
-
-    @Override
-    public OperatorStats getStats() {
-      throw new UnsupportedOperationException("getStats() not supported for tests");
-    }
+    public OperatorStats getStats() { return stats; }
 
     @Override
     public <RESULT> ListenableFuture<RESULT> runCallableAs(
@@ -395,6 +326,6 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
         popConfig.getInitialAllocation(),
         popConfig.getMaxAllocation()
         );
-    return new TestOperatorContext(context, childAllocator, popConfig, stats);
+    return new TestOperatorContext(context, childAllocator, popConfig);
   }
 }

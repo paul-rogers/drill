@@ -85,11 +85,6 @@ class OperatorContextImpl extends BaseOperatorContext implements OperatorContext
   }
 
   @Override
-  public OperatorStatReceiver getStatsWriter() {
-    return stats;
-  }
-
-  @Override
   public <RESULT> ListenableFuture<RESULT> runCallableAs(final UserGroupInformation proxyUgi,
                                                          final Callable<RESULT> callable) {
     synchronized (this) {
