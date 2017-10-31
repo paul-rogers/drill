@@ -152,9 +152,8 @@ public interface ResultSetLoader {
    * Used in <tt>SELECT COUNT(*)</tt> style queries when the downstream
    * operators want just record count, but no actual rows.
    * <p>
-   * Legal only when the loader contains no projected columns. (Though, to make
-   * code easier on the client, the schema may contain any number of unprojected
-   * columns.)
+   * Also used to fill in a batch of only null values (such a filling
+   * in a set of null vectors for unprojected columns.)
    *
    * @param requestedCount
    *          the number of rows to skip

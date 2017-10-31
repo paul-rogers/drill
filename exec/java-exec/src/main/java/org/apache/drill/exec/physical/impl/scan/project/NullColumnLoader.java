@@ -25,6 +25,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 
 /**
@@ -148,26 +149,11 @@ public class NullColumnLoader extends StaticColumnLoader {
     return MaterializedField.create(defn.name(), type);
   }
 
-  /**
-   * Populate nullable values with null, repeated vectors with
-   * an empty array (which, in Drill, is equivalent to null.).
-   *
-   * @param rowCount number of rows to generate. Must match the
-   * row count in the batch returned by the reader
-   */
 
   @Override
-  protected void loadRow(TupleWriter writer) {
-    for (int i = 0; i < isArray.length; i++) {
-
-      // Set the column (of any type) to null if the string value
-      // is null.
-
-      if (isArray[i]) {
-        // Nothing to do, array empty by default
-      } else {
-        writer.scalar(i).setNull();
-      }
-    }
+  public VectorContainer load(int rowCount) {
+    loader.startBatch();
+    loader.skipRows(rowCount);
+    return loader.harvest();
   }
 }

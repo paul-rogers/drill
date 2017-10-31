@@ -572,12 +572,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       throw new IllegalStateException("No batch is active.");
     }
 
-    // Can only skip rows if no columns are projected.
-
-    if (rootState.hasProjections()) {
-      throw new IllegalStateException("Cannot skip rows with a non-empty schema");
-    }
-
     // Skip as many rows as the vector limit allows.
 
     return writerIndex.skipRows(requestedCount);

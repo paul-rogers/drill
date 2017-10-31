@@ -22,6 +22,7 @@ import java.util.List;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 
 /**
@@ -61,6 +62,18 @@ public class ConstantColumnLoader extends StaticColumnLoader {
     }
   }
 
+  @Override
+  public VectorContainer load(int rowCount) {
+    loader.startBatch();
+    RowSetLoader writer = loader.writer();
+    for (int i = 0; i < rowCount; i++) {
+      writer.start();
+      loadRow(writer);
+      writer.save();
+    }
+    return loader.harvest();
+  }
+
   /**
    * Populate static vectors with the defined static values.
    *
@@ -68,8 +81,7 @@ public class ConstantColumnLoader extends StaticColumnLoader {
    * row count in the batch returned by the reader
    */
 
-  @Override
-  protected void loadRow(TupleWriter writer) {
+  private void loadRow(TupleWriter writer) {
     for (int i = 0; i < values.length; i++) {
 
       // Set the column (of any type) to null if the string value

@@ -22,7 +22,6 @@ import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.OptionBuilder;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.vector.accessor.TupleWriter;
 
 /**
  * Base class for columns that take values based on the
@@ -49,19 +48,7 @@ public abstract class StaticColumnLoader {
    * row count in the batch returned by the reader
    */
 
-  public VectorContainer load(int rowCount) {
-
-    // This implementation seems overly simple: it relies on the
-    // "fill-empties" logic for each vector type to fill nullable
-    // vectors with nulls, required vectors with blanks or zeros,
-    // and array vectors with empty arrays. If you suspect this
-    // method is broken, verify that the fill-empties logic works.
-
-    loader.startBatch();
-    return loader.harvest();
-  }
-
-  protected abstract void loadRow(TupleWriter writer);
+  public abstract VectorContainer load(int rowCount);
 
   public void close() {
     loader.close();
