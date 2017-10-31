@@ -154,7 +154,7 @@ public class TestSorter extends DrillTest {
       opContext = fixture.newOperatorContext(popConfig);
       sorter = new SorterWrapper(opContext);
     }
-    
+
     public void close() {
       opContext.close();
     }
