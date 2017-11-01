@@ -26,7 +26,6 @@ import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
-import org.apache.drill.exec.vector.accessor.TupleWriter;
 
 /**
  * Create and populate null columns for the case in which a SELECT statement
@@ -70,11 +69,22 @@ public class NullColumnLoader extends StaticColumnLoader {
       .build();
 
   private final MajorType nullType;
+  private final boolean allowRequired;
   private final boolean isArray[];
 
   public NullColumnLoader(ResultVectorCache vectorCache, List<? extends NullColumnSpec> defns,
-      MajorType nullType) {
+      MajorType nullType, boolean allowRequired) {
     super(vectorCache);
+
+    // Normally, null columns must be optional or arrays. However
+    // we allow required columns either if the client requests it,
+    // or if the client's requested null type is itself required.
+    // (The generated "null column" vectors will go into the vector
+    // cache and be pulled back out; we must preserve the required
+    // mode in this case.
+
+    this.allowRequired = allowRequired ||
+        (nullType != null && nullType.getMode() == DataMode.REQUIRED);
 
     // Use the provided null type, else the standard nullable int.
 
@@ -114,24 +124,20 @@ public class NullColumnLoader extends StaticColumnLoader {
 
     if (type == null) {
       type = defn.type();
+    }
+    if (type != null && ! allowRequired && type.getMode() == DataMode.REQUIRED) {
 
-    } else if (type.getMode() == DataMode.REQUIRED) {
+      // Type was found in the vector cache and the type is required.
+      // The client determines whether to map required types to optional.
+      // The text readers use required Varchar columns for missing columns,
+      // and so no required-to-optional mapping is desired. Other readers
+      // want to use nulls for missing columns, and so need the
+      // required-to-nullable mapping.
 
-      // Type was found in the vector cache.
-      // Map required to optional. Will cause a schema change.
-      // But do this only if the type is other than the default
-      // null type.
-      // This convoluted logic is needed because the text readers
-      // use a required type as their null type, but other readers
-      // use an actual nullable type as the null type.
-
-      if (type.getMinorType() != nullType.getMinorType() &&
-          type.getMode() != nullType.getMode()) {
-        type = MajorType.newBuilder()
-              .setMinorType(type.getMinorType())
-              .setMode(DataMode.OPTIONAL)
-              .build();
-      }
+      type = MajorType.newBuilder()
+            .setMinorType(type.getMinorType())
+            .setMode(DataMode.OPTIONAL)
+            .build();
     }
 
     // Else, use the specified null type.

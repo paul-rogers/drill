@@ -46,11 +46,13 @@ public class NullColumnManager implements VectorSource {
    */
 
   private final MajorType nullType;
+  private final boolean allowRequiredNullColumns;
 
   public NullColumnManager(ResultVectorCacheImpl vectorCache,
-      MajorType nullType) {
+      MajorType nullType, boolean allowRequiredNullColumns) {
     this.vectorCache = vectorCache;
     this.nullType = nullType;
+    this.allowRequiredNullColumns = allowRequiredNullColumns;
   }
 
   public void define(List<NullColumnSpec> nullCols) {
@@ -60,7 +62,7 @@ public class NullColumnManager implements VectorSource {
     // the loader.
 
     if (nullCols != null && ! nullCols.isEmpty()) {
-      nullColumnLoader = new NullColumnLoader(vectorCache, nullCols, nullType);
+      nullColumnLoader = new NullColumnLoader(vectorCache, nullCols, nullType, allowRequiredNullColumns);
     }
   }
 

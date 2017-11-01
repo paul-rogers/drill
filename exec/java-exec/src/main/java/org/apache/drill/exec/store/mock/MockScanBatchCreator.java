@@ -34,6 +34,7 @@ import org.apache.drill.exec.record.CloseableRecordBatch;
 import org.apache.drill.exec.record.RecordBatch;
 import org.apache.drill.exec.store.RecordReader;
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
+import org.apache.drill.exec.vector.ValueVector;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
@@ -65,10 +66,25 @@ public class MockScanBatchCreator implements BatchCreator<MockSubScanPOP> {
       readers.add(new ExtendedMockBatchReader(e));
     }
 
+    // Set the scan to allow the maximum row count, allowing
+    // each reader to adjust the batch size smaller if desired.
+
+    BasicScanFramework framework = new BasicScanFramework(projList, readers.iterator());
+    framework.setMaxRowCount(ValueVector.MAX_ROW_COUNT);
+
+    // Limit the batch size to 10 MB, or whatever the operator definition
+    // specified.
+
+    int batchSizeBytes = 10 * 1024 * 1024;
+    MockTableDef.MockScanEntry first = entries.get(0);
+    if (first.getBatchSize() > 0) {
+      batchSizeBytes = first.getBatchSize();
+    }
+    framework.setMaxBatchByteCount(batchSizeBytes);
+
     return new OperatorRecordBatch(
          context, config,
-         new ScanOperatorExec(
-             new BasicScanFramework(projList, readers.iterator())));
+         new ScanOperatorExec(framework));
   }
 
   private CloseableRecordBatch legacyMockScan(FragmentContext context,

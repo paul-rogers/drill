@@ -25,6 +25,7 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
+import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriterImpl;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
@@ -56,7 +57,8 @@ public class RepeatedVectorState implements VectorState {
     // Create the offsets state with the offset vector portion of the repeated
     // vector, and the offset writer portion of the array writer.
 
-    offsetsState = new OffsetVectorState(arrayWriter.offsetWriter(),
+    offsetsState = new OffsetVectorState(
+        ((OffsetVectorWriterImpl) arrayWriter.offsetWriter()),
         vector.getOffsetVector(),
         (AbstractObjectWriter) arrayWriter.entry());
   }

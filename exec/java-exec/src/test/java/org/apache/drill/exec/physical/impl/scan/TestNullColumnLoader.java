@@ -82,7 +82,7 @@ public class TestNullColumnLoader extends SubOperatorTest {
         .build()));
 
     ResultVectorCache cache = new NullResultVectorCacheImpl(fixture.allocator());
-    NullColumnLoader staticLoader = new NullColumnLoader(cache, defns, null);
+    NullColumnLoader staticLoader = new NullColumnLoader(cache, defns, null, false);
 
     // Create a batch
 
@@ -128,7 +128,7 @@ public class TestNullColumnLoader extends SubOperatorTest {
         .setMinorType(MinorType.VARCHAR)
         .setMode(DataMode.OPTIONAL)
         .build();
-    NullColumnLoader staticLoader = new NullColumnLoader(cache, defns, nullType);
+    NullColumnLoader staticLoader = new NullColumnLoader(cache, defns, nullType, false);
 
     // Create a batch
 
@@ -153,7 +153,7 @@ public class TestNullColumnLoader extends SubOperatorTest {
 
   @SuppressWarnings("resource")
   @Test
-  public void testCachedTypes() {
+  public void testCachedTypesMapToNullable() {
 
     List<NullProjectedColumn> defns = new ArrayList<>();
     defns.add(makeNullCol("req"));
@@ -174,7 +174,7 @@ public class TestNullColumnLoader extends SubOperatorTest {
         .setMinorType(MinorType.VARCHAR)
         .setMode(DataMode.OPTIONAL)
         .build();
-    NullColumnLoader staticLoader = new NullColumnLoader(cache, defns, nullType);
+    NullColumnLoader staticLoader = new NullColumnLoader(cache, defns, nullType, false);
 
     // Create a batch
 
@@ -196,6 +196,58 @@ public class TestNullColumnLoader extends SubOperatorTest {
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
         .addRow(null, null, new int[] { }, null)
         .addRow(null, null, new int[] { }, null)
+        .build();
+
+    new RowSetComparison(expected)
+        .verifyAndClearAll(fixture.wrap(output));
+    staticLoader.close();
+  }
+
+  @SuppressWarnings("resource")
+  @Test
+  public void testCachedTypesAllowRequired() {
+
+    List<NullProjectedColumn> defns = new ArrayList<>();
+    defns.add(makeNullCol("req"));
+    defns.add(makeNullCol("opt"));
+    defns.add(makeNullCol("rep"));
+    defns.add(makeNullCol("unk"));
+
+    // Populate the cache with a column of each mode.
+
+    ResultVectorCacheImpl cache = new ResultVectorCacheImpl(fixture.allocator());
+    cache.addOrGet(SchemaBuilder.columnSchema("req", MinorType.FLOAT8, DataMode.REQUIRED));
+    ValueVector opt = cache.addOrGet(SchemaBuilder.columnSchema("opt", MinorType.FLOAT8, DataMode.OPTIONAL));
+    ValueVector rep = cache.addOrGet(SchemaBuilder.columnSchema("rep", MinorType.FLOAT8, DataMode.REPEATED));
+
+    // Use nullable Varchar for unknown null columns.
+
+    MajorType nullType = MajorType.newBuilder()
+        .setMinorType(MinorType.VARCHAR)
+        .setMode(DataMode.OPTIONAL)
+        .build();
+    NullColumnLoader staticLoader = new NullColumnLoader(cache, defns, nullType, true);
+
+    // Create a batch
+
+    VectorContainer output = staticLoader.load(2);
+
+    // Verify vectors are reused
+
+    assertSame(opt, output.getValueVector(1).getValueVector());
+    assertSame(rep, output.getValueVector(2).getValueVector());
+
+    // Verify values and types
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .add("req", MinorType.FLOAT8)
+        .addNullable("opt", MinorType.FLOAT8)
+        .addArray("rep", MinorType.FLOAT8)
+        .addNullable("unk", MinorType.VARCHAR)
+        .build();
+    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addRow(0.0, null, new int[] { }, null)
+        .addRow(0.0, null, new int[] { }, null)
         .build();
 
     new RowSetComparison(expected)

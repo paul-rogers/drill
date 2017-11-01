@@ -97,9 +97,7 @@ public class ExtendedMockBatchReader implements ManagedReader<SchemaNegotiator> 
       schema.add(field);
     }
     schemaNegotiator.setTableSchema(schema);
-    if (config.getBatchSize() > 0) {
-      schemaNegotiator.setBatchSize(config.getBatchSize());
-    }
+
     mutator = schemaNegotiator.build();
     writer = mutator.writer();
     for (int i = 0; i < fields.length; i++) {
@@ -115,10 +113,6 @@ public class ExtendedMockBatchReader implements ManagedReader<SchemaNegotiator> 
       return false;
     }
 
-    rowCount = Math.min(rowCount, ValueVector.MAX_ROW_COUNT);
-    if (config.getBatchSize() > 0) {
-      rowCount = Math.min(rowCount, config.getBatchSize());
-    }
     Random rand = new Random();
     for (int i = 0; i < rowCount; i++) {
       if (writer.isFull()) {

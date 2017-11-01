@@ -416,6 +416,7 @@ public class ScanSchemaOrchestrator {
   List<SchemaProjectionResolver> schemaResolvers = new ArrayList<>();
 
   private boolean useSchemaSmoothing;
+  private boolean allowRequiredNullColumns;
 
   // Internal state
 
@@ -506,6 +507,10 @@ public class ScanSchemaOrchestrator {
     useSchemaSmoothing = flag;
   }
 
+  public void allowRequiredNullColumns(boolean flag) {
+    allowRequiredNullColumns = flag;
+  }
+
   public void build(List<SchemaPath> projection) {
     vectorCache = new ResultVectorCacheImpl(allocator, useSchemaSmoothing);
 
@@ -535,7 +540,7 @@ public class ScanSchemaOrchestrator {
     // to fill in missing columns.
 
     if (! scanProj.hasWildcard() || useSchemaSmoothing) {
-      nullColumnManager = new NullColumnManager(vectorCache, nullType);
+      nullColumnManager = new NullColumnManager(vectorCache, nullType, allowRequiredNullColumns);
     }
     if (scanProj.hasWildcard() && useSchemaSmoothing) {
       schemaSmoother = new SchemaSmoother(scanProj, nullColumnManager, schemaResolvers);

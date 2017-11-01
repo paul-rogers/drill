@@ -29,6 +29,7 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
+import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriterImpl;
 import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
 
 public abstract class ColumnState {
@@ -126,10 +127,11 @@ public abstract class ColumnState {
 
       // Wrap the offset vector in a vector state
 
-      VectorState vectorState = new OffsetVectorState(
-            ((AbstractArrayWriter) writer.array()).offsetWriter(),
-            offsetVector,
-            (AbstractObjectWriter) writer.array().entry());
+       VectorState vectorState = new OffsetVectorState(
+          ((OffsetVectorWriterImpl)
+            ((AbstractArrayWriter) writer.array()).offsetWriter()),
+          offsetVector,
+          (AbstractObjectWriter) writer.array().entry());
 
       // Assemble it all into the column state.
 

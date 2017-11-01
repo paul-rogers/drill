@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.directory.api.util.Strings;
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
@@ -215,7 +216,10 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
 
       try {
         BaseFileScanFramework<?> framework = buildFramework(scan);
-        framework.setSelectionRoot(new Path(scan.getSelectionRoot()));
+        String selectionRoot = scan.getSelectionRoot();
+        if (! Strings.isEmpty(selectionRoot)) {
+          framework.setSelectionRoot(new Path(selectionRoot));
+        }
         framework.useLegacyWildcardExpansion(true);
         return new OperatorRecordBatch(
             context, scan,

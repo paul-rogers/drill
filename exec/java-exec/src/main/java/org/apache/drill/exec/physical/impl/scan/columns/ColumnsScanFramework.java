@@ -102,6 +102,11 @@ public class ColumnsScanFramework extends BaseFileScanFramework<ColumnsScanFrame
     columnsArrayManager = new ColumnsArrayManager(requireColumnsArray);
     scanOrchestrator.addParser(columnsArrayManager.projectionParser());
     scanOrchestrator.addResolver(columnsArrayManager.resolver());
+
+    // This framework is (at present) used only for the text readers
+    // which use required Varchar columns to represent null columns.
+
+    scanOrchestrator.allowRequiredNullColumns(true);
   }
 
   @Override

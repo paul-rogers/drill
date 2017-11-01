@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.impl.scan.columns;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayManager.UnresolvedColumnsArrayColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
@@ -44,9 +45,22 @@ import org.apache.drill.exec.vector.ValueVector;
  * In this case, only array elements can appear, not the unindexed
  * `columns` column.</li>
  * </ul>
+ * <p>
+ * It falls to this parser to detect a not-uncommon user error, a
+ * query such as the following:<pre><code>
+ * SELECT max(columns[1]) AS col1
+ * FROM cp.`textinput/input1.csv`
+ * WHERE col1 IS NOT NULL
+ * </code></pre>
+ * In standard SQL, column aliases are not allowed in the WHERE
+ * clause. So, Drill will push two columns down to the scan operator:
+ * `columns`[1] and `col1`. This parser will detect the "extra"
+ * columns and must provide a message that helps the user identify
+ * the likely original problem.
  */
 
 public class ColumnsArrayParser implements ScanProjectionParser {
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ColumnsArrayParser.class);
 
   // Config
 
@@ -163,7 +177,10 @@ public class ColumnsArrayParser implements ScanProjectionParser {
   public void validateColumn(ColumnProjection col) {
     if (col.nodeType() == UnresolvedColumn.UNRESOLVED) {
       if (columnsArrayCol != null) {
-        throw new IllegalArgumentException("Cannot select columns[] and other table columns: " + col.name());
+        throw UserException.validationError()
+          .message("Cannot select columns[] and other table columns. Column alias incorrectly used in the WHERE clause?")
+          .addContext("Column name", col.name())
+          .build(logger);
       }
       if (requireColumnsArray) {
         throw new IllegalArgumentException("Only `columns` column is allowed. Found: " + col.name());
