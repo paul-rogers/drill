@@ -22,11 +22,14 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.util.List;
+
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.FileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.hadoop.fs.Path;
@@ -135,6 +138,58 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
     // Verify column type
 
     assertEquals(PartitionColumn.ID, scanProj.columns().get(0).nodeType());
+  }
+
+  @Test
+  public void testWildcard() {
+    Path filePath = new Path("hdfs:///w/x/y/z.csv");
+    FileMetadataManager metadataManager = new FileMetadataManager(
+        fixture.options(), true,
+        new Path("hdfs:///w"),
+        Lists.newArrayList(filePath));
+
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectAll(),
+        Lists.newArrayList(metadataManager.projectionParser()));
+
+    List<ColumnProjection> cols = scanProj.columns();
+    assertEquals(7, cols.size());
+    assertEquals(UnresolvedColumn.WILDCARD, cols.get(0).nodeType());
+    for (int i = 0; i < 4; i++) {
+      assertEquals(FileMetadataColumn.ID, cols.get(1+i).nodeType());
+    }
+    assertEquals(PartitionColumn.ID, cols.get(5).nodeType());
+    assertEquals(PartitionColumn.ID, cols.get(6).nodeType());
+  }
+
+  /**
+   * Drill 1.1 - 1.11 and Drill 1.13 or later put metadata columns after
+   * data columns. Drill 1.12 moved them before data columns. For testing
+   * and compatibility, the client can request to use the Drill 1.12 position,
+   * though the after-data position is the default.
+   */
+
+  @Test
+  public void testDrill1_12Wildcard() {
+    Path filePath = new Path("hdfs:///w/x/y/z.csv");
+    FileMetadataManager metadataManager = new FileMetadataManager(
+        fixture.options(), true,
+        new Path("hdfs:///w"),
+        Lists.newArrayList(filePath));
+
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectAll(),
+        Lists.newArrayList(metadataManager.projectionParser()),
+        true);
+
+    List<ColumnProjection> cols = scanProj.columns();
+    assertEquals(7, cols.size());
+    for (int i = 0; i < 4; i++) {
+      assertEquals(FileMetadataColumn.ID, cols.get(1).nodeType());
+    }
+    assertEquals(PartitionColumn.ID, cols.get(4).nodeType());
+    assertEquals(PartitionColumn.ID, cols.get(5).nodeType());
+    assertEquals(UnresolvedColumn.WILDCARD, cols.get(6).nodeType());
   }
 
   /**

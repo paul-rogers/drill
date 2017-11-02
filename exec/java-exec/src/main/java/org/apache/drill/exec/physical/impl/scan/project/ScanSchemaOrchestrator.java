@@ -404,6 +404,7 @@ public class ScanSchemaOrchestrator {
   private final BufferAllocator allocator;
   private int scanBatchRecordLimit = DEFAULT_BATCH_ROW_COUNT;
   private int scanBatchByteLimit = DEFAULT_BATCH_BYTE_COUNT;
+  private boolean v1_12MetadataLocation;
   private final List<ScanProjectionParser> parsers = new ArrayList<>();
 
   /**
@@ -511,6 +512,10 @@ public class ScanSchemaOrchestrator {
     allowRequiredNullColumns = flag;
   }
 
+  public void useDrill1_12MetadataPosition(boolean flag) {
+    v1_12MetadataLocation = flag;
+  }
+
   public void build(List<SchemaPath> projection) {
     vectorCache = new ResultVectorCacheImpl(allocator, useSchemaSmoothing);
 
@@ -534,7 +539,7 @@ public class ScanSchemaOrchestrator {
 
     // Parse the projection list.
 
-    scanProj = new ScanLevelProjection(projection, parsers);
+    scanProj = new ScanLevelProjection(projection, parsers, v1_12MetadataLocation);
 
     // If this is a wildcard query, we'll need a null column manager
     // to fill in missing columns.

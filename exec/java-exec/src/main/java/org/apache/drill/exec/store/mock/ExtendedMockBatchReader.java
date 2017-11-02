@@ -33,7 +33,6 @@ import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.store.mock.MockTableDef.MockColumn;
 import org.apache.drill.exec.store.mock.MockTableDef.MockScanEntry;
-import org.apache.drill.exec.vector.ValueVector;
 
 /**
  * Extended form of the mock record reader that uses generator class

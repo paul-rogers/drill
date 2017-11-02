@@ -108,6 +108,11 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
             .setMode(DataMode.REQUIRED)
             .build());
 
+      // For now, maintain backward compatibility with metadata
+      // position in wildcard queries.
+
+      framework.useDrill1_12MetadataPosition(true);
+
       return framework;
     }
   }

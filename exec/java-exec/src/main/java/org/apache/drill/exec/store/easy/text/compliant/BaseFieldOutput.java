@@ -61,7 +61,7 @@ public abstract class BaseFieldOutput extends TextOutput {
 
   @Override
   public void append(byte data) {
-    if (currentDataPointer >= MAX_FIELD_LENGTH -1) {
+    if (currentDataPointer >= MAX_FIELD_LENGTH - 1) {
       throw UserException
           .unsupportedError()
           .message("Trying to write something big in a column")
