@@ -587,6 +587,11 @@ public class QueryBuilder {
     return new QuerySummary(queryId, recordCount, batchCount, elapsed, state);
   }
 
+  public QueryResultSet resultSet() {
+    BufferingQueryEventListener listener = withEventListener();
+    return new QueryResultSet(listener, client.allocator());
+  }
+
   /**
    * Submit an "EXPLAIN" statement, and return the column value which
    * contains the plan's string.
