@@ -60,11 +60,11 @@ public class MemoryAllocationUtilities {
       final OptionManager optionManager = queryContext.getOptions();
       double cpu_load_average = optionManager.getOption(ExecConstants.CPU_LOAD_AVERAGE);
       final long maxWidth = optionManager.getOption(ExecConstants.MAX_WIDTH_PER_NODE);
-      final long maxWidthPerNode = ExecConstants.MAX_WIDTH_PER_NODE.computeMaxWidth(cpu_load_average,maxWidth);
+      final long maxWidthPerNode = ExecConstants.MAX_WIDTH_PER_NODE.computeMaxWidth(cpu_load_average, maxWidth);
       long maxAllocPerNode = Math.min(DrillConfig.getMaxDirectMemory(),
           queryContext.getConfig().getLong(RootAllocatorFactory.TOP_LEVEL_MAX_ALLOC));
       maxAllocPerNode = Math.min(maxAllocPerNode,
-          optionManager.getOption(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY).num_val);
+          optionManager.getLong(ExecConstants.MAX_QUERY_MEMORY_PER_NODE_KEY));
       final long maxOperatorAlloc = maxAllocPerNode / (bufferedOpList.size() * maxWidthPerNode);
       logger.debug("Max buffered operator alloc: {}", maxOperatorAlloc);
 

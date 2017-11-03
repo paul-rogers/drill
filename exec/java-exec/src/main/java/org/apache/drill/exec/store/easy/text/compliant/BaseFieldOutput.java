@@ -34,10 +34,58 @@ public abstract class BaseFieldOutput extends TextOutput {
   protected byte[] fieldBytes;
   private static final int MAX_FIELD_LENGTH = 1024 * 64;
   protected final RowSetLoader writer;
+  private final boolean[] projectionMask;
+  protected final int maxField;
+  protected boolean fieldProjected;
 
-  public BaseFieldOutput(RowSetLoader writer) {
+  /**
+   * Initialize the field output for one of three scenarios:
+   * <ul>
+   * <li>SELECT all: SELECT *, SELECT columns. Indicated by a non -1
+   * max fields.</li>
+   * <li>SELECT none: SELECT COUNT(*), etc. Indicated by a max field
+   * of -1.</li>
+   * <li>SELECT a, b, c indicated by a non-null projection mask that
+   * identifies the indexes of the fields to be selected. In this case,
+   * this constructor computes the maximum field.</li>
+   * </ul>
+   *
+   * @param writer Row set writer that provides access to the writer for
+   * each column
+   * @param maxField the index of the last field to store. May be -1 if no
+   * fields are to be stored. Computed if the projection mask is set
+   * @param projectionMask a boolean array indicating which fields are
+   * to be projected to the output. Optional
+   */
+
+  public BaseFieldOutput(RowSetLoader writer, int maxField, boolean[] projectionMask) {
     this.writer = writer;
-    fieldBytes = new byte[MAX_FIELD_LENGTH];
+    this.projectionMask = projectionMask;
+
+    // If no projection mask is defined, then we want all columns
+    // up to the max field, which may be -1 if we want to select
+    // nothing.
+
+    if (projectionMask == null) {
+      this.maxField = maxField;
+    } else {
+
+      // Otherwise, use the projection mask to determine
+      // which fields are to be projected. (The file may well
+      // contain more than the projected set.)
+
+      int end = projectionMask.length - 1;
+      while (end >= 0 && ! projectionMask[end]) {
+        end--;
+      }
+      this.maxField = end;
+    }
+
+    // If we project at least one field, allocate a buffer.
+
+    if (maxField >= 0) {
+      fieldBytes = new byte[MAX_FIELD_LENGTH];
+    }
   }
 
   /**
@@ -57,14 +105,27 @@ public abstract class BaseFieldOutput extends TextOutput {
     currentFieldIndex = index;
     currentDataPointer = 0;
     fieldOpen = true;
+
+    // Figure out if this field is projected.
+
+    if (projectionMask == null) {
+      fieldProjected = currentFieldIndex <= maxField;
+    } else if (currentFieldIndex >= projectionMask.length) {
+      fieldProjected = false;
+    } else {
+      fieldProjected = projectionMask[currentFieldIndex];
+    }
   }
 
   @Override
   public void append(byte data) {
+    if (! fieldProjected) {
+      return;
+    }
     if (currentDataPointer >= MAX_FIELD_LENGTH - 1) {
       throw UserException
           .unsupportedError()
-          .message("Trying to write something big in a column")
+          .message("Text column is too large.")
           .addContext("columnIndex", currentFieldIndex)
           .addContext("Limit", MAX_FIELD_LENGTH)
           .build(logger);
@@ -76,7 +137,7 @@ public abstract class BaseFieldOutput extends TextOutput {
   @Override
   public boolean endField() {
     fieldOpen = false;
-    return true;
+    return currentFieldIndex < maxField;
   }
 
   @Override

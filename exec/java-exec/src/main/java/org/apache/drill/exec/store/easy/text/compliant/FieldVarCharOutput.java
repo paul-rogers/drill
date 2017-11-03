@@ -28,8 +28,6 @@ import org.apache.drill.exec.record.TupleMetadata;
  */
 class FieldVarCharOutput extends BaseFieldOutput {
 
-  private final int maxField;
-
   /**
    * We initialize and add the varchar vector for each incoming field in this
    * constructor.
@@ -40,23 +38,27 @@ class FieldVarCharOutput extends BaseFieldOutput {
    * @throws SchemaChangeException
    */
   public FieldVarCharOutput(RowSetLoader writer) {
-    super(writer);
+    super(writer,
+        TextReader.MAXIMUM_NUMBER_COLUMNS,
+        makeMask(writer));
+  }
 
+  private static boolean[] makeMask(RowSetLoader writer) {
     TupleMetadata schema = writer.schema();
-    int end = schema.size() - 1;
-    while (end >= 0 && ! schema.metadata(end).isProjected()) {
-      end--;
+    boolean projectionMask[] = new boolean[schema.size()];
+    for (int i = 0; i < schema.size(); i++) {
+      projectionMask[i] = schema.metadata(i).isProjected();
     }
-    maxField = end;
+    return projectionMask;
   }
 
   @Override
   public boolean endField() {
-    super.endField();
+    if (fieldProjected) {
+      writer.scalar(currentFieldIndex)
+        .setBytes(fieldBytes, currentDataPointer);
+    }
 
-    writer.scalar(currentFieldIndex)
-      .setBytes(fieldBytes, currentDataPointer);
-
-    return currentFieldIndex < maxField;
+    return super.endField();
   }
 }

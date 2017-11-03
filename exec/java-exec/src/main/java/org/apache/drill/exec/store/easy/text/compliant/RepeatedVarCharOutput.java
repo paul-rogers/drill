@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.easy.text.compliant;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
@@ -28,34 +29,48 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
  */
 class RepeatedVarCharOutput extends BaseFieldOutput {
 
-  private final boolean[] projectionMask;
-  private final int maxField;
   private final ScalarWriter columnWriter;
   private final ArrayWriter arrayWriter;
 
   /**
-   * We initialize and add the repeated varchar vector to the record batch in this
-   * constructor. Perform some sanity checks if the selected columns are valid or not.
+   * Provide the row set loader (which must have just one repeated Varchar
+   * column) and an optional array projection mask.
    * @param projectionMask
    * @param tupleLoader
    */
+
   public RepeatedVarCharOutput(RowSetLoader loader, boolean[] projectionMask) {
-    super(loader);
-    this.projectionMask = projectionMask;
+    super(loader,
+        maxField(loader, projectionMask),
+        projectionMask);
     arrayWriter = writer.array(0);
     columnWriter = arrayWriter.scalar();
-    if (projectionMask == null) {
-      maxField = TextReader.MAXIMUM_NUMBER_COLUMNS;
-    } else {
-      int end = projectionMask.length - 1;
-      while (end >= 0 && ! projectionMask[end]) {
-        end--;
-      }
-      if (end == -1) {
-        throw new IllegalStateException("No columns[] indexes selected");
-      }
-      maxField = end;
+  }
+
+  private static int maxField(RowSetLoader loader, boolean[] projectionMask) {
+
+    // If the one and only field (`columns`) is not selected, then this
+    // is a COUNT(*) or similar query. Select nothing.
+
+    if (! loader.schema().metadata(0).isProjected()) {
+      return -1;
     }
+
+    // If this is SELECT * or SELECT `columns` query, project all
+    // possible fields.
+
+    if (projectionMask == null) {
+      return TextReader.MAXIMUM_NUMBER_COLUMNS;
+    }
+
+    // Else, this is a SELECT columns[x], columns[y], ... query.
+    // Project only the requested element members (fields).
+
+    int end = projectionMask.length - 1;
+    while (end >= 0 && ! projectionMask[end]) {
+      end--;
+    }
+    return end;
   }
 
   /**
@@ -78,23 +93,35 @@ class RepeatedVarCharOutput extends BaseFieldOutput {
 
   @Override
   public boolean endField() {
-    super.endField();
 
-    if (projectionMask == null) {
-      columnWriter.setBytes(fieldBytes, currentDataPointer);
-      return true;
-    }
+    // Skip the field if past the set of projected fields.
+
     if (currentFieldIndex > maxField) {
-      if (currentFieldIndex > TextReader.MAXIMUM_NUMBER_COLUMNS) {
-        throw new IndexOutOfBoundsException("Field index: " + currentFieldIndex);
-      }
       return false;
     }
-    if (projectionMask[currentFieldIndex]) {
+
+    // If the field is projected, save it.
+
+    if (fieldProjected) {
+
+      // Repeated var char will create as many entries as there are columns.
+      // If this would exceed the maximum, issue an error. Note that we do
+      // this only if all fields are selected; the same query will succed if
+      // the user does a COUNT(*) or SELECT columns[x], columns[y], ...
+
+      if (currentFieldIndex > TextReader.MAXIMUM_NUMBER_COLUMNS) {
+        throw UserException.dataReadError()
+          .message("Text file contains too many fields")
+          .addContext("Limit", TextReader.MAXIMUM_NUMBER_COLUMNS)
+          .build(logger);
+      }
+
+      // Save the field.
       columnWriter.setBytes(fieldBytes, currentDataPointer);
-    } else {
-      columnWriter.setBytes(fieldBytes, 0);
     }
-    return currentFieldIndex < maxField;
+
+    // Return whether the rest of the fields should be read.
+
+    return super.endField();
   }
 }
