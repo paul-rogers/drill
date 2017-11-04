@@ -23,6 +23,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayManager;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayManager.UnresolvedColumnsArrayColumn;
@@ -157,7 +158,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
           ScanTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL, "a"),
           ScanTestUtils.parsers(new ColumnsArrayParser(false)));
       fail();
-    } catch (IllegalArgumentException e) {
+    } catch (UserException e) {
       // Expected
     }
   }
@@ -173,7 +174,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
           ScanTestUtils.projectList("a", ColumnsArrayManager.COLUMNS_COL),
           ScanTestUtils.parsers(new ColumnsArrayParser(false)));
       fail();
-    } catch (IllegalArgumentException e) {
+    } catch (UserException e) {
       // Expected
     }
   }
@@ -189,7 +190,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
           ScanTestUtils.projectList(ColumnsArrayManager.COLUMNS_COL, ColumnsArrayManager.COLUMNS_COL),
           ScanTestUtils.parsers(new ColumnsArrayParser(false)));
       fail();
-    } catch (IllegalArgumentException e) {
+    } catch (UserException e) {
       // Expected
     }
   }
@@ -203,7 +204,7 @@ public class TestColumnsArrayParser extends SubOperatorTest {
             SchemaPath.parseFromString(ColumnsArrayManager.COLUMNS_COL + "[1]")),
           ScanTestUtils.parsers(new ColumnsArrayParser(false)));
       fail();
-    } catch (IllegalArgumentException e) {
+    } catch (UserException e) {
       // Expected
     }
   }
@@ -215,7 +216,19 @@ public class TestColumnsArrayParser extends SubOperatorTest {
           ScanTestUtils.projectList("a"),
           ScanTestUtils.parsers(new ColumnsArrayParser(true)));
       fail();
-    } catch (IllegalArgumentException e) {
+    } catch (UserException e) {
+      // Expected
+    }
+  }
+
+  @Test
+  public void testColumnsIndexTooLarge() {
+    try {
+      new ScanLevelProjection(
+          ScanTestUtils.projectCols(SchemaPath.parseFromString("columns[70000]")),
+          ScanTestUtils.parsers(new ColumnsArrayParser(true)));
+      fail();
+    } catch (UserException e) {
       // Expected
     }
   }

@@ -193,6 +193,10 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
     public boolean skipFirstLine = false;
     public boolean extractHeader = false;
 
+    public TextFormatConfig() {
+
+    }
+
     public List<String> getExtensions() { return extensions; }
 
     public char getQuote() { return quote; }

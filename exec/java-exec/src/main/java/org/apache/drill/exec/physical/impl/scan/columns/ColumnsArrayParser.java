@@ -27,6 +27,7 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
+import org.apache.drill.exec.store.easy.text.compliant.TextReader;
 import org.apache.drill.exec.vector.ValueVector;
 
 /**
@@ -109,7 +110,10 @@ public class ColumnsArrayParser implements ScanProjectionParser {
 
   private void expandWildcard() {
     if (columnsArrayCol != null) {
-      throw new IllegalArgumentException("Cannot select columns[] and `*` together");
+      throw UserException
+        .validationError()
+        .message("Cannot select columns[] and `*` together")
+        .build(logger);
     }
     addColumnsArrayColumn(SchemaPath.getSimplePath(ColumnsArrayManager.COLUMNS_COL));
   }
@@ -126,10 +130,16 @@ public class ColumnsArrayParser implements ScanProjectionParser {
     // (in non-indexed form.)
 
     if (columnsIndexes != null) {
-      throw new IllegalArgumentException("Cannot refer to both columns and columns[i]");
+      throw UserException
+        .validationError()
+        .message("Cannot refer to both columns and columns[i]")
+        .build(logger);
     }
     if (columnsArrayCol != null) {
-      throw new IllegalArgumentException("Duplicate columns[] column");
+      throw UserException
+        .validationError()
+        .message("Duplicate column: '" + inCol.toString() + "`")
+        .build(logger);
     }
     addColumnsArrayColumn(inCol);
   }
@@ -153,14 +163,22 @@ public class ColumnsArrayParser implements ScanProjectionParser {
       // Check if "columns" already appeared without an index.
 
     } else if (columnsIndexes == null) {
-      throw new IllegalArgumentException("Cannot refer to both columns and columns[i]");
+      throw UserException
+        .validationError()
+        .message("Cannot refer to both columns and columns[i]")
+        .build(logger);
     }
     if (columnsIndexes == null) {
       columnsIndexes = new ArrayList<>();
     }
     int index = inCol.getRootSegment().getChild().getArraySegment().getIndex();
-    if (index < 0  ||  index > ValueVector.MAX_ROW_COUNT) {
-      throw new IllegalArgumentException("columns[" + index + "] out of bounds");
+    if (index < 0  ||  index > TextReader.MAXIMUM_NUMBER_COLUMNS) {
+      throw UserException
+        .validationError()
+        .message("`columns`[" + index + "] index out of bounds")
+        .addContext("Column", inCol.toString())
+        .addContext("Maximum index", TextReader.MAXIMUM_NUMBER_COLUMNS)
+        .build(logger);
     }
     columnsIndexes.add(index);
     maxIndex = Math.max(maxIndex, index);
@@ -169,7 +187,10 @@ public class ColumnsArrayParser implements ScanProjectionParser {
   @Override
   public void validate() {
     if (builder.hasWildcard() && columnsArrayCol != null) {
-      throw new IllegalArgumentException("Cannot select columns[] and `*` together");
+      throw UserException
+        .validationError()
+        .message("Cannot select `columns` and `*` together")
+        .build(logger);
     }
   }
 
@@ -177,13 +198,17 @@ public class ColumnsArrayParser implements ScanProjectionParser {
   public void validateColumn(ColumnProjection col) {
     if (col.nodeType() == UnresolvedColumn.UNRESOLVED) {
       if (columnsArrayCol != null) {
-        throw UserException.validationError()
+        throw UserException
+          .validationError()
           .message("Cannot select columns[] and other table columns. Column alias incorrectly used in the WHERE clause?")
           .addContext("Column name", col.name())
           .build(logger);
       }
       if (requireColumnsArray) {
-        throw new IllegalArgumentException("Only `columns` column is allowed. Found: " + col.name());
+        throw UserException
+          .validationError()
+          .message("Only `columns` column is allowed. Found: " + col.name())
+          .build(logger);
       }
     }
   }

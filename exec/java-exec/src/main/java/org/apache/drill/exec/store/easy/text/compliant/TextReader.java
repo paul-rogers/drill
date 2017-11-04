@@ -156,7 +156,9 @@ public final class TextReader {
         throw e;
       }
     } finally {
-      output.finishRecord();
+      if (fieldsWritten > 0) {
+        output.finishRecord();
+      }
     }
     return true;
   }
@@ -414,16 +416,16 @@ public final class TextReader {
       throw (TextParsingException) ex;
     }
 
-    if (ex instanceof ArrayIndexOutOfBoundsException) {
-      // Not clear this exception is still thrown...
-
-      ex = UserException
-          .dataReadError(ex)
-          .message(
-              "Drill failed to read your text file.  Drill supports up to %d columns in a text file.  Your file appears to have more than that.",
-              MAXIMUM_NUMBER_COLUMNS)
-          .build(logger);
-    }
+//    if (ex instanceof ArrayIndexOutOfBoundsException) {
+//      // Not clear this exception is still thrown...
+//
+//      ex = UserException
+//          .dataReadError(ex)
+//          .message(
+//              "Drill failed to read your text file.  Drill supports up to %d columns in a text file.  Your file appears to have more than that.",
+//              MAXIMUM_NUMBER_COLUMNS)
+//          .build(logger);
+//    }
 
     String message = null;
     String tmp = input.getStringSinceMarkForError();
@@ -466,7 +468,19 @@ public final class TextReader {
       }
     }
 
-    throw new TextParsingException(context, message, ex);
+    UserException.Builder builder;
+    if (ex instanceof UserException) {
+      builder = ((UserException) ex).rebuild();
+    } else {
+      builder = UserException
+        .dataReadError(ex)
+        .message(message);
+    }
+    throw builder
+      .addContext("Line", context.currentLine())
+      .addContext("Record", context.currentRecord())
+      .addContext("Field", context.currentColumn())
+      .build(logger);
   }
 
   /**

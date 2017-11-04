@@ -106,17 +106,19 @@ class RepeatedVarCharOutput extends BaseFieldOutput {
 
       // Repeated var char will create as many entries as there are columns.
       // If this would exceed the maximum, issue an error. Note that we do
-      // this only if all fields are selected; the same query will succed if
+      // this only if all fields are selected; the same query will succeed if
       // the user does a COUNT(*) or SELECT columns[x], columns[y], ...
 
       if (currentFieldIndex > TextReader.MAXIMUM_NUMBER_COLUMNS) {
-        throw UserException.dataReadError()
+        throw UserException
+          .unsupportedError()
           .message("Text file contains too many fields")
           .addContext("Limit", TextReader.MAXIMUM_NUMBER_COLUMNS)
           .build(logger);
       }
 
       // Save the field.
+
       columnWriter.setBytes(fieldBytes, currentDataPointer);
     }
 

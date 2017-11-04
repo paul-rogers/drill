@@ -105,6 +105,14 @@ public class ScanTestUtils {
     return selected;
   }
 
+  static List<SchemaPath> projectCols(SchemaPath... cols) {
+    List<SchemaPath> selected = new ArrayList<>();
+    for (SchemaPath col: cols) {
+      selected.add(col);
+    }
+    return selected;
+  }
+
   public static List<SchemaPath> projectAll() {
     return Lists.newArrayList(
         new SchemaPath[] {SchemaPath.getSimplePath(SchemaPath.WILDCARD)});

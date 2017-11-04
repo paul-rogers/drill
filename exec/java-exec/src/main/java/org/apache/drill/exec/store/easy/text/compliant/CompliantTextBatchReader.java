@@ -68,6 +68,16 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
     this.split = split;
     this.settings = settings;
     this.dfs = dfs;
+
+    // Validate. Otherwise, these problems show up later as a data
+    // read error which is very confusing.
+
+    if (settings.getNewLineDelimiter().length == 0) {
+      throw UserException
+        .validationError()
+        .message("The text format line delimiter cannot be blank.")
+        .build(logger);
+    }
   }
 
   /**
@@ -238,6 +248,9 @@ public class CompliantTextBatchReader implements ManagedReader<ColumnsSchemaNego
       reader.finishBatch();
       return writer.rowCount() > 0;
     } catch (IOException | TextParsingException e) {
+      if (e.getCause() != null  && e.getCause() instanceof UserException) {
+        throw (UserException) e.getCause();
+      }
       throw UserException.dataReadError(e)
           .addContext("Failure while reading file %s. Happened at or shortly before byte position %d.",
             split.getPath(), reader.getPos())
