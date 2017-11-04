@@ -153,7 +153,11 @@ final class FormatPluginOptionsDescriptor {
       }
       if (param instanceof String) {
         // normalize Java literals, ex: \t, \n, \r
-        param = StringEscapeUtils.unescapeJava((String) param);
+        // But do not normalize a lone \
+        String strParam = (String) param;
+        if (strParam.length() > 1) {
+          param = StringEscapeUtils.unescapeJava(strParam);
+        }
       }
       TableParamDef paramDef = t.sig.params.get(i);
       TableParamDef expectedParamDef = this.functionParamsByName.get(paramDef.name);
