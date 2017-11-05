@@ -288,9 +288,9 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
       for (int i = 0; i < 20; i++) {
         vector.getMutator().set(i, 0xdeadbeef);
       }
-      
+
       // Simulate finishing the overflow row.
-      
+
       index.index++;
 
       // Post rollover, slot 0 should be initialized.
