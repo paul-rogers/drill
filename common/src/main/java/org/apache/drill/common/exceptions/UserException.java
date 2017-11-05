@@ -437,6 +437,14 @@ public class UserException extends DrillRuntimeException {
       }
     }
 
+    private Builder(UserException uex) {
+      this.uex = uex;
+      cause = uex.getCause();
+      errorType = uex.errorType;
+      context = uex.context;
+      message = uex.getOriginalMessage();
+    }
+
     /**
      * sets or replaces the error message.
      * <p>This will be ignored if this builder is wrapping a user exception
@@ -676,8 +684,7 @@ public class UserException extends DrillRuntimeException {
   }
 
   public Builder rebuild() {
-    return new Builder(errorType, getCause())
-        .message(getMessage());
+    return new Builder(this);
   }
 
   /**
