@@ -126,7 +126,7 @@ public abstract class BaseFieldOutput extends TextOutput {
       throw UserException
           .unsupportedError()
           .message("Text column is too large.")
-          .addContext("columnIndex", currentFieldIndex)
+          .addContext("Column", currentFieldIndex)
           .addContext("Limit", MAX_FIELD_LENGTH)
           .build(logger);
     }

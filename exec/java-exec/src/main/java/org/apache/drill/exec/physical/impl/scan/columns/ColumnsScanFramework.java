@@ -43,7 +43,6 @@ public class ColumnsScanFramework extends BaseFileScanFramework<ColumnsScanFrame
         FileSplit split) throws ExecutionSetupException;
   }
 
-
   /**
    * Schema negotiator that supports the file scan options plus access
    * to the specific selected columns indexes.

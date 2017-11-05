@@ -489,7 +489,6 @@ public final class TextReader {
     throw builder
       .addContext("Line", context.currentLine())
       .addContext("Record", context.currentRecord())
-      .addContext("Field", context.currentColumn())
       .build(logger);
   }
 

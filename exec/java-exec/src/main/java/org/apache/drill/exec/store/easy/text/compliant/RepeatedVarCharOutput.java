@@ -120,6 +120,13 @@ class RepeatedVarCharOutput extends BaseFieldOutput {
       // Save the field.
 
       columnWriter.setBytes(fieldBytes, currentDataPointer);
+    } else {
+
+      // The field is not projected.
+      // Must write a value into this array position, but
+      // the value should be empty.
+
+      columnWriter.setBytes(fieldBytes, 0);
     }
 
     // Return whether the rest of the fields should be read.

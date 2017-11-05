@@ -28,7 +28,6 @@ import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.Colu
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
 import org.apache.drill.exec.store.easy.text.compliant.TextReader;
-import org.apache.drill.exec.vector.ValueVector;
 
 /**
  * Parses the `columns` array. Doing so is surprisingly complex.
