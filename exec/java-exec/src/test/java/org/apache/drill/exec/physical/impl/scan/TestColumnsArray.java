@@ -22,6 +22,7 @@ import static org.junit.Assert.fail;
 
 import java.util.List;
 
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayManager;
@@ -195,7 +196,7 @@ public class TestColumnsArray extends SubOperatorTest {
           SchemaPath.getSimplePath(ColumnsArrayManager.COLUMNS_COL),
           SchemaPath.parseFromString(ColumnsArrayManager.COLUMNS_COL + "[1]")));
       fail();
-    } catch (IllegalArgumentException e) {
+    } catch (UserException e) {
       // Expected
     }
   }

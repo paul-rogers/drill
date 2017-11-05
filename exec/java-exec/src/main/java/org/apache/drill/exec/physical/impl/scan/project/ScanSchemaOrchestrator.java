@@ -534,7 +534,18 @@ public class ScanSchemaOrchestrator {
 
     ScanProjectionParser parser = metadataManager.projectionParser();
     if (parser != null) {
-      parsers.add(parser);
+
+      // For compatibility with Drill 1.12, insert the file metadata
+      // parser before others so that, in a wildcard query, metadata
+      // columns appear before others (such as the `columns` column.)
+      // This is temporary and should be removed once the test framework
+      // is restored to Drill 1.11 functionality.
+
+      if (v1_12MetadataLocation) {
+        parsers.add(0, parser);
+      } else {
+        parsers.add(parser);
+      }
     }
 
     // Parse the projection list.
