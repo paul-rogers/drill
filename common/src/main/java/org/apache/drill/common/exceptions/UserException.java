@@ -449,8 +449,12 @@ public class UserException extends DrillRuntimeException {
      */
     public Builder message(final String format, final Object... args) {
       // we can't replace the message of a user exception
-      if (uex == null && format != null && args.length > 0) {
-        this.message = String.format(format, args);
+      if (uex == null && format != null) {
+        if (args.length == 0) {
+          message = format;
+        } else {
+          message = String.format(format, args);
+        }
       }
       return this;
     }
