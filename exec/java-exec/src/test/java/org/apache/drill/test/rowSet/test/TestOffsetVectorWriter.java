@@ -277,7 +277,7 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
       // Verify the first "batch" results
 
       for (int i = 0; i < 11; i++) {
-        assertEquals(i * 10, vector.getAccessor().get(i));
+        assertEquals("i = " + i, i * 10, vector.getAccessor().get(i));
       }
       for (int i = 11; i < 16; i++) {
         assertEquals("i = " + i, 100, vector.getAccessor().get(i));
@@ -288,6 +288,10 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
       for (int i = 0; i < 20; i++) {
         vector.getMutator().set(i, 0xdeadbeef);
       }
+      
+      // Simulate finishing the overflow row.
+      
+      index.index++;
 
       // Post rollover, slot 0 should be initialized.
 
@@ -316,10 +320,10 @@ public class TestOffsetVectorWriter extends SubOperatorTest {
       // Verify the results
 
       for (int i = 0; i < 6; i++) {
-        assertEquals(0, vector.getAccessor().get(i));
+        assertEquals("Index + " + i, 0, vector.getAccessor().get(i));
       }
       for (int i = 6; i < 11; i++) {
-        assertEquals((i - 5) * 10, vector.getAccessor().get(i));
+        assertEquals("Index + " + i, (i - 5) * 10, vector.getAccessor().get(i));
       }
     }
   }

@@ -115,9 +115,14 @@ public abstract class ColumnState {
 
       // Create the map's offset vector.
 
-      UInt4Vector offsetVector = new UInt4Vector(
+      UInt4Vector offsetVector;
+      if (columnSchema.isProjected()) {
+        offsetVector = new UInt4Vector(
           BaseRepeatedValueVector.OFFSETS_FIELD,
           resultSetLoader.allocator());
+      } else {
+        offsetVector = null;
+      }
 
       // Create the writer using the offset vector
 
@@ -127,11 +132,16 @@ public abstract class ColumnState {
 
       // Wrap the offset vector in a vector state
 
-       VectorState vectorState = new OffsetVectorState(
+       VectorState vectorState;
+       if (columnSchema.isProjected()) {
+         vectorState= new OffsetVectorState(
           ((OffsetVectorWriterImpl)
             ((AbstractArrayWriter) writer.array()).offsetWriter()),
           offsetVector,
           (AbstractObjectWriter) writer.array().entry());
+       } else {
+         vectorState = new NullVectorState();
+       }
 
       // Assemble it all into the column state.
 

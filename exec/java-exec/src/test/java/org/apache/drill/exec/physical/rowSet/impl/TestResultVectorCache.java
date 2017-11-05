@@ -31,7 +31,6 @@ import org.junit.Test;
 
 public class TestResultVectorCache extends SubOperatorTest {
 
-
   @Test
   public void testIsPromotable() {
 
@@ -46,7 +45,7 @@ public class TestResultVectorCache extends SubOperatorTest {
     assertTrue(required.isPromotableTo(required, true));
     assertTrue(required.isPromotableTo(required, false));
 
-    // Require is promotable to null
+    // Required is promotable to null
 
     MaterializedField nullable = MaterializedField.create("a",
         MajorType.newBuilder()

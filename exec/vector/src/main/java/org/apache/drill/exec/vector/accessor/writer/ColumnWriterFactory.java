@@ -129,7 +129,10 @@ public class ColumnWriterFactory {
                                         List<AbstractObjectWriter> writers) {
     MapWriter mapWriter;
     if (schema.isProjected()) {
-      assert vector != null;
+
+      // Vector is not required for a map writer; the map's columns
+      // are written, but not the (non-array) map.
+
       mapWriter = new SingleMapWriter(schema, vector, writers);
     } else {
       assert vector == null;

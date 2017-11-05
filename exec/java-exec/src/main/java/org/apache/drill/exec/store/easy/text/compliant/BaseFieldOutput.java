@@ -147,11 +147,6 @@ public abstract class BaseFieldOutput extends TextOutput {
 
   @Override
   public void finishRecord() {
-    // Don't save the row if no fields written.
-
-    if (currentFieldIndex == -1) {
-      return;
-    }
     if (fieldOpen) {
       endField();
     }

@@ -174,7 +174,7 @@ final class TextInput {
       }
       length = inputFS.read(underlyingBuffer);
 
-    }else{
+    } else {
 
       byte[] b = new byte[underlyingBuffer.capacity()];
       if (remByte != -1) {

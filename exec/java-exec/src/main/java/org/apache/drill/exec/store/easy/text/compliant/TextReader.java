@@ -150,13 +150,14 @@ public final class TextReader {
 //          break;
 //        }
       }
+      output.finishRecord();
     } catch (StreamFinishedPseudoException e) {
+
       // if we've written part of a field or all of a field, we should send this row.
+
       if (fieldsWritten == 0) {
         throw e;
-      }
-    } finally {
-      if (fieldsWritten > 0) {
+      } else {
         output.finishRecord();
       }
     }
@@ -314,15 +315,24 @@ public final class TextReader {
       skipWhitespace();
     }
 
+    // Delimiter? Then this is an empty field.
+
     if (ch == delimiter) {
       return output.endEmptyField();
-    } else {
+    }
+
+    // Have the first character of the field. Parse and save the
+    // field, even if we hit EOF. (An EOF identifies a last line
+    // that contains data, but is not terminated with a newline.)
+
+    try {
       if (ch == quote) {
         parseQuotedValue(NULL_BYTE);
       } else {
         parseValue();
       }
-
+      return output.endField();
+    } catch (StreamFinishedPseudoException e) {
       return output.endField();
     }
   }

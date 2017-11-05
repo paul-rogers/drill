@@ -217,7 +217,7 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
 
     // Track the last write location for zero-fill use next time around.
 
-    lastWriteIndex = writeIndex;
+    lastWriteIndex = valueIndex;
     return writeIndex;
   }
 
@@ -233,14 +233,16 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
     writeIndex = vectorIndex.vectorIndex() + 1;
 
     // Fill empties to the write position.
+    // Fill empties works of the row index, not the write
+    // index. (Yes, this is complex...)
 
-    fillEmpties(writeIndex);
+    fillEmpties(writeIndex - 1);
     return writeIndex;
   }
 
   @Override
-  protected final void fillEmpties(final int writeIndex) {
-    while (lastWriteIndex < writeIndex - 1) {
+  protected final void fillEmpties(final int valueIndex) {
+    while (lastWriteIndex < valueIndex - 1) {
       PlatformDependent.putInt(bufAddr + (++lastWriteIndex + 1) * VALUE_WIDTH, nextOffset);
     }
   }
@@ -250,7 +252,6 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
     final int writeIndex = writeIndex();
     PlatformDependent.putInt(bufAddr + writeIndex * VALUE_WIDTH, newOffset);
     nextOffset = newOffset;
-    lastWriteIndex = writeIndex - 1;
   }
 
   @Override
@@ -268,6 +269,12 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
 
   @Override
   public void preRollover() {
+
+    // Rollover is occurring. This means the current row is not complete.
+    // We want to keep 0..(row index - 1) which gives us (row index)
+    // rows. But, this being an offset vector, we add one to account
+    // for the extra 0 value at the start.
+
     setValueCount(vectorIndex.rowStartIndex() + 1);
   }
 
@@ -286,7 +293,11 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
   @Override
   public void setValueCount(int valueCount) {
     resize(valueCount, false);
-    fillEmpties(valueCount);
+
+    // Value count are in offset vector positions. Fill empties
+    // works in row positions.
+
+    fillEmpties(valueCount - 1);
     vector.getBuffer().writerIndex(valueCount * VALUE_WIDTH);
   }
 

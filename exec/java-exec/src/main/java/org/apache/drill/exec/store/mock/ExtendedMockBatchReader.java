@@ -48,7 +48,7 @@ public class ExtendedMockBatchReader implements ManagedReader<SchemaNegotiator> 
 
   private final MockScanEntry config;
   private final ColumnDef fields[];
-  private ResultSetLoader mutator;
+  private ResultSetLoader loader;
   private RowSetLoader writer;
 
   public ExtendedMockBatchReader(MockScanEntry config) {
@@ -97,8 +97,20 @@ public class ExtendedMockBatchReader implements ManagedReader<SchemaNegotiator> 
     }
     schemaNegotiator.setTableSchema(schema);
 
-    mutator = schemaNegotiator.build();
-    writer = mutator.writer();
+    // Set the batch size. Ideally, we'd leave that to the framework based
+    // on the bytes per batch. But, several legacy tests depend on a known,
+    // fixed batch size of 10K, so encode that until we can change those
+    // tests. If the operator definition specifies a size, use that.
+
+    // TODO: Defer batch size to framework, update tests accordingly.
+
+    int batchSize = config.getBatchSize();
+    if (batchSize > 0) {
+      schemaNegotiator.setBatchSize(batchSize);
+    }
+
+    loader = schemaNegotiator.build();
+    writer = loader.writer();
     for (int i = 0; i < fields.length; i++) {
       fields[i].generator.setup(fields[i], writer.scalar(i));
     }
@@ -107,7 +119,7 @@ public class ExtendedMockBatchReader implements ManagedReader<SchemaNegotiator> 
 
   @Override
   public boolean next() {
-    int rowCount = config.getRecords() - mutator.totalRowCount();
+    int rowCount = config.getRecords() - loader.totalRowCount();
     if (rowCount <= 0) {
       return false;
     }
