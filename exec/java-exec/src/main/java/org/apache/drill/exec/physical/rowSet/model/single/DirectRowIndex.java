@@ -15,24 +15,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.vector.accessor.reader;
+package org.apache.drill.exec.physical.rowSet.model.single;
 
-import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
-import org.apache.drill.exec.vector.accessor.reader.AbstractArrayReader.BaseElementIndex;
+import org.apache.drill.exec.physical.rowSet.model.ReaderIndex;
 
 /**
- * Index into the vector of elements for a repeated vector.
- * Keeps track of the current offset in terms of value positions.
+ * Reader index that points directly to each row in the row set.
+ * This index starts with pointing to the -1st row, so that the
+ * reader can require a <tt>next()</tt> for every row, including
+ * the first. (This is the JDBC <tt>RecordSet</tt> convention.)
  */
 
-public class FixedWidthElementReaderIndex extends BaseElementIndex implements ElementReaderIndex {
+public class DirectRowIndex extends ReaderIndex {
 
-  public FixedWidthElementReaderIndex(ColumnReaderIndex base) {
-    super(base);
+  public DirectRowIndex(int rowCount) {
+    super(rowCount);
   }
 
   @Override
-  public int vectorIndex(int posn) {
-    return elementIndex(posn);
-  }
+  public int vectorIndex() { return rowIndex; }
+
+  @Override
+  public int batchIndex() { return 0; }
 }

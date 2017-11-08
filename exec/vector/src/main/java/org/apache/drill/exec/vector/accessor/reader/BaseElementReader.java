@@ -27,6 +27,7 @@ import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarElementReader;
 import org.apache.drill.exec.vector.accessor.impl.AccessorUtilities;
+import org.apache.drill.exec.vector.accessor.reader.AbstractArrayReader.ElementReaderIndex;
 import org.joda.time.Period;
 
 public abstract class BaseElementReader implements ScalarElementReader {

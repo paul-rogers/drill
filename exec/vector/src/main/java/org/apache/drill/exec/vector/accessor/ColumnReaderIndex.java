@@ -17,7 +17,48 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
+/**
+ * Column reader index: provides the read position within a batch or
+ * an array.
+ */
+
 public interface ColumnReaderIndex {
+
+  /**
+   * Ordinal index within the batch; increments from 0. Identifies
+   * the row number of top-level records.
+   *
+   * @return external read index
+   */
+
   int batchIndex();
+
+  /**
+   * Vector index, possibly mapped through an indirection vector. When used
+   * with an array, indicates the index into the offset vector of the array
+   * using an absolute index; not a relative position.
+   *
+   * @return vector read index
+   */
+
   int vectorIndex();
+
+  /**
+   * Advances the index to the next position. Used at the top level
+   * (only) for normal readers; at a nested level for implicit join
+   * readers.
+   *
+   * @return true if another value is available, false if EOF
+   */
+
+  boolean next();
+
+  /**
+   * Return the number of items that this index indexes: top-level record
+   * count for the root index; total element count for nested arrays.
+   *
+   * @return element count at this index level
+   */
+
+  int size();
 }
