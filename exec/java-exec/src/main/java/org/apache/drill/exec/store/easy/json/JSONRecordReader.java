@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -20,7 +20,6 @@ package org.apache.drill.exec.store.easy.json;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
-import com.google.common.collect.Lists;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.exceptions.UserException;
@@ -30,6 +29,7 @@ import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.ops.FragmentContext;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.OutputMutator;
+import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.store.AbstractRecordReader;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.easy.json.JsonProcessor.ReadState;
@@ -66,7 +66,7 @@ public class JSONRecordReader extends AbstractRecordReader {
   private long parseErrorCount;
   private final boolean skipMalformedJSONRecords;
   private final boolean printSkippedMalformedJSONRecordLineNumber;
-  ReadState write = null;
+  private ReadState write = null;
 
   /**
    * Create a JSON Record Reader that uses a file based input stream.
@@ -113,11 +113,12 @@ public class JSONRecordReader extends AbstractRecordReader {
     this.fileSystem = fileSystem;
     this.fragmentContext = fragmentContext;
     // only enable all text mode if we aren't using embedded content mode.
-    this.enableAllTextMode = embeddedContent == null && fragmentContext.getOptions().getOption(ExecConstants.JSON_READER_ALL_TEXT_MODE_VALIDATOR);
-    this.readNumbersAsDouble = embeddedContent == null && fragmentContext.getOptions().getOption(ExecConstants.JSON_READ_NUMBERS_AS_DOUBLE_VALIDATOR);
-    this.unionEnabled = embeddedContent == null && fragmentContext.getOptions().getOption(ExecConstants.ENABLE_UNION_TYPE);
-    this.skipMalformedJSONRecords = fragmentContext.getOptions().getOption(ExecConstants.JSON_SKIP_MALFORMED_RECORDS_VALIDATOR);
-    this.printSkippedMalformedJSONRecordLineNumber = fragmentContext.getOptions().getOption(ExecConstants.JSON_READER_PRINT_INVALID_RECORDS_LINE_NOS_FLAG_VALIDATOR);
+    OptionManager options = fragmentContext.getOptions();
+    this.enableAllTextMode = embeddedContent == null && options.getBoolean(ExecConstants.JSON_ALL_TEXT_MODE);
+    this.readNumbersAsDouble = embeddedContent == null && options.getBoolean(ExecConstants.JSON_READ_NUMBERS_AS_DOUBLE);
+    this.unionEnabled = embeddedContent == null && options.getBoolean(ExecConstants.ENABLE_UNION_TYPE_KEY);
+    this.skipMalformedJSONRecords = options.getBoolean(ExecConstants.JSON_READER_SKIP_INVALID_RECORDS_FLAG);
+    this.printSkippedMalformedJSONRecordLineNumber = options.getBoolean(ExecConstants.JSON_READER_PRINT_INVALID_RECORDS_LINE_NOS_FLAG);
     setColumns(columns);
   }
 
@@ -202,32 +203,32 @@ public class JSONRecordReader extends AbstractRecordReader {
       return recordCount;
     }
     outside: while(recordCount < DEFAULT_ROWS_PER_BATCH){
-      try{
+      try {
         writer.setPosition(recordCount);
         write = jsonReader.write(writer);
-        if(write == ReadState.WRITE_SUCCEED){
+        if (write == ReadState.WRITE_SUCCEED){
           recordCount++;
         }
-        else if(write == ReadState.JSON_RECORD_PARSE_ERROR || write == ReadState.JSON_RECORD_PARSE_EOF_ERROR){
-          if(skipMalformedJSONRecords == false){
+        else if (write == ReadState.JSON_RECORD_PARSE_ERROR || write == ReadState.JSON_RECORD_PARSE_EOF_ERROR) {
+          if (skipMalformedJSONRecords == false) {
             handleAndRaise("Error parsing JSON", new Exception(hadoopPath.getName() + " : line nos :" + (recordCount+1)));
           }
           ++parseErrorCount;
-          if(printSkippedMalformedJSONRecordLineNumber){
+          if (printSkippedMalformedJSONRecordLineNumber) {
             logger.debug("Error parsing JSON in " + hadoopPath.getName() + " : line nos :" + (recordCount+parseErrorCount));
           }
-          if(write == ReadState.JSON_RECORD_PARSE_EOF_ERROR){
+          if (write == ReadState.JSON_RECORD_PARSE_EOF_ERROR) {
             break outside;
           }
         }
-        else{
+        else {
           break outside;
         }
       }
-      catch(IOException ex)
-        {
-           handleAndRaise("Error parsing JSON", ex);
-        }
+      catch (IOException ex)
+      {
+        handleAndRaise("Error parsing JSON", ex);
+      }
     }
     // Skip empty json file with 0 row.
     // Only when data source has > 0 row, ensure the batch has one field.
@@ -245,7 +246,7 @@ public class JSONRecordReader extends AbstractRecordReader {
 
   @Override
   public void close() throws Exception {
-    if(stream != null) {
+    if (stream != null) {
       stream.close();
     }
   }

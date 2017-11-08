@@ -50,7 +50,6 @@ public class JsonRecordWriter extends JSONOutputRecordWriter implements RecordWr
   private String location;
   private String prefix;
 
-  private String fieldDelimiter;
   private String extension;
   private boolean useExtendedOutput;
 
@@ -61,18 +60,15 @@ public class JsonRecordWriter extends JSONOutputRecordWriter implements RecordWr
   private final JsonFactory factory = new JsonFactory();
   private final StorageStrategy storageStrategy;
 
-  // Record write status
-  private boolean fRecordStarted = false; // true once the startRecord() is called until endRecord() is called
-
   public JsonRecordWriter(StorageStrategy storageStrategy){
     this.storageStrategy = storageStrategy == null ? StorageStrategy.DEFAULT : storageStrategy;
   }
 
+  @SuppressWarnings("resource")
   @Override
   public void init(Map<String, String> writerOptions) throws IOException {
     this.location = writerOptions.get("location");
     this.prefix = writerOptions.get("prefix");
-    this.fieldDelimiter = writerOptions.get("separator");
     this.extension = writerOptions.get("extension");
     this.useExtendedOutput = Boolean.parseBoolean(writerOptions.get("extended"));
     this.skipNullFields = Boolean.parseBoolean(writerOptions.get("skipnulls"));
@@ -240,13 +236,11 @@ public class JsonRecordWriter extends JSONOutputRecordWriter implements RecordWr
   @Override
   public void startRecord() throws IOException {
     gen.writeStartObject();
-    fRecordStarted = true;
   }
 
   @Override
   public void endRecord() throws IOException {
     gen.writeEndObject();
-    fRecordStarted = false;
   }
 
   @Override

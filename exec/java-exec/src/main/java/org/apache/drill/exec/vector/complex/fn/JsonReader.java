@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -21,17 +21,14 @@ import io.netty.buffer.DrillBuf;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.BitSet;
 import java.util.List;
 
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.expression.PathSegment;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.base.GroupScan;
 import org.apache.drill.exec.store.easy.json.reader.BaseJsonProcessor;
 import org.apache.drill.exec.vector.complex.fn.VectorOutput.ListVectorOutput;
 import org.apache.drill.exec.vector.complex.fn.VectorOutput.MapVectorOutput;
-import org.apache.drill.exec.vector.complex.writer.BaseWriter;
 import org.apache.drill.exec.vector.complex.writer.BaseWriter.ComplexWriter;
 import org.apache.drill.exec.vector.complex.writer.BaseWriter.ListWriter;
 import org.apache.drill.exec.vector.complex.writer.BaseWriter.MapWriter;
@@ -101,7 +98,6 @@ public class JsonReader extends BaseJsonProcessor {
     this.readNumbersAsDouble = readNumbersAsDouble;
   }
 
-  @SuppressWarnings("resource")
   @Override
   public void ensureAtLeastOneField(ComplexWriter writer) {
     JsonReaderUtils.ensureAtLeastOneField(writer, columns, allTextMode, emptyArrayWriters);
@@ -143,7 +139,7 @@ public class JsonReader extends BaseJsonProcessor {
       if (t == null || t == JsonToken.END_OBJECT) {
         t = parser.nextToken();
       }
-      while (!parser.hasCurrentToken() && !parser.isClosed()) {
+      while (! parser.hasCurrentToken() && ! parser.isClosed()) {
         t = parser.nextToken();
       }
       lastSeenJsonToken = null;
@@ -196,9 +192,11 @@ public class JsonReader extends BaseJsonProcessor {
       throws IOException {
 
     switch (t) {
+
     case START_OBJECT:
       writeDataSwitch(writer.rootAsMap());
       break;
+
     case START_ARRAY:
       if (inOuterList) {
         throw getExceptionWithContext(UserException.dataReadError(),
@@ -225,8 +223,8 @@ public class JsonReader extends BaseJsonProcessor {
         writeDataSwitch(writer.rootAsList());
       }
       break;
-    case END_ARRAY:
 
+    case END_ARRAY:
       if (inOuterList) {
         confirmLast();
         return ReadState.END_OF_STREAM;
@@ -239,6 +237,7 @@ public class JsonReader extends BaseJsonProcessor {
 
     case NOT_AVAILABLE:
       return ReadState.END_OF_STREAM;
+
     default:
       throw getExceptionWithContext(UserException.dataReadError(),
           currentFieldName, null)
@@ -249,7 +248,6 @@ public class JsonReader extends BaseJsonProcessor {
     }
 
     return ReadState.WRITE_SUCCEED;
-
   }
 
   private void writeDataSwitch(MapWriter w) throws IOException {
@@ -293,7 +291,7 @@ public class JsonReader extends BaseJsonProcessor {
    */
   private void writeData(MapWriter map, FieldSelection selection,
       boolean moveForward) throws IOException {
-    //
+
     map.start();
     try {
       outside: while (true) {
@@ -321,31 +319,36 @@ public class JsonReader extends BaseJsonProcessor {
         }
 
         switch (parser.nextToken()) {
+
         case START_ARRAY:
           writeData(map.list(fieldName));
           break;
+
         case START_OBJECT:
           if (!writeMapDataIfTyped(map, fieldName)) {
             writeData(map.map(fieldName), childSelection, false);
           }
           break;
+
         case END_OBJECT:
           break outside;
 
-        case VALUE_FALSE: {
+        case VALUE_FALSE:
           map.bit(fieldName).writeBit(0);
           break;
-        }
-        case VALUE_TRUE: {
+
+        case VALUE_TRUE:
           map.bit(fieldName).writeBit(1);
           break;
-        }
+
         case VALUE_NULL:
           // do nothing as we don't have a type.
           break;
+
         case VALUE_NUMBER_FLOAT:
           map.float8(fieldName).writeFloat8(parser.getDoubleValue());
           break;
+
         case VALUE_NUMBER_INT:
           if (this.readNumbersAsDouble) {
             map.float8(fieldName).writeFloat8(parser.getDoubleValue());
@@ -353,6 +356,7 @@ public class JsonReader extends BaseJsonProcessor {
             map.bigInt(fieldName).writeBigInt(parser.getLongValue());
           }
           break;
+
         case VALUE_STRING:
           handleString(parser, map, fieldName);
           break;
@@ -367,12 +371,11 @@ public class JsonReader extends BaseJsonProcessor {
     } finally {
       map.end();
     }
-
   }
 
   private void writeDataAllText(MapWriter map, FieldSelection selection,
       boolean moveForward) throws IOException {
-    //
+
     map.start();
     outside: while (true) {
 
@@ -430,7 +433,6 @@ public class JsonReader extends BaseJsonProcessor {
       }
     }
     map.end();
-
   }
 
   /**
@@ -488,28 +490,31 @@ public class JsonReader extends BaseJsonProcessor {
     outside: while (true) {
       try {
         switch (parser.nextToken()) {
+
         case START_ARRAY:
           writeData(list.list());
           break;
+
         case START_OBJECT:
           if (!writeListDataIfTyped(list)) {
             writeData(list.map(), FieldSelection.ALL_VALID, false);
           }
           break;
+
         case END_ARRAY:
           addIfNotInitialized(list);
         case END_OBJECT:
           break outside;
 
         case VALUE_EMBEDDED_OBJECT:
-        case VALUE_FALSE: {
+        case VALUE_FALSE:
           list.bit().writeBit(0);
           break;
-        }
-        case VALUE_TRUE: {
+
+        case VALUE_TRUE:
           list.bit().writeBit(1);
           break;
-        }
+
         case VALUE_NULL:
           throw UserException
               .unsupportedError()
@@ -518,9 +523,11 @@ public class JsonReader extends BaseJsonProcessor {
                       + "Please set `store.json.all_text_mode` to true to read lists containing nulls. "
                       + "Be advised that this will treat JSON null values as a string containing the word 'null'.")
               .build(logger);
+
         case VALUE_NUMBER_FLOAT:
           list.float8().writeFloat8(parser.getDoubleValue());
           break;
+
         case VALUE_NUMBER_INT:
           if (this.readNumbersAsDouble) {
             list.float8().writeFloat8(parser.getDoubleValue());
@@ -528,9 +535,11 @@ public class JsonReader extends BaseJsonProcessor {
             list.bigInt().writeBigInt(parser.getLongValue());
           }
           break;
+
         case VALUE_STRING:
           handleString(parser, list);
           break;
+
         default:
           throw UserException.dataReadError()
               .message("Unexpected token %s", parser.getCurrentToken())
@@ -542,7 +551,6 @@ public class JsonReader extends BaseJsonProcessor {
       }
     }
     list.endList();
-
   }
 
   /**
@@ -560,14 +568,17 @@ public class JsonReader extends BaseJsonProcessor {
     outside: while (true) {
 
       switch (parser.nextToken()) {
+
       case START_ARRAY:
         writeDataAllText(list.list());
         break;
+
       case START_OBJECT:
         if (!writeListDataIfTyped(list)) {
           writeDataAllText(list.map(), FieldSelection.ALL_VALID, false);
         }
         break;
+
       case END_ARRAY:
         addIfNotInitialized(list);
       case END_OBJECT:
@@ -582,6 +593,7 @@ public class JsonReader extends BaseJsonProcessor {
       case VALUE_STRING:
         handleString(parser, list);
         break;
+
       default:
         throw getExceptionWithContext(UserException.dataReadError(),
             currentFieldName, null).message("Unexpected token %s",
@@ -589,11 +601,9 @@ public class JsonReader extends BaseJsonProcessor {
       }
     }
     list.endList();
-
   }
 
   public DrillBuf getWorkBuf() {
     return workingBuffer.getBuf();
   }
-
 }
