@@ -19,12 +19,19 @@ package org.apache.drill.exec.physical.impl.scan;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.util.List;
+
+import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.NameElement;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionColumnParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
 import org.apache.drill.test.SubOperatorTest;
 import org.junit.Test;
@@ -35,6 +42,116 @@ import org.junit.Test;
  */
 
 public class TestScanLevelProjection extends SubOperatorTest {
+
+  @Test
+  public void testColumnParserSimple() {
+    List<NameElement> cols = new ProjectionColumnParser()
+        .parse(ScanTestUtils.projectList("a", "b", "c"));
+    assertEquals(3, cols.size());
+
+    NameElement a = cols.get(0);
+    assertEquals("a", a.name());
+    assertTrue(a.isSimple());
+    assertFalse(a.isWildcard());
+    assertNull(a.members());
+    assertNull(a.indexes());
+
+    assertEquals("b", cols.get(1).name());
+    assertTrue(cols.get(1).isSimple());
+
+    assertEquals("c", cols.get(2).name());
+    assertTrue(cols.get(2).isSimple());
+  }
+
+  @Test
+  public void testColumnParserSimpleDups() {
+    try {
+      new ProjectionColumnParser()
+          .parse(ScanTestUtils.projectList("a", "b", "a"));
+      fail();
+    } catch (UserException e) {
+      // Expected
+    }
+  }
+
+  @Test
+  public void testColumnParserMap() {
+    List<NameElement> cols = new ProjectionColumnParser()
+        .parse(ScanTestUtils.projectList("a", "a.b", "a.c", "a.b.c", "d"));
+    assertEquals(2, cols.size());
+
+    NameElement a = cols.get(0);
+    assertEquals("a", a.name());
+    assertFalse(a.isSimple());
+    assertFalse(a.isArray());
+    assertTrue(a.isTuple());
+
+    {
+      List<NameElement> aMembers = a.members();
+      assertEquals(2, aMembers.size());
+
+      NameElement a_b = aMembers.get(0);
+      assertEquals("b", a_b.name());
+      assertTrue(a_b.isTuple());
+
+      {
+        List<NameElement> a_bMembers = a_b.members();
+        assertEquals(1, a_bMembers.size());
+        assertEquals("c", a_bMembers.get(0).name());
+        assertTrue(a_bMembers.get(0).isSimple());
+      }
+
+      assertEquals("c", aMembers.get(1).name());
+      assertTrue(aMembers.get(1).isSimple());
+    }
+
+    assertEquals("d", cols.get(1).name());
+    assertTrue(cols.get(1).isSimple());
+  }
+
+  @Test
+  public void testColumnParserMapDups() {
+    try {
+      new ProjectionColumnParser()
+          .parse(ScanTestUtils.projectList("a", "a.b", "a.c", "a.b"));
+      fail();
+    } catch (UserException e) {
+      // Expected
+    }
+  }
+
+  @Test
+  public void testColumnParserArray() {
+    List<NameElement> cols = new ProjectionColumnParser()
+        .parse(ScanTestUtils.projectList("a[1]", "a[3]"));
+    assertEquals(1, cols.size());
+
+    NameElement a = cols.get(0);
+    assertEquals("a", a.name());
+    assertTrue(a.isArray());
+    assertFalse(a.isSimple());
+    assertFalse(a.isTuple());
+    boolean indexes[] = a.indexes();
+    assertNotNull(indexes);
+    assertEquals(4, indexes.length);
+    assertFalse(indexes[0]);
+    assertTrue(indexes[1]);
+    assertFalse(indexes[2]);
+    assertTrue(indexes[3]);
+  }
+
+  @Test
+  public void testColumnParserArrayDups() {
+    try {
+      new ProjectionColumnParser()
+          .parse(ScanTestUtils.projectList("a[1]", "a[3]", "a[1]"));
+      fail();
+    } catch (UserException e) {
+      // Expected
+    }
+  }
+
+  // TODO: maps and arrays
 
   /**
    * Basic test: select a set of columns (a, b, c) when the

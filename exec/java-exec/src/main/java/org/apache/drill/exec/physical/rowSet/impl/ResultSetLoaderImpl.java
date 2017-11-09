@@ -79,6 +79,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   }
 
   private enum State {
+
     /**
      * Before the first batch.
      */

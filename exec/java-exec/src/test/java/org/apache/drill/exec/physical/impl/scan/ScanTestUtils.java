@@ -100,7 +100,7 @@ public class ScanTestUtils {
   static List<SchemaPath> projectList(String... names) {
     List<SchemaPath> selected = new ArrayList<>();
     for (String name: names) {
-      selected.add(SchemaPath.getSimplePath(name));
+      selected.add(SchemaPath.parseFromString(name));
     }
     return selected;
   }

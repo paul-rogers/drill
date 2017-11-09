@@ -18,9 +18,16 @@
 package org.apache.drill.exec.physical.impl.scan.project;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.common.expression.PathSegment;
+import org.apache.drill.common.expression.PathSegment.ArraySegment;
+import org.apache.drill.common.expression.PathSegment.NameSegment;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.exec.record.TupleNameSpace;
 
 /**
  * Parses and analyzes the projection list passed to the scanner. The
@@ -81,6 +88,154 @@ import org.apache.drill.common.expression.SchemaPath;
  */
 
 public class ScanLevelProjection {
+
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ScanLevelProjection.class);
+
+  public static class NameElement {
+    private final String name;
+    private TupleNameSpace<NameElement> members;
+    private Set<Integer> indexes;
+    private NameElement parent;
+
+    public NameElement(String name) {
+      this.name = name;
+    }
+
+    public String name() { return name; }
+    public boolean isWildcard() { return name.equals(SchemaPath.WILDCARD); }
+    public boolean isSimple() { return ! isTuple() && ! isArray(); }
+    public boolean isArray() { return indexes != null; }
+    public boolean isTuple() { return members != null; }
+
+    public void addMember(NameElement member) {
+      if (members == null) {
+        members = new TupleNameSpace<>();
+      }
+      members.add(member.name(), member);
+      member.parent = this;
+    }
+
+    public NameElement member(String name) {
+      return members == null ? null : members.get(name);
+    }
+
+    public List<NameElement> members() {
+      return members == null ? null : members.entries();
+    }
+
+    public void addIndex(int index) {
+      if (indexes == null) {
+        indexes = new HashSet<>();
+      }
+      indexes.add(index);
+    }
+
+    public boolean hasIndex(int index) {
+      return indexes == null ? false : indexes.contains(index);
+    }
+
+    public boolean[] indexes() {
+      if (indexes == null) {
+        return null;
+      }
+      int max = 0;
+      for (Integer index : indexes) {
+        max = Math.max(max, index);
+      }
+      boolean map[] = new boolean[max+1];
+      for (Integer index : indexes) {
+        map[index] = true;
+      }
+      return map;
+    }
+
+    public String fullName() {
+      StringBuilder buf = new StringBuilder();
+      buildName(buf);
+      return buf.toString();
+    }
+
+    private void buildName(StringBuilder buf) {
+      if (parent != null) {
+        parent.buildName(buf);
+      }
+      buf.append('`')
+         .append(name)
+         .append('`');
+    }
+  }
+
+  public static class ProjectionColumnParser {
+
+    private TupleNameSpace<NameElement> cols = new TupleNameSpace<>();
+
+    public List<NameElement> parse(List<SchemaPath> projection) {
+      for (SchemaPath col : projection) {
+        parse(col);
+      }
+      return cols.entries();
+    }
+
+    private void parse(SchemaPath col) {
+      String name = col.rootName();
+      NameElement element = cols.get(name);
+      if (element != null) {
+        if (col.isLeaf() && element.isSimple()) {
+          throw UserException
+            .validationError()
+            .message("Duplicate column in project list: `%s`", name)
+            .build(logger);
+        }
+      } else {
+        element = new NameElement(name);
+        cols.add(name, element);
+      }
+      if (! col.isLeaf()) {
+        parse(element, col.getRootSegment().getChild());
+      }
+    }
+
+    private void parse(NameElement element, PathSegment pathSeg) {
+      if (pathSeg.isNamed()) {
+        parseName(element, (NameSegment) pathSeg);
+       } else {
+        assert pathSeg.isArray();
+        parseArray(element, (ArraySegment) pathSeg);
+      }
+    }
+
+    private void parseName(NameElement element, NameSegment nameSeg) {
+      String name = nameSeg.getPath();
+      NameElement member = element.member(name);
+      if (member != null) {
+        if (nameSeg.isLastPath() && member.isSimple()) {
+          throw UserException
+            .validationError()
+            .message("Duplicate column in projected map: %s.`%s`",
+                element.fullName(), name)
+            .build(logger);
+        }
+      } else {
+        member = new NameElement(name);
+        element.addMember(member);
+      }
+      if (! nameSeg.isLastPath()) {
+        parse(member, nameSeg.getChild());
+      }
+    }
+
+    private void parseArray(NameElement element, ArraySegment arraySeg) {
+      int index = arraySeg.getIndex();
+      if (element.hasIndex(index)) {
+        throw UserException
+          .validationError()
+          .message("Duplicate array index in project list: %s[%d]",
+              element.fullName(), index)
+          .build(logger);
+      }
+      element.addIndex(index);
+    }
+  }
 
   public interface ColumnProjection {
     String name();
