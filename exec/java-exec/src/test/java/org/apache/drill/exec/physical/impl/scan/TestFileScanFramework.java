@@ -467,4 +467,73 @@ public class TestFileScanFramework extends SubOperatorTest {
     assertEquals(0, scan.batchAccessor().getRowCount());
     scanFixture.close();
   }
+
+  private static class MockMapReader extends BaseMockBatchReader {
+
+    @Override
+    public boolean open(FileSchemaNegotiator schemaNegotiator) {
+      TupleMetadata schema = new SchemaBuilder()
+          .addMap("m1")
+            .add("a", MinorType.INT)
+            .add("b", MinorType.INT)
+            .buildMap()
+          .buildSchema();
+      schemaNegotiator.setTableSchema(schema);
+      tableLoader = schemaNegotiator.build();
+      return true;
+    }
+
+    @Override
+    public boolean next() {
+      batchCount++;
+      if (batchCount > batchLimit) {
+        return false;
+      }
+
+      tableLoader.writer()
+        .addRow(new Object[] {new Object[] {10, 11}})
+        .addRow(new Object[] {new Object[] {20, 21}});
+      return true;
+    }
+  }
+
+  @Test
+  public void testMapProject() {
+
+    MockMapReader reader = new MockMapReader();
+    reader.batchLimit = 1;
+
+    // Select one of the two map columns
+
+    FileScanOpFixture scanFixture = new FileScanOpFixture();
+    scanFixture.setProjection(new String[] {"m1.a"});
+    scanFixture.addReader(reader);
+    ScanOperatorExec scan = scanFixture.build();
+
+    // Expect data and implicit columns
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .addMap("m1")
+          .add("a", MinorType.INT)
+          .buildMap()
+        .build();
+    SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
+        .addSingleCol(new Object[] {10})
+        .addSingleCol(new Object[] {20})
+        .build();
+    assertTrue(scan.buildSchema());
+    assertEquals(expectedSchema, scan.batchAccessor().getSchema());
+    scan.batchAccessor().release();
+
+    assertTrue(scan.next());
+    new RowSetComparison(expected)
+         .verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+
+    // EOF
+
+    assertFalse(scan.next());
+    assertEquals(0, scan.batchAccessor().getRowCount());
+    scanFixture.close();
+  }
+
 }

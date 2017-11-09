@@ -120,9 +120,9 @@ public class TestColumnsArrayParser extends SubOperatorTest {
   public void testColumnsElements() {
 
    ScanLevelProjection scanProj = new ScanLevelProjection(
-        Lists.newArrayList(
-            SchemaPath.parseFromString(ColumnsArrayManager.COLUMNS_COL + "[3]"),
-            SchemaPath.parseFromString(ColumnsArrayManager.COLUMNS_COL + "[1]")),
+        ScanTestUtils.projectList(
+            ColumnsArrayManager.COLUMNS_COL + "[3]",
+            ColumnsArrayManager.COLUMNS_COL + "[1]"),
         ScanTestUtils.parsers(new ColumnsArrayParser(false)));
 
     assertFalse(scanProj.projectAll());

@@ -185,7 +185,7 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
     List<ColumnProjection> cols = scanProj.columns();
     assertEquals(7, cols.size());
     for (int i = 0; i < 4; i++) {
-      assertEquals(FileMetadataColumn.ID, cols.get(1).nodeType());
+      assertEquals(FileMetadataColumn.ID, cols.get(i).nodeType());
     }
     assertEquals(PartitionColumn.ID, cols.get(4).nodeType());
     assertEquals(PartitionColumn.ID, cols.get(5).nodeType());
@@ -240,5 +240,37 @@ public class TestFileMetadataColumnParser extends SubOperatorTest {
     } catch (IllegalArgumentException e) {
       // expected
     }
+  }
+
+  /**
+   * Verify that names that look like metadata columns, but appear
+   * to be maps or arrays, are not interpreted as metadata. That is,
+   * the projected table map or array "shadows" the metadata column.
+   */
+
+  @Test
+  public void testShadowed() {
+    Path filePath = new Path("hdfs:///w/x/y/z.csv");
+    FileMetadataManager metadataManager = new FileMetadataManager(
+        fixture.options(), true,
+        new Path("hdfs:///w"),
+        Lists.newArrayList(filePath));
+
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectList(
+            ScanTestUtils.FILE_NAME_COL + ".a",
+            ScanTestUtils.FILE_PATH_COL + "[0]",
+            ScanTestUtils.partitionColName(0) + ".b",
+            ScanTestUtils.partitionColName(1) + "[0]",
+            ScanTestUtils.SUFFIX_COL),
+        Lists.newArrayList(metadataManager.projectionParser()),
+        true);
+
+    List<ColumnProjection> cols = scanProj.columns();
+    assertEquals(5, cols.size());
+    for (int i = 0; i < 4; i++) {
+      assertEquals(UnresolvedColumn.UNRESOLVED, cols.get(1).nodeType());
+    }
+    assertEquals(FileMetadataColumn.ID, cols.get(4).nodeType());
   }
 }

@@ -17,10 +17,10 @@
  */
 package org.apache.drill.exec.physical.impl.scan.columns;
 
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Projection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.NameElement;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;
@@ -86,17 +86,11 @@ public class ColumnsArrayManager implements SchemaProjectionResolver {
 
     public static final int ID = 20;
 
-    protected boolean selectedIndexes[];
-
-    public UnresolvedColumnsArrayColumn(SchemaPath inCol) {
+    public UnresolvedColumnsArrayColumn(NameElement inCol) {
       super(inCol, ID);
     }
 
-    public void setIndexes(boolean indexes[]) {
-      selectedIndexes = indexes;
-    }
-
-    public boolean[] selectedIndexes() { return selectedIndexes; }
+    public boolean[] selectedIndexes() { return inCol.indexes(); }
 
     @Override
     public boolean isTableProjection() { return true; }
@@ -106,19 +100,19 @@ public class ColumnsArrayManager implements SchemaProjectionResolver {
 
     public static final int ID = 21;
 
-    private final boolean selectedIndexes[];
+    private final NameElement inCol;
 
     public ResolvedColumnsArrayColumn(UnresolvedColumnsArrayColumn unresolved,
         MaterializedField schema,
         Projection projection) {
       super(unresolved.name(), schema, projection);
-      selectedIndexes = unresolved.selectedIndexes;
+      inCol = unresolved.element();
     }
 
     @Override
     public int nodeType() { return ID; }
 
-    public boolean[] selectedIndexes() { return selectedIndexes; }
+    public boolean[] selectedIndexes() { return inCol.indexes(); }
   }
 
   // Internal

@@ -263,10 +263,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
     }
 
     public void setProjection(String[] projCols) {
-      projection = new ArrayList<>();
-      for (String col : projCols) {
-        projection.add(SchemaPath.getSimplePath(col));
-      }
+      projection = ScanTestUtils.projectList(projCols);
     }
 
     public void setProjection(List<SchemaPath> cols) {

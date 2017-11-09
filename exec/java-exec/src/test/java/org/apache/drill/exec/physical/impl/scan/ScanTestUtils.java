@@ -100,7 +100,14 @@ public class ScanTestUtils {
   static List<SchemaPath> projectList(String... names) {
     List<SchemaPath> selected = new ArrayList<>();
     for (String name: names) {
-      selected.add(SchemaPath.parseFromString(name));
+
+      // Parse from string does not handle wildcards.
+
+      if (name.equals(SchemaPath.WILDCARD)) {
+        selected.add(SchemaPath.STAR_COLUMN);
+      } else {
+        selected.add(SchemaPath.parseFromString(name));
+      }
     }
     return selected;
   }

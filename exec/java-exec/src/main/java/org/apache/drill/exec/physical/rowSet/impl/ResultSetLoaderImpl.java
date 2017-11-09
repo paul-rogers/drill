@@ -17,10 +17,7 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
-import java.util.Collection;
-
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
@@ -46,26 +43,35 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     public final int vectorSizeLimit;
     public final int rowCountLimit;
     public final ResultVectorCache vectorCache;
-    public final Collection<SchemaPath> projection;
+    public final ProjectionSet projectionSet;
     public final TupleMetadata schema;
     public final long maxBatchSize;
 
     public ResultSetOptions() {
       vectorSizeLimit = ValueVector.MAX_BUFFER_SIZE;
       rowCountLimit = DEFAULT_ROW_COUNT;
-      projection = null;
+      projectionSet = new NullProjectionSet(true);
       vectorCache = null;
       schema = null;
       maxBatchSize = -1;
     }
 
     public ResultSetOptions(OptionBuilder builder) {
-      this.vectorSizeLimit = builder.vectorSizeLimit;
-      this.rowCountLimit = builder.rowCountLimit;
-      this.projection = builder.projection;
-      this.vectorCache = builder.vectorCache;
-      this.schema = builder.schema;
-      this.maxBatchSize = builder.maxBatchSize;
+      vectorSizeLimit = builder.vectorSizeLimit;
+      rowCountLimit = builder.rowCountLimit;
+      vectorCache = builder.vectorCache;
+      schema = builder.schema;
+      maxBatchSize = builder.maxBatchSize;
+
+      // If projection, build the projection map.
+      // The caller might have already built the map. If so,
+      // use it.
+
+      if (builder.projectionSet != null) {
+        projectionSet = builder.projectionSet;
+      } else {
+        projectionSet = ProjectionSetImpl.parse(builder.projection);
+      }
     }
 
     public void dump(HierarchicalFormatter format) {
@@ -73,7 +79,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
         .startObject(this)
         .attribute("vectorSizeLimit", vectorSizeLimit)
         .attribute("rowCountLimit", rowCountLimit)
-        .attribute("projection", projection)
+//        .attribute("projection", projection)
         .endObject();
     }
   }
@@ -286,9 +292,9 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       vectorCache = options.vectorCache;
     }
 
-    // If projection, build the projection map.
+    // Set the projections
 
-    projectionSet = ProjectionSetImpl.parse(options.projection);
+    projectionSet = options.projectionSet;
 
     // Build the row set model depending on whether a schema is provided.
 

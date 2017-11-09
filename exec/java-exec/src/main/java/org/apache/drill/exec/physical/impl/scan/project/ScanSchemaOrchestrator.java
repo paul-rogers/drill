@@ -25,9 +25,7 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Projection;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.VectorSource;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ExplicitSchemaProjection;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.ResolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
@@ -201,13 +199,7 @@ public class ScanSchemaOrchestrator {
       // adds a column later.
 
       if (! scanProj.projectAll()) {
-        List<SchemaPath> projectedCols = new ArrayList<>();
-        for (ColumnProjection col : scanProj.columns()) {
-          if (col.isTableProjection()) {
-            projectedCols.add(((UnresolvedColumn) col).source());
-          }
-        }
-        options.setProjection(projectedCols);
+        options.setProjectionSet(scanProj.tableLoaderProjection());
       }
       options.setSchema(tableSchema);
 

@@ -21,7 +21,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -42,6 +41,20 @@ import org.junit.Test;
  */
 
 public class TestScanLevelProjection extends SubOperatorTest {
+
+  @Test
+  public void testColumnParserWildcard() {
+    List<NameElement> cols = new ProjectionColumnParser()
+        .parse(ScanTestUtils.projectList(SchemaPath.WILDCARD));
+    assertEquals(1, cols.size());
+
+    NameElement wildcard = cols.get(0);
+    assertEquals(SchemaPath.WILDCARD, wildcard.name());
+    assertTrue(wildcard.isSimple());
+    assertTrue(wildcard.isWildcard());
+    assertNull(wildcard.members());
+    assertNull(wildcard.indexes());
+  }
 
   @Test
   public void testColumnParserSimple() {
@@ -151,7 +164,27 @@ public class TestScanLevelProjection extends SubOperatorTest {
     }
   }
 
-  // TODO: maps and arrays
+  @Test
+  public void testColumnParserArrayAndSimple() {
+    try {
+      new ProjectionColumnParser()
+          .parse(ScanTestUtils.projectList("a[1]", "a"));
+      fail();
+    } catch (UserException e) {
+      // Expected
+    }
+  }
+
+  @Test
+  public void testColumnParserSimpleAndArray() {
+    try {
+      new ProjectionColumnParser()
+          .parse(ScanTestUtils.projectList("a", "a[1]"));
+      fail();
+    } catch (UserException e) {
+      // Expected
+    }
+  }
 
   /**
    * Basic test: select a set of columns (a, b, c) when the
@@ -184,19 +217,59 @@ public class TestScanLevelProjection extends SubOperatorTest {
     // Verify column type
 
     assertEquals(UnresolvedColumn.UNRESOLVED, scanProj.columns().get(0).nodeType());
+  }
 
-    // Verify bindings
-
-    assertSame(((UnresolvedColumn) scanProj.columns().get(0)).source(), scanProj.requestedCols().get(0));
-    assertSame(((UnresolvedColumn) scanProj.columns().get(1)).source(), scanProj.requestedCols().get(1));
-    assertSame(((UnresolvedColumn) scanProj.columns().get(2)).source(), scanProj.requestedCols().get(2));
-
-    // Table column selection
+  @Test
+  public void testMap() {
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectList("a.x", "b.x", "a.y", "b.y", "c"),
+        ScanTestUtils.parsers());
+    assertFalse(scanProj.projectAll());
+    assertFalse(scanProj.projectNone());
 
     assertEquals(3, scanProj.columns().size());
     assertEquals("a", scanProj.columns().get(0).name());
     assertEquals("b", scanProj.columns().get(1).name());
     assertEquals("c", scanProj.columns().get(2).name());
+
+    // Verify column type
+
+    assertEquals(UnresolvedColumn.UNRESOLVED, scanProj.columns().get(0).nodeType());
+
+    // Map structure
+
+    NameElement a = ((UnresolvedColumn) scanProj.columns().get(0)).element();
+    assertTrue(a.isTuple());
+    assertTrue(a.isProjected("x"));
+    assertTrue(a.isProjected("y"));
+
+    NameElement c = ((UnresolvedColumn) scanProj.columns().get(2)).element();
+    assertTrue(c.isSimple());
+  }
+
+  @Test
+  public void testArray() {
+    ScanLevelProjection scanProj = new ScanLevelProjection(
+        ScanTestUtils.projectList("a[1]", "a[3]"),
+        ScanTestUtils.parsers());
+    assertFalse(scanProj.projectAll());
+    assertFalse(scanProj.projectNone());
+
+    assertEquals(1, scanProj.columns().size());
+    assertEquals("a", scanProj.columns().get(0).name());
+
+    // Verify column type
+
+    assertEquals(UnresolvedColumn.UNRESOLVED, scanProj.columns().get(0).nodeType());
+
+    // Map structure
+
+    NameElement a = ((UnresolvedColumn) scanProj.columns().get(0)).element();
+    assertTrue(a.isArray());
+    assertFalse(a.hasIndex(0));
+    assertTrue(a.hasIndex(1));
+    assertFalse(a.hasIndex(2));
+    assertTrue(a.hasIndex(3));
   }
 
   /**
@@ -219,7 +292,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     // Verify bindings
 
-    assertSame(((UnresolvedColumn) scanProj.columns().get(0)).source(), scanProj.requestedCols().get(0));
+    assertEquals(scanProj.columns().get(0).name(), scanProj.requestedCols().get(0).rootName());
 
     // Verify column type
 
@@ -286,7 +359,7 @@ public class TestScanLevelProjection extends SubOperatorTest {
           ScanTestUtils.projectList(SchemaPath.WILDCARD, SchemaPath.WILDCARD),
           ScanTestUtils.parsers());
       fail();
-    } catch (IllegalArgumentException e) {
+    } catch (UserException e) {
       // Expected
     }
   }

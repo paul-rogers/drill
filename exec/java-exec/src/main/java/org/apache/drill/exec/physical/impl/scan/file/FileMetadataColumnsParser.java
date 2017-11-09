@@ -20,14 +20,16 @@ package org.apache.drill.exec.physical.impl.scan.file;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.FileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.PartitionColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.NameElement;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 
 public class FileMetadataColumnsParser implements ScanProjectionParser {
+
+  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(FileMetadataColumnsParser.class);
 
   // Internal
 
@@ -50,55 +52,86 @@ public class FileMetadataColumnsParser implements ScanProjectionParser {
   }
 
   @Override
-  public boolean parse(SchemaPath inCol) {
-    Matcher m = partitionPattern.matcher(inCol.rootName());
+  public boolean parse(NameElement inCol) {
+    Matcher m = partitionPattern.matcher(inCol.name());
     if (m.matches()) {
-      if (builder.hasWildcard()) {
-        wildcardAndMetadataError();
-      }
-
-      // Partition column
-
-      builder.addMetadataColumn(
-          new PartitionColumn(
-            inCol.rootName(),
-            Integer.parseInt(m.group(1))));
-      hasMetadata = true;
-      return true;
+      return buildPartitionColumn(m, inCol);
     }
 
-    FileMetadataColumnDefn iCol = metadataManager.fileMetadataColIndex.get(inCol.rootName());
-    if (iCol != null) {
-      if (builder.hasWildcard()) {
-        wildcardAndMetadataError();
-      }
-
-      // File metadata (implicit) column
-
-      builder.addMetadataColumn(new FileMetadataColumn(inCol.rootName(), iCol));
-      hasMetadata = true;
-      return true;
+    FileMetadataColumnDefn defn = metadataManager.fileMetadataColIndex.get(inCol.name());
+    if (defn != null) {
+      return buildMetadataColumn(defn, inCol);
     }
     if (inCol.isWildcard()) {
-      if (hasMetadata) {
-        wildcardAndMetadataError();
-      }
-      if (metadataManager.useLegacyWildcardExpansion) {
+      buildWildcard();
 
-        // Star column: this is a SELECT * query.
-
-        // Old-style wildcard handling inserts all metadata columns in
-        // the scanner, removes them in Project.
-        // Fill in the file metadata columns. Can do here because the
-        // set is constant across all files.
-
-        expandWildcard();
-        hasMetadata = true;
-
-        // Don't consider this a match.
-      }
+      // Don't consider this a match.
     }
     return false;
+  }
+
+  private boolean buildPartitionColumn(Matcher m, NameElement inCol) {
+
+    // If the projected column is a map or array, then it shadows the
+    // partition column. Example: dir0.x, dir0[2].
+
+    if (! inCol.isSimple()) {
+      logger.warn("Partition column {} is shadowed by a projected {}",
+          inCol.name(), inCol.summary());
+      return false;
+    }
+    if (builder.hasWildcard()) {
+      wildcardAndMetadataError();
+    }
+
+    // Partition column
+
+    builder.addMetadataColumn(
+        new PartitionColumn(
+          inCol.name(),
+          Integer.parseInt(m.group(1))));
+    hasMetadata = true;
+    return true;
+  }
+
+  private boolean buildMetadataColumn(FileMetadataColumnDefn defn,
+      NameElement inCol) {
+
+    // If the projected column is a map or array, then it shadows the
+    // metadata column. Example: filename.x, filename[2].
+
+    if (! inCol.isSimple()) {
+      logger.warn("File metadata column {} is shadowed by a projected {}",
+          inCol.name(), inCol.summary());
+      return false;
+    }
+    if (builder.hasWildcard()) {
+      wildcardAndMetadataError();
+    }
+
+    // File metadata (implicit) column
+
+    builder.addMetadataColumn(new FileMetadataColumn(inCol.name(), defn));
+    hasMetadata = true;
+    return true;
+  }
+
+  private void buildWildcard() {
+    if (hasMetadata) {
+      wildcardAndMetadataError();
+    }
+    if (metadataManager.useLegacyWildcardExpansion) {
+
+      // Star column: this is a SELECT * query.
+
+      // Old-style wildcard handling inserts all metadata columns in
+      // the scanner, removes them in Project.
+      // Fill in the file metadata columns. Can do here because the
+      // set is constant across all files.
+
+      expandWildcard();
+      hasMetadata = true;
+    }
   }
 
   protected void expandWildcard() {

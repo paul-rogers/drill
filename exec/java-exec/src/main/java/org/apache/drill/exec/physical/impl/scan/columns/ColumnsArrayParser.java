@@ -17,14 +17,11 @@
  */
 package org.apache.drill.exec.physical.impl.scan.columns;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.impl.scan.columns.ColumnsArrayManager.UnresolvedColumnsArrayColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
+import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.NameElement;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
 import org.apache.drill.exec.store.easy.text.compliant.TextReader;
@@ -69,8 +66,6 @@ public class ColumnsArrayParser implements ScanProjectionParser {
   // Internals
 
   private ScanLevelProjection builder;
-  private List<Integer> columnsIndexes;
-  private int maxIndex;
 
   // Output
 
@@ -86,7 +81,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
   }
 
   @Override
-  public boolean parse(SchemaPath inCol) {
+  public boolean parse(NameElement inCol) {
     if (requireColumnsArray && inCol.isWildcard()) {
       expandWildcard();
       return true;
@@ -95,9 +90,32 @@ public class ColumnsArrayParser implements ScanProjectionParser {
       return false;
     }
 
+    // The columns column cannot be a map. That is, the following is
+    // not allowed: columns.foo.
+
+    if (inCol.isTuple()) {
+      throw UserException
+        .validationError()
+        .message("{} has mep elements, but cannot be a map", inCol.name())
+        .build(logger);
+    }
+
+    if (inCol.isArray()) {
+      int maxIndex = inCol.maxIndex();
+      if (maxIndex > TextReader.MAXIMUM_NUMBER_COLUMNS) {
+        throw UserException
+          .validationError()
+          .message("`columns`[" + maxIndex + "] index out of bounds")
+          .addContext("Column", inCol.name())
+          .addContext("Maximum index", TextReader.MAXIMUM_NUMBER_COLUMNS)
+          .build(logger);
+      }
+    }
+
     // Special `columns` array column.
 
-    mapColumnsArrayColumn(inCol);
+    columnsArrayCol = new UnresolvedColumnsArrayColumn(inCol);
+    builder.addTableColumn(columnsArrayCol);
     return true;
   }
 
@@ -114,73 +132,9 @@ public class ColumnsArrayParser implements ScanProjectionParser {
         .message("Cannot select columns[] and `*` together")
         .build(logger);
     }
-    addColumnsArrayColumn(SchemaPath.getSimplePath(ColumnsArrayManager.COLUMNS_COL));
-  }
-
-  private void mapColumnsArrayColumn(SchemaPath inCol) {
-
-    if (inCol.isArray()) {
-      mapColumnsArrayElement(inCol);
-      return;
-    }
-
-    // Query contains a reference to the "columns" generic
-    // columns array. The query can refer to this column only once
-    // (in non-indexed form.)
-
-    if (columnsIndexes != null) {
-      throw UserException
-        .validationError()
-        .message("Cannot refer to both columns and columns[i]")
-        .build(logger);
-    }
-    if (columnsArrayCol != null) {
-      throw UserException
-        .validationError()
-        .message("Duplicate column: '" + inCol.toString() + "`")
-        .build(logger);
-    }
-    addColumnsArrayColumn(inCol);
-  }
-
-  private void addColumnsArrayColumn(SchemaPath inCol) {
-    columnsArrayCol = new UnresolvedColumnsArrayColumn(inCol);
+    columnsArrayCol = new UnresolvedColumnsArrayColumn(
+        new NameElement(ColumnsArrayManager.COLUMNS_COL));
     builder.addTableColumn(columnsArrayCol);
-  }
-
-  private void mapColumnsArrayElement(SchemaPath inCol) {
-
-    // Add the "columns" column, if not already present.
-    // The project list past this point will contain just the
-    // "columns" entry rather than the series of
-    // columns[1], columns[2], etc. items that appear in the original
-    // project list.
-
-    if (columnsArrayCol == null) {
-      addColumnsArrayColumn(SchemaPath.getSimplePath(inCol.rootName()));
-
-      // Check if "columns" already appeared without an index.
-
-    } else if (columnsIndexes == null) {
-      throw UserException
-        .validationError()
-        .message("Cannot refer to both columns and columns[i]")
-        .build(logger);
-    }
-    if (columnsIndexes == null) {
-      columnsIndexes = new ArrayList<>();
-    }
-    int index = inCol.getRootSegment().getChild().getArraySegment().getIndex();
-    if (index < 0  ||  index > TextReader.MAXIMUM_NUMBER_COLUMNS) {
-      throw UserException
-        .validationError()
-        .message("`columns`[" + index + "] index out of bounds")
-        .addContext("Column", inCol.toString())
-        .addContext("Maximum index", TextReader.MAXIMUM_NUMBER_COLUMNS)
-        .build(logger);
-    }
-    columnsIndexes.add(index);
-    maxIndex = Math.max(maxIndex, index);
   }
 
   @Override
@@ -213,16 +167,7 @@ public class ColumnsArrayParser implements ScanProjectionParser {
   }
 
   @Override
-  public void build() {
-    if (columnsIndexes == null) {
-      return;
-    }
-    boolean indexes[] = new boolean[maxIndex + 1];
-    for (Integer index : columnsIndexes) {
-      indexes[index] = true;
-    }
-    columnsArrayCol.setIndexes(indexes);
-  }
+  public void build() { }
 
   public UnresolvedColumnsArrayColumn columnsArrayCol() { return columnsArrayCol; }
 }
