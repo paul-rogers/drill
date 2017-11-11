@@ -81,9 +81,18 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
   public static class EasyFormatConfig {
     public BasicFormatMatcher matcher;
     public boolean readable = true;
-    public boolean writable = false;
-    public boolean blockSplittable = false;
-    public boolean compressible = false;
+    public boolean writable;
+    public boolean blockSplittable;
+    public boolean compressible;
+
+    /**
+     * Does this plugin support projection push down?
+     * Most Drill 1.12 and earlier plugins override a method
+     * to report this; those plugins should be migrated to
+     * use this setting instead.
+     */
+
+    public boolean supportsProjectPushdown;
     public Configuration fsConf;
     public List<String> extensions;
     public String defaultName;
@@ -338,7 +347,16 @@ public abstract class EasyFormatPlugin<T extends FormatPluginConfig> implements 
   @Override
   public String getName() { return name; }
 
-  public abstract boolean supportsPushDown();
+  /**
+   * Does this plugin support projection push down? That is, can the reader
+   * itself handle the tasks of projecting table columns, creating null
+   * columns for missing table columns, and so on?
+   *
+   * @return <tt>true</tt> if the plugin supports projection push-down,
+   * <tt>false</tt> if Drill should do the task by adding a project operator
+   */
+
+  public boolean supportsPushDown() { return easyConfig.supportsProjectPushdown; }
 
   /**
    * Whether or not you can split the format based on blocks within file

@@ -248,7 +248,7 @@ public final class ExecConstants {
   public static final String PARQUET_COLUMNREADER_ASYNC = "store.parquet.reader.columnreader.async";
   public static final OptionValidator PARQUET_COLUMNREADER_ASYNC_VALIDATOR = new BooleanValidator(PARQUET_COLUMNREADER_ASYNC);
 
-  // Use a buffering reader for parquet page reader
+  // Use a buffering reader for Parquet page reader
   public static final String PARQUET_PAGEREADER_USE_BUFFERED_READ = "store.parquet.reader.pagereader.bufferedread";
   public static final OptionValidator PARQUET_PAGEREADER_USE_BUFFERED_READ_VALIDATOR = new  BooleanValidator(PARQUET_PAGEREADER_USE_BUFFERED_READ);
 
@@ -275,10 +275,10 @@ public final class ExecConstants {
 
   /**
    * The column label (for directory levels) in results when querying files in a directory
-   * E.g.  labels: dir0   dir1
+   * E.g.  labels: dir0   dir1<pre>
    *    structure: foo
    *                |-    bar  -  a.parquet
-   *                |-    baz  -  b.parquet
+   *                |-    baz  -  b.parquet</pre>
    */
   public static final String FILESYSTEM_PARTITION_COLUMN_LABEL = "drill.exec.storage.file.partition.column.label";
   public static final StringValidator FILESYSTEM_PARTITION_COLUMN_LABEL_VALIDATOR = new StringValidator(FILESYSTEM_PARTITION_COLUMN_LABEL);

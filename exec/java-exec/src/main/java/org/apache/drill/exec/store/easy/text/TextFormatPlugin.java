@@ -67,121 +67,10 @@ import com.google.common.collect.Maps;
 
 public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextFormatConfig>
       implements FileReaderCreator {
-  private final static String DEFAULT_NAME = "text";
+  private final static String PLUGIN_NAME = "text";
 
-  public static class TextScanBatchCreator extends ScanFrameworkCreator {
-
-    private final FileReaderCreator readerCreator;
-    private final TextFormatPlugin textPlugin;
-
-    public TextScanBatchCreator(TextFormatPlugin plugin,
-        FileReaderCreator readerCreator) {
-      super(plugin);
-      this.readerCreator = readerCreator;
-      textPlugin = plugin;
-    }
-
-    @Override
-    protected ColumnsScanFramework buildFramework(
-        EasySubScan scan) throws ExecutionSetupException {
-      ColumnsScanFramework framework = new ColumnsScanFramework(
-              scan.getColumns(),
-              scan.getWorkUnits(),
-              plugin.easyConfig().fsConf,
-              readerCreator);
-
-      // If this format has no headers, or wants to skip them,
-      // then we must use the columns column to hold the data.
-
-      framework.requireColumnsArray(
-          ! textPlugin.getConfig().isHeaderExtractionEnabled());
-
-      // Text files handle nulls in an unusual way. Missing columns
-      // are set to required Varchar and filled with blanks. Yes, this
-      // means that the SQL statement or code cannot differentiate missing
-      // columns from empty columns, but that is how CSV and other text
-      // files have been defined within Drill.
-
-      framework.setNullType(
-          MajorType.newBuilder()
-            .setMinorType(MinorType.VARCHAR)
-            .setMode(DataMode.REQUIRED)
-            .build());
-
-      // For now, maintain backward compatibility with metadata
-      // position in wildcard queries.
-
-      framework.useDrill1_12MetadataPosition(true);
-
-      return framework;
-    }
-  }
-
-  public TextFormatPlugin(String name, DrillbitContext context, Configuration fsConf, StoragePluginConfig storageConfig) {
-     this(name, context, fsConf, storageConfig, new TextFormatConfig());
-  }
-
-  public TextFormatPlugin(String name, DrillbitContext context, Configuration fsConf, StoragePluginConfig config,
-      TextFormatConfig formatPluginConfig) {
-    super(name, easyConfig(fsConf, formatPluginConfig), context, config, formatPluginConfig);
-  }
-
-  private static EasyFormatConfig easyConfig(Configuration fsConf, TextFormatConfig pluginConfig) {
-    EasyFormatConfig config = new EasyFormatConfig();
-    config.readable = true;
-    config.writable = false;
-    config.blockSplittable = true;
-    config.compressible = true;
-    config.extensions = pluginConfig.getExtensions();
-    config.fsConf = fsConf;
-    config.defaultName = DEFAULT_NAME;
-    return config;
-  }
-
-  @Override
-  protected ScanBatchCreator scanBatchCreator() {
-    return new TextScanBatchCreator(this, this);
-  }
-
-  @Override
-  public AbstractGroupScan getGroupScan(String userName, FileSelection selection, List<SchemaPath> columns)
-      throws IOException {
-    return new EasyGroupScan(userName, selection, this, columns, selection.selectionRoot);
-  }
-
-  @Override
-  protected ScanStats getScanStats(final PlannerSettings settings, final EasyGroupScan scan) {
-    long data = 0;
-    for (final CompleteFileWork work : scan.getWorkIterable()) {
-      data += work.getTotalBytes();
-    }
-    final double estimatedRowSize = settings.getOptions().getOption(ExecConstants.TEXT_ESTIMATED_ROW_SIZE);
-    final double estRowCount = data / estimatedRowSize;
-    return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT, (long) estRowCount, 1, data);
-  }
-
-  @Override
-  public RecordWriter getRecordWriter(final FragmentContext context, final EasyWriter writer) throws IOException {
-    final Map<String, String> options = Maps.newHashMap();
-
-    options.put("location", writer.getLocation());
-
-    FragmentHandle handle = context.getHandle();
-    String fragmentId = String.format("%d_%d", handle.getMajorFragmentId(), handle.getMinorFragmentId());
-    options.put("prefix", fragmentId);
-
-    options.put("separator", ((TextFormatConfig)getConfig()).getFieldDelimiterAsString());
-    options.put(FileSystem.FS_DEFAULT_NAME_KEY, ((FileSystemConfig)writer.getStorageConfig()).connection);
-
-    options.put("extension", ((TextFormatConfig)getConfig()).getExtensions().get(0));
-
-    RecordWriter recordWriter = new DrillTextRecordWriter(context.getAllocator(), writer.getStorageStrategy());
-    recordWriter.init(options);
-
-    return recordWriter;
-  }
-
-  @JsonTypeName("text") @JsonInclude(Include.NON_DEFAULT)
+  @JsonTypeName(PLUGIN_NAME)
+  @JsonInclude(Include.NON_DEFAULT)
   public static class TextFormatConfig implements FormatPluginConfig {
 
     public List<String> extensions = ImmutableList.of();
@@ -193,26 +82,18 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
     public boolean skipFirstLine = false;
     public boolean extractHeader = false;
 
-    public TextFormatConfig() {
-
-    }
+    public TextFormatConfig() { }
 
     public List<String> getExtensions() { return extensions; }
-
     public char getQuote() { return quote; }
-
     public char getEscape() { return escape; }
-
     public char getComment() { return comment; }
-
     public String getLineDelimiter() { return lineDelimiter; }
-
     public char getFieldDelimiter() { return fieldDelimiter; }
+    public boolean isSkipFirstLine() { return skipFirstLine; }
 
     @JsonIgnore
-    public boolean isHeaderExtractionEnabled() {
-      return extractHeader;
-    }
+    public boolean isHeaderExtractionEnabled() { return extractHeader; }
 
     @JsonIgnore
     public String getFieldDelimiterAsString(){
@@ -224,8 +105,6 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
     public void setFieldDelimiter(char delimiter){
       this.fieldDelimiter = delimiter;
     }
-
-    public boolean isSkipFirstLine() { return skipFirstLine; }
 
     @Override
     public int hashCode() {
@@ -290,6 +169,118 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
     }
   }
 
+  public static class TextScanBatchCreator extends ScanFrameworkCreator {
+
+    private final FileReaderCreator readerCreator;
+    private final TextFormatPlugin textPlugin;
+
+    public TextScanBatchCreator(TextFormatPlugin plugin,
+        FileReaderCreator readerCreator) {
+      super(plugin);
+      this.readerCreator = readerCreator;
+      textPlugin = plugin;
+    }
+
+    @Override
+    protected ColumnsScanFramework buildFramework(
+        EasySubScan scan) throws ExecutionSetupException {
+      ColumnsScanFramework framework = new ColumnsScanFramework(
+              scan.getColumns(),
+              scan.getWorkUnits(),
+              plugin.easyConfig().fsConf,
+              readerCreator);
+
+      // If this format has no headers, or wants to skip them,
+      // then we must use the columns column to hold the data.
+
+      framework.requireColumnsArray(
+          ! textPlugin.getConfig().isHeaderExtractionEnabled());
+
+      // Text files handle nulls in an unusual way. Missing columns
+      // are set to required Varchar and filled with blanks. Yes, this
+      // means that the SQL statement or code cannot differentiate missing
+      // columns from empty columns, but that is how CSV and other text
+      // files have been defined within Drill.
+
+      framework.setNullType(
+          MajorType.newBuilder()
+            .setMinorType(MinorType.VARCHAR)
+            .setMode(DataMode.REQUIRED)
+            .build());
+
+      // For now, maintain backward compatibility with metadata
+      // position in wildcard queries.
+
+      framework.useDrill1_12MetadataPosition(true);
+
+      return framework;
+    }
+  }
+
+  public TextFormatPlugin(String name, DrillbitContext context, Configuration fsConf, StoragePluginConfig storageConfig) {
+     this(name, context, fsConf, storageConfig, new TextFormatConfig());
+  }
+
+  public TextFormatPlugin(String name, DrillbitContext context, Configuration fsConf, StoragePluginConfig config,
+      TextFormatConfig formatPluginConfig) {
+    super(name, easyConfig(fsConf, formatPluginConfig), context, config, formatPluginConfig);
+  }
+
+  private static EasyFormatConfig easyConfig(Configuration fsConf, TextFormatConfig pluginConfig) {
+    EasyFormatConfig config = new EasyFormatConfig();
+    config.readable = true;
+    config.writable = false;
+    config.blockSplittable = true;
+    config.compressible = true;
+    config.supportsProjectPushdown = true;
+    config.extensions = pluginConfig.getExtensions();
+    config.fsConf = fsConf;
+    config.defaultName = PLUGIN_NAME;
+    return config;
+  }
+
+  @Override
+  protected ScanBatchCreator scanBatchCreator() {
+    return new TextScanBatchCreator(this, this);
+  }
+
+  @Override
+  public AbstractGroupScan getGroupScan(String userName, FileSelection selection, List<SchemaPath> columns)
+      throws IOException {
+    return new EasyGroupScan(userName, selection, this, columns, selection.selectionRoot);
+  }
+
+  @Override
+  protected ScanStats getScanStats(final PlannerSettings settings, final EasyGroupScan scan) {
+    long data = 0;
+    for (final CompleteFileWork work : scan.getWorkIterable()) {
+      data += work.getTotalBytes();
+    }
+    final double estimatedRowSize = settings.getOptions().getOption(ExecConstants.TEXT_ESTIMATED_ROW_SIZE);
+    final double estRowCount = data / estimatedRowSize;
+    return new ScanStats(GroupScanProperty.NO_EXACT_ROW_COUNT, (long) estRowCount, 1, data);
+  }
+
+  @Override
+  public RecordWriter getRecordWriter(final FragmentContext context, final EasyWriter writer) throws IOException {
+    final Map<String, String> options = Maps.newHashMap();
+
+    options.put("location", writer.getLocation());
+
+    FragmentHandle handle = context.getHandle();
+    String fragmentId = String.format("%d_%d", handle.getMajorFragmentId(), handle.getMinorFragmentId());
+    options.put("prefix", fragmentId);
+
+    options.put("separator", getConfig().getFieldDelimiterAsString());
+    options.put(FileSystem.FS_DEFAULT_NAME_KEY, ((FileSystemConfig)writer.getStorageConfig()).connection);
+
+    options.put("extension", getConfig().getExtensions().get(0));
+
+    RecordWriter recordWriter = new DrillTextRecordWriter(context.getAllocator(), writer.getStorageStrategy());
+    recordWriter.init(options);
+
+    return recordWriter;
+  }
   @Override
   public int getReaderOperatorType() {
     return CoreOperatorType.TEXT_SUB_SCAN_VALUE;
@@ -301,14 +292,11 @@ public class TextFormatPlugin extends EasyFormatPlugin<TextFormatPlugin.TextForm
   }
 
   @Override
-  public boolean supportsPushDown() { return true; }
-
-  @Override
   public ManagedReader<ColumnsSchemaNegotiator> makeBatchReader(
       DrillFileSystem dfs,
       FileSplit split) throws ExecutionSetupException {
     TextParsingSettings settings = new TextParsingSettings();
-    settings.set((TextFormatConfig) getConfig());
+    settings.set(getConfig());
     return new CompliantTextBatchReader(split, dfs, settings);
   }
 }

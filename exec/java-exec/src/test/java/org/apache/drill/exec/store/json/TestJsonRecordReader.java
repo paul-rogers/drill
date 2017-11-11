@@ -22,7 +22,6 @@ import org.apache.drill.categories.UnlikelyTest;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.ExecConstants;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.Assert;
 import org.junit.experimental.categories.Category;
@@ -31,8 +30,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 public class TestJsonRecordReader extends BaseTestQuery {
-  // private static final org.slf4j.Logger logger =
-  // org.slf4j.LoggerFactory.getLogger(TestJsonRecordReader.class);
 
   @Test
   public void testComplexJsonInput() throws Exception {
