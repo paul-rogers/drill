@@ -269,15 +269,63 @@ public class JsonLoaderImpl implements JsonLoader {
     }
   }
 
-  protected class NullArrayState implements ParseState {
+  /**
+   * Parses: [] | null [ ... ]
+   * <p>
+   * This state remains in effect as long as the input contains empty arrays or
+   * null values. However, once the array contains a non-empty array, detects the
+   * type of the array based on this value and replaces this state with the
+   * result array parser state.
+   * <p>
+   * If at the end of a batch, no non-empty array was seen, assumes that the
+   * array, when seen, will be an array of scalars, and replaces this state with
+   * a text array (as in all-text mode.)
+   */
 
-    public NullArrayState(TupleWriter writer, String fieldName) {
-      throw new UnsupportedOperationException();
+  protected class NullArrayState implements ParseState, NullTypeMarker {
+
+    private final TupleState parentState;
+    private final String fieldName;
+
+    public NullArrayState(TupleState parentState, String fieldName) {
+      this.parentState = parentState;
+      this.fieldName = fieldName;
+      nullStates.add(this);
     }
+
+    /**
+     * Parse null | [] | [ some_token
+     */
 
     @Override
     public boolean parse() {
-      throw new UnsupportedOperationException();
+      JsonToken startToken = tokenizer.requireNext();
+      if (startToken == JsonToken.VALUE_NULL) {
+        return true;
+      }
+      if (startToken != JsonToken.START_ARRAY) {
+        throw syntaxError(startToken);
+      }
+      JsonToken valueToken = tokenizer.requireNext();
+      if (valueToken == JsonToken.END_ARRAY) {
+        return true;
+      }
+      tokenizer.unget(valueToken);
+      ParseState newState = parentState.detectArrayState(fieldName, 1);
+      parentState.replaceState(fieldName, newState);
+      nullStates.remove(this);
+      tokenizer.unget(startToken);
+      return newState.parse();
+    }
+
+    @Override
+    public void realize() {
+      logger.warn("JSON array " + fieldName + " contains all empty arrays. Assuming text scalar elements.");
+      ArrayWriter arrayWriter = parentState.newWriter(fieldName, MinorType.VARCHAR, DataMode.REPEATED).array();
+      ParseState elementState = new TextState(arrayWriter.scalar(), fieldName + "[]");
+      ParseState newState = new ScalarArrayState(arrayWriter, elementState);
+      parentState.replaceState(fieldName, newState);
+      nullStates.remove(this);
     }
   }
 
@@ -438,8 +486,8 @@ public class JsonLoaderImpl implements JsonLoader {
             new TupleState(arrayWriter.tuple()));
         break;
 
-      case VALUE_NULL:
-        arrayState = new NullArrayState(writer, fieldName);
+      case END_ARRAY:
+        arrayState = new NullArrayState(this, fieldName);
         break;
 
       default:

@@ -530,12 +530,210 @@ public class TestJsonLoader extends SubOperatorTest {
     tableLoader.close();
   }
 
+  @Test
+  public void testDeferredScalarArray() {
+    JsonTester tester = new JsonTester();
+    String json = "{a: []} {a: null} {a: [10, 20]}";
+    RowSet results = tester.parse(json);
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .addArray("a", MinorType.BIGINT)
+        .build();
+    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addSingleCol(new long[] {})
+        .addSingleCol(new long[] {})
+        .addSingleCol(new long[] {10, 20})
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(results);
+    tester.close();
+  }
+
+  @Test
+  public void testDeferredArrayRealized() {
+    String json = "{a: []} {a: null} {a: []} {a: [10, 20]} {a: [\"foo\", \"bar\"]}";
+    ResultSetLoader tableLoader = new ResultSetLoaderImpl(fixture.allocator());
+    InputStream inStream = new
+        ReaderInputStream(new StringReader(json));
+    JsonOptions options = new JsonOptions();
+    options.context = "test Json";
+    JsonLoader loader = new JsonLoaderImpl(inStream, tableLoader.writer(), options);
+
+    // Read first two records into a batch. Since we've not yet seen
+    // a type, the null field will be realized as a text field.
+
+    tableLoader.startBatch();
+    for (int i = 0; i < 2; i++) {
+      assertTrue(loader.next());
+    }
+    loader.endBatch();
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .addArray("a", MinorType.VARCHAR)
+        .build();
+    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addSingleCol(new String[] {})
+        .addSingleCol(new String[] {})
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(fixture.wrap(tableLoader.harvest()));
+
+    // Second batch, read remaining records as text mode.
+
+    tableLoader.startBatch();
+    while (loader.next()) {
+      // No op
+    }
+    expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addSingleCol(new String[] {})
+        .addSingleCol(new String[] {"10", "20"})
+        .addSingleCol(new String[] {"foo", "bar"})
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(fixture.wrap(tableLoader.harvest()));
+
+    try {
+      inStream.close();
+    } catch (IOException e) {
+      fail();
+    }
+    loader.close();
+    tableLoader.close();
+  }
+
+  /**
+   * Double deferral. First null causes a deferred null. Then,
+   * the empty array causes a deferred array. Fianlly, the third
+   * array announces the type.
+   */
+
+  @Test
+  public void testDeferredNullToArray() {
+    JsonTester tester = new JsonTester();
+    String json = "{a: null} {a: []} {a: [10, 20]}";
+    RowSet results = tester.parse(json);
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .addArray("a", MinorType.BIGINT)
+        .build();
+    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addSingleCol(new long[] {})
+        .addSingleCol(new long[] {})
+        .addSingleCol(new long[] {10, 20})
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(results);
+    tester.close();
+  }
+
+  @Test
+  public void testNestedTuple() {
+    JsonTester tester = new JsonTester();
+    String json =
+        "{id: 1, customer: { name: \"fred\" }}\n" +
+        "{id: 2, customer: { name: \"barney\" }}";
+    RowSet results = tester.parse(json);
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .addNullable("id", MinorType.BIGINT)
+        .addMap("customer")
+          .addNullable("name", MinorType.VARCHAR)
+          .buildMap()
+        .build();
+    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addRow(1L, new Object[] {"fred"})
+        .addRow(2L, new Object[] {"barney"})
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(results);
+    tester.close();
+  }
+
+  @Test
+  public void testNullTuple() {
+    JsonTester tester = new JsonTester();
+    String json =
+        "{id: 1, customer: {name: \"fred\"}}\n" +
+        "{id: 2, customer: {name: \"barney\"}}\n" +
+        "{id: 3, customer: null}\n" +
+        "{id: 4}";
+    RowSet results = tester.parse(json);
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .addNullable("id", MinorType.BIGINT)
+        .addMap("customer")
+          .addNullable("name", MinorType.VARCHAR)
+          .buildMap()
+        .build();
+    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addRow(1L, new Object[] {"fred"})
+        .addRow(2L, new Object[] {"barney"})
+        .addRow(3L, new Object[] {null})
+        .addRow(4L, new Object[] {null})
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(results);
+    tester.close();
+  }
+
+  @Test
+  public void testTupleArray() {
+    JsonTester tester = new JsonTester();
+    String json =
+        "{id: 1, customer: {name: \"fred\"}, orders: [\n" +
+        "  {id: 1001, status: \"closed\"},\n" +
+        "  {id: 1002, status: \"open\"}]}\n" +
+        "{id: 2, customer: {name: \"barney\"}, orders: []}\n" +
+        "{id: 3, customer: {name: \"wilma\"}, orders: null}\n" +
+        "{id: 4, customer: {name: \"betty\"}}\n" +
+        "{id: 5, customer: {name: \"pebbles\"}, orders: [\n" +
+        "  {id: 1003, status: \"canceled\"}]}";
+    RowSet results = tester.parse(json);
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .addNullable("id", MinorType.BIGINT)
+        .addMap("customer")
+          .addNullable("name", MinorType.VARCHAR)
+          .buildMap()
+        .addMapArray("orders")
+          .addNullable("id", MinorType.BIGINT)
+          .addNullable("status", MinorType.VARCHAR)
+          .buildMap()
+        .build();
+    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addRow(1L, new Object[] {"fred"}, new Object[] {
+            new Object[] {1001L, "closed"},
+            new Object[] {1002L, "open"}})
+        .addRow(2L, new Object[] {"barney"}, new Object[] {})
+        .addRow(3L, new Object[] {"wilma"}, new Object[] {})
+        .addRow(4L, new Object[] {"betty"}, new Object[] {})
+        .addRow(5L, new Object[] {"pebbles"}, new Object[] {
+            new Object[] {1003L, "canceled"}})
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(results);
+    tester.close();
+  }
+
+  @Test
+  public void testDeferredTupleArray() {
+    JsonTester tester = new JsonTester();
+    String json = "{a: []} {a: null} {a: [{name: \"fred\"}, {name: \"barney\"}]}";
+    RowSet results = tester.parse(json);
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .addMapArray("a")
+          .addNullable("name", MinorType.VARCHAR)
+          .buildMap()
+        .build();
+    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addSingleCol(new Object[] {})
+        .addSingleCol(new Object[] {})
+        .addSingleCol(new Object[] {
+            new Object[] {"fred"}, new Object[] {"barney"}})
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(results);
+    tester.close();
+  }
+
   // TODO: Syntax errors
-  // TODO: Nested tuples
-  // TODO: Arrays of tuples
-  // TODO: Deferred null type
-  // TODO: Deferred array type
   // TODO: Skip ignored, malformed, tuples
   // TODO: Skip ignored, malformed, arrays
+  // TODO: Lists
 
 }
