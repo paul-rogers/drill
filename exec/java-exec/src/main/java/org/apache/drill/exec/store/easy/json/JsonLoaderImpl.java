@@ -46,7 +46,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * {@link ResultSetLoader} abstraction. Represents the JSON parse as a
  * set of parse states, each of which represents some point in the traversal
  * of the JSON syntax. Parse nodes also handle options such as all text mode
- * vs. type-specific parsing.
+ * vs. type-specific parsing. Think of this implementation as a
+ * recursive-descent parser, with the parser itself discovered and
+ * "compiled" on the fly as we see incoming data.
  * <p>
  * Actual parsing is handled by the Jackson parser class. The input source is
  * represented as an {@link InputStream} so that this mechanism can parse files
@@ -81,9 +83,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * <li>This version also "free-wheels" over all unprojected values. If the user
  * finds that they have inconsistent data in some field f, then the user can
  * project fields except f; Drill will ignore the inconsistent values in f.</li>
+ * <li>Because of this free-wheeling capability, this version does not need a
+ * "counting" reader; this same reader handles the case in which no fields are
+ * projected for <tt>SEELCT COUNT(*)</tt> queries.</li>
  * <li>Runs of null values result in a "deferred null state" that patiently
  * waits for an actual value token to appear, and only then "realizes" a parse
  * state for that type.</li>
+ * <li>Provides the same limited error recovery as the original version. See
+ * <a href="https://issues.apache.org/jira/browse/DRILL-4653">DRILL-4653</a>
+ * and
+ * <a href="https://issues.apache.org/jira/browse/DRILL-5953">DRILL-5953</a>.
+ * </li>
  * </ul>
  */
 
@@ -108,6 +118,11 @@ public class JsonLoaderImpl implements JsonLoader {
      * and treat it like a set of distinct records.
      */
     public boolean skipOuterList = true;
+    public boolean skipMalformedRecords;
+  }
+
+  @SuppressWarnings("serial")
+  private class RecoverableJsonException extends RuntimeException {
   }
 
   interface ParseState {
@@ -363,6 +378,9 @@ public class JsonLoaderImpl implements JsonLoader {
         return false; // EOF
       }
       switch (token) {
+      case NOT_AVAILABLE:
+        return false; // Should never occur
+
       case VALUE_NULL:
         return true; // Null, same as omitting the object
 
@@ -929,10 +947,14 @@ public class JsonLoaderImpl implements JsonLoader {
       try {
         return parser.nextToken();
       } catch (JsonParseException e) {
-        throw UserException
-          .dataReadError(e)
-          .addContext("Location", context())
-          .build(logger);
+        if (options.skipMalformedRecords) {
+          throw new RecoverableJsonException();
+        } else {
+          throw UserException
+            .dataReadError(e)
+            .addContext("Location", context())
+            .build(logger);
+        }
       } catch (IOException e) {
         throw ioException(e);
       }
@@ -1005,6 +1027,7 @@ public class JsonLoaderImpl implements JsonLoader {
 
   private final List<NullTypeMarker> nullStates = new ArrayList<>();
   private ParseState rootState;
+  private int errorRecoveryCount;
 
   public JsonLoaderImpl(InputStream stream, RowSetLoader rootWriter, JsonOptions options) {
     try {
@@ -1078,7 +1101,79 @@ public class JsonLoaderImpl implements JsonLoader {
       rootState = null;
       return false;
     }
-    return rootState.parse();
+    for (;;) {
+      try {
+        return rootState.parse();
+      } catch (RecoverableJsonException e) {
+        if (! recover())
+          return false;
+      }
+    }
+  }
+
+  /**
+   * Attempt recovery from a JSON syntax error by skipping to the next
+   * record. The Jackson parser is quite limited in its recovery abilities.
+   *
+   * @return <tt>true<tt> if another record can be read, <tt>false</tt>
+   * if EOF.
+   * @throws UserException if the error is unrecoverable
+   * @see <a href="https://issues.apache.org/jira/browse/DRILL-4653">DRILL-4653</a>
+   * @see <a href="https://issues.apache.org/jira/browse/DRILL-5953">DRILL-5953</a>
+   */
+
+  private boolean recover() {
+    logger.warn("Attempting recovery from JSON syntax error. " + tokenizer.context());
+    boolean firstAttempt = true;
+    for (;;) {
+      for (;;) {
+        try {
+          if (parser.isClosed()) {
+            throw unrecoverableError();
+          }
+          JsonToken token = tokenizer.next();
+          if (token == null) {
+            if (firstAttempt) {
+              throw unrecoverableError();
+            }
+            return false;
+          }
+          if (token == JsonToken.NOT_AVAILABLE) {
+            return false;
+          }
+          if (token == JsonToken.END_OBJECT) {
+            break;
+          }
+          firstAttempt = false;
+        } catch (RecoverableJsonException e) {
+          // Ignore, keep trying
+        }
+      }
+      try {
+        JsonToken token = tokenizer.next();
+        if (token == null || token == JsonToken.NOT_AVAILABLE) {
+          return false;
+        }
+        if (token == JsonToken.START_OBJECT) {
+          logger.warn("Attempting to resume JSON parse. " + tokenizer.context());
+          tokenizer.unget(token);
+          errorRecoveryCount++;
+          return true;
+        }
+      } catch (RecoverableJsonException e) {
+        // Ignore, keep trying
+      }
+    }
+  }
+
+  public int recoverableErrorCount() { return errorRecoveryCount; }
+
+  private UserException unrecoverableError() {
+    throw UserException
+        .dataReadError()
+        .message("Unrecoverable JSON syntax error.")
+        .addContext("Location", tokenizer.context())
+        .build(logger);
   }
 
   @Override
@@ -1092,14 +1187,18 @@ public class JsonLoaderImpl implements JsonLoader {
   }
 
   private UserException syntaxError(JsonToken token, String context, String expected) {
-    return UserException
-        .dataReadError()
-        .message("JSON encountered a value of the wrong type")
-        .message("Field", context)
-        .message("Expected type", expected)
-        .message("Actual token", token.toString())
-        .addContext("Location", tokenizer.context())
-        .build(logger);
+    if (options.skipMalformedRecords) {
+      throw new RecoverableJsonException();
+    } else {
+      return UserException
+          .dataReadError()
+          .message("JSON encountered a value of the wrong type")
+          .message("Field", context)
+          .message("Expected type", expected)
+          .message("Actual token", token.toString())
+          .addContext("Location", tokenizer.context())
+          .build(logger);
+    }
   }
 
   private UserException syntaxError(JsonToken token) {
@@ -1121,6 +1220,10 @@ public class JsonLoaderImpl implements JsonLoader {
 
   @Override
   public void close() {
+    if (errorRecoveryCount > 0) {
+      logger.warn("Read JSON input {} with {} recoverable error(s).",
+          options.context, errorRecoveryCount);
+    }
     try {
       parser.close();
     } catch (IOException e) {

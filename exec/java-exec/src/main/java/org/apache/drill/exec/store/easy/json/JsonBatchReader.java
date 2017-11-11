@@ -58,7 +58,7 @@ public class JsonBatchReader implements ManagedReader<FileSchemaNegotiator> {
     options.allTextMode = embeddedContent == null && optionMgr.getBoolean(ExecConstants.JSON_ALL_TEXT_MODE);
     options.readNumbersAsDouble = embeddedContent == null && optionMgr.getBoolean(ExecConstants.JSON_READ_NUMBERS_AS_DOUBLE);
     options.unionEnabled = embeddedContent == null && optionMgr.getBoolean(ExecConstants.ENABLE_UNION_TYPE_KEY);
-    options.skipMalformedJSONRecords = optionMgr.getBoolean(ExecConstants.JSON_READER_SKIP_INVALID_RECORDS_FLAG);
+    options.skipMalformedRecords = optionMgr.getBoolean(ExecConstants.JSON_READER_SKIP_INVALID_RECORDS_FLAG);
     options.printSkippedMalformedJSONRecordLineNumber = optionMgr.getBoolean(ExecConstants.JSON_READER_PRINT_INVALID_RECORDS_LINE_NOS_FLAG);
     options.allowNanInf = true;
 

@@ -106,21 +106,20 @@ public abstract class BaseJsonProcessor implements JsonProcessor {
 
   protected JsonExceptionProcessingState processJSONException()
       throws IOException {
-    while (!parser.isClosed()) {
+    while (! parser.isClosed()) {
       try {
         JsonToken currentToken = parser.nextToken();
-        if(currentToken ==  JsonToken.START_OBJECT && (lastSeenJsonToken == JsonToken.END_OBJECT || lastSeenJsonToken == null))
-        {
-          lastSeenJsonToken =currentToken;
+        if (currentToken ==  JsonToken.START_OBJECT && (lastSeenJsonToken == JsonToken.END_OBJECT || lastSeenJsonToken == null)) {
+          lastSeenJsonToken = currentToken;
           break;
         }
-        lastSeenJsonToken =currentToken;
-        } catch (com.fasterxml.jackson.core.JsonParseException ex1) {
+        lastSeenJsonToken = currentToken;
+      } catch (com.fasterxml.jackson.core.JsonParseException ex1) {
         if (ex1.getOriginalMessage().startsWith(JACKSON_PARSER_EOF_FILE_MSG)) {
           return JsonExceptionProcessingState.END_OF_STREAM;
         }
-       continue;
-       }
+        continue;
+      }
     }
     return JsonExceptionProcessingState.PROC_SUCCEED;
   }

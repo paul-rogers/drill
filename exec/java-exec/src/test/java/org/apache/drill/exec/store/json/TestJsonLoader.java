@@ -793,50 +793,47 @@ public class TestJsonLoader extends SubOperatorTest {
     tableLoader.close();
   }
 
-//  @Test
-//  public void testNonProjectedArray() {
-//    String json =
-//    ResultSetOptions rsOptions = new OptionBuilder()
-//        .setProjection(ScanTestUtils.projectList("a"))
-//        .build();
-//    ResultSetLoader tableLoader = new ResultSetLoaderImpl(fixture.allocator(), rsOptions);
-//    InputStream inStream = new
-//        ReaderInputStream(new StringReader(json));
-//    JsonOptions options = new JsonOptions();
-//    options.context = "test Json";
-//    JsonLoader loader = new JsonLoaderImpl(inStream, tableLoader.writer(), options);
-//
-//    // Read first two records into a batch. Since we've not yet seen
-//    // a type, the null field will be realized as a text field.
-//
-//    tableLoader.startBatch();
-//    while (loader.next()) {
-//      // No op
-//    }
-//    loader.endBatch();
-//
-//    BatchSchema expectedSchema = new SchemaBuilder()
-//        .addNullable("a", MinorType.BIGINT)
-//        .build();
-//    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
-//        .addRow(10L)
-//        .addRow(20L)
-//        .addRow(30L)
-//        .addRow(40L)
-//        .build();
-//    new RowSetComparison(expected)
-//      .verifyAndClearAll(fixture.wrap(tableLoader.harvest()));
-//
-//    try {
-//      inStream.close();
-//    } catch (IOException e) {
-//      fail();
-//    }
-//    loader.close();
-//    tableLoader.close();
-//  }
+  /**
+   * Test the JSON parser's limited recover abilities.
+   *
+   * @see <a href="https://issues.apache.org/jira/browse/DRILL-4653">DRILL-4653</a>
+   */
+
+  @Test
+  public void testErrorRecovery() {
+    JsonOptions options = new JsonOptions();
+    options.skipMalformedRecords = true;
+    JsonTester tester = new JsonTester(options);
+    String json = "{\"a: 10}\n{a: 20}\n{a: 30}";
+    RowSet results = tester.parse(json);
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.BIGINT)
+        .build();
+    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+//        .addRow(20L) // Recovery will eat the second record.
+        .addRow(30L)
+        .build();
+    new RowSetComparison(expected)
+      .verifyAndClearAll(results);
+    tester.close();
+  }
+
+  /**
+   * Test handling of unrecoverable parse errors. This test must change if
+   * we resolve DRILL-5953 and allow better recovery.
+   *
+   * @see <a href="https://issues.apache.org/jira/browse/DRILL-5953">DRILL-5953</a>
+   */
+
+  @Test
+  public void testUnrecoverableError() {
+    JsonOptions options = new JsonOptions();
+    options.skipMalformedRecords = true;
+    JsonTester tester = new JsonTester(options);
+    expectError(tester, "{a: }\n{a: 20}\n{a: 30}");
+  }
 
   // TODO: Lists
-  // TODO: Recover from malformed JSON
   // TODO: Union support
 }
