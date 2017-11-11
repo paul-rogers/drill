@@ -60,9 +60,12 @@ public interface TupleWriter {
    */
 
   public interface TupleWriterListener {
+
     ObjectWriter addColumn(TupleWriter tuple, ColumnMetadata column);
 
     ObjectWriter addColumn(TupleWriter tuple, MaterializedField field);
+
+    boolean isProjected(String columnName);
   }
 
   /**
@@ -82,6 +85,20 @@ public interface TupleWriter {
   }
 
   void bindListener(TupleWriterListener listener);
+
+  /**
+   * Allows a client to "sniff" the projection set to determine if a
+   * field is projected. Some clients can omit steps if they know that
+   * a field is not needed. Others will simply create the column, allowing
+   * the implementation to create a dummy writer if the column is not
+   * projected.
+   *
+   * @param columnName name of an existing or new column
+   * @return <tt>true</tt> if the column is (or would be) projected,
+   * <tt>false</tt> if the column is not (or would not be) projected
+   */
+
+  boolean isProjected(String columnName);
 
   /**
    * Add a column to the tuple (row or map) that backs this writer. Support for

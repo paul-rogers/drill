@@ -97,7 +97,7 @@ public class ScanTestUtils {
     return metadataSchema;
   }
 
-  static List<SchemaPath> projectList(String... names) {
+  public static List<SchemaPath> projectList(String... names) {
     List<SchemaPath> selected = new ArrayList<>();
     for (String name: names) {
 

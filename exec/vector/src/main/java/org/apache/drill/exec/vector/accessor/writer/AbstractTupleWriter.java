@@ -223,6 +223,11 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   }
 
   @Override
+  public boolean isProjected(String columnName) {
+    return listener == null ? true : listener.isProjected(columnName);
+  }
+
+  @Override
   public int addColumn(ColumnMetadata column) {
     if (listener == null) {
       throw new UnsupportedOperationException("addColumn");

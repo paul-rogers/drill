@@ -74,10 +74,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * <li>Projection pushdown is handled by the {@link ResultSetLoader} rather than
  * the JSON loader. This class always creates a vector writer, but the result set
  * loader will return a dummy (no-op) writer for non-projected columns.</li>
- * <li>The result of the above change is that this parser will validate JSON more
- * carefully than the previous version did.</li>
+ * <li>Like the original version, this version "free wheels" over unprojected objects
+ * and arrays; watching only for matching brackets, but ignoring all else.</li>
  * <li>Writes boolean values as SmallInt values, rather than as bits in the
  * prior version.</li>
+ * <li>This version also "free-wheels" over all unprojected values. If the user
+ * finds that they have inconsistent data in some field f, then the user can
+ * project fields except f; Drill will ignore the inconsistent values in f.</li>
  * <li>Runs of null values result in a "deferred null state" that patiently
  * waits for an actual value token to appear, and only then "realizes" a parse
  * state for that type.</li>
@@ -338,6 +341,10 @@ public class JsonLoaderImpl implements JsonLoader {
    * Thereafter, the previous state is reused. The states ensure that the
    * correct token appears for each subsequent value, causing type errors
    * to be reported as syntax errors rather than as cryptic internal errors.
+   * <p>
+   * As it turns out, most of the semantic action occurs at the tuple level:
+   * that is where fields are defined, types inferred, and projection is
+   * computed.
    */
 
   protected class TupleState implements ParseState {
@@ -353,16 +360,20 @@ public class JsonLoaderImpl implements JsonLoader {
     public boolean parse() {
       JsonToken token = tokenizer.next();
       if (token == null) {
-        return false;
+        return false; // EOF
       }
       switch (token) {
       case VALUE_NULL:
-        return true;
+        return true; // Null, same as omitting the object
+
       case START_OBJECT:
-        break;
+        break; // Start the object
+
       default:
-        throw syntaxError(token);
+        throw syntaxError(token); // Nothing else is valid
       }
+
+      // Parse (field: value)* }
 
       for (;;) {
         token = tokenizer.requireNext();
@@ -380,6 +391,13 @@ public class JsonLoaderImpl implements JsonLoader {
       }
     }
 
+    /**
+     * Parse a field. Two cases. First, this is a field we've already seen. If so,
+     * look up the parser for that field and use it. If this is the first time we've
+     * seen the field, "sniff" tokens to determine field type, create a parser,
+     * then parse.
+     */
+
     private void parseField() {
       final String fieldName = tokenizer.getText();
       ParseState fieldState = members.get(fieldName);
@@ -390,7 +408,20 @@ public class JsonLoaderImpl implements JsonLoader {
       fieldState.parse();
     }
 
+    /**
+     * If the column is not projected, create a dummy parser to "free wheel"
+     * over the value. Otherwise,
+     * look ahead a token or two to determine the the type of the field.
+     * Then the caller will backtrack to parse the field.
+     *
+     * @param fieldName name of the field
+     * @return parser for the field
+     */
+
     private ParseState detectFieldState(final String fieldName) {
+      if (! writer.isProjected(fieldName)) {
+        return new DummyValueState(fieldName);
+      }
       JsonToken token = tokenizer.requireNext();
       ParseState state;
       switch (token) {
@@ -400,7 +431,7 @@ public class JsonLoaderImpl implements JsonLoader {
 
       case START_OBJECT:
         state = new TupleState(
-            newWriter(fieldName, MinorType.MAP, DataMode.REQUIRED).tuple());
+              newWriter(fieldName, MinorType.MAP, DataMode.REQUIRED).tuple());
         break;
 
       case VALUE_NULL:
@@ -556,6 +587,20 @@ public class JsonLoaderImpl implements JsonLoader {
       return new ScalarArrayState(arrayWriter, elementState);
     }
 
+    /**
+     * The field type has been determined. Build a writer for that field given
+     * the field name, type and mode (optional or repeated). The result set loader
+     * that backs this JSON loader will handle field projection, returning a dummy
+     * parser if the field is not projected.
+     *
+     * @param fieldName name of the field
+     * @param type Drill data type
+     * @param mode cardinality: either Optional (for map fields) or Repeated
+     * (for array members). (JSON does not allow Required fields)
+     * @return the object writer for the field, which may be a tuple, scalar
+     * or array writer, depending on type
+     */
+
     private ObjectWriter newWriter(String fieldName,
           MinorType type, DataMode mode) {
       MaterializedField field = MaterializedField.create(fieldName,
@@ -570,6 +615,71 @@ public class JsonLoaderImpl implements JsonLoader {
     private void replaceState(String fieldName, ParseState newState) {
       assert members.containsKey(fieldName);
       members.put(fieldName, newState);
+    }
+  }
+
+  /**
+   * Parse and ignore an unprojected value. The parsing just "free wheels", we
+   * care only about matching brackets, but not about other details.
+   */
+
+  protected class DummyValueState implements ParseState {
+
+    @SuppressWarnings("unused")
+    private final String fieldName;
+
+    public DummyValueState(String fieldName) {
+      this.fieldName = fieldName;
+    }
+
+    @Override
+    public boolean parse() {
+      JsonToken token = tokenizer.requireNext();
+      switch (token) {
+      case START_ARRAY:
+      case START_OBJECT:
+        parseTail();
+        break;
+
+      case VALUE_NULL:
+      case VALUE_EMBEDDED_OBJECT:
+      case VALUE_FALSE:
+      case VALUE_TRUE:
+      case VALUE_NUMBER_FLOAT:
+      case VALUE_NUMBER_INT:
+      case VALUE_STRING:
+        break;
+
+      default:
+        throw syntaxError(token);
+      }
+      return true;
+    }
+
+    public void parseTail() {
+
+      // Parse (field: value)* }
+
+      for (;;) {
+        JsonToken token = tokenizer.requireNext();
+        switch (token) {
+
+        // Not exactly precise, but the JSON parser handles the
+        // details.
+
+        case END_OBJECT:
+        case END_ARRAY:
+          return;
+
+        case START_OBJECT:
+        case START_ARRAY:
+          parseTail(); // Recursively ignore objects
+          break;
+
+        default:
+          break; // Ignore all else
+        }
+      }
     }
   }
 

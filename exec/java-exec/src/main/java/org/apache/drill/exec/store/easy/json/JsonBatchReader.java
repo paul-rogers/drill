@@ -21,11 +21,15 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.exec.ExecConstants;
+import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.scan.file.BaseFileScanFramework.FileSchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
+import org.apache.drill.exec.server.options.OptionManager;
+import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
-import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.store.easy.json.JsonLoaderImpl.JsonOptions;
 import org.apache.hadoop.mapred.FileSplit;
 
 public class JsonBatchReader implements ManagedReader<FileSchemaNegotiator> {
@@ -34,18 +38,30 @@ public class JsonBatchReader implements ManagedReader<FileSchemaNegotiator> {
 
   private final DrillFileSystem fileSystem;
   private final FileSplit split;
+  private final JsonOptions options;
   private JsonLoader jsonLoader;
   private InputStream stream;
 
   private RowSetLoader tableLoader;
 
-  public JsonBatchReader(DrillFileSystem dfs, FileSplit split) {
+  public JsonBatchReader(FileSplit split, DrillFileSystem dfs, JsonOptions options) {
     this.fileSystem = dfs;
     this.split = split;
+    this.options = options == null ? new JsonOptions() : options;
   }
 
   @Override
   public boolean open(FileSchemaNegotiator negotiator) {
+    OperatorContext opContext = negotiator.context();
+    OptionSet optionMgr = opContext.getFragmentContext().getOptionSet();
+    Object embeddedContent = null;
+    options.allTextMode = embeddedContent == null && optionMgr.getBoolean(ExecConstants.JSON_ALL_TEXT_MODE);
+    options.readNumbersAsDouble = embeddedContent == null && optionMgr.getBoolean(ExecConstants.JSON_READ_NUMBERS_AS_DOUBLE);
+    options.unionEnabled = embeddedContent == null && optionMgr.getBoolean(ExecConstants.ENABLE_UNION_TYPE_KEY);
+    options.skipMalformedJSONRecords = optionMgr.getBoolean(ExecConstants.JSON_READER_SKIP_INVALID_RECORDS_FLAG);
+    options.printSkippedMalformedJSONRecordLineNumber = optionMgr.getBoolean(ExecConstants.JSON_READER_PRINT_INVALID_RECORDS_LINE_NOS_FLAG);
+    options.allowNanInf = true;
+
     try {
       stream = fileSystem.openPossiblyCompressedStream(split.getPath());
     } catch (IOException e) {
@@ -55,11 +71,8 @@ public class JsonBatchReader implements ManagedReader<FileSchemaNegotiator> {
           .build(logger);
     }
     tableLoader = negotiator.build().writer();
-    TupleWriter rootWriter = tableLoader;
-
-    // TODO: Pass in options
-
-    jsonLoader = new JsonLoaderImpl(stream, rootWriter);
+    RowSetLoader rootWriter = tableLoader;
+    jsonLoader = new JsonLoaderImpl(stream, rootWriter, options);
     return true;
   }
 
@@ -85,7 +98,7 @@ public class JsonBatchReader implements ManagedReader<FileSchemaNegotiator> {
 
         // Ignore errors
 
-        logger.warn("Failure closing JSON file: " + split.getPath().toString(), e);
+        logger.warn("Ignored failure closing JSON file: " + split.getPath().toString(), e);
       } finally {
         stream = null;
       }
@@ -97,11 +110,10 @@ public class JsonBatchReader implements ManagedReader<FileSchemaNegotiator> {
 
         // Ignore errors
 
-        logger.warn("Failure closing JSON loader for file: " + split.getPath().toString(), e);
+        logger.warn("Ignored failure closing JSON loader for file: " + split.getPath().toString(), e);
       } finally {
         jsonLoader = null;
       }
     }
   }
-
 }

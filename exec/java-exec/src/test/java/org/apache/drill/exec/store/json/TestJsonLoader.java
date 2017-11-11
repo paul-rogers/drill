@@ -26,8 +26,11 @@ import java.io.StringReader;
 import org.apache.commons.io.input.ReaderInputStream;
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.impl.scan.ScanTestUtils;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.physical.rowSet.impl.OptionBuilder;
 import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl;
+import org.apache.drill.exec.physical.rowSet.impl.ResultSetLoaderImpl.ResultSetOptions;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.store.easy.json.JsonLoader;
 import org.apache.drill.exec.store.easy.json.JsonLoaderImpl;
@@ -36,6 +39,7 @@ import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSetBuilder;
 import org.apache.drill.test.rowSet.RowSetComparison;
+import org.apache.drill.test.rowSet.RowSetReader;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
@@ -731,9 +735,108 @@ public class TestJsonLoader extends SubOperatorTest {
     tester.close();
   }
 
-  // TODO: Syntax errors
-  // TODO: Skip ignored, malformed, tuples
-  // TODO: Skip ignored, malformed, arrays
-  // TODO: Lists
+  /**
+   * Verify that non-projected maps are just "free-wheeled", the JSON loader
+   * just seeks the matching end brace, ignoring content semantics.
+   */
 
+  @Test
+  public void testNonProjected() {
+    String json =
+        "{a: 10, b: {c: 100, c: 200, d: {x: null, y: 30}}}\n" +
+        "{a: 20, b: { }}\n" +
+        "{a: 30, b: null}\n" +
+        "{a: 40, b: {c: \"foo\", d: [{}, {x: {}}]}}\n" +
+        "{a: 50, b: [{c: 100, c: 200, d: {x: null, y: 30}}, 10]}\n" +
+        "{a: 60, b: []}\n" +
+        "{a: 70, b: null}\n" +
+        "{a: 80, b: [\"foo\", [{}, {x: {}}]]}\n" +
+        "{a: 90, b: 55.5} {a: 100, b: 10} {a: 110, b: \"foo\"}";
+    ResultSetOptions rsOptions = new OptionBuilder()
+        .setProjection(ScanTestUtils.projectList("a"))
+        .build();
+    ResultSetLoader tableLoader = new ResultSetLoaderImpl(fixture.allocator(), rsOptions);
+    InputStream inStream = new
+        ReaderInputStream(new StringReader(json));
+    JsonOptions options = new JsonOptions();
+    options.context = "test Json";
+    JsonLoader loader = new JsonLoaderImpl(inStream, tableLoader.writer(), options);
+
+    // Read first two records into a batch. Since we've not yet seen
+    // a type, the null field will be realized as a text field.
+
+    tableLoader.startBatch();
+    while (loader.next()) {
+      // No op
+    }
+    loader.endBatch();
+    RowSet result = fixture.wrap(tableLoader.harvest());
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .addNullable("a", MinorType.BIGINT)
+        .build();
+    assertTrue(expectedSchema.isEquivalent(result.batchSchema()));
+    RowSetReader reader = result.reader();
+    for (int i = 10; i <= 110; i += 10) {
+      assertTrue(reader.next());
+      assertEquals(i, reader.scalar(0).getLong());
+    }
+    assertFalse(reader.next());
+    result.clear();
+
+    try {
+      inStream.close();
+    } catch (IOException e) {
+      fail();
+    }
+    loader.close();
+    tableLoader.close();
+  }
+
+//  @Test
+//  public void testNonProjectedArray() {
+//    String json =
+//    ResultSetOptions rsOptions = new OptionBuilder()
+//        .setProjection(ScanTestUtils.projectList("a"))
+//        .build();
+//    ResultSetLoader tableLoader = new ResultSetLoaderImpl(fixture.allocator(), rsOptions);
+//    InputStream inStream = new
+//        ReaderInputStream(new StringReader(json));
+//    JsonOptions options = new JsonOptions();
+//    options.context = "test Json";
+//    JsonLoader loader = new JsonLoaderImpl(inStream, tableLoader.writer(), options);
+//
+//    // Read first two records into a batch. Since we've not yet seen
+//    // a type, the null field will be realized as a text field.
+//
+//    tableLoader.startBatch();
+//    while (loader.next()) {
+//      // No op
+//    }
+//    loader.endBatch();
+//
+//    BatchSchema expectedSchema = new SchemaBuilder()
+//        .addNullable("a", MinorType.BIGINT)
+//        .build();
+//    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+//        .addRow(10L)
+//        .addRow(20L)
+//        .addRow(30L)
+//        .addRow(40L)
+//        .build();
+//    new RowSetComparison(expected)
+//      .verifyAndClearAll(fixture.wrap(tableLoader.harvest()));
+//
+//    try {
+//      inStream.close();
+//    } catch (IOException e) {
+//      fail();
+//    }
+//    loader.close();
+//    tableLoader.close();
+//  }
+
+  // TODO: Lists
+  // TODO: Recover from malformed JSON
+  // TODO: Union support
 }

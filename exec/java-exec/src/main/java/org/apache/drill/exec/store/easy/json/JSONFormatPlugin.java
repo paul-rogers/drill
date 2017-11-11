@@ -22,15 +22,10 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
-import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.logical.FormatPluginConfig;
 import org.apache.drill.common.logical.StoragePluginConfig;
-import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.FragmentContext;
-import org.apache.drill.exec.physical.impl.scan.columns.ColumnsScanFramework.ColumnsSchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.file.BaseFileScanFramework.FileSchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework;
 import org.apache.drill.exec.physical.impl.scan.file.FileScanFramework.FileReaderCreator;
@@ -38,23 +33,14 @@ import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
 import org.apache.drill.exec.proto.ExecProtos.FragmentHandle;
 import org.apache.drill.exec.proto.UserBitShared.CoreOperatorType;
 import org.apache.drill.exec.server.DrillbitContext;
-import org.apache.drill.exec.store.RecordReader;
 import org.apache.drill.exec.store.RecordWriter;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.dfs.FileSystemConfig;
 import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin;
 import org.apache.drill.exec.store.dfs.easy.EasySubScan;
 import org.apache.drill.exec.store.dfs.easy.EasyWriter;
-import org.apache.drill.exec.store.dfs.easy.FileWork;
-import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin.EasyFormatConfig;
-import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin.ScanBatchCreator;
-import org.apache.drill.exec.store.dfs.easy.EasyFormatPlugin.ScanFrameworkCreator;
 import org.apache.drill.exec.store.easy.json.JSONFormatPlugin.JSONFormatConfig;
-import org.apache.drill.exec.store.easy.text.TextFormatPlugin;
-import org.apache.drill.exec.store.easy.text.TextFormatPlugin.TextFormatConfig;
-import org.apache.drill.exec.store.easy.text.TextFormatPlugin.TextScanBatchCreator;
-import org.apache.drill.exec.store.easy.text.compliant.CompliantTextBatchReader;
-import org.apache.drill.exec.store.easy.text.compliant.TextParsingSettings;
+import org.apache.drill.exec.store.easy.json.JsonLoaderImpl.JsonOptions;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.mapred.FileSplit;
@@ -64,8 +50,7 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
-public class JSONFormatPlugin extends EasyFormatPlugin<JSONFormatConfig>
-    implements FileReaderCreator {
+public class JSONFormatPlugin extends EasyFormatPlugin<JSONFormatConfig> {
 
   private static final boolean IS_COMPRESSIBLE = true;
   private static final String PLUGIN_NAME = "json";
@@ -117,16 +102,29 @@ public class JSONFormatPlugin extends EasyFormatPlugin<JSONFormatConfig>
     }
   }
 
+  public static class JsonReaderCreator implements FileReaderCreator {
+
+    private final JsonOptions options;
+
+    public JsonReaderCreator(JsonOptions options) {
+      this.options = options;
+    }
+
+    @Override
+    public ManagedReader<FileSchemaNegotiator> makeBatchReader(
+        DrillFileSystem dfs,
+        FileSplit split) throws ExecutionSetupException {
+      return new JsonBatchReader(split, dfs, options);
+    }
+  }
+
   public static class JsonScanBatchCreator extends ScanFrameworkCreator {
 
-    private final FileReaderCreator readerCreator;
     @SuppressWarnings("unused")
     private final JSONFormatPlugin jsonPlugin;
 
-    public JsonScanBatchCreator(JSONFormatPlugin plugin,
-        FileReaderCreator readerCreator) {
+    public JsonScanBatchCreator(JSONFormatPlugin plugin) {
       super(plugin);
-      this.readerCreator = readerCreator;
       jsonPlugin = plugin;
     }
 
@@ -137,7 +135,7 @@ public class JSONFormatPlugin extends EasyFormatPlugin<JSONFormatConfig>
               scan.getColumns(),
               scan.getWorkUnits(),
               plugin.easyConfig().fsConf,
-              readerCreator);
+              new JsonReaderCreator(null));
 
       // For now, maintain backward compatibility with metadata
       // position in wildcard queries.
@@ -172,7 +170,7 @@ public class JSONFormatPlugin extends EasyFormatPlugin<JSONFormatConfig>
 
   @Override
   protected ScanBatchCreator scanBatchCreator() {
-    return new JsonScanBatchCreator(this, this);
+    return new JsonScanBatchCreator(this);
   }
 
   @Override
@@ -206,12 +204,5 @@ public class JSONFormatPlugin extends EasyFormatPlugin<JSONFormatConfig>
   @Override
   public int getWriterOperatorType() {
     throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public ManagedReader<FileSchemaNegotiator> makeBatchReader(
-      DrillFileSystem dfs,
-      FileSplit split) throws ExecutionSetupException {
-    return new JsonBatchReader(split, dfs);
   }
 }

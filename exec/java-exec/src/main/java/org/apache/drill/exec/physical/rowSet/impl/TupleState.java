@@ -141,6 +141,11 @@ public abstract class TupleState implements TupleWriterListener {
   }
 
   @Override
+  public boolean isProjected(String columnName) {
+    return projectionSet.isProjected(columnName);
+  }
+
+  @Override
   public ObjectWriter addColumn(TupleWriter tupleWriter, ColumnMetadata columnSchema) {
 
     // Verify name is not a (possibly case insensitive) duplicate.
@@ -159,7 +164,7 @@ public abstract class TupleState implements TupleWriterListener {
     // Indicate projection in the metadata.
 
     ((AbstractColumnMetadata) columnSchema).setProjected(
-        projectionSet.isProjected(columnSchema.name()));
+        isProjected(columnSchema.name()));
 
     // Build the column
 

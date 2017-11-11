@@ -55,7 +55,6 @@ import com.google.common.io.Files;
 import org.junit.rules.TemporaryFolder;
 
 public class TestJsonReader extends BaseTestQuery {
-//  private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestJsonReader.class);
 
   private static final boolean VERBOSE_DEBUG = false;
 
