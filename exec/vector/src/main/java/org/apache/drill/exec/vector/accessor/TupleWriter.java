@@ -59,7 +59,7 @@ public interface TupleWriter {
    * throws an exception.
    */
 
-  public interface TupleWriterListener {
+  interface TupleWriterListener {
 
     ObjectWriter addColumn(TupleWriter tuple, ColumnMetadata column);
 
@@ -78,7 +78,7 @@ public interface TupleWriter {
    */
 
   @SuppressWarnings("serial")
-  public static class UndefinedColumnException extends RuntimeException {
+  class UndefinedColumnException extends RuntimeException {
     public UndefinedColumnException(String colName) {
       super("Undefined column: " + colName);
     }
@@ -140,6 +140,10 @@ public interface TupleWriter {
   ArrayWriter array(int colIndex);
 
   ArrayWriter array(String colName);
+
+  VariantWriter variant(int colIndex);
+
+  VariantWriter variant(String colName);
 
   ObjectType type(int colIndex);
 

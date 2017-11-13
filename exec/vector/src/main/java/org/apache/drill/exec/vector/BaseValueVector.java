@@ -30,7 +30,6 @@ import com.google.common.base.Preconditions;
 import io.netty.buffer.DrillBuf;
 
 public abstract class BaseValueVector implements ValueVector {
-//  private static final Logger logger = LoggerFactory.getLogger(BaseValueVector.class);
 
   /**
    * Physical maximum allocation. This is the value prior to Drill 1.11.

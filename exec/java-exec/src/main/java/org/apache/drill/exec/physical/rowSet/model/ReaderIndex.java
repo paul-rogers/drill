@@ -49,4 +49,6 @@ public abstract class ReaderIndex implements ColumnReaderIndex {
     rowIndex--;
     return false;
   }
+
+  public boolean valid() { return rowIndex < rowCount; }
 }

@@ -23,6 +23,7 @@ import org.apache.drill.exec.vector.accessor.ObjectReader;
 import org.apache.drill.exec.vector.accessor.ScalarElementReader;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.TupleReader;
+import org.apache.drill.exec.vector.accessor.VariantReader;
 
 public abstract class AbstractObjectReader implements ObjectReader {
 
@@ -42,6 +43,11 @@ public abstract class AbstractObjectReader implements ObjectReader {
 
   @Override
   public ArrayReader array() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public VariantReader variant() {
     throw new UnsupportedOperationException();
   }
 

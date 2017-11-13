@@ -22,7 +22,6 @@ import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescrip;
 import org.apache.drill.exec.record.VectorContainer;
@@ -31,8 +30,10 @@ import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
 import org.apache.drill.exec.vector.accessor.reader.ColumnReaderFactory;
 import org.apache.drill.exec.vector.accessor.reader.MapReader;
 import org.apache.drill.exec.vector.accessor.reader.ObjectArrayReader;
+import org.apache.drill.exec.vector.accessor.reader.VariantReaderImpl;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
+import org.apache.drill.exec.vector.complex.UnionVector;
 
 public abstract class BaseReaderBuilder {
 
@@ -51,11 +52,17 @@ public abstract class BaseReaderBuilder {
   protected AbstractObjectReader buildVectorReader(ValueVector vector, VectorDescrip descrip) {
     MajorType type = vector.getField().getType();
 
-    // Primitive type
-
-    if (type.getMinorType() != MinorType.MAP) {
+    switch(type.getMinorType()) {
+    case MAP:
+      return buildMap(vector, type, descrip);
+    case UNION:
+      return VariantReaderImpl.build((UnionVector) vector);
+    default:
       return ColumnReaderFactory.buildColumnReader(vector);
     }
+  }
+
+  private AbstractObjectReader buildMap(ValueVector vector, MajorType type, VectorDescrip descrip) {
 
     // Map type
 

@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -32,7 +32,6 @@ package org.apache.drill.exec.vector.complex.impl;
  * This class is generated using freemarker and the ${.template_name} template.
  */
 
-@SuppressWarnings("unused")
 public class UnionListWriter extends AbstractFieldWriter {
 
   private ListVector vector;
@@ -74,14 +73,10 @@ public class UnionListWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public void close() throws Exception {
-
-  }
-
+  public void close() throws Exception { }
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
   <#assign fields = minor.fields!type.fields />
   <#assign uncappedName = name?uncap_first/>
-
   <#if !minor.class?starts_with("Decimal")>
 
   @Override
@@ -99,9 +94,7 @@ public class UnionListWriter extends AbstractFieldWriter {
     ${name}Writer ${uncappedName}Writer = writer.<#if uncappedName == "int">integer<#else>${uncappedName}</#if>(name);
     return ${uncappedName}Writer;
   }
-
   </#if>
-
   </#list></#list>
 
   @Override
@@ -140,9 +133,7 @@ public class UnionListWriter extends AbstractFieldWriter {
   }
 
   @Override
-  public void endList() {
-
-  }
+  public void endList() { }
 
   @Override
   public void start() {
@@ -161,11 +152,9 @@ public class UnionListWriter extends AbstractFieldWriter {
       offsets.getMutator().setSafe(idx() + 1, nextOffset + 1);
     }
   }
-
   <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
   <#assign fields = minor.fields!type.fields />
   <#assign uncappedName = name?uncap_first/>
-
   <#if !minor.class?starts_with("Decimal")>
 
   @Override
@@ -177,9 +166,6 @@ public class UnionListWriter extends AbstractFieldWriter {
     writer.write${name}(<#list fields as field>${field.name}<#if field_has_next>, </#if></#list>);
     offsets.getMutator().setSafe(idx() + 1, nextOffset + 1);
   }
-
   </#if>
-
   </#list></#list>
-
 }

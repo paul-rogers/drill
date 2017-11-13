@@ -119,6 +119,7 @@ public class JsonLoaderImpl implements JsonLoader {
      */
     public boolean skipOuterList = true;
     public boolean skipMalformedRecords;
+    public boolean unionEnabled;
   }
 
   @SuppressWarnings("serial")

@@ -24,6 +24,7 @@ import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
+import org.apache.drill.exec.vector.accessor.VariantWriter;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
 /**
@@ -57,6 +58,11 @@ public abstract class AbstractObjectWriter implements ObjectWriter {
 
   @Override
   public ArrayWriter array() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public VariantWriter variant() {
     throw new UnsupportedOperationException();
   }
 

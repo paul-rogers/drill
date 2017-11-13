@@ -39,8 +39,6 @@ import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
 /*
  * This class is generated using freemarker and the ${.template_name} template.
  */
-@SuppressWarnings("unused")
-
 
 /**
  * A vector which can hold values of different types. It does so by using a MapVector which contains a vector for each
@@ -51,6 +49,8 @@ import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
  * each time the vector is accessed.
  */
 public class UnionVector implements ValueVector {
+  
+  public static final int NULL_MARKER = 0;
 
   private MaterializedField field;
   private BufferAllocator allocator;
@@ -67,8 +67,6 @@ public class UnionVector implements ValueVector {
   private FieldReader reader;
   private NullableBitVector bit;
 
-  private int singleType = 0;
-  private ValueVector singleVector;
   private MajorType majorType;
 
   private final CallBack callBack;
@@ -267,7 +265,7 @@ public class UnionVector implements ValueVector {
 
   private class TransferImpl implements TransferPair {
 
-    UnionVector to;
+    private final UnionVector to;
 
     public TransferImpl(MaterializedField field, BufferAllocator allocator) {
       to = new UnionVector(field, allocator, null);
@@ -377,7 +375,7 @@ public class UnionVector implements ValueVector {
     public Object getObject(int index) {
       int type = typeVector.getAccessor().get(index);
       switch (type) {
-      case 0:
+      case NULL_MARKER:
         return null;
       <#list vv.types as type><#list type.minor as minor><#assign name = minor.class?cap_first />
       <#assign fields = minor.fields!type.fields />
@@ -386,7 +384,6 @@ public class UnionVector implements ValueVector {
       case MinorType.${name?upper_case}_VALUE:
         return get${name}Vector().getAccessor().getObject(index);
       </#if>
-
       </#list></#list>
       case MinorType.MAP_VALUE:
         return getMap().getAccessor().getObject(index);
@@ -412,7 +409,12 @@ public class UnionVector implements ValueVector {
 
     @Override
     public boolean isNull(int index) {
-      return typeVector.getAccessor().get(index) == 0;
+      
+      // Note that type code == 0 is used to indicate a null.
+      // This corresponds to the LATE type, not the NULL type.
+      // This is presumably an artifact of an earlier implementation...
+      
+      return typeVector.getAccessor().get(index) == NULL_MARKER;
     }
 
     public int isSet(int index) {
@@ -449,14 +451,12 @@ public class UnionVector implements ValueVector {
         break;
       </#if>
       </#list></#list>
-      case MAP: {
+      case MAP:
         ComplexCopier.copy(reader, writer);
         break;
-      }
-      case LIST: {
+      case LIST:
         ComplexCopier.copy(reader, writer);
         break;
-      }
       default:
         throw new UnsupportedOperationException();
       }
