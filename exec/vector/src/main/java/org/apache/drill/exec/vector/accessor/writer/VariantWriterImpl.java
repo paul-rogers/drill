@@ -120,8 +120,9 @@ public class VariantWriterImpl implements VariantWriter, WriterEvents {
 
   private ObjectWriter writerFor(MinorType type) {
     AbstractObjectWriter writer = variants[type.ordinal()];
-    if (writer != null)
+    if (writer != null) {
       return writer;
+    }
     ObjectType targetType;
     switch (type) {
     case MAP:

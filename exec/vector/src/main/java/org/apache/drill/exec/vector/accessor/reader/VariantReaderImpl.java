@@ -117,8 +117,9 @@ public class VariantReaderImpl implements VariantReader {
   @Override
   public ObjectReader reader(MinorType type) {
     AbstractObjectReader reader = variants[type.ordinal()];
-    if (reader != null)
+    if (reader != null) {
       return reader;
+    }
     MajorType majorType = vector.getField().getType();
     if (! majorType.getSubTypeList().contains(type)) {
       return null;

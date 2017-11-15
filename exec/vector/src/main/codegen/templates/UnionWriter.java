@@ -32,7 +32,8 @@ package org.apache.drill.exec.vector.complex.impl;
 
 public class UnionWriter extends AbstractFieldWriter implements FieldWriter {
 
-  private UnionVector data;
+  // Accessed by UnionReader
+  protected UnionVector data;
   private MapWriter mapWriter;
   private UnionListWriter listWriter;
   private List<BaseWriter> writers = Lists.newArrayList();

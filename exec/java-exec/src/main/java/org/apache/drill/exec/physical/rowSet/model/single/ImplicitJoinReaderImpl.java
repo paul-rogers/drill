@@ -324,8 +324,9 @@ public class ImplicitJoinReaderImpl implements ImplicitJoinReader {
   private boolean moveNext(int level) {
     while (level >= 0) {
       if (tables[level].iter.next()) {
-        if (++level == tables.length)
+        if (++level == tables.length) {
           return true;
+        }
         tables[level].iter.reposition();
       } else {
         level--;

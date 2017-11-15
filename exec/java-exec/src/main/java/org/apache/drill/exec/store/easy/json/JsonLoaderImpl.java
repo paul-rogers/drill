@@ -1106,8 +1106,9 @@ public class JsonLoaderImpl implements JsonLoader {
       try {
         return rootState.parse();
       } catch (RecoverableJsonException e) {
-        if (! recover())
+        if (! recover()) {
           return false;
+        }
       }
     }
   }
