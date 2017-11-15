@@ -37,6 +37,7 @@ import java.util.zip.GZIPOutputStream;
 import org.apache.drill.BaseTestQuery;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.util.FileUtils;
+import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.proto.UserBitShared;
 import org.apache.drill.exec.record.RecordBatchLoader;
@@ -266,12 +267,15 @@ public class TestJsonReader extends BaseTestQuery {
 
   @Test
   public void testAllTextMode() throws Exception {
-    test("alter system set `store.json.all_text_mode` = true");
-    String[] queries = {"select * from cp.`/store/json/schema_change_int_to_string.json`"};
-    long[] rowCounts = {3};
-    String filename = "/store/json/schema_change_int_to_string.json";
-    runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
-    test("alter system set `store.json.all_text_mode` = false");
+    alterSession(ExecConstants.JSON_ALL_TEXT_MODE, true);
+    try {
+      String[] queries = {"select * from cp.`/store/json/schema_change_int_to_string.json`"};
+      long[] rowCounts = {3};
+      String filename = "/store/json/schema_change_int_to_string.json";
+      runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
+    } finally {
+      resetSessionOption(ExecConstants.JSON_ALL_TEXT_MODE);
+    }
   }
 
   @Test
@@ -292,30 +296,42 @@ public class TestJsonReader extends BaseTestQuery {
 
   @Test
   public void testNullWhereListExpected() throws Exception {
-    test("alter system set `store.json.all_text_mode` = true");
-    String[] queries = {"select * from cp.`/store/json/null_where_list_expected.json`"};
-    long[] rowCounts = {3};
-    String filename = "/store/json/null_where_list_expected.json";
-    runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
-    test("alter system set `store.json.all_text_mode` = false");
+    alterSession(ExecConstants.JSON_ALL_TEXT_MODE, true);
+    try {
+      String[] queries = {"select * from cp.`/store/json/null_where_list_expected.json`"};
+      long[] rowCounts = {3};
+      String filename = "/store/json/null_where_list_expected.json";
+      runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
+    } finally {
+      resetSessionOption(ExecConstants.JSON_ALL_TEXT_MODE);
+    }
   }
 
   @Test
   public void testNullWhereMapExpected() throws Exception {
-    test("alter system set `store.json.all_text_mode` = true");
-    String[] queries = {"select * from cp.`/store/json/null_where_map_expected.json`"};
-    long[] rowCounts = {3};
-    String filename = "/store/json/null_where_map_expected.json";
-    runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
-    test("alter system set `store.json.all_text_mode` = false");
+    alterSession(ExecConstants.JSON_ALL_TEXT_MODE, true);
+    try {
+      String[] queries = {"select * from cp.`/store/json/null_where_map_expected.json`"};
+      long[] rowCounts = {3};
+      String filename = "/store/json/null_where_map_expected.json";
+      runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
+    } finally {
+      resetSessionOption(ExecConstants.JSON_ALL_TEXT_MODE);
+    }
   }
 
   @Test
   public void ensureProjectionPushdown() throws Exception {
-    // Tests to make sure that we are correctly eliminating schema changing columns.  If completes, means that the projection pushdown was successful.
-    test("alter system set `store.json.all_text_mode` = false; "
-        + "select  t.field_1, t.field_3.inner_1, t.field_3.inner_2, t.field_4.inner_1 "
-        + "from cp.`store/json/schema_change_int_to_string.json` t");
+    // Tests to make sure that we are correctly eliminating schema changing columns.
+    // If completes, means that the projection pushdown was successful.
+
+    alterSession(ExecConstants.JSON_ALL_TEXT_MODE, false);
+    try {
+      test("select t.field_1, t.field_3.inner_1, t.field_3.inner_2, t.field_4.inner_1 "
+         + "from cp.`store/json/schema_change_int_to_string.json` t");
+    } finally {
+      resetSessionOption(ExecConstants.JSON_ALL_TEXT_MODE);
+    }
   }
 
   // The project pushdown rule is correctly adding the projected columns to the scan, however it is not removing

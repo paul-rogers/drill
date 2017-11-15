@@ -257,19 +257,20 @@ public class TestJsonLoader extends SubOperatorTest {
     options.allTextMode = true;
     JsonTester tester = new JsonTester(options);
     String json =
-      "{id: 1, name: \"Fred\", balance: 100.0}\n" +
-      "{id: 2, name: \"Barney\"}\n" +
-      "{id: 3, name: \"Wilma\", balance: 500.00}";
+      "{id: 1, name: \"Fred\", balance: 100.0, extra: [\"a\",   \"\\\"b,\\\", said I\" ]}\n" +
+      "{id: 2, name: \"Barney\", extra: {a:  10 , b:20}}\n" +
+      "{id: 3, name: \"Wilma\", balance: 500.00, extra: null}";
     RowSet results = tester.parse(json);
     BatchSchema expectedSchema = new SchemaBuilder()
         .addNullable("id", MinorType.VARCHAR)
         .addNullable("name", MinorType.VARCHAR)
         .addNullable("balance", MinorType.VARCHAR)
+        .addNullable("extra", MinorType.VARCHAR)
         .build();
     RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
-        .addRow("1", "Fred", "100.0")
-        .addRow("2", "Barney", null)
-        .addRow("3", "Wilma", "500.00")
+        .addRow("1", "Fred", "100.0", "[\"a\", \"\\\"b,\\\", said I\"]")
+        .addRow("2", "Barney", null, "{\"a\": 10, \"b\": 20}")
+        .addRow("3", "Wilma", "500.00", "null")
         .build();
     new RowSetComparison(expected)
       .verifyAndClearAll(results);

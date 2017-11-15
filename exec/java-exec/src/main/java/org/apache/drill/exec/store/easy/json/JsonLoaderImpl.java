@@ -441,6 +441,11 @@ public class JsonLoaderImpl implements JsonLoader {
       if (! writer.isProjected(fieldName)) {
         return new DummyValueState(fieldName);
       }
+      if (options.allTextMode) {
+        return new TextState(
+            newWriter(fieldName, MinorType.VARCHAR, DataMode.OPTIONAL).scalar(),
+            fieldName);
+      }
       JsonToken token = tokenizer.requireNext();
       ParseState state;
       switch (token) {
@@ -458,31 +463,10 @@ public class JsonLoaderImpl implements JsonLoader {
         break;
 
       default:
-        if (options.allTextMode) {
-          state = allTextScalar(token, fieldName);
-        } else {
-          state = typedScalar(token, fieldName);
-        }
+        state = typedScalar(token, fieldName);
       }
       tokenizer.unget(token);
       return state;
-    }
-
-    private ParseState allTextScalar(JsonToken token, String fieldName) {
-      switch (token) {
-      case VALUE_EMBEDDED_OBJECT:
-      case VALUE_FALSE:
-      case VALUE_TRUE:
-      case VALUE_NUMBER_FLOAT:
-      case VALUE_NUMBER_INT:
-      case VALUE_STRING:
-        return new TextState(
-            newWriter(fieldName, MinorType.VARCHAR, DataMode.OPTIONAL).scalar(),
-            fieldName);
-
-      default:
-        throw syntaxError(token);
-      }
     }
 
     private ParseState typedScalar(JsonToken token, String fieldName) {
@@ -541,11 +525,7 @@ public class JsonLoaderImpl implements JsonLoader {
         break;
 
       default:
-        if (options.allTextMode) {
-          arrayState = textElementState(token, fieldName);
-        } else {
-          arrayState = scalarElementState(token, fieldName);
-        }
+        arrayState = scalarElementState(token, fieldName);
       }
       tokenizer.unget(token);
       return arrayState;
@@ -577,27 +557,6 @@ public class JsonLoaderImpl implements JsonLoader {
       case VALUE_STRING:
         arrayWriter = newWriter(fieldName, MinorType.VARCHAR, DataMode.REPEATED).array();
         elementState = new StringState(arrayWriter.scalar(), context);
-        break;
-
-      default:
-        throw syntaxError(token);
-      }
-      return new ScalarArrayState(arrayWriter, elementState);
-    }
-
-    private ParseState textElementState(JsonToken token, String fieldName) {
-      String context = fieldName + "[]";
-      ArrayWriter arrayWriter = null;
-      ParseState elementState = null;
-      switch (token) {
-      case VALUE_EMBEDDED_OBJECT:
-      case VALUE_FALSE:
-      case VALUE_TRUE:
-      case VALUE_NUMBER_FLOAT:
-      case VALUE_NUMBER_INT:
-      case VALUE_STRING:
-        arrayWriter = newWriter(fieldName, MinorType.VARCHAR, DataMode.REPEATED).array();
-        elementState = new TextState(arrayWriter.scalar(), context);
         break;
 
       default:
@@ -847,33 +806,96 @@ public class JsonLoaderImpl implements JsonLoader {
 
   public class TextState extends ScalarState {
 
+    public StringBuilder buf = new StringBuilder();
+
     public TextState(ScalarWriter writer, String context) {
       super(writer, context);
     }
 
     @Override
     public boolean parse() {
+      buf.setLength(0);
       JsonToken token = tokenizer.requireNext();
+      parseValue(token, false);
+      writer.setString(buf.toString());
+      return true;
+    }
+
+    private void parseValue(JsonToken token, boolean quote) {
       switch (token) {
-      case VALUE_NULL:
-        writer.setNull();
+      case START_ARRAY:
+        buf.append(tokenizer.getText());
+        parseArrayTail();
         break;
+
+      case START_OBJECT:
+        buf.append(tokenizer.getText());
+        parseObjectTail();
+        break;
+
+      case VALUE_NULL:
       case VALUE_EMBEDDED_OBJECT:
       case VALUE_FALSE:
       case VALUE_TRUE:
       case VALUE_NUMBER_FLOAT:
       case VALUE_NUMBER_INT:
+        buf.append(tokenizer.getText());
+        break;
+
       case VALUE_STRING:
-        try {
-          writer.setString(parser.getText());
-        } catch (IOException e) {
-          throw ioException(e);
+        if (quote) {
+          buf.append("\"");
+          buf.append(tokenizer.getText().replace("\"", "\\\""));
+          buf.append("\"");
+        } else {
+          buf.append(tokenizer.getText());
         }
         break;
+
       default:
-        throw syntaxError(token, context, "Any value");
+        throw syntaxError(token);
       }
-      return true;
+    }
+
+    public void parseObjectTail() {
+
+      // Parse (field: value)* }
+
+      for (int count = 0; ; count++) {
+        JsonToken token = tokenizer.requireNext();
+        if (token == JsonToken.END_OBJECT) {
+          buf.append(tokenizer.getText());
+          return;
+        }
+        if (count > 0) {
+          buf.append(", ");
+        }
+        if (token != JsonToken.FIELD_NAME) {
+          throw syntaxError(token);
+        }
+        buf.append("\"");
+        buf.append(tokenizer.getText());
+        buf.append("\"");
+        buf.append(": ");
+        parseValue(tokenizer.requireNext(), true);
+      }
+    }
+
+    public void parseArrayTail() {
+
+      // Parse value* ]
+
+      for (int count = 0; ; count++) {
+        JsonToken token = tokenizer.requireNext();
+        if (token == JsonToken.END_ARRAY) {
+          buf.append(tokenizer.getText());
+          return;
+        }
+        if (count > 0) {
+          buf.append(", ");
+        }
+        parseValue(token, true);
+      }
     }
   }
 
