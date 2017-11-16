@@ -339,27 +339,31 @@ public class TestJsonReader extends BaseTestQuery {
   // ensure that the project is filtering out the correct data in the scan alone
   @Test
   public void testProjectPushdown() throws Exception {
-    String[] queries = {Files.toString(FileUtils.getResourceAsFile("/store/json/project_pushdown_json_physical_plan.json"), Charsets.UTF_8)};
-    long[] rowCounts = {3};
-    String filename = "/store/json/schema_change_int_to_string.json";
-    test("alter system set `store.json.all_text_mode` = false");
-    runTestsOnFile(filename, UserBitShared.QueryType.PHYSICAL, queries, rowCounts);
+    alterSession(ExecConstants.JSON_ALL_TEXT_MODE, false);
+    try {
+      String[] queries = {Files.toString(FileUtils.getResourceAsFile("/store/json/project_pushdown_json_physical_plan.json"), Charsets.UTF_8)};
+      long[] rowCounts = {3};
+      String filename = "/store/json/schema_change_int_to_string.json";
+     runTestsOnFile(filename, UserBitShared.QueryType.PHYSICAL, queries, rowCounts);
 
-    List<QueryDataBatch> results = testPhysicalWithResults(queries[0]);
-    assertEquals(1, results.size());
-    // "`field_1`", "`field_3`.`inner_1`", "`field_3`.`inner_2`", "`field_4`.`inner_1`"
+      List<QueryDataBatch> results = testPhysicalWithResults(queries[0]);
+      assertEquals(1, results.size());
+      // "`field_1`", "`field_3`.`inner_1`", "`field_3`.`inner_2`", "`field_4`.`inner_1`"
 
-    RecordBatchLoader batchLoader = new RecordBatchLoader(getAllocator());
-    QueryDataBatch batch = results.get(0);
-    assertTrue(batchLoader.load(batch.getHeader().getDef(), batch.getData()));
+      RecordBatchLoader batchLoader = new RecordBatchLoader(getAllocator());
+      QueryDataBatch batch = results.get(0);
+      assertTrue(batchLoader.load(batch.getHeader().getDef(), batch.getData()));
 
-    // this used to be five.  It is now three.  This is because the plan doesn't have a project.
-    // Scanners are not responsible for projecting non-existent columns (as long as they project one column)
-    assertEquals(3, batchLoader.getSchema().getFieldCount());
-    testExistentColumns(batchLoader);
+      // this used to be five.  It is now three.  This is because the plan doesn't have a project.
+      // Scanners are not responsible for projecting non-existent columns (as long as they project one column)
+      assertEquals(3, batchLoader.getSchema().getFieldCount());
+      testExistentColumns(batchLoader);
 
-    batch.release();
-    batchLoader.clear();
+      batch.release();
+      batchLoader.clear();
+    } finally {
+      resetSessionOption(ExecConstants.JSON_ALL_TEXT_MODE);
+    }
   }
 
   @Test

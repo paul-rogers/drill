@@ -45,8 +45,9 @@ public class VectorRecordMaterializer implements RecordMaterializer{
 //    }
   }
 
+  @SuppressWarnings("resource")
+  @Override
   public QueryWritableBatch convertNext() {
-    //batch.getWritableBatch().getDef().getRecordCount()
     WritableBatch w = batch.getWritableBatch().transfer(allocator);
 
     QueryData header = QueryData.newBuilder() //

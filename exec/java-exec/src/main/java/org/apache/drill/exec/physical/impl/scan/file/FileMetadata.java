@@ -42,13 +42,23 @@ public class FileMetadata {
       return;
     }
 
+    // If the query is against a single file, selection root and file path
+    // will be identical, oddly.
+
+    Path rootPath = Path.getPathWithoutSchemeAndAuthority(selectionRoot);
+    Path bareFilePath = Path.getPathWithoutSchemeAndAuthority(filePath);
+    if (rootPath.equals(bareFilePath)) {
+      dirPath = null;
+      return;
+    }
+
     // Result of splitting /x/y is ["", "x", "y"], so ignore first.
 
-    String[] r = Path.getPathWithoutSchemeAndAuthority(selectionRoot).toString().split("/");
+    String[] r = rootPath.toString().split("/");
 
     // Result of splitting "/x/y/z.csv" is ["", "x", "y", "z.csv"], so ignore first and last
 
-    String[] p = Path.getPathWithoutSchemeAndAuthority(filePath).toString().split("/");
+    String[] p = bareFilePath.toString().split("/");
 
     if (p.length - 1 < r.length) {
       throw new IllegalArgumentException("Selection root of \"" + selectionRoot +

@@ -102,8 +102,7 @@ public class VectorContainerAccessor implements BatchAccessor {
 
   @Override
   public WritableBatch getWritableBatch() {
-    // TODO Auto-generated method stub
-    return null;
+    return WritableBatch.get(container);
   }
 
   @Override

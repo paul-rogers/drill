@@ -86,7 +86,7 @@ public class ScanBatch implements CloseableRecordBatch {
    * @param context
    * @param oContext
    * @param readerList
-   * @param implicitColumnList : either an emptylist when all the readers do not have implicit
+   * @param implicitColumnList : either an empty list when all the readers do not have implicit
    *                        columns, or there is a one-to-one mapping between reader and implicitColumns.
    */
   public ScanBatch(PhysicalOperator subScanConfig, FragmentContext context,
