@@ -29,7 +29,9 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
 /**
- * Implementation of the result set loader.
+ * Implementation of the result set loader. Caches vectors
+ * for a row or map.
+ *
  * @see {@link ResultSetLoader}
  */
 
@@ -199,13 +201,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   private final RowSetLoaderImpl rootWriter;
 
   /**
-   * Vector cache for this loader.
-   * @see {@link OptionBuilder#setVectorCache()}.
-   */
-
-  private final ResultVectorCache vectorCache;
-
-  /**
    * Tracks the state of the row set loader. Handling vector overflow requires
    * careful stepping through a variety of states as the write proceeds.
    */
@@ -286,19 +281,22 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     targetRowCount = options.rowCountLimit;
     writerIndex = new WriterIndexImpl(this);
 
+    // Set the projections
+
+    projectionSet = options.projectionSet;
+
+    // Determine the root vector cache
+
+    ResultVectorCache vectorCache;
     if (options.vectorCache == null) {
       vectorCache = new NullResultVectorCacheImpl(allocator);
     } else {
       vectorCache = options.vectorCache;
     }
 
-    // Set the projections
-
-    projectionSet = options.projectionSet;
-
     // Build the row set model depending on whether a schema is provided.
 
-    rootState = new RowState(this);
+    rootState = new RowState(this, vectorCache);
     rootWriter = rootState.rootWriter();
 
     // If no schema, columns will be added incrementally as they
@@ -753,7 +751,6 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     return total;
   }
 
-  public ResultVectorCache vectorCache() { return vectorCache; }
   public RowState rootState() { return rootState; }
 
   /**

@@ -36,7 +36,7 @@ import org.apache.drill.exec.vector.ValueVector;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 
-/*
+/**
  * Base class for MapVectors. Currently used by RepeatedMapVector and MapVector
  */
 public abstract class AbstractMapVector extends AbstractContainerVector {
@@ -303,5 +303,18 @@ public abstract class AbstractMapVector extends AbstractContainerVector {
       count += v.getPayloadByteCount(valueCount);
     }
     return count;
+  }
+
+  @Override
+  public void exchange(ValueVector other) {
+    AbstractMapVector otherMap = (AbstractMapVector) other;
+    if (vectors.size() != otherMap.vectors.size()) {
+      throw new IllegalStateException("Maps have different column counts");
+    }
+    for (int i = 0; i < vectors.size(); i++) {
+      assert vectors.getByOrdinal(i).getField().isEquivalent(
+          otherMap.vectors.getByOrdinal(i).getField());
+      vectors.getByOrdinal(i).exchange(otherMap.vectors.getByOrdinal(i));
+    }
   }
 }

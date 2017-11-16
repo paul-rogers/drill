@@ -20,6 +20,7 @@ package org.apache.drill.exec.physical.rowSet.impl;
 import java.util.ArrayList;
 
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapState;
 import org.apache.drill.exec.record.ColumnMetadata;
@@ -40,10 +41,12 @@ public abstract class ColumnState {
     protected final MapState mapState;
 
     public BaseMapColumnState(ResultSetLoaderImpl resultSetLoader,
-         AbstractObjectWriter writer, VectorState vectorState,
+         ResultVectorCache vectorCache,
+         AbstractObjectWriter writer,
+         VectorState vectorState,
          ProjectionSet projectionSet) {
       super(resultSetLoader, writer, vectorState);
-      mapState = new MapState(resultSetLoader, this, projectionSet);
+      mapState = new MapState(resultSetLoader, vectorCache, this, projectionSet);
     }
 
     @Override
@@ -81,9 +84,10 @@ public abstract class ColumnState {
   public static class MapColumnState extends BaseMapColumnState {
 
     public MapColumnState(ResultSetLoaderImpl resultSetLoader,
+        ResultVectorCache vectorCache,
         ColumnMetadata columnSchema,
         ProjectionSet projectionSet) {
-      super(resultSetLoader,
+      super(resultSetLoader, vectorCache,
           ColumnWriterFactory.buildMap(columnSchema, null,
               new ArrayList<AbstractObjectWriter>()),
           new NullVectorState(),
@@ -100,16 +104,18 @@ public abstract class ColumnState {
   public static class MapArrayColumnState extends BaseMapColumnState {
 
     public MapArrayColumnState(ResultSetLoaderImpl resultSetLoader,
+        ResultVectorCache vectorCache,
         AbstractObjectWriter writer,
         VectorState vectorState,
         ProjectionSet projectionSet) {
-      super(resultSetLoader, writer,
+      super(resultSetLoader, vectorCache, writer,
           vectorState,
           projectionSet);
     }
 
     @SuppressWarnings("resource")
     public static MapArrayColumnState build(ResultSetLoaderImpl resultSetLoader,
+        ResultVectorCache vectorCache,
         ColumnMetadata columnSchema,
         ProjectionSet projectionSet) {
 
@@ -145,7 +151,7 @@ public abstract class ColumnState {
 
       // Assemble it all into the column state.
 
-      return new MapArrayColumnState(resultSetLoader,
+      return new MapArrayColumnState(resultSetLoader, vectorCache,
                   writer, vectorState, projectionSet);
     }
 

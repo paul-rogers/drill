@@ -211,4 +211,9 @@ public class ResultVectorCacheImpl implements ResultVectorCache {
 
   @Override
   public boolean isPermissive() { return permissiveMode; }
+
+  @Override
+  public ResultVectorCache newChild() {
+    return new ResultVectorCacheImpl(allocator);
+  }
 }

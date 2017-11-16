@@ -56,8 +56,8 @@ public abstract class TupleState implements TupleWriterListener {
 
     private final RowSetLoaderImpl writer;
 
-    public RowState(ResultSetLoaderImpl rsLoader) {
-      super(rsLoader, rsLoader.projectionSet);
+    public RowState(ResultSetLoaderImpl rsLoader, ResultVectorCache vectorCache) {
+      super(rsLoader, vectorCache, rsLoader.projectionSet);
       writer = new RowSetLoaderImpl(rsLoader, schema);
       writer.bindListener(this);
     }
@@ -77,9 +77,10 @@ public abstract class TupleState implements TupleWriterListener {
     protected int outerCardinality;
 
     public MapState(ResultSetLoaderImpl rsLoader,
+        ResultVectorCache vectorCache,
         BaseMapColumnState mapColumnState,
         ProjectionSet projectionSet) {
-      super(rsLoader, projectionSet);
+      super(rsLoader, vectorCache, projectionSet);
       this.mapColumnState = mapColumnState;
       mapColumnState.writer().bindListener(this);
     }
@@ -122,9 +123,17 @@ public abstract class TupleState implements TupleWriterListener {
   protected final TupleSchema schema = new TupleSchema();
   protected final ProjectionSet projectionSet;
 
-  protected TupleState(ResultSetLoaderImpl rsLoader, ProjectionSet projectionSet) {
+  /**
+   * Vector cache for this loader.
+   * @see {@link OptionBuilder#setVectorCache()}.
+   */
+
+  private final ResultVectorCache vectorCache;
+
+  protected TupleState(ResultSetLoaderImpl rsLoader, ResultVectorCache vectorCache, ProjectionSet projectionSet) {
     this.resultSetLoader = rsLoader;
     this.projectionSet = projectionSet;
+    this.vectorCache = vectorCache;
   }
 
   public abstract int innerCardinality();
@@ -192,13 +201,12 @@ public abstract class TupleState implements TupleWriterListener {
 
       // Create the vector for the column.
 
-      ResultVectorCache cache = resultSetLoader.vectorCache();
-      vector = cache.addOrGet(columnSchema.schema());
+      vector = vectorCache.addOrGet(columnSchema.schema());
 
       // In permissive mode, the mode or precision of the vector may differ
       // from that requested. Update the schema to match.
 
-      if (cache.isPermissive() && ! vector.getField().isEquivalent(columnSchema.schema())) {
+      if (vectorCache.isPermissive() && ! vector.getField().isEquivalent(columnSchema.schema())) {
         columnSchema = ((PrimitiveColumnMetadata) columnSchema).mergeWith(vector.getField());
       }
     } else {
@@ -233,10 +241,12 @@ public abstract class TupleState implements TupleWriterListener {
     ProjectionSet childProjection = projectionSet.mapProjection(columnSchema.name());
     if (columnSchema.isArray()) {
       return MapArrayColumnState.build(resultSetLoader,
+          vectorCache.newChild(),
           columnSchema,
           childProjection);
     } else {
       return new MapColumnState(resultSetLoader,
+          vectorCache.newChild(),
           columnSchema,
           childProjection);
     }

@@ -24,6 +24,10 @@ import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.vector.ValueVector;
 
+/**
+ * A vector cache implementation which does not actually cache.
+ */
+
 public class NullResultVectorCacheImpl implements ResultVectorCache {
 
   private final BufferAllocator allocator;
@@ -45,4 +49,9 @@ public class NullResultVectorCacheImpl implements ResultVectorCache {
 
   @Override
   public boolean isPermissive() { return false; }
+
+  @Override
+  public ResultVectorCache newChild() {
+    return new NullResultVectorCacheImpl(allocator);
+  }
 }

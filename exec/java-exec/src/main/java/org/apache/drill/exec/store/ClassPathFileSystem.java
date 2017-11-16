@@ -108,6 +108,7 @@ public class ClassPathFileSystem extends FileSystem{
     throw new IOException(ERROR_MSG);
   }
 
+  @SuppressWarnings("resource")
   @Override
   public FSDataInputStream open(Path arg0, int arg1) throws IOException {
     String file = getFileName(arg0);
@@ -127,9 +128,5 @@ public class ClassPathFileSystem extends FileSystem{
   @Override
   public void setWorkingDirectory(Path arg0) {
     this.working = arg0;
-  }
-
-  public static void main(String[] args) throws Exception{
-    URI uri = new URI("classpath:///");
   }
 }

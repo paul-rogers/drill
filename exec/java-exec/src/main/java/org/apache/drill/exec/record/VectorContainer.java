@@ -45,10 +45,11 @@ public class VectorContainer implements VectorAccessible {
   protected final List<VectorWrapper<?>> wrappers = Lists.newArrayList();
   private BatchSchema schema;
   private int recordCount = -1;
-  private BufferAllocator allocator;
+  private final BufferAllocator allocator;
   private boolean schemaChanged = true; // Schema has changed since last built. Must rebuild schema
 
   public VectorContainer() {
+    allocator = null;
   }
 
   public VectorContainer(OperatorContext oContext) {
@@ -205,7 +206,7 @@ public class VectorContainer implements VectorAccessible {
    * Sorts vectors into canonical order (by field name) in new VectorContainer.
    */
   public static VectorContainer canonicalize(VectorContainer original) {
-    VectorContainer vc = new VectorContainer();
+    VectorContainer vc = new VectorContainer(original.allocator);
     List<VectorWrapper<?>> canonicalWrappers = new ArrayList<>(original.wrappers);
     // Sort list of VectorWrapper alphabetically based on SchemaPath.
     Collections.sort(canonicalWrappers, new Comparator<VectorWrapper<?>>() {
@@ -222,7 +223,6 @@ public class VectorContainer implements VectorAccessible {
         vc.add(w.getValueVector());
       }
     }
-    vc.allocator = original.allocator;
     return vc;
   }
 
@@ -452,7 +452,7 @@ public class VectorContainer implements VectorAccessible {
    */
 
   public void exchange(VectorContainer other) {
-    assert schema.equals(other.schema);
+    assert schema.isEquivalent(other.schema);
     assert wrappers.size() == other.wrappers.size();
     assert allocator != null  &&  allocator == other.allocator;
     for (int i = 0; i < wrappers.size(); i++) {
