@@ -54,8 +54,8 @@ import org.apache.drill.common.map.CaseInsensitiveMap;
 public class ProjectionSetImpl implements ProjectionSet {
 
   protected Set<String> projection = new HashSet<>();
-  protected Map<String, ProjectionSetImpl> mapProjections = CaseInsensitiveMap
-      .newHashMap();
+  protected Map<String, ProjectionSetImpl> mapProjections =
+      CaseInsensitiveMap.newHashMap();
 
   @Override
   public boolean isProjected(String colName) {

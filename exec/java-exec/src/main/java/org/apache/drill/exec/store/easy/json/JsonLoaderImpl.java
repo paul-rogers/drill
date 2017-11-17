@@ -502,9 +502,30 @@ public class JsonLoaderImpl implements JsonLoader {
       }
     }
 
+    /**
+     * Detect the type of an array by "sniffing" the first element. Requires
+     * that array elements all be the same type. (JSON allows heterogeneous
+     * arrays; Drill, being relational, requires homogeneous lists.)
+     * <p>
+     * Drill supports just one-dimensional lists. If this method finds a
+     * 2- or higher dimensional list (a list of a list of a list, say), then
+     * it reverts this one field to "text mode", capturing the array as
+     * text which the client is free to parse.
+     * <p>
+     * Note that the nested array issue applies only to arrays directly
+     * within arrays. Drill handles arrays that contain maps that contain
+     * arrays.
+     *
+     * @param fieldName field name
+     * @param depth nesting depth of the array
+     * @return the parse state for this array
+     */
+
     private ParseState detectArrayState(String fieldName, int depth) {
       if (depth > 1) {
-        throw new UnsupportedOperationException("Lists not yet supported");
+        return new TextState(
+            newWriter(fieldName, MinorType.VARCHAR, DataMode.OPTIONAL).scalar(),
+            fieldName);
       }
       JsonToken token = tokenizer.requireNext();
       ArrayWriter arrayWriter = null;

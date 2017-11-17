@@ -795,6 +795,68 @@ public class TestJsonLoader extends SubOperatorTest {
   }
 
   /**
+   * Drill supports 1-D arrays using repeated types. Drill does not
+   * support 2-D or higher arrays. Instead, Drill reverts to "text
+   * mode" for such arrays, capturing them as JSON text, allowing the
+   * client to interpret them.
+   */
+
+  @Test
+  public void testArrays() {
+    String oneDArray = "[[1, 2], [3, 4]]";
+    String twoDArray = "[[[1, 2], [3, 4]], [[5, 6], [7, 8]]]";
+    String json =
+        "{a: [10, 11]," +
+        " b: " + oneDArray + "," +
+        " c: " + twoDArray + "}\n" +
+
+        // 2- and 3-D arrays are all text. So, allow changes
+        // to cardinality.
+
+        "{a: [20, 21]," +
+        " b: " + twoDArray + "," +
+        " c: " + oneDArray + "}";
+    ResultSetLoader tableLoader = new ResultSetLoaderImpl(fixture.allocator());
+    InputStream inStream = new
+        ReaderInputStream(new StringReader(json));
+    JsonOptions options = new JsonOptions();
+    options.context = "test Json";
+    JsonLoader loader = new JsonLoaderImpl(inStream, tableLoader.writer(), options);
+
+    // Read first two records into a batch. Since we've not yet seen
+    // a type, the null field will be realized as a text field.
+
+    tableLoader.startBatch();
+    while (loader.next()) {
+      // No op
+    }
+    loader.endBatch();
+    RowSet result = fixture.wrap(tableLoader.harvest());
+
+    BatchSchema expectedSchema = new SchemaBuilder()
+        .addArray("a", MinorType.BIGINT)
+        .addNullable("b", MinorType.VARCHAR)
+        .addNullable("c", MinorType.VARCHAR)
+        .build();
+
+    RowSet expected = new RowSetBuilder(fixture.allocator(), expectedSchema)
+        .addRow(new long[] {10, 11}, oneDArray, twoDArray)
+        .addRow(new long[] {20, 21}, twoDArray, oneDArray)
+        .build();
+
+    new RowSetComparison(expected)
+      .verifyAndClearAll(result);
+
+    try {
+      inStream.close();
+    } catch (IOException e) {
+      fail();
+    }
+    loader.close();
+    tableLoader.close();
+  }
+
+  /**
    * Test the JSON parser's limited recover abilities.
    *
    * @see <a href="https://issues.apache.org/jira/browse/DRILL-4653">DRILL-4653</a>
