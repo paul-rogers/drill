@@ -28,8 +28,8 @@ import java.util.List;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.SchemaPath;
+import org.apache.drill.exec.physical.impl.scan.project.NameElement;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.NameElement;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionColumnParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
 import org.apache.drill.test.SubOperatorTest;
@@ -166,24 +166,26 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
   @Test
   public void testColumnParserArrayAndSimple() {
-    try {
-      new ProjectionColumnParser()
-          .parse(ScanTestUtils.projectList("a[1]", "a"));
-      fail();
-    } catch (UserException e) {
-      // Expected
-    }
+    List<NameElement> cols = new ProjectionColumnParser()
+        .parse(ScanTestUtils.projectList("a[1]", "a"));
+    assertEquals(1, cols.size());
+
+    NameElement a = cols.get(0);
+    assertEquals("a", a.name());
+    assertTrue(a.isArray());
+    assertNull(a.indexes());
   }
 
   @Test
   public void testColumnParserSimpleAndArray() {
-    try {
-      new ProjectionColumnParser()
-          .parse(ScanTestUtils.projectList("a", "a[1]"));
-      fail();
-    } catch (UserException e) {
-      // Expected
-    }
+    List<NameElement> cols = new ProjectionColumnParser()
+        .parse(ScanTestUtils.projectList("a", "a[1]"));
+    assertEquals(1, cols.size());
+
+    NameElement a = cols.get(0);
+    assertEquals("a", a.name());
+    assertTrue(a.isArray());
+    assertNull(a.indexes());
   }
 
   /**

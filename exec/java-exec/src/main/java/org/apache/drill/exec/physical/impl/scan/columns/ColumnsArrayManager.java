@@ -18,9 +18,9 @@
 package org.apache.drill.exec.physical.impl.scan.columns;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.exec.physical.impl.scan.project.NameElement;
 import org.apache.drill.exec.physical.impl.scan.project.RowBatchMerger.Projection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.NameElement;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
 import org.apache.drill.exec.physical.impl.scan.project.ScanSchemaOrchestrator;

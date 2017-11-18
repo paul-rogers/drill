@@ -820,4 +820,9 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     rootWriter.dump(format);
     format.endObject();
   }
+
+  @Override
+  public ResultVectorCache vectorCache() {
+    return rootState.vectorCache();
+  }
 }

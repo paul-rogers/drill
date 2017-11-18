@@ -217,6 +217,15 @@ public interface ResultSetLoader {
   TupleMetadata harvestSchema();
 
   /**
+   * Peek at the internal vector cache for readers that need a bit of help
+   * resolving types based on what was previously seen.
+   *
+   * @return real or dummy vector cache
+   */
+
+  ResultVectorCache vectorCache();
+
+  /**
    * Called after all rows are returned, whether because no more data is
    * available, or the caller wishes to cancel the current row batch
    * and complete.

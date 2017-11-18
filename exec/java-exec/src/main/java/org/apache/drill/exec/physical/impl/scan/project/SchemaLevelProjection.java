@@ -130,6 +130,20 @@ public class SchemaLevelProjection {
 
     @Override
     public boolean isTableProjection() { return true; }
+
+    @Override
+    public String toString() {
+      StringBuilder buf = new StringBuilder();
+      buf
+        .append("[")
+        .append(getClass().getSimpleName())
+        .append(" name=")
+        .append(name())
+        .append(", projection=")
+        .append(projection == null ? "null" : projection.toString())
+        .append("]");
+      return buf.toString();
+    }
   }
 
   /**

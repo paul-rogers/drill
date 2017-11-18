@@ -33,5 +33,5 @@ public interface ResultVectorCache {
   ValueVector addOrGet(MaterializedField colSchema);
   MajorType getType(String name);
   boolean isPermissive();
-  ResultVectorCache newChild();
+  ResultVectorCache childCache(String colName);
 }

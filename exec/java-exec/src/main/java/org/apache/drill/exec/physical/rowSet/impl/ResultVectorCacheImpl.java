@@ -18,6 +18,7 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -117,6 +118,7 @@ public class ResultVectorCacheImpl implements ResultVectorCache {
 
   private final boolean permissiveMode;
   private final Map<String, VectorState> vectors = CaseInsensitiveMap.newHashMap();
+  private Map<String, ResultVectorCacheImpl> children;
 
   public ResultVectorCacheImpl(BufferAllocator allocator) {
     this.allocator = allocator;
@@ -207,13 +209,28 @@ public class ResultVectorCacheImpl implements ResultVectorCache {
       vs.vector.close();
     }
     vectors.clear();
+    if (children != null) {
+      for (ResultVectorCacheImpl child : children.values()) {
+        child.close();
+      }
+      children = null;
+    }
   }
 
   @Override
   public boolean isPermissive() { return permissiveMode; }
 
   @Override
-  public ResultVectorCache newChild() {
-    return new ResultVectorCacheImpl(allocator);
+  public ResultVectorCache childCache(String colName) {
+    if (children == null) {
+      children = new HashMap<>();
+    }
+    String key = colName.toLowerCase();
+    ResultVectorCacheImpl child = children.get(key);
+    if (child == null) {
+      child = new ResultVectorCacheImpl(allocator);
+      children.put(key, child);
+    }
+    return child;
   }
 }

@@ -18,16 +18,13 @@
 package org.apache.drill.exec.physical.impl.scan.project;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.common.expression.PathSegment;
 import org.apache.drill.common.expression.PathSegment.ArraySegment;
 import org.apache.drill.common.expression.PathSegment.NameSegment;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.exec.physical.rowSet.impl.NullProjectionSet;
 import org.apache.drill.exec.physical.rowSet.impl.ProjectionSet;
 import org.apache.drill.exec.record.TupleNameSpace;
 
@@ -93,133 +90,6 @@ public class ScanLevelProjection {
 
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ScanLevelProjection.class);
 
-  /**
-   * Represents one name element. Like a {@link NameSegment}, except that this
-   * version is an aggregate. If the projection list contains `a.b` and `a.c`,
-   * then one name segment exists for a, and contains segments for both b and c.
-   */
-
-  public static class NameElement implements ProjectionSet {
-    private final String name;
-    private TupleNameSpace<NameElement> members;
-    private Set<Integer> indexes;
-    private NameElement parent;
-
-    public NameElement(String name) {
-      this.name = name;
-    }
-
-    public String name() { return name; }
-    public boolean isWildcard() { return name.equals(SchemaPath.WILDCARD); }
-    public boolean isSimple() { return ! isTuple() && ! isArray(); }
-    public boolean isArray() { return indexes != null; }
-    public boolean isTuple() { return members != null; }
-
-    public void addMember(NameElement member) {
-      if (members == null) {
-        members = new TupleNameSpace<>();
-      }
-      members.add(member.name(), member);
-      member.parent = this;
-    }
-
-    public NameElement member(String name) {
-      return members == null ? null : members.get(name);
-    }
-
-    public List<NameElement> members() {
-      return members == null ? null : members.entries();
-    }
-
-    public void addIndex(int index) {
-      if (indexes == null) {
-        indexes = new HashSet<>();
-      }
-      indexes.add(index);
-    }
-
-    public boolean hasIndex(int index) {
-      return indexes == null ? false : indexes.contains(index);
-    }
-
-    public int maxIndex() {
-      if (indexes == null) {
-        return 0;
-      }
-      int max = 0;
-      for (Integer index : indexes) {
-        max = Math.max(max, index);
-      }
-      return max;
-    }
-
-    public boolean[] indexes() {
-      if (indexes == null) {
-        return null;
-      }
-      int max = maxIndex();
-      boolean map[] = new boolean[max+1];
-      for (Integer index : indexes) {
-        map[index] = true;
-      }
-      return map;
-    }
-
-    public String fullName() {
-      StringBuilder buf = new StringBuilder();
-      buildName(buf);
-      return buf.toString();
-    }
-
-    public boolean isRoot() { return parent == null; }
-
-    private void buildName(StringBuilder buf) {
-      if (isRoot()) {
-        // Omit hidden root
-        return;
-      }
-      parent.buildName(buf);
-      buf.append('`')
-         .append(name)
-         .append('`');
-    }
-
-    @Override
-    public boolean isProjected(String colName) {
-      return member(colName) != null;
-    }
-
-    @Override
-    public ProjectionSet mapProjection(String colName) {
-      ProjectionSet mapProj = member(colName);
-      if (mapProj != null) {
-        return mapProj;
-      }
-
-      // No explicit information for the map. Members inherit the
-      // same projection as the map itself.
-
-      return new NullProjectionSet(isProjected(colName));
-    }
-
-    public String summary() {
-      if (isArray() && isTuple()) {
-        return "repeated map";
-      }
-      if (isArray()) {
-        return "array column";
-      }
-      if (isTuple()) {
-        return "map column";
-      }
-      return "column";
-    }
-
-    public boolean nameEquals(String target) {
-      return name.equalsIgnoreCase(target);
-    }
-  }
-
   public static class ProjectionColumnParser {
 
     private NameElement root = new NameElement("<root>");
@@ -242,11 +112,11 @@ public class ScanLevelProjection {
       }
     }
 
-    private void parseLeaf(NameElement element, NameSegment nameSeg) {
+    private void parseLeaf(NameElement parent, NameSegment nameSeg) {
       String name = nameSeg.getPath();
-      NameElement member = element.member(name);
+      NameElement member = parent.member(name);
       if (member == null) {
-        element.addMember(new NameElement(name));
+        parent.addMember(new NameElement(name));
         return;
       }
       if (member.isSimple()) {
@@ -257,16 +127,17 @@ public class ScanLevelProjection {
           .build(logger);
       }
       if (member.isArray()) {
-        throw UserException
-          .validationError()
-          .message("Cannot project both `%s` and `%s`[x]",
-              member.fullName(), member.fullName())
-          .build(logger);
+
+        // Saw both a and a[x]. Occurs in project list.
+        // Project all elements.
+
+        member.projectAll();
+        return;
       }
 
       // Allow both a.b (existing) and a (this column)
 
-      assert element.isTuple();
+      assert parent.isTuple();
     }
 
     private void parseInternal(NameElement parent, NameSegment nameSeg) {
@@ -287,11 +158,12 @@ public class ScanLevelProjection {
         member = new NameElement(name);
         parent.addMember(member);
       } else if (member.isSimple()) {
-        throw UserException
-          .validationError()
-          .message("Cannot project both %s and %s[%d]",
-              member.fullName(), member.fullName(), index)
-          .build(logger);
+
+        // Saw both a and a[x]. Occurs in project list.
+        // Project all elements.
+
+        member.projectAll();
+        return;
       } else if (member.hasIndex(index)) {
         throw UserException
           .validationError()
@@ -358,6 +230,22 @@ public class ScanLevelProjection {
     public boolean isTableProjection() {
       return id == UNRESOLVED;
     }
+
+    @Override
+    public String toString() {
+      StringBuilder buf = new StringBuilder();
+      buf
+        .append("[")
+        .append(getClass().getSimpleName())
+        .append(" type=")
+        .append(id == WILDCARD ? "wildcard" : "column");
+      if (isTableProjection()) {
+        buf
+          .append(", column=")
+          .append(inCol.toString());
+      }
+      return buf.append("]").toString();
+    }
   }
 
   // Input
@@ -367,14 +255,16 @@ public class ScanLevelProjection {
   // Configuration
 
   protected List<ScanProjectionParser> parsers;
-
   private final boolean v1_12MetadataLocation;
+
+  // Internal state
+
+  protected boolean sawWildcard;
 
   // Output
 
   protected List<ColumnProjection> outputCols = new ArrayList<>();
   protected ProjectionSet tableLoaderProjection;
-  protected boolean sawWildcard;
   protected boolean hasWildcard;
   protected boolean emptyProjection = true;
 
@@ -494,6 +384,9 @@ public class ScanLevelProjection {
    * is done later.</li>
    * </ol>
    *
+   * Actual mapping is done by parser extensions for all but the
+   * basic cases.
+   *
    * @param inCol the SELECT column
    */
 
@@ -549,6 +442,7 @@ public class ScanLevelProjection {
       }
     }
   }
+
   /**
    * Return the set of columns from the SELECT list
    * @return the SELECT list columns, in SELECT list order
@@ -589,4 +483,14 @@ public class ScanLevelProjection {
 
   public ProjectionSet tableLoaderProjection() { return tableLoaderProjection; }
 
+  @Override
+  public String toString() {
+    return new StringBuilder()
+        .append("[")
+        .append(getClass().getSimpleName())
+        .append(" projection=")
+        .append(outputCols.toString())
+        .append("]")
+        .toString();
+  }
 }

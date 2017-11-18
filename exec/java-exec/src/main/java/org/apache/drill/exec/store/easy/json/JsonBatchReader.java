@@ -19,16 +19,21 @@ package org.apache.drill.exec.store.easy.json;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.ops.OperatorContext;
 import org.apache.drill.exec.physical.impl.scan.file.BaseFileScanFramework.FileSchemaNegotiator;
 import org.apache.drill.exec.physical.impl.scan.framework.ManagedReader;
+import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
+import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.store.dfs.DrillFileSystem;
 import org.apache.drill.exec.store.easy.json.JsonLoaderImpl.JsonOptions;
+import org.apache.drill.exec.store.easy.json.JsonLoaderImpl.TypeNegotiator;
 import org.apache.hadoop.mapred.FileSplit;
 
 public class JsonBatchReader implements ManagedReader<FileSchemaNegotiator> {
@@ -70,8 +75,26 @@ public class JsonBatchReader implements ManagedReader<FileSchemaNegotiator> {
           .addContext("Failure to open JSON file", split.getPath().toString())
           .build(logger);
     }
-    tableLoader = negotiator.build().writer();
+    ResultSetLoader rsLoader = negotiator.build();
+    tableLoader = rsLoader.writer();
     RowSetLoader rootWriter = tableLoader;
+
+    // Bind the type negotiator that will resolve ambiguous types
+    // using information from any previous readers in this scan.
+
+    options.typeNegotiator = new TypeNegotiator() {
+      @Override
+      public MajorType typeOf(List<String> path) {
+        ResultVectorCache cache = rsLoader.vectorCache();
+        for (int i = 0; i < path.size() - 1; i++) {
+          cache = cache.childCache(path.get(i));
+        }
+        return cache.getType(path.get(path.size()-1));
+      }
+    };
+
+    // Create the JSON loader (high-level parser).
+
     jsonLoader = new JsonLoaderImpl(stream, rootWriter, options);
     return true;
   }
@@ -86,6 +109,7 @@ public class JsonBatchReader implements ManagedReader<FileSchemaNegotiator> {
         break;
       }
     }
+    jsonLoader.endBatch();
     return true;
   }
 

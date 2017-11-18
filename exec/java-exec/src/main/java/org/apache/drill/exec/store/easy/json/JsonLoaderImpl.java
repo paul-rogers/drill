@@ -20,6 +20,7 @@ package org.apache.drill.exec.store.easy.json;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -101,6 +102,12 @@ public class JsonLoaderImpl implements JsonLoader {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(JsonLoaderImpl.class);
 
+  private static final String ROOT_NAME = "<root>";
+
+  public interface TypeNegotiator {
+    MajorType typeOf(List<String> path);
+  }
+
   public static class JsonOptions {
     public String context;
     public boolean allTextMode;
@@ -120,6 +127,8 @@ public class JsonLoaderImpl implements JsonLoader {
     public boolean skipOuterList = true;
     public boolean skipMalformedRecords;
     public boolean unionEnabled;
+
+    public TypeNegotiator typeNegotiator;
   }
 
   @SuppressWarnings("serial")
@@ -127,32 +136,64 @@ public class JsonLoaderImpl implements JsonLoader {
   }
 
   interface ParseState {
+    String fieldName();
+    ParseState parent();
+    boolean isContainer();
     boolean parse();
   }
 
   interface NullTypeMarker {
-    void realize();
+    boolean isEmptyArray();
+    void realizeAsText();
+  }
+
+  protected abstract class AbstractParseState implements ParseState {
+    private final ParseState parent;
+    private final String fieldName;
+
+    public AbstractParseState(ParseState parent, String fieldName) {
+      this.parent = parent;
+      this.fieldName = fieldName;
+    }
+
+    @Override
+    public String fieldName() { return fieldName; }
+    @Override
+    public ParseState parent() { return parent; }
+    @Override
+    public boolean isContainer() { return false; }
   }
 
   /**
    * Parses [ value, value ... ]<br>
    * Where value is a scalar. The states for each value ensure that the
-   * types are consistent (Drill does not support hetrogenous arrays.)
+   * types are consistent (Drill does not support heterogeneous arrays.)
    */
 
-  protected class ScalarArrayState implements ParseState {
+  protected class ScalarArrayState extends AbstractParseState {
 
     @SuppressWarnings("unused")
     private final ArrayWriter writer;
     private final ParseState scalarState;
+    private final boolean isTextArray;
 
-    public ScalarArrayState(ArrayWriter writer,
+    public ScalarArrayState(ParseState parent, String fieldName,
+        ArrayWriter writer,
         ParseState scalarState) {
-      this.writer = writer;
-      this.scalarState = scalarState;
+      this(parent, fieldName, writer, scalarState, false);
     }
 
-    @Override
+    public ScalarArrayState(ParseState parent, String fieldName,
+        ArrayWriter writer,
+        ParseState scalarState,
+        boolean isTextArray) {
+      super(parent, fieldName);
+      this.writer = writer;
+      this.scalarState = scalarState;
+      this.isTextArray = isTextArray;
+    }
+
+     @Override
     public boolean parse() {
       JsonToken token = tokenizer.requireNext();
       switch (token) {
@@ -171,11 +212,14 @@ public class JsonLoaderImpl implements JsonLoader {
           return true;
 
         case VALUE_NULL:
-          throw UserException
-            .unsupportedError()
-            .message("Drill does not support nulls in a JSON scalar array")
-            .addContext("Location", tokenizer.context())
-            .build(logger);
+          if (! isTextArray) {
+            throw UserException
+              .unsupportedError()
+              .message("Drill does not support nulls in a JSON scalar array")
+              .addContext("Location", tokenizer.context())
+              .build(logger);
+          }
+          // Else fall through
 
         default:
           tokenizer.unget(token);
@@ -184,18 +228,23 @@ public class JsonLoaderImpl implements JsonLoader {
         }
       }
     }
+
+    @Override
+    public boolean isContainer() { return true; }
   }
 
   /**
    * Parses [{ ... }, {...} ...]
    */
 
-  protected class TupleArrayState implements ParseState {
+  protected class TupleArrayState extends AbstractParseState {
 
     private final ArrayWriter writer;
     private final TupleState tupleState;
 
-    public TupleArrayState(ArrayWriter writer, TupleState tupleState) {
+    public TupleArrayState(ParseState parent, String fieldName,
+        ArrayWriter writer, TupleState tupleState) {
+      super(parent, fieldName);
       this.writer = writer;
       this.tupleState = tupleState;
     }
@@ -229,6 +278,9 @@ public class JsonLoaderImpl implements JsonLoader {
         }
       }
     }
+
+    @Override
+    public boolean isContainer() { return true; }
   }
 
   /**
@@ -247,14 +299,13 @@ public class JsonLoaderImpl implements JsonLoader {
    * on that basis.
    */
 
-  protected class NullTypeState implements ParseState, NullTypeMarker {
+  protected class NullTypeState extends AbstractParseState implements NullTypeMarker {
 
-    private final TupleState parentState;
-    private final String fieldName;
+    private final TupleState tupleState;
 
     public NullTypeState(TupleState parentState, String fieldName) {
-      this.parentState = parentState;
-      this.fieldName = fieldName;
+      super(parentState, fieldName);
+      this.tupleState = parentState;
       nullStates.add(this);
     }
 
@@ -271,21 +322,25 @@ public class JsonLoaderImpl implements JsonLoader {
       // Replace ourself with a typed reader.
 
       tokenizer.unget(token);
-      ParseState newState = parentState.detectFieldState(fieldName);
-      parentState.replaceState(fieldName, newState);
+      ParseState newState = tupleState.detectFieldState(fieldName());
+      tupleState.replaceState(fieldName(), newState);
       nullStates.remove(this);
       return newState.parse();
     }
 
     @Override
-    public void realize() {
-      logger.warn("JSON field " + fieldName + " contains all nulls. Assuming text scalar.");
-      ParseState newState = new TextState(
-          parentState.newWriter(fieldName, MinorType.VARCHAR, DataMode.OPTIONAL).scalar(),
-          fieldName);
-      parentState.replaceState(fieldName, newState);
+    public void realizeAsText() {
+      logger.warn("Ambiguous type! JSON field {}" +
+          " contains all nulls. Assuming text mode.",
+          fieldName());
+      ParseState newState = new TextState(parent(), fieldName(),
+          tupleState.newWriter(fieldName(), MinorType.VARCHAR, DataMode.OPTIONAL).scalar());
+      tupleState.replaceState(fieldName(), newState);
       nullStates.remove(this);
     }
+
+    @Override
+    public boolean isEmptyArray() { return false; }
   }
 
   /**
@@ -301,14 +356,13 @@ public class JsonLoaderImpl implements JsonLoader {
    * a text array (as in all-text mode.)
    */
 
-  protected class NullArrayState implements ParseState, NullTypeMarker {
+  protected class NullArrayState extends AbstractParseState implements NullTypeMarker {
 
-    private final TupleState parentState;
-    private final String fieldName;
+    private final TupleState tupleState;
 
     public NullArrayState(TupleState parentState, String fieldName) {
-      this.parentState = parentState;
-      this.fieldName = fieldName;
+      super(parentState, fieldName);
+      this.tupleState = parentState;
       nullStates.add(this);
     }
 
@@ -330,22 +384,27 @@ public class JsonLoaderImpl implements JsonLoader {
         return true;
       }
       tokenizer.unget(valueToken);
-      ParseState newState = parentState.detectArrayState(fieldName, 1);
-      parentState.replaceState(fieldName, newState);
+      ParseState newState = tupleState.detectArrayState(fieldName(), 1);
+      tupleState.replaceState(fieldName(), newState);
       nullStates.remove(this);
       tokenizer.unget(startToken);
       return newState.parse();
     }
 
     @Override
-    public void realize() {
-      logger.warn("JSON array " + fieldName + " contains all empty arrays. Assuming text scalar elements.");
-      ArrayWriter arrayWriter = parentState.newWriter(fieldName, MinorType.VARCHAR, DataMode.REPEATED).array();
-      ParseState elementState = new TextState(arrayWriter.scalar(), fieldName + "[]");
-      ParseState newState = new ScalarArrayState(arrayWriter, elementState);
-      parentState.replaceState(fieldName, newState);
+    public void realizeAsText() {
+      logger.warn("Ambiguous type! JJSON array {}" +
+          " contains all empty arrays. Assuming text mode elements.",
+          fieldName());
+      ArrayWriter arrayWriter = tupleState.newWriter(fieldName(), MinorType.VARCHAR, DataMode.REPEATED).array();
+      ParseState elementState = new TextState(tupleState, fieldName(), arrayWriter.scalar());
+      ParseState newState = new ScalarArrayState(tupleState, fieldName(), arrayWriter, elementState, true);
+      tupleState.replaceState(fieldName(), newState);
       nullStates.remove(this);
     }
+
+    @Override
+    public boolean isEmptyArray() { return true; }
   }
 
   /**
@@ -363,12 +422,13 @@ public class JsonLoaderImpl implements JsonLoader {
    * computed.
    */
 
-  protected class TupleState implements ParseState {
+  protected class TupleState extends AbstractParseState {
 
     private final TupleWriter writer;
     private final Map<String, ParseState> members = new HashMap<>();
 
-    public TupleState(TupleWriter writer) {
+    public TupleState(ParseState parent, String fieldName, TupleWriter writer) {
+      super(parent, fieldName);
       this.writer = writer;
     }
 
@@ -439,12 +499,11 @@ public class JsonLoaderImpl implements JsonLoader {
 
     private ParseState detectFieldState(final String fieldName) {
       if (! writer.isProjected(fieldName)) {
-        return new DummyValueState(fieldName);
+        return new DummyValueState(this, fieldName);
       }
       if (options.allTextMode) {
-        return new TextState(
-            newWriter(fieldName, MinorType.VARCHAR, DataMode.OPTIONAL).scalar(),
-            fieldName);
+        return new TextState(this, fieldName,
+            newWriter(fieldName, MinorType.VARCHAR, DataMode.OPTIONAL).scalar());
       }
       JsonToken token = tokenizer.requireNext();
       ParseState state;
@@ -454,7 +513,7 @@ public class JsonLoaderImpl implements JsonLoader {
         break;
 
       case START_OBJECT:
-        state = new TupleState(
+        state = new TupleState(this, fieldName,
               newWriter(fieldName, MinorType.MAP, DataMode.REQUIRED).tuple());
         break;
 
@@ -473,29 +532,25 @@ public class JsonLoaderImpl implements JsonLoader {
       switch (token) {
       case VALUE_FALSE:
       case VALUE_TRUE:
-        return new BooleanState(
-            newWriter(fieldName, MinorType.TINYINT, DataMode.OPTIONAL).scalar(),
-            fieldName);
+        return new BooleanState(this, fieldName,
+            newWriter(fieldName, MinorType.TINYINT, DataMode.OPTIONAL).scalar());
 
       case VALUE_NULL:
         return new NullTypeState(this, fieldName);
 
       case VALUE_NUMBER_INT:
         if (! options.readNumbersAsDouble) {
-          return new IntState(
-              newWriter(fieldName, MinorType.BIGINT, DataMode.OPTIONAL).scalar(),
-              fieldName);
+          return new IntState(this, fieldName,
+              newWriter(fieldName, MinorType.BIGINT, DataMode.OPTIONAL).scalar());
         } // else fall through
 
       case VALUE_NUMBER_FLOAT:
-        return new FloatState(
-            newWriter(fieldName, MinorType.FLOAT8, DataMode.OPTIONAL).scalar(),
-            fieldName);
+        return new FloatState(this, fieldName,
+            newWriter(fieldName, MinorType.FLOAT8, DataMode.OPTIONAL).scalar());
 
       case VALUE_STRING:
-        return new StringState(
-            newWriter(fieldName, MinorType.VARCHAR, DataMode.OPTIONAL).scalar(),
-            fieldName);
+        return new StringState(this, fieldName,
+            newWriter(fieldName, MinorType.VARCHAR, DataMode.OPTIONAL).scalar());
 
       default:
         throw syntaxError(token);
@@ -523,9 +578,8 @@ public class JsonLoaderImpl implements JsonLoader {
 
     private ParseState detectArrayState(String fieldName, int depth) {
       if (depth > 1) {
-        return new TextState(
-            newWriter(fieldName, MinorType.VARCHAR, DataMode.OPTIONAL).scalar(),
-            fieldName);
+        return new TextState(this, fieldName,
+            newWriter(fieldName, MinorType.VARCHAR, DataMode.OPTIONAL).scalar());
       }
       JsonToken token = tokenizer.requireNext();
       ArrayWriter arrayWriter = null;
@@ -537,8 +591,8 @@ public class JsonLoaderImpl implements JsonLoader {
 
       case START_OBJECT:
         arrayWriter = newWriter(fieldName, MinorType.MAP, DataMode.REPEATED).array();
-        arrayState = new TupleArrayState(arrayWriter,
-            new TupleState(arrayWriter.tuple()));
+        arrayState = new TupleArrayState(this, fieldName, arrayWriter,
+            new TupleState(this, fieldName, arrayWriter.tuple()));
         break;
 
       case END_ARRAY:
@@ -553,37 +607,36 @@ public class JsonLoaderImpl implements JsonLoader {
     }
 
     private ParseState scalarElementState(JsonToken token, String fieldName) {
-      String context = fieldName + "[]";
       ArrayWriter arrayWriter = null;
       ParseState elementState = null;
       switch (token) {
       case VALUE_FALSE:
       case VALUE_TRUE:
         arrayWriter = newWriter(fieldName, MinorType.TINYINT, DataMode.REPEATED).array();
-        elementState = new BooleanState(arrayWriter.scalar(), context);
+        elementState = new BooleanState(this, fieldName,arrayWriter.scalar());
         break;
 
       case VALUE_NUMBER_INT:
         if (! options.readNumbersAsDouble) {
           arrayWriter = newWriter(fieldName, MinorType.BIGINT, DataMode.REPEATED).array();
-          elementState = new IntState(arrayWriter.scalar(), context);
+          elementState = new IntState(this, fieldName,arrayWriter.scalar());
           break;
         } // else fall through
 
       case VALUE_NUMBER_FLOAT:
         arrayWriter = newWriter(fieldName, MinorType.FLOAT8, DataMode.REPEATED).array();
-        elementState = new FloatState(arrayWriter.scalar(), context);
+        elementState = new FloatState(this, fieldName,arrayWriter.scalar());
         break;
 
       case VALUE_STRING:
         arrayWriter = newWriter(fieldName, MinorType.VARCHAR, DataMode.REPEATED).array();
-        elementState = new StringState(arrayWriter.scalar(), context);
+        elementState = new StringState(this, fieldName,arrayWriter.scalar());
         break;
 
       default:
         throw syntaxError(token);
       }
-      return new ScalarArrayState(arrayWriter, elementState);
+      return new ScalarArrayState(this, fieldName, arrayWriter, elementState);
     }
 
     /**
@@ -622,13 +675,10 @@ public class JsonLoaderImpl implements JsonLoader {
    * care only about matching brackets, but not about other details.
    */
 
-  protected class DummyValueState implements ParseState {
+  protected class DummyValueState extends AbstractParseState {
 
-    @SuppressWarnings("unused")
-    private final String fieldName;
-
-    public DummyValueState(String fieldName) {
-      this.fieldName = fieldName;
+    public DummyValueState(ParseState parent, String fieldName) {
+      super(parent, fieldName);
     }
 
     @Override
@@ -682,13 +732,12 @@ public class JsonLoaderImpl implements JsonLoader {
     }
   }
 
-  protected abstract class ScalarState implements ParseState {
+  protected abstract class ScalarState extends AbstractParseState {
     protected final ScalarWriter writer;
-    protected final String context;
 
-    public ScalarState(ScalarWriter writer, String context) {
+    public ScalarState(ParseState parent, String fieldName, ScalarWriter writer) {
+      super(parent, fieldName);
       this.writer = writer;
-      this.context = context;
     }
   }
 
@@ -698,8 +747,9 @@ public class JsonLoaderImpl implements JsonLoader {
 
   public class BooleanState extends ScalarState {
 
-    public BooleanState(ScalarWriter writer, String context) {
-      super(writer, context);
+    public BooleanState(ParseState parent, String fieldName,
+        ScalarWriter writer) {
+      super(parent, fieldName, writer);
     }
 
     @Override
@@ -716,7 +766,7 @@ public class JsonLoaderImpl implements JsonLoader {
         writer.setInt(0);
         break;
       default:
-        throw syntaxError(token, context, "Boolean");
+        throw syntaxError(token, fieldName(), "Boolean");
       }
       return true;
     }
@@ -728,8 +778,9 @@ public class JsonLoaderImpl implements JsonLoader {
 
   public class IntState extends ScalarState {
 
-    public IntState(ScalarWriter writer, String context) {
-      super(writer, context);
+    public IntState(ParseState parent, String fieldName,
+        ScalarWriter writer) {
+      super(parent, fieldName, writer);
     }
 
     @Override
@@ -747,7 +798,7 @@ public class JsonLoaderImpl implements JsonLoader {
         }
         break;
       default:
-        throw syntaxError(token, context, "Integer");
+        throw syntaxError(token, fieldName(), "Integer");
       }
       return true;
     }
@@ -762,8 +813,9 @@ public class JsonLoaderImpl implements JsonLoader {
 
   public class FloatState extends ScalarState {
 
-    public FloatState(ScalarWriter writer, String context) {
-      super(writer, context);
+    public FloatState(ParseState parent, String fieldName,
+        ScalarWriter writer) {
+      super(parent, fieldName, writer);
     }
 
     @Override
@@ -782,7 +834,7 @@ public class JsonLoaderImpl implements JsonLoader {
         }
         break;
       default:
-        throw syntaxError(token, context, "Float");
+        throw syntaxError(token, fieldName(), "Float");
       }
       return true;
     }
@@ -794,8 +846,9 @@ public class JsonLoaderImpl implements JsonLoader {
 
   public class StringState extends ScalarState {
 
-    public StringState(ScalarWriter writer, String context) {
-      super(writer, context);
+    public StringState(ParseState parent, String fieldName,
+        ScalarWriter writer) {
+      super(parent, fieldName, writer);
     }
 
     @Override
@@ -813,7 +866,7 @@ public class JsonLoaderImpl implements JsonLoader {
         }
         break;
       default:
-        throw syntaxError(token, context, "String");
+        throw syntaxError(token, fieldName(), "String");
       }
       return true;
     }
@@ -823,14 +876,27 @@ public class JsonLoaderImpl implements JsonLoader {
    * Parses "str" | true | false | integer | float
    * <p>
    * Returns the result as a string.
+   * <p>
+   * If the top level value is a scalar:
+   * <ul>
+   * <li><tt>null</tt> is mapped to a Drill NULL.</li>
+   * <li>Strings are stored in Drill unquoted.</li>
+   * </ul>
+   * If the top level is a map or array, then scalars within
+   * that structure:
+   * <ul>
+   * <li><tt>null</tt> is mapped to the literal "null".</li>
+   * <li>Strings are quoted.</li>
+   * </ul>
    */
 
   public class TextState extends ScalarState {
 
     public StringBuilder buf = new StringBuilder();
 
-    public TextState(ScalarWriter writer, String context) {
-      super(writer, context);
+    public TextState(ParseState parent, String fieldName,
+        ScalarWriter writer) {
+      super(parent, fieldName, writer);
     }
 
     @Override
@@ -838,7 +904,11 @@ public class JsonLoaderImpl implements JsonLoader {
       buf.setLength(0);
       JsonToken token = tokenizer.requireNext();
       parseValue(token, false);
-      writer.setString(buf.toString());
+      if (buf.length() == 0) {
+        writer.setNull();
+      } else {
+        writer.setString(buf.toString());
+      }
       return true;
     }
 
@@ -855,6 +925,11 @@ public class JsonLoaderImpl implements JsonLoader {
         break;
 
       case VALUE_NULL:
+        if (quote || parent().isContainer()) {
+          buf.append(tokenizer.getText());
+        }
+        break;
+
       case VALUE_EMBEDDED_OBJECT:
       case VALUE_FALSE:
       case VALUE_TRUE:
@@ -924,14 +999,15 @@ public class JsonLoaderImpl implements JsonLoader {
    * Parses ^[ ... ]$
    */
 
-  protected class RootArrayState implements ParseState {
+  protected class RootArrayState extends AbstractParseState {
 
     private RowSetLoader rootWriter;
     private TupleState rootTuple;
 
     public RootArrayState(RowSetLoader rootWriter) {
+      super(null, ROOT_NAME);
       this.rootWriter = rootWriter;
-      rootTuple = new TupleState(rootWriter);
+      rootTuple = new TupleState(this, ROOT_NAME, rootWriter);
     }
 
     @Override
@@ -961,7 +1037,7 @@ public class JsonLoaderImpl implements JsonLoader {
     private final RowSetLoader rootWriter;
 
     public RootTupleState(RowSetLoader rootWriter) {
-      super(rootWriter);
+      super(null, ROOT_NAME, rootWriter);
       this.rootWriter = rootWriter;
     }
 
@@ -976,6 +1052,9 @@ public class JsonLoaderImpl implements JsonLoader {
       rootWriter.save();
       return true;
     }
+
+    @Override
+    public boolean isContainer() { return true; }
   }
 
   public static final int MAX_LOOKAHEAD = 30;
@@ -1157,6 +1236,115 @@ public class JsonLoaderImpl implements JsonLoader {
   }
 
   /**
+   * Finish reading a batch of data. We may have pending "null" columns:
+   * a column for which we've seen only nulls, or an array that has
+   * always been empty. The batch needs to finish, and needs a type,
+   * but we still don't know the type. Since we must decide on one,
+   * we do the following:
+   * <ul>
+   * <li>If given a type negotiator, ask it the type. Perhaps a
+   * prior reader in the same scanner determined the type in a
+   * previous file.</li>
+   * <li>Guess Varchar, and switch to text mode.</li>
+   * </ul>
+   *
+   * Note that neither of these choices is perfect. There is no guarantee
+   * that prior files either were seen, or have the same type as this
+   * file. Also, switching to text mode means results will vary
+   * from run to run depending on the order that we see empty and
+   * non-empty values for this column. Plus, since the system is
+   * distributed, the decision made here may conflict with that made in
+   * some other fragment.
+   * <p>
+   * The only real solution is for the user to provide schema
+   * information to resolve the ambiguity; but Drill has no way to
+   * gather that information at present.
+   * <p>
+   * Bottom line: the user is responsible for not giving Drill
+   * ambiguous data that would require Drill to predict the future.
+   */
+
+  @Override
+  public void endBatch() {
+    List<NullTypeMarker> copy = new ArrayList<>();
+    copy.addAll(nullStates);
+    for (NullTypeMarker state : copy) {
+      MajorType type = null;
+      if (options.typeNegotiator != null) {
+        type = options.typeNegotiator.typeOf(makePath((ParseState) state));
+      }
+      if (type == null) {
+        state.realizeAsText();
+      } else {
+        realizeAsType(state, type);
+      }
+    }
+    assert nullStates.isEmpty();
+  }
+
+  private void realizeAsType(NullTypeMarker marker, MajorType type) {
+    ParseState state = (ParseState) marker;
+    MinorType dataType = type.getMinorType();
+    if (marker.isEmptyArray()) {
+      if (type.getMode() != DataMode.REPEATED) {
+        marker.realizeAsText();
+      } else {
+        realizeAsArray(marker, state, dataType);
+      }
+    } else {
+      switch (type.getMode()) {
+      case OPTIONAL:
+        realizeAsScalar(marker, state, dataType);
+        break;
+      case REPEATED:
+        realizeAsArray(marker, state, dataType);
+        break;
+      default:
+        marker.realizeAsText();
+      }
+    }
+  }
+
+  private void realizeAsArray(NullTypeMarker marker, ParseState state, MinorType type) {
+    TupleState tupleState = (TupleState) state.parent();
+    ArrayWriter arrayWriter = tupleState.newWriter(state.fieldName(), type, DataMode.REPEATED).array();
+    ScalarWriter scalarWriter = arrayWriter.scalar();
+    ParseState elementState = stateForType(type, tupleState, state.fieldName(), scalarWriter);
+    logger.warn("Ambiguous type! JSON array {} contains all empty arrays. " +
+        "Assuming element type from prior file: {}",
+        state.fieldName(), type.toString());
+    ParseState newState = new ScalarArrayState(tupleState, state.fieldName(), arrayWriter, elementState);
+    tupleState.replaceState(state.fieldName(), newState);
+    nullStates.remove(marker);
+  }
+
+  private void realizeAsScalar(NullTypeMarker marker, ParseState state, MinorType type) {
+    TupleState tupleState = (TupleState) state.parent();
+    ScalarWriter scalarWriter = tupleState.newWriter(state.fieldName(), type, DataMode.OPTIONAL).scalar();
+    ParseState newState = stateForType(type, tupleState, state.fieldName(), scalarWriter);
+    logger.warn("Ambiguous type! JSON field {} contains all nulls. " +
+        "Assuming element type from prior file: {}",
+        state.fieldName(), type.toString());
+    tupleState.replaceState(state.fieldName(), newState);
+    nullStates.remove(marker);
+  }
+
+  private ParseState stateForType(MinorType type, ParseState parent, String fieldName, ScalarWriter scalarWriter) {
+    switch (type) {
+    case BIGINT:
+      return new IntState(parent, fieldName, scalarWriter);
+    case FLOAT8:
+      return new FloatState(parent, fieldName, scalarWriter);
+    case TINYINT:
+      return new BooleanState(parent, fieldName, scalarWriter);
+    case VARCHAR:
+      return new StringState(parent, fieldName, scalarWriter);
+    default:
+      throw new IllegalStateException("Unsupported Drill type " + type.toString() + " for JSON array");
+    }
+  }
+
+  /**
    * Attempt recovery from a JSON syntax error by skipping to the next
    * record. The Jackson parser is quite limited in its recovery abilities.
    *
@@ -1221,16 +1409,6 @@ public class JsonLoaderImpl implements JsonLoader {
         .build(logger);
   }
 
-  @Override
-  public void endBatch() {
-    List<NullTypeMarker> copy = new ArrayList<>();
-    copy.addAll(nullStates);
-    for (NullTypeMarker state : copy) {
-      state.realize();
-    }
-    assert nullStates.isEmpty();
-  }
-
   private UserException syntaxError(JsonToken token, String context, String expected) {
     if (options.skipMalformedRecords) {
       throw new RecoverableJsonException();
@@ -1274,5 +1452,17 @@ public class JsonLoaderImpl implements JsonLoader {
     } catch (IOException e) {
       logger.warn("Ignored failure when closing JSON source " + options.context, e);
     }
+  }
+
+  protected static List<String> makePath(ParseState state) {
+    List<String> path = new ArrayList<>();
+    while (state != null) {
+      if (! state.isContainer()) {
+        path.add(state.fieldName());
+      }
+      state = state.parent();
+    }
+    Collections.reverse(path);
+    return path;
   }
 }

@@ -22,9 +22,9 @@ import java.util.regex.Pattern;
 
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.FileMetadataColumn;
 import org.apache.drill.exec.physical.impl.scan.file.FileMetadataManager.PartitionColumn;
+import org.apache.drill.exec.physical.impl.scan.project.NameElement;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ColumnProjection;
-import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.NameElement;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ScanProjectionParser;
 
 public class FileMetadataColumnsParser implements ScanProjectionParser {

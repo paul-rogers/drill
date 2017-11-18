@@ -69,6 +69,8 @@ public abstract class TupleState implements TupleWriterListener {
 
     @Override
     public int innerCardinality() { return resultSetLoader.targetRowCount();}
+
+    public ResultVectorCache vectorCache() { return vectorCache; }
   }
 
   public static class MapState extends TupleState {
@@ -128,7 +130,7 @@ public abstract class TupleState implements TupleWriterListener {
    * @see {@link OptionBuilder#setVectorCache()}.
    */
 
-  private final ResultVectorCache vectorCache;
+  protected final ResultVectorCache vectorCache;
 
   protected TupleState(ResultSetLoaderImpl rsLoader, ResultVectorCache vectorCache, ProjectionSet projectionSet) {
     this.resultSetLoader = rsLoader;
@@ -238,15 +240,16 @@ public abstract class TupleState implements TupleWriterListener {
 
     // Create the writer. Will be returned to the tuple writer.
 
-    ProjectionSet childProjection = projectionSet.mapProjection(columnSchema.name());
+    String colName = columnSchema.name();
+    ProjectionSet childProjection = projectionSet.mapProjection(colName);
     if (columnSchema.isArray()) {
       return MapArrayColumnState.build(resultSetLoader,
-          vectorCache.newChild(),
+          vectorCache.childCache(colName),
           columnSchema,
           childProjection);
     } else {
       return new MapColumnState(resultSetLoader,
-          vectorCache.newChild(),
+          vectorCache.childCache(colName),
           columnSchema,
           childProjection);
     }

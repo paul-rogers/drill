@@ -510,38 +510,38 @@ public class TestJsonReader extends BaseTestQuery {
 
   @Test
   public void testSumWithTypeCase() throws Exception {
-    String query = "select sum(cast(f1 as bigint)) sum_f1 from " +
-            "(select case when is_bigint(field1) then field1 " +
-            "when is_list(field1) then field1[0] when is_map(field1) then t.field1.inner1 end f1 " +
-            "from cp.`jsoninput/union/a.json` t)";
+    alterSession(ExecConstants.ENABLE_UNION_TYPE_KEY, true);
     try {
-      testBuilder()
+      String query = "select sum(cast(f1 as bigint)) sum_f1 from " +
+              "(select case when is_bigint(field1) then field1 " +
+              "when is_list(field1) then field1[0] when is_map(field1) then t.field1.inner1 end f1 " +
+              "from cp.`jsoninput/union/a.json` t)";
+       testBuilder()
               .sqlQuery(query)
               .ordered()
-              .optionSettingQueriesForTestQuery("alter session set `exec.enable_union_type` = true")
               .baselineColumns("sum_f1")
               .baselineValues(9L)
               .go();
     } finally {
-      testNoResult("alter session set `exec.enable_union_type` = false");
+      resetSessionOption(ExecConstants.ENABLE_UNION_TYPE_KEY);
     }
   }
 
   @Test
   public void testUnionExpressionMaterialization() throws Exception {
-    String query = "select a + b c from cp.`jsoninput/union/b.json`";
+    alterSession(ExecConstants.ENABLE_UNION_TYPE_KEY, true);
     try {
+      String query = "select a + b c from cp.`jsoninput/union/b.json`";
       testBuilder()
               .sqlQuery(query)
               .ordered()
-              .optionSettingQueriesForTestQuery("alter session set `exec.enable_union_type` = true")
               .baselineColumns("c")
               .baselineValues(3L)
               .baselineValues(7.0)
               .baselineValues(11.0)
               .go();
     } finally {
-      testNoResult("alter session set `exec.enable_union_type` = false");
+      resetSessionOption(ExecConstants.ENABLE_UNION_TYPE_KEY);
     }
   }
 

@@ -51,7 +51,7 @@ public class NullResultVectorCacheImpl implements ResultVectorCache {
   public boolean isPermissive() { return false; }
 
   @Override
-  public ResultVectorCache newChild() {
+  public ResultVectorCache childCache(String colName) {
     return new NullResultVectorCacheImpl(allocator);
   }
 }
