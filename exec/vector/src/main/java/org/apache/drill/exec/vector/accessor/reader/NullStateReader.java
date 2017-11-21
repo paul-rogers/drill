@@ -90,8 +90,8 @@ public interface NullStateReader {
     }
 
     @Override
-    public void bindIndex(ColumnReaderIndex rowIndex) {
-      bitsReader.bindIndex(rowIndex);
+    public void bindVector(ValueVector vector) {
+      bitsReader.bindVector(vector);
     }
 
     @Override
@@ -103,13 +103,13 @@ public interface NullStateReader {
     }
 
     @Override
-    public boolean isNull() {
-      return bitsReader.getInt() == 0;
+    public void bindIndex(ColumnReaderIndex rowIndex) {
+      bitsReader.bindIndex(rowIndex);
     }
 
     @Override
-    public void bindVector(ValueVector vector) {
-      bitsReader.bindVector(vector);
+    public boolean isNull() {
+      return bitsReader.getInt() == 0;
     }
   }
 

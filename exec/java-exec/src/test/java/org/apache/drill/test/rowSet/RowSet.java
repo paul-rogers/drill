@@ -67,7 +67,7 @@ import org.apache.parquet.column.ColumnWriter;
  * <ul>
  * <li>Define the schema using {@link RowSetSchema#builder()}.</li>
  * <li>Create the row set from the schema.</li>
- * <li>Populate the row set using a writer from {@link #writer(int)}.</li>
+ * <li>Populate the row set using a writer from {@link #member(int)}.</li>
  * <li>Optionally add a selection vector: {@link #makeSv2()}.</li>
  * <li>Process the vector container using the code under test.</li>
  * <li>Retrieve the results using a reader from {@link #reader()}.</li>

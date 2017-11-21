@@ -70,13 +70,16 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
    * manages the type reader, so no binding is done here.
    */
 
-  private static class TypeVectorStateReader extends UInt1ColumnReader implements NullStateReader {
+  private static class TypeVectorStateReader implements NullStateReader {
 
     public final UInt1ColumnReader typeReader;
 
     public TypeVectorStateReader(UInt1ColumnReader typeReader) {
       this.typeReader = typeReader;
     }
+
+    @Override
+    public void bindVector(ValueVector vector) { }
 
     @Override
     public void bindIndex(ColumnReaderIndex rowIndex) { }
@@ -109,7 +112,9 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
     }
 
     @Override
-    public void bindIndex(ColumnReaderIndex rowIndex) { }
+    public void bindIndex(ColumnReaderIndex rowIndex) {
+      memberNullState.bindIndex(rowIndex);
+    }
 
     @Override
     public void bindVector(ValueVector vector) { }
@@ -123,19 +128,55 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
     }
   }
 
+  /**
+   * Handle the awkward situation with complex types. They don't carry their own
+   * bits (null state) vector. Instead, we define them as null if the type of
+   * the union is other than the type of the map or list. (Since the same vector
+   * that holds state also holds the is-null value, this check includes the
+   * check if the entire union is null.)
+   */
+
+  private static class ComplexMemberStateReader implements NullStateReader {
+
+    private UInt1ColumnReader typeReader;
+    private MinorType type;
+
+    public ComplexMemberStateReader(UInt1ColumnReader typeReader, MinorType type) {
+      this.typeReader = typeReader;
+      this.type = type;
+    }
+
+    @Override
+    public void bindIndex(ColumnReaderIndex rowIndex) { }
+
+    @Override
+    public void bindVector(ValueVector vector) { }
+
+    @Override
+    public void bindVectorAccessor(VectorAccessor va) { }
+
+    @Override
+    public boolean isNull() {
+      return typeReader.getInt() != type.getNumber();
+    }
+  }
+
   private final UInt1ColumnReader typeReader;
   private final AbstractObjectReader variants[];
   protected NullStateReader nullStateReader;
 
   public UnionReaderImpl(AbstractObjectReader variants[]) {
     typeReader = new UInt1ColumnReader();
+    typeReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
     nullStateReader = new TypeVectorStateReader(typeReader);
     assert variants != null  &&  variants.length == MinorType.values().length;
     this.variants = variants;
   }
 
   public static AbstractObjectReader buildSingle(UnionVector vector, AbstractObjectReader variants[]) {
-    return new UnionObjectReader(new UnionReaderImpl(variants));
+    UnionReaderImpl reader = new UnionReaderImpl(variants);
+    reader.bindVector(vector);
+    return new UnionObjectReader(reader);
   }
 
   @Override
@@ -157,21 +198,34 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
     rebindMemberNullState();
   }
 
+  /**
+   * Rebind the null state reader to include the union's own state.
+   */
+
   private void rebindMemberNullState() {
-
-    // Rebind the null state reader to include the union's own state
-
-    for (AbstractObjectReader objReader : variants) {
-      objReader.events().bindNullState(
-          new MemberNullStateReader(nullStateReader,
-              objReader.events().nullStateReader()));
+    for (int i = 0; i < variants.length; i++) {
+      AbstractObjectReader objReader = variants[i];
+      if (objReader == null) {
+        continue;
+      }
+      NullStateReader nullReader;
+      MinorType type = MinorType.valueOf(i);
+      switch(type) {
+      case MAP:
+      case LIST:
+        nullReader = new ComplexMemberStateReader(typeReader, type);
+        break;
+      default:
+        nullReader =
+            new MemberNullStateReader(nullStateReader,
+                objReader.events().nullStateReader());
+      }
+      objReader.events().bindNullState(nullReader);
     }
   }
 
-
   @Override
   public void bindIndex(ColumnReaderIndex index) {
-//    this.index = index;
     typeReader.bindIndex(index);
     for (int i = 0; i < variants.length; i++) {
       if (variants[i] != null) {
@@ -205,12 +259,12 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
   }
 
   @Override
-  public ObjectReader reader(MinorType type) {
+  public ObjectReader member(MinorType type) {
     return variants[type.ordinal()];
   }
 
   private ObjectReader requireReader(MinorType type) {
-    ObjectReader reader = reader(type);
+    ObjectReader reader = member(type);
     if (reader == null) {
       throw new IllegalArgumentException("Union does not include type " + type.toString());
     }
@@ -223,17 +277,17 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
   }
 
   @Override
-  public ObjectReader reader() {
+  public ObjectReader member() {
     MinorType type = dataType();
     if (type == null) {
       return null;
     }
-    return reader(type);
+    return member(type);
   }
 
   @Override
   public ScalarReader scalar() {
-    ObjectReader reader = reader();
+    ObjectReader reader = member();
     if (reader == null) {
       return null;
     }

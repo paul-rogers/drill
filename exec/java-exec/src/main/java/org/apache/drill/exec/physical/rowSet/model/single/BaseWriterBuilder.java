@@ -93,7 +93,7 @@ public abstract class BaseWriterBuilder {
 
       @SuppressWarnings("resource")
       ValueVector memberVector = ColumnAccessorUtils.getUnionMember(vector, type);
-      VectorDescrip memberDescrip = new VectorDescrip(mdProvider, i++, vector.getField());
+      VectorDescrip memberDescrip = new VectorDescrip(mdProvider, i++, memberVector.getField());
       variants[type.ordinal()] = buildVectorWriter(memberVector, memberDescrip);
     }
     return ColumnWriterFactory.buildUnionWriter(descrip.metadata, vector, variants);

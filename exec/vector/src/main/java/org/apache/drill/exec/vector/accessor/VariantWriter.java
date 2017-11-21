@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
-import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 
 /**
@@ -76,7 +75,23 @@ public interface VariantWriter {
 
   void setNull();
 
-  ObjectWriter writer(MinorType type);
+  /**
+   * Explicitly set the type of the present value. Use this when
+   * the writers are cached. The writer must already exist.
+   *
+   * @param type type to set for the current row
+   */
+
+  void setType(MinorType type);
+
+  /**
+   * Set the type of the present value and get the writer for
+   * that type.
+   * @param type type to set for the current row
+   * @return writer for the type just set
+   */
+
+  ObjectWriter member(MinorType type);
   ScalarWriter scalar(MinorType type);
   TupleWriter tuple();
   ArrayWriter array();

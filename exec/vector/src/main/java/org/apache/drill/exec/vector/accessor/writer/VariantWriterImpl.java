@@ -114,9 +114,14 @@ public class VariantWriterImpl implements VariantWriter, WriterEvents {
   }
 
   @Override
-  public ObjectWriter writer(MinorType type) {
-    typeWriter.setInt(type.getNumber());
+  public ObjectWriter member(MinorType type) {
+    setType(type);
     return writerFor(type);
+  }
+
+  @Override
+  public void setType(MinorType type) {
+    typeWriter.setInt(type.getNumber());
   }
 
   private ObjectWriter writerFor(MinorType type) {
@@ -142,17 +147,17 @@ public class VariantWriterImpl implements VariantWriter, WriterEvents {
 
   @Override
   public ScalarWriter scalar(MinorType type) {
-    return writer(type).scalar();
+    return member(type).scalar();
   }
 
   @Override
   public TupleWriter tuple() {
-    return writer(MinorType.MAP).tuple();
+    return member(MinorType.MAP).tuple();
   }
 
   @Override
   public ArrayWriter array() {
-    return writer(MinorType.LIST).array();
+    return member(MinorType.LIST).array();
   }
 
   @Override
@@ -165,6 +170,11 @@ public class VariantWriterImpl implements VariantWriter, WriterEvents {
   public void bindIndex(ColumnWriterIndex index) {
     this.index = index;
     typeWriter.bindIndex(index);
+    for (int i = 0; i < variants.length; i++) {
+      if (variants[i] != null) {
+        variants[i].events().bindIndex(index);
+      }
+    }
   }
 
   @Override
@@ -275,5 +285,4 @@ public class VariantWriterImpl implements VariantWriter, WriterEvents {
   public void bindListener(VariantWriterListener listener) {
     this.listener = listener;
   }
-
 }

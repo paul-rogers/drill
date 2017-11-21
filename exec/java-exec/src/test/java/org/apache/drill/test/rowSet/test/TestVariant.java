@@ -47,6 +47,8 @@ import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
+import org.apache.drill.exec.vector.accessor.TupleReader;
+import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.VariantReader;
 import org.apache.drill.exec.vector.accessor.VariantWriter;
 import org.apache.drill.exec.vector.complex.ListVector;
@@ -447,8 +449,8 @@ public class TestVariant extends SubOperatorTest {
     assertFalse(vr.isNull());
     assertTrue(vr.dataType() == MinorType.INT);
     assertSame(intReader, vr.scalar());
-    assertNotNull(vr.reader());
-    assertSame(vr.scalar(), vr.reader().scalar());
+    assertNotNull(vr.member());
+    assertSame(vr.scalar(), vr.member().scalar());
     assertFalse(intReader.isNull());
     assertEquals(10, intReader.getInt());
     assertTrue(strReader.isNull());
@@ -502,6 +504,168 @@ public class TestVariant extends SubOperatorTest {
 
     assertFalse(reader.next());
     result.clear();
+  }
+
+  /**
+   * Test a variant (AKA "union vector") at the top level, using
+   * just scalar values.
+   */
+
+  @Test
+  public void testUnionWithMap() {
+    TupleMetadata schema = new SchemaBuilder()
+        .addUnion("u")
+          .addType(MinorType.VARCHAR)
+          .addMap()
+            .addNullable("a", MinorType.INT)
+            .addNullable("b", MinorType.VARCHAR)
+            .buildNested()
+          .build()
+        .buildSchema();
+
+    SingleRowSet result;
+
+    // Writer values
+
+    {
+      ExtendableRowSet rs = fixture.rowSet(schema);
+      RowSetWriter writer = rs.writer();
+
+      // Sanity check of writer structure
+
+      ObjectWriter wo = writer.column(0);
+      assertEquals(ObjectType.VARIANT, wo.type());
+      VariantWriter vw = wo.variant();
+
+      assertTrue(vw.hasType(MinorType.VARCHAR));
+      ObjectWriter strObj = vw.member(MinorType.VARCHAR);
+      ScalarWriter strWriter = strObj.scalar();
+      assertSame(strWriter, vw.scalar(MinorType.VARCHAR));
+
+      assertTrue(vw.hasType(MinorType.MAP));
+      ObjectWriter mapObj = vw.member(MinorType.MAP);
+      TupleWriter mWriter = mapObj.tuple();
+      assertSame(mWriter, vw.tuple());
+
+      ScalarWriter aWriter = mWriter.scalar("a");
+      ScalarWriter bWriter = mWriter.scalar("b");
+
+      // First row: string "first"
+
+      vw.setType(MinorType.VARCHAR);
+      strWriter.setString("first");
+      writer.save();
+
+      // Second row: a map
+
+      vw.setType(MinorType.MAP);
+      aWriter.setInt(20);
+      bWriter.setString("fred");
+      writer.save();
+
+      // Third row: null
+
+      vw.setNull();
+      writer.save();
+
+      // Fourth row: map with a null string
+
+      vw.setType(MinorType.MAP);
+      aWriter.setInt(40);
+      bWriter.setNull();
+      writer.save();
+
+      // Fifth row: string "last"
+
+      vw.setType(MinorType.VARCHAR);
+      strWriter.setString("last");
+      writer.save();
+
+      result = writer.done();
+      assertEquals(5, result.rowCount());
+    }
+
+    // Read the values.
+
+    {
+      RowSetReader reader = result.reader();
+
+      // Sanity check of structure
+
+      ObjectReader ro = reader.column(0);
+      assertEquals(ObjectType.VARIANT, ro.type());
+      VariantReader vr = ro.variant();
+
+      assertTrue(vr.hasType(MinorType.VARCHAR));
+      ObjectReader strObj = vr.member(MinorType.VARCHAR);
+      ScalarReader strReader = strObj.scalar();
+      assertSame(strReader, vr.scalar(MinorType.VARCHAR));
+
+      assertTrue(vr.hasType(MinorType.MAP));
+      ObjectReader mapObj = vr.member(MinorType.MAP);
+      TupleReader mReader = mapObj.tuple();
+      assertSame(mReader, vr.tuple());
+
+      ScalarReader aReader = mReader.scalar("a");
+      ScalarReader bReader = mReader.scalar("b");
+
+      // First row: string "first"
+
+      assertTrue(reader.next());
+      assertFalse(vr.isNull());
+      assertEquals(MinorType.VARCHAR, vr.dataType());
+      assertFalse(strReader.isNull());
+      assertTrue(mReader.isNull());
+      assertEquals("first", strReader.getString());
+
+      // Second row: a map
+
+      assertTrue(reader.next());
+      assertFalse(vr.isNull());
+      assertEquals(MinorType.MAP, vr.dataType());
+      assertTrue(strReader.isNull());
+      assertFalse(mReader.isNull());
+      assertFalse(aReader.isNull());
+      assertEquals(20, aReader.getInt());
+      assertFalse(bReader.isNull());
+      assertEquals("fred", bReader.getString());
+
+      // Third row: null
+
+      assertTrue(reader.next());
+      assertTrue(vr.isNull());
+      assertTrue(strReader.isNull());
+      assertTrue(mReader.isNull());
+      assertTrue(aReader.isNull());
+      assertTrue(bReader.isNull());
+
+      // Fourth row: map with a null string
+
+      assertTrue(reader.next());
+      assertEquals(MinorType.MAP, vr.dataType());
+      assertEquals(40, aReader.getInt());
+      assertTrue(bReader.isNull());
+
+      // Fifth row: string "last"
+
+      assertTrue(reader.next());
+      assertEquals(MinorType.VARCHAR, vr.dataType());
+      assertEquals("last", strReader.getString());
+
+      assertFalse(reader.next());
+    }
+
+    result.clear();
+  }
+
+  /**
+   * Test a variant (AKA "union vector") at the top level, using
+   * just scalar values.
+   */
+
+  @Test
+  public void testUnionWithList() {
+    fail("Implement after list");
   }
 
   /**
@@ -577,8 +741,8 @@ public class TestVariant extends SubOperatorTest {
     assertFalse(vr.isNull());
     assertTrue(vr.dataType() == MinorType.INT);
     assertSame(vr.scalar(MinorType.INT), vr.scalar());
-    assertNotNull(vr.reader());
-    assertSame(vr.scalar(), vr.reader().scalar());
+    assertNotNull(vr.member());
+    assertSame(vr.scalar(), vr.member().scalar());
     assertEquals(10, vr.scalar().getInt());
 
     assertTrue(reader.next());
