@@ -21,6 +21,8 @@ import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleSchema;
+import org.apache.drill.exec.record.TupleSchema.VariantSchema;
+import org.apache.drill.exec.record.VariantMetadata;
 
 /**
  * Interface for retrieving and/or creating metadata given
@@ -31,6 +33,7 @@ public interface MetadataProvider {
   ColumnMetadata metadata(int index, MaterializedField field);
   MetadataProvider childProvider(ColumnMetadata colMetadata);
   TupleMetadata tuple();
+  VariantMetadata variant();
 
   public static class VectorDescrip {
     public final MetadataProvider parent;
@@ -40,6 +43,10 @@ public interface MetadataProvider {
         MaterializedField field) {
       parent = provider;
       metadata = provider.metadata(index, field);
+    }
+
+    public MetadataProvider childProvider() {
+      return parent.childProvider(metadata);
     }
   }
 
@@ -62,11 +69,53 @@ public interface MetadataProvider {
 
     @Override
     public MetadataProvider childProvider(ColumnMetadata colMetadata) {
-      return new MetadataCreator((TupleSchema) colMetadata.mapSchema());
+      if (colMetadata.isVariant()) {
+        return new VariantSchemaCreator((VariantSchema) colMetadata.variantSchema());
+      } else {
+        return new MetadataCreator((TupleSchema) colMetadata.mapSchema());
+      }
     }
 
     @Override
     public TupleMetadata tuple() { return tuple; }
+
+    @Override
+    public VariantMetadata variant() {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  public static class VariantSchemaCreator implements MetadataProvider {
+
+    private final VariantSchema variantSchema;
+
+    public VariantSchemaCreator(VariantSchema variantSchema) {
+      this.variantSchema = variantSchema;
+    }
+
+    @Override
+    public ColumnMetadata metadata(int index, MaterializedField field) {
+      return variantSchema.addType(field);
+    }
+
+    @Override
+    public MetadataProvider childProvider(ColumnMetadata colMetadata) {
+      if (colMetadata.isVariant()) {
+        return new VariantSchemaCreator((VariantSchema) colMetadata.variantSchema());
+      } else {
+        return new MetadataCreator((TupleSchema) colMetadata.mapSchema());
+      }
+    }
+
+    @Override
+    public TupleMetadata tuple() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public VariantMetadata variant() {
+      return variantSchema;
+    }
   }
 
   public static class MetadataRetrieval implements MetadataProvider {
@@ -84,10 +133,52 @@ public interface MetadataProvider {
 
     @Override
     public MetadataProvider childProvider(ColumnMetadata colMetadata) {
-      return new MetadataRetrieval((TupleSchema) colMetadata.mapSchema());
+      if (colMetadata.isVariant()) {
+        return new VariantSchemaRetrieval((VariantSchema) colMetadata.variantSchema());
+      } else {
+        return new MetadataRetrieval(colMetadata.mapSchema());
+      }
     }
 
     @Override
     public TupleMetadata tuple() { return tuple; }
+
+    @Override
+    public VariantMetadata variant() {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  public static class VariantSchemaRetrieval implements MetadataProvider {
+
+    private final VariantSchema variantSchema;
+
+    public VariantSchemaRetrieval(VariantSchema variantSchema) {
+      this.variantSchema = variantSchema;
+    }
+
+    @Override
+    public ColumnMetadata metadata(int index, MaterializedField field) {
+      return variantSchema.member(field.getType().getMinorType());
+    }
+
+    @Override
+    public MetadataProvider childProvider(ColumnMetadata colMetadata) {
+      if (colMetadata.isVariant()) {
+        return new VariantSchemaRetrieval((VariantSchema) colMetadata.variantSchema());
+      } else {
+        return new MetadataRetrieval(colMetadata.mapSchema());
+      }
+    }
+
+    @Override
+    public TupleMetadata tuple() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public VariantMetadata variant() {
+      return variantSchema;
+    }
   }
 }

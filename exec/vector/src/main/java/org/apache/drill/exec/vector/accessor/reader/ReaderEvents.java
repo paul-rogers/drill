@@ -17,29 +17,18 @@
  */
 package org.apache.drill.exec.vector.accessor.reader;
 
-import java.util.List;
-
-import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 
 /**
- * Reader for a Drill Map type. Maps are actually tuples, just like rows.
+ * Internal operations to wire up a set of readers.
  */
 
-public class MapReader extends AbstractTupleReader {
-
-  protected MapReader(TupleMetadata schema, AbstractObjectReader readers[]) {
-    super(schema, readers);
-  }
-
-  public static TupleObjectReader build(TupleMetadata schema, AbstractObjectReader readers[]) {
-    MapReader mapReader = new MapReader(schema, readers);
-    mapReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
-    return new TupleObjectReader(mapReader);
-  }
-
-  public static AbstractObjectReader build(TupleMetadata metadata,
-      List<AbstractObjectReader> readers) {
-    AbstractObjectReader readerArray[] = new AbstractObjectReader[readers.size()];
-    return build(metadata, readers.toArray(readerArray));
-  }
+public interface ReaderEvents {
+  void bindVector(ValueVector vector);
+  void bindNullState(NullStateReader nullStateReader);
+  NullStateReader nullStateReader();
+  void bindIndex(ColumnReaderIndex rowIndex);
+  void bindVectorAccessor(MajorType majorType, VectorAccessor va);
 }

@@ -21,7 +21,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
-
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.ColumnMetadata;
@@ -49,6 +48,12 @@ import org.apache.drill.exec.vector.complex.UnionVector;
  * Gather generated writer classes into a set of class tables to allow rapid
  * run-time creation of writers. Builds the writer and its object writer
  * wrapper which binds the vector to the writer.
+ * <p>
+ * Compared to the reader factory, the writer factor is a bit more complex
+ * as it must handle both the projected ("real" writer) and unprojected
+ * ("dummy" writer) cases. Because of the way the various classes interact,
+ * it is cleaner to put the factory methods here rather than in the various
+ * writers, as is done in the case of the readers.
  */
 
 @SuppressWarnings("unchecked")
@@ -187,13 +192,33 @@ public class ColumnWriterFactory {
     return buildMapWriter(schema, vector, new ArrayList<AbstractObjectWriter>());
   }
 
-  public static AbstractObjectWriter buildVariantWriter(ColumnMetadata metadata,
+  /**
+   * Build a variant writer when we do not know the type information up front and
+   * will discover the types as the write proceeds.
+   *
+   * @param metadata
+   * @param vector
+   * @return
+   */
+
+  public static AbstractObjectWriter buildUnionWriter(ColumnMetadata metadata,
       UnionVector vector) {
     if (vector == null) {
-      throw new UnsupportedOperationException("Dummy variant writer not supported");
+      throw new UnsupportedOperationException("Dummy variant writer not yet supported");
     }
     return new VariantObjectWriter(
         new VariantWriterImpl(vector, metadata),
+        metadata);
+  }
+
+  public static AbstractObjectWriter buildUnionWriter(ColumnMetadata metadata,
+      UnionVector vector,
+      AbstractObjectWriter variants[]) {
+    if (vector == null) {
+      throw new UnsupportedOperationException("Dummy variant writer not yet supported");
+    }
+    return new VariantObjectWriter(
+        new VariantWriterImpl(vector, metadata, variants),
         metadata);
   }
 

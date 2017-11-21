@@ -33,7 +33,36 @@ public interface TupleReader {
   TupleMetadata schema();
   int columnCount();
 
+  /**
+   * When the tuple is in a list, the tuple itself can be null.
+   * Tuples elsewhere are never null; though their members can be.
+   *
+   * @return <tt>true</tt> if the tuple itself is null (as in a
+   * list or union), <tt>false</tt> if the tuple is not null, or
+   * if the use of the tuple does not support a null state
+   */
+
+  boolean isNull();
+
+  /**
+   * Return a column reader by column index as reported by the
+   * associated metadata.
+   *
+   * @param colIndex column index
+   * @return reader for the column
+   * @throws IndexOutOfRangeException if the index is invalid
+   */
+
   ObjectReader column(int colIndex);
+
+  /**
+   * Return a column reader by name.
+   *
+   * @param colIndex column name
+   * @return reader for the column, or <tt>null</tt> if no such
+   * column exists
+   */
+
   ObjectReader column(String colName);
 
   // Convenience methods

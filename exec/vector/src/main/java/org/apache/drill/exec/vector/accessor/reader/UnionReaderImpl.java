@@ -21,7 +21,6 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
-import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
@@ -31,13 +30,13 @@ import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.VariantReader;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
-public class VariantReaderImpl implements VariantReader {
+public class UnionReaderImpl implements VariantReader, ReaderEvents {
 
-  public static class VariantObjectReader extends AbstractObjectReader {
+  public static class UnionObjectReader extends AbstractObjectReader {
 
-    private VariantReaderImpl reader;
+    private UnionReaderImpl reader;
 
-    public VariantObjectReader(VariantReaderImpl reader) {
+    public UnionObjectReader(UnionReaderImpl reader) {
       this.reader = reader;
     }
 
@@ -61,33 +60,124 @@ public class VariantReaderImpl implements VariantReader {
     public String getAsString() {
       return reader.getAsString();
     }
+
+    @Override
+    protected ReaderEvents events() { return reader; }
   }
 
-  private final UnionVector vector;
+  /**
+   * Extract null state from the union vector's type vector. The union reader
+   * manages the type reader, so no binding is done here.
+   */
+
+  private static class TypeVectorStateReader extends UInt1ColumnReader implements NullStateReader {
+
+    public final UInt1ColumnReader typeReader;
+
+    public TypeVectorStateReader(UInt1ColumnReader typeReader) {
+      this.typeReader = typeReader;
+    }
+
+    @Override
+    public void bindIndex(ColumnReaderIndex rowIndex) { }
+
+    @Override
+    public void bindVectorAccessor(VectorAccessor va) { }
+
+    @Override
+    public boolean isNull() {
+      return typeReader.getInt() == UnionVector.NULL_MARKER;
+    }
+  }
+
+  /**
+   * Null state that handles the strange union semantics that both
+   * the union and the values can be null. A value is null if either
+   * the union or the value is null. (Though, presumably, in the normal
+   * case either the union is null or one of the associated values is
+   * null.)
+   */
+
+  private static class MemberNullStateReader implements NullStateReader {
+
+    private final NullStateReader unionNullState;
+    private final NullStateReader memberNullState;
+
+    public MemberNullStateReader(NullStateReader unionNullState, NullStateReader memberNullState) {
+      this.unionNullState = unionNullState;
+      this.memberNullState = memberNullState;
+    }
+
+    @Override
+    public void bindIndex(ColumnReaderIndex rowIndex) { }
+
+    @Override
+    public void bindVector(ValueVector vector) { }
+
+    @Override
+    public void bindVectorAccessor(VectorAccessor va) { }
+
+    @Override
+    public boolean isNull() {
+      return unionNullState.isNull() || memberNullState.isNull();
+    }
+  }
+
   private final UInt1ColumnReader typeReader;
-  private final AbstractObjectReader variants[] = new AbstractObjectReader[MinorType.values().length];
-  private ObjectType objectType;
+  private final AbstractObjectReader variants[];
+  protected NullStateReader nullStateReader;
 
-  private ColumnReaderIndex index;
-
-  public VariantReaderImpl(UnionVector vector) {
-    this.vector = vector;
+  public UnionReaderImpl(AbstractObjectReader variants[]) {
     typeReader = new UInt1ColumnReader();
-    typeReader.bindVector(vector.getTypeVector());
+    nullStateReader = new TypeVectorStateReader(typeReader);
+    assert variants != null  &&  variants.length == MinorType.values().length;
+    this.variants = variants;
   }
 
-  public static AbstractObjectReader build(UnionVector vector) {
-    return new VariantObjectReader(new VariantReaderImpl(vector));
-  }
-
-  public void bindIndex(ColumnReaderIndex index) {
-    this.index = index;
-    typeReader.bindIndex(index);
+  public static AbstractObjectReader buildSingle(UnionVector vector, AbstractObjectReader variants[]) {
+    return new UnionObjectReader(new UnionReaderImpl(variants));
   }
 
   @Override
-  public ObjectType valueType() {
-    return objectType;
+  public void bindVector(ValueVector vector) {
+    UnionVector unionVector = (UnionVector) vector;
+    typeReader.bindVector(unionVector.getTypeVector());
+    rebindMemberNullState();
+  }
+
+  @Override
+  public void bindNullState(NullStateReader nullStateReader) { }
+
+  @Override
+  public NullStateReader nullStateReader() { return nullStateReader; }
+
+  @Override
+  public void bindVectorAccessor(MajorType majorType, VectorAccessor va) {
+    nullStateReader.bindVectorAccessor(va);
+    rebindMemberNullState();
+  }
+
+  private void rebindMemberNullState() {
+
+    // Rebind the null state reader to include the union's own state
+
+    for (AbstractObjectReader objReader : variants) {
+      objReader.events().bindNullState(
+          new MemberNullStateReader(nullStateReader,
+              objReader.events().nullStateReader()));
+    }
+  }
+
+
+  @Override
+  public void bindIndex(ColumnReaderIndex index) {
+//    this.index = index;
+    typeReader.bindIndex(index);
+    for (int i = 0; i < variants.length; i++) {
+      if (variants[i] != null) {
+        variants[i].bindIndex(index);
+      }
+    }
   }
 
   @Override
@@ -97,12 +187,12 @@ public class VariantReaderImpl implements VariantReader {
     // without probing for the underlying storage vector.
     // Might be able to probe the MajorType.
 
-    return reader(type) != null;
+    return variants[type.ordinal()] != null;
   }
 
   @Override
   public boolean isNull() {
-    return typeReader.getInt() == UnionVector.NULL_MARKER;
+    return nullStateReader.isNull();
   }
 
   @Override
@@ -116,43 +206,7 @@ public class VariantReaderImpl implements VariantReader {
 
   @Override
   public ObjectReader reader(MinorType type) {
-    AbstractObjectReader reader = variants[type.ordinal()];
-    if (reader != null) {
-      return reader;
-    }
-    MajorType majorType = vector.getField().getType();
-    if (! majorType.getSubTypeList().contains(type)) {
-      return null;
-    }
-    ObjectType targetType;
-    switch (type) {
-    case MAP:
-      targetType = ObjectType.TUPLE;
-      break;
-    case LIST:
-      targetType = ObjectType.ARRAY;
-      break;
-    case UNION:
-      throw new UnsupportedOperationException();
-    default:
-      targetType = ObjectType.SCALAR;
-    }
-    if (objectType == null) {
-      objectType = targetType;
-    } else if (objectType != targetType) {
-      throw new UnsupportedOperationException();
-    }
-
-    // This call will create the vector if it does not yet exist.
-    // Will throw an exception for unspported types.
-    // so call this only if the MajorType reports that the type
-    // already exists.
-
-    ValueVector memberVector = ColumnAccessorUtils.getUnionMember(vector, type);
-    reader = ColumnReaderFactory.buildColumnReader(memberVector);
-    reader.bindIndex(index);
-    variants[type.ordinal()] = reader;
-    return reader;
+    return variants[type.ordinal()];
   }
 
   private ObjectReader requireReader(MinorType type) {

@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.vector.accessor.reader;
 
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.UInt4Vector.Accessor;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
@@ -32,7 +34,7 @@ import org.apache.drill.exec.vector.complex.RepeatedValueVector;
  * subclasses are generated for each repeated value vector type.
  */
 
-public abstract class AbstractArrayReader implements ArrayReader {
+public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
 
   /**
    * Object representation of an array reader.
@@ -80,6 +82,9 @@ public abstract class AbstractArrayReader implements ArrayReader {
     public void reposition() {
       arrayReader.reposition();
     }
+
+    @Override
+    protected ReaderEvents events() { return arrayReader; }
   }
 
   /**
@@ -175,21 +180,34 @@ public abstract class AbstractArrayReader implements ArrayReader {
     }
   }
 
-  private final Accessor accessor;
-  private final VectorAccessor vectorAccessor;
+  private Accessor accessor;
+  private VectorAccessor vectorAccessor;
   protected ColumnReaderIndex baseIndex;
   protected ElementReaderIndex elementIndex;
+  protected NullStateReader nullStateReader;
 
-  public AbstractArrayReader(RepeatedValueVector vector) {
-    accessor = vector.getOffsetVector().getAccessor();
-    vectorAccessor = null;
+  @Override
+  public void bindVector(ValueVector vector) {
+    accessor = ((RepeatedValueVector) vector).getOffsetVector().getAccessor();
   }
 
-  public AbstractArrayReader(VectorAccessor vectorAccessor) {
-    accessor = null;
-    this.vectorAccessor = vectorAccessor;
+  @Override
+  public void bindVectorAccessor(MajorType majorType, VectorAccessor va) {
+    vectorAccessor = va;
   }
 
+  @Override
+  public void bindNullState(NullStateReader nullStateReader) {
+    this.nullStateReader = nullStateReader;
+  }
+
+  @Override
+  public NullStateReader nullStateReader() { return nullStateReader; }
+
+  @Override
+  public boolean isNull() { return nullStateReader.isNull(); }
+
+  @Override
   public void bindIndex(ColumnReaderIndex index) {
     baseIndex = index;
     if (vectorAccessor != null) {

@@ -20,11 +20,14 @@ package org.apache.drill.exec.vector.accessor.reader;
 import java.math.BigDecimal;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.exec.vector.NullableVector;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.impl.AccessorUtilities;
+import org.apache.drill.exec.vector.accessor.reader.NullStateReader.BitsVectorStateReader;
 import org.joda.time.Period;
 
 /**
@@ -34,7 +37,7 @@ import org.joda.time.Period;
  * method(s).
  */
 
-public abstract class BaseScalarReader implements ScalarReader {
+public abstract class BaseScalarReader implements ScalarReader, ReaderEvents {
 
   public static class ScalarObjectReader extends AbstractObjectReader {
 
@@ -68,33 +71,76 @@ public abstract class BaseScalarReader implements ScalarReader {
     public String getAsString() {
       return scalarReader.getAsString();
     }
+
+    @Override
+    protected ReaderEvents events() { return scalarReader; }
   }
 
   protected ColumnReaderIndex vectorIndex;
   protected VectorAccessor vectorAccessor;
+  protected NullStateReader nullStateReader;
 
-  public static ScalarObjectReader build(ValueVector vector, BaseScalarReader reader) {
+  public static ScalarObjectReader buildNullable(ValueVector vector, BaseScalarReader reader) {
     reader.bindVector(vector);
+    UInt1ColumnReader bitsReader = new UInt1ColumnReader();
+    bitsReader.bindVector(((NullableVector) vector).getBitsVector());
+    bitsReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+    BitsVectorStateReader nullReader = new BitsVectorStateReader(bitsReader);
+    reader.bindNullState(nullReader);
     return new ScalarObjectReader(reader);
   }
 
-  public static AbstractObjectReader build(MajorType majorType, VectorAccessor va,
-                                           BaseScalarReader reader) {
-    reader.bindVector(majorType, va);
+  public static ScalarObjectReader buildRequired(ValueVector vector, BaseScalarReader reader) {
+    reader.bindVector(vector);
+    reader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
     return new ScalarObjectReader(reader);
   }
 
-  public abstract void bindVector(ValueVector vector);
+  public static AbstractObjectReader buildHyperNullable(
+      MajorType majorType, VectorAccessor va,
+      BaseScalarReader reader) {
+    reader.bindVectorAccessor(majorType, va);
+    UInt1ColumnReader bitsReader = new UInt1ColumnReader();
+    bitsReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+    BitsVectorStateReader nullReader = new BitsVectorStateReader(bitsReader);
+    reader.bindNullState(nullReader);
+    return new ScalarObjectReader(reader);
+  }
 
-  protected void bindIndex(ColumnReaderIndex rowIndex) {
+  public static AbstractObjectReader buildHyperRequired(
+      MajorType majorType, VectorAccessor va,
+      BaseScalarReader reader) {
+    reader.bindVectorAccessor(majorType, va);
+    reader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+    return new ScalarObjectReader(reader);
+  }
+
+  @Override
+  public void bindNullState(NullStateReader nullStateReader) {
+    this.nullStateReader = nullStateReader;
+  }
+
+  @Override
+  public NullStateReader nullStateReader() { return nullStateReader; }
+
+  @Override
+  public void bindIndex(ColumnReaderIndex rowIndex) {
     this.vectorIndex = rowIndex;
     if (vectorAccessor != null) {
       vectorAccessor.bind(rowIndex);
     }
+    nullStateReader.bindIndex(rowIndex);
   }
 
-  public void bindVector(MajorType majorType, VectorAccessor va) {
+  @Override
+  public void bindVectorAccessor(MajorType majorType, VectorAccessor va) {
     vectorAccessor = va;
+    nullStateReader.bindVectorAccessor(va);
+  }
+
+  @Override
+  public boolean isNull() {
+    return nullStateReader.isNull();
   }
 
   @Override
@@ -145,11 +191,6 @@ public abstract class BaseScalarReader implements ScalarReader {
     default:
       throw new IllegalArgumentException("Unsupported type " + valueType());
     }
-  }
-
-  @Override
-  public boolean isNull() {
-    return false;
   }
 
   @Override

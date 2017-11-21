@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarElementReader;
@@ -30,7 +29,7 @@ import org.apache.drill.exec.vector.accessor.impl.AccessorUtilities;
 import org.apache.drill.exec.vector.accessor.reader.AbstractArrayReader.ElementReaderIndex;
 import org.joda.time.Period;
 
-public abstract class BaseElementReader implements ScalarElementReader {
+public abstract class BaseElementReader implements ScalarElementReader, ReaderEvents {
 
   public static class ScalarElementObjectReader extends AbstractObjectReader {
 
@@ -42,7 +41,7 @@ public abstract class BaseElementReader implements ScalarElementReader {
 
     @Override
     public void bindIndex(ColumnReaderIndex index) {
-      elementReader.bindIndex((ElementReaderIndex) index);
+      elementReader.bindIndex(index);
     }
 
     @Override
@@ -81,23 +80,42 @@ public abstract class BaseElementReader implements ScalarElementReader {
       buf.append("]");
       return buf.toString();
     }
+
+    @Override
+    protected ReaderEvents events() { return elementReader; }
   }
 
   protected ElementReaderIndex vectorIndex;
   protected VectorAccessor vectorAccessor;
+  protected NullStateReader nullStateReader;
 
-  public abstract void bindVector(ValueVector vector);
-
-  public void bindVector(MajorType majorType, VectorAccessor va) {
+  @Override
+  public void bindVectorAccessor(MajorType majorType, VectorAccessor va) {
     vectorAccessor = va;
+    nullStateReader.bindVectorAccessor(va);
   }
 
-  protected void bindIndex(ElementReaderIndex rowIndex) {
-    this.vectorIndex = rowIndex;
+  @Override
+  public void bindNullState(NullStateReader nullStateReader) {
+    this.nullStateReader = nullStateReader;
+  }
+
+  @Override
+  public NullStateReader nullStateReader() { return nullStateReader; }
+
+  @Override
+  public void bindIndex(ColumnReaderIndex rowIndex) {
+    this.vectorIndex = (ElementReaderIndex) rowIndex;
+    nullStateReader.bindIndex(rowIndex);
   }
 
   @Override
   public int size() { return vectorIndex.size(); }
+
+  @Override
+  public boolean isNull(int index) {
+    return nullStateReader.isNull();
+  }
 
   @Override
   public Object getObject(int index) {
@@ -144,11 +162,6 @@ public abstract class BaseElementReader implements ScalarElementReader {
     default:
       throw new IllegalArgumentException("Unsupported type " + valueType());
     }
-  }
-
-  @Override
-  public boolean isNull(int index) {
-    return false;
   }
 
   @Override

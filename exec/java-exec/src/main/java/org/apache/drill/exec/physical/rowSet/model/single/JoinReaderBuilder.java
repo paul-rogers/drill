@@ -131,7 +131,7 @@ public class JoinReaderBuilder extends BaseReaderBuilder {
     AbstractObjectReader mapReader = MapReader.build(
         mdProvider.tuple(), readers);
     if (type.getMode() == DataMode.REPEATED) {
-      implicitTable.reader = ObjectArrayReader.build((RepeatedMapVector) vector, mapReader);
+      implicitTable.reader = ObjectArrayReader.buildSingle((RepeatedMapVector) vector, mapReader);
     } else {
       implicitTable.reader = mapReader;
     }

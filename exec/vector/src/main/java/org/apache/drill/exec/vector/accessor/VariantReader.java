@@ -40,8 +40,6 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 
 public interface VariantReader {
 
-  ObjectType valueType();
-
   /**
    * Determine if a given type is supported by the union vector
    * for some value in the result set.

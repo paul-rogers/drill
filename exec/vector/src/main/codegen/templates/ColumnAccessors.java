@@ -49,8 +49,8 @@
 
   <#if drillType = "Decimal9" || drillType == "Decimal18">
     @Override
-    public void bindVector(MajorType type, VectorAccessor va) {
-      super.bindVector(type, va);
+    public void bindVectorAccessor(MajorType type, VectorAccessor va) {
+      super.bindVectorAccessor(type, va);
       this.type = type;
     }
 
@@ -201,11 +201,6 @@ public class ColumnAccessors {
     <@bindReader "Nullable" drillType false />
 
     <@getType drillType label />
-
-    @Override
-    public boolean isNull() {
-      return accessor().isNull(vectorIndex.vectorIndex());
-    }
 
     <@get drillType accessorType label false />
   }
@@ -479,6 +474,12 @@ public class ColumnAccessorUtils {
     </#if>
 </#list>
 </#list>
+<#-- Note inconsistency in naming. Also, MAP and LIST do not appear
+     in the minor type list, so we have to special-case them. -->
+    case MAP:
+      return unionVector.getMap();
+    case LIST:
+      return unionVector.getList();
     default:
       throw new UnsupportedOperationException(type.toString());
     }

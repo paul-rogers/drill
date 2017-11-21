@@ -67,6 +67,30 @@ public interface ArrayWriter {
   int size();
 
   /**
+   * For lists only, indicate if an empty array is null or
+   * not. Unlike repeated types, a list entry defaults to null
+   * (as with all other nullable types). Must set the entry to
+   * not null if the entry is a zero-length entry instead of null.
+   * <p>
+   * For compatibility with normal repeated types, the client can
+   * call <tt>setNull(false)</tt> for repeated vectors, but a call
+   * to <tt>setNull(true)</tt> will be ignored.
+   * <p>
+   * A list row automatically becomes non-null once it contains at
+   * least one entry. Repeated vector rows are always not-null. Calling
+   * <tt>setNull(false)</tt> in those cases is a no-op.
+   * <p>
+   * Calling <tt>setNull(true)</tt> once the array contains an item
+   * will raise an error.
+   *
+   * @param isNull <tt>true</tt> (default) if this empty row is to
+   * be considered null, <tt>false</tt> if this empty row is to
+   * be considered empty (or if this is a non-empty row)
+   */
+
+  void setNull(boolean isNull);
+
+  /**
    * The object type of the list entry. All entries have the same
    * type.
    * @return the object type of each entry

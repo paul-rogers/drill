@@ -59,11 +59,11 @@ public class ColumnReaderFactory {
     default:
       switch (mode) {
       case OPTIONAL:
-        return BaseScalarReader.build(vector, newAccessor(type, nullableReaders));
+        return BaseScalarReader.buildNullable(vector, newAccessor(type, nullableReaders));
       case REQUIRED:
-        return BaseScalarReader.build(vector, newAccessor(type, requiredReaders));
+        return BaseScalarReader.buildRequired(vector, newAccessor(type, requiredReaders));
       case REPEATED:
-        return ScalarArrayReader.build((RepeatedValueVector) vector, newAccessor(type, elementReaders));
+        return ScalarArrayReader.buildRepeated((RepeatedValueVector) vector, newAccessor(type, elementReaders));
       default:
         throw new UnsupportedOperationException(mode.toString());
       }
@@ -84,11 +84,11 @@ public class ColumnReaderFactory {
     default:
       switch (mode) {
       case OPTIONAL:
-        return BaseScalarReader.build(majorType, va, newAccessor(type, nullableReaders));
+        return BaseScalarReader.buildHyperNullable(majorType, va, newAccessor(type, nullableReaders));
       case REQUIRED:
-        return BaseScalarReader.build(majorType, va, newAccessor(type, requiredReaders));
+        return BaseScalarReader.buildHyperRequired(majorType, va, newAccessor(type, requiredReaders));
       case REPEATED:
-        return ScalarArrayReader.build(majorType, va, newAccessor(type, elementReaders));
+        return ScalarArrayReader.buildHyperRepeated(majorType, va, newAccessor(type, elementReaders));
       default:
         throw new UnsupportedOperationException(mode.toString());
       }

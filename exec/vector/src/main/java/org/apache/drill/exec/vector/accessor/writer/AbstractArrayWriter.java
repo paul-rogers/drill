@@ -185,6 +185,10 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     }
   }
 
+  public interface NullStateWriter {
+    void setNull(boolean isNull);
+  }
+
   public static abstract class BaseArrayWriter extends AbstractArrayWriter {
 
     public BaseArrayWriter(UInt4Vector offsetVector, AbstractObjectWriter elementObjWriter) {
@@ -278,6 +282,7 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   protected final OffsetVectorWriter offsetsWriter;
   protected ColumnWriterIndex outerIndex;
   protected ArrayElementWriterIndex elementIndex;
+  protected NullStateWriter nullStateWriter;
 
   public AbstractArrayWriter(AbstractObjectWriter elementObjWriter, OffsetVectorWriter offsetVectorWriter) {
     this.elementObjWriter = elementObjWriter;
@@ -316,8 +321,12 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   public int size() { return elementIndex.arraySize(); }
 
   @Override
-  public ColumnWriterIndex writerIndex() { return outerIndex; }
+  public void setNull(boolean isNull) {
+    nullStateWriter.setNull(isNull);
+  }
 
+  @Override
+  public ColumnWriterIndex writerIndex() { return outerIndex; }
 
   public void bindListener(ColumnWriterListener listener) {
     elementObjWriter.bindListener(listener);

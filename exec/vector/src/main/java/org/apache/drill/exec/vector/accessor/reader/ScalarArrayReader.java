@@ -30,28 +30,29 @@ public class ScalarArrayReader extends AbstractArrayReader {
 
   private final BaseElementReader elementReader;
 
-  private ScalarArrayReader(RepeatedValueVector vector,
-                           BaseElementReader elementReader) {
-    super(vector);
+  private ScalarArrayReader(BaseElementReader elementReader) {
     this.elementReader = elementReader;
   }
 
-  private ScalarArrayReader(VectorAccessor va,
-                            BaseElementReader elementReader) {
-    super(va);
-    this.elementReader = elementReader;
-  }
-
-  public static ArrayObjectReader build(RepeatedValueVector vector,
+  public static ArrayObjectReader buildRepeated(RepeatedValueVector vector,
                                         BaseElementReader elementReader) {
     elementReader.bindVector(vector.getDataVector());
-    return new ArrayObjectReader(new ScalarArrayReader(vector, elementReader));
+    elementReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+    ScalarArrayReader arrayReader = new ScalarArrayReader(elementReader);
+    arrayReader.bindVector(vector);
+    arrayReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+    return new ArrayObjectReader(arrayReader);
   }
 
-  public static ArrayObjectReader build(MajorType majorType, VectorAccessor va,
-                                        BaseElementReader elementReader) {
-    elementReader.bindVector(majorType, va);
-    return new ArrayObjectReader(new ScalarArrayReader(va, elementReader));
+  public static ArrayObjectReader buildHyperRepeated(
+      MajorType majorType, VectorAccessor va,
+      BaseElementReader elementReader) {
+    elementReader.bindVectorAccessor(majorType, va);
+    elementReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+    ScalarArrayReader arrayReader = new ScalarArrayReader(elementReader);
+    arrayReader.bindVectorAccessor(null, va);
+    arrayReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+    return new ArrayObjectReader(arrayReader);
   }
 
   @Override

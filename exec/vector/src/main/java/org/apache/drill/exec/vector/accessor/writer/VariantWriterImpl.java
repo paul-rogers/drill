@@ -71,6 +71,7 @@ public class VariantWriterImpl implements VariantWriter, WriterEvents {
     @Override
     public ObjectWriter addType(MinorType type) {
       ValueVector memberVector = ColumnAccessorUtils.getUnionMember(vector, type);
+      schema.variantSchema().addType(type);
       schema.variantSchema().replaceSchema(vector.getField());
       ColumnMetadata memberSchema = schema.variantSchema().member(type);
       return ColumnWriterFactory.buildColumnWriter(memberSchema, memberVector);
@@ -80,21 +81,21 @@ public class VariantWriterImpl implements VariantWriter, WriterEvents {
   private final UnionVector vector;
   private final ColumnMetadata schema;
   private final BaseScalarWriter typeWriter;
-  private final AbstractObjectWriter variants[] = new AbstractObjectWriter[MinorType.values().length];
+  private final AbstractObjectWriter variants[];
   private ColumnWriterIndex index;
-  private ObjectType objectType;
   protected State state = State.IDLE;
   private VariantWriterListener listener;
 
-  public VariantWriterImpl(UnionVector vector, ColumnMetadata schema) {
+  public VariantWriterImpl(UnionVector vector, ColumnMetadata schema,
+      AbstractObjectWriter variants[]) {
     this.vector = vector;
     this.schema = schema;
+    this.variants = variants;
     typeWriter = ColumnWriterFactory.newWriter(vector.getTypeVector());
   }
 
-  @Override
-  public ObjectType valueType() {
-    return objectType;
+  public VariantWriterImpl(UnionVector vector, ColumnMetadata schema) {
+    this(vector, schema, new AbstractObjectWriter[MinorType.values().length]);
   }
 
   @Override
@@ -122,24 +123,6 @@ public class VariantWriterImpl implements VariantWriter, WriterEvents {
     AbstractObjectWriter writer = variants[type.ordinal()];
     if (writer != null) {
       return writer;
-    }
-    ObjectType targetType;
-    switch (type) {
-    case MAP:
-      targetType = ObjectType.TUPLE;
-      break;
-    case LIST:
-      targetType = ObjectType.ARRAY;
-      break;
-    case UNION:
-      throw new UnsupportedOperationException();
-    default:
-      targetType = ObjectType.SCALAR;
-    }
-    if (objectType == null) {
-      objectType = targetType;
-    } else if (objectType != targetType) {
-      throw new UnsupportedOperationException();
     }
 
     if (listener == null) {

@@ -37,32 +37,24 @@ public class ObjectArrayReader extends AbstractArrayReader {
 
   private final AbstractObjectReader elementReader;
 
-  private ObjectArrayReader(RepeatedValueVector vector, AbstractObjectReader elementReader) {
-    super(vector);
+  protected ObjectArrayReader(AbstractObjectReader elementReader) {
     this.elementReader = elementReader;
   }
 
-  private ObjectArrayReader(VectorAccessor vectorAccessor, AbstractObjectReader elementReader) {
-    super(vectorAccessor);
-    this.elementReader = elementReader;
-  }
-
-  public static ArrayObjectReader build(RepeatedValueVector vector,
-                                        AbstractObjectReader elementReader) {
-    return new ArrayObjectReader(
-        new ObjectArrayReader(vector, elementReader));
-  }
-
-  public static ArrayObjectReader buildTable(RepeatedValueVector vector,
+  public static ArrayObjectReader buildSingle(RepeatedValueVector vector,
       AbstractObjectReader elementReader) {
-    return new ArrayObjectReader(
-            new ObjectArrayReader(vector, elementReader));
+    ObjectArrayReader arrayReader = new ObjectArrayReader(elementReader);
+    arrayReader.bindVector(vector);
+    arrayReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+    return new ArrayObjectReader(arrayReader);
   }
 
-  public static AbstractObjectReader build(VectorAccessor vectorAccessor,
-                                           AbstractObjectReader elementReader) {
-    return new ArrayObjectReader(
-        new ObjectArrayReader(vectorAccessor, elementReader));
+  public static ArrayObjectReader buildHyper(VectorAccessor va,
+      AbstractObjectReader elementReader) {
+    ObjectArrayReader arrayReader = new ObjectArrayReader(elementReader);
+    arrayReader.bindVectorAccessor(null, va);
+    arrayReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+    return new ArrayObjectReader(arrayReader);
   }
 
   @Override

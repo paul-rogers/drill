@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
+import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 
 /**
@@ -55,16 +56,6 @@ public interface VariantWriter {
   }
 
   void bindListener(VariantWriterListener listener);
-
-  /**
-   * Returns the inferred type of this variant. Valid only after the
-   * value is known: either from context (for maps and lists) or after
-   * a value is written (for scalars)
-   *
-   * @return the type of this variant as an object type
-   */
-
-  ObjectType valueType();
 
   /**
    * Determine if the union vector has materialized storage for the

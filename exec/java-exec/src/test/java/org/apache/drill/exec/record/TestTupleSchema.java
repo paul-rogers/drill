@@ -72,7 +72,6 @@ public class TestTupleSchema extends SubOperatorTest {
     assertFalse(col.isArray());
     assertFalse(col.isVariableWidth());
     assertFalse(col.isMap());
-    assertFalse(col.isList());
     assertTrue(col.isEquivalent(col));
 
     ColumnMetadata col2 = TupleSchema.fromField(field);
@@ -113,7 +112,6 @@ public class TestTupleSchema extends SubOperatorTest {
     assertFalse(col.isArray());
     assertFalse(col.isVariableWidth());
     assertFalse(col.isMap());
-    assertFalse(col.isList());
 
     assertEquals(4, col.expectedWidth());
     col.setExpectedWidth(10);
@@ -134,7 +132,6 @@ public class TestTupleSchema extends SubOperatorTest {
     assertTrue(col.isArray());
     assertFalse(col.isVariableWidth());
     assertFalse(col.isMap());
-    assertFalse(col.isList());
 
     assertEquals(4, col.expectedWidth());
     col.setExpectedWidth(10);
@@ -161,7 +158,6 @@ public class TestTupleSchema extends SubOperatorTest {
     assertFalse(col.isArray());
     assertTrue(col.isVariableWidth());
     assertFalse(col.isMap());
-    assertFalse(col.isList());
 
     // A different precision is a different type.
 
@@ -197,7 +193,6 @@ public class TestTupleSchema extends SubOperatorTest {
     assertFalse(col.isArray());
     assertTrue(col.isVariableWidth());
     assertFalse(col.isMap());
-    assertFalse(col.isList());
 
     assertEquals(50, col.expectedWidth());
     col.setExpectedWidth(10);
@@ -218,7 +213,6 @@ public class TestTupleSchema extends SubOperatorTest {
     assertTrue(col.isArray());
     assertTrue(col.isVariableWidth());
     assertFalse(col.isMap());
-    assertFalse(col.isList());
 
     assertEquals(50, col.expectedWidth());
     col.setExpectedWidth(10);
@@ -254,7 +248,6 @@ public class TestTupleSchema extends SubOperatorTest {
     assertFalse(col.isArray());
     assertFalse(col.isVariableWidth());
     assertTrue(col.isMap());
-    assertFalse(col.isList());
 
     assertEquals(0, col.expectedWidth());
     col.setExpectedWidth(10);
@@ -279,7 +272,6 @@ public class TestTupleSchema extends SubOperatorTest {
     assertTrue(col.isArray());
     assertFalse(col.isVariableWidth());
     assertTrue(col.isMap());
-    assertFalse(col.isList());
 
     assertEquals(0, col.expectedWidth());
     col.setExpectedWidth(10);

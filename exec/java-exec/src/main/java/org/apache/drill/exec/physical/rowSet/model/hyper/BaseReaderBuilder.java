@@ -122,7 +122,7 @@ public abstract class BaseReaderBuilder {
 
   private AbstractObjectReader buildMapArrayReader(HyperVectorWrapper<? extends AbstractMapVector> vectors, VectorDescrip descrip) {
     AbstractObjectReader mapReader = MapReader.build(descrip.metadata.mapSchema(), buildMap(vectors, descrip));
-    return ObjectArrayReader.build(new HyperVectorAccessor(vectors), mapReader);
+    return ObjectArrayReader.buildHyper(new HyperVectorAccessor(vectors), mapReader);
   }
 
   private AbstractObjectReader buildMapReader(HyperVectorWrapper<? extends AbstractMapVector> vectors, VectorDescrip descrip) {

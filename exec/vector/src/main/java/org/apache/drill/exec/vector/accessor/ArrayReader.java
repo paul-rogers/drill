@@ -50,6 +50,18 @@ public interface ArrayReader {
   ObjectType entryType();
 
   /**
+   * For lists, determine if the list for the current row is null.
+   * In a list, an array entry can be null, empty, or can contain
+   * items. In repeated types, the array itself is never null.
+   * If the array is null, then it implicitly has no entries.
+   *
+   * @return <tt>true</tt> if this is a list and the list for the
+   * current row is null; <tt>false</tt> otherwise
+   */
+
+  boolean isNull();
+
+  /**
    * Return a reader for the elements of a scalar array.
    * @return reader for scalar elements
    */
