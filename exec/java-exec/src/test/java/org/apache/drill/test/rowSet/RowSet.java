@@ -77,54 +77,6 @@ import org.apache.parquet.column.ColumnWriter;
 
 public interface RowSet {
 
-  /**
-   * Interface for writing values to a row set. Only available
-   * for newly-created, single, direct row sets. Eventually, if
-   * we want to allow updating a row set, we have to create a
-   * new row set with the updated columns, then merge the new
-   * and old row sets to create a new immutable row set.
-   */
-  interface RowSetWriter extends TupleWriter {
-    void setRow(Object...values);
-    boolean valid();
-    int index();
-    void save();
-    void done();
-  }
-
-  /**
-   * Reader for all types of row sets.
-   */
-  interface RowSetReader extends TupleReader {
-
-    /**
-     * Total number of rows in the row set.
-     * @return total number of rows
-     */
-    int size();
-
-    boolean next();
-    int index();
-    void set(int index);
-
-    /**
-     * Batch index: 0 for a single batch, batch for the current
-     * row is a hyper-batch.
-     * @return index of the batch for the current row
-     */
-    int batchIndex();
-
-    /**
-     * The index of the underlying row which may be indexed by an
-     * Sv2 or Sv4.
-     *
-     * @return
-     */
-
-    int rowIndex();
-    boolean valid();
-  }
-
   boolean isExtendable();
 
   boolean isWritable();
@@ -154,6 +106,7 @@ public interface RowSet {
    *
    * @return memory size in bytes
    */
+
   long size();
 
   BatchSchema batchSchema();
@@ -172,6 +125,7 @@ public interface RowSet {
    * Once writing is complete, the row set becomes an
    * immutable direct row set.
    */
+
   interface ExtendableRowSet extends SingleRowSet {
     void allocate(int recordCount);
     RowSetWriter writer();
@@ -182,6 +136,7 @@ public interface RowSet {
    * Row set comprised of multiple single row sets, along with
    * an indirection vector (SV4).
    */
+
   interface HyperRowSet extends RowSet {
     SelectionVector4 getSv4();
   }
