@@ -78,6 +78,8 @@ public class ListReaderImpl extends ObjectArrayReader {
     private final UInt1ColumnReader bitsReader;
     private final NullStateReader nullStateReader;
     private final ReaderEvents elementReader;
+    private ListVector listVector;
+    private VectorAccessor vectorAccessor;
     private ColumnReaderIndex baseIndex;
     private ElementReaderIndex elementIndex;
 
@@ -89,12 +91,13 @@ public class ListReaderImpl extends ObjectArrayReader {
     }
 
     public void bindVector(ValueVector vector) {
-      ListVector listVector = (ListVector) vector;
+      listVector = (ListVector) vector;
       bitsReader.bindVector(listVector.getBitsVector());
       rebindMemberNullState();
     }
 
     public void bindVectorAccessor(VectorAccessor va) {
+      vectorAccessor = va;
       bitsReader.bindVectorAccessor(null, va);
       nullStateReader.bindVectorAccessor(va);
       rebindMemberNullState();
@@ -126,12 +129,17 @@ public class ListReaderImpl extends ObjectArrayReader {
       return bitsReader.getInt() == 0;
     }
 
-    public void reposition() {
+    private ListVector vector() {
+      if (listVector != null) {
+        return listVector;
+      } else {
+        return (ListVector) vectorAccessor.vector();
+      }
+    }
 
-      // All F***ed up: how to get the offset?
-      // How to get the vector?
+    public void reposition() {
       final int index = baseIndex.vectorIndex();
-      final Accessor curAccesssor = accessor();
+      final Accessor curAccesssor = vector().getOffsetVector().getAccessor();
       final int startPosn = curAccesssor.get(index);
       elementIndex.reset(startPosn, curAccesssor.get(index + 1) - startPosn);
     }

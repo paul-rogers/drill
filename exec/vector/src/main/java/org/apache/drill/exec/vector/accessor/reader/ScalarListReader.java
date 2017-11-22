@@ -57,7 +57,7 @@ public class ScalarListReader extends ScalarArrayReader {
 
     @Override
     public ValueVector vector() {
-      ((ListVector) listAccessor.vector()).getDataVector();
+      return ((ListVector) listAccessor.vector()).getDataVector();
     }
 
   }
@@ -103,6 +103,10 @@ public class ScalarListReader extends ScalarArrayReader {
     public void bindIndex(ColumnReaderIndex rowIndex) {
       super.bindIndex(rowIndex);
       baseReader.bindIndex(rowIndex);
+    }
+
+    private void setPosn(int index) {
+      readerIndex.setPosn(vectorIndex.vectorIndex(index));
     }
 
     @Override

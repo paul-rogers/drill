@@ -105,7 +105,7 @@ public abstract class BaseElementReader implements ScalarElementReader, ReaderEv
 
   @Override
   public void bindIndex(ColumnReaderIndex rowIndex) {
-    this.vectorIndex = (ElementReaderIndex) rowIndex;
+    vectorIndex = (ElementReaderIndex) rowIndex;
     nullStateReader.bindIndex(rowIndex);
   }
 
