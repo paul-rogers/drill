@@ -35,7 +35,7 @@ public class ObjectArrayReader extends AbstractArrayReader {
    * Reader for each element.
    */
 
-  private final AbstractObjectReader elementReader;
+  protected final AbstractObjectReader elementReader;
 
   protected ObjectArrayReader(AbstractObjectReader elementReader) {
     this.elementReader = elementReader;

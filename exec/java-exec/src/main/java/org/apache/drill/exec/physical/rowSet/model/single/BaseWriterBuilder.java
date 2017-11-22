@@ -29,6 +29,7 @@ import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
+import org.apache.drill.exec.vector.complex.ListVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
 /**
@@ -60,8 +61,7 @@ public abstract class BaseWriterBuilder {
       return buildUnion((UnionVector) vector, descrip);
 
     case LIST:
-      // Do something
-      assert false;
+      return buildList((ListVector) vector, descrip);
 
     default:
       return ColumnWriterFactory.buildColumnWriter(descrip.metadata, vector);
@@ -99,4 +99,12 @@ public abstract class BaseWriterBuilder {
     return ColumnWriterFactory.buildUnionWriter(descrip.metadata, vector, variants);
   }
 
+  @SuppressWarnings("resource")
+  private AbstractObjectWriter buildList(ListVector vector,
+      VectorDescrip descrip) {
+    ValueVector dataVector = vector.getDataVector();
+    VectorDescrip dataMetadata = new VectorDescrip(descrip.childProvider(), 0, dataVector.getField());
+    AbstractObjectWriter dataWriter = buildVectorWriter(dataVector, dataMetadata);
+    return ColumnWriterFactory.buildListWriter(descrip.metadata, vector, dataWriter);
+  }
 }

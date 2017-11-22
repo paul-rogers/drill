@@ -18,12 +18,13 @@
 package org.apache.drill.exec.vector.accessor.reader;
 
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
-import org.apache.drill.exec.record.ColumnMetadata.StructureType;
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.UInt4Vector.Accessor;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnReader;
-import org.apache.drill.exec.vector.accessor.reader.AbstractArrayReader.ArrayObjectReader;
-import org.apache.drill.exec.vector.accessor.reader.AbstractArrayReader.ElementReaderIndex;
+import org.apache.drill.exec.vector.accessor.reader.NullStateReader.BitsVectorStateReader;
+import org.apache.drill.exec.vector.accessor.reader.UnionReaderImpl.MemberNullStateReader;
 import org.apache.drill.exec.vector.complex.ListVector;
-import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
  * The list vector is a complex, somewhat ad-hoc structure. It can
@@ -46,7 +47,7 @@ import org.apache.drill.exec.vector.complex.RepeatedValueVector;
  * existing code does, in fact, follow that convention.)
  */
 
-public abstract class ListReaderImpl extends ObjectArrayReader {
+public class ListReaderImpl extends ObjectArrayReader {
 
   /**
    * List implementation for a list with a single type. Clients can treat
@@ -54,55 +55,116 @@ public abstract class ListReaderImpl extends ObjectArrayReader {
    * addition of a per-element null flag.
    */
 
-  public static class SimpleListReader extends ListReaderImpl {
+  public static class ScalarListReader extends ListReaderImpl {
 
-    private SimpleListReader(ListVector vector, AbstractObjectReader elementReader) {
+    private SimpleListReader(ListVector vector, BaseElementReader elements) {
       super(vector, elementReader);
     }
   }
 
-  /**
-   * List implementation for a list with multiple types. The list is
-   * presented as an array of unions.
-   */
+//  /**
+//   * List implementation for a list with multiple types. The list is
+//   * presented as an array of unions.
+//   */
+//
+//  public static class UnionListReader extends ListReaderImpl {
+//
+//    private UnionListReader(ListVector vector, AbstractObjectReader elementReader) {
+//      super(vector, elementReader);
+//    }
+//  }
 
-  public static class UnionListReader extends ListReaderImpl {
+  public static class ListWrapper {
+    private final UInt1ColumnReader bitsReader;
+    private final NullStateReader nullStateReader;
+    private final ReaderEvents elementReader;
+    private ColumnReaderIndex baseIndex;
+    private ElementReaderIndex elementIndex;
 
-    private UnionListReader(ListVector vector, AbstractObjectReader elementReader) {
-      super(vector, elementReader);
+    public ListWrapper(ReaderEvents elementReader) {
+      bitsReader = new UInt1ColumnReader();
+      bitsReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+      nullStateReader = new BitsVectorStateReader(bitsReader);
+      this.elementReader = elementReader;
     }
 
+    public void bindVector(ValueVector vector) {
+      ListVector listVector = (ListVector) vector;
+      bitsReader.bindVector(listVector.getBitsVector());
+      rebindMemberNullState();
+    }
+
+    public void bindVectorAccessor(VectorAccessor va) {
+      bitsReader.bindVectorAccessor(null, va);
+      nullStateReader.bindVectorAccessor(va);
+      rebindMemberNullState();
+    }
+
+    /**
+     * Replace the null state reader in the child with one
+     * that does a check of the list's null state as well
+     * as the element's null state. Required because lists have a null vector,
+     * as does the union in the list, as do the members of the union.
+     * Yes, a bit of a mess.
+     */
+
+    private void rebindMemberNullState() {
+      elementReader.bindNullState(
+          new MemberNullStateReader(nullStateReader,
+              elementReader.nullStateReader()));
+    }
+
+    public void bindIndex(ColumnReaderIndex elementIndex) {
+      bitsReader.bindIndex(elementIndex);
+    }
+
+    public NullStateReader nullStateReader() {
+      return nullStateReader;
+    }
+
+    public boolean isNull() {
+      return bitsReader.getInt() == 0;
+    }
+
+    public void reposition() {
+
+      // All F***ed up: how to get the offset?
+      // How to get the vector?
+      final int index = baseIndex.vectorIndex();
+      final Accessor curAccesssor = accessor();
+      final int startPosn = curAccesssor.get(index);
+      elementIndex.reset(startPosn, curAccesssor.get(index + 1) - startPosn);
+    }
   }
 
-  private final ListVector listVector;
-  private final UInt1ColumnReader bitsReader;
+  private final ListWrapper listWrapper;
 
-  private ListReaderImpl(ListVector vector, AbstractObjectReader elementReader) {
-    super(vector, elementReader);
-    listVector = vector;
-    bitsReader = new UInt1ColumnReader(vector.getBitsVector());
+  private ListReaderImpl(AbstractObjectReader elementReader) {
+    super(elementReader);
+    listWrapper = new ListWrapper(elementReader.events());
+    nullStateReader = listWrapper.nullStateReader;
   }
 
   public static ArrayObjectReader build(ListVector vector,
       AbstractObjectReader elementReader) {
-    ListReaderImpl listReader;
-    if (elementReader.type() == ObjectType.VARIANT) {
-      listReader = new UnionListReader(vector, elementReader);
-    } else {
-      listReader = new SimpleListReader(vector, elementReader);
-    }
+    ListReaderImpl listReader = new ListReaderImpl(elementReader);
+    listReader.bindVector(vector);
     return new ArrayObjectReader(listReader);
+  }
+
+  @Override
+  public void bindVector(ValueVector vector) {
+    listWrapper.bindVector(vector);
+  }
+
+  @Override
+  public void bindVectorAccessor(MajorType majorType, VectorAccessor va) {
+    listWrapper.bindVectorAccessor(va);
   }
 
   @Override
   public void bindIndex(ColumnReaderIndex index) {
     super.bindIndex(index);
-    bitsReader.bindIndex(elementIndex);
+    listWrapper.bindIndex(elementIndex);
   }
-
-  @Override
-  public boolean isNull() {
-    return bitsReader.getInt() == 0;
-  }
-
 }

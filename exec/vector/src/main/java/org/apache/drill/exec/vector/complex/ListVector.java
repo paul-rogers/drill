@@ -97,9 +97,9 @@ public class ListVector extends BaseRepeatedValueVector {
   }
 
   @Override
-  public ValueVector getDataVector() {
-    return vector;
-  }
+  public ValueVector getDataVector() { return vector; }
+
+  public ValueVector getBitsVector() { return bits; }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {

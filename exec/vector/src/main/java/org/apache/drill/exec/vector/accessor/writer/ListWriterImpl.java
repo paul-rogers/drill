@@ -18,85 +18,88 @@
 package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
+import org.apache.drill.exec.vector.accessor.ObjectType;
+import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnWriter;
+import org.apache.drill.exec.vector.complex.ListVector;
 
-public class ListWriterImpl extends AbstractArrayWriter {
+public class ListWriterImpl extends ObjectArrayWriter {
 
-  @Override
-  public void save() {
-    // TODO Auto-generated method stub
+  /**
+   * For scalar arrays, incrementing the element index and
+   * committing the current value is done automatically since
+   * there is exactly one value per array element.
+   */
 
+  public class ScalarListElementWriterIndex extends ArrayElementWriterIndex {
+
+    @Override
+    public void nextElement() { next(); }
   }
 
-  @Override
-  public void set(Object... values) {
-    // TODO Auto-generated method stub
+  private final UInt1ColumnWriter isSetWriter;
 
-  }
+  public ListWriterImpl(ListVector vector, AbstractObjectWriter memberWriter) {
+    super(vector.getOffsetVector(), memberWriter);
+    isSetWriter = new UInt1ColumnWriter(vector.getBitsVector());
 
-  @Override
-  public void setObject(Object array) {
-    // TODO Auto-generated method stub
+    // If the member is a scalar, then simulate the auto-increment
+    // functionality of a scalar array.
 
+    if (memberWriter.type() == ObjectType.SCALAR) {
+      elementIndex = new ScalarListElementWriterIndex();
+    }
   }
 
   @Override
   public void bindIndex(ColumnWriterIndex index) {
-    // TODO Auto-generated method stub
-
+    super.bindIndex(index);
+    isSetWriter.bindIndex(index);
   }
 
   @Override
-  public void startWrite() {
-    // TODO Auto-generated method stub
-
-  }
-
-  @Override
-  public void startRow() {
-    // TODO Auto-generated method stub
-
-  }
-
-  @Override
-  public void endArrayValue() {
-    // TODO Auto-generated method stub
-
+  public void setNull(boolean isNull) {
+    isSetWriter.setInt(isNull ? 0 : 1);
   }
 
   @Override
   public void restartRow() {
-    // TODO Auto-generated method stub
-
-  }
-
-  @Override
-  public void saveRow() {
-    // TODO Auto-generated method stub
-
-  }
-
-  @Override
-  public void endWrite() {
-    // TODO Auto-generated method stub
-
+    super.restartRow();
+    isSetWriter.restartRow();
   }
 
   @Override
   public void preRollover() {
-    // TODO Auto-generated method stub
-
+    super.preRollover();
+    isSetWriter.preRollover();
   }
 
   @Override
   public void postRollover() {
-    // TODO Auto-generated method stub
-
+    super.postRollover();
+    isSetWriter.postRollover();
   }
 
   @Override
-  public int lastWriteIndex() {
-    // TODO Auto-generated method stub
-    return 0;
+  public void startWrite() {
+    super.startWrite();
+    isSetWriter.startWrite();
   }
 
+  @Override
+  public void endArrayValue() {
+
+    // Do the shim save first: it requires state which is reset
+    // in the super call.
+
+    if (elementIndex.arraySize() > 0) {
+      setNull(false);
+    }
+    super.endArrayValue();
+  }
+
+  @Override
+  public void endWrite() {
+    isSetWriter.endWrite();
+    super.endWrite();
+  }
 }

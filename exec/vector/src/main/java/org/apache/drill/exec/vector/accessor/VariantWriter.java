@@ -18,6 +18,7 @@
 package org.apache.drill.exec.vector.accessor;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.record.VariantMetadata;
 
 /**
  * Writer for a Drill "union vector." The union vector is presented
@@ -55,6 +56,10 @@ public interface VariantWriter {
   }
 
   void bindListener(VariantWriterListener listener);
+
+  VariantMetadata schema();
+
+  int size();
 
   /**
    * Determine if the union vector has materialized storage for the

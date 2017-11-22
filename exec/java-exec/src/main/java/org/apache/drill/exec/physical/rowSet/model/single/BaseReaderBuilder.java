@@ -60,7 +60,7 @@ public abstract class BaseReaderBuilder {
     case MAP:
       return buildMap(vector, type, descrip);
     case UNION:
-      return buildUnion((UnionVector) vector, descrip.childProvider());
+      return buildUnion((UnionVector) vector, descrip);
     case LIST:
       return buildList((ListVector) vector, descrip);
     default:
@@ -100,7 +100,8 @@ public abstract class BaseReaderBuilder {
     return readers;
   }
 
-  private AbstractObjectReader buildUnion(UnionVector vector, MetadataProvider provider) {
+  private AbstractObjectReader buildUnion(UnionVector vector, VectorDescrip descrip) {
+    MetadataProvider provider = descrip.childProvider();
     final AbstractObjectReader variants[] = new AbstractObjectReader[MinorType.values().length];
     int i = 0;
     for (MinorType type : vector.getField().getType().getSubTypeList()) {
@@ -115,21 +116,23 @@ public abstract class BaseReaderBuilder {
       VectorDescrip memberDescrip = new VectorDescrip(provider, i++, memberVector.getField());
       variants[type.ordinal()] = buildVectorReader(memberVector, memberDescrip);
     }
-    return UnionReaderImpl.buildSingle(vector, variants);
+    return UnionReaderImpl.buildSingle(descrip.metadata.variantSchema(), vector, variants);
   }
 
   @SuppressWarnings("resource")
   private AbstractObjectReader buildList(ListVector vector,
-      VectorDescrip descrip) {
+      VectorDescrip listDescrip) {
     ValueVector dataVector = vector.getDataVector();
-    AbstractObjectReader dataReader;
-    if (dataVector instanceof UnionVector) {
-      dataReader = buildUnion((UnionVector) dataVector, descrip.childProvider());
-    } else {
-      MetadataProvider childProvider = descrip.childProvider();
-      VectorDescrip childDescrip = new VectorDescrip(childProvider, 0, dataVector.getField());
-      dataReader = buildVectorReader(dataVector, childDescrip);
+    VectorDescrip dataMetadata = new VectorDescrip(listDescrip.childProvider(), 0, dataVector.getField());
+    MajorType type = dataVector.getField().getType();
+    switch(type.getMinorType()) {
+    case MAP:
+      return ListReaderImpl.build(vector, buildMap(dataVector, type, dataMetadata));
+    case UNION:
+    case LIST:
+      return ListReaderImpl.build(vector, buildUnion((UnionVector) dataVector, dataMetadata));
+    default:
+      return ColumnReaderFactory.buildScalarList(vector, dataVector);
     }
-    return ListReaderImpl.build(vector, dataReader);
   }
 }

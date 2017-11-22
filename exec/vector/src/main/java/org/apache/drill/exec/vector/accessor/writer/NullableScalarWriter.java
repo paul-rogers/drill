@@ -59,17 +59,16 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   }
 
   @Override
+  public void bindListener(ColumnWriterListener listener) {
+    baseWriter.bindListener(listener);
+  }
+
+  @Override
   public ColumnWriterIndex writerIndex() { return baseWriter.writerIndex(); }
 
   @Override
   public ValueType valueType() {
     return baseWriter.valueType();
-  }
-
-  @Override
-  public void restartRow() {
-    isSetWriter.restartRow();
-    baseWriter.restartRow();
   }
 
   @Override
@@ -126,6 +125,12 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   }
 
   @Override
+  public void restartRow() {
+    isSetWriter.restartRow();
+    baseWriter.restartRow();
+  }
+
+  @Override
   public void preRollover() {
     isSetWriter.preRollover();
     baseWriter.preRollover();
@@ -140,11 +145,6 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   @Override
   public int lastWriteIndex() {
     return baseWriter.lastWriteIndex();
-  }
-
-  @Override
-  public void bindListener(ColumnWriterListener listener) {
-    baseWriter.bindListener(listener);
   }
 
   @Override

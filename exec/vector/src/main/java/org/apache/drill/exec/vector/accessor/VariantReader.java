@@ -18,6 +18,7 @@
 package org.apache.drill.exec.vector.accessor;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.record.VariantMetadata;
 
 /**
  * Reader for a Drill "union vector." The union vector is presented
@@ -39,6 +40,10 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
  */
 
 public interface VariantReader {
+
+  VariantMetadata schema();
+
+  int size();
 
   /**
    * Determine if a given type is supported by the union vector

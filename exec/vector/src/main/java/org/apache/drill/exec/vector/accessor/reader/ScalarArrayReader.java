@@ -30,12 +30,12 @@ public class ScalarArrayReader extends AbstractArrayReader {
 
   private final BaseElementReader elementReader;
 
-  private ScalarArrayReader(BaseElementReader elementReader) {
+  protected ScalarArrayReader(BaseElementReader elementReader) {
     this.elementReader = elementReader;
   }
 
   public static ArrayObjectReader buildRepeated(RepeatedValueVector vector,
-                                        BaseElementReader elementReader) {
+      BaseElementReader elementReader) {
     elementReader.bindVector(vector.getDataVector());
     elementReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
     ScalarArrayReader arrayReader = new ScalarArrayReader(elementReader);

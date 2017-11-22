@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.accessor.reader;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.record.VariantMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnReader;
@@ -101,7 +102,7 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
    * null.)
    */
 
-  private static class MemberNullStateReader implements NullStateReader {
+  protected static class MemberNullStateReader implements NullStateReader {
 
     private final NullStateReader unionNullState;
     private final NullStateReader memberNullState;
@@ -161,11 +162,13 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
     }
   }
 
+  private final VariantMetadata schema;
   private final UInt1ColumnReader typeReader;
   private final AbstractObjectReader variants[];
   protected NullStateReader nullStateReader;
 
-  public UnionReaderImpl(AbstractObjectReader variants[]) {
+  public UnionReaderImpl(VariantMetadata schema, AbstractObjectReader variants[]) {
+    this.schema = schema;
     typeReader = new UInt1ColumnReader();
     typeReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
     nullStateReader = new TypeVectorStateReader(typeReader);
@@ -173,8 +176,8 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
     this.variants = variants;
   }
 
-  public static AbstractObjectReader buildSingle(UnionVector vector, AbstractObjectReader variants[]) {
-    UnionReaderImpl reader = new UnionReaderImpl(variants);
+  public static AbstractObjectReader buildSingle(VariantMetadata schema, UnionVector vector, AbstractObjectReader variants[]) {
+    UnionReaderImpl reader = new UnionReaderImpl(schema, variants);
     reader.bindVector(vector);
     return new UnionObjectReader(reader);
   }
@@ -233,6 +236,12 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
       }
     }
   }
+
+  @Override
+  public VariantMetadata schema() { return schema; }
+
+  @Override
+  public int size() { return schema.size(); }
 
   @Override
   public boolean hasType(MinorType type) {

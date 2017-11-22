@@ -120,7 +120,7 @@ public abstract class BaseElementReader implements ScalarElementReader, ReaderEv
   @Override
   public Object getObject(int index) {
     if (isNull(index)) {
-      return "null";
+      return null;
     }
     switch (valueType()) {
     case BYTES:
@@ -144,6 +144,9 @@ public abstract class BaseElementReader implements ScalarElementReader, ReaderEv
 
   @Override
   public String getAsString(int index) {
+    if (isNull(index)) {
+      return "null";
+    }
     switch (valueType()) {
     case BYTES:
       return AccessorUtilities.bytesToString(getBytes(index));

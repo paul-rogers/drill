@@ -86,6 +86,10 @@ public interface TupleWriter {
 
   void bindListener(TupleWriterListener listener);
 
+  TupleMetadata schema();
+
+  int size();
+
   /**
    * Allows a client to "sniff" the projection set to determine if a
    * field is projected. Some clients can omit steps if they know that
@@ -116,10 +120,6 @@ public interface TupleWriter {
   int addColumn(ColumnMetadata column);
 
   int addColumn(MaterializedField schema);
-
-  TupleMetadata schema();
-
-  int size();
 
   // Return the column as a generic object
 

@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.record.VariantMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
@@ -35,13 +36,13 @@ import org.apache.drill.exec.vector.complex.UnionVector;
  * Writer to a union vector.
  */
 
-public class VariantWriterImpl implements VariantWriter, WriterEvents {
+public class UnionWriterImpl implements VariantWriter, WriterEvents {
 
   public static class VariantObjectWriter extends AbstractObjectWriter {
 
-    private final VariantWriterImpl writer;
+    private final UnionWriterImpl writer;
 
-    public VariantObjectWriter(VariantWriterImpl writer, ColumnMetadata schema) {
+    public VariantObjectWriter(UnionWriterImpl writer, ColumnMetadata schema) {
       super(schema);
       this.writer = writer;
     }
@@ -71,32 +72,42 @@ public class VariantWriterImpl implements VariantWriter, WriterEvents {
     @Override
     public ObjectWriter addType(MinorType type) {
       ValueVector memberVector = ColumnAccessorUtils.getUnionMember(vector, type);
-      schema.variantSchema().addType(type);
-      schema.variantSchema().replaceSchema(vector.getField());
-      ColumnMetadata memberSchema = schema.variantSchema().member(type);
+      schema.addType(type);
+      schema.replaceSchema(vector.getField());
+      ColumnMetadata memberSchema = schema.member(type);
       return ColumnWriterFactory.buildColumnWriter(memberSchema, memberVector);
     }
   }
 
   private final UnionVector vector;
-  private final ColumnMetadata schema;
+  private final VariantMetadata schema;
   private final BaseScalarWriter typeWriter;
   private final AbstractObjectWriter variants[];
   private ColumnWriterIndex index;
   protected State state = State.IDLE;
   private VariantWriterListener listener;
 
-  public VariantWriterImpl(UnionVector vector, ColumnMetadata schema,
+  public UnionWriterImpl(VariantMetadata schema, UnionVector vector,
       AbstractObjectWriter variants[]) {
     this.vector = vector;
     this.schema = schema;
-    this.variants = variants;
+    if (variants == null) {
+      this.variants = new AbstractObjectWriter[MinorType.values().length];
+    } else {
+      this.variants = variants;
+    }
     typeWriter = ColumnWriterFactory.newWriter(vector.getTypeVector());
   }
 
-  public VariantWriterImpl(UnionVector vector, ColumnMetadata schema) {
-    this(vector, schema, new AbstractObjectWriter[MinorType.values().length]);
+  public UnionWriterImpl(VariantMetadata schema, UnionVector vector) {
+    this(schema, vector, null);
   }
+
+  @Override
+  public VariantMetadata schema() { return schema; }
+
+  @Override
+  public int size() { return schema.size(); }
 
   @Override
   public boolean hasType(MinorType type) {

@@ -45,6 +45,7 @@ import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
+import org.apache.drill.exec.vector.accessor.ScalarElementReader;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleReader;
@@ -507,8 +508,8 @@ public class TestVariant extends SubOperatorTest {
   }
 
   /**
-   * Test a variant (AKA "union vector") at the top level, using
-   * just scalar values.
+   * Test a variant (AKA "union vector") at the top level which
+   * includes a map.
    */
 
   @Test
@@ -525,7 +526,7 @@ public class TestVariant extends SubOperatorTest {
 
     SingleRowSet result;
 
-    // Writer values
+    // Write values
 
     {
       ExtendableRowSet rs = fixture.rowSet(schema);
@@ -659,8 +660,269 @@ public class TestVariant extends SubOperatorTest {
   }
 
   /**
-   * Test a variant (AKA "union vector") at the top level, using
-   * just scalar values.
+   * Test a scalar list. Should act just like a repeated type, with the
+   * addition of allowing the list for a row to be null.
+   */
+
+  @Test
+  public void testScalarList() {
+    TupleMetadata schema = new SchemaBuilder()
+        .addList("list")
+          .addType(MinorType.VARCHAR)
+          .build()
+        .buildSchema();
+
+    ExtendableRowSet rowSet = fixture.rowSet(schema);
+    RowSetWriter writer = rowSet.writer();
+
+    {
+      ObjectWriter listObj = writer.column(0);
+      assertEquals(ObjectType.ARRAY, listObj.type());
+      ArrayWriter listArray = listObj.array();
+
+      // The list is known to contain only a scalar, so
+      // at this point, this looks like an array of scalars.
+
+      ObjectWriter itemObj = listArray.entry();
+      assertEquals(ObjectType.SCALAR, itemObj.type());
+      ScalarWriter strWriter = itemObj.scalar();
+
+      // First row: three strings
+      // List will automagically detect that data was written.
+
+      strWriter.setString("fred");
+      strWriter.setString("barney");
+      strWriter.setString("wilma");
+      writer.save();
+
+      // Second row: null
+
+      writer.save();
+
+      // Third row: one string
+
+      strWriter.setString("dino");
+      writer.save();
+
+      // Fourth row: empty array. Note that there is no trigger
+      // to say that the column is not null, so we have to do it
+      // explicitly.
+
+      listArray.setNull(false);
+      writer.save();
+
+      // Last row: another two strings
+
+      strWriter.setString("bambam");
+      strWriter.setString("pebbles");
+      writer.save();
+    }
+
+    SingleRowSet result = writer.done();
+    assertEquals(5, result.rowCount());
+
+    {
+      RowSetReader reader = result.reader();
+
+      ObjectReader listObj = reader.column(0);
+      assertEquals(ObjectType.ARRAY, listObj.type());
+      ArrayReader listArray = listObj.array();
+
+      // The list is a repeated scalar
+
+      ObjectReader itemObj = listArray.entry();
+      assertEquals(ObjectType.SCALAR, itemObj.type());
+      ScalarElementReader strReader = listArray.elements();
+
+      // First row: three strings
+
+      assertTrue(reader.next());
+      assertFalse(listArray.isNull());
+      assertEquals(3, listArray.size());
+      assertEquals(3, strReader.size());
+      assertEquals("fred", strReader.getString(0));
+      assertEquals("barney", strReader.getString(1));
+      assertEquals("wilma", strReader.getString(2));
+
+      // Second row: null
+
+      assertTrue(reader.next());
+      assertTrue(listArray.isNull());
+      assertEquals(0, listArray.size());
+      assertEquals(0, strReader.size());
+
+      // Third row: one string
+
+      assertTrue(reader.next());
+      assertFalse(listArray.isNull());
+      assertEquals(3, listArray.size());
+      assertEquals("dino", strReader.getString(0));
+
+      // Fourth row: empty array.
+
+      assertTrue(reader.next());
+      assertFalse(listArray.isNull());
+      assertEquals(0, listArray.size());
+      assertEquals(0, strReader.size());
+
+      // Last row: another two strings
+
+      assertTrue(reader.next());
+      assertFalse(listArray.isNull());
+      assertEquals(2, strReader.size());
+      assertEquals("bambam", strReader.getString(0));
+      assertEquals("pebbles", strReader.getString(1));
+
+      assertFalse(reader.next());
+    }
+
+    result.clear();
+  }
+
+
+  /**
+   * Test a scalar list. Should act just like a repeated type, with the
+   * addition of allowing the list for a row to be null.
+   */
+
+  @Test
+  public void testVariantList() {
+    TupleMetadata schema = new SchemaBuilder()
+        .addList("list")
+          .addType(MinorType.VARCHAR)
+          .build()
+        .buildSchema();
+
+    ExtendableRowSet rowSet = fixture.rowSet(schema);
+    RowSetWriter writer = rowSet.writer();
+
+    {
+      ObjectWriter listObj = writer.column(0);
+      assertEquals(ObjectType.ARRAY, listObj.type());
+      ArrayWriter listArray = listObj.array();
+
+      // The list is known to contain only a scalar, so
+      // at this point, this looks like an array of scalars.
+
+      ObjectWriter elementObj = listArray.entry();
+      assertEquals(ObjectType.VARIANT, elementObj.type());
+      VariantWriter variant = elementObj.variant();
+      assertEquals(1, variant.schema().types());
+      assertTrue(variant.schema().types().contains(MinorType.VARCHAR));
+      assertEquals(1, variant.size());
+
+      // But, this list is a single type, so it should act like
+      // a repeated type.
+
+      ObjectWriter itemObj = variant.member(MinorType.VARCHAR);
+      assertEquals(ObjectType.SCALAR, itemObj.type());
+      ScalarWriter strWriter = itemObj.scalar();
+
+      // First row: three strings
+      // List will automagically detect that data was written.
+
+      strWriter.setString("fred");
+      strWriter.setString("barney");
+      strWriter.setString("wilma");
+      writer.save();
+
+      // Second row: null
+
+      writer.save();
+
+      // Third row: one string
+
+      strWriter.setString("dino");
+      writer.save();
+
+      // Fourth row: empty array. Note that there is no trigger
+      // to say that the column is not null, so we have to do it
+      // explicitly.
+
+      listArray.setNull(false);
+      writer.save();
+
+      // Last row: another two strings
+
+      strWriter.setString("bambam");
+      strWriter.setString("pebbles");
+      writer.save();
+    }
+
+    SingleRowSet result = writer.done();
+    assertEquals(5, result.rowCount());
+
+    {
+      RowSetReader reader = result.reader();
+
+      ObjectReader listObj = reader.column(0);
+      assertEquals(ObjectType.ARRAY, listObj.type());
+      ArrayReader listArray = listObj.array();
+
+      // The list is a repeated variant (union)
+
+      ObjectReader elementObj = listArray.entry();
+      assertEquals(ObjectType.VARIANT, elementObj.type());
+      VariantReader variant = elementObj.variant();
+      assertEquals(1, variant.schema().types());
+      assertTrue(variant.schema().types().contains(MinorType.VARCHAR));
+      assertEquals(1, variant.size());
+
+      // But, this list is a single type, so it should act like
+      // a repeated type.
+
+      ObjectReader itemObj = variant.member(MinorType.VARCHAR);
+      assertEquals(ObjectType.SCALAR, itemObj.type());
+      ScalarElementReader strReader = listArray.elements();
+
+      // First row: three strings
+
+      assertTrue(reader.next());
+      assertFalse(listArray.isNull());
+      assertEquals(3, listArray.size());
+      assertEquals(3, strReader.size());
+      assertEquals("fred", strReader.getString(0));
+      assertEquals("barney", strReader.getString(1));
+      assertEquals("wilma", strReader.getString(2));
+
+      // Second row: null
+
+      assertTrue(reader.next());
+      assertTrue(listArray.isNull());
+      assertEquals(0, listArray.size());
+      assertEquals(0, strReader.size());
+
+      // Third row: one string
+
+      assertTrue(reader.next());
+      assertFalse(listArray.isNull());
+      assertEquals(3, listArray.size());
+      assertEquals("dino", strReader.getString(0));
+
+      // Fourth row: empty array.
+
+      assertTrue(reader.next());
+      assertFalse(listArray.isNull());
+      assertEquals(0, listArray.size());
+      assertEquals(0, strReader.size());
+
+      // Last row: another two strings
+
+      assertTrue(reader.next());
+      assertFalse(listArray.isNull());
+      assertEquals(2, strReader.size());
+      assertEquals("bambam", strReader.getString(0));
+      assertEquals("pebbles", strReader.getString(1));
+
+      assertFalse(reader.next());
+    }
+
+    result.clear();
+  }
+
+  /**
+   * Test a variant (AKA "union vector") at the top level which includes
+   * a list.
    */
 
   @Test

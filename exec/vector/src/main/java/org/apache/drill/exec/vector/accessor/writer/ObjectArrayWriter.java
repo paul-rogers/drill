@@ -18,7 +18,6 @@
 package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.vector.UInt4Vector;
-import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArrayWriter;
 
 /**
  * Writer for an array of either a map or another array. Here, the contents
@@ -102,7 +101,7 @@ import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArra
  * maps then each vector can be in an of the scalar writer state.
  */
 
-public class ObjectArrayWriter extends BaseArrayWriter {
+public class ObjectArrayWriter extends AbstractArrayWriter {
 
   protected ObjectArrayWriter(UInt4Vector offsetVector, AbstractObjectWriter elementWriter) {
     super(offsetVector, elementWriter);

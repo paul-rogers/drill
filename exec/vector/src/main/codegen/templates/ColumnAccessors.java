@@ -383,6 +383,7 @@ public class ColumnAccessors {
       final byte bytes[] = value.getBytes(Charsets.UTF_8);
       setBytes(bytes, bytes.length);
     }
+
     <#elseif drillType == "Var16Char">
     @Override
     public final void setString(String value) {

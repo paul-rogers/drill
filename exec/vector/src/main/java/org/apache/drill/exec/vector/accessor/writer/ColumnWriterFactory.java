@@ -35,10 +35,11 @@ import org.apache.drill.exec.vector.accessor.writer.MapWriter.ArrayMapWriter;
 import org.apache.drill.exec.vector.accessor.writer.MapWriter.DummyArrayMapWriter;
 import org.apache.drill.exec.vector.accessor.writer.MapWriter.DummyMapWriter;
 import org.apache.drill.exec.vector.accessor.writer.MapWriter.SingleMapWriter;
-import org.apache.drill.exec.vector.accessor.writer.VariantWriterImpl.VariantObjectWriter;
+import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl.VariantObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.dummy.DummyArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.dummy.DummyScalarWriter;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
+import org.apache.drill.exec.vector.complex.ListVector;
 import org.apache.drill.exec.vector.complex.MapVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
@@ -203,23 +204,34 @@ public class ColumnWriterFactory {
 
   public static AbstractObjectWriter buildUnionWriter(ColumnMetadata metadata,
       UnionVector vector) {
-    if (vector == null) {
-      throw new UnsupportedOperationException("Dummy variant writer not yet supported");
-    }
-    return new VariantObjectWriter(
-        new VariantWriterImpl(vector, metadata),
-        metadata);
+    return buildUnionWriter(metadata, vector, null);
   }
 
   public static AbstractObjectWriter buildUnionWriter(ColumnMetadata metadata,
       UnionVector vector,
       AbstractObjectWriter variants[]) {
+
+    // Dummy writers are used when the schema is known up front, but the
+    // query chooses not to project a column. Variants are used in the case when
+    // the schema is not known, and we discover it on the fly. In this case,
+    // (which currently occurs only in JSON) dummy vectors are not used.
+
     if (vector == null) {
       throw new UnsupportedOperationException("Dummy variant writer not yet supported");
     }
     return new VariantObjectWriter(
-        new VariantWriterImpl(vector, metadata, variants),
+        new UnionWriterImpl(metadata.variantSchema(), vector, variants),
         metadata);
+  }
+
+  public static AbstractObjectWriter buildListWriter(ColumnMetadata metadata,
+      ListVector vector, AbstractObjectWriter memberWriter) {
+    if (vector == null) {
+      throw new UnsupportedOperationException("Dummy variant writer not yet supported");
+    }
+    AbstractArrayWriter arrayWriter = new ListWriterImpl(
+        vector, memberWriter);
+    return new ArrayObjectWriter(metadata, arrayWriter);
   }
 
   public static BaseScalarWriter newWriter(ValueVector vector) {
