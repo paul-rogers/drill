@@ -45,7 +45,6 @@ import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.server.DrillbitContext;
-import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.server.options.SystemOptionManager;
 import org.apache.drill.exec.testing.ExecutionControls;
@@ -285,16 +284,6 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
       return IndirectRowSet.fromSv2(container, container.getSelectionVector2());
     default:
       throw new IllegalStateException( "Unexpected selection mode" );
-    }
-  }
-
-  public RowSet wrap(VectorContainer container, SelectionVector2 sv2) {
-    if (sv2 == null) {
-      assert container.getSchema().getSelectionVectorMode() == SelectionVectorMode.NONE;
-      return new DirectRowSet(container.getAllocator(), container);
-    } else {
-      assert container.getSchema().getSelectionVectorMode() == SelectionVectorMode.TWO_BYTE;
-      return new IndirectRowSet(container.getAllocator(), container, sv2);
     }
   }
 

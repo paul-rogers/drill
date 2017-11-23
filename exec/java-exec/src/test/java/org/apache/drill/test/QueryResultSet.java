@@ -67,7 +67,7 @@ public class QueryResultSet {
         recordCount += event.batch.getHeader().getRowCount();
         loader.load(event.batch.getHeader().getDef(), event.batch.getData());
         event.batch.release();
-        return new DirectRowSet(loader.allocator(), loader);
+        return DirectRowSet.fromVectorAccessible(loader.allocator(), loader);
 
       case EOF:
         state = event.state;
