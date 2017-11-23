@@ -37,7 +37,7 @@ import java.util.zip.GZIPOutputStream;
 
 import org.apache.drill.test.BaseTestQuery;
 import org.apache.drill.common.expression.SchemaPath;
-import org.apache.drill.common.util.FileUtils;
+import org.apache.drill.common.util.DrillFileUtils;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.proto.UserBitShared;
@@ -270,7 +270,7 @@ public class TestJsonReader extends BaseTestQuery {
   public void testAllTextMode() throws Exception {
     alterSession(ExecConstants.JSON_ALL_TEXT_MODE, true);
     try {
-      String[] queries = {"select * from cp.`/store/json/schema_change_int_to_string.json`"};
+      String[] queries = {"select * from cp.`store/json/schema_change_int_to_string.json`"};
       long[] rowCounts = {3};
       String filename = "/store/json/schema_change_int_to_string.json";
       runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
@@ -299,7 +299,7 @@ public class TestJsonReader extends BaseTestQuery {
   public void testNullWhereListExpected() throws Exception {
     alterSession(ExecConstants.JSON_ALL_TEXT_MODE, true);
     try {
-      String[] queries = {"select * from cp.`/store/json/null_where_list_expected.json`"};
+      String[] queries = {"select * from cp.`store/json/null_where_list_expected.json`"};
       long[] rowCounts = {3};
       String filename = "/store/json/null_where_list_expected.json";
       runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
@@ -312,7 +312,7 @@ public class TestJsonReader extends BaseTestQuery {
   public void testNullWhereMapExpected() throws Exception {
     alterSession(ExecConstants.JSON_ALL_TEXT_MODE, true);
     try {
-      String[] queries = {"select * from cp.`/store/json/null_where_map_expected.json`"};
+      String[] queries = {"select * from cp.`store/json/null_where_map_expected.json`"};
       long[] rowCounts = {3};
       String filename = "/store/json/null_where_map_expected.json";
       runTestsOnFile(filename, UserBitShared.QueryType.SQL, queries, rowCounts);
@@ -342,10 +342,10 @@ public class TestJsonReader extends BaseTestQuery {
   public void testProjectPushdown() throws Exception {
     alterSession(ExecConstants.JSON_ALL_TEXT_MODE, false);
     try {
-      String[] queries = {Files.toString(FileUtils.getResourceAsFile("/store/json/project_pushdown_json_physical_plan.json"), Charsets.UTF_8)};
+      String[] queries = {Files.toString(DrillFileUtils.getResourceAsFile("/store/json/project_pushdown_json_physical_plan.json"), Charsets.UTF_8)};
       long[] rowCounts = {3};
       String filename = "/store/json/schema_change_int_to_string.json";
-     runTestsOnFile(filename, UserBitShared.QueryType.PHYSICAL, queries, rowCounts);
+      runTestsOnFile(filename, UserBitShared.QueryType.PHYSICAL, queries, rowCounts);
 
       List<QueryDataBatch> results = testPhysicalWithResults(queries[0]);
       assertEquals(1, results.size());
@@ -505,12 +505,11 @@ public class TestJsonReader extends BaseTestQuery {
   public void testSumWithTypeCase() throws Exception {
     alterSession(ExecConstants.ENABLE_UNION_TYPE_KEY, true);
     try {
-      String query = "select sum(cast(f1 as bigint)) sum_f1 from " +
-              "(select case when is_bigint(field1) then field1 " +
-              "when is_list(field1) then field1[0] when is_map(field1) then t.field1.inner1 end f1 " +
-              "from cp.`jsoninput/union/a.json` t)";
-       testBuilder()
-              .sqlQuery(query)
+      testBuilder()
+              .sqlQuery("select sum(cast(f1 as bigint)) sum_f1 from " +
+                "(select case when is_bigint(field1) then field1 " +
+                "when is_list(field1) then field1[0] when is_map(field1) then t.field1.inner1 end f1 " +
+                "from cp.`jsoninput/union/a.json` t)")
               .ordered()
               .baselineColumns("sum_f1")
               .baselineValues(9L)
@@ -524,7 +523,6 @@ public class TestJsonReader extends BaseTestQuery {
   public void testUnionExpressionMaterialization() throws Exception {
     alterSession(ExecConstants.ENABLE_UNION_TYPE_KEY, true);
     try {
-      String query = "select a + b c from cp.`jsoninput/union/b.json`";
       testBuilder()
               .sqlQuery("select a + b c from cp.`jsoninput/union/b.json`")
               .ordered()

@@ -61,5 +61,4 @@ public interface ColumnReaderIndex {
    */
 
   int size();
->>>>>>> 0d3eae962... Completed scan framework and text reader update
 }

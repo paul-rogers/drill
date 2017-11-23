@@ -23,33 +23,22 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.nio.file.Paths;
-import java.util.Iterator;
 import java.util.List;
 
-import org.apache.drill.test.BaseTestQuery;
+import org.apache.drill.test.ClientFixture;
+import org.apache.drill.test.ClusterFixture;
+import org.apache.drill.test.ClusterFixtureBuilder;
+import org.apache.drill.test.ClusterTest;
+import org.apache.drill.test.QueryBuilder.QuerySummary;
+import org.apache.drill.test.rowSet.RowSet;
+import org.apache.drill.test.rowSet.RowSetReader;
 import org.apache.drill.categories.PlannerTest;
 import org.apache.drill.categories.SlowTest;
-import org.apache.drill.common.DrillAutoCloseables;
-import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.client.DrillClient;
-import org.apache.drill.exec.client.PrintingResultsListener;
-import org.apache.drill.exec.client.QuerySubmitter.Format;
-import org.apache.drill.exec.exception.SchemaChangeException;
-import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.proto.BitControl.PlanFragment;
 import org.apache.drill.exec.proto.CoordinationProtos.DrillbitEndpoint;
 import org.apache.drill.exec.proto.UserBitShared.QueryType;
 import org.apache.drill.exec.proto.UserProtos.QueryPlanFragments;
-import org.apache.drill.exec.record.RecordBatchLoader;
-import org.apache.drill.exec.record.VectorWrapper;
-import org.apache.drill.exec.rpc.ConnectionThrottle;
-import org.apache.drill.exec.rpc.DrillRpcFuture;
-import org.apache.drill.exec.rpc.RpcException;
-import org.apache.drill.exec.rpc.user.AwaitableUserResultsListener;
-import org.apache.drill.exec.rpc.user.QueryDataBatch;
-import org.apache.drill.exec.rpc.user.UserResultsListener;
-import org.apache.drill.exec.util.VectorUtil;
-import org.apache.drill.exec.vector.ValueVector;
+import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.experimental.categories.Category;
@@ -66,18 +55,13 @@ public class DrillSeparatePlanningTest extends ClusterTest {
   public static void setupFiles() {
     dirTestWatcher.copyResourceToRoot(Paths.get("multilevel", "json"));
     dirTestWatcher.copyResourceToRoot(Paths.get("multilevel", "csv"));
-
-  static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(DrillSeparatePlanningTest.class);
-
-  static final String WORKING_PATH = TestTools.getWorkingPath();
-  static final String TEST_RES_PATH = WORKING_PATH + "/src/test/resources";
+  }
 
   @Before
   public void testSetup() throws Exception {
-    ClusterFixtureBuilder builder = ClusterFixture.builder()
+    ClusterFixtureBuilder builder = ClusterFixture.builder(dirTestWatcher)
         .clusterSize(2);
     startCluster(builder);
->>>>>>> 0d3eae962... Completed scan framework and text reader update
   }
 
   @Test(timeout=60_000)

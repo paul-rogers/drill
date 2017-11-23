@@ -198,9 +198,6 @@ public class TestImplicitFileColumns extends BaseTestQuery {
 
   @Test
   public void testStarColumnCsv() throws Exception {
-    final String rootEmpty = FileUtils.getResourceAsFile(CSV_TBL).toURI().toString();
-    final String query1 = String.format("select * from dfs_test.`%s` ", rootEmpty);
-
     // The following schema is valid for Drill 1.12 only. In Drill 1.11, and
     // again in Drill 1.13, the metadata columns follow the table columns.
     // Only in Drill 1.12 do the metadata columns precede the table columns.

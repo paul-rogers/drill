@@ -34,7 +34,7 @@ public class TestMockDataSource extends ClusterTest {
 
   @BeforeClass
   public static void setup() throws Exception {
-    startCluster(ClusterFixture.builder());
+    startCluster(ClusterFixture.builder(dirTestWatcher));
   }
 
   /**

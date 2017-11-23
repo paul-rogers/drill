@@ -28,8 +28,6 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
-import org.apache.drill.QueryTestUtil;
-import org.apache.drill.TestBuilder;
 import org.apache.drill.common.config.DrillProperties;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.client.DrillClient;

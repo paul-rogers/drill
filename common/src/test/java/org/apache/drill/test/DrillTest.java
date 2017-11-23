@@ -41,6 +41,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 public class DrillTest {
+
   protected static final ObjectMapper objectMapper;
   static {
     System.setProperty("line.separator", "\n");

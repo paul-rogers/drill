@@ -21,6 +21,7 @@ import java.io.IOException;
 
 import org.apache.drill.common.AutoCloseables;
 import org.junit.AfterClass;
+import org.junit.ClassRule;
 
 /**
  * Base class for tests that use a single cluster fixture for a set of
@@ -71,6 +72,9 @@ import org.junit.AfterClass;
  */
 
 public class ClusterTest extends DrillTest {
+
+  @ClassRule
+  public static final BaseDirTestWatcher dirTestWatcher = new BaseDirTestWatcher();
 
   protected static ClusterFixture cluster;
   protected static ClientFixture client;

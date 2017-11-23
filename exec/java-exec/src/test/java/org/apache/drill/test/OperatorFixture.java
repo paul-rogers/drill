@@ -45,7 +45,7 @@ import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.server.DrillbitContext;
-import org.apache.drill.exec.server.options.OptionSet;
+import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.server.options.SystemOptionManager;
 import org.apache.drill.exec.testing.ExecutionControls;
 import org.apache.drill.test.ClusterFixtureBuilder.RuntimeOption;
@@ -128,13 +128,13 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
   public static class TestFragmentContext extends BaseFragmentContext {
 
     private final DrillConfig config;
-    private final OptionSet options;
+    private final OptionManager options;
     private final CodeCompiler compiler;
     private ExecutionControls controls;
     private final BufferManagerImpl bufferManager;
     private final BufferAllocator allocator;
 
-    public TestFragmentContext(DrillConfig config, OptionSet options, BufferAllocator allocator) {
+    public TestFragmentContext(DrillConfig config, OptionManager options, BufferAllocator allocator) {
       super(newFunctionRegistry(config, options));
       this.config = config;
       this.options = options;
@@ -144,7 +144,7 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     }
 
     private static FunctionImplementationRegistry newFunctionRegistry(
-        DrillConfig config, OptionSet options) {
+        DrillConfig config, OptionManager options) {
       ScanResult classpathScan = ClassPathScanner.fromPrescan(config);
       return new FunctionImplementationRegistry(config, classpathScan, options);
     }
@@ -154,7 +154,7 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     }
 
     @Override
-    public OptionSet getOptionSet() {
+    public OptionManager getOptions() {
       return options;
     }
 

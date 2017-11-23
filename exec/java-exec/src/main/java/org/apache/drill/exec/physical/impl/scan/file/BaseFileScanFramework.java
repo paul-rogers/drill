@@ -131,7 +131,7 @@ public abstract class BaseFileScanFramework<T extends BaseFileScanFramework.File
     // (so-called implicit columns and partition columns.)
 
     metadataManager = new FileMetadataManager(
-        context.getFragmentContext().getOptionSet(),
+        context.getFragmentContext().getOptions(),
         useLegacyWildcardExpansion,
         scanRootDir,
         paths);

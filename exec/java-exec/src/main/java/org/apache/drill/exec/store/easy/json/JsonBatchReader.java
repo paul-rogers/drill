@@ -57,7 +57,7 @@ public class JsonBatchReader implements ManagedReader<FileSchemaNegotiator> {
   @Override
   public boolean open(FileSchemaNegotiator negotiator) {
     OperatorContext opContext = negotiator.context();
-    OptionSet optionMgr = opContext.getFragmentContext().getOptionSet();
+    OptionSet optionMgr = opContext.getFragmentContext().getOptions();
     Object embeddedContent = null;
     options.allTextMode = embeddedContent == null && optionMgr.getBoolean(ExecConstants.JSON_ALL_TEXT_MODE);
     options.readNumbersAsDouble = embeddedContent == null && optionMgr.getBoolean(ExecConstants.JSON_READ_NUMBERS_AS_DOUBLE);
@@ -75,7 +75,7 @@ public class JsonBatchReader implements ManagedReader<FileSchemaNegotiator> {
           .addContext("Failure to open JSON file", split.getPath().toString())
           .build(logger);
     }
-    ResultSetLoader rsLoader = negotiator.build();
+    final ResultSetLoader rsLoader = negotiator.build();
     tableLoader = rsLoader.writer();
     RowSetLoader rootWriter = tableLoader;
 

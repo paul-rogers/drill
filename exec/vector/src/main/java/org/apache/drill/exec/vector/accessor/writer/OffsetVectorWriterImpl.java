@@ -17,13 +17,10 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import org.apache.drill.exec.vector.BaseDataValueVector;
 import org.apache.drill.exec.vector.UInt4Vector;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ValueType;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
-
-import io.netty.buffer.DrillBuf;
-import io.netty.util.internal.PlatformDependent;
 
 /**
  * Specialized column writer for the (hidden) offset vector used
@@ -148,20 +145,13 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
     this.vector = vector;
   }
 
-  @Override public ValueVector vector() { return vector; }
+  @Override public BaseDataValueVector vector() { return vector; }
   @Override public int width() { return VALUE_WIDTH; }
-
-  @Override
-  protected final void setAddr() {
-    final DrillBuf buf = vector.getBuffer();
-    bufAddr = buf.addr();
-    capacity = buf.capacity() / VALUE_WIDTH;
-  }
 
   @Override
   protected void realloc(int size) {
     vector.reallocRaw(size);
-    setAddr();
+    setBuffer();
   }
 
   @Override
@@ -181,7 +171,7 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
     if (capacity * VALUE_WIDTH < MIN_BUFFER_SIZE) {
       realloc(MIN_BUFFER_SIZE);
     }
-    PlatformDependent.putInt(bufAddr, 0);
+    drillBuf.unsafePutInt(0, 0);
   }
 
   @Override
@@ -225,7 +215,7 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
 
     // Either empties must be filed or the vector is full.
 
-    resize(writeIndex, true);
+    resize(writeIndex);
 
     // Call to resize may cause rollover, so reset write index
     // afterwards.
@@ -236,21 +226,21 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
     // Fill empties works of the row index, not the write
     // index. (Yes, this is complex...)
 
-    fillEmpties(writeIndex - 1);
+    fillEmpties(writeIndex);
     return writeIndex;
   }
 
   @Override
   protected final void fillEmpties(final int valueIndex) {
     while (lastWriteIndex < valueIndex - 1) {
-      PlatformDependent.putInt(bufAddr + (++lastWriteIndex + 1) * VALUE_WIDTH, nextOffset);
+      drillBuf.unsafePutInt((++lastWriteIndex + 1) * VALUE_WIDTH, nextOffset);
     }
   }
 
   @Override
   public final void setNextOffset(final int newOffset) {
     final int writeIndex = writeIndex();
-    PlatformDependent.putInt(bufAddr + writeIndex * VALUE_WIDTH, newOffset);
+    drillBuf.unsafePutInt(writeIndex * VALUE_WIDTH, newOffset);
     nextOffset = newOffset;
   }
 
@@ -292,7 +282,7 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
 
   @Override
   public void setValueCount(int valueCount) {
-    resize(valueCount, false);
+    mandatoryResize(valueCount);
 
     // Value count are in offset vector positions. Fill empties
     // works in row positions.

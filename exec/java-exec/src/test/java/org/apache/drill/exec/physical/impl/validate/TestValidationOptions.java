@@ -21,12 +21,12 @@ import static org.junit.Assert.assertFalse;
 
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.store.easy.text.compliant.CompliantTextBatchReader;
+import org.apache.drill.test.BaseDirTestWatcher;
 import org.apache.drill.test.ClientFixture;
 import org.apache.drill.test.ClusterFixture;
 import org.apache.drill.test.DrillTest;
 import org.apache.drill.test.ClusterFixtureBuilder;
 import org.apache.drill.test.LogFixture;
-import org.apache.drill.test.DirTestWatcher;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;

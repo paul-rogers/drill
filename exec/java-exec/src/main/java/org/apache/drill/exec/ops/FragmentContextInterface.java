@@ -28,7 +28,7 @@ import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.server.DrillbitContext;
-import org.apache.drill.exec.server.options.OptionSet;
+import org.apache.drill.exec.server.options.OptionManager;
 import org.apache.drill.exec.testing.ExecutionControls;
 
 import io.netty.buffer.DrillBuf;
@@ -59,10 +59,10 @@ public interface FragmentContextInterface {
    */
   FunctionImplementationRegistry getFunctionRegistry();
   /**
-   * Returns a read-only version of the session options.
+   * Returns the session options.
    * @return the session options
    */
-  OptionSet getOptionSet();
+  OptionManager getOptions();
 
   /**
    * Generates code for a class given a {@link ClassGenerator},
