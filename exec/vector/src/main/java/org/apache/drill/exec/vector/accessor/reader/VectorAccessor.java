@@ -57,7 +57,7 @@ public interface VectorAccessor {
 
   public abstract class BaseHyperVectorAccessor implements VectorAccessor {
 
-    private final MajorType type;
+    protected final MajorType type;
 
     public BaseHyperVectorAccessor(MajorType type) {
       this.type = type;

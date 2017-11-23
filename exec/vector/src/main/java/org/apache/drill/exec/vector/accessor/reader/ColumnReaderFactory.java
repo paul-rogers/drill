@@ -20,9 +20,7 @@ package org.apache.drill.exec.vector.accessor.reader;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
-import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
  * Gather generated reader classes into a set of class tables to allow rapid
@@ -69,6 +67,12 @@ public class ColumnReaderFactory {
       }
     }
   }
+
+//  public static AbstractObjectReader buildScalarList(ListVector vector, ValueVector dataVector) {
+//    assert dataVector.getField().getType().getMode() == DataMode.OPTIONAL;
+//    BaseScalarReader elements = newAccessor(dataVector.getField().getType().getMinorType(), nullableReaders);
+//    return ScalarListReader.build(vector, elements);
+//  }
 
   public static <T> T newAccessor(MinorType type, Class<? extends T> accessors[]) {
     try {

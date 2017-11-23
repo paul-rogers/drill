@@ -381,6 +381,12 @@ public class ColumnAccessorUtils {
     </#if>
 </#list>
 </#list>
+<#-- Note inconsistency in naming. Also, MAP and LIST do not appear
+     in the minor type list, so we have to special-case them. -->
+    case MAP:
+      return unionVector.getMap();
+    case LIST:
+      return unionVector.getList();
     default:
       throw new UnsupportedOperationException(type.toString());
     }

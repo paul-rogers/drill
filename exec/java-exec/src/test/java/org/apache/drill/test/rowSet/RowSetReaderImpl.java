@@ -23,6 +23,7 @@ import org.apache.drill.exec.physical.rowSet.model.ReaderIndex;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
 import org.apache.drill.exec.vector.accessor.reader.AbstractTupleReader;
+import org.apache.drill.exec.vector.accessor.reader.NullStateReader;
 
 /**
  * Reader implementation for a row set.
@@ -35,6 +36,7 @@ public class RowSetReaderImpl extends AbstractTupleReader implements RowSetReade
   public RowSetReaderImpl(TupleMetadata schema, ReaderIndex index, AbstractObjectReader[] readers) {
     super(schema, readers);
     this.readerIndex = index;
+    bindNullState(NullStateReader.REQUIRED_STATE_READER);
     bindIndex(index);
   }
 

@@ -43,8 +43,9 @@ public class ObjectArrayReader extends AbstractArrayReader {
 
   public static AbstractObjectReader build(VectorAccessor vectorAccessor,
                                            AbstractObjectReader elementReader) {
-    return new ArrayObjectReader(
-        new ObjectArrayReader(vectorAccessor, elementReader));
+    ObjectArrayReader arrayReader = new ObjectArrayReader(vectorAccessor, elementReader);
+    arrayReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+    return new ArrayObjectReader(arrayReader);
   }
 
   @Override

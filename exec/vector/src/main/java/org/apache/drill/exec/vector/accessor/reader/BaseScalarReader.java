@@ -32,7 +32,7 @@ import org.joda.time.Period;
  * method(s).
  */
 
-public abstract class BaseScalarReader implements ScalarReader {
+public abstract class BaseScalarReader implements ScalarReader, ReaderEvents {
 
   public static class ScalarObjectReader extends AbstractObjectReader {
 
@@ -66,17 +66,31 @@ public abstract class BaseScalarReader implements ScalarReader {
     public String getAsString() {
       return scalarReader.getAsString();
     }
+
+    @Override
+    protected ReaderEvents events() { return scalarReader; }
   }
 
   protected ColumnReaderIndex vectorIndex;
   protected VectorAccessor vectorAccessor;
+  protected NullStateReader nullStateReader;
 
   public static ScalarObjectReader build(VectorAccessor va, BaseScalarReader reader) {
     reader.bindVector(va);
+    reader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
     return new ScalarObjectReader(reader);
   }
 
-  protected void bindIndex(ColumnReaderIndex rowIndex) {
+  @Override
+  public void bindNullState(NullStateReader nullStateReader) {
+    this.nullStateReader = nullStateReader;
+  }
+
+  @Override
+  public NullStateReader nullStateReader() { return nullStateReader; }
+
+  @Override
+  public void bindIndex(ColumnReaderIndex rowIndex) {
     this.vectorIndex = rowIndex;
     if (vectorAccessor != null) {
       vectorAccessor.bind(rowIndex);
@@ -85,6 +99,11 @@ public abstract class BaseScalarReader implements ScalarReader {
 
   public void bindVector(VectorAccessor va) {
     vectorAccessor = va;
+  }
+
+  @Override
+  public boolean isNull() {
+    return nullStateReader.isNull();
   }
 
   @Override
@@ -135,11 +154,6 @@ public abstract class BaseScalarReader implements ScalarReader {
     default:
       throw new IllegalArgumentException("Unsupported type " + valueType());
     }
-  }
-
-  @Override
-  public boolean isNull() {
-    return false;
   }
 
   @Override

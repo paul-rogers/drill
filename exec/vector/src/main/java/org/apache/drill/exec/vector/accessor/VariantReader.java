@@ -18,6 +18,7 @@
 package org.apache.drill.exec.vector.accessor;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.record.VariantMetadata;
 
 /**
  * Reader for a Drill "union vector." The union vector is presented
@@ -30,7 +31,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
  * At read time, the set of possible types is fixed. A request to
  * obtain a reader for an unused type returns a null pointer.
  * <p>
- * This reader acts as somewhat like a map: it allows access to
+ * This reader is essentially a map of types: it allows access to
  * type-specific readers for the set of types supported in the
  * current vector. A client checks the type of each value, then
  * uses the proper type-specific reader to access that value.
@@ -40,7 +41,9 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 
 public interface VariantReader {
 
-  ObjectType valueType();
+  VariantMetadata schema();
+
+  int size();
 
   /**
    * Determine if a given type is supported by the union vector
@@ -54,6 +57,27 @@ public interface VariantReader {
    */
 
   boolean hasType(MinorType type);
+
+  /**
+   * Return the member reader for the given type. The type must be a member
+   * of the union. Allows caching readers across rows.
+   *
+   * @param type member type
+   * @return reader for that type
+   */
+
+  ObjectReader member(MinorType type);
+
+  /**
+   * Return the scalar reader for the given type member. The type must be a
+   * member of the union. Allows caching readers across rows. Identical to:<br>
+   * <tt>>member(type).scalar()</tt>
+   *
+   * @param type member type
+   * @return scalar reader for that type
+   */
+
+  ScalarReader scalar(MinorType type);
 
   /**
    * Determine if the current value is null. Null values have no type
@@ -74,9 +98,15 @@ public interface VariantReader {
 
   MinorType dataType();
 
-  ObjectReader reader(MinorType type);
-  ObjectReader reader();
-  ScalarReader scalar(MinorType type);
+  /**
+   * Return the writer for the member type of the current row.
+   * Same as:<br/>
+   * <tt>member(dataType())</tt>
+   *
+   * @return reader for the member type of the current row.
+   */
+
+  ObjectReader member();
 
   /**
    * Return the appropriate scalar reader for the current value.

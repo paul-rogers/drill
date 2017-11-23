@@ -28,7 +28,7 @@ import org.apache.drill.exec.vector.accessor.impl.AccessorUtilities;
 import org.apache.drill.exec.vector.accessor.reader.AbstractArrayReader.ElementReaderIndex;
 import org.joda.time.Period;
 
-public abstract class BaseElementReader implements ScalarElementReader {
+public abstract class BaseElementReader implements ScalarElementReader, ReaderEvents {
 
   public static class ScalarElementObjectReader extends AbstractObjectReader {
 
@@ -40,7 +40,7 @@ public abstract class BaseElementReader implements ScalarElementReader {
 
     @Override
     public void bindIndex(ColumnReaderIndex index) {
-      elementReader.bindIndex((ElementReaderIndex) index);
+      elementReader.bindIndex(index);
     }
 
     @Override
@@ -79,26 +79,44 @@ public abstract class BaseElementReader implements ScalarElementReader {
       buf.append("]");
       return buf.toString();
     }
+
+    @Override
+    protected ReaderEvents events() { return elementReader; }
   }
 
   protected ElementReaderIndex vectorIndex;
   protected VectorAccessor vectorAccessor;
+  protected NullStateReader nullStateReader;
 
   public void bindVector(VectorAccessor va) {
     vectorAccessor = va;
   }
 
-  protected void bindIndex(ElementReaderIndex rowIndex) {
-    this.vectorIndex = rowIndex;
+  @Override
+  public void bindNullState(NullStateReader nullStateReader) {
+    this.nullStateReader = nullStateReader;
+  }
+
+  @Override
+  public NullStateReader nullStateReader() { return nullStateReader; }
+
+  @Override
+  public void bindIndex(ColumnReaderIndex rowIndex) {
+    vectorIndex = (ElementReaderIndex) rowIndex;
   }
 
   @Override
   public int size() { return vectorIndex.size(); }
 
   @Override
+  public boolean isNull(int index) {
+    return nullStateReader.isNull();
+  }
+
+  @Override
   public Object getObject(int index) {
     if (isNull(index)) {
-      return "null";
+      return null;
     }
     switch (valueType()) {
     case BYTES:
@@ -122,6 +140,9 @@ public abstract class BaseElementReader implements ScalarElementReader {
 
   @Override
   public String getAsString(int index) {
+    if (isNull(index)) {
+      return "null";
+    }
     switch (valueType()) {
     case BYTES:
       return AccessorUtilities.bytesToString(getBytes(index));
@@ -140,11 +161,6 @@ public abstract class BaseElementReader implements ScalarElementReader {
     default:
       throw new IllegalArgumentException("Unsupported type " + valueType());
     }
-  }
-
-  @Override
-  public boolean isNull(int index) {
-    return false;
   }
 
   @Override

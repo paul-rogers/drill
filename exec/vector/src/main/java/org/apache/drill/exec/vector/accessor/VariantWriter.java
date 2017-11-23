@@ -18,6 +18,7 @@
 package org.apache.drill.exec.vector.accessor;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.record.VariantMetadata;
 
 /**
  * Writer for a Drill "union vector." The union vector is presented
@@ -56,15 +57,9 @@ public interface VariantWriter {
 
   void bindListener(VariantWriterListener listener);
 
-  /**
-   * Returns the inferred type of this variant. Valid only after the
-   * value is known: either from context (for maps and lists) or after
-   * a value is written (for scalars)
-   *
-   * @return the type of this variant as an object type
-   */
+  VariantMetadata schema();
 
-  ObjectType valueType();
+  int size();
 
   /**
    * Determine if the union vector has materialized storage for the
@@ -85,7 +80,23 @@ public interface VariantWriter {
 
   void setNull();
 
-  ObjectWriter writer(MinorType type);
+  /**
+   * Explicitly set the type of the present value. Use this when
+   * the writers are cached. The writer must already exist.
+   *
+   * @param type type to set for the current row
+   */
+
+  void setType(MinorType type);
+
+  /**
+   * Set the type of the present value and get the writer for
+   * that type.
+   * @param type type to set for the current row
+   * @return writer for the type just set
+   */
+
+  ObjectWriter member(MinorType type);
   ScalarWriter scalar(MinorType type);
   TupleWriter tuple();
   ArrayWriter array();

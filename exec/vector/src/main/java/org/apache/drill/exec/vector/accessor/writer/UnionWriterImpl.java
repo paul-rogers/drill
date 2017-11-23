@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.record.VariantMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
@@ -35,13 +36,13 @@ import org.apache.drill.exec.vector.complex.UnionVector;
  * Writer to a union vector.
  */
 
-public class VariantWriterImpl implements VariantWriter, WriterEvents {
+public class UnionWriterImpl implements VariantWriter, WriterEvents {
 
   public static class VariantObjectWriter extends AbstractObjectWriter {
 
-    private final VariantWriterImpl writer;
+    private final UnionWriterImpl writer;
 
-    public VariantObjectWriter(VariantWriterImpl writer, ColumnMetadata schema) {
+    public VariantObjectWriter(UnionWriterImpl writer, ColumnMetadata schema) {
       super(schema);
       this.writer = writer;
     }
@@ -71,31 +72,42 @@ public class VariantWriterImpl implements VariantWriter, WriterEvents {
     @Override
     public ObjectWriter addType(MinorType type) {
       ValueVector memberVector = ColumnAccessorUtils.getUnionMember(vector, type);
-      schema.variantSchema().addType(type);
-      ColumnMetadata memberSchema = schema.variantSchema().member(type);
+      schema.addType(type);
+      schema.replaceSchema(vector.getField());
+      ColumnMetadata memberSchema = schema.member(type);
       return ColumnWriterFactory.buildColumnWriter(memberSchema, memberVector);
     }
   }
 
   private final UnionVector vector;
-  private final ColumnMetadata schema;
+  private final VariantMetadata schema;
   private final BaseScalarWriter typeWriter;
-  private final AbstractObjectWriter variants[] = new AbstractObjectWriter[MinorType.values().length];
+  private final AbstractObjectWriter variants[];
   private ColumnWriterIndex index;
-  private ObjectType objectType;
   protected State state = State.IDLE;
   private VariantWriterListener listener;
 
-  public VariantWriterImpl(UnionVector vector, ColumnMetadata schema) {
+  public UnionWriterImpl(VariantMetadata schema, UnionVector vector,
+      AbstractObjectWriter variants[]) {
     this.vector = vector;
     this.schema = schema;
+    if (variants == null) {
+      this.variants = new AbstractObjectWriter[MinorType.values().length];
+    } else {
+      this.variants = variants;
+    }
     typeWriter = ColumnWriterFactory.newWriter(vector.getTypeVector());
   }
 
-  @Override
-  public ObjectType valueType() {
-    return objectType;
+  public UnionWriterImpl(VariantMetadata schema, UnionVector vector) {
+    this(schema, vector, null);
   }
+
+  @Override
+  public VariantMetadata schema() { return schema; }
+
+  @Override
+  public int size() { return schema.size(); }
 
   @Override
   public boolean hasType(MinorType type) {
@@ -113,33 +125,20 @@ public class VariantWriterImpl implements VariantWriter, WriterEvents {
   }
 
   @Override
-  public ObjectWriter writer(MinorType type) {
-    typeWriter.setInt(type.getNumber());
+  public ObjectWriter member(MinorType type) {
+    setType(type);
     return writerFor(type);
+  }
+
+  @Override
+  public void setType(MinorType type) {
+    typeWriter.setInt(type.getNumber());
   }
 
   private ObjectWriter writerFor(MinorType type) {
     AbstractObjectWriter writer = variants[type.ordinal()];
     if (writer != null) {
       return writer;
-    }
-    ObjectType targetType;
-    switch (type) {
-    case MAP:
-      targetType = ObjectType.TUPLE;
-      break;
-    case LIST:
-      targetType = ObjectType.ARRAY;
-      break;
-    case UNION:
-      throw new UnsupportedOperationException();
-    default:
-      targetType = ObjectType.SCALAR;
-    }
-    if (objectType == null) {
-      objectType = targetType;
-    } else if (objectType != targetType) {
-      throw new UnsupportedOperationException();
     }
 
     if (listener == null) {
@@ -159,17 +158,17 @@ public class VariantWriterImpl implements VariantWriter, WriterEvents {
 
   @Override
   public ScalarWriter scalar(MinorType type) {
-    return writer(type).scalar();
+    return member(type).scalar();
   }
 
   @Override
   public TupleWriter tuple() {
-    return writer(MinorType.MAP).tuple();
+    return member(MinorType.MAP).tuple();
   }
 
   @Override
   public ArrayWriter array() {
-    return writer(MinorType.LIST).array();
+    return member(MinorType.LIST).array();
   }
 
   @Override
@@ -182,6 +181,11 @@ public class VariantWriterImpl implements VariantWriter, WriterEvents {
   public void bindIndex(ColumnWriterIndex index) {
     this.index = index;
     typeWriter.bindIndex(index);
+    for (int i = 0; i < variants.length; i++) {
+      if (variants[i] != null) {
+        variants[i].events().bindIndex(index);
+      }
+    }
   }
 
   @Override
@@ -292,5 +296,4 @@ public class VariantWriterImpl implements VariantWriter, WriterEvents {
   public void bindListener(VariantWriterListener listener) {
     this.listener = listener;
   }
-
 }

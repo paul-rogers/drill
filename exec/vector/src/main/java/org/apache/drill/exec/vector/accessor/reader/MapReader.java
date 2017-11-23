@@ -31,7 +31,7 @@ import org.apache.drill.exec.vector.complex.AbstractMapVector;
 
 public class MapReader extends AbstractTupleReader {
 
-  public static class HyperMemberVectorAccessor extends BaseHyperVectorAccessor {
+  private static class HyperMemberVectorAccessor extends BaseHyperVectorAccessor {
 
     private final VectorAccessor mapAccessor;
     private final int index;
@@ -63,4 +63,7 @@ public class MapReader extends AbstractTupleReader {
     return build(metadata, readers.toArray(readerArray));
   }
 
+  public static VectorAccessor memberHyperAccessor(VectorAccessor mapAccessor, int index, MajorType memberType) {
+    return new HyperMemberVectorAccessor(mapAccessor, index, memberType);
+  }
 }

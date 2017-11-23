@@ -35,6 +35,7 @@ import org.apache.drill.exec.vector.complex.impl.ComplexCopier;
 import org.apache.drill.exec.util.CallBack;
 import org.apache.drill.exec.expr.BasicTypeHelper;
 import org.apache.drill.exec.memory.AllocationManager.BufferLedger;
+import com.google.common.annotations.VisibleForTesting;
 
 /*
  * This class is generated using freemarker and the ${.template_name} template.
@@ -106,7 +107,7 @@ public class UnionVector implements ValueVector {
   public MapVector getMap() {
     if (mapVector == null) {
       int vectorCount = internalMap.size();
-      mapVector = internalMap.addOrGet("map", MAP_TYPE, MapVector.class);
+      mapVector = internalMap.addOrGet(MinorType.MAP.name(), MAP_TYPE, MapVector.class);
       addSubType(MinorType.MAP);
       if (internalMap.size() > vectorCount) {
         mapVector.allocateNew();
@@ -125,7 +126,7 @@ public class UnionVector implements ValueVector {
   public Nullable${name}Vector get${name}Vector() {
     if (${uncappedName}Vector == null) {
       int vectorCount = internalMap.size();
-      ${uncappedName}Vector = internalMap.addOrGet("${uncappedName}", ${name?upper_case}_TYPE, Nullable${name}Vector.class);
+      ${uncappedName}Vector = internalMap.addOrGet(MinorType.${name?upper_case}.name(), ${name?upper_case}_TYPE, Nullable${name}Vector.class);
       addSubType(MinorType.${name?upper_case});
       if (internalMap.size() > vectorCount) {
         ${uncappedName}Vector.allocateNew();
@@ -141,7 +142,7 @@ public class UnionVector implements ValueVector {
   public ListVector getList() {
     if (listVector == null) {
       int vectorCount = internalMap.size();
-      listVector = internalMap.addOrGet("list", LIST_TYPE, ListVector.class);
+      listVector = internalMap.addOrGet(MinorType.LIST.name(), LIST_TYPE, ListVector.class);
       addSubType(MinorType.LIST);
       if (internalMap.size() > vectorCount) {
         listVector.allocateNew();
@@ -156,6 +157,11 @@ public class UnionVector implements ValueVector {
 
   public UInt1Vector getTypeVector() {
     return typeVector;
+  }
+  
+  @VisibleForTesting
+  public MapVector getTypeMap() {
+    return internalMap;
   }
 
   @Override

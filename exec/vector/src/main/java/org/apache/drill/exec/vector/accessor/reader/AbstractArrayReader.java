@@ -35,7 +35,7 @@ import org.apache.drill.exec.vector.complex.RepeatedValueVector;
  * subclasses are generated for each repeated value vector type.
  */
 
-public abstract class AbstractArrayReader implements ArrayReader {
+public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
 
   /**
    * Object representation of an array reader.
@@ -83,6 +83,9 @@ public abstract class AbstractArrayReader implements ArrayReader {
     public void reposition() {
       arrayReader.reposition();
     }
+
+    @Override
+    protected ReaderEvents events() { return arrayReader; }
   }
 
   /**
@@ -237,6 +240,7 @@ public abstract class AbstractArrayReader implements ArrayReader {
   private final VectorAccessor vectorAccessor;
   protected ColumnReaderIndex baseIndex;
   protected ElementReaderIndex elementIndex;
+  protected NullStateReader nullStateReader;
 
   public AbstractArrayReader(VectorAccessor va) {
     if (va.isHyper()) {
@@ -256,10 +260,22 @@ public abstract class AbstractArrayReader implements ArrayReader {
     }
   }
 
+  @Override
   public void bindIndex(ColumnReaderIndex index) {
     baseIndex = index;
     vectorAccessor.bind(index);
   }
+  
+  @Override
+  public void bindNullState(NullStateReader nullStateReader) {
+    this.nullStateReader = nullStateReader;
+  }
+
+  @Override
+  public NullStateReader nullStateReader() { return nullStateReader; }
+
+  @Override
+  public boolean isNull() { return nullStateReader.isNull(); }
 
   public void reposition() {
     final int index = baseIndex.vectorIndex();

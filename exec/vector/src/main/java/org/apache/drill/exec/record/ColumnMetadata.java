@@ -28,13 +28,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 public interface ColumnMetadata {
 
   enum StructureType {
-    PRIMITIVE, LIST, TUPLE, VARIANT
-  }
-
-  interface VariantMetadata {
-    void addType(MinorType type);
-    boolean hasType(MinorType type);
-    ColumnMetadata member(MinorType type);
+    PRIMITIVE, TUPLE, VARIANT
   }
 
   int DEFAULT_ARRAY_SIZE = 10;
@@ -44,14 +38,12 @@ public interface ColumnMetadata {
   VariantMetadata variantSchema();
   MaterializedField schema();
   String name();
-//  MajorType majorType();
   MinorType type();
   DataMode mode();
   boolean isNullable();
   boolean isArray();
   boolean isVariableWidth();
   boolean isMap();
-  boolean isList();
   boolean isVariant();
 
   /**

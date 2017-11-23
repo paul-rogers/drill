@@ -35,7 +35,7 @@ import org.apache.drill.exec.vector.accessor.VariantReader;
  * column using either a name or a numeric index.
  */
 
-public abstract class AbstractTupleReader implements TupleReader {
+public abstract class AbstractTupleReader implements TupleReader, ReaderEvents {
 
   public static class TupleObjectReader extends AbstractObjectReader {
 
@@ -74,21 +74,37 @@ public abstract class AbstractTupleReader implements TupleReader {
     public void reposition() {
       tupleReader.reposition();
     }
+
+    @Override
+    protected ReaderEvents events() { return tupleReader; }
   }
 
   protected final TupleMetadata schema;
   private final AbstractObjectReader readers[];
+  protected NullStateReader nullStateReader;
 
   protected AbstractTupleReader(TupleMetadata schema, AbstractObjectReader readers[]) {
     this.schema = schema;
     this.readers = readers;
   }
 
+  @Override
   public void bindIndex(ColumnReaderIndex index) {
     for (int i = 0; i < readers.length; i++) {
       readers[i].bindIndex(index);
     }
   }
+
+  @Override
+  public void bindNullState(NullStateReader nullStateReader) {
+    this.nullStateReader = nullStateReader;
+  }
+
+  @Override
+  public NullStateReader nullStateReader() { return nullStateReader; }
+
+  @Override
+  public boolean isNull() { return nullStateReader.isNull(); }
 
   @Override
   public TupleMetadata schema() { return schema; }

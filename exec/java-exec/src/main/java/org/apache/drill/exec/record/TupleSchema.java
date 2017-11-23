@@ -18,10 +18,11 @@
 package org.apache.drill.exec.record;
 
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
@@ -29,7 +30,6 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.expr.TypeHelper;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
-import org.apache.drill.exec.record.ColumnMetadata.VariantMetadata;
 
 /**
  * Defines the schema of a tuple: either the top-level row or a nested
@@ -84,6 +84,16 @@ public class TupleSchema implements TupleMetadata {
       }
     }
 
+    public AbstractColumnMetadata(String name, MinorType type, DataMode mode) {
+      this.name = name;
+      this.type = type;
+      this.mode = mode;
+      precision = 0;
+      if (isArray()) {
+        expectedElementCount = DEFAULT_ARRAY_SIZE;
+      }
+    }
+
     public AbstractColumnMetadata(AbstractColumnMetadata from) {
       name = from.name;
       type = from.type;
@@ -93,16 +103,6 @@ public class TupleSchema implements TupleMetadata {
     }
 
     protected void bind(TupleSchema parentTuple) { }
-
-    @Override
-    public MaterializedField schema() {
-      return MaterializedField.create(name,
-          MajorType.newBuilder()
-            .setMinorType(type)
-            .setMode(mode)
-            .setPrecision(precision)
-            .build());
-    }
 
     @Override
     public String name() { return name; }
@@ -118,9 +118,6 @@ public class TupleSchema implements TupleMetadata {
 
     @Override
     public boolean isArray() { return mode() == DataMode.REPEATED; }
-
-    @Override
-    public boolean isList() { return false; }
 
     @Override
     public boolean isMap() { return false; }
@@ -266,15 +263,160 @@ public class TupleSchema implements TupleMetadata {
       merged.setProjected(projected);
       return merged;
     }
+
+    @Override
+    public MaterializedField schema() {
+      return MaterializedField.create(name,
+          MajorType.newBuilder()
+            .setMinorType(type)
+            .setMode(mode)
+            .setPrecision(precision)
+            .build());
+    }
   }
 
-  public static class VariantSchema extends AbstractColumnMetadata implements VariantMetadata {
+  public static class VariantSchema implements VariantMetadata {
 
-    public Set<MinorType> members = new HashSet<>();
+    private final Map<MinorType, AbstractColumnMetadata> types = new HashMap<>();
+    private VariantColumnMetadata parent;
 
-    public VariantSchema(MaterializedField schema) {
+    protected void bind(VariantColumnMetadata parent) {
+      this.parent = parent;
+    }
+
+    @Override
+    public ColumnMetadata addType(MinorType type) {
+      checkType(type);
+      AbstractColumnMetadata dummyCol;
+      switch (type) {
+      case LIST:
+        dummyCol = new VariantColumnMetadata(
+            MaterializedField.create(
+                type.toString(),
+                Types.optional(type)));
+        break;
+      case MAP:
+        dummyCol = new MapColumnMetadata(
+            MaterializedField.create(
+                type.toString(),
+                Types.required(type)));
+        break;
+      case UNION:
+        throw new IllegalArgumentException("Cannot add a union to a union");
+      default:
+        dummyCol = new PrimitiveColumnMetadata(
+            MaterializedField.create(
+                type.toString(),
+                Types.optional(type)));
+        break;
+      }
+      types.put(type, dummyCol);
+      return dummyCol;
+    }
+
+    @Override
+    public void addType(ColumnMetadata col) {
+      checkType(col.type());
+      switch (col.type()) {
+      case LIST:
+      case MAP:
+        if (col.mode() != DataMode.REQUIRED) {
+          throw new IllegalArgumentException("Map mode must be REQUIRED");
+        }
+        break;
+      case UNION:
+        throw new IllegalArgumentException("Cannot add a union to a union");
+      default:
+        if (col.mode() != DataMode.OPTIONAL) {
+          throw new IllegalArgumentException("Type column must be OPTIONAL");
+        }
+        break;
+      }
+      types.put(col.type(), (AbstractColumnMetadata) col);
+    }
+
+    private void checkType(MinorType type) {
+      if (types.containsKey(type)) {
+        throw new IllegalArgumentException("Variant already contains type: " + type);
+      }
+    }
+
+    @Override
+    public int size() { return types.size(); }
+
+    @Override
+    public boolean hasType(MinorType type) {
+      return types.containsKey(type);
+    }
+
+    @Override
+    public ColumnMetadata member(MinorType type) {
+      return types.get(type);
+    }
+
+    @Override
+    public ColumnMetadata parent() { return parent; }
+
+    @Override
+    public Collection<MinorType> types() {
+      return types.keySet();
+    }
+
+    public void addMap(MapColumnMetadata mapCol) {
+      assert ! mapCol.isArray();
+      checkType(MinorType.MAP);
+      types.put(MinorType.MAP, mapCol);
+    }
+
+    public void addList(VariantColumnMetadata listCol) {
+      assert listCol.isArray();
+      checkType(MinorType.LIST);
+      types.put(MinorType.LIST, listCol);
+    }
+
+    public ColumnMetadata addType(MaterializedField field) {
+      MinorType type = field.getType().getMinorType();
+      checkType(type);
+      AbstractColumnMetadata col;
+      switch (type) {
+      case LIST:
+        col = new VariantColumnMetadata(field);
+        break;
+      case MAP:
+        col = new MapColumnMetadata(field);
+        break;
+      case UNION:
+        throw new IllegalArgumentException("Cannot add a union to a union");
+      default:
+        col = new PrimitiveColumnMetadata(field);
+        break;
+      }
+      types.put(type, col);
+      return col;
+    }
+  }
+
+  public static class VariantColumnMetadata extends AbstractColumnMetadata {
+
+    private final VariantSchema variantSchema;
+
+    public VariantColumnMetadata(MaterializedField schema) {
       super(schema);
-      members.addAll(schema.getType().getSubTypeList());
+      variantSchema = new VariantSchema();
+      variantSchema.bind(this);
+      List<MinorType> types = schema.getType().getSubTypeList();
+      if (types == null) {
+        return;
+      }
+      for (MinorType type : types) {
+        variantSchema.addType(type);
+      }
+    }
+
+    public VariantColumnMetadata(String name, MinorType type, VariantSchema variantSchema) {
+      super(name, type, DataMode.OPTIONAL);
+      this.variantSchema = variantSchema;
+      variantSchema.bind(this);
     }
 
     @Override
@@ -286,11 +428,7 @@ public class TupleSchema implements TupleMetadata {
     public boolean isVariant() { return true; }
 
     @Override
-    public ColumnMetadata member(MinorType type) {
-      return new PrimitiveColumnMetadata(
-          MaterializedField.create("$" + type.name(),
-              Types.optional(type)));
-    }
+    public boolean isArray() { return type() == MinorType.LIST; }
 
     @Override
     public ColumnMetadata cloneEmpty() {
@@ -308,17 +446,17 @@ public class TupleSchema implements TupleMetadata {
 
     @Override
     public VariantMetadata variantSchema() {
-      return this;
+      return variantSchema;
     }
 
     @Override
-    public void addType(MinorType type) {
-      members.add(type);
-    }
-
-    @Override
-    public boolean hasType(MinorType type) {
-      return members.contains(type);
+    public MaterializedField schema() {
+      return MaterializedField.create(name,
+          MajorType.newBuilder()
+            .setMinorType(type)
+            .setMode(DataMode.OPTIONAL)
+            .addAllSubType(variantSchema.types())
+            .build());
     }
   }
 
@@ -365,6 +503,12 @@ public class TupleSchema implements TupleMetadata {
       mapSchema = (TupleSchema) from.mapSchema.copy();
     }
 
+    public MapColumnMetadata(String name, DataMode mode,
+        TupleSchema schema) {
+      super(name, MinorType.MAP, mode);
+      mapSchema = schema;
+    }
+
     @Override
     public AbstractColumnMetadata copy() {
       return new MapColumnMetadata(this);
@@ -387,9 +531,6 @@ public class TupleSchema implements TupleMetadata {
     @Override
     public boolean isMap() { return true; }
 
-    @Override
-    public boolean isVariant() { return false; }
-
     public TupleMetadata parentTuple() { return parentTuple; }
 
     public TupleSchema mapSchemaImpl() { return mapSchema; }
@@ -397,6 +538,19 @@ public class TupleSchema implements TupleMetadata {
     @Override
     public ColumnMetadata cloneEmpty() {
       return new MapColumnMetadata(schema().cloneEmpty(), null);
+    }
+
+    @Override
+    public MaterializedField schema() {
+      MaterializedField field = MaterializedField.create(name,
+          MajorType.newBuilder()
+            .setMinorType(type)
+            .setMode(mode)
+            .build());
+      for (MaterializedField member : mapSchema.toFieldList()) {
+        field.addChild(member);
+      }
+      return field;
     }
   }
 
@@ -440,7 +594,7 @@ public class TupleSchema implements TupleMetadata {
       if (field.getType().getMode() != DataMode.OPTIONAL) {
         throw new UnsupportedOperationException("UNION type must be nullable");
       }
-      return new VariantSchema(field);
+      return new VariantColumnMetadata(field);
     default:
       return new PrimitiveColumnMetadata(field);
     }

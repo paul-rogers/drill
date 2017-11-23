@@ -19,8 +19,6 @@ package org.apache.drill.test.rowSet.test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -34,17 +32,13 @@ import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
-import org.apache.drill.exec.vector.accessor.ObjectReader;
 import org.apache.drill.exec.vector.accessor.ObjectType;
-import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarElementReader;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.ValueType;
-import org.apache.drill.exec.vector.accessor.VariantReader;
-import org.apache.drill.exec.vector.accessor.VariantWriter;
 import org.apache.drill.exec.vector.complex.MapVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.test.SubOperatorTest;
@@ -144,12 +138,16 @@ public class RowSetTest extends SubOperatorTest {
     // Test various accessors: full and simple
 
     assertTrue(reader.next());
+    assertFalse(reader.column("a").scalar().isNull());
     assertEquals(10, reader.column("a").scalar().getInt());
     assertTrue(reader.next());
+    assertFalse(reader.scalar("a").isNull());
     assertEquals(20, reader.scalar("a").getInt());
     assertTrue(reader.next());
+    assertFalse(reader.column(0).scalar().isNull());
     assertEquals(30, reader.column(0).scalar().getInt());
     assertTrue(reader.next());
+    assertFalse(reader.column(0).scalar().isNull());
     assertEquals(40, reader.scalar(0).getInt());
     assertFalse(reader.next());
 
@@ -247,18 +245,22 @@ public class RowSetTest extends SubOperatorTest {
 
     ScalarElementReader intReader = reader.array(0).elements();
     assertTrue(reader.next());
+    assertFalse(reader.array(0).isNull());
     assertEquals(2, intReader.size());
     assertEquals(10, intReader.getInt(0));
     assertEquals(11, intReader.getInt(1));
     assertTrue(reader.next());
+    assertFalse(reader.array(0).isNull());
     assertEquals(3, intReader.size());
     assertEquals(20, intReader.getInt(0));
     assertEquals(21, intReader.getInt(1));
     assertEquals(22, intReader.getInt(2));
     assertTrue(reader.next());
+    assertFalse(reader.array(0).isNull());
     assertEquals(1, intReader.size());
     assertEquals(30, intReader.getInt(0));
     assertTrue(reader.next());
+    assertFalse(reader.array(0).isNull());
     assertEquals(2, intReader.size());
     assertEquals(40, intReader.getInt(0));
     assertEquals(41, intReader.getInt(1));
@@ -360,14 +362,19 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(ValueType.INTEGER, bReader.valueType());
 
     assertTrue(reader.next());
+    assertFalse(mReader.isNull());
     assertEquals(10, aReader.getInt());
+    assertFalse(bReader.isNull(0));
+    assertFalse(bReader.isNull(1));
     assertEquals(11, bReader.getInt(0));
     assertEquals(12, bReader.getInt(1));
     assertTrue(reader.next());
+    assertFalse(mReader.isNull());
     assertEquals(20, aReader.getInt());
     assertEquals(21, bReader.getInt(0));
     assertEquals(22, bReader.getInt(1));
     assertTrue(reader.next());
+    assertFalse(mReader.isNull());
     assertEquals(30, aReader.getInt());
     assertEquals(31, bReader.getInt(0));
     assertEquals(32, bReader.getInt(1));
@@ -479,7 +486,9 @@ public class RowSetTest extends SubOperatorTest {
 
     assertTrue(reader.next());
     assertEquals(10, aReader.getInt());
+    assertFalse(maReader.isNull()); // Array itself is not null
     TupleReader ixReader = maReader.tuple(0);
+    assertFalse(ixReader.isNull()); // Tuple 0 is not null
     assertEquals(101, ixReader.scalar(0).getInt());
     assertEquals(102, ixReader.scalar(1).getInt());
     ixReader = maReader.tuple(1);
@@ -584,119 +593,6 @@ public class RowSetTest extends SubOperatorTest {
     new RowSetComparison(rs1)
       .verifyAndClearAll(rs2);
   }
-
-  /**
-   * Test a variant (AKA "union vector") at the top level, using
-   * just scalar values.
-   */
-
-  @Test
-  public void testScalarVariant() {
-    BatchSchema batchSchema = new SchemaBuilder()
-        .addNullable("v", MinorType.UNION)
-        .build();
-
-    ExtendableRowSet rs = fixture.rowSet(batchSchema);
-    RowSetWriter writer = rs.writer();
-
-    // Sanity check of writer structure
-
-    ObjectWriter wo = writer.column(0);
-    assertEquals(ObjectType.VARIANT, wo.type());
-    VariantWriter vw = wo.variant();
-    assertNull(vw.valueType());
-    assertSame(vw, writer.variant(0));
-    assertSame(vw, writer.variant("v"));
-    for (MinorType type : MinorType.values()) {
-      assertFalse(vw.hasType(type));
-    }
-
-    // Write values of different types
-
-    vw.scalar(MinorType.INT).setInt(10);
-    assertEquals(ObjectType.SCALAR, vw.valueType());
-    assertTrue(vw.hasType(MinorType.INT));
-    assertFalse(vw.hasType(MinorType.VARCHAR));
-    writer.save();
-
-    vw.scalar(MinorType.VARCHAR).setString("fred");
-    assertTrue(vw.hasType(MinorType.VARCHAR));
-    writer.save();
-
-    vw.setNull();
-    writer.save();
-
-    vw.scalar(MinorType.FLOAT8).setDouble(123.45);
-    assertTrue(vw.hasType(MinorType.INT));
-    assertTrue(vw.hasType(MinorType.FLOAT8));
-    writer.save();
-
-    SingleRowSet result = writer.done();
-
-    assertEquals(4, result.rowCount());
-
-    // Read the values.
-
-    RowSetReader reader = result.reader();
-
-    // Sanity check of structure
-
-    ObjectReader ro = reader.column(0);
-    assertEquals(ObjectType.VARIANT, ro.type());
-    VariantReader vr = ro.variant();
-    assertSame(vr, reader.variant(0));
-    assertSame(vr, reader.variant("v"));
-    assertNull(vr.valueType()); // Don't know, haven't seen readers
-    for (MinorType type : MinorType.values()) {
-      if (type == MinorType.INT || type == MinorType.VARCHAR || type == MinorType.FLOAT8) {
-        assertTrue(vr.hasType(type));
-      } else {
-        assertFalse(vr.hasType(type));
-      }
-    }
-    assertEquals(ObjectType.SCALAR, vr.valueType()); // Now we know.
-
-    // Verify the data
-
-    assertTrue(reader.next());
-    assertFalse(vr.isNull());
-    assertTrue(vr.dataType() == MinorType.INT);
-    assertSame(vr.scalar(MinorType.INT), vr.scalar());
-    assertNotNull(vr.reader());
-    assertSame(vr.scalar(), vr.reader().scalar());
-    assertEquals(10, vr.scalar().getInt());
-
-    assertTrue(reader.next());
-    assertFalse(vr.isNull());
-    assertTrue(vr.dataType() == MinorType.VARCHAR);
-    assertSame(vr.scalar(MinorType.VARCHAR), vr.scalar());
-    assertEquals("fred", vr.scalar().getString());
-
-    assertTrue(reader.next());
-    assertTrue(vr.isNull());
-    assertNull(vr.dataType());
-    assertNull(vr.scalar());
-
-    assertTrue(reader.next());
-    assertFalse(vr.isNull());
-    assertTrue(vr.dataType() == MinorType.FLOAT8);
-    assertSame(vr.scalar(MinorType.FLOAT8), vr.scalar());
-    assertEquals(123.45, vr.scalar().getDouble(), 0.001);
-
-    assertFalse(reader.next());
-    result.clear();
-  }
-
-  @Test
-  public void testList() {
-
-  }
-
-  @Test
-  public void testRepeatedList() {
-
-  }
-
   /**
    * Test filling a row set up to the maximum number of rows.
    * Values are small enough to prevent filling to the

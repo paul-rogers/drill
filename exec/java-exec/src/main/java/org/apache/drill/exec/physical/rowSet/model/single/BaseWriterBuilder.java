@@ -21,13 +21,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescrip;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
+import org.apache.drill.exec.vector.complex.ListVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
 /**
@@ -56,8 +59,11 @@ public abstract class BaseWriterBuilder {
           buildMap((AbstractMapVector) vector, descrip));
 
     case UNION:
-      return ColumnWriterFactory.buildVariantWriter(descrip.metadata,
-          (UnionVector) vector);
+      return buildUnion((UnionVector) vector, descrip);
+
+    case LIST:
+      return buildList((ListVector) vector, descrip);
+
     default:
       return ColumnWriterFactory.buildColumnWriter(descrip.metadata, vector);
     }
@@ -73,5 +79,33 @@ public abstract class BaseWriterBuilder {
       i++;
     }
     return writers;
+  }
+
+  private AbstractObjectWriter buildUnion(UnionVector vector, VectorDescrip descrip) {
+    final AbstractObjectWriter variants[] = new AbstractObjectWriter[MinorType.values().length];
+    MetadataProvider mdProvider = descrip.childProvider();
+    int i = 0;
+    for (MinorType type : vector.getField().getType().getSubTypeList()) {
+
+      // This call will create the vector if it does not yet exist.
+      // Will throw an exception for unsupported types.
+      // so call this only if the MajorType reports that the type
+      // already exists.
+
+      @SuppressWarnings("resource")
+      ValueVector memberVector = ColumnAccessorUtils.getUnionMember(vector, type);
+      VectorDescrip memberDescrip = new VectorDescrip(mdProvider, i++, memberVector.getField());
+      variants[type.ordinal()] = buildVectorWriter(memberVector, memberDescrip);
+    }
+    return ColumnWriterFactory.buildUnionWriter(descrip.metadata, vector, variants);
+  }
+
+  @SuppressWarnings("resource")
+  private AbstractObjectWriter buildList(ListVector vector,
+      VectorDescrip descrip) {
+    ValueVector dataVector = vector.getDataVector();
+    VectorDescrip dataMetadata = new VectorDescrip(descrip.childProvider(), 0, dataVector.getField());
+    AbstractObjectWriter dataWriter = buildVectorWriter(dataVector, dataMetadata);
+    return ColumnWriterFactory.buildListWriter(descrip.metadata, vector, dataWriter);
   }
 }

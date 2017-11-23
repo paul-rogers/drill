@@ -97,9 +97,9 @@ public class ListVector extends BaseRepeatedValueVector {
   }
 
   @Override
-  public ValueVector getDataVector() {
-    return vector;
-  }
+  public ValueVector getDataVector() { return vector; }
+
+  public ValueVector getBitsVector() { return bits; }
 
   @Override
   public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
@@ -239,6 +239,19 @@ public class ListVector extends BaseRepeatedValueVector {
   }
 
   @Override
+  public void collectLedgers(Set<BufferLedger> ledgers) {
+    offsets.collectLedgers(ledgers);
+    bits.collectLedgers(ledgers);
+    super.collectLedgers(ledgers);
+  }
+
+  @Override
+  public int getPayloadByteCount(int valueCount) {
+    return offsets.getPayloadByteCount(valueCount) + bits.getPayloadByteCount(valueCount) +
+           super.getPayloadByteCount(valueCount);
+  }
+
+  @Override
   public void load(UserBitShared.SerializedField metadata, DrillBuf buffer) {
     final UserBitShared.SerializedField offsetMetadata = metadata.getChild(0);
     offsets.load(offsetMetadata, buffer);
@@ -257,12 +270,17 @@ public class ListVector extends BaseRepeatedValueVector {
     vector.load(vectorMetadata, buffer.slice(offsetLength + bitLength, vectorLength));
   }
 
+  public void setChildVector(ValueVector childVector) {
+    assert vector == DEFAULT_DATA_VECTOR;
+    replaceDataVector(childVector);
+  }
+
   public UnionVector promoteToUnion() {
     MaterializedField newField = MaterializedField.create(getField().getName(), Types.optional(MinorType.UNION));
-    UnionVector vector = new UnionVector(newField, allocator, null);
-    replaceDataVector(vector);
+    UnionVector unionVector = new UnionVector(newField, allocator, null);
+    replaceDataVector(unionVector);
     reader = new UnionListReader(this);
-    return vector;
+    return unionVector;
   }
 
   private int lastSet;
@@ -321,18 +339,5 @@ public class ListVector extends BaseRepeatedValueVector {
       vector.getMutator().setValueCount(childValueCount);
       bits.getMutator().setValueCount(valueCount);
     }
-  }
-
-  @Override
-  public void collectLedgers(Set<BufferLedger> ledgers) {
-    offsets.collectLedgers(ledgers);
-    bits.collectLedgers(ledgers);
-    super.collectLedgers(ledgers);
-  }
-
-  @Override
-  public int getPayloadByteCount(int valueCount) {
-    return offsets.getPayloadByteCount(valueCount) + bits.getPayloadByteCount(valueCount) +
-           super.getPayloadByteCount(valueCount);
   }
 }
