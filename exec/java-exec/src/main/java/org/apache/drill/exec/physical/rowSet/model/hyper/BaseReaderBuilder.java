@@ -39,6 +39,7 @@ import org.apache.drill.exec.vector.accessor.reader.ColumnReaderFactory;
 import org.apache.drill.exec.vector.accessor.reader.MapReader;
 import org.apache.drill.exec.vector.accessor.reader.ObjectArrayReader;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
+import org.apache.drill.exec.vector.accessor.reader.VectorAccessor.BaseHyperVectorAccessor;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 
 public abstract class BaseReaderBuilder {
@@ -74,12 +75,13 @@ public abstract class BaseReaderBuilder {
    * while position 1 might be batch 1, index 7, and so on.
    */
 
-  public static class HyperVectorAccessor implements VectorAccessor {
+  public static class HyperVectorAccessor extends BaseHyperVectorAccessor {
 
     private final ValueVector[] vectors;
     private ColumnReaderIndex rowIndex;
 
     public HyperVectorAccessor(VectorWrapper<?> vw) {
+      super(vw.getField().getType());
       vectors = vw.getValueVectors();
     }
 
@@ -93,7 +95,6 @@ public abstract class BaseReaderBuilder {
       return vectors[rowIndex.batchIndex()];
     }
   }
-
 
   protected AbstractObjectReader[] buildContainerChildren(
       VectorContainer container, MetadataProvider mdProvider) {

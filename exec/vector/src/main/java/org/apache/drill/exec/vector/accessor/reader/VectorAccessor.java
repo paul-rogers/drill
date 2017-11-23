@@ -17,10 +17,59 @@
  */
 package org.apache.drill.exec.vector.accessor.reader;
 
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 
 public interface VectorAccessor {
+  boolean isHyper();
+  MajorType type();
   void bind(ColumnReaderIndex index);
-  ValueVector vector();
+  <T extends ValueVector> T vector();
+
+  public class SingleVectorAccessor implements VectorAccessor {
+
+    private final ValueVector vector;
+
+    public SingleVectorAccessor(ValueVector vector) {
+      this.vector = vector;
+    }
+
+    @Override
+    public boolean isHyper() { return false; }
+
+    @Override
+    public void bind(ColumnReaderIndex index) { }
+
+    @Override
+    public MajorType type() { return vector.getField().getType(); }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T extends ValueVector> T vector() { return (T) vector; }
+  }
+
+  /**
+   * Vector accessor used by the column accessors to obtain the vector for
+   * each column value. That is, position 0 might be batch 4, index 3,
+   * while position 1 might be batch 1, index 7, and so on.
+   */
+
+  public abstract class BaseHyperVectorAccessor implements VectorAccessor {
+
+    private final MajorType type;
+
+    public BaseHyperVectorAccessor(MajorType type) {
+      this.type = type;
+    }
+
+    @Override
+    public boolean isHyper() { return true; }
+
+    @Override
+    public void bind(ColumnReaderIndex index) { }
+
+    @Override
+    public MajorType type() { return type; }
+  }
 }

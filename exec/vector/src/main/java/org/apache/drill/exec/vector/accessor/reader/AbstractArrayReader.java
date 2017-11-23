@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.vector.accessor.reader;
 
+import org.apache.drill.common.types.TypeProtos.MajorType;
+import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.UInt4Vector.Accessor;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
@@ -24,6 +26,7 @@ import org.apache.drill.exec.vector.accessor.ObjectReader;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarElementReader;
 import org.apache.drill.exec.vector.accessor.TupleReader;
+import org.apache.drill.exec.vector.accessor.reader.VectorAccessor.SingleVectorAccessor;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
@@ -175,38 +178,92 @@ public abstract class AbstractArrayReader implements ArrayReader {
     }
   }
 
-  private final Accessor accessor;
+  private interface OffsetVectorAccessor {
+    Accessor accessor();
+  }
+
+  private static class SingleOffsetVectorAccessor implements OffsetVectorAccessor {
+    private final Accessor accessor;
+
+    private SingleOffsetVectorAccessor(VectorAccessor va) {
+      RepeatedValueVector vector = (RepeatedValueVector) va.vector();
+      accessor = vector.getOffsetVector().getAccessor();
+    }
+
+    @Override
+    public Accessor accessor() { return accessor; }
+  }
+
+  private static class HyperOffsetVectorAccessor implements OffsetVectorAccessor {
+
+    private VectorAccessor repeatedVectorAccessor;
+
+    private HyperOffsetVectorAccessor(VectorAccessor va) {
+      repeatedVectorAccessor = va;
+
+    }
+    @Override
+    public Accessor accessor() {
+      return ((RepeatedValueVector) repeatedVectorAccessor.vector())
+          .getOffsetVector().getAccessor();
+    }
+  }
+
+  private static class HyperDataVectorAccessor implements VectorAccessor {
+
+    private VectorAccessor repeatedVectorAccessor;
+
+    private HyperDataVectorAccessor(VectorAccessor va) {
+      repeatedVectorAccessor = va;
+    }
+
+    @Override
+    public boolean isHyper() { return true; }
+
+    @Override
+    public MajorType type() { return repeatedVectorAccessor.type(); }
+
+    @Override
+    public void bind(ColumnReaderIndex index) { }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T extends ValueVector> T vector() {
+      return (T) ((RepeatedValueVector) repeatedVectorAccessor.vector()).getDataVector();
+    }
+  }
+
+  private final OffsetVectorAccessor accessor;
   private final VectorAccessor vectorAccessor;
   protected ColumnReaderIndex baseIndex;
   protected ElementReaderIndex elementIndex;
 
-  public AbstractArrayReader(RepeatedValueVector vector) {
-    accessor = vector.getOffsetVector().getAccessor();
-    vectorAccessor = null;
+  public AbstractArrayReader(VectorAccessor va) {
+    if (va.isHyper()) {
+      accessor = new HyperOffsetVectorAccessor(va);
+    } else {
+      accessor = new SingleOffsetVectorAccessor(va);
+    }
+    vectorAccessor = va;
   }
 
-  public AbstractArrayReader(VectorAccessor vectorAccessor) {
-    accessor = null;
-    this.vectorAccessor = vectorAccessor;
+  public static VectorAccessor dataAccessor(VectorAccessor va) {
+    if (va.isHyper()) {
+      return new HyperDataVectorAccessor(va);
+    } else {
+      return new SingleVectorAccessor(
+          ((RepeatedValueVector) va.vector()).getDataVector());
+    }
   }
 
   public void bindIndex(ColumnReaderIndex index) {
     baseIndex = index;
-    if (vectorAccessor != null) {
-      vectorAccessor.bind(index);
-    }
-  }
-
-  private Accessor accessor() {
-    if (accessor != null) {
-      return accessor;
-    }
-    return ((RepeatedValueVector) (vectorAccessor.vector())).getOffsetVector().getAccessor();
+    vectorAccessor.bind(index);
   }
 
   public void reposition() {
     final int index = baseIndex.vectorIndex();
-    final Accessor curAccesssor = accessor();
+    final Accessor curAccesssor = accessor.accessor();
     final int startPosn = curAccesssor.get(index);
     elementIndex.reset(startPosn, curAccesssor.get(index + 1) - startPosn);
   }

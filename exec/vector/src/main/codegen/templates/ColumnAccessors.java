@@ -40,26 +40,23 @@
     private ${vectorPrefix}${drillType}Vector.Accessor accessor;
 
     @Override
-    public void bindVector(ValueVector vector) {
+    public void bindVector(VectorAccessor va) {
+      super.bindVector(va);
   <#if drillType = "Decimal9" || drillType == "Decimal18">
-      type = vector.getField().getType();
+      type = va.type();
   </#if>
-      accessor = ((${vectorPrefix}${drillType}Vector) vector).getAccessor();
+      if (! va.isHyper()) {
+        ${vectorPrefix}${drillType}Vector vector = va.vector();
+        accessor = vector.getAccessor();
+      }
     }
 
-  <#if drillType = "Decimal9" || drillType == "Decimal18">
-    @Override
-    public void bindVector(MajorType type, VectorAccessor va) {
-      super.bindVector(type, va);
-      this.type = type;
-    }
-
- </#if>
     private ${vectorPrefix}${drillType}Vector.Accessor accessor() {
-      if (vectorAccessor == null) {
+      if (accessor != null) {
         return accessor;
       } else {
-        return ((${vectorPrefix}${drillType}Vector) vectorAccessor.vector()).getAccessor();
+        ${vectorPrefix}${drillType}Vector vector = vectorAccessor.vector();
+        return vector.getAccessor();
       }
     }
 </#macro>

@@ -20,21 +20,13 @@ package org.apache.drill.exec.vector.accessor.reader;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarElementReader;
-import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 public class ScalarArrayReader extends AbstractArrayReader {
 
   private final BaseElementReader elementReader;
-
-  private ScalarArrayReader(RepeatedValueVector vector,
-                           BaseElementReader elementReader) {
-    super(vector);
-    this.elementReader = elementReader;
-  }
 
   private ScalarArrayReader(VectorAccessor va,
                             BaseElementReader elementReader) {
@@ -42,15 +34,9 @@ public class ScalarArrayReader extends AbstractArrayReader {
     this.elementReader = elementReader;
   }
 
-  public static ArrayObjectReader build(RepeatedValueVector vector,
-                                        BaseElementReader elementReader) {
-    elementReader.bindVector(vector.getDataVector());
-    return new ArrayObjectReader(new ScalarArrayReader(vector, elementReader));
-  }
-
-  public static ArrayObjectReader build(MajorType majorType, VectorAccessor va,
-                                        BaseElementReader elementReader) {
-    elementReader.bindVector(majorType, va);
+  public static ArrayObjectReader build(VectorAccessor va,
+      BaseElementReader elementReader) {
+    elementReader.bindVector(dataAccessor(va));
     return new ArrayObjectReader(new ScalarArrayReader(va, elementReader));
   }
 

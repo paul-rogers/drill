@@ -76,7 +76,7 @@ public class VariantReaderImpl implements VariantReader {
     typeReader.bindVector(vector.getTypeVector());
   }
 
-  public static AbstractObjectReader build(UnionVector vector) {
+  public static AbstractObjectReader build(VectorAccessor va) {
     return new VariantObjectReader(new VariantReaderImpl(vector));
   }
 

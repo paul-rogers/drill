@@ -44,8 +44,8 @@ public class ColumnReaderFactory {
     ColumnAccessorUtils.defineArrayReaders(elementReaders);
   }
 
-  public static AbstractObjectReader buildColumnReader(ValueVector vector) {
-    MajorType major = vector.getField().getType();
+  public static AbstractObjectReader buildColumnReader(VectorAccessor va) {
+    MajorType major = va.type();
     MinorType type = major.getMinorType();
     DataMode mode = major.getMode();
 
@@ -59,36 +59,11 @@ public class ColumnReaderFactory {
     default:
       switch (mode) {
       case OPTIONAL:
-        return BaseScalarReader.build(vector, newAccessor(type, nullableReaders));
+        return BaseScalarReader.build(va, newAccessor(type, nullableReaders));
       case REQUIRED:
-        return BaseScalarReader.build(vector, newAccessor(type, requiredReaders));
+        return BaseScalarReader.build(va, newAccessor(type, requiredReaders));
       case REPEATED:
-        return ScalarArrayReader.build((RepeatedValueVector) vector, newAccessor(type, elementReaders));
-      default:
-        throw new UnsupportedOperationException(mode.toString());
-      }
-    }
-  }
-
-  public static AbstractObjectReader buildColumnReader(MajorType majorType, VectorAccessor va) {
-    MinorType type = majorType.getMinorType();
-    DataMode mode = majorType.getMode();
-
-    switch (type) {
-    case GENERIC_OBJECT:
-    case LATE:
-    case NULL:
-    case LIST:
-    case MAP:
-      throw new UnsupportedOperationException(type.toString());
-    default:
-      switch (mode) {
-      case OPTIONAL:
-        return BaseScalarReader.build(majorType, va, newAccessor(type, nullableReaders));
-      case REQUIRED:
-        return BaseScalarReader.build(majorType, va, newAccessor(type, requiredReaders));
-      case REPEATED:
-        return ScalarArrayReader.build(majorType, va, newAccessor(type, elementReaders));
+        return ScalarArrayReader.build(va, newAccessor(type, elementReaders));
       default:
         throw new UnsupportedOperationException(mode.toString());
       }

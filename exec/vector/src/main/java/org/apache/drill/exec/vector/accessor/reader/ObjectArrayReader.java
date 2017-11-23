@@ -23,7 +23,6 @@ import java.util.List;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
 import org.apache.drill.exec.vector.accessor.ObjectType;
-import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
  * Reader for an array of either tuples or other arrays.
@@ -37,26 +36,9 @@ public class ObjectArrayReader extends AbstractArrayReader {
 
   private final AbstractObjectReader elementReader;
 
-  private ObjectArrayReader(RepeatedValueVector vector, AbstractObjectReader elementReader) {
-    super(vector);
-    this.elementReader = elementReader;
-  }
-
   private ObjectArrayReader(VectorAccessor vectorAccessor, AbstractObjectReader elementReader) {
     super(vectorAccessor);
     this.elementReader = elementReader;
-  }
-
-  public static ArrayObjectReader build(RepeatedValueVector vector,
-                                        AbstractObjectReader elementReader) {
-    return new ArrayObjectReader(
-        new ObjectArrayReader(vector, elementReader));
-  }
-
-  public static ArrayObjectReader buildTable(RepeatedValueVector vector,
-      AbstractObjectReader elementReader) {
-    return new ArrayObjectReader(
-            new ObjectArrayReader(vector, elementReader));
   }
 
   public static AbstractObjectReader build(VectorAccessor vectorAccessor,

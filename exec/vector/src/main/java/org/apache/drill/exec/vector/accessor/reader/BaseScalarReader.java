@@ -19,8 +19,6 @@ package org.apache.drill.exec.vector.accessor.reader;
 
 import java.math.BigDecimal;
 
-import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
@@ -73,18 +71,10 @@ public abstract class BaseScalarReader implements ScalarReader {
   protected ColumnReaderIndex vectorIndex;
   protected VectorAccessor vectorAccessor;
 
-  public static ScalarObjectReader build(ValueVector vector, BaseScalarReader reader) {
-    reader.bindVector(vector);
+  public static ScalarObjectReader build(VectorAccessor va, BaseScalarReader reader) {
+    reader.bindVector(va);
     return new ScalarObjectReader(reader);
   }
-
-  public static AbstractObjectReader build(MajorType majorType, VectorAccessor va,
-                                           BaseScalarReader reader) {
-    reader.bindVector(majorType, va);
-    return new ScalarObjectReader(reader);
-  }
-
-  public abstract void bindVector(ValueVector vector);
 
   protected void bindIndex(ColumnReaderIndex rowIndex) {
     this.vectorIndex = rowIndex;
@@ -93,7 +83,7 @@ public abstract class BaseScalarReader implements ScalarReader {
     }
   }
 
-  public void bindVector(MajorType majorType, VectorAccessor va) {
+  public void bindVector(VectorAccessor va) {
     vectorAccessor = va;
   }
 

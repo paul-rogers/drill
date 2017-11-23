@@ -31,6 +31,8 @@ import org.apache.drill.exec.vector.accessor.reader.ColumnReaderFactory;
 import org.apache.drill.exec.vector.accessor.reader.MapReader;
 import org.apache.drill.exec.vector.accessor.reader.ObjectArrayReader;
 import org.apache.drill.exec.vector.accessor.reader.VariantReaderImpl;
+import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
+import org.apache.drill.exec.vector.accessor.reader.VectorAccessor.SingleVectorAccessor;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
@@ -44,32 +46,31 @@ public abstract class BaseReaderBuilder {
       @SuppressWarnings("resource")
       ValueVector vector = container.getValueVector(i).getValueVector();
       VectorDescrip descrip = new VectorDescrip(mdProvider, i, vector.getField());
-      readers.add(buildVectorReader(vector, descrip));
+      readers.add(buildVectorReader(new SingleVectorAccessor(vector), descrip));
     }
     return readers;
   }
 
-  protected AbstractObjectReader buildVectorReader(ValueVector vector, VectorDescrip descrip) {
-    MajorType type = vector.getField().getType();
+  protected AbstractObjectReader buildVectorReader(VectorAccessor va, VectorDescrip descrip) {
+    MajorType type = va.type();
 
     switch(type.getMinorType()) {
     case MAP:
-      return buildMap(vector, type, descrip);
+      return buildMap(va, type, descrip);
     case UNION:
-      return VariantReaderImpl.build((UnionVector) vector);
+      return VariantReaderImpl.build(va);
     default:
-      return ColumnReaderFactory.buildColumnReader(vector);
+      return ColumnReaderFactory.buildColumnReader(va);
     }
   }
 
-  private AbstractObjectReader buildMap(ValueVector vector, MajorType type, VectorDescrip descrip) {
+  private AbstractObjectReader buildMap(VectorAccessor va, MajorType type, VectorDescrip descrip) {
 
     // Map type
 
     AbstractObjectReader mapReader = MapReader.build(
         descrip.metadata.mapSchema(),
-        buildMap(
-            (AbstractMapVector) vector,
+        buildMap(va,
             descrip.parent.childProvider(descrip.metadata)));
 
     // Single map
@@ -80,15 +81,17 @@ public abstract class BaseReaderBuilder {
 
     // Repeated map
 
-    return ObjectArrayReader.build((RepeatedMapVector) vector, mapReader);
+    return ObjectArrayReader.build(va, mapReader);
   }
 
-  protected List<AbstractObjectReader> buildMap(AbstractMapVector mapVector, MetadataProvider provider) {
+  @SuppressWarnings("resource")
+  protected List<AbstractObjectReader> buildMap(VectorAccessor mapAccessor, MetadataProvider provider) {
+    AbstractMapVector mapVector = mapAccessor.vector();
     List<AbstractObjectReader> readers = new ArrayList<>();
     int i = 0;
     for (ValueVector vector : mapVector) {
       VectorDescrip descrip = new VectorDescrip(provider, i, vector.getField());
-      readers.add(buildVectorReader(vector, descrip));
+      readers.add(buildVectorReader(new SingleVectorAccessor(vector), descrip));
       i++;
     }
     return readers;

@@ -21,8 +21,6 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarElementReader;
@@ -86,9 +84,7 @@ public abstract class BaseElementReader implements ScalarElementReader {
   protected ElementReaderIndex vectorIndex;
   protected VectorAccessor vectorAccessor;
 
-  public abstract void bindVector(ValueVector vector);
-
-  public void bindVector(MajorType majorType, VectorAccessor va) {
+  public void bindVector(VectorAccessor va) {
     vectorAccessor = va;
   }
 
