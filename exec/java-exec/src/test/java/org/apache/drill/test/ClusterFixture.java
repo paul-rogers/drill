@@ -314,7 +314,7 @@ public class ClusterFixture extends BaseFixture implements AutoCloseable {
   public ClientFixture clientFixture() {
     if (clients.isEmpty()) {
       clientBuilder()
-        .property(DrillProperties.DRILLBIT_CONNECTION, String.format("localhost:%s", drillbit().getUserPort()))
+        .property(DrillProperties.DRILLBIT_CONNECTION, String.format("localhost:%d", drillbit().getUserPort()))
         .build();
     }
     return clients.get(0);

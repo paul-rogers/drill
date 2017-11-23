@@ -59,6 +59,7 @@ import ch.qos.logback.classic.Level;
  * you can create your cluster fixture in a JUnit <tt>{@literal @}Before</tt>
  * method, and shut it down in <tt>{@literal @}After</tt> method.
  * <p>
+ * See {@link org.apache.drill.test.package_info the package overview} for details.
  */
 
 // Note: Test itself is ignored because this is an example, not a

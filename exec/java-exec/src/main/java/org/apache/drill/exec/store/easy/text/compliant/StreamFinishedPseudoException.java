@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.store.easy.text.compliant;
 
+@SuppressWarnings("serial")
 class StreamFinishedPseudoException extends RuntimeException {
 
   public static final StreamFinishedPseudoException INSTANCE = new StreamFinishedPseudoException();

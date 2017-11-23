@@ -86,7 +86,7 @@ public class ScanBatch implements CloseableRecordBatch {
    * @param context
    * @param oContext
    * @param readerList
-   * @param implicitColumnList : either an emptylist when all the readers do not have implicit
+   * @param implicitColumnList : either an empty list when all the readers do not have implicit
    *                        columns, or there is a one-to-one mapping between reader and implicitColumns.
    */
   public ScanBatch(PhysicalOperator subScanConfig, FragmentContext context,
@@ -455,7 +455,6 @@ public class ScanBatch implements CloseableRecordBatch {
     }
   }
 
-
   @Override
   public Iterator<VectorWrapper<?>> iterator() {
     return container.iterator();
@@ -485,7 +484,7 @@ public class ScanBatch implements CloseableRecordBatch {
   /**
    * Verify list of implicit column values is valid input:
    *   - Either implicit column list is empty;
-   *   - Or implicit column list has same sie as reader list, and the key set is same across all the readers.
+   *   - Or implicit column list has same size as reader list, and the key set is same across all the readers.
    * @param numReaders
    * @param implicitColumnList
    * @return return true if

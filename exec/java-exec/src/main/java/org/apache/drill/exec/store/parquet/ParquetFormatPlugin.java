@@ -107,6 +107,7 @@ public class ParquetFormatPlugin implements FormatPlugin{
     return config;
   }
 
+  @Override
   public DrillbitContext getContext() {
     return this.context;
   }
@@ -175,6 +176,7 @@ public class ParquetFormatPlugin implements FormatPlugin{
     return storageConfig;
   }
 
+  @Override
   public String getName(){
     return name;
   }

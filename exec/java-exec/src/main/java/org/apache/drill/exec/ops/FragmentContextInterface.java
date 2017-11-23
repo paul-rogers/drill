@@ -22,9 +22,11 @@ import java.util.List;
 
 import org.apache.drill.common.config.DrillConfig;
 import org.apache.drill.exec.exception.ClassTransformationException;
+import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.expr.ClassGenerator;
 import org.apache.drill.exec.expr.CodeGenerator;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
+import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.testing.ExecutionControls;
@@ -146,4 +148,12 @@ public interface FragmentContextInterface {
   DrillBuf getManagedBuffer();
 
   DrillBuf getManagedBuffer(int size);
+
+  OperatorContext newOperatorContext(PhysicalOperator popConfig, OperatorStats stats)
+      throws OutOfMemoryException;
+  OperatorContext newOperatorContext(PhysicalOperator popConfig)
+      throws OutOfMemoryException;
+
+  String getQueryUserName();
+
 }

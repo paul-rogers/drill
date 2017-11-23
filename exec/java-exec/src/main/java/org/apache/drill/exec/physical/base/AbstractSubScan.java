@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -17,14 +17,13 @@
  */
 package org.apache.drill.exec.physical.base;
 
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
 import org.apache.drill.common.exceptions.ExecutionSetupException;
 import org.apache.drill.common.graph.GraphVisitor;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
-
-import com.google.common.collect.Iterators;
 
 public abstract class AbstractSubScan extends AbstractBase implements SubScan{
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(AbstractSubScan.class);
@@ -58,7 +57,7 @@ public abstract class AbstractSubScan extends AbstractBase implements SubScan{
 
   @Override
   public Iterator<PhysicalOperator> iterator() {
-    return Iterators.emptyIterator();
+    return Collections.emptyIterator();
   }
 
   @Override

@@ -117,15 +117,16 @@ public class FileSelection {
   }
 
   public List<FileStatus> getStatuses(final DrillFileSystem fs) throws IOException {
-    Stopwatch timer = Stopwatch.createStarted();
-
-    if (statuses == null)  {
-      final List<FileStatus> newStatuses = Lists.newArrayList();
-      for (final String pathStr:files) {
-        newStatuses.add(fs.getFileStatus(new Path(pathStr)));
-      }
-      statuses = newStatuses;
+    if (statuses != null) {
+      return statuses;
     }
+
+    Stopwatch timer = Stopwatch.createStarted();
+    final List<FileStatus> newStatuses = Lists.newArrayList();
+    for (final String pathStr:files) {
+      newStatuses.add(fs.getFileStatus(new Path(pathStr)));
+    }
+    statuses = newStatuses;
     logger.info("FileSelection.getStatuses() took {} ms, numFiles: {}",
         timer.elapsed(TimeUnit.MILLISECONDS), statuses == null ? 0 : statuses.size());
 
@@ -135,7 +136,7 @@ public class FileSelection {
   public List<String> getFiles() {
     if (files == null) {
       final List<String> newFiles = Lists.newArrayList();
-      for (final FileStatus status:statuses) {
+      for (final FileStatus status : statuses) {
         newFiles.add(status.getPath().toString());
       }
       files = newFiles;
@@ -407,18 +408,20 @@ public class FileSelection {
     final StringBuilder sb = new StringBuilder();
     sb.append("root=").append(this.selectionRoot);
 
-    sb.append("files=[");
-    boolean isFirst = true;
-    for (final String file : this.files) {
-      if (isFirst) {
-        isFirst = false;
-        sb.append(file);
-      } else {
-        sb.append(",");
-        sb.append(file);
+    if (files != null) {
+      sb.append("files=[");
+      boolean isFirst = true;
+      for (final String file : files) {
+        if (isFirst) {
+          isFirst = false;
+          sb.append(file);
+        } else {
+          sb.append(",");
+          sb.append(file);
+        }
       }
+      sb.append("]");
     }
-    sb.append("]");
 
     return sb.toString();
   }
