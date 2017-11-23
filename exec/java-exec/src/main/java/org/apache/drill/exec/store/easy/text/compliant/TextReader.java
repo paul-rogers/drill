@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -26,9 +26,9 @@ import org.apache.drill.common.exceptions.UserException;
 import com.univocity.parsers.common.TextParsingException;
 import com.univocity.parsers.csv.CsvParserSettings;
 
-/*******************************************************************************
+/*-*****************************************************************************
  * Portions Copyright 2014 uniVocity Software Pty Ltd
- ******************************************************************************/
+ *-****************************************************************************/
 
 /**
  * A byte-based Text parser implementation. Builds heavily upon the uniVocity parsers. Customized for UTF8 parsing and
@@ -126,8 +126,6 @@ final class TextReader {
   private boolean parseRecord() throws IOException {
     final byte newLine = this.newLine;
     final TextInput input = this.input;
-
-    input.mark();
 
     fieldIndex = 0;
     if (isWhite(ch) && ignoreLeadingWhitespace) {

@@ -149,6 +149,7 @@ public class WorkspaceSchemaFactory {
    * @param userName User who is trying to access the workspace.
    * @return True if the user has access. False otherwise.
    */
+  @SuppressWarnings("resource")
   public boolean accessible(final String userName) throws IOException {
     final FileSystem fs = ImpersonationUtil.createFileSystem(userName, fsConf);
     try {

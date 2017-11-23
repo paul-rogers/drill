@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -294,8 +294,8 @@ public class BasicPhysicalOpUnitTest extends PhysicalOpUnitTestBase {
   }
 
   // TODO(DRILL-4439) - doesn't expect incoming batches, uses instead RawFragmentBatch
-  // need to figure out how to mock these
   @SuppressWarnings("unchecked")
+  // need to figure out how to mock these
   @Ignore
   @Test
   public void testSimpleMergingReceiver() {

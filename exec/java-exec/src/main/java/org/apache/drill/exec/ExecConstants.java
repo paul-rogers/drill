@@ -30,7 +30,6 @@ import org.apache.drill.exec.server.options.TypeValidators.PowerOfTwoLongValidat
 import org.apache.drill.exec.server.options.TypeValidators.RangeDoubleValidator;
 import org.apache.drill.exec.server.options.TypeValidators.RangeLongValidator;
 import org.apache.drill.exec.server.options.TypeValidators.StringValidator;
-import org.apache.drill.exec.server.options.TypeValidators.MaxWidthValidator;
 import org.apache.drill.exec.server.options.TypeValidators.AdminUsersValidator;
 import org.apache.drill.exec.server.options.TypeValidators.AdminUserGroupsValidator;
 import org.apache.drill.exec.testing.ExecutionControls;
@@ -249,7 +248,7 @@ public final class ExecConstants {
   public static final String PARQUET_COLUMNREADER_ASYNC = "store.parquet.reader.columnreader.async";
   public static final OptionValidator PARQUET_COLUMNREADER_ASYNC_VALIDATOR = new BooleanValidator(PARQUET_COLUMNREADER_ASYNC);
 
-  // Use a buffering reader for parquet page reader
+  // Use a buffering reader for Parquet page reader
   public static final String PARQUET_PAGEREADER_USE_BUFFERED_READ = "store.parquet.reader.pagereader.bufferedread";
   public static final OptionValidator PARQUET_PAGEREADER_USE_BUFFERED_READ_VALIDATOR = new  BooleanValidator(PARQUET_PAGEREADER_USE_BUFFERED_READ);
 
@@ -276,10 +275,10 @@ public final class ExecConstants {
 
   /**
    * The column label (for directory levels) in results when querying files in a directory
-   * E.g.  labels: dir0   dir1
+   * E.g.  labels: dir0   dir1<pre>
    *    structure: foo
    *                |-    bar  -  a.parquet
-   *                |-    baz  -  b.parquet
+   *                |-    baz  -  b.parquet</pre>
    */
   public static final String FILESYSTEM_PARTITION_COLUMN_LABEL = "drill.exec.storage.file.partition.column.label";
   public static final OptionValidator FILESYSTEM_PARTITION_COLUMN_LABEL_VALIDATOR = new StringValidator(FILESYSTEM_PARTITION_COLUMN_LABEL);
@@ -306,7 +305,8 @@ public final class ExecConstants {
   public static final String MONGO_BSON_RECORD_READER = "store.mongo.bson.record.reader";
   public static final OptionValidator MONGO_BSON_RECORD_READER_VALIDATOR = new BooleanValidator(MONGO_BSON_RECORD_READER);
 
-  public static final BooleanValidator ENABLE_UNION_TYPE = new BooleanValidator("exec.enable_union_type");
+  public static final String ENABLE_UNION_TYPE_KEY = "exec.enable_union_type";
+  public static final BooleanValidator ENABLE_UNION_TYPE = new BooleanValidator(ENABLE_UNION_TYPE_KEY);
 
   // TODO: We need to add a feature that enables storage plugins to add their own options. Currently we have to declare
   // in core which is not right. Move this option and above two mongo plugin related options once we have the feature.

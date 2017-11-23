@@ -45,10 +45,11 @@ public class VectorContainer implements VectorAccessible {
   protected final List<VectorWrapper<?>> wrappers = Lists.newArrayList();
   private BatchSchema schema;
   private int recordCount = -1;
-  private BufferAllocator allocator;
+  private final BufferAllocator allocator;
   private boolean schemaChanged = true; // Schema has changed since last built. Must rebuild schema
 
   public VectorContainer() {
+    allocator = null;
   }
 
   public VectorContainer(OperatorContext oContext) {

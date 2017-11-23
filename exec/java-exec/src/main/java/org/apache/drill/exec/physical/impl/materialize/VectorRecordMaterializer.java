@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -45,13 +45,14 @@ public class VectorRecordMaterializer implements RecordMaterializer{
 //    }
   }
 
+  @SuppressWarnings("resource")
+  @Override
   public QueryWritableBatch convertNext() {
-    //batch.getWritableBatch().getDef().getRecordCount()
     WritableBatch w = batch.getWritableBatch().transfer(allocator);
 
-    QueryData header = QueryData.newBuilder() //
-        .setQueryId(queryId) //
-        .setRowCount(batch.getRecordCount()) //
+    QueryData header = QueryData.newBuilder()
+        .setQueryId(queryId)
+        .setRowCount(batch.getRecordCount())
         .setDef(w.getDef()).build();
     QueryWritableBatch batch = new QueryWritableBatch(header, w.getBuffers());
     return batch;

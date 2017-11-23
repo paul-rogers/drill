@@ -17,10 +17,10 @@
  */
 package org.apache.drill.exec.physical.impl.project;
 
-import com.carrotsearch.hppc.IntHashSet;
-import com.google.common.base.Preconditions;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+
 import org.apache.commons.collections.map.CaseInsensitiveMap;
 import org.apache.drill.common.expression.ConvertExpression;
 import org.apache.drill.common.expression.ErrorCollector;
@@ -67,9 +67,10 @@ import org.apache.drill.exec.vector.UntypedNullVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.complex.writer.BaseWriter.ComplexWriter;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
+import com.carrotsearch.hppc.IntHashSet;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 
 public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ProjectRecordBatch.class);
@@ -139,6 +140,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
     return this.container;
   }
 
+  @SuppressWarnings("resource")
   @Override
   protected IterOutcome doWork() {
     if (wasNone) {
@@ -303,6 +305,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
     return expr.getPath().contains(StarColumnHelper.STAR_COLUMN);
   }
 
+  @SuppressWarnings({ "resource", "unused" })
   private void setupNewSchemaFromInput(RecordBatch incomingBatch) throws SchemaChangeException {
     if (allocationVectors != null) {
       for (final ValueVector v : allocationVectors) {
@@ -591,6 +594,7 @@ public class ProjectRecordBatch extends AbstractSingleRecordBatch<Project> {
     }
   }
 
+  @SuppressWarnings("resource")
   private void classifyExpr(final NamedExpression ex, final RecordBatch incoming, final ClassifierResult result)  {
     final NameSegment expr = ((SchemaPath)ex.getExpr()).getRootSegment();
     final NameSegment ref = ex.getRef().getRootSegment();

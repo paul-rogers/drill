@@ -105,7 +105,6 @@ public class SortImpl {
     public VectorContainer getContainer() { return dest; }
   }
 
-
   /**
    * Return results for a single input batch. No merge is needed;
    * the original (sorted) input batch is simply passed as the result.
@@ -200,7 +199,7 @@ public class SortImpl {
     allocator = opContext.getAllocator();
     config = sortConfig;
     memManager = new SortMemoryManager(config, allocator.getLimit());
-    metrics = new SortMetrics(opContext.getStatsWriter());
+    metrics = new SortMetrics(opContext.getStats());
     bufferedBatches = new BufferedBatches(opContext);
 
     // Request leniency from the allocator. Leniency
@@ -538,6 +537,11 @@ public class SortImpl {
     }
     try {
       bufferedBatches.close();
+    } catch (RuntimeException e) {
+      ex = ex == null ? e : ex;
+    }
+    try {
+      context.close();
     } catch (RuntimeException e) {
       ex = ex == null ? e : ex;
     }

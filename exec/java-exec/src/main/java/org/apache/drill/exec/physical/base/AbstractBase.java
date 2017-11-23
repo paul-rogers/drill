@@ -17,11 +17,10 @@
  */
 package org.apache.drill.exec.physical.base;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.apache.drill.common.exceptions.DrillRuntimeException;
 import org.apache.drill.common.graph.GraphVisitor;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.google.common.base.Preconditions;
 
 public abstract class AbstractBase implements PhysicalOperator {

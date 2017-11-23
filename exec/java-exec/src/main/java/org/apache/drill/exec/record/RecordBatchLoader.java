@@ -61,6 +61,8 @@ public class RecordBatchLoader implements VectorAccessible, Iterable<VectorWrapp
     this.allocator = Preconditions.checkNotNull(allocator);
   }
 
+  public BufferAllocator allocator() { return allocator; }
+
   /**
    * Load a record batch from a single buffer.
    *
@@ -269,5 +271,4 @@ public class RecordBatchLoader implements VectorAccessible, Iterable<VectorWrapp
     container.clear();
     resetRecordCount();
   }
-
 }

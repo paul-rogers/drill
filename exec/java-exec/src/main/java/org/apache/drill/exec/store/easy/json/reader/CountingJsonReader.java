@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -23,8 +23,6 @@ import com.fasterxml.jackson.core.JsonToken;
 
 import io.netty.buffer.DrillBuf;
 
-import org.apache.drill.exec.store.easy.json.JsonProcessor.ReadState;
-import org.apache.drill.exec.store.easy.json.reader.BaseJsonProcessor.JsonExceptionProcessingState;
 import org.apache.drill.exec.vector.complex.writer.BaseWriter;
 
 public class CountingJsonReader extends BaseJsonProcessor {
@@ -41,18 +39,15 @@ public class CountingJsonReader extends BaseJsonProcessor {
         token = parser.nextToken();
       }
       lastSeenJsonToken = null;
-      if (!parser.hasCurrentToken()) {
+      if (! parser.hasCurrentToken()) {
         return ReadState.END_OF_STREAM;
       } else if (token != JsonToken.START_OBJECT) {
         throw new com.fasterxml.jackson.core.JsonParseException(
             parser,
             String
                 .format(
-                    "Cannot read from the middle of a record. Current token was %s ",
+                    "Cannot read from the middle of a record. Current token was %s",
                     token));
-        // throw new
-        // IllegalStateException(String.format("Cannot read from the middle of a record. Current token was %s",
-        // token));
       }
       writer.rootAsMap().bit("count").writeBit(1);
       parser.skipChildren();
@@ -72,7 +67,5 @@ public class CountingJsonReader extends BaseJsonProcessor {
   }
 
   @Override
-  public void ensureAtLeastOneField(BaseWriter.ComplexWriter writer) {
-
-  }
+  public void ensureAtLeastOneField(BaseWriter.ComplexWriter writer) { }
 }

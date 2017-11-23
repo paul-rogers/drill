@@ -14,7 +14,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- ******************************************************************************/
+ */
 package org.apache.drill.test;
 
 import java.util.ArrayList;
@@ -69,6 +69,7 @@ public class ClusterFixtureBuilder {
    * @return the configuration builder for use in setting "advanced"
    * configuration options.
    */
+
   public ConfigBuilder configBuilder() { return configBuilder; }
 
   /**
@@ -86,6 +87,7 @@ public class ClusterFixtureBuilder {
    * @return this builder
    * @see {@link #configProperty(String, Object)}
    */
+
   public ClusterFixtureBuilder configResource(String configResource) {
 
     // TypeSafe gets unhappy about a leading slash, but other functions
@@ -101,13 +103,13 @@ public class ClusterFixtureBuilder {
      configBuilder().put(option_name, value.toString());
      return this;
    }
-
   /**
    * Add an additional boot-time property for the embedded Drillbit.
    * @param key config property name
    * @param value property value
    * @return this builder
    */
+
   public ClusterFixtureBuilder configProperty(String key, Object value) {
     configBuilder.put(key, value.toString());
     return this;
@@ -141,6 +143,7 @@ public class ClusterFixtureBuilder {
    * @param value the value of the session option
    * @return this builder
    */
+
   public ClusterFixtureBuilder sessionOption(String key, Object value) {
     if (sessionOptions == null) {
       sessionOptions = new ArrayList<>();
@@ -157,6 +160,7 @@ public class ClusterFixtureBuilder {
    * @param value the value of the system option
    * @return this builder
    */
+
   public ClusterFixtureBuilder systemOption(String key, Object value) {
     if (systemOptions == null) {
       systemOptions = new ArrayList<>();
@@ -250,6 +254,7 @@ public class ClusterFixtureBuilder {
    *
    * @return this builder
    */
+
   public ClusterFixtureBuilder saveProfiles() {
     configProperty(ExecConstants.SYS_STORE_PROVIDER_LOCAL_ENABLE_WRITE, true);
     systemOption(ExecConstants.ENABLE_QUERY_PROFILE_OPTION, true);
@@ -279,6 +284,7 @@ public class ClusterFixtureBuilder {
    *
    * @return
    */
+
   public ClusterFixture build() {
     return new ClusterFixture(this);
   }

@@ -18,9 +18,7 @@
 package org.apache.drill.test;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Callable;
 
 import org.apache.drill.common.config.DrillConfig;
@@ -28,6 +26,7 @@ import org.apache.drill.common.scanner.ClassPathScanner;
 import org.apache.drill.common.scanner.persistence.ScanResult;
 import org.apache.drill.exec.ExecConstants;
 import org.apache.drill.exec.compile.CodeCompiler;
+import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.expr.fn.FunctionImplementationRegistry;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.memory.RootAllocatorFactory;
@@ -36,13 +35,13 @@ import org.apache.drill.exec.ops.BaseOperatorContext;
 import org.apache.drill.exec.ops.BufferManager;
 import org.apache.drill.exec.ops.BufferManagerImpl;
 import org.apache.drill.exec.ops.FragmentContextInterface;
-import org.apache.drill.exec.ops.MetricDef;
 import org.apache.drill.exec.ops.OperatorContext;
-import org.apache.drill.exec.ops.OperatorStatReceiver;
 import org.apache.drill.exec.ops.OperatorStats;
 import org.apache.drill.exec.physical.base.PhysicalOperator;
 import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
+import org.apache.drill.exec.record.selection.SelectionVector2;
 import org.apache.drill.exec.server.DrillbitContext;
 import org.apache.drill.exec.server.options.OptionSet;
 import org.apache.drill.exec.server.options.SystemOptionManager;
@@ -131,11 +130,13 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     private final CodeCompiler compiler;
     private ExecutionControls controls;
     private final BufferManagerImpl bufferManager;
+    private final BufferAllocator allocator;
 
     public TestFragmentContext(DrillConfig config, OptionSet options, BufferAllocator allocator) {
       super(newFunctionRegistry(config, options));
       this.config = config;
       this.options = options;
+      this.allocator = allocator;
       compiler = new CodeCompiler(config, options);
       bufferManager = new BufferManagerImpl(allocator);
     }
@@ -184,66 +185,33 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     protected BufferManager getBufferManager() {
       return bufferManager;
     }
-  }
 
-  /**
-   * Implements a write-only version of the stats collector for use by operators,
-   * then provides simplified test-time accessors to get the stats values when
-   * validating code in tests.
-   */
-
-  public static class MockStats implements OperatorStatReceiver {
-
-    public Map<Integer, Double> stats = new HashMap<>();
-
+    @SuppressWarnings("resource")
     @Override
-    public void addLongStat(MetricDef metric, long value) {
-      setStat(metric, getStat(metric) + value);
+    public OperatorContext newOperatorContext(PhysicalOperator popConfig,
+        OperatorStats stats) throws OutOfMemoryException {
+      BufferAllocator childAllocator = allocator.newChildAllocator(
+          "test:" + popConfig.getClass().getSimpleName(),
+          popConfig.getInitialAllocation(),
+          popConfig.getMaxAllocation()
+          );
+      return new TestOperatorContext(this, childAllocator, popConfig);
     }
 
     @Override
-    public void addDoubleStat(MetricDef metric, double value) {
-      setStat(metric, getStat(metric) + value);
+    public OperatorContext newOperatorContext(PhysicalOperator popConfig)
+        throws OutOfMemoryException {
+      return newOperatorContext(popConfig, null);
     }
 
     @Override
-    public void setLongStat(MetricDef metric, long value) {
-      setStat(metric, value);
+    public String getQueryUserName() {
+      return "fred";
     }
-
-    @Override
-    public void setDoubleStat(MetricDef metric, double value) {
-      setStat(metric, value);
-    }
-
-    public double getStat(MetricDef metric) {
-      return getStat(metric.metricId());
-    }
-
-    private double getStat(int metricId) {
-      Double value = stats.get(metricId);
-      return value == null ? 0 : value;
-    }
-
-    private void setStat(MetricDef metric, double value) {
-      setStat(metric.metricId(), value);
-    }
-
-    private void setStat(int metricId, double value) {
-      stats.put(metricId, value);
-    }
-
-    // Timing stats not supported for test.
-    @Override
-    public void startWait() { }
-
-    @Override
-    public void stopWait() {  }
   }
 
   private final SystemOptionManager options;
   private final TestFragmentContext context;
-  private final OperatorStatReceiver stats;
 
   protected OperatorFixture(OperatorFixtureBuilder builder) {
     config = builder.configBuilder().build();
@@ -258,7 +226,6 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
       applySystemOptions(builder.systemOptions);
     }
     context = new TestFragmentContext(config, options, allocator);
-    stats = new MockStats();
    }
 
   private void applySystemOptions(List<RuntimeOption> systemOptions) {
@@ -268,7 +235,7 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
   }
 
   public SystemOptionManager options() { return options; }
-  public FragmentContextInterface fragmentExecContext() { return context; }
+  public FragmentContextInterface fragmentContext() { return context; }
 
   @Override
   public void close() throws Exception {
@@ -310,27 +277,29 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     }
   }
 
+  public RowSet wrap(VectorContainer container, SelectionVector2 sv2) {
+    if (sv2 == null) {
+      assert container.getSchema().getSelectionVectorMode() == SelectionVectorMode.NONE;
+      return new DirectRowSet(container.getAllocator(), container);
+    } else {
+      assert container.getSchema().getSelectionVectorMode() == SelectionVectorMode.TWO_BYTE;
+      return new IndirectRowSet(container.getAllocator(), container, sv2);
+    }
+  }
+
   public static class TestOperatorContext extends BaseOperatorContext {
 
-    private final OperatorStatReceiver stats;
+    private final OperatorStats stats;
 
     public TestOperatorContext(FragmentContextInterface fragContext,
         BufferAllocator allocator,
-        PhysicalOperator config,
-        OperatorStatReceiver stats) {
+        PhysicalOperator config) {
       super(fragContext, allocator, config);
-      this.stats = stats;
+      stats = new OperatorStats(100, 101, 0, allocator);
     }
 
     @Override
-    public OperatorStatReceiver getStatsWriter() {
-      return stats;
-    }
-
-    @Override
-    public OperatorStats getStats() {
-      throw new UnsupportedOperationException("getStats() not supported for tests");
-    }
+    public OperatorStats getStats() { return stats; }
 
     @Override
     public <RESULT> ListenableFuture<RESULT> runCallableAs(
@@ -339,7 +308,13 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
     }
   }
 
-  public OperatorContext operatorContext(PhysicalOperator config) {
-    return new TestOperatorContext(context, allocator(), config, stats);
+  @SuppressWarnings("resource")
+  public OperatorContext newOperatorContext(PhysicalOperator popConfig) {
+    BufferAllocator childAllocator = allocator.newChildAllocator(
+        "test:" + popConfig.getClass().getSimpleName(),
+        popConfig.getInitialAllocation(),
+        popConfig.getMaxAllocation()
+        );
+    return new TestOperatorContext(context, childAllocator, popConfig);
   }
 }

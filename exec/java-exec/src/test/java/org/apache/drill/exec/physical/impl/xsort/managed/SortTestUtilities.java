@@ -67,7 +67,7 @@ public class SortTestUtilities {
     FieldReference expr = FieldReference.getWithQuotedRef("key");
     Ordering ordering = new Ordering(sortOrder, expr, nullOrder);
     Sort popConfig = new Sort(null, Lists.newArrayList(ordering), false);
-    OperatorContext opContext = fixture.operatorContext(popConfig);
+    OperatorContext opContext = fixture.newOperatorContext(popConfig);
     return new PriorityQueueCopierWrapper(opContext);
   }
 

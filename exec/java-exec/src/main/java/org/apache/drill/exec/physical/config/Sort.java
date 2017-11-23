@@ -1,4 +1,4 @@
-/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -31,7 +31,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 
 @JsonTypeName("sort")
-public class Sort extends AbstractSingle{
+public class Sort extends AbstractSingle {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(Sort.class);
 
   protected final List<Ordering> orderings;
