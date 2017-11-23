@@ -18,7 +18,6 @@
 package org.apache.drill.exec.record;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 
 /**
@@ -33,9 +32,9 @@ public interface ColumnMetadata {
   }
 
   interface VariantMetadata {
+    void addType(MinorType type);
     boolean hasType(MinorType type);
     ColumnMetadata member(MinorType type);
-    void replaceSchema(MaterializedField newSchema);
   }
 
   int DEFAULT_ARRAY_SIZE = 10;
@@ -45,7 +44,7 @@ public interface ColumnMetadata {
   VariantMetadata variantSchema();
   MaterializedField schema();
   String name();
-  MajorType majorType();
+//  MajorType majorType();
   MinorType type();
   DataMode mode();
   boolean isNullable();

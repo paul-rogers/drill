@@ -65,7 +65,6 @@ public class TestTupleSchema extends SubOperatorTest {
     assertNull(col.mapSchema());
     assertSame(field, col.schema());
     assertEquals(field.getName(), col.name());
-    assertEquals(field.getType(), col.majorType());
     assertEquals(field.getType().getMinorType(), col.type());
     assertEquals(field.getDataMode(), col.mode());
     assertFalse(col.isNullable());

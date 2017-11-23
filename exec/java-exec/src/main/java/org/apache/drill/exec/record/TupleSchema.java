@@ -18,8 +18,10 @@
 package org.apache.drill.exec.record;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
@@ -54,7 +56,14 @@ public class TupleSchema implements TupleMetadata {
 
   public static abstract class AbstractColumnMetadata implements ColumnMetadata {
 
-    protected MaterializedField schema;
+    // Capture the key schema information. We cannot use the MaterializedField
+    // or MajorType because then encode child information that we encode here
+    // as a child schema. Keeping the two in sync is nearly impossible.
+
+    protected final String name;
+    protected final MinorType type;
+    protected final DataMode mode;
+    protected int precision;
     protected boolean projected = true;
 
     /**
@@ -65,36 +74,44 @@ public class TupleSchema implements TupleMetadata {
     protected int expectedElementCount = 1;
 
     public AbstractColumnMetadata(MaterializedField schema) {
-      this.schema = schema;
+      name = schema.getName();
+      MajorType majorType = schema.getType();
+      type = majorType.getMinorType();
+      mode = majorType.getMode();
+      precision = majorType.getPrecision();
       if (isArray()) {
         expectedElementCount = DEFAULT_ARRAY_SIZE;
       }
     }
 
     public AbstractColumnMetadata(AbstractColumnMetadata from) {
-      schema = from.schema;
+      name = from.name;
+      type = from.type;
+      mode = from.mode;
+      precision = from.precision;
       expectedElementCount = from.expectedElementCount;
     }
 
     protected void bind(TupleSchema parentTuple) { }
 
     @Override
-    public MaterializedField schema() { return schema; }
-
-    public void replaceField(MaterializedField field) {
-      this.schema = field;
+    public MaterializedField schema() {
+      return MaterializedField.create(name,
+          MajorType.newBuilder()
+            .setMinorType(type)
+            .setMode(mode)
+            .setPrecision(precision)
+            .build());
     }
-    @Override
-    public String name() { return schema().getName(); }
 
     @Override
-    public MajorType majorType() { return schema().getType(); }
+    public String name() { return name; }
 
     @Override
-    public MinorType type() { return schema().getType().getMinorType(); }
+    public MinorType type() { return type; }
 
     @Override
-    public DataMode mode() { return schema().getDataMode(); }
+    public DataMode mode() { return mode; }
 
     @Override
     public boolean isNullable() { return mode() == DataMode.OPTIONAL; }
@@ -188,6 +205,7 @@ public class TupleSchema implements TupleMetadata {
 
     public PrimitiveColumnMetadata(MaterializedField schema) {
       super(schema);
+      MajorType majorType = schema.getType();
       if (type() == MinorType.NULL) {
         expectedWidth = 0;
       } else if (isVariableWidth()) {
@@ -196,16 +214,16 @@ public class TupleSchema implements TupleMetadata {
         // method to get the expected VarChar size. If zero (which
         // it will be), try the revised precision field.
 
-        int precision = majorType().getPrecision();
+        int precision = majorType.getPrecision();
         if (precision > 0) {
           expectedWidth = precision;
         } else {
           // TypeHelper includes the offset vector width
 
-          expectedWidth = TypeHelper.getSize(majorType()) - 4;
+          expectedWidth = TypeHelper.getSize(majorType) - 4;
         }
       } else {
-        expectedWidth = TypeHelper.getSize(majorType());
+        expectedWidth = TypeHelper.getSize(majorType);
       }
     }
 
@@ -252,8 +270,11 @@ public class TupleSchema implements TupleMetadata {
 
   public static class VariantSchema extends AbstractColumnMetadata implements VariantMetadata {
 
+    public Set<MinorType> members = new HashSet<>();
+
     public VariantSchema(MaterializedField schema) {
       super(schema);
+      members.addAll(schema.getType().getSubTypeList());
     }
 
     @Override
@@ -291,22 +312,14 @@ public class TupleSchema implements TupleMetadata {
     }
 
     @Override
-    public boolean hasType(MinorType type) {
-      List<MinorType> types = schema.getType().getSubTypeList();
-      return types != null  &&  types.contains(type);
+    public void addType(MinorType type) {
+      members.add(type);
     }
 
     @Override
-    public void replaceSchema(MaterializedField newSchema) {
-
-      // Awkward, but adding a type to a union vector creates a new
-      // (immutable) materialized field.
-
-      assert newSchema != null;
-      assert newSchema.getType().getMinorType() == MinorType.UNION;
-      schema = newSchema;
+    public boolean hasType(MinorType type) {
+      return members.contains(type);
     }
-
   }
 
   /**
@@ -347,9 +360,14 @@ public class TupleSchema implements TupleMetadata {
       this.mapSchema.bind(this);
     }
 
+    public MapColumnMetadata(MapColumnMetadata from) {
+      super(from);
+      mapSchema = (TupleSchema) from.mapSchema.copy();
+    }
+
     @Override
     public AbstractColumnMetadata copy() {
-      return new MapColumnMetadata(schema, (TupleSchema) mapSchema.copy());
+      return new MapColumnMetadata(this);
     }
 
     @Override
@@ -495,9 +513,6 @@ public class TupleSchema implements TupleMetadata {
   public void add(AbstractColumnMetadata md) {
     md.bind(this);
     nameSpace.add(md.name(), md);
-    if (parentMap != null) {
-      parentMap.schema.addChild(md.schema());
-    }
   }
 
   @Override
