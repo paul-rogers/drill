@@ -23,6 +23,8 @@ import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.impl.AccessorUtilities;
+import org.apache.drill.exec.vector.accessor.reader.BufferAccessor.HyperVectorBufferAccessor;
+import org.apache.drill.exec.vector.accessor.reader.BufferAccessor.SingleVectorBufferAccessor;
 import org.joda.time.Period;
 
 /**
@@ -71,14 +73,52 @@ public abstract class BaseScalarReader implements ScalarReader, ReaderEvents {
     protected ReaderEvents events() { return scalarReader; }
   }
 
+  public abstract static class BaseFixedWidthReader extends BaseScalarReader {
+
+    public abstract int width();
+  }
+
+  public abstract static class BaseVarWidthReader extends BaseScalarReader {
+
+    protected OffsetVectorReader offsetsReader;
+
+    @Override
+    public void bindVector(VectorAccessor va) {
+      super.bindVector(va);
+      offsetsReader = OffsetVectorReader.buildVarWidthReader(va);
+    }
+
+    @Override
+    public void bindIndex(ColumnReaderIndex index) {
+      super.bindIndex(index);
+      offsetsReader.bindIndex(index);
+    }
+  }
+
   protected ColumnReaderIndex vectorIndex;
   protected VectorAccessor vectorAccessor;
+  protected BufferAccessor bufferAccessor;
   protected NullStateReader nullStateReader;
 
-  public static ScalarObjectReader build(VectorAccessor va, BaseScalarReader reader) {
+  public static ScalarObjectReader buildOptional(VectorAccessor va, BaseScalarReader reader) {
     reader.bindVector(va);
     reader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
     return new ScalarObjectReader(reader);
+  }
+
+  public static ScalarObjectReader buildRequired(VectorAccessor va, BaseScalarReader reader) {
+    reader.bindVector(va);
+    reader.bindBuffer(bufferAccessor(va));
+    reader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+    return new ScalarObjectReader(reader);
+  }
+
+  public static BufferAccessor bufferAccessor(VectorAccessor va) {
+    if (va.isHyper()) {
+      return new HyperVectorBufferAccessor(va);
+    } else {
+      return new SingleVectorBufferAccessor(va);
+    }
   }
 
   @Override
@@ -99,6 +139,18 @@ public abstract class BaseScalarReader implements ScalarReader, ReaderEvents {
 
   public void bindVector(VectorAccessor va) {
     vectorAccessor = va;
+  }
+
+  /**
+   * The buffer accessor is bound via a method to make dynamic allocation easier;
+   * allows the reader factory to use the niladic constructor rather than having
+   * to pass in the buffer accessor to the constructor.
+   *
+   * @param ba
+   */
+
+  public void bindBuffer(BufferAccessor ba) {
+    bufferAccessor = ba;
   }
 
   @Override

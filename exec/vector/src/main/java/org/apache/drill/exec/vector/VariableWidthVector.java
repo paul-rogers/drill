@@ -19,6 +19,14 @@ package org.apache.drill.exec.vector;
 
 public interface VariableWidthVector extends ValueVector {
 
+  interface VariableWidthAccessor extends Accessor {
+    int getValueLength(int index);
+  }
+
+  interface VariableWidthMutator extends Mutator {
+    void setValueLengthSafe(int index, int length);
+  }
+
   /**
    * Allocate a new memory space for this vector.  Must be called prior to using the ValueVector.
    *
@@ -39,13 +47,7 @@ public interface VariableWidthVector extends ValueVector {
   @Override
   VariableWidthAccessor getAccessor();
 
-  interface VariableWidthAccessor extends Accessor {
-    int getValueLength(int index);
-  }
-
   int getCurrentSizeInBytes();
 
-  interface VariableWidthMutator extends Mutator {
-    void setValueLengthSafe(int index, int length);
-  }
+  UInt4Vector getOffsetVector();
 }

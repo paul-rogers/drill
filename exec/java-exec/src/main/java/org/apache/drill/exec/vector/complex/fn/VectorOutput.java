@@ -260,7 +260,7 @@ abstract class VectorOutput {
         final Period p = ISOPeriodFormat.standard().parsePeriod(parser.getValueAsString());
         int months = DateUtility.monthsFromPeriod(p);
         int days = p.getDays();
-        int millis = DateUtility.millisFromPeriod(p);
+        int millis = DateUtility.periodToMillis(p);
         intervalWriter.writeInterval(months, days, millis);
       }
     }
@@ -361,7 +361,7 @@ abstract class VectorOutput {
         final Period p = ISOPeriodFormat.standard().parsePeriod(parser.getValueAsString());
         int months = DateUtility.monthsFromPeriod(p);
         int days = p.getDays();
-        int millis = DateUtility.millisFromPeriod(p);
+        int millis = DateUtility.periodToMillis(p);
         intervalWriter.writeInterval(months, days, millis);
       }
     }

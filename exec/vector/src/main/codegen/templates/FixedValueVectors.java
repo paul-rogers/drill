@@ -28,6 +28,7 @@
 package org.apache.drill.exec.vector;
 
 <#include "/@includes/vv_imports.ftl" />
+import org.apache.drill.exec.expr.fn.impl.DateUtility;
 import org.apache.drill.exec.util.DecimalUtility;
 
 /**
@@ -379,13 +380,13 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     public boolean isNull(int index){
       return false;
     }
-
     <#if (type.width > 8)>
+    
     public ${minor.javaType!type.javaType} get(int index) {
       return data.slice(index * VALUE_WIDTH, VALUE_WIDTH);
     }
-
     <#if (minor.class == "Interval")>
+    
     public void get(int index, ${minor.class}Holder holder){
       final int offsetIndex = index * VALUE_WIDTH;
       holder.months = data.getInt(offsetIndex);
@@ -407,45 +408,18 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       final int months  = data.getInt(offsetIndex);
       final int days    = data.getInt(offsetIndex + ${minor.daysOffset});
       final int millis = data.getInt(offsetIndex + ${minor.millisecondsOffset});
-      final Period p = new Period();
-      return p.plusMonths(months).plusDays(days).plusMillis(millis);
+      return DateUtility.fromInterval(months, days, millis);
     }
 
     public StringBuilder getAsStringBuilder(int index) {
-
       final int offsetIndex = index * VALUE_WIDTH;
-
-      int months  = data.getInt(offsetIndex);
-      final int days    = data.getInt(offsetIndex + ${minor.daysOffset});
-      int millis = data.getInt(offsetIndex + ${minor.millisecondsOffset});
-
-      final int years  = (months / org.apache.drill.exec.expr.fn.impl.DateUtility.yearsToMonths);
-      months = (months % org.apache.drill.exec.expr.fn.impl.DateUtility.yearsToMonths);
-
-      final int hours  = millis / (org.apache.drill.exec.expr.fn.impl.DateUtility.hoursToMillis);
-      millis     = millis % (org.apache.drill.exec.expr.fn.impl.DateUtility.hoursToMillis);
-
-      final int minutes = millis / (org.apache.drill.exec.expr.fn.impl.DateUtility.minutesToMillis);
-      millis      = millis % (org.apache.drill.exec.expr.fn.impl.DateUtility.minutesToMillis);
-
-      final long seconds = millis / (org.apache.drill.exec.expr.fn.impl.DateUtility.secondsToMillis);
-      millis      = millis % (org.apache.drill.exec.expr.fn.impl.DateUtility.secondsToMillis);
-
-      final String yearString = (Math.abs(years) == 1) ? " year " : " years ";
-      final String monthString = (Math.abs(months) == 1) ? " month " : " months ";
-      final String dayString = (Math.abs(days) == 1) ? " day " : " days ";
-
-      return(new StringBuilder().
-             append(years).append(yearString).
-             append(months).append(monthString).
-             append(days).append(dayString).
-             append(hours).append(":").
-             append(minutes).append(":").
-             append(seconds).append(".").
-             append(millis));
+      final int months = data.getInt(offsetIndex);
+      final int days   = data.getInt(offsetIndex + ${minor.daysOffset});
+      final int millis = data.getInt(offsetIndex + ${minor.millisecondsOffset});      
+      return DateUtility.intervalStringBuilder(months, days, millis);
     }
-
     <#elseif (minor.class == "IntervalDay")>
+    
     public void get(int index, ${minor.class}Holder holder){
       final int offsetIndex = index * VALUE_WIDTH;
       holder.days = data.getInt(offsetIndex);
@@ -462,38 +436,19 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     @Override
     public ${friendlyType} getObject(int index) {
       final int offsetIndex = index * VALUE_WIDTH;
+      final int days   = data.getInt(offsetIndex);
       final int millis = data.getInt(offsetIndex + ${minor.millisecondsOffset});
-      final int  days   = data.getInt(offsetIndex);
-      final Period p = new Period();
-      return p.plusDays(days).plusMillis(millis);
+      return DateUtility.fromIntervalDay(days, millis);
     }
 
     public StringBuilder getAsStringBuilder(int index) {
       final int offsetIndex = index * VALUE_WIDTH;
-
-      int millis = data.getInt(offsetIndex + ${minor.millisecondsOffset});
-      final int  days   = data.getInt(offsetIndex);
-
-      final int hours  = millis / (org.apache.drill.exec.expr.fn.impl.DateUtility.hoursToMillis);
-      millis     = millis % (org.apache.drill.exec.expr.fn.impl.DateUtility.hoursToMillis);
-
-      final int minutes = millis / (org.apache.drill.exec.expr.fn.impl.DateUtility.minutesToMillis);
-      millis      = millis % (org.apache.drill.exec.expr.fn.impl.DateUtility.minutesToMillis);
-
-      final int seconds = millis / (org.apache.drill.exec.expr.fn.impl.DateUtility.secondsToMillis);
-      millis      = millis % (org.apache.drill.exec.expr.fn.impl.DateUtility.secondsToMillis);
-
-      final String dayString = (Math.abs(days) == 1) ? " day " : " days ";
-
-      return(new StringBuilder().
-              append(days).append(dayString).
-              append(hours).append(":").
-              append(minutes).append(":").
-              append(seconds).append(".").
-              append(millis));
+      final int days   = data.getInt(offsetIndex);
+      final int millis = data.getInt(offsetIndex + ${minor.millisecondsOffset});     
+      return DateUtility.intervalDayStringBuilder(days, millis);
     }
-
     <#elseif minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse" || minor.class == "Decimal28Dense" || minor.class == "Decimal38Dense">
+
     public void get(int index, ${minor.class}Holder holder) {
       holder.start = index * VALUE_WIDTH;
       holder.buffer = data;
@@ -515,11 +470,13 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       // Get the BigDecimal object
       return DecimalUtility.getBigDecimalFromSparse(data, index * VALUE_WIDTH, ${minor.nDecimalDigits}, getField().getScale());
       <#else>
-      return DecimalUtility.getBigDecimalFromDense(data, index * VALUE_WIDTH, ${minor.nDecimalDigits}, getField().getScale(), ${minor.maxPrecisionDigits}, VALUE_WIDTH);
+      return DecimalUtility.getBigDecimalFromDense(data, index * VALUE_WIDTH,
+          ${minor.nDecimalDigits}, getField().getScale(),
+          ${minor.maxPrecisionDigits}, VALUE_WIDTH);
       </#if>
     }
-
     <#else>
+
     public void get(int index, ${minor.class}Holder holder){
       holder.buffer = data;
       holder.start = index * VALUE_WIDTH;
@@ -535,76 +492,61 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     public ${friendlyType} getObject(int index) {
       return data.slice(index * VALUE_WIDTH, VALUE_WIDTH)
     }
-
     </#if>
     <#else> <#-- type.width <= 8 -->
+    
     public ${minor.javaType!type.javaType} get(int index) {
       return data.get${(minor.javaType!type.javaType)?cap_first}(index * VALUE_WIDTH);
     }
-
     <#if type.width == 4>
+    
     public long getTwoAsLong(int index) {
       return data.getLong(index * VALUE_WIDTH);
     }
-
     </#if>
     <#if minor.class == "Date">
+
     @Override
     public ${friendlyType} getObject(int index) {
       org.joda.time.DateTime date = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
       date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
       return date;
     }
-
     <#elseif minor.class == "TimeStamp">
+
     @Override
     public ${friendlyType} getObject(int index) {
       org.joda.time.DateTime date = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
       date = date.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
       return date;
     }
-
     <#elseif minor.class == "IntervalYear">
+
     @Override
     public ${friendlyType} getObject(int index) {
-      final int value = get(index);
-      final int years  = (value / org.apache.drill.exec.expr.fn.impl.DateUtility.yearsToMonths);
-      final int months = (value % org.apache.drill.exec.expr.fn.impl.DateUtility.yearsToMonths);
-      final Period p = new Period();
-      return p.plusYears(years).plusMonths(months);
+      return DateUtility.fromIntervalYear(get(index));
     }
 
     public StringBuilder getAsStringBuilder(int index) {
-
-      int months  = data.getInt(index);
-
-      final int years  = (months / org.apache.drill.exec.expr.fn.impl.DateUtility.yearsToMonths);
-      months = (months % org.apache.drill.exec.expr.fn.impl.DateUtility.yearsToMonths);
-
-      final String yearString = (Math.abs(years) == 1) ? " year " : " years ";
-      final String monthString = (Math.abs(months) == 1) ? " month " : " months ";
-
-      return(new StringBuilder().
-             append(years).append(yearString).
-             append(months).append(monthString));
+      return DateUtility.intervalYearStringBuilder(data.getInt(index));
     }
-
     <#elseif minor.class == "Time">
+
     @Override
     public DateTime getObject(int index) {
       org.joda.time.DateTime time = new org.joda.time.DateTime(get(index), org.joda.time.DateTimeZone.UTC);
       time = time.withZoneRetainFields(org.joda.time.DateTimeZone.getDefault());
       return time;
     }
-
     <#elseif minor.class == "Decimal9" || minor.class == "Decimal18">
+
     @Override
     public ${friendlyType} getObject(int index) {
       final BigInteger value = BigInteger.valueOf(((${type.boxedType})get(index)).${type.javaType}Value());
       return new BigDecimal(value, getField().getScale());
     }
-
     <#else>
+
     @Override
     public ${friendlyType} getObject(int index) {
       return get(index);
@@ -613,8 +555,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     public ${minor.javaType!type.javaType} getPrimitiveObject(int index) {
       return get(index);
     }
-
     </#if>
+
     public void get(int index, ${minor.class}Holder holder){
       <#if minor.class.startsWith("Decimal")>
       holder.scale = getField().getScale();

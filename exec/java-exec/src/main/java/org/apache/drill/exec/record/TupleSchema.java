@@ -63,7 +63,8 @@ public class TupleSchema implements TupleMetadata {
     protected final String name;
     protected final MinorType type;
     protected final DataMode mode;
-    protected int precision;
+    protected final int precision;
+    protected final int scale;
     protected boolean projected = true;
 
     /**
@@ -79,6 +80,7 @@ public class TupleSchema implements TupleMetadata {
       type = majorType.getMinorType();
       mode = majorType.getMode();
       precision = majorType.getPrecision();
+      scale = majorType.getScale();
       if (isArray()) {
         expectedElementCount = DEFAULT_ARRAY_SIZE;
       }
@@ -89,6 +91,7 @@ public class TupleSchema implements TupleMetadata {
       this.type = type;
       this.mode = mode;
       precision = 0;
+      scale = 0;
       if (isArray()) {
         expectedElementCount = DEFAULT_ARRAY_SIZE;
       }
@@ -99,6 +102,7 @@ public class TupleSchema implements TupleMetadata {
       type = from.type;
       mode = from.mode;
       precision = from.precision;
+      scale = from.scale;
       expectedElementCount = from.expectedElementCount;
     }
 
@@ -271,6 +275,7 @@ public class TupleSchema implements TupleMetadata {
             .setMinorType(type)
             .setMode(mode)
             .setPrecision(precision)
+            .setScale(scale)
             .build());
     }
   }

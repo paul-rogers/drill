@@ -25,6 +25,7 @@ import java.util.Arrays;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.expr.fn.impl.DateUtility;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.vector.accessor.ScalarElementReader;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
@@ -373,7 +374,7 @@ public class TestScalarAccessors extends SubOperatorTest {
 
     assertTrue(reader.next());
     assertEquals(Float.MAX_VALUE, colReader.getDouble(), 0.000001);
-    assertEquals((double) Float.MAX_VALUE, (double) colReader.getObject(), 0.000001);
+    assertEquals(Float.MAX_VALUE, (double) colReader.getObject(), 0.000001);
 
     assertTrue(reader.next());
     assertEquals(Float.MIN_VALUE, colReader.getDouble(), 0.000001);
@@ -507,13 +508,14 @@ public class TestScalarAccessors extends SubOperatorTest {
   }
 
   @Test
-  public void testStringRW() {
+  public void testVarcharRW() {
     BatchSchema batchSchema = new SchemaBuilder()
         .add("col", MinorType.VARCHAR)
         .build();
     SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
         .addRow("")
-        .addRow("abcd")
+        .addRow("fred")
+        .addRow("barney")
         .build();
     assertEquals(2, rs.rowCount());
 
@@ -526,16 +528,21 @@ public class TestScalarAccessors extends SubOperatorTest {
     assertEquals("", colReader.getString());
 
     assertTrue(reader.next());
-    assertEquals("abcd", colReader.getString());
-    assertEquals("abcd", colReader.getObject());
-    assertEquals("\"abcd\"", colReader.getAsString());
+    assertEquals("fred", colReader.getString());
+    assertEquals("fred", colReader.getObject());
+    assertEquals("\"fred\"", colReader.getAsString());
+
+    assertTrue(reader.next());
+    assertEquals("barney", colReader.getString());
+    assertEquals("barney", colReader.getObject());
+    assertEquals("\"barney\"", colReader.getAsString());
 
     assertFalse(reader.next());
     rs.clear();
   }
 
   @Test
-  public void testNullableString() {
+  public void testNullableVarchar() {
     BatchSchema batchSchema = new SchemaBuilder()
         .addNullable("col", MinorType.VARCHAR)
         .build();
@@ -568,7 +575,7 @@ public class TestScalarAccessors extends SubOperatorTest {
   }
 
   @Test
-  public void testStringArray() {
+  public void testVarcharArray() {
     BatchSchema batchSchema = new SchemaBuilder()
         .addArray("col", MinorType.VARCHAR)
         .build();
@@ -599,6 +606,37 @@ public class TestScalarAccessors extends SubOperatorTest {
 
     assertFalse(reader.next());
     rs.clear();
+  }
+
+  /**
+   * Test the low-level interval-year utilities used by the column accessors.
+   */
+
+  @Test
+  public void testIntervalYearUtils() {
+    {
+      Period expected = Period.months(0);
+      Period actual = DateUtility.fromIntervalYear(0);
+      assertEquals(expected, actual.normalizedStandard());
+      String fmt = DateUtility.intervalYearStringBuilder(expected).toString();
+      assertEquals("0 years 0 months", fmt);
+    }
+
+    {
+      Period expected = Period.years(1).plusMonths(2);
+      Period actual = DateUtility.fromIntervalYear(DateUtility.periodToMonths(expected));
+      assertEquals(expected, actual.normalizedStandard());
+      String fmt = DateUtility.intervalYearStringBuilder(expected).toString();
+      assertEquals("1 year 2 months", fmt);
+    }
+
+    {
+      Period expected = Period.years(6).plusMonths(1);
+      Period actual = DateUtility.fromIntervalYear(DateUtility.periodToMonths(expected));
+      assertEquals(expected, actual.normalizedStandard());
+      String fmt = DateUtility.intervalYearStringBuilder(expected).toString();
+      assertEquals("6 years 1 month", fmt);
+    }
   }
 
   @Test
@@ -710,6 +748,37 @@ public class TestScalarAccessors extends SubOperatorTest {
     rs.clear();
   }
 
+  /**
+   * Test the low-level interval-day utilities used by the column accessors.
+   */
+
+  @Test
+  public void testIntervalDayUtils() {
+    {
+      Period expected = Period.days(0);
+      Period actual = DateUtility.fromIntervalDay(0, 0);
+      assertEquals(expected, actual.normalizedStandard());
+      String fmt = DateUtility.intervalDayStringBuilder(expected).toString();
+      assertEquals("0 days 0:00:00", fmt);
+    }
+
+    {
+      Period expected = Period.days(1).plusHours(5).plusMinutes(6).plusSeconds(7);
+      Period actual = DateUtility.fromIntervalDay(1, DateUtility.timeToMillis(5, 6, 7, 0));
+      assertEquals(expected, actual.normalizedStandard());
+      String fmt = DateUtility.intervalDayStringBuilder(expected).toString();
+      assertEquals("1 day 5:06:07", fmt);
+    }
+
+    {
+      Period expected = Period.days(2).plusHours(12).plusMinutes(23).plusSeconds(34).plusMillis(567);
+      Period actual = DateUtility.fromIntervalDay(2, DateUtility.timeToMillis(12, 23, 34, 567));
+      assertEquals(expected, actual.normalizedStandard());
+      String fmt = DateUtility.intervalDayStringBuilder(expected).toString();
+      assertEquals("2 days 12:23:34.567", fmt);
+    }
+  }
+
   @Test
   public void testIntervalDayRW() {
     BatchSchema batchSchema = new SchemaBuilder()
@@ -818,6 +887,52 @@ public class TestScalarAccessors extends SubOperatorTest {
 
     assertFalse(reader.next());
     rs.clear();
+  }
+
+  /**
+   * Test the low-level interval utilities used by the column accessors.
+   */
+
+  @Test
+  public void testIntervalUtils() {
+    {
+      Period expected = Period.months(0);
+      Period actual = DateUtility.fromInterval(0, 0, 0);
+      assertEquals(expected, actual.normalizedStandard());
+      String fmt = DateUtility.intervalStringBuilder(expected).toString();
+      assertEquals("0 years 0 months 0 days 0:00:00", fmt);
+    }
+
+    {
+      Period expected = Period.years(1).plusMonths(2).plusDays(3)
+          .plusHours(5).plusMinutes(6).plusSeconds(7);
+      Period actual = DateUtility.fromInterval(DateUtility.periodToMonths(expected), 3,
+          DateUtility.periodToMillis(expected));
+      assertEquals(expected, actual.normalizedStandard());
+      String fmt = DateUtility.intervalStringBuilder(expected).toString();
+      assertEquals("1 year 2 months 3 days 5:06:07", fmt);
+    }
+
+    {
+      Period expected = Period.years(2).plusMonths(1).plusDays(3)
+          .plusHours(12).plusMinutes(23).plusSeconds(34)
+          .plusMillis(456);
+      Period actual = DateUtility.fromInterval(DateUtility.periodToMonths(expected), 3,
+          DateUtility.periodToMillis(expected));
+      assertEquals(expected, actual.normalizedStandard());
+      String fmt = DateUtility.intervalStringBuilder(expected).toString();
+      assertEquals("2 years 1 month 3 days 12:23:34.456", fmt);
+    }
+
+    {
+      Period expected = Period.years(2).plusMonths(3).plusDays(1)
+          .plusHours(12).plusMinutes(23).plusSeconds(34);
+      Period actual = DateUtility.fromInterval(DateUtility.periodToMonths(expected), 1,
+          DateUtility.periodToMillis(expected));
+      assertEquals(expected, actual.normalizedStandard());
+      String fmt = DateUtility.intervalStringBuilder(expected).toString();
+      assertEquals("2 years 3 months 1 day 12:23:34", fmt);
+    }
   }
 
   @Test

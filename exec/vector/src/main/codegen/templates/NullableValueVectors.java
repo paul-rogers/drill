@@ -143,6 +143,13 @@ public final class ${className} extends BaseDataValueVector implements <#if type
   @Override
   public UInt1Vector getBitsVector() { return bits; }
 
+  <#if type.major == "VarLen">
+  @Override
+  public UInt${type.width}Vector getOffsetVector() {
+    return ((VariableWidthVector) values).getOffsetVector();
+  }
+
+  </#if>
   @Override
   public void setInitialCapacity(int numRecords) {
     bits.setInitialCapacity(numRecords);

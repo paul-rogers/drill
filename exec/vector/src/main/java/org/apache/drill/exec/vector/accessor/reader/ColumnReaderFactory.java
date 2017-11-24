@@ -57,9 +57,9 @@ public class ColumnReaderFactory {
     default:
       switch (mode) {
       case OPTIONAL:
-        return BaseScalarReader.build(va, newAccessor(type, nullableReaders));
+        return BaseScalarReader.buildOptional(va, newAccessor(type, nullableReaders));
       case REQUIRED:
-        return BaseScalarReader.build(va, newAccessor(type, requiredReaders));
+        return BaseScalarReader.buildRequired(va, newAccessor(type, requiredReaders));
       case REPEATED:
         return ScalarArrayReader.build(va, newAccessor(type, elementReaders));
       default:

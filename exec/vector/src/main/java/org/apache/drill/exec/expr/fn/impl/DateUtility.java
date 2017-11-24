@@ -636,47 +636,184 @@ public class DateUtility {
 
 
   public static int getIndex(String timezone) {
-        return timezoneMap.get(timezone);
+    return timezoneMap.get(timezone);
+  }
+
+  public static String getTimeZone(int index) {
+    return timezoneList[index];
+  }
+
+  // Returns the date time formatter used to parse date strings
+  public static DateTimeFormatter getDateTimeFormatter() {
+
+    if (dateTimeTZFormat == null) {
+      DateTimeFormatter dateFormatter = DateTimeFormat.forPattern("yyyy-MM-dd");
+      DateTimeParser optionalTime = DateTimeFormat.forPattern(" HH:mm:ss").getParser();
+      DateTimeParser optionalSec = DateTimeFormat.forPattern(".SSS").getParser();
+      DateTimeParser optionalZone = DateTimeFormat.forPattern(" ZZZ").getParser();
+
+      dateTimeTZFormat = new DateTimeFormatterBuilder().append(dateFormatter).appendOptional(optionalTime).appendOptional(optionalSec).appendOptional(optionalZone).toFormatter();
     }
 
-    public static String getTimeZone(int index) {
-        return timezoneList[index];
+    return dateTimeTZFormat;
+  }
+
+  // Returns time formatter used to parse time strings
+  public static DateTimeFormatter getTimeFormatter() {
+    if (timeFormat == null) {
+      DateTimeFormatter timeFormatter = DateTimeFormat.forPattern("HH:mm:ss");
+      DateTimeParser optionalSec = DateTimeFormat.forPattern(".SSS").getParser();
+      timeFormat = new DateTimeFormatterBuilder().append(timeFormatter).appendOptional(optionalSec).toFormatter();
     }
+    return timeFormat;
+  }
 
-    // Function returns the date time formatter used to parse date strings
-    public static DateTimeFormatter getDateTimeFormatter() {
+  public static int monthsFromPeriod(Period period){
+    return (period.getYears() * yearsToMonths) + period.getMonths();
+  }
 
-        if (dateTimeTZFormat == null) {
-            DateTimeFormatter dateFormatter = DateTimeFormat.forPattern("yyyy-MM-dd");
-            DateTimeParser optionalTime = DateTimeFormat.forPattern(" HH:mm:ss").getParser();
-            DateTimeParser optionalSec = DateTimeFormat.forPattern(".SSS").getParser();
-            DateTimeParser optionalZone = DateTimeFormat.forPattern(" ZZZ").getParser();
+  public static int periodToMillis(final Period period){
+    return (period.getHours() * hoursToMillis) +
+           (period.getMinutes() * minutesToMillis) +
+           (period.getSeconds() * secondsToMillis) +
+           (period.getMillis());
+  }
 
-            dateTimeTZFormat = new DateTimeFormatterBuilder().append(dateFormatter).appendOptional(optionalTime).appendOptional(optionalSec).appendOptional(optionalZone).toFormatter();
-        }
+  public static int toMonths(int years, int months) {
+    return years * yearsToMonths + months;
+  }
 
-        return dateTimeTZFormat;
+  public static int periodToMonths(Period value) {
+    return value.getYears() * yearsToMonths + value.getMonths();
+  }
+
+  public static Period fromIntervalYear(int value) {
+    final int years  = (value / yearsToMonths);
+    final int months = (value % yearsToMonths);
+    return new Period()
+        .plusYears(years)
+        .plusMonths(months);
+  }
+
+  public static StringBuilder intervalYearStringBuilder(int months) {
+    final int years = months / yearsToMonths;
+    months %= yearsToMonths;
+
+    return new StringBuilder()
+           .append(years)
+           .append(pluralify("year", years))
+           .append(" ")
+           .append(months)
+           .append(pluralify("month", months));
+  }
+
+  public static StringBuilder intervalYearStringBuilder(Period value) {
+    return intervalYearStringBuilder(
+        value.getYears() * 12 + value.getMonths());
+  }
+
+  public static String pluralify(String term, int value) {
+    term = (Math.abs(value) == 1) ? term : term + "s";
+    return " " + term;
+  }
+
+  public static Period fromIntervalDay(int days, int millis) {
+    return new Period()
+        .plusDays(days)
+        .plusMillis(millis);
+  }
+
+  public static StringBuilder intervalDayStringBuilder(int days, int millis) {
+
+    final int hours  = millis / (DateUtility.hoursToMillis);
+    millis %= (DateUtility.hoursToMillis);
+
+    final int minutes = millis / (DateUtility.minutesToMillis);
+    millis %= (DateUtility.minutesToMillis);
+
+    final int seconds = millis / (DateUtility.secondsToMillis);
+    millis %= (DateUtility.secondsToMillis);
+
+    StringBuilder buf = new StringBuilder()
+            .append(days)
+            .append(pluralify("day", days))
+            .append(" ")
+            .append(hours)
+            .append(":")
+            .append(asTwoDigits(minutes))
+            .append(":")
+            .append(asTwoDigits(seconds));
+    if (millis != 0) {
+      buf.append(".")
+         .append(millis);
     }
+    return buf;
+  }
 
-    // Function returns time formatter used to parse time strings
-    public static DateTimeFormatter getTimeFormatter() {
-        if (timeFormat == null) {
-            DateTimeFormatter timeFormatter = DateTimeFormat.forPattern("HH:mm:ss");
-            DateTimeParser optionalSec = DateTimeFormat.forPattern(".SSS").getParser();
-            timeFormat = new DateTimeFormatterBuilder().append(timeFormatter).appendOptional(optionalSec).toFormatter();
-        }
-        return timeFormat;
+  public static StringBuilder intervalDayStringBuilder(Period value) {
+    return intervalDayStringBuilder(
+        value.getDays(),
+        periodToMillis(value));
+  }
+
+  public static Period fromInterval(int months, int days, int millis) {
+    return new Period()
+        .plusMonths(months)
+        .plusDays(days)
+        .plusMillis(millis);
+  }
+
+  public static String asTwoDigits(int value) {
+    return String.format("%02d", value);
+  }
+
+  public static StringBuilder intervalStringBuilder(int months, int days, int millis) {
+
+    final int years = months / yearsToMonths;
+    months %= yearsToMonths;
+
+    final int hours  = millis / hoursToMillis;
+    millis %= hoursToMillis;
+
+    final int minutes = millis / minutesToMillis;
+    millis %= minutesToMillis;
+
+    final int seconds = millis / secondsToMillis;
+    millis %= secondsToMillis;
+
+    StringBuilder buf = new StringBuilder()
+           .append(years)
+           .append(pluralify("year", years))
+           .append(" ")
+           .append(months)
+           .append(pluralify("month", months))
+           .append(" ")
+           .append(days)
+           .append(pluralify("day", days))
+           .append(" ")
+           .append(hours)
+           .append(":")
+           .append(asTwoDigits(minutes))
+           .append(":")
+           .append(asTwoDigits(seconds));
+    if (millis != 0) {
+      buf.append(".")
+         .append(millis);
     }
+    return buf;
+  }
 
-    public static int monthsFromPeriod(Period period){
-      return (period.getYears() * yearsToMonths) + period.getMonths();
-    }
+  public static StringBuilder intervalStringBuilder(Period value) {
+    return intervalStringBuilder(
+        value.getYears() * 12 + value.getMonths(),
+        value.getDays(),
+        periodToMillis(value));
+  }
 
-    public static int millisFromPeriod(final Period period){
-      return (period.getHours() * hoursToMillis) +
-      (period.getMinutes() * minutesToMillis) +
-      (period.getSeconds() * secondsToMillis) +
-      (period.getMillis());
-    }
-
+  public static int timeToMillis(int hours, int minutes, int seconds, int millis) {
+    return ((hours * 60 +
+             minutes) * 60 +
+            seconds) * 1000 +
+           millis;
+  }
 }

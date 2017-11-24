@@ -176,6 +176,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements V
     return offsetVector.getBuffer().memoryAddress();
   }
 
+  @Override
   public UInt${type.width}Vector getOffsetVector() {
     return offsetVector;
   }
