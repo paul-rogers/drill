@@ -30,8 +30,8 @@ import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.VariantReader;
-import org.apache.drill.exec.vector.accessor.reader.VectorAccessor.BaseHyperVectorAccessor;
-import org.apache.drill.exec.vector.accessor.reader.VectorAccessor.SingleVectorAccessor;
+import org.apache.drill.exec.vector.accessor.reader.VectorAccessors.BaseHyperVectorAccessor;
+import org.apache.drill.exec.vector.accessor.reader.VectorAccessors.SingleVectorAccessor;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
 public class UnionReaderImpl implements VariantReader, ReaderEvents {
@@ -83,6 +83,11 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
     }
 
     @Override
+    public void bindIndex(ColumnReaderIndex rowIndex) {
+      typeReader.bindIndex(rowIndex);
+    }
+
+    @Override
     public boolean isNull() {
       return typeReader.getInt() == UnionVector.NULL_MARKER;
     }
@@ -104,6 +109,11 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
     public MemberNullStateReader(NullStateReader unionNullState, NullStateReader memberNullState) {
       this.unionNullState = unionNullState;
       this.memberNullState = memberNullState;
+    }
+
+    @Override
+    public void bindIndex(ColumnReaderIndex rowIndex) {
+      memberNullState.bindIndex(rowIndex);
     }
 
     @Override
@@ -129,6 +139,9 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
       this.typeReader = typeReader;
       this.type = type;
     }
+
+    @Override
+    public void bindIndex(ColumnReaderIndex rowIndex) { }
 
     @Override
     public boolean isNull() {

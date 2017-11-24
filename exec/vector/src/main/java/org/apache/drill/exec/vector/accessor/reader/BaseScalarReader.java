@@ -19,13 +19,15 @@ package org.apache.drill.exec.vector.accessor.reader;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.vector.BaseDataValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
+import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnReader;
 import org.apache.drill.exec.vector.accessor.impl.AccessorUtilities;
-import org.apache.drill.exec.vector.accessor.reader.BufferAccessor.HyperVectorBufferAccessor;
-import org.apache.drill.exec.vector.accessor.reader.BufferAccessor.SingleVectorBufferAccessor;
 import org.joda.time.Period;
+
+import io.netty.buffer.DrillBuf;
 
 /**
  * Column reader implementation that acts as the basis for the
@@ -95,25 +97,96 @@ public abstract class BaseScalarReader implements ScalarReader, ReaderEvents {
     }
   }
 
+  /**
+   * Holder for the NullableVector wrapper around a bits vector and a
+   * data vector. Manages the bits vector to extract the nullability
+   * value.
+   * <p>
+   * This class allows the same reader to handle both the required and
+   * nullable cases; the only difference is how nulls are handled.
+   */
+
+  private static class IsSetVectorStateReader implements NullStateReader {
+
+    private final VectorAccessor nullableAccessor;
+    private final UInt1ColumnReader isSetReader;
+
+    public IsSetVectorStateReader(VectorAccessor nullableAccessor) {
+      this.nullableAccessor = nullableAccessor;
+      isSetReader = new UInt1ColumnReader();
+      isSetReader.bindVector(VectorAccessors.bitsAccessor(nullableAccessor));
+      isSetReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+    }
+
+    @Override
+    public void bindIndex(ColumnReaderIndex rowIndex) {
+      nullableAccessor.bind(rowIndex);
+      isSetReader.bindIndex(rowIndex);
+    }
+
+    @Override
+    public boolean isNull() {
+      return isSetReader.getInt() == 0;
+    }
+  }
+
+  /**
+   * Provide access to the DrillBuf for the data vector.
+   */
+
+  public interface BufferAccessor {
+    DrillBuf buffer();
+  }
+
+  private static class SingleVectorBufferAccessor implements BufferAccessor {
+    private final DrillBuf buffer;
+
+    public SingleVectorBufferAccessor(VectorAccessor va) {
+      BaseDataValueVector vector = va.vector();
+      buffer = vector.getBuffer();
+    }
+
+    @Override
+    public DrillBuf buffer() { return buffer; }
+  }
+
+  private static class HyperVectorBufferAccessor implements BufferAccessor {
+    private final VectorAccessor vectorAccessor;
+
+    public HyperVectorBufferAccessor(VectorAccessor va) {
+      vectorAccessor = va;
+    }
+
+    @Override
+    public DrillBuf buffer() {
+      BaseDataValueVector vector = vectorAccessor.vector();
+      return vector.getBuffer();
+    }
+  }
+
   protected ColumnReaderIndex vectorIndex;
   protected VectorAccessor vectorAccessor;
   protected BufferAccessor bufferAccessor;
   protected NullStateReader nullStateReader;
 
   public static ScalarObjectReader buildOptional(VectorAccessor va, BaseScalarReader reader) {
-    reader.bindVector(va);
-    reader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+    reader.bindVector(VectorAccessors.nullableValuesAccessor(va));
+    reader.bindNullState(new IsSetVectorStateReader(va));
     return new ScalarObjectReader(reader);
   }
 
   public static ScalarObjectReader buildRequired(VectorAccessor va, BaseScalarReader reader) {
     reader.bindVector(va);
-    reader.bindBuffer(bufferAccessor(va));
     reader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
     return new ScalarObjectReader(reader);
   }
 
-  public static BufferAccessor bufferAccessor(VectorAccessor va) {
+  public void bindVector(VectorAccessor va) {
+    vectorAccessor = va;
+    bufferAccessor = bufferAccessor(va);
+  }
+
+  protected BufferAccessor bufferAccessor(VectorAccessor va) {
     if (va.isHyper()) {
       return new HyperVectorBufferAccessor(va);
     } else {
@@ -132,25 +205,8 @@ public abstract class BaseScalarReader implements ScalarReader, ReaderEvents {
   @Override
   public void bindIndex(ColumnReaderIndex rowIndex) {
     this.vectorIndex = rowIndex;
-    if (vectorAccessor != null) {
-      vectorAccessor.bind(rowIndex);
-    }
-  }
-
-  public void bindVector(VectorAccessor va) {
-    vectorAccessor = va;
-  }
-
-  /**
-   * The buffer accessor is bound via a method to make dynamic allocation easier;
-   * allows the reader factory to use the niladic constructor rather than having
-   * to pass in the buffer accessor to the constructor.
-   *
-   * @param ba
-   */
-
-  public void bindBuffer(BufferAccessor ba) {
-    bufferAccessor = ba;
+    vectorAccessor.bind(rowIndex);
+    nullStateReader.bindIndex(rowIndex);
   }
 
   @Override

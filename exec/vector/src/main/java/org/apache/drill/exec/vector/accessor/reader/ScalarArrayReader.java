@@ -36,7 +36,7 @@ public class ScalarArrayReader extends AbstractArrayReader {
 
   public static ArrayObjectReader build(VectorAccessor va,
       BaseElementReader elementReader) {
-    elementReader.bindVector(dataAccessor(va));
+    elementReader.bindVector(VectorAccessors.arrayDataAccessor(va));
     elementReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
     ScalarArrayReader arrayReader = new ScalarArrayReader(va, elementReader);
     arrayReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);

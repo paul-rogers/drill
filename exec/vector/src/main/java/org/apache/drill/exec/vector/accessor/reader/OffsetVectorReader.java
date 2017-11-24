@@ -17,17 +17,9 @@
  */
 package org.apache.drill.exec.vector.accessor.reader;
 
-import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.vector.UInt4Vector;
-import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.VariableWidthVector;
 import org.apache.drill.exec.vector.accessor.ValueType;
 import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader.BaseFixedWidthReader;
-import org.apache.drill.exec.vector.accessor.reader.VectorAccessor.BaseHyperVectorAccessor;
-import org.apache.drill.exec.vector.accessor.reader.VectorAccessor.SingleVectorAccessor;
-import org.apache.drill.exec.vector.complex.RepeatedValueVector;
-
 import io.netty.buffer.DrillBuf;
 
 /**
@@ -36,71 +28,20 @@ import io.netty.buffer.DrillBuf;
 
 public class OffsetVectorReader extends BaseFixedWidthReader {
 
-  static class ArrayOffsetHyperVectorAccessor extends BaseHyperVectorAccessor {
-
-    private VectorAccessor repeatedVectorAccessor;
-
-    public ArrayOffsetHyperVectorAccessor(VectorAccessor va) {
-      super(Types.required(MinorType.UINT4));
-      repeatedVectorAccessor = va;
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public <T extends ValueVector> T vector() {
-      RepeatedValueVector vector = repeatedVectorAccessor.vector();
-      return (T) vector.getOffsetVector();
-    }
-  }
-
-  static class VarWidthOffsetHyperVectorAccessor extends BaseHyperVectorAccessor {
-
-    private VectorAccessor varWidthVectorAccessor;
-
-    public VarWidthOffsetHyperVectorAccessor(VectorAccessor va) {
-      super(Types.required(MinorType.UINT4));
-      varWidthVectorAccessor = va;
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public <T extends ValueVector> T vector() {
-      VariableWidthVector vector = varWidthVectorAccessor.vector();
-      return (T) vector.getOffsetVector();
-    }
-  }
-
   private static final int VALUE_WIDTH = UInt4Vector.VALUE_WIDTH;
 
   public OffsetVectorReader(VectorAccessor offsetsAccessor) {
     vectorAccessor = offsetsAccessor;
     bufferAccessor = bufferAccessor(offsetsAccessor);
-  }
-
-  public static VectorAccessor arrayOffsetVectorAccessor(VectorAccessor va) {
-    if (va.isHyper()) {
-      return new ArrayOffsetHyperVectorAccessor(va);
-    } else {
-      RepeatedValueVector vector = va.vector();
-      return new SingleVectorAccessor(vector.getOffsetVector());
-    }
-  }
-
-  public static VectorAccessor varWidthOffsetVectorAccessor(VectorAccessor va) {
-    if (va.isHyper()) {
-      return new VarWidthOffsetHyperVectorAccessor(va);
-    } else {
-      VariableWidthVector vector = va.vector();
-      return new SingleVectorAccessor(vector.getOffsetVector());
-    }
+    nullStateReader = NullStateReader.REQUIRED_STATE_READER;
   }
 
   public static OffsetVectorReader buildArrayReader(VectorAccessor repeatedAccessor) {
-    return new OffsetVectorReader(arrayOffsetVectorAccessor(repeatedAccessor));
+    return new OffsetVectorReader(VectorAccessors.arrayOffsetVectorAccessor(repeatedAccessor));
   }
 
   public static OffsetVectorReader buildVarWidthReader(VectorAccessor varWidthAccessor) {
-    return new OffsetVectorReader(varWidthOffsetVectorAccessor(varWidthAccessor));
+    return new OffsetVectorReader(VectorAccessors.varWidthOffsetVectorAccessor(varWidthAccessor));
   }
 
   @Override

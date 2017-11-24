@@ -19,35 +19,13 @@ package org.apache.drill.exec.vector.accessor.reader;
 
 import java.util.List;
 
-import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.reader.VectorAccessor.BaseHyperVectorAccessor;
-import org.apache.drill.exec.vector.complex.AbstractMapVector;
 
 /**
  * Reader for a Drill Map type. Maps are actually tuples, just like rows.
  */
 
 public class MapReader extends AbstractTupleReader {
-
-  private static class HyperMemberVectorAccessor extends BaseHyperVectorAccessor {
-
-    private final VectorAccessor mapAccessor;
-    private final int index;
-
-    private HyperMemberVectorAccessor(VectorAccessor va, int index, MajorType memberType) {
-      super(memberType);
-      mapAccessor = va;
-      this.index = index;
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public <T extends ValueVector> T vector() {
-      return (T) ((AbstractMapVector) mapAccessor.vector()).getChildByOrdinal(index);
-    }
-  }
 
   protected MapReader(TupleMetadata schema, AbstractObjectReader readers[]) {
     super(schema, readers);
@@ -61,9 +39,5 @@ public class MapReader extends AbstractTupleReader {
       List<AbstractObjectReader> readers) {
     AbstractObjectReader readerArray[] = new AbstractObjectReader[readers.size()];
     return build(metadata, readers.toArray(readerArray));
-  }
-
-  public static VectorAccessor memberHyperAccessor(VectorAccessor mapAccessor, int index, MajorType memberType) {
-    return new HyperMemberVectorAccessor(mapAccessor, index, memberType);
   }
 }

@@ -34,7 +34,7 @@ import org.apache.drill.exec.vector.accessor.reader.MapReader;
 import org.apache.drill.exec.vector.accessor.reader.ObjectArrayReader;
 import org.apache.drill.exec.vector.accessor.reader.UnionReaderImpl;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
-import org.apache.drill.exec.vector.accessor.reader.VectorAccessor.SingleVectorAccessor;
+import org.apache.drill.exec.vector.accessor.reader.VectorAccessors.SingleVectorAccessor;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.ListVector;
 import org.apache.drill.exec.vector.complex.RepeatedMapVector;

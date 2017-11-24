@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor.reader;
 
-import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnReader;
+import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 
 /**
  * Internal mechanism to detect if a value is null. Handles the multiple ways
@@ -49,9 +49,7 @@ import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnReader;
 public interface NullStateReader {
   public static final RequiredStateReader REQUIRED_STATE_READER = new RequiredStateReader();
 
-//  void bindIndex(ColumnReaderIndex rowIndex);
-//  void bindVector(ValueVector vector);
-//  void bindVectorAccessor(VectorAccessor va);
+  void bindIndex(ColumnReaderIndex rowIndex);
   boolean isNull();
 
   /**
@@ -62,35 +60,10 @@ public interface NullStateReader {
 
   public static class RequiredStateReader implements NullStateReader {
 
-//    @Override
-//    public void bindVector(ValueVector vector) { }
-//
-//    @Override
-//    public void bindIndex(ColumnReaderIndex rowIndex) { }
-//
-//    @Override
-//    public void bindVectorAccessor(VectorAccessor va) { }
+    @Override
+    public void bindIndex(ColumnReaderIndex rowIndex) { }
 
     @Override
     public boolean isNull() { return false; }
   }
-
-  /**
-   * Null state reader implementation based on a "bits" vector.
-   */
-
-  public static class BitsVectorStateReader implements NullStateReader {
-
-    public final UInt1ColumnReader bitsReader;
-
-    public BitsVectorStateReader(UInt1ColumnReader bitsReader) {
-      this.bitsReader = bitsReader;
-    }
-
-    @Override
-    public boolean isNull() {
-      return bitsReader.getInt() == 0;
-    }
-  }
-
 }

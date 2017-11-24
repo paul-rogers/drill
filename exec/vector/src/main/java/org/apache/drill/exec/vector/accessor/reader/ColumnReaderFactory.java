@@ -33,12 +33,10 @@ public class ColumnReaderFactory {
 
   private static final int typeCount = MinorType.values().length;
   private static final Class<? extends BaseScalarReader> requiredReaders[] = new Class[typeCount];
-  private static final Class<? extends BaseScalarReader> nullableReaders[] = new Class[typeCount];
   private static final Class<? extends BaseElementReader> elementReaders[] = new Class[typeCount];
 
   static {
     ColumnAccessorUtils.defineRequiredReaders(requiredReaders);
-    ColumnAccessorUtils.defineNullableReaders(nullableReaders);
     ColumnAccessorUtils.defineArrayReaders(elementReaders);
   }
 
@@ -57,7 +55,7 @@ public class ColumnReaderFactory {
     default:
       switch (mode) {
       case OPTIONAL:
-        return BaseScalarReader.buildOptional(va, newAccessor(type, nullableReaders));
+        return BaseScalarReader.buildOptional(va, newAccessor(type, requiredReaders));
       case REQUIRED:
         return BaseScalarReader.buildRequired(va, newAccessor(type, requiredReaders));
       case REPEATED:

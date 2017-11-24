@@ -135,10 +135,8 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.exec.expr.fn.impl.DateUtility;
 import org.apache.drill.exec.vector.*;
 import org.apache.drill.exec.util.DecimalUtility;
-import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
 import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader.BaseVarWidthReader;
 import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader.BaseFixedWidthReader;
-import org.apache.drill.exec.vector.accessor.reader.OffsetVectorReader;
 import org.apache.drill.exec.vector.accessor.reader.BaseElementReader;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
 import org.apache.drill.exec.vector.accessor.writer.AbstractFixedWidthWriter.BaseFixedWidthWriter;
@@ -297,20 +295,6 @@ public class ColumnAccessors {
   </#if>
   }
 
-  public static class Nullable${drillType}ColumnReader extends BaseScalarReader {
-
-    <@bindReader "Nullable" drillType false />
-
-    <@getType drillType label />
-
-    @Override
-    public boolean isNull() {
-      return accessor().isNull(vectorIndex.vectorIndex());
-    }
-
-    <@get drillType accessorType label false />
-  }
-
   public static class Repeated${drillType}ColumnReader extends BaseElementReader {
 
     <@bindReader "" drillType true />
@@ -440,15 +424,11 @@ import org.apache.drill.exec.vector.accessor.writer.BaseScalarWriter;
 import org.apache.drill.exec.vector.accessor.reader.BaseElementReader;
 import org.apache.drill.exec.vector.ValueVector;
 
-import org.joda.time.Period;
-
 public class ColumnAccessorUtils {
   
   private ColumnAccessorUtils() { }
 
 <@build vv.types "Required" "Reader" />
-
-<@build vv.types "Nullable" "Reader" />
 
 <@build vv.types "Repeated" "Reader" />
 

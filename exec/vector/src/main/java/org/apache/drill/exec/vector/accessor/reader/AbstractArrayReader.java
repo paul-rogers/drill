@@ -17,16 +17,12 @@
  */
 package org.apache.drill.exec.vector.accessor.reader;
 
-import org.apache.drill.common.types.TypeProtos.MajorType;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarElementReader;
 import org.apache.drill.exec.vector.accessor.TupleReader;
-import org.apache.drill.exec.vector.accessor.reader.VectorAccessor.SingleVectorAccessor;
-import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
  * Reader for an array-valued column. This reader provides access to specific
@@ -180,46 +176,6 @@ public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
     }
   }
 
-//  interface OffsetVectorAccessor {
-//    Accessor accessor();
-//  }
-//
-//  private static class SingleOffsetVectorAccessor implements OffsetVectorAccessor {
-//    private final Accessor accessor;
-//
-//    private SingleOffsetVectorAccessor(VectorAccessor va) {
-//      RepeatedValueVector vector = (RepeatedValueVector) va.vector();
-//      accessor = vector.getOffsetVector().getAccessor();
-//    }
-//
-//    @Override
-//    public Accessor accessor() { return accessor; }
-//  }
-
-  private static class HyperDataVectorAccessor implements VectorAccessor {
-
-    private VectorAccessor repeatedVectorAccessor;
-
-    private HyperDataVectorAccessor(VectorAccessor va) {
-      repeatedVectorAccessor = va;
-    }
-
-    @Override
-    public boolean isHyper() { return true; }
-
-    @Override
-    public MajorType type() { return repeatedVectorAccessor.type(); }
-
-    @Override
-    public void bind(ColumnReaderIndex index) { }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public <T extends ValueVector> T vector() {
-      return (T) ((RepeatedValueVector) repeatedVectorAccessor.vector()).getDataVector();
-    }
-  }
-
   private final VectorAccessor vectorAccessor;
   private final OffsetVectorReader offsetReader;
   protected ColumnReaderIndex baseIndex;
@@ -229,16 +185,6 @@ public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
   public AbstractArrayReader(VectorAccessor va) {
     vectorAccessor = va;
     offsetReader = OffsetVectorReader.buildArrayReader(va);
-  }
-
-  public static VectorAccessor dataAccessor(VectorAccessor va) {
-    if (va.isHyper()) {
-      return new HyperDataVectorAccessor(va);
-    } else {
-      RepeatedValueVector vector = va.vector();
-      return new SingleVectorAccessor(
-          vector.getDataVector());
-    }
   }
 
   @Override
