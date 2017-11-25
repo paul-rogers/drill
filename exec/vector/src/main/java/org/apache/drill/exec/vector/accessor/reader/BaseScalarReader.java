@@ -47,11 +47,6 @@ public abstract class BaseScalarReader implements ScalarReader, ReaderEvents {
     }
 
     @Override
-    public void bindIndex(ColumnReaderIndex index) {
-      scalarReader.bindIndex(index);
-    }
-
-    @Override
     public ObjectType type() {
       return ObjectType.SCALAR;
     }
@@ -214,6 +209,9 @@ public abstract class BaseScalarReader implements ScalarReader, ReaderEvents {
   public boolean isNull() {
     return nullStateReader.isNull();
   }
+
+  @Override
+  public void reposition() { }
 
   @Override
   public Object getObject() {

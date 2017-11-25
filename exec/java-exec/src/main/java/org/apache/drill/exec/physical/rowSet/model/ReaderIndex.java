@@ -47,17 +47,11 @@ public abstract class ReaderIndex implements ColumnReaderIndex {
   public int size() { return rowCount; }
 
   @Override
-  public boolean hasNext() { return position < rowCount - 1; }
-
-  @Override
   public boolean next() {
-    if (hasNext()) {
-      position++;
+    if (++position < rowCount) {
       return true;
     }
+    position = rowCount;
     return false;
   }
-
-  @Override
-  public int nextOffset() { return offset(); }
 }

@@ -29,9 +29,10 @@ import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
+import org.apache.drill.exec.vector.accessor.reader.ArrayReaderImpl;
 import org.apache.drill.exec.vector.accessor.reader.ColumnReaderFactory;
 import org.apache.drill.exec.vector.accessor.reader.MapReader;
-import org.apache.drill.exec.vector.accessor.reader.ObjectArrayReader;
+import org.apache.drill.exec.vector.accessor.reader.NullStateReader;
 import org.apache.drill.exec.vector.accessor.reader.UnionReaderImpl;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessors.SingleVectorAccessor;
@@ -86,7 +87,7 @@ public abstract class BaseReaderBuilder {
 
     // Repeated map
 
-    return ObjectArrayReader.build(va, mapReader);
+    return ArrayReaderImpl.buildTuple(va, mapReader);
   }
 
   @SuppressWarnings("resource")
@@ -102,6 +103,7 @@ public abstract class BaseReaderBuilder {
     return readers;
   }
 
+  @SuppressWarnings("resource")
   private AbstractObjectReader buildUnion(VectorAccessor unionAccessor, VectorDescrip descrip) {
     MetadataProvider provider = descrip.childProvider();
     UnionVector vector = unionAccessor.vector();
@@ -117,9 +119,13 @@ public abstract class BaseReaderBuilder {
       @SuppressWarnings("resource")
       ValueVector memberVector = ColumnAccessorUtils.getUnionMember(vector, type);
       VectorDescrip memberDescrip = new VectorDescrip(provider, i++, memberVector.getField());
-      variants[type.ordinal()] = buildVectorReader(memberVector, memberDescrip);
+      variants[type.ordinal()] = buildVectorReader(
+          new SingleVectorAccessor(memberVector), memberDescrip);
     }
-    return UnionReaderImpl.buildSingle(descrip.metadata.variantSchema(), vector, variants);
+    return UnionReaderImpl.build(
+        descrip.metadata.variantSchema(),
+        new SingleVectorAccessor(vector),
+        variants);
   }
 
   @SuppressWarnings("resource")

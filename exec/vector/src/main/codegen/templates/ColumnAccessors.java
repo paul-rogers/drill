@@ -167,7 +167,7 @@ public class ColumnAccessors {
     <#assign indexVar = ""/>
       final DrillBuf buf = bufferAccessor.buffer();
     <#if ! varWidth>
-      final int readOffset = vectorIndex.nextOffset();
+      final int readOffset = vectorIndex.offset();
       <#assign getOffset = "readOffset * VALUE_WIDTH">
     </#if>
     <#if varWidth>

@@ -110,4 +110,7 @@ public interface ColumnMetadata {
    */
 
   boolean isProjected();
+
+  int precision();
+  int scale();
 }

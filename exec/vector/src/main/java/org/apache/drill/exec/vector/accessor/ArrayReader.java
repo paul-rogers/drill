@@ -92,13 +92,6 @@ public interface ArrayReader {
   boolean next();
 
   /**
-   * Determine if another item is available. Useful when iterating
-   * over scalars that do auto-increment.
-   */
-
-  boolean hasNext();
-
-  /**
    * Return the entire array as an <tt>List</tt> of objects.
    * Note, even if the array is scalar, the elements are still returned
    * as a list. This method is primarily for testing.

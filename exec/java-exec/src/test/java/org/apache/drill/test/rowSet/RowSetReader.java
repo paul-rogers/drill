@@ -31,7 +31,6 @@ public interface RowSetReader extends TupleReader {
    */
   int rowCount();
 
-  boolean hasNext();
   boolean next();
   int logicalIndex();
   void setPosn(int index);

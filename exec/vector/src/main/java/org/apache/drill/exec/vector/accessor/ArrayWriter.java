@@ -74,6 +74,8 @@ public interface ArrayWriter {
 
   ObjectType entryType();
 
+  void setNull(boolean isNull);
+
   /**
    * The object type of the list entry. All entries have the same
    * type.

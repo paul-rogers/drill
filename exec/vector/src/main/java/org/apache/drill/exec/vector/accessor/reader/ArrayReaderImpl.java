@@ -17,6 +17,9 @@
  */
 package org.apache.drill.exec.vector.accessor.reader;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
@@ -24,6 +27,7 @@ import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.VariantReader;
+import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader.ScalarObjectReader;
 
 /**
  * Reader for an array-valued column. This reader provides access to specific
@@ -31,7 +35,7 @@ import org.apache.drill.exec.vector.accessor.VariantReader;
  * subclasses are generated for each repeated value vector type.
  */
 
-public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
+public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
 
   /**
    * Object representation of an array reader.
@@ -39,15 +43,10 @@ public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
 
   public static class ArrayObjectReader extends AbstractObjectReader {
 
-    private AbstractArrayReader arrayReader;
+    private ArrayReaderImpl arrayReader;
 
-    public ArrayObjectReader(AbstractArrayReader arrayReader) {
+    public ArrayObjectReader(ArrayReaderImpl arrayReader) {
       this.arrayReader = arrayReader;
-    }
-
-    @Override
-    public void bindIndex(ColumnReaderIndex index) {
-      arrayReader.bindIndex(index);
     }
 
     @Override
@@ -68,11 +67,6 @@ public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
     @Override
     public String getAsString() {
       return arrayReader.getAsString();
-    }
-
-    @Override
-    public void reposition() {
-      arrayReader.reposition();
     }
 
     @Override
@@ -143,10 +137,10 @@ public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
 
     @Override
     public boolean next() {
-      if (hasNext()) {
-        position++;
+      if (++position < length) {
         return true;
       }
+      position = length;
       return false;
     }
 
@@ -160,34 +154,42 @@ public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
       if (index < 0 ||  length < index) {
         throw new IndexOutOfBoundsException("Index = " + index + ", length = " + length);
       }
-
-      // Auto-increment, so set the index to one before the target.
-
-      position = index - 1;
+      position = index;
     }
 
     @Override
     public int logicalIndex() { return position; }
-
-    @Override
-    public boolean hasNext() {
-      return position < length - 1;
-    }
-
-    @Override
-    public int nextOffset() { return offset(); }
   }
 
   private final VectorAccessor arrayAccessor;
   private final OffsetVectorReader offsetReader;
+  private final AbstractObjectReader elementReader;
   protected ColumnReaderIndex baseIndex;
   protected ElementReaderIndex elementIndex;
   protected NullStateReader nullStateReader;
 
-  public AbstractArrayReader(VectorAccessor va) {
+  public ArrayReaderImpl(VectorAccessor va, AbstractObjectReader elementReader) {
     arrayAccessor = va;
+    this.elementReader = elementReader;
     offsetReader = new OffsetVectorReader(
         VectorAccessors.arrayOffsetVectorAccessor(va));
+  }
+
+  public static ArrayObjectReader buildScalar(VectorAccessor va,
+      BaseScalarReader elementReader) {
+    elementReader.bindVector(VectorAccessors.arrayDataAccessor(va));
+    elementReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+    ArrayReaderImpl arrayReader = new ArrayReaderImpl(va,
+        new ScalarObjectReader(elementReader));
+    arrayReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+    return new ArrayObjectReader(arrayReader);
+  }
+
+  public static AbstractObjectReader buildTuple(VectorAccessor vectorAccessor,
+      AbstractObjectReader elementReader) {
+    ArrayReaderImpl arrayReader = new ArrayReaderImpl(vectorAccessor, elementReader);
+    arrayReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+    return new ArrayObjectReader(arrayReader);
   }
 
   @Override
@@ -195,6 +197,8 @@ public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
     baseIndex = index;
     arrayAccessor.bind(index);
     offsetReader.bindIndex(index);
+    elementIndex = new ElementReaderIndex(baseIndex);
+    elementReader.events().bindIndex(elementIndex);
   }
 
   @Override
@@ -208,24 +212,36 @@ public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
   @Override
   public boolean isNull() { return nullStateReader.isNull(); }
 
+  @Override
   public void reposition() {
     long entry = offsetReader.getEntry();
     elementIndex.reset((int) (entry >> 32), (int) (entry & 0xFFFF_FFFF));
+    elementReader.events().reposition();
   }
 
   @Override
-  public boolean hasNext() { return elementIndex.hasNext(); }
+  public boolean next() {
+    if (! elementIndex.next()) {
+      return false;
+    }
+    elementReader.events().reposition();
+    return true;
+  }
 
   @Override
   public int size() { return elementIndex.size(); }
 
   @Override
-  public void setPosn(int posn) { elementIndex.set(posn); }
+  public void setPosn(int posn) {
+    elementIndex.set(posn);
+    elementReader.events().reposition();
+  }
 
   @Override
-  public ObjectReader entry() {
-    throw new UnsupportedOperationException();
-  }
+  public ObjectReader entry() { return elementReader; }
+
+  @Override
+  public ObjectType entryType() { return elementReader.type(); }
 
   @Override
   public ScalarReader scalar() {
@@ -245,5 +261,35 @@ public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
   @Override
   public VariantReader variant() {
     return entry().variant();
+  }
+
+  @Override
+  public Object getObject() {
+    // Simple: return elements as an object list.
+    // If really needed, could return as a typed array, but that
+    // is a bit of a hassle.
+
+    setPosn(0);
+    List<Object> elements = new ArrayList<>();
+    while (next()) {
+      elements.add(elementReader.getObject());
+    }
+    return elements;
+  }
+
+  @Override
+  public String getAsString() {
+    setPosn(0);
+    StringBuilder buf = new StringBuilder();
+    buf.append("[");
+    int i = 0;
+    while (next()) {
+      if (i++ > 0) {
+        buf.append( ", " );
+      }
+      buf.append(elementReader.getAsString());
+    }
+    buf.append("]");
+    return buf.toString();
   }
 }

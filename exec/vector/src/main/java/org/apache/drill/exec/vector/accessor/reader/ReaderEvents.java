@@ -27,4 +27,5 @@ public interface ReaderEvents {
   void bindIndex(ColumnReaderIndex rowIndex);
   void bindNullState(NullStateReader nullStateReader);
   NullStateReader nullStateReader();
+  void reposition();
 }

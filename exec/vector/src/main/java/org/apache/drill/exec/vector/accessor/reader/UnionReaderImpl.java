@@ -51,11 +51,6 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
     public VariantReader variant() { return reader; }
 
     @Override
-    public void bindIndex(ColumnReaderIndex index) {
-      reader.bindIndex(index);
-    }
-
-    @Override
     public Object getObject() {
       return reader.getObject();
     }
@@ -250,7 +245,7 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
     typeReader.bindIndex(index);
     for (int i = 0; i < variants.length; i++) {
       if (variants[i] != null) {
-        variants[i].bindIndex(index);
+        variants[i].events().bindIndex(index);
       }
     }
   }
@@ -269,6 +264,15 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
     // Might be able to probe the MajorType.
 
     return variants[type.ordinal()] != null;
+  }
+
+  @Override
+  public void reposition() {
+    for (int i = 0; i < variants.length; i++) {
+      if (variants[i] != null) {
+        variants[i].events().reposition();
+      }
+    }
   }
 
   @Override

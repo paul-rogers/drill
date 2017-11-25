@@ -153,6 +153,12 @@ public class TupleSchema implements TupleMetadata {
     public void setExpectedWidth(int width) { }
 
     @Override
+    public int precision() { return 0; }
+
+    @Override
+    public int scale() { return 0; }
+
+    @Override
     public void setExpectedElementCount(int childCount) {
       // The allocation utilities don't like an array size of zero, so set to
       // 1 as the minimum. Adjusted to avoid trivial errors if the caller
@@ -243,6 +249,12 @@ public class TupleSchema implements TupleMetadata {
 
     @Override
     public int expectedWidth() { return expectedWidth; }
+
+    @Override
+    public int precision() { return precision; }
+
+    @Override
+    public int scale() { return scale; }
 
     @Override
     public void setExpectedWidth(int width) {
@@ -592,12 +604,14 @@ public class TupleSchema implements TupleMetadata {
    */
 
   public static AbstractColumnMetadata fromField(MaterializedField field) {
-    switch (field.getType().getMinorType()) {
+    MinorType type = field.getType().getMinorType();
+    switch (type) {
     case MAP:
       return newMap(field);
     case UNION:
+    case LIST:
       if (field.getType().getMode() != DataMode.OPTIONAL) {
-        throw new UnsupportedOperationException("UNION type must be nullable");
+        throw new UnsupportedOperationException(type.toString() + " type must be nullable");
       }
       return new VariantColumnMetadata(field);
     default:

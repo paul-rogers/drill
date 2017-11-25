@@ -45,11 +45,6 @@ public abstract class AbstractTupleReader implements TupleReader, ReaderEvents {
     }
 
     @Override
-    public void bindIndex(ColumnReaderIndex index) {
-      tupleReader.bindIndex(index);
-    }
-
-    @Override
     public ObjectType type() {
       return ObjectType.TUPLE;
     }
@@ -70,11 +65,6 @@ public abstract class AbstractTupleReader implements TupleReader, ReaderEvents {
     }
 
     @Override
-    public void reposition() {
-      tupleReader.reposition();
-    }
-
-    @Override
     protected ReaderEvents events() { return tupleReader; }
   }
 
@@ -90,7 +80,7 @@ public abstract class AbstractTupleReader implements TupleReader, ReaderEvents {
   @Override
   public void bindIndex(ColumnReaderIndex index) {
     for (int i = 0; i < readers.length; i++) {
-      readers[i].bindIndex(index);
+      readers[i].events().bindIndex(index);
     }
   }
 
@@ -174,9 +164,10 @@ public abstract class AbstractTupleReader implements TupleReader, ReaderEvents {
     return column(colName).variant();
   }
 
+  @Override
   public void reposition() {
     for (int i = 0; i < columnCount(); i++) {
-      readers[i].reposition();
+      readers[i].events().reposition();
     }
   }
 

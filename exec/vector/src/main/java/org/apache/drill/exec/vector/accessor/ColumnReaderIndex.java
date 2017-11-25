@@ -99,17 +99,6 @@ public interface ColumnReaderIndex {
   int offset();
 
   /**
-   * Return whether the current index location is valid.
-   * Detects end-of-batch (top level) or end of array (nested
-   * level.)
-   *
-   * @return <tt>true</tt> if another position is available,
-   * <tt>false</tt> if not
-   */
-
-  boolean hasNext();
-
-  /**
    * Advances the index to the next position. Used:
    * <ul>
    * <li>At the top level for normal readers or</li>
@@ -121,17 +110,6 @@ public interface ColumnReaderIndex {
    */
 
   boolean next();
-
-  /**
-   * Called by scalar readers to retrieve the current read offset.
-   * At the top level, simply returns the same as <tt>offset</tt>.
-   * For scalar arrays, first calls <tt>next()</tt>, then calls
-   * <tt>offset</tt> to automatically step through the scalar array
-   * values. (Allows the same scalar accessor code to work in either
-   * mode; it is the index that determines the behavior.)
-   */
-
-  int nextOffset();
 
   /**
    * Return the number of items that this index indexes: top-level record

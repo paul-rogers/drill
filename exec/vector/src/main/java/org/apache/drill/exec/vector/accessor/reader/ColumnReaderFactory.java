@@ -51,13 +51,14 @@ public class ColumnReaderFactory {
     case MAP:
       throw new UnsupportedOperationException(type.toString());
     default:
+      BaseScalarReader scalarReader = newAccessor(type, requiredReaders);
       switch (mode) {
       case OPTIONAL:
-        return BaseScalarReader.buildOptional(va, newAccessor(type, requiredReaders));
+        return BaseScalarReader.buildOptional(va, scalarReader);
       case REQUIRED:
-        return BaseScalarReader.buildRequired(va, newAccessor(type, requiredReaders));
+        return BaseScalarReader.buildRequired(va, scalarReader);
       case REPEATED:
-        return ScalarArrayReader.build(va, newAccessor(type, requiredReaders));
+        return ArrayReaderImpl.buildScalar(va, scalarReader);
       default:
         throw new UnsupportedOperationException(mode.toString());
       }

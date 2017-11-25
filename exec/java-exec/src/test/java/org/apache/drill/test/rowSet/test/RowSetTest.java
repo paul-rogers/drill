@@ -33,7 +33,6 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ObjectType;
-import org.apache.drill.exec.vector.accessor.ScalarElementReader;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleReader;
@@ -57,12 +56,17 @@ import org.junit.Test;
  * Tests basic protocol of the writers: <pre><code>
  * row : tuple
  * tuple : column *
- * column : scalar obj | array obj | tuple obj
+ * column : scalar obj | array obj | tuple obj | variant obj
  * scalar obj : scalar
- * array obj : array writer
- * array writer : element
+ * array obj : array
+ * array : index --> column
  * element : column
- * tuple obj : tuple</code></pre>
+ * tuple obj : tuple
+ * tuple : name --> column (also index --> column)
+ * variant obj : variant
+ * variant : type --> column</code></pre>
+ * <p>
+ * A list is an array of variants. Variants are tested elsewhere.
  */
 
 public class RowSetTest extends SubOperatorTest {
@@ -248,26 +252,40 @@ public class RowSetTest extends SubOperatorTest {
     assertTrue(reader.next());
     assertFalse(arrayReader.isNull());
     assertEquals(2, arrayReader.size());
+
+    assertTrue(arrayReader.next());
     assertEquals(10, intReader.getInt());
+    assertTrue(arrayReader.next());
     assertEquals(11, intReader.getInt());
+    assertFalse(arrayReader.next());
 
     assertTrue(reader.next());
     assertFalse(arrayReader.isNull());
     assertEquals(3, arrayReader.size());
+
+    assertTrue(arrayReader.next());
     assertEquals(20, intReader.getInt());
+    assertTrue(arrayReader.next());
     assertEquals(21, intReader.getInt());
+    assertTrue(arrayReader.next());
     assertEquals(22, intReader.getInt());
+    assertFalse(arrayReader.next());
 
     assertTrue(reader.next());
     assertFalse(arrayReader.isNull());
     assertEquals(1, arrayReader.size());
+    assertTrue(arrayReader.next());
     assertEquals(30, intReader.getInt());
+    assertFalse(arrayReader.next());
 
     assertTrue(reader.next());
     assertFalse(arrayReader.isNull());
     assertEquals(2, arrayReader.size());
+    assertTrue(arrayReader.next());
     assertEquals(40, intReader.getInt());
+    assertTrue(arrayReader.next());
     assertEquals(41, intReader.getInt());
+    assertFalse(arrayReader.next());
 
     assertFalse(reader.next());
 
@@ -362,27 +380,47 @@ public class RowSetTest extends SubOperatorTest {
 
     ScalarReader aReader = reader.column(0).scalar();
     TupleReader mReader = reader.column(1).tuple();
-    assertEquals(ObjectType.SCALAR, mReader.column("b").array().entryType());
-    ScalarReader bReader = mReader.column(0).elements();
+    ArrayReader bArray = mReader.column("b").array();
+    assertEquals(ObjectType.SCALAR, bArray.entryType());
+    ScalarReader bReader = bArray.scalar();
     assertEquals(ValueType.INTEGER, bReader.valueType());
 
+    // Row 1: (10, {[11, 12]})
+
     assertTrue(reader.next());
-    assertFalse(mReader.isNull());
     assertEquals(10, aReader.getInt());
-    assertFalse(bReader.isNull(0));
-    assertFalse(bReader.isNull(1));
-    assertEquals(11, bReader.getInt(0));
-    assertEquals(12, bReader.getInt(1));
-    assertTrue(reader.next());
     assertFalse(mReader.isNull());
+
+    assertTrue(bArray.next());
+    assertFalse(bReader.isNull());
+    assertEquals(11, bReader.getInt());
+    assertTrue(bArray.next());
+    assertFalse(bReader.isNull());
+    assertEquals(12, bReader.getInt());
+    assertFalse(bArray.next());
+
+    // Row 2: (20, {[21, 22]})
+
+    assertTrue(reader.next());
     assertEquals(20, aReader.getInt());
-    assertEquals(21, bReader.getInt(0));
-    assertEquals(22, bReader.getInt(1));
-    assertTrue(reader.next());
     assertFalse(mReader.isNull());
+
+    assertTrue(bArray.next());
+    assertEquals(21, bReader.getInt());
+    assertTrue(bArray.next());
+    assertEquals(22, bReader.getInt());
+
+    // Row 3: (30, {[31, 32]})
+
+    assertTrue(reader.next());
     assertEquals(30, aReader.getInt());
-    assertEquals(31, bReader.getInt(0));
-    assertEquals(32, bReader.getInt(1));
+    assertFalse(mReader.isNull());
+
+    assertTrue(bArray.next());
+    assertEquals(31, bReader.getInt());
+    assertTrue(bArray.next());
+    assertEquals(32, bReader.getInt());
+
     assertFalse(reader.next());
 
     // Verify that the map accessor's value count was set.
@@ -487,20 +525,22 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(ValueType.INTEGER, bReader.valueType());
     assertEquals(ValueType.INTEGER, cReader.valueType());
 
-    // Row 1: use index accessors
+    // Row 1: Use iterator-like accessors
 
     assertTrue(reader.next());
     assertEquals(10, aReader.getInt());
     assertFalse(maReader.isNull()); // Array itself is not null
-    TupleReader ixReader = maReader.tuple(0);
-    assertFalse(ixReader.isNull()); // Tuple 0 is not null
-    assertEquals(101, ixReader.scalar(0).getInt());
-    assertEquals(102, ixReader.scalar(1).getInt());
-    ixReader = maReader.tuple(1);
-    assertEquals(111, ixReader.scalar(0).getInt());
-    assertEquals(112, ixReader.scalar(1).getInt());
 
-    // Row 2: use common accessor with explicit positioning,
+    assertTrue(maReader.next());
+    assertFalse(mapReader.isNull()); // Tuple 0 is not null
+    assertEquals(101, mapReader.scalar(0).getInt());
+    assertEquals(102, mapReader.scalar(1).getInt());
+
+    assertTrue(maReader.next());
+    assertEquals(111, mapReader.scalar(0).getInt());
+    assertEquals(112, mapReader.scalar(1).getInt());
+
+    // Row 2: use explicit positioning,
     // but access scalars through the map reader.
 
     assertTrue(reader.next());
@@ -512,14 +552,16 @@ public class RowSetTest extends SubOperatorTest {
     assertEquals(211, mapReader.scalar(0).getInt());
     assertEquals(212, mapReader.scalar(1).getInt());
 
-    // Row 3: use common accessor for scalars
+    // Row 3: use scalar accessor
 
     assertTrue(reader.next());
     assertEquals(30, aReader.getInt());
-    maReader.setPosn(0);
+
+    assertTrue(maReader.next());
     assertEquals(301, bReader.getInt());
     assertEquals(302, cReader.getInt());
-    maReader.setPosn(1);
+
+    assertTrue(maReader.next());
     assertEquals(311, bReader.getInt());
     assertEquals(312, cReader.getInt());
 
@@ -572,18 +614,28 @@ public class RowSetTest extends SubOperatorTest {
     SingleRowSet result = writer.done();
 
     RowSetReader reader = result.reader();
+    ArrayReader arrayReader = reader.array(1);
+    ScalarReader elementReader = arrayReader.scalar();
+
     assertTrue(reader.next());
     assertEquals(10, reader.scalar(0).getInt());
-    ScalarElementReader arrayReader = reader.array(1).elements();
     assertEquals(2, arrayReader.size());
-    assertEquals(100, arrayReader.getInt(0));
-    assertEquals(110, arrayReader.getInt(1));
+
+    assertTrue(arrayReader.next());
+    assertEquals(100, elementReader.getInt());
+    assertTrue(arrayReader.next());
+    assertEquals(110, elementReader.getInt());
+
     assertTrue(reader.next());
     assertEquals(20, reader.scalar(0).getInt());
     assertEquals(3, arrayReader.size());
-    assertEquals(200, arrayReader.getInt(0));
-    assertEquals(120, arrayReader.getInt(1));
-    assertEquals(220, arrayReader.getInt(2));
+    assertTrue(arrayReader.next());
+    assertEquals(200, elementReader.getInt());
+    assertTrue(arrayReader.next());
+    assertEquals(120, elementReader.getInt());
+    assertTrue(arrayReader.next());
+    assertEquals(220, elementReader.getInt());
+
     assertTrue(reader.next());
     assertEquals(30, reader.scalar(0).getInt());
     assertEquals(0, arrayReader.size());

@@ -280,37 +280,10 @@ public class RowSetComparison {
       ArrayReader aa) {
     assertEquals(label, ea.entryType(), aa.entryType());
     assertEquals(label, ea.size(), aa.size());
-    switch (ea.entryType()) {
-    case ARRAY:
-      throw new UnsupportedOperationException();
-    case SCALAR:
-      verifyScalarArray(label, ea.array(), aa.array());
-      break;
-    case TUPLE:
-      verifyTupleArray(label, ea, aa);
-      break;
-    default:
-      throw new IllegalStateException( "Unexpected type: " + ea.entryType());
-    }
-  }
-
-  private void verifyTupleArray(String label, ArrayReader ea, ArrayReader aa) {
-    assertEquals(label, ea.size(), aa.size());
     int i = 0;
     while (ea.next()) {
-      verifyTuple(label + "[" + i++ + "]", ea.tuple(), aa.tuple());
-    }
-  }
-
-  private void verifyScalarArray(String colLabel, ArrayReader ea,
-      ArrayReader aa) {
-    assertEquals(colLabel, ea.size(), aa.size());
-    ScalarReader es = ea.scalar();
-    ScalarReader as = aa.scalar();
-    assertEquals(colLabel, es.valueType(), as.valueType());
-    int i = 0;
-    while (ea.hasNext()) {
-      verifyScalar(colLabel + "[" + i++ + "]", es, as);
+      assertTrue(aa.next());
+      verifyColumn(label + "[" + i++ + "]", ea.entry(), aa.entry());
     }
   }
 

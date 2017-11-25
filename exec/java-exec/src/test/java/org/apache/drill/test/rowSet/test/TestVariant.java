@@ -66,248 +66,6 @@ import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.junit.Test;
 
 public class TestVariant extends SubOperatorTest {
-
-  @Test
-  public void testUnionSchema() {
-    TupleMetadata schema = new SchemaBuilder()
-        .addUnion("u")
-          .addType(MinorType.BIGINT)
-          .addType(MinorType.VARCHAR)
-          .build()
-        .buildSchema();
-
-    assertEquals(1, schema.size());
-    ColumnMetadata col = schema.metadata(0);
-    assertTrue(col instanceof VariantColumnMetadata);
-    assertEquals(MinorType.UNION, col.type());
-    assertEquals(DataMode.OPTIONAL, col.mode());
-    assertTrue(col.isNullable());
-    assertFalse(col.isArray());
-    assertTrue(col.isVariant());
-    assertEquals(StructureType.VARIANT, col.structureType());
-
-    VariantMetadata union = col.variantSchema();
-    assertNotNull(union);
-    assertEquals(2, union.size());
-    assertTrue(union.hasType(MinorType.BIGINT));
-    assertTrue(union.hasType(MinorType.VARCHAR));
-    assertFalse(union.hasType(MinorType.INT));
-    Collection<MinorType> types = union.types();
-    assertNotNull(types);
-    assertEquals(2, types.size());
-    assertTrue(types.contains(MinorType.BIGINT));
-    assertTrue(types.contains(MinorType.VARCHAR));
-
-    BatchSchema batchSchema = ((TupleSchema) schema).toBatchSchema(SelectionVectorMode.NONE);
-
-    MaterializedField field = batchSchema.getColumn(0);
-    assertEquals("u", field.getName());
-    MajorType majorType = field.getType();
-    assertEquals(MinorType.UNION, majorType.getMinorType());
-    assertEquals(DataMode.OPTIONAL, majorType.getMode());
-    assertEquals(2, majorType.getSubTypeCount());
-    List<MinorType> subtypes = majorType.getSubTypeList();
-    assertEquals(2, subtypes.size());
-    assertTrue(subtypes.contains(MinorType.BIGINT));
-    assertTrue(subtypes.contains(MinorType.VARCHAR));
-  }
-
-  @Test
-  public void testListSchema() {
-    TupleMetadata schema = new SchemaBuilder()
-        .addList("list")
-          .addType(MinorType.BIGINT)
-          .addType(MinorType.VARCHAR)
-          .build()
-        .buildSchema();
-
-    assertEquals(1, schema.size());
-    ColumnMetadata col = schema.metadata(0);
-    assertTrue(col instanceof VariantColumnMetadata);
-
-    // Implementation shows through here: actual major
-    // type is (LIST, OPTIONAL) even though the metadata
-    // lies that this is a variant array.
-
-    assertEquals(MinorType.LIST, col.type());
-    assertEquals(DataMode.OPTIONAL, col.mode());
-    assertTrue(col.isNullable());
-    assertTrue(col.isArray());
-    assertTrue(col.isVariant());
-    assertEquals(StructureType.VARIANT, col.structureType());
-
-    VariantMetadata union = col.variantSchema();
-    assertNotNull(union);
-    assertEquals(2, union.size());
-    assertTrue(union.hasType(MinorType.BIGINT));
-    assertTrue(union.hasType(MinorType.VARCHAR));
-    assertFalse(union.hasType(MinorType.INT));
-    Collection<MinorType> types = union.types();
-    assertNotNull(types);
-    assertEquals(2, types.size());
-    assertTrue(types.contains(MinorType.BIGINT));
-    assertTrue(types.contains(MinorType.VARCHAR));
-
-    BatchSchema batchSchema = ((TupleSchema) schema).toBatchSchema(SelectionVectorMode.NONE);
-
-    MaterializedField field = batchSchema.getColumn(0);
-    assertEquals("list", field.getName());
-    MajorType majorType = field.getType();
-    assertEquals(MinorType.LIST, majorType.getMinorType());
-    assertEquals(DataMode.OPTIONAL, majorType.getMode());
-    assertEquals(2, majorType.getSubTypeCount());
-    List<MinorType> subtypes = majorType.getSubTypeList();
-    assertEquals(2, subtypes.size());
-    assertTrue(subtypes.contains(MinorType.BIGINT));
-    assertTrue(subtypes.contains(MinorType.VARCHAR));
-  }
-
-  @Test
-  public void testNestedSchema() {
-    TupleMetadata schema = new SchemaBuilder()
-        .addList("list")
-          .addType(MinorType.BIGINT)
-          .addType(MinorType.VARCHAR)
-          .addMap()
-            .add("a", MinorType.INT)
-            .add("b", MinorType.VARCHAR)
-            .buildNested()
-          .addList()
-            .addType(MinorType.FLOAT8)
-            .addType(MinorType.DECIMAL18)
-            .buildNested()
-          .build()
-        .buildSchema();
-
-    assertEquals(1, schema.size());
-    ColumnMetadata col = schema.metadata(0);
-    assertTrue(col.isVariant());
-    VariantMetadata union = col.variantSchema();
-    assertNotNull(union);
-    assertEquals(4, union.size());
-    assertTrue(union.hasType(MinorType.MAP));
-    assertTrue(union.hasType(MinorType.LIST));
-
-    ColumnMetadata mapCol = union.member(MinorType.MAP);
-    TupleMetadata mapSchema = mapCol.mapSchema();
-    assertEquals(2, mapSchema.size());
-
-    ColumnMetadata listCol = union.member(MinorType.LIST);
-    VariantMetadata listSchema = listCol.variantSchema();
-    assertEquals(2, listSchema.size());
-    assertTrue(listSchema.hasType(MinorType.FLOAT8));
-    assertTrue(listSchema.hasType(MinorType.DECIMAL18));
-  }
-
-  @Test
-  public void testDuplicateType() {
-    try {
-      new SchemaBuilder()
-          .addList("list")
-            .addType(MinorType.BIGINT)
-            .addType(MinorType.BIGINT);
-      fail();
-    } catch (IllegalArgumentException e) {
-      // Expected
-    }
-  }
-
-  @SuppressWarnings("resource")
-  @Test
-  public void testBuildRowSet() {
-    TupleMetadata schema = new SchemaBuilder()
-
-        // Top-level single-element list
-
-        .addList("list2")
-          .addType(MinorType.VARCHAR)
-          .build()
-        .buildSchema();
-
-    ExtendableRowSet rowSet = fixture.rowSet(schema);
-    VectorContainer vc = rowSet.container();
-    assertEquals(1, vc.getNumberOfColumns());
-
-
-    // Single-type list
-
-    ValueVector vector = vc.getValueVector(0).getValueVector();
-    assertTrue(vector instanceof ListVector);
-    ListVector list = (ListVector) vector;
-    assertTrue(list.getDataVector() instanceof NullableVarCharVector);
-
-    rowSet.clear();
-  }
-
-  @SuppressWarnings("resource")
-  @Test
-  public void testBuildRowSetUnionArray() {
-    TupleMetadata schema = new SchemaBuilder()
-
-        // List with multiple types
-
-        .addList("list1")
-          .addType(MinorType.BIGINT)
-          .addMap()
-            .addNullable("a", MinorType.INT)
-            .addNullable("b", MinorType.VARCHAR)
-            .buildNested()
-
-          // Nested single-element list
-
-          .addList()
-            .addType(MinorType.FLOAT8)
-            .buildNested()
-          .build()
-        .buildSchema();
-
-    ExtendableRowSet rowSet = fixture.rowSet(schema);
-    VectorContainer vc = rowSet.container();
-    assertEquals(1, vc.getNumberOfColumns());
-
-    // List with complex internal structure
-
-    ValueVector vector = vc.getValueVector(0).getValueVector();
-    assertTrue(vector instanceof ListVector);
-    ListVector list = (ListVector) vector;
-    assertTrue(list.getDataVector() instanceof UnionVector);
-    UnionVector union = (UnionVector) list.getDataVector();
-
-    // Union inside the list
-
-    MajorType unionType = union.getField().getType();
-    List<MinorType> types = unionType.getSubTypeList();
-    assertEquals(3, types.size());
-    assertTrue(types.contains(MinorType.BIGINT));
-    assertTrue(types.contains(MinorType.MAP));
-    assertTrue(types.contains(MinorType.LIST));
-
-    MapVector typeMap = union.getTypeMap();
-    ValueVector member = typeMap.getChild(MinorType.BIGINT.name());
-    assertTrue(member instanceof NullableBigIntVector);
-
-    // Map inside the list
-
-    member = typeMap.getChild(MinorType.MAP.name());
-    assertTrue(member instanceof MapVector);
-    MapVector childMap = (MapVector) member;
-    ValueVector mapMember = childMap.getChild("a");
-    assertNotNull(mapMember);
-    assertTrue(mapMember instanceof NullableIntVector);
-    mapMember = childMap.getChild("b");
-    assertNotNull(mapMember);
-    assertTrue(mapMember instanceof NullableVarCharVector);
-
-    // Single-type list inside the outer list
-
-    member = typeMap.getChild(MinorType.LIST.name());
-    assertTrue(member instanceof ListVector);
-    ListVector childList = (ListVector) member;
-    assertTrue(childList.getDataVector() instanceof NullableFloat8Vector);
-
-    rowSet.clear();
-  }
-
   @SuppressWarnings("resource")
   @Test
   public void testBuildRowSetUnion() {
@@ -512,6 +270,103 @@ public class TestVariant extends SubOperatorTest {
 
     assertFalse(reader.next());
     result.clear();
+  }
+
+
+  @SuppressWarnings("resource")
+  @Test
+  public void testBuildRowSetScalarList() {
+    TupleMetadata schema = new SchemaBuilder()
+
+        // Top-level single-element list
+
+        .addList("list2")
+          .addType(MinorType.VARCHAR)
+          .build()
+        .buildSchema();
+
+    ExtendableRowSet rowSet = fixture.rowSet(schema);
+    VectorContainer vc = rowSet.container();
+    assertEquals(1, vc.getNumberOfColumns());
+
+
+    // Single-type list
+
+    ValueVector vector = vc.getValueVector(0).getValueVector();
+    assertTrue(vector instanceof ListVector);
+    ListVector list = (ListVector) vector;
+    assertTrue(list.getDataVector() instanceof NullableVarCharVector);
+
+    rowSet.clear();
+  }
+
+  @SuppressWarnings("resource")
+  @Test
+  public void testBuildRowSetUnionArray() {
+    TupleMetadata schema = new SchemaBuilder()
+
+        // List with multiple types
+
+        .addList("list1")
+          .addType(MinorType.BIGINT)
+          .addMap()
+            .addNullable("a", MinorType.INT)
+            .addNullable("b", MinorType.VARCHAR)
+            .buildNested()
+
+          // Nested single-element list
+
+          .addList()
+            .addType(MinorType.FLOAT8)
+            .buildNested()
+          .build()
+        .buildSchema();
+
+    ExtendableRowSet rowSet = fixture.rowSet(schema);
+    VectorContainer vc = rowSet.container();
+    assertEquals(1, vc.getNumberOfColumns());
+
+    // List with complex internal structure
+
+    ValueVector vector = vc.getValueVector(0).getValueVector();
+    assertTrue(vector instanceof ListVector);
+    ListVector list = (ListVector) vector;
+    assertTrue(list.getDataVector() instanceof UnionVector);
+    UnionVector union = (UnionVector) list.getDataVector();
+
+    // Union inside the list
+
+    MajorType unionType = union.getField().getType();
+    List<MinorType> types = unionType.getSubTypeList();
+    assertEquals(3, types.size());
+    assertTrue(types.contains(MinorType.BIGINT));
+    assertTrue(types.contains(MinorType.MAP));
+    assertTrue(types.contains(MinorType.LIST));
+
+    MapVector typeMap = union.getTypeMap();
+    ValueVector member = typeMap.getChild(MinorType.BIGINT.name());
+    assertTrue(member instanceof NullableBigIntVector);
+
+    // Map inside the list
+
+    member = typeMap.getChild(MinorType.MAP.name());
+    assertTrue(member instanceof MapVector);
+    MapVector childMap = (MapVector) member;
+    ValueVector mapMember = childMap.getChild("a");
+    assertNotNull(mapMember);
+    assertTrue(mapMember instanceof NullableIntVector);
+    mapMember = childMap.getChild("b");
+    assertNotNull(mapMember);
+    assertTrue(mapMember instanceof NullableVarCharVector);
+
+    // Single-type list inside the outer list
+
+    member = typeMap.getChild(MinorType.LIST.name());
+    assertTrue(member instanceof ListVector);
+    ListVector childList = (ListVector) member;
+    assertTrue(childList.getDataVector() instanceof NullableFloat8Vector);
+
+    rowSet.clear();
   }
 
   /**

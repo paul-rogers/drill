@@ -55,9 +55,12 @@ public class OffsetVectorReader extends BaseFixedWidthReader {
 
   public long getEntry() {
     final DrillBuf buf = bufferAccessor.buffer();
-    final int readOffset = vectorIndex.nextOffset() * VALUE_WIDTH;
+    final int readOffset = vectorIndex.offset() * VALUE_WIDTH;
     long start = buf.unsafeGetInt(readOffset);
     long end = buf.unsafeGetInt(readOffset + VALUE_WIDTH);
     return (start << 32) + (end - start);
   }
+
+  @Override
+  public void reposition() { }
 }

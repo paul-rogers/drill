@@ -32,7 +32,9 @@ public class MapReader extends AbstractTupleReader {
   }
 
   public static TupleObjectReader build(TupleMetadata schema, AbstractObjectReader readers[]) {
-    return new TupleObjectReader(new MapReader(schema, readers));
+    MapReader mapReader = new MapReader(schema, readers);
+    mapReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+    return new TupleObjectReader(mapReader);
   }
 
   public static AbstractObjectReader build(TupleMetadata metadata,

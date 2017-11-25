@@ -25,14 +25,18 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.ColumnMetadata.StructureType;
 import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema.PrimitiveColumnMetadata;
+import org.apache.drill.exec.record.TupleSchema.VariantColumnMetadata;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
@@ -63,7 +67,7 @@ public class TestTupleSchema extends SubOperatorTest {
 
     assertEquals(ColumnMetadata.StructureType.PRIMITIVE, col.structureType());
     assertNull(col.mapSchema());
-    assertSame(field, col.schema());
+    assertTrue(field.isEquivalent(col.schema()));
     assertEquals(field.getName(), col.name());
     assertEquals(field.getType().getMinorType(), col.type());
     assertEquals(field.getDataMode(), col.mode());
@@ -71,8 +75,8 @@ public class TestTupleSchema extends SubOperatorTest {
     assertFalse(col.isArray());
     assertFalse(col.isVariableWidth());
     assertFalse(col.isMap());
-    assertFalse(col.isList());
     assertTrue(col.isEquivalent(col));
+    assertFalse(col.isVariant());
 
     ColumnMetadata col2 = TupleSchema.fromField(field);
     assertTrue(col.isEquivalent(col2));
@@ -112,7 +116,7 @@ public class TestTupleSchema extends SubOperatorTest {
     assertFalse(col.isArray());
     assertFalse(col.isVariableWidth());
     assertFalse(col.isMap());
-    assertFalse(col.isList());
+    assertFalse(col.isVariant());
 
     assertEquals(4, col.expectedWidth());
     col.setExpectedWidth(10);
@@ -133,7 +137,7 @@ public class TestTupleSchema extends SubOperatorTest {
     assertTrue(col.isArray());
     assertFalse(col.isVariableWidth());
     assertFalse(col.isMap());
-    assertFalse(col.isList());
+    assertFalse(col.isVariant());
 
     assertEquals(4, col.expectedWidth());
     col.setExpectedWidth(10);
@@ -160,7 +164,7 @@ public class TestTupleSchema extends SubOperatorTest {
     assertFalse(col.isArray());
     assertTrue(col.isVariableWidth());
     assertFalse(col.isMap());
-    assertFalse(col.isList());
+    assertFalse(col.isVariant());
 
     // A different precision is a different type.
 
@@ -196,7 +200,7 @@ public class TestTupleSchema extends SubOperatorTest {
     assertFalse(col.isArray());
     assertTrue(col.isVariableWidth());
     assertFalse(col.isMap());
-    assertFalse(col.isList());
+    assertFalse(col.isVariant());
 
     assertEquals(50, col.expectedWidth());
     col.setExpectedWidth(10);
@@ -217,7 +221,7 @@ public class TestTupleSchema extends SubOperatorTest {
     assertTrue(col.isArray());
     assertTrue(col.isVariableWidth());
     assertFalse(col.isMap());
-    assertFalse(col.isList());
+    assertFalse(col.isVariant());
 
     assertEquals(50, col.expectedWidth());
     col.setExpectedWidth(10);
@@ -227,6 +231,31 @@ public class TestTupleSchema extends SubOperatorTest {
 
     col.setExpectedElementCount(2);
     assertEquals(2, col.expectedElementCount());
+  }
+
+  @Test
+  public void testDecimalScalePrecision() {
+
+    MaterializedField field = MaterializedField.create("d",
+        MajorType.newBuilder()
+          .setMinorType(MinorType.DECIMAL9)
+          .setMode(DataMode.REQUIRED)
+          .setPrecision(3)
+          .setScale(4)
+          .build());
+
+    ColumnMetadata col = TupleSchema.fromField(field);
+
+    assertFalse(col.isNullable());
+    assertFalse(col.isArray());
+    assertFalse(col.isVariableWidth());
+    assertFalse(col.isMap());
+    assertFalse(col.isVariant());
+
+    assertEquals(3, col.precision());
+    assertEquals(4, col.scale());
+
+    assertTrue(field.isEquivalent(col.schema()));
   }
 
   /**
@@ -253,7 +282,7 @@ public class TestTupleSchema extends SubOperatorTest {
     assertFalse(col.isArray());
     assertFalse(col.isVariableWidth());
     assertTrue(col.isMap());
-    assertFalse(col.isList());
+    assertFalse(col.isVariant());
 
     assertEquals(0, col.expectedWidth());
     col.setExpectedWidth(10);
@@ -278,7 +307,7 @@ public class TestTupleSchema extends SubOperatorTest {
     assertTrue(col.isArray());
     assertFalse(col.isVariableWidth());
     assertTrue(col.isMap());
-    assertFalse(col.isList());
+    assertFalse(col.isVariant());
 
     assertEquals(0, col.expectedWidth());
     col.setExpectedWidth(10);
@@ -290,9 +319,75 @@ public class TestTupleSchema extends SubOperatorTest {
     assertEquals(2, col.expectedElementCount());
   }
 
-    // List
+  @Test
+  public void testUnionColumn() {
 
-    // Repeated list
+    MaterializedField field = SchemaBuilder.columnSchema("u", MinorType.UNION, DataMode.OPTIONAL);
+    ColumnMetadata col = TupleSchema.fromField(field);
+    assertFalse(col.isArray());
+    doVariantTest(col);
+  }
+
+  @Test
+  public void testListColumn() {
+
+    MaterializedField field = SchemaBuilder.columnSchema("l", MinorType.LIST, DataMode.OPTIONAL);
+    ColumnMetadata col = TupleSchema.fromField(field);
+    assertTrue(col.isArray());
+
+    // List modeled as a repeated element. Implementation is a bit
+    // more complex, but does not affect this abstract description.
+
+    doVariantTest(col);
+  }
+
+  private void doVariantTest(ColumnMetadata col) {
+
+    assertTrue(col instanceof VariantColumnMetadata);
+
+    assertTrue(col.isNullable());
+    assertFalse(col.isVariableWidth());
+    assertFalse(col.isMap());
+    assertTrue(col.isVariant());
+
+    assertEquals(0, col.expectedWidth());
+    col.setExpectedWidth(10);
+    assertEquals(0, col.expectedWidth());
+
+    VariantMetadata variant = col.variantSchema();
+    assertNotNull(variant);
+    assertEquals(0, variant.size());
+
+    ColumnMetadata member = variant.addType(MinorType.INT);
+    assertEquals(MinorType.INT, member.type());
+    assertEquals(DataMode.OPTIONAL, member.mode());
+    assertEquals(MinorType.INT.name(), member.name());
+
+    assertEquals(1, variant.size());
+    assertTrue(variant.hasType(MinorType.INT));
+    assertSame(member, variant.member(MinorType.INT));
+
+    try {
+      variant.addType(MinorType.INT);
+      fail();
+    } catch (IllegalArgumentException e) {
+      // expected
+    }
+
+    assertFalse(variant.hasType(MinorType.VARCHAR));
+    member = variant.addType(MinorType.VARCHAR);
+    assertEquals(MinorType.VARCHAR, member.type());
+    assertEquals(DataMode.OPTIONAL, member.mode());
+    assertEquals(MinorType.VARCHAR.name(), member.name());
+
+    assertEquals(2, variant.size());
+    assertTrue(variant.hasType(MinorType.VARCHAR));
+    assertSame(member, variant.member(MinorType.VARCHAR));
+
+    assertFalse(variant.hasType(MinorType.BIGINT));
+  }
+
+  // Repeated list
 
   /**
    * Test the basics of an empty root tuple (i.e. row) schema.
@@ -360,9 +455,9 @@ public class TestTupleSchema extends SubOperatorTest {
     assertEquals(0, root.index("a"));
     assertEquals(-1, root.index("b"));
 
-    assertSame(fieldA, root.column(0));
-    assertSame(fieldA, root.column("a"));
-    assertSame(fieldA, root.column("A"));
+    assertTrue(fieldA.isEquivalent(root.column(0)));
+    assertTrue(fieldA.isEquivalent(root.column("a")));
+    assertTrue(fieldA.isEquivalent(root.column("A")));
 
     assertSame(colA, root.metadata(0));
     assertSame(colA, root.metadata("a"));
@@ -386,8 +481,8 @@ public class TestTupleSchema extends SubOperatorTest {
     assertFalse(root.isEmpty());
     assertEquals(indexB, root.index("b"));
 
-    assertSame(fieldB, root.column(1));
-    assertSame(fieldB, root.column("b"));
+    assertTrue(fieldB.isEquivalent(root.column(1)));
+    assertTrue(fieldB.isEquivalent(root.column("b")));
 
     assertSame(colB, root.metadata(1));
     assertSame(colB, root.metadata("b"));
@@ -403,8 +498,8 @@ public class TestTupleSchema extends SubOperatorTest {
     }
 
     List<MaterializedField> fieldList = root.toFieldList();
-    assertSame(fieldA, fieldList.get(0));
-    assertSame(fieldB, fieldList.get(1));
+    assertTrue(fieldA.isEquivalent(fieldList.get(0)));
+    assertTrue(fieldB.isEquivalent(fieldList.get(1)));
 
     TupleMetadata emptyRoot = new TupleSchema();
     assertFalse(emptyRoot.isEquivalent(root));
@@ -440,10 +535,12 @@ public class TestTupleSchema extends SubOperatorTest {
    * a.`b.x`.`c.y`.d<br>
    * in which columns "a", "b.x" and "c.y" are maps, "b.x" and "c.y" are names
    * that contains dots, and d is primitive.
+   * Here we build up the schema using the metadata schema, and generate a
+   * materialized field from the metadata.
    */
 
   @Test
-  public void testMapTuple() {
+  public void testMapTupleFromMetadata() {
 
     TupleMetadata root = new TupleSchema();
 
@@ -491,18 +588,236 @@ public class TestTupleSchema extends SubOperatorTest {
 
     // Yes, it is awful that MaterializedField does not provide indexed
     // access to its children. That's one reason we have the TupleMetadata
-    // classes..
+    // classes...
+    // Note that the metadata layer does not store the materialized field.
+    // (Doing so causes no end of synchronization problems.) So we test
+    // for equivalence, not sameness.
 
-    assertSame(fieldB, colA.schema().getChildren().iterator().next());
-    assertSame(fieldC, colB.schema().getChildren().iterator().next());
     Iterator<MaterializedField> iterC = colC.schema().getChildren().iterator();
-    assertSame(fieldD, iterC.next());
-    assertSame(fieldE, iterC.next());
+    assertTrue(fieldD.isEquivalent(iterC.next()));
+    assertTrue(fieldE.isEquivalent(iterC.next()));
 
     // Copying should be deep.
 
     TupleMetadata root2 = ((TupleSchema) root).copy();
     assertEquals(2, root2.metadata(0).mapSchema().metadata(0).mapSchema().metadata(0).mapSchema().size());
     assert(root.isEquivalent(root2));
+
+    // Generate a materialized field and compare.
+
+    fieldA.addChild(fieldB);
+    fieldB.addChild(fieldC);
+    fieldC.addChild(fieldD);
+    fieldC.addChild(fieldE);
+    assertTrue(colA.schema().isEquivalent(fieldA));
+  }
+
+  @Test
+  public void testMapTupleFromField() {
+
+    // Create a materialized field with the desired structure.
+
+    MaterializedField fieldA = SchemaBuilder.columnSchema("a", MinorType.MAP, DataMode.REQUIRED);
+
+    MaterializedField fieldB = SchemaBuilder.columnSchema("b.x", MinorType.MAP, DataMode.REQUIRED);
+    fieldA.addChild(fieldB);
+
+    MaterializedField fieldC = SchemaBuilder.columnSchema("c.y", MinorType.MAP, DataMode.REQUIRED);
+    fieldB.addChild(fieldC);
+
+    MaterializedField fieldD = SchemaBuilder.columnSchema("d", MinorType.VARCHAR, DataMode.REQUIRED);
+    fieldC.addChild(fieldD);
+
+    MaterializedField fieldE = SchemaBuilder.columnSchema("e", MinorType.INT, DataMode.REQUIRED);
+    fieldC.addChild(fieldE);
+
+    // Create a metadata schema from the field.
+
+    TupleMetadata root = new TupleSchema();
+    ColumnMetadata colA = root.add(fieldA);
+
+    // Get the parts.
+
+    TupleMetadata mapA = colA.mapSchema();
+    ColumnMetadata colB = mapA.metadata("b.x");
+    TupleMetadata mapB = colB.mapSchema();
+    ColumnMetadata colC = mapB.metadata("c.y");
+    TupleMetadata mapC = colC.mapSchema();
+    ColumnMetadata colD = mapC.metadata("d");
+    ColumnMetadata colE = mapC.metadata("e");
+
+    // Validate. Should be same as earlier test that started
+    // with the metadata.
+
+    assertEquals(1, root.size());
+    assertEquals(1, mapA.size());
+    assertEquals(1, mapB.size());
+    assertEquals(2, mapC.size());
+
+    assertSame(colA, root.metadata("a"));
+    assertSame(colB, mapA.metadata("b.x"));
+    assertSame(colC, mapB.metadata("c.y"));
+    assertSame(colD, mapC.metadata("d"));
+    assertSame(colE, mapC.metadata("e"));
+
+    // The full name contains quoted names if the contain dots.
+    // This name is more for diagnostic than semantic purposes.
+
+    assertEquals("a", root.fullName(0));
+    assertEquals("a.`b.x`", mapA.fullName(0));
+    assertEquals("a.`b.x`.`c.y`", mapB.fullName(0));
+    assertEquals("a.`b.x`.`c.y`.d", mapC.fullName(0));
+    assertEquals("a.`b.x`.`c.y`.e", mapC.fullName(1));
+
+    assertEquals(1, colA.schema().getChildren().size());
+    assertEquals(1, colB.schema().getChildren().size());
+    assertEquals(2, colC.schema().getChildren().size());
+
+    assertTrue(colA.schema().isEquivalent(fieldA));
+  }
+
+  @Test
+  public void testUnionSchema() {
+    TupleMetadata schema = new SchemaBuilder()
+        .addUnion("u")
+          .addType(MinorType.BIGINT)
+          .addType(MinorType.VARCHAR)
+          .build()
+        .buildSchema();
+
+    assertEquals(1, schema.size());
+    ColumnMetadata col = schema.metadata(0);
+    assertTrue(col instanceof VariantColumnMetadata);
+    assertEquals(MinorType.UNION, col.type());
+    assertEquals(DataMode.OPTIONAL, col.mode());
+    assertTrue(col.isNullable());
+    assertFalse(col.isArray());
+    assertTrue(col.isVariant());
+    assertEquals(StructureType.VARIANT, col.structureType());
+
+    VariantMetadata union = col.variantSchema();
+    assertNotNull(union);
+    assertEquals(2, union.size());
+    assertTrue(union.hasType(MinorType.BIGINT));
+    assertTrue(union.hasType(MinorType.VARCHAR));
+    assertFalse(union.hasType(MinorType.INT));
+    Collection<MinorType> types = union.types();
+    assertNotNull(types);
+    assertEquals(2, types.size());
+    assertTrue(types.contains(MinorType.BIGINT));
+    assertTrue(types.contains(MinorType.VARCHAR));
+
+    BatchSchema batchSchema = ((TupleSchema) schema).toBatchSchema(SelectionVectorMode.NONE);
+
+    MaterializedField field = batchSchema.getColumn(0);
+    assertEquals("u", field.getName());
+    MajorType majorType = field.getType();
+    assertEquals(MinorType.UNION, majorType.getMinorType());
+    assertEquals(DataMode.OPTIONAL, majorType.getMode());
+    assertEquals(2, majorType.getSubTypeCount());
+    List<MinorType> subtypes = majorType.getSubTypeList();
+    assertEquals(2, subtypes.size());
+    assertTrue(subtypes.contains(MinorType.BIGINT));
+    assertTrue(subtypes.contains(MinorType.VARCHAR));
+  }
+
+  @Test
+  public void testListSchema() {
+    TupleMetadata schema = new SchemaBuilder()
+        .addList("list")
+          .addType(MinorType.BIGINT)
+          .addType(MinorType.VARCHAR)
+          .build()
+        .buildSchema();
+
+    assertEquals(1, schema.size());
+    ColumnMetadata col = schema.metadata(0);
+    assertTrue(col instanceof VariantColumnMetadata);
+
+    // Implementation shows through here: actual major
+    // type is (LIST, OPTIONAL) even though the metadata
+    // lies that this is a variant array.
+
+    assertEquals(MinorType.LIST, col.type());
+    assertEquals(DataMode.OPTIONAL, col.mode());
+    assertTrue(col.isNullable());
+    assertTrue(col.isArray());
+    assertTrue(col.isVariant());
+    assertEquals(StructureType.VARIANT, col.structureType());
+
+    VariantMetadata union = col.variantSchema();
+    assertNotNull(union);
+    assertEquals(2, union.size());
+    assertTrue(union.hasType(MinorType.BIGINT));
+    assertTrue(union.hasType(MinorType.VARCHAR));
+    assertFalse(union.hasType(MinorType.INT));
+    Collection<MinorType> types = union.types();
+    assertNotNull(types);
+    assertEquals(2, types.size());
+    assertTrue(types.contains(MinorType.BIGINT));
+    assertTrue(types.contains(MinorType.VARCHAR));
+
+    BatchSchema batchSchema = ((TupleSchema) schema).toBatchSchema(SelectionVectorMode.NONE);
+
+    MaterializedField field = batchSchema.getColumn(0);
+    assertEquals("list", field.getName());
+    MajorType majorType = field.getType();
+    assertEquals(MinorType.LIST, majorType.getMinorType());
+    assertEquals(DataMode.OPTIONAL, majorType.getMode());
+    assertEquals(2, majorType.getSubTypeCount());
+    List<MinorType> subtypes = majorType.getSubTypeList();
+    assertEquals(2, subtypes.size());
+    assertTrue(subtypes.contains(MinorType.BIGINT));
+    assertTrue(subtypes.contains(MinorType.VARCHAR));
+  }
+
+  @Test
+  public void testNestedSchema() {
+    TupleMetadata schema = new SchemaBuilder()
+        .addList("list")
+          .addType(MinorType.BIGINT)
+          .addType(MinorType.VARCHAR)
+          .addMap()
+            .add("a", MinorType.INT)
+            .add("b", MinorType.VARCHAR)
+            .buildNested()
+          .addList()
+            .addType(MinorType.FLOAT8)
+            .addType(MinorType.DECIMAL18)
+            .buildNested()
+          .build()
+        .buildSchema();
+
+    assertEquals(1, schema.size());
+    ColumnMetadata col = schema.metadata(0);
+    assertTrue(col.isVariant());
+    VariantMetadata union = col.variantSchema();
+    assertNotNull(union);
+    assertEquals(4, union.size());
+    assertTrue(union.hasType(MinorType.MAP));
+    assertTrue(union.hasType(MinorType.LIST));
+
+    ColumnMetadata mapCol = union.member(MinorType.MAP);
+    TupleMetadata mapSchema = mapCol.mapSchema();
+    assertEquals(2, mapSchema.size());
+
+    ColumnMetadata listCol = union.member(MinorType.LIST);
+    VariantMetadata listSchema = listCol.variantSchema();
+    assertEquals(2, listSchema.size());
+    assertTrue(listSchema.hasType(MinorType.FLOAT8));
+    assertTrue(listSchema.hasType(MinorType.DECIMAL18));
+  }
+
+  @Test
+  public void testDuplicateType() {
+    try {
+      new SchemaBuilder()
+          .addList("list")
+            .addType(MinorType.BIGINT)
+            .addType(MinorType.BIGINT);
+      fail();
+    } catch (IllegalArgumentException e) {
+      // Expected
+    }
   }
 }
