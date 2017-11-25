@@ -27,7 +27,7 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.expr.fn.impl.DateUtility;
 import org.apache.drill.exec.record.BatchSchema;
-import org.apache.drill.exec.vector.accessor.ScalarElementReader;
+import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.ValueType;
 import org.apache.drill.test.SubOperatorTest;
@@ -36,6 +36,8 @@ import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.joda.time.Period;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.junit.Test;
+
+import com.google.common.collect.Lists;
 
 /**
  * Verify that simple scalar (non-repeated) column readers
@@ -130,23 +132,35 @@ public class TestScalarAccessors extends SubOperatorTest {
     assertEquals(2, rs.rowCount());
 
     RowSetReader reader = rs.reader();
-    ScalarElementReader colReader = reader.elements(0);
+    ArrayReader arrayReader = reader.array(0);
+    ScalarReader colReader = arrayReader.scalar();
     assertEquals(ValueType.INTEGER, colReader.valueType());
 
     assertTrue(reader.next());
-    assertEquals(0, colReader.size());
+    assertEquals(0, arrayReader.size());
 
     assertTrue(reader.next());
-    assertEquals(3, colReader.size());
-    assertEquals(0, colReader.getInt(0));
-    assertEquals(20, colReader.getInt(1));
-    assertEquals(30, colReader.getInt(2));
-    assertEquals(0, colReader.getObject(0));
-    assertEquals(20, colReader.getObject(1));
-    assertEquals(30, colReader.getObject(2));
-    assertEquals("0", colReader.getAsString(0));
-    assertEquals("20", colReader.getAsString(1));
-    assertEquals("30", colReader.getAsString(2));
+    assertEquals(3, arrayReader.size());
+    assertTrue(arrayReader.hasNext());
+    assertEquals(0, colReader.getInt());
+    assertTrue(arrayReader.hasNext());
+    assertEquals(20, colReader.getInt());
+    assertTrue(arrayReader.hasNext());
+    assertEquals(30, colReader.getInt());
+    assertFalse(arrayReader.hasNext());
+
+    arrayReader.setPosn(0);
+    assertEquals(0, colReader.getObject());
+    assertEquals(20, colReader.getObject());
+    assertEquals(30, colReader.getObject());
+
+    arrayReader.setPosn(0);
+    assertEquals("0", colReader.getAsString());
+    assertEquals("20", colReader.getAsString());
+    assertEquals("30", colReader.getAsString());
+
+    assertEquals("[0, 20, 30]", arrayReader.getAsString());
+    assertEquals(Lists.newArrayList(0, 20, 30), arrayReader.getObject());
 
     assertFalse(reader.next());
     rs.clear();
@@ -324,23 +338,29 @@ public class TestScalarAccessors extends SubOperatorTest {
     assertEquals(2, rs.rowCount());
 
     RowSetReader reader = rs.reader();
-    ScalarElementReader colReader = reader.elements(0);
+    ArrayReader arrayReader = reader.array(0);
+    ScalarReader colReader = arrayReader.scalar();
     assertEquals(ValueType.LONG, colReader.valueType());
 
     assertTrue(reader.next());
-    assertEquals(0, colReader.size());
+    assertEquals(0, arrayReader.size());
 
     assertTrue(reader.next());
-    assertEquals(3, colReader.size());
-    assertEquals(0, colReader.getLong(0));
-    assertEquals(20, colReader.getLong(1));
-    assertEquals(30, colReader.getLong(2));
-    assertEquals(0L, colReader.getObject(0));
-    assertEquals(20L, colReader.getObject(1));
-    assertEquals(30L, colReader.getObject(2));
-    assertEquals("0", colReader.getAsString(0));
-    assertEquals("20", colReader.getAsString(1));
-    assertEquals("30", colReader.getAsString(2));
+    assertEquals(3, arrayReader.size());
+    assertEquals(0, colReader.getLong());
+    assertEquals(20, colReader.getLong());
+    assertEquals(30, colReader.getLong());
+    arrayReader.setPosn(0);
+    assertEquals(0L, colReader.getObject());
+    assertEquals(20L, colReader.getObject());
+    assertEquals(30L, colReader.getObject());
+    arrayReader.setPosn(0);
+    assertEquals("0", colReader.getAsString());
+    assertEquals("20", colReader.getAsString());
+    assertEquals("30", colReader.getAsString());
+
+    assertEquals("[0, 20, 30]", arrayReader.getAsString());
+    assertEquals(Lists.newArrayList(0L, 20L, 30L), arrayReader.getObject());
 
     assertFalse(reader.next());
     rs.clear();
@@ -434,23 +454,31 @@ public class TestScalarAccessors extends SubOperatorTest {
     assertEquals(2, rs.rowCount());
 
     RowSetReader reader = rs.reader();
-    ScalarElementReader colReader = reader.elements(0);
+    ArrayReader arrayReader = reader.array(0);
+    ScalarReader colReader = arrayReader.scalar();
     assertEquals(ValueType.DOUBLE, colReader.valueType());
 
     assertTrue(reader.next());
-    assertEquals(0, colReader.size());
+    assertEquals(0, arrayReader.size());
 
     assertTrue(reader.next());
-    assertEquals(3, colReader.size());
-    assertEquals(0, colReader.getDouble(0), 0.00001);
-    assertEquals(20.5, colReader.getDouble(1), 0.00001);
-    assertEquals(30.0, colReader.getDouble(2), 0.00001);
-    assertEquals(0, (double) colReader.getObject(0), 0.00001);
-    assertEquals(20.5, (double) colReader.getObject(1), 0.00001);
-    assertEquals(30.0, (double) colReader.getObject(2), 0.00001);
-    assertEquals("0.0", colReader.getAsString(0));
-    assertEquals("20.5", colReader.getAsString(1));
-    assertEquals("30.0", colReader.getAsString(2));
+    assertEquals(3, arrayReader.size());
+    assertEquals(0, colReader.getDouble(), 0.00001);
+    assertEquals(20.5, colReader.getDouble(), 0.00001);
+    assertEquals(30.0, colReader.getDouble(), 0.00001);
+
+    arrayReader.setPosn(0);
+    assertEquals(0, (double) colReader.getObject(), 0.00001);
+    assertEquals(20.5, (double) colReader.getObject(), 0.00001);
+    assertEquals(30.0, (double) colReader.getObject(), 0.00001);
+
+    arrayReader.setPosn(0);
+    assertEquals("0.0", colReader.getAsString());
+    assertEquals("20.5", colReader.getAsString());
+    assertEquals("30.0", colReader.getAsString());
+
+    assertEquals("[0.0, 20.5, 30.0]", arrayReader.getAsString());
+    assertEquals(Lists.newArrayList(0.0D, 20.5D, 30D), arrayReader.getObject());
 
     assertFalse(reader.next());
     rs.clear();
@@ -517,7 +545,7 @@ public class TestScalarAccessors extends SubOperatorTest {
         .addRow("fred")
         .addRow("barney")
         .build();
-    assertEquals(2, rs.rowCount());
+    assertEquals(3, rs.rowCount());
 
     RowSetReader reader = rs.reader();
     ScalarReader colReader = reader.scalar(0);
@@ -586,23 +614,31 @@ public class TestScalarAccessors extends SubOperatorTest {
     assertEquals(2, rs.rowCount());
 
     RowSetReader reader = rs.reader();
-    ScalarElementReader colReader = reader.elements(0);
+    ArrayReader arrayReader = reader.array(0);
+    ScalarReader colReader = arrayReader.scalar();
     assertEquals(ValueType.STRING, colReader.valueType());
 
     assertTrue(reader.next());
-    assertEquals(0, colReader.size());
+    assertEquals(0, arrayReader.size());
 
     assertTrue(reader.next());
-    assertEquals(3, colReader.size());
-    assertEquals("fred", colReader.getString(0));
-    assertEquals("", colReader.getString(1));
-    assertEquals("wilma", colReader.getString(2));
-    assertEquals("fred", colReader.getObject(0));
-    assertEquals("", colReader.getObject(1));
-    assertEquals("wilma", colReader.getObject(2));
-    assertEquals("\"fred\"", colReader.getAsString(0));
-    assertEquals("\"\"", colReader.getAsString(1));
-    assertEquals("\"wilma\"", colReader.getAsString(2));
+    assertEquals(3, arrayReader.size());
+    assertEquals("fred", colReader.getString());
+    assertEquals("", colReader.getString());
+    assertEquals("wilma", colReader.getString());
+
+    arrayReader.setPosn(0);
+    assertEquals("fred", colReader.getObject());
+    assertEquals("", colReader.getObject());
+    assertEquals("wilma", colReader.getObject());
+
+    arrayReader.setPosn(0);
+    assertEquals("\"fred\"", colReader.getAsString());
+    assertEquals("\"\"", colReader.getAsString());
+    assertEquals("\"wilma\"", colReader.getAsString());
+
+    assertEquals("[\"fred\", \"\", \"wilma\"]", arrayReader.getAsString());
+    assertEquals(Lists.newArrayList("fred", "", "wilma"), arrayReader.getObject());
 
     assertFalse(reader.next());
     rs.clear();
@@ -702,7 +738,6 @@ public class TestScalarAccessors extends SubOperatorTest {
 
     assertTrue(reader.next());
     assertTrue(colReader.isNull());
-    assertNull(colReader.getPeriod());
     assertNull(colReader.getObject());
     assertEquals("null", colReader.getAsString());
 
@@ -730,19 +765,22 @@ public class TestScalarAccessors extends SubOperatorTest {
     assertEquals(2, rs.rowCount());
 
     RowSetReader reader = rs.reader();
-    ScalarElementReader colReader = reader.elements(0);
+    ArrayReader arrayReader = reader.array(0);
+    ScalarReader colReader = arrayReader.scalar();
     assertEquals(ValueType.PERIOD, colReader.valueType());
 
     assertTrue(reader.next());
-    assertEquals(0, colReader.size());
+    assertEquals(0, arrayReader.size());
 
     assertTrue(reader.next());
-    assertEquals(3, colReader.size());
-    assertEquals(p1, colReader.getPeriod(0));
-    assertEquals(p2, colReader.getPeriod(1));
-    assertEquals(p3, colReader.getPeriod(2));
-    assertEquals(p2, colReader.getObject(1));
-    assertEquals(p2.toString(), colReader.getAsString(1));
+    assertEquals(3, arrayReader.size());
+    assertEquals(p1, colReader.getPeriod());
+    assertEquals(p2, colReader.getPeriod());
+    assertEquals(p3, colReader.getPeriod());
+    arrayReader.setPosn(1);
+    assertEquals(p2, colReader.getObject());
+    arrayReader.setPosn(1);
+    assertEquals(p2.toString(), colReader.getAsString());
 
     assertFalse(reader.next());
     rs.clear();
@@ -843,7 +881,6 @@ public class TestScalarAccessors extends SubOperatorTest {
 
     assertTrue(reader.next());
     assertTrue(colReader.isNull());
-    assertNull(colReader.getPeriod());
     assertNull(colReader.getObject());
     assertEquals("null", colReader.getAsString());
 
@@ -871,19 +908,22 @@ public class TestScalarAccessors extends SubOperatorTest {
     assertEquals(2, rs.rowCount());
 
     RowSetReader reader = rs.reader();
-    ScalarElementReader colReader = reader.elements(0);
+    ArrayReader arrayReader = reader.array(0);
+    ScalarReader colReader = arrayReader.scalar();
     assertEquals(ValueType.PERIOD, colReader.valueType());
 
     assertTrue(reader.next());
-    assertEquals(0, colReader.size());
+    assertEquals(0, arrayReader.size());
 
     assertTrue(reader.next());
-    assertEquals(3, colReader.size());
-    assertEquals(p1, colReader.getPeriod(0).normalizedStandard());
-    assertEquals(p2, colReader.getPeriod(1).normalizedStandard());
-    assertEquals(p3.normalizedStandard(), colReader.getPeriod(2).normalizedStandard());
-    assertEquals(p2, ((Period) colReader.getObject(1)).normalizedStandard());
-    assertEquals(p2.toString(), colReader.getAsString(1));
+    assertEquals(3, arrayReader.size());
+    assertEquals(p1, colReader.getPeriod().normalizedStandard());
+    assertEquals(p2, colReader.getPeriod().normalizedStandard());
+    assertEquals(p3.normalizedStandard(), colReader.getPeriod().normalizedStandard());
+    arrayReader.setPosn(1);
+    assertEquals(p2, ((Period) colReader.getObject()).normalizedStandard());
+    arrayReader.setPosn(1);
+    assertEquals(p2.toString(), colReader.getAsString());
 
     assertFalse(reader.next());
     rs.clear();
@@ -1005,7 +1045,6 @@ public class TestScalarAccessors extends SubOperatorTest {
 
     assertTrue(reader.next());
     assertTrue(colReader.isNull());
-    assertNull(colReader.getPeriod());
     assertNull(colReader.getObject());
     assertEquals("null", colReader.getAsString());
 
@@ -1037,19 +1076,22 @@ public class TestScalarAccessors extends SubOperatorTest {
     assertEquals(2, rs.rowCount());
 
     RowSetReader reader = rs.reader();
-    ScalarElementReader colReader = reader.elements(0);
+    ArrayReader arrayReader = reader.array(0);
+    ScalarReader colReader = arrayReader.scalar();
     assertEquals(ValueType.PERIOD, colReader.valueType());
 
     assertTrue(reader.next());
-    assertEquals(0, colReader.size());
+    assertEquals(0, arrayReader.size());
 
     assertTrue(reader.next());
-    assertEquals(3, colReader.size());
-    assertEquals(p1, colReader.getPeriod(0).normalizedStandard());
-    assertEquals(p2, colReader.getPeriod(1).normalizedStandard());
-    assertEquals(p3.normalizedStandard(), colReader.getPeriod(2).normalizedStandard());
-    assertEquals(p2, ((Period) colReader.getObject(1)).normalizedStandard());
-    assertEquals(p2.toString(), colReader.getAsString(1));
+    assertEquals(3, arrayReader.size());
+    assertEquals(p1, colReader.getPeriod().normalizedStandard());
+    assertEquals(p2, colReader.getPeriod().normalizedStandard());
+    assertEquals(p3.normalizedStandard(), colReader.getPeriod().normalizedStandard());
+    arrayReader.setPosn(1);
+    assertEquals(p2, ((Period) colReader.getObject()).normalizedStandard());
+    arrayReader.setPosn(1);
+    assertEquals(p2.toString(), colReader.getAsString());
 
     assertFalse(reader.next());
     rs.clear();
@@ -1166,19 +1208,22 @@ public class TestScalarAccessors extends SubOperatorTest {
     assertEquals(2, rs.rowCount());
 
     RowSetReader reader = rs.reader();
-    ScalarElementReader colReader = reader.elements(0);
+    ArrayReader arrayReader = reader.array(0);
+    ScalarReader colReader = arrayReader.scalar();
     assertEquals(ValueType.DECIMAL, colReader.valueType());
 
     assertTrue(reader.next());
-    assertEquals(0, colReader.size());
+    assertEquals(0, arrayReader.size());
 
     assertTrue(reader.next());
-    assertEquals(3, colReader.size());
-    assertEquals(0, v1.compareTo(colReader.getDecimal(0)));
-    assertEquals(0, v2.compareTo(colReader.getDecimal(1)));
-    assertEquals(0, v3.compareTo(colReader.getDecimal(2)));
-    assertEquals(0, v2.compareTo((BigDecimal) colReader.getObject(1)));
-    assertEquals(v2.toString(), colReader.getAsString(1));
+    assertEquals(3, arrayReader.size());
+    assertEquals(0, v1.compareTo(colReader.getDecimal()));
+    assertEquals(0, v2.compareTo(colReader.getDecimal()));
+    assertEquals(0, v3.compareTo(colReader.getDecimal()));
+    arrayReader.setPosn(1);
+    assertEquals(0, v2.compareTo((BigDecimal) colReader.getObject()));
+    arrayReader.setPosn(1);
+    assertEquals(v2.toString(), colReader.getAsString());
 
     assertFalse(reader.next());
     rs.clear();
@@ -1361,19 +1406,22 @@ public class TestScalarAccessors extends SubOperatorTest {
     assertEquals(2, rs.rowCount());
 
     RowSetReader reader = rs.reader();
-    ScalarElementReader colReader = reader.elements(0);
+    ArrayReader arrayReader = reader.array(0);
+    ScalarReader colReader = arrayReader.scalar();
     assertEquals(ValueType.BYTES, colReader.valueType());
 
     assertTrue(reader.next());
-    assertEquals(0, colReader.size());
+    assertEquals(0, arrayReader.size());
 
     assertTrue(reader.next());
-    assertEquals(3, colReader.size());
-    assertTrue(Arrays.equals(v1, colReader.getBytes(0)));
-    assertTrue(Arrays.equals(v2, colReader.getBytes(1)));
-    assertTrue(Arrays.equals(v3, colReader.getBytes(2)));
-    assertTrue(Arrays.equals(v2, (byte[]) colReader.getObject(1)));
-    assertEquals("[00, 7f, 80, ff]", colReader.getAsString(1));
+    assertEquals(3, arrayReader.size());
+    assertTrue(Arrays.equals(v1, colReader.getBytes()));
+    assertTrue(Arrays.equals(v2, colReader.getBytes()));
+    assertTrue(Arrays.equals(v3, colReader.getBytes()));
+    arrayReader.setPosn(1);
+    assertTrue(Arrays.equals(v2, (byte[]) colReader.getObject()));
+    arrayReader.setPosn(1);
+    assertEquals("[00, 7f, 80, ff]", colReader.getAsString());
 
     assertFalse(reader.next());
     rs.clear();

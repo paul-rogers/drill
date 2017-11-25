@@ -39,7 +39,6 @@ public interface ObjectReader {
 
   ObjectType type();
   ScalarReader scalar();
-  ScalarElementReader elements();
   TupleReader tuple();
   ArrayReader array();
   VariantReader variant();

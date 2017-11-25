@@ -67,20 +67,20 @@ public interface ArrayWriter {
   int size();
 
   /**
-   * The object type of the list entry. All entries have the same
-   * type.
-   * @return the object type of each entry
-   */
-
-  ObjectWriter entry();
-
-  /**
    * Return a generic object writer for the array entry.
    *
    * @return generic object reader
    */
 
   ObjectType entryType();
+
+  /**
+   * The object type of the list entry. All entries have the same
+   * type.
+   * @return the object type of each entry
+   */
+
+  ObjectWriter entry();
   ScalarWriter scalar();
   TupleWriter tuple();
   ArrayWriter array();

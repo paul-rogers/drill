@@ -28,27 +28,36 @@ import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 
 public abstract class ReaderIndex implements ColumnReaderIndex {
 
-  protected int rowIndex = -1;
+  protected int position = -1;
   protected final int rowCount;
 
   public ReaderIndex(int rowCount) {
     this.rowCount = rowCount;
   }
 
-  public int position() { return rowIndex; }
-  public void set(int index) { rowIndex = index; }
+  public void set(int index) {
+    assert position >= -1 && position <= rowCount;
+    position = index;
+  }
+
+  @Override
+  public int logicalIndex() { return position; }
 
   @Override
   public int size() { return rowCount; }
 
   @Override
+  public boolean hasNext() { return position < rowCount - 1; }
+
+  @Override
   public boolean next() {
-    if (++rowIndex < rowCount) {
+    if (hasNext()) {
+      position++;
       return true;
     }
-    rowIndex--;
     return false;
   }
 
-  public boolean valid() { return rowIndex < rowCount; }
+  @Override
+  public int nextOffset() { return offset(); }
 }

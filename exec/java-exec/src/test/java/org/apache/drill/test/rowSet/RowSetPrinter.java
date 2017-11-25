@@ -89,18 +89,18 @@ public class RowSetPrinter {
   }
 
   private void printHeader(PrintStream out, RowSetReader reader, SelectionVectorMode selectionMode) {
-    out.print(reader.index());
+    out.print(reader.logicalIndex());
     switch (selectionMode) {
     case FOUR_BYTE:
       out.print(" (");
-      out.print(reader.batchIndex());
+      out.print(reader.hyperVectorIndex());
       out.print(", ");
-      out.print(reader.rowIndex());
+      out.print(reader.offset());
       out.print(")");
       break;
     case TWO_BYTE:
       out.print(" (");
-      out.print(reader.rowIndex());
+      out.print(reader.offset());
       out.print(")");
       break;
     default:

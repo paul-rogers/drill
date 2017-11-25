@@ -60,7 +60,7 @@ public class TestImplicitJoinReader extends SubOperatorTest {
       RowSetReader reader = rowSet.reader();
       printSchema(reader);
       while (reader.next()) {
-        printRow(reader.index(), reader);
+        printRow(reader.logicalIndex(), reader);
       }
     }
 
@@ -103,7 +103,7 @@ public class TestImplicitJoinReader extends SubOperatorTest {
       RowSetReader reader = rowSet.reader();
       printSchema(reader);
       while (reader.next()) {
-        printRow(reader.index(), reader);
+        printRow(reader.logicalIndex(), reader);
       }
     }
 

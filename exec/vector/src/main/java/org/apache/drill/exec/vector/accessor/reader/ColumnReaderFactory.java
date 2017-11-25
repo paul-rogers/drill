@@ -33,11 +33,9 @@ public class ColumnReaderFactory {
 
   private static final int typeCount = MinorType.values().length;
   private static final Class<? extends BaseScalarReader> requiredReaders[] = new Class[typeCount];
-  private static final Class<? extends BaseElementReader> elementReaders[] = new Class[typeCount];
 
   static {
     ColumnAccessorUtils.defineRequiredReaders(requiredReaders);
-    ColumnAccessorUtils.defineArrayReaders(elementReaders);
   }
 
   public static AbstractObjectReader buildColumnReader(VectorAccessor va) {
@@ -59,7 +57,7 @@ public class ColumnReaderFactory {
       case REQUIRED:
         return BaseScalarReader.buildRequired(va, newAccessor(type, requiredReaders));
       case REPEATED:
-        return ScalarArrayReader.build(va, newAccessor(type, elementReaders));
+        return ScalarArrayReader.build(va, newAccessor(type, requiredReaders));
       default:
         throw new UnsupportedOperationException(mode.toString());
       }

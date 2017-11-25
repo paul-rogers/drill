@@ -308,7 +308,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     RowSet result = fixture.wrap(rsLoader.harvest());
     assertEquals(expectedCount, result.rowCount());
     RowSetReader reader = result.reader();
-    reader.set(expectedCount - 1);
+    reader.setPosn(expectedCount - 1);
     ScalarElementReader arrayReader = reader.column(0).elements();
     assertEquals(valuesPerArray, arrayReader.size());
     for (int i = 0; i < valuesPerArray; i++) {
@@ -434,7 +434,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     ScalarElementReader dReader = reader.array("d").elements();
 
     while (reader.next()) {
-      int rowId = reader.rowIndex();
+      int rowId = reader.offset();
       assertEquals(aCount, aReader.size());
       for (int i = 0; i < aCount; i++) {
         assertEquals(rowId * aCount + i, aReader.getInt(i));
@@ -498,7 +498,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
     int j = 0;
     while (reader.next()) {
-      int rowId = firstCount + reader.rowIndex();
+      int rowId = firstCount + reader.offset();
       assertEquals(aCount, aReader.size());
       for (int i = 0; i < aCount; i++) {
         assertEquals("Index " + i, rowId * aCount + i, aReader.getInt(i));
@@ -604,12 +604,12 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
     RowSetReader reader = result.reader();
     ScalarElementReader cReader = reader.array("c").elements();
     while (reader.next()) {
-      assertEquals(reader.rowIndex(), reader.scalar("a").getInt());
+      assertEquals(reader.offset(), reader.scalar("a").getInt());
       assertTrue(Arrays.equals(value, reader.scalar("b").getBytes()));
-      if (reader.rowIndex() < blankAfter) {
+      if (reader.offset() < blankAfter) {
         assertEquals(3, cReader.size());
         for (int i = 0; i < 3; i++) {
-          assertEquals(reader.rowIndex() * 3 + i, cReader.getInt(i));
+          assertEquals(reader.offset() * 3 + i, cReader.getInt(i));
         }
       } else {
         assertEquals(0, cReader.size());
@@ -655,7 +655,7 @@ public class TestResultSetLoaderOverflow extends SubOperatorTest {
 
     RowSetReader reader = result.reader();
     while (reader.next()) {
-      assertEquals(reader.rowIndex(), reader.scalar(0).getInt());
+      assertEquals(reader.offset(), reader.scalar(0).getInt());
       assertTrue(reader.scalar(1).isNull());
       assertTrue(Arrays.equals(value, reader.scalar(2).getBytes()));
       assertTrue(reader.scalar(3).isNull());

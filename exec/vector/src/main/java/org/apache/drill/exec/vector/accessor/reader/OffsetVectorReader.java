@@ -36,14 +36,6 @@ public class OffsetVectorReader extends BaseFixedWidthReader {
     nullStateReader = NullStateReader.REQUIRED_STATE_READER;
   }
 
-  public static OffsetVectorReader buildArrayReader(VectorAccessor repeatedAccessor) {
-    return new OffsetVectorReader(VectorAccessors.arrayOffsetVectorAccessor(repeatedAccessor));
-  }
-
-  public static OffsetVectorReader buildVarWidthReader(VectorAccessor varWidthAccessor) {
-    return new OffsetVectorReader(VectorAccessors.varWidthOffsetVectorAccessor(varWidthAccessor));
-  }
-
   @Override
   public ValueType valueType() {
     return ValueType.INTEGER;
@@ -63,7 +55,7 @@ public class OffsetVectorReader extends BaseFixedWidthReader {
 
   public long getEntry() {
     final DrillBuf buf = bufferAccessor.buffer();
-    final int readOffset = vectorIndex.vectorIndex() * VALUE_WIDTH;
+    final int readOffset = vectorIndex.nextOffset() * VALUE_WIDTH;
     long start = buf.unsafeGetInt(readOffset);
     long end = buf.unsafeGetInt(readOffset + VALUE_WIDTH);
     return (start << 32) + (end - start);

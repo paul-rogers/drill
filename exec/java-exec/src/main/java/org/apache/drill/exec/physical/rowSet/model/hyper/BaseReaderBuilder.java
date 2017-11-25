@@ -39,7 +39,6 @@ import org.apache.drill.exec.vector.accessor.reader.ColumnReaderFactory;
 import org.apache.drill.exec.vector.accessor.reader.MapReader;
 import org.apache.drill.exec.vector.accessor.reader.ObjectArrayReader;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
-import org.apache.drill.exec.vector.accessor.reader.VectorAccessor.BaseHyperVectorAccessor;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 
 public abstract class BaseReaderBuilder {
@@ -59,13 +58,13 @@ public abstract class BaseReaderBuilder {
     }
 
     @Override
-    public int vectorIndex() {
-      return AccessorUtilities.sv4Index(sv4.get(rowIndex));
+    public int offset() {
+      return AccessorUtilities.sv4Index(sv4.get(position));
     }
 
     @Override
-    public int batchIndex( ) {
-      return AccessorUtilities.sv4Batch(sv4.get(rowIndex));
+    public int hyperVectorIndex( ) {
+      return AccessorUtilities.sv4Batch(sv4.get(position));
     }
   }
 
@@ -92,7 +91,7 @@ public abstract class BaseReaderBuilder {
 
     @Override
     public ValueVector vector() {
-      return vectors[rowIndex.batchIndex()];
+      return vectors[rowIndex.hyperVectorIndex()];
     }
   }
 

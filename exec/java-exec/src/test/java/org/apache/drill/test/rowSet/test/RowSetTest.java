@@ -239,31 +239,36 @@ public class RowSetTest extends SubOperatorTest {
     assertSame(reader.column(0).array(), reader.array(0));
 
     assertEquals(ObjectType.SCALAR, reader.column("a").array().entryType());
-    assertEquals(ValueType.INTEGER, reader.array(0).elements().valueType());
+    assertEquals(ValueType.INTEGER, reader.array(0).scalar().valueType());
 
     // Read and verify the rows
 
-    ScalarElementReader intReader = reader.array(0).elements();
+    ArrayReader arrayReader = reader.array(0);
+    ScalarReader intReader = arrayReader.scalar();
     assertTrue(reader.next());
-    assertFalse(reader.array(0).isNull());
-    assertEquals(2, intReader.size());
-    assertEquals(10, intReader.getInt(0));
-    assertEquals(11, intReader.getInt(1));
+    assertFalse(arrayReader.isNull());
+    assertEquals(2, arrayReader.size());
+    assertEquals(10, intReader.getInt());
+    assertEquals(11, intReader.getInt());
+
     assertTrue(reader.next());
-    assertFalse(reader.array(0).isNull());
-    assertEquals(3, intReader.size());
-    assertEquals(20, intReader.getInt(0));
-    assertEquals(21, intReader.getInt(1));
-    assertEquals(22, intReader.getInt(2));
+    assertFalse(arrayReader.isNull());
+    assertEquals(3, arrayReader.size());
+    assertEquals(20, intReader.getInt());
+    assertEquals(21, intReader.getInt());
+    assertEquals(22, intReader.getInt());
+
     assertTrue(reader.next());
-    assertFalse(reader.array(0).isNull());
-    assertEquals(1, intReader.size());
-    assertEquals(30, intReader.getInt(0));
+    assertFalse(arrayReader.isNull());
+    assertEquals(1, arrayReader.size());
+    assertEquals(30, intReader.getInt());
+
     assertTrue(reader.next());
-    assertFalse(reader.array(0).isNull());
-    assertEquals(2, intReader.size());
-    assertEquals(40, intReader.getInt(0));
-    assertEquals(41, intReader.getInt(1));
+    assertFalse(arrayReader.isNull());
+    assertEquals(2, arrayReader.size());
+    assertEquals(40, intReader.getInt());
+    assertEquals(41, intReader.getInt());
+
     assertFalse(reader.next());
 
     // Test the above again via the writer and reader
@@ -358,7 +363,7 @@ public class RowSetTest extends SubOperatorTest {
     ScalarReader aReader = reader.column(0).scalar();
     TupleReader mReader = reader.column(1).tuple();
     assertEquals(ObjectType.SCALAR, mReader.column("b").array().entryType());
-    ScalarElementReader bReader = mReader.column(0).elements();
+    ScalarReader bReader = mReader.column(0).elements();
     assertEquals(ValueType.INTEGER, bReader.valueType());
 
     assertTrue(reader.next());

@@ -21,8 +21,9 @@ import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
 import org.apache.drill.exec.vector.accessor.ObjectType;
-import org.apache.drill.exec.vector.accessor.ScalarElementReader;
+import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.TupleReader;
+import org.apache.drill.exec.vector.accessor.VariantReader;
 
 /**
  * Reader for an array-valued column. This reader provides access to specific
@@ -60,11 +61,6 @@ public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
     }
 
     @Override
-    public ScalarElementReader elements() {
-      return arrayReader.elements();
-    }
-
-    @Override
     public Object getObject() {
       return arrayReader.getObject();
     }
@@ -99,16 +95,14 @@ public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
     protected final ColumnReaderIndex base;
     protected int startOffset;
     protected int length;
-    protected int posn;
+    protected int position;
 
     public ElementReaderIndex(ColumnReaderIndex base) {
       this.base = base;
     }
 
     @Override
-    public int batchIndex() {
-      return base.batchIndex();
-    }
+    public int hyperVectorIndex() { return 0; }
 
     /**
      * Reposition this array index for a new array given the array start
@@ -125,7 +119,7 @@ public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
       assert startOffset >= 0;
       this.startOffset = startOffset;
       this.length = length;
-      posn = -1;
+      position = -1;
     }
 
     @Override
@@ -139,19 +133,20 @@ public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
      * @return absolute offset vector location for the array value
      */
 
-    public int vectorIndex(int index) {
-      if (index < 0 || length <= index) {
-        throw new IndexOutOfBoundsException("Index = " + index + ", length = " + length);
+    @Override
+    public int offset() {
+      if (position < 0 || length <= position) {
+        throw new IndexOutOfBoundsException("Index = " + position + ", length = " + length);
       }
-      return startOffset + index;
+      return startOffset + position;
     }
 
     @Override
     public boolean next() {
-      if (++posn < length) {
+      if (hasNext()) {
+        position++;
         return true;
       }
-      posn = length;
       return false;
     }
 
@@ -162,35 +157,43 @@ public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
      */
 
     public void set(int index) {
-      if (index < 0 ||  length <= index) {
+      if (index < 0 ||  length < index) {
         throw new IndexOutOfBoundsException("Index = " + index + ", length = " + length);
       }
-      posn = index;
-    }
 
-    public int posn() { return posn; }
+      // Auto-increment, so set the index to one before the target.
+
+      position = index - 1;
+    }
 
     @Override
-    public int vectorIndex() {
-      return vectorIndex(posn);
+    public int logicalIndex() { return position; }
+
+    @Override
+    public boolean hasNext() {
+      return position < length - 1;
     }
+
+    @Override
+    public int nextOffset() { return offset(); }
   }
 
-  private final VectorAccessor vectorAccessor;
+  private final VectorAccessor arrayAccessor;
   private final OffsetVectorReader offsetReader;
   protected ColumnReaderIndex baseIndex;
   protected ElementReaderIndex elementIndex;
   protected NullStateReader nullStateReader;
 
   public AbstractArrayReader(VectorAccessor va) {
-    vectorAccessor = va;
-    offsetReader = OffsetVectorReader.buildArrayReader(va);
+    arrayAccessor = va;
+    offsetReader = new OffsetVectorReader(
+        VectorAccessors.arrayOffsetVectorAccessor(va));
   }
 
   @Override
   public void bindIndex(ColumnReaderIndex index) {
     baseIndex = index;
-    vectorAccessor.bind(index);
+    arrayAccessor.bind(index);
     offsetReader.bindIndex(index);
   }
 
@@ -211,31 +214,22 @@ public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
   }
 
   @Override
+  public boolean hasNext() { return elementIndex.hasNext(); }
+
+  @Override
   public int size() { return elementIndex.size(); }
 
   @Override
-  public ScalarElementReader elements() {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public ObjectReader entry(int index) {
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public TupleReader tuple(int index) {
-    return entry(index).tuple();
-  }
-
-  @Override
-  public ArrayReader array(int index) {
-    return entry(index).array();
-  }
+  public void setPosn(int posn) { elementIndex.set(posn); }
 
   @Override
   public ObjectReader entry() {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public ScalarReader scalar() {
+    return entry().scalar();
   }
 
   @Override
@@ -246,5 +240,10 @@ public abstract class AbstractArrayReader implements ArrayReader, ReaderEvents {
   @Override
   public ArrayReader array() {
     return entry().array();
+  }
+
+  @Override
+  public VariantReader variant() {
+    return entry().variant();
   }
 }

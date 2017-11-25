@@ -87,7 +87,8 @@ public abstract class BaseScalarReader implements ScalarReader, ReaderEvents {
     @Override
     public void bindVector(VectorAccessor va) {
       super.bindVector(va);
-      offsetsReader = OffsetVectorReader.buildVarWidthReader(va);
+      offsetsReader = new OffsetVectorReader(
+          VectorAccessors.varWidthOffsetVectorAccessor(va));
     }
 
     @Override

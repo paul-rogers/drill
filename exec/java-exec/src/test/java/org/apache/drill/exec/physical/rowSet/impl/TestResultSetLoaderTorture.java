@@ -321,7 +321,7 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
         if (readState.innerCount % setup.s2Cycle == 0) {
           // Skipped values should be null
           assertTrue(
-              String.format("Row %d, entry %d", rootReader.rowIndex(), i),
+              String.format("Row %d, entry %d", rootReader.offset(), i),
               s2Reader.isNull());
         } else if (readState.innerCount % setup.s2Cycle % setup.nullCycle == 0) {
           assertTrue(s2Reader.isNull());

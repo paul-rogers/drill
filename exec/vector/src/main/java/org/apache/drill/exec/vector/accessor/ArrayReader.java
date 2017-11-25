@@ -42,14 +42,6 @@ public interface ArrayReader {
   int size();
 
   /**
-   * The object type of the list entry. All entries have the same
-   * type.
-   * @return the object type of each entry
-   */
-
-  ObjectType entryType();
-
-  /**
    * For lists, determine if the list for the current row is null.
    * In a list, an array entry can be null, empty, or can contain
    * items. In repeated types, the array itself is never null.
@@ -62,24 +54,12 @@ public interface ArrayReader {
   boolean isNull();
 
   /**
-   * Return a reader for the elements of a scalar array.
-   * @return reader for scalar elements
+   * The object type of the list entry. All entries have the same
+   * type.
+   * @return the object type of each entry
    */
 
-  ScalarElementReader elements();
-
-  /**
-   * Return a generic object reader for the array entry. Not available
-   * for scalar elements. Positions the reader to read the selected
-   * element.
-   *
-   * @param index array index
-   * @return generic object reader
-   */
-
-  ObjectReader entry(int index);
-  TupleReader tuple(int index);
-  ArrayReader array(int index);
+  ObjectType entryType();
 
   /**
    * Return the generic object reader for the array element. This
@@ -89,8 +69,10 @@ public interface ArrayReader {
    */
 
   ObjectReader entry();
+  ScalarReader scalar();
   TupleReader tuple();
   ArrayReader array();
+  VariantReader variant();
 
   /**
    * Set the array reader to read a given array entry. Not used for
@@ -108,6 +90,13 @@ public interface ArrayReader {
    */
 
   boolean next();
+
+  /**
+   * Determine if another item is available. Useful when iterating
+   * over scalars that do auto-increment.
+   */
+
+  boolean hasNext();
 
   /**
    * Return the entire array as an <tt>List</tt> of objects.

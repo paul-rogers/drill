@@ -73,7 +73,6 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
     public ObjectWriter addType(MinorType type) {
       ValueVector memberVector = ColumnAccessorUtils.getUnionMember(vector, type);
       schema.addType(type);
-      schema.replaceSchema(vector.getField());
       ColumnMetadata memberSchema = schema.member(type);
       return ColumnWriterFactory.buildColumnWriter(memberSchema, memberVector);
     }

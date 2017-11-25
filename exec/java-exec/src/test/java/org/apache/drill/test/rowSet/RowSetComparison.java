@@ -22,7 +22,6 @@ import static org.junit.Assert.assertTrue;
 
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
-import org.apache.drill.exec.vector.accessor.ScalarElementReader;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.bouncycastle.util.Arrays;
@@ -168,7 +167,7 @@ public class RowSetComparison {
     for (int i = 0; i < testLength; i++) {
       er.next();
       ar.next();
-      String label = Integer.toString(er.index() + 1);
+      String label = Integer.toString(er.logicalIndex() + 1);
       verifyRow(label, er, ar);
     }
   }
@@ -285,7 +284,7 @@ public class RowSetComparison {
     case ARRAY:
       throw new UnsupportedOperationException();
     case SCALAR:
-      verifyScalarArray(label, ea.elements(), aa.elements());
+      verifyScalarArray(label, ea.array(), aa.array());
       break;
     case TUPLE:
       verifyTupleArray(label, ea, aa);
@@ -296,46 +295,22 @@ public class RowSetComparison {
   }
 
   private void verifyTupleArray(String label, ArrayReader ea, ArrayReader aa) {
-    for (int i = 0; i < ea.size(); i++) {
-      verifyTuple(label + "[" + i + "]", ea.tuple(i), aa.tuple(i));
+    assertEquals(label, ea.size(), aa.size());
+    int i = 0;
+    while (ea.next()) {
+      verifyTuple(label + "[" + i++ + "]", ea.tuple(), aa.tuple());
     }
   }
 
-  private void verifyScalarArray(String colLabel, ScalarElementReader ea,
-      ScalarElementReader aa) {
-    assertEquals(colLabel, ea.valueType(), aa.valueType());
+  private void verifyScalarArray(String colLabel, ArrayReader ea,
+      ArrayReader aa) {
     assertEquals(colLabel, ea.size(), aa.size());
-    for (int i = 0; i < ea.size(); i++) {
-      String label = colLabel + "[" + i + "]";
-      switch (ea.valueType()) {
-      case BYTES: {
-        byte expected[] = ea.getBytes(i);
-        byte actual[] = aa.getBytes(i);
-        assertEquals(label + " - byte lengths differ", expected.length, actual.length);
-        assertTrue(label, Arrays.areEqual(expected, actual));
-        break;
-      }
-      case DOUBLE:
-        assertEquals(label, ea.getDouble(i), aa.getDouble(i), delta);
-        break;
-      case INTEGER:
-        assertEquals(label, ea.getInt(i), aa.getInt(i));
-        break;
-      case LONG:
-        assertEquals(label, ea.getLong(i), aa.getLong(i));
-        break;
-      case STRING:
-        assertEquals(label, ea.getString(i), aa.getString(i));
-        break;
-      case DECIMAL:
-        assertEquals(label, ea.getDecimal(i), aa.getDecimal(i));
-        break;
-      case PERIOD:
-        assertEquals(label, ea.getPeriod(i), aa.getPeriod(i));
-        break;
-      default:
-        throw new IllegalStateException( "Unexpected type: " + ea.valueType());
-      }
+    ScalarReader es = ea.scalar();
+    ScalarReader as = aa.scalar();
+    assertEquals(colLabel, es.valueType(), as.valueType());
+    int i = 0;
+    while (ea.hasNext()) {
+      verifyScalar(colLabel + "[" + i++ + "]", es, as);
     }
   }
 

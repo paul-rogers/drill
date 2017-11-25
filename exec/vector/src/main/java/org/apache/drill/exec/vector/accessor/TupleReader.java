@@ -75,8 +75,6 @@ public interface TupleReader {
   TupleReader tuple(String colName);
   ArrayReader array(int colIndex);
   ArrayReader array(String colName);
-  ScalarElementReader elements(int colIndex);
-  ScalarElementReader elements(String colName);
   VariantReader variant(int colIndex);
   VariantReader variant(String colName);
 

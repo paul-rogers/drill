@@ -81,16 +81,11 @@ public class ObjectArrayReader extends AbstractArrayReader {
   }
 
   @Override
-  public ObjectReader entry(int index) {
-    setPosn(index);
-    return entry();
-  }
-
-  @Override
   public Object getObject() {
     List<Object> array = new ArrayList<>();
     for (int i = 0; i < elementIndex.size(); i++) {
-      array.add(entry(i).getObject());
+      setPosn(i);
+      array.add(elementReader.getObject());
     }
     return array;
   }
@@ -104,10 +99,11 @@ public class ObjectArrayReader extends AbstractArrayReader {
     StringBuilder buf = new StringBuilder();
     buf.append("[");
     for (int i = 0; i < size(); i++) {
+      setPosn(i);
       if (i > 0) {
         buf.append( ", " );
       }
-      buf.append(entry(i).getAsString());
+      buf.append(elementReader.getAsString());
     }
     buf.append("]");
     return buf.toString();

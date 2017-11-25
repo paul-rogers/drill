@@ -18,40 +18,120 @@
 package org.apache.drill.exec.vector.accessor;
 
 /**
- * Index into a vector batch, or an array, at read time.
- * Supports direct, indirect and hyper-batches.
+ * The reader structure is heavily recursive. The top-level reader
+ * iterates over batches, possibly through an indirection vector
+ * (SV2 or SV4.) The row is tuple of top-level vectors. Each top-level
+ * vector may be an array. Iteration through the array works identically
+ * to iteration over the batch as a whole. (In fact, the scalar readers
+ * don't know if they are top-level or array readers.) Array nesting
+ * can continue to any level of depth.
+ * <p>
+ * Further, when used with a logical join, the top-level iteration
+ * may be over an array, with an implicit join out to enclosing nesting
+ * levels.
+ * <p>
+ * Because of this, the same index interface must work at all nesting
+ * levels: at the top, and within arrays. This interface
+ * supports a usage model as follows:<pre><code>
+ * ColumnReaderIndex index = ...
+ * while (index.hasNext()) {
+ *   index.next();
+ *   int hyperIndex = index.hyperVectorIndex();
+ *   int vectorOffset = index.offset();
+ * }</code></pre>
+ * <p>
+ * When convenient, the following abbreviated form is also
+ * supported:<pre><code>
+ * ColumnReaderIndex index = ...
+ * while (index.next()) {
+ *   int hyperIndex = index.hyperVectorIndex();
+ *   int vectorOffset = index.offset();
+ * }</code></pre>
+ * <p>
+ * For a top-level index, the check of <tt>hasNext()</tt> and
+ * call to <tt>next()</tt> is done by the row set reader. For
+ * arrays, the call to <tt>hasNext()</tt> is done by the array
+ * reader. The call to <tt>next()</tt> is done by the scalar
+ * reader (for scalar arrays) or the array reader (for other
+ * arrays.)
+ * <p>
+ * The hyper-vector index has meaning only for top-level vectors,
+ * and is ignored by nested vectors. (Nested vectors work by navigating
+ * down from a top-level vector.) But, as noted above, any given
+ * reader does not know if it is at the top or nested level, instead
+ * it is the {@link VectorAccessor} abstraction that works out the
+ * nesting levels.
  */
 
 public interface ColumnReaderIndex {
 
   /**
-   * Ordinal index within the batch; increments from 0. Identifies
-   * the row number of top-level records.
+   * Ordinal index within the batch or array. Increments from -1.
+   * (The position before the first item.)
+   * Identifies the logical row number of top-level records,
+   * or the array element for arrays. Actual physical
+   * index may be different if an indirection layer is in use.
    *
-   * @return external read index
+   * @return logical read index
    */
 
-  int batchIndex();
+  int logicalIndex();
 
   /**
-   * Vector index, possibly mapped through an indirection vector. When used
-   * with an array, indicates the index into the offset vector of the array
-   * using an absolute index; not a relative position.
+   * When used with a hyper-vector (SV4) based batch, returns the
+   * index of the current batch within the hyper-batch. If this is
+   * a single batch, or a nested index, then always returns 0.
+   *
+   * @return batch index of the current row within the
+   * hyper-batch
+   */
+
+  int hyperVectorIndex();
+
+  /**
+   * Vector offset to read. For top-level vectors, the offset may be
+   * through an indirection (SV2 or SV4). For arrays, the offset is the
+   * absolute position, with the vector of the current array element.
    *
    * @return vector read index
    */
 
-  int vectorIndex();
+  int offset();
 
   /**
-   * Advances the index to the next position. Used at the top level
-   * (only) for normal readers; at a nested level for implicit join
-   * readers.
+   * Return whether the current index location is valid.
+   * Detects end-of-batch (top level) or end of array (nested
+   * level.)
+   *
+   * @return <tt>true</tt> if another position is available,
+   * <tt>false</tt> if not
+   */
+
+  boolean hasNext();
+
+  /**
+   * Advances the index to the next position. Used:
+   * <ul>
+   * <li>At the top level for normal readers or</li>
+   * <liAt a nested level for implicit join readers, and</li>
+   * <li>An each array level to iterate over arrays.</li>
+   * </ul>
    *
    * @return true if another value is available, false if EOF
    */
 
   boolean next();
+
+  /**
+   * Called by scalar readers to retrieve the current read offset.
+   * At the top level, simply returns the same as <tt>offset</tt>.
+   * For scalar arrays, first calls <tt>next()</tt>, then calls
+   * <tt>offset</tt> to automatically step through the scalar array
+   * values. (Allows the same scalar accessor code to work in either
+   * mode; it is the index that determines the behavior.)
+   */
+
+  int nextOffset();
 
   /**
    * Return the number of items that this index indexes: top-level record

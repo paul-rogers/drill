@@ -33,71 +33,6 @@
   </#if>
     }
 </#macro>
-<#macro bindReader vectorPrefix drillType isArray >
-  <#if drillType = "Decimal9" || drillType == "Decimal18">
-    private MajorType type;
-  </#if>
-    private ${vectorPrefix}${drillType}Vector.Accessor accessor;
-
-    @Override
-    public void bindVector(VectorAccessor va) {
-      super.bindVector(va);
-  <#if drillType = "Decimal9" || drillType == "Decimal18">
-      type = va.type();
-  </#if>
-      if (! va.isHyper()) {
-        ${vectorPrefix}${drillType}Vector vector = va.vector();
-        accessor = vector.getAccessor();
-      }
-    }
-
-    private ${vectorPrefix}${drillType}Vector.Accessor accessor() {
-      if (accessor != null) {
-        return accessor;
-      } else {
-        ${vectorPrefix}${drillType}Vector vector = vectorAccessor.vector();
-        return vector.getAccessor();
-      }
-    }
-</#macro>
-<#macro get drillType accessorType label isArray>
-    @Override
-    public ${accessorType} get${label}(<#if isArray>int index</#if>) {
-    <#assign getObject ="getObject"/>
-  <#if isArray>
-    <#assign indexVar = "index"/>
-  <#else>
-    <#assign indexVar = ""/>
-  </#if>
-  <#if drillType == "VarChar" || drillType == "Var16Char" || drillType == "VarBinary">
-      return accessor().get(vectorIndex.vectorIndex(${indexVar}));
-  <#elseif drillType == "Decimal9" || drillType == "Decimal18">
-      return DecimalUtility.getBigDecimalFromPrimitiveTypes(
-                accessor().get(vectorIndex.vectorIndex(${indexVar})),
-                type.getScale(),
-                type.getPrecision());
-  <#elseif accessorType == "BigDecimal" || accessorType == "Period">
-      return accessor().${getObject}(vectorIndex.vectorIndex(${indexVar}));
-  <#elseif drillType == "UInt1">
-      return ((int) accessor().get(vectorIndex.vectorIndex(${indexVar}))) & 0xFF;
-  <#else>
-      return accessor().get(vectorIndex.vectorIndex(${indexVar}));
-  </#if>
-    }
-  <#if drillType == "VarChar">
-
-    @Override
-    public String getString(<#if isArray>int index</#if>) {
-      return new String(getBytes(${indexVar}), Charsets.UTF_8);
-    }
-  <#elseif drillType == "Var16Char">
-
-    @Override
-    public String getString(<#if isArray>int index</#if>) {
-      return new String(getBytes(${indexVar}), Charsets.UTF_16);
-    }
-  </#if>
-</#macro>
 <#macro build types vectorType accessorType>
   <#if vectorType == "Repeated">
     <#assign fnPrefix = "Array" />
@@ -137,7 +72,6 @@ import org.apache.drill.exec.vector.*;
 import org.apache.drill.exec.util.DecimalUtility;
 import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader.BaseVarWidthReader;
 import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader.BaseFixedWidthReader;
-import org.apache.drill.exec.vector.accessor.reader.BaseElementReader;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
 import org.apache.drill.exec.vector.accessor.writer.AbstractFixedWidthWriter.BaseFixedWidthWriter;
 import org.apache.drill.exec.vector.accessor.writer.BaseVarWidthWriter;
@@ -233,51 +167,51 @@ public class ColumnAccessors {
     <#assign indexVar = ""/>
       final DrillBuf buf = bufferAccessor.buffer();
     <#if ! varWidth>
-      final int readIndex = vectorIndex.vectorIndex();
-      <#assign getAddr = "readIndex * VALUE_WIDTH">
+      final int readOffset = vectorIndex.nextOffset();
+      <#assign getOffset = "readOffset * VALUE_WIDTH">
     </#if>
     <#if varWidth>
       final long entry = offsetsReader.getEntry();
       return buf.unsafeGetMemory((int) (entry >> 32), (int) (entry & 0xFFFF_FFFF));
     <#elseif drillType == "Decimal9">
       return DecimalUtility.getBigDecimalFromPrimitiveTypes(
-          buf.unsafeGetInt(${getAddr}),
+          buf.unsafeGetInt(${getOffset}),
           type.getScale(),
           type.getPrecision());
     <#elseif drillType == "Decimal18">
       return DecimalUtility.getBigDecimalFromPrimitiveTypes(
-          buf.unsafeGetLong(${getAddr}),
+          buf.unsafeGetLong(${getOffset}),
           type.getScale(),
           type.getPrecision());
     <#elseif drillType == "IntervalYear">
       return DateUtility.fromIntervalYear(
-          buf.unsafeGetInt(${getAddr}));
+          buf.unsafeGetInt(${getOffset}));
     <#elseif drillType == "IntervalDay">
-      final int offset = ${getAddr};
+      final int offset = ${getOffset};
       return DateUtility.fromIntervalDay(
           buf.unsafeGetInt(offset), 
           buf.unsafeGetInt(offset + ${minor.millisecondsOffset}));
     <#elseif drillType == "Interval">
-      final int offset = ${getAddr};
+      final int offset = ${getOffset};
       return DateUtility.fromInterval(
           buf.unsafeGetInt(offset), 
           buf.unsafeGetInt(offset + ${minor.daysOffset}),
           buf.unsafeGetInt(offset + ${minor.millisecondsOffset}));
     <#elseif drillType == "Decimal28Sparse" || drillType == "Decimal38Sparse">
-      return DecimalUtility.getBigDecimalFromSparse(buf, ${getAddr},
+      return DecimalUtility.getBigDecimalFromSparse(buf, ${getOffset},
           ${minor.nDecimalDigits}, type.getScale());
     <#elseif drillType == "Decimal28Dense" || drillType == "Decimal38Dense">
-      return DecimalUtility.getBigDecimalFromDense(buf, ${getAddr},
+      return DecimalUtility.getBigDecimalFromDense(buf, ${getOffset},
           ${minor.nDecimalDigits}, type.getScale(),
           ${minor.maxPrecisionDigits}, VALUE_WIDTH);
     <#elseif drillType == "UInt1">
-      return buf.unsafeGetByte(${getAddr});
+      return buf.unsafeGetByte(${getOffset});
     <#elseif drillType == "Float4">
-      return Float.intBitsToFloat(buf.unsafeGetInt(${getAddr}));
+      return Float.intBitsToFloat(buf.unsafeGetInt(${getOffset}));
     <#elseif drillType == "Float8">
-      return Double.longBitsToDouble(buf.unsafeGetLong(${getAddr}));
+      return Double.longBitsToDouble(buf.unsafeGetLong(${getOffset}));
     <#else>
-      return buf.unsafeGet${putType?cap_first}(${getAddr});
+      return buf.unsafeGet${putType?cap_first}(${getOffset});
     </#if>
     }
   <#if drillType == "VarChar">
@@ -293,15 +227,6 @@ public class ColumnAccessors {
       return new String(getBytes(${indexVar}), Charsets.UTF_16);
     }
   </#if>
-  }
-
-  public static class Repeated${drillType}ColumnReader extends BaseElementReader {
-
-    <@bindReader "" drillType true />
-
-    <@getType drillType label />
-
-    <@get drillType accessorType label true />
   }
 
       <#if varWidth>
@@ -344,49 +269,49 @@ public class ColumnAccessors {
            writeOffset() function has a side effect of possibly changing the buffer
            address (bufAddr). -->
       <#if ! varWidth>
-      final int writeIndex = writeIndex();
-      <#assign putAddr = "writeIndex * VALUE_WIDTH">
+      final int writeOffset = writeIndex();
+      <#assign putOffset = "writeOffset * VALUE_WIDTH">
       </#if>
       <#if varWidth>
       final int offset = writeIndex(len);
       drillBuf.unsafeCopyMemory(value, 0, offset, len);
       offsetsWriter.setNextOffset(offset + len);
       <#elseif drillType == "Decimal9">
-      drillBuf.unsafePutInt(${putAddr},
+      drillBuf.unsafePutInt(${putOffset},
           DecimalUtility.getDecimal9FromBigDecimal(value,
               type.getScale(), type.getPrecision()));
       <#elseif drillType == "Decimal18">
-      drillBuf.unsafePutLong(${putAddr},
+      drillBuf.unsafePutLong(${putOffset},
           DecimalUtility.getDecimal18FromBigDecimal(value,
               type.getScale(), type.getPrecision()));
       <#elseif drillType == "Decimal38Sparse">
       <#-- Hard to optimize this case. Just use the available tools. -->
       DecimalUtility.getSparseFromBigDecimal(value, drillBuf,
-          ${putAddr},
+          ${putOffset},
           type.getScale(), type.getPrecision(), 6);
       <#elseif drillType == "Decimal28Sparse">
       <#-- Hard to optimize this case. Just use the available tools. -->
       DecimalUtility.getSparseFromBigDecimal(value, drillBuf,
-          ${putAddr},
+          ${putOffset},
           type.getScale(), type.getPrecision(), 5);
       <#elseif drillType == "IntervalYear">
-      drillBuf.unsafePutInt(${putAddr},
+      drillBuf.unsafePutInt(${putOffset},
           value.getYears() * 12 + value.getMonths());
       <#elseif drillType == "IntervalDay">
-      final int offset = ${putAddr};
+      final int offset = ${putOffset};
       drillBuf.unsafePutInt(offset, value.getDays());
       drillBuf.unsafePutInt(offset + ${minor.millisecondsOffset}, DateUtility.periodToMillis(value));
       <#elseif drillType == "Interval">
-      final int offset = ${putAddr};
+      final int offset = ${putOffset};
       drillBuf.unsafePutInt(offset, DateUtility.periodToMonths(value));
       drillBuf.unsafePutInt(offset + ${minor.daysOffset}, value.getDays());
       drillBuf.unsafePutInt(offset + ${minor.millisecondsOffset}, DateUtility.periodToMillis(value));
       <#elseif drillType == "Float4">
-      drillBuf.unsafePutInt(${putAddr}, Float.floatToRawIntBits((float) value));
+      drillBuf.unsafePutInt(${putOffset}, Float.floatToRawIntBits((float) value));
       <#elseif drillType == "Float8">
-      drillBuf.unsafePutLong(${putAddr}, Double.doubleToRawLongBits(value));
+      drillBuf.unsafePutLong(${putOffset}, Double.doubleToRawLongBits(value));
       <#else>
-      drillBuf.unsafePut${putType?cap_first}(${putAddr}, <#if doCast>(${putType}) </#if>value);
+      drillBuf.unsafePut${putType?cap_first}(${putOffset}, <#if doCast>(${putType}) </#if>value);
       </#if>
       vectorIndex.nextElement();
     }
@@ -421,7 +346,6 @@ import org.apache.drill.exec.vector.complex.UnionVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.*;
 import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
 import org.apache.drill.exec.vector.accessor.writer.BaseScalarWriter;
-import org.apache.drill.exec.vector.accessor.reader.BaseElementReader;
 import org.apache.drill.exec.vector.ValueVector;
 
 public class ColumnAccessorUtils {
@@ -429,8 +353,6 @@ public class ColumnAccessorUtils {
   private ColumnAccessorUtils() { }
 
 <@build vv.types "Required" "Reader" />
-
-<@build vv.types "Repeated" "Reader" />
 
 <@build vv.types "Required" "Writer" />
 

@@ -33,8 +33,8 @@ public class DirectRowIndex extends ReaderIndex {
   }
 
   @Override
-  public int vectorIndex() { return rowIndex; }
+  public int offset() { return position; }
 
   @Override
-  public int batchIndex() { return 0; }
+  public int hyperVectorIndex() { return 0; }
 }

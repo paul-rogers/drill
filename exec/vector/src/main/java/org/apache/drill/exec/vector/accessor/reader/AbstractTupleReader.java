@@ -25,7 +25,6 @@ import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
 import org.apache.drill.exec.vector.accessor.ObjectType;
-import org.apache.drill.exec.vector.accessor.ScalarElementReader;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.VariantReader;
@@ -163,16 +162,6 @@ public abstract class AbstractTupleReader implements TupleReader, ReaderEvents {
   @Override
   public ArrayReader array(String colName) {
     return column(colName).array();
-  }
-
-  @Override
-  public ScalarElementReader elements(int colIndex) {
-    return column(colIndex).elements();
-  }
-
-  @Override
-  public ScalarElementReader elements(String colName) {
-    return column(colName).elements();
   }
 
   @Override

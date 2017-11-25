@@ -22,20 +22,35 @@ import java.util.List;
 
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
-import org.apache.drill.exec.vector.accessor.ScalarElementReader;
+import org.apache.drill.exec.vector.accessor.ScalarReader;
 
 public class ScalarArrayReader extends AbstractArrayReader {
 
-  private final BaseElementReader elementReader;
+  public static class ScalarElementIndex extends ElementReaderIndex {
+
+    public ScalarElementIndex(ColumnReaderIndex base) {
+      super(base);
+    }
+
+    @Override
+    public int nextOffset() {
+      if (! next()) {
+        throw new IllegalStateException();
+      }
+      return offset();
+    }
+  }
+
+  private final BaseScalarReader elementReader;
 
   private ScalarArrayReader(VectorAccessor va,
-                            BaseElementReader elementReader) {
+      BaseScalarReader elementReader) {
     super(va);
     this.elementReader = elementReader;
   }
 
   public static ArrayObjectReader build(VectorAccessor va,
-      BaseElementReader elementReader) {
+      BaseScalarReader elementReader) {
     elementReader.bindVector(VectorAccessors.arrayDataAccessor(va));
     elementReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
     ScalarArrayReader arrayReader = new ScalarArrayReader(va, elementReader);
@@ -46,7 +61,7 @@ public class ScalarArrayReader extends AbstractArrayReader {
   @Override
   public void bindIndex(ColumnReaderIndex index) {
     super.bindIndex(index);
-    elementIndex = new ElementReaderIndex(baseIndex);
+    elementIndex = new ScalarElementIndex(baseIndex);
     elementReader.bindIndex(elementIndex);
   }
 
@@ -56,13 +71,8 @@ public class ScalarArrayReader extends AbstractArrayReader {
   }
 
   @Override
-  public ScalarElementReader elements() {
+  public ScalarReader scalar() {
     return elementReader;
-  }
-
-  @Override
-  public void setPosn(int index) {
-    throw new IllegalStateException("setPosn() not supported for scalar arrays");
   }
 
   @Override
@@ -72,22 +82,29 @@ public class ScalarArrayReader extends AbstractArrayReader {
 
   @Override
   public Object getObject() {
+    // Simple: return elements as an object list.
+    // If really needed, could return as a typed array, but that
+    // is a bit of a hassle.
+
+    setPosn(0);
     List<Object> elements = new ArrayList<>();
-    for (int i = 0; i < size(); i++) {
-      elements.add(elementReader.getObject(i));
+    while (hasNext()) {
+      elements.add(elementReader.getObject());
     }
     return elements;
   }
 
   @Override
   public String getAsString() {
+    setPosn(0);
     StringBuilder buf = new StringBuilder();
     buf.append("[");
-    for (int i = 0; i < size(); i++) {
-      if (i > 0) {
+    int i = 0;
+    while (hasNext()) {
+      if (i++ > 0) {
         buf.append( ", " );
       }
-      buf.append(elementReader.getAsString(i));
+      buf.append(elementReader.getAsString());
     }
     buf.append("]");
     return buf.toString();

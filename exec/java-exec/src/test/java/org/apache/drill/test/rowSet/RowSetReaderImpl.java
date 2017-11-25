@@ -56,22 +56,22 @@ public class RowSetReaderImpl extends AbstractTupleReader implements RowSetReade
   }
 
   @Override
-  public boolean valid() { return readerIndex.valid(); }
+  public boolean hasNext() { return readerIndex.hasNext(); }
 
   @Override
-  public int index() { return readerIndex.position(); }
+  public int logicalIndex() { return readerIndex.logicalIndex(); }
 
   @Override
   public int rowCount() { return readerIndex.size(); }
 
   @Override
-  public int rowIndex() { return readerIndex.vectorIndex(); }
+  public int offset() { return readerIndex.offset(); }
 
   @Override
-  public int batchIndex() { return readerIndex.batchIndex(); }
+  public int hyperVectorIndex() { return readerIndex.hyperVectorIndex(); }
 
   @Override
-  public void set(int index) {
+  public void setPosn(int index) {
     this.readerIndex.set(index);
     reposition();
   }
