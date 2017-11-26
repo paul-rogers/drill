@@ -31,7 +31,6 @@ import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
-import org.apache.drill.exec.vector.accessor.ScalarElementReader;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleReader;
@@ -268,10 +267,11 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
     ArrayReader a2Reader = m1Reader.array("m2");
     TupleReader m2Reader = a2Reader.tuple();
     ScalarReader cReader = m2Reader.scalar("c");
-    ScalarElementReader dReader = m2Reader.elements("d");
+    ArrayReader dArray = m2Reader.array("d");
+    ScalarReader dReader = dArray.scalar();
 
     for (int i = 0; i < 5; i++) {
-      reader.next();
+      assertTrue(reader.next());
       assertEquals(i, aReader.getInt());
       for (int j = 0; j < 4; j++) {
         a1Reader.setPosn(j);
@@ -282,7 +282,8 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
           int a2Key = a1Key * 10 + k;
           assertEquals(a2Key, cReader.getInt());
           for (int l = 0; l < 2; l++) {
-            assertEquals("d-" + (a2Key * 10 + l), dReader.getString(l));
+            assertTrue(dArray.next());
+            assertEquals("d-" + (a2Key * 10 + l), dReader.getString());
           }
         }
       }

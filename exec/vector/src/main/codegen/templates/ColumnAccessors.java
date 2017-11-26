@@ -205,7 +205,14 @@ public class ColumnAccessors {
           ${minor.nDecimalDigits}, type.getScale(),
           ${minor.maxPrecisionDigits}, VALUE_WIDTH);
     <#elseif drillType == "UInt1">
-      return buf.unsafeGetByte(${getOffset});
+      return buf.unsafeGetByte(${getOffset}) & 0xFF;
+    <#elseif drillType == "UInt2">
+      return buf.unsafeGetShort(${getOffset}) & 0xFFFF;
+    <#elseif drillType == "UInt4">
+      // Should be the following:
+      // return ((long) buf.unsafeGetInt(${getOffset})) & 0xFFFF_FFFF;
+      // else, the unsigned values of 32 bits are mapped to negative.
+      return buf.unsafeGetInt(${getOffset});
     <#elseif drillType == "Float4">
       return Float.intBitsToFloat(buf.unsafeGetInt(${getOffset}));
     <#elseif drillType == "Float8">

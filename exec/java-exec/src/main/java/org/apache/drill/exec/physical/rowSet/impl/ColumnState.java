@@ -29,7 +29,7 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
-import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
+import org.apache.drill.exec.vector.accessor.writer.MapWriter;
 import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriterImpl;
 import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
 
@@ -101,7 +101,7 @@ public abstract class ColumnState {
         ColumnMetadata columnSchema,
         ProjectionSet projectionSet) {
       super(resultSetLoader, vectorCache,
-          ColumnWriterFactory.buildMap(columnSchema, null,
+          MapWriter.buildMap(columnSchema, null,
               new ArrayList<AbstractObjectWriter>()),
           new NullVectorState(),
           projectionSet);
@@ -145,7 +145,7 @@ public abstract class ColumnState {
 
       // Create the writer using the offset vector
 
-      AbstractObjectWriter writer = ColumnWriterFactory.buildMapArray(
+      AbstractObjectWriter writer = MapWriter.buildMapArray(
           columnSchema, offsetVector,
           new ArrayList<AbstractObjectWriter>());
 

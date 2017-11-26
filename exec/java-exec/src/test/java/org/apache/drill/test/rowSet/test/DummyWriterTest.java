@@ -28,6 +28,7 @@ import org.apache.drill.exec.record.TupleSchema.AbstractColumnMetadata;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
+import org.apache.drill.exec.vector.accessor.writer.MapWriter;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
@@ -137,14 +138,14 @@ public class DummyWriterTest extends SubOperatorTest {
       List<AbstractObjectWriter> members = new ArrayList<>();
       members.add(ColumnWriterFactory.buildColumnWriter(mapSchema.metadata("a"), null));
       members.add(ColumnWriterFactory.buildColumnWriter(mapSchema.metadata("b"), null));
-      writers.add(ColumnWriterFactory.buildMapWriter(schema.metadata("m1"), null, members));
+      writers.add(MapWriter.buildMapWriter(schema.metadata("m1"), null, members));
     }
 
     {
       TupleMetadata mapSchema = schema.metadata("m2").mapSchema();
       List<AbstractObjectWriter> members = new ArrayList<>();
       members.add(ColumnWriterFactory.buildColumnWriter(mapSchema.metadata("c"), null));
-      writers.add(ColumnWriterFactory.buildMapWriter(schema.metadata("m2"), null, members));
+      writers.add(MapWriter.buildMapWriter(schema.metadata("m2"), null, members));
     }
 
     AbstractTupleWriter rootWriter = new RootWriterFixture(schema, writers);

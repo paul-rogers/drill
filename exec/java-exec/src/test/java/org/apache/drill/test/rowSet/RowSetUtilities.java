@@ -84,11 +84,11 @@ public class RowSetUtilities {
       case BIT:
         return value & 0x01;
       case SMALLINT:
-        return value % 32768;
+        return value & 0x7FFF;
       case UINT2:
         return value & 0xFFFF;
       case TINYINT:
-        return value % 128;
+        return value & 0x7F;
       case UINT1:
         return value & 0xFF;
       default:

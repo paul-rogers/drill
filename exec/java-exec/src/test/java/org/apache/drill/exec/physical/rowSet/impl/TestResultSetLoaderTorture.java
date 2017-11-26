@@ -29,7 +29,6 @@ import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
-import org.apache.drill.exec.vector.accessor.ScalarElementReader;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleReader;
@@ -256,7 +255,8 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
     ScalarReader n2Reader;
     ScalarReader s2Reader;
     ScalarReader n3Reader;
-    ScalarElementReader s3Reader;
+    ArrayReader s3Array;
+    ScalarReader s3Reader;
     ReadState readState;
 
     public BatchReader(TestSetup setup, RowSetReader reader, ReadState readState) {
@@ -272,7 +272,8 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
       s2Reader = m2Reader.scalar("s2");
       TupleReader m3Reader = m2Reader.tuple("m3");
       n3Reader = m3Reader.scalar("n3");
-      s3Reader = m3Reader.array("s3").elements();
+      s3Array = m3Reader.array("s3");
+      s3Reader = s3Array.scalar();
     }
 
     public void verify() {
@@ -338,10 +339,11 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
         // s3: a repeated VarChar
 
         if (readState.innerCount % setup.s3Cycle == 0) {
-          assertEquals(0, s3Reader.size());
+          assertEquals(0, s3Array.size());
         } else {
           for (int j = 0; j < setup.s3Count; j++) {
-            assertEquals(setup.s3Value + (readState.innerCount * setup.s3Count + j), s3Reader.getString(j));
+            assertTrue(s3Array.next());
+            assertEquals(setup.s3Value + (readState.innerCount * setup.s3Count + j), s3Reader.getString());
           }
         }
         readState.innerCount++;

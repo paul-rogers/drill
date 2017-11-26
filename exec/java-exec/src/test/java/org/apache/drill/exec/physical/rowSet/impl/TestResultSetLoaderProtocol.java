@@ -31,6 +31,7 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
@@ -100,8 +101,8 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
     assertFalse(rsLoader.isProjectionEmpty());
 
     assertEquals(1, schema.size());
-    assertSame(fieldA, schema.column(0));
-    assertSame(fieldA, schema.column("a"));
+    assertTrue(fieldA.isEquivalent(schema.column(0)));
+    assertSame(schema.metadata(0), schema.metadata("a"));
 
     // Error to start a row before the first batch.
 
@@ -150,8 +151,8 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
     rootWriter.addColumn(fieldB);
 
     assertEquals(2, schema.size());
-    assertSame(fieldB, schema.column(1));
-    assertSame(fieldB, schema.column("b"));
+    assertTrue(fieldB.isEquivalent(schema.column(1)));
+    assertSame(schema.metadata(1), schema.metadata("b"));
 
     rootWriter.start();
     rootWriter.scalar(0).setInt(200);
@@ -310,7 +311,7 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
 
     // No columns defined in schema
 
-    assertNull(schema.column("a"));
+    assertNull(schema.metadata("a"));
     try {
       schema.column(0);
       fail();
@@ -340,9 +341,10 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
 
     // Can now be found, case insensitive
 
-    assertSame(colSchema, schema.column(0));
-    assertSame(colSchema, schema.column("a"));
-    assertSame(colSchema, schema.column("A"));
+    assertTrue(colSchema.isEquivalent(schema.column(0)));
+    ColumnMetadata colMetadata = schema.metadata(0);
+    assertSame(colMetadata, schema.metadata("a"));
+    assertSame(colMetadata, schema.metadata("A"));
     assertNotNull(rootWriter.column(0));
     assertNotNull(rootWriter.column("a"));
     assertNotNull(rootWriter.column("A"));
@@ -375,9 +377,10 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
 
     MaterializedField col2 = SchemaBuilder.columnSchema("b", MinorType.VARCHAR, DataMode.REQUIRED);
     rootWriter.addColumn(col2);
-    assertSame(col2, schema.column(1));
-    assertSame(col2, schema.column("b"));
-    assertSame(col2, schema.column("B"));
+    assertTrue(col2.isEquivalent(schema.column(1)));
+    ColumnMetadata col2Metadata = schema.metadata(1);
+    assertSame(col2Metadata, schema.metadata("b"));
+    assertSame(col2Metadata, schema.metadata("B"));
     assertEquals(2, schema.size());
     assertEquals(1, schema.index("b"));
     assertEquals(1, schema.index("B"));
@@ -393,9 +396,10 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
 
     MaterializedField col3 = SchemaBuilder.columnSchema("c", MinorType.VARCHAR, DataMode.REQUIRED);
     rootWriter.addColumn(col3);
-    assertSame(col3, schema.column(2));
-    assertSame(col3, schema.column("c"));
-    assertSame(col3, schema.column("C"));
+    assertTrue(col3.isEquivalent(schema.column(2)));
+    ColumnMetadata col3Metadata = schema.metadata(2);
+    assertSame(col3Metadata, schema.metadata("c"));
+    assertSame(col3Metadata, schema.metadata("C"));
     assertEquals(3, schema.size());
     assertEquals(2, schema.index("c"));
     assertEquals(2, schema.index("C"));
@@ -403,9 +407,10 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
 
     MaterializedField col4 = SchemaBuilder.columnSchema("d", MinorType.VARCHAR, DataMode.OPTIONAL);
     rootWriter.addColumn(col4);
-    assertSame(col4, schema.column(3));
-    assertSame(col4, schema.column("d"));
-    assertSame(col4, schema.column("D"));
+    assertTrue(col4.isEquivalent(schema.column(3)));
+    ColumnMetadata col4Metadata = schema.metadata(3);
+    assertSame(col4Metadata, schema.metadata("d"));
+    assertSame(col4Metadata, schema.metadata("D"));
     assertEquals(4, schema.size());
     assertEquals(3, schema.index("d"));
     assertEquals(3, schema.index("D"));
@@ -413,9 +418,10 @@ public class TestResultSetLoaderProtocol extends SubOperatorTest {
 
     MaterializedField col5 = SchemaBuilder.columnSchema("e", MinorType.VARCHAR, DataMode.REPEATED);
     rootWriter.addColumn(col5);
-    assertSame(col5, schema.column(4));
-    assertSame(col5, schema.column("e"));
-    assertSame(col5, schema.column("E"));
+    assertTrue(col5.isEquivalent(schema.column(4)));
+    ColumnMetadata col5Metadata = schema.metadata(4);
+    assertSame(col5Metadata, schema.metadata("e"));
+    assertSame(col5Metadata, schema.metadata("E"));
     assertEquals(5, schema.size());
     assertEquals(4, schema.index("e"));
     assertEquals(4, schema.index("E"));

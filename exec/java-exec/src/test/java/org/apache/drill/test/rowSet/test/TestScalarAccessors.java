@@ -54,6 +54,70 @@ import com.google.common.collect.Lists;
 public class TestScalarAccessors extends SubOperatorTest {
 
   @Test
+  public void testUInt1RW() {
+    BatchSchema batchSchema = new SchemaBuilder()
+        .add("col", MinorType.UINT1)
+        .build();
+    SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
+        .addRow(0)
+        .addRow(0x7F)
+        .addRow(0xFF)
+        .build();
+    assertEquals(3, rs.rowCount());
+
+    RowSetReader reader = rs.reader();
+    ScalarReader colReader = reader.scalar(0);
+    assertEquals(ValueType.INTEGER, colReader.valueType());
+
+    assertTrue(reader.next());
+    assertFalse(colReader.isNull());
+    assertEquals(0, colReader.getInt());
+
+    assertTrue(reader.next());
+    assertEquals(0x7F, colReader.getInt());
+    assertEquals(0x7F, colReader.getObject());
+    assertEquals(Integer.toString(0x7F), colReader.getAsString());
+
+    assertTrue(reader.next());
+    assertEquals(0xFF, colReader.getInt());
+
+    assertFalse(reader.next());
+    rs.clear();
+  }
+
+  @Test
+  public void testUInt2RW() {
+    BatchSchema batchSchema = new SchemaBuilder()
+        .add("col", MinorType.UINT2)
+        .build();
+    SingleRowSet rs = fixture.rowSetBuilder(batchSchema)
+        .addRow(0)
+        .addRow(0x7FFF)
+        .addRow(0xFFFF)
+        .build();
+    assertEquals(3, rs.rowCount());
+
+    RowSetReader reader = rs.reader();
+    ScalarReader colReader = reader.scalar(0);
+    assertEquals(ValueType.INTEGER, colReader.valueType());
+
+    assertTrue(reader.next());
+    assertFalse(colReader.isNull());
+    assertEquals(0, colReader.getInt());
+
+    assertTrue(reader.next());
+    assertEquals(0x7FFF, colReader.getInt());
+    assertEquals(0x7FFF, colReader.getObject());
+    assertEquals(Integer.toString(0x7FFF), colReader.getAsString());
+
+    assertTrue(reader.next());
+    assertEquals(0xFFFF, colReader.getInt());
+
+    assertFalse(reader.next());
+    rs.clear();
+  }
+
+  @Test
   public void testTinyIntRW() {
     BatchSchema batchSchema = new SchemaBuilder()
         .add("col", MinorType.TINYINT)

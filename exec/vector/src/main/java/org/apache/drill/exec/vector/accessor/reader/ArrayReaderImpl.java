@@ -167,7 +167,6 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
   private final VectorAccessor arrayAccessor;
   private final OffsetVectorReader offsetReader;
   private final AbstractObjectReader elementReader;
-  protected ColumnReaderIndex baseIndex;
   protected ElementReaderIndex elementIndex;
   protected NullStateReader nullStateReader;
 
@@ -275,11 +274,10 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
 
   @Override
   public void bindIndex(ColumnReaderIndex index) {
-    baseIndex = index;
     arrayAccessor.bind(index);
     offsetReader.bindIndex(index);
     nullStateReader.bindIndex(index);
-    elementIndex = new ElementReaderIndex(baseIndex);
+    elementIndex = new ElementReaderIndex(index);
     elementReader.events().bindIndex(elementIndex);
   }
 
@@ -298,7 +296,6 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
   public void reposition() {
     long entry = offsetReader.getEntry();
     elementIndex.reset((int) (entry >> 32), (int) (entry & 0xFFFF_FFFF));
-    elementReader.events().reposition();
   }
 
   @Override
