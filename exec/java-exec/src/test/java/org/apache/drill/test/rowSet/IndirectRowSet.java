@@ -88,8 +88,13 @@ public class IndirectRowSet extends AbstractSingleRowSet {
   }
 
   public IndirectRowSet(DirectRowSet directRowSet) {
+    this(directRowSet,
+        makeSv2(directRowSet.allocator(), directRowSet.container()));
+  }
+
+  public IndirectRowSet(DirectRowSet directRowSet, SelectionVector2 sv2) {
     super(directRowSet);
-    sv2 = makeSv2(allocator(), container());
+    this.sv2 = sv2;
   }
 
   @Override
