@@ -20,6 +20,7 @@ package org.apache.drill.exec.vector.accessor.reader;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
@@ -40,7 +41,8 @@ public abstract class AbstractTupleReader implements TupleReader, ReaderEvents {
 
     private AbstractTupleReader tupleReader;
 
-    public TupleObjectReader(AbstractTupleReader tupleReader) {
+    public TupleObjectReader(ColumnMetadata schema, AbstractTupleReader tupleReader) {
+      super(schema);
       this.tupleReader = tupleReader;
     }
 

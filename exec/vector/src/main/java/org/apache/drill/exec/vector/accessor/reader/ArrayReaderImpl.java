@@ -20,6 +20,7 @@ package org.apache.drill.exec.vector.accessor.reader;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
@@ -46,7 +47,8 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
 
     private ArrayReaderImpl arrayReader;
 
-    public ArrayObjectReader(ArrayReaderImpl arrayReader) {
+    public ArrayObjectReader(ColumnMetadata schema, ArrayReaderImpl arrayReader) {
+      super(schema);
       this.arrayReader = arrayReader;
     }
 
@@ -185,8 +187,13 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
    * @return object reader which wraps the scalar array reader
    */
 
-  public static ArrayObjectReader buildScalar(VectorAccessor arrayAccessor,
+  public static ArrayObjectReader buildScalar(ColumnMetadata schema,
+      VectorAccessor arrayAccessor,
       BaseScalarReader elementReader) {
+
+    // Reader is bound to the values vector inside the nullable vector.
+
+    elementReader.bindVector(VectorAccessors.arrayDataAccessor(arrayAccessor));
 
     // The scalar array element can't be null.
 
@@ -196,7 +203,7 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
     // repeated vector's offset vector.
 
     ArrayReaderImpl arrayReader = new ArrayReaderImpl(arrayAccessor,
-        new ScalarObjectReader(elementReader));
+        new ScalarObjectReader(schema, elementReader));
 
     // The array itself can't be null.
 
@@ -204,7 +211,7 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
 
     // Wrap it all in an object reader.
 
-    return new ArrayObjectReader(arrayReader);
+    return new ArrayObjectReader(schema, arrayReader);
   }
 
   /**
@@ -216,7 +223,8 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
    * @return object reader that wraps the map array reader
    */
 
-  public static AbstractObjectReader buildTuple(VectorAccessor arrayAccessor,
+  public static AbstractObjectReader buildTuple(ColumnMetadata schema,
+      VectorAccessor arrayAccessor,
       AbstractObjectReader elementReader) {
 
     // Create the array reader over the map vector.
@@ -229,7 +237,7 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
 
     // Wrap it all in an object reader.
 
-    return new ArrayObjectReader(arrayReader);
+    return new ArrayObjectReader(schema, arrayReader);
   }
 
   /**
@@ -241,7 +249,8 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
    * @return
    */
 
-  public static AbstractObjectReader buildList(VectorAccessor listAccessor,
+  public static AbstractObjectReader buildList(ColumnMetadata schema,
+      VectorAccessor listAccessor,
       AbstractObjectReader elementReader) {
 
     // Create the array over whatever it is that the list holds.
@@ -261,7 +270,7 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
 
     // Wrap it all in an object reader.
 
-    return new ArrayObjectReader(arrayReader);
+    return new ArrayObjectReader(schema, arrayReader);
   }
 
   @Override

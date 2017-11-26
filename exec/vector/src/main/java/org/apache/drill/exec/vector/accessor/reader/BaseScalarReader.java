@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.accessor.reader;
 
 import java.math.BigDecimal;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.BaseDataValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
@@ -41,7 +42,8 @@ public abstract class BaseScalarReader implements ScalarReader, ReaderEvents {
 
     private BaseScalarReader scalarReader;
 
-    public ScalarObjectReader(BaseScalarReader scalarReader) {
+    public ScalarObjectReader(ColumnMetadata schema, BaseScalarReader scalarReader) {
+      super(schema);
       this.scalarReader = scalarReader;
     }
 
@@ -131,8 +133,12 @@ public abstract class BaseScalarReader implements ScalarReader, ReaderEvents {
   protected BufferAccessor bufferAccessor;
   protected NullStateReader nullStateReader;
 
-  public static ScalarObjectReader buildOptional(VectorAccessor va,
-      BaseScalarReader reader) {
+  public static ScalarObjectReader buildOptional(ColumnMetadata schema,
+      VectorAccessor va, BaseScalarReader reader) {
+
+    // Reader is bound to the values vector inside the nullable vector.
+
+    reader.bindVector(VectorAccessors.nullableValuesAccessor(va));
 
     // The nullability of each value depends on the "bits" vector
     // in the nullable vector.
@@ -141,10 +147,15 @@ public abstract class BaseScalarReader implements ScalarReader, ReaderEvents {
 
     // Wrap the reader in an object reader.
 
-    return new ScalarObjectReader(reader);
+    return new ScalarObjectReader(schema, reader);
   }
 
-  public static ScalarObjectReader buildRequired(BaseScalarReader reader) {
+  public static ScalarObjectReader buildRequired(ColumnMetadata schema,
+      VectorAccessor va, BaseScalarReader reader) {
+
+    // Reader is bound directly to the required vector.
+
+    reader.bindVector(va);
 
     // The reader is required, values can't be null.
 
@@ -152,7 +163,7 @@ public abstract class BaseScalarReader implements ScalarReader, ReaderEvents {
 
     // Wrap the reader in an object reader.
 
-    return new ScalarObjectReader(reader);
+    return new ScalarObjectReader(schema, reader);
   }
 
   public void bindVector(VectorAccessor va) {

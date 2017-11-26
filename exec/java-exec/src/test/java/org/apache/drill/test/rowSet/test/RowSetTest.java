@@ -138,6 +138,7 @@ public class RowSetTest extends SubOperatorTest {
     assertSame(reader.column("a").scalar(), reader.scalar("a"));
     assertSame(reader.column(0).scalar(), reader.scalar(0));
     assertEquals(ValueType.INTEGER, reader.scalar(0).valueType());
+    assertTrue(schema.metadata("a").isEquivalent(reader.column("a").schema()));
 
     // Test various accessors: full and simple
 

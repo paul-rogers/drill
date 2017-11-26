@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.accessor.reader;
 
 import java.util.List;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.TupleMetadata;
 
 /**
@@ -31,15 +32,15 @@ public class MapReader extends AbstractTupleReader {
     super(schema, readers);
   }
 
-  public static TupleObjectReader build(TupleMetadata schema, AbstractObjectReader readers[]) {
-    MapReader mapReader = new MapReader(schema, readers);
+  public static TupleObjectReader build(ColumnMetadata schema, AbstractObjectReader readers[]) {
+    MapReader mapReader = new MapReader(schema.mapSchema(), readers);
     mapReader.bindNullState(NullStateReaders.REQUIRED_STATE_READER);
-    return new TupleObjectReader(mapReader);
+    return new TupleObjectReader(schema, mapReader);
   }
 
-  public static AbstractObjectReader build(TupleMetadata metadata,
+  public static AbstractObjectReader build(ColumnMetadata schema,
       List<AbstractObjectReader> readers) {
     AbstractObjectReader readerArray[] = new AbstractObjectReader[readers.size()];
-    return build(metadata, readers.toArray(readerArray));
+    return build(schema, readers.toArray(readerArray));
   }
 }

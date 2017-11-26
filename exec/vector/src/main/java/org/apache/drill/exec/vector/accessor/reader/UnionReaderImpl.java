@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.accessor.reader;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.common.types.Types;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.VariantMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
@@ -40,7 +41,8 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
 
     private UnionReaderImpl reader;
 
-    public UnionObjectReader(UnionReaderImpl reader) {
+    public UnionObjectReader(ColumnMetadata schema, UnionReaderImpl reader) {
+      super(schema);
       this.reader = reader;
     }
 
@@ -86,7 +88,7 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
     private final VectorAccessor unionVectorAccessor;
 
     private HyperMemberVectorAccessor(VectorAccessor va, MinorType memberType) {
-      super(Types.optional(memberType)); // TODO: Handle map and list
+      super(Types.optional(memberType));
       unionVectorAccessor = va;
     }
 
@@ -151,8 +153,9 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
     return new HyperMemberVectorAccessor(unionAccessor, memberType);
   }
 
-  public static AbstractObjectReader build(VariantMetadata schema, VectorAccessor va, AbstractObjectReader variants[]) {
-    return new UnionObjectReader(new UnionReaderImpl(schema, va, variants));
+  public static AbstractObjectReader build(ColumnMetadata schema, VectorAccessor va, AbstractObjectReader variants[]) {
+    return new UnionObjectReader(schema,
+        new UnionReaderImpl(schema.variantSchema(), va, variants));
   }
 
   @Override

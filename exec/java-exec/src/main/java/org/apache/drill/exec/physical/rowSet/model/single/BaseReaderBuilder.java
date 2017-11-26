@@ -25,6 +25,7 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescrip;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
@@ -65,21 +66,20 @@ public abstract class BaseReaderBuilder {
     case LIST:
       return buildList(va, descrip);
     default:
-      return buildScalarReader(va);
+      return buildScalarReader(descrip.metadata, va);
     }
   }
 
-  private AbstractObjectReader buildScalarReader(VectorAccessor va) {
+  private AbstractObjectReader buildScalarReader(ColumnMetadata schema, VectorAccessor va) {
     BaseScalarReader scalarReader = ColumnReaderFactory.buildColumnReader(va);
-    scalarReader.bindVector(va);
     DataMode mode = va.type().getMode();
     switch (mode) {
     case OPTIONAL:
-      return BaseScalarReader.buildOptional(va, scalarReader);
+      return BaseScalarReader.buildOptional(schema, va, scalarReader);
     case REQUIRED:
-      return BaseScalarReader.buildRequired(scalarReader);
+      return BaseScalarReader.buildRequired(schema, va, scalarReader);
     case REPEATED:
-      return ArrayReaderImpl.buildScalar(va, scalarReader);
+      return ArrayReaderImpl.buildScalar(schema, va, scalarReader);
     default:
       throw new UnsupportedOperationException(mode.toString());
     }
@@ -90,7 +90,7 @@ public abstract class BaseReaderBuilder {
     // Map type
 
     AbstractObjectReader mapReader = MapReader.build(
-        descrip.metadata.mapSchema(),
+        descrip.metadata,
         buildMap(va,
             descrip.parent.childProvider(descrip.metadata)));
 
@@ -102,7 +102,7 @@ public abstract class BaseReaderBuilder {
 
     // Repeated map
 
-    return ArrayReaderImpl.buildTuple(va, mapReader);
+    return ArrayReaderImpl.buildTuple(descrip.metadata, va, mapReader);
   }
 
   @SuppressWarnings("resource")
@@ -137,7 +137,7 @@ public abstract class BaseReaderBuilder {
           new SingleVectorAccessor(memberVector), memberDescrip);
     }
     return UnionReaderImpl.build(
-        descrip.metadata.variantSchema(),
+        descrip.metadata,
         new SingleVectorAccessor(vector),
         variants);
   }
@@ -181,6 +181,7 @@ public abstract class BaseReaderBuilder {
       dataMetadata = new VectorDescrip(listDescrip.childProvider(), 0, dataVector.getField());
     }
     VectorAccessor dataAccessor = new SingleVectorAccessor(dataVector);
-    return ArrayReaderImpl.buildList(listAccessor, buildVectorReader(dataAccessor, dataMetadata));
+    return ArrayReaderImpl.buildList(listDescrip.metadata,
+        listAccessor, buildVectorReader(dataAccessor, dataMetadata));
   }
 }
