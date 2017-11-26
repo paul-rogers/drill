@@ -132,7 +132,7 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
         continue;
       }
       NullStateReader nullReader;
-      MinorType type = MinorType.valueOf(i);
+      MinorType type = MinorType.values()[i];
       switch(type) {
       case MAP:
       case LIST:
@@ -252,7 +252,7 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
 
   @Override
   public ArrayReader array() {
-    return requireReader(dataType()).array();
+    return requireReader(MinorType.LIST).array();
   }
 
   @Override

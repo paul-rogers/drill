@@ -170,7 +170,16 @@ public abstract class BaseReaderBuilder {
       VectorDescrip listDescrip) {
     ListVector vector = listAccessor.vector();
     ValueVector dataVector = vector.getDataVector();
-    VectorDescrip dataMetadata = new VectorDescrip(listDescrip.childProvider(), 0, dataVector.getField());
+    VectorDescrip dataMetadata;
+    if (dataVector.getField().getType().getMinorType() == MinorType.UNION) {
+
+      // If the list holds a union, then the list and union are collapsed
+      // together in the metadata layer.
+
+      dataMetadata = listDescrip;
+    } else {
+      dataMetadata = new VectorDescrip(listDescrip.childProvider(), 0, dataVector.getField());
+    }
     VectorAccessor dataAccessor = new SingleVectorAccessor(dataVector);
     return ArrayReaderImpl.buildList(listAccessor, buildVectorReader(dataAccessor, dataMetadata));
   }

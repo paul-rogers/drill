@@ -124,7 +124,16 @@ public abstract class BaseWriterBuilder {
       throw new UnsupportedOperationException("Dummy variant writer not yet supported");
     }
     ValueVector dataVector = vector.getDataVector();
-    VectorDescrip dataMetadata = new VectorDescrip(descrip.childProvider(), 0, dataVector.getField());
+    VectorDescrip dataMetadata;
+    if (dataVector.getField().getType().getMinorType() == MinorType.UNION) {
+
+      // If the list holds a union, then the list and union are collapsed
+      // together in the metadata layer.
+
+      dataMetadata = descrip;
+    } else {
+      dataMetadata = new VectorDescrip(descrip.childProvider(), 0, dataVector.getField());
+    }
     AbstractObjectWriter dataWriter = buildVectorWriter(dataVector, dataMetadata);
     AbstractArrayWriter arrayWriter = new ListWriterImpl(
         vector, dataWriter);

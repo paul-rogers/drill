@@ -34,7 +34,8 @@ public interface TupleReader {
   int columnCount();
 
   /**
-   * When the tuple is in a list, the tuple itself can be null.
+   * When the tuple is in a union, or in a list that contains a union,
+   * the tuple itself can be null.
    * Tuples elsewhere are never null; though their members can be.
    *
    * @return <tt>true</tt> if the tuple itself is null (as in a
