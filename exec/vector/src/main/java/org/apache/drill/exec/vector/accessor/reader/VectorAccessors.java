@@ -25,6 +25,7 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VariableWidthVector;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
+import org.apache.drill.exec.vector.complex.ListVector;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 
 /**
@@ -206,15 +207,14 @@ public class VectorAccessors {
   }
 
   /**
-   * Extract null state from the union vector's type vector. The union reader
-   * manages the type reader, so no binding is done here.
+   * Extract null state from the a nullable vector's bits vector.
    */
 
-  public static class BitsHyperVectorStateReader extends BaseHyperVectorAccessor {
+  public static class NullableBitsHyperVectorStateReader extends BaseHyperVectorAccessor {
 
     public final VectorAccessor nullableAccessor;
 
-    public BitsHyperVectorStateReader(VectorAccessor nullableAccessor) {
+    public NullableBitsHyperVectorStateReader(VectorAccessor nullableAccessor) {
       super(Types.required(MinorType.UINT1));
       this.nullableAccessor = nullableAccessor;
     }
@@ -223,6 +223,27 @@ public class VectorAccessors {
     @Override
     public <T extends ValueVector> T vector() {
       NullableVector vector = nullableAccessor.vector();
+      return (T) vector.getBitsVector();
+    }
+  }
+
+  /**
+   * Extract null state from a list vector's bits vector.
+   */
+
+  public static class ListBitsHyperVectorStateReader extends BaseHyperVectorAccessor {
+
+    public final VectorAccessor listAccessor;
+
+    public ListBitsHyperVectorStateReader(VectorAccessor listAccessor) {
+      super(Types.required(MinorType.UINT1));
+      this.listAccessor = listAccessor;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T extends ValueVector> T vector() {
+      ListVector vector = listAccessor.vector();
       return (T) vector.getBitsVector();
     }
   }
@@ -284,11 +305,21 @@ public class VectorAccessors {
     }
   }
 
-  public static VectorAccessor bitsAccessor(VectorAccessor nullableAccessor) {
+  public static VectorAccessor nullableBitsAccessor(VectorAccessor nullableAccessor) {
     if (nullableAccessor.isHyper()) {
-      return new BitsHyperVectorStateReader(nullableAccessor);
+      return new NullableBitsHyperVectorStateReader(nullableAccessor);
     } else {
       NullableVector vector = nullableAccessor.vector();
+      return new SingleVectorAccessor(
+          vector.getBitsVector());
+    }
+  }
+
+  public static VectorAccessor listBitsAccessor(VectorAccessor nullableAccessor) {
+    if (nullableAccessor.isHyper()) {
+      return new ListBitsHyperVectorStateReader(nullableAccessor);
+    } else {
+      ListVector vector = nullableAccessor.vector();
       return new SingleVectorAccessor(
           vector.getBitsVector());
     }

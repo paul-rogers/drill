@@ -30,15 +30,14 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
 import org.apache.drill.exec.vector.accessor.reader.ArrayReaderImpl;
+import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
 import org.apache.drill.exec.vector.accessor.reader.ColumnReaderFactory;
 import org.apache.drill.exec.vector.accessor.reader.MapReader;
-import org.apache.drill.exec.vector.accessor.reader.NullStateReader;
 import org.apache.drill.exec.vector.accessor.reader.UnionReaderImpl;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessors.SingleVectorAccessor;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.ListVector;
-import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
 public abstract class BaseReaderBuilder {
@@ -66,7 +65,23 @@ public abstract class BaseReaderBuilder {
     case LIST:
       return buildList(va, descrip);
     default:
-      return ColumnReaderFactory.buildColumnReader(va);
+      return buildScalarReader(va);
+    }
+  }
+
+  private AbstractObjectReader buildScalarReader(VectorAccessor va) {
+    BaseScalarReader scalarReader = ColumnReaderFactory.buildColumnReader(va);
+    scalarReader.bindVector(va);
+    DataMode mode = va.type().getMode();
+    switch (mode) {
+    case OPTIONAL:
+      return BaseScalarReader.buildOptional(va, scalarReader);
+    case REQUIRED:
+      return BaseScalarReader.buildRequired(scalarReader);
+    case REPEATED:
+      return ArrayReaderImpl.buildScalar(va, scalarReader);
+    default:
+      throw new UnsupportedOperationException(mode.toString());
     }
   }
 
@@ -116,7 +131,6 @@ public abstract class BaseReaderBuilder {
       // so call this only if the MajorType reports that the type
       // already exists.
 
-      @SuppressWarnings("resource")
       ValueVector memberVector = ColumnAccessorUtils.getUnionMember(vector, type);
       VectorDescrip memberDescrip = new VectorDescrip(provider, i++, memberVector.getField());
       variants[type.ordinal()] = buildVectorReader(
@@ -128,21 +142,36 @@ public abstract class BaseReaderBuilder {
         variants);
   }
 
+  /**
+   * Build a list vector.
+   * <p>
+   * The list vector is a complex, somewhat ad-hoc structure. It can
+   * take the place of repeated vectors, with some extra features.
+   * The four "modes" of list vector, and thus list reader, are:
+   * <ul>
+   * <li>Similar to a scalar array.</li>
+   * <li>Similar to a map (tuple) array.</li>
+   * <li>The only way to represent an array of unions.</li>
+   * <li>The only way to represent an array of lists.</li>
+   * </ul>
+   * Lists add an extra feature compared to the "regular" scalar or
+   * map arrays. Each array entry can be either null or empty (regular
+   * arrays can only be empty.)
+   * <p>
+   * When working with unions, this introduces an ambiguity: both the
+   * list and the union have a null flag. Here, we assume that the
+   * list flag has precedence, and that if the list entry is not null
+   * then the union must also be not null. (Experience will show whether
+   * existing code does, in fact, follow that convention.)
+   */
+
   @SuppressWarnings("resource")
   private AbstractObjectReader buildList(VectorAccessor listAccessor,
       VectorDescrip listDescrip) {
     ListVector vector = listAccessor.vector();
     ValueVector dataVector = vector.getDataVector();
     VectorDescrip dataMetadata = new VectorDescrip(listDescrip.childProvider(), 0, dataVector.getField());
-    MajorType type = dataVector.getField().getType();
-    switch(type.getMinorType()) {
-    case MAP:
-      return ListReaderImpl.build(vector, buildMap(dataVector, type, dataMetadata));
-    case UNION:
-    case LIST:
-      return ListReaderImpl.build(vector, buildUnion((UnionVector) dataVector, dataMetadata));
-    default:
-      return ColumnReaderFactory.buildScalarList(vector, dataVector);
-    }
+    VectorAccessor dataAccessor = new SingleVectorAccessor(dataVector);
+    return ArrayReaderImpl.buildList(listAccessor, buildVectorReader(dataAccessor, dataMetadata));
   }
 }

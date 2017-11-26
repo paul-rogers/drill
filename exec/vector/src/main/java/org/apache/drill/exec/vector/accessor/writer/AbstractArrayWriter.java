@@ -318,6 +318,10 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   @Override
   public ColumnWriterIndex writerIndex() { return outerIndex; }
 
+  @Override
+  public void setNull(boolean isNull) {
+    throw new UnsupportedOperationException();
+  }
 
   public void bindListener(ColumnWriterListener listener) {
     elementObjWriter.bindListener(listener);

@@ -33,7 +33,7 @@ public class OffsetVectorReader extends BaseFixedWidthReader {
   public OffsetVectorReader(VectorAccessor offsetsAccessor) {
     vectorAccessor = offsetsAccessor;
     bufferAccessor = bufferAccessor(offsetsAccessor);
-    nullStateReader = NullStateReader.REQUIRED_STATE_READER;
+    nullStateReader = NullStateReaders.REQUIRED_STATE_READER;
   }
 
   @Override

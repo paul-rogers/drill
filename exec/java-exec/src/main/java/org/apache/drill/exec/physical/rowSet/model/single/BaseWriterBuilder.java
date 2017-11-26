@@ -27,8 +27,14 @@ import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescri
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
+import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
+import org.apache.drill.exec.vector.accessor.writer.ListWriterImpl;
+import org.apache.drill.exec.vector.accessor.writer.MapWriter;
+import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
+import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayObjectWriter;
+import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl.VariantObjectWriter;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.ListVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
@@ -54,7 +60,7 @@ public abstract class BaseWriterBuilder {
     MajorType type = vector.getField().getType();
     switch (type.getMinorType()) {
     case MAP:
-      return ColumnWriterFactory.buildMapWriter(descrip.metadata,
+      return MapWriter.buildMapWriter(descrip.metadata,
           (AbstractMapVector) vector,
           buildMap((AbstractMapVector) vector, descrip));
 
@@ -82,6 +88,15 @@ public abstract class BaseWriterBuilder {
   }
 
   private AbstractObjectWriter buildUnion(UnionVector vector, VectorDescrip descrip) {
+
+    // Dummy writers are used when the schema is known up front, but the
+    // query chooses not to project a column. Variants are used in the case when
+    // the schema is not known, and we discover it on the fly. In this case,
+    // (which currently occurs only in JSON) dummy vectors are not used.
+
+    if (vector == null) {
+      throw new UnsupportedOperationException("Dummy variant writer not yet supported");
+    }
     final AbstractObjectWriter variants[] = new AbstractObjectWriter[MinorType.values().length];
     MetadataProvider mdProvider = descrip.childProvider();
     int i = 0;
@@ -97,15 +112,22 @@ public abstract class BaseWriterBuilder {
       VectorDescrip memberDescrip = new VectorDescrip(mdProvider, i++, memberVector.getField());
       variants[type.ordinal()] = buildVectorWriter(memberVector, memberDescrip);
     }
-    return ColumnWriterFactory.buildUnionWriter(descrip.metadata, vector, variants);
+    return new VariantObjectWriter(
+        new UnionWriterImpl(descrip.metadata.variantSchema(), vector, variants),
+        descrip.metadata);
   }
 
   @SuppressWarnings("resource")
   private AbstractObjectWriter buildList(ListVector vector,
       VectorDescrip descrip) {
+    if (vector == null) {
+      throw new UnsupportedOperationException("Dummy variant writer not yet supported");
+    }
     ValueVector dataVector = vector.getDataVector();
     VectorDescrip dataMetadata = new VectorDescrip(descrip.childProvider(), 0, dataVector.getField());
     AbstractObjectWriter dataWriter = buildVectorWriter(dataVector, dataMetadata);
-    return ColumnWriterFactory.buildListWriter(descrip.metadata, vector, dataWriter);
+    AbstractArrayWriter arrayWriter = new ListWriterImpl(
+        vector, dataWriter);
+    return new ArrayObjectWriter(descrip.metadata, arrayWriter);
   }
 }

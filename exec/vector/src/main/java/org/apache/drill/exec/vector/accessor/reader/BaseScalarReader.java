@@ -23,7 +23,6 @@ import org.apache.drill.exec.vector.BaseDataValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
-import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnReader;
 import org.apache.drill.exec.vector.accessor.impl.AccessorUtilities;
 import org.joda.time.Period;
 
@@ -94,39 +93,6 @@ public abstract class BaseScalarReader implements ScalarReader, ReaderEvents {
   }
 
   /**
-   * Holder for the NullableVector wrapper around a bits vector and a
-   * data vector. Manages the bits vector to extract the nullability
-   * value.
-   * <p>
-   * This class allows the same reader to handle both the required and
-   * nullable cases; the only difference is how nulls are handled.
-   */
-
-  private static class IsSetVectorStateReader implements NullStateReader {
-
-    private final VectorAccessor nullableAccessor;
-    private final UInt1ColumnReader isSetReader;
-
-    public IsSetVectorStateReader(VectorAccessor nullableAccessor) {
-      this.nullableAccessor = nullableAccessor;
-      isSetReader = new UInt1ColumnReader();
-      isSetReader.bindVector(VectorAccessors.bitsAccessor(nullableAccessor));
-      isSetReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
-    }
-
-    @Override
-    public void bindIndex(ColumnReaderIndex rowIndex) {
-      nullableAccessor.bind(rowIndex);
-      isSetReader.bindIndex(rowIndex);
-    }
-
-    @Override
-    public boolean isNull() {
-      return isSetReader.getInt() == 0;
-    }
-  }
-
-  /**
    * Provide access to the DrillBuf for the data vector.
    */
 
@@ -165,15 +131,27 @@ public abstract class BaseScalarReader implements ScalarReader, ReaderEvents {
   protected BufferAccessor bufferAccessor;
   protected NullStateReader nullStateReader;
 
-  public static ScalarObjectReader buildOptional(VectorAccessor va, BaseScalarReader reader) {
-    reader.bindVector(VectorAccessors.nullableValuesAccessor(va));
-    reader.bindNullState(new IsSetVectorStateReader(va));
+  public static ScalarObjectReader buildOptional(VectorAccessor va,
+      BaseScalarReader reader) {
+
+    // The nullability of each value depends on the "bits" vector
+    // in the nullable vector.
+
+    reader.bindNullState(new NullStateReaders.NullableIsSetVectorStateReader(va));
+
+    // Wrap the reader in an object reader.
+
     return new ScalarObjectReader(reader);
   }
 
-  public static ScalarObjectReader buildRequired(VectorAccessor va, BaseScalarReader reader) {
-    reader.bindVector(va);
-    reader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+  public static ScalarObjectReader buildRequired(BaseScalarReader reader) {
+
+    // The reader is required, values can't be null.
+
+    reader.bindNullState(NullStateReaders.REQUIRED_STATE_READER);
+
+    // Wrap the reader in an object reader.
+
     return new ScalarObjectReader(reader);
   }
 

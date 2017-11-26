@@ -542,19 +542,25 @@ public class TestVariant extends SubOperatorTest {
       assertEquals(ObjectType.ARRAY, listObj.type());
       ArrayWriter listArray = listObj.array();
 
-      // The list is known to contain only a scalar, so
-      // at this point, this looks like an array of scalars.
+      // The list contains only a scalar. But, because lists can,
+      // in general, contain multiple contents, the list requires
+      // an explicit save after each entry.
 
       ObjectWriter itemObj = listArray.entry();
       assertEquals(ObjectType.SCALAR, itemObj.type());
       ScalarWriter strWriter = itemObj.scalar();
 
-      // First row: three strings
+      // First row: two strings and a null
+      // Unlike a repeated type, a list can mark individual elements
+      // as null.
       // List will automagically detect that data was written.
 
       strWriter.setString("fred");
-      strWriter.setString("barney");
+      listArray.save();
+      strWriter.setNull();
+      listArray.save();
       strWriter.setString("wilma");
+      listArray.save();
       writer.save();
 
       // Second row: null
@@ -564,6 +570,7 @@ public class TestVariant extends SubOperatorTest {
       // Third row: one string
 
       strWriter.setString("dino");
+      listArray.save();
       writer.save();
 
       // Fourth row: empty array. Note that there is no trigger
@@ -573,10 +580,12 @@ public class TestVariant extends SubOperatorTest {
       listArray.setNull(false);
       writer.save();
 
-      // Last row: another two strings
+      // Last row: a null string and non-null
 
-      strWriter.setString("bambam");
+      strWriter.setNull();
+      listArray.save();
       strWriter.setString("pebbles");
+      listArray.save();
       writer.save();
     }
 
@@ -592,48 +601,57 @@ public class TestVariant extends SubOperatorTest {
 
       // The list is a repeated scalar
 
-      ObjectReader itemObj = listArray.entry();
-      assertEquals(ObjectType.SCALAR, itemObj.type());
-      ScalarElementReader strReader = listArray.elements();
+      assertEquals(ObjectType.SCALAR, listArray.entry().type());
+      ScalarReader strReader = listArray.scalar();
 
-      // First row: three strings
+      // First row: two strings and a null
 
       assertTrue(reader.next());
       assertFalse(listArray.isNull());
       assertEquals(3, listArray.size());
-      assertEquals(3, strReader.size());
-      assertEquals("fred", strReader.getString(0));
-      assertEquals("barney", strReader.getString(1));
-      assertEquals("wilma", strReader.getString(2));
+      assertTrue(listArray.next());
+      assertFalse(strReader.isNull());
+      assertEquals("fred", strReader.getString());
+      assertTrue(listArray.next());
+      assertTrue(strReader.isNull());
+      assertTrue(listArray.next());
+      assertFalse(strReader.isNull());
+      assertEquals("wilma", strReader.getString());
+      assertFalse(listArray.next());
 
       // Second row: null
 
       assertTrue(reader.next());
       assertTrue(listArray.isNull());
       assertEquals(0, listArray.size());
-      assertEquals(0, strReader.size());
 
       // Third row: one string
 
       assertTrue(reader.next());
       assertFalse(listArray.isNull());
-      assertEquals(3, listArray.size());
-      assertEquals("dino", strReader.getString(0));
+      assertEquals(1, listArray.size());
+      assertTrue(listArray.next());
+      assertEquals("dino", strReader.getString());
+      assertFalse(listArray.next());
 
       // Fourth row: empty array.
 
       assertTrue(reader.next());
       assertFalse(listArray.isNull());
       assertEquals(0, listArray.size());
-      assertEquals(0, strReader.size());
+      assertFalse(listArray.next());
 
-      // Last row: another two strings
+      // Last row: a null string and non-null
 
       assertTrue(reader.next());
       assertFalse(listArray.isNull());
-      assertEquals(2, strReader.size());
-      assertEquals("bambam", strReader.getString(0));
-      assertEquals("pebbles", strReader.getString(1));
+      assertEquals(2, listArray.size());
+      assertTrue(listArray.next());
+      assertTrue(strReader.isNull());
+      assertTrue(listArray.next());
+      assertFalse(strReader.isNull());
+      assertEquals("pebbles", strReader.getString());
+      assertFalse(listArray.next());
 
       assertFalse(reader.next());
     }

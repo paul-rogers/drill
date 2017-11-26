@@ -17,7 +17,6 @@
  */
 package org.apache.drill.exec.vector.accessor.reader;
 
-import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
@@ -38,10 +37,9 @@ public class ColumnReaderFactory {
     ColumnAccessorUtils.defineRequiredReaders(requiredReaders);
   }
 
-  public static AbstractObjectReader buildColumnReader(VectorAccessor va) {
+  public static BaseScalarReader buildColumnReader(VectorAccessor va) {
     MajorType major = va.type();
     MinorType type = major.getMinorType();
-    DataMode mode = major.getMode();
 
     switch (type) {
     case GENERIC_OBJECT:
@@ -51,25 +49,9 @@ public class ColumnReaderFactory {
     case MAP:
       throw new UnsupportedOperationException(type.toString());
     default:
-      BaseScalarReader scalarReader = newAccessor(type, requiredReaders);
-      switch (mode) {
-      case OPTIONAL:
-        return BaseScalarReader.buildOptional(va, scalarReader);
-      case REQUIRED:
-        return BaseScalarReader.buildRequired(va, scalarReader);
-      case REPEATED:
-        return ArrayReaderImpl.buildScalar(va, scalarReader);
-      default:
-        throw new UnsupportedOperationException(mode.toString());
-      }
+      return newAccessor(type, requiredReaders);
     }
   }
-
-//  public static AbstractObjectReader buildScalarList(ListVector vector, ValueVector dataVector) {
-//    assert dataVector.getField().getType().getMode() == DataMode.OPTIONAL;
-//    BaseScalarReader elements = newAccessor(dataVector.getField().getType().getMinorType(), nullableReaders);
-//    return ScalarListReader.build(vector, elements);
-//  }
 
   public static <T> T newAccessor(MinorType type, Class<? extends T> accessors[]) {
     try {

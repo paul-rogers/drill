@@ -17,11 +17,17 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
+import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayObjectWriter;
+import org.apache.drill.exec.vector.accessor.writer.dummy.DummyArrayWriter;
+import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.MapVector;
+import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 
 /**
  * Writer for a Drill Map type. Maps are actually tuples, just like rows.
@@ -158,5 +164,63 @@ public abstract class MapWriter extends AbstractTupleWriter {
   protected MapWriter(ColumnMetadata schema, List<AbstractObjectWriter> writers) {
     super(schema.mapSchema(), writers);
     mapColumnSchema = schema;
+  }
+
+  public static TupleObjectWriter buildMap(ColumnMetadata schema, MapVector vector,
+      List<AbstractObjectWriter> writers) {
+    MapWriter mapWriter;
+    if (schema.isProjected()) {
+
+      // Vector is not required for a map writer; the map's columns
+      // are written, but not the (non-array) map.
+
+      mapWriter = new SingleMapWriter(schema, vector, writers);
+    } else {
+      assert vector == null;
+      mapWriter = new DummyMapWriter(schema, writers);
+    }
+    return new TupleObjectWriter(schema, mapWriter);
+  }
+
+  public static ArrayObjectWriter buildMapArray(ColumnMetadata schema,
+      UInt4Vector offsetVector,
+      List<AbstractObjectWriter> writers) {
+    MapWriter mapWriter;
+    if (schema.isProjected()) {
+      assert offsetVector != null;
+      mapWriter = new ArrayMapWriter(schema, writers);
+    } else {
+      assert offsetVector == null;
+      mapWriter = new DummyArrayMapWriter(schema, writers);
+    }
+    TupleObjectWriter mapArray = new TupleObjectWriter(schema, mapWriter);
+    AbstractArrayWriter arrayWriter;
+    if (schema.isProjected()) {
+      arrayWriter = new ObjectArrayWriter(
+          offsetVector,
+          mapArray);
+    } else  {
+      arrayWriter = new DummyArrayWriter(mapArray);
+    }
+    return new ArrayObjectWriter(schema, arrayWriter);
+  }
+
+  public static AbstractObjectWriter buildMapWriter(ColumnMetadata schema,
+      AbstractMapVector vector,
+      List<AbstractObjectWriter> writers) {
+    if (schema.isArray()) {
+      UInt4Vector offsetVector = vector == null ? null :
+            ((RepeatedMapVector) vector).getOffsetVector();
+      return MapWriter.buildMapArray(schema,
+          offsetVector,
+          writers);
+    } else {
+      return MapWriter.buildMap(schema, (MapVector) vector, writers);
+    }
+  }
+
+  public static AbstractObjectWriter buildMapWriter(ColumnMetadata schema, AbstractMapVector vector) {
+    assert schema.mapSchema().size() == 0;
+    return buildMapWriter(schema, vector, new ArrayList<AbstractObjectWriter>());
   }
 }

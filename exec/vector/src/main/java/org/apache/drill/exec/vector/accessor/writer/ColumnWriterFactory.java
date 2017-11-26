@@ -19,31 +19,17 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.List;
-
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.NullableVector;
-import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter.ScalarObjectWriter;
-import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter.TupleObjectWriter;
-import org.apache.drill.exec.vector.accessor.writer.MapWriter.ArrayMapWriter;
-import org.apache.drill.exec.vector.accessor.writer.MapWriter.DummyArrayMapWriter;
-import org.apache.drill.exec.vector.accessor.writer.MapWriter.DummyMapWriter;
-import org.apache.drill.exec.vector.accessor.writer.MapWriter.SingleMapWriter;
-import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl.VariantObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.dummy.DummyArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.dummy.DummyScalarWriter;
-import org.apache.drill.exec.vector.complex.AbstractMapVector;
-import org.apache.drill.exec.vector.complex.MapVector;
-import org.apache.drill.exec.vector.complex.RepeatedMapVector;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
-import org.apache.drill.exec.vector.complex.UnionVector;
 
 /**
  * Gather generated writer classes into a set of class tables to allow rapid
@@ -88,9 +74,7 @@ public class ColumnWriterFactory {
     default:
       switch (schema.mode()) {
       case OPTIONAL:
-        NullableVector nullableVector = (NullableVector) vector;
-        return NullableScalarWriter.build(schema, nullableVector,
-                newWriter(nullableVector.getValuesVector()));
+        return buildNullable(schema, (NullableVector) vector);
       case REQUIRED:
         return new ScalarObjectWriter(schema, newWriter(vector));
       case REPEATED:
@@ -101,6 +85,13 @@ public class ColumnWriterFactory {
         throw new UnsupportedOperationException(schema.mode().toString());
       }
     }
+  }
+
+  private static AbstractObjectWriter buildNullable(ColumnMetadata schema,
+      NullableVector vector) {
+    NullableVector nullableVector = vector;
+    return NullableScalarWriter.build(schema, nullableVector,
+            newWriter(nullableVector.getValuesVector()));
   }
 
   /**
@@ -134,106 +125,6 @@ public class ColumnWriterFactory {
       }
     }
   }
-
-  public static TupleObjectWriter buildMap(ColumnMetadata schema, MapVector vector,
-                                        List<AbstractObjectWriter> writers) {
-    MapWriter mapWriter;
-    if (schema.isProjected()) {
-
-      // Vector is not required for a map writer; the map's columns
-      // are written, but not the (non-array) map.
-
-      mapWriter = new SingleMapWriter(schema, vector, writers);
-    } else {
-      assert vector == null;
-      mapWriter = new DummyMapWriter(schema, writers);
-    }
-    return new TupleObjectWriter(schema, mapWriter);
-  }
-
-  public static ArrayObjectWriter buildMapArray(ColumnMetadata schema,
-                                        UInt4Vector offsetVector,
-                                        List<AbstractObjectWriter> writers) {
-    MapWriter mapWriter;
-    if (schema.isProjected()) {
-      assert offsetVector != null;
-      mapWriter = new ArrayMapWriter(schema, writers);
-    } else {
-      assert offsetVector == null;
-      mapWriter = new DummyArrayMapWriter(schema, writers);
-    }
-    TupleObjectWriter mapArray = new TupleObjectWriter(schema, mapWriter);
-    AbstractArrayWriter arrayWriter;
-    if (schema.isProjected()) {
-      arrayWriter = new ObjectArrayWriter(
-          offsetVector,
-          mapArray);
-    } else  {
-      arrayWriter = new DummyArrayWriter(mapArray);
-    }
-    return new ArrayObjectWriter(schema, arrayWriter);
-  }
-
-  public static AbstractObjectWriter buildMapWriter(ColumnMetadata schema,
-      AbstractMapVector vector,
-      List<AbstractObjectWriter> writers) {
-    if (schema.isArray()) {
-      UInt4Vector offsetVector = vector == null ? null :
-            ((RepeatedMapVector) vector).getOffsetVector();
-      return buildMapArray(schema,
-          offsetVector,
-          writers);
-    } else {
-      return buildMap(schema, (MapVector) vector, writers);
-    }
-  }
-
-  public static AbstractObjectWriter buildMapWriter(ColumnMetadata schema, AbstractMapVector vector) {
-    assert schema.mapSchema().size() == 0;
-    return buildMapWriter(schema, vector, new ArrayList<AbstractObjectWriter>());
-  }
-
-  /**
-   * Build a variant writer when we do not know the type information up front and
-   * will discover the types as the write proceeds.
-   *
-   * @param metadata
-   * @param vector
-   * @return
-   */
-
-  public static AbstractObjectWriter buildUnionWriter(ColumnMetadata metadata,
-      UnionVector vector) {
-    return buildUnionWriter(metadata, vector, null);
-  }
-
-  public static AbstractObjectWriter buildUnionWriter(ColumnMetadata metadata,
-      UnionVector vector,
-      AbstractObjectWriter variants[]) {
-
-    // Dummy writers are used when the schema is known up front, but the
-    // query chooses not to project a column. Variants are used in the case when
-    // the schema is not known, and we discover it on the fly. In this case,
-    // (which currently occurs only in JSON) dummy vectors are not used.
-
-    if (vector == null) {
-      throw new UnsupportedOperationException("Dummy variant writer not yet supported");
-    }
-    return new VariantObjectWriter(
-        new UnionWriterImpl(metadata.variantSchema(), vector, variants),
-        metadata);
-  }
-
-//  public static AbstractObjectWriter buildListWriter(ColumnMetadata metadata,
-//      ListVector vector, AbstractObjectWriter memberWriter) {
-//    if (vector == null) {
-//      throw new UnsupportedOperationException("Dummy variant writer not yet supported");
-//    }
-//    AbstractArrayWriter arrayWriter = new ListWriterImpl(
-//        vector, memberWriter);
-//    return new ArrayObjectWriter(metadata, arrayWriter);
-//  }
-
   public static BaseScalarWriter newWriter(ValueVector vector) {
     MajorType major = vector.getField().getType();
     MinorType type = major.getMinorType();

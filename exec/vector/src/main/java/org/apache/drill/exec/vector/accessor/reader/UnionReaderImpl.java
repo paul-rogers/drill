@@ -64,86 +64,6 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
     protected ReaderEvents events() { return reader; }
   }
 
-  /**
-   * Extract null state from the union vector's type vector. The union reader
-   * manages the type reader, so no binding is done here.
-   */
-
-  private static class TypeVectorStateReader implements NullStateReader {
-
-    public final UInt1ColumnReader typeReader;
-
-    public TypeVectorStateReader(UInt1ColumnReader typeReader) {
-      this.typeReader = typeReader;
-    }
-
-    @Override
-    public void bindIndex(ColumnReaderIndex rowIndex) {
-      typeReader.bindIndex(rowIndex);
-    }
-
-    @Override
-    public boolean isNull() {
-      return typeReader.getInt() == UnionVector.NULL_MARKER;
-    }
-  }
-
-  /**
-   * Null state that handles the strange union semantics that both
-   * the union and the values can be null. A value is null if either
-   * the union or the value is null. (Though, presumably, in the normal
-   * case either the union is null or one of the associated values is
-   * null.)
-   */
-
-  protected static class MemberNullStateReader implements NullStateReader {
-
-    private final NullStateReader unionNullState;
-    private final NullStateReader memberNullState;
-
-    public MemberNullStateReader(NullStateReader unionNullState, NullStateReader memberNullState) {
-      this.unionNullState = unionNullState;
-      this.memberNullState = memberNullState;
-    }
-
-    @Override
-    public void bindIndex(ColumnReaderIndex rowIndex) {
-      memberNullState.bindIndex(rowIndex);
-    }
-
-    @Override
-    public boolean isNull() {
-      return unionNullState.isNull() || memberNullState.isNull();
-    }
-  }
-
-  /**
-   * Handle the awkward situation with complex types. They don't carry their own
-   * bits (null state) vector. Instead, we define them as null if the type of
-   * the union is other than the type of the map or list. (Since the same vector
-   * that holds state also holds the is-null value, this check includes the
-   * check if the entire union is null.)
-   */
-
-  private static class ComplexMemberStateReader implements NullStateReader {
-
-    private UInt1ColumnReader typeReader;
-    private MinorType type;
-
-    public ComplexMemberStateReader(UInt1ColumnReader typeReader, MinorType type) {
-      this.typeReader = typeReader;
-      this.type = type;
-    }
-
-    @Override
-    public void bindIndex(ColumnReaderIndex rowIndex) { }
-
-    @Override
-    public boolean isNull() {
-      return typeReader.getInt() != type.getNumber();
-    }
-  }
-
   private static class HyperTypeVectorAccessor extends BaseHyperVectorAccessor {
 
     private VectorAccessor unionVectorAccessor;
@@ -186,7 +106,7 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
   public UnionReaderImpl(VariantMetadata schema, VectorAccessor va, AbstractObjectReader variants[]) {
     this.schema = schema;
     typeReader = new UInt1ColumnReader();
-    typeReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+    typeReader.bindNullState(NullStateReaders.REQUIRED_STATE_READER);
     VectorAccessor typeAccessor;
     if (va.isHyper()) {
       typeAccessor = new HyperTypeVectorAccessor(va);
@@ -195,7 +115,7 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
       typeAccessor = new SingleVectorAccessor(unionVector.getTypeVector());
     }
     typeReader.bindVector(typeAccessor);
-    nullStateReader = new TypeVectorStateReader(typeReader);
+    nullStateReader = new NullStateReaders.TypeVectorStateReader(typeReader);
     assert variants != null  &&  variants.length == MinorType.values().length;
     this.variants = variants;
     rebindMemberNullState();
@@ -216,11 +136,11 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
       switch(type) {
       case MAP:
       case LIST:
-        nullReader = new ComplexMemberStateReader(typeReader, type);
+        nullReader = new NullStateReaders.ComplexMemberStateReader(typeReader, type);
         break;
       default:
         nullReader =
-            new MemberNullStateReader(nullStateReader,
+            new NullStateReaders.MemberNullStateReader(nullStateReader,
                 objReader.events().nullStateReader());
       }
       objReader.events().bindNullState(nullReader);

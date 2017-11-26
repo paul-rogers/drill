@@ -47,23 +47,6 @@ import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
  */
 
 public interface NullStateReader {
-  public static final RequiredStateReader REQUIRED_STATE_READER = new RequiredStateReader();
-
   void bindIndex(ColumnReaderIndex rowIndex);
   boolean isNull();
-
-  /**
-   * Dummy implementation of a null state reader for cases in which the
-   * value is never null. Use the {@link #REQUIRED_STATE_READER} instance
-   * for this case.
-   */
-
-  public static class RequiredStateReader implements NullStateReader {
-
-    @Override
-    public void bindIndex(ColumnReaderIndex rowIndex) { }
-
-    @Override
-    public boolean isNull() { return false; }
-  }
 }

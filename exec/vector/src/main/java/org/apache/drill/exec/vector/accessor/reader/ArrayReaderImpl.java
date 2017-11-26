@@ -31,8 +31,9 @@ import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader.ScalarObjec
 
 /**
  * Reader for an array-valued column. This reader provides access to specific
- * array members via an array index. This is an abstract base class;
- * subclasses are generated for each repeated value vector type.
+ * array members via an array index. This class implements all arrays. The
+ * behavior for specific array types (scalar, map, lists, etc.) is provided
+ * through composition.
  */
 
 public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
@@ -175,20 +176,91 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
         VectorAccessors.arrayOffsetVectorAccessor(va));
   }
 
-  public static ArrayObjectReader buildScalar(VectorAccessor va,
+  /**
+   * Build a scalar array for a Repeated type. Such arrays are not nullable.
+   *
+   * @param arrayAccessor vector accessor for the repeated vector that holds
+   * the scalar values
+   * @param elementReader scalar reader used to decode each scalar value
+   * @return object reader which wraps the scalar array reader
+   */
+
+  public static ArrayObjectReader buildScalar(VectorAccessor arrayAccessor,
       BaseScalarReader elementReader) {
-    elementReader.bindVector(VectorAccessors.arrayDataAccessor(va));
-    elementReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
-    ArrayReaderImpl arrayReader = new ArrayReaderImpl(va,
+
+    // The scalar array element can't be null.
+
+    elementReader.bindNullState(NullStateReaders.REQUIRED_STATE_READER);
+
+    // Create the array, giving it an offset vector reader based on the
+    // repeated vector's offset vector.
+
+    ArrayReaderImpl arrayReader = new ArrayReaderImpl(arrayAccessor,
         new ScalarObjectReader(elementReader));
-    arrayReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+
+    // The array itself can't be null.
+
+    arrayReader.bindNullState(NullStateReaders.REQUIRED_STATE_READER);
+
+    // Wrap it all in an object reader.
+
     return new ArrayObjectReader(arrayReader);
   }
 
-  public static AbstractObjectReader buildTuple(VectorAccessor vectorAccessor,
+  /**
+   * Build a repeated map reader.
+   *
+   * @param arrayAccessor vector accessor for the repeated map vector
+   * @param elementReader tuple reader that provides access to each
+   * tuple in the array
+   * @return object reader that wraps the map array reader
+   */
+
+  public static AbstractObjectReader buildTuple(VectorAccessor arrayAccessor,
       AbstractObjectReader elementReader) {
-    ArrayReaderImpl arrayReader = new ArrayReaderImpl(vectorAccessor, elementReader);
-    arrayReader.bindNullState(NullStateReader.REQUIRED_STATE_READER);
+
+    // Create the array reader over the map vector.
+
+    ArrayReaderImpl arrayReader = new ArrayReaderImpl(arrayAccessor, elementReader);
+
+    // The array itself can't be null.
+
+    arrayReader.bindNullState(NullStateReaders.REQUIRED_STATE_READER);
+
+    // Wrap it all in an object reader.
+
+    return new ArrayObjectReader(arrayReader);
+  }
+
+  /**
+   * Build a list reader. Lists entries can be null. The reader can be a simple
+   * scalar, a map, a union, or another list.
+   *
+   * @param listAccessor
+   * @param elementReader
+   * @return
+   */
+
+  public static AbstractObjectReader buildList(VectorAccessor listAccessor,
+      AbstractObjectReader elementReader) {
+
+    // Create the array over whatever it is that the list holds.
+
+    ArrayReaderImpl arrayReader = new ArrayReaderImpl(listAccessor, elementReader);
+
+    // The list carries a "bits" vector to allow list entries to be null.
+
+    NullStateReader arrayNullState = new NullStateReaders.ListIsSetVectorStateReader(
+        VectorAccessors.listBitsAccessor(listAccessor));
+    arrayReader.bindNullState(arrayNullState);
+
+    // The nullability of each list entry depends on both the list's null
+    // value, and the null state of the entry. But, if the list entry itself is
+    // null, then we can't iterate over the elements. So, no need to doctor up
+    // the entry's null state.
+
+    // Wrap it all in an object reader.
+
     return new ArrayObjectReader(arrayReader);
   }
 
@@ -197,6 +269,7 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
     baseIndex = index;
     arrayAccessor.bind(index);
     offsetReader.bindIndex(index);
+    nullStateReader.bindIndex(index);
     elementIndex = new ElementReaderIndex(baseIndex);
     elementReader.events().bindIndex(elementIndex);
   }
@@ -265,6 +338,7 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
 
   @Override
   public Object getObject() {
+
     // Simple: return elements as an object list.
     // If really needed, could return as a typed array, but that
     // is a bit of a hassle.
