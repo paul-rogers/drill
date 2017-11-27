@@ -122,6 +122,10 @@ public class VectorAccessors {
     public MajorType type() { return type; }
   }
 
+  /**
+   * Vector accessor for RepeatedVector &rarr; offsets vector
+   */
+
   public static class ArrayOffsetHyperVectorAccessor extends BaseHyperVectorAccessor {
 
     private VectorAccessor repeatedVectorAccessor;
@@ -139,22 +143,9 @@ public class VectorAccessors {
     }
   }
 
-  public static class VarWidthOffsetHyperVectorAccessor extends BaseHyperVectorAccessor {
-
-    private VectorAccessor varWidthVectorAccessor;
-
-    public VarWidthOffsetHyperVectorAccessor(VectorAccessor va) {
-      super(Types.required(MinorType.UINT4));
-      varWidthVectorAccessor = va;
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public <T extends ValueVector> T vector() {
-      VariableWidthVector vector = varWidthVectorAccessor.vector();
-      return (T) vector.getOffsetVector();
-    }
-  }
+  /**
+   * Vector accessor for RepeatedVector &rarr; data vector
+   */
 
   public static class ArrayDataHyperVectorAccessor implements VectorAccessor {
 
@@ -180,6 +171,31 @@ public class VectorAccessors {
       return (T) vector.getDataVector();
     }
   }
+
+  /**
+   * Vector accessor for VariableWidthVector &rarr; offsets vector
+   */
+
+  public static class VarWidthOffsetHyperVectorAccessor extends BaseHyperVectorAccessor {
+
+    private VectorAccessor varWidthVectorAccessor;
+
+    public VarWidthOffsetHyperVectorAccessor(VectorAccessor va) {
+      super(Types.required(MinorType.UINT4));
+      varWidthVectorAccessor = va;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T extends ValueVector> T vector() {
+      VariableWidthVector vector = varWidthVectorAccessor.vector();
+      return (T) vector.getOffsetVector();
+    }
+  }
+
+  /**
+   * Vector accessor for NullableVector &rarr; values vector
+   */
 
   public static class NullableValuesHyperVectorAccessor implements VectorAccessor {
 
@@ -207,7 +223,7 @@ public class VectorAccessors {
   }
 
   /**
-   * Extract null state from the a nullable vector's bits vector.
+   * Vector accessor for NullableVector &rarr; bits vector
    */
 
   public static class NullableBitsHyperVectorStateReader extends BaseHyperVectorAccessor {
@@ -228,7 +244,7 @@ public class VectorAccessors {
   }
 
   /**
-   * Extract null state from a list vector's bits vector.
+   * Vector accessor for ListVector &rarr; bits vector
    */
 
   public static class ListBitsHyperVectorStateReader extends BaseHyperVectorAccessor {
@@ -247,6 +263,10 @@ public class VectorAccessors {
       return (T) vector.getBitsVector();
     }
   }
+
+  /**
+   * Vector accessor for AbstractMapVector &rarr; member vector
+   */
 
   private static class HyperMemberVectorAccessor extends BaseHyperVectorAccessor {
 

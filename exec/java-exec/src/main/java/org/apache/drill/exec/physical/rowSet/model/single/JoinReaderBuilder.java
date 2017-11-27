@@ -124,7 +124,7 @@ public class JoinReaderBuilder extends BaseReaderBuilder {
     MetadataProvider mdProvider = new MetadataCreator();
     List<AbstractObjectReader> readers;
     if (implicitTable.child == null) {
-      readers = buildMap(mapVector, mdProvider);
+      readers = buildMapReaders(mapVector, mdProvider);
     } else {
       readers = buildMap(mapVector, mdProvider, implicitTable.child);
     }

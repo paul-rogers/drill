@@ -23,16 +23,14 @@ import java.util.List;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.rowSet.model.AbstractReaderBuilder;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescrip;
-import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
 import org.apache.drill.exec.vector.accessor.reader.ArrayReaderImpl;
-import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
-import org.apache.drill.exec.vector.accessor.reader.ColumnReaderFactory;
 import org.apache.drill.exec.vector.accessor.reader.MapReader;
 import org.apache.drill.exec.vector.accessor.reader.UnionReaderImpl;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
@@ -41,7 +39,7 @@ import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.ListVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
-public abstract class BaseReaderBuilder {
+public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
 
   protected List<AbstractObjectReader> buildContainerChildren(
       VectorContainer container, MetadataProvider mdProvider) {
@@ -50,48 +48,34 @@ public abstract class BaseReaderBuilder {
       @SuppressWarnings("resource")
       ValueVector vector = container.getValueVector(i).getValueVector();
       VectorDescrip descrip = new VectorDescrip(mdProvider, i, vector.getField());
-      readers.add(buildVectorReader(new SingleVectorAccessor(vector), descrip));
+      readers.add(buildVectorReader(vector, descrip));
     }
     return readers;
   }
 
-  protected AbstractObjectReader buildVectorReader(VectorAccessor va, VectorDescrip descrip) {
+  protected AbstractObjectReader buildVectorReader(ValueVector vector, VectorDescrip descrip) {
+    VectorAccessor va = new SingleVectorAccessor(vector);
     MajorType type = va.type();
 
     switch(type.getMinorType()) {
     case MAP:
-      return buildMap(va, type, descrip);
+      return buildMap((AbstractMapVector) vector, va, type, descrip);
     case UNION:
-      return buildUnion(va, descrip);
+      return buildUnion((UnionVector) vector, va, descrip);
     case LIST:
-      return buildList(va, descrip);
+      return buildList((ListVector) vector, va, descrip);
     default:
-      return buildScalarReader(descrip.metadata, va);
+      return buildScalarReader(va, descrip.metadata);
     }
   }
 
-  private AbstractObjectReader buildScalarReader(ColumnMetadata schema, VectorAccessor va) {
-    BaseScalarReader scalarReader = ColumnReaderFactory.buildColumnReader(va);
-    DataMode mode = va.type().getMode();
-    switch (mode) {
-    case OPTIONAL:
-      return BaseScalarReader.buildOptional(schema, va, scalarReader);
-    case REQUIRED:
-      return BaseScalarReader.buildRequired(schema, va, scalarReader);
-    case REPEATED:
-      return ArrayReaderImpl.buildScalar(schema, va, scalarReader);
-    default:
-      throw new UnsupportedOperationException(mode.toString());
-    }
-  }
-
-  private AbstractObjectReader buildMap(VectorAccessor va, MajorType type, VectorDescrip descrip) {
+  private AbstractObjectReader buildMap(AbstractMapVector vector, VectorAccessor va, MajorType type, VectorDescrip descrip) {
 
     // Map type
 
     AbstractObjectReader mapReader = MapReader.build(
         descrip.metadata,
-        buildMap(va,
+        buildMapMembers(vector,
             descrip.parent.childProvider(descrip.metadata)));
 
     // Single map
@@ -106,22 +90,20 @@ public abstract class BaseReaderBuilder {
   }
 
   @SuppressWarnings("resource")
-  protected List<AbstractObjectReader> buildMap(VectorAccessor mapAccessor, MetadataProvider provider) {
-    AbstractMapVector mapVector = mapAccessor.vector();
+  protected List<AbstractObjectReader> buildMapMembers(AbstractMapVector mapVector, MetadataProvider provider) {
     List<AbstractObjectReader> readers = new ArrayList<>();
     int i = 0;
     for (ValueVector vector : mapVector) {
       VectorDescrip descrip = new VectorDescrip(provider, i, vector.getField());
-      readers.add(buildVectorReader(new SingleVectorAccessor(vector), descrip));
+      readers.add(buildVectorReader(vector, descrip));
       i++;
     }
     return readers;
   }
 
   @SuppressWarnings("resource")
-  private AbstractObjectReader buildUnion(VectorAccessor unionAccessor, VectorDescrip descrip) {
+  private AbstractObjectReader buildUnion(UnionVector vector, VectorAccessor unionAccessor, VectorDescrip descrip) {
     MetadataProvider provider = descrip.childProvider();
-    UnionVector vector = unionAccessor.vector();
     final AbstractObjectReader variants[] = new AbstractObjectReader[MinorType.values().length];
     int i = 0;
     for (MinorType type : vector.getField().getType().getSubTypeList()) {
@@ -133,12 +115,11 @@ public abstract class BaseReaderBuilder {
 
       ValueVector memberVector = ColumnAccessorUtils.getUnionMember(vector, type);
       VectorDescrip memberDescrip = new VectorDescrip(provider, i++, memberVector.getField());
-      variants[type.ordinal()] = buildVectorReader(
-          new SingleVectorAccessor(memberVector), memberDescrip);
+      variants[type.ordinal()] = buildVectorReader(memberVector, memberDescrip);
     }
     return UnionReaderImpl.build(
         descrip.metadata,
-        new SingleVectorAccessor(vector),
+        unionAccessor,
         variants);
   }
 
@@ -166,9 +147,8 @@ public abstract class BaseReaderBuilder {
    */
 
   @SuppressWarnings("resource")
-  private AbstractObjectReader buildList(VectorAccessor listAccessor,
+  private AbstractObjectReader buildList(ListVector vector, VectorAccessor listAccessor,
       VectorDescrip listDescrip) {
-    ListVector vector = listAccessor.vector();
     ValueVector dataVector = vector.getDataVector();
     VectorDescrip dataMetadata;
     if (dataVector.getField().getType().getMinorType() == MinorType.UNION) {
@@ -180,8 +160,7 @@ public abstract class BaseReaderBuilder {
     } else {
       dataMetadata = new VectorDescrip(listDescrip.childProvider(), 0, dataVector.getField());
     }
-    VectorAccessor dataAccessor = new SingleVectorAccessor(dataVector);
     return ArrayReaderImpl.buildList(listDescrip.metadata,
-        listAccessor, buildVectorReader(dataAccessor, dataMetadata));
+        listAccessor, buildVectorReader(dataVector, dataMetadata));
   }
 }

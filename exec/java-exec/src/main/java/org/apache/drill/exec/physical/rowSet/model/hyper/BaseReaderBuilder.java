@@ -23,6 +23,7 @@ import java.util.List;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.physical.rowSet.model.AbstractReaderBuilder;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescrip;
 import org.apache.drill.exec.physical.rowSet.model.ReaderIndex;
@@ -35,13 +36,13 @@ import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.impl.AccessorUtilities;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
-import org.apache.drill.exec.vector.accessor.reader.ColumnReaderFactory;
+import org.apache.drill.exec.vector.accessor.reader.ArrayReaderImpl;
 import org.apache.drill.exec.vector.accessor.reader.MapReader;
-import org.apache.drill.exec.vector.accessor.reader.ObjectArrayReader;
+import org.apache.drill.exec.vector.accessor.reader.UnionReaderImpl;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessor;
-import org.apache.drill.exec.vector.complex.AbstractMapVector;
+import org.apache.drill.exec.vector.accessor.reader.VectorAccessors.BaseHyperVectorAccessor;
 
-public abstract class BaseReaderBuilder {
+public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
 
   /**
    * Read-only row index into the hyper row set with batch and index
@@ -89,13 +90,14 @@ public abstract class BaseReaderBuilder {
       rowIndex = index;
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public ValueVector vector() {
-      return vectors[rowIndex.hyperVectorIndex()];
+    public <T extends ValueVector> T vector() {
+      return (T) vectors[rowIndex.hyperVectorIndex()];
     }
   }
 
-  protected AbstractObjectReader[] buildContainerChildren(
+  protected List<AbstractObjectReader> buildContainerChildren(
       VectorContainer container, MetadataProvider mdProvider) {
     List<AbstractObjectReader> readers = new ArrayList<>();
     for (int i = 0; i < container.getNumberOfColumns(); i++) {
@@ -103,47 +105,85 @@ public abstract class BaseReaderBuilder {
       VectorDescrip descrip = new VectorDescrip(mdProvider, i, vw.getField());
       readers.add(buildVectorReader(vw, descrip));
     }
-    return readers.toArray(new AbstractObjectReader[readers.size()]);
+    return readers;
   }
 
-  @SuppressWarnings("unchecked")
-  private AbstractObjectReader buildVectorReader(VectorWrapper<?> vw, VectorDescrip descrip) {
-    MajorType type = vw.getField().getType();
-    if (type.getMinorType() == MinorType.MAP) {
-      if (type.getMode() == DataMode.REPEATED) {
-        return buildMapArrayReader((HyperVectorWrapper<? extends AbstractMapVector>) vw, descrip);
-      } else {
-        return buildMapReader((HyperVectorWrapper<? extends AbstractMapVector>) vw, descrip);
-      }
-    } else {
-      return buildPrimitiveReader(vw, descrip);
+  protected AbstractObjectReader buildVectorReader(VectorWrapper<?> vw, VectorDescrip descrip) {
+    VectorAccessor va = new HyperVectorAccessor(vw);
+    MajorType type = va.type();
+
+    switch(type.getMinorType()) {
+    case MAP:
+      return buildMap(vw, va, type, descrip);
+    case UNION:
+      return buildUnion(vw, va, descrip);
+    case LIST:
+      return buildList(vw, va, descrip);
+    default:
+      return buildScalarReader(va, descrip.metadata);
     }
   }
 
-  private AbstractObjectReader buildMapArrayReader(HyperVectorWrapper<? extends AbstractMapVector> vectors, VectorDescrip descrip) {
-    AbstractObjectReader mapReader = MapReader.build(descrip.metadata.mapSchema(), buildMap(vectors, descrip));
-    return ObjectArrayReader.build(new HyperVectorAccessor(vectors), mapReader);
+  private AbstractObjectReader buildMap(VectorWrapper<?> vw, VectorAccessor va, MajorType type, VectorDescrip descrip) {
+
+    // Map type
+
+    AbstractObjectReader mapReader = MapReader.build(
+        descrip.metadata,
+        buildMapMembers(vw,
+            descrip.parent.childProvider(descrip.metadata)));
+
+    // Single map
+
+    if (type.getMode() != DataMode.REPEATED) {
+      return mapReader;
+    }
+
+    // Repeated map
+
+    return ArrayReaderImpl.buildTuple(descrip.metadata, va, mapReader);
   }
 
-  private AbstractObjectReader buildMapReader(HyperVectorWrapper<? extends AbstractMapVector> vectors, VectorDescrip descrip) {
-    return MapReader.build(descrip.metadata.mapSchema(), buildMap(vectors, descrip));
-  }
-
-  private AbstractObjectReader buildPrimitiveReader(VectorWrapper<?> vw, VectorDescrip descrip) {
-    return ColumnReaderFactory.buildColumnReader(
-        vw.getField().getType(), new HyperVectorAccessor(vw));
-  }
-
-  private List<AbstractObjectReader> buildMap(HyperVectorWrapper<? extends AbstractMapVector> vectors, VectorDescrip descrip) {
+  protected List<AbstractObjectReader> buildMapMembers(VectorWrapper<?> vw, MetadataProvider provider) {
     List<AbstractObjectReader> readers = new ArrayList<>();
-    MetadataProvider provider = descrip.parent.childProvider(descrip.metadata);
-    MaterializedField mapField = vectors.getField();
+    MaterializedField mapField = vw.getField();
     for (int i = 0; i < mapField.getChildren().size(); i++) {
-      HyperVectorWrapper<? extends ValueVector> child = (HyperVectorWrapper<? extends ValueVector>) vectors.getChildWrapper(new int[] {i});
-      VectorDescrip childDescrip = new VectorDescrip(provider, i, child.getField());
-      readers.add(buildVectorReader(child, childDescrip));
+      HyperVectorWrapper<? extends ValueVector> child = (HyperVectorWrapper<? extends ValueVector>) vw.getChildWrapper(new int[] {i});
+      VectorDescrip descrip = new VectorDescrip(provider, i, child.getField());
+      readers.add(buildVectorReader(child, descrip));
       i++;
     }
     return readers;
+  }
+
+  private AbstractObjectReader buildUnion(VectorWrapper<?> vw, VectorAccessor unionAccessor, VectorDescrip descrip) {
+    MetadataProvider provider = descrip.childProvider();
+    final AbstractObjectReader variants[] = new AbstractObjectReader[MinorType.values().length];
+    for (int i = 0; i < vw.getField().getType().getSubTypeList().size(); i++) {
+      HyperVectorWrapper<? extends ValueVector> child = (HyperVectorWrapper<? extends ValueVector>) vw.getChildWrapper(new int[] {i});
+      VectorDescrip memberDescrip = new VectorDescrip(provider, i, child.getField());
+      variants[child.getField().getType().getMinorType().ordinal()] = buildVectorReader(child, memberDescrip);
+    }
+    return UnionReaderImpl.build(
+        descrip.metadata,
+        unionAccessor,
+        variants);
+  }
+
+  private AbstractObjectReader buildList(VectorWrapper<?> vw, VectorAccessor listAccessor,
+      VectorDescrip listDescrip) {
+    HyperVectorWrapper<? extends ValueVector> dataWrapper = (HyperVectorWrapper<? extends ValueVector>) vw.getChildWrapper(new int[] {0});
+    VectorDescrip dataMetadata;
+    if (dataWrapper.getField().getType().getMinorType() == MinorType.UNION) {
+
+      // If the list holds a union, then the list and union are collapsed
+      // together in the metadata layer.
+
+      dataMetadata = listDescrip;
+    } else {
+      dataMetadata = new VectorDescrip(listDescrip.childProvider(), 0, dataWrapper.getField());
+    }
+    return ArrayReaderImpl.buildList(listDescrip.metadata,
+        listAccessor, buildVectorReader(dataWrapper, dataMetadata));
   }
 }

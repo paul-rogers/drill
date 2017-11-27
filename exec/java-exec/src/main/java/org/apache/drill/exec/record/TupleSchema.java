@@ -643,6 +643,14 @@ public class TupleSchema implements TupleMetadata {
     return tuple;
   }
 
+  public static TupleMetadata fromBatchSchema(BatchSchema batchSchema) {
+    TupleSchema tuple = new TupleSchema();
+    for (MaterializedField field : batchSchema) {
+      tuple.add(fromView(field));
+    }
+    return tuple;
+  }
+
   /**
    * Create a column metadata object for a map column, given the
    * {@link MaterializedField} that describes the column, and a list

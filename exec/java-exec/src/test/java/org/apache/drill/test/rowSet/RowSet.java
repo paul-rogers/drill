@@ -140,4 +140,10 @@ public interface RowSet {
   interface HyperRowSet extends RowSet {
     SelectionVector4 getSv4();
   }
+
+  interface HyperRowSetBuilder {
+    void addBatch(SingleRowSet rowSet);
+    void addBatch(VectorContainer container);
+    HyperRowSet build();
+  }
 }

@@ -277,7 +277,7 @@ public class OperatorFixture extends BaseFixture implements AutoCloseable {
   public RowSet wrap(VectorContainer container) {
     switch (container.getSchema().getSelectionVectorMode()) {
     case FOUR_BYTE:
-      return new HyperRowSetImpl(container, container.getSelectionVector4());
+      return HyperRowSetImpl.fromContainer(container, container.getSelectionVector4());
     case NONE:
       return DirectRowSet.fromContainer(container);
     case TWO_BYTE:

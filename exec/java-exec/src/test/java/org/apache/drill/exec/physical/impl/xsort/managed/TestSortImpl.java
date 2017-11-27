@@ -157,7 +157,7 @@ public class TestSortImpl extends DrillTest {
       }
       for (RowSet expectedSet : expected) {
         assertTrue(results.next());
-        RowSet rowSet = toRowSet(fixture, results, dest);
+        RowSet rowSet = toRowSet(results, dest);
         // Uncomment these for debugging. Leave them commented otherwise
         // to avoid polluting the Maven build output unnecessarily.
 //        System.out.println("Expected:");
@@ -191,9 +191,9 @@ public class TestSortImpl extends DrillTest {
    * @return
    */
 
-  private static RowSet toRowSet(OperatorFixture fixture, SortResults results, VectorContainer dest) {
+  private static RowSet toRowSet(SortResults results, VectorContainer dest) {
     if (results.getSv4() != null) {
-      return new HyperRowSetImpl(dest, results.getSv4());
+      return HyperRowSetImpl.fromContainer(dest, results.getSv4());
     } else if (results.getSv2() != null) {
       return IndirectRowSet.fromSv2(dest, results.getSv2());
     } else {
@@ -447,7 +447,7 @@ public class TestSortImpl extends DrillTest {
     }
     while (results.next()) {
       timer.stop();
-      RowSet output = toRowSet(fixture, results, dest);
+      RowSet output = toRowSet(results, dest);
       validator.validate(output);
       timer.start();
     }
