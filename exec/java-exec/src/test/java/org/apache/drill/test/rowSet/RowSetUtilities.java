@@ -170,4 +170,17 @@ public class RowSetUtilities {
         throw new IllegalStateException( "Unexpected type: " + type);
     }
   }
+
+  public static Object[] mapValue(Object... members) {
+    return members;
+  }
+
+  public static String[] strArray(String... elements) {
+    return elements;
+  }
+
+  public static Object[][] mapArray(Object[]... elements) {
+    return elements;
+  }
+
 }

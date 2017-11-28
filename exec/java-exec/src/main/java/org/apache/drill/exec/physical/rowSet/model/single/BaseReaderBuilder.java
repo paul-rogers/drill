@@ -59,7 +59,7 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
 
     switch(type.getMinorType()) {
     case MAP:
-      return buildMap((AbstractMapVector) vector, va, type, descrip);
+      return buildMap((AbstractMapVector) vector, va, type.getMode(), descrip);
     case UNION:
       return buildUnion((UnionVector) vector, va, descrip);
     case LIST:
@@ -69,18 +69,21 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
     }
   }
 
-  private AbstractObjectReader buildMap(AbstractMapVector vector, VectorAccessor va, MajorType type, VectorDescrip descrip) {
+  private AbstractObjectReader buildMap(AbstractMapVector vector, VectorAccessor va, DataMode mode, VectorDescrip descrip) {
+
+    boolean isArray = mode == DataMode.REPEATED;
 
     // Map type
 
     AbstractObjectReader mapReader = MapReader.build(
         descrip.metadata,
+        isArray ? null : va,
         buildMapMembers(vector,
             descrip.parent.childProvider(descrip.metadata)));
 
     // Single map
 
-    if (type.getMode() != DataMode.REPEATED) {
+    if (! isArray) {
       return mapReader;
     }
 

@@ -39,10 +39,14 @@ public interface MetadataProvider {
     public final MetadataProvider parent;
     public final ColumnMetadata metadata;
 
+    public VectorDescrip(MetadataProvider provider, ColumnMetadata metadata) {
+      parent = provider;
+      this.metadata = metadata;
+    }
+
     public VectorDescrip(MetadataProvider provider, int index,
         MaterializedField field) {
-      parent = provider;
-      metadata = provider.metadata(index, field);
+      this(provider, provider.metadata(index, field));
     }
 
     public MetadataProvider childProvider() {

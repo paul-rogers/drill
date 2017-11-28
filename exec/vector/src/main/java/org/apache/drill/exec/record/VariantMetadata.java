@@ -127,6 +127,8 @@ public interface VariantMetadata {
 
   Collection<MinorType> types();
 
+  Collection<ColumnMetadata> members();
+
   /**
    * Retrieve the virtual column for a given type.
    *

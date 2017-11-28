@@ -65,41 +65,6 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
     @Override
     protected ReaderEvents events() { return reader; }
   }
-
-  private static class HyperTypeVectorAccessor extends BaseHyperVectorAccessor {
-
-    private VectorAccessor unionVectorAccessor;
-
-    private HyperTypeVectorAccessor(VectorAccessor va) {
-      super(Types.required(MinorType.UINT1));
-      unionVectorAccessor = va;
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public <T extends ValueVector> T vector() {
-      UnionVector vector = unionVectorAccessor.vector();
-      return (T) vector.getTypeVector();
-    }
-  }
-
-  private static class HyperMemberVectorAccessor extends BaseHyperVectorAccessor {
-
-    private final VectorAccessor unionVectorAccessor;
-
-    private HyperMemberVectorAccessor(VectorAccessor va, MinorType memberType) {
-      super(Types.optional(memberType));
-      unionVectorAccessor = va;
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public <T extends ValueVector> T vector() {
-      UnionVector vector = unionVectorAccessor.vector();
-      return (T) ColumnAccessorUtils.getUnionMember(vector, type.getMinorType());
-    }
-  }
-
   private final VariantMetadata schema;
   private final UInt1ColumnReader typeReader;
   private final AbstractObjectReader variants[];

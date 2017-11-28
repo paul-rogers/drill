@@ -20,15 +20,14 @@ package org.apache.drill.test.rowSet;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.MetadataRetrieval;
 import org.apache.drill.exec.physical.rowSet.model.SchemaInference;
 import org.apache.drill.exec.physical.rowSet.model.hyper.BaseReaderBuilder;
-import org.apache.drill.exec.record.BatchSchema;
+import org.apache.drill.exec.physical.rowSet.model.hyper.BaseReaderBuilder.HyperMetadataBuilder;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.ExpandableHyperContainer;
 import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector4;
 import org.apache.drill.test.rowSet.RowSet.HyperRowSet;
@@ -52,8 +51,7 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
       TupleMetadata schema = rowSet.schema();
       HyperRowIndex rowIndex = new HyperRowIndex(sv4);
       return new RowSetReaderImpl(schema, rowIndex,
-          buildContainerChildren(rowSet.container(),
-              new MetadataRetrieval(schema)));
+          buildContainerChildren(rowSet.container(), schema));
     }
   }
 
@@ -61,8 +59,6 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
 
     private final BufferAllocator allocator;
     private final List<VectorContainer> batches = new ArrayList<>();
-    private TupleMetadata schema;
-    private BatchSchema batchSchema;
     private int totalRowCount;
 
     public HyperRowSetBuilderImpl(BufferAllocator allocator) {
@@ -77,11 +73,6 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
       if (rowSet.indirectionType() != SelectionVectorMode.NONE) {
         throw new IllegalArgumentException("Batches must not have a selection vector.");
       }
-      if (batches.isEmpty()) {
-        schema = rowSet.schema();
-      } else if (! schema().isEquivalent(rowSet.schema())) {
-        throw new IllegalStateException("Schemas don't match.");
-      }
       batches.add(rowSet.container());
       totalRowCount += rowSet.rowCount();
     }
@@ -94,51 +85,20 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
       if (container.getSchema().getSelectionVectorMode() != SelectionVectorMode.NONE) {
         throw new IllegalArgumentException("Batches must not have a selection vector.");
       }
-      if (batches.isEmpty()) {
-        batchSchema = container.getSchema();
-      } else if (! batchSchema().isEquivalent(container.getSchema())) {
-        throw new IllegalStateException("Schemas don't match.");
-      }
       batches.add(container);
       totalRowCount += container.getRecordCount();
     }
 
-    private BatchSchema batchSchema() {
-      if (batchSchema != null) {
-        return batchSchema;
-      } else if (schema == null) {
-        return null;
-      }
-      batchSchema = new BatchSchema(SelectionVectorMode.NONE, schema.toFieldList());
-      return batchSchema;
-    }
-
-    private TupleMetadata schema() {
-      if (schema != null) {
-        return schema;
-      } else if (batchSchema == null) {
-        return null;
-      }
-      schema = TupleSchema.fromBatchSchema(batchSchema);
-      return schema;
-    }
-
     @SuppressWarnings("resource")
     @Override
-    public HyperRowSet build() {
+    public HyperRowSet build() throws SchemaChangeException {
       SelectionVector4 sv4 = new SelectionVector4(allocator, totalRowCount);
-      if (batches.isEmpty()) {
-        if (schema == null) {
-          schema = new TupleSchema();
-        }
-        SingleRowSet empty = DirectRowSet.fromSchema(allocator, schema());
-        batches.add(empty.container());
-      }
       ExpandableHyperContainer hyperContainer = new ExpandableHyperContainer();
       for (VectorContainer container : batches) {
         hyperContainer.addBatch(container);
       }
-      return new HyperRowSetImpl(schema(), hyperContainer, sv4);
+      TupleMetadata schema = new HyperMetadataBuilder().build(hyperContainer);
+      return new HyperRowSetImpl(schema, hyperContainer, sv4);
     }
   }
 
@@ -170,7 +130,11 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
     for (SingleRowSet rowSet : rowSets) {
       builder.addBatch(rowSet);
     }
-    return builder.build();
+    try {
+      return builder.build();
+    } catch (SchemaChangeException e) {
+      throw new IllegalArgumentException("Incompatible schemas", e);
+    }
   }
 
   @Override

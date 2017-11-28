@@ -16,6 +16,9 @@ import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSet.ExtendableRowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 import org.apache.drill.test.rowSet.RowSetReader;
+import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
+import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
+import static org.apache.drill.test.rowSet.RowSetUtilities.mapArray;
 import org.apache.drill.test.rowSet.RowSet.HyperRowSet;
 import org.junit.Test;
 
@@ -114,27 +117,15 @@ public class TestHyperVectorReaders extends SubOperatorTest {
         .add("a", MinorType.VARCHAR)
         .buildSchema();
 
-    SingleRowSet rowSet1;
-    {
-      ExtendableRowSet rowSet = fixture.rowSet(schema);
-      RowSetWriter writer = rowSet.writer();
-      writer.scalar(0).setString("second");
-      writer.save();
-      writer.scalar(0).setString("fourth");
-      writer.save();
-      rowSet1 = writer.done();
-    }
+    SingleRowSet rowSet1 = fixture.rowSetBuilder(schema)
+        .addSingleCol("second")
+        .addSingleCol("fourth")
+        .build();
 
-    SingleRowSet rowSet2;
-    {
-      ExtendableRowSet rowSet = fixture.rowSet(schema);
-      RowSetWriter writer = rowSet.writer();
-      writer.scalar(0).setString("first");
-      writer.save();
-      writer.scalar(0).setString("third");
-      writer.save();
-      rowSet2 = writer.done();
-    }
+    SingleRowSet rowSet2 = fixture.rowSetBuilder(schema)
+        .addSingleCol("first")
+        .addSingleCol("third")
+        .build();
 
     // Build the hyper batch
 
@@ -158,37 +149,37 @@ public class TestHyperVectorReaders extends SubOperatorTest {
       .verifyAndClearAll(hyperSet);
   }
 
+  /**
+   * Test a nullable varchar. Requires multiple indirections:
+   * <ul>
+   * <li>From the SV4 to the nullable vector.</li>
+   * <li>From the nullable vector to the bits vector.</li>
+   * <li>From the nullable vector to the data vector.</li>
+   * <li>From the data vector to the offset vector.</li>
+   * <li>From the data vector to the values vector.</li>
+   * </ul>
+   * All are coordinated by the vector index and vector accessors.
+   * This test verifies that each of the indirections does, in fact,
+   * work as expected.
+   */
+
   @Test
   public void testOptional() {
     TupleMetadata schema = new SchemaBuilder()
         .addNullable("a", MinorType.VARCHAR)
         .buildSchema();
 
-    SingleRowSet rowSet1;
-    {
-      ExtendableRowSet rowSet = fixture.rowSet(schema);
-      RowSetWriter writer = rowSet.writer();
-      writer.scalar(0).setString("sixth");
-      writer.save();
-      writer.scalar(0).setNull();
-      writer.save();
-      writer.scalar(0).setString("fourth");
-      writer.save();
-      rowSet1 = writer.done();
-    }
+    SingleRowSet rowSet1 = fixture.rowSetBuilder(schema)
+        .addSingleCol("sixth")
+        .addSingleCol(null)
+        .addSingleCol("fourth")
+        .build();
 
-    SingleRowSet rowSet2;
-    {
-      ExtendableRowSet rowSet = fixture.rowSet(schema);
-      RowSetWriter writer = rowSet.writer();
-      writer.scalar(0).setNull();
-      writer.save();
-      writer.scalar(0).setString("first");
-      writer.save();
-      writer.scalar(0).setString("third");
-      writer.save();
-      rowSet2 = writer.done();
-    }
+    SingleRowSet rowSet2 = fixture.rowSetBuilder(schema)
+        .addSingleCol(null)
+        .addSingleCol("first")
+        .addSingleCol("third")
+        .build();
 
     // Build the hyper batch
 
@@ -216,16 +207,144 @@ public class TestHyperVectorReaders extends SubOperatorTest {
       .verifyAndClearAll(hyperSet);
   }
 
+  /**
+   * Test an array to test the indirection from the repeated vector
+   * to the array offsets vector and the array values vector. (Uses
+   * varchar to add another level of indirection to the data offset
+   * and data values vectors.)
+   */
+
   @Test
   public void testRepeated() {
+    TupleMetadata schema = new SchemaBuilder()
+        .addArray("a", MinorType.VARCHAR)
+        .buildSchema();
+
+    SingleRowSet rowSet1 = fixture.rowSetBuilder(schema)
+        .addSingleCol(strArray("sixth", "6.1", "6.2"))
+        .addSingleCol(strArray("second", "2.1", "2.2", "2.3"))
+        .addSingleCol(strArray("fourth", "4.1"))
+        .build();
+
+    SingleRowSet rowSet2 = fixture.rowSetBuilder(schema)
+        .addSingleCol(strArray("fifth", "51", "5.2"))
+        .addSingleCol(strArray("first", "1.1", "1.2", "1.3"))
+        .addSingleCol(strArray("third", "3.1"))
+        .build();
+
+    // Build the hyper batch
+
+    HyperRowSet hyperSet = HyperRowSetImpl.fromRowSets(fixture.allocator(), rowSet1, rowSet2);
+    assertEquals(6, hyperSet.rowCount());
+    @SuppressWarnings("resource")
+    SelectionVector4 sv4 = hyperSet.getSv4();
+    sv4.set(0, 1, 1);
+    sv4.set(1, 0, 1);
+    sv4.set(2, 1, 2);
+    sv4.set(3, 0, 2);
+    sv4.set(4, 1, 0);
+    sv4.set(5, 0, 0);
+
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
+        .addSingleCol(strArray("first", "1.1", "1.2", "1.3"))
+        .addSingleCol(strArray("second", "2.1", "2.2", "2.3"))
+        .addSingleCol(strArray("third", "3.1"))
+        .addSingleCol(strArray("fourth", "4.1"))
+        .addSingleCol(strArray("fifth", "51", "5.2"))
+        .addSingleCol(strArray("sixth", "6.1", "6.2"))
+        .build();
+
+    new RowSetComparison(expected)
+      .verifyAndClearAll(hyperSet);
   }
+
+  /**
+   * Maps are an interesting case. The hyper-vector wrapper holds a mirror-image of the
+   * map members. So, we can reach the map members either via the vector wrappers or
+   * the original map vector.
+   */
 
   @Test
   public void testMap() {
+    TupleMetadata schema = new SchemaBuilder()
+        .addMap("m")
+          .add("a", MinorType.INT)
+          .add("b", MinorType.VARCHAR)
+          .buildMap()
+        .buildSchema();
+
+    SingleRowSet rowSet1 = fixture.rowSetBuilder(schema)
+        .addSingleCol(mapValue(2, "second"))
+        .addSingleCol(mapValue(4, "fourth"))
+        .build();
+
+    SingleRowSet rowSet2 = fixture.rowSetBuilder(schema)
+        .addSingleCol(mapValue(2, "first"))
+        .addSingleCol(mapValue(4, "third"))
+        .build();
+
+    // Build the hyper batch
+
+    HyperRowSet hyperSet = HyperRowSetImpl.fromRowSets(fixture.allocator(), rowSet1, rowSet2);
+    assertEquals(4, hyperSet.rowCount());
+    @SuppressWarnings("resource")
+    SelectionVector4 sv4 = hyperSet.getSv4();
+    sv4.set(0, 1, 0);
+    sv4.set(1, 0, 0);
+    sv4.set(2, 1, 1);
+    sv4.set(3, 0, 1);
+
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
+        .addSingleCol(mapValue(2, "first"))
+        .addSingleCol(mapValue(2, "second"))
+        .addSingleCol(mapValue(4, "third"))
+        .addSingleCol(mapValue(4, "fourth"))
+        .build();
+
+    new RowSetComparison(expected)
+      .verifyAndClearAll(hyperSet);
   }
 
   @Test
   public void testRepeatedMap() {
+    TupleMetadata schema = new SchemaBuilder()
+        .add("a", MinorType.INT)
+        .addMapArray("ma")
+          .add("b", MinorType.INT)
+          .add("c", MinorType.VARCHAR)
+          .buildMap()
+        .buildSchema();
+
+    SingleRowSet rowSet1 = fixture.rowSetBuilder(schema)
+        .addRow(2, mapArray(mapValue(21, "second.1"), mapValue(22, "second.2")))
+        .addRow(4, mapArray(mapValue(41, "fourth.1")))
+        .build();
+
+    SingleRowSet rowSet2 = fixture.rowSetBuilder(schema)
+        .addRow(1, mapArray(mapValue(11, "first.1"), mapValue(12, "first.2")))
+        .addRow(3, mapArray(mapValue(31, "third.1"), mapValue(32, "third.2"), mapValue(33, "third.3")))
+        .build();
+
+    // Build the hyper batch
+
+    HyperRowSet hyperSet = HyperRowSetImpl.fromRowSets(fixture.allocator(), rowSet1, rowSet2);
+    assertEquals(4, hyperSet.rowCount());
+    @SuppressWarnings("resource")
+    SelectionVector4 sv4 = hyperSet.getSv4();
+    sv4.set(0, 1, 0);
+    sv4.set(1, 0, 0);
+    sv4.set(2, 1, 1);
+    sv4.set(3, 0, 1);
+
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
+        .addRow(1, mapArray(mapValue(11, "first.1"), mapValue(12, "first.2")))
+        .addRow(2, mapArray(mapValue(21, "second.1"), mapValue(22, "second.2")))
+        .addRow(3, mapArray(mapValue(31, "third.1"), mapValue(32, "third.2"), mapValue(33, "third.3")))
+        .addRow(4, mapArray(mapValue(41, "fourth.1")))
+        .build();
+
+    new RowSetComparison(expected)
+      .verifyAndClearAll(hyperSet);
   }
 
   @Test

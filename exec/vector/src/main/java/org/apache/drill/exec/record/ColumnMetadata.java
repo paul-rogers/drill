@@ -18,6 +18,7 @@
 package org.apache.drill.exec.record;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
+import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 
 /**
@@ -39,6 +40,7 @@ public interface ColumnMetadata {
   MaterializedField schema();
   String name();
   MinorType type();
+  MajorType majorType();
   DataMode mode();
   boolean isNullable();
   boolean isArray();

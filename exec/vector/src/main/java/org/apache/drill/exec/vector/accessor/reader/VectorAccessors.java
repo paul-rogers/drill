@@ -23,10 +23,12 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.vector.NullableVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VariableWidthVector;
+import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.ListVector;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
+import org.apache.drill.exec.vector.complex.UnionVector;
 
 /**
  * Collection of hyper-vector accessors. These are needed to handle the
@@ -264,17 +266,34 @@ public class VectorAccessors {
     }
   }
 
+  public static class ListMemberHyperVectorAccessor extends BaseHyperVectorAccessor {
+
+    public final VectorAccessor listAccessor;
+
+    public ListMemberHyperVectorAccessor(VectorAccessor listAccessor, MajorType memberType) {
+      super(memberType);
+      this.listAccessor = listAccessor;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T extends ValueVector> T vector() {
+      ListVector vector = listAccessor.vector();
+      return (T) vector.getDataVector();
+    }
+  }
+
   /**
    * Vector accessor for AbstractMapVector &rarr; member vector
    */
 
-  private static class HyperMemberVectorAccessor extends BaseHyperVectorAccessor {
+  public static class MapMemberHyperVectorAccessor extends BaseHyperVectorAccessor {
 
     private final VectorAccessor mapAccessor;
     private final int index;
 
-    private HyperMemberVectorAccessor(VectorAccessor va, int index, MajorType memberType) {
-      super(memberType);
+    public MapMemberHyperVectorAccessor(VectorAccessor va, int index, MajorType type) {
+      super(type);
       mapAccessor = va;
       this.index = index;
     }
@@ -286,6 +305,46 @@ public class VectorAccessors {
       return (T) vector.getChildByOrdinal(index);
     }
   }
+
+  public static class UnionTypeHyperVectorAccessor extends BaseHyperVectorAccessor {
+
+    private VectorAccessor unionVectorAccessor;
+
+    private UnionTypeHyperVectorAccessor(VectorAccessor va) {
+      super(Types.required(MinorType.UINT1));
+      unionVectorAccessor = va;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T extends ValueVector> T vector() {
+      UnionVector vector = unionVectorAccessor.vector();
+      return (T) vector.getTypeVector();
+    }
+  }
+
+  public static class UnionMemberHyperVectorAccessor extends BaseHyperVectorAccessor {
+
+    private final VectorAccessor unionVectorAccessor;
+    private final MinorType typeKey;
+
+    public UnionMemberHyperVectorAccessor(VectorAccessor va, MajorType type) {
+
+      // There is no materialized field for union members, so make one up.
+
+      super(type);
+      unionVectorAccessor = va;
+      typeKey = type.getMinorType();
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T extends ValueVector> T vector() {
+      UnionVector vector = unionVectorAccessor.vector();
+      return (T) ColumnAccessorUtils.getUnionMember(vector, typeKey);
+    }
+  }
+
 
   public static VectorAccessor arrayOffsetVectorAccessor(VectorAccessor repeatedAccessor) {
     if (repeatedAccessor.isHyper()) {
@@ -345,13 +404,13 @@ public class VectorAccessors {
     }
   }
 
-  public static VectorAccessor memberHyperAccessor(VectorAccessor mapAccessor, int index, MajorType memberType) {
-    if (mapAccessor.isHyper()) {
-      return new HyperMemberVectorAccessor(mapAccessor, index, memberType);
-    } else {
-      AbstractMapVector vector = mapAccessor.vector();
-      return new SingleVectorAccessor(
-          vector.getChildByOrdinal(index));
-    }
-  }
+//  public static VectorAccessor memberHyperAccessor(VectorAccessor mapAccessor, int index, MajorType memberType) {
+//    if (mapAccessor.isHyper()) {
+//      return new MapMemberHyperVectorAccessor(mapAccessor, index, memberType);
+//    } else {
+//      AbstractMapVector vector = mapAccessor.vector();
+//      return new SingleVectorAccessor(
+//          vector.getChildByOrdinal(index));
+//    }
+//  }
 }

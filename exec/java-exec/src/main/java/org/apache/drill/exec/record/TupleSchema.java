@@ -115,6 +115,14 @@ public class TupleSchema implements TupleMetadata {
     public MinorType type() { return type; }
 
     @Override
+    public MajorType majorType() {
+      return MajorType.newBuilder()
+          .setMinorType(type())
+          .setMode(mode())
+          .build();
+    }
+
+    @Override
     public DataMode mode() { return mode; }
 
     @Override
@@ -281,20 +289,24 @@ public class TupleSchema implements TupleMetadata {
     }
 
     @Override
+    public MajorType majorType() {
+      return MajorType.newBuilder()
+          .setMinorType(type)
+          .setMode(mode)
+          .setPrecision(precision)
+          .setScale(scale)
+          .build();
+    }
+
+    @Override
     public MaterializedField schema() {
-      return MaterializedField.create(name,
-          MajorType.newBuilder()
-            .setMinorType(type)
-            .setMode(mode)
-            .setPrecision(precision)
-            .setScale(scale)
-            .build());
+      return MaterializedField.create(name, majorType());
     }
   }
 
   public static class VariantSchema implements VariantMetadata {
 
-    private final Map<MinorType, AbstractColumnMetadata> types = new HashMap<>();
+    private final Map<MinorType, ColumnMetadata> types = new HashMap<>();
     private VariantColumnMetadata parent;
 
     protected void bind(VariantColumnMetadata parent) {
@@ -349,7 +361,7 @@ public class TupleSchema implements TupleMetadata {
         }
         break;
       }
-      types.put(col.type(), (AbstractColumnMetadata) col);
+      types.put(col.type(), col);
     }
 
     private void checkType(MinorType type) {
@@ -377,6 +389,11 @@ public class TupleSchema implements TupleMetadata {
     @Override
     public Collection<MinorType> types() {
       return types.keySet();
+    }
+
+    @Override
+    public Collection<ColumnMetadata> members() {
+      return types.values();
     }
 
     public void addMap(MapColumnMetadata mapCol) {

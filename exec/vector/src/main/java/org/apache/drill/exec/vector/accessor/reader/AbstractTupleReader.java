@@ -39,7 +39,7 @@ public abstract class AbstractTupleReader implements TupleReader, ReaderEvents {
 
   public static class TupleObjectReader extends AbstractObjectReader {
 
-    private AbstractTupleReader tupleReader;
+    private final AbstractTupleReader tupleReader;
 
     public TupleObjectReader(ColumnMetadata schema, AbstractTupleReader tupleReader) {
       super(schema);

@@ -21,6 +21,7 @@ import java.util.List;
 
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 
 /**
  * Reader for a Drill Map type. Maps are actually tuples, just like rows.
@@ -28,19 +29,45 @@ import org.apache.drill.exec.record.TupleMetadata;
 
 public class MapReader extends AbstractTupleReader {
 
+  /**
+   * Accessor for the map vector. This class does not use the map vector
+   * directory. However, in the case of a map hyper-vector, we need to
+   * tell the vector which batch to use. (For an array, the array does
+   * this work and the map accessor is null.)
+   */
+
+  private final VectorAccessor mapAccessor;
+
   protected MapReader(TupleMetadata schema, AbstractObjectReader readers[]) {
-    super(schema, readers);
+    this(schema, null, readers);
   }
 
-  public static TupleObjectReader build(ColumnMetadata schema, AbstractObjectReader readers[]) {
-    MapReader mapReader = new MapReader(schema.mapSchema(), readers);
+  protected MapReader(TupleMetadata schema,
+      VectorAccessor mapAccessor, AbstractObjectReader readers[]) {
+    super(schema, readers);
+    this.mapAccessor = mapAccessor;
+  }
+
+  public static TupleObjectReader build(ColumnMetadata schema,
+      VectorAccessor mapAccessor,
+      AbstractObjectReader readers[]) {
+    MapReader mapReader = new MapReader(schema.mapSchema(), mapAccessor, readers);
     mapReader.bindNullState(NullStateReaders.REQUIRED_STATE_READER);
     return new TupleObjectReader(schema, mapReader);
   }
 
   public static AbstractObjectReader build(ColumnMetadata schema,
+      VectorAccessor mapAccessor,
       List<AbstractObjectReader> readers) {
     AbstractObjectReader readerArray[] = new AbstractObjectReader[readers.size()];
-    return build(schema, readers.toArray(readerArray));
+    return build(schema, mapAccessor, readers.toArray(readerArray));
+  }
+
+  @Override
+  public void bindIndex(ColumnReaderIndex index) {
+    if (mapAccessor != null) {
+      mapAccessor.bind(index);
+    }
+    super.bindIndex(index);
   }
 }
