@@ -31,7 +31,9 @@ import org.apache.drill.exec.vector.complex.RepeatedValueVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
 /**
- * Collection of hyper-vector accessors. These are needed to handle the
+ * Collection of vector accessors. A single class handles the single-batch
+ * case. But, for hyper-vectors, we need a separate accessor for each
+ * (vector, sub-vector) combination to handle the
  * indirections in the hyper-vector case.
  * <p>
  * For a required vector:<br>
@@ -67,7 +69,7 @@ import org.apache.drill.exec.vector.complex.UnionVector;
  * unions.
  * <p>
  * Because the navigation is required on every access, the use of hyper
- * vectors is very slow. Since hyper-vectors are seldom used, we
+ * vectors is slow. Since hyper-vectors are seldom used, we
  * optimize for the single-batch case by caching vectors at each
  * stage. Thus, for the single-batch case, we use different accessor
  * implementations. To keep the rest of the code simple, both the
@@ -306,11 +308,15 @@ public class VectorAccessors {
     }
   }
 
+  /**
+   * Vector accessor for UnionVector &rarr; type vector
+   */
+
   public static class UnionTypeHyperVectorAccessor extends BaseHyperVectorAccessor {
 
     private VectorAccessor unionVectorAccessor;
 
-    private UnionTypeHyperVectorAccessor(VectorAccessor va) {
+    public UnionTypeHyperVectorAccessor(VectorAccessor va) {
       super(Types.required(MinorType.UINT1));
       unionVectorAccessor = va;
     }
@@ -322,6 +328,10 @@ public class VectorAccessors {
       return (T) vector.getTypeVector();
     }
   }
+
+  /**
+   * Vector accessor for UnionVector &rarr; data vector
+   */
 
   public static class UnionMemberHyperVectorAccessor extends BaseHyperVectorAccessor {
 
@@ -345,6 +355,9 @@ public class VectorAccessors {
     }
   }
 
+  // Methods to create vector accessors for sub-vectors internal to various
+  // value vectors. These methods are called from the readers themselves rather
+  // than the reader builders.
 
   public static VectorAccessor arrayOffsetVectorAccessor(VectorAccessor repeatedAccessor) {
     if (repeatedAccessor.isHyper()) {
@@ -403,14 +416,4 @@ public class VectorAccessors {
           vector.getBitsVector());
     }
   }
-
-//  public static VectorAccessor memberHyperAccessor(VectorAccessor mapAccessor, int index, MajorType memberType) {
-//    if (mapAccessor.isHyper()) {
-//      return new MapMemberHyperVectorAccessor(mapAccessor, index, memberType);
-//    } else {
-//      AbstractMapVector vector = mapAccessor.vector();
-//      return new SingleVectorAccessor(
-//          vector.getChildByOrdinal(index));
-//    }
-//  }
 }

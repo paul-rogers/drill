@@ -428,6 +428,27 @@ public class TupleSchema implements TupleMetadata {
       types.put(type, col);
       return col;
     }
+
+    @Override
+    public boolean isSingleType() {
+      return types.size() == 1;
+    }
+
+    @Override
+    public ColumnMetadata listSubtype() {
+      if (isSingleType()) {
+        return types.values().iterator().next();
+      }
+
+      // At the metadata level, a list always holds a union. But, at the
+      // implementation layer, a union of a single type is collapsed out
+      // to leave just a list of that single type.
+      //
+      // Make up a synthetic union column to be used when building
+      // a reader.
+
+      return new VariantColumnMetadata("$data", MinorType.UNION, this);
+    }
   }
 
   public static class VariantColumnMetadata extends AbstractColumnMetadata {

@@ -148,4 +148,27 @@ public interface VariantMetadata {
    */
 
   ColumnMetadata parent();
+
+  /**
+   * A list is defined as a list of variants at the metadata layer.
+   * But, in implementation, a list will do special processing if the
+   * variant (union) contains only one type.
+   *
+   * @return <tt>true</tt> if this variant contains only one type,
+   * </tt>false</tt> if the variant contains 0, 2 or more types
+   */
+
+  boolean isSingleType();
+
+  /**
+   * Lists are odd creatures: they contain a union if they have more
+   * than one subtype, but are like a nullable repeated type if they
+   * contain only one type. This method returns the type of the array:
+   * either the single type (if {@link #isSingleType()} is <tt>true</tt>)
+   * or a reference to the synthetic union column nested inside the
+   * list.
+   * @return the metadata for the implicit column within the list
+   */
+
+  ColumnMetadata listSubtype();
 }

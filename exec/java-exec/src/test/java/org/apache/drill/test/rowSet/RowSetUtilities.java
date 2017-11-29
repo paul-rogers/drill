@@ -183,4 +183,8 @@ public class RowSetUtilities {
     return elements;
   }
 
+  public static Object[] variantArray(Object... elements) {
+    return elements;
+  }
+
 }

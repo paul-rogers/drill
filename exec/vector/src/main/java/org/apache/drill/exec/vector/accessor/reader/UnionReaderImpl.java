@@ -18,12 +18,9 @@
 package org.apache.drill.exec.vector.accessor.reader;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.common.types.Types;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.VariantMetadata;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
-import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
@@ -31,8 +28,8 @@ import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.VariantReader;
-import org.apache.drill.exec.vector.accessor.reader.VectorAccessors.BaseHyperVectorAccessor;
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessors.SingleVectorAccessor;
+import org.apache.drill.exec.vector.accessor.reader.VectorAccessors.UnionTypeHyperVectorAccessor;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
 public class UnionReaderImpl implements VariantReader, ReaderEvents {
@@ -66,17 +63,19 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
     protected ReaderEvents events() { return reader; }
   }
   private final VariantMetadata schema;
+  private final VectorAccessor unionAccessor;
+  private final VectorAccessor typeAccessor;
   private final UInt1ColumnReader typeReader;
   private final AbstractObjectReader variants[];
   protected NullStateReader nullStateReader;
 
   public UnionReaderImpl(VariantMetadata schema, VectorAccessor va, AbstractObjectReader variants[]) {
     this.schema = schema;
+    this.unionAccessor = va;
     typeReader = new UInt1ColumnReader();
     typeReader.bindNullState(NullStateReaders.REQUIRED_STATE_READER);
-    VectorAccessor typeAccessor;
     if (va.isHyper()) {
-      typeAccessor = new HyperTypeVectorAccessor(va);
+      typeAccessor = new UnionTypeHyperVectorAccessor(va);
     } else {
       UnionVector unionVector = va.vector();
       typeAccessor = new SingleVectorAccessor(unionVector.getTypeVector());
@@ -114,10 +113,6 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
     }
   }
 
-  public static VectorAccessor memberHyperAccessor(VectorAccessor unionAccessor, MinorType memberType) {
-    return new HyperMemberVectorAccessor(unionAccessor, memberType);
-  }
-
   public static AbstractObjectReader build(ColumnMetadata schema, VectorAccessor va, AbstractObjectReader variants[]) {
     return new UnionObjectReader(schema,
         new UnionReaderImpl(schema.variantSchema(), va, variants));
@@ -128,8 +123,11 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
 
   @Override
   public NullStateReader nullStateReader() { return nullStateReader; }
+
   @Override
   public void bindIndex(ColumnReaderIndex index) {
+    unionAccessor.bind(index);
+    typeAccessor.bind(index);
     typeReader.bindIndex(index);
     for (int i = 0; i < variants.length; i++) {
       if (variants[i] != null) {

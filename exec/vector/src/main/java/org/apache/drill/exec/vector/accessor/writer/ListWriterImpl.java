@@ -93,4 +93,18 @@ public class ListWriterImpl extends ObjectArrayWriter {
     isSetWriter.endWrite();
     super.endWrite();
   }
+
+  @Override
+  public void setObject(Object array) {
+    if (array == null) {
+      setNull(true);
+      return;
+    }
+    Object values[] = (Object[]) array;
+    if (values.length == 0) {
+      setNull(false);
+    } else {
+      super.setObject(array);
+    }
+  }
 }

@@ -17,6 +17,8 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import java.math.BigDecimal;
+
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.VariantMetadata;
@@ -31,6 +33,7 @@ import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.VariantWriter;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.complex.UnionVector;
+import org.joda.time.Period;
 
 /**
  * Writer to a union vector.
@@ -171,12 +174,6 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
   }
 
   @Override
-  public void setObject(Object value) {
-    // TODO Auto-generated method stub
-    assert false;
-  }
-
-  @Override
   public void bindIndex(ColumnWriterIndex index) {
     this.index = index;
     typeWriter.bindIndex(index);
@@ -286,13 +283,44 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
   @Override
   public int lastWriteIndex() { return 0; }
 
-  public void dump(HierarchicalFormatter format) {
-    // TODO Auto-generated method stub
-
-  }
-
   @Override
   public void bindListener(VariantWriterListener listener) {
     this.listener = listener;
+  }
+
+  @Override
+  public void setObject(Object value) {
+    if (value == null) {
+      setNull();
+    } else if (value instanceof Integer) {
+      scalar(MinorType.INT).setInt((Integer) value);
+    } else if (value instanceof Long) {
+      scalar(MinorType.BIGINT).setLong((Long) value);
+    } else if (value instanceof String) {
+      scalar(MinorType.VARCHAR).setString((String) value);
+    } else if (value instanceof BigDecimal) {
+      throw new IllegalArgumentException("Decimal is ambiguous, please use scalar(type)");
+    } else if (value instanceof Period) {
+      throw new IllegalArgumentException("Period is ambiguous, please use scalar(type)");
+    } else if (value instanceof byte[]) {
+      byte[] bytes = (byte[]) value;
+      scalar(MinorType.VARBINARY).setBytes(bytes, bytes.length);
+    } else if (value instanceof Byte) {
+      scalar(MinorType.TINYINT).setInt((Byte) value);
+    } else if (value instanceof Short) {
+      scalar(MinorType.SMALLINT).setInt((Short) value);
+    } else if (value instanceof Double) {
+      scalar(MinorType.FLOAT8).setDouble((Double) value);
+    } else if (value instanceof Float) {
+      scalar(MinorType.FLOAT4).setDouble((Float) value);
+    } else {
+      throw new IllegalArgumentException("Unsupported type " +
+                value.getClass().getSimpleName());
+    }
+  }
+
+  public void dump(HierarchicalFormatter format) {
+    // TODO Auto-generated method stub
+
   }
 }

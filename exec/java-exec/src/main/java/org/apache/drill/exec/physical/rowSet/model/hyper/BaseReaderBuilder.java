@@ -18,7 +18,6 @@
 package org.apache.drill.exec.physical.rowSet.model.hyper;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
@@ -243,17 +242,7 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
   private AbstractObjectReader buildList(VectorAccessor listAccessor,
       ColumnMetadata metadata) {
     VariantMetadata listSchema = metadata.variantSchema();
-    ColumnMetadata dataMetadata;
-    Collection<ColumnMetadata> members = listSchema.members();
-    if (members.size() > 1) {
-
-      // If the list holds a union, then the list and union are collapsed
-      // together in the metadata layer.
-
-      dataMetadata = metadata;
-    } else {
-      dataMetadata = members.iterator().next();
-    }
+    ColumnMetadata dataMetadata = listSchema.listSubtype();
     return ArrayReaderImpl.buildList(metadata,
         listAccessor,
         buildVectorReader(

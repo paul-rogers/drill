@@ -156,8 +156,9 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
     VectorDescrip dataMetadata;
     if (dataVector.getField().getType().getMinorType() == MinorType.UNION) {
 
-      // If the list holds a union, then the list and union are collapsed
-      // together in the metadata layer.
+      // At the metadata level, a list always holds a union. But, at the
+      // implementation layer, a union of a single type is collapsed out
+      // to leave just a list of that single type.
 
       dataMetadata = listDescrip;
     } else {
