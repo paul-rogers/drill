@@ -28,7 +28,6 @@ import org.apache.drill.exec.physical.rowSet.model.MetadataProvider;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescrip;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
 import org.apache.drill.exec.vector.accessor.reader.ArrayReaderImpl;
 import org.apache.drill.exec.vector.accessor.reader.MapReader;
@@ -116,7 +115,7 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
       // so call this only if the MajorType reports that the type
       // already exists.
 
-      ValueVector memberVector = ColumnAccessorUtils.getUnionMember(vector, type);
+      ValueVector memberVector = vector.getMember(type);
       VectorDescrip memberDescrip = new VectorDescrip(provider, i++, memberVector.getField());
       variants[type.ordinal()] = buildVectorReader(memberVector, memberDescrip);
     }

@@ -23,7 +23,6 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.vector.NullableVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VariableWidthVector;
-import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.ListVector;
@@ -347,11 +346,10 @@ public class VectorAccessors {
       typeKey = type.getMinorType();
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public <T extends ValueVector> T vector() {
       UnionVector vector = unionVectorAccessor.vector();
-      return (T) ColumnAccessorUtils.getUnionMember(vector, typeKey);
+      return vector.member(typeKey);
     }
   }
 

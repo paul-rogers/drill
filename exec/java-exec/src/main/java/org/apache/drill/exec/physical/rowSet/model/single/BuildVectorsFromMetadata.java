@@ -28,7 +28,6 @@ import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.VariantMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
 import org.apache.drill.exec.vector.complex.AbstractMapVector;
 import org.apache.drill.exec.vector.complex.ListVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
@@ -130,7 +129,7 @@ public class BuildVectorsFromMetadata {
       VariantMetadata variantSchema) {
     for (MinorType type : variantSchema.types()) {
       @SuppressWarnings("resource")
-      ValueVector childVector = ColumnAccessorUtils.getUnionMember(unionVector, type);
+      ValueVector childVector = unionVector.getMember(type);
       switch (type) {
       case LIST:
         populateList((ListVector) childVector,

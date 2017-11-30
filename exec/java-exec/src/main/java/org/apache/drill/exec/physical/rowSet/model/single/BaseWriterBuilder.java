@@ -26,7 +26,6 @@ import org.apache.drill.exec.physical.rowSet.model.MetadataProvider;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescrip;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
@@ -108,7 +107,7 @@ public abstract class BaseWriterBuilder {
       // already exists.
 
       @SuppressWarnings("resource")
-      ValueVector memberVector = ColumnAccessorUtils.getUnionMember(vector, type);
+      ValueVector memberVector = vector.getMember(type);
       VectorDescrip memberDescrip = new VectorDescrip(mdProvider, i++, memberVector.getField());
       variants[type.ordinal()] = buildVectorWriter(memberVector, memberDescrip);
     }

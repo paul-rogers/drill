@@ -349,11 +349,9 @@ public class ColumnAccessors {
 package org.apache.drill.exec.vector.accessor;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.vector.complex.UnionVector;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.*;
 import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;
 import org.apache.drill.exec.vector.accessor.writer.BaseScalarWriter;
-import org.apache.drill.exec.vector.ValueVector;
 
 public class ColumnAccessorUtils {
   
@@ -362,30 +360,4 @@ public class ColumnAccessorUtils {
 <@build vv.types "Required" "Reader" />
 
 <@build vv.types "Required" "Writer" />
-
-  public static ValueVector getUnionMember(UnionVector unionVector, MinorType type) {
-    switch (type) {
-<#list vv.types as type>
-<#list type.minor as minor>
-  <#assign drillType=minor.class>
-    <#if drillType == "Decimal18" || drillType == "Decimal28Dense" ||
-         drillType == "Decimal38Dense" || drillType == "Decimal38Sparse" ||
-         drillType == "Decimal28Sparse" || drillType == "Decimal9">
-    // Union vector does not support ${drillType?upper_case}
-    <#else>
-    case ${drillType?upper_case}:
-      return unionVector.get${drillType}Vector();
-    </#if>
-</#list>
-</#list>
-<#-- Note inconsistency in naming. Also, MAP and LIST do not appear
-     in the minor type list, so we have to special-case them. -->
-    case MAP:
-      return unionVector.getMap();
-    case LIST:
-      return unionVector.getList();
-    default:
-      throw new UnsupportedOperationException(type.toString());
-    }
-  }
 }

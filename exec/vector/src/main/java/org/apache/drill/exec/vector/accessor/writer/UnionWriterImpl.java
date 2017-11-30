@@ -24,7 +24,6 @@ import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.VariantMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
-import org.apache.drill.exec.vector.accessor.ColumnAccessorUtils;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
@@ -74,7 +73,7 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
 
     @Override
     public ObjectWriter addType(MinorType type) {
-      ValueVector memberVector = ColumnAccessorUtils.getUnionMember(vector, type);
+      ValueVector memberVector = vector.getMember(type);
       schema.addType(type);
       ColumnMetadata memberSchema = schema.member(type);
       return ColumnWriterFactory.buildColumnWriter(memberSchema, memberVector);
