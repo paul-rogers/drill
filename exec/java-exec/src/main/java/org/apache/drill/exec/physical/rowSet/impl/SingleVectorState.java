@@ -27,6 +27,7 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
 import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriter;
+import org.apache.drill.exec.vector.accessor.writer.WriterEvents;
 
 /**
  * Base class for a single vector. Handles the bulk of work for that vector.
@@ -37,13 +38,40 @@ import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriter;
 
 public abstract class SingleVectorState implements VectorState {
 
+  public abstract static class SimpleVectorState extends SingleVectorState {
+
+    public SimpleVectorState(WriterEvents writer,
+        ValueVector mainVector) {
+      super(writer, mainVector);
+    }
+
+    @Override
+    protected void copyOverflow(int sourceStartIndex, int sourceEndIndex) {
+      int newIndex = 0;
+      ResultSetLoaderImpl.logger.trace("Vector {} of type {}: copy {} values from {} to {}",
+          mainVector.getField().toString(),
+          mainVector.getClass().getSimpleName(),
+          Math.max(0, sourceEndIndex - sourceStartIndex + 1),
+          sourceStartIndex, newIndex);
+
+      // Copy overflow values from the full vector to the new
+      // look-ahead vector. Uses vector-level operations for convenience.
+      // These aren't very efficient, but overflow does not happen very
+      // often.
+
+      for (int src = sourceStartIndex; src <= sourceEndIndex; src++, newIndex++) {
+        mainVector.copyEntry(newIndex, backupVector, src);
+      }
+    }
+  }
+
   /**
    * State for a scalar value vector. The vector might be for a simple (non-array)
    * vector, or might be the payload part of a scalar array (repeated scalar)
    * vector.
    */
 
-  public static class ValuesVectorState extends SingleVectorState {
+  public static class ValuesVectorState extends SimpleVectorState {
 
     private final ColumnMetadata schema;
 
@@ -64,25 +92,6 @@ public abstract class SingleVectorState implements VectorState {
         ((FixedWidthVector) vector).allocateNew(cardinality);
       }
       return vector.getAllocatedSize();
-    }
-
-    @Override
-    protected void copyOverflow(int sourceStartIndex, int sourceEndIndex) {
-      int newIndex = 0;
-      ResultSetLoaderImpl.logger.trace("Vector {} of type {}: copy {} values from {} to {}",
-          mainVector.getField().toString(),
-          mainVector.getClass().getSimpleName(),
-          Math.max(0, sourceEndIndex - sourceStartIndex + 1),
-          sourceStartIndex, newIndex);
-
-      // Copy overflow values from the full vector to the new
-      // look-ahead vector. Uses vector-level operations for convenience.
-      // These aren't very efficient, but overflow does not happen very
-      // often.
-
-      for (int src = sourceStartIndex; src <= sourceEndIndex; src++, newIndex++) {
-        mainVector.copyEntry(newIndex, backupVector, src);
-      }
     }
   }
 
@@ -163,11 +172,24 @@ public abstract class SingleVectorState implements VectorState {
     }
   }
 
-  protected final AbstractScalarWriter writer;
+  public static class TypesVectorState extends SimpleVectorState {
+
+    public TypesVectorState(ValueVector mainVector, WriterEvents writer) {
+      super(writer, mainVector);
+    }
+
+    @Override
+    public int allocateVector(ValueVector vector, int cardinality) {
+      ((FixedWidthVector) vector).allocateNew(cardinality);
+      return vector.getAllocatedSize();
+    }
+  }
+
+  protected final WriterEvents writer;
   protected final ValueVector mainVector;
   protected ValueVector backupVector;
 
-  public SingleVectorState(AbstractScalarWriter writer, ValueVector mainVector) {
+  public SingleVectorState(WriterEvents writer, ValueVector mainVector) {
     this.writer = writer;
     this.mainVector = mainVector;
   }

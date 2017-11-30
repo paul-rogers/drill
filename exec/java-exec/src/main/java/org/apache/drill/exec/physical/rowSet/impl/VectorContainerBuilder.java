@@ -189,7 +189,7 @@ public class VectorContainerBuilder {
         continue;
       }
       if (colState.schema().isMap()) {
-        updateTuple((TupleState) ((BaseMapColumnState) colState).mapState(), destProxy.mapProxy(i));
+        updateTuple(((BaseMapColumnState) colState).mapState(), destProxy.mapProxy(i));
       }
     }
 

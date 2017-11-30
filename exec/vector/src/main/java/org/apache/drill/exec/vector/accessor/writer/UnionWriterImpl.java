@@ -189,6 +189,28 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
     return index;
   }
 
+  /**
+   * Add a column writer to an existing union writer. Used for implementations
+   * that support "live" schema evolution: column discovery while writing.
+   * The corresponding metadata must already have been added to the schema.
+   *
+   * @param colWriter the column writer to add
+   */
+
+  public void addColumnWriter(AbstractObjectWriter colWriter) {
+    MinorType type = colWriter.schema().type();
+    assert variants[type.ordinal()] == null;
+    assert schema.hasType(type);
+    variants[type.ordinal()] = colWriter;
+    colWriter.events().bindIndex(index);
+    if (state != State.IDLE) {
+      colWriter.events().startWrite();
+      if (state == State.IN_ROW) {
+        colWriter.events().startRow();
+      }
+    }
+  }
+
   @Override
   public void startWrite() {
     assert state == State.IDLE;

@@ -18,19 +18,15 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.BaseMapColumnState;
-import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapArrayColumnState;
-import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapColumnState;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleSchema;
-import org.apache.drill.exec.record.TupleSchema.AbstractColumnMetadata;
-import org.apache.drill.exec.record.TupleSchema.PrimitiveColumnMetadata;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
@@ -38,7 +34,6 @@ import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
-import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
 
 /**
  * Represents the loader state for a tuple: a row or a map. This is "state" in
@@ -54,7 +49,8 @@ import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
  * values.
  */
 
-public abstract class TupleState implements TupleWriterListener {
+public abstract class TupleState extends ContainerState
+  implements TupleWriterListener {
 
   /**
    * Handles the details of the top-level tuple, the data row itself.
@@ -157,25 +153,12 @@ public abstract class TupleState implements TupleWriterListener {
     }
   }
 
-  protected final ResultSetLoaderImpl resultSetLoader;
   protected final List<ColumnState> columns = new ArrayList<>();
   protected final TupleSchema schema = new TupleSchema();
-  protected final ProjectionSet projectionSet;
-
-  /**
-   * Vector cache for this loader.
-   * @see {@link OptionBuilder#setVectorCache()}.
-   */
-
-  protected final ResultVectorCache vectorCache;
 
   protected TupleState(ResultSetLoaderImpl rsLoader, ResultVectorCache vectorCache, ProjectionSet projectionSet) {
-    this.resultSetLoader = rsLoader;
-    this.projectionSet = projectionSet;
-    this.vectorCache = vectorCache;
+    super(rsLoader, vectorCache, projectionSet);
   }
-
-  public abstract int innerCardinality();
 
   /**
    * Returns an ordered set of the columns which make up the tuple.
@@ -199,8 +182,13 @@ public abstract class TupleState implements TupleWriterListener {
   }
 
   @Override
+  protected void addColumn(ColumnState colState) {
+    columns.add(colState);
+  }
+
+  @Override
   public boolean isProjected(String columnName) {
-    return projectionSet.isProjected(columnName);
+    return super.isProjected(columnName);
   }
 
   @Override
@@ -214,116 +202,7 @@ public abstract class TupleState implements TupleWriterListener {
       throw new IllegalArgumentException("Duplicate column: " + colName);
     }
 
-    return addColumn(columnSchema);
-  }
-
-  /**
-   * Implementation of the work to add a new column to this tuple given a
-   * schema description of the column.
-   *
-   * @param columnSchema schema of the column
-   * @return writer for the new column
-   */
-
-  private AbstractObjectWriter addColumn(ColumnMetadata columnSchema) {
-
-    // Indicate projection in the metadata.
-
-    ((AbstractColumnMetadata) columnSchema).setProjected(
-        isProjected(columnSchema.name()));
-
-    // Build the column
-
-    ColumnState colState;
-    if (columnSchema.isMap()) {
-      colState = buildMap(columnSchema);
-    } else {
-      colState = buildPrimitive(columnSchema);
-    }
-    columns.add(colState);
-    colState.updateCardinality(innerCardinality());
-    if (resultSetLoader.writeable()) {
-      colState.allocateVectors();
-    }
-    return colState.writer();
-  }
-
-  /**
-   * Build a primitive column. Check if the column is projected. If not,
-   * allocate a dummy writer for the column. If projected, then allocate
-   * a vector, a writer, and the column state which binds the two together
-   * and manages the column.
-   *
-   * @param columnSchema schema of the new primitive column
-   * @return column state for the new column
-   */
-
-  @SuppressWarnings("resource")
-  private ColumnState buildPrimitive(ColumnMetadata columnSchema) {
-    ValueVector vector;
-    if (columnSchema.isProjected()) {
-
-      // Create the vector for the column.
-
-      vector = vectorCache.addOrGet(columnSchema.schema());
-
-      // In permissive mode, the mode or precision of the vector may differ
-      // from that requested. Update the schema to match.
-
-      if (vectorCache.isPermissive() && ! vector.getField().isEquivalent(columnSchema.schema())) {
-        columnSchema = ((PrimitiveColumnMetadata) columnSchema).mergeWith(vector.getField());
-      }
-    } else {
-
-      // Column is not projected. No materialized backing for the column.
-
-      vector = null;
-    }
-
-    // Create the writer. Will be returned to the tuple writer.
-
-    AbstractObjectWriter colWriter = ColumnWriterFactory.buildColumnWriter(columnSchema, vector);
-
-    if (columnSchema.isArray()) {
-      return PrimitiveColumnState.newPrimitiveArray(resultSetLoader, vector, colWriter);
-    } else {
-      return PrimitiveColumnState.newPrimitive(resultSetLoader, vector, colWriter);
-    }
-  }
-
-  /**
-   * Build a new map (single or repeated) column. No map vector is created
-   * here, instead we create a tuple state to hold the columns, and defer the
-   * map vector (or vector container) until harvest time.
-   *
-   * @param columnSchema description of the map column
-   * @return column state for the map column
-   */
-
-  private ColumnState buildMap(ColumnMetadata columnSchema) {
-
-    // When dynamically adding columns, must add the (empty)
-    // map by itself, then add columns to the map via separate
-    // calls.
-
-    assert columnSchema.isMap();
-    assert columnSchema.mapSchema().size() == 0;
-
-    // Create the writer. Will be returned to the tuple writer.
-
-    String colName = columnSchema.name();
-    ProjectionSet childProjection = projectionSet.mapProjection(colName);
-    if (columnSchema.isArray()) {
-      return MapArrayColumnState.build(resultSetLoader,
-          vectorCache.childCache(colName),
-          columnSchema,
-          childProjection);
-    } else {
-      return new MapColumnState(resultSetLoader,
-          vectorCache.childCache(colName),
-          columnSchema,
-          childProjection);
-    }
+    return addColumn(columnSchema).writer();
   }
 
   /**
@@ -337,15 +216,7 @@ public abstract class TupleState implements TupleWriterListener {
   public void buildSchema(TupleMetadata schema) {
     for (int i = 0; i < schema.size(); i++) {
       ColumnMetadata colSchema = schema.metadata(i);
-      AbstractObjectWriter colWriter;
-      if (colSchema.isMap()) {
-        colWriter = addColumn(colSchema.cloneEmpty());
-        BaseMapColumnState mapColState = (BaseMapColumnState) columns.get(columns.size() - 1);
-        mapColState.mapState().buildSchema(colSchema.mapSchema());
-      } else {
-        colWriter = addColumn(colSchema);
-      }
-      writer().addColumnWriter(colWriter);
+      writer().addColumnWriter(buildColumn(colSchema));
     }
   }
 
@@ -354,44 +225,6 @@ public abstract class TupleState implements TupleWriterListener {
       colState.updateCardinality(cardinality);
     }
   }
-
-  /**
-   * A column within the row batch overflowed. Prepare to absorb the rest of the
-   * in-flight row by rolling values over to a new vector, saving the complete
-   * vector for later. This column could have a value for the overflow row, or
-   * for some previous row, depending on exactly when and where the overflow
-   * occurs.
-   */
-
-  public void rollover() {
-    for (ColumnState colState : columns) {
-      colState.rollover();
-    }
-  }
-
-  /**
-   * Writing of a row batch is complete, and an overflow occurred. Prepare the
-   * vector for harvesting to send downstream. Set aside the look-ahead vector
-   * and put the full vector buffer back into the active vector.
-   */
-
-  public void harvestWithLookAhead() {
-    for (ColumnState colState : columns) {
-      colState.harvestWithLookAhead();
-    }
-  }
-
-  /**
-   * Start a new batch by shifting the overflow buffers back into the main
-   * write vectors and updating the writers.
-   */
-
-  public void startBatch(boolean schemaOnly) {
-    for (ColumnState colState : columns) {
-      colState.startBatch(schemaOnly);
-    }
-  }
-
   public boolean hasProjections() {
     for (ColumnState colState : columns) {
       if (colState.isProjected()) {
@@ -401,15 +234,9 @@ public abstract class TupleState implements TupleWriterListener {
     return false;
   }
 
-  /**
-   * Clean up state (such as backup vectors) associated with the state
-   * for each vector.
-   */
-
-  public void close() {
-    for (ColumnState colState : columns) {
-      colState.close();
-    }
+  @Override
+  protected Collection<ColumnState> columnStates() {
+    return columns;
   }
 
   public void dump(HierarchicalFormatter format) {
