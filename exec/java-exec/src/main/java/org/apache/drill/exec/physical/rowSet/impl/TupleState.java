@@ -34,6 +34,7 @@ import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
+import org.apache.drill.exec.vector.complex.MapVector;
 
 /**
  * Represents the loader state for a tuple: a row or a map. This is "state" in
@@ -81,7 +82,8 @@ public abstract class TupleState extends ContainerState
     @Override
     public int innerCardinality() { return resultSetLoader.targetRowCount();}
 
-    public ResultVectorCache vectorCache() { return vectorCache; }
+    @Override
+    protected boolean isWithinUnion() { return false; }
   }
 
   /**
@@ -124,6 +126,25 @@ public abstract class TupleState extends ContainerState
       return (AbstractTupleWriter) tupleWriter;
     }
 
+    @Override
+    protected void addColumn(ColumnState colState) {
+      super.addColumn(colState);
+
+      // If the map is materialized (because it is nested inside a union)
+      // then add the new vector to the map at add time. But, for top-level
+      // maps, or those nested inside other maps (but not a union), defer
+      // adding the column until harvest time, to allow for the case that
+      // new columns are added in the overflow row. Such columns may be
+      // required, and not allow back-filling. But, inside unions, all
+      // columns must be nullable, so back-filling of nulls is possible.
+
+      @SuppressWarnings("resource")
+      MapVector vector = (MapVector) mapColumnState.vector();
+      if (vector != null) {
+        vector.putChild(colState.schema().name(), colState.vector());
+      }
+    }
+
     /**
      * In order to allocate the correct-sized vectors, the map must know
      * its member cardinality: the number of elements in each row. This
@@ -142,6 +163,17 @@ public abstract class TupleState extends ContainerState
     public int innerCardinality() {
       return outerCardinality * mapColumnState.schema().expectedElementCount();
     }
+
+    /**
+     * A map is within a union if the map vector has been materialized.
+     * Top-level maps are built at harvest time. But, due to the complexity
+     * of unions, maps within unions are materialized. This method ensures
+     * that maps are materialized regardless of nesting depth within
+     * a union.
+     */
+
+    @Override
+    protected boolean isWithinUnion() { return mapColumnState.vector() != null; }
 
     @Override
     public void dump(HierarchicalFormatter format) {
@@ -182,16 +214,6 @@ public abstract class TupleState extends ContainerState
   }
 
   @Override
-  protected void addColumn(ColumnState colState) {
-    columns.add(colState);
-  }
-
-  @Override
-  public boolean isProjected(String columnName) {
-    return super.isProjected(columnName);
-  }
-
-  @Override
   public ObjectWriter addColumn(TupleWriter tupleWriter, ColumnMetadata columnSchema) {
 
     // Verify name is not a (possibly case insensitive) duplicate.
@@ -205,19 +227,14 @@ public abstract class TupleState extends ContainerState
     return addColumn(columnSchema).writer();
   }
 
-  /**
-   * When creating a schema up front, provide the schema of the desired tuple,
-   * then build vectors and writers to match. Allows up-front schema definition
-   * in addition to on-the-fly schema creation handled elsewhere.
-   *
-   * @param schema desired tuple schema to be materialized
-   */
+  @Override
+  public boolean isProjected(String columnName) {
+    return super.isProjected(columnName);
+  }
 
-  public void buildSchema(TupleMetadata schema) {
-    for (int i = 0; i < schema.size(); i++) {
-      ColumnMetadata colSchema = schema.metadata(i);
-      writer().addColumnWriter(buildColumn(colSchema));
-    }
+  @Override
+  protected void addColumn(ColumnState colState) {
+    columns.add(colState);
   }
 
   public void updateCardinality(int cardinality) {

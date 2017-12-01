@@ -210,6 +210,10 @@ public class VectorContainerBuilder {
       if (colState.schema().isMap()) {
         buildMap(destProxy, (BaseMapColumnState) colState);
       } else {
+
+        // Lists and unions are simply added; no attempt is made to recurse
+        // into these structures.
+
         destProxy.add(colState.vector());
         destProxy.schema.addColumn(colState.schema());
         assert destProxy.size() == destProxy.schema.size();

@@ -78,6 +78,11 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
       ColumnMetadata memberSchema = schema.member(type);
       return ColumnWriterFactory.buildColumnWriter(memberSchema, memberVector);
     }
+
+    @Override
+    public ObjectWriter addMember(ColumnMetadata schema) {
+      throw new UnsupportedOperationException();
+    }
   }
 
   private final UnionVector vector;
@@ -141,11 +146,27 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
     if (writer != null) {
       return writer;
     }
-
     if (listener == null) {
       listener = new DefaultListener();
     }
-    writer = (AbstractObjectWriter) listener.addType(type);
+    return addMember(type);
+  }
+
+  @Override
+  public ObjectWriter addMember(ColumnMetadata schema) {
+    AbstractObjectWriter writer = (AbstractObjectWriter) listener.addMember(schema);
+    addMember(schema.type(), writer);
+    return writer;
+  }
+
+  @Override
+  public ObjectWriter addMember(MinorType type) {
+    AbstractObjectWriter writer = (AbstractObjectWriter) listener.addType(type);
+    addMember(type, writer);
+    return writer;
+  }
+
+  private void addMember(MinorType type, AbstractObjectWriter writer) {
     writer.events().bindIndex(index);
     variants[type.ordinal()] = writer;
     if (state != State.IDLE) {
@@ -154,7 +175,6 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
         writer.events().startRow();
       }
     }
-    return writer;
   }
 
   @Override
@@ -334,6 +354,17 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
       scalar(MinorType.FLOAT8).setDouble((Double) value);
     } else if (value instanceof Float) {
       scalar(MinorType.FLOAT4).setDouble((Float) value);
+    } else if (value instanceof Object[]) {
+      if (hasType(MinorType.MAP) && hasType(MinorType.LIST)) {
+        throw new UnsupportedOperationException("Union has both a map and a list, so Object[] is ambiguous");
+      } else if (hasType(MinorType.MAP)) {
+        tuple().setObject(value);
+      } else if (hasType(MinorType.LIST)) {
+        array().setObject(value);
+      } else {
+        throw new IllegalArgumentException("Unsupported type " +
+            value.getClass().getSimpleName());
+      }
     } else {
       throw new IllegalArgumentException("Unsupported type " +
                 value.getClass().getSimpleName());

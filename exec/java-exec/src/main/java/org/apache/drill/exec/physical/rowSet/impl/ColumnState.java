@@ -21,9 +21,10 @@ import java.util.ArrayList;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
+import org.apache.drill.exec.physical.rowSet.impl.NullVectorState.UnmanagedVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
-import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.TypesVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapState;
+import org.apache.drill.exec.physical.rowSet.impl.UnionState.UnionVectorState;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
@@ -35,6 +36,7 @@ import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriterImpl;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl.VariantObjectWriter;
 import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
+import org.apache.drill.exec.vector.complex.MapVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
 /**
@@ -106,6 +108,7 @@ public abstract class ColumnState {
       super(resultSetLoader, writer, vectorState);
       mapState = new MapState(resultSetLoader, vectorCache, this, projectionSet);
     }
+
     public MapState mapState() { return mapState; }
 
     @Override
@@ -114,14 +117,34 @@ public abstract class ColumnState {
 
   public static class MapColumnState extends BaseMapColumnState {
 
-    public MapColumnState(ResultSetLoaderImpl resultSetLoader,
+    private MapColumnState(ResultSetLoaderImpl resultSetLoader,
         ResultVectorCache vectorCache,
         ColumnMetadata columnSchema,
+        VectorState vectorState,
         ProjectionSet projectionSet) {
       super(resultSetLoader, vectorCache,
           MapWriter.buildMap(columnSchema, null,
               new ArrayList<AbstractObjectWriter>()),
-          new NullVectorState(),
+          vectorState,
+          projectionSet);
+    }
+
+    public static MapColumnState build(
+        ResultSetLoaderImpl resultSetLoader,
+        ResultVectorCache vectorCache,
+        ColumnMetadata columnSchema,
+        ProjectionSet projectionSet,
+        boolean withinUnion) {
+      VectorState vectorState;
+      if (withinUnion) {
+        @SuppressWarnings("resource")
+        MapVector vector = new MapVector(columnSchema.schema(), resultSetLoader.allocator(), null);
+        vectorState = new UnmanagedVectorState(vector);
+      } else {
+        vectorState = new NullVectorState();
+      }
+      return new MapColumnState(resultSetLoader, vectorCache,
+          columnSchema, vectorState,
           projectionSet);
     }
 
@@ -208,18 +231,19 @@ public abstract class ColumnState {
     }
   }
 
-  public static class UnionColumnState extends BaseContainerColumnState {
+  public static class UnionColumnState extends BaseContainerColumnState implements VariantColumnState {
 
     private final UnionState unionState;
 
     public UnionColumnState(ResultSetLoaderImpl resultSetLoader,
         ResultVectorCache vectorCache,
-        VariantObjectWriter writer, TypesVectorState vectorState,
+        VariantObjectWriter writer,
+        UnionVector vector,
+        UnionVectorState vectorState,
         ProjectionSet projectionSet) {
       super(resultSetLoader, writer, vectorState);
       unionState = new UnionState(resultSetLoader,
-          vectorCache, projectionSet,
-          this);
+          vectorCache, projectionSet, this);
     }
 
     @SuppressWarnings("resource")
@@ -229,24 +253,25 @@ public abstract class ColumnState {
         ProjectionSet projectionSet) {
       UnionVector vector = new UnionVector(columnSchema.schema(), resultSetLoader.allocator(), null);
       UnionWriterImpl unionWriter = new UnionWriterImpl(columnSchema.variantSchema(), vector);
-      VariantObjectWriter writer = new VariantObjectWriter(
-          unionWriter, columnSchema);
-      TypesVectorState vectorState = new TypesVectorState(vector.getTypeVector(), unionWriter);
-      return new UnionColumnState(resultSetLoader, vectorCache, writer, vectorState, projectionSet);
+      VariantObjectWriter writer = new VariantObjectWriter(unionWriter, columnSchema);
+      UnionVectorState vectorState = new UnionVectorState(vector, unionWriter);
+      return new UnionColumnState(resultSetLoader, vectorCache, writer, vector, vectorState, projectionSet);
     }
 
     @Override
     public boolean isProjected() {
-
-      // Unions are always project
+      // Unions are always projected
       return true;
     }
 
-    public UnionState variantState() { return unionState; }
-
     @Override
     public ContainerState container() { return unionState; }
- }
+
+    @Override
+    public UnionState unionState() {
+      return unionState;
+    }
+  }
 
   /**
    * Columns move through various lifecycle states as identified by this

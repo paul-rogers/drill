@@ -27,7 +27,6 @@ import org.apache.drill.exec.physical.rowSet.model.AbstractReaderBuilder;
 import org.apache.drill.exec.physical.rowSet.model.ReaderIndex;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.record.VariantMetadata;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
@@ -130,34 +129,9 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
     }
   }
 
-  public static class HyperMetadataBuilder {
-
-    public TupleMetadata build(VectorContainer container) throws SchemaChangeException {
-      TupleSchema schema = new TupleSchema();
-      for (int i = 0; i < container.getNumberOfColumns(); i++) {
-        VectorWrapper<?> vw = container.getValueVector(i);
-        schema.addColumn(buildColumn(vw));
-      }
-      return schema;
-    }
-
-    private ColumnMetadata buildColumn(VectorWrapper<?> vw) throws SchemaChangeException {
-      ColumnMetadata commonSchema = null;
-      for (ValueVector vector : vw.getValueVectors()) {
-        ColumnMetadata mapSchema = TupleSchema.fromField(vector.getField());
-        if (commonSchema == null) {
-          commonSchema = mapSchema;
-        } else if (! commonSchema.isEquivalent(mapSchema)) {
-          throw new SchemaChangeException("Maps are not consistent");
-        }
-      }
-      return commonSchema;
-    }
-  }
-
   protected List<AbstractObjectReader> buildContainerChildren(
       VectorContainer container) throws SchemaChangeException {
-    TupleMetadata schema = new HyperMetadataBuilder().build(container);
+    TupleMetadata schema = new HyperSchemaInference().infer(container);
     return buildContainerChildren(container, schema);
   }
 

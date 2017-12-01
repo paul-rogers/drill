@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
-import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.ValuesVectorState;
+import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.SimpleVectorState;
 import org.apache.drill.exec.vector.NullableVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
@@ -49,7 +49,7 @@ public class PrimitiveColumnState extends ColumnState implements ColumnWriterLis
     if (vector == null) {
       vectorState = new NullVectorState();
     } else {
-      vectorState = new ValuesVectorState(
+      vectorState = SimpleVectorState.vectorState(
           writer.schema(),
           (AbstractScalarWriter) writer.scalar(),
           vector);

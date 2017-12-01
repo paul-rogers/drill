@@ -53,6 +53,10 @@ public abstract class ContainerState {
     return projectionSet.isProjected(columnName);
   }
 
+  protected abstract boolean isWithinUnion();
+
+  public ResultVectorCache vectorCache() { return vectorCache; }
+
   /**
    * Implementation of the work to add a new column to this tuple given a
    * schema description of the column.
@@ -161,10 +165,11 @@ public abstract class ContainerState {
           columnSchema,
           childProjection);
     } else {
-      return new MapColumnState(resultSetLoader,
+      return MapColumnState.build(resultSetLoader,
           vectorCache.childCache(colName),
           columnSchema,
-          childProjection);
+          childProjection,
+          isWithinUnion());
     }
   }
 
@@ -186,22 +191,6 @@ public abstract class ContainerState {
     // TODO Auto-generated method stub
     assert false;
     return null;
-  }
-
-  protected AbstractObjectWriter buildColumn(ColumnMetadata colSchema) {
-    AbstractObjectWriter colWriter;
-    if (colSchema.isMap()) {
-      BaseMapColumnState mapColState = (BaseMapColumnState) addColumn(colSchema.cloneEmpty());
-      colWriter = mapColState.writer();
-      mapColState.mapState().buildSchema(colSchema.mapSchema());
-    } else if (colSchema.isVariant()) {
-      VariantColumnState variantColState = (VariantColumnState) addColumn(colSchema.cloneEmpty());
-      colWriter = variantColState.writer();
-      variantColState.unionState().buildSchema(colSchema.variantSchema());
-    } else {
-      colWriter = addColumn(colSchema).writer();
-    }
-    return colWriter;
   }
 
   protected abstract Collection<ColumnState> columnStates();
@@ -242,7 +231,6 @@ public abstract class ContainerState {
       colState.startBatch(schemaOnly);
     }
   }
-
 
   /**
    * Clean up state (such as backup vectors) associated with the state

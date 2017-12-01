@@ -21,7 +21,7 @@ import org.apache.drill.exec.exception.OutOfMemoryException;
 import org.apache.drill.exec.memory.BufferAllocator;
 import org.apache.drill.exec.physical.impl.spill.RecordBatchSizer;
 import org.apache.drill.exec.physical.rowSet.model.ReaderIndex;
-import org.apache.drill.exec.physical.rowSet.model.SchemaInference;
+import org.apache.drill.exec.physical.rowSet.model.single.SingleSchemaInference;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.selection.SelectionVector2;
@@ -61,7 +61,7 @@ public class IndirectRowSet extends AbstractSingleRowSet {
   private final SelectionVector2 sv2;
 
   private IndirectRowSet(VectorContainer container, SelectionVector2 sv2) {
-    super(container, new SchemaInference().infer(container));
+    super(container, new SingleSchemaInference().infer(container));
     this.sv2 = sv2;
   }
 

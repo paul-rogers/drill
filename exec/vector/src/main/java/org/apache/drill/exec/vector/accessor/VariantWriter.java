@@ -18,6 +18,7 @@
 package org.apache.drill.exec.vector.accessor;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.VariantMetadata;
 
 /**
@@ -52,6 +53,7 @@ import org.apache.drill.exec.record.VariantMetadata;
 public interface VariantWriter {
 
   interface VariantWriterListener {
+    ObjectWriter addMember(ColumnMetadata schema);
     ObjectWriter addType(MinorType type);
   }
 
@@ -88,6 +90,9 @@ public interface VariantWriter {
    */
 
   void setType(MinorType type);
+
+  ObjectWriter addMember(MinorType type);
+  ObjectWriter addMember(ColumnMetadata schema);
 
   /**
    * Set the type of the present value and get the writer for

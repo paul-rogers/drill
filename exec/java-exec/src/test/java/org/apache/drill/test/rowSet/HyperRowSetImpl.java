@@ -22,9 +22,8 @@ import java.util.List;
 
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.rowSet.model.SchemaInference;
 import org.apache.drill.exec.physical.rowSet.model.hyper.BaseReaderBuilder;
-import org.apache.drill.exec.physical.rowSet.model.hyper.BaseReaderBuilder.HyperMetadataBuilder;
+import org.apache.drill.exec.physical.rowSet.model.hyper.HyperSchemaInference;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.ExpandableHyperContainer;
 import org.apache.drill.exec.record.TupleMetadata;
@@ -97,7 +96,7 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
       for (VectorContainer container : batches) {
         hyperContainer.addBatch(container);
       }
-      TupleMetadata schema = new HyperMetadataBuilder().build(hyperContainer);
+      TupleMetadata schema = new HyperSchemaInference().infer(hyperContainer);
       return new HyperRowSetImpl(schema, hyperContainer, sv4);
     }
   }
@@ -113,8 +112,8 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
     this.sv4 = sv4;
   }
 
-  public HyperRowSetImpl(VectorContainer container, SelectionVector4 sv4) {
-    this(new SchemaInference().infer(container), container, sv4);
+  public HyperRowSetImpl(VectorContainer container, SelectionVector4 sv4) throws SchemaChangeException {
+    this(new HyperSchemaInference().infer(container), container, sv4);
   }
 
   public static HyperRowSetBuilder builder(BufferAllocator allocator) {
@@ -122,7 +121,11 @@ public class HyperRowSetImpl extends AbstractRowSet implements HyperRowSet {
   }
 
   public static HyperRowSet fromContainer(VectorContainer container, SelectionVector4 sv4) {
-    return new HyperRowSetImpl(container, sv4);
+    try {
+      return new HyperRowSetImpl(container, sv4);
+    } catch (SchemaChangeException e) {
+      throw new UnsupportedOperationException(e);
+    }
   }
 
   public static HyperRowSet fromRowSets(BufferAllocator allocator, SingleRowSet...rowSets) {

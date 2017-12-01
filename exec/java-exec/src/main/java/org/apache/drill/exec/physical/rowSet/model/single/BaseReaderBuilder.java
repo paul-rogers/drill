@@ -91,7 +91,6 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
     return ArrayReaderImpl.buildTuple(descrip.metadata, va, mapReader);
   }
 
-  @SuppressWarnings("resource")
   protected List<AbstractObjectReader> buildMapMembers(AbstractMapVector mapVector, MetadataProvider provider) {
     List<AbstractObjectReader> readers = new ArrayList<>();
     int i = 0;

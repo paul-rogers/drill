@@ -18,7 +18,7 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
-import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.ValuesVectorState;
+import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.SimpleVectorState;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
@@ -38,7 +38,7 @@ public class RepeatedVectorState implements VectorState {
   private final AbstractArrayWriter arrayWriter;
   private final RepeatedValueVector vector;
   private final OffsetVectorState offsetsState;
-  private final ValuesVectorState valuesState;
+  private final SimpleVectorState valuesState;
 
   public RepeatedVectorState(AbstractObjectWriter writer, RepeatedValueVector vector) {
     this.schema = writer.schema();
@@ -52,7 +52,7 @@ public class RepeatedVectorState implements VectorState {
 
     arrayWriter = (AbstractArrayWriter) writer.array();
     AbstractScalarWriter colWriter = (AbstractScalarWriter) arrayWriter.scalar();
-    valuesState = new ValuesVectorState(schema, colWriter, vector.getDataVector());
+    valuesState = SimpleVectorState.vectorState(schema, colWriter, vector.getDataVector());
 
     // Create the offsets state with the offset vector portion of the repeated
     // vector, and the offset writer portion of the array writer.

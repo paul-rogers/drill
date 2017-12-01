@@ -59,7 +59,7 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
 
     // Sanity check of writer structure
 
-    ObjectWriter wo = writer.column(0);
+    ObjectWriter wo = writer.column(1);
     assertEquals(ObjectType.VARIANT, wo.type());
     VariantWriter vw = wo.variant();
 

@@ -309,7 +309,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
       // won't be if known up front.
 
       logger.debug("Schema: " + options.schema.toString());
-      rootState.buildSchema(options.schema);
+      new BuildFromSchema().buildTuple(rootWriter, options.schema);
+//      rootState.buildSchema(options.schema);
     }
   }
 

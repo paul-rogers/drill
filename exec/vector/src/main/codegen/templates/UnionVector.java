@@ -59,6 +59,8 @@ import com.google.common.annotations.VisibleForTesting;
 public class UnionVector implements ValueVector {
   
   public static final int NULL_MARKER = 0;
+  public static final String MAP_NAME = "$internal";
+  public static final String TYPES_NAME = "$types";
   private static final MajorType MAJOR_TYPES[] = new MajorType[MinorType.values().length];
 
   private MaterializedField field;
@@ -94,8 +96,8 @@ public class UnionVector implements ValueVector {
   public UnionVector(MaterializedField field, BufferAllocator allocator, CallBack callBack) {
     this.field = field.clone();
     this.allocator = allocator;
-    this.internalMap = new MapVector("internal", allocator, callBack);
-    this.typeVector = internalMap.addOrGet("types", Types.required(MinorType.UINT1), UInt1Vector.class);
+    this.internalMap = new MapVector(MAP_NAME, allocator, callBack);
+    this.typeVector = internalMap.addOrGet(TYPES_NAME, Types.required(MinorType.UINT1), UInt1Vector.class);
     this.field.addChild(internalMap.getField().clone());
     this.callBack = callBack;
   }

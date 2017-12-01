@@ -18,11 +18,11 @@
 package org.apache.drill.test.rowSet;
 
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.rowSet.model.SchemaInference;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.MetadataRetrieval;
 import org.apache.drill.exec.physical.rowSet.model.single.BaseWriterBuilder;
 import org.apache.drill.exec.physical.rowSet.model.single.BuildVectorsFromMetadata;
 import org.apache.drill.exec.physical.rowSet.model.single.DirectRowIndex;
+import org.apache.drill.exec.physical.rowSet.model.single.SingleSchemaInference;
 import org.apache.drill.exec.physical.rowSet.model.single.VectorAllocator;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
@@ -71,7 +71,7 @@ public class DirectRowSet extends AbstractSingleRowSet implements ExtendableRowS
   }
 
   public static DirectRowSet fromContainer(VectorContainer container) {
-    return new DirectRowSet(container, new SchemaInference().infer(container));
+    return new DirectRowSet(container, new SingleSchemaInference().infer(container));
   }
 
   public static DirectRowSet fromVectorAccessible(BufferAllocator allocator, VectorAccessible va) {

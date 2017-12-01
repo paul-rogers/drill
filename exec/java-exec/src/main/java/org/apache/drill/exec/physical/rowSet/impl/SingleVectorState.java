@@ -71,26 +71,41 @@ public abstract class SingleVectorState implements VectorState {
    * vector.
    */
 
-  public static class ValuesVectorState extends SimpleVectorState {
+  public static class FixedWidthVectorState extends SimpleVectorState {
+
+     public FixedWidthVectorState(WriterEvents writer, ValueVector mainVector) {
+      super(writer, mainVector);
+    }
+
+    @Override
+    public int allocateVector(ValueVector vector, int cardinality) {
+      ((FixedWidthVector) vector).allocateNew(cardinality);
+      return vector.getAllocatedSize();
+    }
+  }
+
+  /**
+   * State for a scalar value vector. The vector might be for a simple (non-array)
+   * vector, or might be the payload part of a scalar array (repeated scalar)
+   * vector.
+   */
+
+  public static class VariableWidthVectorState extends SimpleVectorState {
 
     private final ColumnMetadata schema;
 
-    public ValuesVectorState(ColumnMetadata schema, AbstractScalarWriter writer, ValueVector mainVector) {
+    public VariableWidthVectorState(ColumnMetadata schema, AbstractScalarWriter writer, ValueVector mainVector) {
       super(writer, mainVector);
       this.schema = schema;
     }
 
     @Override
     public int allocateVector(ValueVector vector, int cardinality) {
-      if (schema.isVariableWidth()) {
 
-        // Cap the allocated size to the maximum.
+      // Cap the allocated size to the maximum.
 
-        int size = (int) Math.min(ValueVector.MAX_BUFFER_SIZE, (long) cardinality * schema.expectedWidth());
-        ((VariableWidthVector) vector).allocateNew(size, cardinality);
-      } else {
-        ((FixedWidthVector) vector).allocateNew(cardinality);
-      }
+      int size = (int) Math.min(ValueVector.MAX_BUFFER_SIZE, (long) cardinality * schema.expectedWidth());
+      ((VariableWidthVector) vector).allocateNew(size, cardinality);
       return vector.getAllocatedSize();
     }
   }
@@ -169,19 +184,6 @@ public abstract class SingleVectorState implements VectorState {
       }
 //      VectorPrinter.printOffsets((UInt4Vector) backupVector, sourceStartIndex - 1, sourceEndIndex - sourceStartIndex + 3);
 //      VectorPrinter.printOffsets((UInt4Vector) mainVector, 0, newIndex);
-    }
-  }
-
-  public static class TypesVectorState extends SimpleVectorState {
-
-    public TypesVectorState(ValueVector mainVector, WriterEvents writer) {
-      super(writer, mainVector);
-    }
-
-    @Override
-    public int allocateVector(ValueVector vector, int cardinality) {
-      ((FixedWidthVector) vector).allocateNew(cardinality);
-      return vector.getAllocatedSize();
     }
   }
 
@@ -286,6 +288,14 @@ public abstract class SingleVectorState implements VectorState {
 
   @Override
   public boolean isProjected() { return true; }
+
+  public static SimpleVectorState vectorState(ColumnMetadata schema, AbstractScalarWriter writer, ValueVector mainVector) {
+    if (schema.isVariableWidth()) {
+      return new VariableWidthVectorState(schema, writer, mainVector);
+    } else {
+      return new FixedWidthVectorState(writer, mainVector);
+    }
+  }
 
   @Override
   public void dump(HierarchicalFormatter format) {

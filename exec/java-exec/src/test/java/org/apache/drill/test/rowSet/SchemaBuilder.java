@@ -131,7 +131,7 @@ public class SchemaBuilder {
       parent = null;
       union = unionBuilder;
       memberName = MinorType.MAP.toString();
-      mode = DataMode.REQUIRED;
+      mode = DataMode.OPTIONAL;
     }
 
     @Override

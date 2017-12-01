@@ -313,32 +313,32 @@ public class TupleSchema implements TupleMetadata {
       this.parent = parent;
     }
 
-    @Override
-    public ColumnMetadata addType(MinorType type) {
-      checkType(type);
-      AbstractColumnMetadata dummyCol;
+    public static AbstractColumnMetadata memberMetadata(MinorType type) {
       switch (type) {
       case LIST:
-        dummyCol = new VariantColumnMetadata(
+        return new VariantColumnMetadata(
             MaterializedField.create(
-                type.toString(),
+                type.name(),
                 Types.optional(type)));
-        break;
       case MAP:
-        dummyCol = new MapColumnMetadata(
+        return new MapColumnMetadata(
             MaterializedField.create(
-                type.toString(),
+                type.name(),
                 Types.required(type)));
-        break;
       case UNION:
         throw new IllegalArgumentException("Cannot add a union to a union");
       default:
-        dummyCol = new PrimitiveColumnMetadata(
+        return new PrimitiveColumnMetadata(
             MaterializedField.create(
-                type.toString(),
+                type.name(),
                 Types.optional(type)));
-        break;
       }
+    }
+
+    @Override
+    public ColumnMetadata addType(MinorType type) {
+      checkType(type);
+      AbstractColumnMetadata dummyCol = memberMetadata(type);
       types.put(type, dummyCol);
       return dummyCol;
     }
@@ -347,12 +347,6 @@ public class TupleSchema implements TupleMetadata {
     public void addType(ColumnMetadata col) {
       checkType(col.type());
       switch (col.type()) {
-      case LIST:
-      case MAP:
-        if (col.mode() != DataMode.REQUIRED) {
-          throw new IllegalArgumentException("Map mode must be REQUIRED");
-        }
-        break;
       case UNION:
         throw new IllegalArgumentException("Cannot add a union to a union");
       default:
@@ -449,6 +443,16 @@ public class TupleSchema implements TupleMetadata {
 
       return new VariantColumnMetadata("$data", MinorType.UNION, this);
     }
+
+    @Override
+    public String toString() {
+      return new StringBuilder()
+          .append("[")
+          .append(getClass().getSimpleName())
+          .append(types.toString())
+          .append("]")
+          .toString();
+    }
   }
 
   public static class VariantColumnMetadata extends AbstractColumnMetadata {
@@ -466,6 +470,11 @@ public class TupleSchema implements TupleMetadata {
       for (MinorType type : types) {
         variantSchema.addType(type);
       }
+    }
+
+    public VariantColumnMetadata(MaterializedField schema, VariantSchema variantSchema) {
+      super(schema);
+      this.variantSchema = variantSchema;
     }
 
     public VariantColumnMetadata(String name, MinorType type, VariantSchema variantSchema) {
@@ -487,9 +496,7 @@ public class TupleSchema implements TupleMetadata {
 
     @Override
     public ColumnMetadata cloneEmpty() {
-      // TODO Auto-generated method stub
-      assert false;
-      return null;
+      return new VariantColumnMetadata(name, type, new VariantSchema());
     }
 
     @Override
@@ -592,7 +599,7 @@ public class TupleSchema implements TupleMetadata {
 
     @Override
     public ColumnMetadata cloneEmpty() {
-      return new MapColumnMetadata(schema().cloneEmpty(), null);
+      return new MapColumnMetadata(name, mode, new TupleSchema());
     }
 
     @Override
@@ -706,6 +713,10 @@ public class TupleSchema implements TupleMetadata {
 
   public static MapColumnMetadata newMap(MaterializedField field) {
     return new MapColumnMetadata(field, fromFields(field.getChildren()));
+  }
+
+  public static VariantColumnMetadata newVariant(MaterializedField field, VariantSchema schema) {
+    return new VariantColumnMetadata(field, schema);
   }
 
   @Override
