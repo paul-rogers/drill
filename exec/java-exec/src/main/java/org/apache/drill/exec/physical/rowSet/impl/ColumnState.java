@@ -21,22 +21,16 @@ import java.util.ArrayList;
 
 import org.apache.drill.common.exceptions.UserException;
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
-import org.apache.drill.exec.physical.rowSet.impl.NullVectorState.UnmanagedVectorState;
-import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapState;
 import org.apache.drill.exec.physical.rowSet.impl.UnionState.UnionVectorState;
 import org.apache.drill.exec.record.ColumnMetadata;
-import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ScalarWriter;
+import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
-import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.MapWriter;
-import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriterImpl;
-import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl.VariantObjectWriter;
-import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
-import org.apache.drill.exec.vector.complex.MapVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
 /**
@@ -61,6 +55,36 @@ public abstract class ColumnState {
     UnionState unionState();
 
     AbstractObjectWriter writer();
+  }
+
+  /**
+   * Primitive (non-map) column state. Handles all three cardinalities.
+   * Column metadata is hosted on the writer.
+   */
+
+  public static class PrimitiveColumnState extends ColumnState implements ColumnWriterListener {
+
+    public PrimitiveColumnState(ResultSetLoaderImpl resultSetLoader,
+        AbstractObjectWriter colWriter,
+        VectorState vectorState) {
+      super(resultSetLoader, colWriter, vectorState);
+      writer.bindListener(this);
+    }
+
+    @Override
+    public boolean canExpand(ScalarWriter writer, int delta) {
+      return resultSetLoader.canExpand(delta);
+    }
+
+    @Override
+    public void overflowed(ScalarWriter writer) {
+      resultSetLoader.overflowed();
+    }
+
+    @Override
+    public void dump(HierarchicalFormatter format) {
+      // TODO Auto-generated method stub
+    }
   }
 
   public static abstract class BaseContainerColumnState extends ColumnState {
@@ -117,7 +141,7 @@ public abstract class ColumnState {
 
   public static class MapColumnState extends BaseMapColumnState {
 
-    private MapColumnState(ResultSetLoaderImpl resultSetLoader,
+    public MapColumnState(ResultSetLoaderImpl resultSetLoader,
         ResultVectorCache vectorCache,
         ColumnMetadata columnSchema,
         VectorState vectorState,
@@ -126,25 +150,6 @@ public abstract class ColumnState {
           MapWriter.buildMap(columnSchema, null,
               new ArrayList<AbstractObjectWriter>()),
           vectorState,
-          projectionSet);
-    }
-
-    public static MapColumnState build(
-        ResultSetLoaderImpl resultSetLoader,
-        ResultVectorCache vectorCache,
-        ColumnMetadata columnSchema,
-        ProjectionSet projectionSet,
-        boolean withinUnion) {
-      VectorState vectorState;
-      if (withinUnion) {
-        @SuppressWarnings("resource")
-        MapVector vector = new MapVector(columnSchema.schema(), resultSetLoader.allocator(), null);
-        vectorState = new UnmanagedVectorState(vector);
-      } else {
-        vectorState = new NullVectorState();
-      }
-      return new MapColumnState(resultSetLoader, vectorCache,
-          columnSchema, vectorState,
           projectionSet);
     }
 
@@ -165,48 +170,6 @@ public abstract class ColumnState {
       super(resultSetLoader, vectorCache, writer,
           vectorState,
           projectionSet);
-    }
-
-    @SuppressWarnings("resource")
-    public static MapArrayColumnState build(ResultSetLoaderImpl resultSetLoader,
-        ResultVectorCache vectorCache,
-        ColumnMetadata columnSchema,
-        ProjectionSet projectionSet) {
-
-      // Create the map's offset vector.
-
-      UInt4Vector offsetVector;
-      if (columnSchema.isProjected()) {
-        offsetVector = new UInt4Vector(
-          BaseRepeatedValueVector.OFFSETS_FIELD,
-          resultSetLoader.allocator());
-      } else {
-        offsetVector = null;
-      }
-
-      // Create the writer using the offset vector
-
-      AbstractObjectWriter writer = MapWriter.buildMapArray(
-          columnSchema, offsetVector,
-          new ArrayList<AbstractObjectWriter>());
-
-      // Wrap the offset vector in a vector state
-
-       VectorState vectorState;
-       if (columnSchema.isProjected()) {
-         vectorState= new OffsetVectorState(
-          ((OffsetVectorWriterImpl)
-            ((AbstractArrayWriter) writer.array()).offsetWriter()),
-          offsetVector,
-          (AbstractObjectWriter) writer.array().entry());
-       } else {
-         vectorState = new NullVectorState();
-       }
-
-      // Assemble it all into the column state.
-
-      return new MapArrayColumnState(resultSetLoader, vectorCache,
-                  writer, vectorState, projectionSet);
     }
 
     @Override
@@ -244,18 +207,6 @@ public abstract class ColumnState {
       super(resultSetLoader, writer, vectorState);
       unionState = new UnionState(resultSetLoader,
           vectorCache, projectionSet, this);
-    }
-
-    @SuppressWarnings("resource")
-    public static UnionColumnState build(ResultSetLoaderImpl resultSetLoader,
-        ResultVectorCache vectorCache,
-        ColumnMetadata columnSchema,
-        ProjectionSet projectionSet) {
-      UnionVector vector = new UnionVector(columnSchema.schema(), resultSetLoader.allocator(), null);
-      UnionWriterImpl unionWriter = new UnionWriterImpl(columnSchema.variantSchema(), vector);
-      VariantObjectWriter writer = new VariantObjectWriter(unionWriter, columnSchema);
-      UnionVectorState vectorState = new UnionVectorState(vector, unionWriter);
-      return new UnionColumnState(resultSetLoader, vectorCache, writer, vector, vectorState, projectionSet);
     }
 
     @Override

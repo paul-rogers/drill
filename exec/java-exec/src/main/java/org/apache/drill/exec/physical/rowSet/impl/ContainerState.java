@@ -17,16 +17,50 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
+import java.util.ArrayList;
 import java.util.Collection;
 
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.*;
+import org.apache.drill.exec.physical.rowSet.impl.NullVectorState.UnmanagedVectorState;
+import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
+import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.SimpleVectorState;
+import org.apache.drill.exec.physical.rowSet.impl.UnionState.UnionVectorState;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema.AbstractColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema.PrimitiveColumnMetadata;
+import org.apache.drill.exec.vector.NullableVector;
+import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
+import org.apache.drill.exec.vector.accessor.writer.MapWriter;
+import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriterImpl;
+import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
+import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl.VariantObjectWriter;
+import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
+import org.apache.drill.exec.vector.complex.MapVector;
+import org.apache.drill.exec.vector.complex.RepeatedValueVector;
+import org.apache.drill.exec.vector.complex.UnionVector;
+
+/**
+ * Abstract representation of a container of vectors: a row, a map, a
+ * repeated map, a list or a union.
+ * <p>
+ * The container is responsible for creating new columns in response
+ * from a writer listener event. Column creation requires a set of
+ * four items:
+ * <ul>
+ * <li>The value vector (which may be null if the column is not
+ * projected.</li>
+ * <li>The writer for the column.</li>
+ * <li>A vector state that manages allocation, overflow, cleanup
+ * and other vector-specific tasks.</li>
+ * <li>A column state which orchestrates the above three items.</li>
+ * <ul>
+ */
 
 public abstract class ContainerState {
 
@@ -130,15 +164,28 @@ public abstract class ContainerState {
 
     AbstractObjectWriter colWriter = ColumnWriterFactory.buildColumnWriter(columnSchema, vector);
 
-    if (columnSchema.isArray()) {
-      return PrimitiveColumnState.newPrimitiveArray(resultSetLoader, vector, colWriter);
+    VectorState vectorState;
+    if (vector == null) {
+      vectorState = new NullVectorState();
+    } else if (columnSchema.isArray()) {
+      vectorState = new RepeatedVectorState(colWriter, (RepeatedValueVector) vector);
+    } else if (columnSchema.isNullable()) {
+      vectorState = new NullableVectorState(
+          colWriter,
+          (NullableVector) vector);
     } else {
-      return PrimitiveColumnState.newPrimitive(resultSetLoader, vector, colWriter);
+      vectorState = SimpleVectorState.vectorState(
+            colWriter.schema(),
+            (AbstractScalarWriter) colWriter.scalar(),
+            vector);
     }
+    return new PrimitiveColumnState(resultSetLoader, colWriter,
+        vectorState);
   }
 
   /**
-   * Build a new map (single or repeated) column. No map vector is created
+   * Build a new map (single or repeated) column. Except for maps nested inside
+   * of unions, no map vector is created
    * here, instead we create a tuple state to hold the columns, and defer the
    * map vector (or vector container) until harvest time.
    *
@@ -155,24 +202,72 @@ public abstract class ContainerState {
     assert columnSchema.isMap();
     assert columnSchema.mapSchema().size() == 0;
 
-    // Create the writer. Will be returned to the tuple writer.
+    // Create the vector, vector state and writer.
 
-    String colName = columnSchema.name();
-    ProjectionSet childProjection = projectionSet.mapProjection(colName);
     if (columnSchema.isArray()) {
-      return MapArrayColumnState.build(resultSetLoader,
-          vectorCache.childCache(colName),
-          columnSchema,
-          childProjection);
+      return buildMapArray(columnSchema);
     } else {
-      return MapColumnState.build(resultSetLoader,
-          vectorCache.childCache(colName),
-          columnSchema,
-          childProjection,
-          isWithinUnion());
+      return buildSingleMap(columnSchema);
     }
   }
 
+  private ColumnState buildSingleMap(ColumnMetadata columnSchema) {
+    VectorState vectorState;
+    if (isWithinUnion()) {
+      @SuppressWarnings("resource")
+      MapVector vector = new MapVector(columnSchema.schema(), resultSetLoader.allocator(), null);
+      vectorState = new UnmanagedVectorState(vector);
+    } else {
+      vectorState = new NullVectorState();
+    }
+    return new MapColumnState(resultSetLoader,
+        vectorCache.childCache(columnSchema.name()),
+        columnSchema, vectorState,
+        projectionSet.mapProjection(columnSchema.name()));
+  }
+
+  @SuppressWarnings("resource")
+  private ColumnState buildMapArray(ColumnMetadata columnSchema) {
+
+    // Create the map's offset vector.
+
+    UInt4Vector offsetVector;
+    if (columnSchema.isProjected()) {
+      offsetVector = new UInt4Vector(
+        BaseRepeatedValueVector.OFFSETS_FIELD,
+        resultSetLoader.allocator());
+    } else {
+      offsetVector = null;
+    }
+
+    // Create the writer using the offset vector
+
+    AbstractObjectWriter writer = MapWriter.buildMapArray(
+        columnSchema, offsetVector,
+        new ArrayList<AbstractObjectWriter>());
+
+    // Wrap the offset vector in a vector state
+
+     VectorState vectorState;
+     if (columnSchema.isProjected()) {
+       vectorState= new OffsetVectorState(
+        ((OffsetVectorWriterImpl)
+          ((AbstractArrayWriter) writer.array()).offsetWriter()),
+        offsetVector,
+        (AbstractObjectWriter) writer.array().entry());
+     } else {
+       vectorState = new NullVectorState();
+     }
+
+    // Assemble it all into the column state.
+
+    return new MapArrayColumnState(resultSetLoader,
+        vectorCache.childCache(columnSchema.name()),
+        writer, vectorState,
+        projectionSet.mapProjection(columnSchema.name()));
+  }
+
+  @SuppressWarnings("resource")
   private ColumnState buildUnion(ColumnMetadata columnSchema) {
     assert columnSchema.isVariant() && ! columnSchema.isArray();
 
@@ -181,9 +276,24 @@ public abstract class ContainerState {
           columnSchema.name());
     }
 
-    return UnionColumnState.build(resultSetLoader,
+    // Create the union vector.
+
+    UnionVector vector = new UnionVector(columnSchema.schema(), resultSetLoader.allocator(), null);
+
+    // Then the union writer.
+
+    UnionWriterImpl unionWriter = new UnionWriterImpl(columnSchema.variantSchema(), vector);
+    VariantObjectWriter writer = new VariantObjectWriter(unionWriter, columnSchema);
+
+    // The union vector state which manages the types vector.
+
+    UnionVectorState vectorState = new UnionVectorState(vector, unionWriter);
+
+    // Assemble it all into a union column state.
+
+    return new UnionColumnState(resultSetLoader,
         vectorCache.childCache(columnSchema.name()),
-        columnSchema,
+        writer, vector, vectorState,
         new NullProjectionSet(true));
   }
 
