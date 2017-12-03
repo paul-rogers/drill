@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArrayWriter;
 
@@ -104,8 +105,8 @@ import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArra
 
 public class ObjectArrayWriter extends BaseArrayWriter {
 
-  protected ObjectArrayWriter(UInt4Vector offsetVector, AbstractObjectWriter elementWriter) {
-    super(offsetVector, elementWriter);
+  protected ObjectArrayWriter(ColumnMetadata schema, UInt4Vector offsetVector, AbstractObjectWriter elementWriter) {
+    super(schema, offsetVector, elementWriter);
     elementIndex = new ArrayElementWriterIndex();
   }
 
@@ -116,22 +117,11 @@ public class ObjectArrayWriter extends BaseArrayWriter {
   }
 
   @Override
-  public void set(Object... values) {
-    setObject(values);
-  }
-
-  @Override
   public void setObject(Object array) {
     Object values[] = (Object[]) array;
     for (int i = 0; i < values.length; i++) {
-      elementObjWriter.set(values[i]);
+      elementObjWriter.setObject(values[i]);
       save();
     }
-  }
-
-  @Override
-  public int lastWriteIndex() {
-    // Undefined for arrays
-    return 0;
   }
 }

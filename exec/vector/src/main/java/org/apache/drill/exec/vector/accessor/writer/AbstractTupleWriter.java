@@ -105,27 +105,15 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
     private AbstractTupleWriter tupleWriter;
 
-    public TupleObjectWriter(ColumnMetadata schema, AbstractTupleWriter tupleWriter) {
-      super(schema);
+    public TupleObjectWriter(AbstractTupleWriter tupleWriter) {
       this.tupleWriter = tupleWriter;
     }
-
-    @Override
-    public ObjectType type() { return ObjectType.TUPLE; }
-
-    @Override
-    public void set(Object value) { tupleWriter.setObject(value); }
 
     @Override
     public TupleWriter tuple() { return tupleWriter; }
 
     @Override
     public WriterEvents events() { return tupleWriter; }
-
-    @Override
-    public void bindListener(TupleWriterListener listener) {
-      tupleWriter.bindListener(listener);
-    }
 
     @Override
     public void dump(HierarchicalFormatter format) {
@@ -137,7 +125,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
     }
   }
 
-  protected final TupleMetadata schema;
+  protected final TupleMetadata tupleSchema;
   protected final List<AbstractObjectWriter> writers;
   protected ColumnWriterIndex vectorIndex;
   protected ColumnWriterIndex childIndex;
@@ -145,13 +133,16 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   protected State state = State.IDLE;
 
   protected AbstractTupleWriter(TupleMetadata schema, List<AbstractObjectWriter> writers) {
-    this.schema = schema;
+    this.tupleSchema = schema;
     this.writers = writers;
   }
 
   protected AbstractTupleWriter(TupleMetadata schema) {
     this(schema, new ArrayList<AbstractObjectWriter>());
   }
+
+  @Override
+  public ObjectType type() { return ObjectType.TUPLE; }
 
   protected void bindIndex(ColumnWriterIndex index, ColumnWriterIndex childIndex) {
     vectorIndex = index;
@@ -168,7 +159,9 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   }
 
   @Override
-  public ColumnWriterIndex writerIndex() { return vectorIndex; }
+  public int rowStartIndex() {
+    return vectorIndex.rowStartIndex();
+  }
 
   /**
    * Add a column writer to an existing tuple writer. Used for implementations
@@ -179,8 +172,8 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
    */
 
   public int addColumnWriter(AbstractObjectWriter colWriter) {
-    assert writers.size() == schema.size();
-    int colIndex = schema.addColumn(colWriter.schema());
+    assert writers.size() == tupleSchema.size();
+    int colIndex = tupleSchema.addColumn(colWriter.schema());
     writers.add(colWriter);
     colWriter.events().bindIndex(childIndex);
     if (state != State.IDLE) {
@@ -216,10 +209,10 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   }
 
   @Override
-  public TupleMetadata schema() { return schema; }
+  public TupleMetadata tupleSchema() { return tupleSchema; }
 
   @Override
-  public int size() { return schema().size(); }
+  public int size() { return tupleSchema().size(); }
 
   @Override
   public void startWrite() {
@@ -314,7 +307,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
   @Override
   public ObjectWriter column(String colName) {
-    int index = schema.index(colName);
+    int index = tupleSchema.index(colName);
     if (index == -1) {
       throw new UndefinedColumnException(colName);
     }
@@ -323,7 +316,7 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
 
   @Override
   public void set(int colIndex, Object value) {
-    column(colIndex).set(value);
+    column(colIndex).setObject(value);
   }
 
   @Override
@@ -334,9 +327,9 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   @Override
   public void setObject(Object value) {
     Object values[] = (Object[]) value;
-    if (values.length != schema.size()) {
+    if (values.length != tupleSchema.size()) {
       throw new IllegalArgumentException(
-          "Map has " + schema.size() +
+          "Map has " + tupleSchema.size() +
           " columns, but value array has " +
           values.length + " values.");
     }

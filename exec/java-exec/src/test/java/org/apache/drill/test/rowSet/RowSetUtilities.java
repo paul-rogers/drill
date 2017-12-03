@@ -69,7 +69,7 @@ public class RowSetUtilities {
 
   public static void setFromInt(RowSetWriter rowWriter, int index, int value) {
     ScalarWriter writer = rowWriter.scalar(index);
-    MaterializedField field = rowWriter.schema().column(index);
+    MaterializedField field = rowWriter.tupleSchema().column(index);
     writer.setObject(testDataFromInt(writer.valueType(), field.getType(), value));
   }
 
@@ -177,6 +177,14 @@ public class RowSetUtilities {
 
   public static String[] strArray(String... elements) {
     return elements;
+  }
+
+  public static int[] intArray(Integer... elements) {
+    int array[] = new int[elements.length];
+    for (int i = 0; i < elements.length; i++) {
+      array[i] = elements[i];
+    }
+    return array;
   }
 
   public static Object[][] mapArray(Object[]... elements) {

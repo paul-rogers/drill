@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleSchema.AbstractColumnMetadata;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
@@ -46,6 +47,9 @@ public class DummyWriterTest extends SubOperatorTest {
         List<AbstractObjectWriter> writers) {
       super(schema, writers);
     }
+
+    @Override
+    public ColumnMetadata schema() { return null; }
   }
 
   /**

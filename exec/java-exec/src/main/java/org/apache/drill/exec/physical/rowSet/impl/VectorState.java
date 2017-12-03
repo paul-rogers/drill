@@ -96,7 +96,7 @@ public interface VectorState {
    * result set loader.
    */
 
-  ValueVector vector();
+  <T extends ValueVector> T vector();
 
   /**
    * Report whether this column is projected (has materialized vectors),

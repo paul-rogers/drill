@@ -56,12 +56,8 @@ package org.apache.drill.exec.vector;
 
 public final class ${minor.class}Vector extends BaseDataValueVector implements VariableWidthVector {
 
-  private static final int DEFAULT_RECORD_BYTE_COUNT = 8;
   private static final int INITIAL_BYTE_COUNT = Math.min(INITIAL_VALUE_ALLOCATION * DEFAULT_RECORD_BYTE_COUNT, MAX_BUFFER_SIZE);
-  private static final int MIN_BYTE_COUNT = 4096;
-  public final static String OFFSETS_VECTOR_NAME = "$offsets$";
-
-  private final MaterializedField offsetsField = MaterializedField.create(OFFSETS_VECTOR_NAME, Types.required(MinorType.UINT4));
+  
   private final UInt${type.width}Vector offsetVector = new UInt${type.width}Vector(offsetsField, allocator);
   private final FieldReader reader = new ${minor.class}ReaderImpl(${minor.class}Vector.this);
 

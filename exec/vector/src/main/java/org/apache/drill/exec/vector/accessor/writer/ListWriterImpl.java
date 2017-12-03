@@ -18,6 +18,7 @@
 package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnWriter;
 import org.apache.drill.exec.vector.complex.ListVector;
 
@@ -32,8 +33,8 @@ public class ListWriterImpl extends ObjectArrayWriter {
 
   private final UInt1ColumnWriter isSetWriter;
 
-  public ListWriterImpl(ListVector vector, AbstractObjectWriter memberWriter) {
-    super(vector.getOffsetVector(), memberWriter);
+  public ListWriterImpl(ColumnMetadata schema, ListVector vector, AbstractObjectWriter memberWriter) {
+    super(schema, vector.getOffsetVector(), memberWriter);
     isSetWriter = new UInt1ColumnWriter(vector.getBitsVector());
     elementIndex = new ArrayElementWriterIndex();
   }

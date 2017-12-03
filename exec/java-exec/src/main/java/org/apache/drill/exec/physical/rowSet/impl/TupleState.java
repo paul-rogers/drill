@@ -22,19 +22,17 @@ import java.util.Collection;
 import java.util.List;
 
 import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
-import org.apache.drill.exec.physical.rowSet.impl.ColumnState.BaseMapColumnState;
+import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapColumnState;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleSchema;
-import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
-import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter;
-import org.apache.drill.exec.vector.complex.MapVector;
+import org.apache.drill.exec.vector.complex.AbstractMapVector;
 
 /**
  * Represents the loader state for a tuple: a row or a map. This is "state" in
@@ -80,7 +78,7 @@ public abstract class TupleState extends ContainerState
     public AbstractTupleWriter writer() { return writer; }
 
     @Override
-    public int innerCardinality() { return resultSetLoader.targetRowCount();}
+    public int innerCardinality() { return loader.targetRowCount();}
 
     @Override
     protected boolean isWithinUnion() { return false; }
@@ -94,55 +92,20 @@ public abstract class TupleState extends ContainerState
    * but is not published to the map that makes up the output.
    */
 
-  public static class MapState extends TupleState {
+  public static abstract class MapState extends TupleState {
 
-    protected final BaseMapColumnState mapColumnState;
+    protected MapColumnState mapColumnState;
     protected int outerCardinality;
 
-    public MapState(ResultSetLoaderImpl rsLoader,
+    public MapState(LoaderInternals events,
         ResultVectorCache vectorCache,
-        BaseMapColumnState mapColumnState,
         ProjectionSet projectionSet) {
-      super(rsLoader, vectorCache, projectionSet);
-      this.mapColumnState = mapColumnState;
-      mapColumnState.writer().bindListener(this);
+      super(events, vectorCache, projectionSet);
     }
 
-    /**
-     * Return the tuple writer for the map. If this is a single
-     * map, then it is the writer itself. If this is a map array,
-     * then the tuple is nested inside the array.
-     */
-
-    @Override
-    public AbstractTupleWriter writer() {
-      AbstractObjectWriter objWriter = mapColumnState.writer();
-      TupleWriter tupleWriter;
-      if (objWriter.type() == ObjectType.ARRAY) {
-        tupleWriter = objWriter.array().tuple();
-      } else {
-        tupleWriter = objWriter.tuple();
-      }
-      return (AbstractTupleWriter) tupleWriter;
-    }
-
-    @Override
-    protected void addColumn(ColumnState colState) {
-      super.addColumn(colState);
-
-      // If the map is materialized (because it is nested inside a union)
-      // then add the new vector to the map at add time. But, for top-level
-      // maps, or those nested inside other maps (but not a union), defer
-      // adding the column until harvest time, to allow for the case that
-      // new columns are added in the overflow row. Such columns may be
-      // required, and not allow back-filling. But, inside unions, all
-      // columns must be nullable, so back-filling of nulls is possible.
-
-      @SuppressWarnings("resource")
-      MapVector vector = (MapVector) mapColumnState.vector();
-      if (vector != null) {
-        vector.putChild(colState.schema().name(), colState.vector());
-      }
+    public void bindColumnState(MapColumnState colState) {
+      mapColumnState = colState;
+      writer().bindListener(this);
     }
 
     /**
@@ -160,8 +123,56 @@ public abstract class TupleState extends ContainerState
     }
 
     @Override
+    public void dump(HierarchicalFormatter format) {
+      format
+        .startObject(this)
+        .attribute("column", mapColumnState.schema().name())
+        .attribute("cardinality", outerCardinality)
+        .endObject();
+    }
+  }
+
+  public static class SingleMapState extends MapState {
+
+    public SingleMapState(LoaderInternals events,
+        ResultVectorCache vectorCache,
+        ProjectionSet projectionSet) {
+      super(events, vectorCache, projectionSet);
+     }
+
+    /**
+     * Return the tuple writer for the map. If this is a single
+     * map, then it is the writer itself. If this is a map array,
+     * then the tuple is nested inside the array.
+     */
+
+    @Override
+    public AbstractTupleWriter writer() {
+      return (AbstractTupleWriter) mapColumnState.writer().tuple();
+    }
+
+    @Override
     public int innerCardinality() {
-      return outerCardinality * mapColumnState.schema().expectedElementCount();
+      return outerCardinality;
+    }
+
+    @Override
+    protected void addColumn(ColumnState colState) {
+      super.addColumn(colState);
+
+      // If the map is materialized (because it is nested inside a union)
+      // then add the new vector to the map at add time. But, for top-level
+      // maps, or those nested inside other maps (but not a union), defer
+      // adding the column until harvest time, to allow for the case that
+      // new columns are added in the overflow row. Such columns may be
+      // required, and not allow back-filling. But, inside unions, all
+      // columns must be nullable, so back-filling of nulls is possible.
+
+      @SuppressWarnings("resource")
+      AbstractMapVector mapVector = mapColumnState.vector();
+       if (mapVector != null) {
+         mapVector.putChild(colState.schema().name(), colState.vector());
+      }
     }
 
     /**
@@ -174,22 +185,42 @@ public abstract class TupleState extends ContainerState
 
     @Override
     protected boolean isWithinUnion() { return mapColumnState.vector() != null; }
+  }
+
+  public static class MapArrayState extends MapState {
+
+    public MapArrayState(LoaderInternals events,
+        ResultVectorCache vectorCache,
+        ProjectionSet projectionSet) {
+      super(events, vectorCache, projectionSet);
+    }
+
+    /**
+     * Return the tuple writer for the map. If this is a single
+     * map, then it is the writer itself. If this is a map array,
+     * then the tuple is nested inside the array.
+     */
 
     @Override
-    public void dump(HierarchicalFormatter format) {
-      format
-        .startObject(this)
-        .attribute("column", mapColumnState.schema().name())
-        .attribute("cardinality", outerCardinality)
-        .endObject();
+    public AbstractTupleWriter writer() {
+      return (AbstractTupleWriter) mapColumnState.writer().array().tuple();
     }
+
+    @Override
+    public int innerCardinality() {
+      return outerCardinality * mapColumnState.schema().expectedElementCount();
+    }
+
+    @Override
+    protected boolean isWithinUnion() { return false; }
   }
+
 
   protected final List<ColumnState> columns = new ArrayList<>();
   protected final TupleSchema schema = new TupleSchema();
 
-  protected TupleState(ResultSetLoaderImpl rsLoader, ResultVectorCache vectorCache, ProjectionSet projectionSet) {
-    super(rsLoader, vectorCache, projectionSet);
+  protected TupleState(LoaderInternals events, ResultVectorCache vectorCache, ProjectionSet projectionSet) {
+    super(events, vectorCache, projectionSet);
   }
 
   /**
@@ -204,7 +235,7 @@ public abstract class TupleState extends ContainerState
 
   public List<ColumnState> columns() { return columns; }
 
-  public TupleMetadata schema() { return writer().schema(); }
+  public TupleMetadata schema() { return writer().tupleSchema(); }
 
   public abstract AbstractTupleWriter writer();
 

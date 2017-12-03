@@ -74,24 +74,36 @@ public class ColumnWriterFactory {
     default:
       switch (schema.mode()) {
       case OPTIONAL:
-        return buildNullable(schema, (NullableVector) vector);
+        return nullableScalarWriter(schema, (NullableVector) vector);
       case REQUIRED:
-        return new ScalarObjectWriter(schema, newWriter(vector));
+        return requiredScalarWriter(schema, vector);
       case REPEATED:
-        RepeatedValueVector repeatedVector = (RepeatedValueVector) vector;
-        return ScalarArrayWriter.build(schema, repeatedVector,
-                newWriter(repeatedVector.getDataVector()));
+        return repeatedScalarWriter(schema, (RepeatedValueVector) vector);
       default:
         throw new UnsupportedOperationException(schema.mode().toString());
       }
     }
   }
 
-  private static AbstractObjectWriter buildNullable(ColumnMetadata schema,
-      NullableVector vector) {
-    NullableVector nullableVector = vector;
-    return NullableScalarWriter.build(schema, nullableVector,
-            newWriter(nullableVector.getValuesVector()));
+  private static ScalarObjectWriter requiredScalarWriter(
+      ColumnMetadata schema, ValueVector vector) {
+    BaseScalarWriter baseWriter = newWriter(vector);
+    baseWriter.bindSchema(schema);
+    return new ScalarObjectWriter(baseWriter);
+  }
+
+  private static ScalarObjectWriter nullableScalarWriter(
+      ColumnMetadata schema, NullableVector vector) {
+    BaseScalarWriter baseWriter = newWriter(vector.getValuesVector());
+    baseWriter.bindSchema(schema);
+    return NullableScalarWriter.build(schema, vector, baseWriter);
+  }
+
+  private static AbstractObjectWriter repeatedScalarWriter(
+      ColumnMetadata schema, RepeatedValueVector vector) {
+    BaseScalarWriter baseWriter = newWriter(vector.getDataVector());
+    baseWriter.bindSchema(schema);
+    return ScalarArrayWriter.build(schema, vector, baseWriter);
   }
 
   /**
@@ -110,15 +122,15 @@ public class ColumnWriterFactory {
     case UNION:
       throw new UnsupportedOperationException(schema.type().toString());
     default:
-      ScalarObjectWriter scalarWriter = new ScalarObjectWriter(schema,
-          new DummyScalarWriter());
+      ScalarObjectWriter scalarWriter = new ScalarObjectWriter(
+          new DummyScalarWriter(schema));
       switch (schema.mode()) {
       case OPTIONAL:
       case REQUIRED:
         return scalarWriter;
       case REPEATED:
-        return new ArrayObjectWriter(schema,
-            new DummyArrayWriter(
+        return new ArrayObjectWriter(
+            new DummyArrayWriter(schema,
               scalarWriter));
       default:
         throw new UnsupportedOperationException(schema.mode().toString());

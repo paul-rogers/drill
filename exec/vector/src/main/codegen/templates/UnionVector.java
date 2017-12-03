@@ -59,24 +59,9 @@ import com.google.common.annotations.VisibleForTesting;
 public class UnionVector implements ValueVector {
   
   public static final int NULL_MARKER = 0;
-  public static final String MAP_NAME = "$internal";
-  public static final String TYPES_NAME = "$types";
+  public static final String MAP_NAME = "$map$";
+  public static final String TYPES_NAME = "$types$";
   private static final MajorType MAJOR_TYPES[] = new MajorType[MinorType.values().length];
-
-  private MaterializedField field;
-  private BufferAllocator allocator;
-  private Accessor accessor = new Accessor();
-  private Mutator mutator = new Mutator();
-  private int valueCount;
-
-  private MapVector internalMap;
-  private UInt1Vector typeVector;
-
-  private ValueVector subtypes[] = new ValueVector[MinorType.values().length];
-
-  private FieldReader reader;
-
-  private final CallBack callBack;
   
   static {
     MAJOR_TYPES[MinorType.MAP.ordinal()] = Types.optional(MinorType.MAP);
@@ -93,12 +78,30 @@ public class UnionVector implements ValueVector {
     </#list>
   }
 
+  private MaterializedField field;
+  private BufferAllocator allocator;
+  private Accessor accessor = new Accessor();
+  private Mutator mutator = new Mutator();
+  private int valueCount;
+
+  private MapVector internalMap;
+  private UInt1Vector typeVector;
+
+  private ValueVector subtypes[] = new ValueVector[MinorType.values().length];
+
+  private FieldReader reader;
+
+  private final CallBack callBack;
+
   public UnionVector(MaterializedField field, BufferAllocator allocator, CallBack callBack) {
     this.field = field.clone();
     this.allocator = allocator;
-    this.internalMap = new MapVector(MAP_NAME, allocator, callBack);
-    this.typeVector = internalMap.addOrGet(TYPES_NAME, Types.required(MinorType.UINT1), UInt1Vector.class);
+    internalMap = new MapVector(MAP_NAME, allocator, callBack);
+    typeVector = new UInt1Vector(
+        MaterializedField.create(TYPES_NAME, Types.required(MinorType.UINT1)),
+        allocator);
     this.field.addChild(internalMap.getField().clone());
+    this.field.addChild(typeVector.getField());
     this.callBack = callBack;
   }
 
@@ -297,6 +300,7 @@ public class UnionVector implements ValueVector {
 
   @Override
   public void clear() {
+    typeVector.clear();
     internalMap.clear();
   }
 
@@ -338,6 +342,7 @@ public class UnionVector implements ValueVector {
   }
 
   public void copyFrom(int inIndex, int outIndex, UnionVector from) {
+    typeVector.copyFrom(inIndex, outIndex, from.typeVector);
     from.getReader().setPosition(inIndex);
     getWriter().setPosition(outIndex);
     ComplexCopier.copy(from.reader, mutator.writer);

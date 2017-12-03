@@ -20,7 +20,7 @@ package org.apache.drill.exec.physical.rowSet.impl;
 import java.util.List;
 
 import org.apache.drill.exec.memory.BufferAllocator;
-import org.apache.drill.exec.physical.rowSet.impl.ColumnState.BaseMapColumnState;
+import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapColumnState;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.TupleMetadata;
@@ -189,7 +189,7 @@ public class VectorContainerBuilder {
         continue;
       }
       if (colState.schema().isMap()) {
-        updateTuple(((BaseMapColumnState) colState).mapState(), destProxy.mapProxy(i));
+        updateTuple(((MapColumnState) colState).mapState(), destProxy.mapProxy(i));
       }
     }
 
@@ -208,7 +208,7 @@ public class VectorContainerBuilder {
         break;
       }
       if (colState.schema().isMap()) {
-        buildMap(destProxy, (BaseMapColumnState) colState);
+        buildMap(destProxy, (MapColumnState) colState);
       } else {
 
         // Lists and unions are simply added; no attempt is made to recurse
@@ -222,7 +222,7 @@ public class VectorContainerBuilder {
   }
 
   @SuppressWarnings("resource")
-  private void buildMap(TupleProxy parentTuple, BaseMapColumnState colModel) {
+  private void buildMap(TupleProxy parentTuple, MapColumnState colModel) {
 
     // Creating the map vector will create its contained vectors if we
     // give it a materialized field with children. So, instead pass a clone

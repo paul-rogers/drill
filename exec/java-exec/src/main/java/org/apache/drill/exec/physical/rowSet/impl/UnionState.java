@@ -29,7 +29,6 @@ import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.SimpleVector
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema.VariantSchema;
 import org.apache.drill.exec.record.VariantMetadata;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.VariantWriter;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
@@ -46,7 +45,7 @@ public class UnionState extends ContainerState
 
     public UnionVectorState(UnionVector vector, UnionWriterImpl unionWriter) {
       this.vector = vector;
-      typesVectorState = new FixedWidthVectorState(unionWriter, vector.getTypeVector());
+      typesVectorState = new FixedWidthVectorState(unionWriter.typeWriter(), vector.getTypeVector());
     }
 
     @Override
@@ -74,8 +73,9 @@ public class UnionState extends ContainerState
       typesVectorState.reset();
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public ValueVector vector() {
+    public UnionVector vector() {
       return vector;
     }
 
@@ -91,13 +91,15 @@ public class UnionState extends ContainerState
     }
   }
 
-  public final UnionColumnState columnState;
-  public final VariantMetadata schema = new VariantSchema();
-  protected final Map<MinorType, ColumnState> columns = new HashMap<>();
+  private UnionColumnState columnState;
+  private final VariantMetadata schema = new VariantSchema();
+  private final Map<MinorType, ColumnState> columns = new HashMap<>();
 
-  public UnionState(ResultSetLoaderImpl rsLoader, ResultVectorCache vectorCache, ProjectionSet projectionSet,
-      UnionColumnState columnState) {
-    super(rsLoader, vectorCache, projectionSet);
+  public UnionState(LoaderInternals events, ResultVectorCache vectorCache, ProjectionSet projectionSet) {
+    super(events, vectorCache, projectionSet);
+  }
+
+  public void bindColumnState(UnionColumnState columnState) {
     this.columnState = columnState;
     writer().bindListener(this);
   }

@@ -26,7 +26,6 @@ import org.apache.drill.exec.physical.rowSet.model.MetadataProvider;
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescrip;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
-import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
 import org.apache.drill.exec.vector.accessor.writer.ListWriterImpl;
@@ -112,8 +111,7 @@ public abstract class BaseWriterBuilder {
       variants[type.ordinal()] = buildVectorWriter(memberVector, memberDescrip);
     }
     return new VariantObjectWriter(
-        new UnionWriterImpl(descrip.metadata.variantSchema(), vector, variants),
-        descrip.metadata);
+        new UnionWriterImpl(descrip.metadata, vector, variants));
   }
 
   @SuppressWarnings("resource")
@@ -133,9 +131,9 @@ public abstract class BaseWriterBuilder {
     } else {
       dataMetadata = new VectorDescrip(descrip.childProvider(), 0, dataVector.getField());
     }
-    AbstractObjectWriter dataWriter = buildVectorWriter(dataVector, dataMetadata);
-    AbstractArrayWriter arrayWriter = new ListWriterImpl(
-        vector, dataWriter);
-    return new ArrayObjectWriter(descrip.metadata, arrayWriter);
+    return new ArrayObjectWriter(
+      new ListWriterImpl(descrip.metadata,
+          vector,
+          buildVectorWriter(dataVector, dataMetadata)));
   }
 }

@@ -179,7 +179,7 @@ public abstract class MapWriter extends AbstractTupleWriter {
       assert vector == null;
       mapWriter = new DummyMapWriter(schema, writers);
     }
-    return new TupleObjectWriter(schema, mapWriter);
+    return new TupleObjectWriter(mapWriter);
   }
 
   public static ArrayObjectWriter buildMapArray(ColumnMetadata schema,
@@ -193,16 +193,16 @@ public abstract class MapWriter extends AbstractTupleWriter {
       assert offsetVector == null;
       mapWriter = new DummyArrayMapWriter(schema, writers);
     }
-    TupleObjectWriter mapArray = new TupleObjectWriter(schema, mapWriter);
+    TupleObjectWriter mapArray = new TupleObjectWriter(mapWriter);
     AbstractArrayWriter arrayWriter;
     if (schema.isProjected()) {
-      arrayWriter = new ObjectArrayWriter(
+      arrayWriter = new ObjectArrayWriter(schema,
           offsetVector,
           mapArray);
     } else  {
-      arrayWriter = new DummyArrayWriter(mapArray);
+      arrayWriter = new DummyArrayWriter(schema, mapArray);
     }
-    return new ArrayObjectWriter(schema, arrayWriter);
+    return new ArrayObjectWriter(arrayWriter);
   }
 
   public static AbstractObjectWriter buildMapWriter(ColumnMetadata schema,
@@ -223,4 +223,7 @@ public abstract class MapWriter extends AbstractTupleWriter {
     assert schema.mapSchema().size() == 0;
     return buildMapWriter(schema, vector, new ArrayList<AbstractObjectWriter>());
   }
+
+  @Override
+  public ColumnMetadata schema() { return mapColumnSchema; }
 }

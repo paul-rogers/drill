@@ -50,16 +50,15 @@ import org.apache.drill.exec.record.VariantMetadata;
  * @see {@link VariantReader}
  */
 
-public interface VariantWriter {
+public interface VariantWriter extends ColumnWriter {
 
   interface VariantWriterListener {
     ObjectWriter addMember(ColumnMetadata schema);
     ObjectWriter addType(MinorType type);
   }
 
-  void bindListener(VariantWriterListener listener);
 
-  VariantMetadata schema();
+  VariantMetadata variantSchema();
 
   int size();
 
@@ -105,14 +104,4 @@ public interface VariantWriter {
   ScalarWriter scalar(MinorType type);
   TupleWriter tuple();
   ArrayWriter array();
-
-  /**
-   * Write the given object into the backing vector, creating a vector
-   * of the required type if needed. Primarily for testing.
-   *
-   * @param value value to write to the vector. The Java type of the
-   * object indicates the Drill storage type
-   */
-
-  void setObject(Object value);
 }

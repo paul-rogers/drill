@@ -39,27 +39,15 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
 
     private AbstractScalarWriter scalarWriter;
 
-    public ScalarObjectWriter(ColumnMetadata schema, AbstractScalarWriter scalarWriter) {
-      super(schema);
+    public ScalarObjectWriter(AbstractScalarWriter scalarWriter) {
       this.scalarWriter = scalarWriter;
     }
-
-    @Override
-    public ObjectType type() { return ObjectType.SCALAR; }
-
-    @Override
-    public void set(Object value) { scalarWriter.setObject(value); }
 
     @Override
     public ScalarWriter scalar() { return scalarWriter; }
 
     @Override
     public WriterEvents events() { return scalarWriter; }
-
-    @Override
-    public void bindListener(ColumnWriterListener listener) {
-      scalarWriter.bindListener(listener);
-    }
 
     @Override
     public void dump(HierarchicalFormatter format) {
@@ -70,6 +58,18 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
       format.endObject();
     }
   }
+
+  protected ColumnMetadata schema;
+
+  @Override
+  public ObjectType type() { return ObjectType.SCALAR; }
+
+  public void bindSchema(ColumnMetadata schema) {
+    this.schema = schema;
+  }
+
+  @Override
+  public ColumnMetadata schema() { return schema; }
 
   public abstract BaseDataValueVector vector();
 

@@ -33,15 +33,16 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   private final UInt1ColumnWriter isSetWriter;
   private final BaseScalarWriter baseWriter;
 
-  public NullableScalarWriter(NullableVector nullableVector, BaseScalarWriter baseWriter) {
+  public NullableScalarWriter(ColumnMetadata schema, NullableVector nullableVector, BaseScalarWriter baseWriter) {
+    this.schema = schema;
     isSetWriter = new UInt1ColumnWriter(nullableVector.getBitsVector());
     this.baseWriter = baseWriter;
   }
 
   public static ScalarObjectWriter build(ColumnMetadata schema,
       NullableVector nullableVector, BaseScalarWriter baseWriter) {
-    return new ScalarObjectWriter(schema,
-        new NullableScalarWriter(nullableVector, baseWriter));
+    return new ScalarObjectWriter(
+        new NullableScalarWriter(schema, nullableVector, baseWriter));
   }
 
   public BaseScalarWriter bitsWriter() { return isSetWriter; }
@@ -59,7 +60,9 @@ public class NullableScalarWriter extends AbstractScalarWriter {
   }
 
   @Override
-  public ColumnWriterIndex writerIndex() { return baseWriter.writerIndex(); }
+  public int rowStartIndex() {
+    return baseWriter.rowStartIndex();
+  }
 
   @Override
   public ValueType valueType() {

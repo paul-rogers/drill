@@ -19,11 +19,10 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
-import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
-import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
 import org.apache.drill.exec.vector.accessor.VariantWriter;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
@@ -37,14 +36,8 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
 public abstract class AbstractObjectWriter implements ObjectWriter {
 
-  private ColumnMetadata schema;
-
-  public AbstractObjectWriter(ColumnMetadata schema) {
-    this.schema = schema;
-  }
-
   @Override
-  public ColumnMetadata schema() { return schema; }
+  public ColumnMetadata schema() { return events().schema(); }
 
   @Override
   public ScalarWriter scalar() {
@@ -69,10 +62,22 @@ public abstract class AbstractObjectWriter implements ObjectWriter {
   public abstract WriterEvents events();
 
   @Override
-  public void bindListener(ColumnWriterListener listener) { }
+  public ObjectType type() { return events().type(); }
 
   @Override
-  public void bindListener(TupleWriterListener listener) { }
+  public void setObject(Object value) {
+    events().setObject(value);
+  }
 
   public abstract void dump(HierarchicalFormatter format);
+
+  @Override
+  public int rowStartIndex() {
+    return events().rowStartIndex();
+  }
+
+  @Override
+  public int lastWriteIndex() {
+    return events().lastWriteIndex();
+  }
 }

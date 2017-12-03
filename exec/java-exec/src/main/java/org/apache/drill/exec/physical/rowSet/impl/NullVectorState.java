@@ -32,7 +32,7 @@ public class NullVectorState implements VectorState {
   @Override public void harvestWithLookAhead() { }
   @Override public void startBatchWithLookAhead() { }
   @Override public void reset() { }
-  @Override public ValueVector vector() { return null; }
+  @Override public <T extends ValueVector> T vector() { return null; }
   @Override public boolean isProjected() { return false; }
 
   public static class UnmanagedVectorState extends NullVectorState {
@@ -42,8 +42,9 @@ public class NullVectorState implements VectorState {
       this.vector = vector;
     }
 
+    @SuppressWarnings("unchecked")
     @Override
-    public ValueVector vector() { return vector; }
+    public <T extends ValueVector> T vector() { return (T) vector; }
   }
 
   @Override

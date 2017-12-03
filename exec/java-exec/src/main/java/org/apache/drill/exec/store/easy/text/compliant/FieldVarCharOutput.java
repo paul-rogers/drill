@@ -44,7 +44,7 @@ class FieldVarCharOutput extends BaseFieldOutput {
   }
 
   private static boolean[] makeMask(RowSetLoader writer) {
-    TupleMetadata schema = writer.schema();
+    TupleMetadata schema = writer.tupleSchema();
     boolean projectionMask[] = new boolean[schema.size()];
     for (int i = 0; i < schema.size(); i++) {
       projectionMask[i] = schema.metadata(i).isProjected();

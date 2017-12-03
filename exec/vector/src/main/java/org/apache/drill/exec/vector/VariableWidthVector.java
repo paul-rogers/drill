@@ -17,7 +17,15 @@
  */
 package org.apache.drill.exec.vector;
 
+import org.apache.drill.common.types.TypeProtos.MinorType;
+import org.apache.drill.common.types.Types;
+import org.apache.drill.exec.record.MaterializedField;
+
 public interface VariableWidthVector extends ValueVector {
+
+  int DEFAULT_RECORD_BYTE_COUNT = 8;
+  int MIN_BYTE_COUNT = 4096;
+  MaterializedField offsetsField = MaterializedField.create(OFFSETS_VECTOR_NAME, Types.required(MinorType.UINT4));
 
   interface VariableWidthAccessor extends Accessor {
     int getValueLength(int index);

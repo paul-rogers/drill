@@ -22,7 +22,6 @@ import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.record.TupleSchema;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
-import org.apache.drill.test.OperatorFixture;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
 
 /**
@@ -58,19 +57,23 @@ public final class RowSetBuilder {
   public TupleWriter writer() { return writer; }
 
   /**
-   * Add a new row using column values passed as variable-length arguments. Expects
-   * map values to be flattened. a schema of (a:int, b:map(c:varchar)) would be>
-   * set as <br><tt>add(10, "foo");</tt><br> Values of arrays can be expressed as a Java
-   * array. A schema of (a:int, b:int[]) can be set as<br>
+   * Add a new row using column values passed as variable-length arguments.
+   * Expects map values to be flattened. a schema of (a:int, b:map(c:varchar))
+   * would be> set as <br>
+   * <tt>add(10, "foo");</tt><br>
+   * Values of arrays can be expressed as a Java array. A schema of (a:int,
+   * b:int[]) can be set as<br>
    * <tt>add(10, new int[] {100, 200});</tt><br>
    *
-   * @param values column values in column index order
+   * @param values
+   *          column values in column index order
    *
    * @return this builder
    *
-   * @throws IllegalStateException if the batch, or any vector in the batch,
-   * becomes full. This method is designed to be used in tests where we will
-   * seldom create a full vector of data.
+   * @throws IllegalStateException
+   *           if the batch, or any vector in the batch, becomes full. This
+   *           method is designed to be used in tests where we will seldom
+   *           create a full vector of data.
    */
 
   public RowSetBuilder addRow(Object...values) {

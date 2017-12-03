@@ -21,6 +21,8 @@ import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.TupleMetadata;
 
+import org.apache.drill.exec.vector.accessor.ColumnWriter.TupleListenable;
+
 /**
  * Writer for a tuple. A tuple is composed of columns with a fixed order and
  * unique names: either can be used to reference columns. Columns are scalar
@@ -50,7 +52,7 @@ import org.apache.drill.exec.record.TupleMetadata;
  * @see {@link SingleMapWriter}, the class which this class replaces
  */
 
-public interface TupleWriter {
+public interface TupleWriter extends ColumnWriter, TupleListenable {
 
   /**
    * Listener (callback) to handle requests to add a new column to a tuple (row
@@ -84,8 +86,6 @@ public interface TupleWriter {
     }
   }
 
-  void bindListener(TupleWriterListener listener);
-
   /**
    * Allows a client to "sniff" the projection set to determine if a
    * field is projected. Some clients can omit steps if they know that
@@ -117,7 +117,7 @@ public interface TupleWriter {
 
   int addColumn(MaterializedField schema);
 
-  TupleMetadata schema();
+  TupleMetadata tupleSchema();
 
   int size();
 
@@ -178,13 +178,4 @@ public interface TupleWriter {
    */
 
   void setTuple(Object... values);
-
-  /**
-   * Set the tuple from an array of objects. Primarily for use in test tools.
-   *
-   * @param value
-   *          the object to set, which must be a generic <tt>Object</tt> array
-   */
-
-  void setObject(Object value);
 }

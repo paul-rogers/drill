@@ -19,6 +19,7 @@ package org.apache.drill.test.rowSet;
 
 import java.util.List;
 
+import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
@@ -151,5 +152,11 @@ public class RowSetWriterImpl extends AbstractTupleWriter implements RowSetWrite
   @Override
   public int lastWriteIndex() {
     return writerIndex.vectorIndex();
+  }
+
+  @Override
+  public ColumnMetadata schema() {
+    // No column schema for the row as a whole.
+    return null;
   }
 }

@@ -57,7 +57,7 @@ package org.apache.drill.exec.vector.accessor;
  * @see {@link ArrayReader}
  */
 
-public interface ArrayWriter {
+public interface ArrayWriter extends ColumnWriter {
 
   /**
    * Number of elements written thus far to the array.
@@ -95,23 +95,4 @@ public interface ArrayWriter {
    */
 
   void save();
-
-  /**
-   * Write the values of an array from a list of arguments.
-   * @param values values for each array element
-   * @throws VectorOverflowException
-   */
-  void set(Object ...values);
-
-  /**
-   * Write the array given an array of values. The type of array must match
-   * the type of element in the array. That is, if the value is an <tt>int</tt>,
-   * provide an <tt>int[]</tt> array.
-   *
-   * @param array array of values to write
-   * @throws VectorOverflowException
-   */
-
-  void setObject(Object array);
-//  void setList(List<? extends Object> list);
 }

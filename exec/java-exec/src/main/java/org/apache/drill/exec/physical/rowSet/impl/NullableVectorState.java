@@ -40,7 +40,7 @@ public class NullableVectorState implements VectorState {
 
     this.writer = (NullableScalarWriter) writer.scalar();
     bitsState = new FixedWidthVectorState(this.writer.bitsWriter(), vector.getBitsVector());
-    valuesState = SimpleVectorState.vectorState(schema, this.writer.baseWriter(), vector.getValuesVector());
+    valuesState = SimpleVectorState.vectorState(this.writer.baseWriter(), vector.getValuesVector());
   }
 
   @Override
@@ -73,8 +73,9 @@ public class NullableVectorState implements VectorState {
     valuesState.reset();
   }
 
+  @SuppressWarnings("unchecked")
   @Override
-  public ValueVector vector() { return vector; }
+  public <T extends ValueVector> T vector() { return (T) vector; }
 
   @Override
   public boolean isProjected() { return true; }

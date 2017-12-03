@@ -165,7 +165,9 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
   }
 
   @Override
-  public ColumnWriterIndex writerIndex() { return vectorIndex; }
+  public int rowStartIndex() {
+    return vectorIndex.rowStartIndex();
+  }
 
   @Override
   public void bindListener(ColumnWriterListener listener) {

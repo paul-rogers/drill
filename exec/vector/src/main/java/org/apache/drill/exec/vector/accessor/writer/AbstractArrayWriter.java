@@ -24,9 +24,7 @@ import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
-import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
-import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
 import org.apache.drill.exec.vector.accessor.VariantWriter;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 
@@ -99,17 +97,8 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
     private AbstractArrayWriter arrayWriter;
 
-    public ArrayObjectWriter(ColumnMetadata schema, AbstractArrayWriter arrayWriter) {
-      super(schema);
+    public ArrayObjectWriter(AbstractArrayWriter arrayWriter) {
       this.arrayWriter = arrayWriter;
-    }
-
-    @Override
-    public ObjectType type() { return ObjectType.ARRAY; }
-
-    @Override
-    public void set(Object value) {
-      arrayWriter.setObject(value);
     }
 
     @Override
@@ -117,16 +106,6 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
     @Override
     public WriterEvents events() { return arrayWriter; }
-
-    @Override
-    public void bindListener(ColumnWriterListener listener) {
-      arrayWriter.bindListener(listener);
-    }
-
-    @Override
-    public void bindListener(TupleWriterListener listener) {
-      arrayWriter.bindListener(listener);
-    }
 
     @Override
     public void dump(HierarchicalFormatter format) {
@@ -187,8 +166,8 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
   public static abstract class BaseArrayWriter extends AbstractArrayWriter {
 
-    public BaseArrayWriter(UInt4Vector offsetVector, AbstractObjectWriter elementObjWriter) {
-      super(elementObjWriter, new OffsetVectorWriterImpl(offsetVector));
+    public BaseArrayWriter(ColumnMetadata schema, UInt4Vector offsetVector, AbstractObjectWriter elementObjWriter) {
+      super(schema, elementObjWriter, new OffsetVectorWriterImpl(offsetVector));
     }
 
     @Override
@@ -274,20 +253,28 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     }
   }
 
+  protected final ColumnMetadata schema;
   protected final AbstractObjectWriter elementObjWriter;
   protected final OffsetVectorWriter offsetsWriter;
   protected ColumnWriterIndex outerIndex;
   protected ArrayElementWriterIndex elementIndex;
 
-  public AbstractArrayWriter(AbstractObjectWriter elementObjWriter, OffsetVectorWriter offsetVectorWriter) {
+  public AbstractArrayWriter(ColumnMetadata schema, AbstractObjectWriter elementObjWriter, OffsetVectorWriter offsetVectorWriter) {
+    this.schema = schema;
     this.elementObjWriter = elementObjWriter;
     this.offsetsWriter = offsetVectorWriter;
   }
 
   @Override
+  public ObjectType type() { return ObjectType.ARRAY; }
+
+  @Override
   public ObjectType entryType() {
     return elementObjWriter.type();
   }
+
+  @Override
+  public ColumnMetadata schema() { return schema; }
 
   @Override
   public ObjectWriter entry() { return elementObjWriter; }
@@ -316,19 +303,19 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
   public int size() { return elementIndex.arraySize(); }
 
   @Override
-  public ColumnWriterIndex writerIndex() { return outerIndex; }
+  public int rowStartIndex() {
+    return outerIndex.rowStartIndex();
+  }
+
+  @Override
+  public int lastWriteIndex() {
+    // Undefined for arrays
+    return 0;
+  }
 
   @Override
   public void setNull(boolean isNull) {
     throw new UnsupportedOperationException();
-  }
-
-  public void bindListener(ColumnWriterListener listener) {
-    elementObjWriter.bindListener(listener);
-  }
-
-  public void bindListener(TupleWriterListener listener) {
-    elementObjWriter.bindListener(listener);
   }
 
   /**

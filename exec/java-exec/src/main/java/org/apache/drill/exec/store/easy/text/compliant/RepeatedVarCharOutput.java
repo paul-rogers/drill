@@ -52,7 +52,7 @@ class RepeatedVarCharOutput extends BaseFieldOutput {
     // If the one and only field (`columns`) is not selected, then this
     // is a COUNT(*) or similar query. Select nothing.
 
-    if (! loader.schema().metadata(0).isProjected()) {
+    if (! loader.tupleSchema().metadata(0).isProjected()) {
       return -1;
     }
 

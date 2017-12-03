@@ -51,7 +51,11 @@ public class BuildFromSchema {
 
   private void expandColumn(ObjectWriter colWriter, ColumnMetadata colSchema) {
     if (colSchema.isMap()) {
-      buildTuple(colWriter.tuple(), colSchema.mapSchema());
+      if (colSchema.isArray()) {
+        buildTuple(colWriter.array().tuple(), colSchema.mapSchema());
+      } else {
+        buildTuple(colWriter.tuple(), colSchema.mapSchema());
+      }
     } else if (colSchema.isVariant()) {
       buildUnion(colWriter.variant(), colSchema.variantSchema());
     }

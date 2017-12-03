@@ -25,6 +25,8 @@ import org.apache.drill.exec.physical.rowSet.impl.ColumnState.*;
 import org.apache.drill.exec.physical.rowSet.impl.NullVectorState.UnmanagedVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.OffsetVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.SimpleVectorState;
+import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapArrayState;
+import org.apache.drill.exec.physical.rowSet.impl.TupleState.SingleMapState;
 import org.apache.drill.exec.physical.rowSet.impl.UnionState.UnionVectorState;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.TupleSchema.AbstractColumnMetadata;
@@ -34,10 +36,9 @@ import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
-import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter.TupleObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.ColumnWriterFactory;
 import org.apache.drill.exec.vector.accessor.writer.MapWriter;
-import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriterImpl;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl.VariantObjectWriter;
 import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
@@ -64,7 +65,7 @@ import org.apache.drill.exec.vector.complex.UnionVector;
 
 public abstract class ContainerState {
 
-  protected final ResultSetLoaderImpl resultSetLoader;
+  protected final LoaderInternals loader;
   protected final ProjectionSet projectionSet;
 
   /**
@@ -74,14 +75,15 @@ public abstract class ContainerState {
 
   protected final ResultVectorCache vectorCache;
 
-  public ContainerState(ResultSetLoaderImpl rsLoader, ResultVectorCache vectorCache, ProjectionSet projectionSet) {
-    this.resultSetLoader = rsLoader;
+  public ContainerState(LoaderInternals loader, ResultVectorCache vectorCache, ProjectionSet projectionSet) {
+    this.loader = loader;
     this.vectorCache = vectorCache;
     this.projectionSet = projectionSet;
   }
 
   public abstract int innerCardinality();
   protected abstract void addColumn(ColumnState colState);
+  protected LoaderInternals loader() { return loader; }
 
   public boolean isProjected(String columnName) {
     return projectionSet.isProjected(columnName);
@@ -122,7 +124,7 @@ public abstract class ContainerState {
     }
     addColumn(colState);
     colState.updateCardinality(innerCardinality());
-    if (resultSetLoader.writeable()) {
+    if (loader.writeable()) {
       colState.allocateVectors();
     }
     return colState;
@@ -164,6 +166,8 @@ public abstract class ContainerState {
 
     AbstractObjectWriter colWriter = ColumnWriterFactory.buildColumnWriter(columnSchema, vector);
 
+    // Build the vector state which manages the vector.
+
     VectorState vectorState;
     if (vector == null) {
       vectorState = new NullVectorState();
@@ -175,11 +179,12 @@ public abstract class ContainerState {
           (NullableVector) vector);
     } else {
       vectorState = SimpleVectorState.vectorState(
-            colWriter.schema(),
-            (AbstractScalarWriter) colWriter.scalar(),
-            vector);
+            colWriter.scalar(), vector);
     }
-    return new PrimitiveColumnState(resultSetLoader, colWriter,
+
+    // Create the column state which binds the vector and writer together.
+
+    return new PrimitiveColumnState(loader, colWriter,
         vectorState);
   }
 
@@ -211,19 +216,21 @@ public abstract class ContainerState {
     }
   }
 
+  @SuppressWarnings("resource")
   private ColumnState buildSingleMap(ColumnMetadata columnSchema) {
-    VectorState vectorState;
+    MapVector vector;
     if (isWithinUnion()) {
-      @SuppressWarnings("resource")
-      MapVector vector = new MapVector(columnSchema.schema(), resultSetLoader.allocator(), null);
-      vectorState = new UnmanagedVectorState(vector);
+      vector = new MapVector(columnSchema.schema(), loader.allocator(), null);
     } else {
-      vectorState = new NullVectorState();
+      vector = null;
     }
-    return new MapColumnState(resultSetLoader,
+    TupleObjectWriter mapWriter = MapWriter.buildMap(columnSchema,
+        vector, new ArrayList<AbstractObjectWriter>());
+    SingleMapState mapState = new SingleMapState(loader,
         vectorCache.childCache(columnSchema.name()),
-        columnSchema, vectorState,
         projectionSet.mapProjection(columnSchema.name()));
+    return new MapColumnState(mapState,
+        mapWriter, new UnmanagedVectorState(vector));
   }
 
   @SuppressWarnings("resource")
@@ -235,7 +242,7 @@ public abstract class ContainerState {
     if (columnSchema.isProjected()) {
       offsetVector = new UInt4Vector(
         BaseRepeatedValueVector.OFFSETS_FIELD,
-        resultSetLoader.allocator());
+        loader.allocator());
     } else {
       offsetVector = null;
     }
@@ -248,23 +255,22 @@ public abstract class ContainerState {
 
     // Wrap the offset vector in a vector state
 
-     VectorState vectorState;
-     if (columnSchema.isProjected()) {
-       vectorState= new OffsetVectorState(
-        ((OffsetVectorWriterImpl)
-          ((AbstractArrayWriter) writer.array()).offsetWriter()),
-        offsetVector,
-        (AbstractObjectWriter) writer.array().entry());
-     } else {
-       vectorState = new NullVectorState();
-     }
+    VectorState vectorState;
+    if (columnSchema.isProjected()) {
+      vectorState = new OffsetVectorState(
+          (((AbstractArrayWriter) writer.array()).offsetWriter()),
+          offsetVector,
+          writer.array().entry());
+    } else {
+      vectorState = new NullVectorState();
+    }
 
     // Assemble it all into the column state.
 
-    return new MapArrayColumnState(resultSetLoader,
+    MapArrayState mapState = new MapArrayState(loader,
         vectorCache.childCache(columnSchema.name()),
-        writer, vectorState,
         projectionSet.mapProjection(columnSchema.name()));
+    return new MapColumnState(mapState, writer, vectorState);
   }
 
   @SuppressWarnings("resource")
@@ -278,23 +284,26 @@ public abstract class ContainerState {
 
     // Create the union vector.
 
-    UnionVector vector = new UnionVector(columnSchema.schema(), resultSetLoader.allocator(), null);
+    UnionVector vector = new UnionVector(columnSchema.schema(), loader.allocator(), null);
 
     // Then the union writer.
 
-    UnionWriterImpl unionWriter = new UnionWriterImpl(columnSchema.variantSchema(), vector);
-    VariantObjectWriter writer = new VariantObjectWriter(unionWriter, columnSchema);
+    UnionWriterImpl unionWriter = new UnionWriterImpl(columnSchema, vector);
+    VariantObjectWriter writer = new VariantObjectWriter(unionWriter);
 
     // The union vector state which manages the types vector.
 
     UnionVectorState vectorState = new UnionVectorState(vector, unionWriter);
 
+    // Create the manager for the columns within the union.
+
+    UnionState unionState = new UnionState(loader,
+        vectorCache.childCache(columnSchema.name()), new NullProjectionSet(true));
+
     // Assemble it all into a union column state.
 
-    return new UnionColumnState(resultSetLoader,
-        vectorCache.childCache(columnSchema.name()),
-        writer, vector, vectorState,
-        new NullProjectionSet(true));
+    return new UnionColumnState(loader,
+        writer, vectorState, unionState);
   }
 
   private ColumnState buildList(ColumnMetadata columnSchema) {

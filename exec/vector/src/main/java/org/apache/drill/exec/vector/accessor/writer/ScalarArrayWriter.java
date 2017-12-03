@@ -21,7 +21,6 @@ import java.math.BigDecimal;
 
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
-import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.BaseArrayWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter.ScalarObjectWriter;
 import org.apache.drill.exec.vector.complex.RepeatedValueVector;
@@ -64,14 +63,14 @@ public class ScalarArrayWriter extends BaseArrayWriter {
 
   public ScalarArrayWriter(ColumnMetadata schema,
       RepeatedValueVector vector, BaseScalarWriter elementWriter) {
-    super(vector.getOffsetVector(),
-        new ScalarObjectWriter(schema, elementWriter));
+    super(schema, vector.getOffsetVector(),
+        new ScalarObjectWriter(elementWriter));
     this.elementWriter = elementWriter;
   }
 
   public static ArrayObjectWriter build(ColumnMetadata schema,
       RepeatedValueVector repeatedVector, BaseScalarWriter elementWriter) {
-    return new ArrayObjectWriter(schema,
+    return new ArrayObjectWriter(
         new ScalarArrayWriter(schema, repeatedVector, elementWriter));
   }
 
@@ -83,20 +82,8 @@ public class ScalarArrayWriter extends BaseArrayWriter {
   }
 
   @Override
-  public void bindListener(ColumnWriterListener listener) {
-    elementWriter.bindListener(listener);
-  }
-
-  @Override
   public void save() {
     // No-op: done when writing each scalar value
-  }
-
-  @Override
-  public void set(Object... values) {
-    for (Object value : values) {
-      entry().set(value);
-    }
   }
 
   @Override

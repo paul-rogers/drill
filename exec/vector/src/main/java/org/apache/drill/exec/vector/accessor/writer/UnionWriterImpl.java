@@ -30,6 +30,7 @@ import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.VariantWriter;
+import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.complex.UnionVector;
 import org.joda.time.Period;
@@ -44,17 +45,8 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
 
     private final UnionWriterImpl writer;
 
-    public VariantObjectWriter(UnionWriterImpl writer, ColumnMetadata schema) {
-      super(schema);
+    public VariantObjectWriter(UnionWriterImpl writer) {
       this.writer = writer;
-    }
-
-    @Override
-    public ObjectType type() { return ObjectType.VARIANT; }
-
-    @Override
-    public void set(Object value) {
-      writer.setObject(value);
     }
 
     @Override
@@ -74,8 +66,7 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
     @Override
     public ObjectWriter addType(MinorType type) {
       ValueVector memberVector = vector.getMember(type);
-      schema.addType(type);
-      ColumnMetadata memberSchema = schema.member(type);
+      ColumnMetadata memberSchema = variantSchema().addType(type);
       return ColumnWriterFactory.buildColumnWriter(memberSchema, memberVector);
     }
 
@@ -86,14 +77,14 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
   }
 
   private final UnionVector vector;
-  private final VariantMetadata schema;
+  private final ColumnMetadata schema;
   private final BaseScalarWriter typeWriter;
   private final AbstractObjectWriter variants[];
   private ColumnWriterIndex index;
   protected State state = State.IDLE;
   private VariantWriterListener listener;
 
-  public UnionWriterImpl(VariantMetadata schema, UnionVector vector,
+  public UnionWriterImpl(ColumnMetadata schema, UnionVector vector,
       AbstractObjectWriter variants[]) {
     this.vector = vector;
     this.schema = schema;
@@ -105,15 +96,21 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
     typeWriter = ColumnWriterFactory.newWriter(vector.getTypeVector());
   }
 
-  public UnionWriterImpl(VariantMetadata schema, UnionVector vector) {
+  public UnionWriterImpl(ColumnMetadata schema, UnionVector vector) {
     this(schema, vector, null);
   }
 
   @Override
-  public VariantMetadata schema() { return schema; }
+  public ObjectType type() { return ObjectType.VARIANT; }
 
   @Override
-  public int size() { return schema.size(); }
+  public ColumnMetadata schema() { return schema; }
+
+  @Override
+  public VariantMetadata variantSchema() { return schema.variantSchema(); }
+
+  @Override
+  public int size() { return variantSchema().size(); }
 
   @Override
   public boolean hasType(MinorType type) {
@@ -203,11 +200,6 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
     }
   }
 
-  @Override
-  public ColumnWriterIndex writerIndex() {
-    return index;
-  }
-
   /**
    * Add a column writer to an existing union writer. Used for implementations
    * that support "live" schema evolution: column discovery while writing.
@@ -219,7 +211,7 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
   public void addColumnWriter(AbstractObjectWriter colWriter) {
     MinorType type = colWriter.schema().type();
     assert variants[type.ordinal()] == null;
-    assert schema.hasType(type);
+    assert variantSchema().hasType(type);
     variants[type.ordinal()] = colWriter;
     colWriter.events().bindIndex(index);
     if (state != State.IDLE) {
@@ -321,10 +313,22 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
     state = State.IDLE;
   }
 
-  @Override
-  public int lastWriteIndex() { return 0; }
+  /**
+   * Return the writer for the types vector. To be used only by the row set
+   * loader overflow logic; never by the application (which is why the method
+   * is not defined in the interface.)
+   *
+   * @return the writer for the types vector
+   */
+
+  public ColumnWriter typeWriter() { return typeWriter; }
 
   @Override
+  public int lastWriteIndex() { return typeWriter.lastWriteIndex(); }
+
+  @Override
+  public int rowStartIndex() { return typeWriter.rowStartIndex(); }
+
   public void bindListener(VariantWriterListener listener) {
     this.listener = listener;
   }

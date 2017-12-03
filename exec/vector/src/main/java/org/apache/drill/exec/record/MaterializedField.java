@@ -342,9 +342,10 @@ public class MaterializedField {
     String childString = children != null && !children.isEmpty() ? toString(children, maxLen) : "";
     StringBuilder builder = new StringBuilder();
     builder
-        .append(name)
-        .append("(")
-        .append(type.getMinorType().name());
+      .append("`")
+      .append(name)
+      .append("`(")
+      .append(type.getMinorType().name());
 
     if (type.hasPrecision()) {
       builder.append("(");
@@ -357,10 +358,10 @@ public class MaterializedField {
     }
 
     builder
-        .append(":")
-        .append(type.getMode().name())
-        .append(")")
-        .append(childString);
+      .append(":")
+      .append(type.getMode().name())
+      .append(")")
+      .append(childString);
 
     return builder.toString();
   }

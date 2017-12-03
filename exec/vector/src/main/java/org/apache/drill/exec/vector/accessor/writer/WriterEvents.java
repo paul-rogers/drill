@@ -18,6 +18,7 @@
 package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
+import org.apache.drill.exec.vector.accessor.ColumnWriter;
 
 /**
  * Internal interface used to control the behavior
@@ -37,7 +38,7 @@ import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
  * calls, can change.
  */
 
-public interface WriterEvents {
+public interface WriterEvents extends ColumnWriter {
 
   /**
    * Tracks the write state of a tuple or variant to allow applying the correct
@@ -45,7 +46,8 @@ public interface WriterEvents {
    * of the writers.
    */
 
-  public enum State {
+  enum State {
+
     /**
      * No write is in progress. Nothing need be done to newly-added
      * writers.
@@ -78,8 +80,6 @@ public interface WriterEvents {
    */
 
   void bindIndex(ColumnWriterIndex index);
-
-  ColumnWriterIndex writerIndex();
 
   /**
    * Start a write (batch) operation. Performs any vector initialization
@@ -144,15 +144,4 @@ public interface WriterEvents {
    */
 
   void postRollover();
-
-  /**
-   * Return the last write position in the vector. This may be the
-   * same as the writer index position (if the vector was written at
-   * that point), or an earlier point. In either case, this value
-   * points to the last valid value in the vector.
-   *
-   * @return index of the last valid value in the vector
-   */
-
-  int lastWriteIndex();
 }

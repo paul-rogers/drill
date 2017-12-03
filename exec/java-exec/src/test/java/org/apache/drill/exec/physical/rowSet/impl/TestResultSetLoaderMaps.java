@@ -43,6 +43,11 @@ import org.apache.drill.test.rowSet.RowSetReader;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
+import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
+import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
+import static org.apache.drill.test.rowSet.RowSetUtilities.intArray;
+
+
 /**
  * Test (non-array) map support in the result set loader and related classes.
  */
@@ -69,7 +74,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     // Verify structure and schema
 
     assertEquals(5, rsLoader.schemaVersion());
-    TupleMetadata actualSchema = rootWriter.schema();
+    TupleMetadata actualSchema = rootWriter.tupleSchema();
     assertEquals(3, actualSchema.size());
     assertTrue(actualSchema.metadata(1).isMap());
     assertEquals(2, actualSchema.metadata("m").mapSchema().size());
@@ -103,7 +108,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
     // Write another using the test-time conveniences
 
-    rootWriter.addRow(20, new Object[] {210, "barney"}, "bam-bam");
+    rootWriter.addRow(20, mapValue(210, "barney"), "bam-bam");
 
     // Harvest the batch
 
@@ -114,8 +119,8 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     // Validate data
 
     SingleRowSet expected = fixture.rowSetBuilder(schema)
-        .addRow(10, new Object[] {110, "fred"}, "pebbles")
-        .addRow(20, new Object[] {210, "barney"}, "bam-bam")
+        .addRow(10, mapValue(110, "fred"), "pebbles")
+        .addRow(20, mapValue(210, "barney"), "bam-bam")
         .build();
 
     new RowSetComparison(expected).verifyAndClearAll(actual);
@@ -145,8 +150,8 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
     rsLoader.startBatch();
     rootWriter
-      .addRow(10, new Object[] {"fred"})
-      .addRow(20, new Object[] {"barney"});
+      .addRow(10, mapValue("fred"))
+      .addRow(20, mapValue("barney"));
 
     RowSet actual = fixture.wrap(rsLoader.harvest());
     assertEquals(3, rsLoader.schemaVersion());
@@ -155,8 +160,8 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     // Validate first batch
 
     SingleRowSet expected = fixture.rowSetBuilder(schema)
-        .addRow(10, new Object[] {"fred"})
-        .addRow(20, new Object[] {"barney"})
+        .addRow(10, mapValue("fred"))
+        .addRow(20, mapValue("barney"))
         .build();
 
     new RowSetComparison(expected).verifyAndClearAll(actual);
@@ -171,10 +176,10 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     rsLoader.startBatch();
     mapWriter.addColumn(SchemaBuilder.columnSchema("d", MinorType.BIGINT, DataMode.REQUIRED));
 
-    rootWriter.addRow(30, new Object[] {"wilma", 130, 130_000L});
+    rootWriter.addRow(30, mapValue("wilma", 130, 130_000L));
 
     mapWriter.addColumn(SchemaBuilder.columnSchema("e", MinorType.VARCHAR, DataMode.REQUIRED));
-    rootWriter.addRow(40, new Object[] {"betty", 140, 140_000L, "bam-bam"});
+    rootWriter.addRow(40, mapValue("betty", 140, 140_000L, "bam-bam"));
 
     actual = fixture.wrap(rsLoader.harvest());
     assertEquals(6, rsLoader.schemaVersion());
@@ -192,8 +197,8 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
           .buildMap()
         .buildSchema();
     expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(30, new Object[] {"wilma", 130, 130_000L, ""})
-        .addRow(40, new Object[] {"betty", 140, 140_000L, "bam-bam"})
+        .addRow(30, mapValue("wilma", 130, 130_000L, ""))
+        .addRow(40, mapValue("betty", 140, 140_000L, "bam-bam"))
         .build();
 
     new RowSetComparison(expected).verifyAndClearAll(actual);
@@ -231,8 +236,8 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     mapWriter.addColumn(SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED));
 
     rootWriter
-      .addRow(20, new Object[]{"fred"})
-      .addRow(30, new Object[]{"barney"});
+      .addRow(20, mapValue("fred"))
+      .addRow(30, mapValue("barney"));
 
     RowSet actual = fixture.wrap(rsLoader.harvest());
     assertEquals(3, rsLoader.schemaVersion());
@@ -247,9 +252,9 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
           .buildMap()
         .buildSchema();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(10, new Object[] {""})
-        .addRow(20, new Object[] {"fred"})
-        .addRow(30, new Object[] {"barney"})
+        .addRow(10, mapValue(""))
+        .addRow(20, mapValue("fred"))
+        .addRow(30, mapValue("barney"))
         .build();
 
     new RowSetComparison(expected).verifyAndClearAll(actual);
@@ -284,8 +289,8 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     TupleWriter mapWriter = rootWriter.tuple(mapIndex);
 
     rootWriter
-      .addRow(20, new Object[]{})
-      .addRow(30, new Object[]{});
+      .addRow(20, mapValue())
+      .addRow(30, mapValue());
 
     RowSet actual = fixture.wrap(rsLoader.harvest());
     assertEquals(2, rsLoader.schemaVersion());
@@ -299,9 +304,9 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
           .buildMap()
         .buildSchema();
     SingleRowSet expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(10, new Object[] {})
-        .addRow(20, new Object[] {})
-        .addRow(30, new Object[] {})
+        .addRow(10, mapValue())
+        .addRow(20, mapValue())
+        .addRow(30, mapValue())
         .build();
 
     new RowSetComparison(expected).verifyAndClearAll(actual);
@@ -312,8 +317,8 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     mapWriter.addColumn(SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED));
 
     rootWriter
-      .addRow(40, new Object[]{"fred"})
-      .addRow(50, new Object[]{"barney"});
+      .addRow(40, mapValue("fred"))
+      .addRow(50, mapValue("barney"));
 
     actual = fixture.wrap(rsLoader.harvest());
     assertEquals(3, rsLoader.schemaVersion());
@@ -328,8 +333,8 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
           .buildMap()
         .buildSchema();
     expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(40, new Object[] {"fred"})
-        .addRow(50, new Object[] {"barney"})
+        .addRow(40, mapValue("fred"))
+        .addRow(50, mapValue("barney"))
         .build();
 
     new RowSetComparison(expected).verifyAndClearAll(actual);
@@ -363,14 +368,14 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     RowSetLoader rootWriter = rsLoader.writer();
 
     rsLoader.startBatch();
-    rootWriter.addRow(10, new Object[] {"b1", new Object[] {"c1"}});
+    rootWriter.addRow(10, mapValue("b1", mapValue("c1")));
 
     // Validate first batch
 
     RowSet actual = fixture.wrap(rsLoader.harvest());
     assertEquals(5, rsLoader.schemaVersion());
     SingleRowSet expected = fixture.rowSetBuilder(schema)
-        .addRow(10, new Object[] {"b1", new Object[] {"c1"}})
+        .addRow(10, mapValue("b1", mapValue("c1")))
         .build();
 
     new RowSetComparison(expected).verifyAndClearAll(actual);
@@ -378,21 +383,21 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     // Now add columns in the second batch.
 
     rsLoader.startBatch();
-    rootWriter.addRow(20, new Object[] {"b2", new Object[] {"c2"}});
+    rootWriter.addRow(20, mapValue("b2", mapValue("c2")));
 
     TupleWriter m1Writer = rootWriter.tuple("m1");
     m1Writer.addColumn(SchemaBuilder.columnSchema("d", MinorType.VARCHAR, DataMode.REQUIRED));
     TupleWriter m2Writer = m1Writer.tuple("m2");
     m2Writer.addColumn(SchemaBuilder.columnSchema("e", MinorType.VARCHAR, DataMode.REQUIRED));
 
-    rootWriter.addRow(30, new Object[] {"b3", new Object[] {"c3", "e3"}, "d3"});
+    rootWriter.addRow(30, mapValue("b3", mapValue("c3", "e3"), "d3"));
 
     // And another set while the write proceeds.
 
     m1Writer.addColumn(SchemaBuilder.columnSchema("f", MinorType.VARCHAR, DataMode.REQUIRED));
     m2Writer.addColumn(SchemaBuilder.columnSchema("g", MinorType.VARCHAR, DataMode.REQUIRED));
 
-    rootWriter.addRow(40, new Object[] {"b4", new Object[] {"c4", "e4", "g4"}, "d4", "e4"});
+    rootWriter.addRow(40, mapValue("b4", mapValue("c4", "e4", "g4"), "d4", "e4"));
 
     // Validate second batch
 
@@ -413,9 +418,9 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
           .buildMap()
         .buildSchema();
     expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(20, new Object[] {"b2", new Object[] {"c2", "",   ""  }, "",    "" })
-        .addRow(30, new Object[] {"b3", new Object[] {"c3", "e3", ""  }, "d3",  "" })
-        .addRow(40, new Object[] {"b4", new Object[] {"c4", "e4", "g4"}, "d4", "e4"})
+        .addRow(20, mapValue("b2", mapValue("c2", "",   ""  ), "",    "" ))
+        .addRow(30, mapValue("b3", mapValue("c3", "e3", ""  ), "d3",  "" ))
+        .addRow(40, mapValue("b4", mapValue("c4", "e4", "g4"), "d4", "e4"))
         .build();
 
     new RowSetComparison(expected).verifyAndClearAll(actual);
@@ -446,13 +451,13 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     RowSetLoader rootWriter = rsLoader.writer();
 
     rsLoader.startBatch();
-    rootWriter.addRow(10, new Object[] {"b1", new Object[] {"c1"}});
+    rootWriter.addRow(10, mapValue("b1", mapValue("c1")));
 
     // Validate first batch
 
     RowSet actual = fixture.wrap(rsLoader.harvest());
     SingleRowSet expected = fixture.rowSetBuilder(schema)
-        .addRow(10, new Object[] {"b1", new Object[] {"c1"}})
+        .addRow(10, mapValue("b1", mapValue("c1")))
         .build();
 //    actual.print();
 //    expected.print();
@@ -462,21 +467,21 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     // Now add columns in the second batch.
 
     rsLoader.startBatch();
-    rootWriter.addRow(20, new Object[] {"b2", new Object[] {"c2"}});
+    rootWriter.addRow(20, mapValue("b2", mapValue("c2")));
 
     TupleWriter m1Writer = rootWriter.tuple("m1");
     m1Writer.addColumn(SchemaBuilder.columnSchema("d", MinorType.VARCHAR, DataMode.OPTIONAL));
     TupleWriter m2Writer = m1Writer.tuple("m2");
     m2Writer.addColumn(SchemaBuilder.columnSchema("e", MinorType.VARCHAR, DataMode.OPTIONAL));
 
-    rootWriter.addRow(30, new Object[] {"b3", new Object[] {"c3", "e3"}, "d3"});
+    rootWriter.addRow(30, mapValue("b3", mapValue("c3", "e3"), "d3"));
 
     // And another set while the write proceeds.
 
     m1Writer.addColumn(SchemaBuilder.columnSchema("f", MinorType.VARCHAR, DataMode.OPTIONAL));
     m2Writer.addColumn(SchemaBuilder.columnSchema("g", MinorType.VARCHAR, DataMode.OPTIONAL));
 
-    rootWriter.addRow(40, new Object[] {"b4", new Object[] {"c4", "e4", "g4"}, "d4", "e4"});
+    rootWriter.addRow(40, mapValue("b4", mapValue("c4", "e4", "g4"), "d4", "e4"));
 
     // Validate second batch
 
@@ -495,9 +500,9 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
           .buildMap()
         .buildSchema();
     expected = fixture.rowSetBuilder(expectedSchema)
-        .addRow(20, new Object[] {"b2", new Object[] {"c2", null, null}, null, null})
-        .addRow(30, new Object[] {"b3", new Object[] {"c3", "e3", null}, "d3", null})
-        .addRow(40, new Object[] {"b4", new Object[] {"c4", "e4", "g4"}, "d4", "e4"})
+        .addRow(20, mapValue("b2", mapValue("c2", null, null), null, null))
+        .addRow(30, mapValue("b3", mapValue("c3", "e3", null), "d3", null))
+        .addRow(40, mapValue("b4", mapValue("c4", "e4", "g4"), "d4", "e4"))
         .build();
 
     new RowSetComparison(expected).verifyAndClearAll(actual);
@@ -531,20 +536,20 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
     rsLoader.startBatch();
     rootWriter
-      .addRow(10, new Object[] {new int[] {110, 120, 130},
-                                new String[] {"d1.1", "d1.2", "d1.3", "d1.4"}})
-      .addRow(20, new Object[] {new int[] {210}, new String[] {}})
-      .addRow(30, new Object[] {new int[] {}, new String[] {"d3.1"}})
+      .addRow(10, mapValue(intArray(110, 120, 130),
+                           strArray("d1.1", "d1.2", "d1.3", "d1.4")))
+      .addRow(20, mapValue(intArray(210), strArray()))
+      .addRow(30, mapValue(intArray(), strArray("d3.1")))
       ;
 
     // Validate first batch
 
     RowSet actual = fixture.wrap(rsLoader.harvest());
     SingleRowSet expected = fixture.rowSetBuilder(schema)
-        .addRow(10, new Object[] {new int[] {110, 120, 130},
-                                  new String[] {"d1.1", "d1.2", "d1.3", "d1.4"}})
-        .addRow(20, new Object[] {new int[] {210}, new String[] {}})
-        .addRow(30, new Object[] {new int[] {}, new String[] {"d3.1"}})
+        .addRow(10, mapValue(intArray(110, 120, 130),
+                             strArray("d1.1", "d1.2", "d1.3", "d1.4")))
+        .addRow(20, mapValue(intArray(210), strArray()))
+        .addRow(30, mapValue(intArray(), strArray("d3.1")))
         .build();
 
     new RowSetComparison(expected).verifyAndClearAll(actual);
@@ -553,15 +558,15 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
 
     rsLoader.startBatch();
     rootWriter
-      .addRow(40, new Object[] {new int[] {410, 420}, new String[] {"d4.1", "d4.2"}})
-      .addRow(50, new Object[] {new int[] {510}, new String[] {"d5.1"}})
+      .addRow(40, mapValue(intArray(410, 420), strArray("d4.1", "d4.2")))
+      .addRow(50, mapValue(intArray(510), strArray("d5.1")))
       ;
 
     TupleWriter mapWriter = rootWriter.tuple("m");
     mapWriter.addColumn(SchemaBuilder.columnSchema("e", MinorType.VARCHAR, DataMode.REPEATED));
     rootWriter
-      .addRow(60, new Object[] {new int[] {610, 620}, new String[] {"d6.1", "d6.2"}, new String[] {"e6.1", "e6.2"}})
-      .addRow(70, new Object[] {new int[] {710}, new String[] {}, new String[] {"e7.1", "e7.2"}})
+      .addRow(60, mapValue(intArray(610, 620), strArray("d6.1", "d6.2"), strArray("e6.1", "e6.2")))
+      .addRow(70, mapValue(intArray(710), strArray(), strArray("e7.1", "e7.2")))
       ;
 
     // Validate first batch. The new array should have been back-filled with
@@ -570,10 +575,10 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     actual = fixture.wrap(rsLoader.harvest());
 //    System.out.println(actual.schema().toString());
     expected = fixture.rowSetBuilder(actual.schema())
-        .addRow(40, new Object[] {new int[] {410, 420}, new String[] {"d4.1", "d4.2"}, new String[] {}})
-        .addRow(50, new Object[] {new int[] {510}, new String[] {"d5.1"}, new String[] {}})
-        .addRow(60, new Object[] {new int[] {610, 620}, new String[] {"d6.1", "d6.2"}, new String[] {"e6.1", "e6.2"}})
-        .addRow(70, new Object[] {new int[] {710}, new String[] {}, new String[] {"e7.1", "e7.2"}})
+        .addRow(40, mapValue(intArray(410, 420), strArray("d4.1", "d4.2"), strArray()))
+        .addRow(50, mapValue(intArray(510), strArray("d5.1"), strArray()))
+        .addRow(60, mapValue(intArray(610, 620), strArray("d6.1", "d6.2"), strArray("e6.1", "e6.2")))
+        .addRow(70, mapValue(intArray(710), strArray(), strArray("e7.1", "e7.2")))
         .build();
 //    expected.print();
 
@@ -613,7 +618,7 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     int count = 0;
     rsLoader.startBatch();
     while (! rootWriter.isFull()) {
-      rootWriter.addRow(count, new Object[] {count * 10, new Object[] {count * 100, value, count * 1000}});
+      rootWriter.addRow(count, mapValue(count * 10, mapValue(count * 100, value, count * 1000)));
       count++;
     }
 
@@ -858,17 +863,17 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     // Try simplified test format
 
     rootWriter.addRow(31,
-        new Object[] {32,
-            new Object[] {33}});
+        mapValue(32,
+            mapValue(33)));
 
     // Verify
 
     RowSet actual = fixture.wrap(rsLoader.harvest());
 
     SingleRowSet expected = fixture.rowSetBuilder(schema)
-        .addRow(11, new Object[] {12, new Object[] {13}})
-        .addRow(21, new Object[] {22, new Object[] {23}})
-        .addRow(31, new Object[] {32, new Object[] {33}})
+        .addRow(11, mapValue(12, mapValue(13)))
+        .addRow(21, mapValue(22, mapValue(23)))
+        .addRow(31, mapValue(32, mapValue(33)))
         .build();
 
     new RowSetComparison(expected).verifyAndClearAll(actual);

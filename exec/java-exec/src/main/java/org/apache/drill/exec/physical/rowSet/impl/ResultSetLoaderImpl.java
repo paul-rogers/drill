@@ -35,7 +35,7 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
  * @see {@link ResultSetLoader}
  */
 
-public class ResultSetLoaderImpl implements ResultSetLoader {
+public class ResultSetLoaderImpl implements ResultSetLoader, LoaderInternals {
 
   /**
    * Read-only set of options for the result set loader.
@@ -322,9 +322,11 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     this(allocator, new ResultSetOptions());
   }
 
+  @Override
   public BufferAllocator allocator() { return allocator; }
 
-  protected int bumpVersion() {
+  @Override
+  public int bumpVersion() {
 
     // Update the active schema version. We cannot update the published
     // schema version at this point because a column later in this same
@@ -588,7 +590,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     return ! rootState.hasProjections();
   }
 
-  protected void overflowed() {
+  @Override
+  public void overflowed() {
     logger.trace("Vector overflow");
 
     // If we see overflow when we are already handling overflow, it means
@@ -669,7 +672,8 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
     state = State.OVERFLOW;
   }
 
-  protected boolean hasOverflow() { return state == State.OVERFLOW; }
+  @Override
+  public boolean hasOverflow() { return state == State.OVERFLOW; }
 
   @Override
   public VectorContainer harvest() {
@@ -754,15 +758,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
 
   public RowState rootState() { return rootState; }
 
-  /**
-   * Return whether a vector within the current batch can expand. Limits
-   * are enforce only if a limit was provided in the options.
-   *
-   * @param delta increase in vector size
-   * @return true if the vector can expand, false if an overflow
-   * event should occur
-   */
-
+  @Override
   public boolean canExpand(int delta) {
     accumulatedBatchSize += delta;
     return state == State.IN_OVERFLOW ||
@@ -770,13 +766,7 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
            accumulatedBatchSize <= options.maxBatchSize;
   }
 
-  /**
-   * Accumulate the initial vector allocation sizes.
-   *
-   * @param allocationBytes number of bytes allocated to a vector
-   * in the batch setup step
-   */
-
+  @Override
   public void tallyAllocations(int allocationBytes) {
     accumulatedBatchSize += allocationBytes;
   }
@@ -825,5 +815,10 @@ public class ResultSetLoaderImpl implements ResultSetLoader {
   @Override
   public ResultVectorCache vectorCache() {
     return rootState.vectorCache();
+  }
+
+  @Override
+  public int rowIndex() {
+    return writerIndex().vectorIndex();
   }
 }

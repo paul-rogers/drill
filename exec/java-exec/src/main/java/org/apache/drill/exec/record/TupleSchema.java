@@ -194,7 +194,7 @@ public class TupleSchema implements TupleMetadata {
           .append(getClass().getSimpleName())
           .append(" ")
           .append(schema().toString())
-          .append(",")
+          .append(", ")
           .append(projected ? "" : "not ")
           .append("projected");
       if (isArray()) {
@@ -321,10 +321,16 @@ public class TupleSchema implements TupleMetadata {
                 type.name(),
                 Types.optional(type)));
       case MAP:
+        // Although maps do not have a bits vector, when used in a
+        // union the map must be marked as optional since the union as a
+        // whole can be null, implying that the map is null by implication.
+        // (In fact, the readers have a special mechanism to work out the
+        // null state in this case.
+
         return new MapColumnMetadata(
             MaterializedField.create(
                 type.name(),
-                Types.required(type)));
+                Types.optional(type)));
       case UNION:
         throw new IllegalArgumentException("Cannot add a union to a union");
       default:

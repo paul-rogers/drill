@@ -17,21 +17,18 @@
  */
 package org.apache.drill.exec.physical.rowSet.impl;
 
-import java.util.ArrayList;
-
 import org.apache.drill.common.exceptions.UserException;
-import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapState;
 import org.apache.drill.exec.physical.rowSet.impl.UnionState.UnionVectorState;
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractObjectWriter;
-import org.apache.drill.exec.vector.accessor.writer.MapWriter;
+import org.apache.drill.exec.vector.accessor.writer.AbstractScalarWriter;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl.VariantObjectWriter;
-import org.apache.drill.exec.vector.complex.UnionVector;
 
 /**
  * Represents the write-time state for a column including the writer and the (optional)
@@ -64,21 +61,27 @@ public abstract class ColumnState {
 
   public static class PrimitiveColumnState extends ColumnState implements ColumnWriterListener {
 
-    public PrimitiveColumnState(ResultSetLoaderImpl resultSetLoader,
+    public PrimitiveColumnState(LoaderInternals loader,
         AbstractObjectWriter colWriter,
         VectorState vectorState) {
-      super(resultSetLoader, colWriter, vectorState);
-      writer.bindListener(this);
+      super(loader, colWriter, vectorState);
+      ScalarWriter scalarWriter;
+      if (colWriter.type() == ObjectType.ARRAY) {
+        scalarWriter = writer.array().scalar();
+      } else {
+        scalarWriter = writer.scalar();
+      }
+      ((AbstractScalarWriter) scalarWriter).bindListener(this);
     }
 
     @Override
     public boolean canExpand(ScalarWriter writer, int delta) {
-      return resultSetLoader.canExpand(delta);
+      return loader.canExpand(delta);
     }
 
     @Override
     public void overflowed(ScalarWriter writer) {
-      resultSetLoader.overflowed();
+      loader.overflowed();
     }
 
     @Override
@@ -89,9 +92,9 @@ public abstract class ColumnState {
 
   public static abstract class BaseContainerColumnState extends ColumnState {
 
-    public BaseContainerColumnState(ResultSetLoaderImpl resultSetLoader,
+    public BaseContainerColumnState(LoaderInternals loader,
         AbstractObjectWriter writer, VectorState vectorState) {
-      super(resultSetLoader, writer, vectorState);
+      super(loader, writer, vectorState);
     }
 
     public abstract ContainerState container();
@@ -121,62 +124,26 @@ public abstract class ColumnState {
     }
   }
 
-  public static abstract class BaseMapColumnState extends BaseContainerColumnState {
+  public static class MapColumnState extends BaseContainerColumnState {
     protected final MapState mapState;
 
-    public BaseMapColumnState(ResultSetLoaderImpl resultSetLoader,
-         ResultVectorCache vectorCache,
-         AbstractObjectWriter writer,
-         VectorState vectorState,
-         ProjectionSet projectionSet) {
-      super(resultSetLoader, writer, vectorState);
-      mapState = new MapState(resultSetLoader, vectorCache, this, projectionSet);
+    public MapColumnState(MapState mapState,
+        AbstractObjectWriter writer,
+        VectorState vectorState) {
+      super(mapState.loader(), writer, vectorState);
+      this.mapState = mapState;
+      mapState.bindColumnState(this);
     }
 
     public MapState mapState() { return mapState; }
 
     @Override
     public ContainerState container() { return mapState; }
-  }
-
-  public static class MapColumnState extends BaseMapColumnState {
-
-    public MapColumnState(ResultSetLoaderImpl resultSetLoader,
-        ResultVectorCache vectorCache,
-        ColumnMetadata columnSchema,
-        VectorState vectorState,
-        ProjectionSet projectionSet) {
-      super(resultSetLoader, vectorCache,
-          MapWriter.buildMap(columnSchema, null,
-              new ArrayList<AbstractObjectWriter>()),
-          vectorState,
-          projectionSet);
-    }
 
     @Override
     public void updateCardinality(int cardinality) {
-      super.updateCardinality(cardinality);
       mapState.updateCardinality(cardinality);
-    }
-  }
-
-  public static class MapArrayColumnState extends BaseMapColumnState {
-
-    public MapArrayColumnState(ResultSetLoaderImpl resultSetLoader,
-        ResultVectorCache vectorCache,
-        AbstractObjectWriter writer,
-        VectorState vectorState,
-        ProjectionSet projectionSet) {
-      super(resultSetLoader, vectorCache, writer,
-          vectorState,
-          projectionSet);
-    }
-
-    @Override
-    public void updateCardinality(int cardinality) {
-      super.updateCardinality(cardinality);
-      int childCardinality = cardinality * schema().expectedElementCount();
-      mapState.updateCardinality(childCardinality);
+      super.updateCardinality(mapState.innerCardinality());
     }
 
     @Override
@@ -187,9 +154,9 @@ public abstract class ColumnState {
 
   public static class ListColumnState extends ColumnState {
 
-    public ListColumnState(ResultSetLoaderImpl resultSetLoader,
+    public ListColumnState(LoaderInternals loader,
         AbstractObjectWriter writer, VectorState vectorState) {
-      super(resultSetLoader, writer, vectorState);
+      super(loader, writer, vectorState);
       assert false;
     }
   }
@@ -198,15 +165,13 @@ public abstract class ColumnState {
 
     private final UnionState unionState;
 
-    public UnionColumnState(ResultSetLoaderImpl resultSetLoader,
-        ResultVectorCache vectorCache,
+    public UnionColumnState(LoaderInternals loader,
         VariantObjectWriter writer,
-        UnionVector vector,
         UnionVectorState vectorState,
-        ProjectionSet projectionSet) {
-      super(resultSetLoader, writer, vectorState);
-      unionState = new UnionState(resultSetLoader,
-          vectorCache, projectionSet, this);
+        UnionState unionState) {
+      super(loader, writer, vectorState);
+      this.unionState = unionState;
+      unionState.bindColumnState(this);
     }
 
     @Override
@@ -266,7 +231,7 @@ public abstract class ColumnState {
     NEW_LOOK_AHEAD
   }
 
-  protected final ResultSetLoaderImpl resultSetLoader;
+  protected final LoaderInternals loader;
   protected final int addVersion;
   protected final VectorState vectorState;
   protected State state;
@@ -283,12 +248,12 @@ public abstract class ColumnState {
 
   protected int outerCardinality;
 
-  public ColumnState(ResultSetLoaderImpl resultSetLoader,
+  public ColumnState(LoaderInternals loader,
       AbstractObjectWriter writer, VectorState vectorState) {
-    this.resultSetLoader = resultSetLoader;
+    this.loader = loader;
     this.vectorState = vectorState;
-    this.addVersion = resultSetLoader.bumpVersion();
-    state = resultSetLoader.hasOverflow() ?
+    this.addVersion = loader.bumpVersion();
+    state = loader.hasOverflow() ?
         State.NEW_LOOK_AHEAD : State.NORMAL;
     this.writer = writer;
   }
@@ -296,11 +261,11 @@ public abstract class ColumnState {
   public AbstractObjectWriter writer() { return writer; }
   public ColumnMetadata schema() { return writer.schema(); }
 
-  public ValueVector vector() { return vectorState.vector(); }
+  public <T extends ValueVector> T vector() { return vectorState.vector(); }
 
   public void allocateVectors() {
     assert outerCardinality != 0;
-    resultSetLoader.tallyAllocations(
+    loader.tallyAllocations(
         vectorState.allocate(outerCardinality));
   }
 
@@ -314,7 +279,7 @@ public abstract class ColumnState {
     switch (state) {
     case NORMAL:
       if (! schemaOnly) {
-        resultSetLoader.tallyAllocations(vectorState.allocate(outerCardinality));
+        loader.tallyAllocations(vectorState.allocate(outerCardinality));
       }
       break;
 
@@ -360,7 +325,7 @@ public abstract class ColumnState {
     // of thought to get right -- and, of course, completely defeats
     // the purpose of limiting vector size to avoid memory fragmentation...
 
-    if (resultSetLoader.writerIndex().vectorIndex() == 0) {
+    if (loader.rowIndex() == 0) {
       throw UserException
         .memoryError("A single column value is larger than the maximum allowed size of 16 MB")
         .build(logger);
