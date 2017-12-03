@@ -105,11 +105,18 @@
  * </ul>
  * <p>
  * This data model is similar to; but has important differences from, the prior,
- * generated, readers and writers.
+ * generated, readers and writers. This version is based on the concept of
+ * minimizing the number of writer classes, and leveraging Java primitives to
+ * keep the number of get/set methods to a reasonable size. This version also
+ * automates vector allocation, vector overflow and so on.
  * <p>
  * The object layer is new: it is the simplest way to model the three “object
  * types.” An app using this code would use just the leaf scalar readers and
  * writers.
+ * <p>
+ * Similarly, the {@link ColumnWriter} interface provides a uniform way to
+ * access services common to all writer types, while allowing each JSON-like
+ * writer to provide type-specific ways to access data.
  *
  * <h4>Writer Performance</h4>
  *
@@ -146,6 +153,36 @@
  * vector and works the same for repeated scalars, repeated maps and
  * (eventually) lists and repeated lists.</li>
  * </ul>
+ *
+ * <h4>Lists</h4>
+ *
+ * As described in the API package, Lists and Unions in Drill are highly
+ * complex, and not well supported. This creates huge problems in the
+ * writer layer because we must support something which is broken and
+ * under-used, but which most people assume works (it is part of Drill's
+ * JSON-like, schema-free model.) Our goal here is to support Union and
+ * List well enough that nothing new is broken; though this layer cannot
+ * fix the issues elsewhere in Drill.
+ * <p>
+ * The most complex part is List support for the transition from a single
+ * type to a union of types. The API should be simple: the client should
+ * not have to be aware of the transition.
+ * <p>
+ * To make this work, the writers provide two options:
+ * <ol>
+ * <li>Use metadata to state that a List will have exactly one type and
+ * to specify that type. The List will present as an array of that type in
+ * which each array can be null.</li>
+ * <li>Otherwise, the list is repeated union (a array of variants), even
+ * if the list happens to have 0 or 1 types. In this case, the list presents
+ * as an array of variants.</li>
+ * </ol>
+ * The result is that client code assumes one or the other model, and never
+ * has to worry about transitioning from one to the other within a single
+ * operator.
+ * <p>
+ * The {@link PromotableListWriter} handles the complex details of providing
+ * the above simple API in the array-of-variant case.
  */
 
 package org.apache.drill.exec.vector.accessor.writer;

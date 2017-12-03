@@ -32,6 +32,20 @@ import org.apache.drill.exec.vector.accessor.reader.VectorAccessors.SingleVector
 import org.apache.drill.exec.vector.accessor.reader.VectorAccessors.UnionTypeHyperVectorAccessor;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
+/**
+ * Reader for a union vector. The union vector presents itself as a
+ * variant. This is an important, if subtle distinction. The current union
+ * vector format is highly inefficient (and buggy and not well supported
+ * in Drill's operators.) If the union concept is needed, then it should
+ * be redesigned, perhaps as a variable-width vector in which each entry
+ * consists of a type/value pair. (For variable-width values such as
+ * strings, the implementation would be a triple of (type, length,
+ * value). The API here is designed to abstract away the implementation
+ * and should work equally well for the current "union" implementation and
+ * the possible "variant" implementation. As a result, when changing the
+ * API, avoid introducing methods that assume an implementation.
+ */
+
 public class UnionReaderImpl implements VariantReader, ReaderEvents {
 
   public static class UnionObjectReader extends AbstractObjectReader {
@@ -60,8 +74,9 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
     }
 
     @Override
-    protected ReaderEvents events() { return reader; }
+    public ReaderEvents events() { return reader; }
   }
+
   private final VariantMetadata schema;
   private final VectorAccessor unionAccessor;
   private final VectorAccessor typeAccessor;

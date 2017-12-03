@@ -57,8 +57,22 @@ public interface VariantWriter extends ColumnWriter {
     ObjectWriter addType(MinorType type);
   }
 
+  /**
+   * Metadata description of the variant that includes the set of
+   * types, along with extended properties of the types such as
+   * expected allocations sizes, expected array cardinality, etc.
+   *
+   * @return metadata for the variant
+   */
 
   VariantMetadata variantSchema();
+
+  /**
+   * Returns the number of types in the variant. Some implementations
+   * (such as lists) impart special meaning to a variant with a single type.
+   *
+   * @return number of types in the variant
+   */
 
   int size();
 

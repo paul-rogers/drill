@@ -113,16 +113,16 @@ public class UnionState extends ContainerState
   }
 
   @Override
+  public ObjectWriter addType(MinorType type) {
+    return addMember(VariantSchema.memberMetadata(type));
+  }
+
+  @Override
   public ObjectWriter addMember(ColumnMetadata member) {
     if (schema.hasType(member.type())) {
       throw new IllegalArgumentException("Duplicate type: " + member.type().toString());
     }
     return addColumn(member).writer();
-  }
-
-  @Override
-  public ObjectWriter addType(MinorType type) {
-    return addMember(VariantSchema.memberMetadata(type));
   }
 
   @Override
