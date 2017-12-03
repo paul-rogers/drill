@@ -25,7 +25,7 @@ import org.apache.drill.exec.vector.accessor.ObjectReader;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
-import org.apache.drill.exec.vector.accessor.reader.ObjectArrayReader;
+import org.apache.drill.exec.vector.accessor.reader.ArrayReaderImpl;
 
 /**
  * Implementation for the implicit join reader.
@@ -146,7 +146,7 @@ public class ImplicitJoinReaderImpl implements ImplicitJoinReader {
     public RootTableIterator(ImplicitJoinReaderImpl.ImplicitTableImpl table) {
       this.table = table;
       rootIndex = new DirectRowIndex(table.rowCount);
-      table.reader.bindIndex(rootIndex);
+      table.reader.events().bindIndex(rootIndex);
     }
 
     @Override
@@ -160,7 +160,7 @@ public class ImplicitJoinReaderImpl implements ImplicitJoinReader {
 
     @Override
     public void reposition() {
-      table.reader.reposition();
+      table.reader.events().reposition();
     }
 
     @Override
@@ -183,7 +183,7 @@ public class ImplicitJoinReaderImpl implements ImplicitJoinReader {
 
     public TupleTableIterator(ImplicitTableImpl table, ColumnReaderIndex parentIndex) {
       this.table = table;
-      table.reader.bindIndex(parentIndex);
+      table.reader.events().bindIndex(parentIndex);
     }
 
     @Override
@@ -193,7 +193,7 @@ public class ImplicitJoinReaderImpl implements ImplicitJoinReader {
 
     @Override
     public void reposition() {
-      table.reader.reposition();
+      table.reader.events().reposition();
       index = -1;
     }
 
@@ -216,8 +216,8 @@ public class ImplicitJoinReaderImpl implements ImplicitJoinReader {
 
     public TupleArrayIterator(ImplicitTableImpl table, ColumnReaderIndex parentIndex) {
       this.table = table;
-      table.reader.bindIndex(parentIndex);
-      index = ((ObjectArrayReader) table.reader.array()).elementIndex();
+      table.reader.events().bindIndex(parentIndex);
+      index = ((ArrayReaderImpl) table.reader.array()).elementIndex();
       arrayReader = table.reader.array();
     }
 
@@ -228,7 +228,7 @@ public class ImplicitJoinReaderImpl implements ImplicitJoinReader {
 
     @Override
     public void reposition() {
-      table.reader.reposition();
+      table.reader.events().reposition();
     }
 
     @Override

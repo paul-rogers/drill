@@ -55,5 +55,5 @@ public abstract class AbstractObjectReader implements ObjectReader {
     throw new UnsupportedOperationException();
   }
 
-  protected abstract ReaderEvents events();
+  public abstract ReaderEvents events();
 }

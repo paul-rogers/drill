@@ -721,6 +721,10 @@ public class TupleSchema implements TupleMetadata {
     return new MapColumnMetadata(field, fromFields(field.getChildren()));
   }
 
+  public static MapColumnMetadata newMap(String name, TupleMetadata schema) {
+    return new MapColumnMetadata(name, DataMode.REQUIRED, (TupleSchema) schema);
+  }
+
   public static VariantColumnMetadata newVariant(MaterializedField field, VariantSchema schema) {
     return new VariantColumnMetadata(field, schema);
   }

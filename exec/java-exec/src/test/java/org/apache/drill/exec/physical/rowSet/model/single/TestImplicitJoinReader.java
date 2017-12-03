@@ -28,9 +28,38 @@ import org.apache.drill.test.rowSet.RowSetReader;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.junit.Test;
 
+import static org.apache.drill.test.rowSet.RowSetUtilities.mapArray;
+import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
+
 import com.google.common.collect.Lists;
 
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
+
+/**
+ * Tests for a prototype version of an implicit join reader. Suppose
+ * we have a table of customers, and for each we have an array or orders.
+ * The normal readers can iterate over the rows (the customers.) The implicit
+ * join reader can iterate over the orders as if they were the top-level table.
+ * Each order is then implicitly joined to its enclosing customer. The result
+ * is a reader that provides access to both the customer and order columns
+ * as if the tables had been joined.
+ * <p>
+ * The join is specified by providing an access path from the row down through
+ * a collection of one or more maps or map arrays. The row is given a made-up
+ * name. For our example, the access path is <tt>["customer", "orders"]</tt>.
+ * <p>
+ * The reader is structured as a set of maps: one for each entry in the access
+ * path. The first map column represents the top-level row, minus the orders
+ * map. The second level is the orders map, minus its child, if any. And so on.
+ * The maps are needed because the maps may have common column names, say an
+ * "id" field for both customers and orders. Keeping the fields in maps keeps
+ * things tidy and avoids name conflicts.
+ * <p>
+ * This works because of the structure of Drill value vectors. Don't try
+ * this with row-structured data!
+ * <p>
+ * This version does not handle hyper-vectors.
+ */
 
 public class TestImplicitJoinReader extends SubOperatorTest {
 
@@ -46,14 +75,14 @@ public class TestImplicitJoinReader extends SubOperatorTest {
         .buildSchema();
 
     SingleRowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
-        .addRow(1, "fred", new Object[] {
-            new Object[] {10, 100.0},
-            new Object[] {11, 110.0},
-            new Object[] {12, 120.0}})
-        .addRow(2, "barney", new Object[] {})
-        .addRow(3, "wilma", new Object[] {
-            new Object[] {20, 200.0},
-            new Object[] {21, 210.0}})
+        .addRow(1, "fred", mapArray(
+            mapValue(10, 100.0),
+            mapValue(11, 110.0),
+            mapValue(12, 120.0)))
+        .addRow(2, "barney", mapArray())
+        .addRow(3, "wilma", mapArray(
+            mapValue(20, 200.0),
+            mapValue(21, 210.0)))
         .build();
 
     {
@@ -91,12 +120,12 @@ public class TestImplicitJoinReader extends SubOperatorTest {
         .buildSchema();
 
     SingleRowSet rowSet = new RowSetBuilder(fixture.allocator(), schema)
-        .addRow(1, "fred", new Object[] {
-            new Object[] {1001, 123.45},
-            new Object[] {1007, 234.65}})
-        .addRow(2, "barney", new Object[] {})
-        .addRow(3, "wilma", new Object[] {
-            new Object[] {1007, 321.65}})
+        .addRow(1, "fred", mapArray(
+            mapValue(1001, 123.45),
+            mapValue(1007, 234.65)))
+        .addRow(2, "barney", mapArray())
+        .addRow(3, "wilma", mapArray(
+            mapValue(1007, 321.65)))
         .build();
 
     {
@@ -127,6 +156,12 @@ public class TestImplicitJoinReader extends SubOperatorTest {
           .build();
       printSchema(reader);
       while (reader.next()) {
+
+        // This is a lame form of testing -- but this is a prototype.
+        // A better evolution would be for the reader to access tables
+        // as maps, so reader.tuple("customer") for the top-level row,
+        // and so on.
+
         printCol(reader.table("customer").scalar("custId").getInt());
         printCol(reader.table("customer").scalar("name").getString());
         printCol(reader.table("order").scalar("orderId").getInt());

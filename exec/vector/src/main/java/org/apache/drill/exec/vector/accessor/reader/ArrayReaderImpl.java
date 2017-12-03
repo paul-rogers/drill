@@ -73,7 +73,7 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
     }
 
     @Override
-    protected ReaderEvents events() { return arrayReader; }
+    public ReaderEvents events() { return arrayReader; }
   }
 
   /**
@@ -306,6 +306,8 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
     elementReader.events().reposition();
     return true;
   }
+
+  public ColumnReaderIndex elementIndex() { return elementIndex; }
 
   @Override
   public int size() { return elementIndex.size(); }

@@ -67,7 +67,7 @@ public abstract class AbstractTupleReader implements TupleReader, ReaderEvents {
     }
 
     @Override
-    protected ReaderEvents events() { return tupleReader; }
+    public ReaderEvents events() { return tupleReader; }
   }
 
   protected final TupleMetadata schema;

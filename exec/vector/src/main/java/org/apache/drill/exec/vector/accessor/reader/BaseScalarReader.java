@@ -68,7 +68,7 @@ public abstract class BaseScalarReader implements ScalarReader, ReaderEvents {
     }
 
     @Override
-    protected ReaderEvents events() { return scalarReader; }
+    public ReaderEvents events() { return scalarReader; }
   }
 
   public abstract static class BaseFixedWidthReader extends BaseScalarReader {

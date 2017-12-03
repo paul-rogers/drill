@@ -79,6 +79,29 @@ import org.apache.drill.exec.vector.complex.UnionVector;
 
 public class VectorAccessors {
 
+  public static class NullVectorAccesor implements VectorAccessor {
+
+    private final MajorType type;
+
+    public NullVectorAccesor(MajorType type) {
+      this.type = type;
+    }
+
+    @Override
+    public boolean isHyper() { return false; }
+
+    @Override
+    public MajorType type() { return type; }
+
+    @Override
+    public void bind(ColumnReaderIndex index) { }
+
+    @Override
+    public <T extends ValueVector> T vector() {
+      throw new UnsupportedOperationException();
+    }
+  }
+
   public static class SingleVectorAccessor implements VectorAccessor {
 
     private final ValueVector vector;
