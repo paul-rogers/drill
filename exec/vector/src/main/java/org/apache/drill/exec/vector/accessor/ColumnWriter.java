@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
-import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ScalarWriter.ColumnWriterListener;
 import org.apache.drill.exec.vector.accessor.TupleWriter.TupleWriterListener;
 import org.apache.drill.exec.vector.accessor.VariantWriter.VariantWriterListener;
@@ -33,7 +33,7 @@ import org.apache.drill.exec.vector.accessor.VariantWriter.VariantWriterListener
  * testing.</li>
  */
 
-public interface ColumnWriter {
+public interface ColumnWriter extends WriterPosition {
 
   interface TupleListenable {
 
@@ -81,27 +81,13 @@ public interface ColumnWriter {
   ColumnMetadata schema();
 
   /**
-   * Position within the vector of the first value for the current row.
-   * Note that this is always the first value for the row, even for a
-   * writer deeply nested within a hierarchy of arrays. (The first
-   * position for the current array is not exposed in this API.)
+   * Set the current value to null. Support depends on the underlying
+   * implementation: only nullable types support this operation.
    *
-   * @return the vector offset of the first value for the current
-   * row
+   * throws IllegalStateException if called on a non-nullable value.
    */
 
-  int rowStartIndex();
-
-  /**
-   * Return the last write position in the vector. This may be the
-   * same as the writer index position (if the vector was written at
-   * that point), or an earlier point. In either case, this value
-   * points to the last valid value in the vector.
-   *
-   * @return index of the last valid value in the vector
-   */
-
-  int lastWriteIndex();
+  void setNull();
 
   /**
    * Generic technique to write data as a generic Java object. The

@@ -18,9 +18,10 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.common.exceptions.UserException;
+import org.apache.drill.exec.physical.rowSet.impl.ListState.ListVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.TupleState.MapState;
 import org.apache.drill.exec.physical.rowSet.impl.UnionState.UnionVectorState;
-import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
@@ -47,12 +48,12 @@ public abstract class ColumnState {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ColumnState.class);
 
-  public interface VariantColumnState {
-
-    UnionState unionState();
-
-    AbstractObjectWriter writer();
-  }
+//  public interface VariantColumnState {
+//
+//    UnionState unionState();
+//
+//    AbstractObjectWriter writer();
+//  }
 
   /**
    * Primitive (non-map) column state. Handles all three cardinalities.
@@ -152,16 +153,7 @@ public abstract class ColumnState {
     }
   }
 
-  public static class ListColumnState extends ColumnState {
-
-    public ListColumnState(LoaderInternals loader,
-        AbstractObjectWriter writer, VectorState vectorState) {
-      super(loader, writer, vectorState);
-      assert false;
-    }
-  }
-
-  public static class UnionColumnState extends BaseContainerColumnState implements VariantColumnState {
+  public static class UnionColumnState extends BaseContainerColumnState {
 
     private final UnionState unionState;
 
@@ -182,11 +174,29 @@ public abstract class ColumnState {
 
     @Override
     public ContainerState container() { return unionState; }
+  }
+
+  public static class ListColumnState extends BaseContainerColumnState {
+
+    private final ListState listState;
+
+    public ListColumnState(LoaderInternals loader,
+        AbstractObjectWriter writer,
+        ListVectorState vectorState,
+        ListState listState) {
+      super(loader, writer, vectorState);
+      this.listState = listState;
+      listState.bindColumnState(this);
+    }
 
     @Override
-    public UnionState unionState() {
-      return unionState;
+    public boolean isProjected() {
+      // Lists are always projected
+      return true;
     }
+
+    @Override
+    public ContainerState container() { return listState; }
   }
 
   /**
@@ -260,6 +270,7 @@ public abstract class ColumnState {
 
   public AbstractObjectWriter writer() { return writer; }
   public ColumnMetadata schema() { return writer.schema(); }
+  public VectorState vectorState() { return vectorState; }
 
   public <T extends ValueVector> T vector() { return vectorState.vector(); }
 

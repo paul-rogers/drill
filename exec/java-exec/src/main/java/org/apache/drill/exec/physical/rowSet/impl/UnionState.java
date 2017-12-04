@@ -26,12 +26,13 @@ import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.UnionColumnState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.FixedWidthVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.SimpleVectorState;
-import org.apache.drill.exec.record.ColumnMetadata;
-import org.apache.drill.exec.record.TupleSchema.VariantSchema;
-import org.apache.drill.exec.record.VariantMetadata;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.VariantMetadata;
+import org.apache.drill.exec.record.metadata.VariantSchema;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.VariantWriter;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
+import org.apache.drill.exec.vector.accessor.writer.UnionVectorShim;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
@@ -45,7 +46,8 @@ public class UnionState extends ContainerState
 
     public UnionVectorState(UnionVector vector, UnionWriterImpl unionWriter) {
       this.vector = vector;
-      typesVectorState = new FixedWidthVectorState(unionWriter.typeWriter(), vector.getTypeVector());
+      typesVectorState = new FixedWidthVectorState(
+          ((UnionVectorShim) unionWriter.shim()).typeWriter(), vector.getTypeVector());
     }
 
     @Override
@@ -75,24 +77,18 @@ public class UnionState extends ContainerState
 
     @SuppressWarnings("unchecked")
     @Override
-    public UnionVector vector() {
-      return vector;
-    }
+    public UnionVector vector() { return vector; }
 
     @Override
-    public boolean isProjected() {
-      return true;
-    }
+    public boolean isProjected() { return true; }
 
     @Override
     public void dump(HierarchicalFormatter format) {
       // TODO Auto-generated method stub
-
     }
   }
 
   private UnionColumnState columnState;
-  private final VariantMetadata schema = new VariantSchema();
   private final Map<MinorType, ColumnState> columns = new HashMap<>();
 
   public UnionState(LoaderInternals events, ResultVectorCache vectorCache, ProjectionSet projectionSet) {
@@ -108,8 +104,12 @@ public class UnionState extends ContainerState
     return (UnionWriterImpl) columnState.writer.variant();
   }
 
+  public VariantMetadata variantSchema() {
+    return writer().variantSchema();
+  }
+
   public UnionVector vector() {
-    return (UnionVector) columnState.vector();
+    return columnState.vector();
   }
 
   @Override
@@ -119,7 +119,7 @@ public class UnionState extends ContainerState
 
   @Override
   public ObjectWriter addMember(ColumnMetadata member) {
-    if (schema.hasType(member.type())) {
+    if (variantSchema().hasType(member.type())) {
       throw new IllegalArgumentException("Duplicate type: " + member.type().toString());
     }
     return addColumn(member).writer();
@@ -130,6 +130,7 @@ public class UnionState extends ContainerState
     assert ! columns.containsKey(colState.schema().type());
     columns.put(colState.schema().type(), colState);
     vector().addType(colState.vector());
+    variantSchema().addType(colState.schema());
   }
 
   @Override

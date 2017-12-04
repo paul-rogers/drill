@@ -17,8 +17,8 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
-import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnWriter;
 import org.apache.drill.exec.vector.complex.ListVector;
 

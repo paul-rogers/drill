@@ -20,9 +20,8 @@ package org.apache.drill.exec.vector.accessor.writer;
 import java.math.BigDecimal;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.record.ColumnMetadata;
-import org.apache.drill.exec.record.VariantMetadata;
-import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.VariantMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
@@ -30,7 +29,7 @@ import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
 import org.apache.drill.exec.vector.accessor.VariantWriter;
-import org.apache.drill.exec.vector.accessor.ColumnWriter;
+import org.apache.drill.exec.vector.accessor.WriterPosition;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.complex.UnionVector;
 import org.joda.time.Period;
@@ -51,219 +50,7 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
     int rowStartIndex();
     ObjectWriter addMember(ColumnMetadata colSchema);
     ObjectWriter addMember(MinorType type);
-  }
-
-  public static class UnionVectorShim implements UnionShim {
-
-    private final UnionVector vector;
-    private final AbstractObjectWriter variants[];
-    private UnionWriterImpl writer;
-    private final BaseScalarWriter typeWriter;
-    private VariantWriterListener listener;
-
-    public UnionVectorShim(UnionVector vector,
-        AbstractObjectWriter variants[]) {
-      this.vector = vector;
-      typeWriter = ColumnWriterFactory.newWriter(vector.getTypeVector());
-      if (variants == null) {
-        this.variants = new AbstractObjectWriter[MinorType.values().length];
-      } else {
-        this.variants = variants;
-      }
-    }
-
-    @Override
-    public void bindWriter(UnionWriterImpl writer) {
-      this.writer = writer;
-    }
-
-    @Override
-    public void bindIndex(ColumnWriterIndex index) {
-      typeWriter.bindIndex(index);
-      for (int i = 0; i < variants.length; i++) {
-        if (variants[i] != null) {
-          variants[i].events().bindIndex(index);
-        }
-      }
-    }
-
-    @Override
-    public void setNull() {
-
-      // Not really necessary: the default value is 0.
-      // This lets a caller change its mind after setting a
-      // value.
-
-      typeWriter.setInt(UnionVector.NULL_MARKER);
-    }
-
-    @Override
-    public boolean hasType(MinorType type) {
-      return variants[type.ordinal()] != null;
-    }
-
-    private ObjectWriter writerFor(MinorType type) {
-      AbstractObjectWriter writer = variants[type.ordinal()];
-      if (writer != null) {
-        return writer;
-      }
-      if (listener == null) {
-        listener = new DefaultListener(this);
-      }
-      return addMember(type);
-    }
-
-    @Override
-    public ObjectWriter member(MinorType type) {
-      setType(type);
-      return writerFor(type);
-    }
-
-    @Override
-    public void setType(MinorType type) {
-      typeWriter.setInt(type.getNumber());
-    }
-
-    @Override
-    public ObjectWriter addMember(ColumnMetadata schema) {
-      AbstractObjectWriter writer = (AbstractObjectWriter) listener.addMember(schema);
-      addMember(schema.type(), writer);
-      return writer;
-    }
-
-    @Override
-    public ObjectWriter addMember(MinorType type) {
-      AbstractObjectWriter writer = (AbstractObjectWriter) listener.addType(type);
-      addMember(type, writer);
-      return writer;
-    }
-
-    private void addMember(MinorType type, AbstractObjectWriter colWriter) {
-      colWriter.events().bindIndex(writer.index());
-      variants[type.ordinal()] = colWriter;
-      if (writer.state() != State.IDLE) {
-        colWriter.events().startWrite();
-        if (writer.state() == State.IN_ROW) {
-          colWriter.events().startRow();
-        }
-      }
-    }
-
-    /**
-     * Add a column writer to an existing union writer. Used for implementations
-     * that support "live" schema evolution: column discovery while writing.
-     * The corresponding metadata must already have been added to the schema.
-     *
-     * @param colWriter the column writer to add
-     */
-
-    public void addColumnWriter(AbstractObjectWriter colWriter) {
-      MinorType type = colWriter.schema().type();
-      assert variants[type.ordinal()] == null;
-      assert writer.variantSchema().hasType(type);
-      addMember(type, colWriter);
-    }
-
-    @Override
-    public void startWrite() {
-      typeWriter.startWrite();
-      for (int i = 0; i < variants.length; i++) {
-        if (variants[i] != null) {
-          variants[i].events().startWrite();
-        }
-      }
-    }
-
-    @Override
-    public void startRow() {
-      typeWriter.startRow();
-      for (int i = 0; i < variants.length; i++) {
-        if (variants[i] != null) {
-          variants[i].events().startRow();
-        }
-      }
-    }
-
-    @Override
-    public void endArrayValue() {
-      typeWriter.endArrayValue();
-      for (int i = 0; i < variants.length; i++) {
-        if (variants[i] != null) {
-          variants[i].events().endArrayValue();
-        }
-      }
-    }
-
-    @Override
-    public void restartRow() {
-      typeWriter.restartRow();
-      for (int i = 0; i < variants.length; i++) {
-        if (variants[i] != null) {
-          variants[i].events().restartRow();
-        }
-      }
-    }
-
-    @Override
-    public void saveRow() {
-      typeWriter.saveRow();
-      for (int i = 0; i < variants.length; i++) {
-        if (variants[i] != null) {
-          variants[i].events().saveRow();
-        }
-      }
-     }
-
-    @Override
-    public void preRollover() {
-      typeWriter.preRollover();
-      for (int i = 0; i < variants.length; i++) {
-        if (variants[i] != null) {
-          variants[i].events().preRollover();
-        }
-      }
-    }
-
-    @Override
-    public void postRollover() {
-      typeWriter.postRollover();
-      for (int i = 0; i < variants.length; i++) {
-        if (variants[i] != null) {
-          variants[i].events().postRollover();
-        }
-      }
-    }
-
-    @Override
-    public void endWrite() {
-      typeWriter.endWrite();
-      for (int i = 0; i < variants.length; i++) {
-        if (variants[i] != null) {
-          variants[i].events().endWrite();
-        }
-      }
-    }
-
-
-    /**
-     * Return the writer for the types vector. To be used only by the row set
-     * loader overflow logic; never by the application (which is why the method
-     * is not defined in the interface.)
-     *
-     * @return the writer for the types vector
-     */
-
-    public ColumnWriter typeWriter() { return typeWriter; }
-
-    @Override
-    public int lastWriteIndex() { return typeWriter.lastWriteIndex(); }
-
-    @Override
-    public int rowStartIndex() { return typeWriter.rowStartIndex(); }
-
-    public void bindListener(VariantWriterListener listener) {
-      this.listener = listener;
-    }
+    void addMember(AbstractObjectWriter colWriter);
   }
 
   public static class VariantObjectWriter extends AbstractObjectWriter {
@@ -286,45 +73,67 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
     }
   }
 
-  private static class DefaultListener implements VariantWriterListener {
+  /**
+   * The result set loader requires information about the child positions
+   * of the array that this list represents. Since the children are mutable,
+   * we cannot simply ask for the child writer as with most arrays. Instead,
+   * we use a proxy that will route the request to the current shim. This
+   * way the proxy persists even as the shims change. Just another nasty
+   * side-effect of the overly-complex list structure...
+   * <p>
+   * This class is needed because both the child and this array writer
+   * need to implement the same methods, so we can't just implement these
+   * methods on the union writer itself.
+   */
 
-    private UnionVectorShim shim;
-
-    private DefaultListener(UnionVectorShim shim) {
-      this.shim = shim;
-    }
+  private class ElementPositions implements WriterPosition {
 
     @Override
-    public ObjectWriter addType(MinorType type) {
-      ValueVector memberVector = shim.vector.getMember(type);
-      ColumnMetadata memberSchema = shim.writer.variantSchema().addType(type);
-      return ColumnWriterFactory.buildColumnWriter(memberSchema, memberVector);
-    }
+    public int rowStartIndex() { return shim.rowStartIndex(); }
 
     @Override
-    public ObjectWriter addMember(ColumnMetadata schema) {
-      throw new UnsupportedOperationException();
-    }
+    public int lastWriteIndex() { return shim.lastWriteIndex(); }
   }
 
   private final ColumnMetadata schema;
   private UnionShim shim;
   private ColumnWriterIndex index;
   private State state = State.IDLE;
+  private VariantWriterListener listener;
+  private final WriterPosition elementPosition = new ElementPositions();
 
-  public UnionWriterImpl(ColumnMetadata schema, UnionShim shim) {
+  public UnionWriterImpl(ColumnMetadata schema) {
     this.schema = schema;
-    this.shim = shim;
-    shim.bindWriter(this);
   }
 
   public UnionWriterImpl(ColumnMetadata schema, UnionVector vector,
       AbstractObjectWriter variants[]) {
-    this(schema, new UnionVectorShim(vector, variants));
+    this(schema);
+    bindShim(new UnionVectorShim(vector, variants));
   }
+
+  @Override
+  public void bindIndex(ColumnWriterIndex index) {
+    this.index = index;
+    shim.bindIndex(index);
+  }
+
+  public void bindListener(VariantWriterListener listener) {
+    this.listener = listener;
+  }
+
+  // The following are for coordinating with the shim.
 
   public State state() { return state; }
   public ColumnWriterIndex index() { return index; }
+  public VariantWriterListener listener() { return listener; }
+  public UnionShim shim() { return shim; }
+  public WriterPosition elementPosition() { return elementPosition; }
+
+  public void bindShim(UnionShim shim) {
+    this.shim = shim;
+    shim.bindWriter(this);
+  }
 
   @Override
   public ObjectType type() { return ObjectType.VARIANT; }
@@ -381,12 +190,6 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
   @Override
   public ArrayWriter array() {
     return member(MinorType.LIST).array();
-  }
-
-  @Override
-  public void bindIndex(ColumnWriterIndex index) {
-    this.index = index;
-    shim.bindIndex(index);
   }
 
   @Override

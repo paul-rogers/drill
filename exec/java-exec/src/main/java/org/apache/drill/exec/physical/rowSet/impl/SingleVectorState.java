@@ -18,11 +18,12 @@
 package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.exec.expr.TypeHelper;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.FixedWidthVector;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.VariableWidthVector;
-import org.apache.drill.exec.vector.accessor.ColumnWriter;
+import org.apache.drill.exec.vector.accessor.WriterPosition;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.apache.drill.exec.vector.accessor.writer.OffsetVectorWriter;
 
@@ -37,7 +38,7 @@ public abstract class SingleVectorState implements VectorState {
 
   public abstract static class SimpleVectorState extends SingleVectorState {
 
-    public SimpleVectorState(ColumnWriter writer,
+    public SimpleVectorState(WriterPosition writer,
         ValueVector mainVector) {
       super(writer, mainVector);
     }
@@ -70,7 +71,7 @@ public abstract class SingleVectorState implements VectorState {
 
   public static class FixedWidthVectorState extends SimpleVectorState {
 
-     public FixedWidthVectorState(ColumnWriter writer, ValueVector mainVector) {
+     public FixedWidthVectorState(WriterPosition writer, ValueVector mainVector) {
       super(writer, mainVector);
     }
 
@@ -89,8 +90,11 @@ public abstract class SingleVectorState implements VectorState {
 
   public static class VariableWidthVectorState extends SimpleVectorState {
 
-    public VariableWidthVectorState(ColumnWriter writer, ValueVector mainVector) {
+    private ColumnMetadata schema;
+
+    public VariableWidthVectorState(ColumnMetadata schema, WriterPosition writer, ValueVector mainVector) {
       super(writer, mainVector);
+      this.schema = schema;
     }
 
     @Override
@@ -98,7 +102,7 @@ public abstract class SingleVectorState implements VectorState {
 
       // Cap the allocated size to the maximum.
 
-      int size = (int) Math.min(ValueVector.MAX_BUFFER_SIZE, (long) cardinality * writer.schema().expectedWidth());
+      int size = (int) Math.min(ValueVector.MAX_BUFFER_SIZE, (long) cardinality * schema.expectedWidth());
       ((VariableWidthVector) vector).allocateNew(size, cardinality);
       return vector.getAllocatedSize();
     }
@@ -114,10 +118,10 @@ public abstract class SingleVectorState implements VectorState {
 
   public static class OffsetVectorState extends SingleVectorState {
 
-    private final ColumnWriter childWriter;
+    private final WriterPosition childWriter;
 
-    public OffsetVectorState(ColumnWriter writer, ValueVector mainVector,
-        ColumnWriter childWriter) {
+    public OffsetVectorState(WriterPosition writer, ValueVector mainVector,
+        WriterPosition childWriter) {
       super(writer, mainVector);
       this.childWriter = childWriter;
     }
@@ -181,11 +185,11 @@ public abstract class SingleVectorState implements VectorState {
     }
   }
 
-  protected final ColumnWriter writer;
+  protected final WriterPosition writer;
   protected final ValueVector mainVector;
   protected ValueVector backupVector;
 
-  public SingleVectorState(ColumnWriter writer, ValueVector mainVector) {
+  public SingleVectorState(WriterPosition writer, ValueVector mainVector) {
     this.writer = writer;
     this.mainVector = mainVector;
   }
@@ -284,9 +288,9 @@ public abstract class SingleVectorState implements VectorState {
   @Override
   public boolean isProjected() { return true; }
 
-  public static SimpleVectorState vectorState(ColumnWriter writer, ValueVector mainVector) {
-    if (writer.schema().isVariableWidth()) {
-      return new VariableWidthVectorState(writer, mainVector);
+  public static SimpleVectorState vectorState(ColumnMetadata schema, WriterPosition writer, ValueVector mainVector) {
+    if (schema.isVariableWidth()) {
+      return new VariableWidthVectorState(schema, writer, mainVector);
     } else {
       return new FixedWidthVectorState(writer, mainVector);
     }

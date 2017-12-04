@@ -48,7 +48,7 @@ public class RepeatedVectorState implements VectorState {
 
     arrayWriter = (AbstractArrayWriter) writer.array();
     AbstractScalarWriter colWriter = (AbstractScalarWriter) arrayWriter.scalar();
-    valuesState = SimpleVectorState.vectorState(colWriter, vector.getDataVector());
+    valuesState = SimpleVectorState.vectorState(writer.schema(), colWriter, vector.getDataVector());
 
     // Create the offsets state with the offset vector portion of the repeated
     // vector, and the offset writer portion of the array writer.

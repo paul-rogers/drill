@@ -19,7 +19,7 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.FixedWidthVectorState;
 import org.apache.drill.exec.physical.rowSet.impl.SingleVectorState.SimpleVectorState;
-import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.NullableVector;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
@@ -40,7 +40,8 @@ public class NullableVectorState implements VectorState {
 
     this.writer = (NullableScalarWriter) writer.scalar();
     bitsState = new FixedWidthVectorState(this.writer.bitsWriter(), vector.getBitsVector());
-    valuesState = SimpleVectorState.vectorState(this.writer.baseWriter(), vector.getValuesVector());
+    valuesState = SimpleVectorState.vectorState(this.writer.schema(),
+        this.writer.baseWriter(), vector.getValuesVector());
   }
 
   @Override
