@@ -18,7 +18,7 @@
 package org.apache.drill.exec.vector.accessor;
 
 import org.apache.drill.common.types.TypeProtos.MinorType;
-import org.apache.drill.exec.record.VariantMetadata;
+import org.apache.drill.exec.record.metadata.VariantMetadata;
 
 /**
  * Reader for a Drill "union vector." The union vector is presented

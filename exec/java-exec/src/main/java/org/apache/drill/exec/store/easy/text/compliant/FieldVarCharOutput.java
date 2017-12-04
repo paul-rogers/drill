@@ -19,7 +19,7 @@ package org.apache.drill.exec.store.easy.text.compliant;
 
 import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
-import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 
 /**
  * Class is responsible for generating record batches for text file inputs. We generate

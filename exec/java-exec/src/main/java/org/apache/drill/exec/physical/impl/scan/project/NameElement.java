@@ -25,7 +25,7 @@ import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.common.expression.PathSegment.NameSegment;
 import org.apache.drill.exec.physical.rowSet.impl.NullProjectionSet;
 import org.apache.drill.exec.physical.rowSet.impl.ProjectionSet;
-import org.apache.drill.exec.record.TupleNameSpace;
+import org.apache.drill.exec.record.metadata.TupleNameSpace;
 
 /**
  * Represents one name element. Like a {@link NameSegment}, except that this

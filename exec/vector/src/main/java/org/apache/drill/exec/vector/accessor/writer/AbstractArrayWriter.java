@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
-import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
@@ -301,6 +301,11 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
   @Override
   public int size() { return elementIndex.arraySize(); }
+
+  @Override
+  public void setNull() {
+    throw new IllegalStateException("Not nullable");
+  }
 
   @Override
   public int rowStartIndex() {

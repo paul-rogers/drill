@@ -26,7 +26,7 @@ import org.apache.drill.common.expression.PathSegment.ArraySegment;
 import org.apache.drill.common.expression.PathSegment.NameSegment;
 import org.apache.drill.common.expression.SchemaPath;
 import org.apache.drill.exec.physical.rowSet.impl.ProjectionSet;
-import org.apache.drill.exec.record.TupleNameSpace;
+import org.apache.drill.exec.record.metadata.TupleNameSpace;
 
 /**
  * Parses and analyzes the projection list passed to the scanner. The

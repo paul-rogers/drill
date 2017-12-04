@@ -28,7 +28,7 @@ import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.Re
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.WildcardSchemaProjection;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 
 /**
  * Implements a "schema smoothing" algorithm.

@@ -18,7 +18,7 @@
 package org.apache.drill.exec.physical.rowSet.model;
 
 import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
 import org.apache.drill.exec.vector.accessor.reader.ArrayReaderImpl;
 import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader;

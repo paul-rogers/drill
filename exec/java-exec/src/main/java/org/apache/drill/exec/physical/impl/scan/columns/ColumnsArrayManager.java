@@ -29,7 +29,7 @@ import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.Re
 import org.apache.drill.exec.physical.impl.scan.project.SchemaLevelProjection.SchemaProjectionResolver;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 
 /**
  * Handles the special case in which the entire row is returned as a

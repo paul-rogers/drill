@@ -22,13 +22,13 @@ import org.apache.drill.common.types.TypeProtos.MajorType;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.metadata.AbstractColumnMetadata;
+import org.apache.drill.exec.record.metadata.MapColumnMetadata;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.record.metadata.TupleSchema;
+import org.apache.drill.exec.record.metadata.VariantColumnMetadata;
+import org.apache.drill.exec.record.metadata.VariantSchema;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.record.TupleSchema;
-import org.apache.drill.exec.record.TupleSchema.AbstractColumnMetadata;
-import org.apache.drill.exec.record.TupleSchema.MapColumnMetadata;
-import org.apache.drill.exec.record.TupleSchema.VariantColumnMetadata;
-import org.apache.drill.exec.record.TupleSchema.VariantSchema;
 
 /**
  * Builder of a row set schema expressed as a list of materialized

@@ -20,9 +20,9 @@ package org.apache.drill.exec.vector.accessor.writer;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.TupleMetadata;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
@@ -215,6 +215,11 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   public int size() { return tupleSchema().size(); }
 
   @Override
+  public void setNull() {
+    throw new IllegalStateException("Not nullable");
+  }
+
+  @Override
   public void startWrite() {
     assert state == State.IDLE;
     state = State.IN_WRITE;
@@ -317,11 +322,6 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   @Override
   public void set(int colIndex, Object value) {
     column(colIndex).setObject(value);
-  }
-
-  @Override
-  public void setTuple(Object ...values) {
-    setObject(values);
   }
 
   @Override

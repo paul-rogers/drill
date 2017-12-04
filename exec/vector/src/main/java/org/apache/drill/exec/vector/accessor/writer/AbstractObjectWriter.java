@@ -17,7 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor.writer;
 
-import org.apache.drill.exec.record.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.apache.drill.exec.vector.accessor.ObjectType;
@@ -68,6 +68,11 @@ public abstract class AbstractObjectWriter implements ObjectWriter {
 
   @Override
   public ObjectType type() { return baseWriter().type(); }
+
+  @Override
+  public void setNull() {
+    baseWriter().setNull();
+  }
 
   @Override
   public void setObject(Object value) {

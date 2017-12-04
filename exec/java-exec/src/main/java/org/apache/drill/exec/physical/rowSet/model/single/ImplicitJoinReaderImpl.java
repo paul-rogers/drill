@@ -17,8 +17,8 @@
  */
 package org.apache.drill.exec.physical.rowSet.model.single;
 
-import org.apache.drill.exec.record.TupleMetadata;
-import org.apache.drill.exec.record.TupleNameSpace;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.record.metadata.TupleNameSpace;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectReader;

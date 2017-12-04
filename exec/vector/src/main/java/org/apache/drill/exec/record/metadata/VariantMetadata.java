@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.drill.exec.record;
+package org.apache.drill.exec.record.metadata;
 
 import java.util.Collection;
 
@@ -171,4 +171,7 @@ public interface VariantMetadata {
    */
 
   ColumnMetadata listSubtype();
+
+  void setExpandable(boolean flag);
+  boolean expandable();
 }

@@ -17,10 +17,9 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
-import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.record.MaterializedField;
-import org.apache.drill.exec.record.TupleMetadata;
-
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.ColumnWriter.TupleListenable;
 
 /**
@@ -163,19 +162,4 @@ public interface TupleWriter extends ColumnWriter, TupleListenable {
    */
 
   void set(int colIndex, Object value);
-
-  /**
-   * Write a row or map of values, given by Java objects. Object type must match
-   * expected column type.
-   * <p>
-   * Note that a single-column tuple is ambiguous if that column is an array. To
-   * avoid ambiguity, use <tt>set(0, value)</tt> in this case.
-   *
-   * @param values
-   *          variable-length argument list of column values
-   * @return true if the row was written, false if any column caused vector
-   *         overflow.
-   */
-
-  void setTuple(Object... values);
 }
