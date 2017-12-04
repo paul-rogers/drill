@@ -18,7 +18,6 @@
 package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
-import org.apache.drill.exec.vector.accessor.ColumnWriter;
 
 /**
  * Internal interface used to control the behavior
@@ -38,7 +37,7 @@ import org.apache.drill.exec.vector.accessor.ColumnWriter;
  * calls, can change.
  */
 
-public interface WriterEvents extends ColumnWriter {
+public interface WriterEvents {
 
   /**
    * Tracks the write state of a tuple or variant to allow applying the correct

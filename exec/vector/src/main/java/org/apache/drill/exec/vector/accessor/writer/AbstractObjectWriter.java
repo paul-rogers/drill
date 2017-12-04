@@ -19,6 +19,7 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import org.apache.drill.exec.record.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayWriter;
+import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
@@ -37,7 +38,7 @@ import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 public abstract class AbstractObjectWriter implements ObjectWriter {
 
   @Override
-  public ColumnMetadata schema() { return events().schema(); }
+  public ColumnMetadata schema() { return baseWriter().schema(); }
 
   @Override
   public ScalarWriter scalar() {
@@ -61,23 +62,27 @@ public abstract class AbstractObjectWriter implements ObjectWriter {
 
   public abstract WriterEvents events();
 
+  public ColumnWriter baseWriter() {
+    return (ColumnWriter) events();
+  }
+
   @Override
-  public ObjectType type() { return events().type(); }
+  public ObjectType type() { return baseWriter().type(); }
 
   @Override
   public void setObject(Object value) {
-    events().setObject(value);
+    baseWriter().setObject(value);
   }
 
   public abstract void dump(HierarchicalFormatter format);
 
   @Override
   public int rowStartIndex() {
-    return events().rowStartIndex();
+    return baseWriter().rowStartIndex();
   }
 
   @Override
   public int lastWriteIndex() {
-    return events().lastWriteIndex();
+    return baseWriter().lastWriteIndex();
   }
 }
