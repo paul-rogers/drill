@@ -21,6 +21,7 @@ import java.math.BigDecimal;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.BaseDataValueVector;
+import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
@@ -61,11 +62,35 @@ public abstract class AbstractScalarWriter implements ScalarWriter, WriterEvents
 
   protected ColumnMetadata schema;
 
+  /**
+   * Indicates the position in the vector to write. Set via an object so that
+   * all writers (within the same subtree) can agree on the write position.
+   * For example, all top-level, simple columns see the same row index.
+   * All columns within a repeated map see the same (inner) index, etc.
+   */
+
+  protected ColumnWriterIndex vectorIndex;
+
   @Override
   public ObjectType type() { return ObjectType.SCALAR; }
 
   public void bindSchema(ColumnMetadata schema) {
     this.schema = schema;
+  }
+
+  @Override
+  public void bindIndex(ColumnWriterIndex vectorIndex) {
+    this.vectorIndex = vectorIndex;
+  }
+
+  @Override
+  public int rowStartIndex() {
+    return vectorIndex.rowStartIndex();
+  }
+
+  @Override
+  public int writeIndex() {
+    return vectorIndex.vectorIndex();
   }
 
   @Override

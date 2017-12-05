@@ -39,6 +39,7 @@ import org.apache.drill.exec.record.metadata.TupleSchema;
 import org.apache.drill.exec.record.metadata.VariantMetadata;
 import org.apache.drill.exec.record.metadata.ColumnMetadata.StructureType;
 import org.apache.drill.exec.record.metadata.MapColumnMetadata;
+import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.PrimitiveColumnMetadata;
 import org.apache.drill.exec.record.metadata.VariantColumnMetadata;
 import org.apache.drill.test.SubOperatorTest;
@@ -61,7 +62,7 @@ public class TestTupleSchema extends SubOperatorTest {
   public void testRequiredFixedWidthColumn() {
 
     MaterializedField field = SchemaBuilder.columnSchema("c", MinorType.INT, DataMode.REQUIRED );
-    ColumnMetadata col = TupleSchema.fromField(field);
+    ColumnMetadata col = MetadataUtils.fromField(field);
 
     // Code may depend on the specific column class
 
@@ -82,19 +83,19 @@ public class TestTupleSchema extends SubOperatorTest {
     assertTrue(col.isEquivalent(col));
     assertFalse(col.isVariant());
 
-    ColumnMetadata col2 = TupleSchema.fromField(field);
+    ColumnMetadata col2 = MetadataUtils.fromField(field);
     assertTrue(col.isEquivalent(col2));
 
     MaterializedField field3 = SchemaBuilder.columnSchema("d", MinorType.INT, DataMode.REQUIRED );
-    ColumnMetadata col3 = TupleSchema.fromField(field3);
+    ColumnMetadata col3 = MetadataUtils.fromField(field3);
     assertFalse(col.isEquivalent(col3));
 
     MaterializedField field4 = SchemaBuilder.columnSchema("c", MinorType.BIGINT, DataMode.REQUIRED );
-    ColumnMetadata col4 = TupleSchema.fromField(field4);
+    ColumnMetadata col4 = MetadataUtils.fromField(field4);
     assertFalse(col.isEquivalent(col4));
 
     MaterializedField field5 = SchemaBuilder.columnSchema("c", MinorType.INT, DataMode.OPTIONAL );
-    ColumnMetadata col5 = TupleSchema.fromField(field5);
+    ColumnMetadata col5 = MetadataUtils.fromField(field5);
     assertFalse(col.isEquivalent(col5));
 
     ColumnMetadata col6 = col.cloneEmpty();
@@ -113,7 +114,7 @@ public class TestTupleSchema extends SubOperatorTest {
   public void testNullableFixedWidthColumn() {
 
     MaterializedField field = SchemaBuilder.columnSchema("c", MinorType.INT, DataMode.OPTIONAL );
-    ColumnMetadata col = TupleSchema.fromField(field);
+    ColumnMetadata col = MetadataUtils.fromField(field);
 
     assertEquals(ColumnMetadata.StructureType.PRIMITIVE, col.structureType());
     assertTrue(col.isNullable());
@@ -135,7 +136,7 @@ public class TestTupleSchema extends SubOperatorTest {
   public void testRepeatedFixedWidthColumn() {
 
     MaterializedField field = SchemaBuilder.columnSchema("c", MinorType.INT, DataMode.REPEATED );
-    ColumnMetadata col = TupleSchema.fromField(field);
+    ColumnMetadata col = MetadataUtils.fromField(field);
 
     assertFalse(col.isNullable());
     assertTrue(col.isArray());
@@ -160,7 +161,7 @@ public class TestTupleSchema extends SubOperatorTest {
   public void testRequiredVariableWidthColumn() {
 
     MaterializedField field = SchemaBuilder.columnSchema("c", MinorType.VARCHAR, DataMode.REQUIRED );
-    ColumnMetadata col = TupleSchema.fromField(field);
+    ColumnMetadata col = MetadataUtils.fromField(field);
 
     assertEquals(ColumnMetadata.StructureType.PRIMITIVE, col.structureType());
     assertNull(col.mapSchema());
@@ -177,7 +178,7 @@ public class TestTupleSchema extends SubOperatorTest {
         .setPrecision(10)
         .build();
 
-    ColumnMetadata col2 = TupleSchema.fromField(field2);
+    ColumnMetadata col2 = MetadataUtils.fromField(field2);
     assertFalse(col.isEquivalent(col2));
 
     assertEquals(50, col.expectedWidth());
@@ -190,7 +191,7 @@ public class TestTupleSchema extends SubOperatorTest {
 
     // If precision is provided, then that is the default width
 
-    col = TupleSchema.fromField(field2);
+    col = MetadataUtils.fromField(field2);
     assertEquals(10, col.expectedWidth());
   }
 
@@ -198,7 +199,7 @@ public class TestTupleSchema extends SubOperatorTest {
   public void testNullableVariableWidthColumn() {
 
     MaterializedField field = SchemaBuilder.columnSchema("c", MinorType.VARCHAR, DataMode.OPTIONAL );
-    ColumnMetadata col = TupleSchema.fromField(field);
+    ColumnMetadata col = MetadataUtils.fromField(field);
 
     assertTrue(col.isNullable());
     assertFalse(col.isArray());
@@ -219,7 +220,7 @@ public class TestTupleSchema extends SubOperatorTest {
   public void testRepeatedVariableWidthColumn() {
 
     MaterializedField field = SchemaBuilder.columnSchema("c", MinorType.VARCHAR, DataMode.REPEATED );
-    ColumnMetadata col = TupleSchema.fromField(field);
+    ColumnMetadata col = MetadataUtils.fromField(field);
 
     assertFalse(col.isNullable());
     assertTrue(col.isArray());
@@ -248,7 +249,7 @@ public class TestTupleSchema extends SubOperatorTest {
           .setScale(4)
           .build());
 
-    ColumnMetadata col = TupleSchema.fromField(field);
+    ColumnMetadata col = MetadataUtils.fromField(field);
 
     assertFalse(col.isNullable());
     assertFalse(col.isArray());
@@ -271,7 +272,7 @@ public class TestTupleSchema extends SubOperatorTest {
   public void testMapColumn() {
 
     MaterializedField field = SchemaBuilder.columnSchema("m", MinorType.MAP, DataMode.REQUIRED );
-    ColumnMetadata col = TupleSchema.fromField(field);
+    ColumnMetadata col = MetadataUtils.fromField(field);
 
     assertTrue(col instanceof MapColumnMetadata);
     assertNotNull(col.mapSchema());
@@ -301,7 +302,7 @@ public class TestTupleSchema extends SubOperatorTest {
   public void testRepeatedMapColumn() {
 
     MaterializedField field = SchemaBuilder.columnSchema("m", MinorType.MAP, DataMode.REPEATED );
-    ColumnMetadata col = TupleSchema.fromField(field);
+    ColumnMetadata col = MetadataUtils.fromField(field);
 
     assertTrue(col instanceof MapColumnMetadata);
     assertNotNull(col.mapSchema());
@@ -327,7 +328,7 @@ public class TestTupleSchema extends SubOperatorTest {
   public void testUnionColumn() {
 
     MaterializedField field = SchemaBuilder.columnSchema("u", MinorType.UNION, DataMode.OPTIONAL);
-    ColumnMetadata col = TupleSchema.fromField(field);
+    ColumnMetadata col = MetadataUtils.fromField(field);
     assertFalse(col.isArray());
     doVariantTest(col);
   }
@@ -336,7 +337,7 @@ public class TestTupleSchema extends SubOperatorTest {
   public void testListColumn() {
 
     MaterializedField field = SchemaBuilder.columnSchema("l", MinorType.LIST, DataMode.OPTIONAL);
-    ColumnMetadata col = TupleSchema.fromField(field);
+    ColumnMetadata col = MetadataUtils.fromField(field);
     assertTrue(col.isArray());
 
     // List modeled as a repeated element. Implementation is a bit
@@ -433,7 +434,7 @@ public class TestTupleSchema extends SubOperatorTest {
     // in the tuple.
 
     MaterializedField field = SchemaBuilder.columnSchema("c", MinorType.INT, DataMode.REQUIRED );
-    ColumnMetadata col = TupleSchema.fromField(field);
+    ColumnMetadata col = MetadataUtils.fromField(field);
     assertEquals("c", root.fullName(col));
 
     assertTrue(root.isEquivalent(root));
@@ -477,7 +478,7 @@ public class TestTupleSchema extends SubOperatorTest {
     }
 
     MaterializedField fieldB = SchemaBuilder.columnSchema("b", MinorType.VARCHAR, DataMode.OPTIONAL );
-    ColumnMetadata colB = TupleSchema.fromField(fieldB);
+    ColumnMetadata colB = MetadataUtils.fromField(fieldB);
     int indexB = root.addColumn(colB);
 
     assertEquals(1, indexB);
@@ -531,7 +532,7 @@ public class TestTupleSchema extends SubOperatorTest {
     // And it is equivalent to the round trip to a batch schema.
 
     BatchSchema batchSchema = ((TupleSchema) root).toBatchSchema(SelectionVectorMode.NONE);
-    assertTrue(root.isEquivalent(TupleSchema.fromFields(batchSchema)));
+    assertTrue(root.isEquivalent(MetadataUtils.fromFields(batchSchema)));
   }
 
   /**

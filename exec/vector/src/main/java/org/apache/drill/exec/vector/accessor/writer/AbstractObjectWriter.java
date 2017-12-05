@@ -90,4 +90,9 @@ public abstract class AbstractObjectWriter implements ObjectWriter {
   public int lastWriteIndex() {
     return baseWriter().lastWriteIndex();
   }
+
+  @Override
+  public int writeIndex() {
+    return baseWriter().writeIndex();
+  }
 }

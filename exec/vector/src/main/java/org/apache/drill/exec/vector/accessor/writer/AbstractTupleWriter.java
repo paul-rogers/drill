@@ -394,6 +394,11 @@ public abstract class AbstractTupleWriter implements TupleWriter, WriterEvents {
   }
 
   @Override
+  public int writeIndex() {
+    return vectorIndex.vectorIndex();
+  }
+
+  @Override
   public void bindListener(TupleWriterListener listener) {
     this.listener = listener;
   }

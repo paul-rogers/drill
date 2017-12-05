@@ -30,7 +30,6 @@ import org.apache.drill.exec.physical.rowSet.impl.UnionState.UnionVectorState;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.VariantMetadata;
 import org.apache.drill.exec.record.metadata.VariantSchema;
-import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.VariantWriter;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
@@ -41,8 +40,71 @@ import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
 import org.apache.drill.exec.vector.complex.ListVector;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
+/**
+ * Represents the contents of a list vector. A list vector is an odd creature.
+ * It starts as a list of nothing, evolves to be a nullable array of a single
+ * type, then becomes a nullable array of nullable unions holding nullable
+ * types.
+ * <p>
+ * At the writer level, the list consists of two parts: an array writer and
+ * a union writer. The union writer is needed because, unless the client tells
+ * us otherwise, we must be prepared for the list to become a union.
+ * <p>
+ * Holds the column states for the "columns" that make up the type members
+ * of the union, and implements the writer callbacks to add members to
+ * a list (disguised as a union), creating the actual union with the
+ * number of member types becomes two or more.
+ * <p>
+ * This class is similar to the {@link UnionState}, except that this
+ * version must handle the list transitions from no members to single
+ * member to union, and so this class is a bit more complex than the
+ * simple union case.
+ * <p>
+ * This implementation is based on a desired invariant: that once a client
+ * obtains a writer for the list, that writer never becomes invalid. This
+ * means we must carefully consider the list lifecycle. The list is
+ * represented as an array writer. When the list has
+ * no members, there would be no child for the array writer, a call to
+ * <tt>listArray.entry()</tt> would have to return null, which would be
+ * awkward and unlike any other writer use case. Once the list has a single
+ * type, the call to <tt>listArray.entry()</tt> might return a writer for
+ * that type. But, once the list becomes a repeated union, then
+ * <tt>listArray.entry()</tt> would have to return a union writer. This is
+ * the kind of muddy semantics we wish to avoid.
+ * <p>
+ * Instead, we model the list as a repeated union at all times. When the
+ * list has no type, then the list is a repeated union with no members.
+ * Once the list has a member, we have a repeated union of one member type.
+ * Finally, when adding another type, we have a repeated union of two
+ * types. The key is, in all cases, <tt>listArray.entry()</tt> returns
+ * a {@link UnionWriter}, so the client gets a consistent view.
+ * <p>
+ * Since the list itself changes form (no type, single type, then
+ * union), we hide that lifecycle internal to the writer and to this
+ * list state. The result is that the client need not care about the
+ * odd list lifecycle. But, on the flip side, this class, and the union
+ * writer, must go out of their way to hide these details.
+ * <p>
+ * At the writer level, the union writer uses "shims" to map from the union
+ * view to the actual list representation (no type, single type or union.)
+ * <p>
+ * At this level, this class must handle those cases as well, creating the
+ * union (by promoting the list) when needed. The result is a bit complex
+ * (for the code here), but simple for the client.
+ */
+
 public class ListState extends ContainerState
   implements VariantWriter.VariantWriterListener {
+
+  /**
+   * Wrapper around the list vector (and its optional contained union).
+   * Manages the state of the "overhead" vectors such as the bits and
+   * offset vectors for the list, and (via the union vector state) the
+   * types vector for the union. The union vector state starts of as
+   * a dummy state (before the list has been "promoted" to a union)
+   * then becomes populated with the union state once the list is
+   * promoted.
+   */
 
   protected static class ListVectorState implements VectorState {
 
@@ -119,11 +181,24 @@ public class ListState extends ContainerState
     @Override
     public void dump(HierarchicalFormatter format) {
       // TODO Auto-generated method stub
-
     }
   }
 
+  /**
+   * Reference to the column state for this list column. The column is
+   * the reference to the union from some parent. The class here manages
+   * the contents of the union.
+   */
+
   private ListColumnState columnState;
+
+  /**
+   * Map of types to member columns, used to track the set of child
+   * column states for this list. This map mimics the actual set of
+   * vectors in the union (or list, before a list becomes a union),
+   * and matches the set of child writers in the union writer.
+   */
+
   private final Map<MinorType, ColumnState> columns = new HashMap<>();
 
   public ListState(LoaderInternals loader, ResultVectorCache vectorCache,
@@ -144,24 +219,24 @@ public class ListState extends ContainerState
     return (ListWriterImpl) columnState.writer.array();
   }
 
-  public UnionWriterImpl unionWriter() {
+  private UnionWriterImpl unionWriter() {
     return (UnionWriterImpl) listWriter().variant();
   }
 
-  public ListVector listVector() {
+  private ListVector listVector() {
     return columnState.vector();
   }
 
-  public UnionVector unionVector() {
+  private UnionVector unionVector() {
     return (UnionVector) listVectorState().memberVectorState().vector();
   }
 
-  public ListVectorState listVectorState() {
+  private ListVectorState listVectorState() {
     return (ListVectorState) columnState.vectorState();
   }
 
-  public boolean isSingleType() {
-    return ! variantSchema().expandable();
+  private boolean isSingleType() {
+    return variantSchema().isSimple();
   }
 
   @Override
@@ -204,57 +279,88 @@ public class ListState extends ContainerState
   @SuppressWarnings("resource")
   @Override
   protected void addColumn(ColumnState colState) {
-    assert ! columns.containsKey(colState.schema().type());
+    MinorType type = colState.schema().type();
+    assert ! columns.containsKey(type);
+
+    // Add the new column (type) to metadata.
+
     int prevColCount = columns.size();
-    columns.put(colState.schema().type(), colState);
+    columns.put(type, colState);
+    variantSchema().addType(colState.schema());
 
-    UnionWriterImpl unionWriter = unionWriter();
-    ListVector listVector = listVector();
     if (prevColCount == 0) {
-
-      // Going from no types to one type.
-
-      // Add the member to the list as its data vector.
-
-      listVector.setChildVector(colState.vector());
-
-      // Don't add the type to the vector state; we manage it as part
-      // of the collection of member columns.
-
-      // Create the single type shim.
-
-      unionWriter.bindShim(new SimpleListShim());
-
+      addFirstType(colState);
     } else if (prevColCount == 1) {
-
-      // Going from one type to a union
-
-      // Convert the list from single type to a union,
-      // moving across the previous type vector.
-
-      ValueVector prevTypeVector = listVector.getDataVector();
-      listVector.promoteToUnion();
-      UnionVector unionVector = (UnionVector) listVector.getDataVector();
-      unionVector.addType(prevTypeVector);
-
-      // The union vector will be managed within the list vector state.
-
-      listVectorState().replaceMember(new UnionVectorState(unionVector, unionWriter));
-
-      // Replace the single-type shim with a union shim, copying
-      // across the existing writer.
-
-      SimpleListShim oldShim = (SimpleListShim) unionWriter.shim();
-      UnionVectorShim newShim = new UnionVectorShim(unionVector, null);
-      newShim.addMember(oldShim.memberWriter());
-      unionWriter.bindShim(newShim);
-
+      addSecondType(colState);
     } else {
 
       // Already have a union; just add another type.
 
       unionVector().addType(colState.vector());
     }
+  }
+
+  private void addFirstType(ColumnState colState) {
+
+    // Going from no types to one type.
+
+    // Add the member to the list as its data vector.
+
+    listVector().setChildVector(colState.vector());
+
+    // Don't add the type to the vector state; we manage it as part
+    // of the collection of member columns.
+
+    // Note that we may have written 1 or more nulls to the array
+    // before we make this 0-to-1 type transition. If the new type is
+    // a scalar, it is nullable. Automatic back-fill will fill prior values
+    // with null, so there is nothing to do here.
+    //
+    // Note, however, that if this first type is a map, there is no way
+    // to mark that map as null; we loose the nullability state. However,
+    // if we later promote the single-type map to a union, we can't
+    // recover the null states and so the previously-null values won't
+    // be null. We could fix this, for a single batch, by keeping track
+    // of the null positions. But, there is no way to mark later maps
+    // as null. Another choice would be to force a transition directly
+    // to a union if the first type is a map. None of this has ever worked
+    // and so is left as an exercise for later once we work out what we
+    // actually want to support.
+
+    // Create the single type shim.
+
+    unionWriter().bindShim(new SimpleListShim());
+  }
+
+  @SuppressWarnings("resource")
+  private void addSecondType(ColumnState colState) {
+    UnionWriterImpl unionWriter = unionWriter();
+    ListVector listVector = listVector();
+
+    // Going from one type to a union
+
+    // Convert the list from single type to a union,
+    // moving across the previous type vector.
+
+    int typeFillCount = unionWriter.elementPosition().writeIndex();
+    UnionVector unionVector = listVector.convertToUnion(
+        innerCardinality(), typeFillCount);
+    unionVector.addType(colState.vector());
+
+    // Replace the single-type shim with a union shim, copying
+    // across the existing writer.
+
+    SimpleListShim oldShim = (SimpleListShim) unionWriter.shim();
+    UnionVectorShim newShim = new UnionVectorShim(unionVector);
+    unionWriter.bindShim(newShim);
+    newShim.addMember(oldShim.memberWriter());
+    newShim.initTypeIndex(typeFillCount);
+
+    // The union vector will be managed within the list vector state.
+    // (Do this last because the union vector state expects the union
+    // writer to be operating in "union mode".
+
+    listVectorState().replaceMember(new UnionVectorState(unionVector, unionWriter));
   }
 
   @Override

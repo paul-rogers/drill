@@ -57,7 +57,7 @@ public abstract class BaseVarWidthWriter extends BaseScalarWriter {
   @Override
   public void startRow() { offsetsWriter.startRow(); }
 
-  protected final int writeIndex(final int width) {
+  protected final int prepareWrite(final int width) {
 
     // This is performance critical code; every operation counts.
     // Please be thoughtful when changing the code.

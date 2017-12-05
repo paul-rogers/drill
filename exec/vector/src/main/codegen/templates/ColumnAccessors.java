@@ -276,11 +276,11 @@ public class ColumnAccessors {
            writeOffset() function has a side effect of possibly changing the buffer
            address (bufAddr). -->
       <#if ! varWidth>
-      final int writeOffset = writeIndex();
+      final int writeOffset = prepareWrite();
       <#assign putOffset = "writeOffset * VALUE_WIDTH">
       </#if>
       <#if varWidth>
-      final int offset = writeIndex(len);
+      final int offset = prepareWrite(len);
       drillBuf.unsafeCopyMemory(value, 0, offset, len);
       offsetsWriter.setNextOffset(offset + len);
       <#elseif drillType == "Decimal9">

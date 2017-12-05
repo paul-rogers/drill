@@ -28,7 +28,6 @@ import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.VariantReader;
-import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader.ScalarObjectReader;
 
 /**
  * Reader for an array-valued column. This reader provides access to specific
@@ -157,7 +156,7 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
       if (index < 0 ||  length < index) {
         throw new IndexOutOfBoundsException("Index = " + index + ", length = " + length);
       }
-      position = index;
+      position = index - 1;
     }
 
     @Override
@@ -202,7 +201,7 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
     // repeated vector's offset vector.
 
     ArrayReaderImpl arrayReader = new ArrayReaderImpl(arrayAccessor,
-        new ScalarObjectReader(schema, elementReader));
+        new AbstractScalarReader.ScalarObjectReader(schema, elementReader));
 
     // The array itself can't be null.
 
@@ -361,6 +360,9 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
 
   @Override
   public String getAsString() {
+    if (isNull()) {
+      return "null";
+    }
     setPosn(0);
     StringBuilder buf = new StringBuilder();
     buf.append("[");

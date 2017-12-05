@@ -93,12 +93,12 @@ public class EmptyListShim implements UnionShim {
   }
 
   @Override
-  public ObjectWriter addMember(ColumnMetadata colSchema) {
+  public AbstractObjectWriter addMember(ColumnMetadata colSchema) {
     return doAddMember((AbstractObjectWriter) writer.listener().addMember(colSchema));
   }
 
   @Override
-  public ObjectWriter addMember(MinorType type) {
+  public AbstractObjectWriter addMember(MinorType type) {
     return doAddMember((AbstractObjectWriter) writer.listener().addType(type));
   }
 

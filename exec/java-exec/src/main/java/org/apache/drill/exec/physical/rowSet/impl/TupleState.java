@@ -25,6 +25,7 @@ import org.apache.drill.exec.physical.rowSet.ResultVectorCache;
 import org.apache.drill.exec.physical.rowSet.impl.ColumnState.MapColumnState;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.metadata.TupleSchema;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
@@ -241,7 +242,7 @@ public abstract class TupleState extends ContainerState
 
   @Override
   public ObjectWriter addColumn(TupleWriter tupleWriter, MaterializedField column) {
-    return addColumn(tupleWriter, TupleSchema.fromField(column));
+    return addColumn(tupleWriter, MetadataUtils.fromField(column));
   }
 
   @Override

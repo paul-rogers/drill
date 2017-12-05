@@ -28,7 +28,7 @@ import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.MetadataCrea
 import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescrip;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.record.metadata.TupleSchema;
+import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
 import org.apache.drill.exec.vector.accessor.reader.ArrayReaderImpl;
@@ -90,7 +90,7 @@ public class JoinReaderBuilder extends BaseReaderBuilder {
 
   public ImplicitJoinReader buildContainerChildren(MetadataProvider mdProvider) {
     List<AbstractObjectReader> readers = buildContainerChildren(container, mdProvider);
-    ColumnMetadata rootColumn = TupleSchema.newMap(tables[0].name(), mdProvider.tuple());
+    ColumnMetadata rootColumn = MetadataUtils.newMap(tables[0].name(), mdProvider.tuple());
     tables[0].reader = MapReader.build(rootColumn, new NullVectorAccesor(rootColumn.majorType()), readers);
     tables[0].rowCount = container.getRecordCount();
     tables[0].schema = mdProvider.tuple();
@@ -121,7 +121,7 @@ public class JoinReaderBuilder extends BaseReaderBuilder {
       ImplicitJoinReaderImpl.ImplicitTableImpl implicitTable) {
     MajorType type = vector.getField().getType();
     MetadataProvider mdProvider = new MetadataCreator();
-    ColumnMetadata rootColumn = TupleSchema.newMap(vector.getField().getName(), mdProvider.tuple());
+    ColumnMetadata rootColumn = MetadataUtils.newMap(vector.getField().getName(), mdProvider.tuple());
     if (type.getMinorType() != MinorType.MAP) {
       throw new IllegalStateException(
           String.format("Table path matched a primitive at level %d, name = `%s`",

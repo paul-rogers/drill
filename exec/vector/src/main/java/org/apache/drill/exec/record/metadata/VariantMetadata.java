@@ -172,6 +172,6 @@ public interface VariantMetadata {
 
   ColumnMetadata listSubtype();
 
-  void setExpandable(boolean flag);
-  boolean expandable();
+  void becomeSimple();
+  boolean isSimple();
 }

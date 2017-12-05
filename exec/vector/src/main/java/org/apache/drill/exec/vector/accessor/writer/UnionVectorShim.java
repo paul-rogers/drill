@@ -24,6 +24,7 @@ import org.apache.drill.exec.vector.accessor.ColumnWriter;
 import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.VariantWriter.VariantWriterListener;
+import org.apache.drill.exec.vector.accessor.writer.AbstractFixedWidthWriter.BaseFixedWidthWriter;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl.UnionShim;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
@@ -65,6 +66,12 @@ public class UnionVectorShim implements UnionShim {
   private UnionWriterImpl writer;
   private final BaseScalarWriter typeWriter;
 
+  public UnionVectorShim(UnionVector vector) {
+    this.vector = vector;
+    typeWriter = ColumnWriterFactory.newWriter(vector.getTypeVector());
+    variants = new AbstractObjectWriter[MinorType.values().length];
+  }
+
   public UnionVectorShim(UnionVector vector,
       AbstractObjectWriter variants[]) {
     this.vector = vector;
@@ -79,6 +86,10 @@ public class UnionVectorShim implements UnionShim {
   @Override
   public void bindWriter(UnionWriterImpl writer) {
     this.writer = writer;
+    ColumnWriterIndex index = writer.index();
+    if (index != null) {
+      bindIndex(index);
+    }
   }
 
   @Override
@@ -129,14 +140,14 @@ public class UnionVectorShim implements UnionShim {
   }
 
   @Override
-  public ObjectWriter addMember(ColumnMetadata schema) {
+  public AbstractObjectWriter addMember(ColumnMetadata schema) {
     AbstractObjectWriter colWriter = (AbstractObjectWriter) writer.listener().addMember(schema);
     addMember(colWriter);
     return colWriter;
   }
 
   @Override
-  public ObjectWriter addMember(MinorType type) {
+  public AbstractObjectWriter addMember(MinorType type) {
     AbstractObjectWriter colWriter = (AbstractObjectWriter) writer.listener().addType(type);
     addMember(colWriter);
     return colWriter;
@@ -155,14 +166,7 @@ public class UnionVectorShim implements UnionShim {
     MinorType type = colWriter.schema().type();
     assert variants[type.ordinal()] == null;
     assert writer.variantSchema().hasType(type);
-    colWriter.events().bindIndex(writer.index());
     variants[type.ordinal()] = colWriter;
-    if (writer.state() != State.IDLE) {
-      colWriter.events().startWrite();
-      if (writer.state() == State.IN_ROW) {
-        colWriter.events().startRow();
-      }
-    }
   }
 
   @Override
@@ -261,4 +265,15 @@ public class UnionVectorShim implements UnionShim {
 
   @Override
   public int rowStartIndex() { return typeWriter.rowStartIndex(); }
+
+  /**
+   * When promoting the list to a union, the union's
+   * type vector was initialized for any rows written thus
+   * far. Tell the type writer that those positions have been
+   * written so that they are not zero-filled.
+   */
+
+  public void initTypeIndex(int typeFillCount) {
+    ((BaseFixedWidthWriter) typeWriter).setLastWriteIndex(typeFillCount);
+  }
 }

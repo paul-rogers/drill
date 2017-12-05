@@ -71,7 +71,12 @@ public abstract class ContainerState {
   }
 
   public ColumnState addColumn(ColumnMetadata columnSchema) {
+
+    // Create the vector, writer and column state
+
     ColumnState colState = ColumnBuilder.addColumn(this, columnSchema);
+
+    // Add the column to this container
     addColumn(colState);
     return colState;
   }

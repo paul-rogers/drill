@@ -21,8 +21,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import org.apache.drill.common.types.TypeProtos.DataMode;
-import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
@@ -44,14 +42,6 @@ public class TupleSchema implements TupleMetadata {
     this.parentMap = parentMap;
   }
 
-  public static TupleSchema fromFields(Iterable<MaterializedField> fields) {
-    TupleSchema tuple = new TupleSchema();
-    for (MaterializedField field : fields) {
-      tuple.add(field);
-    }
-    return tuple;
-  }
-
   public TupleMetadata copy() {
     TupleMetadata tuple = new TupleSchema();
     for (ColumnMetadata md : this) {
@@ -60,99 +50,15 @@ public class TupleSchema implements TupleMetadata {
     return tuple;
   }
 
-  /**
-   * Create a column metadata object that holds the given
-   * {@link MaterializedField}. The type of the object will be either a
-   * primitive or map column, depending on the field's type.
-   *
-   * @param field the materialized field to wrap
-   * @return the column metadata that wraps the field
-   */
-
-  public static AbstractColumnMetadata fromField(MaterializedField field) {
-    MinorType type = field.getType().getMinorType();
-    switch (type) {
-    case MAP:
-      return newMap(field);
-    case UNION:
-    case LIST:
-      if (field.getType().getMode() != DataMode.OPTIONAL) {
-        throw new UnsupportedOperationException(type.toString() + " type must be nullable");
-      }
-      return new VariantColumnMetadata(field);
-    default:
-      return new PrimitiveColumnMetadata(field);
-    }
-  }
-
-  public static AbstractColumnMetadata fromView(MaterializedField field) {
-    if (field.getType().getMinorType() == MinorType.MAP) {
-      return new MapColumnMetadata(field, null);
-    } else {
-      return new PrimitiveColumnMetadata(field);
-    }
-  }
-
-  /**
-   * Create a tuple given the list of columns that make up the tuple.
-   * Creates nested maps as needed.
-   *
-   * @param columns list of columns that make up the tuple
-   * @return a tuple metadata object that contains the columns
-   */
-
-  public static TupleSchema fromColumns(List<ColumnMetadata> columns) {
-    TupleSchema tuple = new TupleSchema();
-    for (ColumnMetadata column : columns) {
-      tuple.add((AbstractColumnMetadata) column);
-    }
-    return tuple;
-  }
-
-  public static TupleMetadata fromBatchSchema(BatchSchema batchSchema) {
-    TupleSchema tuple = new TupleSchema();
-    for (MaterializedField field : batchSchema) {
-      tuple.add(fromView(field));
-    }
-    return tuple;
-  }
-
-  /**
-   * Create a column metadata object for a map column, given the
-   * {@link MaterializedField} that describes the column, and a list
-   * of column metadata objects that describe the columns in the map.
-   *
-   * @param field the materialized field that describes the map column
-   * @param schema metadata that describes the tuple of columns in
-   * the map
-   * @return a map column metadata for the map
-   */
-
-  public static MapColumnMetadata newMap(MaterializedField field, TupleSchema schema) {
-    return new MapColumnMetadata(field, schema);
-  }
-
-  public static MapColumnMetadata newMap(MaterializedField field) {
-    return new MapColumnMetadata(field, fromFields(field.getChildren()));
-  }
-
-  public static MapColumnMetadata newMap(String name, TupleMetadata schema) {
-    return new MapColumnMetadata(name, DataMode.REQUIRED, (TupleSchema) schema);
-  }
-
-  public static VariantColumnMetadata newVariant(MaterializedField field, VariantSchema schema) {
-    return new VariantColumnMetadata(field, schema);
-  }
-
   @Override
   public ColumnMetadata add(MaterializedField field) {
-    AbstractColumnMetadata md = fromField(field);
+    AbstractColumnMetadata md = MetadataUtils.fromField(field);
     add(md);
     return md;
   }
 
   public ColumnMetadata addView(MaterializedField field) {
-    AbstractColumnMetadata md = fromView(field);
+    AbstractColumnMetadata md = MetadataUtils.fromView(field);
     add(md);
     return md;
   }

@@ -26,11 +26,13 @@ import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
 
+import com.google.common.base.Preconditions;
+
 public class VariantSchema implements VariantMetadata {
 
   private final Map<MinorType, ColumnMetadata> types = new HashMap<>();
   private VariantColumnMetadata parent;
-  private boolean expandable;
+  private boolean isSimple;
 
   protected void bind(VariantColumnMetadata parent) {
     this.parent = parent;
@@ -120,18 +122,21 @@ public class VariantSchema implements VariantMetadata {
   }
 
   public void addMap(MapColumnMetadata mapCol) {
-    assert ! mapCol.isArray();
+    Preconditions.checkArgument(! mapCol.isArray());
+    Preconditions.checkState(! isSimple);
     checkType(MinorType.MAP);
     types.put(MinorType.MAP, mapCol);
   }
 
   public void addList(VariantColumnMetadata listCol) {
-    assert listCol.isArray();
+    Preconditions.checkArgument(listCol.isArray());
+    Preconditions.checkState(! isSimple);
     checkType(MinorType.LIST);
     types.put(MinorType.LIST, listCol);
   }
 
   public ColumnMetadata addType(MaterializedField field) {
+    Preconditions.checkState(! isSimple);
     MinorType type = field.getType().getMinorType();
     checkType(type);
     AbstractColumnMetadata col;
@@ -174,13 +179,14 @@ public class VariantSchema implements VariantMetadata {
   }
 
   @Override
-  public void setExpandable(boolean flag) {
-    expandable = flag;
+  public void becomeSimple() {
+    Preconditions.checkState(types.size() == 1);
+    isSimple = true;
   }
 
   @Override
-  public boolean expandable() {
-    return expandable;
+  public boolean isSimple() {
+    return isSimple;
   }
 
   @Override
@@ -190,14 +196,14 @@ public class VariantSchema implements VariantMetadata {
         .append(getClass().getSimpleName())
         .append(types.toString())
         .append(", expandable: ")
-        .append(expandable)
+        .append(isSimple)
         .append("]")
         .toString();
   }
 
   public VariantSchema cloneEmpty() {
     VariantSchema copy = new VariantSchema();
-    copy.setExpandable(expandable);
+    copy.isSimple = isSimple;
     return copy;
   }
 }

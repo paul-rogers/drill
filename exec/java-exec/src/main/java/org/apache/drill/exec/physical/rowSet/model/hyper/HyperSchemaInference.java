@@ -21,6 +21,7 @@ import org.apache.drill.exec.exception.SchemaChangeException;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.VectorWrapper;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.metadata.TupleSchema;
 import org.apache.drill.exec.vector.ValueVector;
@@ -39,7 +40,7 @@ public class HyperSchemaInference {
   private ColumnMetadata buildColumn(VectorWrapper<?> vw) throws SchemaChangeException {
     ColumnMetadata commonSchema = null;
     for (ValueVector vector : vw.getValueVectors()) {
-      ColumnMetadata mapSchema = TupleSchema.fromField(vector.getField());
+      ColumnMetadata mapSchema = MetadataUtils.fromField(vector.getField());
       if (commonSchema == null) {
         commonSchema = mapSchema;
       } else if (! commonSchema.isEquivalent(mapSchema)) {

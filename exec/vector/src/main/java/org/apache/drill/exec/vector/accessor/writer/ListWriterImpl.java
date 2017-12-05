@@ -22,6 +22,8 @@ import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnWriter;
 import org.apache.drill.exec.vector.complex.ListVector;
 
+import com.google.common.annotations.VisibleForTesting;
+
 /**
  * List writer, which is basically an array writer, with the addition
  * that each list element can be null. Lists never auto-increment
@@ -31,10 +33,12 @@ import org.apache.drill.exec.vector.complex.ListVector;
 
 public class ListWriterImpl extends ObjectArrayWriter {
 
+  private final ListVector vector;
   private final UInt1ColumnWriter isSetWriter;
 
   public ListWriterImpl(ColumnMetadata schema, ListVector vector, AbstractObjectWriter memberWriter) {
     super(schema, vector.getOffsetVector(), memberWriter);
+    this.vector = vector;
     isSetWriter = new UInt1ColumnWriter(vector.getBitsVector());
     elementIndex = new ArrayElementWriterIndex();
   }
@@ -45,6 +49,9 @@ public class ListWriterImpl extends ObjectArrayWriter {
     isSetWriter.bindIndex(index);
   }
 
+  @VisibleForTesting
+  public ListVector vector() { return vector; }
+
   @Override
   public void setNull(boolean isNull) {
     if (elementIndex.arraySize() > 0 && isNull) {
@@ -54,27 +61,15 @@ public class ListWriterImpl extends ObjectArrayWriter {
   }
 
   @Override
-  public void restartRow() {
-    super.restartRow();
-    isSetWriter.restartRow();
-  }
-
-  @Override
-  public void preRollover() {
-    super.preRollover();
-    isSetWriter.preRollover();
-  }
-
-  @Override
-  public void postRollover() {
-    super.postRollover();
-    isSetWriter.postRollover();
-  }
-
-  @Override
   public void startWrite() {
     super.startWrite();
     isSetWriter.startWrite();
+  }
+
+  @Override
+  public void startRow() {
+    super.startRow();
+    isSetWriter.startRow();
   }
 
   @Override
@@ -90,6 +85,30 @@ public class ListWriterImpl extends ObjectArrayWriter {
   }
 
   @Override
+  public void restartRow() {
+    super.restartRow();
+    isSetWriter.restartRow();
+  }
+
+  @Override
+  public void saveRow() {
+    super.saveRow();
+    isSetWriter.saveRow();
+  }
+
+  @Override
+  public void preRollover() {
+    super.preRollover();
+    isSetWriter.preRollover();
+  }
+
+  @Override
+  public void postRollover() {
+    super.postRollover();
+    isSetWriter.postRollover();
+  }
+
+  @Override
   public void endWrite() {
     isSetWriter.endWrite();
     super.endWrite();
@@ -97,14 +116,8 @@ public class ListWriterImpl extends ObjectArrayWriter {
 
   @Override
   public void setObject(Object array) {
-    if (array == null) {
-      setNull(true);
-      return;
-    }
-    Object values[] = (Object[]) array;
-    if (values.length == 0) {
-      setNull(false);
-    } else {
+    setNull(array == null);
+    if (array != null) {
       super.setObject(array);
     }
   }

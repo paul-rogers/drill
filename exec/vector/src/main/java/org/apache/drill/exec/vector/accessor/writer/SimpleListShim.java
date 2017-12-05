@@ -39,8 +39,7 @@ public class SimpleListShim implements UnionShim {
   private UnionWriterImpl writer;
   private AbstractObjectWriter colWriter;
 
-  public SimpleListShim() {
-  }
+  public SimpleListShim() { }
 
   public SimpleListShim(AbstractObjectWriter writer) {
     this.colWriter = writer;
@@ -87,12 +86,12 @@ public class SimpleListShim implements UnionShim {
   }
 
   @Override
-  public ObjectWriter addMember(ColumnMetadata colSchema) {
+  public AbstractObjectWriter addMember(ColumnMetadata colSchema) {
     return doAddMember((AbstractObjectWriter) writer.listener().addMember(colSchema));
   }
 
   @Override
-  public ObjectWriter addMember(MinorType type) {
+  public AbstractObjectWriter addMember(MinorType type) {
     return doAddMember((AbstractObjectWriter) writer.listener().addType(type));
   }
 
@@ -135,12 +134,22 @@ public class SimpleListShim implements UnionShim {
 
   @Override
   public void startWrite() {
-    events().startWrite();
+
+    // startWrite called before the column is added.
+
+    if (colWriter != null) {
+      colWriter.events().startWrite();
+    }
   }
 
   @Override
   public void startRow() {
-    events().startRow();
+
+    // startRow called before the column is added.
+
+    if (colWriter != null) {
+      colWriter.events().startRow();
+    }
   }
 
   @Override
@@ -155,7 +164,7 @@ public class SimpleListShim implements UnionShim {
 
   @Override
   public void saveRow() {
-    events().restartRow();
+    events().saveRow();
   }
 
   @Override

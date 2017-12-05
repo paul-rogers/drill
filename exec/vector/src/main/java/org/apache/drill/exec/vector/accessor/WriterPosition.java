@@ -45,4 +45,14 @@ public interface WriterPosition {
    */
 
   int lastWriteIndex();
+
+  /**
+   * Current write index for the writer. This is the global
+   * array location for arrays, same as the row index for top-level
+   * columns.
+   *
+   * @return current write index
+   */
+
+  int writeIndex();
 }

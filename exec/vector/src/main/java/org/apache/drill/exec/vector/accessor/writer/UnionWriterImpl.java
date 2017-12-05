@@ -48,8 +48,8 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
     void setType(MinorType type);
     int lastWriteIndex();
     int rowStartIndex();
-    ObjectWriter addMember(ColumnMetadata colSchema);
-    ObjectWriter addMember(MinorType type);
+    AbstractObjectWriter addMember(ColumnMetadata colSchema);
+    AbstractObjectWriter addMember(MinorType type);
     void addMember(AbstractObjectWriter colWriter);
   }
 
@@ -93,6 +93,11 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
 
     @Override
     public int lastWriteIndex() { return shim.lastWriteIndex(); }
+
+    @Override
+    public int writeIndex() {
+      return index.vectorIndex();
+    }
   }
 
   private final ColumnMetadata schema;
@@ -133,6 +138,12 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
   public void bindShim(UnionShim shim) {
     this.shim = shim;
     shim.bindWriter(this);
+    if (state != State.IDLE) {
+      shim.startWrite();
+      if (state == State.IN_ROW) {
+        shim.startRow();
+      }
+    }
   }
 
   @Override
@@ -158,8 +169,20 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
   }
 
   @Override
-  public ObjectWriter member(MinorType type) {
+  public ObjectWriter memberWriter(MinorType type) {
     return shim.member(type);
+  }
+
+  @Override
+  public ObjectWriter member(MinorType type) {
+
+    // Get the writer first, which may trigger the single-to-union
+    // conversion. Then set the type because, if the conversion is
+    // done, the type vector exists only after creating the member.
+
+    ObjectWriter writer = shim.member(type);
+    setType(type);
+    return writer;
   }
 
   @Override
@@ -169,12 +192,34 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
 
   @Override
   public ObjectWriter addMember(ColumnMetadata colSchema) {
-    return shim.addMember(colSchema);
+    AbstractObjectWriter writer = shim.addMember(colSchema);
+    addMember(writer);
+    return writer;
   }
 
   @Override
   public ObjectWriter addMember(MinorType type) {
-    return shim.addMember(type);
+    AbstractObjectWriter writer = shim.addMember(type);
+    addMember(writer);
+    return writer;
+  }
+
+  /**
+   * Add a column writer to an existing union writer. Used for implementations
+   * that support "live" schema evolution: column discovery while writing.
+   * The corresponding metadata must already have been added to the schema.
+   *
+   * @param colWriter the column writer to add
+   */
+
+  private void addMember(AbstractObjectWriter writer) {
+    writer.events().bindIndex(index);
+    if (state != State.IDLE) {
+      writer.events().startWrite();
+      if (state == State.IN_ROW) {
+        writer.events().startRow();
+      }
+    }
   }
 
   @Override
@@ -248,6 +293,11 @@ public class UnionWriterImpl implements VariantWriter, WriterEvents {
 
   @Override
   public int rowStartIndex() { return shim.rowStartIndex(); }
+
+  @Override
+  public int writeIndex() {
+    return index.vectorIndex();
+  }
 
   @Override
   public void setObject(Object value) {

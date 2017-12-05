@@ -46,7 +46,6 @@ import org.apache.drill.exec.vector.accessor.writer.MapWriter;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
 import org.apache.drill.exec.vector.accessor.writer.AbstractArrayWriter.ArrayObjectWriter;
 import org.apache.drill.exec.vector.accessor.writer.AbstractTupleWriter.TupleObjectWriter;
-import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl.UnionShim;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl.VariantObjectWriter;
 import org.apache.drill.exec.vector.complex.BaseRepeatedValueVector;
 import org.apache.drill.exec.vector.complex.ListVector;
@@ -293,7 +292,7 @@ public class ColumnBuilder {
     // union.
 
     VariantMetadata variant = columnSchema.variantSchema();
-    if (! variant.expandable()) {
+    if (variant.isSimple()) {
       if (variant.size() == 1) {
         return buildSimpleList(parent, columnSchema);
       } else if (variant.size() == 0) {
@@ -317,15 +316,15 @@ public class ColumnBuilder {
 
     // Create the union writer, bound to an empty list shim.
 
-    UnionShim shim = new EmptyListShim();
     UnionWriterImpl unionWriter = new UnionWriterImpl(columnSchema);
-    unionWriter.bindShim(shim);
+    unionWriter.bindShim(new EmptyListShim());
     VariantObjectWriter unionObjWriter = new VariantObjectWriter(unionWriter);
 
     // Create the list vector. Starts with the default (dummy) data
     // vector which corresponds to the empty union shim above.
 
-    ListVector listVector = new ListVector(columnSchema.schema(), parent.loader().allocator(), null);
+    ListVector listVector = new ListVector(columnSchema.schema(),
+        parent.loader().allocator(), null);
 
     // Create the list vector state that tracks the list vector lifecycle.
 
@@ -341,7 +340,8 @@ public class ColumnBuilder {
     // may not be grouped into a union.)
 
     ListState listState = new ListState(parent.loader(),
-        parent.vectorCache().childCache(columnSchema.name()), new NullProjectionSet(true));
+        parent.vectorCache().childCache(columnSchema.name()),
+        new NullProjectionSet(true));
 
     // Assemble it all into a union column state.
 

@@ -37,6 +37,11 @@ import org.apache.drill.exec.record.metadata.VariantMetadata;
  * {@link #scalar(MinorType)} method for each value so that this
  * writer knows which type of value is to be stored.
  * <p>
+ * Alternatively, the client can cache a writer by calling
+ * {@link #memberWriter(MinorType)} to retrieve a writer (without setting
+ * the type for a row), then calling the set method on that writer for each
+ * row, <b>and</b> calling {@link #setType(MinorType)} for each row.
+ * <p>
  * This writer acts as somewhat like a map: it allows access to
  * type-specific writers.
  * <p>
@@ -88,12 +93,22 @@ public interface VariantWriter extends ColumnWriter {
 
   boolean hasType(MinorType type);
 
+  ObjectWriter addMember(MinorType type);
+  ObjectWriter addMember(ColumnMetadata schema);
+
   /**
-   * A scalar variant may be null. In this case, the value is not a
-   * null of some type; rather it is simply null.
+   * Create or retrieve a writer for the given type. Use this form when
+   * caching writers. This form <i>does not</i> set the type of the current
+   * row; call {@link #setType(MinorType)} per row when the writers are
+   * cached. This method can be called at any time as it does not depend
+   * on an active batch.
+   *
+   * @param type the type of the writer to cache
+   * @return the writer for that type without setting the type of the
+   * current row.
    */
 
-  void setNull();
+  ObjectWriter memberWriter(MinorType type);
 
   /**
    * Explicitly set the type of the present value. Use this when
@@ -104,12 +119,12 @@ public interface VariantWriter extends ColumnWriter {
 
   void setType(MinorType type);
 
-  ObjectWriter addMember(MinorType type);
-  ObjectWriter addMember(ColumnMetadata schema);
-
   /**
    * Set the type of the present value and get the writer for
-   * that type.
+   * that type. Available only when a batch is active. Use this form to
+   * declare the type of the current row, and retrieve a writer for that
+   * value.
+   *
    * @param type type to set for the current row
    * @return writer for the type just set
    */

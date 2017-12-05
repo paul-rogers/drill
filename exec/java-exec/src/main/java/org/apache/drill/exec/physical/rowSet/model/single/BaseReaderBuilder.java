@@ -29,6 +29,7 @@ import org.apache.drill.exec.physical.rowSet.model.MetadataProvider.VectorDescri
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
+import org.apache.drill.exec.vector.accessor.reader.AbstractScalarReader;
 import org.apache.drill.exec.vector.accessor.reader.ArrayReaderImpl;
 import org.apache.drill.exec.vector.accessor.reader.MapReader;
 import org.apache.drill.exec.vector.accessor.reader.UnionReaderImpl;
@@ -63,6 +64,11 @@ public abstract class BaseReaderBuilder extends AbstractReaderBuilder {
       return buildUnion((UnionVector) vector, va, descrip);
     case LIST:
       return buildList((ListVector) vector, va, descrip);
+    case LATE:
+
+      // Occurs for a list with no type: a list of nulls.
+
+      return AbstractScalarReader.nullReader(descrip.metadata);
     default:
       return buildScalarReader(va, descrip.metadata);
     }

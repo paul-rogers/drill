@@ -19,7 +19,6 @@ package org.apache.drill.exec.vector.accessor.writer;
 
 import java.math.BigDecimal;
 
-import org.apache.drill.exec.vector.accessor.ColumnWriterIndex;
 import org.apache.drill.exec.vector.accessor.impl.HierarchicalFormatter;
 import org.joda.time.Period;
 
@@ -134,15 +133,6 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
   public static final int MIN_BUFFER_SIZE = 256;
 
   /**
-   * Indicates the position in the vector to write. Set via an object so that
-   * all writers (within the same subtree) can agree on the write position.
-   * For example, all top-level, simple columns see the same row index.
-   * All columns within a repeated map see the same (inner) index, etc.
-   */
-
-  protected ColumnWriterIndex vectorIndex;
-
-  /**
    * Listener invoked if the vector overflows. If not provided, then the writer
    * does not support vector overflow.
    */
@@ -160,16 +150,6 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
   protected int capacity;
 
   @Override
-  public void bindIndex(ColumnWriterIndex vectorIndex) {
-    this.vectorIndex = vectorIndex;
-  }
-
-  @Override
-  public int rowStartIndex() {
-    return vectorIndex.rowStartIndex();
-  }
-
-  @Override
   public void bindListener(ColumnWriterListener listener) {
     this.listener = listener;
   }
@@ -178,7 +158,7 @@ public abstract class BaseScalarWriter extends AbstractScalarWriter {
    * All change of buffer comes through this function to allow capturing
    * the buffer address and capacity. Only two ways to set the buffer:
    * by binding to a vector in bindVector(), or by resizing the vector
-   * in writeIndex().
+   * in prepareWrite().
    */
 
   protected abstract void setBuffer();

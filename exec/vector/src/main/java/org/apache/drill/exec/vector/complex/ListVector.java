@@ -30,6 +30,7 @@ import org.apache.drill.exec.record.TransferPair;
 import org.apache.drill.exec.util.CallBack;
 import org.apache.drill.exec.util.JsonStringArrayList;
 import org.apache.drill.exec.vector.AddOrGetResult;
+import org.apache.drill.exec.vector.NullableVector;
 import org.apache.drill.exec.vector.UInt1Vector;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.ValueVector;
@@ -46,6 +47,8 @@ import java.util.Set;
 
 public class ListVector extends BaseRepeatedValueVector {
 
+  public static final String UNION_VECTOR_NAME = "$union$";
+
   private final UInt1Vector bits;
   private final Mutator mutator = new Mutator();
   private final Accessor accessor = new Accessor();
@@ -54,7 +57,7 @@ public class ListVector extends BaseRepeatedValueVector {
 
   public ListVector(MaterializedField field, BufferAllocator allocator, CallBack callBack) {
     super(field, allocator);
-    this.bits = new UInt1Vector(MaterializedField.create("$bits$", Types.required(MinorType.UINT1)), allocator);
+    this.bits = new UInt1Vector(MaterializedField.create(BITS_VECTOR_NAME, Types.required(MinorType.UINT1)), allocator);
     this.field.addChild(getDataVector().getField());
     this.writer = new UnionListWriter(this);
     this.reader = new UnionListReader(this);
@@ -262,7 +265,7 @@ public class ListVector extends BaseRepeatedValueVector {
     bits.load(bitMetadata, buffer.slice(offsetLength, bitLength));
 
     final UserBitShared.SerializedField vectorMetadata = metadata.getChild(2);
-    if (getDataVector() == DEFAULT_DATA_VECTOR) {
+    if (isEmptyType()) {
       addOrGetVector(VectorDescriptor.create(vectorMetadata.getMajorType()));
     }
 
@@ -270,15 +273,90 @@ public class ListVector extends BaseRepeatedValueVector {
     vector.load(vectorMetadata, buffer.slice(offsetLength + bitLength, vectorLength));
   }
 
+  public boolean isEmptyType() {
+    return getDataVector() == DEFAULT_DATA_VECTOR;
+  }
+
   public void setChildVector(ValueVector childVector) {
     assert vector == DEFAULT_DATA_VECTOR;
     replaceDataVector(childVector);
   }
 
+  /**
+   * Promote the list to a union. Called from old-style writers. This implementation
+   * likely contains a bug: it does not set the types vector for any existing values,
+   * instead it simply clears the existing vector. (Does the reader the copy in the
+   * new values?)
+   *
+   * @return the new union vector
+   */
+
   public UnionVector promoteToUnion() {
-    MaterializedField newField = MaterializedField.create(getField().getName(), Types.optional(MinorType.UNION));
-    UnionVector unionVector = new UnionVector(newField, allocator, null);
+    UnionVector unionVector = createUnion();
+
+    // Replace the current vector, clearing its data. (This is the
+    // old behavior.
+
     replaceDataVector(unionVector);
+    return unionVector;
+  }
+
+  /**
+   * Promote to a union, preserving the existing data vector as a member of
+   * the new union. Back-fill the types vector with the proper type value
+   * for existing rows.
+   *
+   * @return the new union vector
+   */
+
+  public UnionVector convertToUnion(int allocValueCount, int valueCount) {
+    assert allocValueCount >= valueCount;
+    UnionVector unionVector = createUnion();
+    unionVector.allocateNew(allocValueCount);
+
+    // Preserve the current vector (and its data) if it is other than
+    // the default. (New behavior used by column writers.)
+
+    if (! isEmptyType()) {
+      unionVector.addType(vector);
+      int prevType = vector.getField().getType().getMinorType().getNumber();
+      UInt1Vector.Mutator typeMutator = unionVector.getTypeVector().getMutator();
+
+      // If the previous vector was nullable, then promote the nullable state
+      // to the type vector by setting either the null marker or the type
+      // marker depending on the original nullable values.
+
+      if (vector instanceof NullableVector) {
+        UInt1Vector.Accessor bitsAccessor =
+            ((UInt1Vector) ((NullableVector) vector).getBitsVector()).getAccessor();
+        for (int i = 0; i < valueCount; i++) {
+          typeMutator.setSafe(i, (bitsAccessor.get(i) == 0)
+              ? UnionVector.NULL_MARKER
+              : prevType);
+        }
+      } else {
+
+        // The value is not nullable. (Perhaps it is a map.)
+        // Note that the original design of lists have a flaw: if the sole member
+        // is a map, then map entries can't be nullable when the only type, but
+        // become nullable when in a union. What a mess...
+
+        for (int i = 0; i < valueCount; i++) {
+          typeMutator.setSafe(i, prevType);
+        }
+      }
+    }
+    vector = unionVector;
+    return unionVector;
+  }
+
+  private UnionVector createUnion() {
+    MaterializedField newField = MaterializedField.create(UNION_VECTOR_NAME, Types.optional(MinorType.UNION));
+    UnionVector unionVector = new UnionVector(newField, allocator, null);
+
+    // For efficiency, should not create a reader that will never be used.
+    // Keeping for backward compatibility.
+
     reader = new UnionListReader(this);
     return unionVector;
   }

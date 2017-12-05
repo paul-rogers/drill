@@ -36,8 +36,26 @@ import org.apache.drill.exec.vector.accessor.writer.UnionVectorShim;
 import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
 import org.apache.drill.exec.vector.complex.UnionVector;
 
+/**
+ * Represents the contents of a union vector (or a pseudo-union for lists).
+ * Holds the column states for the "columns" that make up the type members
+ * of the union, and implements the writer callbacks to add members to
+ * a union. This class is used when a column is a (single, non-repeated)
+ * UNION. See the {@link ListState} for when the union is used inside
+ * a LIST (repeated union) type.
+ */
+
 public class UnionState extends ContainerState
   implements VariantWriter.VariantWriterListener {
+
+  /**
+   * Vector wrapper for a union vector. Union vectors contain a types
+   * vector (which indicates the type of each row) along with member
+   * vectors for each supported type. This class manages the types
+   * vector. The member vectors are managed as children of the
+   * {@link UnionState} class. The union vector itself is just a
+   * holder; it has no state to be managed.
+   */
 
   public static class UnionVectorState implements VectorState {
 
@@ -88,7 +106,21 @@ public class UnionState extends ContainerState
     }
   }
 
+  /**
+   * Reference to the column state for this union column. The column is
+   * the reference to the union from some parent. The class here manages
+   * the contents of the union.
+   */
+
   private UnionColumnState columnState;
+
+  /**
+   * Map of types to member columns, used to track the set of child
+   * column states for this union. This map mimics the actual set of
+   * vectors in the union,
+   * and matches the set of child writers in the union writer.
+   */
+
   private final Map<MinorType, ColumnState> columns = new HashMap<>();
 
   public UnionState(LoaderInternals events, ResultVectorCache vectorCache, ProjectionSet projectionSet) {

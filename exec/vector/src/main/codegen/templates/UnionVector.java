@@ -276,6 +276,13 @@ public class UnionVector implements ValueVector {
     }
   }
 
+  public void allocateNew(int rowCount) throws OutOfMemoryException {
+    internalMap.allocateNew();
+    if (typeVector != null) {
+      typeVector.allocateNew(rowCount);
+    }
+  }
+
   @Override
   public boolean allocateNewSafe() {
     boolean safe = internalMap.allocateNewSafe();

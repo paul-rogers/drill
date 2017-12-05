@@ -122,7 +122,7 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
 
   private static final int VALUE_WIDTH = UInt4Vector.VALUE_WIDTH;
 
-  private UInt4Vector vector;
+  private final UInt4Vector vector;
 
   /**
    * Offset of the first value for the current row. Used during
@@ -176,6 +176,7 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
 
   @Override
   public int nextOffset() { return nextOffset; }
+
   @Override
   public int rowStartOffset() { return rowStartOffset; }
 
@@ -190,7 +191,7 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
    * of the current data value
    */
 
-  protected final int writeIndex() {
+  protected final int prepareWrite() {
 
     // "Fast path" for the normal case of no fills, no overflow.
     // This is the only bounds check we want to do for the entire
@@ -239,7 +240,7 @@ public class OffsetVectorWriterImpl extends AbstractFixedWidthWriter implements 
 
   @Override
   public final void setNextOffset(final int newOffset) {
-    final int writeIndex = writeIndex();
+    final int writeIndex = prepareWrite();
     drillBuf.unsafePutInt(writeIndex * VALUE_WIDTH, newOffset);
     nextOffset = newOffset;
   }

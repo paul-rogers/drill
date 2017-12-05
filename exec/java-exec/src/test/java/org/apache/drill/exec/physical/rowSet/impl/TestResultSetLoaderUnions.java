@@ -21,17 +21,30 @@ import static org.junit.Assert.*;
 
 import java.util.Arrays;
 
+import org.apache.drill.common.types.Types;
 import org.apache.drill.common.types.TypeProtos.DataMode;
 import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
+import org.apache.drill.exec.record.MaterializedField;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
+import org.apache.drill.exec.vector.NullableVarCharVector;
 import org.apache.drill.exec.vector.ValueVector;
+import org.apache.drill.exec.vector.accessor.ArrayWriter;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ObjectWriter;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.accessor.ValueType;
 import org.apache.drill.exec.vector.accessor.VariantWriter;
+import org.apache.drill.exec.vector.accessor.writer.EmptyListShim;
+import org.apache.drill.exec.vector.accessor.writer.ListWriterImpl;
+import org.apache.drill.exec.vector.accessor.writer.SimpleListShim;
+import org.apache.drill.exec.vector.accessor.writer.UnionVectorShim;
+import org.apache.drill.exec.vector.accessor.writer.UnionWriterImpl;
+import org.apache.drill.exec.vector.complex.UnionVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.SchemaBuilder;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -40,7 +53,9 @@ import org.apache.drill.test.rowSet.RowSetComparison;
 import org.apache.drill.test.rowSet.RowSetReader;
 import org.junit.Test;
 
+import static org.apache.drill.test.rowSet.RowSetUtilities.strArray;
 import static org.apache.drill.test.rowSet.RowSetUtilities.mapValue;
+import static org.apache.drill.test.rowSet.RowSetUtilities.variantArray;
 
 import com.google.common.base.Charsets;
 
@@ -72,14 +87,10 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
     VariantWriter vw = wo.variant();
 
     assertTrue(vw.hasType(MinorType.VARCHAR));
-    ObjectWriter strObj = vw.member(MinorType.VARCHAR);
-    ScalarWriter strWriter = strObj.scalar();
-    assertSame(strWriter, vw.scalar(MinorType.VARCHAR));
+    assertNotNull(vw.memberWriter(MinorType.VARCHAR));
 
     assertTrue(vw.hasType(MinorType.MAP));
-    ObjectWriter mapObj = vw.member(MinorType.MAP);
-    TupleWriter mWriter = mapObj.tuple();
-    assertSame(mWriter, vw.tuple());
+    assertNotNull(vw.memberWriter(MinorType.MAP));
 
     // Write values
 
@@ -275,6 +286,274 @@ public class TestResultSetLoaderUnions extends SubOperatorTest {
     }
     assertEquals(readCount - startCount, result.rowCount());
     result.clear();
+  }
+
+  /**
+   * Test for the case of a list defined to contain exactly one type.
+   * Relies on the row set tests to verify that the single type model
+   * works for lists. Here we test that the ResultSetLoader put the
+   * pieces together correctly.
+   */
+
+  @Test
+  public void testSimpleList() {
+
+    // Schema with a list declared with one type, not expandable
+
+    TupleMetadata schema = new SchemaBuilder()
+        .add("id", MinorType.INT)
+        .addList("list")
+          .addType(MinorType.VARCHAR)
+          .build()
+        .buildSchema();
+
+    schema.metadata("list").variantSchema().becomeSimple();
+
+    ResultSetLoaderImpl.ResultSetOptions options = new OptionBuilder()
+        .setSchema(schema)
+        .build();
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator(), options);
+    RowSetLoader writer = rsLoader.writer();
+
+    // Sanity check: should be an array of Varchar because we said the
+    // types within the list is not expandable.
+
+    ArrayWriter arrWriter = writer.array("list");
+    assertEquals(ObjectType.SCALAR, arrWriter.entryType());
+    ScalarWriter strWriter = arrWriter.scalar();
+    assertEquals(ValueType.STRING, strWriter.valueType());
+
+    // Can write a batch as if this was a repeated Varchar, except
+    // that any value can also be null.
+
+    rsLoader.startBatch();
+    writer
+      .addRow(1, strArray("fred", "barney"))
+      .addRow(2, null)
+      .addRow(3, strArray("wilma", "betty", "pebbles"))
+      ;
+
+    // Verify
+
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
+        .addRow(1, strArray("fred", "barney"))
+        .addRow(2, null)
+        .addRow(3, strArray("wilma", "betty", "pebbles"))
+        .build();
+
+    new RowSetComparison(expected)
+      .verifyAndClearAll(fixture.wrap(rsLoader.harvest()));
+  }
+
+  /**
+   * Test a simple list created dynamically at load time.
+   * The list must include a single type member.
+   */
+
+  @Test
+  public void testSimpleListDynamic() {
+
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
+    RowSetLoader writer = rsLoader.writer();
+
+    // Can write a batch as if this was a repeated Varchar, except
+    // that any value can also be null.
+
+    rsLoader.startBatch();
+
+    writer.addColumn(MaterializedField.create("id", Types.required(MinorType.INT)));
+
+    ColumnMetadata colSchema = MetadataUtils.newVariant("list", DataMode.REPEATED);
+    colSchema.variantSchema().addType(MinorType.VARCHAR);
+    colSchema.variantSchema().becomeSimple();
+    writer.addColumn(colSchema);
+
+    // Sanity check: should be an array of Varchar because we said the
+    // types within the list is not expandable.
+
+    ArrayWriter arrWriter = writer.array("list");
+    assertEquals(ObjectType.SCALAR, arrWriter.entryType());
+    ScalarWriter strWriter = arrWriter.scalar();
+    assertEquals(ValueType.STRING, strWriter.valueType());
+
+    writer
+      .addRow(1, strArray("fred", "barney"))
+      .addRow(2, null)
+      .addRow(3, strArray("wilma", "betty", "pebbles"))
+      ;
+
+    // Verify
+
+    TupleMetadata schema = new SchemaBuilder()
+        .add("id", MinorType.INT)
+        .addList("list")
+          .addType(MinorType.VARCHAR)
+          .build()
+        .buildSchema();
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
+        .addRow(1, strArray("fred", "barney"))
+        .addRow(2, null)
+        .addRow(3, strArray("wilma", "betty", "pebbles"))
+        .build();
+
+    new RowSetComparison(expected)
+      .verifyAndClearAll(fixture.wrap(rsLoader.harvest()));
+  }
+
+  /**
+   * Try to create a simple (non-expandable) list without
+   * giving a member type. Expected to fail.
+   */
+
+  @Test
+  public void testSimpleListNoTypes() {
+
+    // Schema with a list declared with one type, not expandable
+
+    TupleMetadata schema = new SchemaBuilder()
+        .add("id", MinorType.INT)
+        .addList("list")
+          .build()
+        .buildSchema();
+
+    try {
+      schema.metadata("list").variantSchema().becomeSimple();
+    } catch (IllegalStateException e) {
+      // expected
+    }
+  }
+
+  /**
+   * Try to create a simple (non-expandable) list while specifying
+   * two types. Expected to fail.
+   */
+
+  @Test
+  public void testSimpleListMultiTypes() {
+
+    // Schema with a list declared with one type, not expandable
+
+    TupleMetadata schema = new SchemaBuilder()
+        .add("id", MinorType.INT)
+        .addList("list")
+          .addType(MinorType.VARCHAR)
+          .addType(MinorType.INT)
+          .build()
+        .buildSchema();
+
+    try {
+      schema.metadata("list").variantSchema().becomeSimple();
+    } catch (IllegalStateException e) {
+      // expected
+    }
+  }
+
+
+  /**
+   * Test a variant list created dynamically at load time.
+   * The list starts with no type, at which time it can hold
+   * only null values. Then we add a Varchar, and finally an
+   * Int.
+   * <p>
+   * This test is superficial. There are many odd cases to consider.
+   * <ul>
+   * <li>Write nulls to a list with no type. (This test ensures that
+   * adding a (nullable) scalar "does the right thing.")</li>
+   * <li>Add a map to the list. Maps carry no "bits" vector, so null
+   * list entries to that point are lost. (For maps, we could go straight
+   * to a union, with just a map, to preserve the null states. This whole
+   * area is a huge mess...)</li>
+   * <li>Do the type transitions when writing to a row. (The tests here
+   * do the transition between rows.</li>
+   * </ul>
+   *
+   * The reason for the sparse coverage is that Drill barely supports lists
+   * and unions; most code is just plain broken. Our goal here is not to fix
+   * all those problems, just to leave things no more broken than before.
+   */
+
+  @Test
+  public void testVariantListDynamic() {
+
+    ResultSetLoader rsLoader = new ResultSetLoaderImpl(fixture.allocator());
+    RowSetLoader writer = rsLoader.writer();
+
+    // Can write a batch as if this was a repeated Varchar, except
+    // that any value can also be null.
+
+    rsLoader.startBatch();
+
+    writer.addColumn(MaterializedField.create("id", Types.required(MinorType.INT)));
+    writer.addColumn(MaterializedField.create("list", Types.optional(MinorType.LIST)));
+
+    // Sanity check: should be an array of variants because we said the
+    // types within the list are expandable (which is the default.)
+
+    ArrayWriter arrWriter = writer.array("list");
+    assertEquals(ObjectType.VARIANT, arrWriter.entryType());
+    VariantWriter variant = arrWriter.variant();
+
+    // Don't try this at home: sniff the internal state of the writer.
+
+    assertTrue(((UnionWriterImpl) variant).shim() instanceof EmptyListShim);
+
+    // No types, so all we can do is add a null list, or a list of nulls.
+
+    writer
+      .addRow(1, null)
+      .addRow(2, variantArray())
+      .addRow(3, variantArray(null, null))
+      ;
+
+    // Add a String. Now we can create a list of strings and/or nulls.
+
+    variant.addMember(MinorType.VARCHAR);
+    assertTrue(variant.hasType(MinorType.VARCHAR));
+
+    // Sanity check: sniff inside to ensure that the list contains a single
+    // type.
+
+    assertTrue(((UnionWriterImpl) variant).shim() instanceof SimpleListShim);
+    assertTrue(((ListWriterImpl) arrWriter).vector().getDataVector() instanceof NullableVarCharVector);
+
+    writer
+      .addRow(4, variantArray("fred", null, "barney"));
+
+    // Add an integer. The list vector should be promoted to union.
+    // Now we can add both types.
+
+    variant.addMember(MinorType.INT);
+
+    // Sanity check: sniff inside to ensure promotion to union occurred
+
+    assertTrue(((UnionWriterImpl) variant).shim() instanceof UnionVectorShim);
+    assertTrue(((ListWriterImpl) arrWriter).vector().getDataVector() instanceof UnionVector);
+
+    writer
+      .addRow(5, variantArray("wilma", null, 30));
+
+    // Verify
+
+    RowSet result = fixture.wrap(rsLoader.harvest());
+//    result.print();
+
+    TupleMetadata schema = new SchemaBuilder()
+        .add("id", MinorType.INT)
+        .addList("list")
+          .addType(MinorType.VARCHAR)
+          .addType(MinorType.INT)
+          .build()
+        .buildSchema();
+    SingleRowSet expected = fixture.rowSetBuilder(schema)
+        .addRow(1, null)
+        .addRow(2, variantArray())
+        .addRow(3, variantArray(null, null))
+        .addRow(4, variantArray("fred", null, "barney"))
+        .addRow(5, variantArray("wilma", null, 30))
+        .build();
+
+    new RowSetComparison(expected)
+      .verifyAndClearAll(result);
   }
 
 }

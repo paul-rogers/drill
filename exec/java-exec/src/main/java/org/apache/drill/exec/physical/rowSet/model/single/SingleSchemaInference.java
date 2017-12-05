@@ -24,6 +24,7 @@ import org.apache.drill.common.types.TypeProtos.MinorType;
 import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.VectorContainer;
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.record.metadata.MetadataUtils;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.record.metadata.TupleSchema;
 import org.apache.drill.exec.record.metadata.VariantSchema;
@@ -44,20 +45,20 @@ public class SingleSchemaInference {
     for (int i = 0; i < container.getNumberOfColumns(); i++) {
       columns.add(inferVector(container.getValueVector(i).getValueVector()));
     }
-    return TupleSchema.fromColumns(columns);
+    return MetadataUtils.fromColumns(columns);
   }
 
   private ColumnMetadata inferVector(ValueVector vector) {
     MaterializedField field = vector.getField();
     switch (field.getType().getMinorType()) {
     case MAP:
-      return TupleSchema.newMap(field, inferMapSchema((AbstractMapVector) vector));
+      return MetadataUtils.newMap(field, inferMapSchema((AbstractMapVector) vector));
     case LIST:
-      return TupleSchema.newVariant(field, inferListSchema((ListVector) vector));
+      return MetadataUtils.newVariant(field, inferListSchema((ListVector) vector));
     case UNION:
-      return TupleSchema.newVariant(field, inferUnionSchema((UnionVector) vector));
+      return MetadataUtils.newVariant(field, inferUnionSchema((UnionVector) vector));
     default:
-      return TupleSchema.fromField(field);
+      return MetadataUtils.fromField(field);
     }
   }
 
@@ -66,7 +67,7 @@ public class SingleSchemaInference {
     for (int i = 0; i < vector.getField().getChildren().size(); i++) {
       columns.add(inferVector(vector.getChildByOrdinal(i)));
     }
-    return TupleSchema.fromColumns(columns);
+    return MetadataUtils.fromColumns(columns);
   }
 
   @SuppressWarnings("resource")
@@ -76,7 +77,9 @@ public class SingleSchemaInference {
       return inferUnionSchema((UnionVector) dataVector);
     }
     VariantSchema schema = new VariantSchema();
-    schema.addType(inferVector(dataVector));
+    if (! vector.isEmptyType()) {
+      schema.addType(inferVector(dataVector));
+    }
     return schema;
   }
 

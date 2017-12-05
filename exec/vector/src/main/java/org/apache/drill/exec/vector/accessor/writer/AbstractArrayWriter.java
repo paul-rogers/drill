@@ -217,12 +217,6 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
     }
 
     @Override
-    public void endWrite() {
-      offsetsWriter.endWrite();
-      elementObjWriter.events().endWrite();
-    }
-
-    @Override
     public void preRollover() {
       elementObjWriter.events().preRollover();
       offsetsWriter.preRollover();
@@ -237,6 +231,12 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
       offsetsWriter.postRollover();
       elementIndex.rollover();
+    }
+
+    @Override
+    public void endWrite() {
+      offsetsWriter.endWrite();
+      elementObjWriter.events().endWrite();
     }
 
     @Override
@@ -314,8 +314,12 @@ public abstract class AbstractArrayWriter implements ArrayWriter, WriterEvents {
 
   @Override
   public int lastWriteIndex() {
-    // Undefined for arrays
-    return 0;
+    return offsetsWriter.lastWriteIndex();
+  }
+
+  @Override
+  public int writeIndex() {
+    return outerIndex.vectorIndex();
   }
 
   @Override
