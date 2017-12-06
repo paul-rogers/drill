@@ -278,11 +278,11 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
       assertTrue(reader.next());
       assertEquals(i, aReader.getInt());
       for (int j = 0; j < 4; j++) {
-        a1Reader.setPosn(j);
+        assertTrue(a1Reader.next());
         int a1Key = i + 10 + j;
         assertEquals(a1Key, bReader.getInt());
         for (int k = 0; k < 3; k++) {
-          a2Reader.setPosn(k);
+          assertTrue(a2Reader.next());
           int a2Key = a1Key * 10 + k;
           assertEquals(a2Key, cReader.getInt());
           for (int l = 0; l < 2; l++) {
@@ -360,7 +360,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
       assertEquals(rowId * 100, reader.scalar("a").getInt());
       assertEquals(10, maReader.size());
       for (int i = 0; i < 10; i++) {
-        maReader.setPosn(i);
+        assert(maReader.next());
         assertEquals(rowId * 1000 + i, mReader.scalar("b").getInt());
         assertTrue(Arrays.equals(value, mReader.scalar("c").getBytes()));
       }
@@ -429,7 +429,7 @@ public class TestResultSetLoaderMapArray extends SubOperatorTest {
       }
       assertEquals(entryCount, maReader.size());
       for (int j = 0; j < entryCount; j++) {
-        maReader.setPosn(j);
+        assertTrue(maReader.next());
         if (j % entrySkip == 0) {
           assertTrue(mReader.scalar(0).isNull());
           assertTrue(mReader.scalar(1).isNull());

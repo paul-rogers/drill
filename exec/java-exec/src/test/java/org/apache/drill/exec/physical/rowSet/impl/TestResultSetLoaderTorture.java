@@ -313,7 +313,7 @@ public class TestResultSetLoaderTorture extends SubOperatorTest {
 
     private void verifyM2Array() {
       for (int i = 0; i < setup.m2Count; i++) {
-        a2Reader.setPosn(i);
+        assert(a2Reader.next());
 
         // n2: usual int
 

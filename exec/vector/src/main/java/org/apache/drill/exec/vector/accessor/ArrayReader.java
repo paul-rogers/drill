@@ -82,6 +82,8 @@ public interface ArrayReader {
 
   void setPosn(int index);
 
+  void rewind();
+
   /**
    * Move forward one position.
    *

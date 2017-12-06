@@ -156,7 +156,7 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
       if (index < 0 ||  length < index) {
         throw new IndexOutOfBoundsException("Index = " + index + ", length = " + length);
       }
-      position = index - 1;
+      position = index;
     }
 
     @Override
@@ -318,6 +318,11 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
   }
 
   @Override
+  public void rewind() {
+    setPosn(-1);
+  }
+
+  @Override
   public ObjectReader entry() { return elementReader; }
 
   @Override
@@ -350,7 +355,7 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
     // If really needed, could return as a typed array, but that
     // is a bit of a hassle.
 
-    setPosn(0);
+    rewind();
     List<Object> elements = new ArrayList<>();
     while (next()) {
       elements.add(elementReader.getObject());
@@ -363,7 +368,7 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
     if (isNull()) {
       return "null";
     }
-    setPosn(0);
+    rewind();
     StringBuilder buf = new StringBuilder();
     buf.append("[");
     int i = 0;

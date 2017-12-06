@@ -115,6 +115,9 @@ public class ScalarArrayWriter extends BaseArrayWriter {
         throw new IllegalArgumentException( "Unknown Java array type: " + objClass );
       }
       break;
+    case  'B':
+      setByteArray((byte[]) array );
+      break;
     case  'S':
       setShortArray((short[]) array );
       break;
@@ -163,6 +166,12 @@ public class ScalarArrayWriter extends BaseArrayWriter {
   public void setBytesArray(byte[][] value) {
     for (int i = 0; i < value.length; i++) {
       elementWriter.setBytes(value[i], value[i].length);
+    }
+  }
+
+  public void setByteArray(byte[] value) {
+    for (int i = 0; i < value.length; i++) {
+      elementWriter.setInt(value[i]);
     }
   }
 

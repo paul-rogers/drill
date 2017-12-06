@@ -661,17 +661,17 @@ public class TestJsonReader extends BaseTestQuery {
     try {
       String query = "select flatten(t.a.b.c) as c from dfs.`empty_array_all_text_mode.json` t";
 
+      alterSession("store.json.all_text_mode", true);
       testBuilder()
         .sqlQuery(query)
         .unOrdered()
-        .optionSettingQueriesForTestQuery("alter session set `store.json.all_text_mode` = true")
         .expectsEmptyResultSet()
         .go();
 
+      alterSession("store.json.all_text_mode", false);
       testBuilder()
         .sqlQuery(query)
         .unOrdered()
-        .optionSettingQueriesForTestQuery("alter session set `store.json.all_text_mode` = false")
         .expectsEmptyResultSet()
         .go();
 

@@ -175,6 +175,30 @@ public class RowSetUtilities {
     return members;
   }
 
+  public static byte[] byteArray(Integer... elements) {
+    byte array[] = new byte[elements.length];
+    for (int i = 0; i < elements.length; i++) {
+      array[i] = (byte) (int) elements[i];
+    }
+    return array;
+  }
+
+  public static long[] longArray(Long... elements) {
+    long array[] = new long[elements.length];
+    for (int i = 0; i < elements.length; i++) {
+      array[i] = elements[i];
+    }
+    return array;
+  }
+
+  public static double[] doubleArray(Double... elements) {
+    double array[] = new double[elements.length];
+    for (int i = 0; i < elements.length; i++) {
+      array[i] = elements[i];
+    }
+    return array;
+  }
+
   public static String[] strArray(String... elements) {
     return elements;
   }

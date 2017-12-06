@@ -501,10 +501,6 @@ public class JsonLoaderImpl implements JsonLoader {
       if (! writer.isProjected(fieldName)) {
         return new DummyValueState(this, fieldName);
       }
-      if (options.allTextMode) {
-        return new TextState(this, fieldName,
-            newWriter(fieldName, MinorType.VARCHAR, DataMode.OPTIONAL).scalar());
-      }
       JsonToken token = tokenizer.requireNext();
       ParseState state;
       switch (token) {
@@ -529,14 +525,15 @@ public class JsonLoaderImpl implements JsonLoader {
     }
 
     private ParseState typedScalar(JsonToken token, String fieldName) {
+      if (options.allTextMode) {
+        return new TextState(this, fieldName,
+            newWriter(fieldName, MinorType.VARCHAR, DataMode.OPTIONAL).scalar());
+      }
       switch (token) {
       case VALUE_FALSE:
       case VALUE_TRUE:
         return new BooleanState(this, fieldName,
             newWriter(fieldName, MinorType.TINYINT, DataMode.OPTIONAL).scalar());
-
-      case VALUE_NULL:
-        return new NullTypeState(this, fieldName);
 
       case VALUE_NUMBER_INT:
         if (! options.readNumbersAsDouble) {
@@ -578,8 +575,8 @@ public class JsonLoaderImpl implements JsonLoader {
 
     private ParseState detectArrayState(String fieldName, int depth) {
       if (depth > 1) {
-        return new TextState(this, fieldName,
-            newWriter(fieldName, MinorType.VARCHAR, DataMode.OPTIONAL).scalar());
+        // TODO: Handle via nested lists.
+        throw syntaxError(JsonToken.START_ARRAY);
       }
       JsonToken token = tokenizer.requireNext();
       ArrayWriter arrayWriter = null;
@@ -609,32 +606,37 @@ public class JsonLoaderImpl implements JsonLoader {
     private ParseState scalarElementState(JsonToken token, String fieldName) {
       ArrayWriter arrayWriter = null;
       ParseState elementState = null;
-      switch (token) {
-      case VALUE_FALSE:
-      case VALUE_TRUE:
-        arrayWriter = newWriter(fieldName, MinorType.TINYINT, DataMode.REPEATED).array();
-        elementState = new BooleanState(this, fieldName,arrayWriter.scalar());
-        break;
-
-      case VALUE_NUMBER_INT:
-        if (! options.readNumbersAsDouble) {
-          arrayWriter = newWriter(fieldName, MinorType.BIGINT, DataMode.REPEATED).array();
-          elementState = new IntState(this, fieldName,arrayWriter.scalar());
-          break;
-        } // else fall through
-
-      case VALUE_NUMBER_FLOAT:
-        arrayWriter = newWriter(fieldName, MinorType.FLOAT8, DataMode.REPEATED).array();
-        elementState = new FloatState(this, fieldName,arrayWriter.scalar());
-        break;
-
-      case VALUE_STRING:
+      if (options.allTextMode) {
         arrayWriter = newWriter(fieldName, MinorType.VARCHAR, DataMode.REPEATED).array();
-        elementState = new StringState(this, fieldName,arrayWriter.scalar());
-        break;
+        elementState = new TextState(this, fieldName,arrayWriter.scalar());
+      } else {
+        switch (token) {
+        case VALUE_FALSE:
+        case VALUE_TRUE:
+          arrayWriter = newWriter(fieldName, MinorType.TINYINT, DataMode.REPEATED).array();
+          elementState = new BooleanState(this, fieldName,arrayWriter.scalar());
+          break;
 
-      default:
-        throw syntaxError(token);
+        case VALUE_NUMBER_INT:
+          if (! options.readNumbersAsDouble) {
+            arrayWriter = newWriter(fieldName, MinorType.BIGINT, DataMode.REPEATED).array();
+            elementState = new IntState(this, fieldName,arrayWriter.scalar());
+            break;
+          } // else fall through
+
+        case VALUE_NUMBER_FLOAT:
+          arrayWriter = newWriter(fieldName, MinorType.FLOAT8, DataMode.REPEATED).array();
+          elementState = new FloatState(this, fieldName,arrayWriter.scalar());
+          break;
+
+        case VALUE_STRING:
+          arrayWriter = newWriter(fieldName, MinorType.VARCHAR, DataMode.REPEATED).array();
+          elementState = new StringState(this, fieldName,arrayWriter.scalar());
+          break;
+
+        default:
+          throw syntaxError(token);
+        }
       }
       return new ScalarArrayState(this, fieldName, arrayWriter, elementState);
     }
@@ -892,105 +894,37 @@ public class JsonLoaderImpl implements JsonLoader {
 
   public class TextState extends ScalarState {
 
-    public StringBuilder buf = new StringBuilder();
+    private final boolean isArray;
 
     public TextState(ParseState parent, String fieldName,
         ScalarWriter writer) {
       super(parent, fieldName, writer);
+      this.isArray = writer.schema().isArray();
     }
 
     @Override
     public boolean parse() {
-      buf.setLength(0);
       JsonToken token = tokenizer.requireNext();
-      parseValue(token, false);
-      if (buf.length() == 0) {
-        writer.setNull();
-      } else {
-        writer.setString(buf.toString());
-      }
-      return true;
-    }
-
-    private void parseValue(JsonToken token, boolean quote) {
       switch (token) {
-      case START_ARRAY:
-        buf.append(tokenizer.getText());
-        parseArrayTail();
-        break;
-
-      case START_OBJECT:
-        buf.append(tokenizer.getText());
-        parseObjectTail();
-        break;
-
       case VALUE_NULL:
-        if (quote || parent().isContainer()) {
-          buf.append(tokenizer.getText());
+        if (isArray) {
+          writer.setString("");
+        } else {
+          writer.setNull();
         }
-        break;
+        return true;
 
       case VALUE_EMBEDDED_OBJECT:
       case VALUE_FALSE:
       case VALUE_TRUE:
       case VALUE_NUMBER_FLOAT:
       case VALUE_NUMBER_INT:
-        buf.append(tokenizer.getText());
-        break;
-
       case VALUE_STRING:
-        if (quote) {
-          buf.append("\"");
-          buf.append(tokenizer.getText().replace("\"", "\\\""));
-          buf.append("\"");
-        } else {
-          buf.append(tokenizer.getText());
-        }
-        break;
+        writer.setString(tokenizer.getText());
+        return true;
 
       default:
         throw syntaxError(token);
-      }
-    }
-
-    public void parseObjectTail() {
-
-      // Parse (field: value)* }
-
-      for (int count = 0; ; count++) {
-        JsonToken token = tokenizer.requireNext();
-        if (token == JsonToken.END_OBJECT) {
-          buf.append(tokenizer.getText());
-          return;
-        }
-        if (count > 0) {
-          buf.append(", ");
-        }
-        if (token != JsonToken.FIELD_NAME) {
-          throw syntaxError(token);
-        }
-        buf.append("\"");
-        buf.append(tokenizer.getText());
-        buf.append("\"");
-        buf.append(": ");
-        parseValue(tokenizer.requireNext(), true);
-      }
-    }
-
-    public void parseArrayTail() {
-
-      // Parse value* ]
-
-      for (int count = 0; ; count++) {
-        JsonToken token = tokenizer.requireNext();
-        if (token == JsonToken.END_ARRAY) {
-          buf.append(tokenizer.getText());
-          return;
-        }
-        if (count > 0) {
-          buf.append(", ");
-        }
-        parseValue(token, true);
       }
     }
   }
