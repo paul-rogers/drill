@@ -39,9 +39,9 @@ import org.apache.drill.exec.record.metadata.VariantMetadata;
  * @see {@link VariantWriter}
  */
 
-public interface VariantReader {
+public interface VariantReader extends ColumnReader {
 
-  VariantMetadata schema();
+  VariantMetadata variantSchema();
 
   int size();
 
@@ -80,16 +80,6 @@ public interface VariantReader {
   ScalarReader scalar(MinorType type);
 
   /**
-   * Determine if the current value is null. Null values have no type
-   * and no associated reader.
-   *
-   * @return <tt>true</tt> if this value is <tt>NULL</tt>,
-   * <tt>false</tt> if the entry has a value
-   */
-
-  boolean isNull();
-
-  /**
    * Return the data type of the current value. (What happens if the row is
    * null, must it be a null of some type?)
    *
@@ -122,15 +112,4 @@ public interface VariantReader {
   ScalarReader scalar();
   TupleReader tuple();
   ArrayReader array();
-
-  /**
-   * Return the value as a Java object of the correct type.
-   *
-   * @return <tt>null</tt> if {@link #isNull()} returns <tt>true</tt>,
-   * else the equivalent of {@link #scalar(MinorType) scalar}().
-   * {@link ScalarReader#getObject() getObject()}
-   */
-
-  Object getObject();
-  String getAsString();
 }

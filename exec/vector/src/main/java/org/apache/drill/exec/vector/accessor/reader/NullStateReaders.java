@@ -60,7 +60,8 @@ public class NullStateReaders {
     public NullableIsSetVectorStateReader(VectorAccessor nullableAccessor) {
       this.nullableAccessor = nullableAccessor;
       isSetReader = new UInt1ColumnReader();
-      isSetReader.bindVector(VectorAccessors.nullableBitsAccessor(nullableAccessor));
+      isSetReader.bindVector(null,
+          VectorAccessors.nullableBitsAccessor(nullableAccessor));
       isSetReader.bindNullState(REQUIRED_STATE_READER);
     }
 
@@ -93,7 +94,7 @@ public class NullStateReaders {
     public ListIsSetVectorStateReader(VectorAccessor bitsAccessor) {
       this.bitsAccessor = bitsAccessor;
       isSetReader = new UInt1ColumnReader();
-      isSetReader.bindVector(bitsAccessor);
+      isSetReader.bindVector(null, bitsAccessor);
       isSetReader.bindNullState(REQUIRED_STATE_READER);
     }
 

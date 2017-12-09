@@ -89,7 +89,6 @@ public interface ScalarWriter extends ColumnWriter, ScalarListenable {
    */
 
   ValueType valueType();
-  void setNull();
   void setInt(int value);
   void setLong(long value);
   void setDouble(double value);

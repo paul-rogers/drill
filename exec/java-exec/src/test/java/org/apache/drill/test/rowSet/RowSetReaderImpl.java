@@ -20,6 +20,7 @@ package org.apache.drill.test.rowSet;
 import java.util.List;
 
 import org.apache.drill.exec.physical.rowSet.model.ReaderIndex;
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.reader.AbstractObjectReader;
 import org.apache.drill.exec.vector.accessor.reader.AbstractTupleReader;
@@ -31,10 +32,12 @@ import org.apache.drill.exec.vector.accessor.reader.NullStateReaders;
 
 public class RowSetReaderImpl extends AbstractTupleReader implements RowSetReader {
 
+  private final TupleMetadata schema;
   protected final ReaderIndex readerIndex;
 
   public RowSetReaderImpl(TupleMetadata schema, ReaderIndex index, AbstractObjectReader[] readers) {
-    super(schema, readers);
+    super(readers);
+    this.schema = schema;
     this.readerIndex = index;
     bindNullState(NullStateReaders.REQUIRED_STATE_READER);
     bindIndex(index);
@@ -72,4 +75,10 @@ public class RowSetReaderImpl extends AbstractTupleReader implements RowSetReade
     this.readerIndex.set(index);
     reposition();
   }
+
+  @Override
+  public ColumnMetadata schema() { return null; }
+
+  @Override
+  public TupleMetadata tupleSchema() { return schema; }
 }

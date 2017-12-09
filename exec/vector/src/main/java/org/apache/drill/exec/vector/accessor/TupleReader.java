@@ -29,21 +29,9 @@ import org.apache.drill.exec.record.metadata.TupleMetadata;
  * @see {@link TupleWriter}
  */
 
-public interface TupleReader {
-  TupleMetadata schema();
+public interface TupleReader extends ColumnReader {
+  TupleMetadata tupleSchema();
   int columnCount();
-
-  /**
-   * When the tuple is in a union, or in a list that contains a union,
-   * the tuple itself can be null.
-   * Tuples elsewhere are never null; though their members can be.
-   *
-   * @return <tt>true</tt> if the tuple itself is null (as in a
-   * list or union), <tt>false</tt> if the tuple is not null, or
-   * if the use of the tuple does not support a null state
-   */
-
-  boolean isNull();
 
   /**
    * Return a column reader by column index as reported by the
@@ -78,7 +66,4 @@ public interface TupleReader {
   ArrayReader array(String colName);
   VariantReader variant(int colIndex);
   VariantReader variant(String colName);
-
-  Object getObject();
-  String getAsString();
 }

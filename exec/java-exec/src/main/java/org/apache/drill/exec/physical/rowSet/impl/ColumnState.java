@@ -48,13 +48,6 @@ public abstract class ColumnState {
 
   private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ColumnState.class);
 
-//  public interface VariantColumnState {
-//
-//    UnionState unionState();
-//
-//    AbstractObjectWriter writer();
-//  }
-
   /**
    * Primitive (non-map) column state. Handles all three cardinalities.
    * Column metadata is hosted on the writer.

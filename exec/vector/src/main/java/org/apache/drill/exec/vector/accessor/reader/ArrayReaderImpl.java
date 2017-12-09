@@ -22,6 +22,7 @@ import java.util.List;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
+import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
 import org.apache.drill.exec.vector.accessor.ObjectType;
@@ -46,14 +47,8 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
 
     private ArrayReaderImpl arrayReader;
 
-    public ArrayObjectReader(ColumnMetadata schema, ArrayReaderImpl arrayReader) {
-      super(schema);
-      this.arrayReader = arrayReader;
-    }
-
-    @Override
-    public ObjectType type() {
-      return ObjectType.ARRAY;
+    public ArrayObjectReader(ArrayReaderImpl arrayReader) {
+       this.arrayReader = arrayReader;
     }
 
     @Override
@@ -73,6 +68,9 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
 
     @Override
     public ReaderEvents events() { return arrayReader; }
+
+    @Override
+    public ColumnReader reader() { return arrayReader; }
   }
 
   /**
@@ -115,6 +113,10 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
       assert startOffset >= 0;
       this.startOffset = startOffset;
       this.length = length;
+      position = -1;
+    }
+
+    public void rewind() {
       position = -1;
     }
 
@@ -163,13 +165,16 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
     public int logicalIndex() { return position; }
   }
 
+  private final ColumnMetadata schema;
   private final VectorAccessor arrayAccessor;
   private final OffsetVectorReader offsetReader;
   private final AbstractObjectReader elementReader;
   protected ElementReaderIndex elementIndex;
   protected NullStateReader nullStateReader;
 
-  public ArrayReaderImpl(VectorAccessor va, AbstractObjectReader elementReader) {
+  public ArrayReaderImpl(ColumnMetadata schema, VectorAccessor va,
+      AbstractObjectReader elementReader) {
+    this.schema = schema;
     arrayAccessor = va;
     this.elementReader = elementReader;
     offsetReader = new OffsetVectorReader(
@@ -191,7 +196,8 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
 
     // Reader is bound to the values vector inside the nullable vector.
 
-    elementReader.bindVector(VectorAccessors.arrayDataAccessor(arrayAccessor));
+    elementReader.bindVector(schema,
+        VectorAccessors.arrayDataAccessor(arrayAccessor));
 
     // The scalar array element can't be null.
 
@@ -200,8 +206,8 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
     // Create the array, giving it an offset vector reader based on the
     // repeated vector's offset vector.
 
-    ArrayReaderImpl arrayReader = new ArrayReaderImpl(arrayAccessor,
-        new AbstractScalarReader.ScalarObjectReader(schema, elementReader));
+    ArrayReaderImpl arrayReader = new ArrayReaderImpl(schema, arrayAccessor,
+        new AbstractScalarReader.ScalarObjectReader(elementReader));
 
     // The array itself can't be null.
 
@@ -209,7 +215,7 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
 
     // Wrap it all in an object reader.
 
-    return new ArrayObjectReader(schema, arrayReader);
+    return new ArrayObjectReader(arrayReader);
   }
 
   /**
@@ -227,7 +233,7 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
 
     // Create the array reader over the map vector.
 
-    ArrayReaderImpl arrayReader = new ArrayReaderImpl(arrayAccessor, elementReader);
+    ArrayReaderImpl arrayReader = new ArrayReaderImpl(schema, arrayAccessor, elementReader);
 
     // The array itself can't be null.
 
@@ -235,7 +241,7 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
 
     // Wrap it all in an object reader.
 
-    return new ArrayObjectReader(schema, arrayReader);
+    return new ArrayObjectReader(arrayReader);
   }
 
   /**
@@ -253,7 +259,7 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
 
     // Create the array over whatever it is that the list holds.
 
-    ArrayReaderImpl arrayReader = new ArrayReaderImpl(listAccessor, elementReader);
+    ArrayReaderImpl arrayReader = new ArrayReaderImpl(schema, listAccessor, elementReader);
 
     // The list carries a "bits" vector to allow list entries to be null.
 
@@ -268,7 +274,7 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
 
     // Wrap it all in an object reader.
 
-    return new ArrayObjectReader(schema, arrayReader);
+    return new ArrayObjectReader(arrayReader);
   }
 
   @Override
@@ -284,6 +290,12 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
   public void bindNullState(NullStateReader nullStateReader) {
     this.nullStateReader = nullStateReader;
   }
+
+  @Override
+  public ObjectType type() { return ObjectType.ARRAY; }
+
+  @Override
+  public ColumnMetadata schema() { return schema; }
 
   @Override
   public NullStateReader nullStateReader() { return nullStateReader; }
@@ -313,13 +325,12 @@ public class ArrayReaderImpl implements ArrayReader, ReaderEvents {
 
   @Override
   public void setPosn(int posn) {
-    elementIndex.set(posn);
     elementReader.events().reposition();
   }
 
   @Override
   public void rewind() {
-    setPosn(-1);
+    elementIndex.rewind();
   }
 
   @Override

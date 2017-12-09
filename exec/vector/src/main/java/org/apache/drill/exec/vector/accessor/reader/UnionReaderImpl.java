@@ -22,6 +22,7 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.record.metadata.VariantMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
 import org.apache.drill.exec.vector.accessor.ColumnAccessors.UInt1ColumnReader;
+import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
 import org.apache.drill.exec.vector.accessor.ObjectType;
@@ -52,13 +53,9 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
 
     private UnionReaderImpl reader;
 
-    public UnionObjectReader(ColumnMetadata schema, UnionReaderImpl reader) {
-      super(schema);
+    public UnionObjectReader(UnionReaderImpl reader) {
       this.reader = reader;
     }
-
-    @Override
-    public ObjectType type() { return ObjectType.VARIANT; }
 
     @Override
     public VariantReader variant() { return reader; }
@@ -75,16 +72,19 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
 
     @Override
     public ReaderEvents events() { return reader; }
+
+    @Override
+    public ColumnReader reader() { return reader; }
   }
 
-  private final VariantMetadata schema;
+  private final ColumnMetadata schema;
   private final VectorAccessor unionAccessor;
   private final VectorAccessor typeAccessor;
   private final UInt1ColumnReader typeReader;
   private final AbstractObjectReader variants[];
   protected NullStateReader nullStateReader;
 
-  public UnionReaderImpl(VariantMetadata schema, VectorAccessor va, AbstractObjectReader variants[]) {
+  public UnionReaderImpl(ColumnMetadata schema, VectorAccessor va, AbstractObjectReader variants[]) {
     this.schema = schema;
     this.unionAccessor = va;
     typeReader = new UInt1ColumnReader();
@@ -95,7 +95,7 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
       UnionVector unionVector = va.vector();
       typeAccessor = new SingleVectorAccessor(unionVector.getTypeVector());
     }
-    typeReader.bindVector(typeAccessor);
+    typeReader.bindVector(null, typeAccessor);
     nullStateReader = new NullStateReaders.TypeVectorStateReader(typeReader);
     assert variants != null  &&  variants.length == MinorType.values().length;
     this.variants = variants;
@@ -129,8 +129,8 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
   }
 
   public static AbstractObjectReader build(ColumnMetadata schema, VectorAccessor va, AbstractObjectReader variants[]) {
-    return new UnionObjectReader(schema,
-        new UnionReaderImpl(schema.variantSchema(), va, variants));
+    return new UnionObjectReader(
+        new UnionReaderImpl(schema, va, variants));
   }
 
   @Override
@@ -152,10 +152,16 @@ public class UnionReaderImpl implements VariantReader, ReaderEvents {
   }
 
   @Override
-  public VariantMetadata schema() { return schema; }
+  public ObjectType type() { return ObjectType.VARIANT; }
 
   @Override
-  public int size() { return schema.size(); }
+  public ColumnMetadata schema() { return schema; }
+
+  @Override
+  public VariantMetadata variantSchema() { return schema.variantSchema(); }
+
+  @Override
+  public int size() { return variantSchema().size(); }
 
   @Override
   public boolean hasType(MinorType type) {

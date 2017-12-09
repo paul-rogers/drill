@@ -32,7 +32,7 @@ package org.apache.drill.exec.vector.accessor;
  * {@see ArrayWriter}
  */
 
-public interface ArrayReader {
+public interface ArrayReader extends ColumnReader {
 
   /**
    * Number of elements in the array.
@@ -40,18 +40,6 @@ public interface ArrayReader {
    */
 
   int size();
-
-  /**
-   * For lists, determine if the list for the current row is null.
-   * In a list, an array entry can be null, empty, or can contain
-   * items. In repeated types, the array itself is never null.
-   * If the array is null, then it implicitly has no entries.
-   *
-   * @return <tt>true</tt> if this is a list and the list for the
-   * current row is null; <tt>false</tt> otherwise
-   */
-
-  boolean isNull();
 
   /**
    * The object type of the list entry. All entries have the same
@@ -92,20 +80,4 @@ public interface ArrayReader {
    */
 
   boolean next();
-
-  /**
-   * Return the entire array as an <tt>List</tt> of objects.
-   * Note, even if the array is scalar, the elements are still returned
-   * as a list. This method is primarily for testing.
-   * @return array as a <tt>List</tt> of objects
-   */
-
-  Object getObject();
-
-  /**
-   * Return the entire array as a string. Primarily for debugging.
-   * @return string representation of the array
-   */
-
-  String getAsString();
 }

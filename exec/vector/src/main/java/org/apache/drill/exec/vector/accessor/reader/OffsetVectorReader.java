@@ -17,6 +17,7 @@
  */
 package org.apache.drill.exec.vector.accessor.reader;
 
+import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.UInt4Vector;
 import org.apache.drill.exec.vector.accessor.ValueType;
 import org.apache.drill.exec.vector.accessor.reader.BaseScalarReader.BaseFixedWidthReader;
@@ -63,4 +64,7 @@ public class OffsetVectorReader extends BaseFixedWidthReader {
 
   @Override
   public void reposition() { }
+
+  @Override
+  public ColumnMetadata schema() { return null; }
 }

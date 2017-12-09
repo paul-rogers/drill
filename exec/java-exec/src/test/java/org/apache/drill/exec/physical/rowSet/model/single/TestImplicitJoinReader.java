@@ -238,14 +238,14 @@ public class TestImplicitJoinReader extends SubOperatorTest {
       }
       System.out.print(reader.tableDef(i).name());
       System.out.print("(");
-      RowSetPrinter.printTupleSchema(System.out, reader.tableDef(i).tuple().schema());
+      RowSetPrinter.printTupleSchema(System.out, reader.tableDef(i).tuple().tupleSchema());
       System.out.print(")");
     }
     System.out.println();
   }
 
   private void printSchema(RowSetReader reader) {
-    RowSetPrinter.printTupleSchema(System.out, reader.schema());
+    RowSetPrinter.printTupleSchema(System.out, reader.tupleSchema());
     System.out.println();
   }
 

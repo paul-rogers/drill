@@ -34,7 +34,7 @@ import org.apache.drill.exec.record.VectorContainer;
 class ReaderState {
   static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(ReaderState.class);
 
-  private enum State { START, LOOK_AHEAD, ACTIVE, EOF, CLOSED };
+  private enum State { START, LOOK_AHEAD, LOOK_AHEAD_WITH_EOF, ACTIVE, EOF, CLOSED };
 
   final ScanOperatorExec scanOp;
   private final RowBatchReader reader;
@@ -150,7 +150,8 @@ class ReaderState {
     if (! next()) {
       return false;
     }
-    if (scanOp.containerAccessor.getRowCount() == 0) {
+    container = reader.output();
+    if (container.getRecordCount() == 0) {
       return true;
     }
 
@@ -161,19 +162,20 @@ class ReaderState {
     lookahead = new VectorContainer(scanOp.context.getAllocator(), scanOp.containerAccessor.getSchema());
     lookahead.setRecordCount(0);
     lookahead.exchange(scanOp.containerAccessor.getOutgoingContainer());
-    state = State.LOOK_AHEAD;
+    state = state == State.EOF? State.LOOK_AHEAD_WITH_EOF : State.LOOK_AHEAD;
     return true;
   }
 
   protected boolean next() {
     switch (state) {
     case LOOK_AHEAD:
+    case LOOK_AHEAD_WITH_EOF:
       // Use batch previously read.
       assert lookahead != null;
       lookahead.exchange(scanOp.containerAccessor.getOutgoingContainer());
       assert lookahead.getRecordCount() == 0;
       lookahead = null;
-      state = State.ACTIVE;
+      state = state == State.LOOK_AHEAD_WITH_EOF ? State.EOF : State.ACTIVE;
       return true;
 
     case ACTIVE:
@@ -189,6 +191,27 @@ class ReaderState {
 
   /**
    * Read a batch from the current reader.
+   * <p>
+   * Expected semantics for the reader's <tt>next()</tt> method:
+   * <ul>
+   * <li>Non-empty batch and return true: data returned and more
+   * data is (probably) available.</li>
+   * <li>Empty batch and return true: data returned but it is the last
+   * batch; EOF was reached while reading the batch.</li>
+   * <li>Empty batch and return false: EOF reached, discard the
+   * empty batch. (An inefficient way to indicate EOF since a set
+   * of vectors is allocated, then discarded. The previous result
+   * is preferred when possible.</li>
+   * <li>Empty batch and return true: An odd case that is allowed;
+   * the batch is discarded and <tt>next()</tt> is called again.</li>
+   * </ul>
+   * In short:
+   * <ul>
+   * <li>A non-empty batch says that there is data to return.</li>
+   * <li>The return code says whether <tt>next()</tt> should be called
+   * again.</li>
+   * </ul>
+   *
    * @return true if a batch was read, false if the reader hit EOF
    */
 
@@ -197,10 +220,11 @@ class ReaderState {
     // Try to read a batch. This may fail. If so, clean up the
     // mess.
 
+    boolean more;
     try {
-      if (! reader.next()) {
+      more = reader.next();
+      if (! more) {
         state = State.EOF;
-        return false;
       }
     } catch (UserException e) {
       throw e;
@@ -208,6 +232,11 @@ class ReaderState {
       throw UserException.executionError(t)
         .addContext("Read failed for reader", reader.name())
         .build(logger);
+    }
+
+    VectorContainer output = reader.output();
+    if (! more && output.getRecordCount() == 0) {
+      return false;
     }
 
     // Late schema readers may change their schema between batches.
@@ -218,7 +247,7 @@ class ReaderState {
 
     int newVersion = reader.schemaVersion();
     if (newVersion > schemaVersion) {
-      scanOp.containerAccessor.setContainer(reader.output());
+      scanOp.containerAccessor.setContainer(output);
       schemaVersion = newVersion;
     }
     return true;

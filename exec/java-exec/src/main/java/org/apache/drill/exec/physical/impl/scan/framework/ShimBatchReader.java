@@ -93,23 +93,15 @@ public class ShimBatchReader<T extends SchemaNegotiator> implements RowBatchRead
 
     // Read the batch.
 
-    if (! reader.next()) {
-
-      // If the reader has no more rows, the table loader may still have
-      // a lookahead row.
-
-      if (tableLoader.writer().rowCount() == 0) {
-        return false;
-      }
-    }
-
-    // Have a batch. Prepare it for return.
+    boolean more = reader.next();
 
     // Add implicit columns, if any.
     // Identify the output container and its schema version.
+    // Having a correct row count, even if 0, is important to
+    // the scan operator.
 
     readerOrchestrator.endBatch();
-    return true;
+    return more;
   }
 
   @Override

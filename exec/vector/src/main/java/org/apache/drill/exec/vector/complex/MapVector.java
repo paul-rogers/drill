@@ -72,14 +72,14 @@ public class MapVector extends AbstractMapVector {
   transient private MapSingleCopier ephPair2;
 
   public void copyFromSafe(int fromIndex, int thisIndex, MapVector from) {
-    if(ephPair == null || ephPair.from != from) {
+    if (ephPair == null || ephPair.from != from) {
       ephPair = (MapTransferPair) from.makeTransferPair(this);
     }
     ephPair.copyValueSafe(fromIndex, thisIndex);
   }
 
   public void copyFromSafe(int fromSubIndex, int thisIndex, RepeatedMapVector from) {
-    if(ephPair2 == null || ephPair2.from != from) {
+    if (ephPair2 == null || ephPair2.from != from) {
       ephPair2 = from.makeSingularCopier(this);
     }
     ephPair2.copySafe(fromSubIndex, thisIndex);
@@ -290,9 +290,9 @@ public class MapVector extends AbstractMapVector {
 
   @Override
   public SerializedField getMetadata() {
-    SerializedField.Builder b = getField() //
-        .getAsBuilder() //
-        .setBufferLength(getBufferSize()) //
+    SerializedField.Builder b = getField()
+        .getAsBuilder()
+        .setBufferLength(getBufferSize())
         .setValueCount(valueCount);
 
 

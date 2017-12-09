@@ -17,8 +17,6 @@
  */
 package org.apache.drill.exec.vector.accessor;
 
-import org.apache.drill.exec.record.metadata.ColumnMetadata;
-
 /**
  * Defines a reader to get values for value vectors using
  * a simple, uniform interface modeled after a JSON object.
@@ -31,33 +29,9 @@ import org.apache.drill.exec.record.metadata.ColumnMetadata;
  * {@see ObjectWriter>
  */
 
-public interface ObjectReader {
-
-  /**
-   * The type of this reader.
-   *
-   * @return type of reader
-   */
-
-  ObjectType type();
-  ColumnMetadata schema();
+public interface ObjectReader extends ColumnReader {
   ScalarReader scalar();
   TupleReader tuple();
   ArrayReader array();
   VariantReader variant();
-
-  /**
-   * Return the value of the underlying data as a Java object.
-   * Primarily for testing
-   * @return Java object that represents the underlying value
-   */
-
-  Object getObject();
-
-  /**
-   * Return the entire object as a string. Primarily for debugging.
-   * @return string representation of the object
-   */
-
-  String getAsString();
 }

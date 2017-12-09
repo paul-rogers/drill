@@ -107,7 +107,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
   }
 
   @Override
-  public int getValueCapacity(){
+  public int getValueCapacity() {
     return data.capacity() / VALUE_WIDTH;
   }
 
@@ -130,7 +130,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
 
   @Override
   public void allocateNew() {
-    if (!allocateNewSafe()){
+    if (!allocateNewSafe()) {
       throw new OutOfMemoryException("Failure while allocating buffer.");
     }
   }
@@ -265,12 +265,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
   }
 
   @Override
-  public TransferPair getTransferPair(BufferAllocator allocator){
+  public TransferPair getTransferPair(BufferAllocator allocator) {
     return new TransferImpl(getField(), allocator);
   }
 
   @Override
-  public TransferPair getTransferPair(String ref, BufferAllocator allocator){
+  public TransferPair getTransferPair(String ref, BufferAllocator allocator) {
     return new TransferImpl(getField().withPath(ref), allocator);
   }
 
@@ -279,7 +279,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     return new TransferImpl((${minor.class}Vector) to);
   }
 
-  public void transferTo(${minor.class}Vector target){
+  public void transferTo(${minor.class}Vector target) {
     target.clear();
     target.data = data.transferOwnership(target.allocator).buffer;
     target.data.writerIndex(data.writerIndex());
@@ -299,10 +299,10 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     return valueCount * ${type.width};
   }
 
-  private class TransferImpl implements TransferPair{
+  private class TransferImpl implements TransferPair {
     private ${minor.class}Vector to;
 
-    public TransferImpl(MaterializedField field, BufferAllocator allocator){
+    public TransferImpl(MaterializedField field, BufferAllocator allocator) {
       to = new ${minor.class}Vector(field, allocator);
     }
 
@@ -311,12 +311,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     }
 
     @Override
-    public ${minor.class}Vector getTo(){
+    public ${minor.class}Vector getTo() {
       return to;
     }
 
     @Override
-    public void transfer(){
+    public void transfer() {
       transferTo(to);
     }
 
@@ -331,7 +331,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     }
   }
 
-  public void copyFrom(int fromIndex, int thisIndex, ${minor.class}Vector from){
+  public void copyFrom(int fromIndex, int thisIndex, ${minor.class}Vector from) {
     <#if (type.width > 8)>
     from.data.getBytes(fromIndex * VALUE_WIDTH, data, thisIndex * VALUE_WIDTH, VALUE_WIDTH);
     <#else> <#-- type.width <= 8 -->
@@ -341,7 +341,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     </#if> <#-- type.width -->
   }
 
-  public void copyFromSafe(int fromIndex, int thisIndex, ${minor.class}Vector from){
+  public void copyFromSafe(int fromIndex, int thisIndex, ${minor.class}Vector from) {
     while(thisIndex >= getValueCapacity()) {
         reAlloc();
     }
@@ -377,7 +377,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     }
 
     @Override
-    public boolean isNull(int index){
+    public boolean isNull(int index) {
       return false;
     }
     <#if (type.width > 8)>
@@ -387,14 +387,14 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     }
     <#if (minor.class == "Interval")>
     
-    public void get(int index, ${minor.class}Holder holder){
+    public void get(int index, ${minor.class}Holder holder) {
       final int offsetIndex = index * VALUE_WIDTH;
       holder.months = data.getInt(offsetIndex);
       holder.days = data.getInt(offsetIndex + ${minor.daysOffset});
       holder.milliseconds = data.getInt(offsetIndex + ${minor.millisecondsOffset});
     }
 
-    public void get(int index, Nullable${minor.class}Holder holder){
+    public void get(int index, Nullable${minor.class}Holder holder) {
       final int offsetIndex = index * VALUE_WIDTH;
       holder.isSet = 1;
       holder.months = data.getInt(offsetIndex);
@@ -420,13 +420,13 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     }
     <#elseif (minor.class == "IntervalDay")>
     
-    public void get(int index, ${minor.class}Holder holder){
+    public void get(int index, ${minor.class}Holder holder) {
       final int offsetIndex = index * VALUE_WIDTH;
       holder.days = data.getInt(offsetIndex);
       holder.milliseconds = data.getInt(offsetIndex + ${minor.millisecondsOffset});
     }
 
-    public void get(int index, Nullable${minor.class}Holder holder){
+    public void get(int index, Nullable${minor.class}Holder holder) {
       final int offsetIndex = index * VALUE_WIDTH;
       holder.isSet = 1;
       holder.days = data.getInt(offsetIndex);
@@ -477,12 +477,12 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     }
     <#else>
 
-    public void get(int index, ${minor.class}Holder holder){
+    public void get(int index, ${minor.class}Holder holder) {
       holder.buffer = data;
       holder.start = index * VALUE_WIDTH;
     }
 
-    public void get(int index, Nullable${minor.class}Holder holder){
+    public void get(int index, Nullable${minor.class}Holder holder) {
       holder.isSet = 1;
       holder.buffer = data;
       holder.start = index * VALUE_WIDTH;
@@ -557,7 +557,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     }
     </#if>
 
-    public void get(int index, ${minor.class}Holder holder){
+    public void get(int index, ${minor.class}Holder holder) {
       <#if minor.class.startsWith("Decimal")>
       holder.scale = getField().getScale();
       holder.precision = getField().getPrecision();
@@ -566,7 +566,7 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       holder.value = data.get${(minor.javaType!type.javaType)?cap_first}(index * VALUE_WIDTH);
     }
 
-    public void get(int index, Nullable${minor.class}Holder holder){
+    public void get(int index, Nullable${minor.class}Holder holder) {
       holder.isSet = 1;
       holder.value = data.get${(minor.javaType!type.javaType)?cap_first}(index * VALUE_WIDTH);
     }
@@ -600,8 +600,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
      * @param value
      *          value to set
      */
-
   <#if (type.width > 8)>
+  
     public void set(int index, <#if (type.width > 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
       data.setBytes(index * VALUE_WIDTH, value, 0, VALUE_WIDTH);
     }
@@ -612,8 +612,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       }
       data.setBytes(index * VALUE_WIDTH, value, 0, VALUE_WIDTH);
     }
-
     <#if minor.class == "Interval">
+    
     public void set(int index, int months, int days, int milliseconds) {
       final int offsetIndex = index * VALUE_WIDTH;
       data.setInt(offsetIndex, months);
@@ -643,8 +643,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     public void setSafe(int index, Nullable${minor.class}Holder holder) {
       setSafe(index, holder.months, holder.days, holder.milliseconds);
     }
-
     <#elseif minor.class == "IntervalDay">
+    
     public void set(int index, int days, int milliseconds) {
       final int offsetIndex = index * VALUE_WIDTH;
       data.setInt(offsetIndex, days);
@@ -670,11 +670,11 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       set(index, holder.days, holder.milliseconds);
     }
 
-    public void setSafe(int index, Nullable${minor.class}Holder holder){
+    public void setSafe(int index, Nullable${minor.class}Holder holder) {
       setSafe(index, holder.days, holder.milliseconds);
     }
-
     <#elseif minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse" || minor.class == "Decimal28Dense" || minor.class == "Decimal38Dense">
+    
     public void setSafe(int index, int start, DrillBuf buffer) {
       while(index >= getValueCapacity()) {
         reAlloc();
@@ -697,8 +697,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
     public void setSafe(int index, Nullable${minor.class}Holder holder) {
       setSafe(index, holder.start, holder.buffer);
     }
-
       <#if minor.class == "Decimal28Sparse" || minor.class == "Decimal38Sparse">
+      
     public void set(int index, BigDecimal value) {
       DecimalUtility.getSparseFromBigDecimal(value, data, index * VALUE_WIDTH,
            field.getScale(), field.getPrecision(), ${minor.nDecimalDigits});
@@ -710,13 +710,13 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       }
       set(index, value);
     }
-
       </#if>
-    public void set(int index, int start, DrillBuf buffer){
+      
+    public void set(int index, int start, DrillBuf buffer) {
       data.setBytes(index * VALUE_WIDTH, buffer, start, VALUE_WIDTH);
     }
-
     </#if>
+    
     @Override
     public void generateTestData(int count) {
       setValueCount(count);
@@ -724,13 +724,13 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
       final int valueCount = getAccessor().getValueCount();
       for(int i = 0; i < valueCount; i++, even = !even) {
         final byte b = even ? Byte.MIN_VALUE : Byte.MAX_VALUE;
-        for(int w = 0; w < VALUE_WIDTH; w++){
+        for(int w = 0; w < VALUE_WIDTH; w++) {
           data.setByte(i + w, b);
         }
       }
     }
-
   <#else> <#-- type.width <= 8 -->
+  
     public void set(int index, <#if (type.width >= 4)>${minor.javaType!type.javaType}<#else>int</#if> value) {
       data.set${(minor.javaType!type.javaType)?cap_first}(index * VALUE_WIDTH, value);
     }
@@ -797,8 +797,8 @@ public final class ${minor.class}Vector extends BaseDataValueVector implements F
         }
       }
     }
-
   </#if> <#-- type.width -->
+  
     @Override
     public void setValueCount(int valueCount) {
       final int currentValueCapacity = getValueCapacity();

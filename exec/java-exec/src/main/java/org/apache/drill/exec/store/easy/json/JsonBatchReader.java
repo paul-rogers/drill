@@ -101,16 +101,15 @@ public class JsonBatchReader implements ManagedReader<FileSchemaNegotiator> {
 
   @Override
   public boolean next() {
-    if (! jsonLoader.next()) {
-      return false;
-    }
+    boolean more = true;
     while (! tableLoader.isFull()) {
       if (! jsonLoader.next()) {
+        more = false;
         break;
       }
     }
     jsonLoader.endBatch();
-    return true;
+    return more;
   }
 
   @Override

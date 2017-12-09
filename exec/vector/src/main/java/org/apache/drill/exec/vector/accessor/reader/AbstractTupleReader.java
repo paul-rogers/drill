@@ -20,9 +20,8 @@ package org.apache.drill.exec.vector.accessor.reader;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.drill.exec.record.metadata.ColumnMetadata;
-import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
+import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
 import org.apache.drill.exec.vector.accessor.ObjectType;
@@ -41,16 +40,9 @@ public abstract class AbstractTupleReader implements TupleReader, ReaderEvents {
 
     private final AbstractTupleReader tupleReader;
 
-    public TupleObjectReader(ColumnMetadata schema, AbstractTupleReader tupleReader) {
-      super(schema);
+    public TupleObjectReader(AbstractTupleReader tupleReader) {
       this.tupleReader = tupleReader;
     }
-
-    @Override
-    public ObjectType type() {
-      return ObjectType.TUPLE;
-    }
-
     @Override
     public TupleReader tuple() {
       return tupleReader;
@@ -68,16 +60,20 @@ public abstract class AbstractTupleReader implements TupleReader, ReaderEvents {
 
     @Override
     public ReaderEvents events() { return tupleReader; }
+
+    @Override
+    public ColumnReader reader() { return tupleReader; }
   }
 
-  protected final TupleMetadata schema;
   private final AbstractObjectReader readers[];
   protected NullStateReader nullStateReader;
 
-  protected AbstractTupleReader(TupleMetadata schema, AbstractObjectReader readers[]) {
-    this.schema = schema;
+  protected AbstractTupleReader(AbstractObjectReader readers[]) {
     this.readers = readers;
   }
+
+  @Override
+  public ObjectType type() { return ObjectType.TUPLE; }
 
   @Override
   public void bindIndex(ColumnReaderIndex index) {
@@ -98,10 +94,7 @@ public abstract class AbstractTupleReader implements TupleReader, ReaderEvents {
   public boolean isNull() { return nullStateReader.isNull(); }
 
   @Override
-  public TupleMetadata schema() { return schema; }
-
-  @Override
-  public int columnCount() { return schema().size(); }
+  public int columnCount() { return tupleSchema().size(); }
 
   @Override
   public ObjectReader column(int colIndex) {
@@ -110,7 +103,7 @@ public abstract class AbstractTupleReader implements TupleReader, ReaderEvents {
 
   @Override
   public ObjectReader column(String colName) {
-    int index = schema.index(colName);
+    int index = tupleSchema().index(colName);
     if (index == -1) {
       return null; }
     return readers[index];
@@ -185,14 +178,14 @@ public abstract class AbstractTupleReader implements TupleReader, ReaderEvents {
   @Override
   public String getAsString() {
     StringBuilder buf = new StringBuilder();
-    buf.append("(");
+    buf.append("{");
     for (int i = 0; i < columnCount(); i++) {
       if (i > 0) {
         buf.append( ", " );
       }
       buf.append(readers[i].getAsString());
     }
-    buf.append(")");
+    buf.append("}");
     return buf.toString();
   }
 }

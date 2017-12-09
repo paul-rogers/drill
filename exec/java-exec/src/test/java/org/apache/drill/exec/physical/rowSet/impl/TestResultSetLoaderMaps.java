@@ -19,6 +19,7 @@ package org.apache.drill.exec.physical.rowSet.impl;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -30,11 +31,13 @@ import org.apache.drill.exec.physical.rowSet.ResultSetLoader;
 import org.apache.drill.exec.physical.rowSet.RowSetLoader;
 import org.apache.drill.exec.record.BatchSchema;
 import org.apache.drill.exec.record.BatchSchema.SelectionVectorMode;
+import org.apache.drill.exec.record.MaterializedField;
 import org.apache.drill.exec.record.metadata.TupleMetadata;
 import org.apache.drill.exec.vector.ValueVector;
 import org.apache.drill.exec.vector.accessor.ScalarWriter;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.TupleWriter;
+import org.apache.drill.exec.vector.complex.MapVector;
 import org.apache.drill.test.SubOperatorTest;
 import org.apache.drill.test.rowSet.RowSet;
 import org.apache.drill.test.rowSet.RowSet.SingleRowSet;
@@ -115,6 +118,9 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     RowSet actual = fixture.wrap(rsLoader.harvest());
     assertEquals(5, rsLoader.schemaVersion());
     assertEquals(2, actual.rowCount());
+    @SuppressWarnings("resource")
+    MapVector mapVector = (MapVector) actual.container().getValueVector(1).getValueVector();
+    assertEquals(2, mapVector.getAccessor().getValueCount());
 
     // Validate data
 
@@ -233,7 +239,14 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     // Add a column to the map with the same name as the top-level column.
     // Verifies that the name spaces are independent.
 
-    mapWriter.addColumn(SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED));
+    int colIndex = mapWriter.addColumn(SchemaBuilder.columnSchema("a", MinorType.VARCHAR, DataMode.REQUIRED));
+    assertEquals(0, colIndex);
+
+    // Ensure metadata was added
+
+    assertTrue(mapWriter.tupleSchema().size() == 1);
+    assertSame(mapWriter.tupleSchema(), mapWriter.schema().mapSchema());
+    assertSame(mapWriter.tupleSchema().metadata(colIndex), mapWriter.scalar(colIndex).schema());
 
     rootWriter
       .addRow(20, mapValue("fred"))
@@ -242,6 +255,13 @@ public class TestResultSetLoaderMaps extends SubOperatorTest {
     RowSet actual = fixture.wrap(rsLoader.harvest());
     assertEquals(3, rsLoader.schemaVersion());
     assertEquals(3, actual.rowCount());
+
+    @SuppressWarnings("resource")
+    MapVector mapVector = (MapVector) actual.container().getValueVector(1).getValueVector();
+    MaterializedField mapField = mapVector.getField();
+    assertEquals(1, mapField.getChildren().size());
+    assertTrue(mapWriter.scalar(colIndex).schema().schema().isEquivalent(
+        mapField.getChildren().iterator().next()));
 
     // Validate first batch
 

@@ -19,21 +19,17 @@ package org.apache.drill.exec.vector.accessor.reader;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
 import org.apache.drill.exec.vector.accessor.ArrayReader;
+import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ObjectReader;
+import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
 import org.apache.drill.exec.vector.accessor.TupleReader;
 import org.apache.drill.exec.vector.accessor.VariantReader;
 
 public abstract class AbstractObjectReader implements ObjectReader {
 
-  private final ColumnMetadata schema;
-
-  public AbstractObjectReader(ColumnMetadata schema) {
-    this.schema = schema;
-  }
-
   @Override
-  public ColumnMetadata schema() { return schema; }
+  public ColumnMetadata schema() { return reader().schema(); }
 
   @Override
   public ScalarReader scalar() {
@@ -56,4 +52,12 @@ public abstract class AbstractObjectReader implements ObjectReader {
   }
 
   public abstract ReaderEvents events();
+
+  public abstract ColumnReader reader();
+
+  @Override
+  public boolean isNull() { return reader().isNull(); }
+
+  @Override
+  public ObjectType type() { return reader().type(); }
 }

@@ -41,7 +41,7 @@ public class RowSetPrinter {
   public void print(PrintStream out) {
     SelectionVectorMode selectionMode = rowSet.indirectionType();
     RowSetReader reader = rowSet.reader();
-    int colCount = reader.schema().size();
+    int colCount = reader.tupleSchema().size();
     printSchema(out, selectionMode, reader);
     while (reader.next()) {
       printHeader(out, reader, selectionMode);
@@ -68,7 +68,7 @@ public class RowSetPrinter {
       break;
     }
     out.print(": ");
-    TupleMetadata schema = reader.schema();
+    TupleMetadata schema = reader.tupleSchema();
     printTupleSchema(out, schema);
     out.println();
   }
@@ -81,9 +81,9 @@ public class RowSetPrinter {
       ColumnMetadata colSchema = schema.metadata(i);
       out.print(colSchema.name());
       if (colSchema.isMap()) {
-        out.print("(");
+        out.print("{");
         printTupleSchema(out, colSchema.mapSchema());
-        out.print(")");
+        out.print("}");
       }
     }
   }

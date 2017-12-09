@@ -42,8 +42,8 @@ public abstract class BaseScalarReader extends AbstractScalarReader {
     protected OffsetVectorReader offsetsReader;
 
     @Override
-    public void bindVector(VectorAccessor va) {
-      super.bindVector(va);
+    public void bindVector(ColumnMetadata schema, VectorAccessor va) {
+      super.bindVector(schema, va);
       offsetsReader = new OffsetVectorReader(
           VectorAccessors.varWidthOffsetVectorAccessor(va));
     }
@@ -89,6 +89,7 @@ public abstract class BaseScalarReader extends AbstractScalarReader {
     }
   }
 
+  protected ColumnMetadata schema;
   protected VectorAccessor vectorAccessor;
   protected BufferAccessor bufferAccessor;
 
@@ -97,7 +98,7 @@ public abstract class BaseScalarReader extends AbstractScalarReader {
 
     // Reader is bound to the values vector inside the nullable vector.
 
-    reader.bindVector(VectorAccessors.nullableValuesAccessor(va));
+    reader.bindVector(schema, VectorAccessors.nullableValuesAccessor(va));
 
     // The nullability of each value depends on the "bits" vector
     // in the nullable vector.
@@ -106,7 +107,7 @@ public abstract class BaseScalarReader extends AbstractScalarReader {
 
     // Wrap the reader in an object reader.
 
-    return new ScalarObjectReader(schema, reader);
+    return new ScalarObjectReader(reader);
   }
 
   public static ScalarObjectReader buildRequired(ColumnMetadata schema,
@@ -114,7 +115,7 @@ public abstract class BaseScalarReader extends AbstractScalarReader {
 
     // Reader is bound directly to the required vector.
 
-    reader.bindVector(va);
+    reader.bindVector(schema, va);
 
     // The reader is required, values can't be null.
 
@@ -122,10 +123,11 @@ public abstract class BaseScalarReader extends AbstractScalarReader {
 
     // Wrap the reader in an object reader.
 
-    return new ScalarObjectReader(schema, reader);
+    return new ScalarObjectReader(reader);
   }
 
-  public void bindVector(VectorAccessor va) {
+  public void bindVector(ColumnMetadata schema, VectorAccessor va) {
+    this.schema = schema;
     vectorAccessor = va;
     bufferAccessor = bufferAccessor(va);
   }

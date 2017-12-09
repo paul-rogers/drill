@@ -85,6 +85,8 @@ import org.apache.drill.exec.store.RecordReader;
 
 public interface RowBatchReader {
 
+  enum Result { OK, LAST_BATCH, EOF }
+
   /**
    * Name used when reporting errors. Can simply be the class name.
    *
@@ -112,8 +114,21 @@ public interface RowBatchReader {
   /**
    * Read the next batch. Reading continues until either EOF,
    * or until the mutator indicates that the batch is full.
-   * @return true if the current batch is valid, false if the
-   * batch is empty and no more batches are available to read
+   * The batch is considered valid if it is non-empty. Returning
+   * <tt>true</tt> with an empty batch is valid, and is helpful on
+   * the very first batch (returning schema only.) An empty batch
+   * with a <tt>false</tt> return code indicates EOF and the batch
+   * will be discarded. A non-empty batch along with a <tt>false</tt>
+   * return result indicates a final, valid batch, but that EOF was
+   * reached and no more data is available.
+   * <p>
+   * This somewhat complex protocol avoids the need to allocate a
+   * final batch just to find out that no more data is available;
+   * it allows EOF to be returned along with the final batch.
+   *
+   * @return <tt>true</tt> if more data may be available (and so
+   * <tt>next()</tt> should be called again, <tt>false</tt> to indicate
+   * that EOF was reached
    *
    * @throws RutimeException (<tt>UserException</tt> preferred) if an
    * error occurs that should fail the query.

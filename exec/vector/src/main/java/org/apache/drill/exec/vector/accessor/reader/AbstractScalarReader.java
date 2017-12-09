@@ -20,6 +20,7 @@ package org.apache.drill.exec.vector.accessor.reader;
 import java.math.BigDecimal;
 
 import org.apache.drill.exec.record.metadata.ColumnMetadata;
+import org.apache.drill.exec.vector.accessor.ColumnReader;
 import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 import org.apache.drill.exec.vector.accessor.ObjectType;
 import org.apache.drill.exec.vector.accessor.ScalarReader;
@@ -33,14 +34,8 @@ public abstract class AbstractScalarReader implements ScalarReader, ReaderEvents
 
     private AbstractScalarReader scalarReader;
 
-    public ScalarObjectReader(ColumnMetadata schema, AbstractScalarReader scalarReader) {
-      super(schema);
+    public ScalarObjectReader(AbstractScalarReader scalarReader) {
       this.scalarReader = scalarReader;
-    }
-
-    @Override
-    public ObjectType type() {
-      return ObjectType.SCALAR;
     }
 
     @Override
@@ -60,9 +55,18 @@ public abstract class AbstractScalarReader implements ScalarReader, ReaderEvents
 
     @Override
     public ReaderEvents events() { return scalarReader; }
+
+    @Override
+    public ColumnReader reader() { return scalarReader; }
   }
 
   public static class NullReader extends AbstractScalarReader {
+
+    protected final ColumnMetadata schema;
+
+    protected NullReader(ColumnMetadata schema) {
+      this.schema = schema;
+    }
 
     @Override
     public ValueType valueType() { return ValueType.NULL; }
@@ -72,13 +76,16 @@ public abstract class AbstractScalarReader implements ScalarReader, ReaderEvents
 
     @Override
     public void bindIndex(ColumnReaderIndex rowIndex) { }
+
+    @Override
+    public ColumnMetadata schema() { return schema; }
   }
 
   protected ColumnReaderIndex vectorIndex;
   protected NullStateReader nullStateReader;
 
   public static ScalarObjectReader nullReader(ColumnMetadata schema) {
-    return new ScalarObjectReader(schema, new NullReader());
+    return new ScalarObjectReader(new NullReader(schema));
   }
 
   @Override
@@ -91,6 +98,9 @@ public abstract class AbstractScalarReader implements ScalarReader, ReaderEvents
   public void bindNullState(NullStateReader nullStateReader) {
     this.nullStateReader = nullStateReader;
   }
+
+  @Override
+  public ObjectType type() { return ObjectType.SCALAR; }
 
   @Override
   public NullStateReader nullStateReader() { return nullStateReader; }

@@ -287,8 +287,8 @@ public class ScanLevelProjection {
 
   private void doParse() {
     ProjectionColumnParser colParser = new ProjectionColumnParser();
-    tableLoaderProjection = colParser.projectionSet();
     List<NameElement> cols = colParser.parse(projectionList);
+    tableLoaderProjection = colParser.projectionSet();
 
     for (ScanProjectionParser parser : parsers) {
       parser.bind(this);

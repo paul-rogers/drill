@@ -262,7 +262,7 @@ public class TestScanOperatorExec extends SubOperatorTest {
       projection.add(SchemaPath.STAR_COLUMN);
     }
 
-    public void setProjection(String[] projCols) {
+    public void setProjection(String... projCols) {
       projection = ScanTestUtils.projectList(projCols);
     }
 
@@ -531,6 +531,63 @@ public class TestScanOperatorExec extends SubOperatorTest {
     assertTrue(scan.buildSchema());
     assertEquals(0, reader.batchCount);
     assertEquals(expected.batchSchema(), scan.batchAccessor().getSchema());
+    assertEquals(0, scan.batchAccessor().getRowCount());
+
+    // Next call, return with data.
+
+    assertTrue(scan.next());
+    verifier.verifyAndClearAll(fixture.wrap(scan.batchAccessor().getOutgoingContainer()));
+
+    // EOF
+
+    assertFalse(scan.next());
+    assertEquals(0, scan.batchAccessor().getRowCount());
+
+    // Next again: no-op
+
+    assertFalse(scan.next());
+    scanFixture.close();
+
+    // Close again: no-op
+
+    scan.close();
+  }
+
+  private static class MockEarlySchemaReader3 extends MockEarlySchemaReader {
+
+    @Override
+    public boolean next() {
+      if (batchCount >= batchLimit) {
+        return false;
+      }
+      batchCount++;
+
+      makeBatch();
+      return batchCount < batchLimit;
+    }
+  }
+
+  @Test
+  public void testEarlySchemaDataWithEof() {
+
+    // Create a mock reader, return two batches: one schema-only, another with data.
+
+    MockEarlySchemaReader3 reader = new MockEarlySchemaReader3();
+    reader.batchLimit = 1;
+
+    // Create the scan operator
+
+    BasicScanOpFixture scanFixture = new BasicScanOpFixture();
+    scanFixture.projectAll();
+    scanFixture.addReader(reader);
+    ScanOperatorExec scan = scanFixture.build();
+
+    SingleRowSet expected = makeExpected();
+    RowSetComparison verifier = new RowSetComparison(expected);
+
+    // First batch: return schema.
+
+    assertTrue(scan.buildSchema());
     assertEquals(0, scan.batchAccessor().getRowCount());
 
     // Next call, return with data.

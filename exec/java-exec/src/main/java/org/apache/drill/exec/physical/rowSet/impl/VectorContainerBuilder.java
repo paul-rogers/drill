@@ -240,7 +240,7 @@ public class VectorContainerBuilder {
       // A repeated map shares an offset vector with the internal
       // repeated map.
 
-      UInt4Vector offsets = (UInt4Vector) colModel.vector();
+      UInt4Vector offsets = colModel.vector();
       mapVector = new RepeatedMapVector(mapColSchema.schema(), offsets, null);
     } else {
       mapVector = new MapVector(mapColSchema.schema(), allocator(), null);

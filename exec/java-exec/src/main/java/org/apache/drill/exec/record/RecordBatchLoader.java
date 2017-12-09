@@ -90,7 +90,7 @@ public class RecordBatchLoader implements VectorAccessible, Iterable<VectorWrapp
 
     // Set up to recognize previous fields that no longer exist.
     final Map<String, ValueVector> oldFields = CaseInsensitiveMap.newHashMap();
-    for(final VectorWrapper<?> wrapper : container) {
+    for (final VectorWrapper<?> wrapper : container) {
       final ValueVector vector = wrapper.getValueVector();
       oldFields.put(vector.getField().getName(), vector);
     }
@@ -99,7 +99,7 @@ public class RecordBatchLoader implements VectorAccessible, Iterable<VectorWrapp
     try {
       final List<SerializedField> fields = def.getFieldList();
       int bufOffset = 0;
-      for(final SerializedField field : fields) {
+      for (final SerializedField field : fields) {
         final MaterializedField fieldDef = MaterializedField.create(field);
         ValueVector vector = oldFields.remove(fieldDef.getName());
 
@@ -107,7 +107,7 @@ public class RecordBatchLoader implements VectorAccessible, Iterable<VectorWrapp
           // Field did not exist previously--is schema change.
           schemaChanged = true;
           vector = TypeHelper.getNewVector(fieldDef, allocator);
-        } else if (!vector.getField().getType().equals(fieldDef.getType())) {
+        } else if (! vector.getField().getType().equals(fieldDef.getType())) {
           // Field had different type before--is schema change.
           // clear previous vector
           vector.clear();

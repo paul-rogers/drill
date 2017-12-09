@@ -29,6 +29,8 @@ import org.apache.drill.exec.vector.accessor.ColumnReaderIndex;
 
 public class MapReader extends AbstractTupleReader {
 
+  protected final ColumnMetadata schema;
+
   /**
    * Accessor for the map vector. This class does not use the map vector
    * directory. However, in the case of a map hyper-vector, we need to
@@ -38,22 +40,23 @@ public class MapReader extends AbstractTupleReader {
 
   private final VectorAccessor mapAccessor;
 
-  protected MapReader(TupleMetadata schema, AbstractObjectReader readers[]) {
+  protected MapReader(ColumnMetadata schema, AbstractObjectReader readers[]) {
     this(schema, null, readers);
   }
 
-  protected MapReader(TupleMetadata schema,
+  protected MapReader(ColumnMetadata schema,
       VectorAccessor mapAccessor, AbstractObjectReader readers[]) {
-    super(schema, readers);
+    super(readers);
+    this.schema = schema;
     this.mapAccessor = mapAccessor;
   }
 
   public static TupleObjectReader build(ColumnMetadata schema,
       VectorAccessor mapAccessor,
       AbstractObjectReader readers[]) {
-    MapReader mapReader = new MapReader(schema.mapSchema(), mapAccessor, readers);
+    MapReader mapReader = new MapReader(schema, mapAccessor, readers);
     mapReader.bindNullState(NullStateReaders.REQUIRED_STATE_READER);
-    return new TupleObjectReader(schema, mapReader);
+    return new TupleObjectReader(mapReader);
   }
 
   public static AbstractObjectReader build(ColumnMetadata schema,
@@ -70,4 +73,10 @@ public class MapReader extends AbstractTupleReader {
     }
     super.bindIndex(index);
   }
+
+  @Override
+  public ColumnMetadata schema() { return schema; }
+
+  @Override
+  public TupleMetadata tupleSchema() { return schema.mapSchema(); }
 }

@@ -139,7 +139,7 @@ public class NameElement implements ProjectionSet {
 
   @Override
   public boolean isProjected(String colName) {
-    return member(colName) != null;
+    return members == null || member(colName) != null;
   }
 
   @Override

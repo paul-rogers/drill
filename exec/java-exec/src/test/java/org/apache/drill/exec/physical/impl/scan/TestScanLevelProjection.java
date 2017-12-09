@@ -32,6 +32,7 @@ import org.apache.drill.exec.physical.impl.scan.project.NameElement;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.ProjectionColumnParser;
 import org.apache.drill.exec.physical.impl.scan.project.ScanLevelProjection.UnresolvedColumn;
+import org.apache.drill.exec.physical.rowSet.impl.ProjectionSet;
 import org.apache.drill.test.SubOperatorTest;
 import org.junit.Test;
 
@@ -120,6 +121,45 @@ public class TestScanLevelProjection extends SubOperatorTest {
 
     assertEquals("d", cols.get(1).name());
     assertTrue(cols.get(1).isSimple());
+  }
+
+  /**
+   * The columns projected via the projection column parser
+   * act as projection sets.
+   */
+
+  @Test
+  public void testColumnParserMapProjection() {
+    List<NameElement> cols = new ProjectionColumnParser()
+        .parse(ScanTestUtils.projectList("m1", "m2.m3"));
+    assertEquals(2, cols.size());
+
+    NameElement m1 = cols.get(0);
+    assertEquals("m1", m1.name());
+
+    // Discover a new column under m1
+
+    assertTrue(m1.isProjected("x"));
+    ProjectionSet xProj = m1.mapProjection("x");
+
+    // Discover a new column under m1.x
+
+    assertTrue(xProj.isProjected("y"));
+
+    NameElement m2 = cols.get(1);
+    assertEquals("m1", m1.name());
+
+    assertFalse(m2.isProjected("p"));
+
+    // Discover m3, which is projected
+
+    assertTrue(m2.isProjected("m3"));
+    ProjectionSet m3Proj = m2.mapProjection("m3");
+
+    assertTrue(m3Proj.isProjected("q"));
+
+    ProjectionSet qProj = m3Proj.mapProjection("q");
+    assertTrue(qProj.isProjected("r"));
   }
 
   @Test

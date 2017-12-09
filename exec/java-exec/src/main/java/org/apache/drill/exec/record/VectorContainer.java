@@ -437,6 +437,6 @@ public class VectorContainer implements VectorAccessible {
     other.recordCount = temp;
     boolean temp2 = schemaChanged;
     schemaChanged = other.schemaChanged;
-    other.schemaChanged= temp2;
+    other.schemaChanged = temp2;
   }
 }
