@@ -57,11 +57,11 @@ public class MapVector extends AbstractMapVector {
   private final Mutator mutator = new Mutator();
   private int valueCount;
 
-  public MapVector(String path, BufferAllocator allocator, CallBack callBack){
+  public MapVector(String path, BufferAllocator allocator, CallBack callBack) {
     this(MaterializedField.create(path, TYPE), allocator, callBack);
   }
 
-  public MapVector(MaterializedField field, BufferAllocator allocator, CallBack callBack){
+  public MapVector(MaterializedField field, BufferAllocator allocator, CallBack callBack) {
     super(field, allocator, callBack);
   }
 
@@ -346,6 +346,14 @@ public class MapVector extends AbstractMapVector {
     return getChildByOrdinal(id);
   }
 
+  /**
+   * Set the value count for the map without setting the counts for the contained
+   * vectors. Use this only when the values of the contained vectors are set
+   * elsewhere in the code.
+   *
+   * @param valueCount number of items in the map
+   */
+
   public void setMapValueCount(int valueCount) {
     this.valueCount = valueCount;
   }
@@ -390,5 +398,14 @@ public class MapVector extends AbstractMapVector {
   @Override
   public void toNullable(ValueVector nullableVector) {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public void exchange(ValueVector other) {
+    super.exchange(other);
+    MapVector otherMap = (MapVector) other;
+    int temp = otherMap.valueCount;
+    otherMap.valueCount = valueCount;
+    valueCount = temp;
   }
 }

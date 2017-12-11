@@ -248,7 +248,7 @@ public abstract class TupleState extends ContainerState
         mapVector.putChild(colSchema.name(), vector);
       }
       int index = outputSchema.addColumn(colSchema);
-      assert mapVector.getChildCount() == outputSchema.size();
+      assert mapVector.size() == outputSchema.size();
       assert mapVector.getField().getChildren().size() == outputSchema.size();
       return index;
     }

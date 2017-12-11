@@ -127,7 +127,9 @@ public class RecordBatchLoader implements VectorAccessible, Iterable<VectorWrapp
         }
 
         // Load the vector.
-        if (field.getValueCount() == 0) {
+        if (buf == null) {
+          // Schema only
+        } else if (field.getValueCount() == 0) {
           AllocationHelper.allocate(vector, 0, 0, 0);
         } else {
           vector.load(field, buf.slice(bufOffset, field.getBufferLength()));
@@ -153,9 +155,9 @@ public class RecordBatchLoader implements VectorAccessible, Iterable<VectorWrapp
       }
       throw cause;
     } finally {
-      if (!oldFields.isEmpty()) {
+      if (! oldFields.isEmpty()) {
         schemaChanged = true;
-        for (final ValueVector vector:oldFields.values()) {
+        for (final ValueVector vector : oldFields.values()) {
           vector.clear();
         }
       }
